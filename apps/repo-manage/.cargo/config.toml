@@ -1,0 +1,7 @@
+# Local development overrides
+# This file patches git dependencies with local paths for faster development iteration
+# Remove or comment out when you want to test against the published version
+
+[patch."https://github.com/repo-edu/lms-api"]
+lms-client = { path = "/Users/dvbeek/1-repos/lms-api/lms-client" }
+lms-common = { path = "/Users/dvbeek/1-repos/lms-api/lms-common" }

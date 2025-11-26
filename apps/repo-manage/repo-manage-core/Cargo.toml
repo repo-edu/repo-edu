@@ -1,0 +1,53 @@
+[package]
+name = "repo-manage-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Git operations
+git2.workspace = true
+
+# HTTP client for platform APIs
+reqwest.workspace = true
+
+# Date/time for timestamps
+chrono.workspace = true
+
+# Logging
+log = "0.4"
+
+# Platform-specific directories
+dirs = "5"
+directories = "5"
+
+# JSON Schema generation and validation
+schemars = "0.8"
+jsonschema = "0.18"
+
+# Pattern matching for file paths
+glob = "0.3"
+
+# LMS client (unified)
+# TODO: Change to git dependency after pushing to GitHub:
+# lms-client = { git = "https://github.com/repo-edu/lms-api" }
+# lms-common = { git = "https://github.com/repo-edu/lms-api" }
+lms-client = { path = "/Users/dvbeek/1-repos/lms-api/lms-client" }
+lms-common = { path = "/Users/dvbeek/1-repos/lms-api/lms-common" }
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,13 @@
+- name: team-alice-bob
+  members:
+    - alice
+    - bob
+
+- name: team-charlie
+  members:
+    - charlie
+
+- name: team-dave-eve
+  members:
+    - dave
+    - eve

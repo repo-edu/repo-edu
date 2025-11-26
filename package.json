@@ -1,0 +1,9 @@
+{
+  "name": "repo-edu-workspace",
+  "private": true,
+  "scripts": {
+    "dev:repo-manage": "pnpm --filter @repo-edu/repo-manage dev",
+    "build:repo-manage": "pnpm --filter @repo-edu/repo-manage build",
+    "tauri:repo-manage": "pnpm --filter @repo-edu/repo-manage tauri"
+  }
+}

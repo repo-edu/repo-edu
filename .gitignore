@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Legacy folders (to be removed)
+dev-config/
+repobee-tauri/
+gitinspectorgui/
+gitinspectorgui-old/
+gitinspectorgui-rtd/
+canvas-info/
+
+# Build outputs
+target/
+dist/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+
+# Test artifacts
+.test-config/
