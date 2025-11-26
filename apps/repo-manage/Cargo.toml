@@ -1,0 +1,38 @@
+[workspace]
+members = ["repo-manage-core", "repo-manage-cli", "src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Repo Edu Contributors"]
+license = "MIT"
+repository = "https://github.com/repo-edu/workspace"
+
+[workspace.dependencies]
+# Core dependencies
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+anyhow = "1"
+thiserror = "1"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Git operations (vendored to avoid system OpenSSL dependency)
+git2 = { version = "0.19", features = ["vendored-openssl", "vendored-libgit2"] }
+
+# HTTP client (using rustls to avoid OpenSSL system dependency)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Tauri
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+
+# Testing
+tempfile = "3"

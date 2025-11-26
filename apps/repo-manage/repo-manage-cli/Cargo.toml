@@ -1,0 +1,29 @@
+[package]
+name = "repo-manage-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core library
+repo-manage-core = { path = "../repo-manage-core" }
+
+# CLI framework
+clap.workspace = true
+
+# Async runtime
+tokio.workspace = true
+
+# Error handling
+anyhow.workspace = true
+
+# Serialization
+serde_json.workspace = true
+serde_yaml.workspace = true
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile.workspace = true
