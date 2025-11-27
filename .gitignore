@@ -1,14 +1,6 @@
 # Dependencies
 node_modules/
 
-# Legacy folders (to be removed)
-dev-config/
-repobee-tauri/
-gitinspectorgui/
-gitinspectorgui-old/
-gitinspectorgui-rtd/
-canvas-info/
-
 # Build outputs
 target/
 dist/
