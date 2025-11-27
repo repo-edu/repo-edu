@@ -5,7 +5,7 @@
 //! - JSON serialization with schema validation
 //! - Default values
 //! - Atomic file operations
-//! - Location file tracking
+//! - Profile management
 //! - Input normalization and validation
 //! - Type-safe enums
 //! - CLI and GUI configuration support
@@ -16,7 +16,6 @@ mod common;
 mod enums;
 mod error;
 mod gui;
-mod location;
 mod manager;
 mod normalization;
 mod validation;
@@ -28,7 +27,6 @@ pub use common::CommonSettings;
 pub use enums::{ActiveTab, DirectoryLayout, LmsUrlOption, MemberOption};
 pub use error::{ConfigError, ConfigResult, Interface};
 pub use gui::GuiSettings;
-pub use location::{LocationManager, SettingsLocation};
 pub use manager::SettingsManager;
 pub use normalization::{
     join_comma_separated, normalize_path, normalize_paths, normalize_string, normalize_string_vec,
