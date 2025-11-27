@@ -113,6 +113,69 @@
   background: linear-gradient(180deg, #fbfbfb 0%, #ffffff 70%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   color: #1f1f1f;
+  font-weight: 500;
+  opacity: 1;
+  caret-color: #1f1f1f;
+}
+
+[data-slot="input"]::placeholder,
+[data-slot="textarea"]::placeholder,
+[data-slot="select-trigger"][data-placeholder] {
+  color: #1f1f1f;
+  opacity: 1;
+}
+
+/* Ensure WebKit placeholder/text match weight (macOS app) */
+[data-slot="input"]::-webkit-input-placeholder,
+[data-slot="textarea"]::-webkit-input-placeholder {
+  color: #1f1f1f;
+  opacity: 1;
+  font-weight: 500;
+}
+
+[data-slot="input"]::-webkit-text-fill-color,
+[data-slot="textarea"]::-webkit-text-fill-color {
+  color: #1f1f1f;
+  opacity: 1;
+}
+
+/* Disabled / read-only fields should look intentionally muted */
+[data-slot="input"]:disabled,
+[data-slot="textarea"]:disabled,
+[data-slot="select-trigger"]:disabled,
+[data-slot="input"][aria-disabled="true"],
+[data-slot="textarea"][aria-disabled="true"],
+[data-slot="select-trigger"][aria-disabled="true"],
+[data-slot="input"][readonly],
+[data-slot="textarea"][readonly] {
+  color: #8c8c8c;
+  background: #fafafa;
+  border-color: #d9d9d9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-slot="input"]:disabled::placeholder,
+[data-slot="textarea"]:disabled::placeholder,
+[data-slot="input"][readonly]::placeholder,
+[data-slot="textarea"][readonly]::placeholder {
+  color: #8c8c8c;
+  opacity: 1;
+}
+
+/* Muted labels when paired with disabled checkbox/radio */
+[data-slot="checkbox"]:disabled + [data-slot="label"],
+[data-slot="checkbox"][aria-disabled="true"] + [data-slot="label"],
+[data-slot="radio-group-item"]:disabled + [data-slot="label"],
+[data-slot="radio-group-item"][aria-disabled="true"] + [data-slot="label"] {
+  color: #8c8c8c;
+  opacity: 0.75;
+}
+
+/* Console output should stay fully legible even when read-only */
+.console-output[data-slot="textarea"][readonly] {
+  color: #1f1f1f;
+  background: #ffffff;
+  opacity: 1;
 }
 
 [data-slot="input"]:focus,
@@ -155,7 +218,7 @@
   border-radius: 0;
   padding: 3px 0;
   margin-right: 12px;
-  color: #595959;
+  color: #1f1f1f;
   box-shadow: none !important;
   transition: color 120ms ease, box-shadow 120ms ease;
 }
