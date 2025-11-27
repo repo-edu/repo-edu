@@ -713,7 +713,7 @@ function App() {
               size="xs"
               value={output.text}
               readOnly
-              className="h-full font-mono resize-none"
+              className="h-full font-mono resize-none console-output"
               placeholder="Output will appear here..."
             />
           </div>
@@ -878,7 +878,7 @@ function App() {
               size="xs"
               value={output.text}
               readOnly
-              className="h-full font-mono resize-none"
+              className="h-full font-mono resize-none console-output"
               placeholder="Output will appear here..."
             />
           </div>
