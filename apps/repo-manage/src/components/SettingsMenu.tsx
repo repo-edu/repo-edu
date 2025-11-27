@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   Dialog,
   DialogContent,
@@ -209,11 +210,13 @@ export function SettingsMenu({
     });
   };
 
-  const handleCopyPath = () => {
+  const handleShowInExplorer = async () => {
     if (settingsPath) {
-      navigator.clipboard.writeText(settingsPath);
-      showSuccessFlash();
-      onMessage("✓ Path copied to clipboard");
+      try {
+        await revealItemInDir(settingsPath);
+      } catch (error) {
+        onMessage(`✗ Failed to open file explorer: ${error}`);
+      }
     }
   };
 
@@ -290,12 +293,12 @@ export function SettingsMenu({
             {/* Current Settings File */}
             <div>
               <h4 className="text-sm font-semibold mb-2">Current Settings File</h4>
-              <div className="flex gap-1">
-                <Input value={settingsPath} readOnly size="xs" className="flex-1" />
-                <Button onClick={handleCopyPath} size="xs">
-                  Copy
-                </Button>
-              </div>
+              <Button onClick={handleShowInExplorer} size="xs" className="mb-2">
+                Show in File Explorer
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Open the settings file location in your system's file explorer.
+              </p>
             </div>
 
             <Separator />
