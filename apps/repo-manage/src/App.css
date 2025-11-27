@@ -5,28 +5,28 @@
 
 :root {
   /* Smaller radius for compact UI */
-  --radius: 0.375rem;
+  --radius: 0.25rem;
 
-  /* OKLch color system */
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  /* Ant-inspired palette */
+  --background: #f5f5f5;
+  --foreground: #1f1f1f;
+  --card: #ffffff;
+  --card-foreground: #1f1f1f;
+  --popover: #ffffff;
+  --popover-foreground: #1f1f1f;
+  --primary: #1677ff;
+  --primary-foreground: #ffffff;
+  --secondary: #fafafa;
+  --secondary-foreground: #1f1f1f;
+  --muted: #fafafa;
+  --muted-foreground: #595959;
+  --accent: #fafafa;
+  --accent-foreground: #1f1f1f;
+  --destructive: #ff4d4f;
+  --destructive-foreground: #ffffff;
+  --border: #d9d9d9;
+  --input: #ffffff;
+  --ring: #4096ff;
 }
 
 @theme inline {
@@ -69,5 +69,107 @@
 
 /* App container for full viewport height */
 .repobee-container {
-  @apply flex flex-col h-screen p-1.5 gap-1;
+  @apply flex flex-col h-screen;
+  padding: 4px;
+  gap: 3px;
+}
+
+/* --- Ant-inspired surface + controls --- */
+
+[data-slot="card"] {
+  border-color: #d9d9d9;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 28%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+[data-slot="card-header"] {
+  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f5f5f5 90%);
+  padding: 5px 8px;
+}
+
+[data-slot="card-title"] {
+  color: #4d4d4d;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+[data-slot="label"] {
+  color: #1f1f1f;
+  font-weight: 500;
+}
+
+[data-slot="card-content"] {
+  padding: 6px 8px;
+}
+
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  min-height: 26px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fbfbfb 0%, #ffffff 70%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  color: #1f1f1f;
+}
+
+[data-slot="input"]:focus,
+[data-slot="textarea"]:focus,
+[data-slot="select-trigger"]:focus {
+  border-color: #4096ff;
+  box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+}
+
+[data-slot="button"] {
+  border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.015);
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+[data-slot="button"][class*="bg-primary"] {
+  background: linear-gradient(180deg, #1890ff 0%, #1677ff 90%);
+  border: 1px solid #1463d4;
+}
+
+[data-slot="button"][class*="variant-outline"],
+[data-slot="button"].border {
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 90%);
+  border: 1px solid #d9d9d9;
+  color: #262626;
+}
+
+[data-slot="tabs-list"] {
+  background: transparent;
+  border-radius: 0;
+  padding: 0 8px;
+  gap: 4px;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-slot="tabs-trigger"] {
+  border: none;
+  border-radius: 0;
+  padding: 3px 0;
+  margin-right: 12px;
+  color: #595959;
+  box-shadow: none !important;
+  transition: color 120ms ease, box-shadow 120ms ease;
+}
+
+[data-slot="tabs-trigger"][data-state="active"] {
+  color: #1677ff;
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 #1677ff !important;
+}
+
+body {
+  background: #f5f5f5;
+}
+
+[data-slot="card-content"] > * + * {
+  margin-top: 1px !important;
 }
