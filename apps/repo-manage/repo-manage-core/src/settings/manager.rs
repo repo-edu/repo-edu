@@ -28,16 +28,12 @@ impl SettingsManager {
     /// This is useful for testing or when you want to use a non-standard location.
     pub fn new_with_dir(config_dir: PathBuf) -> ConfigResult<Self> {
         // Ensure config directory exists
-        fs::create_dir_all(&config_dir).map_err(|e| {
-            ConfigError::CreateDirError {
-                path: config_dir.clone(),
-                source: e,
-            }
+        fs::create_dir_all(&config_dir).map_err(|e| ConfigError::CreateDirError {
+            path: config_dir.clone(),
+            source: e,
         })?;
 
-        Ok(Self {
-            config_dir,
-        })
+        Ok(Self { config_dir })
     }
 
     /// Get platform-specific config directory
@@ -89,10 +85,11 @@ impl SettingsManager {
             .map_err(|e| ConfigError::SchemaSerializationError { source: e })?;
 
         // Compile the schema
-        let compiled = jsonschema::JSONSchema::compile(&schema_json)
-            .map_err(|e| ConfigError::SchemaCompileError {
+        let compiled = jsonschema::JSONSchema::compile(&schema_json).map_err(|e| {
+            ConfigError::SchemaCompileError {
                 message: e.to_string(),
-            })?;
+            }
+        })?;
 
         // Validate the JSON
         let mut errors = Vec::new();
@@ -156,10 +153,11 @@ impl SettingsManager {
         // Validate settings before saving
         settings.validate()?;
 
-        let json_value = serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
-            path: self.settings_file_path().to_path_buf(),
-            source: e,
-        })?;
+        let json_value =
+            serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
+                path: self.settings_file_path().to_path_buf(),
+                source: e,
+            })?;
 
         let validation_errors = self.validate_settings(&json_value)?;
         if !validation_errors.is_empty() {
@@ -181,10 +179,11 @@ impl SettingsManager {
         // Validate settings before saving
         settings.validate()?;
 
-        let json_value = serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
+        let json_value =
+            serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
+                path: path.to_path_buf(),
+                source: e,
+            })?;
 
         let validation_errors = self.validate_settings(&json_value)?;
         if !validation_errors.is_empty() {
@@ -240,7 +239,8 @@ impl SettingsManager {
     /// Get the JSON Schema for GuiSettings
     pub fn get_schema() -> ConfigResult<Value> {
         let schema = schema_for!(GuiSettings);
-        serde_json::to_value(&schema).map_err(|e| ConfigError::SchemaSerializationError { source: e })
+        serde_json::to_value(&schema)
+            .map_err(|e| ConfigError::SchemaSerializationError { source: e })
     }
 
     /// Reset settings to defaults
@@ -341,9 +341,7 @@ impl SettingsManager {
         let profile_path = self.profiles_dir().join(format!("{}.json", name));
 
         if !profile_path.exists() {
-            return Err(ConfigError::FileNotFound {
-                path: profile_path,
-            });
+            return Err(ConfigError::FileNotFound { path: profile_path });
         }
 
         let contents = fs::read_to_string(&profile_path).map_err(|e| ConfigError::ReadError {
@@ -351,8 +349,8 @@ impl SettingsManager {
             source: e,
         })?;
 
-        let json_value: serde_json::Value = serde_json::from_str(&contents)
-            .map_err(|e| ConfigError::JsonParseError {
+        let json_value: serde_json::Value =
+            serde_json::from_str(&contents).map_err(|e| ConfigError::JsonParseError {
                 path: profile_path.clone(),
                 source: e,
             })?;
@@ -364,8 +362,8 @@ impl SettingsManager {
             });
         }
 
-        let mut settings: GuiSettings = serde_json::from_value(json_value)
-            .map_err(|e| ConfigError::JsonParseError {
+        let mut settings: GuiSettings =
+            serde_json::from_value(json_value).map_err(|e| ConfigError::JsonParseError {
                 path: profile_path,
                 source: e,
             })?;
@@ -398,9 +396,7 @@ impl SettingsManager {
         let profile_path = self.profiles_dir().join(format!("{}.json", name));
 
         if !profile_path.exists() {
-            return Err(ConfigError::FileNotFound {
-                path: profile_path,
-            });
+            return Err(ConfigError::FileNotFound { path: profile_path });
         }
 
         fs::remove_file(&profile_path).map_err(|e| ConfigError::WriteError {
@@ -423,9 +419,7 @@ impl SettingsManager {
         let new_path = self.profiles_dir().join(format!("{}.json", new_name));
 
         if !old_path.exists() {
-            return Err(ConfigError::FileNotFound {
-                path: old_path,
-            });
+            return Err(ConfigError::FileNotFound { path: old_path });
         }
 
         if new_path.exists() {
@@ -509,7 +503,10 @@ mod tests {
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: GuiSettings = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(settings.common.lms_base_url, deserialized.common.lms_base_url);
+        assert_eq!(
+            settings.common.lms_base_url,
+            deserialized.common.lms_base_url
+        );
         assert_eq!(settings.active_tab, deserialized.active_tab);
     }
 

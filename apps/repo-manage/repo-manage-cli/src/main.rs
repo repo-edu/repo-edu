@@ -283,7 +283,14 @@ impl ConfigManager {
             self.config.git_student_repos_group
         );
         println!("  Template Org    : {}", self.config.git_template_group);
-        println!("  Token           : {}", if self.config.git_access_token.is_empty() { "(not set)" } else { "***" });
+        println!(
+            "  Token           : {}",
+            if self.config.git_access_token.is_empty() {
+                "(not set)"
+            } else {
+                "***"
+            }
+        );
         println!();
         println!("Repository Settings:");
         println!("  YAML File       : {}", self.config.yaml_file);

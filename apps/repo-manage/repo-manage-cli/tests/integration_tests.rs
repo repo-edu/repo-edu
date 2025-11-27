@@ -259,10 +259,7 @@ fn test_help_flag() {
 
 #[test]
 fn test_version_flag() {
-    cli()
-        .arg("--version")
-        .assert()
-        .success();
+    cli().arg("--version").assert().success();
 }
 
 // ===== Subcommand Help Tests =====
@@ -358,10 +355,7 @@ fn test_complete_workflow_load_override_show() {
 #[test]
 fn test_settings_reset_workflow() {
     // Reset settings to defaults
-    let result = cli()
-        .arg("settings")
-        .arg("reset")
-        .assert();
+    let result = cli().arg("settings").arg("reset").assert();
 
     // The reset might fail if config directory doesn't exist, which is ok
     // Just verify that if it succeeds, it shows the right message

@@ -165,8 +165,14 @@ mod tests {
     fn test_lms_url_option_from_str() {
         assert_eq!("TUE".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::TUE);
         assert_eq!("tue".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::TUE);
-        assert_eq!("CUSTOM".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::Custom);
-        assert_eq!("custom".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::Custom);
+        assert_eq!(
+            "CUSTOM".parse::<LmsUrlOption>().unwrap(),
+            LmsUrlOption::Custom
+        );
+        assert_eq!(
+            "custom".parse::<LmsUrlOption>().unwrap(),
+            LmsUrlOption::Custom
+        );
     }
 
     #[test]
@@ -182,8 +188,14 @@ mod tests {
             "(email, gitid)".parse::<MemberOption>().unwrap(),
             MemberOption::EmailAndGitId
         );
-        assert_eq!("email".parse::<MemberOption>().unwrap(), MemberOption::Email);
-        assert_eq!("git_id".parse::<MemberOption>().unwrap(), MemberOption::GitId);
+        assert_eq!(
+            "email".parse::<MemberOption>().unwrap(),
+            MemberOption::Email
+        );
+        assert_eq!(
+            "git_id".parse::<MemberOption>().unwrap(),
+            MemberOption::GitId
+        );
     }
 
     #[test]
@@ -199,7 +211,10 @@ mod tests {
             "by-team".parse::<DirectoryLayout>().unwrap(),
             DirectoryLayout::ByTeam
         );
-        assert_eq!("flat".parse::<DirectoryLayout>().unwrap(), DirectoryLayout::Flat);
+        assert_eq!(
+            "flat".parse::<DirectoryLayout>().unwrap(),
+            DirectoryLayout::Flat
+        );
         assert_eq!(
             "by-task".parse::<DirectoryLayout>().unwrap(),
             DirectoryLayout::ByTask
