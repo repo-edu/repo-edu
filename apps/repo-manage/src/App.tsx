@@ -36,6 +36,7 @@ import {
   CollapsibleContent,
   cn,
 } from "@repo-edu/ui";
+import { Lock, LockOpen } from "@repo-edu/ui/components/icons";
 import {
   useLmsFormStore,
   useRepoFormStore,
@@ -741,7 +742,12 @@ function App() {
                     Edit
                   </Button>
                   <Button size="xs" variant="outline" onClick={() => ui.toggleConfigLock()}>
-                    {ui.configLocked ? "🔒" : "🔓"}
+                    {ui.configLocked ? (
+                      <Lock className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
+                    )}
+                    <span className="sr-only">{ui.configLocked ? "Lock settings" : "Unlock settings"}</span>
                   </Button>
                 </div>
               </FormField>
@@ -853,7 +859,12 @@ function App() {
                   </div>
                 </RadioGroup>
                 <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
-                  {ui.optionsLocked ? "🔒" : "🔓"}
+                  {ui.optionsLocked ? (
+                    <Lock className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
+                  )}
+                  <span className="sr-only">{ui.optionsLocked ? "Lock options" : "Unlock options"}</span>
                 </Button>
               </FormField>
             </CardContent>
