@@ -198,10 +198,7 @@ mod tests {
 
     #[test]
     fn test_parse_comma_separated_extra_spaces() {
-        assert_eq!(
-            parse_comma_separated("  a  ,  b  "),
-            vec!["a", "b"]
-        );
+        assert_eq!(parse_comma_separated("  a  ,  b  "), vec!["a", "b"]);
     }
 
     #[test]

@@ -113,17 +113,19 @@ pub fn validate_date_range(since: &str, until: &str) -> ConfigResult<()> {
     validate_date(since)?;
     validate_date(until)?;
 
-    let since_date = NaiveDate::parse_from_str(since, "%Y-%m-%d")
-        .map_err(|_| ConfigError::DateValidationError {
+    let since_date = NaiveDate::parse_from_str(since, "%Y-%m-%d").map_err(|_| {
+        ConfigError::DateValidationError {
             field: "since".to_string(),
             message: format!("Invalid date format: {}", since),
-        })?;
+        }
+    })?;
 
-    let until_date = NaiveDate::parse_from_str(until, "%Y-%m-%d")
-        .map_err(|_| ConfigError::DateValidationError {
+    let until_date = NaiveDate::parse_from_str(until, "%Y-%m-%d").map_err(|_| {
+        ConfigError::DateValidationError {
             field: "until".to_string(),
             message: format!("Invalid date format: {}", until),
-        })?;
+        }
+    })?;
 
     if since_date >= until_date {
         return Err(ConfigError::DateValidationError {
@@ -171,10 +173,12 @@ pub fn validate_path(path: &Path, mode: PathValidationMode) -> ConfigResult<()> 
                 }
 
                 // Try to check write permissions
-                let metadata = parent.metadata().map_err(|e| ConfigError::PathValidationError {
-                    path: path.to_path_buf(),
-                    message: format!("Cannot access parent directory: {}", e),
-                })?;
+                let metadata = parent
+                    .metadata()
+                    .map_err(|e| ConfigError::PathValidationError {
+                        path: path.to_path_buf(),
+                        message: format!("Cannot access parent directory: {}", e),
+                    })?;
 
                 if metadata.permissions().readonly() {
                     return Err(ConfigError::PathValidationError {
@@ -191,10 +195,12 @@ pub fn validate_path(path: &Path, mode: PathValidationMode) -> ConfigResult<()> 
 
 /// Validate a glob pattern
 pub fn validate_glob_pattern(pattern: &str) -> ConfigResult<()> {
-    glob::Pattern::new(pattern).map(|_| ()).map_err(|e| ConfigError::ValueValidationError {
-        field: "glob_pattern".to_string(),
-        message: format!("Invalid glob pattern: {}", e),
-    })
+    glob::Pattern::new(pattern)
+        .map(|_| ())
+        .map_err(|e| ConfigError::ValueValidationError {
+            field: "glob_pattern".to_string(),
+            message: format!("Invalid glob pattern: {}", e),
+        })
 }
 
 #[cfg(test)]

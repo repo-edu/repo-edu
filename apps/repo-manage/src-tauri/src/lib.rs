@@ -142,8 +142,8 @@ struct CommandResult {
 /// Load settings from disk
 #[tauri::command]
 async fn load_settings() -> Result<GuiSettings, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     let settings = manager
         .load()
@@ -155,8 +155,8 @@ async fn load_settings() -> Result<GuiSettings, String> {
 /// Save settings to disk
 #[tauri::command]
 async fn save_settings(settings: GuiSettings) -> Result<(), String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .save(&settings)
@@ -168,8 +168,8 @@ async fn save_settings(settings: GuiSettings) -> Result<(), String> {
 /// Reset settings to defaults
 #[tauri::command]
 async fn reset_settings() -> Result<GuiSettings, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     let settings = manager
         .reset()
@@ -181,8 +181,8 @@ async fn reset_settings() -> Result<GuiSettings, String> {
 /// Get settings file path
 #[tauri::command]
 async fn get_settings_path() -> Result<String, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     Ok(manager.settings_file_path().to_string_lossy().to_string())
 }
@@ -190,8 +190,8 @@ async fn get_settings_path() -> Result<String, String> {
 /// Check if settings file exists
 #[tauri::command]
 async fn settings_exist() -> Result<bool, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     Ok(manager.settings_exist())
 }
@@ -199,8 +199,8 @@ async fn settings_exist() -> Result<bool, String> {
 /// Import settings from a specific file
 #[tauri::command]
 async fn import_settings(path: String) -> Result<GuiSettings, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     let settings = manager
         .load_from(std::path::Path::new(&path))
@@ -212,8 +212,8 @@ async fn import_settings(path: String) -> Result<GuiSettings, String> {
 /// Export settings to a specific file
 #[tauri::command]
 async fn export_settings(settings: GuiSettings, path: String) -> Result<(), String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .save_to(&settings, std::path::Path::new(&path))
@@ -225,15 +225,14 @@ async fn export_settings(settings: GuiSettings, path: String) -> Result<(), Stri
 /// Get the JSON schema for GuiSettings
 #[tauri::command]
 async fn get_settings_schema() -> Result<serde_json::Value, String> {
-    SettingsManager::get_schema()
-        .map_err(|e| format!("Failed to get schema: {}", e))
+    SettingsManager::get_schema().map_err(|e| format!("Failed to get schema: {}", e))
 }
 
 /// Load settings or return defaults (never fails)
 #[tauri::command]
 async fn load_settings_or_default() -> Result<GuiSettings, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     Ok(manager.load_or_default())
 }
@@ -243,8 +242,8 @@ async fn load_settings_or_default() -> Result<GuiSettings, String> {
 /// List all available profiles
 #[tauri::command]
 async fn list_profiles() -> Result<Vec<String>, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .list_profiles()
@@ -254,8 +253,8 @@ async fn list_profiles() -> Result<Vec<String>, String> {
 /// Get the currently active profile
 #[tauri::command]
 async fn get_active_profile() -> Result<Option<String>, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .get_active_profile()
@@ -265,8 +264,8 @@ async fn get_active_profile() -> Result<Option<String>, String> {
 /// Load a profile by name
 #[tauri::command]
 async fn load_profile(name: String) -> Result<GuiSettings, String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .load_profile(&name)
@@ -276,8 +275,8 @@ async fn load_profile(name: String) -> Result<GuiSettings, String> {
 /// Save current settings as a named profile
 #[tauri::command]
 async fn save_profile(name: String, settings: GuiSettings) -> Result<(), String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .save_profile(&name, &settings)
@@ -287,8 +286,8 @@ async fn save_profile(name: String, settings: GuiSettings) -> Result<(), String>
 /// Delete a profile by name
 #[tauri::command]
 async fn delete_profile(name: String) -> Result<(), String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .delete_profile(&name)
@@ -298,8 +297,8 @@ async fn delete_profile(name: String) -> Result<(), String> {
 /// Rename a profile
 #[tauri::command]
 async fn rename_profile(old_name: String, new_name: String) -> Result<(), String> {
-    let manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to create settings manager: {}", e))?;
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
 
     manager
         .rename_profile(&old_name, &new_name)
@@ -362,8 +361,9 @@ async fn generate_lms_files(
     progress: Channel<String>,
 ) -> Result<CommandResult, String> {
     let lms_label = lms_display_name(&params.lms_type);
-    let client = create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
-        .map_err(|e| format!("Failed to create LMS client: {}", e))?;
+    let client =
+        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
+            .map_err(|e| format!("Failed to create LMS client: {}", e))?;
 
     let cli_progress = Arc::new(Mutex::new(InlineCliState::default()));
 
@@ -371,50 +371,49 @@ async fn generate_lms_files(
     let fetch_progress_state = Arc::clone(&cli_progress);
     let fetch_progress_channel = progress.clone();
     let course_id = params.course_id.clone();
-    let students = get_student_info_with_progress(&client, &course_id, move |update| {
-            match update {
-                FetchProgress::FetchingUsers => {
-                    emit_standard_message(
+    let students =
+        get_student_info_with_progress(&client, &course_id, move |update| match update {
+            FetchProgress::FetchingUsers => {
+                emit_standard_message(
+                    &fetch_progress_channel,
+                    &format!("Fetching students from {}...", lms_label),
+                );
+            }
+            FetchProgress::FetchingGroups => {
+                emit_standard_message(
+                    &fetch_progress_channel,
+                    &format!("Fetching groups from {}...", lms_label),
+                );
+            }
+            FetchProgress::FetchedUsers { count } => {
+                emit_standard_message(
+                    &fetch_progress_channel,
+                    &format!("Retrieved {} students", count),
+                );
+            }
+            FetchProgress::FetchedGroups { count } => {
+                emit_standard_message(
+                    &fetch_progress_channel,
+                    &format!("Retrieved {} groups", count),
+                );
+            }
+            FetchProgress::FetchingGroupMembers {
+                current,
+                total,
+                group_name,
+            } => {
+                if let Ok(mut state) = fetch_progress_state.lock() {
+                    emit_inline_message(
                         &fetch_progress_channel,
-                        &format!("Fetching students from {}...", lms_label),
+                        &mut state,
+                        &format!(
+                            "Fetching {} group memberships {}/{}: {}",
+                            lms_label,
+                            current,
+                            total.max(1),
+                            group_name
+                        ),
                     );
-                }
-                FetchProgress::FetchingGroups => {
-                    emit_standard_message(
-                        &fetch_progress_channel,
-                        &format!("Fetching groups from {}...", lms_label),
-                    );
-                }
-                FetchProgress::FetchedUsers { count } => {
-                    emit_standard_message(
-                        &fetch_progress_channel,
-                        &format!("Retrieved {} students", count),
-                    );
-                }
-                FetchProgress::FetchedGroups { count } => {
-                    emit_standard_message(
-                        &fetch_progress_channel,
-                        &format!("Retrieved {} groups", count),
-                    );
-                }
-                FetchProgress::FetchingGroupMembers {
-                    current,
-                    total,
-                    group_name,
-                } => {
-                    if let Ok(mut state) = fetch_progress_state.lock() {
-                        emit_inline_message(
-                            &fetch_progress_channel,
-                            &mut state,
-                            &format!(
-                                "Fetching {} group memberships {}/{}: {}",
-                                lms_label,
-                                current,
-                                total.max(1),
-                                group_name
-                            ),
-                        );
-                    }
                 }
             }
         })

@@ -104,10 +104,7 @@ impl ConfigError {
                 )
             }
             (ConfigError::InvalidConfig { errors }, Interface::GUI) => {
-                format!(
-                    "Invalid configuration: {}",
-                    errors.join(", ")
-                )
+                format!("Invalid configuration: {}", errors.join(", "))
             }
             (ConfigError::ValidationError { errors }, _) => {
                 format!(

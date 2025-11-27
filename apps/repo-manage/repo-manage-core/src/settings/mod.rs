@@ -33,6 +33,6 @@ pub use normalization::{
     normalize_url, parse_comma_separated, path_to_posix_string, Normalize,
 };
 pub use validation::{
-    validate_date, validate_date_range, validate_glob_pattern, validate_path,
-    PathValidationMode, Validate, ValidationErrors,
+    validate_date, validate_date_range, validate_glob_pattern, validate_path, PathValidationMode,
+    Validate, ValidationErrors,
 };

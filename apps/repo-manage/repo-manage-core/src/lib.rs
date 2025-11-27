@@ -36,10 +36,10 @@ pub use lms_client::{LmsAuth, LmsClient, LmsType};
 
 // Settings re-exports
 pub use settings::{
-    atomic_write, atomic_write_json, atomic_write_string, ActiveTab, CLIConfig, CommonSettings,
-    ConfigError, ConfigResult, DirectoryLayout, GuiSettings, Interface, LmsUrlOption,
-    MemberOption, Normalize, PathValidationMode, SettingsManager, Validate, ValidationErrors,
-    join_comma_separated, normalize_path, normalize_paths, normalize_string,
-    normalize_string_vec, normalize_url, parse_comma_separated, path_to_posix_string,
-    validate_date, validate_date_range, validate_glob_pattern, validate_path,
+    atomic_write, atomic_write_json, atomic_write_string, join_comma_separated, normalize_path,
+    normalize_paths, normalize_string, normalize_string_vec, normalize_url, parse_comma_separated,
+    path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
+    ActiveTab, CLIConfig, CommonSettings, ConfigError, ConfigResult, DirectoryLayout, GuiSettings,
+    Interface, LmsUrlOption, MemberOption, Normalize, PathValidationMode, SettingsManager,
+    Validate, ValidationErrors,
 };
