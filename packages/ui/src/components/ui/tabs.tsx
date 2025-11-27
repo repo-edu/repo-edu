@@ -31,8 +31,8 @@ function TabsList({ className, size = "default", ...props }: TabsListProps) {
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "bg-muted text-muted-foreground inline-flex w-fit items-center justify-center rounded-lg p-[3px]",
-        size === "compact" ? "h-7" : "h-9",
+        "text-muted-foreground inline-flex w-fit items-center",
+        size === "compact" ? "h-8" : "h-10",
         className
       )}
       {...props}
@@ -49,7 +49,7 @@ function TabsTrigger({ className, size = "default", ...props }: TabsTriggerProps
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "data-[state=active]:bg-background focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "text-foreground focus-visible:outline-ring inline-flex h-full items-center justify-center gap-1.5 font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         size === "compact" ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-sm",
         className
       )}
