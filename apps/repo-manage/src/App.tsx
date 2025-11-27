@@ -557,11 +557,11 @@ function App() {
                 <div className="flex gap-1 flex-1">
                   <Input
                     size="xs"
-                    type="password"
+                    type={lmsForm.accessToken ? "password" : "text"}
                     value={lmsForm.accessToken}
                     onChange={(e) => lmsForm.setField("accessToken", e.target.value)}
-                    placeholder="••••••••"
-                    className="flex-1"
+                    placeholder={lmsForm.accessToken ? "••••••••" : "Not set"}
+                    className={cn("flex-1 password-input", !lmsForm.accessToken && "token-empty")}
                   />
                   <Button size="xs" variant="outline" onClick={() => ui.openLmsTokenDialog(lmsForm.accessToken)}>
                     Edit
@@ -731,11 +731,11 @@ function App() {
                 <div className="flex gap-1 flex-1">
                   <Input
                     size="xs"
-                    type="password"
+                    type={repoForm.accessToken ? "password" : "text"}
                     value={repoForm.accessToken}
                     onChange={(e) => repoForm.setField("accessToken", e.target.value)}
-                    placeholder="••••••••"
-                    className="flex-1"
+                    placeholder={repoForm.accessToken ? "••••••••" : "Not set"}
+                    className={cn("flex-1 password-input", !repoForm.accessToken && "token-empty")}
                     disabled={ui.configLocked}
                   />
                   <Button size="xs" variant="outline" onClick={() => ui.openTokenDialog(repoForm.accessToken)}>

@@ -139,6 +139,32 @@
   opacity: 1;
 }
 
+/* Subtle password dots for access tokens (all tabs) */
+.password-input[data-slot="input"][type="password"],
+input.password-input[type="password"][data-slot="input"] {
+  font-size: 9px !important;
+  letter-spacing: 0.08em;
+  color: #9c9c9c !important;
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+.password-input[data-slot="input"][type="password"]::-webkit-text-fill-color {
+  color: #9c9c9c !important;
+}
+
+/* Empty token helper */
+.token-empty[data-slot="input"] {
+  color: #9c9c9c !important;
+  font-style: italic;
+  letter-spacing: normal;
+}
+
+.token-empty[data-slot="input"]::placeholder {
+  color: #b0b0b0 !important;
+  font-style: italic;
+}
+
 /* Disabled / read-only fields should look intentionally muted */
 [data-slot="input"]:disabled,
 [data-slot="textarea"]:disabled,
