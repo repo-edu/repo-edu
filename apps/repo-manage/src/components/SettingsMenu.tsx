@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import {
@@ -47,8 +47,6 @@ export function SettingsMenu({
   onMessage,
 }: SettingsMenuProps) {
   const [settingsPath, setSettingsPath] = useState<string>("");
-  const [schemaVisible, setSchemaVisible] = useState(false);
-  const [schema, setSchema] = useState<Record<string, unknown> | null>(null);
   const [profiles, setProfiles] = useState<string[]>([]);
   const [activeProfile, setActiveProfile] = useState<string | null>(null);
   const [newProfileName, setNewProfileName] = useState<string>("");
@@ -59,14 +57,6 @@ export function SettingsMenu({
     description: string;
     onConfirm: () => void;
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
-  const schemaRef = useRef<HTMLPreElement>(null);
-
-  // Auto-scroll to schema when it becomes visible
-  useEffect(() => {
-    if (schemaVisible && schemaRef.current) {
-      schemaRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [schemaVisible]);
 
   // Load current settings path when menu opens
   const loadSettingsPath = async () => {
@@ -219,21 +209,6 @@ export function SettingsMenu({
     });
   };
 
-  const handleViewSchema = async () => {
-    if (!schema) {
-      try {
-        const schemaData = await invoke<Record<string, unknown>>("get_settings_schema");
-        setSchema(schemaData);
-        setSchemaVisible(true);
-        return;
-      } catch (error) {
-        onMessage(`✗ Failed to load schema: ${error}`);
-        return;
-      }
-    }
-    setSchemaVisible(!schemaVisible);
-  };
-
   const handleCopyPath = () => {
     if (settingsPath) {
       navigator.clipboard.writeText(settingsPath);
@@ -351,27 +326,6 @@ export function SettingsMenu({
               </Button>
               <p className="text-xs text-muted-foreground">
                 Reset and save all settings to default values.
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Advanced */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Advanced</h4>
-              <Button onClick={handleViewSchema} size="xs" className="mb-2">
-                {schemaVisible ? "Hide" : "View"} JSON Schema
-              </Button>
-              {schemaVisible && schema && (
-                <pre
-                  ref={schemaRef}
-                  className="bg-muted p-2 rounded text-xs max-h-[200px] overflow-y-auto font-mono"
-                >
-                  {JSON.stringify(schema, null, 2)}
-                </pre>
-              )}
-              <p className="text-xs text-muted-foreground">
-                View the JSON schema for settings validation and documentation.
               </p>
             </div>
           </div>
