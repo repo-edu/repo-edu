@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Channel } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Button,
@@ -37,9 +36,11 @@ import { ActionBar } from "./components/ActionBar";
 import { TokenDialog } from "./components/TokenDialog";
 import * as settingsService from "./services/settingsService";
 import * as lmsService from "./services/lmsService";
+import * as repoService from "./services/repoService";
 import { hashSnapshot } from "./utils/snapshot";
 import { useCloseGuard } from "./hooks/useCloseGuard";
 import { useLoadSettings } from "./hooks/useLoadSettings";
+import { useProgressChannel, handleProgressMessage } from "./hooks/useProgressChannel";
 import { validateLms, validateRepo } from "./validation/forms";
 import "./App.css";
 
@@ -311,15 +312,21 @@ function App() {
 
     try {
       const lms = lmsForm.getState();
-      const progress = new Channel<string>();
-
-      progress.onmessage = (msg: string) => {
-        if (msg.startsWith("[PROGRESS]")) {
-          output.updateLastLine(msg);
-        } else {
-          output.appendWithNewline(msg);
-        }
-      };
+      const progress = useProgressChannel({
+        onProgress: (line) =>
+          handleProgressMessage(
+            line,
+            output.appendWithNewline,
+            output.updateLastLine,
+            () => {
+              const lines = useOutputStore.getState().text.split("\n");
+              for (let i = lines.length - 1; i >= 0; i -= 1) {
+                if (lines[i].trim() !== "") return lines[i];
+              }
+              return "";
+            }
+          ),
+      });
 
       const result = await lmsService.generateLmsFiles(
         {
@@ -349,6 +356,59 @@ function App() {
       }
     } catch (error) {
       output.appendWithNewline(`⚠ Error: ${error}`);
+    }
+  };
+
+  const handleVerifyConfig = async () => {
+    if (!repoValidation.valid) {
+      output.appendWithNewline("⚠ Cannot verify: fix repo form errors first");
+      return;
+    }
+    const repo = repoForm.getState();
+    output.appendWithNewline("Verifying configuration...");
+    try {
+      const result = await repoService.verifyConfig({
+        access_token: repo.accessToken,
+        user: repo.user,
+        base_url: repo.baseUrl,
+        student_repos_group: repo.studentReposGroup,
+        template_group: repo.templateGroup,
+      });
+      output.appendWithNewline(result.message);
+      if (result.details) {
+        output.appendWithNewline(result.details);
+      }
+    } catch (error) {
+      output.appendWithNewline(`✗ Error: ${error}`);
+    }
+  };
+
+  const handleCreateRepos = async () => {
+    if (!repoValidation.valid) {
+      output.appendWithNewline("⚠ Cannot create repos: fix repo form errors first");
+      return;
+    }
+    const repo = repoForm.getState();
+    output.appendWithNewline("Creating student repositories...");
+    output.appendWithNewline(`Teams: ${repo.yamlFile}`);
+    output.appendWithNewline(`Assignments: ${repo.assignments}`);
+    output.appendWithNewline("");
+    try {
+      const result = await repoService.setupRepos({
+        config: {
+          access_token: repo.accessToken,
+          user: repo.user,
+          base_url: repo.baseUrl,
+          student_repos_group: repo.studentReposGroup,
+          template_group: repo.templateGroup,
+        },
+        yaml_file: repo.yamlFile,
+        assignments: repo.assignments,
+      });
+      if (result.message) output.appendWithNewline(result.message);
+      if (result.details) output.appendWithNewline(result.details);
+    } catch (error) {
+      output.appendWithNewline(`✗ Error: ${error}`);
     }
   };
 
@@ -739,9 +799,15 @@ function App() {
               ) : null
             }
           >
-            <Button size="xs" disabled={!repoValidation.valid}>Verify Config</Button>
-            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>Create Student Repos</Button>
-            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>Clone</Button>
+            <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
+              Verify Config
+            </Button>
+            <Button size="xs" variant="outline" disabled={!repoValidation.valid} onClick={handleCreateRepos}>
+              Create Student Repos
+            </Button>
+            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
+              Clone
+            </Button>
             <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
               Settings...
             </Button>

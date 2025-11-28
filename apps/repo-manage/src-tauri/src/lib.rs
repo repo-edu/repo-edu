@@ -426,11 +426,11 @@ async fn generate_lms_files(
 
     let student_count = students.len();
 
-    let fetched_message = format!(
-        "Fetched {} students from {}. Preparing files...",
-        student_count, lms_label
+    emit_standard_message(
+        &progress,
+        &format!("Fetched {} students from {}.", student_count, lms_label),
     );
-    emit_standard_message(&progress, &fetched_message);
+    emit_standard_message(&progress, "Preparing files...");
     let mut generated_files = Vec::new();
 
     // Generate YAML file if requested
@@ -443,23 +443,12 @@ async fn generate_lms_files(
             full_groups: params.full_groups,
         };
 
-        let yaml_progress_state = Arc::clone(&cli_progress);
-        let yaml_progress_channel = progress.clone();
         let teams = generate_repobee_yaml_with_progress(
             &students,
             &config,
-            move |current, total, group_name| {
-                let message = format!("Processing group {}/{}: {}", current, total, group_name);
-                if let Ok(mut state) = yaml_progress_state.lock() {
-                    emit_inline_message(&yaml_progress_channel, &mut state, &message);
-                }
-            },
+            |_, _, _| {}, // YAML generation is too fast to need progress
         )
         .map_err(|e| format!("Failed to generate YAML: {}", e))?;
-
-        if let Ok(mut state) = cli_progress.lock() {
-            state.finalize();
-        }
 
         let yaml_path = PathBuf::from(&params.info_file_folder).join(&params.yaml_file);
         write_yaml_file(&teams, &yaml_path)
