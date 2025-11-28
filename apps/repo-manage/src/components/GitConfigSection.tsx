@@ -9,7 +9,23 @@ export function GitConfigSection() {
   const ui = useUiStore();
 
   return (
-    <Section title="Git Server Configuration">
+    <Section
+      title="Git Server Configuration"
+      locked={ui.configLocked}
+      lockTooltip="Unlock to edit server credentials"
+      action={
+        <Button size="xs" variant="outline" onClick={() => ui.toggleConfigLock()}>
+          {ui.configLocked ? (
+            <Lock className="h-4 w-4" aria-hidden />
+          ) : (
+            <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
+          )}
+          <span className="sr-only">
+            {ui.configLocked ? "Unlock settings" : "Lock settings"}
+          </span>
+        </Button>
+      }
+    >
       <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
         <div className="flex gap-1 flex-1">
           <Input
@@ -27,16 +43,6 @@ export function GitConfigSection() {
             onClick={() => ui.openTokenDialog(repoForm.accessToken)}
           >
             Edit
-          </Button>
-          <Button size="xs" variant="outline" onClick={() => ui.toggleConfigLock()}>
-            {ui.configLocked ? (
-              <Lock className="h-4 w-4" aria-hidden />
-            ) : (
-              <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
-            )}
-            <span className="sr-only">
-              {ui.configLocked ? "Lock settings" : "Unlock settings"}
-            </span>
           </Button>
         </div>
       </FormField>
