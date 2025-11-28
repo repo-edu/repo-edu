@@ -2,27 +2,11 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Button,
-  Input,
-  Textarea,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Checkbox,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  cn,
 } from "@repo-edu/ui";
-import { Lock, LockOpen } from "@repo-edu/ui/components/icons";
 import {
   useLmsFormStore,
   useRepoFormStore,
@@ -31,9 +15,15 @@ import {
 } from "./stores";
 import type { GuiSettings } from "./types/settings";
 import { SettingsMenu } from "./components/SettingsMenu";
-import { Section } from "./components/Section";
 import { ActionBar } from "./components/ActionBar";
 import { TokenDialog } from "./components/TokenDialog";
+import { LmsConfigSection } from "./components/LmsConfigSection";
+import { OutputConfigSection } from "./components/OutputConfigSection";
+import { RepoNamingSection } from "./components/RepoNamingSection";
+import { GitConfigSection } from "./components/GitConfigSection";
+import { LocalConfigSection } from "./components/LocalConfigSection";
+import { OptionsSection } from "./components/OptionsSection";
+import { OutputConsole } from "./components/OutputConsole";
 import * as settingsService from "./services/settingsService";
 import * as lmsService from "./services/lmsService";
 import * as repoService from "./services/repoService";
@@ -43,69 +33,6 @@ import { useLoadSettings } from "./hooks/useLoadSettings";
 import { useProgressChannel, handleProgressMessage } from "./hooks/useProgressChannel";
 import { validateLms, validateRepo } from "./validation/forms";
 import "./App.css";
-
-// Form field component for consistent styling
-function FormField({
-  label,
-  tooltip,
-  children,
-  className,
-}: {
-  label: string;
-  tooltip?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <Label size="xs" className="w-28 shrink-0">
-        {tooltip ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="border-b border-dashed border-muted-foreground cursor-help">
-                {label}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{tooltip}</TooltipContent>
-          </Tooltip>
-        ) : (
-          label
-        )}
-      </Label>
-      {children}
-    </div>
-  );
-}
-
-// Input + Browse button combo
-function FilePathInput({
-  value,
-  onChange,
-  placeholder,
-  onBrowse,
-  browseLabel = "Browse",
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  onBrowse: () => void;
-  browseLabel?: string;
-}) {
-  return (
-    <div className="flex gap-1 flex-1">
-      <Input
-        size="xs"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="flex-1"
-      />
-      <Button size="xs" variant="outline" onClick={onBrowse}>
-        {browseLabel}
-      </Button>
-    </div>
-  );
-}
 
 function App() {
   // Zustand stores
@@ -314,18 +241,7 @@ function App() {
       const lms = lmsForm.getState();
       const progress = useProgressChannel({
         onProgress: (line) =>
-          handleProgressMessage(
-            line,
-            output.appendWithNewline,
-            output.updateLastLine,
-            () => {
-              const lines = useOutputStore.getState().text.split("\n");
-              for (let i = lines.length - 1; i >= 0; i -= 1) {
-                if (lines[i].trim() !== "") return lines[i];
-              }
-              return "";
-            }
-          ),
+          handleProgressMessage(line, output.appendWithNewline, output.updateLastLine),
       });
 
       const result = await lmsService.generateLmsFiles(
@@ -449,174 +365,10 @@ function App() {
 
         {/* LMS Import Tab */}
         <TabsContent value="lms" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <Section title="LMS Configuration">
-            <FormField label="LMS Type" tooltip="Learning Management System type">
-              <Select value={lmsForm.lmsType} onValueChange={(v) => lmsForm.setLmsType(v as "Canvas" | "Moodle")}>
-                <SelectTrigger size="xs" className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Canvas" size="xs">Canvas</SelectItem>
-                    <SelectItem value="Moodle" size="xs">Moodle</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormField>
+          <LmsConfigSection onVerify={verifyLmsCourse} />
+          <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
+          <RepoNamingSection />
 
-              {lmsForm.lmsType === "Canvas" && (
-                <FormField label="Base URL" tooltip="Canvas instance URL">
-                  <Select value={lmsForm.urlOption} onValueChange={(v) => lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")}>
-                    <SelectTrigger size="xs" className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TUE" size="xs">TU/e (canvas.tue.nl)</SelectItem>
-                      <SelectItem value="CUSTOM" size="xs">Custom URL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              )}
-
-              {(lmsForm.urlOption === "CUSTOM" || lmsForm.lmsType !== "Canvas") && (
-                <FormField label="Custom URL">
-                  <Input
-                    size="xs"
-                    value={lmsForm.customUrl}
-                    onChange={(e) => lmsForm.setField("customUrl", e.target.value)}
-                    placeholder="https://..."
-                    className="flex-1"
-                  />
-                </FormField>
-              )}
-
-              <FormField label="Access Token" tooltip="API access token from your LMS">
-                <div className="flex gap-1 flex-1">
-                  <Input
-                    size="xs"
-                    type={lmsForm.accessToken ? "password" : "text"}
-                    value={lmsForm.accessToken}
-                    onChange={(e) => lmsForm.setField("accessToken", e.target.value)}
-                    placeholder={lmsForm.accessToken ? "••••••••" : "Not set"}
-                    className={cn("flex-1 password-input", !lmsForm.accessToken && "token-empty")}
-                  />
-                  <Button size="xs" variant="outline" onClick={() => ui.openLmsTokenDialog(lmsForm.accessToken)}>
-                    Edit
-                  </Button>
-                </div>
-              </FormField>
-
-              <FormField label="Course ID" tooltip="The numeric course ID from your LMS. Click 'Verify' to check if the course exists and load its name.">
-                <div className="flex gap-1 flex-1">
-                  <Input
-                    size="xs"
-                    value={lmsForm.courseId}
-                    onChange={(e) => lmsForm.setField("courseId", e.target.value)}
-                    placeholder="12345"
-                    className="flex-1"
-                  />
-                  <Button size="xs" onClick={verifyLmsCourse}>
-                    Verify
-                  </Button>
-                </div>
-              </FormField>
-          </Section>
-
-          <Section title="Output Configuration">
-            <FormField label="Info File Folder">
-              <FilePathInput
-                value={lmsForm.infoFileFolder}
-                onChange={(v) => lmsForm.setField("infoFileFolder", v)}
-                placeholder="Output folder for generated files"
-                  onBrowse={() => handleBrowseFolder((p) => lmsForm.setField("infoFileFolder", p))}
-                />
-              </FormField>
-
-              <FormField label="YAML File">
-                <Input
-                  size="xs"
-                  value={lmsForm.yamlFile}
-                  onChange={(e) => lmsForm.setField("yamlFile", e.target.value)}
-                  placeholder="students.yaml"
-                  className="flex-1"
-                />
-              </FormField>
-
-              <div className="flex items-center gap-4 ml-28">
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="output-yaml"
-                    checked={lmsForm.yaml}
-                    onCheckedChange={(c) => lmsForm.setField("yaml", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="output-yaml" size="xs">YAML</Label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="output-csv"
-                    checked={lmsForm.csv}
-                    onCheckedChange={(c) => lmsForm.setField("csv", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="output-csv" size="xs">CSV</Label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="output-xlsx"
-                    checked={lmsForm.xlsx}
-                    onCheckedChange={(c) => lmsForm.setField("xlsx", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="output-xlsx" size="xs">XLSX</Label>
-                </div>
-              </div>
-          </Section>
-
-          <Section title="Repository Naming">
-            <div className="flex items-center gap-4 ml-28">
-              <div className="flex items-center gap-1.5">
-                <Checkbox
-                  id="include-group"
-                  checked={lmsForm.includeGroup}
-                    onCheckedChange={(c) => lmsForm.setField("includeGroup", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="include-group" size="xs">Group name</Label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="include-member"
-                    checked={lmsForm.includeMember}
-                    onCheckedChange={(c) => lmsForm.setField("includeMember", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="include-member" size="xs">Member names</Label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="include-initials"
-                    checked={lmsForm.includeInitials}
-                    onCheckedChange={(c) => lmsForm.setField("includeInitials", c === true)}
-                    size="xs"
-                  />
-                  <Label htmlFor="include-initials" size="xs">Initials</Label>
-                </div>
-              </div>
-
-              <FormField label="Member Format">
-                <Select value={lmsForm.memberOption} onValueChange={(v) => lmsForm.setField("memberOption", v as "(email, gitid)" | "email" | "git_id")}>
-                  <SelectTrigger size="xs" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="(email, gitid)" size="xs">(email, gitid)</SelectItem>
-                    <SelectItem value="email" size="xs">email</SelectItem>
-                    <SelectItem value="git_id" size="xs">git_id</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormField>
-          </Section>
-
-          {/* Action buttons */}
           <ActionBar
             right={
               !lmsValidation.valid ? (
@@ -641,154 +393,15 @@ function App() {
             </Button>
           </ActionBar>
 
-          {/* Output console */}
-          <div className="flex-1 min-h-32">
-            <Textarea
-              size="xs"
-              value={output.text}
-              readOnly
-              className="h-full font-mono resize-none console-output"
-              placeholder="Output will appear here..."
-            />
-          </div>
+          <OutputConsole />
         </TabsContent>
 
         {/* Repository Setup Tab */}
         <TabsContent value="repo" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <Section title="Git Server Configuration">
-            <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
-              <div className="flex gap-1 flex-1">
-                <Input
-                  size="xs"
-                  type={repoForm.accessToken ? "password" : "text"}
-                    value={repoForm.accessToken}
-                    onChange={(e) => repoForm.setField("accessToken", e.target.value)}
-                    placeholder={repoForm.accessToken ? "••••••••" : "Not set"}
-                    className={cn("flex-1 password-input", !repoForm.accessToken && "token-empty")}
-                    disabled={ui.configLocked}
-                  />
-                  <Button size="xs" variant="outline" onClick={() => ui.openTokenDialog(repoForm.accessToken)}>
-                    Edit
-                  </Button>
-                  <Button size="xs" variant="outline" onClick={() => ui.toggleConfigLock()}>
-                    {ui.configLocked ? (
-                      <Lock className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
-                    )}
-                    <span className="sr-only">{ui.configLocked ? "Lock settings" : "Unlock settings"}</span>
-                  </Button>
-                </div>
-              </FormField>
+          <GitConfigSection />
+          <LocalConfigSection onBrowseFile={handleBrowseFile} onBrowseFolder={handleBrowseFolder} />
+          <OptionsSection />
 
-              <FormField label="User" tooltip="Your Git username">
-                <Input
-                  size="xs"
-                  value={repoForm.user}
-                  onChange={(e) => repoForm.setField("user", e.target.value)}
-                  placeholder="username"
-                  className="flex-1"
-                  disabled={ui.configLocked}
-                />
-              </FormField>
-
-              <FormField label="Base URL" tooltip="Git server base URL">
-                <Input
-                  size="xs"
-                  value={repoForm.baseUrl}
-                  onChange={(e) => repoForm.setField("baseUrl", e.target.value)}
-                  placeholder="https://gitlab.tue.nl"
-                  className="flex-1"
-                  disabled={ui.configLocked}
-                />
-              </FormField>
-
-              <FormField label="Student Repos Group" tooltip="Group path for student repositories">
-                <Input
-                  size="xs"
-                  value={repoForm.studentReposGroup}
-                  onChange={(e) => repoForm.setField("studentReposGroup", e.target.value)}
-                  placeholder="course/student-repos"
-                  className="flex-1"
-                  disabled={ui.configLocked}
-                />
-              </FormField>
-
-              <FormField label="Template Group" tooltip="Group path containing template repositories">
-                <Input
-                  size="xs"
-                  value={repoForm.templateGroup}
-                  onChange={(e) => repoForm.setField("templateGroup", e.target.value)}
-                  placeholder="course/templates"
-                  className="flex-1"
-                  disabled={ui.configLocked}
-                />
-              </FormField>
-          </Section>
-
-          <Section title="Local Configuration">
-            <FormField label="YAML File" tooltip="Path to students YAML file">
-              <FilePathInput
-                value={repoForm.yamlFile}
-                onChange={(v) => repoForm.setField("yamlFile", v)}
-                placeholder="students.yaml"
-                  onBrowse={() => handleBrowseFile((p) => repoForm.setField("yamlFile", p))}
-                />
-              </FormField>
-
-              <FormField label="Target Folder" tooltip="Folder for cloned repositories">
-                <FilePathInput
-                  value={repoForm.targetFolder}
-                  onChange={(v) => repoForm.setField("targetFolder", v)}
-                  placeholder="/path/to/repos"
-                  onBrowse={() => handleBrowseFolder((p) => repoForm.setField("targetFolder", p))}
-                />
-              </FormField>
-
-              <FormField label="Assignments" tooltip="Comma-separated list of assignments">
-                <Input
-                  size="xs"
-                  value={repoForm.assignments}
-                  onChange={(e) => repoForm.setField("assignments", e.target.value)}
-                  placeholder="assignment1, assignment2"
-                  className="flex-1"
-                />
-              </FormField>
-          </Section>
-
-          <Section title="Options">
-            <FormField label="Directory Layout">
-              <RadioGroup
-                value={repoForm.directoryLayout}
-                onValueChange={(v) => repoForm.setField("directoryLayout", v as "by-team" | "flat" | "by-task")}
-                  className="flex gap-4"
-                  size="xs"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <RadioGroupItem value="flat" id="layout-flat" size="xs" disabled={ui.optionsLocked} />
-                    <Label htmlFor="layout-flat" size="xs">Flat</Label>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <RadioGroupItem value="by-team" id="layout-team" size="xs" disabled={ui.optionsLocked} />
-                    <Label htmlFor="layout-team" size="xs">By Team</Label>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <RadioGroupItem value="by-task" id="layout-task" size="xs" disabled={ui.optionsLocked} />
-                    <Label htmlFor="layout-task" size="xs">By Task</Label>
-                  </div>
-                </RadioGroup>
-                <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
-                  {ui.optionsLocked ? (
-                    <Lock className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
-                  )}
-                  <span className="sr-only">{ui.optionsLocked ? "Lock options" : "Unlock options"}</span>
-                </Button>
-              </FormField>
-          </Section>
-
-          {/* Action buttons */}
           <ActionBar
             right={
               !repoValidation.valid ? (
@@ -802,7 +415,12 @@ function App() {
             <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
               Verify Config
             </Button>
-            <Button size="xs" variant="outline" disabled={!repoValidation.valid} onClick={handleCreateRepos}>
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={!repoValidation.valid}
+              onClick={handleCreateRepos}
+            >
               Create Student Repos
             </Button>
             <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
@@ -816,16 +434,7 @@ function App() {
             </Button>
           </ActionBar>
 
-          {/* Output console */}
-          <div className="flex-1 min-h-32">
-            <Textarea
-              size="xs"
-              value={output.text}
-              readOnly
-              className="h-full font-mono resize-none console-output"
-              placeholder="Output will appear here..."
-            />
-          </div>
+          <OutputConsole />
         </TabsContent>
       </Tabs>
 
