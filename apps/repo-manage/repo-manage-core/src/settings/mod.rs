@@ -24,7 +24,7 @@ mod validation;
 pub use atomic::{atomic_write, atomic_write_json, atomic_write_string};
 pub use cli::CLIConfig;
 pub use common::CommonSettings;
-pub use enums::{ActiveTab, DirectoryLayout, LmsUrlOption, MemberOption};
+pub use enums::{ActiveTab, DirectoryLayout, LmsUrlOption, MemberOption, Theme};
 pub use error::{ConfigError, ConfigResult, Interface};
 pub use gui::GuiSettings;
 pub use manager::SettingsManager;

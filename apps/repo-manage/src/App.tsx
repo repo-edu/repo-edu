@@ -31,6 +31,7 @@ import { hashSnapshot } from "./utils/snapshot";
 import { useCloseGuard } from "./hooks/useCloseGuard";
 import { useLoadSettings } from "./hooks/useLoadSettings";
 import { useProgressChannel, handleProgressMessage } from "./hooks/useProgressChannel";
+import { useTheme } from "./hooks/useTheme";
 import { validateLms, validateRepo } from "./validation/forms";
 import "./App.css";
 
@@ -49,6 +50,9 @@ function App() {
 
   // Current GUI settings (for SettingsMenu)
   const [currentGuiSettings, setCurrentGuiSettings] = useState<GuiSettings | null>(null);
+
+  // Apply theme from settings
+  useTheme(currentGuiSettings?.theme || "system");
 
   // Compute dirty state
   const isDirty =
@@ -184,6 +188,7 @@ function App() {
         active_tab: ui.activeTab,
         config_locked: ui.configLocked,
         options_locked: ui.optionsLocked,
+        theme: currentGuiSettings?.theme || "system",
       };
 
       await settingsService.saveSettings(settings);

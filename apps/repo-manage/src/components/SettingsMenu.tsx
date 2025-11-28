@@ -29,8 +29,14 @@ import {
 } from "@repo-edu/ui/components/ui/select";
 import { Separator } from "@repo-edu/ui/components/ui/separator";
 import { AlertCircle } from "@repo-edu/ui/components/icons";
-import type { GuiSettings } from "../types/settings";
+import type { GuiSettings, Theme } from "../types/settings";
 import * as settingsService from "../services/settingsService";
+
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: "system", label: "System (Auto)" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -225,14 +231,48 @@ export function SettingsMenu({
 
           <div
             className={`space-y-4 transition-colors duration-300 ${
-              successFlash ? "bg-green-50" : ""
+              successFlash ? "bg-accent" : ""
             }`}
           >
             {/* Help text banner */}
-            <div className="flex items-center gap-2 p-2 text-xs bg-blue-50 border border-blue-200 rounded text-blue-700">
+            <div className="flex items-center gap-2 p-2 text-xs bg-muted border border-border rounded text-muted-foreground">
               <AlertCircle className="h-4 w-4 shrink-0" />
               All operations in this menu take effect immediately
             </div>
+
+            {/* Theme Selection */}
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Appearance</h4>
+              <Select
+                value={currentSettings.theme || "system"}
+                onValueChange={async (value: Theme) => {
+                  const updated = { ...currentSettings, theme: value };
+                  onSettingsLoaded(updated);
+                  try {
+                    await settingsService.saveSettings(updated);
+                    showSuccessFlash();
+                  } catch (error) {
+                    onMessage(`✗ Failed to save theme: ${error}`);
+                  }
+                }}
+              >
+                <SelectTrigger size="xs" className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {THEME_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} size="xs">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose your preferred color theme. "System" follows your OS setting.
+              </p>
+            </div>
+
+            <Separator />
 
             {/* Configuration Profiles */}
             <div>

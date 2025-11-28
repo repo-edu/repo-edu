@@ -20,6 +20,9 @@ export type ActiveTab = "lms" | "repo";
 /** LMS platform type */
 export type LmsType = "Canvas" | "Moodle";
 
+/** UI theme */
+export type Theme = "light" | "dark" | "system";
+
 // ===== Settings Interfaces =====
 
 /** Common settings shared between CLI and GUI */
@@ -71,6 +74,7 @@ export interface GuiSettings extends CommonSettings {
   active_tab: ActiveTab;
   config_locked: boolean;
   options_locked: boolean;
+  theme: Theme;
   window_width: number;
   window_height: number;
   window_x: number;
@@ -128,6 +132,7 @@ export const DEFAULT_GUI_SETTINGS: GuiSettings = {
   active_tab: "lms",
   config_locked: true,
   options_locked: true,
+  theme: "system",
   window_width: 0,
   window_height: 0,
   window_x: 0,
