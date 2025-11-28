@@ -14,10 +14,6 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -25,14 +21,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
   cn,
 } from "@repo-edu/ui";
 import { Lock, LockOpen } from "@repo-edu/ui/components/icons";
@@ -44,11 +32,15 @@ import {
 } from "./stores";
 import type { GuiSettings } from "./types/settings";
 import { SettingsMenu } from "./components/SettingsMenu";
+import { Section } from "./components/Section";
+import { ActionBar } from "./components/ActionBar";
+import { TokenDialog } from "./components/TokenDialog";
 import * as settingsService from "./services/settingsService";
 import * as lmsService from "./services/lmsService";
 import { hashSnapshot } from "./utils/snapshot";
 import { useCloseGuard } from "./hooks/useCloseGuard";
 import { useLoadSettings } from "./hooks/useLoadSettings";
+import { validateLms, validateRepo } from "./validation/forms";
 import "./App.css";
 
 // Form field component for consistent styling
@@ -134,6 +126,9 @@ function App() {
   const isDirty =
     hashSnapshot(lmsForm.getState()) !== lastSavedHashes.lms ||
     hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo;
+
+  const lmsValidation = validateLms(lmsForm.getState());
+  const repoValidation = validateRepo(repoForm.getState());
 
   // Apply settings into stores/UI, optionally updating baseline
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
@@ -278,6 +273,10 @@ function App() {
   };
 
   const verifyLmsCourse = async () => {
+    if (!lmsValidation.valid) {
+      output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first");
+      return;
+    }
     const lms = lmsForm.getState();
     const lmsLabel = lms.lmsType || "LMS";
     output.appendWithNewline(`Verifying ${lmsLabel} course...`);
@@ -390,16 +389,12 @@ function App() {
 
         {/* LMS Import Tab */}
         <TabsContent value="lms" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">LMS Configuration</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <FormField label="LMS Type" tooltip="Learning Management System type">
-                <Select value={lmsForm.lmsType} onValueChange={(v) => lmsForm.setLmsType(v as "Canvas" | "Moodle")}>
-                  <SelectTrigger size="xs" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
+          <Section title="LMS Configuration">
+            <FormField label="LMS Type" tooltip="Learning Management System type">
+              <Select value={lmsForm.lmsType} onValueChange={(v) => lmsForm.setLmsType(v as "Canvas" | "Moodle")}>
+                <SelectTrigger size="xs" className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Canvas" size="xs">Canvas</SelectItem>
                     <SelectItem value="Moodle" size="xs">Moodle</SelectItem>
@@ -463,19 +458,14 @@ function App() {
                   </Button>
                 </div>
               </FormField>
-            </CardContent>
-          </Card>
+          </Section>
 
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">Output Configuration</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <FormField label="Info File Folder">
-                <FilePathInput
-                  value={lmsForm.infoFileFolder}
-                  onChange={(v) => lmsForm.setField("infoFileFolder", v)}
-                  placeholder="Output folder for generated files"
+          <Section title="Output Configuration">
+            <FormField label="Info File Folder">
+              <FilePathInput
+                value={lmsForm.infoFileFolder}
+                onChange={(v) => lmsForm.setField("infoFileFolder", v)}
+                placeholder="Output folder for generated files"
                   onBrowse={() => handleBrowseFolder((p) => lmsForm.setField("infoFileFolder", p))}
                 />
               </FormField>
@@ -519,19 +509,14 @@ function App() {
                   <Label htmlFor="output-xlsx" size="xs">XLSX</Label>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </Section>
 
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">Repository Naming</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <div className="flex items-center gap-4 ml-28">
-                <div className="flex items-center gap-1.5">
-                  <Checkbox
-                    id="include-group"
-                    checked={lmsForm.includeGroup}
+          <Section title="Repository Naming">
+            <div className="flex items-center gap-4 ml-28">
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id="include-group"
+                  checked={lmsForm.includeGroup}
                     onCheckedChange={(c) => lmsForm.setField("includeGroup", c === true)}
                     size="xs"
                   />
@@ -569,12 +554,20 @@ function App() {
                   </SelectContent>
                 </Select>
               </FormField>
-            </CardContent>
-          </Card>
+          </Section>
 
           {/* Action buttons */}
-          <div className="flex gap-2 mt-1">
-            <Button size="xs" onClick={handleGenerateFiles}>
+          <ActionBar
+            right={
+              !lmsValidation.valid ? (
+                <span className="text-[11px] text-destructive">
+                  {lmsValidation.errors[0]}
+                  {lmsValidation.errors.length > 1 ? " (+ more)" : ""}
+                </span>
+              ) : null
+            }
+          >
+            <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
               Generate Files
             </Button>
             <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
@@ -586,7 +579,7 @@ function App() {
             <Button size="xs" variant="outline" onClick={() => output.clear()}>
               Clear History
             </Button>
-          </div>
+          </ActionBar>
 
           {/* Output console */}
           <div className="flex-1 min-h-32">
@@ -602,16 +595,12 @@ function App() {
 
         {/* Repository Setup Tab */}
         <TabsContent value="repo" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">Git Server Configuration</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
-                <div className="flex gap-1 flex-1">
-                  <Input
-                    size="xs"
-                    type={repoForm.accessToken ? "password" : "text"}
+          <Section title="Git Server Configuration">
+            <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
+              <div className="flex gap-1 flex-1">
+                <Input
+                  size="xs"
+                  type={repoForm.accessToken ? "password" : "text"}
                     value={repoForm.accessToken}
                     onChange={(e) => repoForm.setField("accessToken", e.target.value)}
                     placeholder={repoForm.accessToken ? "••••••••" : "Not set"}
@@ -675,19 +664,14 @@ function App() {
                   disabled={ui.configLocked}
                 />
               </FormField>
-            </CardContent>
-          </Card>
+          </Section>
 
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">Local Configuration</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <FormField label="YAML File" tooltip="Path to students YAML file">
-                <FilePathInput
-                  value={repoForm.yamlFile}
-                  onChange={(v) => repoForm.setField("yamlFile", v)}
-                  placeholder="students.yaml"
+          <Section title="Local Configuration">
+            <FormField label="YAML File" tooltip="Path to students YAML file">
+              <FilePathInput
+                value={repoForm.yamlFile}
+                onChange={(v) => repoForm.setField("yamlFile", v)}
+                placeholder="students.yaml"
                   onBrowse={() => handleBrowseFile((p) => repoForm.setField("yamlFile", p))}
                 />
               </FormField>
@@ -710,18 +694,13 @@ function App() {
                   className="flex-1"
                 />
               </FormField>
-            </CardContent>
-          </Card>
+          </Section>
 
-          <Card size="compact">
-            <CardHeader size="compact">
-              <CardTitle size="compact">Options</CardTitle>
-            </CardHeader>
-            <CardContent size="compact" className="space-y-1.5">
-              <FormField label="Directory Layout">
-                <RadioGroup
-                  value={repoForm.directoryLayout}
-                  onValueChange={(v) => repoForm.setField("directoryLayout", v as "by-team" | "flat" | "by-task")}
+          <Section title="Options">
+            <FormField label="Directory Layout">
+              <RadioGroup
+                value={repoForm.directoryLayout}
+                onValueChange={(v) => repoForm.setField("directoryLayout", v as "by-team" | "flat" | "by-task")}
                   className="flex gap-4"
                   size="xs"
                 >
@@ -747,21 +726,29 @@ function App() {
                   <span className="sr-only">{ui.optionsLocked ? "Lock options" : "Unlock options"}</span>
                 </Button>
               </FormField>
-            </CardContent>
-          </Card>
+          </Section>
 
           {/* Action buttons */}
-          <div className="flex gap-2 mt-1">
-            <Button size="xs">Verify Config</Button>
-            <Button size="xs" variant="outline">Create Student Repos</Button>
-            <Button size="xs" variant="outline">Clone</Button>
+          <ActionBar
+            right={
+              !repoValidation.valid ? (
+                <span className="text-[11px] text-destructive">
+                  {repoValidation.errors[0]}
+                  {repoValidation.errors.length > 1 ? " (+ more)" : ""}
+                </span>
+              ) : null
+            }
+          >
+            <Button size="xs" disabled={!repoValidation.valid}>Verify Config</Button>
+            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>Create Student Repos</Button>
+            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>Clone</Button>
             <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
               Settings...
             </Button>
             <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
               Save Settings
             </Button>
-          </div>
+          </ActionBar>
 
           {/* Output console */}
           <div className="flex-1 min-h-32">
@@ -777,98 +764,81 @@ function App() {
       </Tabs>
 
       {/* LMS Token Dialog */}
-      <Dialog open={ui.lmsTokenDialogOpen} onOpenChange={(open) => !open && ui.closeLmsTokenDialog()}>
-        <DialogContent size="compact" className="max-w-md">
-          <DialogHeader size="compact">
-            <DialogTitle size="compact">LMS Access Token</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Input
-              size="xs"
-              value={ui.lmsTokenDialogValue}
-              onChange={(e) => ui.setLmsTokenDialogValue(e.target.value)}
-              placeholder="Paste your access token"
-            />
-            <Collapsible>
-              <CollapsibleTrigger className="text-xs text-muted-foreground hover:text-foreground">
-                ▶ How to get a token
-              </CollapsibleTrigger>
-              <CollapsibleContent className="text-xs text-muted-foreground mt-2 pl-4">
-                <p>1. Log in to your Canvas instance</p>
-                <p>2. Go to Account → Settings</p>
-                <p>3. Scroll to "Approved Integrations"</p>
-                <p>4. Click "+ New Access Token"</p>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-          <DialogFooter>
-            <Button size="xs" variant="outline" onClick={() => ui.closeLmsTokenDialog()}>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              onClick={() => {
-                lmsForm.setField("accessToken", ui.lmsTokenDialogValue);
-                ui.closeLmsTokenDialog();
-              }}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Git Token Dialog */}
-      <Dialog open={ui.tokenDialogOpen} onOpenChange={(open) => !open && ui.closeTokenDialog()}>
-        <DialogContent size="compact" className="max-w-md">
-          <DialogHeader size="compact">
-            <DialogTitle size="compact">Git Access Token</DialogTitle>
-          </DialogHeader>
-          <Input
+      <TokenDialog
+        open={ui.lmsTokenDialogOpen}
+        title="LMS Access Token"
+        value={ui.lmsTokenDialogValue}
+        onChange={(v) => ui.setLmsTokenDialogValue(v)}
+        onClose={() => ui.closeLmsTokenDialog()}
+        onSave={() => {
+          lmsForm.setField("accessToken", ui.lmsTokenDialogValue);
+          ui.closeLmsTokenDialog();
+        }}
+        instructions={
+          <>
+            <p>1. Log in to your Canvas instance</p>
+            <p>2. Go to Account → Settings</p>
+            <p>3. Scroll to "Approved Integrations"</p>
+            <p>4. Click "+ New Access Token"</p>
+          </>
+        }
+        actions={
+          <Button
             size="xs"
-            value={ui.tokenDialogValue}
-            onChange={(e) => ui.setTokenDialogValue(e.target.value)}
-            placeholder="Paste your access token"
-          />
-          <DialogFooter>
-            <Button size="xs" variant="outline" onClick={() => ui.closeTokenDialog()}>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              onClick={() => {
-                repoForm.setField("accessToken", ui.tokenDialogValue);
-                ui.closeTokenDialog();
-              }}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            variant="outline"
+            onClick={async () => {
+              try {
+                const lms = lmsForm.getState();
+                const baseUrl = lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl;
+                await lmsService.openTokenUrl(baseUrl, lms.lmsType);
+                output.appendWithNewline("Opening LMS token page...");
+              } catch (error) {
+                output.appendWithNewline(`✗ Failed to open token page: ${error}`);
+              }
+            }}
+          >
+            Open token page
+          </Button>
+        }
+      />
+
+      <TokenDialog
+        open={ui.tokenDialogOpen}
+        title="Git Access Token"
+        value={ui.tokenDialogValue}
+        onChange={(v) => ui.setTokenDialogValue(v)}
+        onClose={() => ui.closeTokenDialog()}
+        onSave={() => {
+          repoForm.setField("accessToken", ui.tokenDialogValue);
+          ui.closeTokenDialog();
+        }}
+      />
 
       {/* Close Confirmation Dialog */}
-      <Dialog open={ui.closePromptVisible} onOpenChange={(open) => !open && handlePromptCancel()}>
-        <DialogContent size="compact" showCloseButton={false}>
-          <DialogHeader size="compact">
-            <DialogTitle size="compact">Unsaved Changes</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            You have unsaved changes. Do you want to save before closing?
-          </p>
-          <DialogFooter>
-            <Button size="xs" variant="outline" onClick={handlePromptCancel}>
-              Cancel
-            </Button>
-            <Button size="xs" variant="destructive" onClick={handlePromptDiscard}>
-              Discard
-            </Button>
-            <Button size="xs" onClick={handlePromptSave}>
-              Save & Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TokenDialog
+        open={ui.closePromptVisible}
+        title="Unsaved Changes"
+        value=""
+        onChange={() => {}}
+        onClose={handlePromptCancel}
+        onSave={handlePromptSave}
+        instructions={
+          <div className="text-sm text-muted-foreground space-y-2">
+            <p>You have unsaved changes. Do you want to save before closing?</p>
+            <div className="flex gap-2">
+              <Button size="xs" variant="destructive" onClick={handlePromptDiscard}>
+                Discard
+              </Button>
+              <Button size="xs" onClick={handlePromptSave}>
+                Save & Close
+              </Button>
+              <Button size="xs" variant="outline" onClick={handlePromptCancel}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        }
+      />
 
       {/* Settings Menu */}
       {currentGuiSettings && (

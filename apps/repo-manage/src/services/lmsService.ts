@@ -43,6 +43,6 @@ export async function getTokenInstructions(lmsType: "Canvas" | "Moodle") {
 }
 
 export async function openTokenUrl(baseUrl: string, lmsType: "Canvas" | "Moodle") {
-  return invoke("open_token_url", { base_url: baseUrl, lms_type: lmsType });
+  // Backend expects camelCase keys
+  return invoke("open_token_url", { baseUrl, lmsType });
 }
-
