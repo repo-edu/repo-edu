@@ -28,7 +28,11 @@ import {
   SelectValue,
 } from "@repo-edu/ui/components/ui/select";
 import { Separator } from "@repo-edu/ui/components/ui/separator";
-import { AlertCircle } from "@repo-edu/ui/components/icons";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@repo-edu/ui/components/ui/tooltip";
 import type { GuiSettings, Theme } from "../types/settings";
 import * as settingsService from "../services/settingsService";
 
@@ -224,25 +228,26 @@ export function SettingsMenu({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-[360px]">
           <DialogHeader>
-            <DialogTitle>Settings Management</DialogTitle>
+            <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
 
           <div
-            className={`space-y-4 transition-colors duration-300 ${
+            className={`space-y-3 transition-colors duration-300 ${
               successFlash ? "bg-accent" : ""
             }`}
           >
-            {/* Help text banner */}
-            <div className="flex items-center gap-2 p-2 text-xs bg-muted border border-border rounded text-muted-foreground">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              All operations in this menu take effect immediately
-            </div>
-
             {/* Theme Selection */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Appearance</h4>
+            <div className="flex items-center justify-between gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
+                    Theme
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Color scheme (System follows OS)</TooltipContent>
+              </Tooltip>
               <Select
                 value={currentSettings.theme || "system"}
                 onValueChange={async (value: Theme) => {
@@ -256,7 +261,7 @@ export function SettingsMenu({
                   }
                 }}
               >
-                <SelectTrigger size="xs" className="w-48">
+                <SelectTrigger size="xs" className="w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,24 +272,25 @@ export function SettingsMenu({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Choose your preferred color theme. "System" follows your OS setting.
-              </p>
             </div>
 
             <Separator />
 
             {/* Configuration Profiles */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Configuration Profiles</h4>
+            <div className="space-y-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
+                    Profiles
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Save/load configurations for different courses</TooltipContent>
+              </Tooltip>
               {profiles.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-xs text-muted-foreground mb-1">
-                    Active Profile: <strong>{activeProfile || "None"}</strong>
-                  </p>
+                <div className="flex gap-1">
                   <Select value={activeProfile || ""} onValueChange={handleLoadProfile}>
-                    <SelectTrigger size="xs">
-                      <SelectValue placeholder="-- Select Profile --" />
+                    <SelectTrigger size="xs" className="flex-1">
+                      <SelectValue placeholder="Select profile..." />
                     </SelectTrigger>
                     <SelectContent>
                       {profiles.map((name) => (
@@ -294,9 +300,23 @@ export function SettingsMenu({
                       ))}
                     </SelectContent>
                   </Select>
+                  {activeProfile && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleDeleteProfile(activeProfile)}
+                          size="xs"
+                        >
+                          Delete
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete selected profile</TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               )}
-              <div className="flex gap-1 mb-2">
+              <div className="flex gap-1">
                 <Input
                   placeholder="New profile name"
                   value={newProfileName}
@@ -304,67 +324,63 @@ export function SettingsMenu({
                   size="xs"
                   className="flex-1"
                 />
-                <Button onClick={handleSaveAsProfile} size="xs">
-                  Save As
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={handleSaveAsProfile} size="xs">
+                      Save As
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save current settings as new profile</TooltipContent>
+                </Tooltip>
               </div>
-              {activeProfile && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteProfile(activeProfile)}
-                  size="xs"
-                  className="w-full mb-2"
-                >
-                  Delete Current Profile
-                </Button>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Save different configurations for different courses or semesters.
-              </p>
             </div>
 
             <Separator />
 
-            {/* Current Settings File */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Current Settings File</h4>
-              <Button onClick={handleShowInExplorer} size="xs" className="mb-2">
-                Show in File Explorer
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Open the settings file location in your system's file explorer.
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Import/Export */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Import / Export</h4>
-              <div className="flex gap-2 mb-2">
-                <Button onClick={handleImport} size="xs">
-                  Import Settings...
-                </Button>
-                <Button onClick={handleExport} size="xs">
-                  Export Settings...
-                </Button>
+            {/* Actions */}
+            <div className="space-y-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
+                    Actions
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Import, export, or reset settings</TooltipContent>
+              </Tooltip>
+              <div className="flex flex-wrap gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={handleImport} size="xs" variant="outline">
+                      Import...
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Load settings from a JSON file</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={handleExport} size="xs" variant="outline">
+                      Export...
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save settings to a JSON file</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={handleShowInExplorer} size="xs" variant="outline">
+                      Show File
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reveal settings file in Finder</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="destructive" onClick={handleReset} size="xs">
+                      Reset
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reset all settings to defaults</TooltipContent>
+                </Tooltip>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Import settings from a JSON file or export current settings to share or backup.
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Reset */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Reset</h4>
-              <Button variant="destructive" onClick={handleReset} size="xs" className="mb-2">
-                Reset to Defaults
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Reset and save all settings to default values.
-              </p>
             </div>
           </div>
 
