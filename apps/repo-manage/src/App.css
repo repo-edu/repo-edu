@@ -121,16 +121,19 @@
 [data-slot="input"]::placeholder,
 [data-slot="textarea"]::placeholder,
 [data-slot="select-trigger"][data-placeholder] {
-  color: #1f1f1f;
+  color: #9c9c9c;
   opacity: 1;
+  font-style: italic;
+  font-weight: 400;
 }
 
 /* Ensure WebKit placeholder/text match weight (macOS app) */
 [data-slot="input"]::-webkit-input-placeholder,
 [data-slot="textarea"]::-webkit-input-placeholder {
-  color: #1f1f1f;
+  color: #9c9c9c;
   opacity: 1;
-  font-weight: 500;
+  font-weight: 400;
+  font-style: italic;
 }
 
 [data-slot="input"]::-webkit-text-fill-color,
