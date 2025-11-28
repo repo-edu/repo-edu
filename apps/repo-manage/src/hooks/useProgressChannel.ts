@@ -29,8 +29,7 @@ export function useProgressChannel({ onProgress }: Options) {
 export function handleProgressMessage(
   msg: string,
   append: (line: string) => void,
-  updateLast: (line: string) => void,
-  getLastLine: () => string
+  updateLast: (line: string) => void
 ) {
   const PROGRESS_PREFIX = "(progress)";
   if (msg.startsWith(PROGRESS_PREFIX)) {
