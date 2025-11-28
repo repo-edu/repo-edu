@@ -124,6 +124,44 @@ pub enum ActiveTab {
     Repo,
 }
 
+/// UI theme
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    Light,
+    Dark,
+    System,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::System
+    }
+}
+
+impl fmt::Display for Theme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Light => write!(f, "light"),
+            Self::Dark => write!(f, "dark"),
+            Self::System => write!(f, "system"),
+        }
+    }
+}
+
+impl FromStr for Theme {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "light" => Ok(Self::Light),
+            "dark" => Ok(Self::Dark),
+            "system" => Ok(Self::System),
+            _ => Err(format!("Unknown theme: {}", s)),
+        }
+    }
+}
+
 impl Default for ActiveTab {
     fn default() -> Self {
         Self::Lms

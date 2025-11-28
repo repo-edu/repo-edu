@@ -11,6 +11,8 @@
     "dialog:allow-ask",
     "dialog:allow-open",
     "core:window:allow-close",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+    "core:window:allow-set-background-color",
+    "core:window:allow-set-theme"
   ]
 }

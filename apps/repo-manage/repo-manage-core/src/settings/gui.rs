@@ -1,5 +1,5 @@
 use super::common::CommonSettings;
-use super::enums::ActiveTab;
+use super::enums::{ActiveTab, Theme};
 use super::normalization::Normalize;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,9 @@ pub struct GuiSettings {
     pub options_locked: bool,
 
     #[serde(default)]
+    pub theme: Theme,
+
+    #[serde(default)]
     pub window_width: u32,
 
     #[serde(default)]
@@ -41,6 +44,7 @@ impl Default for GuiSettings {
             active_tab: defaults::active_tab(),
             config_locked: true,
             options_locked: true,
+            theme: Theme::default(),
             window_width: 0,
             window_height: 0,
             window_x: 0,
