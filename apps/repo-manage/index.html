@@ -4,7 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri + React + Typescript</title>
+    <meta name="color-scheme" content="dark light" />
+    <title>RepoManage</title>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function() {
+        var theme = localStorage.getItem('theme') || 'system';
+        var dark = theme === 'dark' ||
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.add('theme-' + theme);
+        // Inject critical styles before CSS loads
+        var style = document.createElement('style');
+        style.textContent = 'html,body{background:' + (dark ? '#0f1115' : '#f5f5f5') + ';color:' + (dark ? '#ffffff' : '#1f1f1f') + ';min-height:100%;}';
+        document.head.appendChild(style);
+      })();
+    </script>
   </head>
 
   <body>

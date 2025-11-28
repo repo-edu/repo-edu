@@ -31,6 +31,9 @@ export function useTheme(theme: Theme) {
     // Apply the selected theme class
     root.classList.add(`theme-${theme}`);
 
+    // Cache theme in localStorage for fast initial load
+    localStorage.setItem("theme", theme);
+
     // Update Tauri window theme and background color
     const dark = isDarkMode(theme);
     const window = getCurrentWindow();

@@ -9,6 +9,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
+use tauri::Manager;
 
 const PROGRESS_PREFIX: &str = "[PROGRESS]";
 
@@ -701,6 +702,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // Force dark chrome/titlebar early to avoid light flash when user prefers dark.
+            for window in app.webview_windows().values() {
+                let _ = window.set_theme(Some(tauri::Theme::Dark));
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
