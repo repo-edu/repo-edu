@@ -326,7 +326,6 @@ function App() {
             </div>
 
             <ActionBar
-              className="shrink-0 bg-background/90 backdrop-blur border-t border-border px-1 py-1"
               right={
                 !lmsValidation.valid ? (
                   <span className="text-[11px] text-destructive">
@@ -351,7 +350,7 @@ function App() {
             </ActionBar>
 
             <div
-              className="h-2 cursor-row-resize bg-border/60 rounded-sm mx-1 shrink-0"
+              className="splitter-handle shrink-0"
               onMouseDown={beginDrag}
               title="Drag to resize"
             />
@@ -373,7 +372,6 @@ function App() {
             </div>
 
             <ActionBar
-              className="shrink-0 bg-background/90 backdrop-blur border-t border-border px-1 py-1"
               right={
                 !repoValidation.valid ? (
                   <span className="text-[11px] text-destructive">
@@ -406,7 +404,7 @@ function App() {
             </ActionBar>
 
             <div
-              className="h-2 cursor-row-resize bg-border/60 rounded-sm mx-1 shrink-0"
+              className="splitter-handle shrink-0"
               onMouseDown={beginDrag}
               title="Drag to resize"
             />

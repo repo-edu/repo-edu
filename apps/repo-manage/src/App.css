@@ -261,6 +261,40 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ring) 35%, transparent);
 }
 
+/* Splitter handle */
+.splitter-handle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8px;
+  cursor: row-resize;
+  background: var(--border);
+  border-radius: 4px;
+  margin: 0 4px;
+  opacity: 0.5;
+  transition: opacity 150ms, background 150ms;
+}
+
+.splitter-handle:hover {
+  opacity: 1;
+  background: var(--muted-foreground);
+}
+
+.splitter-handle::before {
+  content: "";
+  width: 32px;
+  height: 4px;
+  background-image: radial-gradient(circle, var(--foreground) 1px, transparent 1px);
+  background-size: 6px 2px;
+  background-position: center;
+  opacity: 0.5;
+}
+
+.splitter-handle:hover::before {
+  opacity: 0.8;
+}
+
 /* Console styling */
 .console-panel {
   background: #0d1015;
