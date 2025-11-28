@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { invoke, Channel } from "@tauri-apps/api/core";
+import { useState } from "react";
+import { Channel } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import {
   Button,
   Input,
@@ -42,11 +41,14 @@ import {
   useRepoFormStore,
   useUiStore,
   useOutputStore,
-  lmsFormInitialState,
-  repoFormInitialState,
 } from "./stores";
 import type { GuiSettings } from "./types/settings";
 import { SettingsMenu } from "./components/SettingsMenu";
+import * as settingsService from "./services/settingsService";
+import * as lmsService from "./services/lmsService";
+import { hashSnapshot } from "./utils/snapshot";
+import { useCloseGuard } from "./hooks/useCloseGuard";
+import { useLoadSettings } from "./hooks/useLoadSettings";
 import "./App.css";
 
 // Form field component for consistent styling
@@ -119,149 +121,105 @@ function App() {
   const ui = useUiStore();
   const output = useOutputStore();
 
-  // Refs for close handling
-  const settingsLoadedRef = useRef(false);
-  const isDirtyRef = useRef(false);
-  const isClosingRef = useRef(false);
-  const allowImmediateCloseRef = useRef(false);
-  const pendingCloseWindowRef = useRef<Window | null>(null);
-
-  // Track last saved state for dirty checking
-  const [lastSavedLmsForm, setLastSavedLmsForm] = useState(lmsFormInitialState);
-  const [lastSavedRepoForm, setLastSavedRepoForm] = useState(repoFormInitialState);
+  // Track last saved state for dirty checking (hashed snapshots)
+  const [lastSavedHashes, setLastSavedHashes] = useState(() => ({
+    lms: hashSnapshot(lmsForm.getState()),
+    repo: hashSnapshot(repoForm.getState()),
+  }));
 
   // Current GUI settings (for SettingsMenu)
   const [currentGuiSettings, setCurrentGuiSettings] = useState<GuiSettings | null>(null);
 
   // Compute dirty state
   const isDirty =
-    JSON.stringify(lmsForm.getState()) !== JSON.stringify(lastSavedLmsForm) ||
-    JSON.stringify(repoForm.getState()) !== JSON.stringify(lastSavedRepoForm);
+    hashSnapshot(lmsForm.getState()) !== lastSavedHashes.lms ||
+    hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo;
 
-  // Keep ref in sync
-  useEffect(() => {
-    isDirtyRef.current = isDirty;
-  }, [isDirty]);
+  // Apply settings into stores/UI, optionally updating baseline
+  const applySettings = (settings: GuiSettings, updateBaseline = true) => {
+    setCurrentGuiSettings(settings);
 
-  // Load settings on startup
-  useEffect(() => {
-    if (!settingsLoadedRef.current) {
-      settingsLoadedRef.current = true;
-      loadSettingsFromDisk();
-    }
-  }, []);
+    // Load LMS form
+    lmsForm.loadFromSettings({
+      lmsType: (settings.lms_type || "Canvas") as "Canvas" | "Moodle",
+      baseUrl: settings.lms_base_url || "https://canvas.tue.nl",
+      customUrl: settings.lms_custom_url || "",
+      urlOption:
+        settings.lms_type !== "Canvas"
+          ? "CUSTOM"
+          : ((settings.lms_url_option || "TUE") as "TUE" | "CUSTOM"),
+      accessToken: settings.lms_access_token || "",
+      courseId: settings.lms_course_id || "",
+      courseName: settings.lms_course_name || "",
+      yamlFile: settings.lms_yaml_file || "students.yaml",
+      infoFileFolder: settings.lms_info_folder || "",
+      csvFile: settings.lms_csv_file || "student-info.csv",
+      xlsxFile: settings.lms_xlsx_file || "student-info.xlsx",
+      memberOption: (settings.lms_member_option || "(email, gitid)") as
+        | "(email, gitid)"
+        | "email"
+        | "git_id",
+      includeGroup: settings.lms_include_group ?? true,
+      includeMember: settings.lms_include_member ?? true,
+      includeInitials: settings.lms_include_initials ?? false,
+      fullGroups: settings.lms_full_groups ?? true,
+      csv: settings.lms_output_csv ?? false,
+      xlsx: settings.lms_output_xlsx ?? false,
+      yaml: settings.lms_output_yaml ?? true,
+    });
 
-  // Window close handler
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    // Load Repo form
+    repoForm.loadFromSettings({
+      accessToken: settings.git_access_token || "",
+      user: settings.git_user || "",
+      baseUrl: settings.git_base_url || "https://gitlab.tue.nl",
+      studentReposGroup: settings.git_student_repos_group || "",
+      templateGroup: settings.git_template_group || "",
+      yamlFile: settings.yaml_file || "",
+      targetFolder: settings.target_folder || "",
+      assignments: settings.assignments || "",
+      directoryLayout: (settings.directory_layout || "flat") as "by-team" | "flat" | "by-task",
+      logLevels: {
+        info: settings.log_info ?? true,
+        debug: settings.log_debug ?? false,
+        warning: settings.log_warning ?? true,
+        error: settings.log_error ?? true,
+      },
+    });
 
-    const setupCloseHandler = async () => {
-      try {
-        const currentWindow = getCurrentWindow();
+    // UI state
+    ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
+    ui.setConfigLocked(settings.config_locked ?? true);
+    ui.setOptionsLocked(settings.options_locked ?? true);
 
-        unlisten = await currentWindow.onCloseRequested(async (event) => {
-          if (allowImmediateCloseRef.current) {
-            allowImmediateCloseRef.current = false;
-            return;
-          }
-
-          if (isClosingRef.current) {
-            event.preventDefault();
-            return;
-          }
-
-          event.preventDefault();
-          isClosingRef.current = true;
-          pendingCloseWindowRef.current = currentWindow;
-
-          if (!isDirtyRef.current) {
-            allowImmediateCloseRef.current = true;
-            await pendingCloseWindowRef.current.close();
-            return;
-          }
-
-          ui.showClosePrompt();
-        });
-      } catch (error) {
-        console.error("Error setting up close handler:", error);
-      }
-    };
-
-    setupCloseHandler();
-    return () => unlisten?.();
-  }, []);
-
-  const loadSettingsFromDisk = async () => {
-    try {
-      const fileExists = await invoke<boolean>("settings_exist");
-      const settings = await invoke<GuiSettings>("load_settings");
-
-      setCurrentGuiSettings(settings);
-
-      // Load LMS form
-      lmsForm.loadFromSettings({
-        lmsType: (settings.lms_type || "Canvas") as "Canvas" | "Moodle",
-        baseUrl: settings.lms_base_url || "https://canvas.tue.nl",
-        customUrl: settings.lms_custom_url || "",
-        urlOption: settings.lms_type !== "Canvas" ? "CUSTOM" : (settings.lms_url_option || "TUE") as "TUE" | "CUSTOM",
-        accessToken: settings.lms_access_token || "",
-        courseId: settings.lms_course_id || "",
-        courseName: settings.lms_course_name || "",
-        yamlFile: settings.lms_yaml_file || "students.yaml",
-        infoFileFolder: settings.lms_info_folder || "",
-        csvFile: settings.lms_csv_file || "student-info.csv",
-        xlsxFile: settings.lms_xlsx_file || "student-info.xlsx",
-        memberOption: (settings.lms_member_option || "(email, gitid)") as "(email, gitid)" | "email" | "git_id",
-        includeGroup: settings.lms_include_group ?? true,
-        includeMember: settings.lms_include_member ?? true,
-        includeInitials: settings.lms_include_initials ?? false,
-        fullGroups: settings.lms_full_groups ?? true,
-        csv: settings.lms_output_csv ?? false,
-        xlsx: settings.lms_output_xlsx ?? false,
-        yaml: settings.lms_output_yaml ?? true,
+    if (updateBaseline) {
+      setLastSavedHashes({
+        lms: hashSnapshot(lmsForm.getState()),
+        repo: hashSnapshot(repoForm.getState()),
       });
-
-      // Load Repo form
-      repoForm.loadFromSettings({
-        accessToken: settings.git_access_token || "",
-        user: settings.git_user || "",
-        baseUrl: settings.git_base_url || "https://gitlab.tue.nl",
-        studentReposGroup: settings.git_student_repos_group || "",
-        templateGroup: settings.git_template_group || "",
-        yamlFile: settings.yaml_file || "",
-        targetFolder: settings.target_folder || "",
-        assignments: settings.assignments || "",
-        directoryLayout: (settings.directory_layout || "flat") as "by-team" | "flat" | "by-task",
-        logLevels: {
-          info: settings.log_info ?? true,
-          debug: settings.log_debug ?? false,
-          warning: settings.log_warning ?? true,
-          error: settings.log_error ?? true,
-        },
-      });
-
-      // UI state
-      ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
-      ui.setConfigLocked(settings.config_locked ?? true);
-      ui.setOptionsLocked(settings.options_locked ?? true);
-
-      // Save as baseline for dirty tracking
-      setLastSavedLmsForm(lmsForm.getState());
-      setLastSavedRepoForm(repoForm.getState());
-
-      if (fileExists) {
-        output.appendWithNewline("✓ Settings loaded from file");
-      } else {
-        output.appendWithNewline("⚠ Settings file not found, using defaults");
-        output.appendWithNewline("  Click 'Save Settings' to create a settings file");
-      }
-    } catch (error) {
-      console.error("Failed to load settings:", error);
-      output.appendWithNewline("⚠ Cannot load settings file, using default settings");
-      output.appendWithNewline(`  Error: ${error}`);
     }
   };
 
+  // Load settings once on mount
+  useLoadSettings({
+    onLoaded: (settings) => applySettings(settings, true),
+    setBaselines: setLastSavedHashes,
+    lmsState: () => lmsForm.getState(),
+    repoState: () => repoForm.getState(),
+    log: (msg) => output.appendWithNewline(msg),
+  });
+
+  // Close guard handling
+  const { handlePromptSave, handlePromptDiscard, handlePromptCancel } = useCloseGuard({
+    isDirty,
+    onShowPrompt: ui.showClosePrompt,
+    onHidePrompt: ui.hideClosePrompt,
+    onSave: async () => {
+      await saveSettingsToDisk();
+    },
+  });
+
+  // --- Settings load/save helpers ---
   const saveSettingsToDisk = async () => {
     try {
       const lms = lmsForm.getState();
@@ -305,10 +263,12 @@ function App() {
         options_locked: ui.optionsLocked,
       };
 
-      await invoke("save_settings", { settings });
+      await settingsService.saveSettings(settings);
 
-      setLastSavedLmsForm(lms);
-      setLastSavedRepoForm(repo);
+      setLastSavedHashes({
+        lms: hashSnapshot(lms),
+        repo: hashSnapshot(repo),
+      });
 
       output.appendWithNewline("✓ Settings saved to file");
     } catch (error) {
@@ -323,17 +283,12 @@ function App() {
     output.appendWithNewline(`Verifying ${lmsLabel} course...`);
 
     try {
-      const result = await invoke<{ success: boolean; message: string; details?: string }>(
-        "verify_lms_course",
-        {
-          params: {
-            base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-            access_token: lms.accessToken,
-            course_id: lms.courseId,
-            lms_type: lms.lmsType,
-          },
-        }
-      );
+      const result = await lmsService.verifyLmsCourse({
+        base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
+        access_token: lms.accessToken,
+        course_id: lms.courseId,
+        lms_type: lms.lmsType,
+      });
 
       output.appendWithNewline(result.message);
       if (result.details) {
@@ -367,29 +322,26 @@ function App() {
         }
       };
 
-      const result = await invoke<{ success: boolean; message: string; details?: string }>(
-        "generate_lms_files",
+      const result = await lmsService.generateLmsFiles(
         {
-          params: {
-            base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-            access_token: lms.accessToken,
-            course_id: lms.courseId,
-            lms_type: lms.lmsType,
-            yaml_file: lms.yamlFile,
-            info_file_folder: lms.infoFileFolder,
-            csv_file: lms.csvFile,
-            xlsx_file: lms.xlsxFile,
-            member_option: lms.memberOption,
-            include_group: lms.includeGroup,
-            include_member: lms.includeMember,
-            include_initials: lms.includeInitials,
-            full_groups: lms.fullGroups,
-            csv: lms.csv,
-            xlsx: lms.xlsx,
-            yaml: lms.yaml,
-          },
-          progress,
-        }
+          base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
+          access_token: lms.accessToken,
+          course_id: lms.courseId,
+          lms_type: lms.lmsType,
+          yaml_file: lms.yamlFile,
+          info_file_folder: lms.infoFileFolder,
+          csv_file: lms.csvFile,
+          xlsx_file: lms.xlsxFile,
+          member_option: lms.memberOption,
+          include_group: lms.includeGroup,
+          include_member: lms.includeMember,
+          include_initials: lms.includeInitials,
+          full_groups: lms.fullGroups,
+          csv: lms.csv,
+          xlsx: lms.xlsx,
+          yaml: lms.yaml,
+        },
+        progress
       );
 
       output.appendWithNewline(result.message);
@@ -415,80 +367,8 @@ function App() {
     }
   };
 
-  const handleClosePromptSave = async () => {
-    await saveSettingsToDisk();
-    ui.hideClosePrompt();
-    allowImmediateCloseRef.current = true;
-    isClosingRef.current = false;
-    await pendingCloseWindowRef.current?.close();
-  };
-
-  const handleClosePromptDiscard = async () => {
-    ui.hideClosePrompt();
-    allowImmediateCloseRef.current = true;
-    isClosingRef.current = false;
-    await pendingCloseWindowRef.current?.close();
-  };
-
-  const handleClosePromptCancel = () => {
-    ui.hideClosePrompt();
-    pendingCloseWindowRef.current = null;
-    isClosingRef.current = false;
-  };
-
   const handleSettingsLoaded = (settings: GuiSettings) => {
-    setCurrentGuiSettings(settings);
-
-    // Load LMS form
-    lmsForm.loadFromSettings({
-      lmsType: (settings.lms_type || "Canvas") as "Canvas" | "Moodle",
-      baseUrl: settings.lms_base_url || "https://canvas.tue.nl",
-      customUrl: settings.lms_custom_url || "",
-      urlOption: settings.lms_type !== "Canvas" ? "CUSTOM" : (settings.lms_url_option || "TUE") as "TUE" | "CUSTOM",
-      accessToken: settings.lms_access_token || "",
-      courseId: settings.lms_course_id || "",
-      courseName: settings.lms_course_name || "",
-      yamlFile: settings.lms_yaml_file || "students.yaml",
-      infoFileFolder: settings.lms_info_folder || "",
-      csvFile: settings.lms_csv_file || "student-info.csv",
-      xlsxFile: settings.lms_xlsx_file || "student-info.xlsx",
-      memberOption: (settings.lms_member_option || "(email, gitid)") as "(email, gitid)" | "email" | "git_id",
-      includeGroup: settings.lms_include_group ?? true,
-      includeMember: settings.lms_include_member ?? true,
-      includeInitials: settings.lms_include_initials ?? false,
-      fullGroups: settings.lms_full_groups ?? true,
-      csv: settings.lms_output_csv ?? false,
-      xlsx: settings.lms_output_xlsx ?? false,
-      yaml: settings.lms_output_yaml ?? true,
-    });
-
-    // Load Repo form
-    repoForm.loadFromSettings({
-      accessToken: settings.git_access_token || "",
-      user: settings.git_user || "",
-      baseUrl: settings.git_base_url || "https://gitlab.tue.nl",
-      studentReposGroup: settings.git_student_repos_group || "",
-      templateGroup: settings.git_template_group || "",
-      yamlFile: settings.yaml_file || "",
-      targetFolder: settings.target_folder || "",
-      assignments: settings.assignments || "",
-      directoryLayout: (settings.directory_layout || "flat") as "by-team" | "flat" | "by-task",
-      logLevels: {
-        info: settings.log_info ?? true,
-        debug: settings.log_debug ?? false,
-        warning: settings.log_warning ?? true,
-        error: settings.log_error ?? true,
-      },
-    });
-
-    // UI state
-    ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
-    ui.setConfigLocked(settings.config_locked ?? true);
-    ui.setOptionsLocked(settings.options_locked ?? true);
-
-    // Save as baseline for dirty tracking
-    setLastSavedLmsForm(lmsForm.getState());
-    setLastSavedRepoForm(repoForm.getState());
+    applySettings(settings, true);
   };
 
   return (
@@ -968,7 +848,7 @@ function App() {
       </Dialog>
 
       {/* Close Confirmation Dialog */}
-      <Dialog open={ui.closePromptVisible} onOpenChange={(open) => !open && handleClosePromptCancel()}>
+      <Dialog open={ui.closePromptVisible} onOpenChange={(open) => !open && handlePromptCancel()}>
         <DialogContent size="compact" showCloseButton={false}>
           <DialogHeader size="compact">
             <DialogTitle size="compact">Unsaved Changes</DialogTitle>
@@ -977,13 +857,13 @@ function App() {
             You have unsaved changes. Do you want to save before closing?
           </p>
           <DialogFooter>
-            <Button size="xs" variant="outline" onClick={handleClosePromptCancel}>
+            <Button size="xs" variant="outline" onClick={handlePromptCancel}>
               Cancel
             </Button>
-            <Button size="xs" variant="destructive" onClick={handleClosePromptDiscard}>
+            <Button size="xs" variant="destructive" onClick={handlePromptDiscard}>
               Discard
             </Button>
-            <Button size="xs" onClick={handleClosePromptSave}>
+            <Button size="xs" onClick={handlePromptSave}>
               Save & Close
             </Button>
           </DialogFooter>
