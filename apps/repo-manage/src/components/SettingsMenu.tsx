@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -31,6 +30,7 @@ import {
 import { Separator } from "@repo-edu/ui/components/ui/separator";
 import { AlertCircle } from "@repo-edu/ui/components/icons";
 import type { GuiSettings } from "../types/settings";
+import * as settingsService from "../services/settingsService";
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -62,7 +62,7 @@ export function SettingsMenu({
   // Load current settings path when menu opens
   const loadSettingsPath = async () => {
     try {
-      const path = await invoke<string>("get_settings_path");
+      const path = await settingsService.getSettingsPath();
       setSettingsPath(path);
     } catch (error) {
       console.error("Failed to get settings path:", error);
@@ -72,9 +72,9 @@ export function SettingsMenu({
   // Load profiles and active profile
   const loadProfiles = async () => {
     try {
-      const profileList = await invoke<string[]>("list_profiles");
+      const profileList = await settingsService.listProfiles();
       setProfiles(profileList);
-      const active = await invoke<string | null>("get_active_profile");
+      const active = await settingsService.getActiveProfile();
       setActiveProfile(active);
     } catch (error) {
       console.error("Failed to load profiles:", error);
@@ -98,7 +98,7 @@ export function SettingsMenu({
   const handleLoadProfile = async (name: string) => {
     if (!name) return;
     try {
-      const settings = await invoke<GuiSettings>("load_profile", { name });
+      const settings = await settingsService.loadProfile(name);
       onSettingsLoaded(settings);
       setActiveProfile(name);
       showSuccessFlash();
@@ -114,7 +114,7 @@ export function SettingsMenu({
       return;
     }
     try {
-      await invoke("save_profile", { name: newProfileName, settings: currentSettings });
+      await settingsService.saveProfile(newProfileName, currentSettings);
       showSuccessFlash();
       onMessage(`✓ Saved profile: ${newProfileName}`);
       setNewProfileName("");
@@ -131,7 +131,7 @@ export function SettingsMenu({
       description: `Delete profile "${name}"?`,
       onConfirm: async () => {
         try {
-          await invoke("delete_profile", { name });
+          await settingsService.deleteProfile(name);
           showSuccessFlash();
           onMessage(`✓ Deleted profile: ${name}`);
           await loadProfiles();
@@ -153,9 +153,7 @@ export function SettingsMenu({
       });
 
       if (filePath && typeof filePath === "string") {
-        const settings = await invoke<GuiSettings>("import_settings", {
-          path: filePath,
-        });
+        const settings = await settingsService.importSettings(filePath);
         onSettingsLoaded(settings);
         showSuccessFlash();
         onMessage(`✓ Settings imported from: ${filePath}`);
@@ -178,10 +176,7 @@ export function SettingsMenu({
       });
 
       if (filePath) {
-        await invoke("export_settings", {
-          settings: currentSettings,
-          path: filePath,
-        });
+        await settingsService.exportSettings(currentSettings, filePath);
         showSuccessFlash();
         onMessage(`✓ Settings exported to: ${filePath}`);
       }
@@ -197,7 +192,7 @@ export function SettingsMenu({
       description: "Are you sure you want to reset all settings to defaults? This cannot be undone.",
       onConfirm: async () => {
         try {
-          const settings = await invoke<GuiSettings>("reset_settings");
+          const settings = await settingsService.resetSettings();
           onSettingsLoaded(settings);
           showSuccessFlash();
           onMessage("✓ Settings reset to defaults");
