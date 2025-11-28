@@ -26,12 +26,12 @@ import { OptionsSection } from "./components/OptionsSection";
 import { OutputConsole } from "./components/OutputConsole";
 import * as settingsService from "./services/settingsService";
 import * as lmsService from "./services/lmsService";
-import * as repoService from "./services/repoService";
 import { hashSnapshot } from "./utils/snapshot";
 import { useCloseGuard } from "./hooks/useCloseGuard";
 import { useLoadSettings } from "./hooks/useLoadSettings";
-import { useProgressChannel, handleProgressMessage } from "./hooks/useProgressChannel";
 import { useTheme } from "./hooks/useTheme";
+import { useLmsActions } from "./hooks/useLmsActions";
+import { useRepoActions } from "./hooks/useRepoActions";
 import { validateLms, validateRepo } from "./validation/forms";
 import "./App.css";
 
@@ -41,6 +41,10 @@ function App() {
   const repoForm = useRepoFormStore();
   const ui = useUiStore();
   const output = useOutputStore();
+
+  // Action hooks
+  const { verifyLmsCourse, handleGenerateFiles } = useLmsActions();
+  const { handleVerifyConfig, handleCreateRepos } = useRepoActions();
 
   // Track last saved state for dirty checking (hashed snapshots)
   const [lastSavedHashes, setLastSavedHashes] = useState(() => ({
@@ -202,134 +206,6 @@ function App() {
     } catch (error) {
       console.error("Failed to save settings:", error);
       output.appendWithNewline(`⚠ Failed to save settings: ${error}`);
-    }
-  };
-
-  const verifyLmsCourse = async () => {
-    if (!lmsValidation.valid) {
-      output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first");
-      return;
-    }
-    const lms = lmsForm.getState();
-    const lmsLabel = lms.lmsType || "LMS";
-    output.appendWithNewline(`Verifying ${lmsLabel} course...`);
-
-    try {
-      const result = await lmsService.verifyLmsCourse({
-        base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-        access_token: lms.accessToken,
-        course_id: lms.courseId,
-        lms_type: lms.lmsType,
-      });
-
-      output.appendWithNewline(result.message);
-      if (result.details) {
-        output.appendWithNewline(result.details);
-      }
-
-      // Extract course name from details and update form
-      if (result.details) {
-        const match = result.details.match(/Course Name: (.+)/);
-        if (match) {
-          lmsForm.setField("courseName", match[1]);
-        }
-      }
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
-    }
-  };
-
-  const handleGenerateFiles = async () => {
-    output.appendWithNewline("Generating student info files...");
-
-    try {
-      const lms = lmsForm.getState();
-      const progress = useProgressChannel({
-        onProgress: (line) =>
-          handleProgressMessage(line, output.appendWithNewline, output.updateLastLine),
-      });
-
-      const result = await lmsService.generateLmsFiles(
-        {
-          base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-          access_token: lms.accessToken,
-          course_id: lms.courseId,
-          lms_type: lms.lmsType,
-          yaml_file: lms.yamlFile,
-          info_file_folder: lms.infoFileFolder,
-          csv_file: lms.csvFile,
-          xlsx_file: lms.xlsxFile,
-          member_option: lms.memberOption,
-          include_group: lms.includeGroup,
-          include_member: lms.includeMember,
-          include_initials: lms.includeInitials,
-          full_groups: lms.fullGroups,
-          csv: lms.csv,
-          xlsx: lms.xlsx,
-          yaml: lms.yaml,
-        },
-        progress
-      );
-
-      output.appendWithNewline(result.message);
-      if (result.details) {
-        output.appendWithNewline(result.details);
-      }
-    } catch (error) {
-      output.appendWithNewline(`⚠ Error: ${error}`);
-    }
-  };
-
-  const handleVerifyConfig = async () => {
-    if (!repoValidation.valid) {
-      output.appendWithNewline("⚠ Cannot verify: fix repo form errors first");
-      return;
-    }
-    const repo = repoForm.getState();
-    output.appendWithNewline("Verifying configuration...");
-    try {
-      const result = await repoService.verifyConfig({
-        access_token: repo.accessToken,
-        user: repo.user,
-        base_url: repo.baseUrl,
-        student_repos_group: repo.studentReposGroup,
-        template_group: repo.templateGroup,
-      });
-      output.appendWithNewline(result.message);
-      if (result.details) {
-        output.appendWithNewline(result.details);
-      }
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
-    }
-  };
-
-  const handleCreateRepos = async () => {
-    if (!repoValidation.valid) {
-      output.appendWithNewline("⚠ Cannot create repos: fix repo form errors first");
-      return;
-    }
-    const repo = repoForm.getState();
-    output.appendWithNewline("Creating student repositories...");
-    output.appendWithNewline(`Teams: ${repo.yamlFile}`);
-    output.appendWithNewline(`Assignments: ${repo.assignments}`);
-    output.appendWithNewline("");
-    try {
-      const result = await repoService.setupRepos({
-        config: {
-          access_token: repo.accessToken,
-          user: repo.user,
-          base_url: repo.baseUrl,
-          student_repos_group: repo.studentReposGroup,
-          template_group: repo.templateGroup,
-        },
-        yaml_file: repo.yamlFile,
-        assignments: repo.assignments,
-      });
-      if (result.message) output.appendWithNewline(result.message);
-      if (result.details) output.appendWithNewline(result.details);
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
     }
   };
 
