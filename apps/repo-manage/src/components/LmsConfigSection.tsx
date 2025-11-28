@@ -21,7 +21,14 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
   const ui = useUiStore();
 
   return (
-    <Section title="LMS Configuration">
+    <Section
+      title="LMS Configuration"
+      action={
+        <Button size="xs" onClick={onVerify}>
+          Verify
+        </Button>
+      }
+    >
       <FormField label="LMS Type" tooltip="Learning Management System type">
         <Select
           value={lmsForm.lmsType}
@@ -96,20 +103,15 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
 
       <FormField
         label="Course ID"
-        tooltip="The numeric course ID from your LMS. Click 'Verify' to check if the course exists and load its name."
+        tooltip="The numeric course ID from your LMS"
       >
-        <div className="flex gap-1 flex-1">
-          <Input
-            size="xs"
-            value={lmsForm.courseId}
-            onChange={(e) => lmsForm.setField("courseId", e.target.value)}
-            placeholder="12345"
-            className="flex-1"
-          />
-          <Button size="xs" onClick={onVerify}>
-            Verify
-          </Button>
-        </div>
+        <Input
+          size="xs"
+          value={lmsForm.courseId}
+          onChange={(e) => lmsForm.setField("courseId", e.target.value)}
+          placeholder="12345"
+          className="flex-1"
+        />
       </FormField>
     </Section>
   );

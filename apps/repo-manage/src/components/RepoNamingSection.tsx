@@ -16,43 +16,45 @@ export function RepoNamingSection() {
 
   return (
     <Section title="Repository Naming">
-      <div className="flex items-center gap-4 ml-28">
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id="include-group"
-            checked={lmsForm.includeGroup}
-            onCheckedChange={(c) => lmsForm.setField("includeGroup", c === true)}
-            size="xs"
-          />
-          <Label htmlFor="include-group" size="xs">
-            Group name
-          </Label>
+      <FormField label="Include" tooltip="Components to include in repository names">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id="include-group"
+              checked={lmsForm.includeGroup}
+              onCheckedChange={(c) => lmsForm.setField("includeGroup", c === true)}
+              size="xs"
+            />
+            <Label htmlFor="include-group" size="xs">
+              Group name
+            </Label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id="include-member"
+              checked={lmsForm.includeMember}
+              onCheckedChange={(c) => lmsForm.setField("includeMember", c === true)}
+              size="xs"
+            />
+            <Label htmlFor="include-member" size="xs">
+              Member names
+            </Label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id="include-initials"
+              checked={lmsForm.includeInitials}
+              onCheckedChange={(c) => lmsForm.setField("includeInitials", c === true)}
+              size="xs"
+            />
+            <Label htmlFor="include-initials" size="xs">
+              Initials
+            </Label>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id="include-member"
-            checked={lmsForm.includeMember}
-            onCheckedChange={(c) => lmsForm.setField("includeMember", c === true)}
-            size="xs"
-          />
-          <Label htmlFor="include-member" size="xs">
-            Member names
-          </Label>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id="include-initials"
-            checked={lmsForm.includeInitials}
-            onCheckedChange={(c) => lmsForm.setField("includeInitials", c === true)}
-            size="xs"
-          />
-          <Label htmlFor="include-initials" size="xs">
-            Initials
-          </Label>
-        </div>
-      </div>
+      </FormField>
 
-      <FormField label="Member Format">
+      <FormField label="Member Format" tooltip="How member info is formatted in output">
         <Select
           value={lmsForm.memberOption}
           onValueChange={(v) =>
