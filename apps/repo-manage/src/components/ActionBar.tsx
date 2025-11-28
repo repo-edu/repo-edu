@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { Card, CardContent } from "@repo-edu/ui";
 
 interface ActionBarProps {
   children: React.ReactNode;
@@ -8,10 +9,12 @@ interface ActionBarProps {
 
 export const ActionBar = forwardRef<HTMLDivElement, ActionBarProps>(
   ({ children, right, className }, ref) => (
-    <div ref={ref} className={`flex gap-2 mt-1 items-center ${className ?? ""}`}>
-      <div className="flex gap-2 items-center">{children}</div>
-      {right}
-    </div>
+    <Card ref={ref} size="compact" className={`shrink-0 ${className ?? ""}`}>
+      <CardContent size="compact" className="flex gap-2 items-center py-1.5">
+        <div className="flex gap-2 items-center">{children}</div>
+        {right && <div className="ml-auto">{right}</div>}
+      </CardContent>
+    </Card>
   )
 );
 
