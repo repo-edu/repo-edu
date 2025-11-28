@@ -14,7 +14,9 @@
       {
         "title": "RepoManage",
         "width": 700,
-        "height": 900
+        "height": 900,
+        "transparent": true,
+        "backgroundColor": "#0f1115"
       }
     ],
     "security": {
