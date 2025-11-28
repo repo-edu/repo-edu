@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Button,
@@ -65,6 +65,74 @@ function App() {
 
   const lmsValidation = validateLms(lmsForm.getState());
   const repoValidation = validateRepo(repoForm.getState());
+
+  // Settings panel height (pixels) - console takes remaining space via flex
+  const [settingsHeight, setSettingsHeight] = useState(400);
+  const dragRef = useRef<{ startY: number; startH: number; maxH: number } | null>(null);
+  const lmsScrollRef = useRef<HTMLDivElement | null>(null);
+  const repoScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const getActiveScrollRef = () =>
+    ui.activeTab === "lms" ? lmsScrollRef.current : repoScrollRef.current;
+
+  const measureContentHeight = (el: HTMLDivElement | null) => {
+    if (!el) return 0;
+    const prev = el.style.height;
+    el.style.height = "auto";
+    const h = el.scrollHeight;
+    el.style.height = prev;
+    return h;
+  };
+
+  // Clamp settings height when switching tabs to avoid empty space
+  useEffect(() => {
+    // Delay to allow new tab content to render and measure correctly
+    const timer = requestAnimationFrame(() => {
+      const el = getActiveScrollRef();
+      const maxH = measureContentHeight(el);
+      if (maxH > 0) {
+        setSettingsHeight((prev) => Math.min(prev, maxH));
+      }
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [ui.activeTab]);
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = e.clientY - dragRef.current.startY;
+      // Dragging down = increase settings height, up = decrease
+      // Cap at content height (maxH) to prevent empty space
+      const next = Math.min(
+        Math.max(dragRef.current.startH + delta, 100),
+        dragRef.current.maxH
+      );
+      setSettingsHeight(next);
+    };
+    const handleUp = () => {
+      dragRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, []);
+
+  const beginDrag = (e: React.MouseEvent) => {
+    const el = getActiveScrollRef();
+    const maxH = measureContentHeight(el) || 800;
+    dragRef.current = {
+      startY: e.clientY,
+      startH: settingsHeight,
+      maxH,
+    };
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  };
 
   // Apply settings into stores/UI, optionally updating baseline
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
@@ -245,77 +313,105 @@ function App() {
         </TabsList>
 
         {/* LMS Import Tab */}
-        <TabsContent value="lms" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <LmsConfigSection onVerify={verifyLmsCourse} />
-          <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
-          <RepoNamingSection />
+        <TabsContent value="lms" className="flex-1 flex flex-col min-h-0 p-1">
+          <div className="flex-1 flex flex-col min-h-0 gap-1">
+            <div
+              ref={lmsScrollRef}
+              className="overflow-auto space-y-1 shrink-0"
+              style={{ height: settingsHeight }}
+            >
+              <LmsConfigSection onVerify={verifyLmsCourse} />
+              <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
+              <RepoNamingSection />
+            </div>
 
-          <ActionBar
-            right={
-              !lmsValidation.valid ? (
-                <span className="text-[11px] text-destructive">
-                  {lmsValidation.errors[0]}
-                  {lmsValidation.errors.length > 1 ? " (+ more)" : ""}
-                </span>
-              ) : null
-            }
-          >
-            <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
-              Generate Files
-            </Button>
-            <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
-              Settings...
-            </Button>
-            <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
-              Save Settings
-            </Button>
-            <Button size="xs" variant="outline" onClick={() => output.clear()}>
-              Clear History
-            </Button>
-          </ActionBar>
+            <ActionBar
+              className="shrink-0 bg-background/90 backdrop-blur border-t border-border px-1 py-1"
+              right={
+                !lmsValidation.valid ? (
+                  <span className="text-[11px] text-destructive">
+                    {lmsValidation.errors[0]}
+                    {lmsValidation.errors.length > 1 ? " (+ more)" : ""}
+                  </span>
+                ) : null
+              }
+            >
+              <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
+                Generate Files
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
+                Settings...
+              </Button>
+              <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
+                Save Settings
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => output.clear()}>
+                Clear History
+              </Button>
+            </ActionBar>
 
-          <OutputConsole />
+            <div
+              className="h-2 cursor-row-resize bg-border/60 rounded-sm mx-1 shrink-0"
+              onMouseDown={beginDrag}
+              title="Drag to resize"
+            />
+            <OutputConsole />
+          </div>
         </TabsContent>
 
         {/* Repository Setup Tab */}
-        <TabsContent value="repo" className="flex-1 flex flex-col gap-1 overflow-auto p-1">
-          <GitConfigSection />
-          <LocalConfigSection onBrowseFile={handleBrowseFile} onBrowseFolder={handleBrowseFolder} />
-          <OptionsSection />
-
-          <ActionBar
-            right={
-              !repoValidation.valid ? (
-                <span className="text-[11px] text-destructive">
-                  {repoValidation.errors[0]}
-                  {repoValidation.errors.length > 1 ? " (+ more)" : ""}
-                </span>
-              ) : null
-            }
-          >
-            <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
-              Verify Config
-            </Button>
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={!repoValidation.valid}
-              onClick={handleCreateRepos}
+        <TabsContent value="repo" className="flex-1 flex flex-col min-h-0 p-1">
+          <div className="flex-1 flex flex-col min-h-0 gap-1">
+            <div
+              ref={repoScrollRef}
+              className="overflow-auto space-y-1 shrink-0"
+              style={{ height: settingsHeight }}
             >
-              Create Student Repos
-            </Button>
-            <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
-              Clone
-            </Button>
-            <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
-              Settings...
-            </Button>
-            <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
-              Save Settings
-            </Button>
-          </ActionBar>
+              <GitConfigSection />
+              <LocalConfigSection onBrowseFile={handleBrowseFile} onBrowseFolder={handleBrowseFolder} />
+              <OptionsSection />
+            </div>
 
-          <OutputConsole />
+            <ActionBar
+              className="shrink-0 bg-background/90 backdrop-blur border-t border-border px-1 py-1"
+              right={
+                !repoValidation.valid ? (
+                  <span className="text-[11px] text-destructive">
+                    {repoValidation.errors[0]}
+                    {repoValidation.errors.length > 1 ? " (+ more)" : ""}
+                  </span>
+                ) : null
+              }
+            >
+              <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
+                Verify Config
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={!repoValidation.valid}
+                onClick={handleCreateRepos}
+              >
+                Create Student Repos
+              </Button>
+              <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
+                Clone
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
+                Settings...
+              </Button>
+              <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
+                Save Settings
+              </Button>
+            </ActionBar>
+
+            <div
+              className="h-2 cursor-row-resize bg-border/60 rounded-sm mx-1 shrink-0"
+              onMouseDown={beginDrag}
+              title="Drag to resize"
+            />
+            <OutputConsole />
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -9,7 +9,21 @@ export function OptionsSection() {
   const ui = useUiStore();
 
   return (
-    <Section title="Options">
+    <Section
+      title="Options"
+      locked={ui.optionsLocked}
+      lockTooltip="Unlock to change directory layout"
+      action={
+        <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
+          {ui.optionsLocked ? (
+            <Lock className="h-4 w-4" aria-hidden />
+          ) : (
+            <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
+          )}
+          <span className="sr-only">{ui.optionsLocked ? "Unlock options" : "Lock options"}</span>
+        </Button>
+      }
+    >
       <FormField label="Directory Layout">
         <RadioGroup
           value={repoForm.directoryLayout}
@@ -48,14 +62,6 @@ export function OptionsSection() {
             </Label>
           </div>
         </RadioGroup>
-        <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
-          {ui.optionsLocked ? (
-            <Lock className="h-4 w-4" aria-hidden />
-          ) : (
-            <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
-          )}
-          <span className="sr-only">{ui.optionsLocked ? "Lock options" : "Unlock options"}</span>
-        </Button>
       </FormField>
     </Section>
   );
