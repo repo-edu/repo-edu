@@ -41,6 +41,10 @@ export async function deleteProfile(name: string): Promise<void> {
   await invoke("delete_profile", { name });
 }
 
+export async function renameProfile(oldName: string, newName: string): Promise<void> {
+  await invoke("rename_profile", { oldName, newName });
+}
+
 export async function importSettings(path: string): Promise<GuiSettings> {
   return invoke("import_settings", { path });
 }
