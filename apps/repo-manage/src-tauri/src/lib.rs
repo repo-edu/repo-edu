@@ -1,8 +1,8 @@
 use repo_manage_core::{
     create_lms_client_with_params, generate_repobee_yaml_with_progress,
     get_student_info_with_progress, get_token_generation_instructions, open_token_generation_url,
-    write_csv_file, write_yaml_file, FetchProgress, GuiSettings, LmsClientTrait, LmsCommonType,
-    LmsMemberOption, Platform, PlatformAPI, SettingsManager, StudentTeam, YamlConfig,
+    write_csv_file, write_yaml_file, AppSettings, FetchProgress, GuiSettings, LmsClientTrait,
+    LmsCommonType, LmsMemberOption, Platform, PlatformAPI, SettingsManager, StudentTeam, YamlConfig,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
@@ -153,7 +153,7 @@ async fn load_settings() -> Result<GuiSettings, String> {
     Ok(settings)
 }
 
-/// Save settings to disk
+/// Save settings to disk (both app and profile)
 #[tauri::command]
 async fn save_settings(settings: GuiSettings) -> Result<(), String> {
     let manager =
@@ -162,6 +162,19 @@ async fn save_settings(settings: GuiSettings) -> Result<(), String> {
     manager
         .save(&settings)
         .map_err(|e| format!("Failed to save settings: {}", e))?;
+
+    Ok(())
+}
+
+/// Save only app-level settings (theme, window position, etc.)
+#[tauri::command]
+async fn save_app_settings(settings: AppSettings) -> Result<(), String> {
+    let manager =
+        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
+
+    manager
+        .save_app_settings(&settings)
+        .map_err(|e| format!("Failed to save app settings: {}", e))?;
 
     Ok(())
 }
@@ -712,6 +725,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
+            save_app_settings,
             reset_settings,
             get_settings_path,
             settings_exist,

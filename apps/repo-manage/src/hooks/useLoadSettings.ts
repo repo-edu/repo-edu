@@ -29,11 +29,11 @@ export function useLoadSettings({ onLoaded, setBaselines, lmsState, repoState, l
         repo: hashSnapshot(repoState()),
       });
 
+      const activeProfile = await settingsService.getActiveProfile();
       if (fileExists) {
-        log("✓ Settings loaded from file");
+        log(`✓ Settings loaded from profile: ${activeProfile || "Default"}`);
       } else {
-        log("⚠ Settings file not found, using defaults");
-        log("  Click 'Save Settings' to create a settings file");
+        log(`✓ Created profile: ${activeProfile || "Default"}`);
       }
     } catch (error) {
       console.error("Failed to load settings:", error);

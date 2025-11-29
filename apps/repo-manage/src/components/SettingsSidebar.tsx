@@ -292,7 +292,17 @@ export function SettingsSidebar({
                 const updated = { ...currentSettings, theme: value };
                 onSettingsLoaded(updated);
                 try {
-                  await settingsService.saveSettings(updated);
+                  // Save only app settings for theme change
+                  await settingsService.saveAppSettings({
+                    theme: value,
+                    active_tab: currentSettings.active_tab,
+                    config_locked: currentSettings.config_locked,
+                    options_locked: currentSettings.options_locked,
+                    window_width: currentSettings.window_width,
+                    window_height: currentSettings.window_height,
+                    window_x: currentSettings.window_x,
+                    window_y: currentSettings.window_y,
+                  });
                   showSuccessFlash();
                 } catch (error) {
                   onMessage(`✗ Failed to save theme: ${error}`);

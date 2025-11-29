@@ -25,6 +25,21 @@ export type Theme = "light" | "dark" | "system";
 
 // ===== Settings Interfaces =====
 
+/** App-level settings stored in app.json */
+export interface AppSettings {
+  theme: Theme;
+  active_tab: ActiveTab;
+  config_locked: boolean;
+  options_locked: boolean;
+  window_width: number;
+  window_height: number;
+  window_x: number;
+  window_y: number;
+}
+
+/** Profile settings stored in profiles/<name>.json (same as CommonSettings) */
+export type ProfileSettings = CommonSettings;
+
 /** Common settings shared between CLI and GUI */
 export interface CommonSettings {
   // LMS settings
@@ -126,17 +141,22 @@ export const DEFAULT_COMMON_SETTINGS: CommonSettings = {
   log_error: true,
 };
 
-/** Default GUI settings */
-export const DEFAULT_GUI_SETTINGS: GuiSettings = {
-  ...DEFAULT_COMMON_SETTINGS,
+/** Default app settings */
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  theme: "system",
   active_tab: "lms",
   config_locked: true,
   options_locked: true,
-  theme: "system",
   window_width: 0,
   window_height: 0,
   window_x: 0,
   window_y: 0,
+};
+
+/** Default GUI settings */
+export const DEFAULT_GUI_SETTINGS: GuiSettings = {
+  ...DEFAULT_COMMON_SETTINGS,
+  ...DEFAULT_APP_SETTINGS,
 };
 
 // ===== Helper Functions =====
