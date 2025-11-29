@@ -98,9 +98,9 @@ export function SettingsSidebar({
       setProfiles(profileList);
       const active = await settingsService.getActiveProfile();
       setActiveProfile(active);
-      // Select first profile if none selected
+      // Select active profile by default, or first profile if none active
       if (!selectedProfile && profileList.length > 0) {
-        setSelectedProfile(profileList[0]);
+        setSelectedProfile(active && profileList.includes(active) ? active : profileList[0]);
       }
     } catch (error) {
       console.error("Failed to load profiles:", error);
@@ -325,7 +325,7 @@ export function SettingsSidebar({
           <Separator />
 
           {/* Active Profile */}
-          <div className="space-y-2">
+          <div className="space-y-2 p-2 -mx-2 bg-muted/50 rounded-md">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
@@ -338,7 +338,7 @@ export function SettingsSidebar({
               size="xs"
               value={activeProfile || "(none)"}
               readOnly
-              className="bg-muted text-foreground"
+              className="bg-muted !text-foreground !font-semibold !border-transparent !ring-2 !ring-primary/50"
             />
             <div className="flex gap-1">
               <Tooltip>
@@ -393,7 +393,7 @@ export function SettingsSidebar({
               value={selectedProfile || ""}
               onValueChange={(v) => setSelectedProfile(v)}
             >
-              <SelectTrigger size="xs">
+              <SelectTrigger size="xs" className="!ring-0 !ring-offset-0 !outline-none focus:!border-border">
                 <SelectValue placeholder="Select profile..." />
               </SelectTrigger>
               <SelectContent>
@@ -410,6 +410,7 @@ export function SettingsSidebar({
                   <span>
                     <Button
                       size="xs"
+                      variant="outline"
                       onClick={handleActivateProfile}
                       disabled={!selectedProfile || selectedProfile === activeProfile}
                     >
@@ -443,7 +444,8 @@ export function SettingsSidebar({
                 <TooltipTrigger asChild>
                   <Button
                     size="xs"
-                    variant="destructive"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={handleDeleteProfile}
                     disabled={!selectedProfile || selectedProfile === activeProfile}
                   >
