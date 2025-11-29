@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { GuiSettings } from "../types/settings";
+import type { AppSettings, GuiSettings } from "../types/settings";
 
 export async function settingsExist(): Promise<boolean> {
   return invoke("settings_exist");
@@ -11,6 +11,10 @@ export async function loadSettings(): Promise<GuiSettings> {
 
 export async function saveSettings(settings: Record<string, unknown>): Promise<void> {
   await invoke("save_settings", { settings });
+}
+
+export async function saveAppSettings(settings: AppSettings): Promise<void> {
+  await invoke("save_app_settings", { settings });
 }
 
 export async function resetSettings(): Promise<GuiSettings> {

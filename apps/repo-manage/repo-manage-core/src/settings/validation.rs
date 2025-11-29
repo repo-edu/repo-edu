@@ -69,12 +69,12 @@ impl Validate for GuiSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate common settings
+        // Validate profile settings
         if let Err(ConfigError::InvalidConfig {
-            errors: common_errors,
-        }) = self.common.validate()
+            errors: profile_errors,
+        }) = self.profile.validate()
         {
-            for error in common_errors {
+            for error in profile_errors {
                 errors.add(error);
             }
         }

@@ -281,7 +281,8 @@ function App() {
         repo: hashSnapshot(repo),
       });
 
-      output.appendWithNewline("✓ Settings saved to file");
+      const activeProfile = await settingsService.getActiveProfile();
+      output.appendWithNewline(`✓ Settings saved to profile: ${activeProfile || "Default"}`);
     } catch (error) {
       console.error("Failed to save settings:", error);
       output.appendWithNewline(`⚠ Failed to save settings: ${error}`);
