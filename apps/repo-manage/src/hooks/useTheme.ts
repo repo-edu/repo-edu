@@ -8,18 +8,8 @@ const LIGHT_BG = "#f5f5f5";
 const DARK_BG = "#141414";
 
 /**
- * Determine if dark mode is active based on theme setting and system preference.
- */
-function isDarkMode(theme: Theme): boolean {
-  if (theme === "dark") return true;
-  if (theme === "light") return false;
-  // "system" - check OS preference
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-/**
  * Apply the selected theme class to the document element.
- * Also updates the Tauri window background color for the title bar.
+ * Also updates the Tauri window theme for the title bar.
  */
 export function useTheme(theme: Theme) {
   useEffect(() => {
@@ -34,30 +24,46 @@ export function useTheme(theme: Theme) {
     // Cache theme in localStorage for fast initial load
     localStorage.setItem("theme", theme);
 
-    // Update Tauri window theme and background color
-    const dark = isDarkMode(theme);
-    const window = getCurrentWindow();
-    window.setTheme(dark ? "dark" : "light").catch(console.error);
-    window.setBackgroundColor(dark ? DARK_BG : LIGHT_BG).catch(console.error);
+    // Update Tauri window theme
+    const win = getCurrentWindow();
+
+    if (theme === "system") {
+      // Let Tauri follow the OS theme by passing null
+      win.setTheme(null).catch(console.error);
+    } else {
+      // Explicitly set light or dark
+      win.setTheme(theme).catch(console.error);
+    }
 
     return () => {
       THEME_CLASSES.forEach((cls) => root.classList.remove(cls));
     };
   }, [theme]);
 
-  // Listen for system theme changes when using "system" theme
+  // Update background color based on effective theme
   useEffect(() => {
-    if (theme !== "system") return;
+    const win = getCurrentWindow();
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
-      const dark = mediaQuery.matches;
-      const win = getCurrentWindow();
-      win.setTheme(dark ? "dark" : "light").catch(console.error);
+    const updateBackground = () => {
+      let dark: boolean;
+      if (theme === "dark") {
+        dark = true;
+      } else if (theme === "light") {
+        dark = false;
+      } else {
+        // system - check actual OS preference
+        dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      }
       win.setBackgroundColor(dark ? DARK_BG : LIGHT_BG).catch(console.error);
     };
 
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    updateBackground();
+
+    // Listen for system theme changes when using "system" theme
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      mediaQuery.addEventListener("change", updateBackground);
+      return () => mediaQuery.removeEventListener("change", updateBackground);
+    }
   }, [theme]);
 }
