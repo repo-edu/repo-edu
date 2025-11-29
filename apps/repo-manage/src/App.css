@@ -446,3 +446,89 @@ input.password-input[type="password"][data-slot="input"] {
 [data-slot="card-content"] > * + * {
   margin-top: 1px !important;
 }
+
+/* Settings Sidebar */
+.settings-sidebar {
+  width: 280px;
+  min-width: 280px;
+  border-left: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
+.settings-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--card-header-border);
+  background: var(--card-header-gradient);
+}
+
+.settings-sidebar-content {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-sidebar [data-slot="button"] {
+  color: var(--foreground) !important;
+}
+
+.settings-sidebar [data-slot="button"][class*="bg-primary"],
+.settings-sidebar [data-slot="button"]:not([class*="variant"]):not([class*="outline"]):not([class*="ghost"]):not([class*="destructive"]) {
+  color: var(--primary-foreground) !important;
+}
+
+.settings-sidebar [data-slot="button"][class*="destructive"] {
+  color: var(--destructive-foreground) !important;
+}
+
+.settings-sidebar .text-sm,
+.settings-sidebar span {
+  color: var(--foreground);
+}
+
+.settings-sidebar-header span {
+  color: var(--muted-foreground);
+}
+
+.settings-sidebar [data-slot="input"][readonly] {
+  color: var(--foreground) !important;
+}
+
+/* Ensure dialog buttons are visible */
+[data-slot="alert-dialog-content"] [data-slot="button"],
+[data-slot="dialog-content"] [data-slot="button"] {
+  color: var(--foreground) !important;
+}
+
+[data-slot="alert-dialog-content"] [data-slot="button"][class*="bg-primary"],
+[data-slot="dialog-content"] [data-slot="button"][class*="bg-primary"],
+[data-slot="alert-dialog-action"],
+[data-slot="dialog-content"] [data-slot="button"]:not([class*="outline"]):not([class*="ghost"]) {
+  color: var(--primary-foreground) !important;
+}
+
+/* Dialog text visibility */
+[data-slot="alert-dialog-content"],
+[data-slot="dialog-content"] {
+  color: var(--foreground);
+}
+
+[data-slot="alert-dialog-title"],
+[data-slot="dialog-title"] {
+  color: var(--foreground);
+}
+
+[data-slot="alert-dialog-description"],
+[data-slot="dialog-description"] {
+  color: var(--muted-foreground);
+}

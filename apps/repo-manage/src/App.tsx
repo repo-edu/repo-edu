@@ -6,15 +6,26 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@repo-edu/ui";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from "@repo-edu/ui/components/ui/alert-dialog";
 import {
   useLmsFormStore,
   useRepoFormStore,
   useUiStore,
   useOutputStore,
 } from "./stores";
-import type { GuiSettings } from "./types/settings";
-import { SettingsMenu } from "./components/SettingsMenu";
+import { type GuiSettings, DEFAULT_GUI_SETTINGS } from "./types/settings";
+import { SettingsSidebar } from "./components/SettingsSidebar";
 import { ActionBar } from "./components/ActionBar";
 import { TokenDialog } from "./components/TokenDialog";
 import { LmsConfigSection } from "./components/LmsConfigSection";
@@ -209,7 +220,7 @@ function App() {
   });
 
   // Close guard handling
-  const { handlePromptSave, handlePromptDiscard, handlePromptCancel } = useCloseGuard({
+  const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
     isDirty,
     onShowPrompt: ui.showClosePrompt,
     onHidePrompt: ui.hideClosePrompt,
@@ -297,20 +308,38 @@ function App() {
 
   return (
     <div className="repobee-container">
-      <Tabs
-        value={ui.activeTab}
-        onValueChange={(v) => ui.setActiveTab(v as "lms" | "repo")}
-        className="flex-1 flex flex-col min-h-0"
-        size="compact"
-      >
-        <TabsList size="compact">
-          <TabsTrigger value="lms" size="compact">
-            LMS Import
-          </TabsTrigger>
-          <TabsTrigger value="repo" size="compact">
-            Repository Setup
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-1 min-h-0">
+        <Tabs
+          value={ui.activeTab}
+          onValueChange={(v) => ui.setActiveTab(v as "lms" | "repo")}
+          className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden"
+          size="compact"
+        >
+        <div className="flex items-center">
+          <TabsList size="compact">
+            <TabsTrigger value="lms" size="compact">
+              LMS Import
+            </TabsTrigger>
+            <TabsTrigger value="repo" size="compact">
+              Repository Setup
+            </TabsTrigger>
+          </TabsList>
+          <div className="ml-auto pr-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="h-7 w-7 p-0"
+                  onClick={() => (ui.settingsMenuOpen ? ui.closeSettingsMenu() : ui.openSettingsMenu())}
+                >
+                  <span className="text-lg text-foreground">⚙</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Toggle settings panel</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
 
         {/* LMS Import Tab */}
         <TabsContent value="lms" className="flex-1 flex flex-col min-h-0 p-1">
@@ -335,18 +364,37 @@ function App() {
                 ) : null
               }
             >
-              <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
-                Generate Files
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
-                Settings...
-              </Button>
-              <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
-                Save Settings
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => output.clear()}>
-                Clear History
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
+                    Generate Files
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Generate YAML/CSV/XLSX files from LMS data</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="xs"
+                      variant={isDirty ? "default" : "outline"}
+                      onClick={saveSettingsToDisk}
+                      disabled={!isDirty}
+                    >
+                      Save
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{isDirty ? "Save settings to disk" : "No unsaved changes"}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="xs" variant="outline" onClick={() => output.clear()}>
+                    Clear History
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear console output</TooltipContent>
+              </Tooltip>
             </ActionBar>
 
             <div
@@ -381,26 +429,50 @@ function App() {
                 ) : null
               }
             >
-              <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
-                Verify Config
-              </Button>
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={!repoValidation.valid}
-                onClick={handleCreateRepos}
-              >
-                Create Student Repos
-              </Button>
-              <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
-                Clone
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => ui.openSettingsMenu()}>
-                Settings...
-              </Button>
-              <Button size="xs" variant="outline" onClick={saveSettingsToDisk}>
-                Save Settings
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
+                    Verify Config
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Verify Git platform configuration</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={!repoValidation.valid}
+                    onClick={handleCreateRepos}
+                  >
+                    Create Student Repos
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Create repositories for students</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
+                    Clone
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clone student repositories</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="xs"
+                      variant={isDirty ? "default" : "outline"}
+                      onClick={saveSettingsToDisk}
+                      disabled={!isDirty}
+                    >
+                      Save
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{isDirty ? "Save settings to disk" : "No unsaved changes"}</TooltipContent>
+              </Tooltip>
             </ActionBar>
 
             <div
@@ -411,7 +483,29 @@ function App() {
             <OutputConsole />
           </div>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+
+        {/* Settings Sidebar */}
+        {ui.settingsMenuOpen && currentGuiSettings && (
+          <SettingsSidebar
+            onClose={ui.closeSettingsMenu}
+            currentSettings={currentGuiSettings}
+            onSettingsLoaded={handleSettingsLoaded}
+            onMessage={(msg) => output.appendWithNewline(msg)}
+            isDirty={isDirty}
+            onSaved={() => {
+              setLastSavedHashes({
+                lms: hashSnapshot(lmsForm.getState()),
+                repo: hashSnapshot(repoForm.getState()),
+              });
+            }}
+            onResetToDefaults={() => {
+              // Reset to defaults without updating baseline (keeps dirty state)
+              applySettings(DEFAULT_GUI_SETTINGS, false);
+            }}
+          />
+        )}
+      </div>
 
       {/* LMS Token Dialog */}
       <TokenDialog
@@ -465,41 +559,25 @@ function App() {
       />
 
       {/* Close Confirmation Dialog */}
-      <TokenDialog
-        open={ui.closePromptVisible}
-        title="Unsaved Changes"
-        value=""
-        onChange={() => {}}
-        onClose={handlePromptCancel}
-        onSave={handlePromptSave}
-        instructions={
-          <div className="text-sm text-muted-foreground space-y-2">
-            <p>You have unsaved changes. Do you want to save before closing?</p>
-            <div className="flex gap-2">
-              <Button size="xs" variant="destructive" onClick={handlePromptDiscard}>
-                Discard
-              </Button>
-              <Button size="xs" onClick={handlePromptSave}>
-                Save & Close
-              </Button>
-              <Button size="xs" variant="outline" onClick={handlePromptCancel}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        }
-      />
+      <AlertDialog open={ui.closePromptVisible} onOpenChange={(open: boolean) => !open && handlePromptCancel()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Warning</AlertDialogTitle>
+            <AlertDialogDescription>
+              Unsaved changes will be lost when closing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button size="xs" variant="outline" onClick={handlePromptCancel}>
+              Cancel
+            </Button>
+            <Button size="xs" onClick={handlePromptDiscard}>
+              OK
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* Settings Menu */}
-      {currentGuiSettings && (
-        <SettingsMenu
-          isOpen={ui.settingsMenuOpen}
-          onClose={ui.closeSettingsMenu}
-          currentSettings={currentGuiSettings}
-          onSettingsLoaded={handleSettingsLoaded}
-          onMessage={(msg) => output.appendWithNewline(msg)}
-        />
-      )}
     </div>
   );
 }
