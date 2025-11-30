@@ -32,6 +32,7 @@ interface UiStore extends UiState {
   setTokenInstructions: (instructions: string) => void;
   openSettingsMenu: () => void;
   closeSettingsMenu: () => void;
+  setSettingsMenuOpen: (open: boolean) => void;
   showClosePrompt: () => void;
   hideClosePrompt: () => void;
   reset: () => void;
@@ -69,6 +70,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setTokenInstructions: (instructions) => set({ tokenInstructions: instructions }),
   openSettingsMenu: () => set({ settingsMenuOpen: true }),
   closeSettingsMenu: () => set({ settingsMenuOpen: false }),
+  setSettingsMenuOpen: (open) => set({ settingsMenuOpen: open }),
   showClosePrompt: () => set({ closePromptVisible: true }),
   hideClosePrompt: () => set({ closePromptVisible: false }),
   reset: () => set(initialState),

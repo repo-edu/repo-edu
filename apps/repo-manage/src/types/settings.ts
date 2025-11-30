@@ -31,10 +31,9 @@ export interface AppSettings {
   active_tab: ActiveTab;
   config_locked: boolean;
   options_locked: boolean;
+  sidebar_open: boolean;
   window_width: number;
   window_height: number;
-  window_x: number;
-  window_y: number;
 }
 
 /** Profile settings stored in profiles/<name>.json (same as CommonSettings) */
@@ -89,11 +88,10 @@ export interface GuiSettings extends CommonSettings {
   active_tab: ActiveTab;
   config_locked: boolean;
   options_locked: boolean;
+  sidebar_open: boolean;
   theme: Theme;
   window_width: number;
   window_height: number;
-  window_x: number;
-  window_y: number;
 }
 
 // ===== Default Values =====
@@ -147,10 +145,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   active_tab: "lms",
   config_locked: true,
   options_locked: true,
+  sidebar_open: false,
   window_width: 0,
   window_height: 0,
-  window_x: 0,
-  window_y: 0,
 };
 
 /** Default GUI settings */

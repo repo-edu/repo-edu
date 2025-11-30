@@ -298,10 +298,9 @@ export function SettingsSidebar({
                     active_tab: currentSettings.active_tab,
                     config_locked: currentSettings.config_locked,
                     options_locked: currentSettings.options_locked,
+                    sidebar_open: currentSettings.sidebar_open ?? false,
                     window_width: currentSettings.window_width,
                     window_height: currentSettings.window_height,
-                    window_x: currentSettings.window_x,
-                    window_y: currentSettings.window_y,
                   });
                   showSuccessFlash();
                 } catch (error) {
