@@ -33,6 +33,7 @@ import {
   TooltipContent,
 } from "@repo-edu/ui/components/ui/tooltip";
 import type { GuiSettings, Theme } from "../types/settings";
+import { getErrorMessage } from "../types/error";
 import * as settingsService from "../services/settingsService";
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
@@ -129,7 +130,7 @@ export function SettingsSidebar({
       onMessage(`✓ Saved profile: ${activeProfile}`);
       onSaved();
     } catch (error) {
-      onMessage(`✗ Failed to save profile: ${error}`);
+      onMessage(`✗ Failed to save profile: ${getErrorMessage(error)}`);
     }
   };
 
@@ -144,7 +145,7 @@ export function SettingsSidebar({
       try {
         await revealItemInDir(settingsPath);
       } catch (error) {
-        onMessage(`✗ Failed to open file explorer: ${error}`);
+        onMessage(`✗ Failed to open file explorer: ${getErrorMessage(error)}`);
       }
     }
   };
@@ -159,7 +160,7 @@ export function SettingsSidebar({
       showSuccessFlash();
       onMessage(`✓ Loaded profile: ${name}`);
     } catch (error) {
-      onMessage(`✗ Failed to load profile: ${error}`);
+      onMessage(`✗ Failed to load profile '${name}': ${getErrorMessage(error)}`);
     }
   };
 
@@ -196,7 +197,7 @@ export function SettingsSidebar({
           await loadProfiles();
           setSelectedProfile(name);
         } catch (error) {
-          onMessage(`✗ Failed to create profile: ${error}`);
+          onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`);
         }
       },
     });
@@ -227,7 +228,7 @@ export function SettingsSidebar({
             setActiveProfile(newName);
           }
         } catch (error) {
-          onMessage(`✗ Failed to rename profile: ${error}`);
+          onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`);
         }
       },
     });
@@ -253,7 +254,7 @@ export function SettingsSidebar({
           await loadProfiles();
           setSelectedProfile(profiles.find((p) => p !== selectedProfile) || null);
         } catch (error) {
-          onMessage(`✗ Failed to delete profile: ${error}`);
+          onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`);
         }
       },
     });
@@ -306,7 +307,7 @@ export function SettingsSidebar({
                   });
                   showSuccessFlash();
                 } catch (error) {
-                  onMessage(`✗ Failed to save theme: ${error}`);
+                  onMessage(`✗ Failed to save theme: ${getErrorMessage(error)}`);
                 }
               }}
             >

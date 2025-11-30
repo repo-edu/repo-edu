@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { GuiSettings } from "../types/settings";
+import { DEFAULT_GUI_SETTINGS, type GuiSettings } from "../types/settings";
+import { getErrorMessage } from "../types/error";
 import * as settingsService from "../services/settingsService";
 import { hashSnapshot } from "../utils/snapshot";
 
@@ -38,7 +39,14 @@ export function useLoadSettings({ onLoaded, setBaselines, lmsState, repoState, l
     } catch (error) {
       console.error("Failed to load settings:", error);
       log("⚠ Cannot load settings file, using default settings");
-      log(`  Error: ${error}`);
+      log(`  Error: ${getErrorMessage(error)}`);
+
+      // Apply defaults so the app remains functional
+      onLoaded(DEFAULT_GUI_SETTINGS);
+      setBaselines({
+        lms: hashSnapshot(lmsState()),
+        repo: hashSnapshot(repoState()),
+      });
     }
   }, [lmsState, repoState, onLoaded, setBaselines, log]);
 

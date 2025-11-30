@@ -93,7 +93,12 @@ impl SettingsManager {
         let mut errors = Vec::new();
         if let Err(validation_errors) = compiled.validate(json_value) {
             for error in validation_errors {
-                errors.push(format!("{} at {}", error, error.instance_path));
+                let path = error.instance_path.to_string();
+                if path.is_empty() {
+                    errors.push(error.to_string());
+                } else {
+                    errors.push(format!("{} (at {})", error, path));
+                }
             }
         }
 
@@ -115,7 +120,12 @@ impl SettingsManager {
         let mut errors = Vec::new();
         if let Err(validation_errors) = compiled.validate(json_value) {
             for error in validation_errors {
-                errors.push(format!("{} at {}", error, error.instance_path));
+                let path = error.instance_path.to_string();
+                if path.is_empty() {
+                    errors.push(error.to_string());
+                } else {
+                    errors.push(format!("{} (at {})", error, path));
+                }
             }
         }
 
@@ -172,7 +182,7 @@ impl SettingsManager {
 
         // Load active profile settings
         let profile = if let Some(profile_name) = self.get_active_profile()? {
-            self.load_profile_settings(&profile_name).unwrap_or_default()
+            self.load_profile_settings(&profile_name)?
         } else {
             ProfileSettings::default()
         };
@@ -561,8 +571,8 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = GuiSettings::default();
-        assert_eq!(settings.profile.lms_base_url, "https://canvas.tue.nl");
-        assert_eq!(settings.profile.git_base_url, "https://gitlab.tue.nl");
+        assert_eq!(settings.profile.lms.base_url, "https://canvas.tue.nl");
+        assert_eq!(settings.profile.common.git_base_url, "https://gitlab.tue.nl");
         assert_eq!(settings.app.active_tab, crate::settings::ActiveTab::Lms);
     }
 
@@ -573,8 +583,8 @@ mod tests {
         let deserialized: GuiSettings = serde_json::from_str(&json).unwrap();
 
         assert_eq!(
-            settings.profile.lms_base_url,
-            deserialized.profile.lms_base_url
+            settings.profile.lms.base_url,
+            deserialized.profile.lms.base_url
         );
         assert_eq!(settings.app.active_tab, deserialized.app.active_tab);
     }
