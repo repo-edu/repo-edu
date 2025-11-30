@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window";
 import {
   Button,
   Tabs,
@@ -201,6 +202,7 @@ function App() {
     ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
     ui.setConfigLocked(settings.config_locked ?? true);
     ui.setOptionsLocked(settings.options_locked ?? true);
+    ui.setSettingsMenuOpen(settings.sidebar_open ?? false);
 
     if (updateBaseline) {
       setLastSavedHashes({
@@ -218,6 +220,73 @@ function App() {
     repoState: () => repoForm.getState(),
     log: (msg) => output.appendWithNewline(msg),
   });
+
+  // Restore window size from settings, then show window
+  const windowRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!currentGuiSettings || windowRestoredRef.current) return;
+    windowRestoredRef.current = true;
+
+    const win = getCurrentWindow();
+    const { window_width, window_height } = currentGuiSettings;
+
+    const restoreAndShow = async () => {
+      if (window_width > 100 && window_height > 100) {
+        await win.setSize(new PhysicalSize(window_width, window_height));
+        await win.center();
+      }
+      await win.show();
+    };
+
+    restoreAndShow().catch((e) => console.error("Failed to restore window", e));
+  }, [currentGuiSettings]);
+
+  const saveWindowState = useCallback(async () => {
+    const win = getCurrentWindow();
+    try {
+      const size = await win.innerSize();
+      await settingsService.saveAppSettings({
+        theme: currentGuiSettings?.theme ?? "system",
+        active_tab: ui.activeTab === "repo" ? "repo" : "lms",
+        config_locked: ui.configLocked,
+        options_locked: ui.optionsLocked,
+        sidebar_open: ui.settingsMenuOpen ?? false,
+        window_width: size.width,
+        window_height: size.height,
+      });
+    } catch (error) {
+      console.error("Failed to save window state:", error);
+    }
+  }, [currentGuiSettings?.theme, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen]);
+
+  // Save window size on close and on resize (debounced)
+  useEffect(() => {
+    const win = getCurrentWindow();
+
+    const unlistenClose = win.onCloseRequested(async (event) => {
+      event.preventDefault();
+      await saveWindowState();
+      await win.destroy();
+    });
+
+    let debounce: number | undefined;
+    const scheduleSave = () => {
+      if (debounce) {
+        clearTimeout(debounce);
+      }
+      debounce = window.setTimeout(() => {
+        saveWindowState();
+      }, 300);
+    };
+
+    const unlistenResize = win.onResized(scheduleSave);
+
+    return () => {
+      unlistenClose.then((fn) => fn());
+      unlistenResize.then((fn) => fn());
+      if (debounce) clearTimeout(debounce);
+    };
+  }, [saveWindowState]);
 
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
@@ -307,6 +376,28 @@ function App() {
     applySettings(settings, true);
   };
 
+  const handleToggleSettingsSidebar = async () => {
+    const newState = !ui.settingsMenuOpen;
+    ui.setSettingsMenuOpen(newState);
+
+    // Save to app.json
+    if (currentGuiSettings) {
+      try {
+        await settingsService.saveAppSettings({
+          theme: currentGuiSettings.theme,
+          active_tab: currentGuiSettings.active_tab,
+          config_locked: currentGuiSettings.config_locked,
+          options_locked: currentGuiSettings.options_locked,
+          sidebar_open: newState,
+          window_width: currentGuiSettings.window_width,
+          window_height: currentGuiSettings.window_height,
+        });
+      } catch (error) {
+        console.error("Failed to save sidebar state:", error);
+      }
+    }
+  };
+
   return (
     <div className="repobee-container">
       <div className="flex flex-1 min-h-0">
@@ -332,7 +423,7 @@ function App() {
                   size="xs"
                   variant="outline"
                   className="h-7 w-7 p-0"
-                  onClick={() => (ui.settingsMenuOpen ? ui.closeSettingsMenu() : ui.openSettingsMenu())}
+                  onClick={handleToggleSettingsSidebar}
                 >
                   <span className="text-lg text-foreground">⚙</span>
                 </Button>
@@ -489,7 +580,7 @@ function App() {
         {/* Settings Sidebar */}
         {ui.settingsMenuOpen && currentGuiSettings && (
           <SettingsSidebar
-            onClose={ui.closeSettingsMenu}
+            onClose={handleToggleSettingsSidebar}
             currentSettings={currentGuiSettings}
             onSettingsLoaded={handleSettingsLoaded}
             onMessage={(msg) => output.appendWithNewline(msg)}

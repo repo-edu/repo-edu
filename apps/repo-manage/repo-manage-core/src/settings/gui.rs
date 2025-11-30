@@ -21,16 +21,13 @@ pub struct AppSettings {
     pub options_locked: bool,
 
     #[serde(default)]
+    pub sidebar_open: bool,
+
+    #[serde(default)]
     pub window_width: u32,
 
     #[serde(default)]
     pub window_height: u32,
-
-    #[serde(default)]
-    pub window_x: i32,
-
-    #[serde(default)]
-    pub window_y: i32,
 }
 
 impl Default for AppSettings {
@@ -40,10 +37,9 @@ impl Default for AppSettings {
             active_tab: defaults::active_tab(),
             config_locked: defaults::config_locked(),
             options_locked: defaults::options_locked(),
+            sidebar_open: false,
             window_width: 0,
             window_height: 0,
-            window_x: 0,
-            window_y: 0,
         }
     }
 }
