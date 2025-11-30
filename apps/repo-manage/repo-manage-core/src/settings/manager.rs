@@ -1,6 +1,7 @@
 use super::atomic::atomic_write_json;
 use super::error::{ConfigError, ConfigResult};
-use super::gui::{AppSettings, GuiSettings, ProfileSettings};
+use super::common::ProfileSettings;
+use super::gui::{AppSettings, GuiSettings};
 use super::normalization::Normalize;
 use super::validation::Validate;
 use schemars::schema_for;

@@ -1,4 +1,4 @@
-use super::common::CommonSettings;
+use super::common::{CommonSettings, LmsSettings, ProfileSettings, RepoSettings};
 use super::error::{ConfigError, ConfigResult};
 use super::gui::GuiSettings;
 use chrono::NaiveDate;
@@ -47,18 +47,60 @@ impl Validate for CommonSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate LMS settings
-        if !self.lms_base_url.is_empty() && !is_valid_url(&self.lms_base_url) {
-            errors.add_field("lms_base_url", "must be a valid URL");
-        }
-
-        if !self.lms_custom_url.is_empty() && !is_valid_url(&self.lms_custom_url) {
-            errors.add_field("lms_custom_url", "must be a valid URL");
-        }
-
-        // Validate Git settings
+        // Validate Git URL
         if !self.git_base_url.is_empty() && !is_valid_url(&self.git_base_url) {
-            errors.add_field("git_base_url", "must be a valid URL");
+            errors.add_field("common.git_base_url", "must be a valid URL");
+        }
+
+        errors.into_result(())
+    }
+}
+
+impl Validate for LmsSettings {
+    fn validate(&self) -> ConfigResult<()> {
+        let mut errors = ValidationErrors::new();
+
+        // Validate LMS URLs
+        if !self.base_url.is_empty() && !is_valid_url(&self.base_url) {
+            errors.add_field("lms.base_url", "must be a valid URL");
+        }
+
+        if !self.custom_url.is_empty() && !is_valid_url(&self.custom_url) {
+            errors.add_field("lms.custom_url", "must be a valid URL");
+        }
+
+        errors.into_result(())
+    }
+}
+
+impl Validate for RepoSettings {
+    fn validate(&self) -> ConfigResult<()> {
+        // No URL validation needed for repo settings currently
+        Ok(())
+    }
+}
+
+impl Validate for ProfileSettings {
+    fn validate(&self) -> ConfigResult<()> {
+        let mut errors = ValidationErrors::new();
+
+        // Validate each section
+        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.common.validate() {
+            for error in section_errors {
+                errors.add(error);
+            }
+        }
+
+        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.lms.validate() {
+            for error in section_errors {
+                errors.add(error);
+            }
+        }
+
+        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.repo.validate() {
+            for error in section_errors {
+                errors.add(error);
+            }
         }
 
         errors.into_result(())
@@ -353,20 +395,6 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_common_settings_invalid_lms_url() {
-        let mut settings = CommonSettings::default();
-        settings.lms_base_url = "invalid-url".to_string();
-        assert!(settings.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_common_settings_invalid_custom_url() {
-        let mut settings = CommonSettings::default();
-        settings.lms_custom_url = "not-a-url".to_string();
-        assert!(settings.validate().is_err());
-    }
-
-    #[test]
     fn test_validate_common_settings_invalid_git_url() {
         let mut settings = CommonSettings::default();
         settings.git_base_url = "ftp://invalid".to_string();
@@ -374,27 +402,36 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_common_settings_multiple_errors() {
-        let mut settings = CommonSettings::default();
-        settings.lms_base_url = "invalid1".to_string();
-        settings.git_base_url = "invalid2".to_string();
-
-        let result = settings.validate();
-        assert!(result.is_err());
-
-        if let Err(ConfigError::InvalidConfig { errors }) = result {
-            assert!(errors.len() >= 2);
-        } else {
-            panic!("Expected InvalidConfig error with multiple errors");
-        }
+    fn test_validate_lms_settings_default() {
+        let settings = LmsSettings::default();
+        assert!(settings.validate().is_ok());
     }
 
     #[test]
-    fn test_validate_common_settings_empty_urls_ok() {
-        let mut settings = CommonSettings::default();
-        settings.lms_base_url = String::new();
-        settings.git_base_url = String::new();
+    fn test_validate_lms_settings_invalid_base_url() {
+        let mut settings = LmsSettings::default();
+        settings.base_url = "invalid-url".to_string();
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_lms_settings_invalid_custom_url() {
+        let mut settings = LmsSettings::default();
+        settings.custom_url = "not-a-url".to_string();
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_profile_settings_default() {
+        let settings = ProfileSettings::default();
         assert!(settings.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_profile_settings_with_invalid_lms() {
+        let mut settings = ProfileSettings::default();
+        settings.lms.base_url = "invalid".to_string();
+        assert!(settings.validate().is_err());
     }
 
     #[test]
@@ -404,10 +441,10 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_gui_settings_with_invalid_common() {
-        let mut common = CommonSettings::default();
-        common.lms_base_url = "invalid".to_string();
-        let settings = GuiSettings::from_common(common);
+    fn test_validate_gui_settings_with_invalid_profile() {
+        let mut profile = ProfileSettings::default();
+        profile.lms.base_url = "invalid".to_string();
+        let settings = GuiSettings::from_parts(Default::default(), profile);
         assert!(settings.validate().is_err());
     }
 

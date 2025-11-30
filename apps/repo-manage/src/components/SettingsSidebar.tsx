@@ -302,6 +302,7 @@ export function SettingsSidebar({
                     splitter_height: currentSettings.splitter_height ?? 400,
                     window_width: currentSettings.window_width,
                     window_height: currentSettings.window_height,
+                    logging: currentSettings.logging,
                   });
                   showSuccessFlash();
                 } catch (error) {
