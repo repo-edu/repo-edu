@@ -32,6 +32,7 @@ export interface AppSettings {
   config_locked: boolean;
   options_locked: boolean;
   sidebar_open: boolean;
+  splitter_height: number;
   window_width: number;
   window_height: number;
 }
@@ -89,6 +90,7 @@ export interface GuiSettings extends CommonSettings {
   config_locked: boolean;
   options_locked: boolean;
   sidebar_open: boolean;
+  splitter_height: number;
   theme: Theme;
   window_width: number;
   window_height: number;
@@ -146,6 +148,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   config_locked: true,
   options_locked: true,
   sidebar_open: false,
+  splitter_height: 400,
   window_width: 0,
   window_height: 0,
 };

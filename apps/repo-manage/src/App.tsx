@@ -203,6 +203,9 @@ function App() {
     ui.setConfigLocked(settings.config_locked ?? true);
     ui.setOptionsLocked(settings.options_locked ?? true);
     ui.setSettingsMenuOpen(settings.sidebar_open ?? false);
+    if (settings.splitter_height > 0) {
+      setSettingsHeight(settings.splitter_height);
+    }
 
     if (updateBaseline) {
       setLastSavedHashes({
@@ -251,13 +254,14 @@ function App() {
         config_locked: ui.configLocked,
         options_locked: ui.optionsLocked,
         sidebar_open: ui.settingsMenuOpen ?? false,
+        splitter_height: settingsHeight,
         window_width: size.width,
         window_height: size.height,
       });
     } catch (error) {
       console.error("Failed to save window state:", error);
     }
-  }, [currentGuiSettings?.theme, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen]);
+  }, [currentGuiSettings?.theme, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
 
   // Save window size on close and on resize (debounced)
   useEffect(() => {
@@ -287,6 +291,16 @@ function App() {
       if (debounce) clearTimeout(debounce);
     };
   }, [saveWindowState]);
+
+  // Save when active tab changes
+  const tabInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!tabInitializedRef.current) {
+      tabInitializedRef.current = true;
+      return; // Skip initial render
+    }
+    saveWindowState();
+  }, [ui.activeTab, saveWindowState]);
 
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
@@ -389,6 +403,7 @@ function App() {
           config_locked: currentGuiSettings.config_locked,
           options_locked: currentGuiSettings.options_locked,
           sidebar_open: newState,
+          splitter_height: settingsHeight,
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,
         });

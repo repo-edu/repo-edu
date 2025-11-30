@@ -23,6 +23,9 @@ pub struct AppSettings {
     #[serde(default)]
     pub sidebar_open: bool,
 
+    #[serde(default = "defaults::splitter_height")]
+    pub splitter_height: u32,
+
     #[serde(default)]
     pub window_width: u32,
 
@@ -38,6 +41,7 @@ impl Default for AppSettings {
             config_locked: defaults::config_locked(),
             options_locked: defaults::options_locked(),
             sidebar_open: false,
+            splitter_height: defaults::splitter_height(),
             window_width: 0,
             window_height: 0,
         }
@@ -105,6 +109,10 @@ mod defaults {
 
     pub fn options_locked() -> bool {
         true
+    }
+
+    pub fn splitter_height() -> u32 {
+        400
     }
 }
 
