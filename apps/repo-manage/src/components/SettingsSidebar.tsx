@@ -299,6 +299,7 @@ export function SettingsSidebar({
                     config_locked: currentSettings.config_locked,
                     options_locked: currentSettings.options_locked,
                     sidebar_open: currentSettings.sidebar_open ?? false,
+                    splitter_height: currentSettings.splitter_height ?? 400,
                     window_width: currentSettings.window_width,
                     window_height: currentSettings.window_height,
                   });
