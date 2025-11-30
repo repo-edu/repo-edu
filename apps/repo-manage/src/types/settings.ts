@@ -23,7 +23,62 @@ export type LmsType = "Canvas" | "Moodle";
 /** UI theme */
 export type Theme = "light" | "dark" | "system";
 
-// ===== Settings Interfaces =====
+// ===== Nested Settings Interfaces =====
+
+/** Common settings shared between apps (git credentials) */
+export interface CommonSettings {
+  git_base_url: string;
+  git_access_token: string;
+  git_user: string;
+}
+
+/** LMS app settings (Tab 1) */
+export interface LmsSettings {
+  type: LmsType;
+  base_url: string;
+  custom_url: string;
+  url_option: LmsUrlOption;
+  access_token: string;
+  course_id: string;
+  course_name: string;
+  yaml_file: string;
+  info_folder: string;
+  csv_file: string;
+  xlsx_file: string;
+  member_option: LmsMemberOption;
+  include_group: boolean;
+  include_member: boolean;
+  include_initials: boolean;
+  full_groups: boolean;
+  output_csv: boolean;
+  output_xlsx: boolean;
+  output_yaml: boolean;
+}
+
+/** Repo app settings (Tab 2) */
+export interface RepoSettings {
+  student_repos_group: string;
+  template_group: string;
+  yaml_file: string;
+  target_folder: string;
+  assignments: string;
+  directory_layout: DirectoryLayout;
+}
+
+/** Logging settings (stored in AppSettings) */
+export interface LogSettings {
+  info: boolean;
+  debug: boolean;
+  warning: boolean;
+  error: boolean;
+}
+
+/** Profile settings (nested structure for per-profile data) */
+export interface ProfileSettings {
+  common: CommonSettings;
+  lms: LmsSettings;
+  repo: RepoSettings;
+}
 
 /** App-level settings stored in app.json */
 export interface AppSettings {
@@ -35,110 +90,67 @@ export interface AppSettings {
   splitter_height: number;
   window_width: number;
   window_height: number;
+  logging: LogSettings;
 }
 
-/** Profile settings stored in profiles/<name>.json (same as CommonSettings) */
-export type ProfileSettings = CommonSettings;
-
-/** Common settings shared between CLI and GUI */
-export interface CommonSettings {
-  // LMS settings
-  lms_type: LmsType;
-  lms_base_url: string;
-  lms_custom_url: string;
-  lms_url_option: LmsUrlOption;
-  lms_access_token: string;
-  lms_course_id: string;
-  lms_course_name: string;
-  lms_yaml_file: string;
-  lms_info_folder: string;
-  lms_csv_file: string;
-  lms_xlsx_file: string;
-  lms_member_option: LmsMemberOption;
-  lms_include_group: boolean;
-  lms_include_member: boolean;
-  lms_include_initials: boolean;
-  lms_full_groups: boolean;
-  lms_output_csv: boolean;
-  lms_output_xlsx: boolean;
-  lms_output_yaml: boolean;
-
-  // Git platform settings
-  git_base_url: string;
-  git_access_token: string;
-  git_user: string;
-  git_student_repos_group: string;
-  git_template_group: string;
-
-  // Repository setup settings
-  yaml_file: string;
-  target_folder: string;
-  assignments: string;
-  directory_layout: DirectoryLayout;
-
-  // Logging settings
-  log_info: boolean;
-  log_debug: boolean;
-  log_warning: boolean;
-  log_error: boolean;
-}
-
-/** GUI-specific settings (includes common settings via flattening) */
-export interface GuiSettings extends CommonSettings {
-  // GUI-specific fields
-  active_tab: ActiveTab;
-  config_locked: boolean;
-  options_locked: boolean;
-  sidebar_open: boolean;
-  splitter_height: number;
-  theme: Theme;
-  window_width: number;
-  window_height: number;
-}
+/** GUI settings (combined app + profile, flattened in JSON) */
+export interface GuiSettings extends AppSettings, ProfileSettings {}
 
 // ===== Default Values =====
 
 /** Default common settings */
 export const DEFAULT_COMMON_SETTINGS: CommonSettings = {
-  // LMS settings
-  lms_type: "Canvas",
-  lms_base_url: "https://canvas.tue.nl",
-  lms_custom_url: "",
-  lms_url_option: "TUE",
-  lms_access_token: "",
-  lms_course_id: "",
-  lms_course_name: "",
-  lms_yaml_file: "students.yaml",
-  lms_info_folder: "",
-  lms_csv_file: "student-info.csv",
-  lms_xlsx_file: "student-info.xlsx",
-  lms_member_option: "(email, gitid)",
-  lms_include_group: true,
-  lms_include_member: true,
-  lms_include_initials: false,
-  lms_full_groups: true,
-  lms_output_csv: false,
-  lms_output_xlsx: false,
-  lms_output_yaml: true,
-
-  // Git platform settings
   git_base_url: "https://gitlab.tue.nl",
   git_access_token: "",
   git_user: "",
-  git_student_repos_group: "",
-  git_template_group: "",
+};
 
-  // Repository setup settings
+/** Default LMS settings */
+export const DEFAULT_LMS_SETTINGS: LmsSettings = {
+  type: "Canvas",
+  base_url: "https://canvas.tue.nl",
+  custom_url: "",
+  url_option: "TUE",
+  access_token: "",
+  course_id: "",
+  course_name: "",
+  yaml_file: "students.yaml",
+  info_folder: "",
+  csv_file: "student-info.csv",
+  xlsx_file: "student-info.xlsx",
+  member_option: "(email, gitid)",
+  include_group: true,
+  include_member: true,
+  include_initials: false,
+  full_groups: true,
+  output_csv: false,
+  output_xlsx: false,
+  output_yaml: true,
+};
+
+/** Default repo settings */
+export const DEFAULT_REPO_SETTINGS: RepoSettings = {
+  student_repos_group: "",
+  template_group: "",
   yaml_file: "students.yaml",
   target_folder: "",
   assignments: "",
   directory_layout: "flat",
+};
 
-  // Logging settings
-  log_info: true,
-  log_debug: false,
-  log_warning: true,
-  log_error: true,
+/** Default logging settings */
+export const DEFAULT_LOG_SETTINGS: LogSettings = {
+  info: true,
+  debug: false,
+  warning: true,
+  error: true,
+};
+
+/** Default profile settings */
+export const DEFAULT_PROFILE_SETTINGS: ProfileSettings = {
+  common: DEFAULT_COMMON_SETTINGS,
+  lms: DEFAULT_LMS_SETTINGS,
+  repo: DEFAULT_REPO_SETTINGS,
 };
 
 /** Default app settings */
@@ -151,12 +163,13 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   splitter_height: 400,
   window_width: 0,
   window_height: 0,
+  logging: DEFAULT_LOG_SETTINGS,
 };
 
 /** Default GUI settings */
 export const DEFAULT_GUI_SETTINGS: GuiSettings = {
-  ...DEFAULT_COMMON_SETTINGS,
   ...DEFAULT_APP_SETTINGS,
+  ...DEFAULT_PROFILE_SETTINGS,
 };
 
 // ===== Helper Functions =====
@@ -166,15 +179,15 @@ export const DEFAULT_GUI_SETTINGS: GuiSettings = {
  * @param value The value to validate
  * @returns true if the value is a valid GuiSettings object
  */
-export function isGuiSettings(value: any): value is GuiSettings {
+export function isGuiSettings(value: unknown): value is GuiSettings {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof value.lms_type === "string" &&
-    typeof value.lms_base_url === "string" &&
-    typeof value.git_base_url === "string" &&
-    typeof value.active_tab === "string" &&
-    typeof value.config_locked === "boolean"
+    "common" in value &&
+    "lms" in value &&
+    "repo" in value &&
+    typeof (value as GuiSettings).active_tab === "string" &&
+    typeof (value as GuiSettings).config_locked === "boolean"
   );
 }
 
@@ -186,6 +199,9 @@ export function isGuiSettings(value: any): value is GuiSettings {
 export function mergeWithDefaults(partial: Partial<GuiSettings>): GuiSettings {
   return {
     ...DEFAULT_GUI_SETTINGS,
-    ...partial,
+    common: { ...DEFAULT_COMMON_SETTINGS, ...partial.common },
+    lms: { ...DEFAULT_LMS_SETTINGS, ...partial.lms },
+    repo: { ...DEFAULT_REPO_SETTINGS, ...partial.repo },
+    logging: { ...DEFAULT_LOG_SETTINGS, ...partial.logging },
   };
 }

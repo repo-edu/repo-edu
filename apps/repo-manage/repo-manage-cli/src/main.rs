@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use repo_manage_core::{
-    setup_student_repos, CommonSettings, GuiSettings, Platform, PlatformAPI, SettingsManager,
+    setup_student_repos, GuiSettings, Platform, PlatformAPI, ProfileSettings, SettingsManager,
     StudentTeam,
 };
 use std::path::PathBuf;
@@ -203,7 +203,7 @@ enum PlatformType {
 /// Configuration manager for CLI
 struct ConfigManager {
     settings_manager: SettingsManager,
-    config: CommonSettings,
+    config: ProfileSettings,
     active_profile: Option<String>,
 }
 
@@ -229,35 +229,35 @@ impl ConfigManager {
 
     /// Apply CLI overrides to configuration
     fn apply_overrides(&mut self, cli: &Cli) {
-        // Override git settings
+        // Override common (git) settings
         if let Some(ref url) = cli.git_base_url {
-            self.config.git_base_url = url.clone();
+            self.config.common.git_base_url = url.clone();
         }
         if let Some(ref token) = cli.git_token {
-            self.config.git_access_token = token.clone();
+            self.config.common.git_access_token = token.clone();
         }
         if let Some(ref user) = cli.git_user {
-            self.config.git_user = user.clone();
-        }
-        if let Some(ref org) = cli.student_org {
-            self.config.git_student_repos_group = org.clone();
-        }
-        if let Some(ref org) = cli.template_org {
-            self.config.git_template_group = org.clone();
+            self.config.common.git_user = user.clone();
         }
 
-        // Override file settings
+        // Override repo settings
+        if let Some(ref org) = cli.student_org {
+            self.config.repo.student_repos_group = org.clone();
+        }
+        if let Some(ref org) = cli.template_org {
+            self.config.repo.template_group = org.clone();
+        }
         if let Some(ref yaml) = cli.yaml_file {
-            self.config.yaml_file = yaml.to_string_lossy().to_string();
+            self.config.repo.yaml_file = yaml.to_string_lossy().to_string();
         }
         if let Some(ref folder) = cli.target_folder {
-            self.config.target_folder = folder.to_string_lossy().to_string();
+            self.config.repo.target_folder = folder.to_string_lossy().to_string();
         }
         if let Some(ref assignments) = cli.assignments {
-            self.config.assignments = assignments.clone();
+            self.config.repo.assignments = assignments.clone();
         }
         if let Some(ref layout) = cli.directory_layout {
-            self.config.directory_layout = layout.parse().unwrap_or_default();
+            self.config.repo.directory_layout = layout.parse().unwrap_or_default();
         }
     }
 
@@ -292,7 +292,7 @@ impl ConfigManager {
 
     /// Reset configuration to defaults (in-memory only, use --save to persist)
     fn reset(&mut self) {
-        self.config = CommonSettings::default();
+        self.config = ProfileSettings::default();
         println!("Settings reset to defaults (not saved).");
     }
 
@@ -303,28 +303,30 @@ impl ConfigManager {
         println!();
         println!("Active Profile: {}", self.active_profile.as_deref().unwrap_or("(none)"));
         println!();
-        println!("Git Settings:");
-        println!("  Base URL        : {}", self.config.git_base_url);
-        println!("  User            : {}", self.config.git_user);
+        println!("Common Settings:");
+        println!("  Git Base URL    : {}", self.config.common.git_base_url);
+        println!("  Git User        : {}", self.config.common.git_user);
         println!(
-            "  Student Org     : {}",
-            self.config.git_student_repos_group
-        );
-        println!("  Template Org    : {}", self.config.git_template_group);
-        println!(
-            "  Token           : {}",
-            if self.config.git_access_token.is_empty() {
+            "  Git Token       : {}",
+            if self.config.common.git_access_token.is_empty() {
                 "(not set)"
             } else {
                 "***"
             }
         );
         println!();
-        println!("Repository Settings:");
-        println!("  YAML File       : {}", self.config.yaml_file);
-        println!("  Target Folder   : {}", self.config.target_folder);
-        println!("  Assignments     : {}", self.config.assignments);
-        println!("  Directory Layout: {}", self.config.directory_layout);
+        println!("Repo Settings:");
+        println!("  Student Org     : {}", self.config.repo.student_repos_group);
+        println!("  Template Org    : {}", self.config.repo.template_group);
+        println!("  YAML File       : {}", self.config.repo.yaml_file);
+        println!("  Target Folder   : {}", self.config.repo.target_folder);
+        println!("  Assignments     : {}", self.config.repo.assignments);
+        println!("  Directory Layout: {}", self.config.repo.directory_layout);
+        println!();
+        println!("LMS Settings:");
+        println!("  Type            : {}", self.config.lms.r#type);
+        println!("  Base URL        : {}", self.config.lms.base_url);
+        println!("  Course ID       : {}", self.config.lms.course_id);
         println!();
         println!("Settings Directory:");
         println!(
@@ -334,7 +336,7 @@ impl ConfigManager {
     }
 
     /// Get configuration
-    fn config(&self) -> &CommonSettings {
+    fn config(&self) -> &ProfileSettings {
         &self.config
     }
 
@@ -461,7 +463,7 @@ fn load_teams_from_file(path: &PathBuf) -> Result<Vec<StudentTeam>> {
 }
 
 async fn run_setup(
-    config: &CommonSettings,
+    config: &ProfileSettings,
     platform: Option<PlatformType>,
     templates: Vec<String>,
     teams_file: Option<PathBuf>,
@@ -472,8 +474,8 @@ async fn run_setup(
     // Load student teams
     let yaml_path = if let Some(file) = teams_file {
         file
-    } else if !config.yaml_file.is_empty() {
-        PathBuf::from(&config.yaml_file)
+    } else if !config.repo.yaml_file.is_empty() {
+        PathBuf::from(&config.repo.yaml_file)
     } else if !team_strings.is_empty() {
         // Use team strings directly
         PathBuf::new()
@@ -494,17 +496,17 @@ async fn run_setup(
     println!("RepoBee Setup");
     println!("=============");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.git_student_repos_group);
+    println!("Organization: {}", config.repo.student_repos_group);
     println!("Templates: {:?}", templates);
     println!("Teams: {}", student_teams.len());
     println!();
 
     // Determine platform
     let platform_type = platform.unwrap_or(PlatformType::GitLab);
-    let base_url = &config.git_base_url;
-    let token = &config.git_access_token;
-    let org = &config.git_student_repos_group;
-    let user = &config.git_user;
+    let base_url = &config.common.git_base_url;
+    let token = &config.common.git_access_token;
+    let org = &config.repo.student_repos_group;
+    let user = &config.common.git_user;
 
     // Create platform instance
     let api = match platform_type {
@@ -588,17 +590,17 @@ async fn run_setup(
     }
 }
 
-async fn run_verify(config: &CommonSettings, platform: Option<PlatformType>) -> Result<()> {
+async fn run_verify(config: &ProfileSettings, platform: Option<PlatformType>) -> Result<()> {
     println!("Verifying platform settings...");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.git_student_repos_group);
+    println!("Organization: {}", config.repo.student_repos_group);
     println!();
 
     let platform_type = platform.unwrap_or(PlatformType::GitLab);
-    let base_url = &config.git_base_url;
-    let token = &config.git_access_token;
-    let org = &config.git_student_repos_group;
-    let user = &config.git_user;
+    let base_url = &config.common.git_base_url;
+    let token = &config.common.git_access_token;
+    let org = &config.repo.student_repos_group;
+    let user = &config.common.git_user;
 
     let api = match platform_type {
         PlatformType::GitHub => {

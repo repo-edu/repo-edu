@@ -150,51 +150,55 @@ function App() {
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
     setCurrentGuiSettings(settings);
 
-    // Load LMS form
+    // Load LMS form from nested lms settings
+    const lms = settings.lms;
     lmsForm.loadFromSettings({
-      lmsType: (settings.lms_type || "Canvas") as "Canvas" | "Moodle",
-      baseUrl: settings.lms_base_url || "https://canvas.tue.nl",
-      customUrl: settings.lms_custom_url || "",
+      lmsType: (lms.type || "Canvas") as "Canvas" | "Moodle",
+      baseUrl: lms.base_url || "https://canvas.tue.nl",
+      customUrl: lms.custom_url || "",
       urlOption:
-        settings.lms_type !== "Canvas"
+        lms.type !== "Canvas"
           ? "CUSTOM"
-          : ((settings.lms_url_option || "TUE") as "TUE" | "CUSTOM"),
-      accessToken: settings.lms_access_token || "",
-      courseId: settings.lms_course_id || "",
-      courseName: settings.lms_course_name || "",
-      yamlFile: settings.lms_yaml_file || "students.yaml",
-      infoFileFolder: settings.lms_info_folder || "",
-      csvFile: settings.lms_csv_file || "student-info.csv",
-      xlsxFile: settings.lms_xlsx_file || "student-info.xlsx",
-      memberOption: (settings.lms_member_option || "(email, gitid)") as
+          : ((lms.url_option || "TUE") as "TUE" | "CUSTOM"),
+      accessToken: lms.access_token || "",
+      courseId: lms.course_id || "",
+      courseName: lms.course_name || "",
+      yamlFile: lms.yaml_file || "students.yaml",
+      infoFileFolder: lms.info_folder || "",
+      csvFile: lms.csv_file || "student-info.csv",
+      xlsxFile: lms.xlsx_file || "student-info.xlsx",
+      memberOption: (lms.member_option || "(email, gitid)") as
         | "(email, gitid)"
         | "email"
         | "git_id",
-      includeGroup: settings.lms_include_group ?? true,
-      includeMember: settings.lms_include_member ?? true,
-      includeInitials: settings.lms_include_initials ?? false,
-      fullGroups: settings.lms_full_groups ?? true,
-      csv: settings.lms_output_csv ?? false,
-      xlsx: settings.lms_output_xlsx ?? false,
-      yaml: settings.lms_output_yaml ?? true,
+      includeGroup: lms.include_group ?? true,
+      includeMember: lms.include_member ?? true,
+      includeInitials: lms.include_initials ?? false,
+      fullGroups: lms.full_groups ?? true,
+      csv: lms.output_csv ?? false,
+      xlsx: lms.output_xlsx ?? false,
+      yaml: lms.output_yaml ?? true,
     });
 
-    // Load Repo form
+    // Load Repo form from nested common + repo settings
+    const common = settings.common;
+    const repo = settings.repo;
+    const logging = settings.logging;
     repoForm.loadFromSettings({
-      accessToken: settings.git_access_token || "",
-      user: settings.git_user || "",
-      baseUrl: settings.git_base_url || "https://gitlab.tue.nl",
-      studentReposGroup: settings.git_student_repos_group || "",
-      templateGroup: settings.git_template_group || "",
-      yamlFile: settings.yaml_file || "",
-      targetFolder: settings.target_folder || "",
-      assignments: settings.assignments || "",
-      directoryLayout: (settings.directory_layout || "flat") as "by-team" | "flat" | "by-task",
+      accessToken: common.git_access_token || "",
+      user: common.git_user || "",
+      baseUrl: common.git_base_url || "https://gitlab.tue.nl",
+      studentReposGroup: repo.student_repos_group || "",
+      templateGroup: repo.template_group || "",
+      yamlFile: repo.yaml_file || "",
+      targetFolder: repo.target_folder || "",
+      assignments: repo.assignments || "",
+      directoryLayout: (repo.directory_layout || "flat") as "by-team" | "flat" | "by-task",
       logLevels: {
-        info: settings.log_info ?? true,
-        debug: settings.log_debug ?? false,
-        warning: settings.log_warning ?? true,
-        error: settings.log_error ?? true,
+        info: logging?.info ?? true,
+        debug: logging?.debug ?? false,
+        warning: logging?.warning ?? true,
+        error: logging?.error ?? true,
       },
     });
 
@@ -257,11 +261,12 @@ function App() {
         splitter_height: settingsHeight,
         window_width: size.width,
         window_height: size.height,
+        logging: currentGuiSettings?.logging ?? { info: true, debug: false, warning: true, error: true },
       });
     } catch (error) {
       console.error("Failed to save window state:", error);
     }
-  }, [currentGuiSettings?.theme, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
+  }, [currentGuiSettings?.theme, currentGuiSettings?.logging, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
 
   // Save window size on close and on resize (debounced)
   useEffect(() => {
@@ -315,53 +320,70 @@ function App() {
   // --- Settings load/save helpers ---
   const saveSettingsToDisk = async () => {
     try {
-      const lms = lmsForm.getState();
-      const repo = repoForm.getState();
+      const lmsState = lmsForm.getState();
+      const repoState = repoForm.getState();
 
+      // Build nested settings structure
       const settings = {
-        lms_type: lms.lmsType,
-        lms_base_url: lms.baseUrl,
-        lms_custom_url: lms.customUrl,
-        lms_url_option: lms.urlOption,
-        lms_access_token: lms.accessToken,
-        lms_course_id: lms.courseId,
-        lms_course_name: lms.courseName,
-        lms_yaml_file: lms.yamlFile,
-        lms_info_folder: lms.infoFileFolder,
-        lms_csv_file: lms.csvFile,
-        lms_xlsx_file: lms.xlsxFile,
-        lms_member_option: lms.memberOption,
-        lms_include_group: lms.includeGroup,
-        lms_include_member: lms.includeMember,
-        lms_include_initials: lms.includeInitials,
-        lms_full_groups: lms.fullGroups,
-        lms_output_csv: lms.csv,
-        lms_output_xlsx: lms.xlsx,
-        lms_output_yaml: lms.yaml,
-        git_base_url: repo.baseUrl,
-        git_access_token: repo.accessToken,
-        git_user: repo.user,
-        git_student_repos_group: repo.studentReposGroup,
-        git_template_group: repo.templateGroup,
-        yaml_file: repo.yamlFile,
-        target_folder: repo.targetFolder,
-        assignments: repo.assignments,
-        directory_layout: repo.directoryLayout,
-        log_info: repo.logLevels.info,
-        log_debug: repo.logLevels.debug,
-        log_warning: repo.logLevels.warning,
-        log_error: repo.logLevels.error,
+        // Common settings (shared git credentials)
+        common: {
+          git_base_url: repoState.baseUrl,
+          git_access_token: repoState.accessToken,
+          git_user: repoState.user,
+        },
+        // LMS settings
+        lms: {
+          type: lmsState.lmsType as "Canvas" | "Moodle",
+          base_url: lmsState.baseUrl,
+          custom_url: lmsState.customUrl,
+          url_option: lmsState.urlOption as "TUE" | "CUSTOM",
+          access_token: lmsState.accessToken,
+          course_id: lmsState.courseId,
+          course_name: lmsState.courseName,
+          yaml_file: lmsState.yamlFile,
+          info_folder: lmsState.infoFileFolder,
+          csv_file: lmsState.csvFile,
+          xlsx_file: lmsState.xlsxFile,
+          member_option: lmsState.memberOption as "(email, gitid)" | "email" | "git_id",
+          include_group: lmsState.includeGroup,
+          include_member: lmsState.includeMember,
+          include_initials: lmsState.includeInitials,
+          full_groups: lmsState.fullGroups,
+          output_csv: lmsState.csv,
+          output_xlsx: lmsState.xlsx,
+          output_yaml: lmsState.yaml,
+        },
+        // Repo settings
+        repo: {
+          student_repos_group: repoState.studentReposGroup,
+          template_group: repoState.templateGroup,
+          yaml_file: repoState.yamlFile,
+          target_folder: repoState.targetFolder,
+          assignments: repoState.assignments,
+          directory_layout: repoState.directoryLayout as "flat" | "by-team" | "by-task",
+        },
+        // App settings
         active_tab: ui.activeTab,
         config_locked: ui.configLocked,
         options_locked: ui.optionsLocked,
         theme: currentGuiSettings?.theme || "system",
+        sidebar_open: ui.settingsMenuOpen ?? false,
+        splitter_height: settingsHeight,
+        window_width: currentGuiSettings?.window_width ?? 0,
+        window_height: currentGuiSettings?.window_height ?? 0,
+        logging: {
+          info: repoState.logLevels.info,
+          debug: repoState.logLevels.debug,
+          warning: repoState.logLevels.warning,
+          error: repoState.logLevels.error,
+        },
       };
 
       await settingsService.saveSettings(settings);
 
       setLastSavedHashes({
-        lms: hashSnapshot(lms),
-        repo: hashSnapshot(repo),
+        lms: hashSnapshot(lmsState),
+        repo: hashSnapshot(repoState),
       });
 
       const activeProfile = await settingsService.getActiveProfile();
@@ -406,6 +428,7 @@ function App() {
           splitter_height: settingsHeight,
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,
+          logging: currentGuiSettings.logging,
         });
       } catch (error) {
         console.error("Failed to save sidebar state:", error);

@@ -1,4 +1,4 @@
-use super::common::CommonSettings;
+use super::common::{LogSettings, ProfileSettings};
 use super::enums::{ActiveTab, Theme};
 use super::normalization::Normalize;
 use schemars::JsonSchema;
@@ -31,6 +31,9 @@ pub struct AppSettings {
 
     #[serde(default)]
     pub window_height: u32,
+
+    #[serde(default)]
+    pub logging: LogSettings,
 }
 
 impl Default for AppSettings {
@@ -44,13 +47,10 @@ impl Default for AppSettings {
             splitter_height: defaults::splitter_height(),
             window_width: 0,
             window_height: 0,
+            logging: LogSettings::default(),
         }
     }
 }
-
-/// Profile settings stored in profiles/<name>.json
-/// These are the form/workflow settings that differ between courses/projects
-pub type ProfileSettings = CommonSettings;
 
 /// Combined GUI settings (sent to frontend)
 /// This combines app settings with the active profile's settings
@@ -118,7 +118,6 @@ mod defaults {
 
 impl Normalize for GuiSettings {
     fn normalize(&mut self) {
-        // Normalize the profile settings (common settings)
         self.profile.normalize();
     }
 }
