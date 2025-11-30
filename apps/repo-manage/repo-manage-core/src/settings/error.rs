@@ -25,13 +25,13 @@ pub enum ConfigError {
         source: serde_json::Error,
     },
 
-    #[error("Schema validation failed: {errors:?}")]
+    #[error("Schema validation failed: {}", .errors.join("; "))]
     ValidationError { errors: Vec<String> },
 
     #[error("Configuration file not found: {path}")]
     FileNotFound { path: PathBuf },
 
-    #[error("Invalid configuration: {errors:?}")]
+    #[error("Invalid configuration: {}", .errors.join("; "))]
     InvalidConfig { errors: Vec<String> },
 
     #[error("Invalid path: {path}")]

@@ -127,14 +127,14 @@ mod tests {
     fn test_cli_config_from_common() {
         let common = CommonSettings::default();
         let cli_config = CLIConfig::from_common(common.clone());
-        assert_eq!(cli_config.common.lms_base_url, common.lms_base_url);
+        assert_eq!(cli_config.common.git_base_url, common.git_base_url);
     }
 
     #[test]
     fn test_cli_config_into_common() {
         let cli_config = CLIConfig::default();
         let common = cli_config.into_common();
-        assert_eq!(common.lms_base_url, CommonSettings::default().lms_base_url);
+        assert_eq!(common.git_base_url, CommonSettings::default().git_base_url);
     }
 
     #[test]
@@ -143,11 +143,11 @@ mod tests {
 
         // Test immutable access
         let common_ref = cli_config.common();
-        assert_eq!(common_ref.lms_base_url, "https://canvas.tue.nl");
+        assert_eq!(common_ref.git_base_url, "https://gitlab.tue.nl");
 
         // Test mutable access
-        cli_config.common_mut().lms_base_url = "https://custom.url".to_string();
-        assert_eq!(cli_config.common.lms_base_url, "https://custom.url");
+        cli_config.common_mut().git_base_url = "https://custom.url".to_string();
+        assert_eq!(cli_config.common.git_base_url, "https://custom.url");
     }
 
     #[test]
@@ -161,6 +161,6 @@ mod tests {
         assert!(!json.contains("show_settings"));
 
         // Common fields should be included
-        assert!(json.contains("lms_base_url"));
+        assert!(json.contains("git_base_url"));
     }
 }

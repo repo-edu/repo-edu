@@ -208,15 +208,11 @@ impl Default for LogSettings {
 }
 
 /// Profile settings (nested structure for per-profile data)
+/// Note: No serde(default) on fields - missing sections cause parse error with warning
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProfileSettings {
-    #[serde(default)]
     pub common: CommonSettings,
-
-    #[serde(default)]
     pub lms: LmsSettings,
-
-    #[serde(default)]
     pub repo: RepoSettings,
 }
 

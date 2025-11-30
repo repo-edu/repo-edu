@@ -1,3 +1,6 @@
+mod error;
+
+use error::AppError;
 use repo_manage_core::{
     create_lms_client_with_params, generate_repobee_yaml_with_progress,
     get_student_info_with_progress, get_token_generation_instructions, open_token_generation_url,
@@ -57,14 +60,14 @@ fn emit_inline_message(channel: &Channel<String>, state: &mut InlineCliState, me
     state.update(message);
 }
 
-fn parse_lms_type(lms_type: &str) -> Result<LmsCommonType, String> {
+fn parse_lms_type(lms_type: &str) -> Result<LmsCommonType, AppError> {
     match lms_type {
         "Canvas" => Ok(LmsCommonType::Canvas),
         "Moodle" => Ok(LmsCommonType::Moodle),
-        other => Err(format!(
+        other => Err(AppError::new(format!(
             "Unknown LMS type: {}. Supported: Canvas, Moodle",
             other
-        )),
+        ))),
     }
 }
 
@@ -141,112 +144,76 @@ struct CommandResult {
 
 /// Load settings from disk
 #[tauri::command]
-async fn load_settings() -> Result<GuiSettings, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    let settings = manager
-        .load()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
-
+async fn load_settings() -> Result<GuiSettings, AppError> {
+    let manager = SettingsManager::new()?;
+    let settings = manager.load()?;
     Ok(settings)
 }
 
 /// Save settings to disk (both app and profile)
 #[tauri::command]
-async fn save_settings(settings: GuiSettings) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .save(&settings)
-        .map_err(|e| format!("Failed to save settings: {}", e))?;
-
+async fn save_settings(settings: GuiSettings) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.save(&settings)?;
     Ok(())
 }
 
 /// Save only app-level settings (theme, window position, etc.)
 #[tauri::command]
-async fn save_app_settings(settings: AppSettings) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .save_app_settings(&settings)
-        .map_err(|e| format!("Failed to save app settings: {}", e))?;
-
+async fn save_app_settings(settings: AppSettings) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.save_app_settings(&settings)?;
     Ok(())
 }
 
 /// Reset settings to defaults
 #[tauri::command]
-async fn reset_settings() -> Result<GuiSettings, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    let settings = manager
-        .reset()
-        .map_err(|e| format!("Failed to reset settings: {}", e))?;
-
+async fn reset_settings() -> Result<GuiSettings, AppError> {
+    let manager = SettingsManager::new()?;
+    let settings = manager.reset()?;
     Ok(settings)
 }
 
 /// Get settings file path
 #[tauri::command]
-async fn get_settings_path() -> Result<String, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
+async fn get_settings_path() -> Result<String, AppError> {
+    let manager = SettingsManager::new()?;
     Ok(manager.settings_file_path().to_string_lossy().to_string())
 }
 
 /// Check if settings file exists
 #[tauri::command]
-async fn settings_exist() -> Result<bool, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
+async fn settings_exist() -> Result<bool, AppError> {
+    let manager = SettingsManager::new()?;
     Ok(manager.settings_exist())
 }
 
 /// Import settings from a specific file
 #[tauri::command]
-async fn import_settings(path: String) -> Result<GuiSettings, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    let settings = manager
-        .load_from(std::path::Path::new(&path))
-        .map_err(|e| format!("Failed to import settings: {}", e))?;
-
+async fn import_settings(path: String) -> Result<GuiSettings, AppError> {
+    let manager = SettingsManager::new()?;
+    let settings = manager.load_from(std::path::Path::new(&path))?;
     Ok(settings)
 }
 
 /// Export settings to a specific file
 #[tauri::command]
-async fn export_settings(settings: GuiSettings, path: String) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .save_to(&settings, std::path::Path::new(&path))
-        .map_err(|e| format!("Failed to export settings: {}", e))?;
-
+async fn export_settings(settings: GuiSettings, path: String) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.save_to(&settings, std::path::Path::new(&path))?;
     Ok(())
 }
 
 /// Get the JSON schema for GuiSettings
 #[tauri::command]
-async fn get_settings_schema() -> Result<serde_json::Value, String> {
-    SettingsManager::get_schema().map_err(|e| format!("Failed to get schema: {}", e))
+async fn get_settings_schema() -> Result<serde_json::Value, AppError> {
+    Ok(SettingsManager::get_schema()?)
 }
 
 /// Load settings or return defaults (never fails)
 #[tauri::command]
-async fn load_settings_or_default() -> Result<GuiSettings, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
+async fn load_settings_or_default() -> Result<GuiSettings, AppError> {
+    let manager = SettingsManager::new()?;
     Ok(manager.load_or_default())
 }
 
@@ -254,85 +221,61 @@ async fn load_settings_or_default() -> Result<GuiSettings, String> {
 
 /// List all available profiles
 #[tauri::command]
-async fn list_profiles() -> Result<Vec<String>, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .list_profiles()
-        .map_err(|e| format!("Failed to list profiles: {}", e))
+async fn list_profiles() -> Result<Vec<String>, AppError> {
+    let manager = SettingsManager::new()?;
+    Ok(manager.list_profiles()?)
 }
 
 /// Get the currently active profile
 #[tauri::command]
-async fn get_active_profile() -> Result<Option<String>, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .get_active_profile()
-        .map_err(|e| format!("Failed to get active profile: {}", e))
+async fn get_active_profile() -> Result<Option<String>, AppError> {
+    let manager = SettingsManager::new()?;
+    Ok(manager.get_active_profile()?)
 }
 
 /// Load a profile by name
 #[tauri::command]
-async fn load_profile(name: String) -> Result<GuiSettings, String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .load_profile(&name)
-        .map_err(|e| format!("Failed to load profile '{}': {}", name, e))
+async fn load_profile(name: String) -> Result<GuiSettings, AppError> {
+    let manager = SettingsManager::new()?;
+    Ok(manager.load_profile(&name)?)
 }
 
 /// Save current settings as a named profile
 #[tauri::command]
-async fn save_profile(name: String, settings: GuiSettings) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .save_profile(&name, &settings)
-        .map_err(|e| format!("Failed to save profile '{}': {}", name, e))
+async fn save_profile(name: String, settings: GuiSettings) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.save_profile(&name, &settings)?;
+    Ok(())
 }
 
 /// Delete a profile by name
 #[tauri::command]
-async fn delete_profile(name: String) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .delete_profile(&name)
-        .map_err(|e| format!("Failed to delete profile '{}': {}", name, e))
+async fn delete_profile(name: String) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.delete_profile(&name)?;
+    Ok(())
 }
 
 /// Rename a profile
 #[tauri::command]
-async fn rename_profile(old_name: String, new_name: String) -> Result<(), String> {
-    let manager =
-        SettingsManager::new().map_err(|e| format!("Failed to create settings manager: {}", e))?;
-
-    manager
-        .rename_profile(&old_name, &new_name)
-        .map_err(|e| format!("Failed to rename profile: {}", e))
+async fn rename_profile(old_name: String, new_name: String) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.rename_profile(&old_name, &new_name)?;
+    Ok(())
 }
 
 /// Get token generation instructions for an LMS type
 #[tauri::command]
-async fn get_token_instructions(lms_type: String) -> Result<String, String> {
+async fn get_token_instructions(lms_type: String) -> Result<String, AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     Ok(get_token_generation_instructions(lms_type_enum).to_string())
 }
 
 /// Open the LMS token generation page in the browser
 #[tauri::command]
-async fn open_token_url(base_url: String, lms_type: String) -> Result<(), String> {
+async fn open_token_url(base_url: String, lms_type: String) -> Result<(), AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
-
-    open_token_generation_url(&base_url, lms_type_enum)
-        .map_err(|e| format!("Failed to open token URL: {}", e))?;
-
+    open_token_generation_url(&base_url, lms_type_enum)?;
     Ok(())
 }
 
@@ -340,20 +283,16 @@ async fn open_token_url(base_url: String, lms_type: String) -> Result<(), String
 
 /// Verify LMS course credentials and fetch course information
 #[tauri::command]
-async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, String> {
+async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, AppError> {
     let lms_label = lms_display_name(&params.lms_type);
     let client = create_lms_client_with_params(
         &params.lms_type,
         params.base_url.clone(),
         params.access_token,
-    )
-    .map_err(|e| format!("Failed to create LMS client: {}", e))?;
+    )?;
 
     // Get course info using user-provided course identifier
-    let course = client
-        .get_course(&params.course_id)
-        .await
-        .map_err(|e| format!("Failed to verify course: {}", e))?;
+    let course = client.get_course(&params.course_id).await?;
 
     Ok(CommandResult {
         success: true,
@@ -372,11 +311,10 @@ async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, 
 async fn generate_lms_files(
     params: GenerateFilesParams,
     progress: Channel<String>,
-) -> Result<CommandResult, String> {
+) -> Result<CommandResult, AppError> {
     let lms_label = lms_display_name(&params.lms_type);
     let client =
-        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
-            .map_err(|e| format!("Failed to create LMS client: {}", e))?;
+        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)?;
 
     let cli_progress = Arc::new(Mutex::new(InlineCliState::default()));
 
@@ -430,8 +368,7 @@ async fn generate_lms_files(
                 }
             }
         })
-        .await
-        .map_err(|e| format!("Failed to fetch student info: {}", e))?;
+        .await?;
 
     if let Ok(mut state) = cli_progress.lock() {
         state.finalize();
@@ -460,12 +397,10 @@ async fn generate_lms_files(
             &students,
             &config,
             |_, _, _| {}, // YAML generation is too fast to need progress
-        )
-        .map_err(|e| format!("Failed to generate YAML: {}", e))?;
+        )?;
 
         let yaml_path = PathBuf::from(&params.info_file_folder).join(&params.yaml_file);
-        write_yaml_file(&teams, &yaml_path)
-            .map_err(|e| format!("Failed to write YAML file: {}", e))?;
+        write_yaml_file(&teams, &yaml_path)?;
 
         // Get absolute path for display
         let absolute_yaml_path = yaml_path.canonicalize().unwrap_or(yaml_path.clone());
@@ -479,8 +414,7 @@ async fn generate_lms_files(
     // Generate CSV file if requested
     if params.csv {
         let csv_path = PathBuf::from(&params.info_file_folder).join(&params.csv_file);
-        write_csv_file(&students, &csv_path)
-            .map_err(|e| format!("Failed to write CSV file: {}", e))?;
+        write_csv_file(&students, &csv_path)?;
 
         // Get absolute path for display
         let absolute_csv_path = csv_path.canonicalize().unwrap_or(csv_path.clone());
@@ -489,7 +423,7 @@ async fn generate_lms_files(
 
     // Generate Excel file if requested (TODO: implement Excel writer)
     if params.xlsx {
-        return Err("Excel file generation not yet implemented".to_string());
+        return Err(AppError::new("Excel file generation not yet implemented"));
     }
 
     Ok(CommandResult {
@@ -505,7 +439,7 @@ async fn generate_lms_files(
 
 /// Verify platform configuration and authentication
 #[tauri::command]
-async fn verify_config(params: ConfigParams) -> Result<CommandResult, String> {
+async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppError> {
     // Determine platform from base_url
     let platform = if params.base_url.starts_with('/') || params.base_url.contains("local") {
         // Local filesystem platform
@@ -513,41 +447,36 @@ async fn verify_config(params: ConfigParams) -> Result<CommandResult, String> {
             PathBuf::from(&params.base_url),
             params.student_repos_group.clone(),
             params.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create Local platform: {}", e))?
+        )?
     } else if params.base_url.contains("github") {
         Platform::github(
             params.base_url.clone(),
             params.access_token.clone(),
             params.student_repos_group.clone(),
             params.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create GitHub platform: {}", e))?
+        )?
     } else if params.base_url.contains("gitlab") {
         Platform::gitlab(
             params.base_url.clone(),
             params.access_token.clone(),
             params.student_repos_group.clone(),
             params.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create GitLab platform: {}", e))?
+        )?
     } else if params.base_url.contains("gitea") {
         Platform::gitea(
             params.base_url.clone(),
             params.access_token.clone(),
             params.student_repos_group.clone(),
             params.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create Gitea platform: {}", e))?
+        )?
     } else {
-        return Err("Unknown platform. URL must contain 'github', 'gitlab', 'gitea', or be a filesystem path".to_string());
+        return Err(AppError::new(
+            "Unknown platform. URL must contain 'github', 'gitlab', 'gitea', or be a filesystem path",
+        ));
     };
 
     // Verify settings
-    platform
-        .verify_settings()
-        .await
-        .map_err(|e| format!("Verification failed: {}", e))?;
+    platform.verify_settings().await?;
 
     let platform_name = if params.base_url.starts_with('/') || params.base_url.contains("local") {
         "Local (filesystem)"
@@ -570,13 +499,13 @@ async fn verify_config(params: ConfigParams) -> Result<CommandResult, String> {
 
 /// Create student repositories from templates
 #[tauri::command]
-async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
+async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError> {
     // Parse YAML file to get student teams
     let yaml_content = std::fs::read_to_string(&params.yaml_file)
-        .map_err(|e| format!("Failed to read YAML file: {}", e))?;
+        .map_err(|e| AppError::new(format!("Failed to read YAML file: {}", e)))?;
 
     let student_teams: Vec<StudentTeam> = serde_yaml::from_str(&yaml_content)
-        .map_err(|e| format!("Failed to parse YAML file: {}", e))?;
+        .map_err(|e| AppError::new(format!("Failed to parse YAML file: {}", e)))?;
 
     // Parse assignments (comma-separated template names)
     let assignments: Vec<String> = params
@@ -587,7 +516,7 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
         .collect();
 
     if assignments.is_empty() {
-        return Err("No assignments specified".to_string());
+        return Err(AppError::new("No assignments specified"));
     }
 
     // Create template URLs from assignments and template group
@@ -625,40 +554,38 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
             PathBuf::from(&params.config.base_url),
             params.config.student_repos_group.clone(),
             params.config.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create Local platform: {}", e))?
+        )?
     } else if params.config.base_url.contains("github") {
         Platform::github(
             params.config.base_url.clone(),
             params.config.access_token.clone(),
             params.config.student_repos_group.clone(),
             params.config.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create GitHub platform: {}", e))?
+        )?
     } else if params.config.base_url.contains("gitlab") {
         Platform::gitlab(
             params.config.base_url.clone(),
             params.config.access_token.clone(),
             params.config.student_repos_group.clone(),
             params.config.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create GitLab platform: {}", e))?
+        )?
     } else if params.config.base_url.contains("gitea") {
         Platform::gitea(
             params.config.base_url.clone(),
             params.config.access_token.clone(),
             params.config.student_repos_group.clone(),
             params.config.user.clone(),
-        )
-        .map_err(|e| format!("Failed to create Gitea platform: {}", e))?
+        )?
     } else {
-        return Err("Unknown platform. URL must contain 'github', 'gitlab', 'gitea', or be a filesystem path".to_string());
+        return Err(AppError::new(
+            "Unknown platform. URL must contain 'github', 'gitlab', 'gitea', or be a filesystem path",
+        ));
     };
 
     // Create work directory
     let work_dir = PathBuf::from("./repobee-work");
     std::fs::create_dir_all(&work_dir)
-        .map_err(|e| format!("Failed to create work directory: {}", e))?;
+        .map_err(|e| AppError::new(format!("Failed to create work directory: {}", e)))?;
 
     // Run setup
     let result = repo_manage_core::setup_student_repos(
@@ -669,8 +596,7 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
         true, // private repos
         Some(&params.config.access_token),
     )
-    .await
-    .map_err(|e| format!("Setup failed: {}", e))?;
+    .await?;
 
     let details = format!(
         "Successfully created: {} repositories\nAlready existed: {} repositories\nErrors: {}",
@@ -682,7 +608,7 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
     if result.is_success() {
         Ok(CommandResult {
             success: true,
-            message: "🎉 Student repositories created successfully!".to_string(),
+            message: "Student repositories created successfully!".to_string(),
             details: Some(details),
         })
     } else {
@@ -703,10 +629,10 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, String> {
 
 /// Clone student repositories (stub for now)
 #[tauri::command]
-async fn clone_repos(_params: CloneParams) -> Result<CommandResult, String> {
+async fn clone_repos(_params: CloneParams) -> Result<CommandResult, AppError> {
     // TODO: Implement clone functionality
     // For now, return a stub response
-    Err("Clone functionality not yet implemented".to_string())
+    Err(AppError::new("Clone functionality not yet implemented"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
