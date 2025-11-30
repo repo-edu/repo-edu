@@ -6,12 +6,17 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "redu"
+path = "src/main.rs"
+
 [dependencies]
 # Core library
 repo-manage-core = { path = "../repo-manage-core" }
 
 # CLI framework
 clap.workspace = true
+clap-markdown = "0.1"
 
 # Async runtime
 tokio.workspace = true
