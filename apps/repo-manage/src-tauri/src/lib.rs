@@ -5,7 +5,8 @@ use repo_manage_core::{
     create_lms_client_with_params, generate_repobee_yaml_with_progress,
     get_student_info_with_progress, get_token_generation_instructions, open_token_generation_url,
     write_csv_file, write_yaml_file, AppSettings, FetchProgress, GuiSettings, LmsClientTrait,
-    LmsCommonType, LmsMemberOption, Platform, PlatformAPI, SettingsManager, StudentTeam, YamlConfig,
+    LmsCommonType, LmsMemberOption, Platform, PlatformAPI, SettingsManager, StudentTeam,
+    YamlConfig,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};

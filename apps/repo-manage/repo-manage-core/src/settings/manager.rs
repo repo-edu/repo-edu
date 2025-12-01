@@ -1,6 +1,6 @@
 use super::atomic::atomic_write_json;
-use super::error::{ConfigError, ConfigResult};
 use super::common::ProfileSettings;
+use super::error::{ConfigError, ConfigResult};
 use super::gui::{AppSettings, GuiSettings};
 use super::normalization::Normalize;
 use super::validation::Validate;
@@ -371,7 +371,11 @@ impl SettingsManager {
     }
 
     /// Save profile settings by name
-    pub fn save_profile_settings(&self, name: &str, settings: &ProfileSettings) -> ConfigResult<()> {
+    pub fn save_profile_settings(
+        &self,
+        name: &str,
+        settings: &ProfileSettings,
+    ) -> ConfigResult<()> {
         settings.validate()?;
         self.ensure_profiles_dir()?;
 
@@ -572,7 +576,10 @@ mod tests {
     fn test_default_settings() {
         let settings = GuiSettings::default();
         assert_eq!(settings.profile.lms.base_url, "https://canvas.tue.nl");
-        assert_eq!(settings.profile.common.git_base_url, "https://gitlab.tue.nl");
+        assert_eq!(
+            settings.profile.common.git_base_url,
+            "https://gitlab.tue.nl"
+        );
         assert_eq!(settings.app.active_tab, crate::settings::ActiveTab::Lms);
     }
 

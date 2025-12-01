@@ -1,3 +1,6 @@
+[alias]
+redu = "run -q -p repo-manage-cli --"
+
 # Local development overrides
 # This file patches git dependencies with local paths for faster development iteration
 # Remove or comment out when you want to test against the published version

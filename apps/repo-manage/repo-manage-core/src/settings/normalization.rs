@@ -85,15 +85,6 @@ pub fn normalize_url(url: &mut String) {
     *url = url.trim().trim_end_matches('/').to_string();
 }
 
-/// Clean and normalize boolean from various string representations
-pub fn parse_bool_flexible(s: &str) -> Result<bool, String> {
-    match s.trim().to_lowercase().as_str() {
-        "true" | "yes" | "y" | "1" | "on" => Ok(true),
-        "false" | "no" | "n" | "0" | "off" => Ok(false),
-        _ => Err(format!("Cannot parse '{}' as boolean", s)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,50 +276,6 @@ mod tests {
     fn test_path_to_posix_string_windows() {
         let path = PathBuf::from("some\\path\\to\\file.txt");
         assert_eq!(path_to_posix_string(&path), "some/path/to/file.txt");
-    }
-
-    // ===== Boolean Parsing Tests =====
-
-    #[test]
-    fn test_parse_bool_flexible_true_variants() {
-        assert_eq!(parse_bool_flexible("true"), Ok(true));
-        assert_eq!(parse_bool_flexible("TRUE"), Ok(true));
-        assert_eq!(parse_bool_flexible("True"), Ok(true));
-        assert_eq!(parse_bool_flexible("yes"), Ok(true));
-        assert_eq!(parse_bool_flexible("YES"), Ok(true));
-        assert_eq!(parse_bool_flexible("Y"), Ok(true));
-        assert_eq!(parse_bool_flexible("y"), Ok(true));
-        assert_eq!(parse_bool_flexible("1"), Ok(true));
-        assert_eq!(parse_bool_flexible("on"), Ok(true));
-        assert_eq!(parse_bool_flexible("ON"), Ok(true));
-    }
-
-    #[test]
-    fn test_parse_bool_flexible_false_variants() {
-        assert_eq!(parse_bool_flexible("false"), Ok(false));
-        assert_eq!(parse_bool_flexible("FALSE"), Ok(false));
-        assert_eq!(parse_bool_flexible("False"), Ok(false));
-        assert_eq!(parse_bool_flexible("no"), Ok(false));
-        assert_eq!(parse_bool_flexible("NO"), Ok(false));
-        assert_eq!(parse_bool_flexible("N"), Ok(false));
-        assert_eq!(parse_bool_flexible("n"), Ok(false));
-        assert_eq!(parse_bool_flexible("0"), Ok(false));
-        assert_eq!(parse_bool_flexible("off"), Ok(false));
-        assert_eq!(parse_bool_flexible("OFF"), Ok(false));
-    }
-
-    #[test]
-    fn test_parse_bool_flexible_invalid() {
-        assert!(parse_bool_flexible("invalid").is_err());
-        assert!(parse_bool_flexible("maybe").is_err());
-        assert!(parse_bool_flexible("2").is_err());
-        assert!(parse_bool_flexible("").is_err());
-    }
-
-    #[test]
-    fn test_parse_bool_flexible_with_whitespace() {
-        assert_eq!(parse_bool_flexible("  true  "), Ok(true));
-        assert_eq!(parse_bool_flexible("  false  "), Ok(false));
     }
 
     // ===== Path Normalization Tests =====

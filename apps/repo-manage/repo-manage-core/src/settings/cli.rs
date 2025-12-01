@@ -88,28 +88,6 @@ impl CLIConfig {
     }
 }
 
-/// CLI argument parsing helper
-///
-/// This trait helps convert CLI arguments to configuration updates
-pub trait CLIOverride {
-    /// Check if this CLI argument should override the config value
-    fn should_override(&self) -> bool;
-
-    /// Apply this CLI argument to the configuration
-    fn apply_to(&self, config: &mut CommonSettings);
-}
-
-// Example implementation for optional string fields
-impl CLIOverride for Option<String> {
-    fn should_override(&self) -> bool {
-        self.is_some()
-    }
-
-    fn apply_to(&self, _config: &mut CommonSettings) {
-        // Field-specific logic would go here
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
