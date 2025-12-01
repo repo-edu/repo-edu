@@ -174,7 +174,7 @@ export function SettingsSidebar({
     }
   };
 
-  const handleActivateProfile = () => {
+  const handleLoadSelectedProfile = () => {
     if (!selectedProfile || selectedProfile === activeProfile) return;
 
     if (isDirty) {
@@ -423,17 +423,17 @@ export function SettingsSidebar({
                     <Button
                       size="xs"
                       variant="outline"
-                      onClick={handleActivateProfile}
+                      onClick={handleLoadSelectedProfile}
                       disabled={!selectedProfile || selectedProfile === activeProfile}
                     >
-                      Activate
+                      Load
                     </Button>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
                   {selectedProfile === activeProfile
-                    ? "Already active"
-                    : "Load and activate selected profile"}
+                    ? "Already loaded"
+                    : "Load selected profile"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>

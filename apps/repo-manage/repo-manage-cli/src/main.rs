@@ -153,9 +153,9 @@ enum ProfileAction {
     /// Show profiles directory location
     Location,
 
-    /// Activate a profile (load its settings)
-    Activate {
-        /// Profile name to activate
+    /// Load a profile (set as active)
+    Load {
+        /// Profile name to load
         name: String,
     },
 
@@ -728,7 +728,7 @@ async fn main() -> Result<()> {
                 );
                 return Ok(());
             }
-            ProfileAction::Activate { name } => {
+            ProfileAction::Load { name } => {
                 config_mgr.activate_profile(name)?;
                 return Ok(());
             }
