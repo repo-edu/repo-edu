@@ -6,8 +6,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use repo_manage_core::{
-    setup_student_repos, GuiSettings, Platform, PlatformAPI, ProfileSettings, SettingsManager,
-    StudentTeam,
+    setup_student_repos, Platform, PlatformAPI, ProfileSettings, SettingsManager, StudentTeam,
 };
 use std::path::PathBuf;
 
@@ -18,27 +17,6 @@ use std::path::PathBuf;
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
-
-    // ===== Settings Management Flags =====
-    /// Load settings from a specific file
-    #[arg(long, global = true, value_name = "PATH")]
-    load: Option<PathBuf>,
-
-    /// Save current settings to the default location
-    #[arg(long, global = true)]
-    save: bool,
-
-    /// Save settings to a specific file
-    #[arg(long, global = true, value_name = "PATH")]
-    save_as: Option<PathBuf>,
-
-    /// Reset settings to defaults
-    #[arg(long, global = true)]
-    reset: bool,
-
-    /// Show current settings and exit
-    #[arg(long, global = true)]
-    show: bool,
 
     /// Print complete CLI documentation as markdown
     #[arg(long)]
@@ -129,12 +107,6 @@ enum Commands {
         assignments: Option<String>,
     },
 
-    /// Settings management commands
-    Settings {
-        #[command(subcommand)]
-        action: SettingsAction,
-    },
-
     /// Profile management commands
     Profile {
         #[command(subcommand)]
@@ -150,46 +122,14 @@ enum ProfileAction {
     /// Show the active profile name
     Active,
 
-    /// Show profiles directory location
-    Location,
+    /// Show settings of active profile
+    Show,
 
     /// Load a profile (set as active)
     Load {
         /// Profile name to load
         name: String,
     },
-
-    /// Create a new profile from current settings
-    New {
-        /// Name for the new profile
-        name: String,
-    },
-
-    /// Delete a profile
-    Delete {
-        /// Profile name to delete
-        name: String,
-    },
-
-    /// Rename a profile
-    Rename {
-        /// Current profile name
-        old_name: String,
-        /// New profile name
-        new_name: String,
-    },
-}
-
-#[derive(Subcommand)]
-enum SettingsAction {
-    /// Show current settings
-    Show,
-
-    /// Reset settings to defaults (in-memory only, use --save to persist)
-    Reset,
-
-    /// Save current settings to active profile
-    Save,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -259,41 +199,6 @@ impl ConfigManager {
         if let Some(ref layout) = cli.directory_layout {
             self.config.repo.directory_layout = layout.parse().unwrap_or_default();
         }
-    }
-
-    /// Save configuration to a specific path
-    fn save_to_path(&self, path: &PathBuf) -> Result<()> {
-        let gui_settings = repo_manage_core::GuiSettings::from_parts(
-            repo_manage_core::AppSettings::default(),
-            self.config.clone(),
-        );
-
-        self.settings_manager
-            .save_to(&gui_settings, path)
-            .context("Failed to save settings")?;
-        println!("Settings saved to: {}", path.display());
-        Ok(())
-    }
-
-    /// Load configuration from a specific path
-    /// Note: This does NOT change the active settings location - it's just for this run
-    fn load(&mut self, path: &PathBuf) -> Result<()> {
-        // Read and parse the file directly without updating location
-        let contents = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read config file: {}", path.display()))?;
-
-        let gui_settings: GuiSettings = serde_json::from_str(&contents)
-            .with_context(|| format!("Invalid JSON in config file: {}", path.display()))?;
-
-        self.config = gui_settings.profile;
-        println!("Settings loaded from: {}", path.display());
-        Ok(())
-    }
-
-    /// Reset configuration to defaults (in-memory only, use --save to persist)
-    fn reset(&mut self) {
-        self.config = ProfileSettings::default();
-        println!("Settings reset to defaults (not saved).");
     }
 
     /// Show current configuration
@@ -377,70 +282,6 @@ impl ConfigManager {
         self.active_profile = Some(name.to_string());
         println!("Activated profile: {}", name);
         Ok(())
-    }
-
-    /// Create a new profile from current settings
-    fn create_profile(&mut self, name: &str) -> Result<()> {
-        self.settings_manager
-            .save_profile_settings(name, &self.config)
-            .with_context(|| format!("Failed to create profile: {}", name))?;
-
-        // Set as active
-        self.settings_manager
-            .set_active_profile(name)
-            .context("Failed to set active profile")?;
-
-        self.active_profile = Some(name.to_string());
-        println!("Created and activated profile: {}", name);
-        Ok(())
-    }
-
-    /// Delete a profile
-    fn delete_profile(&self, name: &str) -> Result<()> {
-        if self.active_profile.as_deref() == Some(name) {
-            anyhow::bail!("Cannot delete the active profile. Switch to another profile first.");
-        }
-
-        self.settings_manager
-            .delete_profile(name)
-            .with_context(|| format!("Failed to delete profile: {}", name))?;
-
-        println!("Deleted profile: {}", name);
-        Ok(())
-    }
-
-    /// Rename a profile
-    fn rename_profile(&mut self, old_name: &str, new_name: &str) -> Result<()> {
-        self.settings_manager
-            .rename_profile(old_name, new_name)
-            .with_context(|| format!("Failed to rename profile: {}", old_name))?;
-
-        if self.active_profile.as_deref() == Some(old_name) {
-            self.active_profile = Some(new_name.to_string());
-        }
-
-        println!("Renamed profile '{}' to '{}'", old_name, new_name);
-        Ok(())
-    }
-
-    /// Save current settings to active profile
-    fn save_to_active_profile(&self) -> Result<()> {
-        let profile_name = self
-            .active_profile
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active profile to save to"))?;
-
-        self.settings_manager
-            .save_profile_settings(profile_name, &self.config)
-            .with_context(|| format!("Failed to save profile: {}", profile_name))?;
-
-        println!("Settings saved to profile '{}'.", profile_name);
-        Ok(())
-    }
-
-    /// Get profiles directory path
-    fn profiles_path(&self) -> PathBuf {
-        self.settings_manager.config_dir_path().join("profiles")
     }
 }
 
@@ -645,54 +486,13 @@ async fn main() -> Result<()> {
     // Create configuration manager
     let mut config_mgr = ConfigManager::new()?;
 
-    // Load configuration from specific file if requested
-    if let Some(ref load_path) = cli.load {
-        config_mgr.load(load_path)?;
-    }
-
-    // Reset configuration if requested
-    if cli.reset {
-        config_mgr.reset();
-    }
-
     // Apply CLI overrides
     config_mgr.apply_overrides(&cli);
 
-    // Handle show settings
-    if cli.show {
-        config_mgr.show();
-        return Ok(());
-    }
-
     // If no command was provided, error
     let Some(ref command) = cli.command else {
-        anyhow::bail!("No command specified. Use --help to see available commands or --show to display current settings");
+        anyhow::bail!("No command specified. Use --help to see available commands.");
     };
-
-    // Handle settings subcommand
-    if let Commands::Settings { action } = command {
-        match action {
-            SettingsAction::Show => {
-                config_mgr.show();
-                return Ok(());
-            }
-            SettingsAction::Reset => {
-                config_mgr.reset();
-                if cli.save {
-                    config_mgr.save_to_active_profile()?;
-                } else if let Some(ref path) = cli.save_as {
-                    config_mgr.save_to_path(path)?;
-                } else {
-                    println!("Warning: This command has no effect without --save or --save-as.");
-                }
-                return Ok(());
-            }
-            SettingsAction::Save => {
-                config_mgr.save_to_active_profile()?;
-                return Ok(());
-            }
-        }
-    }
 
     // Handle profile subcommand
     if let Commands::Profile { action } = command {
@@ -721,34 +521,19 @@ async fn main() -> Result<()> {
                 }
                 return Ok(());
             }
-            ProfileAction::Location => {
-                println!(
-                    "Profiles directory: {}",
-                    config_mgr.profiles_path().display()
-                );
+            ProfileAction::Show => {
+                config_mgr.show();
                 return Ok(());
             }
             ProfileAction::Load { name } => {
                 config_mgr.activate_profile(name)?;
                 return Ok(());
             }
-            ProfileAction::New { name } => {
-                config_mgr.create_profile(name)?;
-                return Ok(());
-            }
-            ProfileAction::Delete { name } => {
-                config_mgr.delete_profile(name)?;
-                return Ok(());
-            }
-            ProfileAction::Rename { old_name, new_name } => {
-                config_mgr.rename_profile(old_name, new_name)?;
-                return Ok(());
-            }
         }
     }
 
     // Execute main command
-    let result = match command {
+    match command {
         Commands::Setup {
             platform,
             templates,
@@ -772,24 +557,9 @@ async fn main() -> Result<()> {
         Commands::Clone { .. } => {
             anyhow::bail!("Clone command not yet implemented")
         }
-        Commands::Settings { .. } => {
-            // Already handled above
-            Ok(())
-        }
         Commands::Profile { .. } => {
             // Already handled above
             Ok(())
         }
-    };
-
-    // Save settings if requested (after successful execution)
-    if result.is_ok() {
-        if let Some(ref save_as_path) = cli.save_as {
-            config_mgr.save_to_path(save_as_path)?;
-        } else if cli.save {
-            config_mgr.save_to_active_profile()?;
-        }
     }
-
-    result
 }
