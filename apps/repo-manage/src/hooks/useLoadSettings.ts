@@ -38,15 +38,30 @@ export function useLoadSettings({ onLoaded, setBaselines, lmsState, repoState, l
       }
     } catch (error) {
       console.error("Failed to load settings:", error);
-      log("⚠ Cannot load settings file, using default settings");
-      log(`  Error: ${getErrorMessage(error)}`);
 
-      // Apply defaults so the app remains functional
-      onLoaded(DEFAULT_GUI_SETTINGS);
-      setBaselines({
-        lms: hashSnapshot(lmsState()),
-        repo: hashSnapshot(repoState()),
-      });
+      // Try to get the profile name that failed
+      let profileName = "unknown";
+      try {
+        profileName = (await settingsService.getActiveProfile()) || "Default";
+      } catch {
+        // Ignore
+      }
+
+      log(`⚠ Failed to load profile '${profileName}':\n${getErrorMessage(error)}`);
+      log(`→ Using default settings for profile '${profileName}'.`);
+
+      // Try to load app settings (window size, etc.) even if profile failed
+      let settings = DEFAULT_GUI_SETTINGS;
+      try {
+        const appSettings = await settingsService.loadAppSettings();
+        settings = { ...DEFAULT_GUI_SETTINGS, ...appSettings };
+      } catch {
+        // Ignore - use full defaults
+      }
+
+      onLoaded(settings);
+      // Force dirty state so user can save to fix the profile
+      setBaselines({ lms: 0, repo: 0 });
     }
   }, [lmsState, repoState, onLoaded, setBaselines, log]);
 
