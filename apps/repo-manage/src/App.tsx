@@ -408,8 +408,8 @@ function App() {
     }
   };
 
-  const handleSettingsLoaded = (settings: GuiSettings) => {
-    applySettings(settings, true);
+  const handleSettingsLoaded = (settings: GuiSettings, updateBaseline = true) => {
+    applySettings(settings, updateBaseline);
   };
 
   const handleToggleSettingsSidebar = async () => {

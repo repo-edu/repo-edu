@@ -301,7 +301,10 @@ impl ConfigManager {
         println!("Current Configuration:");
         println!("======================");
         println!();
-        println!("Active Profile: {}", self.active_profile.as_deref().unwrap_or("(none)"));
+        println!(
+            "Active Profile: {}",
+            self.active_profile.as_deref().unwrap_or("(none)")
+        );
         println!();
         println!("Common Settings:");
         println!("  Git Base URL    : {}", self.config.common.git_base_url);
@@ -316,7 +319,10 @@ impl ConfigManager {
         );
         println!();
         println!("Repo Settings:");
-        println!("  Student Org     : {}", self.config.repo.student_repos_group);
+        println!(
+            "  Student Org     : {}",
+            self.config.repo.student_repos_group
+        );
         println!("  Template Org    : {}", self.config.repo.template_group);
         println!("  YAML File       : {}", self.config.repo.yaml_file);
         println!("  Target Folder   : {}", self.config.repo.target_folder);
@@ -357,7 +363,8 @@ impl ConfigManager {
     /// Activate a profile (load its settings)
     fn activate_profile(&mut self, name: &str) -> Result<()> {
         // Load the profile
-        let profile_settings = self.settings_manager
+        let profile_settings = self
+            .settings_manager
             .load_profile_settings(name)
             .with_context(|| format!("Failed to load profile: {}", name))?;
 
@@ -418,7 +425,9 @@ impl ConfigManager {
 
     /// Save current settings to active profile
     fn save_to_active_profile(&self) -> Result<()> {
-        let profile_name = self.active_profile.as_ref()
+        let profile_name = self
+            .active_profile
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No active profile to save to"))?;
 
         self.settings_manager

@@ -85,19 +85,28 @@ impl Validate for ProfileSettings {
         let mut errors = ValidationErrors::new();
 
         // Validate each section
-        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.common.validate() {
+        if let Err(ConfigError::InvalidConfig {
+            errors: section_errors,
+        }) = self.common.validate()
+        {
             for error in section_errors {
                 errors.add(error);
             }
         }
 
-        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.lms.validate() {
+        if let Err(ConfigError::InvalidConfig {
+            errors: section_errors,
+        }) = self.lms.validate()
+        {
             for error in section_errors {
                 errors.add(error);
             }
         }
 
-        if let Err(ConfigError::InvalidConfig { errors: section_errors }) = self.repo.validate() {
+        if let Err(ConfigError::InvalidConfig {
+            errors: section_errors,
+        }) = self.repo.validate()
+        {
             for error in section_errors {
                 errors.add(error);
             }

@@ -32,7 +32,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@repo-edu/ui/components/ui/tooltip";
-import type { GuiSettings, Theme } from "../types/settings";
+import { DEFAULT_GUI_SETTINGS, type GuiSettings, type Theme } from "../types/settings";
 import { getErrorMessage } from "../types/error";
 import * as settingsService from "../services/settingsService";
 
@@ -45,7 +45,7 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 interface SettingsSidebarProps {
   onClose: () => void;
   currentSettings: GuiSettings;
-  onSettingsLoaded: (settings: GuiSettings) => void;
+  onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void;
   onMessage: (message: string) => void;
   isDirty: boolean;
   onSaved: () => void;
@@ -160,7 +160,11 @@ export function SettingsSidebar({
       showSuccessFlash();
       onMessage(`✓ Loaded profile: ${name}`);
     } catch (error) {
-      onMessage(`✗ Failed to load profile '${name}': ${getErrorMessage(error)}`);
+      // Load defaults so the app remains functional, but don't update baseline
+      // so settings show as dirty and can be saved to fix the profile
+      onSettingsLoaded(DEFAULT_GUI_SETTINGS, false);
+      setActiveProfile(name);
+      onMessage(`⚠ Failed to load profile '${name}': ${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`);
     }
   };
 
