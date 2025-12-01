@@ -4,7 +4,7 @@
 //! GitHub, GitLab, Gitea, and local filesystem platforms.
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use repo_manage_core::{
     setup_student_repos, Platform, PlatformAPI, ProfileSettings, SettingsManager, StudentTeam,
 };
@@ -489,9 +489,10 @@ async fn main() -> Result<()> {
     // Apply CLI overrides
     config_mgr.apply_overrides(&cli);
 
-    // If no command was provided, error
+    // If no command was provided, show help
     let Some(ref command) = cli.command else {
-        anyhow::bail!("No command specified. Use --help to see available commands.");
+        Cli::command().print_help()?;
+        return Ok(());
     };
 
     // Handle profile subcommand
