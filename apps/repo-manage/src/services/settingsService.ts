@@ -13,6 +13,10 @@ export async function saveSettings(settings: Record<string, unknown>): Promise<v
   await invoke("save_settings", { settings });
 }
 
+export async function loadAppSettings(): Promise<AppSettings> {
+  return invoke("load_app_settings");
+}
+
 export async function saveAppSettings(settings: AppSettings): Promise<void> {
   await invoke("save_app_settings", { settings });
 }
@@ -31,6 +35,10 @@ export async function listProfiles(): Promise<string[]> {
 
 export async function getActiveProfile(): Promise<string | null> {
   return invoke("get_active_profile");
+}
+
+export async function setActiveProfile(name: string): Promise<void> {
+  await invoke("set_active_profile", { name });
 }
 
 export async function loadProfile(name: string): Promise<GuiSettings> {

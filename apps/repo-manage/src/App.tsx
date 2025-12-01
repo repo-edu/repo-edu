@@ -202,13 +202,15 @@ function App() {
       },
     });
 
-    // UI state
-    ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
-    ui.setConfigLocked(settings.config_locked ?? true);
-    ui.setOptionsLocked(settings.options_locked ?? true);
-    ui.setSettingsMenuOpen(settings.sidebar_open ?? false);
-    if (settings.splitter_height > 0) {
-      setSettingsHeight(settings.splitter_height);
+    // UI state - only apply on normal loads, not error recovery
+    if (updateBaseline) {
+      ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
+      ui.setConfigLocked(settings.config_locked ?? true);
+      ui.setOptionsLocked(settings.options_locked ?? true);
+      ui.setSettingsMenuOpen(settings.sidebar_open ?? false);
+      if (settings.splitter_height > 0) {
+        setSettingsHeight(settings.splitter_height);
+      }
     }
 
     if (updateBaseline) {
@@ -249,6 +251,9 @@ function App() {
   }, [currentGuiSettings]);
 
   const saveWindowState = useCallback(async () => {
+    // Don't save until settings are loaded
+    if (!currentGuiSettings) return;
+
     const win = getCurrentWindow();
     try {
       const size = await win.innerSize();
@@ -266,7 +271,7 @@ function App() {
     } catch (error) {
       console.error("Failed to save window state:", error);
     }
-  }, [currentGuiSettings?.theme, currentGuiSettings?.logging, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
+  }, [currentGuiSettings, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
 
   // Save window size on close and on resize (debounced)
   useEffect(() => {
@@ -410,6 +415,10 @@ function App() {
 
   const handleSettingsLoaded = (settings: GuiSettings, updateBaseline = true) => {
     applySettings(settings, updateBaseline);
+    // Force dirty state by invalidating baselines
+    if (!updateBaseline) {
+      setLastSavedHashes({ lms: 0, repo: 0 });
+    }
   };
 
   const handleToggleSettingsSidebar = async () => {

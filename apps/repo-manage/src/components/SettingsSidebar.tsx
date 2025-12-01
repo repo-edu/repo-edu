@@ -155,6 +155,7 @@ export function SettingsSidebar({
     if (!name) return;
     try {
       const settings = await settingsService.loadProfile(name);
+      await settingsService.setActiveProfile(name);
       onSettingsLoaded(settings);
       setActiveProfile(name);
       showSuccessFlash();
@@ -162,9 +163,14 @@ export function SettingsSidebar({
     } catch (error) {
       // Load defaults so the app remains functional, but don't update baseline
       // so settings show as dirty and can be saved to fix the profile
+      try {
+        await settingsService.setActiveProfile(name);
+      } catch {
+        // Ignore - profile might not exist on disk yet
+      }
       onSettingsLoaded(DEFAULT_GUI_SETTINGS, false);
       setActiveProfile(name);
-      onMessage(`⚠ Failed to load profile '${name}': ${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`);
+      onMessage(`⚠ Failed to load profile '${name}':\n${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`);
     }
   };
 

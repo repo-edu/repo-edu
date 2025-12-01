@@ -159,6 +159,13 @@ async fn save_settings(settings: GuiSettings) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Load app-level settings (theme, window position, etc.)
+#[tauri::command]
+async fn load_app_settings() -> Result<AppSettings, AppError> {
+    let manager = SettingsManager::new()?;
+    Ok(manager.load_app_settings()?)
+}
+
 /// Save only app-level settings (theme, window position, etc.)
 #[tauri::command]
 async fn save_app_settings(settings: AppSettings) -> Result<(), AppError> {
@@ -232,6 +239,14 @@ async fn list_profiles() -> Result<Vec<String>, AppError> {
 async fn get_active_profile() -> Result<Option<String>, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.get_active_profile()?)
+}
+
+/// Set the active profile
+#[tauri::command]
+async fn set_active_profile(name: String) -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    manager.set_active_profile(&name)?;
+    Ok(())
 }
 
 /// Load a profile by name
@@ -649,6 +664,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
+            load_app_settings,
             save_app_settings,
             reset_settings,
             get_settings_path,
@@ -659,6 +675,7 @@ pub fn run() {
             load_settings_or_default,
             list_profiles,
             get_active_profile,
+            set_active_profile,
             load_profile,
             save_profile,
             delete_profile,
