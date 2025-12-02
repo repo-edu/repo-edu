@@ -451,7 +451,7 @@ function App() {
         <Tabs
           value={ui.activeTab}
           onValueChange={(v) => ui.setActiveTab(v as "lms" | "repo")}
-          className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden"
+          className="flex-1 flex flex-col min-h-0 min-w-[400px] overflow-hidden"
           size="compact"
         >
         <div className="flex items-center">
