@@ -156,11 +156,18 @@
   * {
     @apply border-border;
   }
+  html {
+    background-color: var(--background);
+  }
   body {
     @apply bg-background text-foreground text-xs antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
       Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
     overflow: hidden;
+  }
+  #root {
+    background-color: var(--background);
+    min-height: 100vh;
   }
 }
 
