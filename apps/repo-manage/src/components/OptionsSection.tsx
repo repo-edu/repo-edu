@@ -1,5 +1,6 @@
 import { Button, Label, RadioGroup, RadioGroupItem } from "@repo-edu/ui";
-import { Lock, LockOpen } from "@repo-edu/ui/components/icons";
+import { MdiLockOutline } from "./icons/MdiLockOutline";
+import { MdiLockOpenVariantOutline } from "./icons/MdiLockOpenVariantOutline";
 import { useRepoFormStore, useUiStore } from "../stores";
 import { Section } from "./Section";
 import { FormField } from "./FormField";
@@ -16,9 +17,9 @@ export function OptionsSection() {
       action={
         <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
           {ui.optionsLocked ? (
-            <Lock className="h-4 w-4" aria-hidden />
+            <MdiLockOutline className="h-4 w-4" aria-hidden />
           ) : (
-            <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
+            <MdiLockOpenVariantOutline className="h-4 w-4 text-sky-500" aria-hidden />
           )}
           <span className="sr-only">{ui.optionsLocked ? "Unlock options" : "Lock options"}</span>
         </Button>

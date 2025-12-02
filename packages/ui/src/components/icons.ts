@@ -15,6 +15,8 @@ export {
   Info,
   Loader2,
   Lock,
+  LockKeyhole,
+  LockKeyholeOpen,
   LockOpen,
   Menu,
   Minus,
