@@ -23,6 +23,9 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
   return (
     <Section
       title="LMS Configuration"
+      locked={ui.configLocked}
+      lockTooltip="Unlock to edit LMS credentials"
+      onToggleLock={() => ui.toggleConfigLock()}
       action={
         <Button size="xs" onClick={onVerify}>
           Verify
@@ -33,6 +36,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
         <Select
           value={lmsForm.lmsType}
           onValueChange={(v) => lmsForm.setLmsType(v as "Canvas" | "Moodle")}
+          disabled={ui.configLocked}
         >
           <SelectTrigger size="xs" className="w-40">
             <SelectValue />
@@ -53,6 +57,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
           <Select
             value={lmsForm.urlOption}
             onValueChange={(v) => lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")}
+            disabled={ui.configLocked}
           >
             <SelectTrigger size="xs" className="w-40">
               <SelectValue />
@@ -77,6 +82,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
             onChange={(e) => lmsForm.setField("customUrl", e.target.value)}
             placeholder="https://..."
             className="flex-1"
+            disabled={ui.configLocked}
           />
         </FormField>
       )}
@@ -90,6 +96,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
             onChange={(e) => lmsForm.setField("accessToken", e.target.value)}
             placeholder={lmsForm.accessToken ? "••••••••" : "Not set"}
             className={cn("flex-1 password-input", !lmsForm.accessToken && "token-empty")}
+            disabled={ui.configLocked}
           />
           <Button
             size="xs"
@@ -111,6 +118,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
           onChange={(e) => lmsForm.setField("courseId", e.target.value)}
           placeholder="12345"
           className="flex-1"
+          disabled={ui.configLocked}
         />
       </FormField>
     </Section>

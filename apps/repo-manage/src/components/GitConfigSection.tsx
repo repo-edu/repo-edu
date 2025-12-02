@@ -1,5 +1,4 @@
 import { Button, Input, cn } from "@repo-edu/ui";
-import { Lock, LockOpen } from "@repo-edu/ui/components/icons";
 import { useRepoFormStore, useUiStore } from "../stores";
 import { Section } from "./Section";
 import { FormField } from "./FormField";
@@ -13,18 +12,7 @@ export function GitConfigSection() {
       title="Git Server Configuration"
       locked={ui.configLocked}
       lockTooltip="Unlock to edit server credentials"
-      action={
-        <Button size="xs" variant="outline" onClick={() => ui.toggleConfigLock()}>
-          {ui.configLocked ? (
-            <Lock className="h-4 w-4" aria-hidden />
-          ) : (
-            <LockOpen className="h-4 w-4 text-sky-500" aria-hidden />
-          )}
-          <span className="sr-only">
-            {ui.configLocked ? "Unlock settings" : "Lock settings"}
-          </span>
-        </Button>
-      }
+      onToggleLock={() => ui.toggleConfigLock()}
     >
       <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
         <div className="flex gap-1 flex-1">
