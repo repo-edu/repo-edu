@@ -288,7 +288,7 @@ export function SettingsSidebar({
           }`}
         >
           {/* Theme Selection */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="space-y-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
@@ -321,7 +321,7 @@ export function SettingsSidebar({
                 }
               }}
             >
-              <SelectTrigger size="xs" className="w-32">
+              <SelectTrigger size="xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

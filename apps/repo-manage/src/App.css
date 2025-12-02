@@ -456,14 +456,14 @@ input.password-input[type="password"][data-slot="input"] {
 
 /* Settings Sidebar */
 .settings-sidebar {
-  width: 280px;
-  min-width: 280px;
+  width: 260px;
+  min-width: 200px;
   border-left: 1px solid var(--border);
   background: var(--card);
   color: var(--foreground);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex-shrink: 1;
   flex-grow: 0;
 }
 
