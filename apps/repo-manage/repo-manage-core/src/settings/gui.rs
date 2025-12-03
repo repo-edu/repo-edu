@@ -6,33 +6,16 @@ use serde::{Deserialize, Serialize};
 
 /// App-level settings stored in app.json
 /// These are UI/window settings that don't belong in profiles
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct AppSettings {
-    #[serde(default)]
     pub theme: Theme,
-
-    #[serde(default = "defaults::active_tab")]
     pub active_tab: ActiveTab,
-
-    #[serde(default = "defaults::config_locked")]
     pub config_locked: bool,
-
-    #[serde(default = "defaults::options_locked")]
     pub options_locked: bool,
-
-    #[serde(default)]
     pub sidebar_open: bool,
-
-    #[serde(default = "defaults::splitter_height")]
     pub splitter_height: u32,
-
-    #[serde(default)]
     pub window_width: u32,
-
-    #[serde(default)]
     pub window_height: u32,
-
-    #[serde(default)]
     pub logging: LogSettings,
 }
 
@@ -40,11 +23,11 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: Theme::default(),
-            active_tab: defaults::active_tab(),
-            config_locked: defaults::config_locked(),
-            options_locked: defaults::options_locked(),
+            active_tab: ActiveTab::Lms,
+            config_locked: true,
+            options_locked: true,
             sidebar_open: false,
-            splitter_height: defaults::splitter_height(),
+            splitter_height: 400,
             window_width: 0,
             window_height: 0,
             logging: LogSettings::default(),
@@ -54,7 +37,7 @@ impl Default for AppSettings {
 
 /// Combined GUI settings (sent to frontend)
 /// This combines app settings with the active profile's settings
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct GuiSettings {
     /// App-level settings (from app.json)
     #[serde(flatten)]
@@ -93,26 +76,6 @@ impl GuiSettings {
     /// Extract profile settings
     pub fn profile_settings(&self) -> &ProfileSettings {
         &self.profile
-    }
-}
-
-mod defaults {
-    use super::ActiveTab;
-
-    pub fn active_tab() -> ActiveTab {
-        ActiveTab::Lms
-    }
-
-    pub fn config_locked() -> bool {
-        true
-    }
-
-    pub fn options_locked() -> bool {
-        true
-    }
-
-    pub fn splitter_height() -> u32 {
-        400
     }
 }
 

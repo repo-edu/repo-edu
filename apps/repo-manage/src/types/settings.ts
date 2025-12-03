@@ -1,100 +1,44 @@
 /**
  * TypeScript types for RepoBee settings
- * These types match the Rust GuiSettings structure from repobee-core
+ * Types are imported from auto-generated bindings.ts (Rust → TypeScript)
+ * This file provides default values and helper functions
  */
 
-// ===== Enums =====
+// Re-export types from bindings (auto-generated from Rust)
+export type {
+  ActiveTab,
+  AppSettings,
+  CommonSettings,
+  DirectoryLayout,
+  GuiSettings,
+  LmsSettings,
+  LmsUrlOption,
+  LogSettings,
+  MemberOption,
+  RepoSettings,
+  Theme,
+} from "../bindings";
 
-/** LMS URL selection option */
-export type LmsUrlOption = "TUE" | "CUSTOM";
+// Import types for use in this file
+import type {
+  AppSettings,
+  CommonSettings,
+  GuiSettings,
+  LmsSettings,
+  LogSettings,
+  RepoSettings,
+} from "../bindings";
 
-/** LMS member identifier format */
+// Additional type aliases for compatibility
 export type LmsMemberOption = "(email, gitid)" | "email" | "git_id";
-
-/** Directory layout for cloned repositories */
-export type DirectoryLayout = "flat" | "by-team" | "by-task";
-
-/** Active tab in the GUI */
-export type ActiveTab = "lms" | "repo";
-
-/** LMS platform type */
 export type LmsType = "Canvas" | "Moodle";
 
-/** UI theme */
-export type Theme = "light" | "dark" | "system";
-
-// ===== Nested Settings Interfaces =====
-
-/** Common settings shared between apps (git credentials) */
-export interface CommonSettings {
-  git_base_url: string;
-  git_access_token: string;
-  git_user: string;
-}
-
-/** LMS app settings (Tab 1) */
-export interface LmsSettings {
-  type: LmsType;
-  base_url: string;
-  custom_url: string;
-  url_option: LmsUrlOption;
-  access_token: string;
-  course_id: string;
-  course_name: string;
-  yaml_file: string;
-  info_folder: string;
-  csv_file: string;
-  xlsx_file: string;
-  member_option: LmsMemberOption;
-  include_group: boolean;
-  include_member: boolean;
-  include_initials: boolean;
-  full_groups: boolean;
-  output_csv: boolean;
-  output_xlsx: boolean;
-  output_yaml: boolean;
-}
-
-/** Repo app settings (Tab 2) */
-export interface RepoSettings {
-  student_repos_group: string;
-  template_group: string;
-  yaml_file: string;
-  target_folder: string;
-  assignments: string;
-  directory_layout: DirectoryLayout;
-}
-
-/** Logging settings (stored in AppSettings) */
-export interface LogSettings {
-  info: boolean;
-  debug: boolean;
-  warning: boolean;
-  error: boolean;
-}
-
-/** Profile settings (nested structure for per-profile data) */
+// Profile settings type (not exported from bindings, internal structure)
 export interface ProfileSettings {
   common: CommonSettings;
   lms: LmsSettings;
   repo: RepoSettings;
 }
-
-/** App-level settings stored in app.json */
-export interface AppSettings {
-  theme: Theme;
-  active_tab: ActiveTab;
-  config_locked: boolean;
-  options_locked: boolean;
-  sidebar_open: boolean;
-  splitter_height: number;
-  window_width: number;
-  window_height: number;
-  logging: LogSettings;
-}
-
-/** GUI settings (combined app + profile, flattened in JSON) */
-export interface GuiSettings extends AppSettings, ProfileSettings {}
 
 // ===== Default Values =====
 
@@ -176,8 +120,6 @@ export const DEFAULT_GUI_SETTINGS: GuiSettings = {
 
 /**
  * Validate that a value matches the GuiSettings interface
- * @param value The value to validate
- * @returns true if the value is a valid GuiSettings object
  */
 export function isGuiSettings(value: unknown): value is GuiSettings {
   return (
@@ -193,8 +135,6 @@ export function isGuiSettings(value: unknown): value is GuiSettings {
 
 /**
  * Merge partial settings with defaults
- * @param partial Partial settings to merge
- * @returns Complete settings with defaults for missing fields
  */
 export function mergeWithDefaults(partial: Partial<GuiSettings>): GuiSettings {
   return {

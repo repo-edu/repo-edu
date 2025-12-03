@@ -1,20 +1,22 @@
-import { invoke } from "@tauri-apps/api/core";
+import {
+  commands,
+  type ConfigParams,
+  type SetupParams,
+  type CommandResult,
+} from "../bindings";
 
-export interface VerifyConfigParams {
-  access_token: string;
-  user: string;
-  base_url: string;
-  student_repos_group: string;
-  template_group: string;
+// Re-export for compatibility
+export type { ConfigParams, SetupParams, CommandResult };
+export type VerifyConfigParams = ConfigParams;
+
+export async function verifyConfig(params: ConfigParams): Promise<CommandResult> {
+  const result = await commands.verifyConfig(params);
+  if (result.status === "error") throw result.error;
+  return result.data;
 }
 
-export async function verifyConfig(params: VerifyConfigParams) {
-  return invoke<{ success: boolean; message: string; details?: string }>("verify_config", {
-    params,
-  });
+export async function setupRepos(params: SetupParams): Promise<CommandResult> {
+  const result = await commands.setupRepos(params);
+  if (result.status === "error") throw result.error;
+  return result.data;
 }
-
-export async function setupRepos(args: { config: VerifyConfigParams; yaml_file: string; assignments: string }) {
-  return invoke<{ success: boolean; message: string; details?: string }>("setup_repos", args);
-}
-

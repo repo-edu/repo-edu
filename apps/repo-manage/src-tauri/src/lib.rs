@@ -9,6 +9,7 @@ use repo_manage_core::{
     YamlConfig,
 };
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -61,6 +62,76 @@ fn emit_inline_message(channel: &Channel<String>, state: &mut InlineCliState, me
     state.update(message);
 }
 
+/// Export TypeScript bindings for the Tauri commands.
+pub fn export_bindings(
+    output_path: impl AsRef<std::path::Path>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let builder = create_specta_builder();
+    builder.export(
+        specta_typescript::Typescript::default(),
+        output_path.as_ref(),
+    )?;
+
+    // Post-process the generated TypeScript
+    let content = fs::read_to_string(output_path.as_ref())?;
+
+    // Remove @ts-nocheck comments
+    let content = content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("// @ts-nocheck"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Fix TypeScript errors in generated code:
+    // 1. Remove conflicting TAURI_CHANNEL type definition (conflicts with import)
+    // 2. Mark unused __makeEvents__ function with @ts-expect-error
+    let content = content
+        .lines()
+        .filter(|line| !line.starts_with("export type TAURI_CHANNEL<TSend>"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let content = content.replace(
+        "function __makeEvents__",
+        "// @ts-expect-error Generated but unused when no events defined\nfunction __makeEvents__",
+    );
+
+    fs::write(output_path.as_ref(), content)?;
+    Ok(())
+}
+
+/// Creates a tauri-specta builder with all commands registered.
+/// Single source of truth for command registration.
+fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
+        load_settings,
+        save_settings,
+        load_app_settings,
+        save_app_settings,
+        reset_settings,
+        get_settings_path,
+        settings_exist,
+        import_settings,
+        export_settings,
+        get_settings_schema,
+        load_settings_or_default,
+        list_profiles,
+        get_active_profile,
+        set_active_profile,
+        load_profile,
+        save_profile,
+        delete_profile,
+        rename_profile,
+        get_token_instructions,
+        open_token_url,
+        verify_lms_course,
+        generate_lms_files,
+        verify_config,
+        setup_repos,
+        clone_repos
+    ])
+}
+
 fn parse_lms_type(lms_type: &str) -> Result<LmsCommonType, AppError> {
     match lms_type {
         "Canvas" => Ok(LmsCommonType::Canvas),
@@ -80,7 +151,7 @@ fn lms_display_name(lms_type: &str) -> &str {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct VerifyCourseParams {
     base_url: String,
     access_token: String,
@@ -88,7 +159,7 @@ struct VerifyCourseParams {
     lms_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct GenerateFilesParams {
     base_url: String,
     access_token: String,
@@ -109,7 +180,7 @@ struct GenerateFilesParams {
 }
 
 // Git platform related parameters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct ConfigParams {
     access_token: String,
     user: String,
@@ -118,14 +189,14 @@ struct ConfigParams {
     template_group: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct SetupParams {
     config: ConfigParams,
     yaml_file: String,
     assignments: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct CloneParams {
     config: ConfigParams,
     yaml_file: String,
@@ -134,7 +205,7 @@ struct CloneParams {
     directory_layout: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct CommandResult {
     success: bool,
     message: String,
@@ -145,6 +216,7 @@ struct CommandResult {
 
 /// Load settings from disk
 #[tauri::command]
+#[specta::specta]
 async fn load_settings() -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.load()?;
@@ -153,6 +225,7 @@ async fn load_settings() -> Result<GuiSettings, AppError> {
 
 /// Save settings to disk (both app and profile)
 #[tauri::command]
+#[specta::specta]
 async fn save_settings(settings: GuiSettings) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.save(&settings)?;
@@ -161,6 +234,7 @@ async fn save_settings(settings: GuiSettings) -> Result<(), AppError> {
 
 /// Load app-level settings (theme, window position, etc.)
 #[tauri::command]
+#[specta::specta]
 async fn load_app_settings() -> Result<AppSettings, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.load_app_settings()?)
@@ -168,6 +242,7 @@ async fn load_app_settings() -> Result<AppSettings, AppError> {
 
 /// Save only app-level settings (theme, window position, etc.)
 #[tauri::command]
+#[specta::specta]
 async fn save_app_settings(settings: AppSettings) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.save_app_settings(&settings)?;
@@ -176,6 +251,7 @@ async fn save_app_settings(settings: AppSettings) -> Result<(), AppError> {
 
 /// Reset settings to defaults
 #[tauri::command]
+#[specta::specta]
 async fn reset_settings() -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.reset()?;
@@ -184,6 +260,7 @@ async fn reset_settings() -> Result<GuiSettings, AppError> {
 
 /// Get settings file path
 #[tauri::command]
+#[specta::specta]
 async fn get_settings_path() -> Result<String, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.settings_file_path().to_string_lossy().to_string())
@@ -191,6 +268,7 @@ async fn get_settings_path() -> Result<String, AppError> {
 
 /// Check if settings file exists
 #[tauri::command]
+#[specta::specta]
 async fn settings_exist() -> Result<bool, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.settings_exist())
@@ -198,6 +276,7 @@ async fn settings_exist() -> Result<bool, AppError> {
 
 /// Import settings from a specific file
 #[tauri::command]
+#[specta::specta]
 async fn import_settings(path: String) -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.load_from(std::path::Path::new(&path))?;
@@ -206,6 +285,7 @@ async fn import_settings(path: String) -> Result<GuiSettings, AppError> {
 
 /// Export settings to a specific file
 #[tauri::command]
+#[specta::specta]
 async fn export_settings(settings: GuiSettings, path: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.save_to(&settings, std::path::Path::new(&path))?;
@@ -214,12 +294,14 @@ async fn export_settings(settings: GuiSettings, path: String) -> Result<(), AppE
 
 /// Get the JSON schema for GuiSettings
 #[tauri::command]
-async fn get_settings_schema() -> Result<serde_json::Value, AppError> {
-    Ok(SettingsManager::get_schema()?)
+#[specta::specta]
+async fn get_settings_schema() -> Result<String, AppError> {
+    Ok(serde_json::to_string(&SettingsManager::get_schema()?).map_err(|e| AppError::new(e.to_string()))?)
 }
 
 /// Load settings or return defaults (never fails)
 #[tauri::command]
+#[specta::specta]
 async fn load_settings_or_default() -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.load_or_default())
@@ -229,6 +311,7 @@ async fn load_settings_or_default() -> Result<GuiSettings, AppError> {
 
 /// List all available profiles
 #[tauri::command]
+#[specta::specta]
 async fn list_profiles() -> Result<Vec<String>, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.list_profiles()?)
@@ -236,6 +319,7 @@ async fn list_profiles() -> Result<Vec<String>, AppError> {
 
 /// Get the currently active profile
 #[tauri::command]
+#[specta::specta]
 async fn get_active_profile() -> Result<Option<String>, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.get_active_profile()?)
@@ -243,6 +327,7 @@ async fn get_active_profile() -> Result<Option<String>, AppError> {
 
 /// Set the active profile
 #[tauri::command]
+#[specta::specta]
 async fn set_active_profile(name: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.set_active_profile(&name)?;
@@ -251,6 +336,7 @@ async fn set_active_profile(name: String) -> Result<(), AppError> {
 
 /// Load a profile by name
 #[tauri::command]
+#[specta::specta]
 async fn load_profile(name: String) -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.load_profile(&name)?)
@@ -258,6 +344,7 @@ async fn load_profile(name: String) -> Result<GuiSettings, AppError> {
 
 /// Save current settings as a named profile
 #[tauri::command]
+#[specta::specta]
 async fn save_profile(name: String, settings: GuiSettings) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.save_profile(&name, &settings)?;
@@ -266,6 +353,7 @@ async fn save_profile(name: String, settings: GuiSettings) -> Result<(), AppErro
 
 /// Delete a profile by name
 #[tauri::command]
+#[specta::specta]
 async fn delete_profile(name: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.delete_profile(&name)?;
@@ -274,6 +362,7 @@ async fn delete_profile(name: String) -> Result<(), AppError> {
 
 /// Rename a profile
 #[tauri::command]
+#[specta::specta]
 async fn rename_profile(old_name: String, new_name: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.rename_profile(&old_name, &new_name)?;
@@ -282,6 +371,7 @@ async fn rename_profile(old_name: String, new_name: String) -> Result<(), AppErr
 
 /// Get token generation instructions for an LMS type
 #[tauri::command]
+#[specta::specta]
 async fn get_token_instructions(lms_type: String) -> Result<String, AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     Ok(get_token_generation_instructions(lms_type_enum).to_string())
@@ -289,6 +379,7 @@ async fn get_token_instructions(lms_type: String) -> Result<String, AppError> {
 
 /// Open the LMS token generation page in the browser
 #[tauri::command]
+#[specta::specta]
 async fn open_token_url(base_url: String, lms_type: String) -> Result<(), AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     open_token_generation_url(&base_url, lms_type_enum)?;
@@ -299,6 +390,7 @@ async fn open_token_url(base_url: String, lms_type: String) -> Result<(), AppErr
 
 /// Verify LMS course credentials and fetch course information
 #[tauri::command]
+#[specta::specta]
 async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, AppError> {
     let lms_label = lms_display_name(&params.lms_type);
     let client = create_lms_client_with_params(
@@ -324,6 +416,7 @@ async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, 
 
 /// Generate student files from an LMS course
 #[tauri::command]
+#[specta::specta]
 async fn generate_lms_files(
     params: GenerateFilesParams,
     progress: Channel<String>,
@@ -455,6 +548,7 @@ async fn generate_lms_files(
 
 /// Verify platform configuration and authentication
 #[tauri::command]
+#[specta::specta]
 async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppError> {
     // Determine platform from base_url
     let platform = if params.base_url.starts_with('/') || params.base_url.contains("local") {
@@ -515,6 +609,7 @@ async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppError> 
 
 /// Create student repositories from templates
 #[tauri::command]
+#[specta::specta]
 async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError> {
     // Parse YAML file to get student teams
     let yaml_content = std::fs::read_to_string(&params.yaml_file)
@@ -645,6 +740,7 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError> {
 
 /// Clone student repositories (stub for now)
 #[tauri::command]
+#[specta::specta]
 async fn clone_repos(_params: CloneParams) -> Result<CommandResult, AppError> {
     // TODO: Implement clone functionality
     // For now, return a stub response
@@ -653,6 +749,8 @@ async fn clone_repos(_params: CloneParams) -> Result<CommandResult, AppError> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let builder = create_specta_builder();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -661,33 +759,7 @@ pub fn run() {
             // based on saved settings and system preference
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            load_settings,
-            save_settings,
-            load_app_settings,
-            save_app_settings,
-            reset_settings,
-            get_settings_path,
-            settings_exist,
-            import_settings,
-            export_settings,
-            get_settings_schema,
-            load_settings_or_default,
-            list_profiles,
-            get_active_profile,
-            set_active_profile,
-            load_profile,
-            save_profile,
-            delete_profile,
-            rename_profile,
-            get_token_instructions,
-            open_token_url,
-            verify_lms_course,
-            generate_lms_files,
-            verify_config,
-            setup_repos,
-            clone_repos
-        ])
+        .invoke_handler(builder.invoke_handler())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

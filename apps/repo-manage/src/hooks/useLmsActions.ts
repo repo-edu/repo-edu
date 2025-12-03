@@ -40,8 +40,12 @@ export function useLmsActions() {
           lmsForm.setField("courseName", match[1]);
         }
       }
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      output.appendWithNewline(`✗ Error: ${errorMessage}`);
+      if (error?.details) {
+        output.appendWithNewline(error.details);
+      }
     }
   };
 
@@ -81,8 +85,12 @@ export function useLmsActions() {
       if (result.details) {
         output.appendWithNewline(result.details);
       }
-    } catch (error) {
-      output.appendWithNewline(`⚠ Error: ${error}`);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      output.appendWithNewline(`⚠ Error: ${errorMessage}`);
+      if (error?.details) {
+        output.appendWithNewline(error.details);
+      }
     }
   };
 
