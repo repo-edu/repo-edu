@@ -4,7 +4,7 @@ use std::fmt;
 use std::str::FromStr;
 
 /// LMS URL preset options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LmsUrlOption {
     TUE,
@@ -39,7 +39,7 @@ impl FromStr for LmsUrlOption {
 }
 
 /// Member option for YAML generation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub enum MemberOption {
     #[serde(rename = "(email, gitid)")]
     EmailAndGitId,
@@ -79,7 +79,7 @@ impl FromStr for MemberOption {
 }
 
 /// Directory layout for cloned repositories
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum DirectoryLayout {
     ByTeam,
@@ -117,7 +117,7 @@ impl FromStr for DirectoryLayout {
 }
 
 /// Active tab in the GUI
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum ActiveTab {
     Lms,
@@ -125,7 +125,7 @@ pub enum ActiveTab {
 }
 
 /// UI theme
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
     Light,

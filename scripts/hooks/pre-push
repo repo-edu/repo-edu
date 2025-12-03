@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Skip if explicitly disabled
+[ -n "${SKIP_GEN:-}" ] && exit 0
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+"$ROOT_DIR/scripts/run-gen-bindings-if-needed.sh"

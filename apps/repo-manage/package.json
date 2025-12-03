@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "gen:bindings": "cargo run -p repo-manage-tauri --bin export_bindings",
     "test": "vitest",
     "test:run": "vitest run"
   },

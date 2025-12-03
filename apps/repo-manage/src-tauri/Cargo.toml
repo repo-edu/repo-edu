@@ -4,6 +4,7 @@ version.workspace = true
 description = "RepoManage GUI Application"
 authors.workspace = true
 edition.workspace = true
+default-run = "repo-manage-tauri"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -27,4 +28,6 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
-
+specta = { version = "2.0.0-rc.20", features = ["serde"] }
+specta-typescript = "0.0.9"
+tauri-specta = { version = "2.0.0-rc.20", features = ["derive", "typescript"] }

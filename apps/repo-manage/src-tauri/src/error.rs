@@ -7,7 +7,7 @@ use repo_manage_core::{ConfigError, LmsError, PlatformError};
 use serde::Serialize;
 
 /// Unified error type for all Tauri commands
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct AppError {
     /// User-friendly error message
     pub message: String,

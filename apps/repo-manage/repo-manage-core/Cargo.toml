@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+specta = { version = "2.0.0-rc.20", features = ["serde", "derive"] }
 # Async runtime
 tokio.workspace = true
 

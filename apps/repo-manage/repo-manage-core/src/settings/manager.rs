@@ -2,6 +2,7 @@ use super::atomic::atomic_write_json;
 use super::common::ProfileSettings;
 use super::error::{ConfigError, ConfigResult};
 use super::gui::{AppSettings, GuiSettings};
+use super::merge::merge_with_defaults;
 use super::normalization::Normalize;
 use super::validation::Validate;
 use schemars::schema_for;
@@ -152,11 +153,20 @@ impl SettingsManager {
             source: e,
         })?;
 
-        let settings: AppSettings =
-            serde_json::from_str(&contents).map_err(|e| ConfigError::JsonParseError {
-                path: app_file,
+        let raw: serde_json::Value = serde_json::from_str(&contents)
+            .map_err(|e| ConfigError::JsonParseError {
+                path: app_file.clone(),
                 source: e,
             })?;
+
+        let mut settings: AppSettings = merge_with_defaults(&raw).map_err(|e| {
+            ConfigError::JsonParseError {
+                path: app_file.clone(),
+                source: e,
+            }
+        })?;
+
+        settings.normalize();
 
         Ok(settings)
     }
@@ -359,7 +369,7 @@ impl SettingsManager {
         }
 
         let mut settings: ProfileSettings =
-            serde_json::from_value(json_value).map_err(|e| ConfigError::JsonParseError {
+            merge_with_defaults(&json_value).map_err(|e| ConfigError::JsonParseError {
                 path: profile_path,
                 source: e,
             })?;
