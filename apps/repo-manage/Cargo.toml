@@ -16,11 +16,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 anyhow = "1"
-thiserror = "1"
+thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Git operations (vendored to avoid system OpenSSL dependency)
-git2 = { version = "0.19", features = ["vendored-openssl", "vendored-libgit2"] }
+git2 = { version = "0.20", features = ["vendored-openssl", "vendored-libgit2"] }
 
 # HTTP client (using rustls to avoid OpenSSL system dependency)
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
