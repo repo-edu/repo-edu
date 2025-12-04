@@ -50,11 +50,6 @@ export function validateLmsGenerate(form: LmsFormState) {
   return { valid: errors.length === 0, errors };
 }
 
-/** @deprecated Use validateLmsVerify or validateLmsGenerate instead */
-export function validateLms(form: LmsFormState) {
-  return validateLmsGenerate(form);
-}
-
 export function validateRepo(form: RepoFormState) {
   const errors: string[] = [];
 
