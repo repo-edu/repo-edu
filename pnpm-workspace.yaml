@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "docs"
 
 # Shared dependency versions - use catalog: in package.json to reference
 catalog:
