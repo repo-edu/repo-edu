@@ -14,6 +14,7 @@ export default defineConfig(async () => ({
       "@": path.resolve(__dirname, "./src"),
       "@repo-edu/ui": path.resolve(__dirname, "../../packages/ui/src"),
     },
+    dedupe: ["react", "react-dom"],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
