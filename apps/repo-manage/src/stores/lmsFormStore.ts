@@ -9,7 +9,7 @@ export interface LmsFormState {
   courseId: string;
   courseName: string;
   yamlFile: string;
-  infoFileFolder: string;
+  outputFolder: string;
   csvFile: string;
   xlsxFile: string;
   memberOption: "(email, gitid)" | "email" | "git_id";
@@ -39,7 +39,7 @@ const initialState: LmsFormState = {
   courseId: "",
   courseName: "",
   yamlFile: "students.yaml",
-  infoFileFolder: "",
+  outputFolder: "",
   csvFile: "student-info.csv",
   xlsxFile: "student-info.xlsx",
   memberOption: "(email, gitid)",
@@ -82,7 +82,7 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       courseId: state.courseId,
       courseName: state.courseName,
       yamlFile: state.yamlFile,
-      infoFileFolder: state.infoFileFolder,
+      outputFolder: state.outputFolder,
       csvFile: state.csvFile,
       xlsxFile: state.xlsxFile,
       memberOption: state.memberOption,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateLms, validateRepo } from "./forms";
+import { validateLmsVerify, validateLmsGenerate, validateRepo } from "./forms";
 import type { LmsFormState } from "../stores/lmsFormStore";
 import type { RepoFormState } from "../stores/repoFormStore";
 
@@ -12,7 +12,7 @@ const validLmsForm: LmsFormState = {
   courseId: "12345",
   courseName: "Test Course",
   yamlFile: "students.yaml",
-  infoFileFolder: "",
+  outputFolder: "/path/to/output",
   csvFile: "student-info.csv",
   xlsxFile: "student-info.xlsx",
   memberOption: "(email, gitid)",
@@ -43,71 +43,46 @@ const validRepoForm: RepoFormState = {
   },
 };
 
-describe("validateLms", () => {
-  it("returns valid for complete form", () => {
-    const result = validateLms(validLmsForm);
+describe("validateLmsVerify", () => {
+  it("returns valid when LMS connection settings are complete", () => {
+    const result = validateLmsVerify(validLmsForm);
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
   it("requires base URL for TUE option", () => {
     const form = { ...validLmsForm, baseUrl: "" };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Base URL is required");
   });
 
   it("requires custom URL for CUSTOM option", () => {
     const form = { ...validLmsForm, urlOption: "CUSTOM" as const, customUrl: "" };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Custom URL is required");
   });
 
   it("validates URL format", () => {
     const form = { ...validLmsForm, baseUrl: "not-a-url" };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Base URL must be a valid URL");
   });
 
   it("requires access token", () => {
     const form = { ...validLmsForm, accessToken: "" };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Access token is required");
   });
 
   it("requires course ID", () => {
     const form = { ...validLmsForm, courseId: "" };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Course ID is required");
-  });
-
-  it("requires YAML file", () => {
-    const form = { ...validLmsForm, yamlFile: "" };
-    const result = validateLms(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("YAML file is required");
-  });
-
-  it("requires at least one output format", () => {
-    const form = { ...validLmsForm, csv: false, xlsx: false, yaml: false };
-    const result = validateLms(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Select at least one output format (YAML, CSV, or XLSX)");
-  });
-
-  it("accepts any output format combination", () => {
-    const csvOnly = { ...validLmsForm, csv: true, xlsx: false, yaml: false };
-    expect(validateLms(csvOnly).valid).toBe(true);
-
-    const xlsxOnly = { ...validLmsForm, csv: false, xlsx: true, yaml: false };
-    expect(validateLms(xlsxOnly).valid).toBe(true);
-
-    const allFormats = { ...validLmsForm, csv: true, xlsx: true, yaml: true };
-    expect(validateLms(allFormats).valid).toBe(true);
   });
 
   it("uses custom URL for non-Canvas LMS types", () => {
@@ -116,7 +91,7 @@ describe("validateLms", () => {
       lmsType: "Moodle",
       customUrl: "https://moodle.example.com",
     };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(true);
   });
 
@@ -126,9 +101,68 @@ describe("validateLms", () => {
       lmsType: "Moodle",
       customUrl: "",
     };
-    const result = validateLms(form);
+    const result = validateLmsVerify(form);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Custom URL is required");
+  });
+
+  it("does NOT require output folder", () => {
+    const form = { ...validLmsForm, outputFolder: "" };
+    const result = validateLmsVerify(form);
+    expect(result.valid).toBe(true);
+  });
+
+  it("does NOT require YAML file", () => {
+    const form = { ...validLmsForm, yamlFile: "" };
+    const result = validateLmsVerify(form);
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("validateLmsGenerate", () => {
+  it("returns valid for complete form", () => {
+    const result = validateLmsGenerate(validLmsForm);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("includes LMS connection validation errors", () => {
+    const form = { ...validLmsForm, accessToken: "" };
+    const result = validateLmsGenerate(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Access token is required");
+  });
+
+  it("requires YAML file", () => {
+    const form = { ...validLmsForm, yamlFile: "" };
+    const result = validateLmsGenerate(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("YAML file is required");
+  });
+
+  it("requires output folder", () => {
+    const form = { ...validLmsForm, outputFolder: "" };
+    const result = validateLmsGenerate(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Output folder is required");
+  });
+
+  it("requires at least one output format", () => {
+    const form = { ...validLmsForm, csv: false, xlsx: false, yaml: false };
+    const result = validateLmsGenerate(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Select at least one output format (YAML, CSV, or XLSX)");
+  });
+
+  it("accepts any output format combination", () => {
+    const csvOnly = { ...validLmsForm, csv: true, xlsx: false, yaml: false };
+    expect(validateLmsGenerate(csvOnly).valid).toBe(true);
+
+    const xlsxOnly = { ...validLmsForm, csv: false, xlsx: true, yaml: false };
+    expect(validateLmsGenerate(xlsxOnly).valid).toBe(true);
+
+    const allFormats = { ...validLmsForm, csv: true, xlsx: true, yaml: true };
+    expect(validateLmsGenerate(allFormats).valid).toBe(true);
   });
 });
 

@@ -34,4 +34,3 @@ fn merge_values(target: &mut Value, src: &Value) {
         }
     }
 }
-

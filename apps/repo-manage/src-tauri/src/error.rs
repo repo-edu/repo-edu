@@ -24,6 +24,14 @@ impl AppError {
             details: None,
         }
     }
+
+    /// Create a new AppError with message and details
+    pub fn with_details(message: impl Into<String>, details: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            details: Some(details.into()),
+        }
+    }
 }
 
 impl std::fmt::Display for AppError {

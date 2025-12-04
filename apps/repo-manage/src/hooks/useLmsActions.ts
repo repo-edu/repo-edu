@@ -66,7 +66,7 @@ export function useLmsActions() {
           course_id: lms.courseId,
           lms_type: lms.lmsType,
           yaml_file: lms.yamlFile,
-          info_file_folder: lms.infoFileFolder,
+          output_folder: lms.outputFolder,
           csv_file: lms.csvFile,
           xlsx_file: lms.xlsxFile,
           member_option: lms.memberOption,

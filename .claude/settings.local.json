@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(cargo build:*)",
+      "Bash(./target/debug/redu:*)",
+      "Bash(cargo test:*)",
+      "Bash(pnpm tauri build:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo redu profile --help:*)",
+      "Bash(cargo redu --help:*)",
+      "Bash(cargo redu:*)",
+      "WebSearch",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:claudelog.com)",
+      "Bash(cat:*)",
+      "WebFetch(domain:docs.rs)",
+      "Bash(pnpm --filter @repo-edu/repo-manage gen:bindings:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cargo run:*)",
+      "Bash(grep:*)",
+      "Bash(cargo clean:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "outputStyle": "default"
+}

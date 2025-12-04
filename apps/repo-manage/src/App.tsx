@@ -44,7 +44,7 @@ import { useLoadSettings } from "./hooks/useLoadSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useLmsActions } from "./hooks/useLmsActions";
 import { useRepoActions } from "./hooks/useRepoActions";
-import { validateLms, validateRepo } from "./validation/forms";
+import { validateLmsVerify, validateLmsGenerate, validateRepo } from "./validation/forms";
 import "./App.css";
 
 function App() {
@@ -75,7 +75,8 @@ function App() {
     hashSnapshot(lmsForm.getState()) !== lastSavedHashes.lms ||
     hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo;
 
-  const lmsValidation = validateLms(lmsForm.getState());
+  const lmsVerifyValidation = validateLmsVerify(lmsForm.getState());
+  const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState());
   const repoValidation = validateRepo(repoForm.getState());
 
   // Settings panel height (pixels) - console takes remaining space via flex
@@ -164,7 +165,7 @@ function App() {
       courseId: lms.course_id || "",
       courseName: lms.course_name || "",
       yamlFile: lms.yaml_file || "students.yaml",
-      infoFileFolder: lms.info_folder || "",
+      outputFolder: lms.output_folder || "",
       csvFile: lms.csv_file || "student-info.csv",
       xlsxFile: lms.xlsx_file || "student-info.xlsx",
       memberOption: (lms.member_option || "(email, gitid)") as
@@ -346,7 +347,7 @@ function App() {
           course_id: lmsState.courseId,
           course_name: lmsState.courseName,
           yaml_file: lmsState.yamlFile,
-          info_folder: lmsState.infoFileFolder,
+          output_folder: lmsState.outputFolder,
           csv_file: lmsState.csvFile,
           xlsx_file: lmsState.xlsxFile,
           member_option: lmsState.memberOption as "(email, gitid)" | "email" | "git_id",
@@ -488,24 +489,24 @@ function App() {
               className="overflow-auto space-y-1 shrink-0"
               style={{ height: settingsHeight }}
             >
-              <LmsConfigSection onVerify={verifyLmsCourse} />
+              <LmsConfigSection onVerify={verifyLmsCourse} verifyDisabled={!lmsVerifyValidation.valid} />
               <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
               <RepoNamingSection />
             </div>
 
             <ActionBar
               right={
-                !lmsValidation.valid ? (
+                !lmsGenerateValidation.valid ? (
                   <span className="text-[11px] text-destructive">
-                    {lmsValidation.errors[0]}
-                    {lmsValidation.errors.length > 1 ? " (+ more)" : ""}
+                    {lmsGenerateValidation.errors[0]}
+                    {lmsGenerateValidation.errors.length > 1 ? " (+ more)" : ""}
                   </span>
                 ) : null
               }
             >
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsValidation.valid}>
+                  <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsGenerateValidation.valid}>
                     Generate Files
                   </Button>
                 </TooltipTrigger>

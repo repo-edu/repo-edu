@@ -324,7 +324,7 @@ export type ConfigParams = { access_token: string; user: string; base_url: strin
  * Directory layout for cloned repositories
  */
 export type DirectoryLayout = "by-team" | "flat" | "by-task"
-export type GenerateFilesParams = { base_url: string; access_token: string; course_id: string; lms_type: string; yaml_file: string; info_file_folder: string; csv_file: string; xlsx_file: string; member_option: string; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; csv: boolean; xlsx: boolean; yaml: boolean }
+export type GenerateFilesParams = { base_url: string; access_token: string; course_id: string; lms_type: string; yaml_file: string; output_folder: string; csv_file: string; xlsx_file: string; member_option: string; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; csv: boolean; xlsx: boolean; yaml: boolean }
 /**
  * Combined GUI settings (sent to frontend)
  * This combines app settings with the active profile's settings
@@ -341,7 +341,7 @@ export type GuiSettings =
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { type: string; base_url: string; custom_url: string; url_option: LmsUrlOption; access_token: string; course_id: string; course_name: string; yaml_file: string; info_folder: string; csv_file: string; xlsx_file: string; member_option: MemberOption; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; output_csv: boolean; output_xlsx: boolean; output_yaml: boolean }
+export type LmsSettings = { type: string; base_url: string; custom_url: string; url_option: LmsUrlOption; access_token: string; course_id: string; course_name: string; yaml_file: string; output_folder: string; csv_file: string; xlsx_file: string; member_option: MemberOption; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; output_csv: boolean; output_xlsx: boolean; output_yaml: boolean }
 /**
  * LMS URL preset options
  */

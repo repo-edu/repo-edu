@@ -59,7 +59,7 @@ export const DEFAULT_LMS_SETTINGS: LmsSettings = {
   course_id: "",
   course_name: "",
   yaml_file: "students.yaml",
-  info_folder: "",
+  output_folder: "",
   csv_file: "student-info.csv",
   xlsx_file: "student-info.xlsx",
   member_option: "(email, gitid)",

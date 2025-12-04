@@ -17,7 +17,8 @@ function requireUrl(value: string, label: string, errors: string[]) {
   }
 }
 
-export function validateLms(form: LmsFormState) {
+/** Validate LMS connection settings (for Verify button) */
+export function validateLmsVerify(form: LmsFormState) {
   const errors: string[] = [];
 
   const isCustom = form.urlOption === "CUSTOM" || form.lmsType !== "Canvas";
@@ -26,13 +27,32 @@ export function validateLms(form: LmsFormState) {
   requireUrl(urlToCheck, isCustom ? "Custom URL" : "Base URL", errors);
   require(form.accessToken, "Access token", errors);
   require(form.courseId, "Course ID", errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+/** Validate LMS + output settings (for Generate Files button) */
+export function validateLmsGenerate(form: LmsFormState) {
+  const errors: string[] = [];
+
+  // First validate connection settings
+  const verifyResult = validateLmsVerify(form);
+  errors.push(...verifyResult.errors);
+
+  // Then validate output settings
   require(form.yamlFile, "YAML file", errors);
+  require(form.outputFolder, "Output folder", errors);
 
   if (!form.csv && !form.xlsx && !form.yaml) {
     errors.push("Select at least one output format (YAML, CSV, or XLSX)");
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/** @deprecated Use validateLmsVerify or validateLmsGenerate instead */
+export function validateLms(form: LmsFormState) {
+  return validateLmsGenerate(form);
 }
 
 export function validateRepo(form: RepoFormState) {

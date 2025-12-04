@@ -14,9 +14,10 @@ import { FormField } from "./FormField";
 
 interface LmsConfigSectionProps {
   onVerify: () => void;
+  verifyDisabled?: boolean;
 }
 
-export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
+export function LmsConfigSection({ onVerify, verifyDisabled }: LmsConfigSectionProps) {
   const lmsForm = useLmsFormStore();
   const ui = useUiStore();
 
@@ -27,7 +28,7 @@ export function LmsConfigSection({ onVerify }: LmsConfigSectionProps) {
       lockTooltip="Unlock to edit LMS credentials"
       onToggleLock={() => ui.toggleConfigLock()}
       action={
-        <Button size="xs" onClick={onVerify}>
+        <Button size="xs" onClick={onVerify} disabled={verifyDisabled}>
           Verify
         </Button>
       }

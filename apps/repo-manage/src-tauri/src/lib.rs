@@ -166,7 +166,7 @@ struct GenerateFilesParams {
     course_id: String,
     lms_type: String,
     yaml_file: String,
-    info_file_folder: String,
+    output_folder: String,
     csv_file: String,
     xlsx_file: String,
     member_option: String,
@@ -296,7 +296,8 @@ async fn export_settings(settings: GuiSettings, path: String) -> Result<(), AppE
 #[tauri::command]
 #[specta::specta]
 async fn get_settings_schema() -> Result<String, AppError> {
-    Ok(serde_json::to_string(&SettingsManager::get_schema()?).map_err(|e| AppError::new(e.to_string()))?)
+    Ok(serde_json::to_string(&SettingsManager::get_schema()?)
+        .map_err(|e| AppError::new(e.to_string()))?)
 }
 
 /// Load settings or return defaults (never fails)
@@ -421,6 +422,21 @@ async fn generate_lms_files(
     params: GenerateFilesParams,
     progress: Channel<String>,
 ) -> Result<CommandResult, AppError> {
+    // Validate output folder exists before doing any work
+    let output_path = PathBuf::from(&params.output_folder);
+    if !output_path.exists() {
+        return Err(AppError::with_details(
+            "Output folder does not exist",
+            format!("Path: {}", params.output_folder),
+        ));
+    }
+    if !output_path.is_dir() {
+        return Err(AppError::with_details(
+            "Output folder is not a directory",
+            format!("Path: {}", params.output_folder),
+        ));
+    }
+
     let lms_label = lms_display_name(&params.lms_type);
     let client =
         create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)?;
@@ -508,7 +524,7 @@ async fn generate_lms_files(
             |_, _, _| {}, // YAML generation is too fast to need progress
         )?;
 
-        let yaml_path = PathBuf::from(&params.info_file_folder).join(&params.yaml_file);
+        let yaml_path = PathBuf::from(&params.output_folder).join(&params.yaml_file);
         write_yaml_file(&teams, &yaml_path)?;
 
         // Get absolute path for display
@@ -522,7 +538,7 @@ async fn generate_lms_files(
 
     // Generate CSV file if requested
     if params.csv {
-        let csv_path = PathBuf::from(&params.info_file_folder).join(&params.csv_file);
+        let csv_path = PathBuf::from(&params.output_folder).join(&params.csv_file);
         write_csv_file(&students, &csv_path)?;
 
         // Get absolute path for display
