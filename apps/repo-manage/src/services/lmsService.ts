@@ -5,32 +5,19 @@ import {
   type CommandResult,
 } from "../bindings";
 import type { Channel } from "@tauri-apps/api/core";
+import { unwrap } from "./commandUtils";
 
 // Re-export types for compatibility
 export type { VerifyCourseParams, GenerateFilesParams, CommandResult };
 
-export async function verifyLmsCourse(params: VerifyCourseParams): Promise<CommandResult> {
-  const result = await commands.verifyLmsCourse(params);
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
+export const verifyLmsCourse = (params: VerifyCourseParams) =>
+  commands.verifyLmsCourse(params).then(unwrap);
 
-export async function generateLmsFiles(
-  params: GenerateFilesParams,
-  progress: Channel<string>
-): Promise<CommandResult> {
-  const result = await commands.generateLmsFiles(params, progress);
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
+export const generateLmsFiles = (params: GenerateFilesParams, progress: Channel<string>) =>
+  commands.generateLmsFiles(params, progress).then(unwrap);
 
-export async function getTokenInstructions(lmsType: string): Promise<string> {
-  const result = await commands.getTokenInstructions(lmsType);
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
+export const getTokenInstructions = (lmsType: string) =>
+  commands.getTokenInstructions(lmsType).then(unwrap);
 
-export async function openTokenUrl(baseUrl: string, lmsType: string): Promise<void> {
-  const result = await commands.openTokenUrl(baseUrl, lmsType);
-  if (result.status === "error") throw result.error;
-}
+export const openTokenUrl = (baseUrl: string, lmsType: string) =>
+  commands.openTokenUrl(baseUrl, lmsType).then(unwrap);

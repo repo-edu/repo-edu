@@ -1,5 +1,6 @@
 import { useRepoFormStore, useOutputStore } from "../stores";
 import * as repoService from "../services/repoService";
+import { formatError } from "../services/commandUtils";
 import { validateRepo } from "../validation/forms";
 
 /**
@@ -29,8 +30,12 @@ export function useRepoActions() {
       if (result.details) {
         output.appendWithNewline(result.details);
       }
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
+    } catch (error: unknown) {
+      const { message, details } = formatError(error);
+      output.appendWithNewline(`✗ Error: ${message}`);
+      if (details) {
+        output.appendWithNewline(details);
+      }
     }
   };
 
@@ -59,8 +64,12 @@ export function useRepoActions() {
       });
       if (result.message) output.appendWithNewline(result.message);
       if (result.details) output.appendWithNewline(result.details);
-    } catch (error) {
-      output.appendWithNewline(`✗ Error: ${error}`);
+    } catch (error: unknown) {
+      const { message, details } = formatError(error);
+      output.appendWithNewline(`✗ Error: ${message}`);
+      if (details) {
+        output.appendWithNewline(details);
+      }
     }
   };
 

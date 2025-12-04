@@ -1,7 +1,8 @@
 import { useLmsFormStore, useOutputStore } from "../stores";
 import * as lmsService from "../services/lmsService";
+import { formatError } from "../services/commandUtils";
 import { useProgressChannel, handleProgressMessage } from "./useProgressChannel";
-import { validateLms } from "../validation/forms";
+import { validateLmsVerify } from "../validation/forms";
 
 /**
  * Hook providing LMS-related actions (verify course, generate files).
@@ -11,7 +12,7 @@ export function useLmsActions() {
   const output = useOutputStore();
 
   const verifyLmsCourse = async () => {
-    const lmsValidation = validateLms(lmsForm.getState());
+    const lmsValidation = validateLmsVerify(lmsForm.getState());
     if (!lmsValidation.valid) {
       output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first");
       return;
@@ -40,11 +41,11 @@ export function useLmsActions() {
           lmsForm.setField("courseName", match[1]);
         }
       }
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      output.appendWithNewline(`✗ Error: ${errorMessage}`);
-      if (error?.details) {
-        output.appendWithNewline(error.details);
+    } catch (error: unknown) {
+      const { message, details } = formatError(error);
+      output.appendWithNewline(`✗ Error: ${message}`);
+      if (details) {
+        output.appendWithNewline(details);
       }
     }
   };
@@ -85,11 +86,11 @@ export function useLmsActions() {
       if (result.details) {
         output.appendWithNewline(result.details);
       }
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error);
-      output.appendWithNewline(`⚠ Error: ${errorMessage}`);
-      if (error?.details) {
-        output.appendWithNewline(error.details);
+    } catch (error: unknown) {
+      const { message, details } = formatError(error);
+      output.appendWithNewline(`⚠ Error: ${message}`);
+      if (details) {
+        output.appendWithNewline(details);
       }
     }
   };

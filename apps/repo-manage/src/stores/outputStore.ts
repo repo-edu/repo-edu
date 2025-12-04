@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { BACKEND_PROGRESS_PREFIX, DISPLAY_PROGRESS_PREFIX } from "../constants";
 
 interface OutputState {
   text: string;
@@ -32,7 +33,7 @@ export const useOutputStore = create<OutputStore>((set) => ({
       }
       // Check if last line is a progress line and replace it
       const isProgressLine = (val: string) =>
-        val.startsWith("[PROGRESS]") || val.startsWith("(progress)");
+        val.startsWith(BACKEND_PROGRESS_PREFIX) || val.startsWith(DISPLAY_PROGRESS_PREFIX);
       if (lines.length > 0 && isProgressLine(lines[lines.length - 1])) {
         lines[lines.length - 1] = line;
       } else {

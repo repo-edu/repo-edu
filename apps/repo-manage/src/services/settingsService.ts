@@ -1,94 +1,22 @@
-import {
-  commands,
-  type AppSettings,
-  type GuiSettings,
-} from "../bindings";
+import { commands, type AppSettings, type GuiSettings } from "../bindings";
+import { unwrap } from "./commandUtils";
 
-export async function settingsExist(): Promise<boolean> {
-  const result = await commands.settingsExist();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function loadSettings(): Promise<GuiSettings> {
-  const result = await commands.loadSettings();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function saveSettings(settings: GuiSettings): Promise<void> {
-  const result = await commands.saveSettings(settings);
-  if (result.status === "error") throw result.error;
-}
-
-export async function loadAppSettings(): Promise<AppSettings> {
-  const result = await commands.loadAppSettings();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function saveAppSettings(settings: AppSettings): Promise<void> {
-  const result = await commands.saveAppSettings(settings);
-  if (result.status === "error") throw result.error;
-}
-
-export async function resetSettings(): Promise<GuiSettings> {
-  const result = await commands.resetSettings();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function getSettingsPath(): Promise<string> {
-  const result = await commands.getSettingsPath();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function listProfiles(): Promise<string[]> {
-  const result = await commands.listProfiles();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function getActiveProfile(): Promise<string | null> {
-  const result = await commands.getActiveProfile();
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function setActiveProfile(name: string): Promise<void> {
-  const result = await commands.setActiveProfile(name);
-  if (result.status === "error") throw result.error;
-}
-
-export async function loadProfile(name: string): Promise<GuiSettings> {
-  const result = await commands.loadProfile(name);
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function saveProfile(name: string, settings: GuiSettings): Promise<void> {
-  const result = await commands.saveProfile(name, settings);
-  if (result.status === "error") throw result.error;
-}
-
-export async function deleteProfile(name: string): Promise<void> {
-  const result = await commands.deleteProfile(name);
-  if (result.status === "error") throw result.error;
-}
-
-export async function renameProfile(oldName: string, newName: string): Promise<void> {
-  const result = await commands.renameProfile(oldName, newName);
-  if (result.status === "error") throw result.error;
-}
-
-export async function importSettings(path: string): Promise<GuiSettings> {
-  const result = await commands.importSettings(path);
-  if (result.status === "error") throw result.error;
-  return result.data;
-}
-
-export async function exportSettings(settings: GuiSettings, path: string): Promise<void> {
-  const result = await commands.exportSettings(settings, path);
-  if (result.status === "error") throw result.error;
-}
+export const settingsExist = () => commands.settingsExist().then(unwrap);
+export const loadSettings = () => commands.loadSettings().then(unwrap);
+export const saveSettings = (settings: GuiSettings) => commands.saveSettings(settings).then(unwrap);
+export const loadAppSettings = () => commands.loadAppSettings().then(unwrap);
+export const saveAppSettings = (settings: AppSettings) => commands.saveAppSettings(settings).then(unwrap);
+export const resetSettings = () => commands.resetSettings().then(unwrap);
+export const getSettingsPath = () => commands.getSettingsPath().then(unwrap);
+export const listProfiles = () => commands.listProfiles().then(unwrap);
+export const getActiveProfile = () => commands.getActiveProfile().then(unwrap);
+export const setActiveProfile = (name: string) => commands.setActiveProfile(name).then(unwrap);
+export const loadProfile = (name: string) => commands.loadProfile(name).then(unwrap);
+export const saveProfile = (name: string, settings: GuiSettings) =>
+  commands.saveProfile(name, settings).then(unwrap);
+export const deleteProfile = (name: string) => commands.deleteProfile(name).then(unwrap);
+export const renameProfile = (oldName: string, newName: string) =>
+  commands.renameProfile(oldName, newName).then(unwrap);
+export const importSettings = (path: string) => commands.importSettings(path).then(unwrap);
+export const exportSettings = (settings: GuiSettings, path: string) =>
+  commands.exportSettings(settings, path).then(unwrap);
