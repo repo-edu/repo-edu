@@ -1,4 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
+import { BACKEND_PROGRESS_PREFIX, DISPLAY_PROGRESS_PREFIX } from "../constants";
 
 interface Options {
   onProgress: (line: string) => void;
@@ -11,10 +12,9 @@ export function useProgressChannel({ onProgress }: Options) {
   const progress = new Channel<string>();
 
   progress.onmessage = (msg: string) => {
-    const PROGRESS_PREFIX = "[PROGRESS]";
-    if (msg.startsWith(PROGRESS_PREFIX)) {
-      const displayLine = msg.slice(PROGRESS_PREFIX.length).trimStart();
-      onProgress(`(progress) ${displayLine}`);
+    if (msg.startsWith(BACKEND_PROGRESS_PREFIX)) {
+      const displayLine = msg.slice(BACKEND_PROGRESS_PREFIX.length).trimStart();
+      onProgress(`${DISPLAY_PROGRESS_PREFIX} ${displayLine}`);
     } else {
       onProgress(msg);
     }
@@ -31,8 +31,7 @@ export function handleProgressMessage(
   append: (line: string) => void,
   updateLast: (line: string) => void
 ) {
-  const PROGRESS_PREFIX = "(progress)";
-  if (msg.startsWith(PROGRESS_PREFIX)) {
+  if (msg.startsWith(DISPLAY_PROGRESS_PREFIX)) {
     updateLast(msg);
   } else {
     append(msg);
