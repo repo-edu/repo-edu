@@ -42,5 +42,5 @@ pub use settings::{
     path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
     ActiveTab, AppSettings, CLIConfig, CommonSettings, ConfigError, ConfigResult, DirectoryLayout,
     GuiSettings, Interface, LmsUrlOption, MemberOption, Normalize, PathValidationMode,
-    ProfileSettings, SettingsManager, Validate, ValidationErrors,
+    ProfileSettings, SettingsLoadResult, SettingsManager, Validate, ValidationErrors,
 };

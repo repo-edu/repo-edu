@@ -1,8 +1,17 @@
-import { commands, type AppSettings, type GuiSettings } from "../bindings";
+import { commands, type AppSettings, type GuiSettings, type SettingsLoadResult } from "../bindings";
 import { unwrap } from "./commandUtils";
 
 export const settingsExist = () => commands.settingsExist().then(unwrap);
-export const loadSettings = () => commands.loadSettings().then(unwrap);
+
+/** Load settings with warnings for any corrected issues */
+export const loadSettingsWithWarnings = (): Promise<SettingsLoadResult> =>
+  commands.loadSettings().then(unwrap);
+
+/** Load settings (extracts settings from result, ignores warnings) */
+export const loadSettings = async (): Promise<GuiSettings> => {
+  const result = await loadSettingsWithWarnings();
+  return result.settings;
+};
 export const saveSettings = (settings: GuiSettings) => commands.saveSettings(settings).then(unwrap);
 export const loadAppSettings = () => commands.loadAppSettings().then(unwrap);
 export const saveAppSettings = (settings: AppSettings) => commands.saveAppSettings(settings).then(unwrap);

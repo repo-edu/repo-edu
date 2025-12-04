@@ -27,9 +27,9 @@ pub use cli::CLIConfig;
 pub use common::{CommonSettings, LmsSettings, LogSettings, ProfileSettings, RepoSettings};
 pub use enums::{ActiveTab, DirectoryLayout, LmsUrlOption, MemberOption, Theme};
 pub use error::{ConfigError, ConfigResult, Interface};
-pub use gui::{AppSettings, GuiSettings};
+pub use gui::{AppSettings, GuiSettings, SettingsLoadResult};
 pub use manager::SettingsManager;
-pub use merge::merge_with_defaults;
+pub use merge::{merge_with_defaults, merge_with_defaults_warned, MergeResult};
 pub use normalization::{
     join_comma_separated, normalize_path, normalize_paths, normalize_string, normalize_string_vec,
     normalize_url, parse_comma_separated, path_to_posix_string, Normalize,

@@ -6,9 +6,9 @@
 
 export const commands = {
 /**
- * Load settings from disk
+ * Load settings from disk with warnings for any corrected issues
  */
-async loadSettings() : Promise<Result<GuiSettings, AppError>> {
+async loadSettings() : Promise<Result<SettingsLoadResult, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_settings") };
 } catch (e) {
@@ -312,13 +312,13 @@ details?: string | null }
  * App-level settings stored in app.json
  * These are UI/window settings that don't belong in profiles
  */
-export type AppSettings = { theme: Theme; active_tab: ActiveTab; config_locked: boolean; options_locked: boolean; sidebar_open: boolean; splitter_height: number; window_width: number; window_height: number; logging: LogSettings }
+export type AppSettings = { active_tab: ActiveTab; config_locked: boolean; logging: LogSettings; options_locked: boolean; sidebar_open: boolean; splitter_height: number; theme: Theme; window_height: number; window_width: number }
 export type CloneParams = { config: ConfigParams; yaml_file: string; assignments: string; target_folder: string; directory_layout: string }
 export type CommandResult = { success: boolean; message: string; details: string | null }
 /**
  * Shared settings used by multiple apps (git credentials)
  */
-export type CommonSettings = { git_base_url: string; git_access_token: string; git_user: string }
+export type CommonSettings = { git_access_token: string; git_base_url: string; git_user: string }
 export type ConfigParams = { access_token: string; user: string; base_url: string; student_repos_group: string; template_group: string }
 /**
  * Directory layout for cloned repositories
@@ -333,7 +333,7 @@ export type GuiSettings =
 /**
  * App-level settings (from app.json)
  */
-({ theme: Theme; active_tab: ActiveTab; config_locked: boolean; options_locked: boolean; sidebar_open: boolean; splitter_height: number; window_width: number; window_height: number; logging: LogSettings }) & 
+({ active_tab: ActiveTab; config_locked: boolean; logging: LogSettings; options_locked: boolean; sidebar_open: boolean; splitter_height: number; theme: Theme; window_height: number; window_width: number }) & 
 /**
  * Profile settings (from active profile)
  */
@@ -341,7 +341,7 @@ export type GuiSettings =
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { type: string; base_url: string; custom_url: string; url_option: LmsUrlOption; access_token: string; course_id: string; course_name: string; yaml_file: string; output_folder: string; csv_file: string; xlsx_file: string; member_option: MemberOption; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; output_csv: boolean; output_xlsx: boolean; output_yaml: boolean }
+export type LmsSettings = { access_token: string; base_url: string; course_id: string; course_name: string; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
 /**
  * LMS URL preset options
  */
@@ -349,7 +349,7 @@ export type LmsUrlOption = "TUE" | "CUSTOM"
 /**
  * Logging settings (stored in AppSettings)
  */
-export type LogSettings = { info: boolean; debug: boolean; warning: boolean; error: boolean }
+export type LogSettings = { debug: boolean; error: boolean; info: boolean; warning: boolean }
 /**
  * Member option for YAML generation
  */
@@ -357,7 +357,20 @@ export type MemberOption = "(email, gitid)" | "email" | "git_id"
 /**
  * Repo app settings (Tab 2)
  */
-export type RepoSettings = { student_repos_group: string; template_group: string; yaml_file: string; target_folder: string; assignments: string; directory_layout: DirectoryLayout }
+export type RepoSettings = { assignments: string; directory_layout: DirectoryLayout; student_repos_group: string; target_folder: string; template_group: string; yaml_file: string }
+/**
+ * Result of loading settings, including any warnings about corrected issues
+ */
+export type SettingsLoadResult = { 
+/**
+ * The loaded settings (with defaults applied for invalid/missing values)
+ */
+settings: GuiSettings; 
+/**
+ * Warnings about issues found in the settings file
+ * (unknown fields removed, invalid values replaced with defaults)
+ */
+warnings: string[] }
 export type SetupParams = { config: ConfigParams; yaml_file: string; assignments: string }
 /**
  * UI theme

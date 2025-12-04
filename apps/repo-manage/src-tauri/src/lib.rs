@@ -5,8 +5,8 @@ use repo_manage_core::{
     create_lms_client_with_params, generate_repobee_yaml_with_progress,
     get_student_info_with_progress, get_token_generation_instructions, open_token_generation_url,
     write_csv_file, write_yaml_file, AppSettings, FetchProgress, GuiSettings, LmsClientTrait,
-    LmsCommonType, LmsMemberOption, Platform, PlatformAPI, SettingsManager, StudentTeam,
-    YamlConfig,
+    LmsCommonType, LmsMemberOption, Platform, PlatformAPI, SettingsLoadResult, SettingsManager,
+    StudentTeam, YamlConfig,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -284,13 +284,13 @@ struct CommandResult {
 
 // ===== Settings Commands =====
 
-/// Load settings from disk
+/// Load settings from disk with warnings for any corrected issues
 #[tauri::command]
 #[specta::specta]
-async fn load_settings() -> Result<GuiSettings, AppError> {
+async fn load_settings() -> Result<SettingsLoadResult, AppError> {
     let manager = SettingsManager::new()?;
-    let settings = manager.load()?;
-    Ok(settings)
+    let result = manager.load_with_warnings()?;
+    Ok(result)
 }
 
 /// Save settings to disk (both app and profile)

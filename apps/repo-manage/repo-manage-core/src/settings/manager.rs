@@ -1,8 +1,8 @@
 use super::atomic::atomic_write_json;
 use super::common::ProfileSettings;
 use super::error::{ConfigError, ConfigResult};
-use super::gui::{AppSettings, GuiSettings};
-use super::merge::merge_with_defaults;
+use super::gui::{AppSettings, GuiSettings, SettingsLoadResult};
+use super::merge::merge_with_defaults_warned;
 use super::normalization::Normalize;
 use super::validation::Validate;
 use schemars::schema_for;
@@ -106,33 +106,6 @@ impl SettingsManager {
         Ok(errors)
     }
 
-    /// Validate JSON data against ProfileSettings schema
-    fn validate_profile_settings(&self, json_value: &Value) -> ConfigResult<Vec<String>> {
-        let schema = schema_for!(ProfileSettings);
-        let schema_json = serde_json::to_value(&schema)
-            .map_err(|e| ConfigError::SchemaSerializationError { source: e })?;
-
-        let validator = jsonschema::validator_for(&schema_json).map_err(|e| {
-            ConfigError::SchemaCompileError {
-                message: e.to_string(),
-            }
-        })?;
-
-        let errors: Vec<String> = validator
-            .iter_errors(json_value)
-            .map(|error| {
-                let path = error.instance_path().to_string();
-                if path.is_empty() {
-                    error.to_string()
-                } else {
-                    format!("{} (at {})", error, path)
-                }
-            })
-            .collect();
-
-        Ok(errors)
-    }
-
     // ===== App Settings =====
 
     /// Get the path to the app settings file
@@ -142,10 +115,16 @@ impl SettingsManager {
 
     /// Load app settings from disk
     pub fn load_app_settings(&self) -> ConfigResult<AppSettings> {
+        let (settings, _warnings) = self.load_app_settings_warned()?;
+        Ok(settings)
+    }
+
+    /// Load app settings from disk with warnings for unknown/invalid fields
+    fn load_app_settings_warned(&self) -> ConfigResult<(AppSettings, Vec<String>)> {
         let app_file = self.app_settings_path();
 
         if !app_file.exists() {
-            return Ok(AppSettings::default());
+            return Ok((AppSettings::default(), vec![]));
         }
 
         let contents = fs::read_to_string(&app_file).map_err(|e| ConfigError::ReadError {
@@ -159,15 +138,15 @@ impl SettingsManager {
                 source: e,
             })?;
 
-        let mut settings: AppSettings =
-            merge_with_defaults(&raw).map_err(|e| ConfigError::JsonParseError {
-                path: app_file.clone(),
-                source: e,
-            })?;
+        let result = merge_with_defaults_warned(&raw).map_err(|e| ConfigError::JsonParseError {
+            path: app_file.clone(),
+            source: e,
+        })?;
 
+        let mut settings: AppSettings = result.value;
         settings.normalize();
 
-        Ok(settings)
+        Ok((settings, result.warnings))
     }
 
     /// Save app settings to disk
@@ -183,23 +162,42 @@ impl SettingsManager {
     /// Returns default settings if files don't exist (no error)
     /// Creates a "Default" profile if no profiles exist
     pub fn load(&self) -> ConfigResult<GuiSettings> {
-        // Load app settings
-        let app = self.load_app_settings()?;
+        let result = self.load_with_warnings()?;
+        Ok(result.settings)
+    }
+
+    /// Load combined settings with warnings for unknown/invalid fields
+    /// Returns settings with defaults applied, plus any warnings about corrected issues
+    pub fn load_with_warnings(&self) -> ConfigResult<SettingsLoadResult> {
+        let mut all_warnings = Vec::new();
+
+        // Load app settings with warnings
+        let (app, app_warnings) = self.load_app_settings_warned()?;
+        all_warnings.extend(app_warnings.into_iter().map(|w| format!("app.json: {}", w)));
 
         // Ensure at least one profile exists
         self.ensure_default_profile()?;
 
-        // Load active profile settings
-        let profile = if let Some(profile_name) = self.get_active_profile()? {
-            self.load_profile_settings(&profile_name)?
+        // Load active profile settings with warnings
+        let (profile, profile_warnings) = if let Some(profile_name) = self.get_active_profile()? {
+            let (p, w) = self.load_profile_settings_warned(&profile_name)?;
+            let warnings = w
+                .into_iter()
+                .map(|w| format!("{}.json: {}", profile_name, w))
+                .collect();
+            (p, warnings)
         } else {
-            ProfileSettings::default()
+            (ProfileSettings::default(), vec![])
         };
+        all_warnings.extend(profile_warnings);
 
         let mut settings = GuiSettings::from_parts(app, profile);
         settings.normalize();
 
-        Ok(settings)
+        Ok(SettingsLoadResult {
+            settings,
+            warnings: all_warnings,
+        })
     }
 
     /// Ensure at least one profile exists, creating "Default" if needed
@@ -342,6 +340,15 @@ impl SettingsManager {
 
     /// Load profile settings by name (ProfileSettings only, not full GuiSettings)
     pub fn load_profile_settings(&self, name: &str) -> ConfigResult<ProfileSettings> {
+        let (settings, _warnings) = self.load_profile_settings_warned(name)?;
+        Ok(settings)
+    }
+
+    /// Load profile settings by name with warnings for unknown/invalid fields
+    fn load_profile_settings_warned(
+        &self,
+        name: &str,
+    ) -> ConfigResult<(ProfileSettings, Vec<String>)> {
         self.ensure_profiles_dir()?;
         let profile_path = self.profiles_dir().join(format!("{}.json", name));
 
@@ -360,23 +367,19 @@ impl SettingsManager {
                 source: e,
             })?;
 
-        let validation_errors = self.validate_profile_settings(&json_value)?;
-        if !validation_errors.is_empty() {
-            return Err(ConfigError::ValidationError {
-                errors: validation_errors,
-            });
-        }
-
-        let mut settings: ProfileSettings =
-            merge_with_defaults(&json_value).map_err(|e| ConfigError::JsonParseError {
+        // Use merge_with_defaults_warned instead of schema validation
+        // This handles unknown fields (with warnings) and type mismatches (use default)
+        let result =
+            merge_with_defaults_warned(&json_value).map_err(|e| ConfigError::JsonParseError {
                 path: profile_path,
                 source: e,
             })?;
 
+        let mut settings: ProfileSettings = result.value;
         settings.normalize();
         settings.validate()?;
 
-        Ok(settings)
+        Ok((settings, result.warnings))
     }
 
     /// Save profile settings by name
