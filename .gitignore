@@ -19,3 +19,10 @@ dist/
 
 # Test artifacts
 .test-config/
+
+# Claude
+.claude/
+CLAUDE.md
+
+# Planning files and notes
+.local/
