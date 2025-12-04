@@ -189,6 +189,38 @@ fn expand_tilde(path_str: &str) -> PathBuf {
     PathBuf::from(path_str)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn canonicalize_dir_accepts_existing_directory() {
+        let dir = tempdir().unwrap();
+        let path_str = dir.path().to_string_lossy().to_string();
+        let result = canonicalize_dir(&path_str).unwrap();
+        assert!(result.is_absolute());
+        assert!(result.ends_with(dir.path().file_name().unwrap()));
+    }
+
+    #[test]
+    fn canonicalize_dir_rejects_missing_directory() {
+        let missing = "/this/path/should/not/exist";
+        let err = canonicalize_dir(missing).unwrap_err();
+        assert!(err.message.contains("does not exist"));
+    }
+
+    #[test]
+    fn canonicalize_dir_rejects_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("file.txt");
+        fs::write(&file_path, "hi").unwrap();
+        let err = canonicalize_dir(&file_path.to_string_lossy()).unwrap_err();
+        assert!(err.message.contains("not a directory"));
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct VerifyCourseParams {
     base_url: String,
