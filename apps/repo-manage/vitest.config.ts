@@ -7,7 +7,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@repo-edu/ui": path.resolve(__dirname, "../../packages/ui/src"),
     },
+    dedupe: ["react", "react-dom"],
   },
   test: {
     globals: true,
