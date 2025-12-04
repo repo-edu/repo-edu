@@ -76,6 +76,52 @@ pnpm tauri build
 
 Settings are stored in `~/.config/repo-manage/settings.json` (or equivalent on Windows/macOS). The application provides a GUI for managing all configuration options.
 
+## Dependency Management
+
+This monorepo uses [pnpm Catalogs](https://pnpm.io/catalogs) to ensure consistent dependency versions across all packages.
+
+### How it works
+
+Shared dependency versions are defined once in `pnpm-workspace.yaml`:
+
+```yaml
+catalog:
+  react: 19.2.1
+  react-dom: 19.2.1
+  "@types/react": 19.2.7
+  "@types/react-dom": 19.2.3
+  typescript: 5.9.3
+```
+
+Package.json files reference these with `catalog:` instead of version numbers:
+
+```json
+{
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  }
+}
+```
+
+### Updating shared dependencies
+
+To update a shared dependency (e.g., React):
+
+1. Edit the version in `pnpm-workspace.yaml`
+2. Run `pnpm install`
+
+All packages will automatically use the new version.
+
+### Adding new shared dependencies
+
+1. Add the dependency and version to `catalog:` in `pnpm-workspace.yaml`
+2. Use `"package-name": "catalog:"` in package.json files that need it
+
+### Why this matters
+
+Without catalogs, different packages can end up with different versions of the same dependency. For React, this causes runtime errors like "Invalid hook call" because React requires exactly one instance in the app.
+
 ## License
 
 MIT
