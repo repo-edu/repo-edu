@@ -3825,6 +3825,7 @@ name = "repo-manage-tauri"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs 6.0.0",
  "repo-manage-core",
  "serde",
  "serde_json",

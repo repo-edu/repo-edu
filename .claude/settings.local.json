@@ -24,7 +24,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(cargo run:*)",
       "Bash(grep:*)",
-      "Bash(cargo clean:*)"
+      "Bash(cargo clean:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []
