@@ -151,6 +151,44 @@ fn lms_display_name(lms_type: &str) -> &str {
     }
 }
 
+/// Resolve and validate a directory path (existence + is_dir)
+fn canonicalize_dir(path_str: &str) -> Result<PathBuf, AppError> {
+    let path = expand_tilde(path_str);
+    if !path.exists() {
+        return Err(AppError::with_details(
+            "Path does not exist",
+            path.to_string_lossy().to_string(),
+        ));
+    }
+    if !path.is_dir() {
+        return Err(AppError::with_details(
+            "Path is not a directory",
+            path.to_string_lossy().to_string(),
+        ));
+    }
+    match path.canonicalize() {
+        Ok(p) => Ok(p),
+        Err(e) => Err(AppError::with_details(
+            "Failed to canonicalize path",
+            format!("{} ({})", path.to_string_lossy(), e),
+        )),
+    }
+}
+
+fn expand_tilde(path_str: &str) -> PathBuf {
+    if let Some(stripped) = path_str.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(stripped);
+        }
+    }
+    if path_str == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    PathBuf::from(path_str)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 struct VerifyCourseParams {
     base_url: String,
@@ -423,19 +461,8 @@ async fn generate_lms_files(
     progress: Channel<String>,
 ) -> Result<CommandResult, AppError> {
     // Validate output folder exists before doing any work
-    let output_path = PathBuf::from(&params.output_folder);
-    if !output_path.exists() {
-        return Err(AppError::with_details(
-            "Output folder does not exist",
-            format!("Path: {}", params.output_folder),
-        ));
-    }
-    if !output_path.is_dir() {
-        return Err(AppError::with_details(
-            "Output folder is not a directory",
-            format!("Path: {}", params.output_folder),
-        ));
-    }
+    let output_path = canonicalize_dir(&params.output_folder)
+        .map_err(|e| AppError::with_details("Output folder is invalid", e.to_string()))?;
 
     let lms_label = lms_display_name(&params.lms_type);
     let client =
@@ -524,7 +551,7 @@ async fn generate_lms_files(
             |_, _, _| {}, // YAML generation is too fast to need progress
         )?;
 
-        let yaml_path = PathBuf::from(&params.output_folder).join(&params.yaml_file);
+        let yaml_path = output_path.join(&params.yaml_file);
         write_yaml_file(&teams, &yaml_path)?;
 
         // Get absolute path for display
@@ -538,7 +565,7 @@ async fn generate_lms_files(
 
     // Generate CSV file if requested
     if params.csv {
-        let csv_path = PathBuf::from(&params.output_folder).join(&params.csv_file);
+        let csv_path = output_path.join(&params.csv_file);
         write_csv_file(&students, &csv_path)?;
 
         // Get absolute path for display
@@ -757,9 +784,12 @@ async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError> {
 /// Clone student repositories (stub for now)
 #[tauri::command]
 #[specta::specta]
-async fn clone_repos(_params: CloneParams) -> Result<CommandResult, AppError> {
+async fn clone_repos(params: CloneParams) -> Result<CommandResult, AppError> {
+    // Validate target folder exists before doing any work
+    let _target_path = canonicalize_dir(&params.target_folder)
+        .map_err(|e| AppError::with_details("Target folder is invalid", e.to_string()))?;
+
     // TODO: Implement clone functionality
-    // For now, return a stub response
     Err(AppError::new("Clone functionality not yet implemented"))
 }
 
