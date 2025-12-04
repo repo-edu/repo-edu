@@ -153,18 +153,17 @@ impl SettingsManager {
             source: e,
         })?;
 
-        let raw: serde_json::Value = serde_json::from_str(&contents)
-            .map_err(|e| ConfigError::JsonParseError {
+        let raw: serde_json::Value =
+            serde_json::from_str(&contents).map_err(|e| ConfigError::JsonParseError {
                 path: app_file.clone(),
                 source: e,
             })?;
 
-        let mut settings: AppSettings = merge_with_defaults(&raw).map_err(|e| {
-            ConfigError::JsonParseError {
+        let mut settings: AppSettings =
+            merge_with_defaults(&raw).map_err(|e| ConfigError::JsonParseError {
                 path: app_file.clone(),
                 source: e,
-            }
-        })?;
+            })?;
 
         settings.normalize();
 

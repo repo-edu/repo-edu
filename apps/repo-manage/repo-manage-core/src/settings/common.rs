@@ -41,7 +41,7 @@ pub struct LmsSettings {
     pub course_id: String,
     pub course_name: String,
     pub yaml_file: String,
-    pub info_folder: String,
+    pub output_folder: String,
     pub csv_file: String,
     pub xlsx_file: String,
     pub member_option: MemberOption,
@@ -65,7 +65,7 @@ impl Default for LmsSettings {
             course_id: String::new(),
             course_name: String::new(),
             yaml_file: "students.yaml".to_string(),
-            info_folder: String::new(),
+            output_folder: String::new(),
             csv_file: "student-info.csv".to_string(),
             xlsx_file: "student-info.xlsx".to_string(),
             member_option: MemberOption::EmailAndGitId,
@@ -88,7 +88,7 @@ impl Normalize for LmsSettings {
         normalize_string(&mut self.course_id);
         normalize_string(&mut self.course_name);
         normalize_string(&mut self.yaml_file);
-        normalize_string(&mut self.info_folder);
+        normalize_string(&mut self.output_folder);
         normalize_string(&mut self.csv_file);
         normalize_string(&mut self.xlsx_file);
     }

@@ -15,10 +15,10 @@ export function OutputConfigSection({ onBrowseFolder }: OutputConfigSectionProps
     <Section title="Output Configuration">
       <FormField label="Output Folder" tooltip="Folder where generated files will be saved">
         <FilePathInput
-          value={lmsForm.infoFileFolder}
-          onChange={(v) => lmsForm.setField("infoFileFolder", v)}
+          value={lmsForm.outputFolder}
+          onChange={(v) => lmsForm.setField("outputFolder", v)}
           placeholder="Output folder for generated files"
-          onBrowse={() => onBrowseFolder((p) => lmsForm.setField("infoFileFolder", p))}
+          onBrowse={() => onBrowseFolder((p) => lmsForm.setField("outputFolder", p))}
         />
       </FormField>
 
