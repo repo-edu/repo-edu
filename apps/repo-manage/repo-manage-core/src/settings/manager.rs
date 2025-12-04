@@ -85,23 +85,23 @@ impl SettingsManager {
         let schema_json = serde_json::to_value(&schema)
             .map_err(|e| ConfigError::SchemaSerializationError { source: e })?;
 
-        let compiled = jsonschema::JSONSchema::compile(&schema_json).map_err(|e| {
+        let validator = jsonschema::validator_for(&schema_json).map_err(|e| {
             ConfigError::SchemaCompileError {
                 message: e.to_string(),
             }
         })?;
 
-        let mut errors = Vec::new();
-        if let Err(validation_errors) = compiled.validate(json_value) {
-            for error in validation_errors {
-                let path = error.instance_path.to_string();
+        let errors: Vec<String> = validator
+            .iter_errors(json_value)
+            .map(|error| {
+                let path = error.instance_path().to_string();
                 if path.is_empty() {
-                    errors.push(error.to_string());
+                    error.to_string()
                 } else {
-                    errors.push(format!("{} (at {})", error, path));
+                    format!("{} (at {})", error, path)
                 }
-            }
-        }
+            })
+            .collect();
 
         Ok(errors)
     }
@@ -112,23 +112,23 @@ impl SettingsManager {
         let schema_json = serde_json::to_value(&schema)
             .map_err(|e| ConfigError::SchemaSerializationError { source: e })?;
 
-        let compiled = jsonschema::JSONSchema::compile(&schema_json).map_err(|e| {
+        let validator = jsonschema::validator_for(&schema_json).map_err(|e| {
             ConfigError::SchemaCompileError {
                 message: e.to_string(),
             }
         })?;
 
-        let mut errors = Vec::new();
-        if let Err(validation_errors) = compiled.validate(json_value) {
-            for error in validation_errors {
-                let path = error.instance_path.to_string();
+        let errors: Vec<String> = validator
+            .iter_errors(json_value)
+            .map(|error| {
+                let path = error.instance_path().to_string();
                 if path.is_empty() {
-                    errors.push(error.to_string());
+                    error.to_string()
                 } else {
-                    errors.push(format!("{} (at {})", error, path));
+                    format!("{} (at {})", error, path)
                 }
-            }
-        }
+            })
+            .collect();
 
         Ok(errors)
     }
