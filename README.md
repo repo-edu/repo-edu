@@ -72,6 +72,15 @@ cd apps/repo-manage
 pnpm tauri build
 ```
 
+## Documentation
+
+Full documentation is available at [repo-edu.github.io/repo-edu](https://repo-edu.github.io/repo-edu/).
+
+To preview documentation locally:
+```bash
+pnpm docs:dev
+```
+
 ## Configuration
 
 Settings are stored in `~/.config/repo-manage/settings.json` (or equivalent on Windows/macOS). The application provides a GUI for managing all configuration options.

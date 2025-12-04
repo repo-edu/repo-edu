@@ -4,6 +4,9 @@
   "scripts": {
     "dev:repo-manage": "pnpm --filter @repo-edu/repo-manage dev",
     "build:repo-manage": "pnpm --filter @repo-edu/repo-manage build",
-    "tauri:repo-manage": "pnpm --filter @repo-edu/repo-manage tauri"
+    "tauri:repo-manage": "pnpm --filter @repo-edu/repo-manage tauri",
+    "docs:dev": "pnpm --filter @repo-edu/docs dev",
+    "docs:build": "pnpm --filter @repo-edu/docs build",
+    "docs:preview": "pnpm --filter @repo-edu/docs preview"
   }
 }
