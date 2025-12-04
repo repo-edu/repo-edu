@@ -21,9 +21,9 @@ export function useLoadSettings({ onLoaded, setBaselines, lmsState, repoState, l
   const load = useCallback(async () => {
     try {
       const fileExists = await settingsService.settingsExist();
-      const settings = await settingsService.loadSettings();
+      const result = await settingsService.loadSettingsWithWarnings();
 
-      onLoaded(settings);
+      onLoaded(result.settings);
 
       setBaselines({
         lms: hashSnapshot(lmsState()),
@@ -35,6 +35,14 @@ export function useLoadSettings({ onLoaded, setBaselines, lmsState, repoState, l
         log(`✓ Settings loaded from profile: ${activeProfile || "Default"}`);
       } else {
         log(`✓ Created profile: ${activeProfile || "Default"}`);
+      }
+
+      // Show warnings for any corrected issues in settings files
+      if (result.warnings.length > 0) {
+        for (const warning of result.warnings) {
+          log(`⚠ ${warning}`);
+        }
+        log("→ Click Save to persist corrected settings.");
       }
     } catch (error) {
       console.error("Failed to load settings:", error);

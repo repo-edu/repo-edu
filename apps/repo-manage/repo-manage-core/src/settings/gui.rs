@@ -8,29 +8,29 @@ use serde::{Deserialize, Serialize};
 /// These are UI/window settings that don't belong in profiles
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct AppSettings {
-    pub theme: Theme,
     pub active_tab: ActiveTab,
     pub config_locked: bool,
+    pub logging: LogSettings,
     pub options_locked: bool,
     pub sidebar_open: bool,
     pub splitter_height: u32,
-    pub window_width: u32,
+    pub theme: Theme,
     pub window_height: u32,
-    pub logging: LogSettings,
+    pub window_width: u32,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            theme: Theme::default(),
             active_tab: ActiveTab::Lms,
             config_locked: true,
+            logging: LogSettings::default(),
             options_locked: true,
             sidebar_open: false,
             splitter_height: 400,
-            window_width: 0,
+            theme: Theme::default(),
             window_height: 0,
-            logging: LogSettings::default(),
+            window_width: 0,
         }
     }
 }
@@ -89,4 +89,14 @@ impl Normalize for AppSettings {
     fn normalize(&mut self) {
         // No normalization needed for app settings
     }
+}
+
+/// Result of loading settings, including any warnings about corrected issues
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
+pub struct SettingsLoadResult {
+    /// The loaded settings (with defaults applied for invalid/missing values)
+    pub settings: GuiSettings,
+    /// Warnings about issues found in the settings file
+    /// (unknown fields removed, invalid values replaced with defaults)
+    pub warnings: Vec<String>,
 }
