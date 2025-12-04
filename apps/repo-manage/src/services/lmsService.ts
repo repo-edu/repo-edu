@@ -5,15 +5,15 @@ import {
   type CommandResult,
 } from "../bindings";
 import type { Channel } from "@tauri-apps/api/core";
-import { unwrap } from "./commandUtils";
+import { unwrap, Strict } from "./commandUtils";
 
 // Re-export types for compatibility
 export type { VerifyCourseParams, GenerateFilesParams, CommandResult };
 
-export const verifyLmsCourse = (params: VerifyCourseParams) =>
+export const verifyLmsCourse = (params: Strict<VerifyCourseParams>) =>
   commands.verifyLmsCourse(params).then(unwrap);
 
-export const generateLmsFiles = (params: GenerateFilesParams, progress: Channel<string>) =>
+export const generateLmsFiles = (params: Strict<GenerateFilesParams>, progress: Channel<string>) =>
   commands.generateLmsFiles(params, progress).then(unwrap);
 
 export const getTokenInstructions = (lmsType: string) =>

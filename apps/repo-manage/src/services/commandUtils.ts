@@ -9,6 +9,11 @@ export function unwrap<T>(result: Result<T, AppError>): T {
   return result.data;
 }
 
+// Temporary helper: specta currently emits optional fields in generated TS.
+// Wrap command param/result types with Strict<...> to enforce required fields at call sites.
+// Remove this helper (and the wraps) when specta/tauri-specta emit required fields correctly.
+export type Strict<T> = { [K in keyof T]-?: T[K] };
+
 /**
  * Type guard to check if an error is an AppError.
  */
