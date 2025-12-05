@@ -1,28 +1,38 @@
-import { Input, Checkbox, Label } from "@repo-edu/ui";
-import { useLmsFormStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
-import { FilePathInput } from "./FilePathInput";
+import { Checkbox, Input, Label } from "@repo-edu/ui"
+import { useLmsFormStore } from "../stores"
+import { FilePathInput } from "./FilePathInput"
+import { FormField } from "./FormField"
+import { Section } from "./Section"
 
 interface OutputConfigSectionProps {
-  onBrowseFolder: (setter: (path: string) => void) => void;
+  onBrowseFolder: (setter: (path: string) => void) => void
 }
 
-export function OutputConfigSection({ onBrowseFolder }: OutputConfigSectionProps) {
-  const lmsForm = useLmsFormStore();
+export function OutputConfigSection({
+  onBrowseFolder,
+}: OutputConfigSectionProps) {
+  const lmsForm = useLmsFormStore()
 
   return (
     <Section title="Output Configuration">
-      <FormField label="Output Folder" tooltip="Folder where generated files will be saved">
+      <FormField
+        label="Output Folder"
+        tooltip="Folder where generated files will be saved"
+      >
         <FilePathInput
           value={lmsForm.outputFolder}
           onChange={(v) => lmsForm.setField("outputFolder", v)}
           placeholder="Output folder for generated files"
-          onBrowse={() => onBrowseFolder((p) => lmsForm.setField("outputFolder", p))}
+          onBrowse={() =>
+            onBrowseFolder((p) => lmsForm.setField("outputFolder", p))
+          }
         />
       </FormField>
 
-      <FormField label="YAML File" tooltip="Filename for the student data YAML output">
+      <FormField
+        label="YAML File"
+        tooltip="Filename for the student data YAML output"
+      >
         <Input
           size="xs"
           value={lmsForm.yamlFile}
@@ -70,5 +80,5 @@ export function OutputConfigSection({ onBrowseFolder }: OutputConfigSectionProps
         </div>
       </FormField>
     </Section>
-  );
+  )
 }

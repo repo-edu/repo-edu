@@ -1,11 +1,11 @@
-import { Button, Input, cn } from "@repo-edu/ui";
-import { useRepoFormStore, useUiStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
+import { Button, cn, Input } from "@repo-edu/ui"
+import { useRepoFormStore, useUiStore } from "../stores"
+import { FormField } from "./FormField"
+import { Section } from "./Section"
 
 export function GitConfigSection() {
-  const repoForm = useRepoFormStore();
-  const ui = useUiStore();
+  const repoForm = useRepoFormStore()
+  const ui = useUiStore()
 
   return (
     <Section
@@ -14,7 +14,10 @@ export function GitConfigSection() {
       lockTooltip="Unlock to edit server credentials"
       onToggleLock={() => ui.toggleConfigLock()}
     >
-      <FormField label="Access Token" tooltip="GitLab/GitHub personal access token">
+      <FormField
+        label="Access Token"
+        tooltip="GitLab/GitHub personal access token"
+      >
         <div className="flex gap-1 flex-1">
           <Input
             size="xs"
@@ -22,7 +25,10 @@ export function GitConfigSection() {
             value={repoForm.accessToken}
             onChange={(e) => repoForm.setField("accessToken", e.target.value)}
             placeholder={repoForm.accessToken ? "••••••••" : "Not set"}
-            className={cn("flex-1 password-input", !repoForm.accessToken && "token-empty")}
+            className={cn(
+              "flex-1 password-input",
+              !repoForm.accessToken && "token-empty",
+            )}
             disabled={ui.configLocked}
           />
           <Button
@@ -57,18 +63,26 @@ export function GitConfigSection() {
         />
       </FormField>
 
-      <FormField label="Student Repos Group" tooltip="Group path for student repositories">
+      <FormField
+        label="Student Repos Group"
+        tooltip="Group path for student repositories"
+      >
         <Input
           size="xs"
           value={repoForm.studentReposGroup}
-          onChange={(e) => repoForm.setField("studentReposGroup", e.target.value)}
+          onChange={(e) =>
+            repoForm.setField("studentReposGroup", e.target.value)
+          }
           placeholder="course/student-repos"
           className="flex-1"
           disabled={ui.configLocked}
         />
       </FormField>
 
-      <FormField label="Template Group" tooltip="Group path containing template repositories">
+      <FormField
+        label="Template Group"
+        tooltip="Group path containing template repositories"
+      >
         <Input
           size="xs"
           value={repoForm.templateGroup}
@@ -79,5 +93,5 @@ export function GitConfigSection() {
         />
       </FormField>
     </Section>
-  );
+  )
 }

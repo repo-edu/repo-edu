@@ -1,25 +1,25 @@
-import { useLmsFormStore, useOutputStore } from "../stores";
-import * as lmsService from "../services/lmsService";
-import { formatError } from "../services/commandUtils";
-import { useProgressChannel, handleProgressMessage } from "./useProgressChannel";
-import { validateLmsVerify } from "../validation/forms";
+import { formatError } from "../services/commandUtils"
+import * as lmsService from "../services/lmsService"
+import { useLmsFormStore, useOutputStore } from "../stores"
+import { validateLmsVerify } from "../validation/forms"
+import { handleProgressMessage, useProgressChannel } from "./useProgressChannel"
 
 /**
  * Hook providing LMS-related actions (verify course, generate files).
  */
 export function useLmsActions() {
-  const lmsForm = useLmsFormStore();
-  const output = useOutputStore();
+  const lmsForm = useLmsFormStore()
+  const output = useOutputStore()
 
   const verifyLmsCourse = async () => {
-    const lmsValidation = validateLmsVerify(lmsForm.getState());
+    const lmsValidation = validateLmsVerify(lmsForm.getState())
     if (!lmsValidation.valid) {
-      output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first");
-      return;
+      output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first")
+      return
     }
-    const lms = lmsForm.getState();
-    const lmsLabel = lms.lmsType || "LMS";
-    output.appendWithNewline(`Verifying ${lmsLabel} course...`);
+    const lms = lmsForm.getState()
+    const lmsLabel = lms.lmsType || "LMS"
+    output.appendWithNewline(`Verifying ${lmsLabel} course...`)
 
     try {
       const result = await lmsService.verifyLmsCourse({
@@ -27,38 +27,42 @@ export function useLmsActions() {
         access_token: lms.accessToken,
         course_id: lms.courseId,
         lms_type: lms.lmsType,
-      });
+      })
 
-      output.appendWithNewline(result.message);
+      output.appendWithNewline(result.message)
       if (result.details) {
-        output.appendWithNewline(result.details);
+        output.appendWithNewline(result.details)
       }
 
       // Extract course name from details and update form
       if (result.details) {
-        const match = result.details.match(/Course Name: (.+)/);
+        const match = result.details.match(/Course Name: (.+)/)
         if (match) {
-          lmsForm.setField("courseName", match[1]);
+          lmsForm.setField("courseName", match[1])
         }
       }
     } catch (error: unknown) {
-      const { message, details } = formatError(error);
-      output.appendWithNewline(`✗ Error: ${message}`);
+      const { message, details } = formatError(error)
+      output.appendWithNewline(`✗ Error: ${message}`)
       if (details) {
-        output.appendWithNewline(details);
+        output.appendWithNewline(details)
       }
     }
-  };
+  }
 
   const handleGenerateFiles = async () => {
-    output.appendWithNewline("Generating student info files...");
+    output.appendWithNewline("Generating student info files...")
 
     try {
-      const lms = lmsForm.getState();
+      const lms = lmsForm.getState()
       const progress = useProgressChannel({
         onProgress: (line) =>
-          handleProgressMessage(line, output.appendWithNewline, output.updateLastLine),
-      });
+          handleProgressMessage(
+            line,
+            output.appendWithNewline,
+            output.updateLastLine,
+          ),
+      })
 
       const result = await lmsService.generateLmsFiles(
         {
@@ -79,21 +83,21 @@ export function useLmsActions() {
           xlsx: lms.xlsx,
           yaml: lms.yaml,
         },
-        progress
-      );
+        progress,
+      )
 
-      output.appendWithNewline(result.message);
+      output.appendWithNewline(result.message)
       if (result.details) {
-        output.appendWithNewline(result.details);
+        output.appendWithNewline(result.details)
       }
     } catch (error: unknown) {
-      const { message, details } = formatError(error);
-      output.appendWithNewline(`⚠ Error: ${message}`);
+      const { message, details } = formatError(error)
+      output.appendWithNewline(`⚠ Error: ${message}`)
       if (details) {
-        output.appendWithNewline(details);
+        output.appendWithNewline(details)
       }
     }
-  };
+  }
 
-  return { verifyLmsCourse, handleGenerateFiles };
+  return { verifyLmsCourse, handleGenerateFiles }
 }

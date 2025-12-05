@@ -1,5 +1,5 @@
-import * as React from "react"
 import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
+import type * as React from "react"
 
 import { cn } from "../../lib/utils"
 
@@ -18,7 +18,7 @@ function CollapsibleTrigger({
       data-slot="collapsible-trigger"
       className={cn(
         "flex items-center gap-2 text-sm font-medium cursor-pointer select-none",
-        className
+        className,
       )}
       {...props}
     />
@@ -34,7 +34,7 @@ function CollapsibleContent({
       data-slot="collapsible-content"
       className={cn(
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 overflow-hidden",
-        className
+        className,
       )}
       {...props}
     />

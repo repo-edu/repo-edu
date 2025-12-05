@@ -7,6 +7,12 @@
     "tauri:repo-manage": "pnpm --filter @repo-edu/repo-manage tauri",
     "docs:dev": "pnpm --filter @repo-edu/docs dev",
     "docs:build": "pnpm --filter @repo-edu/docs build",
-    "docs:preview": "pnpm --filter @repo-edu/docs preview"
+    "docs:preview": "pnpm --filter @repo-edu/docs preview",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8"
   }
 }

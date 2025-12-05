@@ -6,23 +6,28 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repo-edu/ui";
-import { useLmsFormStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
+} from "@repo-edu/ui"
+import { useLmsFormStore } from "../stores"
+import { FormField } from "./FormField"
+import { Section } from "./Section"
 
 export function RepoNamingSection() {
-  const lmsForm = useLmsFormStore();
+  const lmsForm = useLmsFormStore()
 
   return (
     <Section title="Repository Naming">
-      <FormField label="Include" tooltip="Components to include in repository names">
+      <FormField
+        label="Include"
+        tooltip="Components to include in repository names"
+      >
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <Checkbox
               id="include-group"
               checked={lmsForm.includeGroup}
-              onCheckedChange={(c) => lmsForm.setField("includeGroup", c === true)}
+              onCheckedChange={(c) =>
+                lmsForm.setField("includeGroup", c === true)
+              }
               size="xs"
             />
             <Label htmlFor="include-group" size="xs">
@@ -33,7 +38,9 @@ export function RepoNamingSection() {
             <Checkbox
               id="include-member"
               checked={lmsForm.includeMember}
-              onCheckedChange={(c) => lmsForm.setField("includeMember", c === true)}
+              onCheckedChange={(c) =>
+                lmsForm.setField("includeMember", c === true)
+              }
               size="xs"
             />
             <Label htmlFor="include-member" size="xs">
@@ -44,7 +51,9 @@ export function RepoNamingSection() {
             <Checkbox
               id="include-initials"
               checked={lmsForm.includeInitials}
-              onCheckedChange={(c) => lmsForm.setField("includeInitials", c === true)}
+              onCheckedChange={(c) =>
+                lmsForm.setField("includeInitials", c === true)
+              }
               size="xs"
             />
             <Label htmlFor="include-initials" size="xs">
@@ -54,11 +63,17 @@ export function RepoNamingSection() {
         </div>
       </FormField>
 
-      <FormField label="Member Format" tooltip="How member info is formatted in output">
+      <FormField
+        label="Member Format"
+        tooltip="How member info is formatted in output"
+      >
         <Select
           value={lmsForm.memberOption}
           onValueChange={(v) =>
-            lmsForm.setField("memberOption", v as "(email, gitid)" | "email" | "git_id")
+            lmsForm.setField(
+              "memberOption",
+              v as "(email, gitid)" | "email" | "git_id",
+            )
           }
         >
           <SelectTrigger size="xs" className="w-40">
@@ -78,5 +93,5 @@ export function RepoNamingSection() {
         </Select>
       </FormField>
     </Section>
-  );
+  )
 }

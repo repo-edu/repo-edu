@@ -1,29 +1,32 @@
-import { create } from "zustand";
+import { create } from "zustand"
 
 export interface RepoFormState {
-  accessToken: string;
-  user: string;
-  baseUrl: string;
-  studentReposGroup: string;
-  templateGroup: string;
-  yamlFile: string;
-  targetFolder: string;
-  assignments: string;
-  directoryLayout: "by-team" | "flat" | "by-task";
+  accessToken: string
+  user: string
+  baseUrl: string
+  studentReposGroup: string
+  templateGroup: string
+  yamlFile: string
+  targetFolder: string
+  assignments: string
+  directoryLayout: "by-team" | "flat" | "by-task"
   logLevels: {
-    info: boolean;
-    debug: boolean;
-    warning: boolean;
-    error: boolean;
-  };
+    info: boolean
+    debug: boolean
+    warning: boolean
+    error: boolean
+  }
 }
 
 interface RepoFormStore extends RepoFormState {
-  setField: <K extends keyof RepoFormState>(key: K, value: RepoFormState[K]) => void;
-  setLogLevel: (level: keyof RepoFormState["logLevels"], value: boolean) => void;
-  reset: () => void;
-  loadFromSettings: (settings: Partial<RepoFormState>) => void;
-  getState: () => RepoFormState;
+  setField: <K extends keyof RepoFormState>(
+    key: K,
+    value: RepoFormState[K],
+  ) => void
+  setLogLevel: (level: keyof RepoFormState["logLevels"], value: boolean) => void
+  reset: () => void
+  loadFromSettings: (settings: Partial<RepoFormState>) => void
+  getState: () => RepoFormState
 }
 
 const initialState: RepoFormState = {
@@ -42,7 +45,7 @@ const initialState: RepoFormState = {
     warning: true,
     error: true,
   },
-};
+}
 
 export const useRepoFormStore = create<RepoFormStore>((set, get) => ({
   ...initialState,
@@ -59,7 +62,7 @@ export const useRepoFormStore = create<RepoFormStore>((set, get) => ({
   loadFromSettings: (settings) => set({ ...initialState, ...settings }),
 
   getState: () => {
-    const state = get();
+    const state = get()
     return {
       accessToken: state.accessToken,
       user: state.user,
@@ -71,8 +74,8 @@ export const useRepoFormStore = create<RepoFormStore>((set, get) => ({
       assignments: state.assignments,
       directoryLayout: state.directoryLayout,
       logLevels: { ...state.logLevels },
-    };
+    }
   },
-}));
+}))
 
-export { initialState as repoFormInitialState };
+export { initialState as repoFormInitialState }
