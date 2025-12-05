@@ -1,31 +1,42 @@
-import { commands, type AppSettings, type GuiSettings, type SettingsLoadResult } from "../bindings";
-import { unwrap, Strict } from "./commandUtils";
+import {
+  type AppSettings,
+  commands,
+  type GuiSettings,
+  type SettingsLoadResult,
+} from "../bindings"
+import { type Strict, unwrap } from "./commandUtils"
 
-export const settingsExist = () => commands.settingsExist().then(unwrap);
+export const settingsExist = () => commands.settingsExist().then(unwrap)
 
 /** Load settings with warnings for any corrected issues */
 export const loadSettingsWithWarnings = (): Promise<SettingsLoadResult> =>
-  commands.loadSettings().then(unwrap);
+  commands.loadSettings().then(unwrap)
 
 /** Load settings (extracts settings from result, ignores warnings) */
 export const loadSettings = async (): Promise<GuiSettings> => {
-  const result = await loadSettingsWithWarnings();
-  return result.settings;
-};
-export const saveSettings = (settings: Strict<GuiSettings>) => commands.saveSettings(settings).then(unwrap);
-export const loadAppSettings = () => commands.loadAppSettings().then(unwrap);
-export const saveAppSettings = (settings: Strict<AppSettings>) => commands.saveAppSettings(settings).then(unwrap);
-export const resetSettings = () => commands.resetSettings().then(unwrap);
-export const getSettingsPath = () => commands.getSettingsPath().then(unwrap);
-export const listProfiles = () => commands.listProfiles().then(unwrap);
-export const getActiveProfile = () => commands.getActiveProfile().then(unwrap);
-export const setActiveProfile = (name: string) => commands.setActiveProfile(name).then(unwrap);
-export const loadProfile = (name: string) => commands.loadProfile(name).then(unwrap);
+  const result = await loadSettingsWithWarnings()
+  return result.settings
+}
+export const saveSettings = (settings: Strict<GuiSettings>) =>
+  commands.saveSettings(settings).then(unwrap)
+export const loadAppSettings = () => commands.loadAppSettings().then(unwrap)
+export const saveAppSettings = (settings: Strict<AppSettings>) =>
+  commands.saveAppSettings(settings).then(unwrap)
+export const resetSettings = () => commands.resetSettings().then(unwrap)
+export const getSettingsPath = () => commands.getSettingsPath().then(unwrap)
+export const listProfiles = () => commands.listProfiles().then(unwrap)
+export const getActiveProfile = () => commands.getActiveProfile().then(unwrap)
+export const setActiveProfile = (name: string) =>
+  commands.setActiveProfile(name).then(unwrap)
+export const loadProfile = (name: string) =>
+  commands.loadProfile(name).then(unwrap)
 export const saveProfile = (name: string, settings: Strict<GuiSettings>) =>
-  commands.saveProfile(name, settings).then(unwrap);
-export const deleteProfile = (name: string) => commands.deleteProfile(name).then(unwrap);
+  commands.saveProfile(name, settings).then(unwrap)
+export const deleteProfile = (name: string) =>
+  commands.deleteProfile(name).then(unwrap)
 export const renameProfile = (oldName: string, newName: string) =>
-  commands.renameProfile(oldName, newName).then(unwrap);
-export const importSettings = (path: string) => commands.importSettings(path).then(unwrap);
+  commands.renameProfile(oldName, newName).then(unwrap)
+export const importSettings = (path: string) =>
+  commands.importSettings(path).then(unwrap)
 export const exportSettings = (settings: Strict<GuiSettings>, path: string) =>
-  commands.exportSettings(settings, path).then(unwrap);
+  commands.exportSettings(settings, path).then(unwrap)

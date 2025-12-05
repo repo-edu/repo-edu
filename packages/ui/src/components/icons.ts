@@ -26,4 +26,4 @@ export {
   Trash2,
   Upload,
   X,
-} from "lucide-react";
+} from "lucide-react"

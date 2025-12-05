@@ -1,13 +1,13 @@
-import { Button, Label, RadioGroup, RadioGroupItem } from "@repo-edu/ui";
-import { MdiLockOutline } from "./icons/MdiLockOutline";
-import { MdiLockOpenVariantOutline } from "./icons/MdiLockOpenVariantOutline";
-import { useRepoFormStore, useUiStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
+import { Button, Label, RadioGroup, RadioGroupItem } from "@repo-edu/ui"
+import { useRepoFormStore, useUiStore } from "../stores"
+import { FormField } from "./FormField"
+import { MdiLockOpenVariantOutline } from "./icons/MdiLockOpenVariantOutline"
+import { MdiLockOutline } from "./icons/MdiLockOutline"
+import { Section } from "./Section"
 
 export function OptionsSection() {
-  const repoForm = useRepoFormStore();
-  const ui = useUiStore();
+  const repoForm = useRepoFormStore()
+  const ui = useUiStore()
 
   return (
     <Section
@@ -15,13 +15,22 @@ export function OptionsSection() {
       locked={ui.optionsLocked}
       lockTooltip="Unlock to change directory layout"
       action={
-        <Button size="xs" variant="outline" onClick={() => ui.toggleOptionsLock()}>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => ui.toggleOptionsLock()}
+        >
           {ui.optionsLocked ? (
             <MdiLockOutline className="h-4 w-4" aria-hidden />
           ) : (
-            <MdiLockOpenVariantOutline className="h-4 w-4 text-sky-500" aria-hidden />
+            <MdiLockOpenVariantOutline
+              className="h-4 w-4 text-sky-500"
+              aria-hidden
+            />
           )}
-          <span className="sr-only">{ui.optionsLocked ? "Unlock options" : "Lock options"}</span>
+          <span className="sr-only">
+            {ui.optionsLocked ? "Unlock options" : "Lock options"}
+          </span>
         </Button>
       }
     >
@@ -29,13 +38,21 @@ export function OptionsSection() {
         <RadioGroup
           value={repoForm.directoryLayout}
           onValueChange={(v) =>
-            repoForm.setField("directoryLayout", v as "by-team" | "flat" | "by-task")
+            repoForm.setField(
+              "directoryLayout",
+              v as "by-team" | "flat" | "by-task",
+            )
           }
           className="flex gap-4"
           size="xs"
         >
           <div className="flex items-center gap-1.5">
-            <RadioGroupItem value="flat" id="layout-flat" size="xs" disabled={ui.optionsLocked} />
+            <RadioGroupItem
+              value="flat"
+              id="layout-flat"
+              size="xs"
+              disabled={ui.optionsLocked}
+            />
             <Label htmlFor="layout-flat" size="xs">
               Flat
             </Label>
@@ -65,5 +82,5 @@ export function OptionsSection() {
         </RadioGroup>
       </FormField>
     </Section>
-  );
+  )
 }

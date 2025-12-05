@@ -1,16 +1,19 @@
-import { Input } from "@repo-edu/ui";
-import { useRepoFormStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
-import { FilePathInput } from "./FilePathInput";
+import { Input } from "@repo-edu/ui"
+import { useRepoFormStore } from "../stores"
+import { FilePathInput } from "./FilePathInput"
+import { FormField } from "./FormField"
+import { Section } from "./Section"
 
 interface LocalConfigSectionProps {
-  onBrowseFile: (setter: (path: string) => void) => void;
-  onBrowseFolder: (setter: (path: string) => void) => void;
+  onBrowseFile: (setter: (path: string) => void) => void
+  onBrowseFolder: (setter: (path: string) => void) => void
 }
 
-export function LocalConfigSection({ onBrowseFile, onBrowseFolder }: LocalConfigSectionProps) {
-  const repoForm = useRepoFormStore();
+export function LocalConfigSection({
+  onBrowseFile,
+  onBrowseFolder,
+}: LocalConfigSectionProps) {
+  const repoForm = useRepoFormStore()
 
   return (
     <Section title="Local Configuration">
@@ -28,11 +31,16 @@ export function LocalConfigSection({ onBrowseFile, onBrowseFolder }: LocalConfig
           value={repoForm.targetFolder}
           onChange={(v) => repoForm.setField("targetFolder", v)}
           placeholder="/path/to/repos"
-          onBrowse={() => onBrowseFolder((p) => repoForm.setField("targetFolder", p))}
+          onBrowse={() =>
+            onBrowseFolder((p) => repoForm.setField("targetFolder", p))
+          }
         />
       </FormField>
 
-      <FormField label="Assignments" tooltip="Comma-separated list of assignments">
+      <FormField
+        label="Assignments"
+        tooltip="Comma-separated list of assignments"
+      >
         <Input
           size="xs"
           value={repoForm.assignments}
@@ -42,5 +50,5 @@ export function LocalConfigSection({ onBrowseFile, onBrowseFolder }: LocalConfig
         />
       </FormField>
     </Section>
-  );
+  )
 }

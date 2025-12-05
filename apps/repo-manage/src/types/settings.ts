@@ -17,7 +17,7 @@ export type {
   MemberOption,
   RepoSettings,
   Theme,
-} from "../bindings";
+} from "../bindings"
 
 // Import types for use in this file
 import type {
@@ -27,17 +27,17 @@ import type {
   LmsSettings,
   LogSettings,
   RepoSettings,
-} from "../bindings";
+} from "../bindings"
 
 // Additional type aliases for compatibility
-export type LmsMemberOption = "(email, gitid)" | "email" | "git_id";
-export type LmsType = "Canvas" | "Moodle";
+export type LmsMemberOption = "(email, gitid)" | "email" | "git_id"
+export type LmsType = "Canvas" | "Moodle"
 
 // Profile settings type (not exported from bindings, internal structure)
 export interface ProfileSettings {
-  common: CommonSettings;
-  lms: LmsSettings;
-  repo: RepoSettings;
+  common: CommonSettings
+  lms: LmsSettings
+  repo: RepoSettings
 }
 
 // ===== Default Values =====
@@ -47,7 +47,7 @@ export const DEFAULT_COMMON_SETTINGS: CommonSettings = {
   git_base_url: "https://gitlab.tue.nl",
   git_access_token: "",
   git_user: "",
-};
+}
 
 /** Default LMS settings */
 export const DEFAULT_LMS_SETTINGS: LmsSettings = {
@@ -70,7 +70,7 @@ export const DEFAULT_LMS_SETTINGS: LmsSettings = {
   output_csv: false,
   output_xlsx: false,
   output_yaml: true,
-};
+}
 
 /** Default repo settings */
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {
@@ -80,7 +80,7 @@ export const DEFAULT_REPO_SETTINGS: RepoSettings = {
   target_folder: "",
   assignments: "",
   directory_layout: "flat",
-};
+}
 
 /** Default logging settings */
 export const DEFAULT_LOG_SETTINGS: LogSettings = {
@@ -88,14 +88,14 @@ export const DEFAULT_LOG_SETTINGS: LogSettings = {
   debug: false,
   warning: true,
   error: true,
-};
+}
 
 /** Default profile settings */
 export const DEFAULT_PROFILE_SETTINGS: ProfileSettings = {
   common: DEFAULT_COMMON_SETTINGS,
   lms: DEFAULT_LMS_SETTINGS,
   repo: DEFAULT_REPO_SETTINGS,
-};
+}
 
 /** Default app settings */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -108,13 +108,13 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   window_width: 0,
   window_height: 0,
   logging: DEFAULT_LOG_SETTINGS,
-};
+}
 
 /** Default GUI settings */
 export const DEFAULT_GUI_SETTINGS: GuiSettings = {
   ...DEFAULT_APP_SETTINGS,
   ...DEFAULT_PROFILE_SETTINGS,
-};
+}
 
 // ===== Helper Functions =====
 
@@ -130,7 +130,7 @@ export function isGuiSettings(value: unknown): value is GuiSettings {
     "repo" in value &&
     typeof (value as GuiSettings).active_tab === "string" &&
     typeof (value as GuiSettings).config_locked === "boolean"
-  );
+  )
 }
 
 /**
@@ -143,5 +143,5 @@ export function mergeWithDefaults(partial: Partial<GuiSettings>): GuiSettings {
     lms: { ...DEFAULT_LMS_SETTINGS, ...partial.lms },
     repo: { ...DEFAULT_REPO_SETTINGS, ...partial.repo },
     logging: { ...DEFAULT_LOG_SETTINGS, ...partial.logging },
-  };
+  }
 }

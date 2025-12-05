@@ -1,33 +1,36 @@
-import { create } from "zustand";
+import { create } from "zustand"
 
 export interface LmsFormState {
-  lmsType: "Canvas" | "Moodle";
-  baseUrl: string;
-  customUrl: string;
-  urlOption: "TUE" | "CUSTOM";
-  accessToken: string;
-  courseId: string;
-  courseName: string;
-  yamlFile: string;
-  outputFolder: string;
-  csvFile: string;
-  xlsxFile: string;
-  memberOption: "(email, gitid)" | "email" | "git_id";
-  includeGroup: boolean;
-  includeMember: boolean;
-  includeInitials: boolean;
-  fullGroups: boolean;
-  csv: boolean;
-  xlsx: boolean;
-  yaml: boolean;
+  lmsType: "Canvas" | "Moodle"
+  baseUrl: string
+  customUrl: string
+  urlOption: "TUE" | "CUSTOM"
+  accessToken: string
+  courseId: string
+  courseName: string
+  yamlFile: string
+  outputFolder: string
+  csvFile: string
+  xlsxFile: string
+  memberOption: "(email, gitid)" | "email" | "git_id"
+  includeGroup: boolean
+  includeMember: boolean
+  includeInitials: boolean
+  fullGroups: boolean
+  csv: boolean
+  xlsx: boolean
+  yaml: boolean
 }
 
 interface LmsFormStore extends LmsFormState {
-  setField: <K extends keyof LmsFormState>(key: K, value: LmsFormState[K]) => void;
-  setLmsType: (type: "Canvas" | "Moodle") => void;
-  reset: () => void;
-  loadFromSettings: (settings: Partial<LmsFormState>) => void;
-  getState: () => LmsFormState;
+  setField: <K extends keyof LmsFormState>(
+    key: K,
+    value: LmsFormState[K],
+  ) => void
+  setLmsType: (type: "Canvas" | "Moodle") => void
+  reset: () => void
+  loadFromSettings: (settings: Partial<LmsFormState>) => void
+  getState: () => LmsFormState
 }
 
 const initialState: LmsFormState = {
@@ -50,7 +53,7 @@ const initialState: LmsFormState = {
   csv: false,
   xlsx: false,
   yaml: true,
-};
+}
 
 export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
   ...initialState,
@@ -72,7 +75,7 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
   loadFromSettings: (settings) => set({ ...initialState, ...settings }),
 
   getState: () => {
-    const state = get();
+    const state = get()
     return {
       lmsType: state.lmsType,
       baseUrl: state.baseUrl,
@@ -93,8 +96,8 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       csv: state.csv,
       xlsx: state.xlsx,
       yaml: state.yaml,
-    };
+    }
   },
-}));
+}))
 
-export { initialState as lmsFormInitialState };
+export { initialState as lmsFormInitialState }

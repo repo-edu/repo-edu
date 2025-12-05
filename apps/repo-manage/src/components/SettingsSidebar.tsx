@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,47 +7,53 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@repo-edu/ui/components/ui/alert-dialog";
+} from "@repo-edu/ui/components/ui/alert-dialog"
+import { Button } from "@repo-edu/ui/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from "@repo-edu/ui/components/ui/dialog";
-import { Button } from "@repo-edu/ui/components/ui/button";
-import { Input } from "@repo-edu/ui/components/ui/input";
+} from "@repo-edu/ui/components/ui/dialog"
+import { Input } from "@repo-edu/ui/components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repo-edu/ui/components/ui/select";
-import { Separator } from "@repo-edu/ui/components/ui/separator";
+} from "@repo-edu/ui/components/ui/select"
+import { Separator } from "@repo-edu/ui/components/ui/separator"
 import {
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
-} from "@repo-edu/ui/components/ui/tooltip";
-import { DEFAULT_GUI_SETTINGS, type GuiSettings, type Theme } from "../types/settings";
-import { getErrorMessage } from "../types/error";
-import * as settingsService from "../services/settingsService";
+  TooltipTrigger,
+} from "@repo-edu/ui/components/ui/tooltip"
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { useEffect, useState } from "react"
+import * as settingsService from "../services/settingsService"
+import { getErrorMessage } from "../types/error"
+import {
+  DEFAULT_GUI_SETTINGS,
+  type GuiSettings,
+  type Theme,
+} from "../types/settings"
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System (Auto)" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-];
+]
 
 interface SettingsSidebarProps {
-  onClose: () => void;
-  currentSettings: GuiSettings;
-  onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void;
-  onMessage: (message: string) => void;
-  isDirty: boolean;
-  onSaved: () => void;
-  onResetToDefaults: () => void;
+  onClose: () => void
+  currentSettings: GuiSettings
+  onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void
+  onMessage: (message: string) => void
+  isDirty: boolean
+  onSaved: () => void
+  onResetToDefaults: () => void
 }
 
 export function SettingsSidebar({
@@ -61,121 +65,131 @@ export function SettingsSidebar({
   onSaved,
   onResetToDefaults,
 }: SettingsSidebarProps) {
-  const [settingsPath, setSettingsPath] = useState<string>("");
-  const [profiles, setProfiles] = useState<string[]>([]);
-  const [activeProfile, setActiveProfile] = useState<string | null>(null);
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
-  const [successFlash, setSuccessFlash] = useState(false);
+  const [settingsPath, setSettingsPath] = useState<string>("")
+  const [profiles, setProfiles] = useState<string[]>([])
+  const [activeProfile, setActiveProfile] = useState<string | null>(null)
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
+  const [successFlash, setSuccessFlash] = useState(false)
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    onConfirm: () => void;
-  }>({ open: false, title: "", description: "", onConfirm: () => {} });
+    open: boolean
+    title: string
+    description: string
+    onConfirm: () => void
+  }>({ open: false, title: "", description: "", onConfirm: () => {} })
 
   // Prompt dialog state (for New/Rename)
   const [promptDialog, setPromptDialog] = useState<{
-    open: boolean;
-    title: string;
-    placeholder: string;
-    value: string;
-    onConfirm: (value: string) => void;
-  }>({ open: false, title: "", placeholder: "", value: "", onConfirm: () => {} });
+    open: boolean
+    title: string
+    placeholder: string
+    value: string
+    onConfirm: (value: string) => void
+  }>({
+    open: false,
+    title: "",
+    placeholder: "",
+    value: "",
+    onConfirm: () => {},
+  })
 
   const loadSettingsPath = async () => {
     try {
-      const path = await settingsService.getSettingsPath();
-      setSettingsPath(path);
+      const path = await settingsService.getSettingsPath()
+      setSettingsPath(path)
     } catch (error) {
-      console.error("Failed to get settings path:", error);
+      console.error("Failed to get settings path:", error)
     }
-  };
+  }
 
   const loadProfiles = async () => {
     try {
-      const profileList = await settingsService.listProfiles();
-      setProfiles(profileList);
-      const active = await settingsService.getActiveProfile();
-      setActiveProfile(active);
+      const profileList = await settingsService.listProfiles()
+      setProfiles(profileList)
+      const active = await settingsService.getActiveProfile()
+      setActiveProfile(active)
       // Select active profile by default, or first profile if none active
       if (!selectedProfile && profileList.length > 0) {
-        setSelectedProfile(active && profileList.includes(active) ? active : profileList[0]);
+        setSelectedProfile(
+          active && profileList.includes(active) ? active : profileList[0],
+        )
       }
     } catch (error) {
-      console.error("Failed to load profiles:", error);
+      console.error("Failed to load profiles:", error)
     }
-  };
+  }
 
   useEffect(() => {
-    loadSettingsPath();
-    loadProfiles();
-  }, []);
+    loadSettingsPath()
+    loadProfiles()
+  }, [])
 
   const showSuccessFlash = () => {
-    setSuccessFlash(true);
-    setTimeout(() => setSuccessFlash(false), 500);
-  };
+    setSuccessFlash(true)
+    setTimeout(() => setSuccessFlash(false), 500)
+  }
 
   // Active Profile Actions
   const handleSaveActiveProfile = async () => {
     if (!activeProfile) {
-      onMessage("✗ No active profile to save");
-      return;
+      onMessage("✗ No active profile to save")
+      return
     }
     try {
-      await settingsService.saveProfile(activeProfile, currentSettings);
-      showSuccessFlash();
-      onMessage(`✓ Saved profile: ${activeProfile}`);
-      onSaved();
+      await settingsService.saveProfile(activeProfile, currentSettings)
+      showSuccessFlash()
+      onMessage(`✓ Saved profile: ${activeProfile}`)
+      onSaved()
     } catch (error) {
-      onMessage(`✗ Failed to save profile: ${getErrorMessage(error)}`);
+      onMessage(`✗ Failed to save profile: ${getErrorMessage(error)}`)
     }
-  };
+  }
 
   const handleResetSettings = () => {
-    onResetToDefaults();
-    showSuccessFlash();
-    onMessage("✓ Settings reset to defaults (not saved)");
-  };
+    onResetToDefaults()
+    showSuccessFlash()
+    onMessage("✓ Settings reset to defaults (not saved)")
+  }
 
   const handleShowLocation = async () => {
     if (settingsPath) {
       try {
-        await revealItemInDir(settingsPath);
+        await revealItemInDir(settingsPath)
       } catch (error) {
-        onMessage(`✗ Failed to open file explorer: ${getErrorMessage(error)}`);
+        onMessage(`✗ Failed to open file explorer: ${getErrorMessage(error)}`)
       }
     }
-  };
+  }
 
   // Profile List Actions
   const handleLoadProfile = async (name: string) => {
-    if (!name) return;
+    if (!name) return
     try {
-      const settings = await settingsService.loadProfile(name);
-      await settingsService.setActiveProfile(name);
-      onSettingsLoaded(settings);
-      setActiveProfile(name);
-      showSuccessFlash();
-      onMessage(`✓ Loaded profile: ${name}`);
+      const settings = await settingsService.loadProfile(name)
+      await settingsService.setActiveProfile(name)
+      onSettingsLoaded(settings)
+      setActiveProfile(name)
+      showSuccessFlash()
+      onMessage(`✓ Loaded profile: ${name}`)
     } catch (error) {
       // Load defaults so the app remains functional, but don't update baseline
       // so settings show as dirty and can be saved to fix the profile
       try {
-        await settingsService.setActiveProfile(name);
+        await settingsService.setActiveProfile(name)
       } catch {
         // Ignore - profile might not exist on disk yet
       }
-      onSettingsLoaded(DEFAULT_GUI_SETTINGS, false);
-      setActiveProfile(name);
-      onMessage(`⚠ Failed to load profile '${name}':\n${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`);
+      onSettingsLoaded(DEFAULT_GUI_SETTINGS, false)
+      setActiveProfile(name)
+      onMessage(
+        `⚠ Failed to load profile '${name}':\n${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`,
+      )
     }
-  };
+  }
 
   const handleLoadSelectedProfile = () => {
-    if (!selectedProfile || selectedProfile === activeProfile) return;
+    if (!selectedProfile || selectedProfile === activeProfile) return
 
     if (isDirty) {
       setConfirmDialog({
@@ -183,11 +197,11 @@ export function SettingsSidebar({
         title: "Unsaved Changes",
         description: "Warning: unsaved changes will be ignored.",
         onConfirm: () => handleLoadProfile(selectedProfile),
-      });
+      })
     } else {
-      handleLoadProfile(selectedProfile);
+      handleLoadProfile(selectedProfile)
     }
-  };
+  }
 
   const handleNewProfile = () => {
     setPromptDialog({
@@ -197,26 +211,26 @@ export function SettingsSidebar({
       value: "",
       onConfirm: async (name) => {
         if (!name.trim()) {
-          onMessage("✗ Please enter a profile name");
-          return;
+          onMessage("✗ Please enter a profile name")
+          return
         }
         try {
-          await settingsService.saveProfile(name, currentSettings);
-          showSuccessFlash();
-          onMessage(`✓ Created profile: ${name}`);
-          await loadProfiles();
-          setSelectedProfile(name);
+          await settingsService.saveProfile(name, currentSettings)
+          showSuccessFlash()
+          onMessage(`✓ Created profile: ${name}`)
+          await loadProfiles()
+          setSelectedProfile(name)
         } catch (error) {
-          onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`);
+          onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`)
         }
       },
-    });
-  };
+    })
+  }
 
   const handleRenameProfile = () => {
     if (!selectedProfile) {
-      onMessage("✗ Select a profile to rename");
-      return;
+      onMessage("✗ Select a profile to rename")
+      return
     }
     setPromptDialog({
       open: true,
@@ -225,29 +239,29 @@ export function SettingsSidebar({
       value: selectedProfile,
       onConfirm: async (newName) => {
         if (!newName.trim()) {
-          onMessage("✗ Please enter a profile name");
-          return;
+          onMessage("✗ Please enter a profile name")
+          return
         }
         try {
-          await settingsService.renameProfile(selectedProfile, newName);
-          showSuccessFlash();
-          onMessage(`✓ Renamed profile to: ${newName}`);
-          await loadProfiles();
-          setSelectedProfile(newName);
+          await settingsService.renameProfile(selectedProfile, newName)
+          showSuccessFlash()
+          onMessage(`✓ Renamed profile to: ${newName}`)
+          await loadProfiles()
+          setSelectedProfile(newName)
           if (activeProfile === selectedProfile) {
-            setActiveProfile(newName);
+            setActiveProfile(newName)
           }
         } catch (error) {
-          onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`);
+          onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`)
         }
       },
-    });
-  };
+    })
+  }
 
   const handleDeleteProfile = () => {
     if (!selectedProfile) {
-      onMessage("✗ Select a profile to delete");
-      return;
+      onMessage("✗ Select a profile to delete")
+      return
     }
     setConfirmDialog({
       open: true,
@@ -255,28 +269,37 @@ export function SettingsSidebar({
       description: `Delete profile "${selectedProfile}"?`,
       onConfirm: async () => {
         try {
-          await settingsService.deleteProfile(selectedProfile);
-          showSuccessFlash();
-          onMessage(`✓ Deleted profile: ${selectedProfile}`);
+          await settingsService.deleteProfile(selectedProfile)
+          showSuccessFlash()
+          onMessage(`✓ Deleted profile: ${selectedProfile}`)
           if (activeProfile === selectedProfile) {
-            setActiveProfile(null);
+            setActiveProfile(null)
           }
-          await loadProfiles();
-          setSelectedProfile(profiles.find((p) => p !== selectedProfile) || null);
+          await loadProfiles()
+          setSelectedProfile(
+            profiles.find((p) => p !== selectedProfile) || null,
+          )
         } catch (error) {
-          onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`);
+          onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`)
         }
       },
-    });
-  };
+    })
+  }
 
   return (
     <>
       <div className="settings-sidebar">
         {/* Header */}
         <div className="settings-sidebar-header">
-          <span className="text-sm font-semibold text-muted-foreground">General Settings</span>
-          <Button variant="outline" size="xs" onClick={onClose} className="h-5 w-5 p-0">
+          <span className="text-sm font-semibold text-muted-foreground">
+            General Settings
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={onClose}
+            className="h-5 w-5 p-0"
+          >
             ×
           </Button>
         </div>
@@ -300,8 +323,8 @@ export function SettingsSidebar({
             <Select
               value={currentSettings.theme || "system"}
               onValueChange={async (value: Theme) => {
-                const updated = { ...currentSettings, theme: value };
-                onSettingsLoaded(updated);
+                const updated = { ...currentSettings, theme: value }
+                onSettingsLoaded(updated)
                 try {
                   // Save only app settings for theme change
                   await settingsService.saveAppSettings({
@@ -314,10 +337,10 @@ export function SettingsSidebar({
                     window_width: currentSettings.window_width,
                     window_height: currentSettings.window_height,
                     logging: currentSettings.logging,
-                  });
-                  showSuccessFlash();
+                  })
+                  showSuccessFlash()
                 } catch (error) {
-                  onMessage(`✗ Failed to save theme: ${getErrorMessage(error)}`);
+                  onMessage(`✗ Failed to save theme: ${getErrorMessage(error)}`)
                 }
               }}
             >
@@ -344,7 +367,9 @@ export function SettingsSidebar({
                   Active Profile
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Currently loaded configuration profile</TooltipContent>
+              <TooltipContent>
+                Currently loaded configuration profile
+              </TooltipContent>
             </Tooltip>
             <Input
               size="xs"
@@ -367,12 +392,18 @@ export function SettingsSidebar({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {!isDirty ? "No unsaved changes" : "Save current settings to active profile"}
+                  {!isDirty
+                    ? "No unsaved changes"
+                    : "Save current settings to active profile"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" onClick={handleResetSettings}>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleResetSettings}
+                  >
                     Reset
                   </Button>
                 </TooltipTrigger>
@@ -380,7 +411,11 @@ export function SettingsSidebar({
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" onClick={handleShowLocation}>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleShowLocation}
+                  >
                     Location
                   </Button>
                 </TooltipTrigger>
@@ -405,7 +440,10 @@ export function SettingsSidebar({
               value={selectedProfile || ""}
               onValueChange={(v) => setSelectedProfile(v)}
             >
-              <SelectTrigger size="xs" className="!ring-0 !ring-offset-0 !outline-none focus:!border-border">
+              <SelectTrigger
+                size="xs"
+                className="!ring-0 !ring-offset-0 !outline-none focus:!border-border"
+              >
                 <SelectValue placeholder="Select profile..." />
               </SelectTrigger>
               <SelectContent>
@@ -424,7 +462,9 @@ export function SettingsSidebar({
                       size="xs"
                       variant="outline"
                       onClick={handleLoadSelectedProfile}
-                      disabled={!selectedProfile || selectedProfile === activeProfile}
+                      disabled={
+                        !selectedProfile || selectedProfile === activeProfile
+                      }
                     >
                       Load
                     </Button>
@@ -438,15 +478,26 @@ export function SettingsSidebar({
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" onClick={handleNewProfile}>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleNewProfile}
+                  >
                     New
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Create new profile from current settings</TooltipContent>
+                <TooltipContent>
+                  Create new profile from current settings
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" onClick={handleRenameProfile} disabled={!selectedProfile}>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleRenameProfile}
+                    disabled={!selectedProfile}
+                  >
                     Rename
                   </Button>
                 </TooltipTrigger>
@@ -459,7 +510,9 @@ export function SettingsSidebar({
                     variant="outline"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={handleDeleteProfile}
-                    disabled={!selectedProfile || selectedProfile === activeProfile}
+                    disabled={
+                      !selectedProfile || selectedProfile === activeProfile
+                    }
                   >
                     Delete
                   </Button>
@@ -483,14 +536,16 @@ export function SettingsSidebar({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {confirmDialog.description}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                confirmDialog.onConfirm();
-                setConfirmDialog((prev) => ({ ...prev, open: false }));
+                confirmDialog.onConfirm()
+                setConfirmDialog((prev) => ({ ...prev, open: false }))
               }}
             >
               Confirm
@@ -512,11 +567,13 @@ export function SettingsSidebar({
             size="xs"
             placeholder={promptDialog.placeholder}
             value={promptDialog.value}
-            onChange={(e) => setPromptDialog((prev) => ({ ...prev, value: e.target.value }))}
+            onChange={(e) =>
+              setPromptDialog((prev) => ({ ...prev, value: e.target.value }))
+            }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                promptDialog.onConfirm(promptDialog.value);
-                setPromptDialog((prev) => ({ ...prev, open: false }));
+                promptDialog.onConfirm(promptDialog.value)
+                setPromptDialog((prev) => ({ ...prev, open: false }))
               }
             }}
             autoFocus
@@ -525,15 +582,17 @@ export function SettingsSidebar({
             <Button
               size="xs"
               variant="outline"
-              onClick={() => setPromptDialog((prev) => ({ ...prev, open: false }))}
+              onClick={() =>
+                setPromptDialog((prev) => ({ ...prev, open: false }))
+              }
             >
               Cancel
             </Button>
             <Button
               size="xs"
               onClick={() => {
-                promptDialog.onConfirm(promptDialog.value);
-                setPromptDialog((prev) => ({ ...prev, open: false }));
+                promptDialog.onConfirm(promptDialog.value)
+                setPromptDialog((prev) => ({ ...prev, open: false }))
               }}
             >
               OK
@@ -542,5 +601,5 @@ export function SettingsSidebar({
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 }

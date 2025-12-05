@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { FormField } from "./FormField";
-import { TooltipProvider } from "@repo-edu/ui";
+import { TooltipProvider } from "@repo-edu/ui"
+import { render, screen } from "@testing-library/react"
+import { describe, expect, it } from "vitest"
+import { FormField } from "./FormField"
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <TooltipProvider>{children}</TooltipProvider>
-);
+)
 
 describe("FormField", () => {
   it("renders label and children", () => {
@@ -13,34 +13,34 @@ describe("FormField", () => {
       <FormField label="Test Label">
         <input data-testid="child-input" />
       </FormField>,
-      { wrapper }
-    );
+      { wrapper },
+    )
 
-    expect(screen.getByText("Test Label")).toBeInTheDocument();
-    expect(screen.getByTestId("child-input")).toBeInTheDocument();
-  });
+    expect(screen.getByText("Test Label")).toBeInTheDocument()
+    expect(screen.getByTestId("child-input")).toBeInTheDocument()
+  })
 
   it("renders tooltip indicator when tooltip provided", () => {
     render(
       <FormField label="With Tooltip" tooltip="Help text">
         <input />
       </FormField>,
-      { wrapper }
-    );
+      { wrapper },
+    )
 
-    const label = screen.getByText("With Tooltip");
-    expect(label).toHaveClass("border-dashed");
-  });
+    const label = screen.getByText("With Tooltip")
+    expect(label).toHaveClass("border-dashed")
+  })
 
   it("renders plain label without tooltip", () => {
     render(
       <FormField label="Plain Label">
         <input />
       </FormField>,
-      { wrapper }
-    );
+      { wrapper },
+    )
 
-    const label = screen.getByText("Plain Label");
-    expect(label).not.toHaveClass("border-dashed");
-  });
-});
+    const label = screen.getByText("Plain Label")
+    expect(label).not.toHaveClass("border-dashed")
+  })
+})

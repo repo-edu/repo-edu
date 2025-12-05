@@ -1,158 +1,167 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window";
 import {
   Button,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
-} from "@repo-edu/ui";
+  TooltipTrigger,
+} from "@repo-edu/ui"
 import {
   AlertDialog,
   AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-} from "@repo-edu/ui/components/ui/alert-dialog";
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo-edu/ui/components/ui/alert-dialog"
+import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window"
+import { open } from "@tauri-apps/plugin-dialog"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { ActionBar } from "./components/ActionBar"
+import { GitConfigSection } from "./components/GitConfigSection"
+import { LmsConfigSection } from "./components/LmsConfigSection"
+import { LocalConfigSection } from "./components/LocalConfigSection"
+import { OptionsSection } from "./components/OptionsSection"
+import { OutputConfigSection } from "./components/OutputConfigSection"
+import { OutputConsole } from "./components/OutputConsole"
+import { RepoNamingSection } from "./components/RepoNamingSection"
+import { SettingsSidebar } from "./components/SettingsSidebar"
+import { TokenDialog } from "./components/TokenDialog"
+import { useCloseGuard } from "./hooks/useCloseGuard"
+import { useLmsActions } from "./hooks/useLmsActions"
+import { useLoadSettings } from "./hooks/useLoadSettings"
+import { useRepoActions } from "./hooks/useRepoActions"
+import { useTheme } from "./hooks/useTheme"
+import * as lmsService from "./services/lmsService"
+import * as settingsService from "./services/settingsService"
 import {
   useLmsFormStore,
+  useOutputStore,
   useRepoFormStore,
   useUiStore,
-  useOutputStore,
-} from "./stores";
-import { type GuiSettings, DEFAULT_GUI_SETTINGS } from "./types/settings";
-import { SettingsSidebar } from "./components/SettingsSidebar";
-import { ActionBar } from "./components/ActionBar";
-import { TokenDialog } from "./components/TokenDialog";
-import { LmsConfigSection } from "./components/LmsConfigSection";
-import { OutputConfigSection } from "./components/OutputConfigSection";
-import { RepoNamingSection } from "./components/RepoNamingSection";
-import { GitConfigSection } from "./components/GitConfigSection";
-import { LocalConfigSection } from "./components/LocalConfigSection";
-import { OptionsSection } from "./components/OptionsSection";
-import { OutputConsole } from "./components/OutputConsole";
-import * as settingsService from "./services/settingsService";
-import * as lmsService from "./services/lmsService";
-import { hashSnapshot } from "./utils/snapshot";
-import { useCloseGuard } from "./hooks/useCloseGuard";
-import { useLoadSettings } from "./hooks/useLoadSettings";
-import { useTheme } from "./hooks/useTheme";
-import { useLmsActions } from "./hooks/useLmsActions";
-import { useRepoActions } from "./hooks/useRepoActions";
-import { validateLmsVerify, validateLmsGenerate, validateRepo } from "./validation/forms";
-import "./App.css";
+} from "./stores"
+import { DEFAULT_GUI_SETTINGS, type GuiSettings } from "./types/settings"
+import { hashSnapshot } from "./utils/snapshot"
+import {
+  validateLmsGenerate,
+  validateLmsVerify,
+  validateRepo,
+} from "./validation/forms"
+import "./App.css"
 
 function App() {
   // Zustand stores
-  const lmsForm = useLmsFormStore();
-  const repoForm = useRepoFormStore();
-  const ui = useUiStore();
-  const output = useOutputStore();
+  const lmsForm = useLmsFormStore()
+  const repoForm = useRepoFormStore()
+  const ui = useUiStore()
+  const output = useOutputStore()
 
   // Action hooks
-  const { verifyLmsCourse, handleGenerateFiles } = useLmsActions();
-  const { handleVerifyConfig, handleCreateRepos } = useRepoActions();
+  const { verifyLmsCourse, handleGenerateFiles } = useLmsActions()
+  const { handleVerifyConfig, handleCreateRepos } = useRepoActions()
 
   // Track last saved state for dirty checking (hashed snapshots)
   const [lastSavedHashes, setLastSavedHashes] = useState(() => ({
     lms: hashSnapshot(lmsForm.getState()),
     repo: hashSnapshot(repoForm.getState()),
-  }));
+  }))
 
   // Current GUI settings (for SettingsMenu)
-  const [currentGuiSettings, setCurrentGuiSettings] = useState<GuiSettings | null>(null);
+  const [currentGuiSettings, setCurrentGuiSettings] =
+    useState<GuiSettings | null>(null)
 
   // Apply theme from settings
-  useTheme(currentGuiSettings?.theme || "system");
+  useTheme(currentGuiSettings?.theme || "system")
 
   // Compute dirty state
   const isDirty =
     hashSnapshot(lmsForm.getState()) !== lastSavedHashes.lms ||
-    hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo;
+    hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo
 
-  const lmsVerifyValidation = validateLmsVerify(lmsForm.getState());
-  const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState());
-  const repoValidation = validateRepo(repoForm.getState());
+  const lmsVerifyValidation = validateLmsVerify(lmsForm.getState())
+  const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState())
+  const repoValidation = validateRepo(repoForm.getState())
 
   // Settings panel height (pixels) - console takes remaining space via flex
-  const [settingsHeight, setSettingsHeight] = useState(400);
-  const dragRef = useRef<{ startY: number; startH: number; maxH: number } | null>(null);
-  const lmsScrollRef = useRef<HTMLDivElement | null>(null);
-  const repoScrollRef = useRef<HTMLDivElement | null>(null);
+  const [settingsHeight, setSettingsHeight] = useState(400)
+  const dragRef = useRef<{
+    startY: number
+    startH: number
+    maxH: number
+  } | null>(null)
+  const lmsScrollRef = useRef<HTMLDivElement | null>(null)
+  const repoScrollRef = useRef<HTMLDivElement | null>(null)
 
   const getActiveScrollRef = () =>
-    ui.activeTab === "lms" ? lmsScrollRef.current : repoScrollRef.current;
+    ui.activeTab === "lms" ? lmsScrollRef.current : repoScrollRef.current
 
   const measureContentHeight = (el: HTMLDivElement | null) => {
-    if (!el) return 0;
-    const prev = el.style.height;
-    el.style.height = "auto";
-    const h = el.scrollHeight;
-    el.style.height = prev;
-    return h;
-  };
+    if (!el) return 0
+    const prev = el.style.height
+    el.style.height = "auto"
+    const h = el.scrollHeight
+    el.style.height = prev
+    return h
+  }
 
   // Clamp settings height when switching tabs to avoid empty space
   useEffect(() => {
     // Delay to allow new tab content to render and measure correctly
     const timer = requestAnimationFrame(() => {
-      const el = getActiveScrollRef();
-      const maxH = measureContentHeight(el);
+      const el = getActiveScrollRef()
+      const maxH = measureContentHeight(el)
       if (maxH > 0) {
-        setSettingsHeight((prev) => Math.min(prev, maxH));
+        setSettingsHeight((prev) => Math.min(prev, maxH))
       }
-    });
-    return () => cancelAnimationFrame(timer);
-  }, [ui.activeTab]);
+    })
+    return () => cancelAnimationFrame(timer)
+  }, [ui.activeTab])
 
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const delta = e.clientY - dragRef.current.startY;
+      if (!dragRef.current) return
+      const delta = e.clientY - dragRef.current.startY
       // Dragging down = increase settings height, up = decrease
       // Cap at content height (maxH) to prevent empty space
       const next = Math.min(
         Math.max(dragRef.current.startH + delta, 100),
-        dragRef.current.maxH
-      );
-      setSettingsHeight(next);
-    };
+        dragRef.current.maxH,
+      )
+      setSettingsHeight(next)
+    }
     const handleUp = () => {
-      dragRef.current = null;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
+      dragRef.current = null
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+    window.addEventListener("mousemove", handleMove)
+    window.addEventListener("mouseup", handleUp)
     return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
-  }, []);
+      window.removeEventListener("mousemove", handleMove)
+      window.removeEventListener("mouseup", handleUp)
+    }
+  }, [])
 
   const beginDrag = (e: React.MouseEvent) => {
-    const el = getActiveScrollRef();
-    const maxH = measureContentHeight(el) || 800;
+    const el = getActiveScrollRef()
+    const maxH = measureContentHeight(el) || 800
     dragRef.current = {
       startY: e.clientY,
       startH: settingsHeight,
       maxH,
-    };
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
-  };
+    }
+    document.body.style.cursor = "row-resize"
+    document.body.style.userSelect = "none"
+  }
 
   // Apply settings into stores/UI, optionally updating baseline
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
-    setCurrentGuiSettings(settings);
+    setCurrentGuiSettings(settings)
 
     // Load LMS form from nested lms settings
-    const lms = settings.lms;
+    const lms = settings.lms
     lmsForm.loadFromSettings({
       lmsType: (lms.type || "Canvas") as "Canvas" | "Moodle",
       baseUrl: lms.base_url || "https://canvas.tue.nl",
@@ -179,12 +188,12 @@ function App() {
       csv: lms.output_csv ?? false,
       xlsx: lms.output_xlsx ?? false,
       yaml: lms.output_yaml ?? true,
-    });
+    })
 
     // Load Repo form from nested common + repo settings
-    const common = settings.common;
-    const repo = settings.repo;
-    const logging = settings.logging;
+    const common = settings.common
+    const repo = settings.repo
+    const logging = settings.logging
     repoForm.loadFromSettings({
       accessToken: common.git_access_token || "",
       user: common.git_user || "",
@@ -194,23 +203,26 @@ function App() {
       yamlFile: repo.yaml_file || "",
       targetFolder: repo.target_folder || "",
       assignments: repo.assignments || "",
-      directoryLayout: (repo.directory_layout || "flat") as "by-team" | "flat" | "by-task",
+      directoryLayout: (repo.directory_layout || "flat") as
+        | "by-team"
+        | "flat"
+        | "by-task",
       logLevels: {
         info: logging?.info ?? true,
         debug: logging?.debug ?? false,
         warning: logging?.warning ?? true,
         error: logging?.error ?? true,
       },
-    });
+    })
 
     // UI state - only apply on normal loads, not error recovery
     if (updateBaseline) {
-      ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms");
-      ui.setConfigLocked(settings.config_locked ?? true);
-      ui.setOptionsLocked(settings.options_locked ?? true);
-      ui.setSettingsMenuOpen(settings.sidebar_open ?? false);
+      ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms")
+      ui.setConfigLocked(settings.config_locked ?? true)
+      ui.setOptionsLocked(settings.options_locked ?? true)
+      ui.setSettingsMenuOpen(settings.sidebar_open ?? false)
       if (settings.splitter_height > 0) {
-        setSettingsHeight(settings.splitter_height);
+        setSettingsHeight(settings.splitter_height)
       }
     }
 
@@ -218,9 +230,9 @@ function App() {
       setLastSavedHashes({
         lms: hashSnapshot(lmsForm.getState()),
         repo: hashSnapshot(repoForm.getState()),
-      });
+      })
     }
-  };
+  }
 
   // Load settings once on mount
   useLoadSettings({
@@ -229,35 +241,35 @@ function App() {
     lmsState: () => lmsForm.getState(),
     repoState: () => repoForm.getState(),
     log: (msg) => output.appendWithNewline(msg),
-  });
+  })
 
   // Restore window size from settings, then show window
-  const windowRestoredRef = useRef(false);
+  const windowRestoredRef = useRef(false)
   useEffect(() => {
-    if (!currentGuiSettings || windowRestoredRef.current) return;
-    windowRestoredRef.current = true;
+    if (!currentGuiSettings || windowRestoredRef.current) return
+    windowRestoredRef.current = true
 
-    const win = getCurrentWindow();
-    const { window_width, window_height } = currentGuiSettings;
+    const win = getCurrentWindow()
+    const { window_width, window_height } = currentGuiSettings
 
     const restoreAndShow = async () => {
       if (window_width > 100 && window_height > 100) {
-        await win.setSize(new PhysicalSize(window_width, window_height));
-        await win.center();
+        await win.setSize(new PhysicalSize(window_width, window_height))
+        await win.center()
       }
-      await win.show();
-    };
+      await win.show()
+    }
 
-    restoreAndShow().catch((e) => console.error("Failed to restore window", e));
-  }, [currentGuiSettings]);
+    restoreAndShow().catch((e) => console.error("Failed to restore window", e))
+  }, [currentGuiSettings])
 
   const saveWindowState = useCallback(async () => {
     // Don't save until settings are loaded
-    if (!currentGuiSettings) return;
+    if (!currentGuiSettings) return
 
-    const win = getCurrentWindow();
+    const win = getCurrentWindow()
     try {
-      const size = await win.innerSize();
+      const size = await win.innerSize()
       await settingsService.saveAppSettings({
         theme: currentGuiSettings?.theme ?? "system",
         active_tab: ui.activeTab === "repo" ? "repo" : "lms",
@@ -267,51 +279,63 @@ function App() {
         splitter_height: settingsHeight,
         window_width: size.width,
         window_height: size.height,
-        logging: currentGuiSettings?.logging ?? { info: true, debug: false, warning: true, error: true },
-      });
+        logging: currentGuiSettings?.logging ?? {
+          info: true,
+          debug: false,
+          warning: true,
+          error: true,
+        },
+      })
     } catch (error) {
-      console.error("Failed to save window state:", error);
+      console.error("Failed to save window state:", error)
     }
-  }, [currentGuiSettings, ui.activeTab, ui.configLocked, ui.optionsLocked, ui.settingsMenuOpen, settingsHeight]);
+  }, [
+    currentGuiSettings,
+    ui.activeTab,
+    ui.configLocked,
+    ui.optionsLocked,
+    ui.settingsMenuOpen,
+    settingsHeight,
+  ])
 
   // Save window size on close and on resize (debounced)
   useEffect(() => {
-    const win = getCurrentWindow();
+    const win = getCurrentWindow()
 
     const unlistenClose = win.onCloseRequested(async (event) => {
-      event.preventDefault();
-      await saveWindowState();
-      await win.destroy();
-    });
+      event.preventDefault()
+      await saveWindowState()
+      await win.destroy()
+    })
 
-    let debounce: number | undefined;
+    let debounce: number | undefined
     const scheduleSave = () => {
       if (debounce) {
-        clearTimeout(debounce);
+        clearTimeout(debounce)
       }
       debounce = window.setTimeout(() => {
-        saveWindowState();
-      }, 300);
-    };
+        saveWindowState()
+      }, 300)
+    }
 
-    const unlistenResize = win.onResized(scheduleSave);
+    const unlistenResize = win.onResized(scheduleSave)
 
     return () => {
-      unlistenClose.then((fn) => fn());
-      unlistenResize.then((fn) => fn());
-      if (debounce) clearTimeout(debounce);
-    };
-  }, [saveWindowState]);
+      unlistenClose.then((fn) => fn())
+      unlistenResize.then((fn) => fn())
+      if (debounce) clearTimeout(debounce)
+    }
+  }, [saveWindowState])
 
   // Save when active tab changes
-  const tabInitializedRef = useRef(false);
+  const tabInitializedRef = useRef(false)
   useEffect(() => {
     if (!tabInitializedRef.current) {
-      tabInitializedRef.current = true;
-      return; // Skip initial render
+      tabInitializedRef.current = true
+      return // Skip initial render
     }
-    saveWindowState();
-  }, [ui.activeTab, saveWindowState]);
+    saveWindowState()
+  }, [ui.activeTab, saveWindowState])
 
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
@@ -319,15 +343,15 @@ function App() {
     onShowPrompt: ui.showClosePrompt,
     onHidePrompt: ui.hideClosePrompt,
     onSave: async () => {
-      await saveSettingsToDisk();
+      await saveSettingsToDisk()
     },
-  });
+  })
 
   // --- Settings load/save helpers ---
   const saveSettingsToDisk = async () => {
     try {
-      const lmsState = lmsForm.getState();
-      const repoState = repoForm.getState();
+      const lmsState = lmsForm.getState()
+      const repoState = repoForm.getState()
 
       // Build nested settings structure
       const settings = {
@@ -350,7 +374,10 @@ function App() {
           output_folder: lmsState.outputFolder,
           csv_file: lmsState.csvFile,
           xlsx_file: lmsState.xlsxFile,
-          member_option: lmsState.memberOption as "(email, gitid)" | "email" | "git_id",
+          member_option: lmsState.memberOption as
+            | "(email, gitid)"
+            | "email"
+            | "git_id",
           include_group: lmsState.includeGroup,
           include_member: lmsState.includeMember,
           include_initials: lmsState.includeInitials,
@@ -366,7 +393,10 @@ function App() {
           yaml_file: repoState.yamlFile,
           target_folder: repoState.targetFolder,
           assignments: repoState.assignments,
-          directory_layout: repoState.directoryLayout as "flat" | "by-team" | "by-task",
+          directory_layout: repoState.directoryLayout as
+            | "flat"
+            | "by-team"
+            | "by-task",
         },
         // App settings
         active_tab: ui.activeTab,
@@ -383,48 +413,53 @@ function App() {
           warning: repoState.logLevels.warning,
           error: repoState.logLevels.error,
         },
-      };
+      }
 
-      await settingsService.saveSettings(settings);
+      await settingsService.saveSettings(settings)
 
       setLastSavedHashes({
         lms: hashSnapshot(lmsState),
         repo: hashSnapshot(repoState),
-      });
+      })
 
-      const activeProfile = await settingsService.getActiveProfile();
-      output.appendWithNewline(`✓ Settings saved to profile: ${activeProfile || "Default"}`);
+      const activeProfile = await settingsService.getActiveProfile()
+      output.appendWithNewline(
+        `✓ Settings saved to profile: ${activeProfile || "Default"}`,
+      )
     } catch (error) {
-      console.error("Failed to save settings:", error);
-      output.appendWithNewline(`⚠ Failed to save settings: ${error}`);
+      console.error("Failed to save settings:", error)
+      output.appendWithNewline(`⚠ Failed to save settings: ${error}`)
     }
-  };
+  }
 
   const handleBrowseFolder = async (setter: (path: string) => void) => {
-    const selected = await open({ directory: true });
+    const selected = await open({ directory: true })
     if (selected) {
-      setter(selected as string);
+      setter(selected as string)
     }
-  };
+  }
 
   const handleBrowseFile = async (setter: (path: string) => void) => {
-    const selected = await open({ directory: false });
+    const selected = await open({ directory: false })
     if (selected) {
-      setter(selected as string);
+      setter(selected as string)
     }
-  };
+  }
 
-  const handleSettingsLoaded = (settings: GuiSettings, updateBaseline = true) => {
-    applySettings(settings, updateBaseline);
+  const handleSettingsLoaded = (
+    settings: GuiSettings,
+    updateBaseline = true,
+  ) => {
+    applySettings(settings, updateBaseline)
     // Force dirty state by invalidating baselines
     if (!updateBaseline) {
-      setLastSavedHashes({ lms: 0, repo: 0 });
+      setLastSavedHashes({ lms: 0, repo: 0 })
     }
-  };
+  }
 
   const handleToggleSettingsSidebar = async () => {
-    const newState = !ui.settingsMenuOpen;
-    ui.setSettingsMenuOpen(newState);
+    const newState = !ui.settingsMenuOpen
+    ui.setSettingsMenuOpen(newState)
 
     // Save to app.json
     if (currentGuiSettings) {
@@ -439,12 +474,12 @@ function App() {
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,
           logging: currentGuiSettings.logging,
-        });
+        })
       } catch (error) {
-        console.error("Failed to save sidebar state:", error);
+        console.error("Failed to save sidebar state:", error)
       }
     }
-  };
+  }
 
   return (
     <div className="repobee-container">
@@ -455,174 +490,213 @@ function App() {
           className="flex-1 flex flex-col min-h-0 min-w-[400px] overflow-hidden"
           size="compact"
         >
-        <div className="flex items-center">
-          <TabsList size="compact">
-            <TabsTrigger value="lms" size="compact">
-              LMS Import
-            </TabsTrigger>
-            <TabsTrigger value="repo" size="compact">
-              Repository Setup
-            </TabsTrigger>
-          </TabsList>
-          <div className="ml-auto pr-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="h-7 w-7 p-0"
-                  onClick={handleToggleSettingsSidebar}
-                >
-                  <span className="text-lg text-foreground">⚙</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Toggle settings panel</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-
-        {/* LMS Import Tab */}
-        <TabsContent value="lms" className="flex-1 flex flex-col min-h-0 p-1">
-          <div className="flex-1 flex flex-col min-h-0 gap-1">
-            <div
-              ref={lmsScrollRef}
-              className="overflow-auto space-y-1 shrink-0"
-              style={{ height: settingsHeight }}
-            >
-              <LmsConfigSection onVerify={verifyLmsCourse} verifyDisabled={!lmsVerifyValidation.valid} />
-              <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
-              <RepoNamingSection />
-            </div>
-
-            <ActionBar
-              right={
-                !lmsGenerateValidation.valid ? (
-                  <span className="text-[11px] text-destructive">
-                    {lmsGenerateValidation.errors[0]}
-                    {lmsGenerateValidation.errors.length > 1 ? " (+ more)" : ""}
-                  </span>
-                ) : null
-              }
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="xs" onClick={handleGenerateFiles} disabled={!lmsGenerateValidation.valid}>
-                    Generate Files
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Generate YAML/CSV/XLSX files from LMS data</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      size="xs"
-                      variant={isDirty ? "default" : "outline"}
-                      onClick={saveSettingsToDisk}
-                      disabled={!isDirty}
-                    >
-                      Save
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{isDirty ? "Save settings to disk" : "No unsaved changes"}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" onClick={() => output.clear()}>
-                    Clear History
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Clear console output</TooltipContent>
-              </Tooltip>
-            </ActionBar>
-
-            <div
-              className="splitter-handle shrink-0"
-              onMouseDown={beginDrag}
-              title="Drag to resize"
-            />
-            <OutputConsole />
-          </div>
-        </TabsContent>
-
-        {/* Repository Setup Tab */}
-        <TabsContent value="repo" className="flex-1 flex flex-col min-h-0 p-1">
-          <div className="flex-1 flex flex-col min-h-0 gap-1">
-            <div
-              ref={repoScrollRef}
-              className="overflow-auto space-y-1 shrink-0"
-              style={{ height: settingsHeight }}
-            >
-              <GitConfigSection />
-              <LocalConfigSection onBrowseFile={handleBrowseFile} onBrowseFolder={handleBrowseFolder} />
-              <OptionsSection />
-            </div>
-
-            <ActionBar
-              right={
-                !repoValidation.valid ? (
-                  <span className="text-[11px] text-destructive">
-                    {repoValidation.errors[0]}
-                    {repoValidation.errors.length > 1 ? " (+ more)" : ""}
-                  </span>
-                ) : null
-              }
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="xs" disabled={!repoValidation.valid} onClick={handleVerifyConfig}>
-                    Verify Config
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Verify Git platform configuration</TooltipContent>
-              </Tooltip>
+          <div className="flex items-center">
+            <TabsList size="compact">
+              <TabsTrigger value="lms" size="compact">
+                LMS Import
+              </TabsTrigger>
+              <TabsTrigger value="repo" size="compact">
+                Repository Setup
+              </TabsTrigger>
+            </TabsList>
+            <div className="ml-auto pr-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="xs"
                     variant="outline"
-                    disabled={!repoValidation.valid}
-                    onClick={handleCreateRepos}
+                    className="h-7 w-7 p-0"
+                    onClick={handleToggleSettingsSidebar}
                   >
-                    Create Student Repos
+                    <span className="text-lg text-foreground">⚙</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Create repositories for students</TooltipContent>
+                <TooltipContent>Toggle settings panel</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="xs" variant="outline" disabled={!repoValidation.valid}>
-                    Clone
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Clone student repositories</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
+            </div>
+          </div>
+
+          {/* LMS Import Tab */}
+          <TabsContent value="lms" className="flex-1 flex flex-col min-h-0 p-1">
+            <div className="flex-1 flex flex-col min-h-0 gap-1">
+              <div
+                ref={lmsScrollRef}
+                className="overflow-auto space-y-1 shrink-0"
+                style={{ height: settingsHeight }}
+              >
+                <LmsConfigSection
+                  onVerify={verifyLmsCourse}
+                  verifyDisabled={!lmsVerifyValidation.valid}
+                />
+                <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
+                <RepoNamingSection />
+              </div>
+
+              <ActionBar
+                right={
+                  !lmsGenerateValidation.valid ? (
+                    <span className="text-[11px] text-destructive">
+                      {lmsGenerateValidation.errors[0]}
+                      {lmsGenerateValidation.errors.length > 1
+                        ? " (+ more)"
+                        : ""}
+                    </span>
+                  ) : null
+                }
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button
                       size="xs"
-                      variant={isDirty ? "default" : "outline"}
-                      onClick={saveSettingsToDisk}
-                      disabled={!isDirty}
+                      onClick={handleGenerateFiles}
+                      disabled={!lmsGenerateValidation.valid}
                     >
-                      Save
+                      Generate Files
                     </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{isDirty ? "Save settings to disk" : "No unsaved changes"}</TooltipContent>
-              </Tooltip>
-            </ActionBar>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Generate YAML/CSV/XLSX files from LMS data
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="xs"
+                        variant={isDirty ? "default" : "outline"}
+                        onClick={saveSettingsToDisk}
+                        disabled={!isDirty}
+                      >
+                        Save
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isDirty ? "Save settings to disk" : "No unsaved changes"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => output.clear()}
+                    >
+                      Clear History
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Clear console output</TooltipContent>
+                </Tooltip>
+              </ActionBar>
 
-            <div
-              className="splitter-handle shrink-0"
-              onMouseDown={beginDrag}
-              title="Drag to resize"
-            />
-            <OutputConsole />
-          </div>
-        </TabsContent>
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: splitter handle requires mouse interaction */}
+              <div
+                className="splitter-handle shrink-0"
+                onMouseDown={beginDrag}
+                title="Drag to resize"
+              />
+              <OutputConsole />
+            </div>
+          </TabsContent>
+
+          {/* Repository Setup Tab */}
+          <TabsContent
+            value="repo"
+            className="flex-1 flex flex-col min-h-0 p-1"
+          >
+            <div className="flex-1 flex flex-col min-h-0 gap-1">
+              <div
+                ref={repoScrollRef}
+                className="overflow-auto space-y-1 shrink-0"
+                style={{ height: settingsHeight }}
+              >
+                <GitConfigSection />
+                <LocalConfigSection
+                  onBrowseFile={handleBrowseFile}
+                  onBrowseFolder={handleBrowseFolder}
+                />
+                <OptionsSection />
+              </div>
+
+              <ActionBar
+                right={
+                  !repoValidation.valid ? (
+                    <span className="text-[11px] text-destructive">
+                      {repoValidation.errors[0]}
+                      {repoValidation.errors.length > 1 ? " (+ more)" : ""}
+                    </span>
+                  ) : null
+                }
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="xs"
+                      disabled={!repoValidation.valid}
+                      onClick={handleVerifyConfig}
+                    >
+                      Verify Config
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Verify Git platform configuration
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={!repoValidation.valid}
+                      onClick={handleCreateRepos}
+                    >
+                      Create Student Repos
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Create repositories for students
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={!repoValidation.valid}
+                    >
+                      Clone
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Clone student repositories</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="xs"
+                        variant={isDirty ? "default" : "outline"}
+                        onClick={saveSettingsToDisk}
+                        disabled={!isDirty}
+                      >
+                        Save
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isDirty ? "Save settings to disk" : "No unsaved changes"}
+                  </TooltipContent>
+                </Tooltip>
+              </ActionBar>
+
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: splitter handle requires mouse interaction */}
+              <div
+                className="splitter-handle shrink-0"
+                onMouseDown={beginDrag}
+                title="Drag to resize"
+              />
+              <OutputConsole />
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Settings Sidebar */}
@@ -637,11 +711,11 @@ function App() {
               setLastSavedHashes({
                 lms: hashSnapshot(lmsForm.getState()),
                 repo: hashSnapshot(repoForm.getState()),
-              });
+              })
             }}
             onResetToDefaults={() => {
               // Reset to defaults without updating baseline (keeps dirty state)
-              applySettings(DEFAULT_GUI_SETTINGS, false);
+              applySettings(DEFAULT_GUI_SETTINGS, false)
             }}
           />
         )}
@@ -655,8 +729,8 @@ function App() {
         onChange={(v) => ui.setLmsTokenDialogValue(v)}
         onClose={() => ui.closeLmsTokenDialog()}
         onSave={() => {
-          lmsForm.setField("accessToken", ui.lmsTokenDialogValue);
-          ui.closeLmsTokenDialog();
+          lmsForm.setField("accessToken", ui.lmsTokenDialogValue)
+          ui.closeLmsTokenDialog()
         }}
         instructions={
           <>
@@ -672,12 +746,15 @@ function App() {
             variant="outline"
             onClick={async () => {
               try {
-                const lms = lmsForm.getState();
-                const baseUrl = lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl;
-                await lmsService.openTokenUrl(baseUrl, lms.lmsType);
-                output.appendWithNewline("Opening LMS token page...");
+                const lms = lmsForm.getState()
+                const baseUrl =
+                  lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl
+                await lmsService.openTokenUrl(baseUrl, lms.lmsType)
+                output.appendWithNewline("Opening LMS token page...")
               } catch (error) {
-                output.appendWithNewline(`✗ Failed to open token page: ${error}`);
+                output.appendWithNewline(
+                  `✗ Failed to open token page: ${error}`,
+                )
               }
             }}
           >
@@ -693,13 +770,16 @@ function App() {
         onChange={(v) => ui.setTokenDialogValue(v)}
         onClose={() => ui.closeTokenDialog()}
         onSave={() => {
-          repoForm.setField("accessToken", ui.tokenDialogValue);
-          ui.closeTokenDialog();
+          repoForm.setField("accessToken", ui.tokenDialogValue)
+          ui.closeTokenDialog()
         }}
       />
 
       {/* Close Confirmation Dialog */}
-      <AlertDialog open={ui.closePromptVisible} onOpenChange={(open: boolean) => !open && handlePromptCancel()}>
+      <AlertDialog
+        open={ui.closePromptVisible}
+        onOpenChange={(open: boolean) => !open && handlePromptCancel()}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Warning</AlertDialogTitle>
@@ -717,9 +797,8 @@ function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

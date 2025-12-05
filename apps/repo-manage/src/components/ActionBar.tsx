@@ -1,10 +1,10 @@
-import { forwardRef } from "react";
-import { Card, CardContent } from "@repo-edu/ui";
+import { Card, CardContent } from "@repo-edu/ui"
+import { forwardRef } from "react"
 
 interface ActionBarProps {
-  children: React.ReactNode;
-  right?: React.ReactNode;
-  className?: string;
+  children: React.ReactNode
+  right?: React.ReactNode
+  className?: string
 }
 
 export const ActionBar = forwardRef<HTMLDivElement, ActionBarProps>(
@@ -15,7 +15,7 @@ export const ActionBar = forwardRef<HTMLDivElement, ActionBarProps>(
         {right && <div className="ml-auto">{right}</div>}
       </CardContent>
     </Card>
-  )
-);
+  ),
+)
 
-ActionBar.displayName = "ActionBar";
+ActionBar.displayName = "ActionBar"

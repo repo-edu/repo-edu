@@ -1,25 +1,28 @@
 import {
   Button,
+  cn,
   Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cn,
-} from "@repo-edu/ui";
-import { useLmsFormStore, useUiStore } from "../stores";
-import { Section } from "./Section";
-import { FormField } from "./FormField";
+} from "@repo-edu/ui"
+import { useLmsFormStore, useUiStore } from "../stores"
+import { FormField } from "./FormField"
+import { Section } from "./Section"
 
 interface LmsConfigSectionProps {
-  onVerify: () => void;
-  verifyDisabled?: boolean;
+  onVerify: () => void
+  verifyDisabled?: boolean
 }
 
-export function LmsConfigSection({ onVerify, verifyDisabled }: LmsConfigSectionProps) {
-  const lmsForm = useLmsFormStore();
-  const ui = useUiStore();
+export function LmsConfigSection({
+  onVerify,
+  verifyDisabled,
+}: LmsConfigSectionProps) {
+  const lmsForm = useLmsFormStore()
+  const ui = useUiStore()
 
   return (
     <Section
@@ -57,7 +60,9 @@ export function LmsConfigSection({ onVerify, verifyDisabled }: LmsConfigSectionP
         <FormField label="Base URL" tooltip="Canvas instance URL">
           <Select
             value={lmsForm.urlOption}
-            onValueChange={(v) => lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")}
+            onValueChange={(v) =>
+              lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")
+            }
             disabled={ui.configLocked}
           >
             <SelectTrigger size="xs" className="w-40">
@@ -96,7 +101,10 @@ export function LmsConfigSection({ onVerify, verifyDisabled }: LmsConfigSectionP
             value={lmsForm.accessToken}
             onChange={(e) => lmsForm.setField("accessToken", e.target.value)}
             placeholder={lmsForm.accessToken ? "••••••••" : "Not set"}
-            className={cn("flex-1 password-input", !lmsForm.accessToken && "token-empty")}
+            className={cn(
+              "flex-1 password-input",
+              !lmsForm.accessToken && "token-empty",
+            )}
             disabled={ui.configLocked}
           />
           <Button
@@ -123,5 +131,5 @@ export function LmsConfigSection({ onVerify, verifyDisabled }: LmsConfigSectionP
         />
       </FormField>
     </Section>
-  );
+  )
 }

@@ -1,26 +1,26 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Input,
   Button,
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
-} from "@repo-edu/ui";
+  CollapsibleTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from "@repo-edu/ui"
 
 interface TokenDialogProps {
-  open: boolean;
-  title: string;
-  value: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-  instructions?: React.ReactNode;
-  children?: React.ReactNode;
-  actions?: React.ReactNode;
+  open: boolean
+  title: string
+  value: string
+  onChange: (value: string) => void
+  onClose: () => void
+  onSave: () => void
+  instructions?: React.ReactNode
+  children?: React.ReactNode
+  actions?: React.ReactNode
 }
 
 export function TokenDialog({
@@ -73,5 +73,5 @@ export function TokenDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

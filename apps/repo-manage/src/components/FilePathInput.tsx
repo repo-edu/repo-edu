@@ -1,11 +1,11 @@
-import { Button, Input } from "@repo-edu/ui";
+import { Button, Input } from "@repo-edu/ui"
 
 interface FilePathInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  onBrowse: () => void;
-  browseLabel?: string;
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  onBrowse: () => void
+  browseLabel?: string
 }
 
 export function FilePathInput({
@@ -28,5 +28,5 @@ export function FilePathInput({
         {browseLabel}
       </Button>
     </div>
-  );
+  )
 }

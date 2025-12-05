@@ -1,5 +1,5 @@
-import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
+import type * as React from "react"
 
 import { cn } from "../../lib/utils"
 
@@ -15,14 +15,15 @@ function Tabs({ className, size = "default", ...props }: TabsProps) {
       className={cn(
         "flex flex-col",
         size === "compact" ? "gap-1" : "gap-2",
-        className
+        className,
       )}
       {...props}
     />
   )
 }
 
-interface TabsListProps extends React.ComponentProps<typeof TabsPrimitive.List> {
+interface TabsListProps
+  extends React.ComponentProps<typeof TabsPrimitive.List> {
   size?: "default" | "compact"
 }
 
@@ -33,25 +34,30 @@ function TabsList({ className, size = "default", ...props }: TabsListProps) {
       className={cn(
         "text-muted-foreground inline-flex w-fit items-center",
         size === "compact" ? "h-8" : "h-10",
-        className
+        className,
       )}
       {...props}
     />
   )
 }
 
-interface TabsTriggerProps extends React.ComponentProps<typeof TabsPrimitive.Trigger> {
+interface TabsTriggerProps
+  extends React.ComponentProps<typeof TabsPrimitive.Trigger> {
   size?: "default" | "compact"
 }
 
-function TabsTrigger({ className, size = "default", ...props }: TabsTriggerProps) {
+function TabsTrigger({
+  className,
+  size = "default",
+  ...props
+}: TabsTriggerProps) {
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
         "text-foreground focus-visible:outline-ring inline-flex h-full items-center justify-center gap-1.5 font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         size === "compact" ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-sm",
-        className
+        className,
       )}
       {...props}
     />

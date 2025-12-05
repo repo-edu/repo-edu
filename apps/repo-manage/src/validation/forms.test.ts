@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { validateLmsVerify, validateLmsGenerate, validateRepo } from "./forms";
-import type { LmsFormState } from "../stores/lmsFormStore";
-import type { RepoFormState } from "../stores/repoFormStore";
+import { describe, expect, it } from "vitest"
+import type { LmsFormState } from "../stores/lmsFormStore"
+import type { RepoFormState } from "../stores/repoFormStore"
+import { validateLmsGenerate, validateLmsVerify, validateRepo } from "./forms"
 
 const validLmsForm: LmsFormState = {
   lmsType: "Canvas",
@@ -23,7 +23,7 @@ const validLmsForm: LmsFormState = {
   csv: false,
   xlsx: false,
   yaml: true,
-};
+}
 
 const validRepoForm: RepoFormState = {
   accessToken: "git-token",
@@ -41,198 +41,209 @@ const validRepoForm: RepoFormState = {
     warning: true,
     error: true,
   },
-};
+}
 
 describe("validateLmsVerify", () => {
   it("returns valid when LMS connection settings are complete", () => {
-    const result = validateLmsVerify(validLmsForm);
-    expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
+    const result = validateLmsVerify(validLmsForm)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
 
   it("requires base URL for TUE option", () => {
-    const form = { ...validLmsForm, baseUrl: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Base URL is required");
-  });
+    const form = { ...validLmsForm, baseUrl: "" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Base URL is required")
+  })
 
   it("requires custom URL for CUSTOM option", () => {
-    const form = { ...validLmsForm, urlOption: "CUSTOM" as const, customUrl: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Custom URL is required");
-  });
+    const form = {
+      ...validLmsForm,
+      urlOption: "CUSTOM" as const,
+      customUrl: "",
+    }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Custom URL is required")
+  })
 
   it("validates URL format", () => {
-    const form = { ...validLmsForm, baseUrl: "not-a-url" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Base URL must be a valid URL");
-  });
+    const form = { ...validLmsForm, baseUrl: "not-a-url" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Base URL must be a valid URL")
+  })
 
   it("requires access token", () => {
-    const form = { ...validLmsForm, accessToken: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Access token is required");
-  });
+    const form = { ...validLmsForm, accessToken: "" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Access token is required")
+  })
 
   it("requires course ID", () => {
-    const form = { ...validLmsForm, courseId: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Course ID is required");
-  });
+    const form = { ...validLmsForm, courseId: "" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Course ID is required")
+  })
 
   it("uses custom URL for non-Canvas LMS types", () => {
     const form: LmsFormState = {
       ...validLmsForm,
       lmsType: "Moodle",
       customUrl: "https://moodle.example.com",
-    };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(true);
-  });
+    }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(true)
+  })
 
   it("requires custom URL for Moodle", () => {
     const form: LmsFormState = {
       ...validLmsForm,
       lmsType: "Moodle",
       customUrl: "",
-    };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Custom URL is required");
-  });
+    }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Custom URL is required")
+  })
 
   it("does NOT require output folder", () => {
-    const form = { ...validLmsForm, outputFolder: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(true);
-  });
+    const form = { ...validLmsForm, outputFolder: "" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(true)
+  })
 
   it("does NOT require YAML file", () => {
-    const form = { ...validLmsForm, yamlFile: "" };
-    const result = validateLmsVerify(form);
-    expect(result.valid).toBe(true);
-  });
-});
+    const form = { ...validLmsForm, yamlFile: "" }
+    const result = validateLmsVerify(form)
+    expect(result.valid).toBe(true)
+  })
+})
 
 describe("validateLmsGenerate", () => {
   it("returns valid for complete form", () => {
-    const result = validateLmsGenerate(validLmsForm);
-    expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
+    const result = validateLmsGenerate(validLmsForm)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
 
   it("includes LMS connection validation errors", () => {
-    const form = { ...validLmsForm, accessToken: "" };
-    const result = validateLmsGenerate(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Access token is required");
-  });
+    const form = { ...validLmsForm, accessToken: "" }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Access token is required")
+  })
 
   it("requires YAML file", () => {
-    const form = { ...validLmsForm, yamlFile: "" };
-    const result = validateLmsGenerate(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("YAML file is required");
-  });
+    const form = { ...validLmsForm, yamlFile: "" }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("YAML file is required")
+  })
 
   it("requires output folder", () => {
-    const form = { ...validLmsForm, outputFolder: "" };
-    const result = validateLmsGenerate(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Output folder is required");
-  });
+    const form = { ...validLmsForm, outputFolder: "" }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Output folder is required")
+  })
 
   it("requires at least one output format", () => {
-    const form = { ...validLmsForm, csv: false, xlsx: false, yaml: false };
-    const result = validateLmsGenerate(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Select at least one output format (YAML, CSV, or XLSX)");
-  });
+    const form = { ...validLmsForm, csv: false, xlsx: false, yaml: false }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain(
+      "Select at least one output format (YAML, CSV, or XLSX)",
+    )
+  })
 
   it("accepts any output format combination", () => {
-    const csvOnly = { ...validLmsForm, csv: true, xlsx: false, yaml: false };
-    expect(validateLmsGenerate(csvOnly).valid).toBe(true);
+    const csvOnly = { ...validLmsForm, csv: true, xlsx: false, yaml: false }
+    expect(validateLmsGenerate(csvOnly).valid).toBe(true)
 
-    const xlsxOnly = { ...validLmsForm, csv: false, xlsx: true, yaml: false };
-    expect(validateLmsGenerate(xlsxOnly).valid).toBe(true);
+    const xlsxOnly = { ...validLmsForm, csv: false, xlsx: true, yaml: false }
+    expect(validateLmsGenerate(xlsxOnly).valid).toBe(true)
 
-    const allFormats = { ...validLmsForm, csv: true, xlsx: true, yaml: true };
-    expect(validateLmsGenerate(allFormats).valid).toBe(true);
-  });
-});
+    const allFormats = { ...validLmsForm, csv: true, xlsx: true, yaml: true }
+    expect(validateLmsGenerate(allFormats).valid).toBe(true)
+  })
+})
 
 describe("validateRepo", () => {
   it("returns valid for complete form", () => {
-    const result = validateRepo(validRepoForm);
-    expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
+    const result = validateRepo(validRepoForm)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
 
   it("requires YAML file", () => {
-    const form = { ...validRepoForm, yamlFile: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("YAML file is required");
-  });
+    const form = { ...validRepoForm, yamlFile: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("YAML file is required")
+  })
 
   it("requires target folder", () => {
-    const form = { ...validRepoForm, targetFolder: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Target folder is required");
-  });
+    const form = { ...validRepoForm, targetFolder: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Target folder is required")
+  })
 
   it("requires access token", () => {
-    const form = { ...validRepoForm, accessToken: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Access token is required");
-  });
+    const form = { ...validRepoForm, accessToken: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Access token is required")
+  })
 
   it("requires user", () => {
-    const form = { ...validRepoForm, user: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("User is required");
-  });
+    const form = { ...validRepoForm, user: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("User is required")
+  })
 
   it("requires base URL", () => {
-    const form = { ...validRepoForm, baseUrl: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Base URL is required");
-  });
+    const form = { ...validRepoForm, baseUrl: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Base URL is required")
+  })
 
   it("validates base URL format", () => {
-    const form = { ...validRepoForm, baseUrl: "invalid-url" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Base URL must be a valid URL");
-  });
+    const form = { ...validRepoForm, baseUrl: "invalid-url" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Base URL must be a valid URL")
+  })
 
   it("requires student repos group", () => {
-    const form = { ...validRepoForm, studentReposGroup: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Student repos group is required");
-  });
+    const form = { ...validRepoForm, studentReposGroup: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Student repos group is required")
+  })
 
   it("requires template group", () => {
-    const form = { ...validRepoForm, templateGroup: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain("Template group is required");
-  });
+    const form = { ...validRepoForm, templateGroup: "" }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Template group is required")
+  })
 
   it("collects multiple errors", () => {
-    const form = { ...validRepoForm, yamlFile: "", targetFolder: "", accessToken: "" };
-    const result = validateRepo(form);
-    expect(result.valid).toBe(false);
-    expect(result.errors).toHaveLength(3);
-  });
-});
+    const form = {
+      ...validRepoForm,
+      yamlFile: "",
+      targetFolder: "",
+      accessToken: "",
+    }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toHaveLength(3)
+  })
+})

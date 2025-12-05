@@ -1,19 +1,24 @@
 import {
+  cn,
   Label,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
-  cn,
-} from "@repo-edu/ui";
+  TooltipTrigger,
+} from "@repo-edu/ui"
 
 interface FormFieldProps {
-  label: string;
-  tooltip?: string;
-  children: React.ReactNode;
-  className?: string;
+  label: string
+  tooltip?: string
+  children: React.ReactNode
+  className?: string
 }
 
-export function FormField({ label, tooltip, children, className }: FormFieldProps) {
+export function FormField({
+  label,
+  tooltip,
+  children,
+  className,
+}: FormFieldProps) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <Label size="xs" className="w-28 shrink-0">
@@ -32,5 +37,5 @@ export function FormField({ label, tooltip, children, className }: FormFieldProp
       </Label>
       {children}
     </div>
-  );
+  )
 }
