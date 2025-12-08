@@ -346,11 +346,7 @@ export function SettingsSidebar({
                         await settingsService.saveAppSettings({
                           theme: opt.value,
                           active_tab: currentSettings.active_tab,
-                          config_locked: currentSettings.config_locked,
-                          options_locked: currentSettings.options_locked,
                           sidebar_open: true,
-                          splitter_height:
-                            currentSettings.splitter_height ?? 400,
                           window_width: currentSettings.window_width,
                           window_height: currentSettings.window_height,
                           logging: currentSettings.logging,

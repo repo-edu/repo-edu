@@ -49,6 +49,8 @@ export function useLoadSettings({
           log(`⚠ ${warning}`)
         }
         log("→ Click Save to persist corrected settings.")
+        // Force dirty state so user can save to clean up settings files
+        setBaselines({ lms: 0, repo: 0 })
       }
     } catch (error) {
       console.error("Failed to load settings:", error)

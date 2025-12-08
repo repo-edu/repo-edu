@@ -204,10 +204,7 @@ function App() {
       await settingsService.saveAppSettings({
         theme: currentGuiSettings?.theme ?? "system",
         active_tab: ui.activeTab === "repo" ? "repo" : "lms",
-        config_locked: true, // No longer used, kept for backwards compatibility
-        options_locked: true, // No longer used, kept for backwards compatibility
         sidebar_open: ui.settingsMenuOpen ?? false,
-        splitter_height: 400, // No longer used, kept for backwards compatibility
         window_width: size.width,
         window_height: size.height,
         logging: currentGuiSettings?.logging ?? {
@@ -315,11 +312,8 @@ function App() {
       },
       // App settings
       active_tab: ui.activeTab,
-      config_locked: true, // No longer used, kept for backwards compatibility
-      options_locked: true, // No longer used, kept for backwards compatibility
       theme: currentGuiSettings?.theme || "system",
       sidebar_open: ui.settingsMenuOpen ?? false,
-      splitter_height: 400, // No longer used, kept for backwards compatibility
       window_width: currentGuiSettings?.window_width ?? 0,
       window_height: currentGuiSettings?.window_height ?? 0,
       logging: {
@@ -413,10 +407,7 @@ function App() {
         await settingsService.saveAppSettings({
           theme: currentGuiSettings.theme,
           active_tab: currentGuiSettings.active_tab,
-          config_locked: currentGuiSettings.config_locked,
-          options_locked: currentGuiSettings.options_locked,
           sidebar_open: newState,
-          splitter_height: 400, // No longer used
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,
           logging: currentGuiSettings.logging,
