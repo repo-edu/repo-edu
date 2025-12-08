@@ -53,7 +53,6 @@ interface SettingsSidebarProps {
   onMessage: (message: string) => void
   isDirty: boolean
   onSaved: () => void
-  onResetToDefaults: () => void
 }
 
 export function SettingsSidebar({
@@ -63,7 +62,6 @@ export function SettingsSidebar({
   onMessage,
   isDirty,
   onSaved,
-  onResetToDefaults,
 }: SettingsSidebarProps) {
   const [settingsPath, setSettingsPath] = useState<string>("")
   const [profiles, setProfiles] = useState<string[]>([])
@@ -146,10 +144,16 @@ export function SettingsSidebar({
     }
   }
 
-  const handleResetSettings = () => {
-    onResetToDefaults()
-    showSuccessFlash()
-    onMessage("✓ Settings reset to defaults (not saved)")
+  const handleRevertProfile = async () => {
+    if (!activeProfile) return
+    try {
+      const settings = await settingsService.loadProfile(activeProfile)
+      onSettingsLoaded(settings, true) // true = update baseline
+      showSuccessFlash()
+      onMessage(`✓ Reverted to saved: ${activeProfile}`)
+    } catch (error) {
+      onMessage(`✗ Failed to revert profile: ${getErrorMessage(error)}`)
+    }
   }
 
   const handleShowLocation = async () => {
@@ -310,11 +314,13 @@ export function SettingsSidebar({
             successFlash ? "bg-accent" : ""
           }`}
         >
-          {/* Theme Selection */}
-          <div className="space-y-2">
+          {/* Section 1: App Preferences - no save needed */}
+          <section className="settings-section">
+            <h3 className="settings-section-title">App Preferences</h3>
+            <p className="settings-section-hint">Changes apply immediately</p>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
+                <span className="text-xs font-medium border-b border-dashed border-muted-foreground cursor-help">
                   Theme
                 </span>
               </TooltipTrigger>
@@ -355,28 +361,21 @@ export function SettingsSidebar({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </section>
 
           <Separator />
 
-          {/* Active Profile */}
-          <div className="space-y-2 p-2 -mx-2 bg-muted/50 rounded-md">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
-                  Active Profile
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                Currently loaded configuration profile
-              </TooltipContent>
-            </Tooltip>
-            <Input
-              size="xs"
-              value={activeProfile || "(none)"}
-              readOnly
-              className="bg-muted !text-foreground !font-semibold !border-transparent !ring-2 !ring-primary/50"
-            />
+          {/* Section 2: Profile Data - explicit save */}
+          <section className="settings-section">
+            <h3 className="settings-section-title">
+              Profile: {activeProfile || "(none)"}
+              {isDirty && <span className="dirty-badge">•</span>}
+            </h3>
+            {isDirty && (
+              <p className="settings-section-hint text-warning">
+                Unsaved changes
+              </p>
+            )}
             <div className="flex gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -399,15 +398,22 @@ export function SettingsSidebar({
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleResetSettings}
-                  >
-                    Reset
-                  </Button>
+                  <span>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={handleRevertProfile}
+                      disabled={!activeProfile || !isDirty}
+                    >
+                      Revert
+                    </Button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent>Reset all settings to defaults</TooltipContent>
+                <TooltipContent>
+                  {!isDirty
+                    ? "No changes to revert"
+                    : "Revert to last saved state"}
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -422,20 +428,13 @@ export function SettingsSidebar({
                 <TooltipContent>Show settings file in Finder</TooltipContent>
               </Tooltip>
             </div>
-          </div>
+          </section>
 
           <Separator />
 
-          {/* Profiles List */}
-          <div className="space-y-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-sm font-medium border-b border-dashed border-muted-foreground cursor-help">
-                  Profiles
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Manage configuration profiles</TooltipContent>
-            </Tooltip>
+          {/* Section 3: Profile Management */}
+          <section className="settings-section">
+            <h3 className="settings-section-title">Switch Profile</h3>
             <Select
               value={selectedProfile || ""}
               onValueChange={(v) => setSelectedProfile(v)}
@@ -524,7 +523,7 @@ export function SettingsSidebar({
                 </TooltipContent>
               </Tooltip>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 

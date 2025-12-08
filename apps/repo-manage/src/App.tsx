@@ -42,7 +42,7 @@ import {
   useRepoFormStore,
   useUiStore,
 } from "./stores"
-import { DEFAULT_GUI_SETTINGS, type GuiSettings } from "./types/settings"
+import type { GuiSettings } from "./types/settings"
 import { hashSnapshot } from "./utils/snapshot"
 import {
   validateLmsGenerate,
@@ -541,6 +541,10 @@ function App() {
                         ? " (+ more)"
                         : ""}
                     </span>
+                  ) : isDirty ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      • Unsaved changes
+                    </span>
                   ) : null
                 }
               >
@@ -556,23 +560,6 @@ function App() {
                   </TooltipTrigger>
                   <TooltipContent>
                     Generate YAML/CSV/XLSX files from LMS data
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        size="xs"
-                        variant={isDirty ? "default" : "outline"}
-                        onClick={saveSettingsToDisk}
-                        disabled={!isDirty}
-                      >
-                        Save
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isDirty ? "Save settings to disk" : "No unsaved changes"}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -625,6 +612,10 @@ function App() {
                       {repoValidation.errors[0]}
                       {repoValidation.errors.length > 1 ? " (+ more)" : ""}
                     </span>
+                  ) : isDirty ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      • Unsaved changes
+                    </span>
                   ) : null
                 }
               >
@@ -669,23 +660,6 @@ function App() {
                   </TooltipTrigger>
                   <TooltipContent>Clone student repositories</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        size="xs"
-                        variant={isDirty ? "default" : "outline"}
-                        onClick={saveSettingsToDisk}
-                        disabled={!isDirty}
-                      >
-                        Save
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isDirty ? "Save settings to disk" : "No unsaved changes"}
-                  </TooltipContent>
-                </Tooltip>
               </ActionBar>
 
               {/* biome-ignore lint/a11y/noStaticElementInteractions: splitter handle requires mouse interaction */}
@@ -712,10 +686,6 @@ function App() {
                 lms: hashSnapshot(lmsForm.getState()),
                 repo: hashSnapshot(repoForm.getState()),
               })
-            }}
-            onResetToDefaults={() => {
-              // Reset to defaults without updating baseline (keeps dirty state)
-              applySettings(DEFAULT_GUI_SETTINGS, false)
             }}
           />
         )}
