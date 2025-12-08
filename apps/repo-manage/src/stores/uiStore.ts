@@ -4,6 +4,7 @@ type TabType = "lms" | "repo"
 
 interface UiState {
   activeTab: TabType
+  collapsedSections: Set<string>
   tokenDialogOpen: boolean
   tokenDialogValue: string
   lmsTokenDialogOpen: boolean
@@ -16,6 +17,10 @@ interface UiState {
 
 interface UiStore extends UiState {
   setActiveTab: (tab: TabType) => void
+  setCollapsedSections: (sections: string[]) => void
+  toggleSection: (sectionId: string) => void
+  isSectionCollapsed: (sectionId: string) => boolean
+  getCollapsedSectionsArray: () => string[]
   openTokenDialog: (value?: string) => void
   closeTokenDialog: () => void
   setTokenDialogValue: (value: string) => void
@@ -34,6 +39,7 @@ interface UiStore extends UiState {
 
 const initialState: UiState = {
   activeTab: "lms",
+  collapsedSections: new Set<string>(),
   tokenDialogOpen: false,
   tokenDialogValue: "",
   lmsTokenDialogOpen: false,
@@ -44,10 +50,24 @@ const initialState: UiState = {
   closePromptVisible: false,
 }
 
-export const useUiStore = create<UiStore>((set) => ({
+export const useUiStore = create<UiStore>((set, get) => ({
   ...initialState,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setCollapsedSections: (sections) =>
+    set({ collapsedSections: new Set(sections) }),
+  toggleSection: (sectionId) =>
+    set((state) => {
+      const newSet = new Set(state.collapsedSections)
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId)
+      } else {
+        newSet.add(sectionId)
+      }
+      return { collapsedSections: newSet }
+    }),
+  isSectionCollapsed: (sectionId) => get().collapsedSections.has(sectionId),
+  getCollapsedSectionsArray: () => Array.from(get().collapsedSections),
   openTokenDialog: (value = "") =>
     set({ tokenDialogOpen: true, tokenDialogValue: value }),
   closeTokenDialog: () => set({ tokenDialogOpen: false }),

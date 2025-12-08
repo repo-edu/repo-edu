@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct AppSettings {
     pub active_tab: ActiveTab,
+    /// IDs of collapsed sections (e.g., ["lms-config", "options"])
+    #[serde(default)]
+    pub collapsed_sections: Vec<String>,
     pub logging: LogSettings,
     pub sidebar_open: bool,
     pub theme: Theme,
@@ -20,6 +23,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             active_tab: ActiveTab::Lms,
+            collapsed_sections: Vec::new(),
             logging: LogSettings::default(),
             sidebar_open: true,
             theme: Theme::default(),

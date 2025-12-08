@@ -7,7 +7,7 @@ export function OptionsSection() {
   const repoForm = useRepoFormStore()
 
   return (
-    <Section title="Options">
+    <Section id="options" title="Options">
       <FormField label="Directory Layout">
         <RadioGroup
           value={repoForm.directoryLayout}

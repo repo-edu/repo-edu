@@ -43,6 +43,7 @@ import {
   useRepoFormStore,
   useUiStore,
 } from "./stores"
+import type { Strict } from "./services/commandUtils"
 import type { GuiSettings } from "./types/settings"
 import { hashSnapshot } from "./utils/snapshot"
 import {
@@ -155,6 +156,7 @@ function App() {
     if (updateBaseline) {
       ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms")
       ui.setSettingsMenuOpen(settings.sidebar_open ?? false)
+      ui.setCollapsedSections(settings.collapsed_sections ?? [])
     }
 
     if (updateBaseline) {
@@ -204,6 +206,7 @@ function App() {
       await settingsService.saveAppSettings({
         theme: currentGuiSettings?.theme ?? "system",
         active_tab: ui.activeTab === "repo" ? "repo" : "lms",
+        collapsed_sections: ui.getCollapsedSectionsArray(),
         sidebar_open: ui.settingsMenuOpen ?? false,
         window_width: size.width,
         window_height: size.height,
@@ -217,7 +220,7 @@ function App() {
     } catch (error) {
       console.error("Failed to save window state:", error)
     }
-  }, [currentGuiSettings, ui.activeTab, ui.settingsMenuOpen])
+  }, [currentGuiSettings, ui.activeTab, ui.settingsMenuOpen, ui.getCollapsedSectionsArray])
 
   // Save window size on resize (debounced)
   useEffect(() => {
@@ -241,15 +244,15 @@ function App() {
     }
   }, [saveWindowState])
 
-  // Save when active tab changes
-  const tabInitializedRef = useRef(false)
+  // Save when active tab or collapsed sections change
+  const uiInitializedRef = useRef(false)
   useEffect(() => {
-    if (!tabInitializedRef.current) {
-      tabInitializedRef.current = true
+    if (!uiInitializedRef.current) {
+      uiInitializedRef.current = true
       return // Skip initial render
     }
     saveWindowState()
-  }, [ui.activeTab, saveWindowState])
+  }, [ui.activeTab, ui.collapsedSections, saveWindowState])
 
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
@@ -263,7 +266,7 @@ function App() {
   })
 
   // --- Settings load/save helpers ---
-  const buildCurrentSettings = (): GuiSettings => {
+  const buildCurrentSettings = (): Strict<GuiSettings> => {
     const lmsState = lmsForm.getState()
     const repoState = repoForm.getState()
     return {
@@ -312,6 +315,7 @@ function App() {
       },
       // App settings
       active_tab: ui.activeTab,
+      collapsed_sections: ui.getCollapsedSectionsArray(),
       theme: currentGuiSettings?.theme || "system",
       sidebar_open: ui.settingsMenuOpen ?? false,
       window_width: currentGuiSettings?.window_width ?? 0,
@@ -407,6 +411,7 @@ function App() {
         await settingsService.saveAppSettings({
           theme: currentGuiSettings.theme,
           active_tab: currentGuiSettings.active_tab,
+          collapsed_sections: ui.getCollapsedSectionsArray(),
           sidebar_open: newState,
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,

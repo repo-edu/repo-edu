@@ -318,7 +318,11 @@ details?: string | null }
  * App-level settings stored in app.json
  * These are UI/window settings that don't belong in profiles
  */
-export type AppSettings = { active_tab: ActiveTab; logging: LogSettings; sidebar_open: boolean; theme: Theme; window_height: number; window_width: number }
+export type AppSettings = { active_tab: ActiveTab; 
+/**
+ * IDs of collapsed sections (e.g., ["lms-config", "options"])
+ */
+collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; theme: Theme; window_height: number; window_width: number }
 export type CloneParams = { config: ConfigParams; yaml_file: string; assignments: string; target_folder: string; directory_layout: string }
 export type CommandResult = { success: boolean; message: string; details: string | null }
 /**
@@ -339,7 +343,11 @@ export type GuiSettings =
 /**
  * App-level settings (from app.json)
  */
-({ active_tab: ActiveTab; logging: LogSettings; sidebar_open: boolean; theme: Theme; window_height: number; window_width: number }) & 
+({ active_tab: ActiveTab; 
+/**
+ * IDs of collapsed sections (e.g., ["lms-config", "options"])
+ */
+collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; theme: Theme; window_height: number; window_width: number }) & 
 /**
  * Profile settings (from active profile)
  */
