@@ -26,6 +26,7 @@ export function LmsConfigSection({
 
   return (
     <Section
+      id="lms-config"
       title="LMS Configuration"
       action={
         <Button size="xs" onClick={onVerify} disabled={verifyDisabled}>

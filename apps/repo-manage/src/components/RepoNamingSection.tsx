@@ -15,7 +15,7 @@ export function RepoNamingSection() {
   const lmsForm = useLmsFormStore()
 
   return (
-    <Section title="Repository Naming">
+    <Section id="repo-naming" title="Repository Naming">
       <FormField
         label="Include"
         tooltip="Components to include in repository names"

@@ -8,7 +8,7 @@ export function GitConfigSection() {
   const ui = useUiStore()
 
   return (
-    <Section title="Git Server Configuration">
+    <Section id="git-config" title="Git Server Configuration">
       <FormField
         label="Access Token"
         tooltip="GitLab/GitHub personal access token"

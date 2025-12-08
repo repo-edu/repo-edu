@@ -1,31 +1,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@repo-edu/ui"
-import { useState } from "react"
+import { useUiStore } from "../stores"
 import { MdiChevronDown } from "./icons/MdiChevronDown"
 import { MdiChevronRight } from "./icons/MdiChevronRight"
 
 interface SectionProps {
+  id: string
   title: string
   children: React.ReactNode
   className?: string
   action?: React.ReactNode
-  defaultCollapsed?: boolean
 }
 
 export function Section({
+  id,
   title,
   children,
   className,
   action,
-  defaultCollapsed = false,
 }: SectionProps) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const collapsed = useUiStore((state) => state.collapsedSections.has(id))
+  const toggleSection = useUiStore((state) => state.toggleSection)
 
   return (
     <Card size="compact" className={className}>
       <CardHeader
         size="compact"
         className="cursor-pointer select-none"
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => toggleSection(id)}
       >
         <div className="flex items-center justify-between gap-2">
           <CardTitle size="compact" className="flex items-center gap-2">

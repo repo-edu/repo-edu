@@ -16,7 +16,7 @@ export function LocalConfigSection({
   const repoForm = useRepoFormStore()
 
   return (
-    <Section title="Local Configuration">
+    <Section id="local-config" title="Local Configuration">
       <FormField label="YAML File" tooltip="Path to students YAML file">
         <FilePathInput
           value={repoForm.yamlFile}

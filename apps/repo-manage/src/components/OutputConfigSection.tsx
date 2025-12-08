@@ -14,7 +14,7 @@ export function OutputConfigSection({
   const lmsForm = useLmsFormStore()
 
   return (
-    <Section title="Output Configuration">
+    <Section id="output-config" title="Output Configuration">
       <FormField
         label="Output Folder"
         tooltip="Folder where generated files will be saved"

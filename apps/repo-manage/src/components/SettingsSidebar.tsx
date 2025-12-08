@@ -66,6 +66,12 @@ export function SettingsSidebar({
   isDirty,
   onSaved,
 }: SettingsSidebarProps) {
+  // Helper to ensure settings have required fields for save operations
+  const ensureComplete = (settings: GuiSettings) => ({
+    ...settings,
+    collapsed_sections: settings.collapsed_sections ?? [],
+  })
+
   const [settingsPath, setSettingsPath] = useState<string>("")
   const [profiles, setProfiles] = useState<string[]>([])
   const [activeProfile, setActiveProfile] = useState<string | null>(null)
@@ -134,7 +140,7 @@ export function SettingsSidebar({
       return
     }
     try {
-      await settingsService.saveProfile(activeProfile, getSettings())
+      await settingsService.saveProfile(activeProfile, ensureComplete(getSettings()))
       showSuccessFlash()
       onMessage(`✓ Saved profile: ${activeProfile}`)
       onSaved()
@@ -222,9 +228,11 @@ export function SettingsSidebar({
           return
         }
         try {
-          const settings = copyFromCurrent
-            ? getSettings()
-            : await settingsService.getDefaultSettings()
+          const settings = ensureComplete(
+            copyFromCurrent
+              ? getSettings()
+              : await settingsService.getDefaultSettings(),
+          )
           await settingsService.saveProfile(name, settings)
           await settingsService.setActiveProfile(name)
           onSettingsLoaded(settings, true)
@@ -290,7 +298,7 @@ export function SettingsSidebar({
 
           if (willCreateDefault) {
             // Create and switch to Default profile
-            await settingsService.saveProfile("Default", getSettings())
+            await settingsService.saveProfile("Default", ensureComplete(getSettings()))
             await settingsService.setActiveProfile("Default")
             setActiveProfile("Default")
             onMessage(`✓ Created new profile: Default`)
@@ -346,6 +354,8 @@ export function SettingsSidebar({
                         await settingsService.saveAppSettings({
                           theme: opt.value,
                           active_tab: currentSettings.active_tab,
+                          collapsed_sections:
+                            currentSettings.collapsed_sections ?? [],
                           sidebar_open: true,
                           window_width: currentSettings.window_width,
                           window_height: currentSettings.window_height,
