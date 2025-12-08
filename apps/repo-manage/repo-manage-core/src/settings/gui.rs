@@ -26,7 +26,7 @@ impl Default for AppSettings {
             config_locked: true,
             logging: LogSettings::default(),
             options_locked: true,
-            sidebar_open: false,
+            sidebar_open: true,
             splitter_height: 400,
             theme: Theme::default(),
             window_height: 0,

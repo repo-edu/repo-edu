@@ -39,11 +39,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useEffect, useState } from "react"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
-import {
-  DEFAULT_GUI_SETTINGS,
-  type GuiSettings,
-  type Theme,
-} from "../types/settings"
+import type { GuiSettings, Theme } from "../types/settings"
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System (Auto)" },
@@ -187,7 +183,8 @@ export function SettingsSidebar({
       } catch {
         // Ignore - profile might not exist on disk yet
       }
-      onSettingsLoaded(DEFAULT_GUI_SETTINGS, false)
+      const defaultSettings = await settingsService.getDefaultSettings()
+      onSettingsLoaded(defaultSettings, false)
       setActiveProfile(name)
       onMessage(
         `⚠ Failed to load profile '${name}':\n${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`,
@@ -227,7 +224,7 @@ export function SettingsSidebar({
         try {
           const settings = copyFromCurrent
             ? getSettings()
-            : DEFAULT_GUI_SETTINGS
+            : await settingsService.getDefaultSettings()
           await settingsService.saveProfile(name, settings)
           await settingsService.setActiveProfile(name)
           onSettingsLoaded(settings, true)
