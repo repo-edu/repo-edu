@@ -154,8 +154,6 @@ function App() {
     // UI state - only apply on normal loads, not error recovery
     if (updateBaseline) {
       ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms")
-      ui.setConfigLocked(settings.config_locked ?? true)
-      ui.setOptionsLocked(settings.options_locked ?? true)
       ui.setSettingsMenuOpen(settings.sidebar_open ?? false)
     }
 
@@ -206,8 +204,8 @@ function App() {
       await settingsService.saveAppSettings({
         theme: currentGuiSettings?.theme ?? "system",
         active_tab: ui.activeTab === "repo" ? "repo" : "lms",
-        config_locked: ui.configLocked,
-        options_locked: ui.optionsLocked,
+        config_locked: true, // No longer used, kept for backwards compatibility
+        options_locked: true, // No longer used, kept for backwards compatibility
         sidebar_open: ui.settingsMenuOpen ?? false,
         splitter_height: 400, // No longer used, kept for backwards compatibility
         window_width: size.width,
@@ -222,13 +220,7 @@ function App() {
     } catch (error) {
       console.error("Failed to save window state:", error)
     }
-  }, [
-    currentGuiSettings,
-    ui.activeTab,
-    ui.configLocked,
-    ui.optionsLocked,
-    ui.settingsMenuOpen,
-  ])
+  }, [currentGuiSettings, ui.activeTab, ui.settingsMenuOpen])
 
   // Save window size on resize (debounced)
   useEffect(() => {
@@ -323,8 +315,8 @@ function App() {
       },
       // App settings
       active_tab: ui.activeTab,
-      config_locked: ui.configLocked,
-      options_locked: ui.optionsLocked,
+      config_locked: true, // No longer used, kept for backwards compatibility
+      options_locked: true, // No longer used, kept for backwards compatibility
       theme: currentGuiSettings?.theme || "system",
       sidebar_open: ui.settingsMenuOpen ?? false,
       splitter_height: 400, // No longer used, kept for backwards compatibility

@@ -1,75 +1,49 @@
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo-edu/ui"
-import { MdiLockOpenVariantOutline } from "./icons/MdiLockOpenVariantOutline"
-import { MdiLockOutline } from "./icons/MdiLockOutline"
+import { Card, CardContent, CardHeader, CardTitle } from "@repo-edu/ui"
+import { useState } from "react"
+import { MdiChevronDown } from "./icons/MdiChevronDown"
+import { MdiChevronRight } from "./icons/MdiChevronRight"
 
 interface SectionProps {
   title: string
   children: React.ReactNode
   className?: string
-  locked?: boolean
-  lockTooltip?: string
-  onToggleLock?: () => void
   action?: React.ReactNode
+  defaultCollapsed?: boolean
 }
 
 export function Section({
   title,
   children,
   className,
-  locked,
-  lockTooltip,
-  onToggleLock,
   action,
+  defaultCollapsed = false,
 }: SectionProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
   return (
     <Card size="compact" className={className}>
-      <CardHeader size="compact">
+      <CardHeader
+        size="compact"
+        className="cursor-pointer select-none"
+        onClick={() => setCollapsed(!collapsed)}
+      >
         <div className="flex items-center justify-between gap-2">
           <CardTitle size="compact" className="flex items-center gap-2">
-            <span>{title}</span>
-            {onToggleLock && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="h-5 w-5 p-0"
-                    onClick={onToggleLock}
-                  >
-                    {locked ? (
-                      <MdiLockOutline
-                        className="h-3.5 w-3.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                    ) : (
-                      <MdiLockOpenVariantOutline
-                        className="h-3.5 w-3.5 text-sky-600"
-                        aria-hidden
-                      />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {locked ? lockTooltip || "Click to unlock" : "Click to lock"}
-                </TooltipContent>
-              </Tooltip>
+            {collapsed ? (
+              <MdiChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <MdiChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
+            <span>{title}</span>
           </CardTitle>
-          {action}
+          <div onClick={(e) => e.stopPropagation()}>{action}</div>
         </div>
       </CardHeader>
-      <CardContent size="compact" className="space-y-1.5">
-        {children}
-      </CardContent>
+      {!collapsed && (
+        <CardContent size="compact" className="space-y-1.5">
+          {children}
+        </CardContent>
+      )}
     </Card>
   )
 }

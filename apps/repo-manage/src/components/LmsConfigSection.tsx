@@ -27,9 +27,6 @@ export function LmsConfigSection({
   return (
     <Section
       title="LMS Configuration"
-      locked={ui.configLocked}
-      lockTooltip="Unlock to edit LMS credentials"
-      onToggleLock={() => ui.toggleConfigLock()}
       action={
         <Button size="xs" onClick={onVerify} disabled={verifyDisabled}>
           Verify
@@ -40,7 +37,6 @@ export function LmsConfigSection({
         <Select
           value={lmsForm.lmsType}
           onValueChange={(v) => lmsForm.setLmsType(v as "Canvas" | "Moodle")}
-          disabled={ui.configLocked}
         >
           <SelectTrigger size="xs" className="w-40">
             <SelectValue />
@@ -63,7 +59,6 @@ export function LmsConfigSection({
             onValueChange={(v) =>
               lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")
             }
-            disabled={ui.configLocked}
           >
             <SelectTrigger size="xs" className="w-40">
               <SelectValue />
@@ -88,7 +83,6 @@ export function LmsConfigSection({
             onChange={(e) => lmsForm.setField("customUrl", e.target.value)}
             placeholder="https://..."
             className="flex-1"
-            disabled={ui.configLocked}
           />
         </FormField>
       )}
@@ -105,7 +99,6 @@ export function LmsConfigSection({
               "flex-1 password-input",
               !lmsForm.accessToken && "token-empty",
             )}
-            disabled={ui.configLocked}
           />
           <Button
             size="xs"
@@ -127,7 +120,6 @@ export function LmsConfigSection({
           onChange={(e) => lmsForm.setField("courseId", e.target.value)}
           placeholder="12345"
           className="flex-1"
-          disabled={ui.configLocked}
         />
       </FormField>
     </Section>
