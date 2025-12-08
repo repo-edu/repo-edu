@@ -8,12 +8,7 @@ export function GitConfigSection() {
   const ui = useUiStore()
 
   return (
-    <Section
-      title="Git Server Configuration"
-      locked={ui.configLocked}
-      lockTooltip="Unlock to edit server credentials"
-      onToggleLock={() => ui.toggleConfigLock()}
-    >
+    <Section title="Git Server Configuration">
       <FormField
         label="Access Token"
         tooltip="GitLab/GitHub personal access token"
@@ -29,7 +24,6 @@ export function GitConfigSection() {
               "flex-1 password-input",
               !repoForm.accessToken && "token-empty",
             )}
-            disabled={ui.configLocked}
           />
           <Button
             size="xs"
@@ -48,7 +42,6 @@ export function GitConfigSection() {
           onChange={(e) => repoForm.setField("user", e.target.value)}
           placeholder="username"
           className="flex-1"
-          disabled={ui.configLocked}
         />
       </FormField>
 
@@ -59,7 +52,6 @@ export function GitConfigSection() {
           onChange={(e) => repoForm.setField("baseUrl", e.target.value)}
           placeholder="https://gitlab.tue.nl"
           className="flex-1"
-          disabled={ui.configLocked}
         />
       </FormField>
 
@@ -75,7 +67,6 @@ export function GitConfigSection() {
           }
           placeholder="course/student-repos"
           className="flex-1"
-          disabled={ui.configLocked}
         />
       </FormField>
 
@@ -89,7 +80,6 @@ export function GitConfigSection() {
           onChange={(e) => repoForm.setField("templateGroup", e.target.value)}
           placeholder="course/templates"
           className="flex-1"
-          disabled={ui.configLocked}
         />
       </FormField>
     </Section>
