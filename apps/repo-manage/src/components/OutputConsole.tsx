@@ -9,7 +9,7 @@ interface OutputConsoleProps {
 interface ContextMenuState {
   x: number
   y: number
-  hasSelection: boolean
+  selectionLength: number
 }
 
 export function OutputConsole({ className }: OutputConsoleProps) {
@@ -49,18 +49,29 @@ export function OutputConsole({ className }: OutputConsoleProps) {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
-    const selection = window.getSelection()?.toString() || ""
+    const selLength =
+      textareaRef.current?.selectionEnd && textareaRef.current?.selectionStart
+        ? Math.abs(
+            textareaRef.current.selectionEnd - textareaRef.current.selectionStart,
+          )
+        : 0
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-      hasSelection: selection.length > 0,
+      selectionLength: selLength,
     })
   }
 
   const handleCopy = () => {
-    const selection = window.getSelection()?.toString()
-    if (selection) {
-      navigator.clipboard.writeText(selection)
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const hasSelection = end > start
+      const textToCopy = hasSelection
+        ? textarea.value.substring(start, end)
+        : textarea.value
+      navigator.clipboard.writeText(textToCopy)
     }
     setContextMenu(null)
   }
@@ -79,16 +90,28 @@ export function OutputConsole({ className }: OutputConsoleProps) {
       />
       {contextMenu && (
         <div
-          className="fixed z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[120px]"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          className="fixed z-50 bg-popover border border-border rounded-md shadow-md"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
         >
           <button
             type="button"
-            className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 text-sm text-foreground bg-popover hover:bg-accent flex items-center gap-2 whitespace-nowrap"
             onClick={handleCopy}
-            disabled={!contextMenu.hasSelection}
+            aria-label={
+              contextMenu.selectionLength > 0
+                ? "Copy selection"
+                : "Copy all output"
+            }
           >
-            Copy
+            <span className="text-base" aria-hidden>
+              ⧉
+            </span>
+            <span>
+              {contextMenu.selectionLength > 0 ? "Copy selection" : "Copy all"}
+            </span>
           </button>
         </div>
       )}
