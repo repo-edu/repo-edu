@@ -302,15 +302,9 @@ function App() {
     settingsHeight,
   ])
 
-  // Save window size on close and on resize (debounced)
+  // Save window size on resize (debounced)
   useEffect(() => {
     const win = getCurrentWindow()
-
-    const unlistenClose = win.onCloseRequested(async (event) => {
-      event.preventDefault()
-      await saveWindowState()
-      await win.destroy()
-    })
 
     let debounce: number | undefined
     const scheduleSave = () => {
@@ -325,7 +319,6 @@ function App() {
     const unlistenResize = win.onResized(scheduleSave)
 
     return () => {
-      unlistenClose.then((fn) => fn())
       unlistenResize.then((fn) => fn())
       if (debounce) clearTimeout(debounce)
     }
@@ -349,6 +342,7 @@ function App() {
     onSave: async () => {
       await saveSettingsToDisk()
     },
+    onBeforeClose: saveWindowState,
   })
 
   // --- Settings load/save helpers ---
