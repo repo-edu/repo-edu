@@ -6,6 +6,7 @@ interface Options {
   onShowPrompt: () => void
   onHidePrompt: () => void
   onSave: () => Promise<void>
+  onBeforeClose?: () => Promise<void> | void
 }
 
 /**
@@ -16,16 +17,22 @@ export function useCloseGuard({
   onShowPrompt,
   onHidePrompt,
   onSave,
+  onBeforeClose,
 }: Options) {
   const isDirtyRef = useRef(isDirty)
   const isClosingRef = useRef(false)
   const allowImmediateCloseRef = useRef(false)
   const pendingCloseWindowRef = useRef<Window | null>(null)
+  const beforeCloseRef = useRef(onBeforeClose)
 
   // Keep dirty flag in sync for the event handler closure.
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
+
+  useEffect(() => {
+    beforeCloseRef.current = onBeforeClose
+  }, [onBeforeClose])
 
   // Register close handler once.
   useEffect(() => {
@@ -50,8 +57,7 @@ export function useCloseGuard({
           pendingCloseWindowRef.current = currentWindow
 
           if (!isDirtyRef.current) {
-            allowImmediateCloseRef.current = true
-            await pendingCloseWindowRef.current.close()
+            await closeNow()
             return
           }
 
@@ -69,6 +75,14 @@ export function useCloseGuard({
   const closeNow = async () => {
     allowImmediateCloseRef.current = true
     isClosingRef.current = false
+    try {
+      const cb = beforeCloseRef.current
+      if (cb) {
+        await cb()
+      }
+    } catch (error) {
+      console.error("Failed during onBeforeClose:", error)
+    }
     await pendingCloseWindowRef.current?.close()
   }
 
