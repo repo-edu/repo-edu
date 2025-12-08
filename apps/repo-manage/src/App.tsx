@@ -88,77 +88,9 @@ function App() {
   const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState())
   const repoValidation = validateRepo(repoForm.getState())
 
-  // Settings panel height (pixels) - console takes remaining space via flex
-  const [settingsHeight, setSettingsHeight] = useState(400)
-  const dragRef = useRef<{
-    startY: number
-    startH: number
-    maxH: number
-  } | null>(null)
-  const lmsScrollRef = useRef<HTMLDivElement | null>(null)
-  const repoScrollRef = useRef<HTMLDivElement | null>(null)
-
-  const getActiveScrollRef = () =>
-    ui.activeTab === "lms" ? lmsScrollRef.current : repoScrollRef.current
-
-  const measureContentHeight = (el: HTMLDivElement | null) => {
-    if (!el) return 0
-    const prev = el.style.height
-    el.style.height = "auto"
-    const h = el.scrollHeight
-    el.style.height = prev
-    return h
-  }
-
-  // Clamp settings height when switching tabs to avoid empty space
-  useEffect(() => {
-    // Delay to allow new tab content to render and measure correctly
-    const timer = requestAnimationFrame(() => {
-      const el = getActiveScrollRef()
-      const maxH = measureContentHeight(el)
-      if (maxH > 0) {
-        setSettingsHeight((prev) => Math.min(prev, maxH))
-      }
-    })
-    return () => cancelAnimationFrame(timer)
-  }, [ui.activeTab])
-
-  useEffect(() => {
-    const handleMove = (e: MouseEvent) => {
-      if (!dragRef.current) return
-      const delta = e.clientY - dragRef.current.startY
-      // Dragging down = increase settings height, up = decrease
-      // Cap at content height (maxH) to prevent empty space
-      const next = Math.min(
-        Math.max(dragRef.current.startH + delta, 100),
-        dragRef.current.maxH,
-      )
-      setSettingsHeight(next)
-    }
-    const handleUp = () => {
-      dragRef.current = null
-      document.body.style.cursor = ""
-      document.body.style.userSelect = ""
-    }
-    window.addEventListener("mousemove", handleMove)
-    window.addEventListener("mouseup", handleUp)
-    return () => {
-      window.removeEventListener("mousemove", handleMove)
-      window.removeEventListener("mouseup", handleUp)
-    }
-  }, [])
-
-  const beginDrag = (e: React.MouseEvent) => {
-    const el = getActiveScrollRef()
-    const maxH = measureContentHeight(el) || 800
-    dragRef.current = {
-      startY: e.clientY,
-      startH: settingsHeight,
-      maxH,
-    }
-    document.body.style.cursor = "row-resize"
-    document.body.style.userSelect = "none"
-  }
+  // Max height for settings panel - content auto-fits up to this, then scrolls
+  // Console gets remaining space with min-height of 120px
+  const settingsMaxHeight = "calc(100vh - 200px)"
 
   // Apply settings into stores/UI, optionally updating baseline
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
@@ -225,9 +157,6 @@ function App() {
       ui.setConfigLocked(settings.config_locked ?? true)
       ui.setOptionsLocked(settings.options_locked ?? true)
       ui.setSettingsMenuOpen(settings.sidebar_open ?? false)
-      if (settings.splitter_height > 0) {
-        setSettingsHeight(settings.splitter_height)
-      }
     }
 
     if (updateBaseline) {
@@ -280,7 +209,7 @@ function App() {
         config_locked: ui.configLocked,
         options_locked: ui.optionsLocked,
         sidebar_open: ui.settingsMenuOpen ?? false,
-        splitter_height: settingsHeight,
+        splitter_height: 400, // No longer used, kept for backwards compatibility
         window_width: size.width,
         window_height: size.height,
         logging: currentGuiSettings?.logging ?? {
@@ -299,7 +228,6 @@ function App() {
     ui.configLocked,
     ui.optionsLocked,
     ui.settingsMenuOpen,
-    settingsHeight,
   ])
 
   // Save window size on resize (debounced)
@@ -399,7 +327,7 @@ function App() {
       options_locked: ui.optionsLocked,
       theme: currentGuiSettings?.theme || "system",
       sidebar_open: ui.settingsMenuOpen ?? false,
-      splitter_height: settingsHeight,
+      splitter_height: 400, // No longer used, kept for backwards compatibility
       window_width: currentGuiSettings?.window_width ?? 0,
       window_height: currentGuiSettings?.window_height ?? 0,
       logging: {
@@ -496,7 +424,7 @@ function App() {
           config_locked: currentGuiSettings.config_locked,
           options_locked: currentGuiSettings.options_locked,
           sidebar_open: newState,
-          splitter_height: settingsHeight,
+          splitter_height: 400, // No longer used
           window_width: currentGuiSettings.window_width,
           window_height: currentGuiSettings.window_height,
           logging: currentGuiSettings.logging,
@@ -545,10 +473,10 @@ function App() {
           {/* LMS Import Tab */}
           <TabsContent value="lms" className="flex-1 flex flex-col min-h-0 p-1">
             <div className="flex-1 flex flex-col min-h-0 gap-1">
+              {/* Settings - auto-fits content up to max, then scrolls */}
               <div
-                ref={lmsScrollRef}
                 className="overflow-auto space-y-1 shrink-0"
-                style={{ height: settingsHeight }}
+                style={{ maxHeight: settingsMaxHeight }}
               >
                 <LmsConfigSection
                   onVerify={verifyLmsCourse}
@@ -602,13 +530,8 @@ function App() {
                 </Tooltip>
               </ActionBar>
 
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: splitter handle requires mouse interaction */}
-              <div
-                className="splitter-handle shrink-0"
-                onMouseDown={beginDrag}
-                title="Drag to resize"
-              />
-              <OutputConsole />
+              {/* Console takes remaining space */}
+              <OutputConsole className="flex-1 min-h-[120px]" />
             </div>
           </TabsContent>
 
@@ -618,10 +541,10 @@ function App() {
             className="flex-1 flex flex-col min-h-0 p-1"
           >
             <div className="flex-1 flex flex-col min-h-0 gap-1">
+              {/* Settings - auto-fits content up to max, then scrolls */}
               <div
-                ref={repoScrollRef}
                 className="overflow-auto space-y-1 shrink-0"
-                style={{ height: settingsHeight }}
+                style={{ maxHeight: settingsMaxHeight }}
               >
                 <GitConfigSection />
                 <LocalConfigSection
@@ -688,13 +611,8 @@ function App() {
                 </Tooltip>
               </ActionBar>
 
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: splitter handle requires mouse interaction */}
-              <div
-                className="splitter-handle shrink-0"
-                onMouseDown={beginDrag}
-                title="Drag to resize"
-              />
-              <OutputConsole />
+              {/* Console takes remaining space */}
+              <OutputConsole className="flex-1 min-h-[120px]" />
             </div>
           </TabsContent>
         </Tabs>
