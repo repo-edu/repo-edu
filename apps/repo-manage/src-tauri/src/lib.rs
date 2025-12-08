@@ -109,6 +109,7 @@ fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         load_app_settings,
         save_app_settings,
         reset_settings,
+        get_default_settings,
         get_settings_path,
         settings_exist,
         import_settings,
@@ -326,6 +327,13 @@ async fn reset_settings() -> Result<GuiSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.reset()?;
     Ok(settings)
+}
+
+/// Get default settings (single source of truth from Rust)
+#[tauri::command]
+#[specta::specta]
+async fn get_default_settings() -> GuiSettings {
+    GuiSettings::default()
 }
 
 /// Get settings file path

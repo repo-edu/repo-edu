@@ -61,6 +61,12 @@ async resetSettings() : Promise<Result<GuiSettings, AppError>> {
 }
 },
 /**
+ * Get default settings (single source of truth from Rust)
+ */
+async getDefaultSettings() : Promise<GuiSettings> {
+    return await TAURI_INVOKE("get_default_settings");
+},
+/**
  * Get settings file path
  */
 async getSettingsPath() : Promise<Result<string, AppError>> {

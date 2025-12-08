@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
-import { DEFAULT_GUI_SETTINGS, type GuiSettings } from "../types/settings"
+import type { GuiSettings } from "../types/settings"
 import { hashSnapshot } from "../utils/snapshot"
 
 interface Options {
@@ -67,10 +67,11 @@ export function useLoadSettings({
       log(`→ Using default settings for profile '${profileName}'.`)
 
       // Try to load app settings (window size, etc.) even if profile failed
-      let settings = DEFAULT_GUI_SETTINGS
+      const defaultSettings = await settingsService.getDefaultSettings()
+      let settings = defaultSettings
       try {
         const appSettings = await settingsService.loadAppSettings()
-        settings = { ...DEFAULT_GUI_SETTINGS, ...appSettings }
+        settings = { ...defaultSettings, ...appSettings }
       } catch {
         // Ignore - use full defaults
       }

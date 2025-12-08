@@ -23,6 +23,7 @@ export const loadAppSettings = () => commands.loadAppSettings().then(unwrap)
 export const saveAppSettings = (settings: Strict<AppSettings>) =>
   commands.saveAppSettings(settings).then(unwrap)
 export const resetSettings = () => commands.resetSettings().then(unwrap)
+export const getDefaultSettings = () => commands.getDefaultSettings()
 export const getSettingsPath = () => commands.getSettingsPath().then(unwrap)
 export const listProfiles = () => commands.listProfiles().then(unwrap)
 export const getActiveProfile = () => commands.getActiveProfile().then(unwrap)
