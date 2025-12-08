@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
+import { listen } from "@tauri-apps/api/event"
 import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -61,6 +62,9 @@ function App() {
   // Action hooks
   const { verifyLmsCourse, handleGenerateFiles } = useLmsActions()
   const { handleVerifyConfig, handleCreateRepos } = useRepoActions()
+
+  // Keyboard shortcuts dialog
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
   // Track last saved state for dirty checking (hashed snapshots)
   const [lastSavedHashes, setLastSavedHashes] = useState(() => ({
@@ -413,7 +417,7 @@ function App() {
     }
   }
 
-  const saveSettingsToDisk = async () => {
+  const saveSettingsToDisk = useCallback(async () => {
     try {
       const settings = buildCurrentSettings()
 
@@ -432,7 +436,33 @@ function App() {
       console.error("Failed to save settings:", error)
       output.appendWithNewline(`⚠ Failed to save settings: ${error}`)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Keyboard shortcut (Cmd/Ctrl+S) and menu events
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault()
+        saveSettingsToDisk()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+
+    // Listen for menu events from Tauri
+    const unlistenSave = listen("menu-save", () => {
+      saveSettingsToDisk()
+    })
+    const unlistenShortcuts = listen("menu-keyboard-shortcuts", () => {
+      setShortcutsDialogOpen(true)
+    })
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      unlistenSave.then((unlisten) => unlisten())
+      unlistenShortcuts.then((unlisten) => unlisten())
+    }
+  }, [saveSettingsToDisk])
 
   const handleBrowseFolder = async (setter: (path: string) => void) => {
     const selected = await open({ directory: true })
@@ -766,6 +796,39 @@ function App() {
             </Button>
             <Button size="xs" onClick={handlePromptDiscard}>
               OK
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Keyboard Shortcuts Dialog */}
+      <AlertDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keyboard Shortcuts</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Save settings</span>
+                  <kbd className="px-2 py-0.5 bg-muted rounded text-xs">⌘S</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Close window</span>
+                  <kbd className="px-2 py-0.5 bg-muted rounded text-xs">⌘W</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Quit application</span>
+                  <kbd className="px-2 py-0.5 bg-muted rounded text-xs">⌘Q</kbd>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button size="xs" onClick={() => setShortcutsDialogOpen(false)}>
+              Close
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
