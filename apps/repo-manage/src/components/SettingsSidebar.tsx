@@ -49,6 +49,7 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 interface SettingsSidebarProps {
   onClose: () => void
   currentSettings: GuiSettings
+  getSettings: () => GuiSettings
   onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void
   onMessage: (message: string) => void
   isDirty: boolean
@@ -58,6 +59,7 @@ interface SettingsSidebarProps {
 export function SettingsSidebar({
   onClose,
   currentSettings,
+  getSettings,
   onSettingsLoaded,
   onMessage,
   isDirty,
@@ -66,7 +68,6 @@ export function SettingsSidebar({
   const [settingsPath, setSettingsPath] = useState<string>("")
   const [profiles, setProfiles] = useState<string[]>([])
   const [activeProfile, setActiveProfile] = useState<string | null>(null)
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
   const [successFlash, setSuccessFlash] = useState(false)
 
   // Confirmation dialog state
@@ -83,12 +84,15 @@ export function SettingsSidebar({
     title: string
     placeholder: string
     value: string
-    onConfirm: (value: string) => void
+    showCopyChoice?: boolean
+    copyFromCurrent: boolean
+    onConfirm: (value: string, copyFromCurrent: boolean) => void
   }>({
     open: false,
     title: "",
     placeholder: "",
     value: "",
+    copyFromCurrent: true,
     onConfirm: () => {},
   })
 
@@ -107,12 +111,6 @@ export function SettingsSidebar({
       setProfiles(profileList)
       const active = await settingsService.getActiveProfile()
       setActiveProfile(active)
-      // Select active profile by default, or first profile if none active
-      if (!selectedProfile && profileList.length > 0) {
-        setSelectedProfile(
-          active && profileList.includes(active) ? active : profileList[0],
-        )
-      }
     } catch (error) {
       console.error("Failed to load profiles:", error)
     }
@@ -135,7 +133,7 @@ export function SettingsSidebar({
       return
     }
     try {
-      await settingsService.saveProfile(activeProfile, currentSettings)
+      await settingsService.saveProfile(activeProfile, getSettings())
       showSuccessFlash()
       onMessage(`✓ Saved profile: ${activeProfile}`)
       onSaved()
@@ -172,7 +170,7 @@ export function SettingsSidebar({
     try {
       const settings = await settingsService.loadProfile(name)
       await settingsService.setActiveProfile(name)
-      onSettingsLoaded(settings)
+      onSettingsLoaded(settings, true) // true = update baseline (clear dirty state)
       setActiveProfile(name)
       showSuccessFlash()
       onMessage(`✓ Loaded profile: ${name}`)
@@ -192,18 +190,19 @@ export function SettingsSidebar({
     }
   }
 
-  const handleLoadSelectedProfile = () => {
-    if (!selectedProfile || selectedProfile === activeProfile) return
+  const handleProfileSelect = (name: string) => {
+    if (!name || name === activeProfile) return
 
     if (isDirty) {
       setConfirmDialog({
         open: true,
         title: "Unsaved Changes",
-        description: "Warning: unsaved changes will be ignored.",
-        onConfirm: () => handleLoadProfile(selectedProfile),
+        description:
+          "Loading a different profile will discard your unsaved changes.",
+        onConfirm: () => handleLoadProfile(name),
       })
     } else {
-      handleLoadProfile(selectedProfile)
+      handleLoadProfile(name)
     }
   }
 
@@ -213,17 +212,24 @@ export function SettingsSidebar({
       title: "New Profile",
       placeholder: "Profile name",
       value: "",
-      onConfirm: async (name) => {
+      showCopyChoice: true,
+      copyFromCurrent: true,
+      onConfirm: async (name, copyFromCurrent) => {
         if (!name.trim()) {
           onMessage("✗ Please enter a profile name")
           return
         }
         try {
-          await settingsService.saveProfile(name, currentSettings)
-          showSuccessFlash()
-          onMessage(`✓ Created profile: ${name}`)
+          const settings = copyFromCurrent
+            ? getSettings()
+            : DEFAULT_GUI_SETTINGS
+          await settingsService.saveProfile(name, settings)
+          await settingsService.setActiveProfile(name)
+          onSettingsLoaded(settings, true)
+          setActiveProfile(name)
           await loadProfiles()
-          setSelectedProfile(name)
+          showSuccessFlash()
+          onMessage(`✓ Created and activated profile: ${name}`)
         } catch (error) {
           onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`)
         }
@@ -232,29 +238,28 @@ export function SettingsSidebar({
   }
 
   const handleRenameProfile = () => {
-    if (!selectedProfile) {
-      onMessage("✗ Select a profile to rename")
+    if (!activeProfile) {
+      onMessage("✗ No active profile to rename")
       return
     }
     setPromptDialog({
       open: true,
       title: "Rename Profile",
       placeholder: "New name",
-      value: selectedProfile,
+      value: activeProfile,
+      showCopyChoice: false,
+      copyFromCurrent: true,
       onConfirm: async (newName) => {
         if (!newName.trim()) {
           onMessage("✗ Please enter a profile name")
           return
         }
         try {
-          await settingsService.renameProfile(selectedProfile, newName)
+          await settingsService.renameProfile(activeProfile, newName)
           showSuccessFlash()
           onMessage(`✓ Renamed profile to: ${newName}`)
           await loadProfiles()
-          setSelectedProfile(newName)
-          if (activeProfile === selectedProfile) {
-            setActiveProfile(newName)
-          }
+          setActiveProfile(newName)
         } catch (error) {
           onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`)
         }
@@ -263,26 +268,37 @@ export function SettingsSidebar({
   }
 
   const handleDeleteProfile = () => {
-    if (!selectedProfile) {
-      onMessage("✗ Select a profile to delete")
+    if (!activeProfile) {
+      onMessage("✗ No active profile to delete")
       return
     }
+    const otherProfile = profiles.find((p) => p !== activeProfile) || "Default"
+    const willCreateDefault = !profiles.some((p) => p !== activeProfile)
+
     setConfirmDialog({
       open: true,
       title: "Delete Profile",
-      description: `Delete profile "${selectedProfile}"?`,
+      description: willCreateDefault
+        ? `Delete "${activeProfile}"? A new "Default" profile will be created.`
+        : `Delete "${activeProfile}"? You will be switched to "${otherProfile}".`,
       onConfirm: async () => {
         try {
-          await settingsService.deleteProfile(selectedProfile)
-          showSuccessFlash()
-          onMessage(`✓ Deleted profile: ${selectedProfile}`)
-          if (activeProfile === selectedProfile) {
-            setActiveProfile(null)
+          await settingsService.deleteProfile(activeProfile)
+          onMessage(`✓ Deleted profile: ${activeProfile}`)
+
+          if (willCreateDefault) {
+            // Create and switch to Default profile
+            await settingsService.saveProfile("Default", getSettings())
+            await settingsService.setActiveProfile("Default")
+            setActiveProfile("Default")
+            onMessage(`✓ Created new profile: Default`)
+          } else {
+            // Switch to another existing profile
+            await handleLoadProfile(otherProfile)
           }
+
           await loadProfiles()
-          setSelectedProfile(
-            profiles.find((p) => p !== selectedProfile) || null,
-          )
+          showSuccessFlash()
         } catch (error) {
           onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`)
         }
@@ -314,23 +330,31 @@ export function SettingsSidebar({
             successFlash ? "bg-accent" : ""
           }`}
         >
-          {/* Section 1: App Preferences - no save needed */}
+          {/* Section 1: App Preferences */}
           <section className="settings-section">
             <h3 className="settings-section-title">App Preferences</h3>
-            <p className="settings-section-hint">Changes apply immediately</p>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs font-medium border-b border-dashed border-muted-foreground cursor-help">
-                  Theme
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Color scheme (System follows OS)</TooltipContent>
-            </Tooltip>
+            <div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs font-medium border-b border-dashed border-muted-foreground cursor-help">
+                    Theme
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Color scheme (System follows OS)
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Select
               value={currentSettings.theme || "system"}
               onValueChange={async (value: Theme) => {
-                const updated = { ...currentSettings, theme: value }
-                onSettingsLoaded(updated)
+                // Update theme in current settings without triggering full reload
+                const updated = {
+                  ...currentSettings,
+                  theme: value,
+                  sidebar_open: true, // Preserve sidebar state
+                }
+                onSettingsLoaded(updated, false) // false = don't update baseline or UI state
                 try {
                   // Save only app settings for theme change
                   await settingsService.saveAppSettings({
@@ -338,7 +362,7 @@ export function SettingsSidebar({
                     active_tab: currentSettings.active_tab,
                     config_locked: currentSettings.config_locked,
                     options_locked: currentSettings.options_locked,
-                    sidebar_open: currentSettings.sidebar_open ?? false,
+                    sidebar_open: true,
                     splitter_height: currentSettings.splitter_height ?? 400,
                     window_width: currentSettings.window_width,
                     window_height: currentSettings.window_height,
@@ -365,18 +389,71 @@ export function SettingsSidebar({
 
           <Separator />
 
-          {/* Section 2: Profile Data - explicit save */}
+          {/* Section 2: Profile */}
           <section className="settings-section">
-            <h3 className="settings-section-title">
-              Profile: {activeProfile || "(none)"}
-              {isDirty && <span className="dirty-badge">•</span>}
-            </h3>
-            {isDirty && (
-              <p className="settings-section-hint text-warning">
-                Unsaved changes
-              </p>
-            )}
-            <div className="flex gap-1">
+            <h3 className="settings-section-title">Profile</h3>
+            <Select
+              value={activeProfile || ""}
+              onValueChange={handleProfileSelect}
+            >
+              <SelectTrigger
+                size="xs"
+                className="!ring-0 !ring-offset-0 !outline-none focus:!border-border"
+              >
+                <SelectValue placeholder="Select profile..." />
+              </SelectTrigger>
+              <SelectContent>
+                {profiles.map((name) => (
+                  <SelectItem key={name} value={name} size="xs">
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-1 flex-wrap">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleNewProfile}
+                  >
+                    New
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Create new profile from current settings
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleRenameProfile}
+                    disabled={!activeProfile}
+                  >
+                    Rename
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Rename current profile</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleDeleteProfile}
+                    disabled={!activeProfile}
+                  >
+                    Delete
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete current profile</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex gap-1 items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
@@ -415,6 +492,13 @@ export function SettingsSidebar({
                     : "Revert to last saved state"}
                 </TooltipContent>
               </Tooltip>
+              {isDirty && (
+                <span className="text-[10px] text-warning ml-1">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+            <div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -426,101 +510,6 @@ export function SettingsSidebar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Show settings file in Finder</TooltipContent>
-              </Tooltip>
-            </div>
-          </section>
-
-          <Separator />
-
-          {/* Section 3: Profile Management */}
-          <section className="settings-section">
-            <h3 className="settings-section-title">Switch Profile</h3>
-            <Select
-              value={selectedProfile || ""}
-              onValueChange={(v) => setSelectedProfile(v)}
-            >
-              <SelectTrigger
-                size="xs"
-                className="!ring-0 !ring-offset-0 !outline-none focus:!border-border"
-              >
-                <SelectValue placeholder="Select profile..." />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((name) => (
-                  <SelectItem key={name} value={name} size="xs">
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-1 flex-wrap">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={handleLoadSelectedProfile}
-                      disabled={
-                        !selectedProfile || selectedProfile === activeProfile
-                      }
-                    >
-                      Load
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {selectedProfile === activeProfile
-                    ? "Already loaded"
-                    : "Load selected profile"}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleNewProfile}
-                  >
-                    New
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Create new profile from current settings
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleRenameProfile}
-                    disabled={!selectedProfile}
-                  >
-                    Rename
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Rename selected profile</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleDeleteProfile}
-                    disabled={
-                      !selectedProfile || selectedProfile === activeProfile
-                    }
-                  >
-                    Delete
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {selectedProfile === activeProfile
-                    ? "Cannot delete active profile"
-                    : "Delete selected profile"}
-                </TooltipContent>
               </Tooltip>
             </div>
           </section>
@@ -570,13 +559,47 @@ export function SettingsSidebar({
               setPromptDialog((prev) => ({ ...prev, value: e.target.value }))
             }
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                promptDialog.onConfirm(promptDialog.value)
+              if (e.key === "Enter" && promptDialog.value.trim()) {
+                promptDialog.onConfirm(
+                  promptDialog.value,
+                  promptDialog.copyFromCurrent,
+                )
                 setPromptDialog((prev) => ({ ...prev, open: false }))
               }
             }}
             autoFocus
           />
+          {promptDialog.showCopyChoice && (
+            <div className="flex gap-1">
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() =>
+                  setPromptDialog((prev) => ({ ...prev, copyFromCurrent: true }))
+                }
+                className={
+                  promptDialog.copyFromCurrent ? "bg-muted" : "opacity-50"
+                }
+              >
+                Copy current
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() =>
+                  setPromptDialog((prev) => ({
+                    ...prev,
+                    copyFromCurrent: false,
+                  }))
+                }
+                className={
+                  !promptDialog.copyFromCurrent ? "bg-muted" : "opacity-50"
+                }
+              >
+                Start empty
+              </Button>
+            </div>
+          )}
           <DialogFooter>
             <Button
               size="xs"
@@ -589,8 +612,12 @@ export function SettingsSidebar({
             </Button>
             <Button
               size="xs"
+              disabled={!promptDialog.value.trim()}
               onClick={() => {
-                promptDialog.onConfirm(promptDialog.value)
+                promptDialog.onConfirm(
+                  promptDialog.value,
+                  promptDialog.copyFromCurrent,
+                )
                 setPromptDialog((prev) => ({ ...prev, open: false }))
               }}
             >
