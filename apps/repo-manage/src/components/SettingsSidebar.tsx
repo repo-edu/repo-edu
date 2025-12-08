@@ -16,6 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo-edu/ui/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo-edu/ui/components/ui/dropdown-menu"
 import { Input } from "@repo-edu/ui/components/ui/input"
 import {
   Select,
@@ -24,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui/components/ui/select"
-import { Separator } from "@repo-edu/ui/components/ui/separator"
 import {
   Tooltip,
   TooltipContent,
@@ -312,16 +317,69 @@ export function SettingsSidebar({
         {/* Header */}
         <div className="settings-sidebar-header">
           <span className="text-sm font-semibold text-muted-foreground">
-            General Settings
+            Settings
           </span>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={onClose}
-            className="h-5 w-5 p-0"
-          >
-            ×
-          </Button>
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="h-5 px-1.5 text-[10px]"
+                >
+                  {currentSettings.theme === "light"
+                    ? "☀"
+                    : currentSettings.theme === "dark"
+                      ? "☾"
+                      : "◐"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {THEME_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onClick={async () => {
+                      const updated = {
+                        ...currentSettings,
+                        theme: opt.value,
+                        sidebar_open: true,
+                      }
+                      onSettingsLoaded(updated, false)
+                      try {
+                        await settingsService.saveAppSettings({
+                          theme: opt.value,
+                          active_tab: currentSettings.active_tab,
+                          config_locked: currentSettings.config_locked,
+                          options_locked: currentSettings.options_locked,
+                          sidebar_open: true,
+                          splitter_height:
+                            currentSettings.splitter_height ?? 400,
+                          window_width: currentSettings.window_width,
+                          window_height: currentSettings.window_height,
+                          logging: currentSettings.logging,
+                        })
+                        showSuccessFlash()
+                      } catch (error) {
+                        onMessage(
+                          `✗ Failed to save theme: ${getErrorMessage(error)}`,
+                        )
+                      }
+                    }}
+                  >
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={onClose}
+              className="h-5 w-5 p-0"
+            >
+              ×
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
@@ -330,68 +388,42 @@ export function SettingsSidebar({
             successFlash ? "bg-accent" : ""
           }`}
         >
-          {/* Section 1: App Preferences */}
+          {/* Profile Section */}
           <section className="settings-section">
-            <h3 className="settings-section-title">App Preferences</h3>
-            <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs font-medium border-b border-dashed border-muted-foreground cursor-help">
-                    Theme
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Color scheme (System follows OS)
-                </TooltipContent>
-              </Tooltip>
+            <div className="flex items-center justify-between">
+              <h3 className="settings-section-title">Profile</h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="h-5 w-5 p-0 text-foreground"
+                  >
+                    ⋯
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleNewProfile}>
+                    New
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleRenameProfile}
+                    disabled={!activeProfile}
+                  >
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDeleteProfile}
+                    disabled={!activeProfile}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShowLocation}>
+                    Show in Finder
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <Select
-              value={currentSettings.theme || "system"}
-              onValueChange={async (value: Theme) => {
-                // Update theme in current settings without triggering full reload
-                const updated = {
-                  ...currentSettings,
-                  theme: value,
-                  sidebar_open: true, // Preserve sidebar state
-                }
-                onSettingsLoaded(updated, false) // false = don't update baseline or UI state
-                try {
-                  // Save only app settings for theme change
-                  await settingsService.saveAppSettings({
-                    theme: value,
-                    active_tab: currentSettings.active_tab,
-                    config_locked: currentSettings.config_locked,
-                    options_locked: currentSettings.options_locked,
-                    sidebar_open: true,
-                    splitter_height: currentSettings.splitter_height ?? 400,
-                    window_width: currentSettings.window_width,
-                    window_height: currentSettings.window_height,
-                    logging: currentSettings.logging,
-                  })
-                  showSuccessFlash()
-                } catch (error) {
-                  onMessage(`✗ Failed to save theme: ${getErrorMessage(error)}`)
-                }
-              }}
-            >
-              <SelectTrigger size="xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {THEME_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} size="xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </section>
-
-          <Separator />
-
-          {/* Section 2: Profile */}
-          <section className="settings-section">
-            <h3 className="settings-section-title">Profile</h3>
             <Select
               value={activeProfile || ""}
               onValueChange={handleProfileSelect}
@@ -410,49 +442,6 @@ export function SettingsSidebar({
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex gap-1 flex-wrap">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleNewProfile}
-                  >
-                    New
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Create new profile from current settings
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleRenameProfile}
-                    disabled={!activeProfile}
-                  >
-                    Rename
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Rename current profile</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleDeleteProfile}
-                    disabled={!activeProfile}
-                  >
-                    Delete
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete current profile</TooltipContent>
-              </Tooltip>
-            </div>
             <div className="flex gap-1 items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -497,20 +486,6 @@ export function SettingsSidebar({
                   Unsaved changes
                 </span>
               )}
-            </div>
-            <div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={handleShowLocation}
-                  >
-                    Location
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Show settings file in Finder</TooltipContent>
-              </Tooltip>
             </div>
           </section>
         </div>
@@ -575,7 +550,10 @@ export function SettingsSidebar({
                 size="xs"
                 variant="outline"
                 onClick={() =>
-                  setPromptDialog((prev) => ({ ...prev, copyFromCurrent: true }))
+                  setPromptDialog((prev) => ({
+                    ...prev,
+                    copyFromCurrent: true,
+                  }))
                 }
                 className={
                   promptDialog.copyFromCurrent ? "bg-muted" : "opacity-50"
