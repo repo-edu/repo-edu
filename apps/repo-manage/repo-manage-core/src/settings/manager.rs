@@ -538,12 +538,6 @@ impl SettingsManager {
     }
 }
 
-impl Default for SettingsManager {
-    fn default() -> Self {
-        Self::new().expect("Failed to create SettingsManager")
-    }
-}
-
 /// Load strategy for error handling
 pub enum LoadStrategy {
     /// Return error on any failure
