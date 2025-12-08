@@ -456,8 +456,8 @@ input.password-input[type="password"][data-slot="input"] {
 
 /* Settings Sidebar */
 .settings-sidebar {
-  width: 260px;
-  min-width: 200px;
+  width: 200px;
+  min-width: 160px;
   border-left: 1px solid var(--border);
   background: var(--card);
   color: var(--foreground);

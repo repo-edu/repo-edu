@@ -32,6 +32,13 @@ export {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog"
+export {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./components/ui/dropdown-menu"
 export { Input, inputVariants } from "./components/ui/input"
 export { Label, labelVariants } from "./components/ui/label"
 export { RadioGroup, RadioGroupItem } from "./components/ui/radio-group"
