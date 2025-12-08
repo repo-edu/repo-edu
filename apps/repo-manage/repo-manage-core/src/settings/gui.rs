@@ -9,11 +9,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct AppSettings {
     pub active_tab: ActiveTab,
-    pub config_locked: bool,
     pub logging: LogSettings,
-    pub options_locked: bool,
     pub sidebar_open: bool,
-    pub splitter_height: u32,
     pub theme: Theme,
     pub window_height: u32,
     pub window_width: u32,
@@ -23,11 +20,8 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             active_tab: ActiveTab::Lms,
-            config_locked: true,
             logging: LogSettings::default(),
-            options_locked: true,
             sidebar_open: true,
-            splitter_height: 400,
             theme: Theme::default(),
             window_height: 0,
             window_width: 0,
