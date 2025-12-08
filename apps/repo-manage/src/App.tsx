@@ -348,78 +348,80 @@ function App() {
   })
 
   // --- Settings load/save helpers ---
+  const buildCurrentSettings = (): GuiSettings => {
+    const lmsState = lmsForm.getState()
+    const repoState = repoForm.getState()
+    return {
+      // Common settings (shared git credentials)
+      common: {
+        git_base_url: repoState.baseUrl,
+        git_access_token: repoState.accessToken,
+        git_user: repoState.user,
+      },
+      // LMS settings
+      lms: {
+        type: lmsState.lmsType as "Canvas" | "Moodle",
+        base_url: lmsState.baseUrl,
+        custom_url: lmsState.customUrl,
+        url_option: lmsState.urlOption as "TUE" | "CUSTOM",
+        access_token: lmsState.accessToken,
+        course_id: lmsState.courseId,
+        course_name: lmsState.courseName,
+        yaml_file: lmsState.yamlFile,
+        output_folder: lmsState.outputFolder,
+        csv_file: lmsState.csvFile,
+        xlsx_file: lmsState.xlsxFile,
+        member_option: lmsState.memberOption as
+          | "(email, gitid)"
+          | "email"
+          | "git_id",
+        include_group: lmsState.includeGroup,
+        include_member: lmsState.includeMember,
+        include_initials: lmsState.includeInitials,
+        full_groups: lmsState.fullGroups,
+        output_csv: lmsState.csv,
+        output_xlsx: lmsState.xlsx,
+        output_yaml: lmsState.yaml,
+      },
+      // Repo settings
+      repo: {
+        student_repos_group: repoState.studentReposGroup,
+        template_group: repoState.templateGroup,
+        yaml_file: repoState.yamlFile,
+        target_folder: repoState.targetFolder,
+        assignments: repoState.assignments,
+        directory_layout: repoState.directoryLayout as
+          | "flat"
+          | "by-team"
+          | "by-task",
+      },
+      // App settings
+      active_tab: ui.activeTab,
+      config_locked: ui.configLocked,
+      options_locked: ui.optionsLocked,
+      theme: currentGuiSettings?.theme || "system",
+      sidebar_open: ui.settingsMenuOpen ?? false,
+      splitter_height: settingsHeight,
+      window_width: currentGuiSettings?.window_width ?? 0,
+      window_height: currentGuiSettings?.window_height ?? 0,
+      logging: {
+        info: repoState.logLevels.info,
+        debug: repoState.logLevels.debug,
+        warning: repoState.logLevels.warning,
+        error: repoState.logLevels.error,
+      },
+    }
+  }
+
   const saveSettingsToDisk = async () => {
     try {
-      const lmsState = lmsForm.getState()
-      const repoState = repoForm.getState()
-
-      // Build nested settings structure
-      const settings = {
-        // Common settings (shared git credentials)
-        common: {
-          git_base_url: repoState.baseUrl,
-          git_access_token: repoState.accessToken,
-          git_user: repoState.user,
-        },
-        // LMS settings
-        lms: {
-          type: lmsState.lmsType as "Canvas" | "Moodle",
-          base_url: lmsState.baseUrl,
-          custom_url: lmsState.customUrl,
-          url_option: lmsState.urlOption as "TUE" | "CUSTOM",
-          access_token: lmsState.accessToken,
-          course_id: lmsState.courseId,
-          course_name: lmsState.courseName,
-          yaml_file: lmsState.yamlFile,
-          output_folder: lmsState.outputFolder,
-          csv_file: lmsState.csvFile,
-          xlsx_file: lmsState.xlsxFile,
-          member_option: lmsState.memberOption as
-            | "(email, gitid)"
-            | "email"
-            | "git_id",
-          include_group: lmsState.includeGroup,
-          include_member: lmsState.includeMember,
-          include_initials: lmsState.includeInitials,
-          full_groups: lmsState.fullGroups,
-          output_csv: lmsState.csv,
-          output_xlsx: lmsState.xlsx,
-          output_yaml: lmsState.yaml,
-        },
-        // Repo settings
-        repo: {
-          student_repos_group: repoState.studentReposGroup,
-          template_group: repoState.templateGroup,
-          yaml_file: repoState.yamlFile,
-          target_folder: repoState.targetFolder,
-          assignments: repoState.assignments,
-          directory_layout: repoState.directoryLayout as
-            | "flat"
-            | "by-team"
-            | "by-task",
-        },
-        // App settings
-        active_tab: ui.activeTab,
-        config_locked: ui.configLocked,
-        options_locked: ui.optionsLocked,
-        theme: currentGuiSettings?.theme || "system",
-        sidebar_open: ui.settingsMenuOpen ?? false,
-        splitter_height: settingsHeight,
-        window_width: currentGuiSettings?.window_width ?? 0,
-        window_height: currentGuiSettings?.window_height ?? 0,
-        logging: {
-          info: repoState.logLevels.info,
-          debug: repoState.logLevels.debug,
-          warning: repoState.logLevels.warning,
-          error: repoState.logLevels.error,
-        },
-      }
+      const settings = buildCurrentSettings()
 
       await settingsService.saveSettings(settings)
 
       setLastSavedHashes({
-        lms: hashSnapshot(lmsState),
-        repo: hashSnapshot(repoState),
+        lms: hashSnapshot(lmsForm.getState()),
+        repo: hashSnapshot(repoForm.getState()),
       })
 
       const activeProfile = await settingsService.getActiveProfile()
@@ -678,6 +680,7 @@ function App() {
           <SettingsSidebar
             onClose={handleToggleSettingsSidebar}
             currentSettings={currentGuiSettings}
+            getSettings={buildCurrentSettings}
             onSettingsLoaded={handleSettingsLoaded}
             onMessage={(msg) => output.appendWithNewline(msg)}
             isDirty={isDirty}
