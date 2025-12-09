@@ -352,7 +352,7 @@ export function SettingsSidebar({
                         theme: opt.value,
                         sidebar_open: true,
                       }
-                      onSettingsLoaded(updated, false)
+                      onSettingsLoaded(updated, true)
                       try {
                         await settingsService.saveAppSettings({
                           theme: opt.value,
