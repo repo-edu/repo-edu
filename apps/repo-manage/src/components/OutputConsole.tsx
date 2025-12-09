@@ -1,6 +1,6 @@
 import { Button, cn, Textarea } from "@repo-edu/ui"
-import { useEffect, useRef, useState } from "react"
 import type { CSSProperties } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useOutputStore } from "../stores"
 
 interface OutputConsoleProps {

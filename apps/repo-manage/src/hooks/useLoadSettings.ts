@@ -2,26 +2,18 @@ import { useCallback, useEffect, useRef } from "react"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
 import type { GuiSettings } from "../types/settings"
-import { hashSnapshot } from "../utils/snapshot"
 
 interface Options {
   onLoaded: (settings: GuiSettings) => void
-  setBaselines: (hashes: { lms: number; repo: number }) => void
-  lmsState: () => unknown
-  repoState: () => unknown
+  /** Called when dirty state should be forced (invalidate baselines) */
+  onForceDirty?: () => void
   log: (msg: string) => void
 }
 
 /**
  * Loads settings once on mount and exposes a manual reload.
  */
-export function useLoadSettings({
-  onLoaded,
-  setBaselines,
-  lmsState,
-  repoState,
-  log,
-}: Options) {
+export function useLoadSettings({ onLoaded, onForceDirty, log }: Options) {
   const settingsLoadedRef = useRef(false)
 
   const load = useCallback(async () => {
@@ -30,11 +22,6 @@ export function useLoadSettings({
       const result = await settingsService.loadSettingsWithWarnings()
 
       onLoaded(result.settings)
-
-      setBaselines({
-        lms: hashSnapshot(lmsState()),
-        repo: hashSnapshot(repoState()),
-      })
 
       const activeProfile = await settingsService.getActiveProfile()
       if (fileExists) {
@@ -50,7 +37,7 @@ export function useLoadSettings({
         }
         log("→ Click Save to persist corrected settings.")
         // Force dirty state so user can save to clean up settings files
-        setBaselines({ lms: 0, repo: 0 })
+        onForceDirty?.()
       }
     } catch (error) {
       console.error("Failed to load settings:", error)
@@ -80,9 +67,9 @@ export function useLoadSettings({
 
       onLoaded(settings)
       // Force dirty state so user can save to fix the profile
-      setBaselines({ lms: 0, repo: 0 })
+      onForceDirty?.()
     }
-  }, [lmsState, repoState, onLoaded, setBaselines, log])
+  }, [onLoaded, onForceDirty, log])
 
   useEffect(() => {
     if (!settingsLoadedRef.current) {
