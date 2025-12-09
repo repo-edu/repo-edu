@@ -50,5 +50,5 @@ Add more troubleshooting scenarios
 
 If you encounter issues not covered here:
 
-1. Check the [GitHub Issues](https://github.com/repo-edu/repo-edu/issues)
+1. Check the [GitHub Issues](https://github.com/dvbeek/repo-edu/issues)
 2. Open a new issue with details about your problem

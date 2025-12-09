@@ -1,13 +1,10 @@
 # Settings
 
-RepoManage settings are accessible via the sidebar. Settings are automatically saved when changed.
+RepoManage settings are accessible via the sidebar.
 
 ## Settings Sidebar
 
-Click the gear icon to open the settings panel. Settings are organized into sections:
-
-- **Application** - General app settings
-- **Profiles** - Save and load configuration profiles
+Click the gear icon to open the settings panel.
 
 ## Profiles
 
@@ -15,14 +12,19 @@ Profiles allow you to save different configurations (e.g., for different courses
 
 ### Managing Profiles
 
-- **Save** - Save current settings to a profile
-- **Load** - Load settings from a profile
-- **Delete** - Remove a profile
-- **Rename** - Change profile name
+- **Save** - Save current settings to the active profile
+- **Revert** - Discard unsaved changes and reload from the active profile
+- **New** - Create a new profile (copy current or start empty)
+- **Rename** - Change the active profile name
+- **Delete** - Remove the active profile
 
-### Import/Export
+### Theme
 
-You can export settings to a file and import them on another machine or share with colleagues.
+Select your preferred theme:
+
+- **System (Auto)** - Follow OS dark/light mode
+- **Light** - Always light mode
+- **Dark** - Always dark mode
 
 ## Settings Location
 
@@ -30,10 +32,8 @@ Settings are stored in:
 
 | Platform | Location |
 |----------|----------|
-| macOS    | `~/Library/Application Support/repo-manage/settings.json` |
-| Windows  | `%APPDATA%\repo-manage\settings.json` |
-| Linux    | `~/.config/repo-manage/settings.json` |
+| macOS    | `~/Library/Application Support/repo-manage/` |
+| Windows  | `%APPDATA%\repo-manage\` |
+| Linux    | `~/.config/repo-manage/` |
 
-## Lock/Unlock
-
-Some sections can be locked to prevent accidental changes. Click the lock icon to toggle.
+Each profile is stored as a separate JSON file in a `profiles/` subdirectory.
