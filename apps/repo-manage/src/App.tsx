@@ -17,9 +17,10 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { listen } from "@tauri-apps/api/event"
-import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { toBackendFormat, toStoreFormat } from "./adapters/settingsAdapter"
 import { ActionBar } from "./components/ActionBar"
 import { GitConfigSection } from "./components/GitConfigSection"
 import { LmsConfigSection } from "./components/LmsConfigSection"
@@ -30,12 +31,20 @@ import { OutputConsole } from "./components/OutputConsole"
 import { RepoNamingSection } from "./components/RepoNamingSection"
 import { SettingsSidebar } from "./components/SettingsSidebar"
 import { TokenDialog } from "./components/TokenDialog"
+import {
+  CONSOLE_MIN_HEIGHT,
+  DEFAULT_GUI_THEME,
+  DEFAULT_LOG_LEVELS,
+  SETTINGS_MAX_HEIGHT_OFFSET,
+  TAB_MIN_WIDTH,
+} from "./constants"
 import { useCloseGuard } from "./hooks/useCloseGuard"
+import { useDirtyState } from "./hooks/useDirtyState"
 import { useLmsActions } from "./hooks/useLmsActions"
 import { useLoadSettings } from "./hooks/useLoadSettings"
 import { useRepoActions } from "./hooks/useRepoActions"
 import { useTheme } from "./hooks/useTheme"
-import type { Strict } from "./services/commandUtils"
+import { useWindowState } from "./hooks/useWindowState"
 import * as lmsService from "./services/lmsService"
 import * as settingsService from "./services/settingsService"
 import {
@@ -44,19 +53,7 @@ import {
   useRepoFormStore,
   useUiStore,
 } from "./stores"
-import {
-  DEFAULT_LMS_SETTINGS,
-  DEFAULT_LOG_LEVELS,
-  DEFAULT_REPO_SETTINGS,
-  DEFAULT_GUI_THEME,
-  RESIZE_DEBOUNCE_MS,
-  CONSOLE_MIN_HEIGHT,
-  SETTINGS_MAX_HEIGHT_OFFSET,
-  TAB_MIN_WIDTH,
-  WINDOW_MIN_SIZE,
-} from "./constants"
 import type { GuiSettings } from "./types/settings"
-import { hashSnapshot } from "./utils/snapshot"
 import {
   validateLmsGenerate,
   validateLmsVerify,
@@ -78,12 +75,6 @@ function App() {
   // Keyboard shortcuts dialog
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
-  // Track last saved state for dirty checking (hashed snapshots)
-  const [lastSavedHashes, setLastSavedHashes] = useState(() => ({
-    lms: hashSnapshot(lmsForm.getState()),
-    repo: hashSnapshot(repoForm.getState()),
-  }))
-
   // Current GUI settings (for SettingsMenu)
   const [currentGuiSettings, setCurrentGuiSettings] =
     useState<GuiSettings | null>(null)
@@ -91,10 +82,13 @@ function App() {
   // Apply theme from settings
   useTheme(currentGuiSettings?.theme || DEFAULT_GUI_THEME)
 
-  // Compute dirty state
-  const isDirty =
-    hashSnapshot(lmsForm.getState()) !== lastSavedHashes.lms ||
-    hashSnapshot(repoForm.getState()) !== lastSavedHashes.repo
+  // Dirty state tracking
+  const getLmsState = useCallback(() => lmsForm.getState(), [lmsForm])
+  const getRepoState = useCallback(() => repoForm.getState(), [repoForm])
+  const { isDirty, markClean, forceDirty } = useDirtyState({
+    getLmsState,
+    getRepoState,
+  })
 
   const lmsVerifyValidation = validateLmsVerify(lmsForm.getState())
   const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState())
@@ -108,114 +102,31 @@ function App() {
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
     setCurrentGuiSettings(settings)
 
-    // Load LMS form from nested lms settings
-    const lms = settings.lms
-    lmsForm.loadFromSettings({
-      lmsType: (lms.type || DEFAULT_LMS_SETTINGS.lmsType) as
-        | "Canvas"
-        | "Moodle",
-      baseUrl: lms.base_url || DEFAULT_LMS_SETTINGS.baseUrl,
-      customUrl: lms.custom_url || DEFAULT_LMS_SETTINGS.customUrl,
-      urlOption:
-        lms.type !== "Canvas"
-          ? "CUSTOM"
-          : ((lms.url_option || DEFAULT_LMS_SETTINGS.urlOption) as
-              | "TUE"
-              | "CUSTOM"),
-      accessToken: lms.access_token || DEFAULT_LMS_SETTINGS.accessToken,
-      courseId: lms.course_id || DEFAULT_LMS_SETTINGS.courseId,
-      courseName: lms.course_name || DEFAULT_LMS_SETTINGS.courseName,
-      yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
-      outputFolder: lms.output_folder || DEFAULT_LMS_SETTINGS.outputFolder,
-      csvFile: lms.csv_file || DEFAULT_LMS_SETTINGS.csvFile,
-      xlsxFile: lms.xlsx_file || DEFAULT_LMS_SETTINGS.xlsxFile,
-      memberOption: (lms.member_option || DEFAULT_LMS_SETTINGS.memberOption) as
-        | "(email, gitid)"
-        | "email"
-        | "git_id",
-      includeGroup: lms.include_group ?? DEFAULT_LMS_SETTINGS.includeGroup,
-      includeMember: lms.include_member ?? DEFAULT_LMS_SETTINGS.includeMember,
-      includeInitials:
-        lms.include_initials ?? DEFAULT_LMS_SETTINGS.includeInitials,
-      fullGroups: lms.full_groups ?? DEFAULT_LMS_SETTINGS.fullGroups,
-      csv: lms.output_csv ?? DEFAULT_LMS_SETTINGS.csv,
-      xlsx: lms.output_xlsx ?? DEFAULT_LMS_SETTINGS.xlsx,
-      yaml: lms.output_yaml ?? DEFAULT_LMS_SETTINGS.yaml,
-    })
-
-    // Load Repo form from nested common + repo settings
-    const common = settings.common
-    const repo = settings.repo
-    const logging = settings.logging
-    repoForm.loadFromSettings({
-      accessToken: common.git_access_token || DEFAULT_REPO_SETTINGS.accessToken,
-      user: common.git_user || DEFAULT_REPO_SETTINGS.user,
-      baseUrl: common.git_base_url || DEFAULT_REPO_SETTINGS.baseUrl,
-      studentReposGroup:
-        repo.student_repos_group || DEFAULT_REPO_SETTINGS.studentReposGroup,
-      templateGroup: repo.template_group || DEFAULT_REPO_SETTINGS.templateGroup,
-      yamlFile: repo.yaml_file || DEFAULT_REPO_SETTINGS.yamlFile,
-      targetFolder: repo.target_folder || DEFAULT_REPO_SETTINGS.targetFolder,
-      assignments: repo.assignments || DEFAULT_REPO_SETTINGS.assignments,
-      directoryLayout: (repo.directory_layout ||
-        DEFAULT_REPO_SETTINGS.directoryLayout) as
-        | "by-team"
-        | "flat"
-        | "by-task",
-      logLevels: {
-        info: logging?.info ?? DEFAULT_LOG_LEVELS.info,
-        debug: logging?.debug ?? DEFAULT_LOG_LEVELS.debug,
-        warning: logging?.warning ?? DEFAULT_LOG_LEVELS.warning,
-        error: logging?.error ?? DEFAULT_LOG_LEVELS.error,
-      },
-    })
+    const storeFormats = toStoreFormat(settings)
+    lmsForm.loadFromSettings(storeFormats.lms)
+    repoForm.loadFromSettings(storeFormats.repo)
 
     // UI state - only apply on normal loads, not error recovery
     if (updateBaseline) {
-      ui.setActiveTab(settings.active_tab === "repo" ? "repo" : "lms")
-      ui.setSettingsMenuOpen(settings.sidebar_open ?? false)
-      ui.setCollapsedSections(settings.collapsed_sections ?? [])
+      ui.setActiveTab(storeFormats.ui.activeTab)
+      ui.setSettingsMenuOpen(storeFormats.ui.sidebarOpen)
+      ui.setCollapsedSections(storeFormats.ui.collapsedSections)
     }
 
     if (updateBaseline) {
-      setLastSavedHashes({
-        lms: hashSnapshot(lmsForm.getState()),
-        repo: hashSnapshot(repoForm.getState()),
-      })
+      markClean()
     }
   }
 
   // Load settings once on mount
   useLoadSettings({
     onLoaded: (settings) => applySettings(settings, true),
-    setBaselines: setLastSavedHashes,
-    lmsState: () => lmsForm.getState(),
-    repoState: () => repoForm.getState(),
+    onForceDirty: forceDirty,
     log: (msg) => output.appendWithNewline(msg),
   })
 
-  // Restore window size from settings, then show window
-  const windowRestoredRef = useRef(false)
-  useEffect(() => {
-    if (!currentGuiSettings || windowRestoredRef.current) return
-    windowRestoredRef.current = true
-
-    const win = getCurrentWindow()
-    const { window_width, window_height } = currentGuiSettings
-
-    const restoreAndShow = async () => {
-      if (window_width > WINDOW_MIN_SIZE && window_height > WINDOW_MIN_SIZE) {
-        await win.setSize(new PhysicalSize(window_width, window_height))
-        await win.center()
-      }
-      await win.show()
-    }
-
-    restoreAndShow().catch((e) => console.error("Failed to restore window", e))
-  }, [currentGuiSettings])
-
-  const saveWindowState = useCallback(async () => {
-    // Don't save until settings are loaded
+  // Window state management (restoration and resize save)
+  const doSaveWindowState = useCallback(async () => {
     if (!currentGuiSettings) return
 
     const win = getCurrentWindow()
@@ -240,27 +151,15 @@ function App() {
     ui.getCollapsedSectionsArray,
   ])
 
-  // Save window size on resize (debounced)
-  useEffect(() => {
-    const win = getCurrentWindow()
-
-    let debounce: number | undefined
-    const scheduleSave = () => {
-      if (debounce) {
-        clearTimeout(debounce)
-      }
-      debounce = window.setTimeout(() => {
-        saveWindowState()
-      }, RESIZE_DEBOUNCE_MS)
-    }
-
-    const unlistenResize = win.onResized(scheduleSave)
-
-    return () => {
-      unlistenResize.then((fn) => fn())
-      if (debounce) clearTimeout(debounce)
-    }
-  }, [saveWindowState])
+  const { saveWindowState } = useWindowState({
+    config: currentGuiSettings
+      ? {
+          width: currentGuiSettings.window_width,
+          height: currentGuiSettings.window_height,
+        }
+      : null,
+    onSave: doSaveWindowState,
+  })
 
   // Save when active tab or collapsed sections change
   const uiInitializedRef = useRef(false)
@@ -284,67 +183,15 @@ function App() {
   })
 
   // --- Settings load/save helpers ---
-  const buildCurrentSettings = (): Strict<GuiSettings> => {
-    const lmsState = lmsForm.getState()
-    const repoState = repoForm.getState()
-    return {
-      // Common settings (shared git credentials)
-      common: {
-        git_base_url: repoState.baseUrl,
-        git_access_token: repoState.accessToken,
-        git_user: repoState.user,
-      },
-      // LMS settings
-      lms: {
-        type: lmsState.lmsType as "Canvas" | "Moodle",
-        base_url: lmsState.baseUrl,
-        custom_url: lmsState.customUrl,
-        url_option: lmsState.urlOption as "TUE" | "CUSTOM",
-        access_token: lmsState.accessToken,
-        course_id: lmsState.courseId,
-        course_name: lmsState.courseName,
-        yaml_file: lmsState.yamlFile,
-        output_folder: lmsState.outputFolder,
-        csv_file: lmsState.csvFile,
-        xlsx_file: lmsState.xlsxFile,
-        member_option: lmsState.memberOption as
-          | "(email, gitid)"
-          | "email"
-          | "git_id",
-        include_group: lmsState.includeGroup,
-        include_member: lmsState.includeMember,
-        include_initials: lmsState.includeInitials,
-        full_groups: lmsState.fullGroups,
-        output_csv: lmsState.csv,
-        output_xlsx: lmsState.xlsx,
-        output_yaml: lmsState.yaml,
-      },
-      // Repo settings
-      repo: {
-        student_repos_group: repoState.studentReposGroup,
-        template_group: repoState.templateGroup,
-        yaml_file: repoState.yamlFile,
-        target_folder: repoState.targetFolder,
-        assignments: repoState.assignments,
-        directory_layout: repoState.directoryLayout as
-          | "flat"
-          | "by-team"
-          | "by-task",
-      },
-      // App settings
-      active_tab: ui.activeTab,
-      collapsed_sections: ui.getCollapsedSectionsArray(),
+  const buildCurrentSettings = () => {
+    return toBackendFormat(lmsForm.getState(), repoForm.getState(), {
+      activeTab: ui.activeTab,
+      collapsedSections: ui.getCollapsedSectionsArray(),
+      sidebarOpen: ui.settingsMenuOpen ?? false,
       theme: currentGuiSettings?.theme || DEFAULT_GUI_THEME,
-      sidebar_open: ui.settingsMenuOpen ?? false,
-      window_width: currentGuiSettings?.window_width ?? 0,
-      window_height: currentGuiSettings?.window_height ?? 0,
-      logging: {
-        info: repoState.logLevels.info,
-        debug: repoState.logLevels.debug,
-        warning: repoState.logLevels.warning,
-        error: repoState.logLevels.error,
-      },
-    }
+      windowWidth: currentGuiSettings?.window_width ?? 0,
+      windowHeight: currentGuiSettings?.window_height ?? 0,
+    })
   }
 
   const saveSettingsToDisk = useCallback(async () => {
@@ -352,11 +199,7 @@ function App() {
       const settings = buildCurrentSettings()
 
       await settingsService.saveSettings(settings)
-
-      setLastSavedHashes({
-        lms: hashSnapshot(lmsForm.getState()),
-        repo: hashSnapshot(repoForm.getState()),
-      })
+      markClean()
 
       const activeProfile = await settingsService.getActiveProfile()
       output.appendWithNewline(
@@ -367,7 +210,7 @@ function App() {
       output.appendWithNewline(`⚠ Failed to save settings: ${error}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [markClean])
 
   // Keyboard shortcut (Cmd/Ctrl+S) and menu events
   useEffect(() => {
@@ -415,7 +258,7 @@ function App() {
     applySettings(settings, updateBaseline)
     // Force dirty state by invalidating baselines
     if (!updateBaseline) {
-      setLastSavedHashes({ lms: 0, repo: 0 })
+      forceDirty()
     }
   }
 
@@ -639,12 +482,7 @@ function App() {
             onSettingsLoaded={handleSettingsLoaded}
             onMessage={(msg) => output.appendWithNewline(msg)}
             isDirty={isDirty}
-            onSaved={() => {
-              setLastSavedHashes({
-                lms: hashSnapshot(lmsForm.getState()),
-                repo: hashSnapshot(repoForm.getState()),
-              })
-            }}
+            onSaved={markClean}
           />
         )}
       </div>

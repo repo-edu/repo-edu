@@ -36,8 +36,9 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui/components/ui/tooltip"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { SUCCESS_FLASH_MS, THEME_OPTIONS } from "../constants"
+import { useProfileActions } from "../hooks/useProfileActions"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
 import type { GuiSettings } from "../types/settings"
@@ -62,15 +63,6 @@ export function SettingsSidebar({
   isDirty,
   onSaved,
 }: SettingsSidebarProps) {
-  // Helper to ensure settings have required fields for save operations
-  const ensureComplete = (settings: GuiSettings) => ({
-    ...settings,
-    collapsed_sections: settings.collapsed_sections ?? [],
-  })
-
-  const [settingsPath, setSettingsPath] = useState<string>("")
-  const [profiles, setProfiles] = useState<string[]>([])
-  const [activeProfile, setActiveProfile] = useState<string | null>(null)
   const [successFlash, setSuccessFlash] = useState(false)
 
   // Confirmation dialog state
@@ -99,106 +91,32 @@ export function SettingsSidebar({
     onConfirm: () => {},
   })
 
-  const loadSettingsPath = async () => {
-    try {
-      const path = await settingsService.getSettingsPath()
-      setSettingsPath(path)
-    } catch (error) {
-      console.error("Failed to get settings path:", error)
-    }
-  }
-
-  const loadProfiles = async () => {
-    try {
-      const profileList = await settingsService.listProfiles()
-      setProfiles(profileList)
-      const active = await settingsService.getActiveProfile()
-      setActiveProfile(active)
-    } catch (error) {
-      console.error("Failed to load profiles:", error)
-    }
-  }
-
-  useEffect(() => {
-    loadSettingsPath()
-    loadProfiles()
-  }, [])
-
   const showSuccessFlash = () => {
     setSuccessFlash(true)
     setTimeout(() => setSuccessFlash(false), SUCCESS_FLASH_MS)
   }
 
-  // Active Profile Actions
-  const handleSaveActiveProfile = async () => {
-    if (!activeProfile) {
-      onMessage("✗ No active profile to save")
-      return
-    }
-    try {
-      await settingsService.saveProfile(
-        activeProfile,
-        ensureComplete(getSettings()),
-      )
-      showSuccessFlash()
-      onMessage(`✓ Saved profile: ${activeProfile}`)
-      onSaved()
-    } catch (error) {
-      onMessage(`✗ Failed to save profile: ${getErrorMessage(error)}`)
-    }
-  }
-
-  const handleRevertProfile = async () => {
-    if (!activeProfile) return
-    try {
-      const settings = await settingsService.loadProfile(activeProfile)
-      onSettingsLoaded(settings, true) // true = update baseline
-      showSuccessFlash()
-      onMessage(`✓ Reverted to saved: ${activeProfile}`)
-    } catch (error) {
-      onMessage(`✗ Failed to revert profile: ${getErrorMessage(error)}`)
-    }
-  }
+  const profileActions = useProfileActions({
+    getSettings,
+    onSettingsLoaded: (settings, updateBaseline) =>
+      onSettingsLoaded(settings, updateBaseline),
+    onMessage,
+    onSaved,
+    onSuccess: showSuccessFlash,
+  })
 
   const handleShowLocation = async () => {
-    if (settingsPath) {
+    if (profileActions.settingsPath) {
       try {
-        await revealItemInDir(settingsPath)
+        await revealItemInDir(profileActions.settingsPath)
       } catch (error) {
         onMessage(`✗ Failed to open file explorer: ${getErrorMessage(error)}`)
       }
     }
   }
 
-  // Profile List Actions
-  const handleLoadProfile = async (name: string) => {
-    if (!name) return
-    try {
-      const settings = await settingsService.loadProfile(name)
-      await settingsService.setActiveProfile(name)
-      onSettingsLoaded(settings, true) // true = update baseline (clear dirty state)
-      setActiveProfile(name)
-      showSuccessFlash()
-      onMessage(`✓ Loaded profile: ${name}`)
-    } catch (error) {
-      // Load defaults so the app remains functional, but don't update baseline
-      // so settings show as dirty and can be saved to fix the profile
-      try {
-        await settingsService.setActiveProfile(name)
-      } catch {
-        // Ignore - profile might not exist on disk yet
-      }
-      const defaultSettings = await settingsService.getDefaultSettings()
-      onSettingsLoaded(defaultSettings, false)
-      setActiveProfile(name)
-      onMessage(
-        `⚠ Failed to load profile '${name}':\n${getErrorMessage(error)}\n→ Using default settings for profile '${name}'.`,
-      )
-    }
-  }
-
   const handleProfileSelect = (name: string) => {
-    if (!name || name === activeProfile) return
+    if (!name || name === profileActions.activeProfile) return
 
     if (isDirty) {
       setConfirmDialog({
@@ -206,10 +124,10 @@ export function SettingsSidebar({
         title: "Unsaved Changes",
         description:
           "Loading a different profile will discard your unsaved changes.",
-        onConfirm: () => handleLoadProfile(name),
+        onConfirm: () => profileActions.loadProfile(name),
       })
     } else {
-      handleLoadProfile(name)
+      profileActions.loadProfile(name)
     }
   }
 
@@ -221,33 +139,14 @@ export function SettingsSidebar({
       value: "",
       showCopyChoice: true,
       copyFromCurrent: true,
-      onConfirm: async (name, copyFromCurrent) => {
-        if (!name.trim()) {
-          onMessage("✗ Please enter a profile name")
-          return
-        }
-        try {
-          const settings = ensureComplete(
-            copyFromCurrent
-              ? getSettings()
-              : await settingsService.getDefaultSettings(),
-          )
-          await settingsService.saveProfile(name, settings)
-          await settingsService.setActiveProfile(name)
-          onSettingsLoaded(settings, true)
-          setActiveProfile(name)
-          await loadProfiles()
-          showSuccessFlash()
-          onMessage(`✓ Created and activated profile: ${name}`)
-        } catch (error) {
-          onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`)
-        }
+      onConfirm: (name, copyFromCurrent) => {
+        profileActions.createProfile(name, copyFromCurrent)
       },
     })
   }
 
   const handleRenameProfile = () => {
-    if (!activeProfile) {
+    if (!profileActions.activeProfile) {
       onMessage("✗ No active profile to rename")
       return
     }
@@ -255,66 +154,34 @@ export function SettingsSidebar({
       open: true,
       title: "Rename Profile",
       placeholder: "New name",
-      value: activeProfile,
+      value: profileActions.activeProfile,
       showCopyChoice: false,
       copyFromCurrent: true,
-      onConfirm: async (newName) => {
-        if (!newName.trim()) {
-          onMessage("✗ Please enter a profile name")
-          return
-        }
-        try {
-          await settingsService.renameProfile(activeProfile, newName)
-          showSuccessFlash()
-          onMessage(`✓ Renamed profile to: ${newName}`)
-          await loadProfiles()
-          setActiveProfile(newName)
-        } catch (error) {
-          onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`)
-        }
+      onConfirm: (newName) => {
+        profileActions.renameProfile(newName)
       },
     })
   }
 
   const handleDeleteProfile = () => {
-    if (!activeProfile) {
+    if (!profileActions.activeProfile) {
       onMessage("✗ No active profile to delete")
       return
     }
-    const otherProfile = profiles.find((p) => p !== activeProfile) || "Default"
-    const willCreateDefault = !profiles.some((p) => p !== activeProfile)
+    const otherProfile =
+      profileActions.profiles.find((p) => p !== profileActions.activeProfile) ||
+      "Default"
+    const willCreateDefault = !profileActions.profiles.some(
+      (p) => p !== profileActions.activeProfile,
+    )
 
     setConfirmDialog({
       open: true,
       title: "Delete Profile",
       description: willCreateDefault
-        ? `Delete "${activeProfile}"? A new "Default" profile will be created.`
-        : `Delete "${activeProfile}"? You will be switched to "${otherProfile}".`,
-      onConfirm: async () => {
-        try {
-          await settingsService.deleteProfile(activeProfile)
-          onMessage(`✓ Deleted profile: ${activeProfile}`)
-
-          if (willCreateDefault) {
-            // Create and switch to Default profile
-            await settingsService.saveProfile(
-              "Default",
-              ensureComplete(getSettings()),
-            )
-            await settingsService.setActiveProfile("Default")
-            setActiveProfile("Default")
-            onMessage(`✓ Created new profile: Default`)
-          } else {
-            // Switch to another existing profile
-            await handleLoadProfile(otherProfile)
-          }
-
-          await loadProfiles()
-          showSuccessFlash()
-        } catch (error) {
-          onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`)
-        }
-      },
+        ? `Delete "${profileActions.activeProfile}"? A new "Default" profile will be created.`
+        : `Delete "${profileActions.activeProfile}"? You will be switched to "${otherProfile}".`,
+      onConfirm: () => profileActions.deleteProfile(),
     })
   }
 
@@ -414,13 +281,13 @@ export function SettingsSidebar({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleRenameProfile}
-                    disabled={!activeProfile}
+                    disabled={!profileActions.activeProfile}
                   >
                     Rename
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleDeleteProfile}
-                    disabled={!activeProfile}
+                    disabled={!profileActions.activeProfile}
                   >
                     Delete
                   </DropdownMenuItem>
@@ -431,7 +298,7 @@ export function SettingsSidebar({
               </DropdownMenu>
             </div>
             <Select
-              value={activeProfile || ""}
+              value={profileActions.activeProfile || ""}
               onValueChange={handleProfileSelect}
             >
               <SelectTrigger
@@ -441,7 +308,7 @@ export function SettingsSidebar({
                 <SelectValue placeholder="Select profile..." />
               </SelectTrigger>
               <SelectContent>
-                {profiles.map((name) => (
+                {profileActions.profiles.map((name) => (
                   <SelectItem key={name} value={name} size="xs">
                     {name}
                   </SelectItem>
@@ -455,8 +322,8 @@ export function SettingsSidebar({
                     <Button
                       size="xs"
                       variant={isDirty ? "default" : "outline"}
-                      onClick={handleSaveActiveProfile}
-                      disabled={!activeProfile || !isDirty}
+                      onClick={profileActions.saveProfile}
+                      disabled={!profileActions.activeProfile || !isDirty}
                     >
                       Save
                     </Button>
@@ -474,8 +341,8 @@ export function SettingsSidebar({
                     <Button
                       size="xs"
                       variant="outline"
-                      onClick={handleRevertProfile}
-                      disabled={!activeProfile || !isDirty}
+                      onClick={profileActions.revertProfile}
+                      disabled={!profileActions.activeProfile || !isDirty}
                     >
                       Revert
                     </Button>
