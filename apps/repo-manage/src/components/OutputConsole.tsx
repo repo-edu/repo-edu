@@ -1,6 +1,7 @@
 import { Button, cn, Textarea } from "@repo-edu/ui"
 import type { CSSProperties } from "react"
 import { useEffect, useRef, useState } from "react"
+import { OUTPUT_NEAR_BOTTOM_PX } from "../constants"
 import { useOutputStore } from "../stores"
 
 interface OutputConsoleProps {
@@ -38,7 +39,8 @@ export function OutputConsole({ className, style }: OutputConsoleProps) {
   const handleScroll = () => {
     if (!textareaRef.current) return
     const el = textareaRef.current
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8
+    const nearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < OUTPUT_NEAR_BOTTOM_PX
     setAtBottom(nearBottom)
   }
 
