@@ -1,9 +1,11 @@
 import { Button, cn, Textarea } from "@repo-edu/ui"
 import { useEffect, useRef, useState } from "react"
+import type { CSSProperties } from "react"
 import { useOutputStore } from "../stores"
 
 interface OutputConsoleProps {
   className?: string
+  style?: CSSProperties
 }
 
 interface ContextMenuState {
@@ -12,7 +14,7 @@ interface ContextMenuState {
   selectionLength: number
 }
 
-export function OutputConsole({ className }: OutputConsoleProps) {
+export function OutputConsole({ className, style }: OutputConsoleProps) {
   const text = useOutputStore((s) => s.text)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -78,7 +80,10 @@ export function OutputConsole({ className }: OutputConsoleProps) {
   }
 
   return (
-    <div className={cn("relative flex-1 min-h-0 flex flex-col", className)}>
+    <div
+      className={cn("relative flex-1 min-h-0 flex flex-col", className)}
+      style={style}
+    >
       <Textarea
         ref={textareaRef}
         size="xs"

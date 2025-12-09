@@ -37,16 +37,11 @@ import {
 } from "@repo-edu/ui/components/ui/tooltip"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useEffect, useState } from "react"
+import { SUCCESS_FLASH_MS, THEME_OPTIONS } from "../constants"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
-import type { GuiSettings, Theme } from "../types/settings"
+import type { GuiSettings } from "../types/settings"
 import { MdiWeatherSunny } from "./icons/MdiWeatherSunny"
-
-const THEME_OPTIONS: { value: Theme; label: string }[] = [
-  { value: "system", label: "System (Auto)" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-]
 
 interface SettingsSidebarProps {
   onClose: () => void
@@ -131,7 +126,7 @@ export function SettingsSidebar({
 
   const showSuccessFlash = () => {
     setSuccessFlash(true)
-    setTimeout(() => setSuccessFlash(false), 500)
+    setTimeout(() => setSuccessFlash(false), SUCCESS_FLASH_MS)
   }
 
   // Active Profile Actions

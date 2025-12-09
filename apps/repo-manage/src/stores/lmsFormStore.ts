@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { DEFAULT_LMS_SETTINGS } from "../constants"
 
 export interface LmsFormState {
   lmsType: "Canvas" | "Moodle"
@@ -33,27 +34,7 @@ interface LmsFormStore extends LmsFormState {
   getState: () => LmsFormState
 }
 
-const initialState: LmsFormState = {
-  lmsType: "Canvas",
-  baseUrl: "https://canvas.tue.nl",
-  customUrl: "",
-  urlOption: "TUE",
-  accessToken: "",
-  courseId: "",
-  courseName: "",
-  yamlFile: "students.yaml",
-  outputFolder: "",
-  csvFile: "student-info.csv",
-  xlsxFile: "student-info.xlsx",
-  memberOption: "(email, gitid)",
-  includeGroup: true,
-  includeMember: true,
-  includeInitials: false,
-  fullGroups: true,
-  csv: false,
-  xlsx: false,
-  yaml: true,
-}
+const initialState: LmsFormState = { ...DEFAULT_LMS_SETTINGS }
 
 export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
   ...initialState,
@@ -66,7 +47,7 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       urlOption: type !== "Canvas" ? "CUSTOM" : state.urlOption,
       baseUrl:
         type === "Canvas" && !state.baseUrl
-          ? "https://canvas.tue.nl"
+          ? DEFAULT_LMS_SETTINGS.baseUrl
           : state.baseUrl,
     })),
 
