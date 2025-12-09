@@ -4,7 +4,7 @@ import { useDirtyState } from "./useDirtyState"
 
 describe("useDirtyState", () => {
   it("tracks dirty -> clean -> dirty transitions", () => {
-    let lms = { a: 1 }
+    const lms = { a: 1 }
     let repo = { b: 1 }
 
     const { result, rerender } = renderHook(() =>
