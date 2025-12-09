@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { DEFAULT_REPO_SETTINGS } from "../constants"
 
 export interface RepoFormState {
   accessToken: string
@@ -30,21 +31,8 @@ interface RepoFormStore extends RepoFormState {
 }
 
 const initialState: RepoFormState = {
-  accessToken: "",
-  user: "",
-  baseUrl: "https://gitlab.tue.nl",
-  studentReposGroup: "",
-  templateGroup: "",
-  yamlFile: "",
-  targetFolder: "",
-  assignments: "",
-  directoryLayout: "flat",
-  logLevels: {
-    info: true,
-    debug: false,
-    warning: true,
-    error: true,
-  },
+  ...DEFAULT_REPO_SETTINGS,
+  logLevels: { ...DEFAULT_REPO_SETTINGS.logLevels },
 }
 
 export const useRepoFormStore = create<RepoFormStore>((set, get) => ({

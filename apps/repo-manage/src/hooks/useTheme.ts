@@ -1,11 +1,12 @@
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useEffect } from "react"
+import {
+  DARK_BG,
+  LIGHT_BG,
+  THEME_CLASSES,
+  THEME_STORAGE_KEY,
+} from "../constants"
 import type { Theme } from "../types/settings"
-
-const THEME_CLASSES = ["theme-light", "theme-dark", "theme-system"] as const
-
-const LIGHT_BG = "#f5f5f5"
-const DARK_BG = "#141414"
 
 /**
  * Apply the selected theme class to the document element.
@@ -24,7 +25,7 @@ export function useTheme(theme: Theme) {
     root.classList.add(`theme-${theme}`)
 
     // Cache theme in localStorage for fast initial load
-    localStorage.setItem("theme", theme)
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
 
     // Update Tauri window theme
     const win = getCurrentWindow()

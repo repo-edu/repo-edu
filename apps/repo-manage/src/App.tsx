@@ -44,6 +44,17 @@ import {
   useRepoFormStore,
   useUiStore,
 } from "./stores"
+import {
+  DEFAULT_LMS_SETTINGS,
+  DEFAULT_LOG_LEVELS,
+  DEFAULT_REPO_SETTINGS,
+  DEFAULT_GUI_THEME,
+  RESIZE_DEBOUNCE_MS,
+  CONSOLE_MIN_HEIGHT,
+  SETTINGS_MAX_HEIGHT_OFFSET,
+  TAB_MIN_WIDTH,
+  WINDOW_MIN_SIZE,
+} from "./constants"
 import type { GuiSettings } from "./types/settings"
 import { hashSnapshot } from "./utils/snapshot"
 import {
@@ -78,7 +89,7 @@ function App() {
     useState<GuiSettings | null>(null)
 
   // Apply theme from settings
-  useTheme(currentGuiSettings?.theme || "system")
+  useTheme(currentGuiSettings?.theme || DEFAULT_GUI_THEME)
 
   // Compute dirty state
   const isDirty =
@@ -90,8 +101,8 @@ function App() {
   const repoValidation = validateRepo(repoForm.getState())
 
   // Max height for settings panel - content auto-fits up to this, then scrolls
-  // Console gets remaining space with min-height of 120px
-  const settingsMaxHeight = "calc(100vh - 200px)"
+  // Console gets remaining space with min-height set via CONSOLE_MIN_HEIGHT
+  const settingsMaxHeight = `calc(100vh - ${SETTINGS_MAX_HEIGHT_OFFSET}px)`
 
   // Apply settings into stores/UI, optionally updating baseline
   const applySettings = (settings: GuiSettings, updateBaseline = true) => {
@@ -100,31 +111,36 @@ function App() {
     // Load LMS form from nested lms settings
     const lms = settings.lms
     lmsForm.loadFromSettings({
-      lmsType: (lms.type || "Canvas") as "Canvas" | "Moodle",
-      baseUrl: lms.base_url || "https://canvas.tue.nl",
-      customUrl: lms.custom_url || "",
+      lmsType: (lms.type || DEFAULT_LMS_SETTINGS.lmsType) as
+        | "Canvas"
+        | "Moodle",
+      baseUrl: lms.base_url || DEFAULT_LMS_SETTINGS.baseUrl,
+      customUrl: lms.custom_url || DEFAULT_LMS_SETTINGS.customUrl,
       urlOption:
         lms.type !== "Canvas"
           ? "CUSTOM"
-          : ((lms.url_option || "TUE") as "TUE" | "CUSTOM"),
-      accessToken: lms.access_token || "",
-      courseId: lms.course_id || "",
-      courseName: lms.course_name || "",
-      yamlFile: lms.yaml_file || "students.yaml",
-      outputFolder: lms.output_folder || "",
-      csvFile: lms.csv_file || "student-info.csv",
-      xlsxFile: lms.xlsx_file || "student-info.xlsx",
-      memberOption: (lms.member_option || "(email, gitid)") as
+          : ((lms.url_option || DEFAULT_LMS_SETTINGS.urlOption) as
+              | "TUE"
+              | "CUSTOM"),
+      accessToken: lms.access_token || DEFAULT_LMS_SETTINGS.accessToken,
+      courseId: lms.course_id || DEFAULT_LMS_SETTINGS.courseId,
+      courseName: lms.course_name || DEFAULT_LMS_SETTINGS.courseName,
+      yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
+      outputFolder: lms.output_folder || DEFAULT_LMS_SETTINGS.outputFolder,
+      csvFile: lms.csv_file || DEFAULT_LMS_SETTINGS.csvFile,
+      xlsxFile: lms.xlsx_file || DEFAULT_LMS_SETTINGS.xlsxFile,
+      memberOption: (lms.member_option || DEFAULT_LMS_SETTINGS.memberOption) as
         | "(email, gitid)"
         | "email"
         | "git_id",
-      includeGroup: lms.include_group ?? true,
-      includeMember: lms.include_member ?? true,
-      includeInitials: lms.include_initials ?? false,
-      fullGroups: lms.full_groups ?? true,
-      csv: lms.output_csv ?? false,
-      xlsx: lms.output_xlsx ?? false,
-      yaml: lms.output_yaml ?? true,
+      includeGroup: lms.include_group ?? DEFAULT_LMS_SETTINGS.includeGroup,
+      includeMember: lms.include_member ?? DEFAULT_LMS_SETTINGS.includeMember,
+      includeInitials:
+        lms.include_initials ?? DEFAULT_LMS_SETTINGS.includeInitials,
+      fullGroups: lms.full_groups ?? DEFAULT_LMS_SETTINGS.fullGroups,
+      csv: lms.output_csv ?? DEFAULT_LMS_SETTINGS.csv,
+      xlsx: lms.output_xlsx ?? DEFAULT_LMS_SETTINGS.xlsx,
+      yaml: lms.output_yaml ?? DEFAULT_LMS_SETTINGS.yaml,
     })
 
     // Load Repo form from nested common + repo settings
@@ -132,23 +148,25 @@ function App() {
     const repo = settings.repo
     const logging = settings.logging
     repoForm.loadFromSettings({
-      accessToken: common.git_access_token || "",
-      user: common.git_user || "",
-      baseUrl: common.git_base_url || "https://gitlab.tue.nl",
-      studentReposGroup: repo.student_repos_group || "",
-      templateGroup: repo.template_group || "",
-      yamlFile: repo.yaml_file || "",
-      targetFolder: repo.target_folder || "",
-      assignments: repo.assignments || "",
-      directoryLayout: (repo.directory_layout || "flat") as
+      accessToken: common.git_access_token || DEFAULT_REPO_SETTINGS.accessToken,
+      user: common.git_user || DEFAULT_REPO_SETTINGS.user,
+      baseUrl: common.git_base_url || DEFAULT_REPO_SETTINGS.baseUrl,
+      studentReposGroup:
+        repo.student_repos_group || DEFAULT_REPO_SETTINGS.studentReposGroup,
+      templateGroup: repo.template_group || DEFAULT_REPO_SETTINGS.templateGroup,
+      yamlFile: repo.yaml_file || DEFAULT_REPO_SETTINGS.yamlFile,
+      targetFolder: repo.target_folder || DEFAULT_REPO_SETTINGS.targetFolder,
+      assignments: repo.assignments || DEFAULT_REPO_SETTINGS.assignments,
+      directoryLayout: (repo.directory_layout ||
+        DEFAULT_REPO_SETTINGS.directoryLayout) as
         | "by-team"
         | "flat"
         | "by-task",
       logLevels: {
-        info: logging?.info ?? true,
-        debug: logging?.debug ?? false,
-        warning: logging?.warning ?? true,
-        error: logging?.error ?? true,
+        info: logging?.info ?? DEFAULT_LOG_LEVELS.info,
+        debug: logging?.debug ?? DEFAULT_LOG_LEVELS.debug,
+        warning: logging?.warning ?? DEFAULT_LOG_LEVELS.warning,
+        error: logging?.error ?? DEFAULT_LOG_LEVELS.error,
       },
     })
 
@@ -186,7 +204,7 @@ function App() {
     const { window_width, window_height } = currentGuiSettings
 
     const restoreAndShow = async () => {
-      if (window_width > 100 && window_height > 100) {
+      if (window_width > WINDOW_MIN_SIZE && window_height > WINDOW_MIN_SIZE) {
         await win.setSize(new PhysicalSize(window_width, window_height))
         await win.center()
       }
@@ -204,18 +222,13 @@ function App() {
     try {
       const size = await win.innerSize()
       await settingsService.saveAppSettings({
-        theme: currentGuiSettings?.theme ?? "system",
+        theme: currentGuiSettings?.theme ?? DEFAULT_GUI_THEME,
         active_tab: ui.activeTab === "repo" ? "repo" : "lms",
         collapsed_sections: ui.getCollapsedSectionsArray(),
         sidebar_open: ui.settingsMenuOpen ?? false,
         window_width: size.width,
         window_height: size.height,
-        logging: currentGuiSettings?.logging ?? {
-          info: true,
-          debug: false,
-          warning: true,
-          error: true,
-        },
+        logging: currentGuiSettings?.logging ?? { ...DEFAULT_LOG_LEVELS },
       })
     } catch (error) {
       console.error("Failed to save window state:", error)
@@ -238,7 +251,7 @@ function App() {
       }
       debounce = window.setTimeout(() => {
         saveWindowState()
-      }, 300)
+      }, RESIZE_DEBOUNCE_MS)
     }
 
     const unlistenResize = win.onResized(scheduleSave)
@@ -321,7 +334,7 @@ function App() {
       // App settings
       active_tab: ui.activeTab,
       collapsed_sections: ui.getCollapsedSectionsArray(),
-      theme: currentGuiSettings?.theme || "system",
+      theme: currentGuiSettings?.theme || DEFAULT_GUI_THEME,
       sidebar_open: ui.settingsMenuOpen ?? false,
       window_width: currentGuiSettings?.window_width ?? 0,
       window_height: currentGuiSettings?.window_height ?? 0,
@@ -434,7 +447,8 @@ function App() {
         <Tabs
           value={ui.activeTab}
           onValueChange={(v) => ui.setActiveTab(v as "lms" | "repo")}
-          className="flex-1 flex flex-col min-h-0 min-w-[400px] overflow-hidden"
+          className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          style={{ minWidth: TAB_MIN_WIDTH }}
           size="compact"
         >
           <div className="flex items-center">
@@ -524,7 +538,10 @@ function App() {
               </ActionBar>
 
               {/* Console takes remaining space */}
-              <OutputConsole className="flex-1 min-h-[120px]" />
+              <OutputConsole
+                className="flex-1"
+                style={{ minHeight: `${CONSOLE_MIN_HEIGHT}px` }}
+              />
             </div>
           </TabsContent>
 
@@ -605,7 +622,10 @@ function App() {
               </ActionBar>
 
               {/* Console takes remaining space */}
-              <OutputConsole className="flex-1 min-h-[120px]" />
+              <OutputConsole
+                className="flex-1"
+                style={{ minHeight: `${CONSOLE_MIN_HEIGHT}px` }}
+              />
             </div>
           </TabsContent>
         </Tabs>
