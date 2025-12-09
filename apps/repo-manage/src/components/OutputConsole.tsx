@@ -52,7 +52,8 @@ export function OutputConsole({ className }: OutputConsoleProps) {
     const selLength =
       textareaRef.current?.selectionEnd && textareaRef.current?.selectionStart
         ? Math.abs(
-            textareaRef.current.selectionEnd - textareaRef.current.selectionStart,
+            textareaRef.current.selectionEnd -
+              textareaRef.current.selectionStart,
           )
         : 0
     setContextMenu({

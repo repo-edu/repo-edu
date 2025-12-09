@@ -35,6 +35,7 @@ import { useLmsActions } from "./hooks/useLmsActions"
 import { useLoadSettings } from "./hooks/useLoadSettings"
 import { useRepoActions } from "./hooks/useRepoActions"
 import { useTheme } from "./hooks/useTheme"
+import type { Strict } from "./services/commandUtils"
 import * as lmsService from "./services/lmsService"
 import * as settingsService from "./services/settingsService"
 import {
@@ -43,7 +44,6 @@ import {
   useRepoFormStore,
   useUiStore,
 } from "./stores"
-import type { Strict } from "./services/commandUtils"
 import type { GuiSettings } from "./types/settings"
 import { hashSnapshot } from "./utils/snapshot"
 import {
@@ -220,7 +220,12 @@ function App() {
     } catch (error) {
       console.error("Failed to save window state:", error)
     }
-  }, [currentGuiSettings, ui.activeTab, ui.settingsMenuOpen, ui.getCollapsedSectionsArray])
+  }, [
+    currentGuiSettings,
+    ui.activeTab,
+    ui.settingsMenuOpen,
+    ui.getCollapsedSectionsArray,
+  ])
 
   // Save window size on resize (debounced)
   useEffect(() => {
