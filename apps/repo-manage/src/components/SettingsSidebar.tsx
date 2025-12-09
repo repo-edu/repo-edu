@@ -40,6 +40,7 @@ import { useEffect, useState } from "react"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
 import type { GuiSettings, Theme } from "../types/settings"
+import { MdiWeatherSunny } from "./icons/MdiWeatherSunny"
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System (Auto)" },
@@ -330,13 +331,15 @@ export function SettingsSidebar({
                 <Button
                   size="xs"
                   variant="outline"
-                  className="h-5 px-1.5 text-[10px]"
+                  className="h-7 w-7 p-0"
                 >
-                  {currentSettings.theme === "light"
-                    ? "☀"
-                    : currentSettings.theme === "dark"
-                      ? "☾"
-                      : "◐"}
+                  {currentSettings.theme === "light" ? (
+                    <MdiWeatherSunny className="h-4 w-4" />
+                  ) : currentSettings.theme === "dark" ? (
+                    "☾"
+                  ) : (
+                    "◐"
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -369,6 +372,9 @@ export function SettingsSidebar({
                       }
                     }}
                   >
+                    <span className="w-4">
+                      {currentSettings.theme === opt.value ? "✓" : ""}
+                    </span>
                     {opt.label}
                   </DropdownMenuItem>
                 ))}
