@@ -14,7 +14,8 @@
     "lint:md:fix": "markdownlint-cli2 --fix 'docs/**/*.md'",
     "format": "biome format --write .",
     "typecheck": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage exec tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck"
+    "test": "pnpm -r run test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
