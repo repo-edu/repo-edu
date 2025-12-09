@@ -1,4 +1,4 @@
-///! Factory for creating unified LMS clients from settings
+//! Factory for creating unified LMS clients from settings
 use crate::error::{PlatformError, Result};
 use crate::lms::types::StudentInfo;
 use crate::settings::LmsSettings;
@@ -159,7 +159,7 @@ fn extract_lastname_from_email(email: &str) -> String {
         .next()
         .unwrap_or("")
         .split('.')
-        .last()
+        .next_back()
         .unwrap_or("")
         .to_string()
 }

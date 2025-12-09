@@ -669,7 +669,7 @@ impl PlatformAPI for GitHubAPI {
     fn extract_repo_name(&self, repo_url: &str) -> Result<String> {
         let url = repo_url.trim_end_matches('/').trim_end_matches(".git");
         url.split('/')
-            .last()
+            .next_back()
             .map(|s| s.to_string())
             .ok_or_else(|| PlatformError::invalid_url(format!("Invalid URL: {}", repo_url)))
     }

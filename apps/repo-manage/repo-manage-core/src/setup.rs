@@ -77,9 +77,7 @@ pub fn clone_template(url: &str, path: &Path, token: Option<&str>) -> Result<Rep
     let mut builder = git2::build::RepoBuilder::new();
     builder.fetch_options(fetch_options);
 
-    builder
-        .clone(url, path)
-        .map_err(|e| PlatformError::GitError(e))
+    builder.clone(url, path).map_err(PlatformError::GitError)
 }
 
 /// Create or get existing teams on the platform
@@ -197,7 +195,7 @@ pub fn push_to_repo(
     student_repo_url: &str,
     token: Option<&str>,
 ) -> Result<()> {
-    let repo = Repository::open(template_path).map_err(|e| PlatformError::GitError(e))?;
+    let repo = Repository::open(template_path).map_err(PlatformError::GitError)?;
 
     // Add the student repo as a remote
     let remote_name = "student_repo";
@@ -205,7 +203,7 @@ pub fn push_to_repo(
         Ok(r) => r,
         Err(_) => repo
             .remote(remote_name, student_repo_url)
-            .map_err(|e| PlatformError::GitError(e))?,
+            .map_err(PlatformError::GitError)?,
     };
 
     // Set up authentication if token is provided
@@ -222,13 +220,13 @@ pub fn push_to_repo(
 
     // Push all branches
     // For simplicity, we'll push the current branch (usually main/master)
-    let head = repo.head().map_err(|e| PlatformError::GitError(e))?;
+    let head = repo.head().map_err(PlatformError::GitError)?;
     let branch_name = head.shorthand().unwrap_or("main");
     let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
 
     remote
         .push(&[&refspec], Some(&mut push_options))
-        .map_err(|e| PlatformError::GitError(e))?;
+        .map_err(PlatformError::GitError)?;
 
     Ok(())
 }
@@ -277,7 +275,7 @@ pub async fn setup_student_repos<P: PlatformAPI>(
             Err(e) => {
                 eprintln!("✗ Failed to clone template {}: {}", url, e);
                 result.errors.push(SetupError {
-                    repo_name: repo_name,
+                    repo_name,
                     team_name: "N/A".to_string(),
                     error: format!("Clone failed: {}", e),
                 });
@@ -338,7 +336,7 @@ pub async fn setup_student_repos<P: PlatformAPI>(
         let template_name = student_repo
             .name
             .split('-')
-            .last()
+            .next_back()
             .unwrap_or(&student_repo.name);
         if let Some(template) = templates.iter().find(|t| t.name == template_name) {
             if let Some(template_path) = &template.path {

@@ -141,7 +141,7 @@ pub async fn generate_lms_files(
     // Generate YAML file if requested
     if params.yaml {
         let config = YamlConfig {
-            member_option: LmsMemberOption::from_str(&params.member_option),
+            member_option: LmsMemberOption::parse(&params.member_option),
             include_group: params.include_group,
             include_member: params.include_member,
             include_initials: params.include_initials,
