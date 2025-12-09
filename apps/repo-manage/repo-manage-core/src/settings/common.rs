@@ -149,21 +149,11 @@ impl Default for LogSettings {
 }
 
 /// Profile settings (nested structure for per-profile data)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
 pub struct ProfileSettings {
     pub common: CommonSettings,
     pub lms: LmsSettings,
     pub repo: RepoSettings,
-}
-
-impl Default for ProfileSettings {
-    fn default() -> Self {
-        Self {
-            common: CommonSettings::default(),
-            lms: LmsSettings::default(),
-            repo: RepoSettings::default(),
-        }
-    }
 }
 
 impl Normalize for ProfileSettings {

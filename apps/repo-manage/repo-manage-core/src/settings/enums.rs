@@ -6,15 +6,11 @@ use std::str::FromStr;
 /// LMS URL preset options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "UPPERCASE")]
+#[derive(Default)]
 pub enum LmsUrlOption {
+    #[default]
     TUE,
     Custom,
-}
-
-impl Default for LmsUrlOption {
-    fn default() -> Self {
-        Self::TUE
-    }
 }
 
 impl fmt::Display for LmsUrlOption {
@@ -39,20 +35,17 @@ impl FromStr for LmsUrlOption {
 }
 
 /// Member option for YAML generation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type, Default,
+)]
 pub enum MemberOption {
     #[serde(rename = "(email, gitid)")]
+    #[default]
     EmailAndGitId,
     #[serde(rename = "email")]
     Email,
     #[serde(rename = "git_id")]
     GitId,
-}
-
-impl Default for MemberOption {
-    fn default() -> Self {
-        Self::EmailAndGitId
-    }
 }
 
 impl fmt::Display for MemberOption {
@@ -81,16 +74,12 @@ impl FromStr for MemberOption {
 /// Directory layout for cloned repositories
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "kebab-case")]
+#[derive(Default)]
 pub enum DirectoryLayout {
     ByTeam,
+    #[default]
     Flat,
     ByTask,
-}
-
-impl Default for DirectoryLayout {
-    fn default() -> Self {
-        Self::Flat
-    }
 }
 
 impl fmt::Display for DirectoryLayout {
@@ -119,7 +108,9 @@ impl FromStr for DirectoryLayout {
 /// Active tab in the GUI
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ActiveTab {
+    #[default]
     Lms,
     Repo,
 }
@@ -127,16 +118,12 @@ pub enum ActiveTab {
 /// UI theme
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Theme {
     Light,
     Dark,
+    #[default]
     System,
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::System
-    }
 }
 
 impl fmt::Display for Theme {
@@ -159,12 +146,6 @@ impl FromStr for Theme {
             "system" => Ok(Self::System),
             _ => Err(format!("Unknown theme: {}", s)),
         }
-    }
-}
-
-impl Default for ActiveTab {
-    fn default() -> Self {
-        Self::Lms
     }
 }
 

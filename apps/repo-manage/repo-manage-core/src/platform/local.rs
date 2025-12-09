@@ -315,7 +315,7 @@ impl PlatformAPI for LocalAPI {
         // Create the actual git repository directory (as a bare repo)
         let repo_dir = self.base_dir.join("orgs").join(&self.org_name).join(name);
         if !repo_dir.exists() {
-            git2::Repository::init_bare(&repo_dir).map_err(|e| PlatformError::GitError(e))?;
+            git2::Repository::init_bare(&repo_dir).map_err(PlatformError::GitError)?;
         }
 
         self.write_json(&repo_path, &repo)?;
@@ -504,7 +504,7 @@ impl PlatformAPI for LocalAPI {
         repo_url
             .trim_end_matches('/')
             .split('/')
-            .last()
+            .next_back()
             .map(|s| s.to_string())
             .ok_or_else(|| PlatformError::invalid_url(format!("Invalid URL: {}", repo_url)))
     }

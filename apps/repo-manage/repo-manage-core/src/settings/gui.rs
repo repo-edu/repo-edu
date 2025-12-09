@@ -35,7 +35,7 @@ impl Default for AppSettings {
 
 /// Combined GUI settings (sent to frontend)
 /// This combines app settings with the active profile's settings
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
 pub struct GuiSettings {
     /// App-level settings (from app.json)
     #[serde(flatten)]
@@ -44,15 +44,6 @@ pub struct GuiSettings {
     /// Profile settings (from active profile)
     #[serde(flatten)]
     pub profile: ProfileSettings,
-}
-
-impl Default for GuiSettings {
-    fn default() -> Self {
-        Self {
-            app: AppSettings::default(),
-            profile: ProfileSettings::default(),
-        }
-    }
 }
 
 impl GuiSettings {

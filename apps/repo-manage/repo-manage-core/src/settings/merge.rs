@@ -77,15 +77,15 @@ fn merge_values_warned(target: &mut Value, src: &Value, path: String, warnings: 
 
 /// Check if two JSON values have compatible types
 fn types_compatible(expected: &Value, actual: &Value) -> bool {
-    match (expected, actual) {
-        (Value::Null, Value::Null) => true,
-        (Value::Bool(_), Value::Bool(_)) => true,
-        (Value::Number(_), Value::Number(_)) => true,
-        (Value::String(_), Value::String(_)) => true,
-        (Value::Array(_), Value::Array(_)) => true,
-        (Value::Object(_), Value::Object(_)) => true,
-        _ => false,
-    }
+    matches!(
+        (expected, actual),
+        (Value::Null, Value::Null)
+            | (Value::Bool(_), Value::Bool(_))
+            | (Value::Number(_), Value::Number(_))
+            | (Value::String(_), Value::String(_))
+            | (Value::Array(_), Value::Array(_))
+            | (Value::Object(_), Value::Object(_))
+    )
 }
 
 /// Get a human-readable type name for a JSON value

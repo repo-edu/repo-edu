@@ -90,8 +90,7 @@ pub async fn export_settings(settings: GuiSettings, path: String) -> Result<(), 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_settings_schema() -> Result<String, AppError> {
-    Ok(serde_json::to_string(&SettingsManager::get_schema()?)
-        .map_err(|e| AppError::new(e.to_string()))?)
+    serde_json::to_string(&SettingsManager::get_schema()?).map_err(|e| AppError::new(e.to_string()))
 }
 
 /// Load settings or return defaults (never fails)

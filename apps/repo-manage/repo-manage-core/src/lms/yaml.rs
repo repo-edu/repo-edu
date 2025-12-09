@@ -36,17 +36,11 @@ where
             }
 
             let group_name = group.name.clone();
-            group_map
-                .entry(group_name)
-                .or_insert_with(Vec::new)
-                .push(student);
+            group_map.entry(group_name).or_default().push(student);
         } else if !config.full_groups {
             // Include groupless students if not filtering for full groups
             let group_name = "no-group".to_string();
-            group_map
-                .entry(group_name)
-                .or_insert_with(Vec::new)
-                .push(student);
+            group_map.entry(group_name).or_default().push(student);
         }
     }
 
