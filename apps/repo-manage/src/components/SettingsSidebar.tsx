@@ -141,7 +141,10 @@ export function SettingsSidebar({
       return
     }
     try {
-      await settingsService.saveProfile(activeProfile, ensureComplete(getSettings()))
+      await settingsService.saveProfile(
+        activeProfile,
+        ensureComplete(getSettings()),
+      )
       showSuccessFlash()
       onMessage(`✓ Saved profile: ${activeProfile}`)
       onSaved()
@@ -299,7 +302,10 @@ export function SettingsSidebar({
 
           if (willCreateDefault) {
             // Create and switch to Default profile
-            await settingsService.saveProfile("Default", ensureComplete(getSettings()))
+            await settingsService.saveProfile(
+              "Default",
+              ensureComplete(getSettings()),
+            )
             await settingsService.setActiveProfile("Default")
             setActiveProfile("Default")
             onMessage(`✓ Created new profile: Default`)
@@ -328,11 +334,7 @@ export function SettingsSidebar({
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="h-7 w-7 p-0"
-                >
+                <Button size="xs" variant="outline" className="h-7 w-7 p-0">
                   {currentSettings.theme === "light" ? (
                     <MdiWeatherSunny className="h-4 w-4" />
                   ) : currentSettings.theme === "dark" ? (

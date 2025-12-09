@@ -37,7 +37,13 @@ export function Section({
             )}
             <span>{title}</span>
           </CardTitle>
-          <div onClick={(e) => e.stopPropagation()}>{action}</div>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: stops event propagation, not interactive */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {action}
+          </div>
         </div>
       </CardHeader>
       {!collapsed && (
