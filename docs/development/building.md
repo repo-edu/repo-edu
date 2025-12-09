@@ -43,6 +43,7 @@ pnpm tauri build
 ```
 
 Build artifacts are located in:
+
 - macOS: `src-tauri/target/release/bundle/dmg/`
 - Windows: `src-tauri/target/release/bundle/msi/`
 - Linux: `src-tauri/target/release/bundle/appimage/`

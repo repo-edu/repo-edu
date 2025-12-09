@@ -14,7 +14,7 @@ Guidelines for contributing to RepoManage.
 
 ```bash
 # Clone the repository
-git clone https://github.com/repo-edu/repo-edu.git
+git clone https://github.com/dvbeek/repo-edu.git
 cd repo-edu
 
 # Install dependencies
@@ -28,11 +28,13 @@ pnpm tauri dev
 ## Code Style
 
 ### TypeScript/React
+
 - Use functional components with hooks
 - Prefer Zustand for state management
 - Follow existing patterns in the codebase
 
 ### Rust
+
 - Run `cargo fmt` before committing
 - Use `thiserror` for error types
 - Follow the existing module structure
@@ -40,12 +42,14 @@ pnpm tauri dev
 ## Testing
 
 ### Frontend Tests
+
 ```bash
 cd apps/repo-manage
 pnpm test:run
 ```
 
 ### Rust Tests
+
 ```bash
 cd apps/repo-manage
 cargo test
@@ -80,6 +84,7 @@ Then open the URL shown in the terminal (usually `http://localhost:5173`).
 ## Commit Messages
 
 Use clear, descriptive commit messages:
+
 - `feat:` for new features
 - `fix:` for bug fixes
 - `docs:` for documentation
