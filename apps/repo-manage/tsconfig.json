@@ -14,14 +14,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path aliases */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@repo-edu/ui": ["../../packages/ui/src"],
-      "@repo-edu/ui/*": ["../../packages/ui/src/*"]
-    },
-
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
