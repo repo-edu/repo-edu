@@ -10,11 +10,14 @@
     "docs:preview": "pnpm --filter @repo-edu/docs preview",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "lint:md": "markdownlint-cli2 'docs/**/*.md'",
+    "lint:md:fix": "markdownlint-cli2 --fix 'docs/**/*.md'",
     "format": "biome format --write .",
     "typecheck": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage exec tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.8"
+    "@biomejs/biome": "^2.3.8",
+    "markdownlint-cli2": "^0.20.0"
   }
 }
