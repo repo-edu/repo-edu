@@ -17,7 +17,6 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { listen } from "@tauri-apps/api/event"
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toBackendFormat, toStoreFormat } from "./adapters/settingsAdapter"
@@ -34,10 +33,10 @@ import { TokenDialog } from "./components/TokenDialog"
 import {
   CONSOLE_MIN_HEIGHT,
   DEFAULT_GUI_THEME,
-  DEFAULT_LOG_LEVELS,
   SETTINGS_MAX_HEIGHT_OFFSET,
   TAB_MIN_WIDTH,
 } from "./constants"
+import { useAppSettings } from "./hooks/useAppSettings"
 import { useCloseGuard } from "./hooks/useCloseGuard"
 import { useDirtyState } from "./hooks/useDirtyState"
 import { useLmsActions } from "./hooks/useLmsActions"
@@ -75,9 +74,25 @@ function App() {
   // Keyboard shortcuts dialog
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
-  // Current GUI settings (for SettingsMenu)
-  const [currentGuiSettings, setCurrentGuiSettings] =
-    useState<GuiSettings | null>(null)
+  const getUiState = useCallback(
+    () => ({
+      activeTab: ui.activeTab,
+      collapsedSections: ui.getCollapsedSectionsArray(),
+      settingsMenuOpen: ui.settingsMenuOpen ?? false,
+    }),
+    [ui],
+  )
+  const getLogging = useCallback(
+    () => repoForm.getState().logLevels,
+    [repoForm],
+  )
+
+  const {
+    currentGuiSettings,
+    setCurrentGuiSettings,
+    windowConfig,
+    saveAppSettings,
+  } = useAppSettings({ getUiState, getLogging })
 
   // Apply theme from settings
   useTheme(currentGuiSettings?.theme || DEFAULT_GUI_THEME)
@@ -125,40 +140,9 @@ function App() {
     log: (msg) => output.appendWithNewline(msg),
   })
 
-  // Window state management (restoration and resize save)
-  const doSaveWindowState = useCallback(async () => {
-    if (!currentGuiSettings) return
-
-    const win = getCurrentWindow()
-    try {
-      const size = await win.innerSize()
-      await settingsService.saveAppSettings({
-        theme: currentGuiSettings?.theme ?? DEFAULT_GUI_THEME,
-        active_tab: ui.activeTab === "repo" ? "repo" : "lms",
-        collapsed_sections: ui.getCollapsedSectionsArray(),
-        sidebar_open: ui.settingsMenuOpen ?? false,
-        window_width: size.width,
-        window_height: size.height,
-        logging: currentGuiSettings?.logging ?? { ...DEFAULT_LOG_LEVELS },
-      })
-    } catch (error) {
-      console.error("Failed to save window state:", error)
-    }
-  }, [
-    currentGuiSettings,
-    ui.activeTab,
-    ui.settingsMenuOpen,
-    ui.getCollapsedSectionsArray,
-  ])
-
   const { saveWindowState } = useWindowState({
-    config: currentGuiSettings
-      ? {
-          width: currentGuiSettings.window_width,
-          height: currentGuiSettings.window_height,
-        }
-      : null,
-    onSave: doSaveWindowState,
+    config: windowConfig,
+    onSave: () => saveAppSettings(),
   })
 
   // Save when active tab or collapsed sections change
@@ -267,21 +251,7 @@ function App() {
     ui.setSettingsMenuOpen(newState)
 
     // Save to app.json
-    if (currentGuiSettings) {
-      try {
-        await settingsService.saveAppSettings({
-          theme: currentGuiSettings.theme,
-          active_tab: currentGuiSettings.active_tab,
-          collapsed_sections: ui.getCollapsedSectionsArray(),
-          sidebar_open: newState,
-          window_width: currentGuiSettings.window_width,
-          window_height: currentGuiSettings.window_height,
-          logging: currentGuiSettings.logging,
-        })
-      } catch (error) {
-        console.error("Failed to save sidebar state:", error)
-      }
-    }
+    await saveAppSettings({ sidebar_open: newState })
   }
 
   return (
