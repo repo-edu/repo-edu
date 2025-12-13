@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_GUI_THEME, DEFAULT_LOG_LEVELS } from "../constants"
+import {
+  DEFAULT_GUI_THEME,
+  DEFAULT_LMS_SETTINGS,
+  DEFAULT_LOG_LEVELS,
+} from "../constants"
 import type { GuiSettings } from "../types/settings"
 import { toBackendFormat, toStoreFormat } from "./settingsAdapter"
 
@@ -87,5 +91,61 @@ describe("settingsAdapter", () => {
     expect(store.repo.directoryLayout).toBe("flat")
     expect(store.ui.activeTab).toBe("lms")
     expect(store.ui.collapsedSections).toEqual([])
+  })
+
+  it("uses default log levels when logging is missing", () => {
+    const store = toStoreFormat({
+      ...sampleBackendSettings,
+      logging: undefined as unknown as GuiSettings["logging"],
+    })
+
+    expect(store.repo.logLevels).toEqual(DEFAULT_LOG_LEVELS)
+  })
+
+  it("defaults LMS type and forces CUSTOM url option for non-Canvas types", () => {
+    const store = toStoreFormat({
+      ...sampleBackendSettings,
+      lms: {
+        ...sampleBackendSettings.lms,
+        type: null as unknown as "Canvas",
+        url_option: "TUE",
+      },
+    })
+
+    expect(store.lms.lmsType).toBe(DEFAULT_LMS_SETTINGS.lmsType)
+    expect(store.lms.urlOption).toBe("CUSTOM")
+  })
+
+  it("coerces string unions correctly in toBackendFormat", () => {
+    const lmsState = {
+      ...toStoreFormat(sampleBackendSettings).lms,
+      lmsType: "Canvas" as const,
+      urlOption: "CUSTOM" as const,
+      memberOption: "email" as const,
+    }
+    const repoState = {
+      ...toStoreFormat(sampleBackendSettings).repo,
+      directoryLayout: "flat" as const,
+    }
+    const uiState = {
+      activeTab: "repo" as const,
+      collapsedSections: ["lms-config"],
+      sidebarOpen: false,
+      theme: DEFAULT_GUI_THEME,
+      windowWidth: 800,
+      windowHeight: 600,
+    }
+
+    const backend = toBackendFormat(lmsState, repoState, uiState)
+
+    expect(backend.lms.url_option).toBe("CUSTOM")
+    expect(backend.repo.directory_layout).toBe("flat")
+    expect(backend.active_tab).toBe("repo")
+    expect(backend.logging).toEqual({
+      info: repoState.logLevels.info,
+      debug: repoState.logLevels.debug,
+      warning: repoState.logLevels.warning,
+      error: repoState.logLevels.error,
+    })
   })
 })
