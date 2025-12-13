@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm outdated:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm lint:fix:*)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm docs:build:*)",
+      "Bash(pnpm biome check:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm tauri build:*)",
+      "Bash(pnpm --filter @repo-edu/repo-manage tauri dev:*)",
+      "Bash(pnpm --filter @repo-edu/repo-manage build:*)",
+      "Bash(pnpm --filter @repo-edu/repo-manage test:run)",
+      "Bash(pnpm --filter @repo-edu/repo-manage gen:bindings:*)",
+      "Bash(pnpm --filter @repo-edu/repo-manage exec tsc --noEmit)",
+      "Bash(pnpm --filter @repo-edu/repo-manage exec biome check:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo run:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo clean:*)",
+      "Bash(cargo redu:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx npm-check-updates:*)",
+      "Bash(npx markdownlint-cli2:*)",
+      "WebSearch",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": []
+  }
+}

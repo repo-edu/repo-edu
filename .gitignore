@@ -24,7 +24,7 @@ docs/.vitepress/dist/
 .test-config/
 
 # Claude
-.claude/
+.claude/settings.local.json
 CLAUDE.md
 
 # Planning files and notes
