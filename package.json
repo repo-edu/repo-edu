@@ -1,25 +1,22 @@
 {
-  "name": "repo-edu-workspace",
-  "private": true,
-  "scripts": {
-    "check:ts": "biome check .",
-    "check:ts:fix": "biome check --write .",
-    "typecheck:ts": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage exec tsc --noEmit",
-    "test:ts": "pnpm -r run test",
-    "check:rs": "cargo fmt --manifest-path apps/repo-manage/Cargo.toml --check && cargo clippy --manifest-path apps/repo-manage/Cargo.toml",
-    "check:rs:fix": "cargo fmt --manifest-path apps/repo-manage/Cargo.toml && cargo clippy --manifest-path apps/repo-manage/Cargo.toml --fix --allow-dirty",
-    "typecheck:rs": "cargo check --manifest-path apps/repo-manage/Cargo.toml",
-    "test:rs": "cargo test --manifest-path apps/repo-manage/Cargo.toml",
-    "check:md": "dprint check",
-    "check:md:fix": "dprint fmt",
-    "check": "pnpm check:ts && pnpm check:rs && pnpm check:md",
-    "fix": "pnpm check:ts:fix && pnpm check:rs:fix && pnpm check:md:fix",
-    "typecheck": "pnpm typecheck:ts && pnpm typecheck:rs",
-    "test": "pnpm test:ts && pnpm test:rs",
-    "validate": "pnpm check && pnpm typecheck && pnpm test"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.3",
-    "dprint": "^0.48"
-  }
+    "name": "repo-edu-workspace",
+    "private": true,
+    "scripts": {
+        "check:ts": "biome check",
+        "check:ts:fix": "biome check --write",
+        "typecheck:ts": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage exec tsc --noEmit",
+        "test:ts": "pnpm -r run test",
+        "fmt:rs": "cargo fmt --manifest-path apps/repo-manage/Cargo.toml --all",
+        "check:rs": "cargo clippy --manifest-path apps/repo-manage/Cargo.toml",
+        "check:rs:fix": "cargo clippy --manifest-path apps/repo-manage/Cargo.toml --fix --allow-dirty",
+        "typecheck:rs": "cargo check --manifest-path apps/repo-manage/Cargo.toml",
+        "test:rs": "cargo test --manifest-path apps/repo-manage/Cargo.toml",
+        "check:md": "rumdl check",
+        "check:md:fix": "rumdl fmt",
+        "check": "pnpm check:ts && pnpm check:rs && pnpm check:md",
+        "fix": "pnpm check:ts:fix && pnpm fmt:rs && pnpm check:rs:fix && pnpm check:md:fix",
+        "typecheck": "pnpm typecheck:ts && pnpm typecheck:rs",
+        "test": "pnpm test:ts && pnpm test:rs",
+        "validate": "pnpm check && pnpm typecheck && pnpm test"
+    }
 }

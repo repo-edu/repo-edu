@@ -1,0 +1,15 @@
+# yaml-language-server:
+# $schema=https://raw.githubusercontent.com/rvben/rumdl/main/rumdl.schema.json
+
+[global]
+line-length = 100
+disable = [
+    "MD041", # First line heading - conflicts with VitePress frontmatter
+    "MD060", # Table column style - too strict, tables render fine without it
+]
+
+[MD013] # Line length
+line-length = 100
+code-blocks = false
+tables = false
+reflow = true  # Enable automatic line wrapping (required for --fix)
