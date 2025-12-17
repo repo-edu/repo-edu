@@ -1,10 +1,11 @@
 # repo-edu
 
-A monorepo containing tools for educational repository management, designed to streamline the workflow of managing student repositories and integrating with Learning Management Systems (LMS).
+A monorepo containing tools for educational repository management, designed to streamline the
+workflow of managing student repositories and integrating with Learning Management Systems (LMS).
 
 ## Structure
 
-```
+```text
 repo-edu/
 ├── apps/
 │   └── repo-manage/          # Tauri desktop app
@@ -19,12 +20,14 @@ repo-edu/
 ## Features
 
 ### LMS Import Tab
+
 - **Course Verification**: Validate LMS credentials and verify course access
 - **Student Roster Export**: Fetch students and group assignments from Canvas/Moodle
 - **Multiple Output Formats**: Export to YAML (RepoBee format), CSV, and XLSX
 - **Progress Tracking**: Real-time progress updates during data fetching
 
 ### Repository Setup Tab
+
 - **Git Platform Support**: Works with GitHub, GitLab, and Gitea
 - **Repository Creation**: Batch create student repositories from templates
 - **Repository Cloning**: Clone all student repos with configurable directory layouts
@@ -33,12 +36,14 @@ repo-edu/
 ## Tech Stack
 
 ### Frontend
+
 - **React** with TypeScript
 - **Zustand** for state management
 - **shadcn/ui** components (via `@repo-edu/ui`)
 - **Vite** for bundling
 
 ### Backend
+
 - **Tauri** (Rust) for native desktop capabilities
 - **lms-api** for Canvas/Moodle integration
 - **git2** for Git operations
@@ -46,6 +51,7 @@ repo-edu/
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - pnpm
 - Rust (for Tauri development)
@@ -77,17 +83,20 @@ pnpm tauri build
 Full documentation is available at [repo-edu.github.io/repo-edu](https://repo-edu.github.io/repo-edu/).
 
 To preview documentation locally:
+
 ```bash
 pnpm docs:dev
 ```
 
 ## Configuration
 
-Settings are stored in `~/.config/repo-manage/settings.json` (or equivalent on Windows/macOS). The application provides a GUI for managing all configuration options.
+Settings are stored in `~/.config/repo-manage/settings.json` (or equivalent on Windows/macOS). The
+application provides a GUI for managing all configuration options.
 
 ## Dependency Management
 
-This monorepo uses [pnpm Catalogs](https://pnpm.io/catalogs) to ensure consistent dependency versions across all packages.
+This monorepo uses [pnpm Catalogs](https://pnpm.io/catalogs) to ensure consistent dependency
+versions across all packages.
 
 ### How it works
 
@@ -129,7 +138,9 @@ All packages will automatically use the new version.
 
 ### Why this matters
 
-Without catalogs, different packages can end up with different versions of the same dependency. For React, this causes runtime errors like "Invalid hook call" because React requires exactly one instance in the app.
+Without catalogs, different packages can end up with different versions of the same dependency. For
+React, this causes runtime errors like "Invalid hook call" because React requires exactly one
+instance in the app.
 
 ## License
 

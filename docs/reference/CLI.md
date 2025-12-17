@@ -18,14 +18,14 @@ This document contains the help content for the `redu` command-line program.
 
 **Usage:** `redu [OPTIONS] [COMMAND]`
 
-###### **Subcommands:**
+### **Subcommands:**
 
 * `setup` — Set up student repositories from templates
 * `verify` — Verify platform settings and authentication
 * `clone` — Clone student repositories
 * `profile` — Profile management commands
 
-###### **Options:**
+#### **Options:**
 
 * `--markdown-help` — Print complete CLI documentation as markdown
 * `--git-base-url <GIT_BASE_URL>` — Git platform base URL
@@ -38,15 +38,13 @@ This document contains the help content for the `redu` command-line program.
 * `--assignments <ASSIGNMENTS>` — Assignments (comma-separated)
 * `--directory-layout <LAYOUT>` — Directory layout (by-team, flat, by-task)
 
-
-
 ## `redu setup`
 
 Set up student repositories from templates
 
 **Usage:** `redu setup [OPTIONS]`
 
-###### **Options:**
+### **Options:**
 
 * `-p`, `--platform <PLATFORM>` — Platform to use (github, gitlab, gitea, local)
 
@@ -59,9 +57,8 @@ Set up student repositories from templates
 
   Possible values: `true`, `false`
 
-* `--team <TEAMS>` — Student teams in format "name:member1,member2" (can be specified multiple times)
-
-
+* `--team <TEAMS>` — Student teams in format "name:member1,member2" (can be specified multiple
+  times)
 
 ## `redu verify`
 
@@ -69,14 +66,11 @@ Verify platform settings and authentication
 
 **Usage:** `redu verify [OPTIONS]`
 
-###### **Options:**
+### **Options:**
 
 * `-p`, `--platform <PLATFORM>` — Platform to use
 
   Possible values: `git-hub`, `git-lab`, `gitea`, `local`
-
-
-
 
 ## `redu clone`
 
@@ -84,7 +78,7 @@ Clone student repositories
 
 **Usage:** `redu clone [OPTIONS]`
 
-###### **Options:**
+### **Options:**
 
 * `-p`, `--platform <PLATFORM>` — Platform to use
 
@@ -92,22 +86,18 @@ Clone student repositories
 
 * `--assignments <ASSIGNMENTS>` — Specific assignments to clone (overrides settings)
 
-
-
 ## `redu profile`
 
 Profile management commands
 
 **Usage:** `redu profile <COMMAND>`
 
-###### **Subcommands:**
+### **Subcommands:**
 
 * `list` — List all available profiles
 * `active` — Show the active profile name
 * `show` — Show settings of active profile
 * `load` — Load a profile (set as active)
-
-
 
 ## `redu profile list`
 
@@ -115,15 +105,11 @@ List all available profiles
 
 **Usage:** `redu profile list`
 
-
-
 ## `redu profile active`
 
 Show the active profile name
 
 **Usage:** `redu profile active`
-
-
 
 ## `redu profile show`
 
@@ -131,19 +117,15 @@ Show settings of active profile
 
 **Usage:** `redu profile show`
 
-
-
 ## `redu profile load`
 
 Load a profile (set as active)
 
 **Usage:** `redu profile load <NAME>`
 
-###### **Arguments:**
+### **Arguments:**
 
 * `<NAME>` — Profile name to load
-
-
 
 <hr/>
 
@@ -151,4 +133,3 @@ Load a profile (set as active)
     This document was generated automatically by
     <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
-

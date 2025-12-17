@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
 ## Build & Development Commands
 
@@ -33,6 +34,7 @@ pnpm --filter @repo-edu/repo-manage gen:bindings # Regenerate TS bindings from R
 ## Architecture
 
 ### Monorepo Structure
+
 - **apps/repo-manage/** - Main Tauri desktop app
   - **src/** - React frontend (Vite + TypeScript)
   - **src-tauri/** - Tauri Rust backend with commands
@@ -41,13 +43,17 @@ pnpm --filter @repo-edu/repo-manage gen:bindings # Regenerate TS bindings from R
 - **packages/ui/** - Shared shadcn/ui components
 
 ### Frontend Architecture (apps/repo-manage/src)
+
 - **stores/** - Zustand stores (`lmsFormStore`, `repoFormStore`, `uiStore`, `outputStore`)
-- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (`useDirtyState`, `useLoadSettings`)
-- **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`, `settingsService`)
+- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (
+  `useDirtyState`, `useLoadSettings`)
+- **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
+  `settingsService`)
 - **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
 - **bindings.ts** - Auto-generated TypeScript bindings from Rust (via tauri-specta)
 
 ### Rust Backend Architecture (apps/repo-manage/src-tauri)
+
 - **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs)
 - **repo-manage-core/src/** - Core business logic
   - **lms/** - Canvas/Moodle LMS client integration
@@ -55,6 +61,7 @@ pnpm --filter @repo-edu/repo-manage gen:bindings # Regenerate TS bindings from R
   - **settings/** - Configuration management with JSON Schema validation
 
 ### Type Flow
+
 Rust types → tauri-specta → bindings.ts → Frontend services → Zustand stores
 
 After changing Rust types, run `gen:bindings` to update TypeScript bindings.

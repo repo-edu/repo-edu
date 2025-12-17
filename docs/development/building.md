@@ -58,7 +58,8 @@ pnpm gen:bindings
 
 ## Dependency Management
 
-This monorepo uses pnpm catalogs for consistent dependency versions. See the main README for details.
+This monorepo uses pnpm catalogs for consistent dependency versions. See the main README for
+details.
 
 ### Updating Dependencies
 

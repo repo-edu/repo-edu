@@ -1,6 +1,7 @@
 # LMS Import
 
-The LMS Import tab allows you to fetch student rosters and group assignments from your Learning Management System.
+The LMS Import tab allows you to fetch student rosters and group assignments from your Learning
+Management System.
 
 ## Supported LMS Platforms
 

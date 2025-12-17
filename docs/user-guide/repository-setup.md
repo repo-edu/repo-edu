@@ -1,6 +1,7 @@
 # Repository Setup
 
-The Repository Setup tab allows you to create and manage student repositories on Git hosting platforms.
+The Repository Setup tab allows you to create and manage student repositories on Git hosting
+platforms.
 
 ## Supported Platforms
 
