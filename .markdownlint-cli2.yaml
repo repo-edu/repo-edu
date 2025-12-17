@@ -1,9 +1,5 @@
 # markdownlint-cli2 configuration
+config: .markdownlint.yaml
 ignores:
   - "docs/reference/CLI.md"
   - "**/node_modules/**"
-
-config:
-  MD013: false  # Line length - impractical for prose and tables
-  MD041: false  # First line heading - conflicts with VitePress frontmatter
-  MD060: false  # Table column style - too strict, tables render fine

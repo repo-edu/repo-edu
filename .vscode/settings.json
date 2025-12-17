@@ -35,18 +35,13 @@
     "github.copilot.chat.editor.temporalContext.enabled": true,
     "github.copilot.chat.edits.temporalContext.enabled": true,
     //
-    "prettier.enable": true,
-    "prettier.tabWidth": 4,
-    "prettier.proseWrap": "always",
-    "prettier.printWidth": 88,
-    //
     "rewrap.autoWrap.enabled": true,
     // Puts a single space between comment character "//" and comment text
     "rewrap.reformat": true,
     //
     "[markdown]": {
-        "editor.defaultFormatter": null,
-        "editor.formatOnSave": false,
+        "editor.defaultFormatter": "dprint.dprint",
+        "editor.formatOnSave": true,
         "editor.tabSize": 4,
         "editor.rulers": [
             80,
