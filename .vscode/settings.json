@@ -1,0 +1,59 @@
+{
+    "cSpell.enabled": true,
+    "cSpell.import": [
+        "../../dev-config/cspell.json"
+    ],
+    //
+    "editor.codeActionsOnSave": {
+        "source.addMissingImports": "always",
+        "source.organizeImports": "always",
+        "source.fixAll.eslint": "always",
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.detectIndentation": false,
+    "editor.formatOnSave": true,
+    //
+    // Controls how the editor should render whitespace characters.
+    //  - none
+    //  - boundary: Render whitespace characters except for single spaces between words.
+    //  - selection: Render whitespace characters only on selected text.
+    //  - trailing: Render only trailing whitespace characters.
+    //  - all
+    "editor.renderWhitespace": "boundary",
+    "editor.rulers": [
+        88,
+    ],
+    "evenBetterToml.semanticTokens": false,
+    "evenBetterToml.schema.enabled": false,
+    //
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    //
+    "github.copilot.editor.enableCodeActions": false,
+    "github.copilot.chat.editor.temporalContext.enabled": true,
+    "github.copilot.chat.edits.temporalContext.enabled": true,
+    //
+    "prettier.enable": true,
+    "prettier.tabWidth": 4,
+    "prettier.proseWrap": "always",
+    "prettier.printWidth": 88,
+    //
+    "rewrap.autoWrap.enabled": true,
+    // Puts a single space between comment character "//" and comment text
+    "rewrap.reformat": true,
+    //
+    "[markdown]": {
+        "editor.defaultFormatter": null,
+        "editor.formatOnSave": false,
+        "editor.tabSize": 4,
+        "editor.rulers": [
+            80,
+            88
+        ]
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+}
