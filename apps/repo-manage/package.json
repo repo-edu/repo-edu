@@ -9,6 +9,11 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build --debug --bundles app",
+    "tauri:build:release": "tauri build",
+    "cli:build": "cargo build -p repo-manage-cli",
+    "cli:build:release": "cargo build -p repo-manage-cli --release",
     "gen:bindings": "cargo run -p repo-manage-tauri --bin export_bindings",
     "test": "vitest run",
     "test:watch": "vitest"
