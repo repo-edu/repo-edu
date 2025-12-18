@@ -2,6 +2,7 @@
 //!
 //! These tests verify complete workflows and end-to-end functionality.
 
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::TempDir;
@@ -9,7 +10,7 @@ use tempfile::TempDir;
 // ===== Helper Functions =====
 
 fn cli() -> Command {
-    let mut cmd = Command::cargo_bin("redu").unwrap();
+    let mut cmd = cargo_bin_cmd!("redu");
     // Each test gets its own unique temp directory for isolation
     let test_dir = TempDir::new().unwrap();
     let test_path = test_dir.keep();
