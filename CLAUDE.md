@@ -7,28 +7,29 @@ repository.
 
 ```bash
 # Development
-pnpm install                                    # Install all dependencies
-pnpm --filter @repo-edu/repo-manage tauri dev  # Run desktop app in dev mode
+pnpm install              # Install all dependencies
+pnpm tauri:dev            # Run desktop app in dev mode
 
 # Building
-pnpm --filter @repo-edu/repo-manage tauri build  # Build production app
-cargo build -p repo-manage-core                  # Build Rust core library
-cargo build -p repo-manage-cli                   # Build CLI (binary: redu)
+pnpm tauri:build          # Build debug Tauri app (.app only)
+pnpm tauri:build:release  # Build release Tauri app (.app + .dmg)
+pnpm cli:build            # Build debug CLI (binary: redu)
+pnpm cli:build:release    # Build release CLI
 
 # Testing
-pnpm --filter @repo-edu/repo-manage test:run     # Run frontend tests (vitest)
-cargo test -p repo-manage-core                   # Run Rust core tests
-cargo test -p repo-manage-cli                    # Run CLI tests
+pnpm test                 # Run all tests (TS + Rust)
+pnpm test:ts              # Run frontend tests (vitest)
+pnpm test:rs              # Run Rust tests
 
 # Linting & Formatting
-pnpm lint                                        # Biome check
-pnpm lint:fix                                    # Biome fix
-pnpm format                                      # Biome format
-cargo fmt                                        # Rust format
-cargo clippy                                     # Rust lints
+pnpm fmt                  # Format all (TS + Rust + Markdown)
+pnpm check                # Check all (Biome + Clippy + Markdown)
+pnpm fix                  # Fix all auto-fixable issues
+pnpm typecheck            # Type check TS and Rust
+pnpm validate             # Run check + typecheck + test
 
 # Type Bindings
-pnpm --filter @repo-edu/repo-manage gen:bindings # Regenerate TS bindings from Rust
+pnpm gen:bindings         # Regenerate TS bindings from Rust (from apps/repo-manage)
 ```
 
 ## Architecture
