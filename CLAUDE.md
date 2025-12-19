@@ -25,8 +25,8 @@ pnpm test:ts              # Run frontend tests (vitest)
 pnpm test:rs              # Run Rust tests
 
 # Run single tests
-pnpm test:ts -- <pattern>              # Run specific frontend test
-cargo test -p repo-manage-core <name>  # Run specific Rust test
+pnpm test:ts -- <pattern>           # Run specific frontend test
+cargo test -p repo-manage-core <n>  # Run specific Rust test
 
 # Linting & Formatting
 pnpm fmt                  # Format all (TS + Rust + Markdown)
@@ -47,14 +47,28 @@ pnpm gen:bindings         # Regenerate TS bindings from Rust
 
 ## Architecture
 
-### Monorepo Structure
+### Workspace Structure
 
-- **apps/repo-manage/** - Main Tauri desktop app
-  - **src/** - React frontend (Vite + TypeScript)
-  - **src-tauri/** - Tauri Rust backend with commands
-  - **repo-manage-core/** - Shared Rust library (LMS, platform APIs, settings)
-  - **repo-manage-cli/** - CLI tool (`redu` binary)
-- **packages/ui/** - Shared shadcn/ui components
+The repository uses two workspace systems:
+
+- **pnpm workspace** (root `pnpm-workspace.yaml`) — manages TypeScript packages
+- **Cargo workspace** (root `Cargo.toml`) — manages all Rust crates
+
+```bash
+repo-edu/
+├── Cargo.toml              # Rust workspace root
+├── Cargo.lock              # Shared lock file for all Rust crates
+├── package.json            # pnpm scripts (delegates to workspaces)
+├── pnpm-workspace.yaml     # TypeScript workspace config
+├── apps/
+│   └── repo-manage/        # Main Tauri desktop app
+│       ├── src/            # React frontend
+│       ├── src-tauri/      # Tauri Rust backend (workspace member)
+│       ├── repo-manage-core/   # Shared Rust library (workspace member)
+│       └── repo-manage-cli/    # CLI tool (workspace member)
+└── packages/
+    └── ui/                 # Shared shadcn/ui components
+```
 
 ### Shared Operations Layer
 

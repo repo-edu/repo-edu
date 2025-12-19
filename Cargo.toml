@@ -1,22 +1,32 @@
 [workspace]
-members = ["repo-manage-core", "repo-manage-cli", "src-tauri"]
+members = [
+    "apps/repo-manage/src-tauri",
+    "apps/repo-manage/repo-manage-core",
+    "apps/repo-manage/repo-manage-cli",
+]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["Repo Edu Contributors"]
-license = "MIT"
-repository = "https://github.com/repo-edu/workspace"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/repo-edu/repo-edu"
 
 [workspace.dependencies]
-# Core dependencies
+# Async runtime
 tokio = { version = "1", features = ["full"] }
+
+# Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+
+# Error handling
 anyhow = "1"
 thiserror = "2.0"
+
+# Date/time
 chrono = { version = "0.4", features = ["serde"] }
 
 # Git operations (vendored to avoid system OpenSSL dependency)

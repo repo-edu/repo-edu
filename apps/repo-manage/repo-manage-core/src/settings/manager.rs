@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn test_get_config_dir() {
         let config_dir = SettingsManager::get_config_dir().unwrap();
-        assert!(config_dir.to_string_lossy().contains("repobee-tauri"));
+        assert!(config_dir.to_string_lossy().contains("repo-edu"));
     }
 
     #[test]

@@ -25,5 +25,5 @@ pub async fn clone_repos(
         "Clone functionality not yet implemented",
     ));
 
-    Err(PlatformError::Other("Clone not implemented".into()).into())
+    Err(PlatformError::Other("Clone not implemented".into()))
 }
