@@ -3,6 +3,10 @@ members = [
     "apps/repo-manage/src-tauri",
     "apps/repo-manage/repo-manage-core",
     "apps/repo-manage/repo-manage-cli",
+    "crates/lms-common",
+    "crates/lms-client",
+    "crates/canvas-lms",
+    "crates/moodle-lms",
 ]
 resolver = "2"
 
@@ -16,6 +20,7 @@ repository = "https://github.com/repo-edu/repo-edu"
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -44,8 +49,24 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 
+# URL handling
+url = "2.5"
+
+# Token storage (optional for lms crates)
+keyring = "3.6"
+whoami = "1.5"
+
+# OAuth2 (optional for lms crates)
+oauth2 = "5.0"
+
 # Testing
 tempfile = "3.0"
+mockito = "1.4"
 
 [profile.dev]
 debug = 1  # Line tables only, smaller artifacts
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

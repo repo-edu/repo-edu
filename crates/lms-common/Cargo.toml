@@ -1,0 +1,30 @@
+[package]
+name = "lms-common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Common traits, types, and utilities for LMS API clients"
+keywords = ["lms", "canvas", "moodle", "education"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+keyring = { workspace = true, optional = true }
+whoami = { workspace = true }
+url = { workspace = true }
+
+[features]
+default = []
+secure-storage = ["keyring"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

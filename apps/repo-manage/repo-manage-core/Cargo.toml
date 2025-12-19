@@ -44,11 +44,8 @@ jsonschema = "0.37"
 glob = "0.3"
 
 # LMS client (unified)
-# TODO: Change to git dependency after pushing to GitHub:
-# lms-client = { git = "https://github.com/repo-edu/lms-api" }
-# lms-common = { git = "https://github.com/repo-edu/lms-api" }
-lms-client = { path = "/Users/dvbeek/1-repos/lms-api/lms-client" }
-lms-common = { path = "/Users/dvbeek/1-repos/lms-api/lms-common" }
+lms-client = { path = "../../../crates/lms-client" }
+lms-common = { path = "../../../crates/lms-common" }
 
 [dev-dependencies]
 tempfile.workspace = true

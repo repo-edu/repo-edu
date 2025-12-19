@@ -1,0 +1,20 @@
+[package]
+name = "lms-client"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Unified Rust API client for Learning Management Systems (Canvas, Moodle)"
+keywords = ["lms", "canvas", "moodle", "education"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+lms-common = { path = "../lms-common" }
+canvas-lms = { path = "../canvas-lms" }
+moodle-lms = { path = "../moodle-lms" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

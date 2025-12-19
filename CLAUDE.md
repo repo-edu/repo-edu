@@ -66,6 +66,11 @@ repo-edu/
 │       ├── src-tauri/      # Tauri Rust backend (workspace member)
 │       ├── repo-manage-core/   # Shared Rust library (workspace member)
 │       └── repo-manage-cli/    # CLI tool (workspace member)
+├── crates/                 # Shared Rust libraries
+│   ├── lms-common/         # Common LMS traits, types, error handling
+│   ├── lms-client/         # Unified LMS client (Canvas/Moodle selection)
+│   ├── canvas-lms/         # Canvas LMS API client
+│   └── moodle-lms/         # Moodle LMS API client
 └── packages/
     └── ui/                 # Shared shadcn/ui components
 ```

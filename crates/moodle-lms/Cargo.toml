@@ -1,0 +1,28 @@
+[package]
+name = "moodle-lms"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Comprehensive Rust client for the Moodle LMS API"
+keywords = ["moodle", "lms", "education", "api"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+lms-common = { path = "../lms-common" }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

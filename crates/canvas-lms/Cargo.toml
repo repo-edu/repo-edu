@@ -1,0 +1,31 @@
+[package]
+name = "canvas-lms"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Comprehensive Rust client for the Canvas LMS API"
+keywords = ["canvas", "lms", "education", "api", "instructure"]
+categories = ["api-bindings", "web-programming"]
+
+[dependencies]
+lms-common = { path = "../lms-common" }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+async-trait = { workspace = true }
+oauth2 = { workspace = true, optional = true }
+
+[features]
+default = []
+oauth = ["oauth2", "lms-common/secure-storage"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+mockito = { workspace = true }
