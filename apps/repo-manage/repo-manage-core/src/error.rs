@@ -1,5 +1,6 @@
 //! Error types for platform operations
 
+use lms_common::error::LmsError;
 use thiserror::Error;
 
 /// Result type alias for platform operations
@@ -35,6 +36,10 @@ pub enum PlatformError {
     /// Git operation error
     #[error("Git error: {0}")]
     GitError(#[from] git2::Error),
+
+    /// LMS API error
+    #[error("LMS error: {0}")]
+    LmsError(#[from] LmsError),
 
     /// Unexpected platform error
     #[error("Unexpected error: {0}")]

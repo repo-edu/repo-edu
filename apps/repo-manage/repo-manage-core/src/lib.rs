@@ -5,14 +5,22 @@
 
 pub mod error;
 pub mod lms;
+pub mod operations;
 pub mod platform;
+pub mod progress;
 pub mod settings;
 pub mod setup;
 pub mod types;
 
 // Re-export commonly used items
 pub use error::{PlatformError, Result};
-pub use platform::{Platform, PlatformAPI};
+pub use operations::{
+    clone_repos, generate_lms_files, setup_repos, verify_lms_course, verify_platform, CloneParams,
+    GenerateLmsFilesParams, GenerateLmsFilesResult, SetupParams, VerifyLmsParams, VerifyLmsResult,
+    VerifyParams,
+};
+pub use platform::{create_platform, Platform, PlatformAPI, PlatformParams, PlatformType};
+pub use progress::ProgressEvent;
 pub use setup::{setup_student_repos, SetupError, SetupResult};
 pub use types::{
     Issue, IssueState, Repo, StudentRepo, StudentTeam, Team, TeamPermission, TemplateRepo,

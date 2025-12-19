@@ -48,7 +48,7 @@ impl SettingsManager {
             return Ok(PathBuf::from(config_dir));
         }
         // Try using directories crate first for better XDG compliance
-        if let Some(proj_dirs) = directories::ProjectDirs::from("", "", "repobee-tauri") {
+        if let Some(proj_dirs) = directories::ProjectDirs::from("", "", "repo-edu") {
             return Ok(proj_dirs.config_dir().to_path_buf());
         }
 
@@ -60,20 +60,20 @@ impl SettingsManager {
                 })?
                 .join("Library")
                 .join("Application Support")
-                .join("repobee-tauri")
+                .join("repo-edu")
         } else if cfg!(target_os = "windows") {
             dirs::config_dir()
                 .ok_or_else(|| ConfigError::ConfigDirError {
                     message: "Could not find config directory".to_string(),
                 })?
-                .join("repobee-tauri")
+                .join("repo-edu")
         } else {
             // Linux and other Unix-like systems
             dirs::config_dir()
                 .ok_or_else(|| ConfigError::ConfigDirError {
                     message: "Could not find config directory".to_string(),
                 })?
-                .join("repobee-tauri")
+                .join("repo-edu")
         };
 
         Ok(config_dir)

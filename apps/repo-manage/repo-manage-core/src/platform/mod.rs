@@ -4,6 +4,7 @@ use crate::error::Result;
 use crate::types::{Issue, IssueState, Repo, Team, TeamPermission};
 use std::path::PathBuf;
 
+pub mod factory;
 pub mod gitea;
 pub mod github;
 pub mod gitlab;
@@ -14,6 +15,9 @@ pub use gitea::GiteaAPI;
 pub use github::GitHubAPI;
 pub use gitlab::GitLabAPI;
 pub use local::LocalAPI;
+
+// Re-export factory
+pub use factory::{create_platform, PlatformParams, PlatformType};
 
 // ============================================================================
 // Platform Enum (Enum + Trait Pattern)

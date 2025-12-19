@@ -80,11 +80,25 @@ fn test_profile_show() {
         .stdout(predicate::str::contains("Current Configuration"));
 }
 
-// ===== Setup Subcommand Tests =====
+// ===== Repo Subcommand Tests =====
 
 #[test]
-fn test_setup_help() {
+fn test_repo_help() {
     cli()
+        .arg("repo")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Repository operations"))
+        .stdout(predicate::str::contains("setup"))
+        .stdout(predicate::str::contains("verify"))
+        .stdout(predicate::str::contains("clone"));
+}
+
+#[test]
+fn test_repo_setup_help() {
+    cli()
+        .arg("repo")
         .arg("setup")
         .arg("--help")
         .assert()
@@ -94,28 +108,62 @@ fn test_setup_help() {
         .stdout(predicate::str::contains("--template"));
 }
 
-// ===== Verify Subcommand Tests =====
-
 #[test]
-fn test_verify_help() {
+fn test_repo_verify_help() {
     cli()
+        .arg("repo")
         .arg("verify")
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Verify platform settings"));
+        .stdout(predicate::str::contains("Verify git platform"));
 }
 
-// ===== Clone Subcommand Tests =====
-
 #[test]
-fn test_clone_help() {
+fn test_repo_clone_help() {
     cli()
+        .arg("repo")
         .arg("clone")
         .arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("Clone student repositories"));
+}
+
+// ===== LMS Subcommand Tests =====
+
+#[test]
+fn test_lms_help() {
+    cli()
+        .arg("lms")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("LMS operations"))
+        .stdout(predicate::str::contains("verify"))
+        .stdout(predicate::str::contains("generate"));
+}
+
+#[test]
+fn test_lms_verify_help() {
+    cli()
+        .arg("lms")
+        .arg("verify")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Verify LMS course"));
+}
+
+#[test]
+fn test_lms_generate_help() {
+    cli()
+        .arg("lms")
+        .arg("generate")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Generate student files"));
 }
 
 // ===== Error Scenarios Tests =====

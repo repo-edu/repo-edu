@@ -1,8 +1,8 @@
 use crate::error::AppError;
 use repo_manage_core::{
-    create_lms_client_with_params, generate_repobee_yaml_with_progress,
-    get_student_info_with_progress, get_token_generation_instructions, open_token_generation_url,
-    write_csv_file, write_yaml_file, FetchProgress, LmsClientTrait, LmsMemberOption, YamlConfig,
+    generate_lms_files as core_generate_lms_files, get_token_generation_instructions,
+    open_token_generation_url, verify_lms_course as core_verify_lms_course, GenerateLmsFilesParams,
+    ProgressEvent, VerifyLmsParams,
 };
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
@@ -35,23 +35,26 @@ pub async fn open_token_url(base_url: String, lms_type: String) -> Result<(), Ap
 #[specta::specta]
 pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, AppError> {
     let lms_label = lms_display_name(&params.lms_type);
-    let client = create_lms_client_with_params(
-        &params.lms_type,
-        params.base_url.clone(),
-        params.access_token,
-    )?;
 
-    // Get course info using user-provided course identifier
-    let course = client.get_course(&params.course_id).await?;
+    let core_params = VerifyLmsParams {
+        lms_type: params.lms_type.clone(),
+        base_url: params.base_url,
+        access_token: params.access_token,
+        course_id: params.course_id,
+    };
+
+    let result = core_verify_lms_course(&core_params, |_| {})
+        .await
+        .map_err(|e| AppError::new(e.to_string()))?;
 
     Ok(CommandResult {
         success: true,
-        message: format!("✓ {} course verified: {}", lms_label, course.name),
+        message: format!("✓ {} course verified: {}", lms_label, result.course_name),
         details: Some(format!(
             "Course ID: {}\nCourse Name: {}\nCourse Code: {}",
-            course.id,
-            course.name,
-            course.course_code.as_deref().unwrap_or("N/A")
+            result.course_id,
+            result.course_name,
+            result.course_code.as_deref().unwrap_or("N/A")
         )),
     })
 }
@@ -67,127 +70,81 @@ pub async fn generate_lms_files(
     let output_path = canonicalize_dir(&params.output_folder)
         .map_err(|e| AppError::with_details("Output folder is invalid", e.to_string()))?;
 
-    let lms_label = lms_display_name(&params.lms_type);
-    let client =
-        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)?;
-
-    let cli_progress = Arc::new(Mutex::new(InlineCliState::default()));
-
-    // Fetch student information using unified client
-    let fetch_progress_state = Arc::clone(&cli_progress);
-    let fetch_progress_channel = progress.clone();
-    let course_id = params.course_id.clone();
-    let students =
-        get_student_info_with_progress(&client, &course_id, move |update| match update {
-            FetchProgress::FetchingUsers => {
-                emit_standard_message(
-                    &fetch_progress_channel,
-                    &format!("Fetching students from {}...", lms_label),
-                );
-            }
-            FetchProgress::FetchingGroups => {
-                emit_standard_message(
-                    &fetch_progress_channel,
-                    &format!("Fetching groups from {}...", lms_label),
-                );
-            }
-            FetchProgress::FetchedUsers { count } => {
-                emit_standard_message(
-                    &fetch_progress_channel,
-                    &format!("Retrieved {} students", count),
-                );
-            }
-            FetchProgress::FetchedGroups { count } => {
-                emit_standard_message(
-                    &fetch_progress_channel,
-                    &format!("Retrieved {} groups", count),
-                );
-            }
-            FetchProgress::FetchingGroupMembers {
-                current,
-                total,
-                group_name,
-            } => {
-                if let Ok(mut state) = fetch_progress_state.lock() {
-                    emit_inline_message(
-                        &fetch_progress_channel,
-                        &mut state,
-                        &format!(
-                            "Fetching {} group memberships {}/{}: {}",
-                            lms_label,
-                            current,
-                            total.max(1),
-                            group_name
-                        ),
-                    );
-                }
-            }
-        })
-        .await?;
-
-    if let Ok(mut state) = cli_progress.lock() {
-        state.finalize();
-    }
-
-    let student_count = students.len();
-
-    emit_standard_message(
-        &progress,
-        &format!("Fetched {} students from {}.", student_count, lms_label),
-    );
-    emit_standard_message(&progress, "Preparing files...");
-    let mut generated_files = Vec::new();
-
-    // Generate YAML file if requested
-    if params.yaml {
-        let config = YamlConfig {
-            member_option: LmsMemberOption::parse(&params.member_option),
-            include_group: params.include_group,
-            include_member: params.include_member,
-            include_initials: params.include_initials,
-            full_groups: params.full_groups,
-        };
-
-        let teams = generate_repobee_yaml_with_progress(
-            &students,
-            &config,
-            |_, _, _| {}, // YAML generation is too fast to need progress
-        )?;
-
-        let yaml_path = output_path.join(&params.yaml_file);
-        write_yaml_file(&teams, &yaml_path)?;
-
-        // Get absolute path for display
-        let absolute_yaml_path = yaml_path.canonicalize().unwrap_or(yaml_path.clone());
-        generated_files.push(format!(
-            "YAML: {} ({} teams)",
-            absolute_yaml_path.display(),
-            teams.len()
-        ));
-    }
-
-    // Generate CSV file if requested
-    if params.csv {
-        let csv_path = output_path.join(&params.csv_file);
-        write_csv_file(&students, &csv_path)?;
-
-        // Get absolute path for display
-        let absolute_csv_path = csv_path.canonicalize().unwrap_or(csv_path.clone());
-        generated_files.push(format!("CSV: {}", absolute_csv_path.display()));
-    }
-
     // Generate Excel file if requested (TODO: implement Excel writer)
     if params.xlsx {
         return Err(AppError::new("Excel file generation not yet implemented"));
     }
 
+    let core_params = GenerateLmsFilesParams {
+        lms_type: params.lms_type.clone(),
+        base_url: params.base_url,
+        access_token: params.access_token,
+        course_id: params.course_id,
+        output_folder: output_path,
+        yaml: params.yaml,
+        yaml_file: params.yaml_file,
+        csv: params.csv,
+        csv_file: params.csv_file,
+        member_option: params.member_option,
+        include_group: params.include_group,
+        include_member: params.include_member,
+        include_initials: params.include_initials,
+        full_groups: params.full_groups,
+    };
+
+    let cli_progress = Arc::new(Mutex::new(InlineCliState::default()));
+    let progress_channel = progress.clone();
+    let progress_state = Arc::clone(&cli_progress);
+
+    let result = core_generate_lms_files(&core_params, move |event| match event {
+        ProgressEvent::Status(msg) => {
+            emit_standard_message(&progress_channel, &msg);
+        }
+        ProgressEvent::Progress {
+            current,
+            total,
+            message,
+        } => {
+            if let Ok(mut state) = progress_state.lock() {
+                emit_inline_message(
+                    &progress_channel,
+                    &mut state,
+                    &format!("[{}/{}] {}", current, total.max(1), message),
+                );
+            }
+        }
+        ProgressEvent::Started { operation } => {
+            emit_standard_message(&progress_channel, &format!("Starting: {}", operation));
+        }
+        ProgressEvent::Completed { operation, details } => {
+            let msg = if let Some(d) = details {
+                format!("✓ {}: {}", operation, d)
+            } else {
+                format!("✓ {}", operation)
+            };
+            emit_standard_message(&progress_channel, &msg);
+        }
+        _ => {}
+    })
+    .await
+    .map_err(|e| AppError::new(e.to_string()))?;
+
+    if let Ok(mut state) = cli_progress.lock() {
+        state.finalize();
+    }
+
     Ok(CommandResult {
         success: true,
-        message: format!("✓ Successfully generated {} file(s)", generated_files.len()),
+        message: format!(
+            "✓ Successfully generated {} file(s) from {} students",
+            result.generated_files.len(),
+            result.student_count
+        ),
         details: Some(format!(
-            "Students processed: {}\n\nGenerated files:\n{}",
-            student_count,
-            generated_files.join("\n")
+            "Students processed: {}\nTeams: {}\n\nGenerated files:\n{}",
+            result.student_count,
+            result.team_count,
+            result.generated_files.join("\n")
         )),
     })
 }

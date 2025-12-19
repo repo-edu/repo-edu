@@ -1,59 +1,25 @@
 use crate::error::AppError;
-use repo_manage_core::{Platform, PlatformAPI, StudentTeam};
+use repo_manage_core::{SetupParams as CoreSetupParams, StudentTeam, VerifyParams};
 use std::path::PathBuf;
 
 use super::types::{CloneParams, CommandResult, ConfigParams, SetupParams};
 use super::utils::canonicalize_dir;
 
-/// Create a Platform instance from configuration parameters
-fn create_platform(config: &ConfigParams) -> Result<Platform, AppError> {
-    if config.base_url.starts_with('/') || config.base_url.contains("local") {
-        // Local filesystem platform
-        Platform::local(
-            PathBuf::from(&config.base_url),
-            config.student_repos_group.clone(),
-            config.user.clone(),
-        )
-        .map_err(|e| AppError::new(e.to_string()))
-    } else if config.base_url.contains("github") {
-        Platform::github(
-            config.base_url.clone(),
-            config.access_token.clone(),
-            config.student_repos_group.clone(),
-            config.user.clone(),
-        )
-        .map_err(|e| AppError::new(e.to_string()))
-    } else if config.base_url.contains("gitlab") {
-        Platform::gitlab(
-            config.base_url.clone(),
-            config.access_token.clone(),
-            config.student_repos_group.clone(),
-            config.user.clone(),
-        )
-        .map_err(|e| AppError::new(e.to_string()))
-    } else if config.base_url.contains("gitea") {
-        Platform::gitea(
-            config.base_url.clone(),
-            config.access_token.clone(),
-            config.student_repos_group.clone(),
-            config.user.clone(),
-        )
-        .map_err(|e| AppError::new(e.to_string()))
-    } else {
-        Err(AppError::new(
-            "Unknown platform. URL must contain 'github', 'gitlab', 'gitea', or be a filesystem path",
-        ))
-    }
-}
-
 /// Verify platform configuration and authentication
 #[tauri::command]
 #[specta::specta]
 pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppError> {
-    let platform = create_platform(&params)?;
+    let verify_params = VerifyParams {
+        platform_type: None, // Auto-detect from URL
+        base_url: params.base_url.clone(),
+        access_token: params.access_token,
+        organization: params.student_repos_group.clone(),
+        user: params.user.clone(),
+    };
 
-    // Verify settings
-    platform.verify_settings().await?;
+    repo_manage_core::verify_platform(&verify_params, |_| {})
+        .await
+        .map_err(|e| AppError::new(e.to_string()))?;
 
     let platform_name = if params.base_url.starts_with('/') || params.base_url.contains("local") {
         "Local (filesystem)"
@@ -86,60 +52,41 @@ pub async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError>
         .map_err(|e| AppError::new(format!("Failed to parse YAML file: {}", e)))?;
 
     // Parse assignments (comma-separated template names)
-    let assignments: Vec<String> = params
+    let templates: Vec<String> = params
         .assignments
         .split(',')
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
 
-    if assignments.is_empty() {
+    if templates.is_empty() {
         return Err(AppError::new("No assignments specified"));
     }
 
-    // Create template URLs from assignments and template group
-    let template_urls: Vec<String> = assignments
-        .iter()
-        .map(|assignment| {
-            let path = if params.config.template_group.is_empty() {
-                // No template group specified, use student repos group
-                format!(
-                    "{}/{}/{}",
-                    params.config.base_url, params.config.student_repos_group, assignment
-                )
-            } else if params.config.template_group.starts_with('/') {
-                // Template group is an absolute path, use it directly
-                format!("{}/{}", params.config.template_group, assignment)
-            } else {
-                // Template group is relative, concatenate with base URL
-                format!(
-                    "{}/{}/{}",
-                    params.config.base_url, params.config.template_group, assignment
-                )
-            };
-
-            // For local filesystem paths, git2 expects regular paths without file:// prefix
-            path
-        })
-        .collect();
-
-    let platform = create_platform(&params.config)?;
-
-    // Create work directory
+    // Determine work directory
     let work_dir = PathBuf::from("./repobee-work");
-    std::fs::create_dir_all(&work_dir)
-        .map_err(|e| AppError::new(format!("Failed to create work directory: {}", e)))?;
 
-    // Run setup
-    let result = repo_manage_core::setup_student_repos(
-        &template_urls,
-        &student_teams,
-        &platform,
-        &work_dir,
-        true, // private repos
-        Some(&params.config.access_token),
-    )
-    .await?;
+    // Build setup params
+    let setup_params = CoreSetupParams {
+        platform_type: None, // Auto-detect from URL
+        base_url: params.config.base_url.clone(),
+        access_token: params.config.access_token.clone(),
+        organization: params.config.student_repos_group.clone(),
+        user: params.config.user.clone(),
+        template_org: if params.config.template_group.is_empty() {
+            None
+        } else {
+            Some(params.config.template_group.clone())
+        },
+        templates,
+        student_teams,
+        work_dir,
+        private: true,
+    };
+
+    let result = repo_manage_core::setup_repos(&setup_params, |_| {})
+        .await
+        .map_err(|e| AppError::new(e.to_string()))?;
 
     let details = format!(
         "Successfully created: {} repositories\nAlready existed: {} repositories\nErrors: {}",

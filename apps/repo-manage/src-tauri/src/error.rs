@@ -62,6 +62,7 @@ impl From<PlatformError> for AppError {
             PlatformError::FileError(msg) => format!("File error: {}", msg),
             PlatformError::NetworkError(_) => "Network error. Check your connection.".to_string(),
             PlatformError::GitError(_) => "Git operation failed.".to_string(),
+            PlatformError::LmsError(lms_err) => format!("LMS error: {}", lms_err),
             PlatformError::Unexpected(msg) => format!("Unexpected error: {}", msg),
             PlatformError::Other(msg) => msg.clone(),
         };
