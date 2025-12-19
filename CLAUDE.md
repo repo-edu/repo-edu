@@ -11,10 +11,10 @@ pnpm install              # Install all dependencies
 pnpm tauri:dev            # Run desktop app in dev mode
 
 # Building
-pnpm tauri:build          # Build debug Tauri app (.app only)
-pnpm tauri:build:release  # Build release Tauri app (.app + .dmg)
 pnpm cli:build            # Build debug CLI (binary: redu)
 pnpm cli:build:release    # Build release CLI
+pnpm tauri:build          # Build debug Tauri app (.app only)
+pnpm tauri:build:release  # Build release Tauri app (.app + .dmg)
 
 # Testing
 pnpm test                 # Run all tests (TS + Rust)

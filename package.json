@@ -20,10 +20,11 @@
         "typecheck": "pnpm typecheck:ts && pnpm typecheck:rs",
         "test": "pnpm test:ts && pnpm test:rs",
         "validate": "pnpm check && pnpm typecheck && pnpm test",
-        "tauri:dev": "pnpm --filter @repo-edu/repo-manage tauri dev",
-        "tauri:build": "pnpm --filter @repo-edu/repo-manage tauri build --debug --bundles app",
-        "tauri:build:release": "pnpm --filter @repo-edu/repo-manage tauri build",
-        "cli:build": "cargo build --manifest-path apps/repo-manage/Cargo.toml -p repo-manage-cli",
-        "cli:build:release": "cargo build --manifest-path apps/repo-manage/Cargo.toml -p repo-manage-cli --release"
+        "cli:build": "pnpm --filter @repo-edu/repo-manage cli:build",
+        "cli:build:release": "pnpm --filter @repo-edu/repo-manage cli:build:release",
+        "tauri:dev": "pnpm --filter @repo-edu/repo-manage tauri:dev",
+        "tauri:build": "pnpm --filter @repo-edu/repo-manage tauri:build",
+        "tauri:build:release": "pnpm --filter @repo-edu/repo-manage tauri:build:release",
+        "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings"
     }
 }

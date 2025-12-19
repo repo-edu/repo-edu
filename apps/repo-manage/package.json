@@ -1,44 +1,40 @@
 {
-  "name": "@repo-edu/repo-manage",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "packageManager": "pnpm@10.24.0",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build --debug --bundles app",
-    "tauri:build:release": "tauri build",
-    "cli:build": "cargo build -p repo-manage-cli",
-    "cli:build:release": "cargo build -p repo-manage-cli --release",
-    "gen:bindings": "cargo run -p repo-manage-tauri --bin export_bindings",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@repo-edu/ui": "workspace:*",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2",
-    "@tauri-apps/plugin-opener": "^2",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "zustand": "^5.0.9"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.1.17",
-    "@tauri-apps/cli": "^2",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "^5.1.1",
-    "jsdom": "^27.2.0",
-    "tailwindcss": "^4.1.17",
-    "typescript": "catalog:",
-    "vite": "^7.2.6",
-    "vitest": "^4.0.15"
-  }
+    "name": "@repo-edu/repo-manage",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "tauri:dev": "cargo tauri dev",
+        "tauri:build": "cargo tauri build --bundles app",
+        "tauri:build:release": "cargo tauri build --release",
+        "cli:build": "cargo build -p repo-manage-cli",
+        "cli:build:release": "cargo build -p repo-manage-cli --release",
+        "gen:bindings": "cargo run -p repo-manage-tauri --bin export_bindings",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@repo-edu/ui": "workspace:*",
+        "@tauri-apps/api": "^2",
+        "@tauri-apps/plugin-dialog": "^2",
+        "@tauri-apps/plugin-opener": "^2",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "zustand": "^5.0.9"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.1.17",
+        "@tauri-apps/cli": "^2",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.0",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@vitejs/plugin-react": "^5.1.1",
+        "jsdom": "^27.2.0",
+        "tailwindcss": "^4.1.17",
+        "typescript": "catalog:",
+        "vite": "^7.2.6",
+        "vitest": "^4.0.15"
+    }
 }
