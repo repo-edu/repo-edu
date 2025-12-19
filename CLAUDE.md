@@ -5,10 +5,13 @@ repository.
 
 ## Build & Development Commands
 
+All commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
+Use pnpm scripts exclusively—never raw cargo, npm, or npx commands.
+
 ```bash
 # Development
 pnpm install              # Install all dependencies
-pnpm tauri:dev            # Run desktop app in dev mode
+pnpm dev                  # Run desktop app in dev mode
 
 # Building
 pnpm cli:build            # Build debug CLI (binary: redu)
@@ -21,6 +24,10 @@ pnpm test                 # Run all tests (TS + Rust)
 pnpm test:ts              # Run frontend tests (vitest)
 pnpm test:rs              # Run Rust tests
 
+# Run single tests
+pnpm test:ts -- <pattern>              # Run specific frontend test
+cargo test -p repo-manage-core <name>  # Run specific Rust test
+
 # Linting & Formatting
 pnpm fmt                  # Format all (TS + Rust + Markdown)
 pnpm check                # Check all (Biome + Clippy + Markdown)
@@ -29,7 +36,13 @@ pnpm typecheck            # Type check TS and Rust
 pnpm validate             # Run check + typecheck + test
 
 # Type Bindings
-pnpm gen:bindings         # Regenerate TS bindings from Rust (from apps/repo-manage)
+pnpm gen:bindings         # Regenerate TS bindings from Rust
+
+# CLI
+./target/debug/redu --help            # Run CLI after building
+./target/debug/redu lms verify        # Example: verify LMS connection
+./target/debug/redu repo verify       # Example: verify git platform
+./target/debug/redu profile list      # Example: list profiles
 ```
 
 ## Architecture
@@ -43,11 +56,23 @@ pnpm gen:bindings         # Regenerate TS bindings from Rust (from apps/repo-man
   - **repo-manage-cli/** - CLI tool (`redu` binary)
 - **packages/ui/** - Shared shadcn/ui components
 
+### Shared Operations Layer
+
+The `repo-manage-core/src/operations/` module contains high-level operations shared between CLI
+and GUI:
+
+- `verify.rs` - Platform connection verification
+- `lms.rs` - LMS course verification and file generation
+- `setup.rs` - Student repository creation from templates
+- `clone.rs` - Repository cloning
+
+Both CLI and Tauri commands call these operations with a progress callback for status updates.
+
 ### Frontend Architecture (apps/repo-manage/src)
 
 - **stores/** - Zustand stores (`lmsFormStore`, `repoFormStore`, `uiStore`, `outputStore`)
-- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (
-  `useDirtyState`, `useLoadSettings`)
+- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state
+  (`useDirtyState`, `useLoadSettings`)
 - **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
   `settingsService`)
 - **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
@@ -60,12 +85,23 @@ pnpm gen:bindings         # Regenerate TS bindings from Rust (from apps/repo-man
   - **lms/** - Canvas/Moodle LMS client integration
   - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
   - **settings/** - Configuration management with JSON Schema validation
+  - **operations/** - Shared operations called by both CLI and GUI
+
+### CLI Structure (repo-manage-cli)
+
+The `redu` CLI uses clap with domain-based subcommands:
+
+- `redu lms verify|generate` - LMS operations
+- `redu repo verify|setup|clone` - Repository operations
+- `redu profile list|active|show|load` - Profile management
+
+CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
 
 ### Type Flow
 
 Rust types → tauri-specta → bindings.ts → Frontend services → Zustand stores
 
-After changing Rust types, run `gen:bindings` to update TypeScript bindings.
+After changing Rust types, run `pnpm gen:bindings` to update TypeScript bindings.
 
 ## Code Conventions
 

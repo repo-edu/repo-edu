@@ -2,6 +2,8 @@
     "name": "repo-edu-workspace",
     "private": true,
     "scripts": {
+        "dev": "pnpm tauri:dev",
+        "build": "pnpm tauri:build",
         "fmt:ts": "biome format",
         "check:ts": "biome check",
         "check:ts:fix": "biome check --write",
