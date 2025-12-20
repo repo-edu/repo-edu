@@ -28,6 +28,7 @@ struct GiteaTeam {
 #[derive(Debug, Deserialize)]
 struct GiteaUser {
     login: String,
+    #[allow(dead_code)]
     id: u64,
 }
 
@@ -37,6 +38,7 @@ struct GiteaRepo {
     description: Option<String>,
     private: bool,
     clone_url: String,
+    #[allow(dead_code)]
     owner: GiteaUser,
 }
 
@@ -48,6 +50,7 @@ struct GiteaIssue {
     state: String,
     created_at: String,
     user: GiteaUser,
+    #[allow(dead_code)]
     repository: Option<GiteaRepo>,
 }
 
@@ -145,15 +148,6 @@ impl GiteaAPI {
     async fn post<T: DeserializeOwned, B: Serialize>(&self, path: &str, body: &B) -> Result<T> {
         let response = self
             .request(reqwest::Method::POST, path)
-            .json(body)
-            .send()
-            .await?;
-        self.handle_response(response).await
-    }
-
-    async fn put<T: DeserializeOwned, B: Serialize>(&self, path: &str, body: &B) -> Result<T> {
-        let response = self
-            .request(reqwest::Method::PUT, path)
             .json(body)
             .send()
             .await?;
