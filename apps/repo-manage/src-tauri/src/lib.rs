@@ -1,7 +1,3 @@
-#[cfg(target_os = "macos")]
-#[macro_use]
-extern crate objc;
-
 mod commands;
 mod error;
 
@@ -11,19 +7,12 @@ use tauri::{Emitter, Manager};
 
 /// Disable macOS automatic Edit menu items (Dictation, Emoji & Symbols)
 #[cfg(target_os = "macos")]
-#[allow(deprecated, unexpected_cfgs)]
 fn disable_macos_edit_menu_extras() {
-    use cocoa::base::{id, nil, YES};
-    use cocoa::foundation::{NSString, NSUserDefaults};
+    use objc2_foundation::{ns_string, NSUserDefaults};
 
-    unsafe {
-        let defaults: id = NSUserDefaults::standardUserDefaults();
-        let key1 = NSString::alloc(nil).init_str("NSDisabledDictationMenuItem");
-        let key2 = NSString::alloc(nil).init_str("NSDisabledCharacterPaletteMenuItem");
-
-        let _: () = msg_send![defaults, setBool:YES forKey:key1];
-        let _: () = msg_send![defaults, setBool:YES forKey:key2];
-    }
+    let defaults = NSUserDefaults::standardUserDefaults();
+    defaults.setBool_forKey(true, ns_string!("NSDisabledDictationMenuItem"));
+    defaults.setBool_forKey(true, ns_string!("NSDisabledCharacterPaletteMenuItem"));
 }
 
 #[cfg(not(target_os = "macos"))]
