@@ -23,7 +23,8 @@ pub use platform::{create_platform, Platform, PlatformAPI, PlatformParams, Platf
 pub use progress::ProgressEvent;
 pub use setup::{setup_student_repos, SetupError, SetupResult};
 pub use types::{
-    Issue, IssueState, Repo, StudentRepo, StudentTeam, Team, TeamPermission, TemplateRepo,
+    Issue, IssueState, Repo, RepoCreateResult, StudentRepo, StudentTeam, Team, TeamPermission,
+    TemplateRepo,
 };
 
 // LMS re-exports

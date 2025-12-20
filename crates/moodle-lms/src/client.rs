@@ -118,10 +118,10 @@ impl MoodleClient {
 
         let text = response.text().await?;
         let value: Value = serde_json::from_str(&text).map_err(|e| {
+            let preview = text.chars().take(500).collect::<String>();
             LmsError::Other(format!(
                 "Failed to parse Moodle response: {}. Response: {}",
-                e,
-                &text[..text.len().min(500)]
+                e, preview
             ))
         })?;
 
@@ -137,10 +137,10 @@ impl MoodleClient {
         }
 
         serde_json::from_value(value).map_err(|e| {
+            let preview = text.chars().take(500).collect::<String>();
             LmsError::Other(format!(
                 "Failed to decode Moodle payload: {}. Response: {}",
-                e,
-                &text[..text.len().min(500)]
+                e, preview
             ))
         })
     }

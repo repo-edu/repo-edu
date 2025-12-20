@@ -48,10 +48,10 @@ impl From<MoodleCourse> for Course {
             enrollment_term_id: None,
             start_at: moodle
                 .startdate
-                .map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap_or_default()),
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0)),
             end_at: moodle
                 .enddate
-                .map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap_or_default()),
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0)),
             workflow_state: moodle.visible.map(|v| {
                 if v == 1 {
                     "available".to_string()
@@ -228,13 +228,13 @@ impl From<MoodleAssignment> for Assignment {
             course_id: moodle.course.to_string(),
             due_at: moodle
                 .duedate
-                .map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap_or_default()),
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0)),
             unlock_at: moodle
                 .allowsubmissionsfromdate
-                .map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap_or_default()),
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0)),
             lock_at: moodle
                 .cutoffdate
-                .map(|ts| DateTime::from_timestamp(ts as i64, 0).unwrap_or_default()),
+                .and_then(|ts| DateTime::from_timestamp(ts as i64, 0)),
             points_possible: moodle.grade,
             position: None,
             submission_types: None,

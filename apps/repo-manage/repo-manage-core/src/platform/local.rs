@@ -20,7 +20,7 @@
 
 use crate::error::{PlatformError, Result};
 use crate::platform::PlatformAPI;
-use crate::types::{Issue, IssueState, Repo, Team, TeamPermission};
+use crate::types::{Issue, IssueState, Repo, RepoCreateResult, Team, TeamPermission};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -296,12 +296,16 @@ impl PlatformAPI for LocalAPI {
         description: &str,
         private: bool,
         team: Option<&Team>,
-    ) -> Result<Repo> {
+    ) -> Result<RepoCreateResult> {
         let repo_path = self.repo_path(name);
 
         // If repo exists, return it
         if repo_path.exists() {
-            return self.read_json(&repo_path);
+            let repo: Repo = self.read_json(&repo_path)?;
+            return Ok(RepoCreateResult {
+                repo,
+                created: false,
+            });
         }
 
         // Create new repo
@@ -319,7 +323,10 @@ impl PlatformAPI for LocalAPI {
         }
 
         self.write_json(&repo_path, &repo)?;
-        Ok(repo)
+        Ok(RepoCreateResult {
+            repo,
+            created: true,
+        })
     }
 
     async fn delete_repo(&self, repo: &Repo) -> Result<()> {
@@ -590,7 +597,8 @@ mod tests {
         let repo = api
             .create_repo("test-repo", "Test repository", true, None)
             .await
-            .unwrap();
+            .unwrap()
+            .repo;
 
         assert_eq!(repo.name, "test-repo");
         assert_eq!(repo.description, "Test repository");
@@ -612,7 +620,8 @@ mod tests {
         let repo = api
             .create_repo("test-repo", "Test", true, Some(&team))
             .await
-            .unwrap();
+            .unwrap()
+            .repo;
 
         assert!(repo.description.contains("team:team1"));
 
@@ -628,7 +637,8 @@ mod tests {
         let repo = api
             .create_repo("test-repo", "Test", true, None)
             .await
-            .unwrap();
+            .unwrap()
+            .repo;
 
         let issue = api
             .create_issue("Bug report", "This is a bug", &repo, None)
@@ -681,7 +691,11 @@ mod tests {
         assert_eq!(api2.base_url(), api.base_url());
 
         // Verify different org has separate storage
-        let _repo1 = api.create_repo("repo1", "Test", true, None).await.unwrap();
+        let _repo1 = api
+            .create_repo("repo1", "Test", true, None)
+            .await
+            .unwrap()
+            .repo;
         let repos_org1 = api.get_repos(None).await.unwrap();
         let repos_org2 = api2.get_repos(None).await.unwrap();
 

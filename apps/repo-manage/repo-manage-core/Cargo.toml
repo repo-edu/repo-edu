@@ -15,6 +15,7 @@ tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+csv.workspace = true
 
 # Error handling
 anyhow.workspace = true
@@ -43,9 +44,13 @@ jsonschema = "0.37"
 # Pattern matching for file paths
 glob = "0.3"
 
+# URL handling
+url.workspace = true
+
 # LMS client (unified)
 lms-client = { path = "../../../crates/lms-client" }
 lms-common = { path = "../../../crates/lms-common" }
 
 [dev-dependencies]
 tempfile.workspace = true
+mockito.workspace = true

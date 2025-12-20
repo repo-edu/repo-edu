@@ -43,9 +43,7 @@ pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResu
         course_id: params.course_id,
     };
 
-    let result = core_verify_lms_course(&core_params, |_| {})
-        .await
-        .map_err(|e| AppError::new(e.to_string()))?;
+    let result = core_verify_lms_course(&core_params, |_| {}).await?;
 
     Ok(CommandResult {
         success: true,
@@ -126,8 +124,7 @@ pub async fn generate_lms_files(
         }
         _ => {}
     })
-    .await
-    .map_err(|e| AppError::new(e.to_string()))?;
+    .await?;
 
     if let Ok(mut state) = cli_progress.lock() {
         state.finalize();

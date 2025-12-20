@@ -2,8 +2,8 @@
 
 use crate::error::{PlatformError, Result};
 use crate::platform::PlatformAPI;
-use crate::types::{Issue, IssueState, Repo, Team, TeamPermission};
-use serde::{Deserialize, Serialize};
+use crate::types::{Issue, IssueState, Repo, RepoCreateResult, Team, TeamPermission};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// GitHub API client
 #[derive(Debug, Clone)]
@@ -99,7 +99,7 @@ impl GitHubAPI {
     }
 
     /// Make an authenticated GET request
-    async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
+    async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = format!("{}{}", self.api_url, path);
         let response = self
             .client
@@ -226,6 +226,26 @@ impl GitHubAPI {
         }
     }
 
+    /// Make a paginated GET request and aggregate all pages
+    async fn get_paginated<T: DeserializeOwned>(&self, path: &str) -> Result<Vec<T>> {
+        let mut page = 1;
+        let mut results = Vec::new();
+
+        loop {
+            let separator = if path.contains('?') { "&" } else { "?" };
+            let paged_path = format!("{path}{separator}per_page=100&page={page}");
+            let mut page_items: Vec<T> = self.get(&paged_path).await?;
+            let count = page_items.len();
+            results.append(&mut page_items);
+            if count < 100 {
+                break;
+            }
+            page += 1;
+        }
+
+        Ok(results)
+    }
+
     /// Convert HTTP error to PlatformError
     fn convert_error<T>(&self, status: u16, message: &str) -> Result<T> {
         match status {
@@ -246,14 +266,16 @@ impl GitHubAPI {
 
     /// Get team by name
     async fn get_team_by_name(&self, team_name: &str) -> Result<Option<GitHubTeam>> {
-        let teams: Vec<GitHubTeam> = self.get(&format!("/orgs/{}/teams", self.org_name)).await?;
+        let teams: Vec<GitHubTeam> = self
+            .get_paginated(&format!("/orgs/{}/teams", self.org_name))
+            .await?;
         Ok(teams.into_iter().find(|t| t.name == team_name))
     }
 
     /// Get team members
     async fn get_team_members(&self, team_slug: &str) -> Result<Vec<String>> {
         let members: Vec<GitHubUser> = self
-            .get(&format!(
+            .get_paginated(&format!(
                 "/orgs/{}/teams/{}/members",
                 self.org_name, team_slug
             ))
@@ -317,7 +339,9 @@ impl PlatformAPI for GitHubAPI {
     }
 
     async fn get_teams(&self, team_names: Option<&[String]>) -> Result<Vec<Team>> {
-        let teams: Vec<GitHubTeam> = self.get(&format!("/orgs/{}/teams", self.org_name)).await?;
+        let teams: Vec<GitHubTeam> = self
+            .get_paginated(&format!("/orgs/{}/teams", self.org_name))
+            .await?;
         let mut result_teams = Vec::new();
 
         for team in teams {
@@ -394,7 +418,7 @@ impl PlatformAPI for GitHubAPI {
         description: &str,
         private: bool,
         team: Option<&Team>,
-    ) -> Result<Repo> {
+    ) -> Result<RepoCreateResult> {
         // Check if repo already exists
         match self
             .get::<GitHubRepo>(&format!("/repos/{}/{}", self.org_name, name))
@@ -411,11 +435,13 @@ impl PlatformAPI for GitHubAPI {
                 if let Some(t) = team {
                     self.assign_repo(t, &repo, TeamPermission::Push).await?;
                 }
-                return Ok(repo);
+                return Ok(RepoCreateResult {
+                    repo,
+                    created: false,
+                });
             }
-            Err(_) => {
-                // Repo doesn't exist, create it
-            }
+            Err(PlatformError::NotFound(_)) => {}
+            Err(e) => return Err(e),
         }
 
         // Create new repo
@@ -441,7 +467,10 @@ impl PlatformAPI for GitHubAPI {
                 .await?;
         }
 
-        Ok(result_repo)
+        Ok(RepoCreateResult {
+            repo: result_repo,
+            created: true,
+        })
     }
 
     async fn delete_repo(&self, repo: &Repo) -> Result<()> {
@@ -451,7 +480,7 @@ impl PlatformAPI for GitHubAPI {
 
     async fn get_repos(&self, repo_urls: Option<&[String]>) -> Result<Vec<Repo>> {
         let repos: Vec<GitHubRepo> = self
-            .get(&format!("/orgs/{}/repos?per_page=100", self.org_name))
+            .get_paginated(&format!("/orgs/{}/repos", self.org_name))
             .await?;
         let mut result_repos = Vec::new();
 
@@ -495,7 +524,7 @@ impl PlatformAPI for GitHubAPI {
             .ok_or_else(|| PlatformError::not_found(format!("Team '{}' not found", team.name)))?;
 
         let repos: Vec<GitHubRepo> = self
-            .get(&format!(
+            .get_paginated(&format!(
                 "/orgs/{}/teams/{}/repos",
                 self.org_name, team_obj.slug
             ))
@@ -624,8 +653,8 @@ impl PlatformAPI for GitHubAPI {
         };
 
         let issues: Vec<GitHubIssue> = self
-            .get(&format!(
-                "/repos/{}/{}/issues?state={}&per_page=100",
+            .get_paginated(&format!(
+                "/repos/{}/{}/issues?state={}",
                 self.org_name, repo.name, state_str
             ))
             .await?;

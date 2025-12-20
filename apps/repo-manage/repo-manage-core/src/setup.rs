@@ -142,7 +142,7 @@ pub async fn create_student_repos<P: PlatformAPI>(
     private: bool,
 ) -> Result<(Vec<StudentRepo>, Vec<StudentRepo>)> {
     let mut newly_created = Vec::new();
-    let already_existing = Vec::new();
+    let mut already_existing = Vec::new();
 
     for team in teams {
         for template in templates {
@@ -158,19 +158,20 @@ pub async fn create_student_repos<P: PlatformAPI>(
                 )
                 .await
             {
-                Ok(repo) => {
-                    // Check if it's a new repo or existing by trying to get it first
-                    // For now, we'll assume create_repo handles this and returns the repo
+                Ok(result) => {
                     let student_repo = StudentRepo {
                         name: repo_name.clone(),
                         team: StudentTeam::with_name(team.name.clone(), team.members.clone()),
-                        url: repo.url.clone(),
+                        url: result.repo.url.clone(),
                         path: None,
+                        template: template.name.clone(),
                     };
 
-                    // Simple heuristic: if description is empty or matches our pattern, it's new
-                    // This is a simplification; in practice, we'd track this better
-                    newly_created.push(student_repo);
+                    if result.created {
+                        newly_created.push(student_repo);
+                    } else {
+                        already_existing.push(student_repo);
+                    }
                 }
                 Err(e) => {
                     // If it's a NotFound error on create, something is wrong
@@ -331,14 +332,7 @@ pub async fn setup_student_repos<P: PlatformAPI>(
     println!("\nPushing template content to student repositories...");
     for student_repo in &newly_created {
         // Find the corresponding template
-        // Student repo name format: {team-name}-{template-name}
-        // Extract template name (last component after last hyphen before team name)
-        let template_name = student_repo
-            .name
-            .split('-')
-            .next_back()
-            .unwrap_or(&student_repo.name);
-        if let Some(template) = templates.iter().find(|t| t.name == template_name) {
+        if let Some(template) = templates.iter().find(|t| t.name == student_repo.template) {
             if let Some(template_path) = &template.path {
                 match push_to_repo(template_path, &student_repo.url, token) {
                     Ok(_) => {
@@ -460,6 +454,41 @@ mod tests {
         assert_eq!(newly_created.len(), 2); // 1 team * 2 templates
         assert_eq!(newly_created[0].name, "team1-assignment1");
         assert_eq!(newly_created[1].name, "team1-assignment2");
+        assert_eq!(newly_created[0].template, "assignment1");
+        assert_eq!(newly_created[1].template, "assignment2");
+    }
+
+    #[tokio::test]
+    async fn test_create_student_repos_existing() {
+        let temp_dir = TempDir::new().unwrap();
+        let api = LocalAPI::new(
+            temp_dir.path().to_path_buf(),
+            "test-org".to_string(),
+            "teacher".to_string(),
+        )
+        .unwrap();
+
+        let team = api
+            .create_team("team1", Some(&["alice".to_string()]), TeamPermission::Push)
+            .await
+            .unwrap();
+
+        let templates = vec![
+            TemplateRepo::new("assignment1".to_string(), "url1".to_string()),
+            TemplateRepo::new("assignment2".to_string(), "url2".to_string()),
+        ];
+
+        let (created, existing) = create_student_repos(&[team.clone()], &templates, &api, true)
+            .await
+            .unwrap();
+        assert_eq!(created.len(), 2);
+        assert!(existing.is_empty());
+
+        let (created_again, existing_again) = create_student_repos(&[team], &templates, &api, true)
+            .await
+            .unwrap();
+        assert!(created_again.is_empty());
+        assert_eq!(existing_again.len(), 2);
     }
 
     #[tokio::test]

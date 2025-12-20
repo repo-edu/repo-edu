@@ -17,9 +17,7 @@ pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppErr
         user: params.user.clone(),
     };
 
-    repo_manage_core::verify_platform(&verify_params, |_| {})
-        .await
-        .map_err(|e| AppError::new(e.to_string()))?;
+    repo_manage_core::verify_platform(&verify_params, |_| {}).await?;
 
     let platform_name = if params.base_url.starts_with('/') || params.base_url.contains("local") {
         "Local (filesystem)"
@@ -84,9 +82,7 @@ pub async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError>
         private: true,
     };
 
-    let result = repo_manage_core::setup_repos(&setup_params, |_| {})
-        .await
-        .map_err(|e| AppError::new(e.to_string()))?;
+    let result = repo_manage_core::setup_repos(&setup_params, |_| {}).await?;
 
     let details = format!(
         "Successfully created: {} repositories\nAlready existed: {} repositories\nErrors: {}",

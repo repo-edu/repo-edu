@@ -14,16 +14,19 @@
 //!
 //! ```rust,no_run
 //! use lms_common::storage::{TokenManager, StorageMode};
+//! # fn main() -> Result<(), lms_common::LmsError> {
 //!
 //! // Development mode (plain file)
-//! let manager = TokenManager::new();
-//! manager.save_token("canvas", "https://canvas.tue.nl", "token123").unwrap();
+//! let manager = TokenManager::new()?;
+//! manager.save_token("canvas", "https://canvas.tue.nl", "token123")?;
 //!
 //! // Production mode (keychain) - requires "secure-storage" feature
 //! # #[cfg(feature = "secure-storage")]
 //! # {
-//! let manager = TokenManager::with_mode(StorageMode::Keychain);
-//! manager.save_token("canvas", "https://canvas.tue.nl", "token123").unwrap();
+//! let manager = TokenManager::with_mode(StorageMode::Keychain)?;
+//! manager.save_token("canvas", "https://canvas.tue.nl", "token123")?;
+//! # }
+//! # Ok(())
 //! # }
 //! ```
 
@@ -73,29 +76,29 @@ impl TokenManager {
     ///
     /// Uses `PlainFile` storage mode and the default config directory
     /// (`~/.config/lms-api` on Unix, `%APPDATA%\lms-api` on Windows).
-    pub fn new() -> Self {
+    pub fn new() -> LmsResult<Self> {
         Self::with_mode(StorageMode::default())
     }
 
     /// Create a token manager with a specific storage mode
-    pub fn with_mode(mode: StorageMode) -> Self {
-        let config_dir = Self::default_config_dir();
-        Self { mode, config_dir }
+    pub fn with_mode(mode: StorageMode) -> LmsResult<Self> {
+        let config_dir = Self::default_config_dir()?;
+        Ok(Self { mode, config_dir })
     }
 
     /// Create a token manager with a custom config directory
-    pub fn with_config_dir(config_dir: PathBuf) -> Self {
-        Self {
+    pub fn with_config_dir(config_dir: PathBuf) -> LmsResult<Self> {
+        Ok(Self {
             mode: StorageMode::default(),
             config_dir,
-        }
+        })
     }
 
     /// Get the default config directory
-    fn default_config_dir() -> PathBuf {
+    fn default_config_dir() -> LmsResult<PathBuf> {
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
-            .expect("Could not determine home directory");
+            .map_err(|_| LmsError::token_storage_error("Could not determine home directory"))?;
 
         #[cfg(target_os = "windows")]
         let config_dir = PathBuf::from(&home)
@@ -106,7 +109,7 @@ impl TokenManager {
         #[cfg(not(target_os = "windows"))]
         let config_dir = PathBuf::from(&home).join(".config").join("lms-api");
 
-        config_dir
+        Ok(config_dir)
     }
 
     /// Save a token
@@ -170,7 +173,19 @@ impl TokenManager {
         let tokens_file = self.tokens_file();
         let mut entries = if tokens_file.exists() {
             let content = fs::read_to_string(&tokens_file)?;
-            serde_json::from_str::<Vec<TokenEntry>>(&content).unwrap_or_default()
+            match serde_json::from_str::<Vec<TokenEntry>>(&content) {
+                Ok(parsed) => parsed,
+                Err(err) => {
+                    let backup_path =
+                        tokens_file.with_extension(format!("corrupt-{}", current_timestamp_secs()));
+                    let _ = fs::write(&backup_path, content);
+                    return Err(LmsError::token_storage_error(format!(
+                        "Failed to parse tokens file. Backup written to {}. Error: {}",
+                        backup_path.to_string_lossy(),
+                        err
+                    )));
+                }
+            }
         } else {
             Vec::new()
         };
@@ -210,7 +225,9 @@ impl TokenManager {
         }
 
         let content = fs::read_to_string(&tokens_file)?;
-        let entries: Vec<TokenEntry> = serde_json::from_str(&content)?;
+        let entries: Vec<TokenEntry> = serde_json::from_str(&content).map_err(|e| {
+            LmsError::token_storage_error(format!("Failed to parse tokens file: {}", e))
+        })?;
 
         entries
             .iter()
@@ -231,7 +248,9 @@ impl TokenManager {
         }
 
         let content = fs::read_to_string(&tokens_file)?;
-        let mut entries: Vec<TokenEntry> = serde_json::from_str(&content)?;
+        let mut entries: Vec<TokenEntry> = serde_json::from_str(&content).map_err(|e| {
+            LmsError::token_storage_error(format!("Failed to parse tokens file: {}", e))
+        })?;
 
         entries.retain(|e| !(e.lms_type == lms_type && e.base_url == base_url));
 
@@ -297,10 +316,11 @@ impl TokenManager {
     }
 }
 
-impl Default for TokenManager {
-    fn default() -> Self {
-        Self::new()
-    }
+fn current_timestamp_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 /// Generate a .gitignore entry for token files

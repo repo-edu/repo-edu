@@ -138,7 +138,10 @@ impl Validate for GuiSettings {
 
 /// Validate a URL string
 fn is_valid_url(url: &str) -> bool {
-    url.starts_with("http://") || url.starts_with("https://")
+    match url::Url::parse(url) {
+        Ok(parsed) => matches!(parsed.scheme(), "http" | "https"),
+        Err(_) => false,
+    }
 }
 
 /// Validate a date string in YYYY-MM-DD format

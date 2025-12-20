@@ -25,8 +25,11 @@ use lms_common::{LmsClient, Course, LmsError};
 ```rust
 use lms_common::storage::TokenManager;
 
-let manager = TokenManager::new();
+# fn main() -> Result<(), lms_common::LmsError> {
+let manager = TokenManager::new()?;
 manager.save_token("canvas", "https://canvas.edu", "token")?;
+# Ok(())
+# }
 ```
 
 ## License

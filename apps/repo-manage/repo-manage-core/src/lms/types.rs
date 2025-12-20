@@ -35,12 +35,15 @@ pub enum MemberOption {
 }
 
 impl MemberOption {
-    pub fn parse(s: &str) -> Self {
+    pub fn parse(s: &str) -> crate::error::Result<Self> {
         match s {
-            "(email, gitid)" => Self::Both,
-            "email" => Self::Email,
-            "git_id" => Self::GitId,
-            _ => Self::Both,
+            "(email, gitid)" => Ok(Self::Both),
+            "email" => Ok(Self::Email),
+            "git_id" => Ok(Self::GitId),
+            other => Err(crate::error::PlatformError::Other(format!(
+                "Unknown member option: {}",
+                other
+            ))),
         }
     }
 }

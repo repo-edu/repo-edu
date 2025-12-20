@@ -1,7 +1,7 @@
 //! Platform abstraction layer for GitHub, GitLab, Gitea, and Local (filesystem-based)
 
 use crate::error::Result;
-use crate::types::{Issue, IssueState, Repo, Team, TeamPermission};
+use crate::types::{Issue, IssueState, Repo, RepoCreateResult, Team, TeamPermission};
 use std::path::PathBuf;
 
 pub mod factory;
@@ -109,7 +109,7 @@ pub trait PlatformAPI {
 
     /// Create a new repository
     ///
-    /// Note: If the repository already exists, this should return the existing repository
+    /// Note: If the repository already exists, this should return it with `created = false`
     /// without raising an error (matching Python RepoBee behavior)
     ///
     /// # Arguments
@@ -123,7 +123,7 @@ pub trait PlatformAPI {
         description: &str,
         private: bool,
         team: Option<&Team>,
-    ) -> Result<Repo>;
+    ) -> Result<RepoCreateResult>;
 
     /// Delete a repository
     async fn delete_repo(&self, repo: &Repo) -> Result<()>;
@@ -293,7 +293,7 @@ impl PlatformAPI for Platform {
         description: &str,
         private: bool,
         team: Option<&Team>,
-    ) -> Result<Repo> {
+    ) -> Result<RepoCreateResult> {
         match self {
             Platform::GitHub(api) => api.create_repo(name, description, private, team).await,
             Platform::GitLab(api) => api.create_repo(name, description, private, team).await,

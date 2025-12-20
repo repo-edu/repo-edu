@@ -148,16 +148,13 @@ pub fn write_yaml_file(teams: &[StudentTeam], file_path: &Path) -> Result<()> {
 
 /// Write students to CSV file
 pub fn write_csv_file(students: &[StudentInfo], file_path: &Path) -> Result<()> {
-    use std::io::Write;
+    let mut writer =
+        csv::Writer::from_path(file_path).map_err(|e| PlatformError::Other(e.to_string()))?;
 
-    let mut file = std::fs::File::create(file_path)
-        .map_err(|e| PlatformError::Other(format!("Failed to create CSV file: {}", e)))?;
-
-    // Write header
-    writeln!(file, "Group,FullName,Name,ID,GitID,Mail")
+    writer
+        .write_record(["Group", "FullName", "Name", "ID", "GitID", "Mail"])
         .map_err(|e| PlatformError::Other(format!("Failed to write CSV header: {}", e)))?;
 
-    // Write rows
     for student in students {
         let group_name = student
             .group
@@ -165,18 +162,71 @@ pub fn write_csv_file(students: &[StudentInfo], file_path: &Path) -> Result<()> 
             .map(|g| g.name.clone())
             .unwrap_or_default();
 
-        writeln!(
-            file,
-            "{},{},{},{},{},{}",
-            group_name,
-            student.full_name,
-            student.name,
-            student.canvas_id,
-            student.git_id,
-            student.email
-        )
-        .map_err(|e| PlatformError::Other(format!("Failed to write CSV row: {}", e)))?;
+        writer
+            .write_record([
+                group_name,
+                student.full_name.clone(),
+                student.name.clone(),
+                student.canvas_id.clone(),
+                student.git_id.clone(),
+                student.email.clone(),
+            ])
+            .map_err(|e| PlatformError::Other(format!("Failed to write CSV row: {}", e)))?;
     }
 
+    writer
+        .flush()
+        .map_err(|e| PlatformError::Other(format!("Failed to flush CSV writer: {}", e)))?;
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn write_csv_file_handles_commas_and_quotes() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("students.csv");
+
+        let group = Group {
+            id: "1".to_string(),
+            name: "Group, \"A\"".to_string(),
+            description: None,
+            course_id: None,
+            members_count: None,
+            group_category_id: None,
+            is_public: None,
+            join_level: None,
+            max_membership: None,
+        };
+
+        let students = vec![StudentInfo {
+            group: Some(group),
+            full_name: "Doe, \"Jane\"".to_string(),
+            name: "Doe".to_string(),
+            canvas_id: "123".to_string(),
+            git_id: "jdoe".to_string(),
+            email: "jane@example.com".to_string(),
+        }];
+
+        write_csv_file(&students, &file_path).unwrap();
+
+        let mut reader = csv::Reader::from_path(&file_path).unwrap();
+        let headers = reader.headers().unwrap().clone();
+        assert_eq!(
+            headers,
+            csv::StringRecord::from(vec!["Group", "FullName", "Name", "ID", "GitID", "Mail"])
+        );
+
+        let record = reader.records().next().unwrap().unwrap();
+        assert_eq!(record.get(0), Some("Group, \"A\""));
+        assert_eq!(record.get(1), Some("Doe, \"Jane\""));
+        assert_eq!(record.get(2), Some("Doe"));
+        assert_eq!(record.get(3), Some("123"));
+        assert_eq!(record.get(4), Some("jdoe"));
+        assert_eq!(record.get(5), Some("jane@example.com"));
+    }
 }

@@ -126,6 +126,15 @@ impl Repo {
     }
 }
 
+/// Result of creating a repository on a platform
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepoCreateResult {
+    /// Repository data
+    pub repo: Repo,
+    /// Whether the repository was newly created (false means it already existed)
+    pub created: bool,
+}
+
 /// Platform-independent representation of an issue
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Issue {
@@ -203,15 +212,18 @@ pub struct StudentRepo {
     pub url: String,
     /// Local path to the repository (if cloned)
     pub path: Option<PathBuf>,
+    /// Template name used to create this repository
+    pub template: String,
 }
 
 impl StudentRepo {
-    pub fn new(name: String, team: StudentTeam, url: String) -> Self {
+    pub fn new(name: String, team: StudentTeam, url: String, template: String) -> Self {
         Self {
             name,
             team,
             url,
             path: None,
+            template,
         }
     }
 
