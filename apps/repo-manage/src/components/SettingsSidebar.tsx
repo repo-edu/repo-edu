@@ -285,6 +285,11 @@ export function SettingsSidebar({
                 {THEME_OPTIONS.map((opt) => (
                   <DropdownMenuItem
                     key={opt.value}
+                    className={
+                      currentSettings.theme === opt.value
+                        ? "bg-blue-100 dark:bg-blue-700/60"
+                        : ""
+                    }
                     onClick={async () => {
                       const updated = {
                         ...currentSettings,
@@ -311,9 +316,6 @@ export function SettingsSidebar({
                       }
                     }}
                   >
-                    <span className="w-4">
-                      {currentSettings.theme === opt.value ? "✓" : ""}
-                    </span>
                     {opt.label}
                   </DropdownMenuItem>
                 ))}
