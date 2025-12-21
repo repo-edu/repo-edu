@@ -38,6 +38,14 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
   const repo = settings.repo
   const logging = settings.logging
 
+  // Map backend courses to store format (add status field)
+  const courses = (lms.courses || []).map((course) => ({
+    id: course.id,
+    name: course.name,
+    // If course has a name, it was verified; otherwise pending
+    status: course.name ? ("verified" as const) : ("pending" as const),
+  }))
+
   return {
     lms: {
       lmsType: (lms.type || DEFAULT_LMS_SETTINGS.lmsType) as
@@ -52,8 +60,8 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
               | "TUE"
               | "CUSTOM"),
       accessToken: lms.access_token || DEFAULT_LMS_SETTINGS.accessToken,
-      courseId: lms.course_id || DEFAULT_LMS_SETTINGS.courseId,
-      courseName: lms.course_name || DEFAULT_LMS_SETTINGS.courseName,
+      courses,
+      activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
       yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
       outputFolder: lms.output_folder || DEFAULT_LMS_SETTINGS.outputFolder,
       csvFile: lms.csv_file || DEFAULT_LMS_SETTINGS.csvFile,
@@ -130,8 +138,11 @@ export function toBackendFormat(
       custom_url: lmsState.customUrl,
       url_option: lmsState.urlOption as "TUE" | "CUSTOM",
       access_token: lmsState.accessToken,
-      course_id: lmsState.courseId,
-      course_name: lmsState.courseName,
+      // Map store courses to backend format (strip status field)
+      courses: lmsState.courses.map((course) => ({
+        id: course.id,
+        name: course.name,
+      })),
       yaml_file: lmsState.yamlFile,
       output_folder: lmsState.outputFolder,
       csv_file: lmsState.csvFile,

@@ -62,14 +62,6 @@ pub fn parse_lms_type(lms_type: &str) -> Result<LmsCommonType, AppError> {
     }
 }
 
-pub fn lms_display_name(lms_type: &str) -> &str {
-    match lms_type {
-        "Canvas" => "Canvas",
-        "Moodle" => "Moodle",
-        _ => "LMS",
-    }
-}
-
 /// Resolve and validate a directory path (existence + is_dir)
 pub fn canonicalize_dir(path_str: &str) -> Result<PathBuf, AppError> {
     let path = expand_tilde(path_str);

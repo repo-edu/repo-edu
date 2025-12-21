@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import type { LmsFormState } from "../stores/lmsFormStore"
 import type { RepoFormState } from "../stores/repoFormStore"
-import { validateLmsGenerate, validateLmsVerify, validateRepo } from "./forms"
+import {
+  validateLmsConnection,
+  validateLmsGenerate,
+  validateRepo,
+} from "./forms"
 
 const validLmsForm: LmsFormState = {
   lmsType: "Canvas",
@@ -9,8 +13,7 @@ const validLmsForm: LmsFormState = {
   customUrl: "",
   urlOption: "TUE",
   accessToken: "secret-token",
-  courseId: "12345",
-  courseName: "Test Course",
+  courses: [{ id: "12345", name: "Test Course", status: "verified" }],
   yamlFile: "students.yaml",
   outputFolder: "/path/to/output",
   csvFile: "student-info.csv",
@@ -43,16 +46,16 @@ const validRepoForm: RepoFormState = {
   },
 }
 
-describe("validateLmsVerify", () => {
+describe("validateLmsConnection", () => {
   it("returns valid when LMS connection settings are complete", () => {
-    const result = validateLmsVerify(validLmsForm)
+    const result = validateLmsConnection(validLmsForm)
     expect(result.valid).toBe(true)
     expect(result.errors).toHaveLength(0)
   })
 
   it("requires base URL for TUE option", () => {
     const form = { ...validLmsForm, baseUrl: "" }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Base URL is required")
   })
@@ -63,30 +66,23 @@ describe("validateLmsVerify", () => {
       urlOption: "CUSTOM" as const,
       customUrl: "",
     }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Custom URL is required")
   })
 
   it("validates URL format", () => {
     const form = { ...validLmsForm, baseUrl: "not-a-url" }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Base URL must be a valid URL")
   })
 
   it("requires access token", () => {
     const form = { ...validLmsForm, accessToken: "" }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Access token is required")
-  })
-
-  it("requires course ID", () => {
-    const form = { ...validLmsForm, courseId: "" }
-    const result = validateLmsVerify(form)
-    expect(result.valid).toBe(false)
-    expect(result.errors).toContain("Course ID is required")
   })
 
   it("uses custom URL for non-Canvas LMS types", () => {
@@ -95,7 +91,7 @@ describe("validateLmsVerify", () => {
       lmsType: "Moodle",
       customUrl: "https://moodle.example.com",
     }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(true)
   })
 
@@ -105,20 +101,20 @@ describe("validateLmsVerify", () => {
       lmsType: "Moodle",
       customUrl: "",
     }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Custom URL is required")
   })
 
   it("does NOT require output folder", () => {
     const form = { ...validLmsForm, outputFolder: "" }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(true)
   })
 
   it("does NOT require YAML file", () => {
     const form = { ...validLmsForm, yamlFile: "" }
-    const result = validateLmsVerify(form)
+    const result = validateLmsConnection(form)
     expect(result.valid).toBe(true)
   })
 })
@@ -135,6 +131,23 @@ describe("validateLmsGenerate", () => {
     const result = validateLmsGenerate(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Access token is required")
+  })
+
+  it("requires at least one verified course", () => {
+    const form = { ...validLmsForm, courses: [] }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("At least one verified course is required")
+  })
+
+  it("requires verified status on course", () => {
+    const form = {
+      ...validLmsForm,
+      courses: [{ id: "12345", name: null, status: "pending" as const }],
+    }
+    const result = validateLmsGenerate(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("At least one verified course is required")
   })
 
   it("requires YAML file", () => {

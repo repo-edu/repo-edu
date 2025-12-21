@@ -59,3 +59,9 @@ pub struct CommandResult {
     pub message: String,
     pub details: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct VerifyCourseResult {
+    pub course_id: String,
+    pub course_name: String,
+}

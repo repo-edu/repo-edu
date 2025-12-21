@@ -1,7 +1,7 @@
 import { formatError } from "../services/commandUtils"
 import * as lmsService from "../services/lmsService"
 import { useLmsFormStore, useOutputStore } from "../stores"
-import { validateLmsVerify } from "../validation/forms"
+import { validateLmsConnection } from "../validation/forms"
 import { handleProgressMessage, useProgressChannel } from "./useProgressChannel"
 
 /**
@@ -11,50 +11,91 @@ export function useLmsActions() {
   const lmsForm = useLmsFormStore()
   const output = useOutputStore()
 
-  const verifyLmsCourse = async () => {
-    const lmsValidation = validateLmsVerify(lmsForm.getState())
-    if (!lmsValidation.valid) {
-      output.appendWithNewline("⚠ Cannot verify: fix LMS form errors first")
+  /**
+   * Verify a single course by index in the courses array.
+   */
+  const verifyCourse = async (courseIndex: number) => {
+    const lms = lmsForm.getState()
+    const course = lms.courses[courseIndex]
+    if (!course) return
+
+    // Validate connection settings before verifying
+    const validation = validateLmsConnection(lms)
+    if (!validation.valid) {
+      output.appendWithNewline(
+        "⚠ Cannot verify: fix LMS connection settings first",
+      )
+      lmsForm.setCourseStatus(courseIndex, "failed")
       return
     }
-    const lms = lmsForm.getState()
+
+    if (!course.id.trim()) {
+      lmsForm.setCourseStatus(courseIndex, "failed")
+      return
+    }
+
     const lmsLabel = lms.lmsType || "LMS"
-    output.appendWithNewline(`Verifying ${lmsLabel} course...`)
+    output.appendWithNewline(`Verifying ${lmsLabel} course ${course.id}...`)
+    lmsForm.setCourseStatus(courseIndex, "verifying")
 
     try {
       const result = await lmsService.verifyLmsCourse({
         base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
         access_token: lms.accessToken,
-        course_id: lms.courseId,
+        course_id: course.id,
         lms_type: lms.lmsType,
       })
 
-      output.appendWithNewline(result.message)
-      if (result.details) {
-        output.appendWithNewline(result.details)
-      }
-
-      // Extract course name from details and update form
-      if (result.details) {
-        const match = result.details.match(/Course Name: (.+)/)
-        if (match) {
-          lmsForm.setField("courseName", match[1])
-        }
-      }
+      lmsForm.updateCourse(courseIndex, {
+        name: result.course_name,
+        status: "verified",
+      })
+      output.appendWithNewline(
+        `✓ ${lmsLabel} course verified: ${result.course_name}`,
+      )
     } catch (error: unknown) {
       const { message, details } = formatError(error)
-      output.appendWithNewline(`✗ Error: ${message}`)
+      lmsForm.setCourseStatus(courseIndex, "failed")
+      output.appendWithNewline(
+        `✗ Error verifying course ${course.id}: ${message}`,
+      )
       if (details) {
         output.appendWithNewline(details)
       }
     }
   }
 
+  /**
+   * Verify all courses that are pending.
+   */
+  const verifyAllCourses = async () => {
+    const lms = lmsForm.getState()
+    const pendingIndices = lms.courses
+      .map((c, i) => (c.status === "pending" && c.id.trim() ? i : -1))
+      .filter((i) => i >= 0)
+
+    for (const index of pendingIndices) {
+      await verifyCourse(index)
+    }
+  }
+
   const handleGenerateFiles = async () => {
-    output.appendWithNewline("Generating student info files...")
+    const lms = lmsForm.getState()
+
+    // Get the first verified course for generation
+    const verifiedCourse = lms.courses.find((c) => c.status === "verified")
+    if (!verifiedCourse) {
+      output.appendWithNewline(
+        "⚠ No verified course available. Please verify a course first.",
+      )
+      return
+    }
+
+    output.appendWithNewline(
+      `Generating student info files for course ${verifiedCourse.id}...`,
+    )
 
     try {
-      const lms = lmsForm.getState()
       const progress = useProgressChannel({
         onProgress: (line) =>
           handleProgressMessage(
@@ -68,7 +109,7 @@ export function useLmsActions() {
         {
           base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
           access_token: lms.accessToken,
-          course_id: lms.courseId,
+          course_id: verifiedCourse.id,
           lms_type: lms.lmsType,
           yaml_file: lms.yamlFile,
           output_folder: lms.outputFolder,
@@ -99,5 +140,5 @@ export function useLmsActions() {
     }
   }
 
-  return { verifyLmsCourse, handleGenerateFiles }
+  return { verifyCourse, verifyAllCourses, handleGenerateFiles }
 }

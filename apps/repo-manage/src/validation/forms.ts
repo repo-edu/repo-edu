@@ -17,8 +17,8 @@ function requireUrl(value: string, label: string, errors: string[]) {
   }
 }
 
-/** Validate LMS connection settings (for Verify button) */
-export function validateLmsVerify(form: LmsFormState) {
+/** Validate LMS connection settings (URL and token only, for per-course verification) */
+export function validateLmsConnection(form: LmsFormState) {
   const errors: string[] = []
 
   const isCustom = form.urlOption === "CUSTOM" || form.lmsType !== "Canvas"
@@ -26,7 +26,6 @@ export function validateLmsVerify(form: LmsFormState) {
 
   requireUrl(urlToCheck, isCustom ? "Custom URL" : "Base URL", errors)
   require(form.accessToken, "Access token", errors)
-  require(form.courseId, "Course ID", errors)
 
   return { valid: errors.length === 0, errors }
 }
@@ -36,8 +35,14 @@ export function validateLmsGenerate(form: LmsFormState) {
   const errors: string[] = []
 
   // First validate connection settings
-  const verifyResult = validateLmsVerify(form)
-  errors.push(...verifyResult.errors)
+  const connectionResult = validateLmsConnection(form)
+  errors.push(...connectionResult.errors)
+
+  // Validate that at least one course is verified
+  const verifiedCourses = form.courses.filter((c) => c.status === "verified")
+  if (verifiedCourses.length === 0) {
+    errors.push("At least one verified course is required")
+  }
 
   // Then validate output settings
   require(form.yamlFile, "YAML file", errors)

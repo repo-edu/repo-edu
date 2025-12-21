@@ -53,11 +53,7 @@ import {
   useUiStore,
 } from "./stores"
 import type { GuiSettings } from "./types/settings"
-import {
-  validateLmsGenerate,
-  validateLmsVerify,
-  validateRepo,
-} from "./validation/forms"
+import { validateLmsGenerate, validateRepo } from "./validation/forms"
 import "./App.css"
 
 function App() {
@@ -68,7 +64,7 @@ function App() {
   const output = useOutputStore()
 
   // Action hooks
-  const { verifyLmsCourse, handleGenerateFiles } = useLmsActions()
+  const { handleGenerateFiles } = useLmsActions()
   const { handleVerifyConfig, handleCreateRepos } = useRepoActions()
 
   // Keyboard shortcuts dialog
@@ -105,7 +101,6 @@ function App() {
     getRepoState,
   })
 
-  const lmsVerifyValidation = validateLmsVerify(lmsForm.getState())
   const lmsGenerateValidation = validateLmsGenerate(lmsForm.getState())
   const repoValidation = validateRepo(repoForm.getState())
 
@@ -298,10 +293,7 @@ function App() {
                 className="overflow-auto space-y-1 shrink-0"
                 style={{ maxHeight: settingsMaxHeight }}
               >
-                <LmsConfigSection
-                  onVerify={verifyLmsCourse}
-                  verifyDisabled={!lmsVerifyValidation.valid}
-                />
+                <LmsConfigSection />
                 <OutputConfigSection onBrowseFolder={handleBrowseFolder} />
                 <RepoNamingSection />
               </div>

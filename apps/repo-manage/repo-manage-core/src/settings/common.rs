@@ -3,6 +3,22 @@ use super::normalization::{normalize_string, normalize_url, Normalize};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// A course entry with ID and optional name (populated after verification)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default, PartialEq)]
+pub struct CourseEntry {
+    pub id: String,
+    pub name: Option<String>,
+}
+
+impl Normalize for CourseEntry {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.id);
+        if let Some(ref mut name) = self.name {
+            normalize_string(name);
+        }
+    }
+}
+
 /// Shared settings used by multiple apps (git credentials)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
 pub struct CommonSettings {
@@ -34,8 +50,7 @@ impl Normalize for CommonSettings {
 pub struct LmsSettings {
     pub access_token: String,
     pub base_url: String,
-    pub course_id: String,
-    pub course_name: String,
+    pub courses: Vec<CourseEntry>,
     pub csv_file: String,
     pub custom_url: String,
     pub full_groups: bool,
@@ -59,8 +74,7 @@ impl Default for LmsSettings {
         Self {
             access_token: String::new(),
             base_url: "https://canvas.tue.nl".to_string(),
-            course_id: String::new(),
-            course_name: String::new(),
+            courses: Vec::new(),
             csv_file: "student-info.csv".to_string(),
             custom_url: String::new(),
             full_groups: true,
@@ -84,8 +98,9 @@ impl Normalize for LmsSettings {
     fn normalize(&mut self) {
         normalize_string(&mut self.access_token);
         normalize_url(&mut self.base_url);
-        normalize_string(&mut self.course_id);
-        normalize_string(&mut self.course_name);
+        for course in &mut self.courses {
+            course.normalize();
+        }
         normalize_string(&mut self.csv_file);
         normalize_url(&mut self.custom_url);
         normalize_string(&mut self.output_folder);

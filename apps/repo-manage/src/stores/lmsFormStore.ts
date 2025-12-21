@@ -1,14 +1,22 @@
 import { create } from "zustand"
 import { DEFAULT_LMS_SETTINGS } from "../constants"
 
+export type CourseStatus = "pending" | "verifying" | "verified" | "failed"
+
+export interface CourseEntry {
+  id: string
+  name: string | null
+  status: CourseStatus
+}
+
 export interface LmsFormState {
   lmsType: "Canvas" | "Moodle"
   baseUrl: string
   customUrl: string
   urlOption: "TUE" | "CUSTOM"
   accessToken: string
-  courseId: string
-  courseName: string
+  courses: CourseEntry[]
+  activeCourseIndex: number
   yamlFile: string
   outputFolder: string
   csvFile: string
@@ -29,6 +37,11 @@ interface LmsFormStore extends LmsFormState {
     value: LmsFormState[K],
   ) => void
   setLmsType: (type: "Canvas" | "Moodle") => void
+  addCourse: () => void
+  removeCourse: (index: number) => void
+  updateCourse: (index: number, updates: Partial<CourseEntry>) => void
+  setCourseStatus: (index: number, status: CourseStatus) => void
+  setActiveCourse: (index: number) => void
   reset: () => void
   loadFromSettings: (settings: Partial<LmsFormState>) => void
   getState: () => LmsFormState
@@ -51,6 +64,43 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
           : state.baseUrl,
     })),
 
+  addCourse: () =>
+    set((state) => ({
+      courses: [...state.courses, { id: "", name: null, status: "pending" }],
+      activeCourseIndex: state.courses.length,
+    })),
+
+  removeCourse: (index) =>
+    set((state) => {
+      const newCourses = state.courses.filter((_, i) => i !== index)
+      let newActiveIndex = state.activeCourseIndex
+      if (index < state.activeCourseIndex) {
+        newActiveIndex = state.activeCourseIndex - 1
+      } else if (index === state.activeCourseIndex && newCourses.length > 0) {
+        newActiveIndex = Math.min(
+          state.activeCourseIndex,
+          newCourses.length - 1,
+        )
+      }
+      return { courses: newCourses, activeCourseIndex: newActiveIndex }
+    }),
+
+  updateCourse: (index, updates) =>
+    set((state) => ({
+      courses: state.courses.map((course, i) =>
+        i === index ? { ...course, ...updates } : course,
+      ),
+    })),
+
+  setCourseStatus: (index, status) =>
+    set((state) => ({
+      courses: state.courses.map((course, i) =>
+        i === index ? { ...course, status } : course,
+      ),
+    })),
+
+  setActiveCourse: (index) => set({ activeCourseIndex: index }),
+
   reset: () => set(initialState),
 
   loadFromSettings: (settings) => set({ ...initialState, ...settings }),
@@ -63,8 +113,8 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       customUrl: state.customUrl,
       urlOption: state.urlOption,
       accessToken: state.accessToken,
-      courseId: state.courseId,
-      courseName: state.courseName,
+      courses: state.courses,
+      activeCourseIndex: state.activeCourseIndex,
       yamlFile: state.yamlFile,
       outputFolder: state.outputFolder,
       csvFile: state.csvFile,

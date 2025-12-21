@@ -234,7 +234,7 @@ async openTokenUrl(baseUrl: string, lmsType: string) : Promise<Result<null, AppE
 /**
  * Verify LMS course credentials and fetch course information
  */
-async verifyLmsCourse(params: VerifyCourseParams) : Promise<Result<CommandResult, AppError>> {
+async verifyLmsCourse(params: VerifyCourseParams) : Promise<Result<VerifyCourseResult, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("verify_lms_course", { params }) };
 } catch (e) {
@@ -331,6 +331,10 @@ export type CommandResult = { success: boolean; message: string; details: string
 export type CommonSettings = { git_access_token: string; git_base_url: string; git_user: string }
 export type ConfigParams = { access_token: string; user: string; base_url: string; student_repos_group: string; template_group: string }
 /**
+ * A course entry with ID and optional name (populated after verification)
+ */
+export type CourseEntry = { id: string; name: string | null }
+/**
  * Directory layout for cloned repositories
  */
 export type DirectoryLayout = "by-team" | "flat" | "by-task"
@@ -355,7 +359,7 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { access_token: string; base_url: string; course_id: string; course_name: string; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
+export type LmsSettings = { access_token: string; base_url: string; courses: CourseEntry[]; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
 /**
  * LMS URL preset options
  */
@@ -391,6 +395,7 @@ export type SetupParams = { config: ConfigParams; yaml_file: string; assignments
  */
 export type Theme = "light" | "dark" | "system"
 export type VerifyCourseParams = { base_url: string; access_token: string; course_id: string; lms_type: string }
+export type VerifyCourseResult = { course_id: string; course_name: string }
 
 /** tauri-specta globals **/
 

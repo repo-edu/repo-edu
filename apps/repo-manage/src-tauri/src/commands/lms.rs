@@ -7,10 +7,9 @@ use repo_manage_core::{
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
 
-use super::types::{CommandResult, GenerateFilesParams, VerifyCourseParams};
+use super::types::{CommandResult, GenerateFilesParams, VerifyCourseParams, VerifyCourseResult};
 use super::utils::{
-    canonicalize_dir, emit_inline_message, emit_standard_message, lms_display_name, parse_lms_type,
-    InlineCliState,
+    canonicalize_dir, emit_inline_message, emit_standard_message, parse_lms_type, InlineCliState,
 };
 
 /// Get token generation instructions for an LMS type
@@ -33,9 +32,7 @@ pub async fn open_token_url(base_url: String, lms_type: String) -> Result<(), Ap
 /// Verify LMS course credentials and fetch course information
 #[tauri::command]
 #[specta::specta]
-pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResult, AppError> {
-    let lms_label = lms_display_name(&params.lms_type);
-
+pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<VerifyCourseResult, AppError> {
     let core_params = VerifyLmsParams {
         lms_type: params.lms_type.clone(),
         base_url: params.base_url,
@@ -45,15 +42,9 @@ pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<CommandResu
 
     let result = core_verify_lms_course(&core_params, |_| {}).await?;
 
-    Ok(CommandResult {
-        success: true,
-        message: format!("✓ {} course verified: {}", lms_label, result.course_name),
-        details: Some(format!(
-            "Course ID: {}\nCourse Name: {}\nCourse Code: {}",
-            result.course_id,
-            result.course_name,
-            result.course_code.as_deref().unwrap_or("N/A")
-        )),
+    Ok(VerifyCourseResult {
+        course_id: result.course_id,
+        course_name: result.course_name,
     })
 }
 

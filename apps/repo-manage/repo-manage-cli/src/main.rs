@@ -249,7 +249,27 @@ impl ConfigManager {
         println!("LMS Settings:");
         println!("  Type            : {}", self.config.lms.r#type);
         println!("  Base URL        : {}", self.config.lms.base_url);
-        println!("  Course ID       : {}", self.config.lms.course_id);
+        let courses_display = if self.config.lms.courses.is_empty() {
+            "(none)".to_string()
+        } else {
+            self.config
+                .lms
+                .courses
+                .iter()
+                .map(|c| {
+                    format!(
+                        "{}{}",
+                        c.id,
+                        c.name
+                            .as_ref()
+                            .map(|n| format!(" ({})", n))
+                            .unwrap_or_default()
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        println!("  Courses         : {}", courses_display);
         println!(
             "  Access Token    : {}",
             if self.config.lms.access_token.is_empty() {
@@ -316,15 +336,23 @@ struct LmsVerifyOverrides {
 }
 
 async fn run_lms_verify(config: &ProfileSettings, overrides: LmsVerifyOverrides) -> Result<()> {
+    // Get course ID from override or first configured course
+    let course_id = overrides.course_id.unwrap_or_else(|| {
+        config
+            .lms
+            .courses
+            .first()
+            .map(|c| c.id.clone())
+            .unwrap_or_default()
+    });
+
     let params = VerifyLmsParams {
         lms_type: overrides
             .lms_type
             .unwrap_or_else(|| config.lms.r#type.clone()),
         base_url: config.lms.base_url.clone(),
         access_token: config.lms.access_token.clone(),
-        course_id: overrides
-            .course_id
-            .unwrap_or_else(|| config.lms.course_id.clone()),
+        course_id,
     };
 
     if params.access_token.is_empty() {
@@ -366,11 +394,17 @@ async fn run_lms_generate(config: &ProfileSettings, overrides: LmsGenerateOverri
         anyhow::bail!("Output folder not set. Use --output or configure in profile.");
     }
 
+    // Get the first course from the list
+    let course =
+        config.lms.courses.first().ok_or_else(|| {
+            anyhow::anyhow!("No courses configured. Add a course to generate files.")
+        })?;
+
     let params = GenerateLmsFilesParams {
         lms_type: config.lms.r#type.clone(),
         base_url: config.lms.base_url.clone(),
         access_token: config.lms.access_token.clone(),
-        course_id: config.lms.course_id.clone(),
+        course_id: course.id.clone(),
         output_folder,
         yaml: overrides.yaml.unwrap_or(config.lms.output_yaml),
         yaml_file: config.lms.yaml_file.clone(),
@@ -386,7 +420,7 @@ async fn run_lms_generate(config: &ProfileSettings, overrides: LmsGenerateOverri
     if params.access_token.is_empty() {
         anyhow::bail!("LMS access token not set.");
     }
-    if params.course_id.is_empty() {
+    if course.id.is_empty() {
         anyhow::bail!("Course ID not set.");
     }
 

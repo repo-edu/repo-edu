@@ -8,32 +8,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
+import { useState } from "react"
+import { useLmsActions } from "../hooks/useLmsActions"
 import { useLmsFormStore, useUiStore } from "../stores"
+import { AddCourseDialog } from "./AddCourseDialog"
+import { CourseSelector } from "./CourseSelector"
 import { FormField } from "./FormField"
 import { Section } from "./Section"
 
-interface LmsConfigSectionProps {
-  onVerify: () => void
-  verifyDisabled?: boolean
-}
-
-export function LmsConfigSection({
-  onVerify,
-  verifyDisabled,
-}: LmsConfigSectionProps) {
+export function LmsConfigSection() {
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const lmsForm = useLmsFormStore()
   const ui = useUiStore()
+  const { verifyCourse } = useLmsActions()
+
+  const handleCourseAdded = (index: number) => {
+    verifyCourse(index)
+  }
 
   return (
-    <Section
-      id="lms-config"
-      title="LMS Configuration"
-      action={
-        <Button size="xs" onClick={onVerify} disabled={verifyDisabled}>
-          Verify
-        </Button>
-      }
-    >
+    <Section id="lms-config" title="LMS Configuration">
       <FormField label="LMS Type" tooltip="Learning Management System type">
         <Select
           value={lmsForm.lmsType}
@@ -111,18 +105,18 @@ export function LmsConfigSection({
         </div>
       </FormField>
 
-      <FormField
-        label="Course ID"
-        tooltip="The numeric course ID from your LMS"
-      >
-        <Input
-          size="xs"
-          value={lmsForm.courseId}
-          onChange={(e) => lmsForm.setField("courseId", e.target.value)}
-          placeholder="12345"
-          className="flex-1"
+      <FormField label="Course" tooltip="Select and verify your LMS course">
+        <CourseSelector
+          onVerifyCourse={verifyCourse}
+          onAddCourse={() => setAddDialogOpen(true)}
         />
       </FormField>
+
+      <AddCourseDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onCourseAdded={handleCourseAdded}
+      />
     </Section>
   )
 }

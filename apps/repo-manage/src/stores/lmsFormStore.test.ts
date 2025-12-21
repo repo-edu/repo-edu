@@ -11,6 +11,7 @@ describe("lmsFormStore", () => {
     expect(state.lmsType).toBe("Canvas")
     expect(state.baseUrl).toBe("https://canvas.tue.nl")
     expect(state.urlOption).toBe("TUE")
+    expect(state.courses).toEqual([])
     expect(state.yaml).toBe(true)
     expect(state.csv).toBe(false)
     expect(state.xlsx).toBe(false)
@@ -18,8 +19,8 @@ describe("lmsFormStore", () => {
 
   describe("setField", () => {
     it("updates a single field", () => {
-      useLmsFormStore.getState().setField("courseId", "12345")
-      expect(useLmsFormStore.getState().courseId).toBe("12345")
+      useLmsFormStore.getState().setField("accessToken", "secret123")
+      expect(useLmsFormStore.getState().accessToken).toBe("secret123")
     })
 
     it("updates boolean fields", () => {
@@ -54,14 +55,14 @@ describe("lmsFormStore", () => {
 
   describe("reset", () => {
     it("resets all fields to initial state", () => {
-      useLmsFormStore.getState().setField("courseId", "12345")
+      useLmsFormStore.getState().addCourse()
       useLmsFormStore.getState().setField("accessToken", "secret")
       useLmsFormStore.getState().setField("csv", true)
 
       useLmsFormStore.getState().reset()
 
       const state = useLmsFormStore.getState().getState()
-      expect(state.courseId).toBe("")
+      expect(state.courses).toEqual([])
       expect(state.accessToken).toBe("")
       expect(state.csv).toBe(false)
     })
@@ -70,12 +71,13 @@ describe("lmsFormStore", () => {
   describe("loadFromSettings", () => {
     it("loads partial settings", () => {
       useLmsFormStore.getState().loadFromSettings({
-        courseId: "99999",
+        courses: [{ id: "99999", name: "Test Course", status: "verified" }],
         accessToken: "token123",
       })
 
       const state = useLmsFormStore.getState().getState()
-      expect(state.courseId).toBe("99999")
+      expect(state.courses).toHaveLength(1)
+      expect(state.courses[0].id).toBe("99999")
       expect(state.accessToken).toBe("token123")
       // Other fields should have default values
       expect(state.lmsType).toBe("Canvas")
@@ -85,12 +87,58 @@ describe("lmsFormStore", () => {
       useLmsFormStore.getState().setField("csv", true)
 
       useLmsFormStore.getState().loadFromSettings({
-        courseId: "12345",
+        courses: [{ id: "12345", name: null, status: "pending" }],
       })
 
       // csv should be reset to default (false)
       expect(useLmsFormStore.getState().csv).toBe(false)
-      expect(useLmsFormStore.getState().courseId).toBe("12345")
+      expect(useLmsFormStore.getState().courses[0].id).toBe("12345")
+    })
+  })
+
+  describe("course management", () => {
+    it("adds a new empty course", () => {
+      useLmsFormStore.getState().addCourse()
+      expect(useLmsFormStore.getState().courses).toHaveLength(1)
+      expect(useLmsFormStore.getState().courses[0]).toEqual({
+        id: "",
+        name: null,
+        status: "pending",
+      })
+    })
+
+    it("removes a course by index", () => {
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().updateCourse(0, { id: "111" })
+      useLmsFormStore.getState().updateCourse(1, { id: "222" })
+
+      useLmsFormStore.getState().removeCourse(0)
+
+      expect(useLmsFormStore.getState().courses).toHaveLength(1)
+      expect(useLmsFormStore.getState().courses[0].id).toBe("222")
+    })
+
+    it("updates a course", () => {
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().updateCourse(0, {
+        id: "12345",
+        name: "Test Course",
+        status: "verified",
+      })
+
+      expect(useLmsFormStore.getState().courses[0]).toEqual({
+        id: "12345",
+        name: "Test Course",
+        status: "verified",
+      })
+    })
+
+    it("sets course status", () => {
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().setCourseStatus(0, "verifying")
+
+      expect(useLmsFormStore.getState().courses[0].status).toBe("verifying")
     })
   })
 
@@ -104,8 +152,7 @@ describe("lmsFormStore", () => {
       expect(state).toHaveProperty("customUrl")
       expect(state).toHaveProperty("urlOption")
       expect(state).toHaveProperty("accessToken")
-      expect(state).toHaveProperty("courseId")
-      expect(state).toHaveProperty("courseName")
+      expect(state).toHaveProperty("courses")
       expect(state).toHaveProperty("yamlFile")
       expect(state).toHaveProperty("csv")
       expect(state).toHaveProperty("xlsx")

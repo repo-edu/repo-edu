@@ -4,7 +4,7 @@
     "scripts": {
         "dev": "pnpm tauri:dev",
         "build": "pnpm tauri:build",
-        "fmt:ts": "biome format",
+        "fmt:ts": "biome format --write",
         "check:ts": "biome check",
         "check:ts:fix": "biome check --write",
         "typecheck:ts": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage exec tsc --noEmit",
