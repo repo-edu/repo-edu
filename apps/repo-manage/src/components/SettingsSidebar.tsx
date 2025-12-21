@@ -24,13 +24,6 @@ import {
 } from "@repo-edu/ui/components/ui/dropdown-menu"
 import { Input } from "@repo-edu/ui/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo-edu/ui/components/ui/select"
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -39,9 +32,18 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useState } from "react"
 import { SUCCESS_FLASH_MS, THEME_OPTIONS } from "../constants"
 import { useProfileActions } from "../hooks/useProfileActions"
+import type { Strict } from "../services/commandUtils"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
 import type { GuiSettings } from "../types/settings"
+import {
+  ActionDropdown,
+  type ActionDropdownItem,
+  type ItemAction,
+} from "./ActionDropdown"
+import { MdiClose } from "./icons/MdiClose"
+import { MdiContentCopy } from "./icons/MdiContentCopy"
+import { MdiPencil } from "./icons/MdiPencil"
 import { MdiWeatherSunny } from "./icons/MdiWeatherSunny"
 
 interface SettingsSidebarProps {
@@ -52,6 +54,10 @@ interface SettingsSidebarProps {
   onMessage: (message: string) => void
   isDirty: boolean
   onSaved: () => void
+}
+
+interface ProfileDropdownItem extends ActionDropdownItem {
+  name: string
 }
 
 export function SettingsSidebar({
@@ -112,7 +118,21 @@ export function SettingsSidebar({
     }
   }
 
-  const handleProfileSelect = (name: string) => {
+  // Transform profiles to ActionDropdownItem format
+  const profileItems: ProfileDropdownItem[] = profileActions.profiles.map(
+    (name) => ({
+      id: name,
+      label: name,
+      name,
+    }),
+  )
+
+  const activeProfileIndex = profileActions.profiles.indexOf(
+    profileActions.activeProfile ?? "",
+  )
+
+  const handleProfileSelect = (index: number) => {
+    const name = profileActions.profiles[index]
     if (!name || name === profileActions.activeProfile) return
 
     if (isDirty) {
@@ -140,59 +160,105 @@ export function SettingsSidebar({
     })
   }
 
-  const handleDuplicateProfile = () => {
-    if (!profileActions.activeProfile) {
-      onMessage("✗ No active profile to duplicate")
-      return
-    }
+  const handleDuplicateProfile = (profileName: string) => {
     setPromptDialog({
       open: true,
       title: "Duplicate Profile",
       placeholder: "Profile name",
-      value: `${profileActions.activeProfile} copy`,
-      onConfirm: (name) => {
-        profileActions.createProfile(name, true)
+      value: `${profileName} copy`,
+      onConfirm: async (newName) => {
+        // Load the source profile settings, then save as new profile
+        try {
+          const sourceSettings = await settingsService.loadProfile(profileName)
+          await settingsService.saveProfile(
+            newName,
+            sourceSettings as Strict<GuiSettings>,
+          )
+          await profileActions.refreshProfiles()
+          showSuccessFlash()
+          onMessage(`✓ Duplicated "${profileName}" to "${newName}"`)
+        } catch (error) {
+          onMessage(`✗ Failed to duplicate profile: ${getErrorMessage(error)}`)
+        }
       },
     })
   }
 
-  const handleRenameProfile = () => {
-    if (!profileActions.activeProfile) {
-      onMessage("✗ No active profile to rename")
-      return
-    }
+  const handleRenameProfile = (profileName: string) => {
     setPromptDialog({
       open: true,
       title: "Rename Profile",
       placeholder: "New name",
-      value: profileActions.activeProfile,
-      onConfirm: (newName) => {
-        profileActions.renameProfile(newName)
+      value: profileName,
+      onConfirm: async (newName) => {
+        try {
+          await settingsService.renameProfile(profileName, newName)
+          await profileActions.refreshProfiles()
+          showSuccessFlash()
+          onMessage(`✓ Renamed profile to: ${newName}`)
+        } catch (error) {
+          onMessage(`✗ Failed to rename profile: ${getErrorMessage(error)}`)
+        }
       },
     })
   }
 
-  const handleDeleteProfile = () => {
-    if (!profileActions.activeProfile) {
-      onMessage("✗ No active profile to delete")
-      return
-    }
+  const handleDeleteProfile = (profileName: string) => {
     const otherProfile =
-      profileActions.profiles.find((p) => p !== profileActions.activeProfile) ||
-      "Default"
+      profileActions.profiles.find((p) => p !== profileName) || "Default"
     const willCreateDefault = !profileActions.profiles.some(
-      (p) => p !== profileActions.activeProfile,
+      (p) => p !== profileName,
     )
+    const isActive = profileName === profileActions.activeProfile
 
     setConfirmDialog({
       open: true,
       title: "Delete Profile",
       description: willCreateDefault
-        ? `Delete "${profileActions.activeProfile}"? A new "Default" profile will be created.`
-        : `Delete "${profileActions.activeProfile}"? You will be switched to "${otherProfile}".`,
-      onConfirm: () => profileActions.deleteProfile(),
+        ? `Delete "${profileName}"? A new "Default" profile will be created.`
+        : `Delete "${profileName}"?${isActive ? ` You will be switched to "${otherProfile}".` : ""}`,
+      onConfirm: async () => {
+        try {
+          await settingsService.deleteProfile(profileName)
+          onMessage(`✓ Deleted profile: ${profileName}`)
+
+          if (isActive) {
+            if (willCreateDefault) {
+              // Create and switch to Default profile
+              await profileActions.createProfile("Default", false)
+            } else {
+              // Switch to another existing profile
+              await profileActions.loadProfile(otherProfile)
+            }
+          }
+
+          await profileActions.refreshProfiles()
+          showSuccessFlash()
+        } catch (error) {
+          onMessage(`✗ Failed to delete profile: ${getErrorMessage(error)}`)
+        }
+      },
     })
   }
+
+  // Define actions for each profile item
+  const profileItemActions: ItemAction<ProfileDropdownItem>[] = [
+    {
+      icon: <MdiContentCopy className="w-3 h-3" />,
+      onClick: (item) => handleDuplicateProfile(item.name),
+      title: "Duplicate",
+    },
+    {
+      icon: <MdiPencil className="w-3 h-3" />,
+      onClick: (item) => handleRenameProfile(item.name),
+      title: "Rename",
+    },
+    {
+      icon: <MdiClose className="w-3 h-3" />,
+      onClick: (item) => handleDeleteProfile(item.name),
+      title: "Delete",
+    },
+  ]
 
   return (
     <>
@@ -273,24 +339,18 @@ export function SettingsSidebar({
           {/* Profile Section */}
           <section className="settings-section">
             <h3 className="settings-section-title">Profile</h3>
-            <Select
-              value={profileActions.activeProfile || ""}
-              onValueChange={handleProfileSelect}
-            >
-              <SelectTrigger
-                size="xs"
-                className="!ring-0 !ring-offset-0 !outline-none focus:!border-border"
-              >
-                <SelectValue placeholder="Select profile..." />
-              </SelectTrigger>
-              <SelectContent>
-                {profileActions.profiles.map((name) => (
-                  <SelectItem key={name} value={name} size="xs">
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ActionDropdown
+              items={profileItems}
+              activeIndex={activeProfileIndex >= 0 ? activeProfileIndex : 0}
+              onSelect={handleProfileSelect}
+              itemActions={profileItemActions}
+              onAdd={handleNewEmptyProfile}
+              addLabel="Add profile"
+              placeholder="Select profile..."
+              minWidth="120px"
+              maxWidth="180px"
+              contentMinWidth="200px"
+            />
             <div className="flex gap-1 items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -335,35 +395,14 @@ export function SettingsSidebar({
                   <Button
                     size="xs"
                     variant="outline"
-                    className="ml-auto h-5 w-5 p-0 text-foreground"
+                    className="h-7 w-7 p-0 text-foreground shrink-0"
                   >
                     ⋯
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleNewEmptyProfile}>
-                    New empty
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDuplicateProfile}
-                    disabled={!profileActions.activeProfile}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleRenameProfile}
-                    disabled={!profileActions.activeProfile}
-                  >
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDeleteProfile}
-                    disabled={!profileActions.activeProfile}
-                  >
-                    Delete
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleShowLocation}>
-                    Show in Finder
+                    Open profile folder
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
