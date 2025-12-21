@@ -79,15 +79,12 @@ export function SettingsSidebar({
     title: string
     placeholder: string
     value: string
-    showCopyChoice?: boolean
-    copyFromCurrent: boolean
-    onConfirm: (value: string, copyFromCurrent: boolean) => void
+    onConfirm: (value: string) => void
   }>({
     open: false,
     title: "",
     placeholder: "",
     value: "",
-    copyFromCurrent: true,
     onConfirm: () => {},
   })
 
@@ -131,16 +128,30 @@ export function SettingsSidebar({
     }
   }
 
-  const handleNewProfile = () => {
+  const handleNewEmptyProfile = () => {
     setPromptDialog({
       open: true,
-      title: "New Profile",
+      title: "New Empty Profile",
       placeholder: "Profile name",
       value: "",
-      showCopyChoice: true,
-      copyFromCurrent: true,
-      onConfirm: (name, copyFromCurrent) => {
-        profileActions.createProfile(name, copyFromCurrent)
+      onConfirm: (name) => {
+        profileActions.createProfile(name, false)
+      },
+    })
+  }
+
+  const handleDuplicateProfile = () => {
+    if (!profileActions.activeProfile) {
+      onMessage("✗ No active profile to duplicate")
+      return
+    }
+    setPromptDialog({
+      open: true,
+      title: "Duplicate Profile",
+      placeholder: "Profile name",
+      value: `${profileActions.activeProfile} copy`,
+      onConfirm: (name) => {
+        profileActions.createProfile(name, true)
       },
     })
   }
@@ -155,8 +166,6 @@ export function SettingsSidebar({
       title: "Rename Profile",
       placeholder: "New name",
       value: profileActions.activeProfile,
-      showCopyChoice: false,
-      copyFromCurrent: true,
       onConfirm: (newName) => {
         profileActions.renameProfile(newName)
       },
@@ -263,40 +272,7 @@ export function SettingsSidebar({
         >
           {/* Profile Section */}
           <section className="settings-section">
-            <div className="flex items-center justify-between">
-              <h3 className="settings-section-title">Profile</h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="h-5 w-5 p-0 text-foreground"
-                  >
-                    ⋯
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleNewProfile}>
-                    New
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleRenameProfile}
-                    disabled={!profileActions.activeProfile}
-                  >
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDeleteProfile}
-                    disabled={!profileActions.activeProfile}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleShowLocation}>
-                    Show in Finder
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <h3 className="settings-section-title">Profile</h3>
             <Select
               value={profileActions.activeProfile || ""}
               onValueChange={handleProfileSelect}
@@ -354,12 +330,47 @@ export function SettingsSidebar({
                     : "Revert to last saved state"}
                 </TooltipContent>
               </Tooltip>
-              {isDirty && (
-                <span className="text-[10px] text-warning ml-1">
-                  Unsaved changes
-                </span>
-              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="ml-auto h-5 w-5 p-0 text-foreground"
+                  >
+                    ⋯
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleNewEmptyProfile}>
+                    New empty
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDuplicateProfile}
+                    disabled={!profileActions.activeProfile}
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleRenameProfile}
+                    disabled={!profileActions.activeProfile}
+                  >
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDeleteProfile}
+                    disabled={!profileActions.activeProfile}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleShowLocation}>
+                    Show in Finder
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+            {isDirty && (
+              <span className="text-[10px] text-warning">Unsaved changes</span>
+            )}
           </section>
         </div>
       </div>
@@ -408,49 +419,12 @@ export function SettingsSidebar({
             }
             onKeyDown={(e) => {
               if (e.key === "Enter" && promptDialog.value.trim()) {
-                promptDialog.onConfirm(
-                  promptDialog.value,
-                  promptDialog.copyFromCurrent,
-                )
+                promptDialog.onConfirm(promptDialog.value)
                 setPromptDialog((prev) => ({ ...prev, open: false }))
               }
             }}
             autoFocus
           />
-          {promptDialog.showCopyChoice && (
-            <div className="flex gap-1">
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() =>
-                  setPromptDialog((prev) => ({
-                    ...prev,
-                    copyFromCurrent: true,
-                  }))
-                }
-                className={
-                  promptDialog.copyFromCurrent ? "bg-muted" : "opacity-50"
-                }
-              >
-                Copy current
-              </Button>
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() =>
-                  setPromptDialog((prev) => ({
-                    ...prev,
-                    copyFromCurrent: false,
-                  }))
-                }
-                className={
-                  !promptDialog.copyFromCurrent ? "bg-muted" : "opacity-50"
-                }
-              >
-                Start empty
-              </Button>
-            </div>
-          )}
           <DialogFooter>
             <Button
               size="xs"
@@ -465,10 +439,7 @@ export function SettingsSidebar({
               size="xs"
               disabled={!promptDialog.value.trim()}
               onClick={() => {
-                promptDialog.onConfirm(
-                  promptDialog.value,
-                  promptDialog.copyFromCurrent,
-                )
+                promptDialog.onConfirm(promptDialog.value)
                 setPromptDialog((prev) => ({ ...prev, open: false }))
               }}
             >
