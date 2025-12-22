@@ -28,8 +28,8 @@ describe("FormField", () => {
       { wrapper },
     )
 
-    const label = screen.getByText("With Tooltip")
-    expect(label).toHaveClass("border-dashed")
+    expect(screen.getByText("With Tooltip")).toBeInTheDocument()
+    expect(screen.getByRole("button")).toHaveClass("cursor-help")
   })
 
   it("renders plain label without tooltip", () => {
@@ -42,5 +42,6 @@ describe("FormField", () => {
 
     const label = screen.getByText("Plain Label")
     expect(label).not.toHaveClass("border-dashed")
+    expect(screen.queryByRole("button")).not.toBeInTheDocument()
   })
 })

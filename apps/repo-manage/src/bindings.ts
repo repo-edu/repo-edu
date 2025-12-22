@@ -359,7 +359,7 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { access_token: string; base_url: string; courses: CourseEntry[]; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
+export type LmsSettings = { canvas_access_token: string; moodle_access_token: string; base_url: string; courses: CourseEntry[]; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
 /**
  * LMS URL preset options
  */
