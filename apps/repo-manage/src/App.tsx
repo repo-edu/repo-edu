@@ -506,7 +506,18 @@ function App() {
         onChange={(v) => ui.setTokenDialogValue(v)}
         onClose={() => ui.closeTokenDialog()}
         onSave={() => {
-          repoForm.setField("accessToken", ui.tokenDialogValue)
+          // Update access token for the active git server type
+          switch (repoForm.gitServerType) {
+            case "GitHub":
+              repoForm.setGitHubField("accessToken", ui.tokenDialogValue)
+              break
+            case "GitLab":
+              repoForm.setGitLabField("accessToken", ui.tokenDialogValue)
+              break
+            case "Gitea":
+              repoForm.setGiteaField("accessToken", ui.tokenDialogValue)
+              break
+          }
           ui.closeTokenDialog()
         }}
       />

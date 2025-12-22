@@ -8,8 +8,12 @@
 export type {
   ActiveTab,
   AppSettings,
-  CommonSettings,
   DirectoryLayout,
+  GiteaConfig,
+  GitHubConfig,
+  GitLabConfig,
+  GitServerType,
+  GitSettings,
   GuiSettings,
   LmsSettings,
   LmsUrlOption,

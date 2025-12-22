@@ -25,9 +25,10 @@ mod validation;
 pub use atomic::{atomic_write, atomic_write_json, atomic_write_string};
 pub use cli::CLIConfig;
 pub use common::{
-    CommonSettings, CourseEntry, LmsSettings, LogSettings, ProfileSettings, RepoSettings,
+    CourseEntry, GitHubConfig, GitLabConfig, GitSettings, GiteaConfig, LmsSettings, LogSettings,
+    ProfileSettings, RepoSettings,
 };
-pub use enums::{ActiveTab, DirectoryLayout, LmsUrlOption, MemberOption, Theme};
+pub use enums::{ActiveTab, DirectoryLayout, GitServerType, LmsUrlOption, MemberOption, Theme};
 pub use error::{ConfigError, ConfigResult, Interface};
 pub use gui::{AppSettings, GuiSettings, SettingsLoadResult};
 pub use manager::SettingsManager;

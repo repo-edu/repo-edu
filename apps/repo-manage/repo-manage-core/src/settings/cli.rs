@@ -1,13 +1,13 @@
-use super::common::CommonSettings;
+use super::common::GitSettings;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// CLI-specific configuration (extends CommonSettings)
+/// CLI-specific configuration (extends GitSettings)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CLIConfig {
-    /// Common settings shared with GUI
+    /// Git settings shared with GUI
     #[serde(flatten)]
-    pub common: CommonSettings,
+    pub git: GitSettings,
 
     // ===== CLI-Only Options =====
     /// Reset settings file location to default
@@ -42,7 +42,7 @@ pub struct CLIConfig {
 impl Default for CLIConfig {
     fn default() -> Self {
         Self {
-            common: CommonSettings::default(),
+            git: GitSettings::default(),
             reset_file: false,
             load_path: None,
             reset_defaults: false,
@@ -55,27 +55,27 @@ impl Default for CLIConfig {
 }
 
 impl CLIConfig {
-    /// Create a new CLI config from common settings
-    pub fn from_common(common: CommonSettings) -> Self {
+    /// Create a new CLI config from git settings
+    pub fn from_git(git: GitSettings) -> Self {
         Self {
-            common,
+            git,
             ..Default::default()
         }
     }
 
-    /// Extract the common settings
-    pub fn into_common(self) -> CommonSettings {
-        self.common
+    /// Extract the git settings
+    pub fn into_git(self) -> GitSettings {
+        self.git
     }
 
-    /// Get a reference to the common settings
-    pub fn common(&self) -> &CommonSettings {
-        &self.common
+    /// Get a reference to the git settings
+    pub fn git(&self) -> &GitSettings {
+        &self.git
     }
 
-    /// Get a mutable reference to the common settings
-    pub fn common_mut(&mut self) -> &mut CommonSettings {
-        &mut self.common
+    /// Get a mutable reference to the git settings
+    pub fn git_mut(&mut self) -> &mut GitSettings {
+        &mut self.git
     }
 
     /// Merge CLI arguments with loaded configuration
@@ -83,7 +83,7 @@ impl CLIConfig {
     /// CLI arguments take precedence over loaded configuration.
     pub fn merge_with(&mut self, _other: &CLIConfig) {
         // This is a placeholder - implement field-by-field merging based on which fields are set
-        // For now, just replace non-default common fields
+        // For now, just replace non-default git fields
         // In a real implementation, you'd check which fields were explicitly set via CLI
     }
 }
@@ -102,30 +102,30 @@ mod tests {
     }
 
     #[test]
-    fn test_cli_config_from_common() {
-        let common = CommonSettings::default();
-        let cli_config = CLIConfig::from_common(common.clone());
-        assert_eq!(cli_config.common.git_base_url, common.git_base_url);
+    fn test_cli_config_from_git() {
+        let git = GitSettings::default();
+        let cli_config = CLIConfig::from_git(git.clone());
+        assert_eq!(cli_config.git.base_url(), git.base_url());
     }
 
     #[test]
-    fn test_cli_config_into_common() {
+    fn test_cli_config_into_git() {
         let cli_config = CLIConfig::default();
-        let common = cli_config.into_common();
-        assert_eq!(common.git_base_url, CommonSettings::default().git_base_url);
+        let git = cli_config.into_git();
+        assert_eq!(git.base_url(), GitSettings::default().base_url());
     }
 
     #[test]
     fn test_cli_config_accessors() {
         let mut cli_config = CLIConfig::default();
 
-        // Test immutable access
-        let common_ref = cli_config.common();
-        assert_eq!(common_ref.git_base_url, "https://gitlab.tue.nl");
+        // Test immutable access (default is GitLab)
+        let git_ref = cli_config.git();
+        assert_eq!(git_ref.base_url(), "https://gitlab.tue.nl");
 
         // Test mutable access
-        cli_config.common_mut().git_base_url = "https://custom.url".to_string();
-        assert_eq!(cli_config.common.git_base_url, "https://custom.url");
+        cli_config.git_mut().gitlab.base_url = "https://custom.url".to_string();
+        assert_eq!(cli_config.git.gitlab.base_url, "https://custom.url");
     }
 
     #[test]
@@ -138,7 +138,7 @@ mod tests {
         assert!(!json.contains("save"));
         assert!(!json.contains("show_settings"));
 
-        // Common fields should be included
-        assert!(json.contains("git_base_url"));
+        // Git fields should be included
+        assert!(json.contains("base_url"));
     }
 }

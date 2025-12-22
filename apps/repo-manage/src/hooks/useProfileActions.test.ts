@@ -11,10 +11,28 @@ import * as settingsService from "../services/settingsService"
 const mockService = vi.mocked(settingsService)
 
 const baseSettings: GuiSettings = {
-  common: {
-    git_base_url: "https://gitlab.example.com",
-    git_access_token: "t",
-    git_user: "u",
+  git: {
+    type: "GitLab",
+    github: {
+      access_token: "",
+      user: "",
+      student_repos_org: "",
+      template_org: "",
+    },
+    gitlab: {
+      access_token: "t",
+      base_url: "https://gitlab.example.com",
+      user: "u",
+      student_repos_group: "group/students",
+      template_group: "group/templates",
+    },
+    gitea: {
+      access_token: "",
+      base_url: "",
+      user: "",
+      student_repos_group: "",
+      template_group: "",
+    },
   },
   lms: {
     type: "Canvas",
@@ -38,8 +56,6 @@ const baseSettings: GuiSettings = {
     output_yaml: true,
   },
   repo: {
-    student_repos_group: "group/students",
-    template_group: "group/templates",
     yaml_file: "students.yaml",
     target_folder: "/tmp/repos",
     assignments: "hw1,hw2",
@@ -228,10 +244,15 @@ describe("useProfileActions", () => {
 
   it("creates profile from defaults when not copying current", async () => {
     const defaultSettings = cloneSettings({
-      common: {
-        git_base_url: "https://dflt.example.com",
-        git_access_token: "x",
-        git_user: "y",
+      git: {
+        type: "GitLab",
+        github: { access_token: "", user: "" },
+        gitlab: {
+          access_token: "x",
+          base_url: "https://dflt.example.com",
+          user: "y",
+        },
+        gitea: { access_token: "", base_url: "", user: "" },
       },
     })
     mockService.getDefaultSettings.mockResolvedValueOnce(defaultSettings)

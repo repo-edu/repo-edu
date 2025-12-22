@@ -170,6 +170,40 @@ impl FromStr for ActiveTab {
     }
 }
 
+/// Git server types for repository management
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type, Default,
+)]
+pub enum GitServerType {
+    GitHub,
+    #[default]
+    GitLab,
+    Gitea,
+}
+
+impl fmt::Display for GitServerType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::GitHub => write!(f, "GitHub"),
+            Self::GitLab => write!(f, "GitLab"),
+            Self::Gitea => write!(f, "Gitea"),
+        }
+    }
+}
+
+impl FromStr for GitServerType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "github" => Ok(Self::GitHub),
+            "gitlab" => Ok(Self::GitLab),
+            "gitea" => Ok(Self::Gitea),
+            _ => Err(format!("Unknown git server type: {}", s)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,5 +290,49 @@ mod tests {
 
         let tab: ActiveTab = serde_json::from_str("\"repo\"").unwrap();
         assert_eq!(tab, ActiveTab::Repo);
+    }
+
+    #[test]
+    fn test_git_server_type_display() {
+        assert_eq!(GitServerType::GitHub.to_string(), "GitHub");
+        assert_eq!(GitServerType::GitLab.to_string(), "GitLab");
+        assert_eq!(GitServerType::Gitea.to_string(), "Gitea");
+    }
+
+    #[test]
+    fn test_git_server_type_from_str() {
+        assert_eq!(
+            "github".parse::<GitServerType>().unwrap(),
+            GitServerType::GitHub
+        );
+        assert_eq!(
+            "GitLab".parse::<GitServerType>().unwrap(),
+            GitServerType::GitLab
+        );
+        assert_eq!(
+            "GITEA".parse::<GitServerType>().unwrap(),
+            GitServerType::Gitea
+        );
+    }
+
+    #[test]
+    fn test_git_server_type_serialize() {
+        let json = serde_json::to_string(&GitServerType::GitHub).unwrap();
+        assert_eq!(json, "\"GitHub\"");
+
+        let json = serde_json::to_string(&GitServerType::GitLab).unwrap();
+        assert_eq!(json, "\"GitLab\"");
+    }
+
+    #[test]
+    fn test_git_server_type_deserialize() {
+        let server: GitServerType = serde_json::from_str("\"GitHub\"").unwrap();
+        assert_eq!(server, GitServerType::GitHub);
+
+        let server: GitServerType = serde_json::from_str("\"GitLab\"").unwrap();
+        assert_eq!(server, GitServerType::GitLab);
+
+        let server: GitServerType = serde_json::from_str("\"Gitea\"").unwrap();
+        assert_eq!(server, GitServerType::Gitea);
     }
 }

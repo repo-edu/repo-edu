@@ -13,7 +13,7 @@ pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppErr
         platform_type: None, // Auto-detect from URL
         base_url: params.base_url.clone(),
         access_token: params.access_token,
-        organization: params.student_repos_group.clone(),
+        organization: params.student_repos.clone(),
         user: params.user.clone(),
     };
 
@@ -29,11 +29,11 @@ pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppErr
         success: true,
         message: format!(
             "✓ Configuration verified successfully for {}",
-            params.student_repos_group
+            params.student_repos
         ),
         details: Some(format!(
             "Platform: {}\nOrganization: {}\nUser: {}",
-            platform_name, params.student_repos_group, params.user
+            platform_name, params.student_repos, params.user
         )),
     })
 }
@@ -69,12 +69,12 @@ pub async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError>
         platform_type: None, // Auto-detect from URL
         base_url: params.config.base_url.clone(),
         access_token: params.config.access_token.clone(),
-        organization: params.config.student_repos_group.clone(),
+        organization: params.config.student_repos.clone(),
         user: params.config.user.clone(),
-        template_org: if params.config.template_group.is_empty() {
+        template_org: if params.config.template.is_empty() {
             None
         } else {
-            Some(params.config.template_group.clone())
+            Some(params.config.template.clone())
         },
         templates,
         student_teams,

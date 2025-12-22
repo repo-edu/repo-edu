@@ -49,7 +49,8 @@ pub use settings::{
     atomic_write, atomic_write_json, atomic_write_string, join_comma_separated, normalize_path,
     normalize_paths, normalize_string, normalize_string_vec, normalize_url, parse_comma_separated,
     path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
-    ActiveTab, AppSettings, CLIConfig, CommonSettings, ConfigError, ConfigResult, DirectoryLayout,
-    GuiSettings, Interface, LmsUrlOption, MemberOption, Normalize, PathValidationMode,
-    ProfileSettings, SettingsLoadResult, SettingsManager, Validate, ValidationErrors,
+    ActiveTab, AppSettings, CLIConfig, ConfigError, ConfigResult, DirectoryLayout, GitHubConfig,
+    GitLabConfig, GitServerType, GitSettings, GiteaConfig, GuiSettings, Interface, LmsUrlOption,
+    MemberOption, Normalize, PathValidationMode, ProfileSettings, SettingsLoadResult,
+    SettingsManager, Validate, ValidationErrors,
 };

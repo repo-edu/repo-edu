@@ -33,8 +33,8 @@ pub struct ConfigParams {
     pub access_token: String,
     pub user: String,
     pub base_url: String,
-    pub student_repos_group: String,
-    pub template_group: String,
+    pub student_repos: String,
+    pub template: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

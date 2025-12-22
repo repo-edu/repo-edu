@@ -37,11 +37,27 @@ const validLmsForm: LmsFormState = {
 }
 
 const validRepoForm: RepoFormState = {
-  accessToken: "git-token",
-  user: "testuser",
-  baseUrl: "https://gitlab.tue.nl",
-  studentReposGroup: "student-repos",
-  templateGroup: "templates",
+  gitServerType: "GitLab",
+  github: {
+    accessToken: "",
+    user: "",
+    studentReposOrg: "",
+    templateOrg: "",
+  },
+  gitlab: {
+    accessToken: "git-token",
+    baseUrl: "https://gitlab.tue.nl",
+    user: "testuser",
+    studentReposGroup: "student-repos",
+    templateGroup: "templates",
+  },
+  gitea: {
+    accessToken: "",
+    baseUrl: "",
+    user: "",
+    studentReposGroup: "",
+    templateGroup: "",
+  },
   yamlFile: "/path/to/students.yaml",
   targetFolder: "/path/to/target",
   assignments: "assignment1,assignment2",
@@ -263,46 +279,95 @@ describe("validateRepo", () => {
     expect(result.errors).toContain("Target folder is required")
   })
 
-  it("requires access token", () => {
-    const form = { ...validRepoForm, accessToken: "" }
+  it("requires access token for active server (GitLab)", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, accessToken: "" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Access token is required")
   })
 
-  it("requires user", () => {
-    const form = { ...validRepoForm, user: "" }
+  it("requires user for active server (GitLab)", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, user: "" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("User is required")
   })
 
-  it("requires base URL", () => {
-    const form = { ...validRepoForm, baseUrl: "" }
+  it("requires base URL for GitLab", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, baseUrl: "" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Base URL is required")
   })
 
-  it("validates base URL format", () => {
-    const form = { ...validRepoForm, baseUrl: "invalid-url" }
+  it("validates base URL format for GitLab", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, baseUrl: "invalid-url" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Base URL must be a valid URL")
   })
 
-  it("requires student repos group", () => {
-    const form = { ...validRepoForm, studentReposGroup: "" }
+  it("does not require base URL for GitHub", () => {
+    const form = {
+      ...validRepoForm,
+      gitServerType: "GitHub" as const,
+      github: {
+        accessToken: "gh-token",
+        user: "ghuser",
+        studentReposOrg: "my-org",
+        templateOrg: "my-templates",
+      },
+    }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(true)
+  })
+
+  it("requires student repos group for GitLab", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, studentReposGroup: "" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Student repos group is required")
   })
 
-  it("requires template group", () => {
-    const form = { ...validRepoForm, templateGroup: "" }
+  it("requires template group for GitLab", () => {
+    const form = {
+      ...validRepoForm,
+      gitlab: { ...validRepoForm.gitlab, templateGroup: "" },
+    }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
     expect(result.errors).toContain("Template group is required")
+  })
+
+  it("requires student repos organization for GitHub", () => {
+    const form = {
+      ...validRepoForm,
+      gitServerType: "GitHub" as const,
+      github: {
+        accessToken: "gh-token",
+        user: "ghuser",
+        studentReposOrg: "",
+        templateOrg: "my-templates",
+      },
+    }
+    const result = validateRepo(form)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain("Student repos organization is required")
   })
 
   it("collects multiple errors", () => {
@@ -310,10 +375,11 @@ describe("validateRepo", () => {
       ...validRepoForm,
       yamlFile: "",
       targetFolder: "",
-      accessToken: "",
+      gitlab: { ...validRepoForm.gitlab, accessToken: "" },
     }
     const result = validateRepo(form)
     expect(result.valid).toBe(false)
+    // 3 errors: yamlFile, targetFolder, accessToken
     expect(result.errors).toHaveLength(3)
   })
 })

@@ -23,7 +23,29 @@ import * as settingsService from "../services/settingsService"
 const mockService = vi.mocked(settingsService)
 
 const baseSettings: GuiSettings = {
-  common: { git_base_url: "", git_access_token: "", git_user: "" },
+  git: {
+    type: "GitLab",
+    github: {
+      access_token: "",
+      user: "",
+      student_repos_org: "",
+      template_org: "",
+    },
+    gitlab: {
+      access_token: "",
+      base_url: "",
+      user: "",
+      student_repos_group: "",
+      template_group: "",
+    },
+    gitea: {
+      access_token: "",
+      base_url: "",
+      user: "",
+      student_repos_group: "",
+      template_group: "",
+    },
+  },
   lms: {
     type: "Canvas",
     base_url: "",
@@ -46,8 +68,6 @@ const baseSettings: GuiSettings = {
     output_yaml: true,
   },
   repo: {
-    student_repos_group: "",
-    template_group: "",
     yaml_file: "",
     target_folder: "",
     assignments: "",

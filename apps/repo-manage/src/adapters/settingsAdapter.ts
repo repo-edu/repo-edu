@@ -7,6 +7,9 @@
 
 import {
   DEFAULT_CANVAS_CONFIG,
+  DEFAULT_GITEA_CONFIG,
+  DEFAULT_GITHUB_CONFIG,
+  DEFAULT_GITLAB_CONFIG,
   DEFAULT_GUI_THEME,
   DEFAULT_LMS_SETTINGS,
   DEFAULT_LOG_LEVELS,
@@ -50,7 +53,7 @@ function mapCourses(
  */
 export function toStoreFormat(settings: GuiSettings): StoreFormats {
   const lms = settings.lms
-  const common = settings.common
+  const git = settings.git
   const repo = settings.repo
   const logging = settings.logging
 
@@ -93,12 +96,42 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
       yaml: lms.output_yaml ?? DEFAULT_LMS_SETTINGS.yaml,
     },
     repo: {
-      accessToken: common.git_access_token || DEFAULT_REPO_SETTINGS.accessToken,
-      user: common.git_user || DEFAULT_REPO_SETTINGS.user,
-      baseUrl: common.git_base_url || DEFAULT_REPO_SETTINGS.baseUrl,
-      studentReposGroup:
-        repo.student_repos_group || DEFAULT_REPO_SETTINGS.studentReposGroup,
-      templateGroup: repo.template_group || DEFAULT_REPO_SETTINGS.templateGroup,
+      gitServerType: (git.type || DEFAULT_REPO_SETTINGS.gitServerType) as
+        | "GitHub"
+        | "GitLab"
+        | "Gitea",
+      github: {
+        accessToken:
+          git.github?.access_token || DEFAULT_GITHUB_CONFIG.accessToken,
+        user: git.github?.user || DEFAULT_GITHUB_CONFIG.user,
+        studentReposOrg:
+          git.github?.student_repos_org ||
+          DEFAULT_GITHUB_CONFIG.studentReposOrg,
+        templateOrg:
+          git.github?.template_org || DEFAULT_GITHUB_CONFIG.templateOrg,
+      },
+      gitlab: {
+        accessToken:
+          git.gitlab?.access_token || DEFAULT_GITLAB_CONFIG.accessToken,
+        baseUrl: git.gitlab?.base_url || DEFAULT_GITLAB_CONFIG.baseUrl,
+        user: git.gitlab?.user || DEFAULT_GITLAB_CONFIG.user,
+        studentReposGroup:
+          git.gitlab?.student_repos_group ||
+          DEFAULT_GITLAB_CONFIG.studentReposGroup,
+        templateGroup:
+          git.gitlab?.template_group || DEFAULT_GITLAB_CONFIG.templateGroup,
+      },
+      gitea: {
+        accessToken:
+          git.gitea?.access_token || DEFAULT_GITEA_CONFIG.accessToken,
+        baseUrl: git.gitea?.base_url || DEFAULT_GITEA_CONFIG.baseUrl,
+        user: git.gitea?.user || DEFAULT_GITEA_CONFIG.user,
+        studentReposGroup:
+          git.gitea?.student_repos_group ||
+          DEFAULT_GITEA_CONFIG.studentReposGroup,
+        templateGroup:
+          git.gitea?.template_group || DEFAULT_GITEA_CONFIG.templateGroup,
+      },
       yamlFile: repo.yaml_file || DEFAULT_REPO_SETTINGS.yamlFile,
       targetFolder: repo.target_folder || DEFAULT_REPO_SETTINGS.targetFolder,
       assignments: repo.assignments || DEFAULT_REPO_SETTINGS.assignments,
@@ -150,11 +183,29 @@ export function toBackendFormat(
   },
 ): Strict<GuiSettings> {
   return {
-    // Common settings (shared git credentials)
-    common: {
-      git_base_url: repoState.baseUrl,
-      git_access_token: repoState.accessToken,
-      git_user: repoState.user,
+    // Git settings (per-server configs)
+    git: {
+      type: repoState.gitServerType as "GitHub" | "GitLab" | "Gitea",
+      github: {
+        access_token: repoState.github.accessToken,
+        user: repoState.github.user,
+        student_repos_org: repoState.github.studentReposOrg,
+        template_org: repoState.github.templateOrg,
+      },
+      gitlab: {
+        access_token: repoState.gitlab.accessToken,
+        base_url: repoState.gitlab.baseUrl,
+        user: repoState.gitlab.user,
+        student_repos_group: repoState.gitlab.studentReposGroup,
+        template_group: repoState.gitlab.templateGroup,
+      },
+      gitea: {
+        access_token: repoState.gitea.accessToken,
+        base_url: repoState.gitea.baseUrl,
+        user: repoState.gitea.user,
+        student_repos_group: repoState.gitea.studentReposGroup,
+        template_group: repoState.gitea.templateGroup,
+      },
     },
     // LMS settings
     lms: {
@@ -189,8 +240,6 @@ export function toBackendFormat(
     },
     // Repo settings
     repo: {
-      student_repos_group: repoState.studentReposGroup,
-      template_group: repoState.templateGroup,
       yaml_file: repoState.yamlFile,
       target_folder: repoState.targetFolder,
       assignments: repoState.assignments,

@@ -223,12 +223,13 @@ impl ConfigManager {
             self.active_profile.as_deref().unwrap_or("(none)")
         );
         println!();
-        println!("Common Settings:");
-        println!("  Git Base URL    : {}", self.config.common.git_base_url);
-        println!("  Git User        : {}", self.config.common.git_user);
+        println!("Git Settings:");
+        println!("  Server Type     : {}", self.config.git.server_type);
+        println!("  Base URL        : {}", self.config.git.base_url());
+        println!("  User            : {}", self.config.git.user());
         println!(
-            "  Git Token       : {}",
-            if self.config.common.git_access_token.is_empty() {
+            "  Access Token    : {}",
+            if self.config.git.access_token().is_empty() {
                 "(not set)"
             } else {
                 "***"
@@ -236,11 +237,8 @@ impl ConfigManager {
         );
         println!();
         println!("Repo Settings:");
-        println!(
-            "  Student Org     : {}",
-            self.config.repo.student_repos_group
-        );
-        println!("  Template Org    : {}", self.config.repo.template_group);
+        println!("  Student Org     : {}", self.config.git.student_repos());
+        println!("  Template Org    : {}", self.config.git.template());
         println!("  YAML File       : {}", self.config.repo.yaml_file);
         println!("  Target Folder   : {}", self.config.repo.target_folder);
         println!("  Assignments     : {}", self.config.repo.assignments);
@@ -514,15 +512,15 @@ fn load_teams_from_file(path: &PathBuf) -> Result<Vec<StudentTeam>> {
 async fn run_repo_verify(config: &ProfileSettings, platform: Option<PlatformType>) -> Result<()> {
     println!("Verifying platform settings...");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.repo.student_repos_group);
+    println!("Organization: {}", config.git.student_repos());
     println!();
 
     let params = VerifyParams {
         platform_type: platform.map(|p| p.into()),
-        base_url: config.common.git_base_url.clone(),
-        access_token: config.common.git_access_token.clone(),
-        organization: config.repo.student_repos_group.clone(),
-        user: config.common.git_user.clone(),
+        base_url: config.git.base_url().to_string(),
+        access_token: config.git.access_token().to_string(),
+        organization: config.git.student_repos().to_string(),
+        user: config.git.user().to_string(),
     };
 
     verify_platform(&params, cli_progress)
@@ -566,7 +564,7 @@ async fn run_repo_setup(
     println!("RepoBee Setup");
     println!("=============");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.repo.student_repos_group);
+    println!("Organization: {}", config.git.student_repos());
     println!("Templates: {:?}", templates);
     println!("Teams: {}", student_teams.len());
     println!();
@@ -577,7 +575,7 @@ async fn run_repo_setup(
         .map(|p| p != CorePlatformType::Local)
         .unwrap_or(true);
 
-    if needs_token && config.common.git_access_token.is_empty() {
+    if needs_token && config.git.access_token().is_empty() {
         anyhow::bail!("Token required. Set with --git-token or REPOBEE_TOKEN");
     }
 
@@ -585,16 +583,17 @@ async fn run_repo_setup(
     let work_dir_path = work_dir.unwrap_or_else(|| PathBuf::from("./repobee-work"));
 
     // Build setup params
+    let template_org = config.git.template();
     let params = CoreSetupParams {
         platform_type,
-        base_url: config.common.git_base_url.clone(),
-        access_token: config.common.git_access_token.clone(),
-        organization: config.repo.student_repos_group.clone(),
-        user: config.common.git_user.clone(),
-        template_org: if config.repo.template_group.is_empty() {
+        base_url: config.git.base_url().to_string(),
+        access_token: config.git.access_token().to_string(),
+        organization: config.git.student_repos().to_string(),
+        user: config.git.user().to_string(),
+        template_org: if template_org.is_empty() {
             None
         } else {
-            Some(config.repo.template_group.clone())
+            Some(template_org.to_string())
         },
         templates,
         student_teams,

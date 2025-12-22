@@ -1,4 +1,5 @@
-use super::common::{CommonSettings, LmsSettings, ProfileSettings, RepoSettings};
+use super::common::{GitSettings, LmsSettings, ProfileSettings, RepoSettings};
+use super::enums::GitServerType;
 use super::error::{ConfigError, ConfigResult};
 use super::gui::GuiSettings;
 use chrono::NaiveDate;
@@ -43,13 +44,35 @@ pub trait Validate {
     fn validate(&self) -> ConfigResult<()>;
 }
 
-impl Validate for CommonSettings {
+impl Validate for GitSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate Git URL
-        if !self.git_base_url.is_empty() && !is_valid_url(&self.git_base_url) {
-            errors.add_field("common.git_base_url", "must be a valid URL");
+        // Validate GitLab base URL
+        if !self.gitlab.base_url.is_empty() && !is_valid_url(&self.gitlab.base_url) {
+            errors.add_field("git.gitlab.base_url", "must be a valid URL");
+        }
+
+        // Validate Gitea base URL
+        if !self.gitea.base_url.is_empty() && !is_valid_url(&self.gitea.base_url) {
+            errors.add_field("git.gitea.base_url", "must be a valid URL");
+        }
+
+        // Validate that active server has required fields
+        match self.server_type {
+            GitServerType::GitLab => {
+                if self.gitlab.base_url.is_empty() {
+                    errors.add_field("git.gitlab.base_url", "is required for GitLab");
+                }
+            }
+            GitServerType::Gitea => {
+                if self.gitea.base_url.is_empty() {
+                    errors.add_field("git.gitea.base_url", "is required for Gitea");
+                }
+            }
+            GitServerType::GitHub => {
+                // GitHub doesn't need base_url
+            }
         }
 
         errors.into_result(())
@@ -91,7 +114,7 @@ impl Validate for ProfileSettings {
         // Validate each section
         if let Err(ConfigError::InvalidConfig {
             errors: section_errors,
-        }) = self.common.validate()
+        }) = self.git.validate()
         {
             for error in section_errors {
                 errors.add(error);
@@ -405,15 +428,39 @@ mod tests {
     // ===== Settings Validation Tests =====
 
     #[test]
-    fn test_validate_common_settings_default() {
-        let settings = CommonSettings::default();
+    fn test_validate_git_settings_default() {
+        let settings = GitSettings::default();
         assert!(settings.validate().is_ok());
     }
 
     #[test]
-    fn test_validate_common_settings_invalid_git_url() {
-        let mut settings = CommonSettings::default();
-        settings.git_base_url = "ftp://invalid".to_string();
+    fn test_validate_git_settings_invalid_gitlab_url() {
+        let mut settings = GitSettings::default();
+        settings.gitlab.base_url = "ftp://invalid".to_string();
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_git_settings_invalid_gitea_url() {
+        let mut settings = GitSettings::default();
+        settings.server_type = GitServerType::Gitea;
+        settings.gitea.base_url = "ftp://invalid".to_string();
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_git_settings_github_no_base_url_required() {
+        let mut settings = GitSettings::default();
+        settings.server_type = GitServerType::GitHub;
+        // GitHub doesn't need base_url, so this should pass
+        assert!(settings.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_git_settings_gitea_requires_base_url() {
+        let mut settings = GitSettings::default();
+        settings.server_type = GitServerType::Gitea;
+        settings.gitea.base_url = String::new(); // Empty base_url
         assert!(settings.validate().is_err());
     }
 

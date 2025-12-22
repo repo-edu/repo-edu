@@ -1,4 +1,4 @@
-use super::enums::{DirectoryLayout, LmsUrlOption, MemberOption};
+use super::enums::{DirectoryLayout, GitServerType, LmsUrlOption, MemberOption};
 use super::normalization::{normalize_string, normalize_url, Normalize};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -19,29 +19,138 @@ impl Normalize for CourseEntry {
     }
 }
 
-/// Shared settings used by multiple apps (git credentials)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct CommonSettings {
-    pub git_access_token: String,
-    pub git_base_url: String,
-    pub git_user: String,
+/// GitHub-specific configuration (no base_url - always github.com)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
+pub struct GitHubConfig {
+    pub access_token: String,
+    pub user: String,
+    pub student_repos_org: String,
+    pub template_org: String,
 }
 
-impl Default for CommonSettings {
+impl Normalize for GitHubConfig {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.access_token);
+        normalize_string(&mut self.user);
+        normalize_string(&mut self.student_repos_org);
+        normalize_string(&mut self.template_org);
+    }
+}
+
+/// GitLab-specific configuration (requires base_url)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
+pub struct GitLabConfig {
+    pub access_token: String,
+    pub base_url: String,
+    pub user: String,
+    pub student_repos_group: String,
+    pub template_group: String,
+}
+
+impl Default for GitLabConfig {
     fn default() -> Self {
         Self {
-            git_access_token: String::new(),
-            git_base_url: "https://gitlab.tue.nl".to_string(),
-            git_user: String::new(),
+            access_token: String::new(),
+            base_url: "https://gitlab.tue.nl".to_string(),
+            user: String::new(),
+            student_repos_group: String::new(),
+            template_group: String::new(),
         }
     }
 }
 
-impl Normalize for CommonSettings {
+impl Normalize for GitLabConfig {
     fn normalize(&mut self) {
-        normalize_string(&mut self.git_access_token);
-        normalize_url(&mut self.git_base_url);
-        normalize_string(&mut self.git_user);
+        normalize_string(&mut self.access_token);
+        normalize_url(&mut self.base_url);
+        normalize_string(&mut self.user);
+        normalize_string(&mut self.student_repos_group);
+        normalize_string(&mut self.template_group);
+    }
+}
+
+/// Gitea-specific configuration (requires base_url)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
+pub struct GiteaConfig {
+    pub access_token: String,
+    pub base_url: String,
+    pub user: String,
+    pub student_repos_group: String,
+    pub template_group: String,
+}
+
+impl Normalize for GiteaConfig {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.access_token);
+        normalize_url(&mut self.base_url);
+        normalize_string(&mut self.user);
+        normalize_string(&mut self.student_repos_group);
+        normalize_string(&mut self.template_group);
+    }
+}
+
+/// Git server settings (shared across apps)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
+pub struct GitSettings {
+    pub gitea: GiteaConfig,
+    pub github: GitHubConfig,
+    pub gitlab: GitLabConfig,
+    #[serde(rename = "type")]
+    pub server_type: GitServerType,
+}
+
+impl GitSettings {
+    /// Get the access token for the active server
+    pub fn access_token(&self) -> &str {
+        match self.server_type {
+            GitServerType::GitHub => &self.github.access_token,
+            GitServerType::GitLab => &self.gitlab.access_token,
+            GitServerType::Gitea => &self.gitea.access_token,
+        }
+    }
+
+    /// Get the base URL for the active server (GitHub returns "https://github.com")
+    pub fn base_url(&self) -> &str {
+        match self.server_type {
+            GitServerType::GitHub => "https://github.com",
+            GitServerType::GitLab => &self.gitlab.base_url,
+            GitServerType::Gitea => &self.gitea.base_url,
+        }
+    }
+
+    /// Get the user for the active server
+    pub fn user(&self) -> &str {
+        match self.server_type {
+            GitServerType::GitHub => &self.github.user,
+            GitServerType::GitLab => &self.gitlab.user,
+            GitServerType::Gitea => &self.gitea.user,
+        }
+    }
+
+    /// Get the student repos org/group for the active server
+    pub fn student_repos(&self) -> &str {
+        match self.server_type {
+            GitServerType::GitHub => &self.github.student_repos_org,
+            GitServerType::GitLab => &self.gitlab.student_repos_group,
+            GitServerType::Gitea => &self.gitea.student_repos_group,
+        }
+    }
+
+    /// Get the template org/group for the active server
+    pub fn template(&self) -> &str {
+        match self.server_type {
+            GitServerType::GitHub => &self.github.template_org,
+            GitServerType::GitLab => &self.gitlab.template_group,
+            GitServerType::Gitea => &self.gitea.template_group,
+        }
+    }
+}
+
+impl Normalize for GitSettings {
+    fn normalize(&mut self) {
+        self.gitea.normalize();
+        self.github.normalize();
+        self.gitlab.normalize();
     }
 }
 
@@ -156,9 +265,7 @@ impl Normalize for LmsSettings {
 pub struct RepoSettings {
     pub assignments: String,
     pub directory_layout: DirectoryLayout,
-    pub student_repos_group: String,
     pub target_folder: String,
-    pub template_group: String,
     pub yaml_file: String,
 }
 
@@ -167,9 +274,7 @@ impl Default for RepoSettings {
         Self {
             assignments: String::new(),
             directory_layout: DirectoryLayout::Flat,
-            student_repos_group: String::new(),
             target_folder: String::new(),
-            template_group: String::new(),
             yaml_file: "students.yaml".to_string(),
         }
     }
@@ -178,9 +283,7 @@ impl Default for RepoSettings {
 impl Normalize for RepoSettings {
     fn normalize(&mut self) {
         normalize_string(&mut self.assignments);
-        normalize_string(&mut self.student_repos_group);
         normalize_string(&mut self.target_folder);
-        normalize_string(&mut self.template_group);
         normalize_string(&mut self.yaml_file);
     }
 }
@@ -208,14 +311,14 @@ impl Default for LogSettings {
 /// Profile settings (nested structure for per-profile data)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
 pub struct ProfileSettings {
-    pub common: CommonSettings,
+    pub git: GitSettings,
     pub lms: LmsSettings,
     pub repo: RepoSettings,
 }
 
 impl Normalize for ProfileSettings {
     fn normalize(&mut self) {
-        self.common.normalize();
+        self.git.normalize();
         self.lms.normalize();
         self.repo.normalize();
     }

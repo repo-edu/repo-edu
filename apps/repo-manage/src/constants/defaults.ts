@@ -40,12 +40,35 @@ export const DEFAULT_LOG_LEVELS = {
   error: true,
 }
 
-export const DEFAULT_REPO_SETTINGS = {
+// Per-server git configs
+export const DEFAULT_GITHUB_CONFIG = {
   accessToken: "",
   user: "",
+  studentReposOrg: "",
+  templateOrg: "",
+}
+
+export const DEFAULT_GITLAB_CONFIG = {
+  accessToken: "",
   baseUrl: "https://gitlab.tue.nl",
+  user: "",
   studentReposGroup: "",
   templateGroup: "",
+}
+
+export const DEFAULT_GITEA_CONFIG = {
+  accessToken: "",
+  baseUrl: "",
+  user: "",
+  studentReposGroup: "",
+  templateGroup: "",
+}
+
+export const DEFAULT_REPO_SETTINGS = {
+  gitServerType: "GitLab" as const,
+  github: { ...DEFAULT_GITHUB_CONFIG },
+  gitlab: { ...DEFAULT_GITLAB_CONFIG },
+  gitea: { ...DEFAULT_GITEA_CONFIG },
   yamlFile: "",
   targetFolder: "",
   assignments: "",

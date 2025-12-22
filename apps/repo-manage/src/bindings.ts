@@ -329,11 +329,7 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 export type CanvasConfig = { access_token: string; base_url: string; courses: CourseEntry[]; custom_url: string; url_option: LmsUrlOption }
 export type CloneParams = { config: ConfigParams; yaml_file: string; assignments: string; target_folder: string; directory_layout: string }
 export type CommandResult = { success: boolean; message: string; details: string | null }
-/**
- * Shared settings used by multiple apps (git credentials)
- */
-export type CommonSettings = { git_access_token: string; git_base_url: string; git_user: string }
-export type ConfigParams = { access_token: string; user: string; base_url: string; student_repos_group: string; template_group: string }
+export type ConfigParams = { access_token: string; user: string; base_url: string; student_repos: string; template: string }
 /**
  * A course entry with ID and optional name (populated after verification)
  */
@@ -343,6 +339,26 @@ export type CourseEntry = { id: string; name: string | null }
  */
 export type DirectoryLayout = "by-team" | "flat" | "by-task"
 export type GenerateFilesParams = { base_url: string; access_token: string; course_id: string; lms_type: string; yaml_file: string; output_folder: string; csv_file: string; xlsx_file: string; member_option: string; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; csv: boolean; xlsx: boolean; yaml: boolean }
+/**
+ * GitHub-specific configuration (no base_url - always github.com)
+ */
+export type GitHubConfig = { access_token: string; user: string; student_repos_org: string; template_org: string }
+/**
+ * GitLab-specific configuration (requires base_url)
+ */
+export type GitLabConfig = { access_token: string; base_url: string; user: string; student_repos_group: string; template_group: string }
+/**
+ * Git server types for repository management
+ */
+export type GitServerType = "GitHub" | "GitLab" | "Gitea"
+/**
+ * Git server settings (shared across apps)
+ */
+export type GitSettings = { gitea: GiteaConfig; github: GitHubConfig; gitlab: GitLabConfig; type: GitServerType }
+/**
+ * Gitea-specific configuration (requires base_url)
+ */
+export type GiteaConfig = { access_token: string; base_url: string; user: string; student_repos_group: string; template_group: string }
 /**
  * Combined GUI settings (sent to frontend)
  * This combines app settings with the active profile's settings
@@ -359,7 +375,7 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 /**
  * Profile settings (from active profile)
  */
-({ common: CommonSettings; lms: LmsSettings; repo: RepoSettings })
+({ git: GitSettings; lms: LmsSettings; repo: RepoSettings })
 /**
  * LMS app settings (Tab 1)
  */
@@ -383,7 +399,7 @@ export type MoodleConfig = { access_token: string; base_url: string; courses: Co
 /**
  * Repo app settings (Tab 2)
  */
-export type RepoSettings = { assignments: string; directory_layout: DirectoryLayout; student_repos_group: string; target_folder: string; template_group: string; yaml_file: string }
+export type RepoSettings = { assignments: string; directory_layout: DirectoryLayout; target_folder: string; yaml_file: string }
 /**
  * Result of loading settings, including any warnings about corrected issues
  */

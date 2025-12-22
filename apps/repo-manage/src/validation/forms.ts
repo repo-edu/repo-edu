@@ -69,11 +69,30 @@ export function validateRepo(form: RepoFormState) {
 
   require(form.yamlFile, "YAML file", errors)
   require(form.targetFolder, "Target folder", errors)
-  require(form.accessToken, "Access token", errors)
-  require(form.user, "User", errors)
-  requireUrl(form.baseUrl, "Base URL", errors)
-  require(form.studentReposGroup, "Student repos group", errors)
-  require(form.templateGroup, "Template group", errors)
+
+  // Validate active git server config (including per-server org/group)
+  switch (form.gitServerType) {
+    case "GitHub":
+      require(form.github.accessToken, "Access token", errors)
+      require(form.github.user, "User", errors)
+      require(form.github.studentReposOrg, "Student repos organization", errors)
+      require(form.github.templateOrg, "Template organization", errors)
+      break
+    case "GitLab":
+      require(form.gitlab.accessToken, "Access token", errors)
+      require(form.gitlab.user, "User", errors)
+      requireUrl(form.gitlab.baseUrl, "Base URL", errors)
+      require(form.gitlab.studentReposGroup, "Student repos group", errors)
+      require(form.gitlab.templateGroup, "Template group", errors)
+      break
+    case "Gitea":
+      require(form.gitea.accessToken, "Access token", errors)
+      require(form.gitea.user, "User", errors)
+      requireUrl(form.gitea.baseUrl, "Base URL", errors)
+      require(form.gitea.studentReposGroup, "Student repos group", errors)
+      require(form.gitea.templateGroup, "Template group", errors)
+      break
+  }
 
   return { valid: errors.length === 0, errors }
 }

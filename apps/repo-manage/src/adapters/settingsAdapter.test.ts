@@ -8,10 +8,28 @@ import type { GuiSettings } from "../types/settings"
 import { toBackendFormat, toStoreFormat } from "./settingsAdapter"
 
 const sampleBackendSettings: GuiSettings = {
-  common: {
-    git_base_url: "https://gitlab.example.com",
-    git_access_token: "token123",
-    git_user: "user1",
+  git: {
+    type: "GitLab",
+    github: {
+      access_token: "",
+      user: "",
+      student_repos_org: "",
+      template_org: "",
+    },
+    gitlab: {
+      access_token: "token123",
+      base_url: "https://gitlab.example.com",
+      user: "user1",
+      student_repos_group: "group/students",
+      template_group: "group/templates",
+    },
+    gitea: {
+      access_token: "",
+      base_url: "",
+      user: "",
+      student_repos_group: "",
+      template_group: "",
+    },
   },
   lms: {
     type: "Canvas",
@@ -41,8 +59,6 @@ const sampleBackendSettings: GuiSettings = {
     output_yaml: true,
   },
   repo: {
-    student_repos_group: "group/students",
-    template_group: "group/templates",
     yaml_file: "students.yaml",
     target_folder: "/tmp/repos",
     assignments: "hw1,hw2",
@@ -124,6 +140,15 @@ describe("settingsAdapter", () => {
     expect(store.lms.lmsType).toBe(DEFAULT_LMS_SETTINGS.lmsType)
   })
 
+  it("maps git settings correctly", () => {
+    const store = toStoreFormat(sampleBackendSettings)
+
+    expect(store.repo.gitServerType).toBe("GitLab")
+    expect(store.repo.gitlab.accessToken).toBe("token123")
+    expect(store.repo.gitlab.baseUrl).toBe("https://gitlab.example.com")
+    expect(store.repo.gitlab.user).toBe("user1")
+  })
+
   it("coerces string unions correctly in toBackendFormat", () => {
     const lmsState = {
       ...toStoreFormat(sampleBackendSettings).lms,
@@ -158,5 +183,62 @@ describe("settingsAdapter", () => {
       warning: repoState.logLevels.warning,
       error: repoState.logLevels.error,
     })
+  })
+
+  it("preserves all server configs in round-trip", () => {
+    const settings: GuiSettings = {
+      ...sampleBackendSettings,
+      git: {
+        type: "GitHub",
+        github: {
+          access_token: "gh-token",
+          user: "ghuser",
+          student_repos_org: "gh-org",
+          template_org: "gh-templates",
+        },
+        gitlab: {
+          access_token: "gl-token",
+          base_url: "https://gitlab.example.com",
+          user: "gluser",
+          student_repos_group: "gl-group",
+          template_group: "gl-templates",
+        },
+        gitea: {
+          access_token: "gt-token",
+          base_url: "https://gitea.example.com",
+          user: "gtuser",
+          student_repos_group: "gt-group",
+          template_group: "gt-templates",
+        },
+      },
+    }
+
+    const store = toStoreFormat(settings)
+
+    // Check all configs are preserved
+    expect(store.repo.github.accessToken).toBe("gh-token")
+    expect(store.repo.github.user).toBe("ghuser")
+    expect(store.repo.github.studentReposOrg).toBe("gh-org")
+    expect(store.repo.github.templateOrg).toBe("gh-templates")
+    expect(store.repo.gitlab.accessToken).toBe("gl-token")
+    expect(store.repo.gitlab.baseUrl).toBe("https://gitlab.example.com")
+    expect(store.repo.gitlab.studentReposGroup).toBe("gl-group")
+    expect(store.repo.gitlab.templateGroup).toBe("gl-templates")
+    expect(store.repo.gitea.accessToken).toBe("gt-token")
+    expect(store.repo.gitea.baseUrl).toBe("https://gitea.example.com")
+    expect(store.repo.gitea.studentReposGroup).toBe("gt-group")
+    expect(store.repo.gitea.templateGroup).toBe("gt-templates")
+
+    // Round-trip preserves everything
+    const roundTrip = toBackendFormat(store.lms, store.repo, {
+      activeTab: store.ui.activeTab,
+      collapsedSections: store.ui.collapsedSections,
+      sidebarOpen: store.ui.sidebarOpen,
+      theme: settings.theme,
+      windowWidth: settings.window_width,
+      windowHeight: settings.window_height,
+    })
+
+    expect(roundTrip.git).toEqual(settings.git)
   })
 })

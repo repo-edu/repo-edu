@@ -586,7 +586,7 @@ mod tests {
             "https://canvas.tue.nl"
         );
         assert_eq!(
-            settings.profile.common.git_base_url,
+            settings.profile.git.gitlab.base_url,
             "https://gitlab.tue.nl"
         );
         assert_eq!(settings.app.active_tab, crate::settings::ActiveTab::Lms);
