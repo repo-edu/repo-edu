@@ -54,3 +54,7 @@ pub use settings::{
     MemberOption, Normalize, PathValidationMode, ProfileSettings, SettingsLoadResult,
     SettingsManager, Validate, ValidationErrors,
 };
+
+// Test utilities (only available in test builds)
+#[cfg(test)]
+pub mod test_utils;

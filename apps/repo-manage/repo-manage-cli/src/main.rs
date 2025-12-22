@@ -143,6 +143,7 @@ enum ProfileAction {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "lower")]
 enum PlatformType {
     GitHub,
     GitLab,
@@ -510,17 +511,26 @@ fn load_teams_from_file(path: &PathBuf) -> Result<Vec<StudentTeam>> {
 }
 
 async fn run_repo_verify(config: &ProfileSettings, platform: Option<PlatformType>) -> Result<()> {
+    // Allow environment variable overrides
+    let base_url =
+        std::env::var("REPOBEE_BASE_URL").unwrap_or_else(|_| config.git.base_url().to_string());
+    let access_token =
+        std::env::var("REPOBEE_TOKEN").unwrap_or_else(|_| config.git.access_token().to_string());
+    let organization =
+        std::env::var("REPOBEE_ORG").unwrap_or_else(|_| config.git.student_repos().to_string());
+    let user = std::env::var("REPOBEE_USER").unwrap_or_else(|_| config.git.user().to_string());
+
     println!("Verifying platform settings...");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.git.student_repos());
+    println!("Organization: {}", organization);
     println!();
 
     let params = VerifyParams {
         platform_type: platform.map(|p| p.into()),
-        base_url: config.git.base_url().to_string(),
-        access_token: config.git.access_token().to_string(),
-        organization: config.git.student_repos().to_string(),
-        user: config.git.user().to_string(),
+        base_url,
+        access_token,
+        organization,
+        user,
     };
 
     verify_platform(&params, cli_progress)
@@ -539,14 +549,25 @@ async fn run_repo_setup(
     work_dir: Option<PathBuf>,
     private: Option<bool>,
 ) -> Result<()> {
-    // Load student teams
-    let yaml_path = if let Some(file) = teams_file {
+    // Allow environment variable overrides
+    let base_url =
+        std::env::var("REPOBEE_BASE_URL").unwrap_or_else(|_| config.git.base_url().to_string());
+    let access_token =
+        std::env::var("REPOBEE_TOKEN").unwrap_or_else(|_| config.git.access_token().to_string());
+    let organization =
+        std::env::var("REPOBEE_ORG").unwrap_or_else(|_| config.git.student_repos().to_string());
+    let user = std::env::var("REPOBEE_USER").unwrap_or_else(|_| config.git.user().to_string());
+    let template_org =
+        std::env::var("REPOBEE_TEMPLATE_ORG").unwrap_or_else(|_| config.git.template().to_string());
+
+    // Load student teams - check inline teams first, then file arguments, then config
+    let yaml_path = if !team_strings.is_empty() {
+        // Use team strings directly (return empty path to signal inline teams)
+        PathBuf::new()
+    } else if let Some(file) = teams_file {
         file
     } else if !config.repo.yaml_file.is_empty() {
         PathBuf::from(&config.repo.yaml_file)
-    } else if !team_strings.is_empty() {
-        // Use team strings directly
-        PathBuf::new()
     } else {
         anyhow::bail!("No student teams specified. Use --yaml-file, --teams-file, or --team");
     };
@@ -564,7 +585,7 @@ async fn run_repo_setup(
     println!("RepoBee Setup");
     println!("=============");
     println!("Platform: {:?}", platform);
-    println!("Organization: {}", config.git.student_repos());
+    println!("Organization: {}", organization);
     println!("Templates: {:?}", templates);
     println!("Teams: {}", student_teams.len());
     println!();
@@ -575,7 +596,7 @@ async fn run_repo_setup(
         .map(|p| p != CorePlatformType::Local)
         .unwrap_or(true);
 
-    if needs_token && config.git.access_token().is_empty() {
+    if needs_token && access_token.is_empty() {
         anyhow::bail!("Token required. Set with --git-token or REPOBEE_TOKEN");
     }
 
@@ -583,17 +604,16 @@ async fn run_repo_setup(
     let work_dir_path = work_dir.unwrap_or_else(|| PathBuf::from("./repobee-work"));
 
     // Build setup params
-    let template_org = config.git.template();
     let params = CoreSetupParams {
         platform_type,
-        base_url: config.git.base_url().to_string(),
-        access_token: config.git.access_token().to_string(),
-        organization: config.git.student_repos().to_string(),
-        user: config.git.user().to_string(),
+        base_url,
+        access_token,
+        organization,
+        user,
         template_org: if template_org.is_empty() {
             None
         } else {
-            Some(template_org.to_string())
+            Some(template_org)
         },
         templates,
         student_teams,

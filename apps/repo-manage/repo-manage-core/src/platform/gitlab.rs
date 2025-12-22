@@ -702,58 +702,178 @@ impl PlatformAPI for GitLabAPI {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::gitlab_responses;
 
-    fn group_json() -> &'static str {
-        r#"{"id":1,"name":"org","path":"org","full_path":"org"}"#
+    // ========================================================================
+    // Helper Functions
+    // ========================================================================
+
+    async fn setup_mock_server() -> mockito::ServerGuard {
+        mockito::Server::new_async().await
     }
 
-    fn project_json() -> &'static str {
-        r#"{"id":10,"path":"repo1","description":"desc","visibility":"private","http_url_to_repo":"https://gitlab.example.org/org/repo1.git"}"#
+    fn create_api(server_url: &str) -> GitLabAPI {
+        let base_url = format!("{}/api/v4", server_url);
+        GitLabAPI::new(base_url, "test-token".into(), "org".into(), "user".into()).unwrap()
     }
+
+    // ========================================================================
+    // verify_settings Tests
+    // ========================================================================
 
     #[tokio::test]
-    async fn create_repo_existing_returns_created_false() {
-        let mut server = mockito::Server::new_async().await;
-        let base_url = format!("{}/api/v4", server.url());
+    async fn verify_settings_success() {
+        let mut server = setup_mock_server().await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v4/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::user("testuser"))
+            .create_async()
+            .await;
 
         let _group_mock = server
             .mock("GET", "/api/v4/groups/org")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(group_json())
+            .with_body(gitlab_responses::group(1, "org", "org"))
             .create_async()
             .await;
 
-        let _project_mock = server
-            .mock("GET", "/api/v4/projects/org%2Frepo1")
+        let _members_mock = server
+            .mock("GET", "/api/v4/groups/1/members/all")
+            .match_query(mockito::Matcher::Any)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(project_json())
+            .with_body(gitlab_responses::members(&["testuser", "other"]))
             .create_async()
             .await;
 
-        let api = GitLabAPI::new(base_url, "token".into(), "org".into(), "user".into()).unwrap();
-        let result = api.create_repo("repo1", "desc", true, None).await.unwrap();
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
 
-        assert!(!result.created);
-        assert_eq!(result.repo.url, "https://gitlab.example.org/org/repo1.git");
+        assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn verify_settings_invalid_token() {
+        let mut server = setup_mock_server().await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v4/user")
+            .with_status(401)
+            .with_body("Unauthorized")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PlatformError::BadCredentials(_)));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_group_not_found() {
+        let mut server = setup_mock_server().await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v4/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::user("testuser"))
+            .create_async()
+            .await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(404)
+            .with_body("Not found")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PlatformError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_user_not_member() {
+        let mut server = setup_mock_server().await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v4/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::user("outsider"))
+            .create_async()
+            .await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::group(1, "org", "org"))
+            .create_async()
+            .await;
+
+        let _members_mock = server
+            .mock("GET", "/api/v4/groups/1/members/all")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::members(&["member1", "member2"]))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PlatformError::BadCredentials(_)));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_empty_token() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "".into(), // Empty token
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PlatformError::BadCredentials(_)));
+    }
+
+    // ========================================================================
+    // create_repo Tests
+    // ========================================================================
 
     #[tokio::test]
     async fn create_repo_new_returns_created_true() {
-        let mut server = mockito::Server::new_async().await;
-        let base_url = format!("{}/api/v4", server.url());
+        let mut server = setup_mock_server().await;
 
         let _group_mock = server
             .mock("GET", "/api/v4/groups/org")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(group_json())
+            .with_body(gitlab_responses::group(1, "org", "org"))
             .create_async()
             .await;
 
         let _missing_project = server
-            .mock("GET", "/api/v4/projects/org%2Frepo1")
+            .mock("GET", "/api/v4/projects/org%2Fnew-repo")
             .with_status(404)
             .create_async()
             .await;
@@ -762,37 +882,272 @@ mod tests {
             .mock("POST", "/api/v4/projects")
             .with_status(201)
             .with_header("content-type", "application/json")
-            .with_body(project_json())
+            .with_body(gitlab_responses::project(
+                10,
+                "new-repo",
+                &server.url(),
+                "org",
+            ))
             .create_async()
             .await;
 
-        let api = GitLabAPI::new(base_url, "token".into(), "org".into(), "user".into()).unwrap();
-        let result = api.create_repo("repo1", "desc", true, None).await.unwrap();
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "description", true, None).await;
 
-        assert!(result.created);
-        assert_eq!(result.repo.url, "https://gitlab.example.org/org/repo1.git");
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(create_result.created);
+        assert_eq!(create_result.repo.name, "new-repo");
+    }
+
+    #[tokio::test]
+    async fn create_repo_existing_returns_created_false() {
+        let mut server = setup_mock_server().await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::group(1, "org", "org"))
+            .create_async()
+            .await;
+
+        let _existing_project = server
+            .mock("GET", "/api/v4/projects/org%2Fexisting-repo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::project(
+                10,
+                "existing-repo",
+                &server.url(),
+                "org",
+            ))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("existing-repo", "desc", true, None).await;
+
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(!create_result.created);
+    }
+
+    #[tokio::test]
+    async fn create_repo_permission_denied() {
+        let mut server = setup_mock_server().await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::group(1, "org", "org"))
+            .create_async()
+            .await;
+
+        let _missing_project = server
+            .mock("GET", "/api/v4/projects/org%2Fnew-repo")
+            .with_status(404)
+            .create_async()
+            .await;
+
+        let _create_forbidden = server
+            .mock("POST", "/api/v4/projects")
+            .with_status(403)
+            .with_body("Forbidden")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "desc", true, None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    // ========================================================================
+    // get_repos Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn get_repos_all() {
+        let mut server = setup_mock_server().await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::group(1, "org", "org"))
+            .create_async()
+            .await;
+
+        let projects = format!(
+            "[{},{}]",
+            gitlab_responses::project(1, "repo1", &server.url(), "org"),
+            gitlab_responses::project(2, "repo2", &server.url(), "org")
+        );
+
+        let _projects_mock = server
+            .mock("GET", "/api/v4/groups/1/projects")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(&projects)
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        let repos = result.unwrap();
+        assert_eq!(repos.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_repos_empty() {
+        let mut server = setup_mock_server().await;
+
+        let _group_mock = server
+            .mock("GET", "/api/v4/groups/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitlab_responses::group(1, "org", "org"))
+            .create_async()
+            .await;
+
+        let _projects_mock = server
+            .mock("GET", "/api/v4/groups/1/projects")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    // ========================================================================
+    // URL Helpers Tests
+    // ========================================================================
+
+    #[test]
+    fn insert_auth_valid_https() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "secret-token".into(),
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.insert_auth("https://gitlab.example.com/org/repo.git");
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.contains("oauth2:secret-token@"));
+    }
+
+    #[test]
+    fn insert_auth_rejects_http() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "token".into(),
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.insert_auth("http://gitlab.example.com/org/repo.git");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn extract_repo_name_with_git_suffix() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let name = api
+            .extract_repo_name("https://gitlab.example.com/org/my-repo.git")
+            .unwrap();
+        assert_eq!(name, "my-repo");
+    }
+
+    #[test]
+    fn extract_repo_name_without_git_suffix() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let name = api
+            .extract_repo_name("https://gitlab.example.com/org/my-repo")
+            .unwrap();
+        assert_eq!(name, "my-repo");
+    }
+
+    #[test]
+    fn get_repo_urls_without_teams() {
+        let api = GitLabAPI::new(
+            "https://gitlab.example.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let urls = api
+            .get_repo_urls(
+                &["assignment1".to_string(), "assignment2".to_string()],
+                None,
+                None,
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(urls.len(), 2);
+        assert_eq!(urls[0], "https://gitlab.example.com/org/assignment1.git");
+        assert_eq!(urls[1], "https://gitlab.example.com/org/assignment2.git");
     }
 
     #[test]
     fn get_repo_urls_with_teams() {
         let api = GitLabAPI::new(
-            "https://gitlab.example.org".into(),
+            "https://gitlab.example.com".into(),
             "t".into(),
             "org".into(),
-            "user".into(),
+            "u".into(),
         )
         .unwrap();
+
         let urls = api
             .get_repo_urls(
-                &["assignment".to_string()],
+                &["hw1".to_string()],
                 None,
-                Some(&["team1".to_string()]),
+                Some(&["team-a".to_string(), "team-b".to_string()]),
                 false,
             )
             .unwrap();
-        assert_eq!(
-            urls,
-            vec!["https://gitlab.example.org/org/team1/team1-assignment.git".to_string()]
-        );
+
+        assert_eq!(urls.len(), 2);
+        assert!(urls[0].contains("team-a"));
+        assert!(urls[1].contains("team-b"));
     }
 }

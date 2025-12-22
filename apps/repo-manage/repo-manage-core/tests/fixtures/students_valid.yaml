@@ -1,0 +1,9 @@
+# Valid students file with teams
+- members:
+    - alice
+    - bob
+  name: team-alpha
+- members:
+    - charlie
+    - david
+  name: team-beta

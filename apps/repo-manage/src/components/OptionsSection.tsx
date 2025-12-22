@@ -1,12 +1,12 @@
 import {
-    Button,
-    cn,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { useRepoFormStore } from "../stores"
@@ -48,7 +48,10 @@ export function OptionsSection() {
 
   return (
     <Section id="options" title="Options">
-      <FormField label="Folder Layout" tooltip="How cloned repositories are organized">
+      <FormField
+        label="Folder Layout"
+        tooltip="How cloned repositories are organized"
+      >
         <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
             <Button

@@ -592,38 +592,173 @@ impl PlatformAPI for GiteaAPI {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::gitea_responses;
 
-    fn repo_json() -> &'static str {
-        r#"{"name":"repo1","description":"desc","private":true,"clone_url":"https://gitea.example.org/org/repo1.git","owner":{"login":"org","id":1}}"#
+    // ========================================================================
+    // Helper Functions
+    // ========================================================================
+
+    async fn setup_mock_server() -> mockito::ServerGuard {
+        mockito::Server::new_async().await
     }
 
-    #[tokio::test]
-    async fn create_repo_existing_returns_created_false() {
-        let mut server = mockito::Server::new_async().await;
-        let base_url = format!("{}/api/v1", server.url());
+    fn create_api(server_url: &str) -> GiteaAPI {
+        let base_url = format!("{}/api/v1", server_url);
+        GiteaAPI::new(base_url, "test-token".into(), "org".into(), "user".into()).unwrap()
+    }
 
-        let _get_repo = server
-            .mock("GET", "/api/v1/repos/org/repo1")
+    // ========================================================================
+    // verify_settings Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn verify_settings_success() {
+        let mut server = setup_mock_server().await;
+
+        let _version_mock = server
+            .mock("GET", "/api/v1/version")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(repo_json())
+            .with_body(gitea_responses::version())
             .create_async()
             .await;
 
-        let api = GiteaAPI::new(base_url, "token".into(), "org".into(), "user".into()).unwrap();
-        let result = api.create_repo("repo1", "desc", true, None).await.unwrap();
+        let _user_mock = server
+            .mock("GET", "/api/v1/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::user("user"))
+            .create_async()
+            .await;
 
-        assert!(!result.created);
-        assert_eq!(result.repo.url, "https://gitea.example.org/org/repo1.git");
+        let _org_mock = server
+            .mock("GET", "/api/v1/orgs/org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::org("org"))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
+    async fn verify_settings_invalid_token() {
+        let mut server = setup_mock_server().await;
+
+        let _version_mock = server
+            .mock("GET", "/api/v1/version")
+            .with_status(401)
+            .with_body("Unauthorized")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_empty_token() {
+        let api = GiteaAPI::new(
+            "https://gitea.example.com/api/v1".into(),
+            "".into(),
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_user_mismatch() {
+        let mut server = setup_mock_server().await;
+
+        let _version_mock = server
+            .mock("GET", "/api/v1/version")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::version())
+            .create_async()
+            .await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v1/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::user("different-user"))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_org_not_found() {
+        let mut server = setup_mock_server().await;
+
+        let _version_mock = server
+            .mock("GET", "/api/v1/version")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::version())
+            .create_async()
+            .await;
+
+        let _user_mock = server
+            .mock("GET", "/api/v1/user")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::user("user"))
+            .create_async()
+            .await;
+
+        let _org_mock = server
+            .mock("GET", "/api/v1/orgs/org")
+            .with_status(404)
+            .with_body("Not found")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), PlatformError::NotFound(_)));
+    }
+
+    // ========================================================================
+    // create_repo Tests
+    // ========================================================================
+
+    #[tokio::test]
     async fn create_repo_new_returns_created_true() {
-        let mut server = mockito::Server::new_async().await;
-        let base_url = format!("{}/api/v1", server.url());
+        let mut server = setup_mock_server().await;
 
         let _missing_repo = server
-            .mock("GET", "/api/v1/repos/org/repo1")
+            .mock("GET", "/api/v1/repos/org/new-repo")
             .with_status(404)
             .create_async()
             .await;
@@ -632,16 +767,117 @@ mod tests {
             .mock("POST", "/api/v1/orgs/org/repos")
             .with_status(201)
             .with_header("content-type", "application/json")
-            .with_body(repo_json())
+            .with_body(gitea_responses::repo("new-repo", "org", &server.url()))
             .create_async()
             .await;
 
-        let api = GiteaAPI::new(base_url, "token".into(), "org".into(), "user".into()).unwrap();
-        let result = api.create_repo("repo1", "desc", true, None).await.unwrap();
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "desc", true, None).await;
 
-        assert!(result.created);
-        assert_eq!(result.repo.url, "https://gitea.example.org/org/repo1.git");
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(create_result.created);
+        assert_eq!(create_result.repo.name, "new-repo");
     }
+
+    #[tokio::test]
+    async fn create_repo_existing_returns_created_false() {
+        let mut server = setup_mock_server().await;
+
+        let _get_repo = server
+            .mock("GET", "/api/v1/repos/org/existing-repo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::repo("existing-repo", "org", &server.url()))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("existing-repo", "desc", true, None).await;
+
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(!create_result.created);
+    }
+
+    #[tokio::test]
+    async fn create_repo_permission_denied() {
+        let mut server = setup_mock_server().await;
+
+        let _missing_repo = server
+            .mock("GET", "/api/v1/repos/org/new-repo")
+            .with_status(404)
+            .create_async()
+            .await;
+
+        let _create_forbidden = server
+            .mock("POST", "/api/v1/orgs/org/repos")
+            .with_status(403)
+            .with_body("Forbidden")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "desc", true, None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    // ========================================================================
+    // get_repos Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn get_repos_all() {
+        let mut server = setup_mock_server().await;
+
+        let _repos_mock = server
+            .mock("GET", "/api/v1/orgs/org/repos")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(gitea_responses::repos(&[
+                ("repo1", "org", &server.url()),
+                ("repo2", "org", &server.url()),
+            ]))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        let repos = result.unwrap();
+        assert_eq!(repos.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_repos_empty() {
+        let mut server = setup_mock_server().await;
+
+        let _repos_mock = server
+            .mock("GET", "/api/v1/orgs/org/repos")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    // ========================================================================
+    // URL Helpers Tests
+    // ========================================================================
 
     #[test]
     fn insert_auth_adds_credentials() {
@@ -652,10 +888,28 @@ mod tests {
             "user".into(),
         )
         .unwrap();
+
         let url = api
             .insert_auth("https://gitea.example.org/org/repo1.git")
             .unwrap();
+
         assert_eq!(url, "https://user:token@gitea.example.org/org/repo1.git");
+    }
+
+    #[test]
+    fn extract_repo_name_with_git_suffix() {
+        let api = GiteaAPI::new(
+            "https://gitea.example.org/api/v1".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let name = api
+            .extract_repo_name("https://gitea.example.org/org/my-repo.git")
+            .unwrap();
+        assert_eq!(name, "my-repo");
     }
 
     #[test]
@@ -667,12 +921,66 @@ mod tests {
             "user".into(),
         )
         .unwrap();
+
         let urls = api
             .get_repo_urls(&["assignment".to_string()], None, None, false)
             .unwrap();
-        assert_eq!(
-            urls,
-            vec!["https://gitea.example.org/org/assignment.git".to_string()]
-        );
+
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0], "https://gitea.example.org/org/assignment.git");
+    }
+
+    #[test]
+    fn get_repo_urls_with_teams() {
+        let api = GiteaAPI::new(
+            "https://gitea.example.org/api/v1".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let urls = api
+            .get_repo_urls(
+                &["hw1".to_string()],
+                None,
+                Some(&["team-a".to_string(), "team-b".to_string()]),
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(urls.len(), 2);
+        assert!(urls[0].contains("team-a-hw1"));
+        assert!(urls[1].contains("team-b-hw1"));
+    }
+
+    // ========================================================================
+    // Base URL Handling Tests
+    // ========================================================================
+
+    #[test]
+    fn strips_api_v1_from_html_url() {
+        let api = GiteaAPI::new(
+            "https://gitea.example.org/api/v1".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        assert_eq!(api.base_html_url, "https://gitea.example.org");
+    }
+
+    #[test]
+    fn preserves_html_url_without_api_suffix() {
+        let api = GiteaAPI::new(
+            "https://gitea.example.org".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        assert_eq!(api.base_html_url, "https://gitea.example.org");
     }
 }

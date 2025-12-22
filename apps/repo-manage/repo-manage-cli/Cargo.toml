@@ -32,3 +32,4 @@ serde_yaml.workspace = true
 assert_cmd = "2"
 predicates = "3"
 tempfile.workspace = true
+mockito.workspace = true

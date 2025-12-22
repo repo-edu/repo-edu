@@ -743,3 +743,387 @@ impl PlatformAPI for GitHubAPI {
         &self.base_url
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::github_responses;
+
+    // ========================================================================
+    // Helper Functions
+    // ========================================================================
+
+    async fn setup_mock_server() -> mockito::ServerGuard {
+        mockito::Server::new_async().await
+    }
+
+    fn create_api(server_url: &str) -> GitHubAPI {
+        GitHubAPI::new(
+            server_url.to_string(),
+            "test-token".into(),
+            "test-org".into(),
+            "test-user".into(),
+        )
+        .unwrap()
+    }
+
+    // ========================================================================
+    // verify_settings Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn verify_settings_success() {
+        let mut server = setup_mock_server().await;
+
+        let _org_mock = server
+            .mock("GET", "/api/v3/orgs/test-org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_responses::org("test-org"))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn verify_settings_invalid_token() {
+        let mut server = setup_mock_server().await;
+
+        let _org_mock = server
+            .mock("GET", "/api/v3/orgs/test-org")
+            .with_status(401)
+            .with_body(r#"{"message":"Bad credentials"}"#)
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_org_not_found() {
+        let mut server = setup_mock_server().await;
+
+        let _org_mock = server
+            .mock("GET", "/api/v3/orgs/test-org")
+            .with_status(404)
+            .with_body(r#"{"message":"Not Found"}"#)
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), PlatformError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn verify_settings_org_name_mismatch() {
+        let mut server = setup_mock_server().await;
+
+        let _org_mock = server
+            .mock("GET", "/api/v3/orgs/test-org")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_responses::org("different-org"))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.verify_settings().await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), PlatformError::Unexpected(_)));
+    }
+
+    // ========================================================================
+    // create_repo Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn create_repo_new_returns_created_true() {
+        let mut server = setup_mock_server().await;
+
+        let _check_mock = server
+            .mock("GET", "/api/v3/repos/test-org/new-repo")
+            .with_status(404)
+            .create_async()
+            .await;
+
+        let _create_mock = server
+            .mock("POST", "/api/v3/orgs/test-org/repos")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(github_responses::repo(
+                "new-repo",
+                "test-org",
+                &server.url(),
+            ))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "desc", true, None).await;
+
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(create_result.created);
+        assert_eq!(create_result.repo.name, "new-repo");
+    }
+
+    #[tokio::test]
+    async fn create_repo_existing_returns_created_false() {
+        let mut server = setup_mock_server().await;
+
+        let _check_mock = server
+            .mock("GET", "/api/v3/repos/test-org/existing-repo")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_responses::repo(
+                "existing-repo",
+                "test-org",
+                &server.url(),
+            ))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("existing-repo", "desc", true, None).await;
+
+        assert!(result.is_ok());
+        let create_result = result.unwrap();
+        assert!(!create_result.created);
+    }
+
+    #[tokio::test]
+    async fn create_repo_permission_denied() {
+        let mut server = setup_mock_server().await;
+
+        let _check_mock = server
+            .mock("GET", "/api/v3/repos/test-org/new-repo")
+            .with_status(404)
+            .create_async()
+            .await;
+
+        let _create_mock = server
+            .mock("POST", "/api/v3/orgs/test-org/repos")
+            .with_status(403)
+            .with_body(r#"{"message":"Must have admin rights"}"#)
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.create_repo("new-repo", "desc", true, None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            PlatformError::BadCredentials(_)
+        ));
+    }
+
+    // ========================================================================
+    // get_repos Tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn get_repos_all() {
+        let mut server = setup_mock_server().await;
+
+        let _repos_mock = server
+            .mock("GET", "/api/v3/orgs/test-org/repos")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(github_responses::repos(&[
+                ("repo1", "test-org", &server.url()),
+                ("repo2", "test-org", &server.url()),
+            ]))
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        let repos = result.unwrap();
+        assert_eq!(repos.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_repos_empty() {
+        let mut server = setup_mock_server().await;
+
+        let _repos_mock = server
+            .mock("GET", "/api/v3/orgs/test-org/repos")
+            .match_query(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("[]")
+            .create_async()
+            .await;
+
+        let api = create_api(&server.url());
+        let result = api.get_repos(None).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    // ========================================================================
+    // URL Helpers Tests
+    // ========================================================================
+
+    #[test]
+    fn insert_auth_valid_url() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "secret-token".into(),
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.insert_auth("https://github.com/org/repo.git");
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert!(url.contains("oauth2:secret-token@"));
+    }
+
+    #[test]
+    fn insert_auth_invalid_url() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "token".into(),
+            "org".into(),
+            "user".into(),
+        )
+        .unwrap();
+
+        let result = api.insert_auth("not-a-valid-url");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn extract_repo_name_with_git_suffix() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let name = api
+            .extract_repo_name("https://github.com/org/my-repo.git")
+            .unwrap();
+        assert_eq!(name, "my-repo");
+    }
+
+    #[test]
+    fn extract_repo_name_without_git_suffix() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let name = api
+            .extract_repo_name("https://github.com/org/my-repo")
+            .unwrap();
+        assert_eq!(name, "my-repo");
+    }
+
+    #[test]
+    fn get_repo_urls_without_teams() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let urls = api
+            .get_repo_urls(
+                &["assignment1".to_string(), "assignment2".to_string()],
+                None,
+                None,
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(urls.len(), 2);
+        assert_eq!(urls[0], "https://github.com/org/assignment1.git");
+        assert_eq!(urls[1], "https://github.com/org/assignment2.git");
+    }
+
+    #[test]
+    fn get_repo_urls_with_teams() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        let urls = api
+            .get_repo_urls(
+                &["hw1".to_string()],
+                None,
+                Some(&["team-a".to_string(), "team-b".to_string()]),
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(urls.len(), 2);
+        assert!(urls[0].contains("team-a-hw1"));
+        assert!(urls[1].contains("team-b-hw1"));
+    }
+
+    // ========================================================================
+    // API URL Detection Tests
+    // ========================================================================
+
+    #[test]
+    fn api_url_github_com() {
+        let api = GitHubAPI::new(
+            "https://github.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        assert_eq!(api.api_url, "https://api.github.com");
+    }
+
+    #[test]
+    fn api_url_enterprise() {
+        let api = GitHubAPI::new(
+            "https://github.enterprise.com".into(),
+            "t".into(),
+            "org".into(),
+            "u".into(),
+        )
+        .unwrap();
+
+        assert_eq!(api.api_url, "https://github.enterprise.com/api/v3");
+    }
+}
