@@ -457,7 +457,11 @@ function App() {
         onChange={(v) => ui.setLmsTokenDialogValue(v)}
         onClose={() => ui.closeLmsTokenDialog()}
         onSave={() => {
-          lmsForm.setField("accessToken", ui.lmsTokenDialogValue)
+          if (lmsForm.lmsType === "Canvas") {
+            lmsForm.setCanvasField("accessToken", ui.lmsTokenDialogValue)
+          } else {
+            lmsForm.setMoodleField("accessToken", ui.lmsTokenDialogValue)
+          }
           ui.closeLmsTokenDialog()
         }}
         instructions={
@@ -476,7 +480,11 @@ function App() {
               try {
                 const lms = lmsForm.getState()
                 const baseUrl =
-                  lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl
+                  lms.lmsType === "Canvas"
+                    ? lms.canvas.urlOption === "CUSTOM"
+                      ? lms.canvas.customUrl
+                      : lms.canvas.baseUrl
+                    : lms.moodle.baseUrl
                 await lmsService.openTokenUrl(baseUrl, lms.lmsType)
                 output.appendWithNewline("Opening LMS token page...")
               } catch (error) {

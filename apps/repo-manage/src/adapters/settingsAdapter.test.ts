@@ -15,11 +15,18 @@ const sampleBackendSettings: GuiSettings = {
   },
   lms: {
     type: "Canvas",
-    base_url: "https://canvas.example.com",
-    custom_url: "",
-    url_option: "TUE",
-    access_token: "lms-token",
-    courses: [{ id: "42", name: "Algorithms" }],
+    canvas: {
+      access_token: "lms-token",
+      base_url: "https://canvas.example.com",
+      custom_url: "",
+      url_option: "TUE",
+      courses: [{ id: "42", name: "Algorithms" }],
+    },
+    moodle: {
+      access_token: "",
+      base_url: "",
+      courses: [],
+    },
     yaml_file: "students.yaml",
     output_folder: "/tmp/output",
     csv_file: "students.csv",
@@ -71,9 +78,13 @@ describe("settingsAdapter", () => {
       ...sampleBackendSettings,
       lms: {
         ...sampleBackendSettings.lms,
-        base_url: "",
-        custom_url: "",
-        url_option: undefined as unknown as "TUE",
+        canvas: {
+          access_token: "lms-token",
+          base_url: "",
+          custom_url: "",
+          url_option: undefined as unknown as "TUE",
+          courses: [{ id: "42", name: "Algorithms" }],
+        },
       },
       repo: {
         ...sampleBackendSettings.repo,
@@ -85,8 +96,8 @@ describe("settingsAdapter", () => {
 
     const store = toStoreFormat(partial)
 
-    expect(store.lms.baseUrl).toBe("https://canvas.tue.nl")
-    expect(store.lms.urlOption).toBe("TUE")
+    expect(store.lms.canvas.baseUrl).toBe("https://canvas.tue.nl")
+    expect(store.lms.canvas.urlOption).toBe("TUE")
     expect(store.repo.directoryLayout).toBe("flat")
     expect(store.ui.activeTab).toBe("lms")
     expect(store.ui.collapsedSections).toEqual([])
@@ -101,25 +112,26 @@ describe("settingsAdapter", () => {
     expect(store.repo.logLevels).toEqual(DEFAULT_LOG_LEVELS)
   })
 
-  it("defaults LMS type and forces CUSTOM url option for non-Canvas types", () => {
+  it("defaults LMS type when missing", () => {
     const store = toStoreFormat({
       ...sampleBackendSettings,
       lms: {
         ...sampleBackendSettings.lms,
         type: null as unknown as "Canvas",
-        url_option: "TUE",
       },
     })
 
     expect(store.lms.lmsType).toBe(DEFAULT_LMS_SETTINGS.lmsType)
-    expect(store.lms.urlOption).toBe("CUSTOM")
   })
 
   it("coerces string unions correctly in toBackendFormat", () => {
     const lmsState = {
       ...toStoreFormat(sampleBackendSettings).lms,
       lmsType: "Canvas" as const,
-      urlOption: "CUSTOM" as const,
+      canvas: {
+        ...toStoreFormat(sampleBackendSettings).lms.canvas,
+        urlOption: "CUSTOM" as const,
+      },
       memberOption: "email" as const,
     }
     const repoState = {
@@ -137,7 +149,7 @@ describe("settingsAdapter", () => {
 
     const backend = toBackendFormat(lmsState, repoState, uiState)
 
-    expect(backend.lms.url_option).toBe("CUSTOM")
+    expect(backend.lms.canvas.url_option).toBe("CUSTOM")
     expect(backend.repo.directory_layout).toBe("flat")
     expect(backend.active_tab).toBe("repo")
     expect(backend.logging).toEqual({

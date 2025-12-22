@@ -45,14 +45,66 @@ impl Normalize for CommonSettings {
     }
 }
 
-/// LMS app settings (Tab 1)
+/// Canvas-specific LMS configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct LmsSettings {
+pub struct CanvasConfig {
     pub access_token: String,
     pub base_url: String,
     pub courses: Vec<CourseEntry>,
-    pub csv_file: String,
     pub custom_url: String,
+    pub url_option: LmsUrlOption,
+}
+
+impl Default for CanvasConfig {
+    fn default() -> Self {
+        Self {
+            access_token: String::new(),
+            base_url: "https://canvas.tue.nl".to_string(),
+            courses: Vec::new(),
+            custom_url: String::new(),
+            url_option: LmsUrlOption::TUE,
+        }
+    }
+}
+
+impl Normalize for CanvasConfig {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.access_token);
+        normalize_url(&mut self.base_url);
+        for course in &mut self.courses {
+            course.normalize();
+        }
+        normalize_url(&mut self.custom_url);
+    }
+}
+
+/// Moodle-specific LMS configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, specta::Type)]
+pub struct MoodleConfig {
+    pub access_token: String,
+    pub base_url: String,
+    pub courses: Vec<CourseEntry>,
+}
+
+impl Normalize for MoodleConfig {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.access_token);
+        normalize_url(&mut self.base_url);
+        for course in &mut self.courses {
+            course.normalize();
+        }
+    }
+}
+
+/// LMS app settings (Tab 1)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
+pub struct LmsSettings {
+    pub canvas: CanvasConfig,
+    pub moodle: MoodleConfig,
+    #[serde(rename = "type")]
+    pub r#type: String, // "Canvas" or "Moodle"
+    // Output settings (shared across LMS types)
+    pub csv_file: String,
     pub full_groups: bool,
     pub include_group: bool,
     pub include_initials: bool,
@@ -62,9 +114,6 @@ pub struct LmsSettings {
     pub output_folder: String,
     pub output_xlsx: bool,
     pub output_yaml: bool,
-    #[serde(rename = "type")]
-    pub r#type: String, // "Canvas" or "Moodle"
-    pub url_option: LmsUrlOption,
     pub xlsx_file: String,
     pub yaml_file: String,
 }
@@ -72,11 +121,10 @@ pub struct LmsSettings {
 impl Default for LmsSettings {
     fn default() -> Self {
         Self {
-            access_token: String::new(),
-            base_url: "https://canvas.tue.nl".to_string(),
-            courses: Vec::new(),
+            canvas: CanvasConfig::default(),
+            moodle: MoodleConfig::default(),
+            r#type: "Canvas".to_string(),
             csv_file: "student-info.csv".to_string(),
-            custom_url: String::new(),
             full_groups: true,
             include_group: true,
             include_initials: false,
@@ -86,8 +134,6 @@ impl Default for LmsSettings {
             output_folder: String::new(),
             output_xlsx: false,
             output_yaml: true,
-            r#type: "Canvas".to_string(),
-            url_option: LmsUrlOption::TUE,
             xlsx_file: "student-info.xlsx".to_string(),
             yaml_file: "students.yaml".to_string(),
         }
@@ -96,13 +142,9 @@ impl Default for LmsSettings {
 
 impl Normalize for LmsSettings {
     fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_url(&mut self.base_url);
-        for course in &mut self.courses {
-            course.normalize();
-        }
+        self.canvas.normalize();
+        self.moodle.normalize();
         normalize_string(&mut self.csv_file);
-        normalize_url(&mut self.custom_url);
         normalize_string(&mut self.output_folder);
         normalize_string(&mut self.xlsx_file);
         normalize_string(&mut self.yaml_file);

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest"
+import { DEFAULT_CANVAS_CONFIG } from "../constants"
 import { useLmsFormStore } from "./lmsFormStore"
 
 describe("lmsFormStore", () => {
@@ -9,9 +10,10 @@ describe("lmsFormStore", () => {
   it("has correct initial state", () => {
     const state = useLmsFormStore.getState().getState()
     expect(state.lmsType).toBe("Canvas")
-    expect(state.baseUrl).toBe("https://canvas.tue.nl")
-    expect(state.urlOption).toBe("TUE")
-    expect(state.courses).toEqual([])
+    expect(state.canvas.baseUrl).toBe("https://canvas.tue.nl")
+    expect(state.canvas.urlOption).toBe("TUE")
+    expect(state.canvas.courses).toEqual([])
+    expect(state.moodle.courses).toEqual([])
     expect(state.yaml).toBe(true)
     expect(state.csv).toBe(false)
     expect(state.xlsx).toBe(false)
@@ -19,8 +21,8 @@ describe("lmsFormStore", () => {
 
   describe("setField", () => {
     it("updates a single field", () => {
-      useLmsFormStore.getState().setField("accessToken", "secret123")
-      expect(useLmsFormStore.getState().accessToken).toBe("secret123")
+      useLmsFormStore.getState().setCanvasField("accessToken", "secret123")
+      expect(useLmsFormStore.getState().canvas.accessToken).toBe("secret123")
     })
 
     it("updates boolean fields", () => {
@@ -35,35 +37,33 @@ describe("lmsFormStore", () => {
       expect(useLmsFormStore.getState().lmsType).toBe("Moodle")
     })
 
-    it("sets urlOption to CUSTOM for non-Canvas types", () => {
+    it("resets activeCourseIndex when switching LMS type", () => {
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().setActiveCourse(1)
       useLmsFormStore.getState().setLmsType("Moodle")
-      expect(useLmsFormStore.getState().urlOption).toBe("CUSTOM")
+      expect(useLmsFormStore.getState().activeCourseIndex).toBe(0)
     })
 
-    it("preserves urlOption for Canvas", () => {
-      useLmsFormStore.getState().setField("urlOption", "CUSTOM")
+    it("preserves Canvas urlOption", () => {
+      useLmsFormStore.getState().setCanvasField("urlOption", "CUSTOM")
+      useLmsFormStore.getState().setLmsType("Moodle")
       useLmsFormStore.getState().setLmsType("Canvas")
-      expect(useLmsFormStore.getState().urlOption).toBe("CUSTOM")
-    })
-
-    it("sets default base URL for Canvas if empty", () => {
-      useLmsFormStore.getState().setField("baseUrl", "")
-      useLmsFormStore.getState().setLmsType("Canvas")
-      expect(useLmsFormStore.getState().baseUrl).toBe("https://canvas.tue.nl")
+      expect(useLmsFormStore.getState().canvas.urlOption).toBe("CUSTOM")
     })
   })
 
   describe("reset", () => {
     it("resets all fields to initial state", () => {
       useLmsFormStore.getState().addCourse()
-      useLmsFormStore.getState().setField("accessToken", "secret")
+      useLmsFormStore.getState().setCanvasField("accessToken", "secret")
       useLmsFormStore.getState().setField("csv", true)
 
       useLmsFormStore.getState().reset()
 
       const state = useLmsFormStore.getState().getState()
-      expect(state.courses).toEqual([])
-      expect(state.accessToken).toBe("")
+      expect(state.canvas.courses).toEqual([])
+      expect(state.canvas.accessToken).toBe("")
       expect(state.csv).toBe(false)
     })
   })
@@ -71,15 +71,17 @@ describe("lmsFormStore", () => {
   describe("loadFromSettings", () => {
     it("loads partial settings", () => {
       useLmsFormStore.getState().loadFromSettings({
-        courses: [{ id: "99999", name: "Test Course", status: "verified" }],
-        accessToken: "token123",
+        canvas: {
+          ...DEFAULT_CANVAS_CONFIG,
+          courses: [{ id: "99999", name: "Test Course", status: "verified" }],
+          accessToken: "token123",
+        },
       })
 
       const state = useLmsFormStore.getState().getState()
-      expect(state.courses).toHaveLength(1)
-      expect(state.courses[0].id).toBe("99999")
-      expect(state.accessToken).toBe("token123")
-      // Other fields should have default values
+      expect(state.canvas.courses).toHaveLength(1)
+      expect(state.canvas.courses[0].id).toBe("99999")
+      expect(state.canvas.accessToken).toBe("token123")
       expect(state.lmsType).toBe("Canvas")
     })
 
@@ -87,20 +89,23 @@ describe("lmsFormStore", () => {
       useLmsFormStore.getState().setField("csv", true)
 
       useLmsFormStore.getState().loadFromSettings({
-        courses: [{ id: "12345", name: null, status: "pending" }],
+        canvas: {
+          ...DEFAULT_CANVAS_CONFIG,
+          courses: [{ id: "12345", name: null, status: "pending" }],
+        },
       })
 
-      // csv should be reset to default (false)
       expect(useLmsFormStore.getState().csv).toBe(false)
-      expect(useLmsFormStore.getState().courses[0].id).toBe("12345")
+      expect(useLmsFormStore.getState().canvas.courses[0].id).toBe("12345")
     })
   })
 
   describe("course management", () => {
     it("adds a new empty course", () => {
       useLmsFormStore.getState().addCourse()
-      expect(useLmsFormStore.getState().courses).toHaveLength(1)
-      expect(useLmsFormStore.getState().courses[0]).toEqual({
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses).toHaveLength(1)
+      expect(courses[0]).toEqual({
         id: "",
         name: null,
         status: "pending",
@@ -115,8 +120,9 @@ describe("lmsFormStore", () => {
 
       useLmsFormStore.getState().removeCourse(0)
 
-      expect(useLmsFormStore.getState().courses).toHaveLength(1)
-      expect(useLmsFormStore.getState().courses[0].id).toBe("222")
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses).toHaveLength(1)
+      expect(courses[0].id).toBe("222")
     })
 
     it("updates a course", () => {
@@ -127,7 +133,8 @@ describe("lmsFormStore", () => {
         status: "verified",
       })
 
-      expect(useLmsFormStore.getState().courses[0]).toEqual({
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses[0]).toEqual({
         id: "12345",
         name: "Test Course",
         status: "verified",
@@ -138,7 +145,8 @@ describe("lmsFormStore", () => {
       useLmsFormStore.getState().addCourse()
       useLmsFormStore.getState().setCourseStatus(0, "verifying")
 
-      expect(useLmsFormStore.getState().courses[0].status).toBe("verifying")
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses[0].status).toBe("verifying")
     })
   })
 
@@ -148,11 +156,13 @@ describe("lmsFormStore", () => {
 
       // Should have all LmsFormState fields
       expect(state).toHaveProperty("lmsType")
-      expect(state).toHaveProperty("baseUrl")
-      expect(state).toHaveProperty("customUrl")
-      expect(state).toHaveProperty("urlOption")
-      expect(state).toHaveProperty("accessToken")
-      expect(state).toHaveProperty("courses")
+      expect(state).toHaveProperty("canvas")
+      expect(state).toHaveProperty("moodle")
+      expect(state.canvas).toHaveProperty("accessToken")
+      expect(state.canvas).toHaveProperty("baseUrl")
+      expect(state.canvas).toHaveProperty("courses")
+      expect(state.moodle).toHaveProperty("accessToken")
+      expect(state.moodle).toHaveProperty("courses")
       expect(state).toHaveProperty("yamlFile")
       expect(state).toHaveProperty("csv")
       expect(state).toHaveProperty("xlsx")
@@ -161,6 +171,27 @@ describe("lmsFormStore", () => {
       // Should NOT have store methods
       expect(state).not.toHaveProperty("setField")
       expect(state).not.toHaveProperty("reset")
+    })
+  })
+
+  describe("getActiveCourses", () => {
+    it("returns Canvas courses when lmsType is Canvas", () => {
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().updateCourse(0, { id: "canvas-course" })
+
+      expect(useLmsFormStore.getState().lmsType).toBe("Canvas")
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses[0].id).toBe("canvas-course")
+    })
+
+    it("returns Moodle courses when lmsType is Moodle", () => {
+      useLmsFormStore.getState().setLmsType("Moodle")
+      useLmsFormStore.getState().addCourse()
+      useLmsFormStore.getState().updateCourse(0, { id: "moodle-course" })
+
+      expect(useLmsFormStore.getState().lmsType).toBe("Moodle")
+      const courses = useLmsFormStore.getState().getActiveCourses()
+      expect(courses[0].id).toBe("moodle-course")
     })
   })
 })

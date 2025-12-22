@@ -1,11 +1,23 @@
-export const DEFAULT_LMS_SETTINGS = {
-  lmsType: "Canvas" as const,
+export const DEFAULT_CANVAS_CONFIG = {
+  accessToken: "",
   baseUrl: "https://canvas.tue.nl",
   customUrl: "",
   urlOption: "TUE" as const,
-  accessToken: "",
   courses: [] as { id: string; name: string | null; status: "pending" }[],
+}
+
+export const DEFAULT_MOODLE_CONFIG = {
+  accessToken: "",
+  baseUrl: "",
+  courses: [] as { id: string; name: string | null; status: "pending" }[],
+}
+
+export const DEFAULT_LMS_SETTINGS = {
+  lmsType: "Canvas" as const,
+  canvas: { ...DEFAULT_CANVAS_CONFIG },
+  moodle: { ...DEFAULT_MOODLE_CONFIG },
   activeCourseIndex: 0,
+  // Output settings (shared)
   yamlFile: "students.yaml",
   outputFolder: "",
   csvFile: "student-info.csv",

@@ -60,13 +60,17 @@ impl Validate for LmsSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate LMS URLs
-        if !self.base_url.is_empty() && !is_valid_url(&self.base_url) {
-            errors.add_field("lms.base_url", "must be a valid URL");
+        // Validate Canvas URLs
+        if !self.canvas.base_url.is_empty() && !is_valid_url(&self.canvas.base_url) {
+            errors.add_field("lms.canvas.base_url", "must be a valid URL");
+        }
+        if !self.canvas.custom_url.is_empty() && !is_valid_url(&self.canvas.custom_url) {
+            errors.add_field("lms.canvas.custom_url", "must be a valid URL");
         }
 
-        if !self.custom_url.is_empty() && !is_valid_url(&self.custom_url) {
-            errors.add_field("lms.custom_url", "must be a valid URL");
+        // Validate Moodle URL
+        if !self.moodle.base_url.is_empty() && !is_valid_url(&self.moodle.base_url) {
+            errors.add_field("lms.moodle.base_url", "must be a valid URL");
         }
 
         errors.into_result(())
@@ -422,14 +426,14 @@ mod tests {
     #[test]
     fn test_validate_lms_settings_invalid_base_url() {
         let mut settings = LmsSettings::default();
-        settings.base_url = "invalid-url".to_string();
+        settings.canvas.base_url = "invalid-url".to_string();
         assert!(settings.validate().is_err());
     }
 
     #[test]
     fn test_validate_lms_settings_invalid_custom_url() {
         let mut settings = LmsSettings::default();
-        settings.custom_url = "not-a-url".to_string();
+        settings.canvas.custom_url = "not-a-url".to_string();
         assert!(settings.validate().is_err());
     }
 
@@ -442,7 +446,7 @@ mod tests {
     #[test]
     fn test_validate_profile_settings_with_invalid_lms() {
         let mut settings = ProfileSettings::default();
-        settings.lms.base_url = "invalid".to_string();
+        settings.lms.canvas.base_url = "invalid".to_string();
         assert!(settings.validate().is_err());
     }
 
@@ -455,7 +459,7 @@ mod tests {
     #[test]
     fn test_validate_gui_settings_with_invalid_profile() {
         let mut profile = ProfileSettings::default();
-        profile.lms.base_url = "invalid".to_string();
+        profile.lms.canvas.base_url = "invalid".to_string();
         let settings = GuiSettings::from_parts(Default::default(), profile);
         assert!(settings.validate().is_err());
     }

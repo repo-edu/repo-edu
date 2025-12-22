@@ -21,11 +21,18 @@ function requireUrl(value: string, label: string, errors: string[]) {
 export function validateLmsConnection(form: LmsFormState) {
   const errors: string[] = []
 
-  const isCustom = form.urlOption === "CUSTOM" || form.lmsType !== "Canvas"
-  const urlToCheck = isCustom ? form.customUrl : form.baseUrl
-
-  requireUrl(urlToCheck, isCustom ? "Custom URL" : "Base URL", errors)
-  require(form.accessToken, "Access token", errors)
+  const isCanvas = form.lmsType === "Canvas"
+  if (isCanvas) {
+    const config = form.canvas
+    const isCustom = config.urlOption === "CUSTOM"
+    const urlToCheck = isCustom ? config.customUrl : config.baseUrl
+    requireUrl(urlToCheck, isCustom ? "Custom URL" : "Base URL", errors)
+    require(config.accessToken, "Access token", errors)
+  } else {
+    const config = form.moodle
+    requireUrl(config.baseUrl, "Base URL", errors)
+    require(config.accessToken, "Access token", errors)
+  }
 
   return { valid: errors.length === 0, errors }
 }
@@ -39,7 +46,9 @@ export function validateLmsGenerate(form: LmsFormState) {
   errors.push(...connectionResult.errors)
 
   // Validate that at least one course is verified
-  const verifiedCourses = form.courses.filter((c) => c.status === "verified")
+  const courses =
+    form.lmsType === "Canvas" ? form.canvas.courses : form.moodle.courses
+  const verifiedCourses = courses.filter((c) => c.status === "verified")
   if (verifiedCourses.length === 0) {
     errors.push("At least one verified course is required")
   }

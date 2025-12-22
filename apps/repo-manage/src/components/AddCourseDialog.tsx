@@ -24,8 +24,9 @@ export function AddCourseDialog({
 }: AddCourseDialogProps) {
   const [courseId, setCourseId] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const { courses, addCourse, updateCourse, setActiveCourse } =
+  const { addCourse, updateCourse, setActiveCourse, getActiveCourses } =
     useLmsFormStore()
+  const courses = getActiveCourses()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

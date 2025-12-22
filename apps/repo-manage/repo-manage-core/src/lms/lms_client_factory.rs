@@ -8,10 +8,25 @@ use std::collections::HashMap;
 
 /// Create an LMS client based on settings
 pub fn create_lms_client(settings: &LmsSettings) -> Result<LmsClient> {
-    // Determine LMS type from settings
-    let lms_type = match settings.r#type.as_str() {
-        "Canvas" => LmsType::Canvas,
-        "Moodle" => LmsType::Moodle,
+    // Determine LMS type and get config from nested structure
+    let (lms_type, base_url, access_token) = match settings.r#type.as_str() {
+        "Canvas" => {
+            let canvas = &settings.canvas;
+            let url = if canvas.url_option == crate::settings::LmsUrlOption::TUE {
+                canvas.base_url.clone()
+            } else {
+                canvas.custom_url.clone()
+            };
+            (LmsType::Canvas, url, canvas.access_token.clone())
+        }
+        "Moodle" => {
+            let moodle = &settings.moodle;
+            (
+                LmsType::Moodle,
+                moodle.base_url.clone(),
+                moodle.access_token.clone(),
+            )
+        }
         _ => {
             return Err(PlatformError::Other(format!(
                 "Unknown LMS type: {}. Supported: Canvas, Moodle",
@@ -20,22 +35,10 @@ pub fn create_lms_client(settings: &LmsSettings) -> Result<LmsClient> {
         }
     };
 
-    // Determine base URL (Canvas allows TUE shortcut or custom)
-    let base_url = if settings.r#type == "Canvas" {
-        if settings.url_option == crate::settings::LmsUrlOption::TUE {
-            settings.base_url.clone()
-        } else {
-            settings.custom_url.clone()
-        }
-    } else {
-        // For Moodle and future LMSes, rely on the custom URL field
-        settings.custom_url.clone()
-    };
-
     // Create authentication (both Canvas and Moodle use token auth)
     let auth = LmsAuth::Token {
         url: base_url,
-        token: settings.access_token.clone(),
+        token: access_token,
     };
 
     // Create the unified client

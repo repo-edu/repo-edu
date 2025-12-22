@@ -6,9 +6,11 @@
  */
 
 import {
+  DEFAULT_CANVAS_CONFIG,
   DEFAULT_GUI_THEME,
   DEFAULT_LMS_SETTINGS,
   DEFAULT_LOG_LEVELS,
+  DEFAULT_MOODLE_CONFIG,
   DEFAULT_REPO_SETTINGS,
 } from "../constants"
 import type { Strict } from "../services/commandUtils"
@@ -30,6 +32,20 @@ export interface StoreFormats {
 }
 
 /**
+ * Map backend courses to store format (add status field)
+ */
+function mapCourses(
+  courses: { id: string; name: string | null }[] | undefined,
+) {
+  return (courses || []).map((course) => ({
+    id: course.id,
+    name: course.name,
+    // If course has a name, it was verified; otherwise pending
+    status: course.name ? ("verified" as const) : ("pending" as const),
+  }))
+}
+
+/**
  * Transform backend GuiSettings to store-friendly format
  */
 export function toStoreFormat(settings: GuiSettings): StoreFormats {
@@ -38,29 +54,26 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
   const repo = settings.repo
   const logging = settings.logging
 
-  // Map backend courses to store format (add status field)
-  const courses = (lms.courses || []).map((course) => ({
-    id: course.id,
-    name: course.name,
-    // If course has a name, it was verified; otherwise pending
-    status: course.name ? ("verified" as const) : ("pending" as const),
-  }))
-
   return {
     lms: {
       lmsType: (lms.type || DEFAULT_LMS_SETTINGS.lmsType) as
         | "Canvas"
         | "Moodle",
-      baseUrl: lms.base_url || DEFAULT_LMS_SETTINGS.baseUrl,
-      customUrl: lms.custom_url || DEFAULT_LMS_SETTINGS.customUrl,
-      urlOption:
-        lms.type !== "Canvas"
-          ? "CUSTOM"
-          : ((lms.url_option || DEFAULT_LMS_SETTINGS.urlOption) as
-              | "TUE"
-              | "CUSTOM"),
-      accessToken: lms.access_token || DEFAULT_LMS_SETTINGS.accessToken,
-      courses,
+      canvas: {
+        accessToken:
+          lms.canvas?.access_token || DEFAULT_CANVAS_CONFIG.accessToken,
+        baseUrl: lms.canvas?.base_url || DEFAULT_CANVAS_CONFIG.baseUrl,
+        customUrl: lms.canvas?.custom_url || DEFAULT_CANVAS_CONFIG.customUrl,
+        urlOption: (lms.canvas?.url_option ||
+          DEFAULT_CANVAS_CONFIG.urlOption) as "TUE" | "CUSTOM",
+        courses: mapCourses(lms.canvas?.courses),
+      },
+      moodle: {
+        accessToken:
+          lms.moodle?.access_token || DEFAULT_MOODLE_CONFIG.accessToken,
+        baseUrl: lms.moodle?.base_url || DEFAULT_MOODLE_CONFIG.baseUrl,
+        courses: mapCourses(lms.moodle?.courses),
+      },
       activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
       yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
       outputFolder: lms.output_folder || DEFAULT_LMS_SETTINGS.outputFolder,
@@ -110,6 +123,18 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
 }
 
 /**
+ * Strip status field from courses for backend format
+ */
+function stripCourseStatus(
+  courses: { id: string; name: string | null; status: string }[],
+) {
+  return courses.map((course) => ({
+    id: course.id,
+    name: course.name,
+  }))
+}
+
+/**
  * Transform store state back to backend format
  */
 export function toBackendFormat(
@@ -134,15 +159,18 @@ export function toBackendFormat(
     // LMS settings
     lms: {
       type: lmsState.lmsType as "Canvas" | "Moodle",
-      base_url: lmsState.baseUrl,
-      custom_url: lmsState.customUrl,
-      url_option: lmsState.urlOption as "TUE" | "CUSTOM",
-      access_token: lmsState.accessToken,
-      // Map store courses to backend format (strip status field)
-      courses: lmsState.courses.map((course) => ({
-        id: course.id,
-        name: course.name,
-      })),
+      canvas: {
+        access_token: lmsState.canvas.accessToken,
+        base_url: lmsState.canvas.baseUrl,
+        custom_url: lmsState.canvas.customUrl,
+        url_option: lmsState.canvas.urlOption as "TUE" | "CUSTOM",
+        courses: stripCourseStatus(lmsState.canvas.courses),
+      },
+      moodle: {
+        access_token: lmsState.moodle.accessToken,
+        base_url: lmsState.moodle.baseUrl,
+        courses: stripCourseStatus(lmsState.moodle.courses),
+      },
       yaml_file: lmsState.yamlFile,
       output_folder: lmsState.outputFolder,
       csv_file: lmsState.csvFile,

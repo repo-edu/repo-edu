@@ -581,7 +581,10 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = GuiSettings::default();
-        assert_eq!(settings.profile.lms.base_url, "https://canvas.tue.nl");
+        assert_eq!(
+            settings.profile.lms.canvas.base_url,
+            "https://canvas.tue.nl"
+        );
         assert_eq!(
             settings.profile.common.git_base_url,
             "https://gitlab.tue.nl"
@@ -596,8 +599,8 @@ mod tests {
         let deserialized: GuiSettings = serde_json::from_str(&json).unwrap();
 
         assert_eq!(
-            settings.profile.lms.base_url,
-            deserialized.profile.lms.base_url
+            settings.profile.lms.canvas.base_url,
+            deserialized.profile.lms.canvas.base_url
         );
         assert_eq!(settings.app.active_tab, deserialized.app.active_tab);
     }

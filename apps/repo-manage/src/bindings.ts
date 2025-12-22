@@ -323,6 +323,10 @@ export type AppSettings = { active_tab: ActiveTab;
  * IDs of collapsed sections (e.g., ["lms-config", "options"])
  */
 collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; theme: Theme; window_height: number; window_width: number }
+/**
+ * Canvas-specific LMS configuration
+ */
+export type CanvasConfig = { access_token: string; base_url: string; courses: CourseEntry[]; custom_url: string; url_option: LmsUrlOption }
 export type CloneParams = { config: ConfigParams; yaml_file: string; assignments: string; target_folder: string; directory_layout: string }
 export type CommandResult = { success: boolean; message: string; details: string | null }
 /**
@@ -359,7 +363,7 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { canvas_access_token: string; moodle_access_token: string; base_url: string; courses: CourseEntry[]; csv_file: string; custom_url: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; type: string; url_option: LmsUrlOption; xlsx_file: string; yaml_file: string }
+export type LmsSettings = { canvas: CanvasConfig; moodle: MoodleConfig; type: string; csv_file: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; xlsx_file: string; yaml_file: string }
 /**
  * LMS URL preset options
  */
@@ -372,6 +376,10 @@ export type LogSettings = { debug: boolean; error: boolean; info: boolean; warni
  * Member option for YAML generation
  */
 export type MemberOption = "(email, gitid)" | "email" | "git_id"
+/**
+ * Moodle-specific LMS configuration
+ */
+export type MoodleConfig = { access_token: string; base_url: string; courses: CourseEntry[] }
 /**
  * Repo app settings (Tab 2)
  */

@@ -6,10 +6,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-CHANGED_FILES=$(git diff --name-only --cached -- "apps/repo-manage/repo-manage-core/src/settings" "apps/repo-manage/src-tauri/src" "apps/repo-manage/src-tauri/Cargo.toml" "apps/repo-manage/src-tauri/src/bin/export_bindings.rs")
+CHANGED_FILES=$(git diff --name-only --cached -- "apps/repo-manage/repo-manage-core/src/settings" "apps/repo-manage/src-tauri/src" "apps/repo-manage/src-tauri/Cargo.toml")
 
 if [ -z "$CHANGED_FILES" ]; then
-  CHANGED_FILES=$(git diff --name-only -- "apps/repo-manage/repo-manage-core/src/settings" "apps/repo-manage/src-tauri/src" "apps/repo-manage/src-tauri/Cargo.toml" "apps/repo-manage/src-tauri/src/bin/export_bindings.rs")
+  CHANGED_FILES=$(git diff --name-only -- "apps/repo-manage/repo-manage-core/src/settings" "apps/repo-manage/src-tauri/src" "apps/repo-manage/src-tauri/Cargo.toml")
 fi
 
 if [ -z "$CHANGED_FILES" ]; then

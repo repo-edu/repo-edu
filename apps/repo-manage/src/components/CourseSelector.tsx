@@ -59,8 +59,9 @@ export function CourseSelector({
   onVerifyCourse,
   onAddCourse,
 }: CourseSelectorProps) {
-  const { courses, activeCourseIndex, setActiveCourse, removeCourse } =
+  const { activeCourseIndex, setActiveCourse, removeCourse, getActiveCourses } =
     useLmsFormStore()
+  const courses = getActiveCourses()
 
   // Transform courses to ActionDropdownItem format
   const items: CourseDropdownItem[] = courses.map((course, index) => ({

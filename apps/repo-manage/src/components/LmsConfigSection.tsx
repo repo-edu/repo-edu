@@ -26,6 +26,9 @@ export function LmsConfigSection() {
     verifyCourse(index)
   }
 
+  const isCanvas = lmsForm.lmsType === "Canvas"
+  const activeConfig = isCanvas ? lmsForm.canvas : lmsForm.moodle
+
   return (
     <Section id="lms-config" title="LMS Configuration">
       <FormField label="LMS Type" tooltip="Learning Management System type">
@@ -47,12 +50,12 @@ export function LmsConfigSection() {
         </Select>
       </FormField>
 
-      {lmsForm.lmsType === "Canvas" && (
+      {isCanvas && (
         <FormField label="Base URL" tooltip="Canvas instance URL">
           <Select
-            value={lmsForm.urlOption}
+            value={lmsForm.canvas.urlOption}
             onValueChange={(v) =>
-              lmsForm.setField("urlOption", v as "TUE" | "CUSTOM")
+              lmsForm.setCanvasField("urlOption", v as "TUE" | "CUSTOM")
             }
           >
             <SelectTrigger size="xs" className="w-40">
@@ -70,12 +73,26 @@ export function LmsConfigSection() {
         </FormField>
       )}
 
-      {(lmsForm.urlOption === "CUSTOM" || lmsForm.lmsType !== "Canvas") && (
+      {isCanvas && lmsForm.canvas.urlOption === "CUSTOM" && (
         <FormField label="Custom URL">
           <Input
             size="xs"
-            value={lmsForm.customUrl}
-            onChange={(e) => lmsForm.setField("customUrl", e.target.value)}
+            value={lmsForm.canvas.customUrl}
+            onChange={(e) =>
+              lmsForm.setCanvasField("customUrl", e.target.value)
+            }
+            placeholder="https://..."
+            className="flex-1"
+          />
+        </FormField>
+      )}
+
+      {!isCanvas && (
+        <FormField label="Base URL" tooltip="Moodle instance URL">
+          <Input
+            size="xs"
+            value={lmsForm.moodle.baseUrl}
+            onChange={(e) => lmsForm.setMoodleField("baseUrl", e.target.value)}
             placeholder="https://..."
             className="flex-1"
           />
@@ -86,19 +103,23 @@ export function LmsConfigSection() {
         <div className="flex gap-1 flex-1">
           <Input
             size="xs"
-            type={lmsForm.accessToken ? "password" : "text"}
-            value={lmsForm.accessToken}
-            onChange={(e) => lmsForm.setField("accessToken", e.target.value)}
-            placeholder={lmsForm.accessToken ? "••••••••" : "Not set"}
+            type={activeConfig.accessToken ? "password" : "text"}
+            value={activeConfig.accessToken}
+            onChange={(e) =>
+              isCanvas
+                ? lmsForm.setCanvasField("accessToken", e.target.value)
+                : lmsForm.setMoodleField("accessToken", e.target.value)
+            }
+            placeholder={activeConfig.accessToken ? "••••••••" : "Not set"}
             className={cn(
               "flex-1 password-input",
-              !lmsForm.accessToken && "token-empty",
+              !activeConfig.accessToken && "token-empty",
             )}
           />
           <Button
             size="xs"
             variant="outline"
-            onClick={() => ui.openLmsTokenDialog(lmsForm.accessToken)}
+            onClick={() => ui.openLmsTokenDialog(activeConfig.accessToken)}
           >
             Edit
           </Button>

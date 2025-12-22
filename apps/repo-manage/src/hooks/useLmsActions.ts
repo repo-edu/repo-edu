@@ -1,8 +1,25 @@
 import { formatError } from "../services/commandUtils"
 import * as lmsService from "../services/lmsService"
 import { useLmsFormStore, useOutputStore } from "../stores"
+import type { LmsFormState } from "../stores/lmsFormStore"
 import { validateLmsConnection } from "../validation/forms"
 import { handleProgressMessage, useProgressChannel } from "./useProgressChannel"
+
+/**
+ * Get the active config and base URL based on LMS type
+ */
+function getActiveConfigAndUrl(lms: LmsFormState) {
+  const isCanvas = lms.lmsType === "Canvas"
+  if (isCanvas) {
+    const config = lms.canvas
+    const baseUrl =
+      config.urlOption === "CUSTOM" ? config.customUrl : config.baseUrl
+    return { config, baseUrl, courses: config.courses }
+  } else {
+    const config = lms.moodle
+    return { config, baseUrl: config.baseUrl, courses: config.courses }
+  }
+}
 
 /**
  * Hook providing LMS-related actions (verify course, generate files).
@@ -16,7 +33,8 @@ export function useLmsActions() {
    */
   const verifyCourse = async (courseIndex: number) => {
     const lms = lmsForm.getState()
-    const course = lms.courses[courseIndex]
+    const { config, baseUrl, courses } = getActiveConfigAndUrl(lms)
+    const course = courses[courseIndex]
     if (!course) return
 
     // Validate connection settings before verifying
@@ -40,8 +58,8 @@ export function useLmsActions() {
 
     try {
       const result = await lmsService.verifyLmsCourse({
-        base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-        access_token: lms.accessToken,
+        base_url: baseUrl,
+        access_token: config.accessToken,
         course_id: course.id,
         lms_type: lms.lmsType,
       })
@@ -70,7 +88,8 @@ export function useLmsActions() {
    */
   const verifyAllCourses = async () => {
     const lms = lmsForm.getState()
-    const pendingIndices = lms.courses
+    const { courses } = getActiveConfigAndUrl(lms)
+    const pendingIndices = courses
       .map((c, i) => (c.status === "pending" && c.id.trim() ? i : -1))
       .filter((i) => i >= 0)
 
@@ -81,9 +100,10 @@ export function useLmsActions() {
 
   const handleGenerateFiles = async () => {
     const lms = lmsForm.getState()
+    const { config, baseUrl, courses } = getActiveConfigAndUrl(lms)
 
     // Get the first verified course for generation
-    const verifiedCourse = lms.courses.find((c) => c.status === "verified")
+    const verifiedCourse = courses.find((c) => c.status === "verified")
     if (!verifiedCourse) {
       output.appendWithNewline(
         "⚠ No verified course available. Please verify a course first.",
@@ -107,8 +127,8 @@ export function useLmsActions() {
 
       const result = await lmsService.generateLmsFiles(
         {
-          base_url: lms.urlOption === "CUSTOM" ? lms.customUrl : lms.baseUrl,
-          access_token: lms.accessToken,
+          base_url: baseUrl,
+          access_token: config.accessToken,
           course_id: verifiedCourse.id,
           lms_type: lms.lmsType,
           yaml_file: lms.yamlFile,
