@@ -166,9 +166,9 @@ async setActiveProfile(name: string) : Promise<Result<null, AppError>> {
 }
 },
 /**
- * Load a profile by name
+ * Load a profile by name, returning any migration warnings
  */
-async loadProfile(name: string) : Promise<Result<GuiSettings, AppError>> {
+async loadProfile(name: string) : Promise<Result<SettingsLoadResult, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_profile", { name }) };
 } catch (e) {

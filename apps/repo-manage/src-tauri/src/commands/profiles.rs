@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use repo_manage_core::{GuiSettings, SettingsManager};
+use repo_manage_core::{GuiSettings, SettingsLoadResult, SettingsManager};
 
 /// List all available profiles
 #[tauri::command]
@@ -26,12 +26,12 @@ pub async fn set_active_profile(name: String) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Load a profile by name
+/// Load a profile by name, returning any migration warnings
 #[tauri::command]
 #[specta::specta]
-pub async fn load_profile(name: String) -> Result<GuiSettings, AppError> {
+pub async fn load_profile(name: String) -> Result<SettingsLoadResult, AppError> {
     let manager = SettingsManager::new()?;
-    Ok(manager.load_profile(&name)?)
+    Ok(manager.load_profile_with_warnings(&name)?)
 }
 
 /// Save current settings as a named profile

@@ -107,9 +107,10 @@ beforeEach(() => {
   mockService.getActiveProfile.mockResolvedValue("Default")
   mockService.getDefaultSettings.mockResolvedValue(cloneSettings())
   mockService.saveProfile.mockResolvedValue(undefined)
-  mockService.loadProfile.mockResolvedValue(
-    cloneSettings({ active_tab: "repo" }),
-  )
+  mockService.loadProfile.mockResolvedValue({
+    settings: cloneSettings({ active_tab: "repo" }),
+    warnings: [],
+  })
   mockService.setActiveProfile.mockResolvedValue(undefined)
   mockService.renameProfile.mockResolvedValue(undefined)
   mockService.deleteProfile.mockResolvedValue(undefined)
@@ -151,7 +152,10 @@ describe("useProfileActions", () => {
 
   it("reverts profile successfully", async () => {
     const reverted = cloneSettings({ active_tab: "repo" })
-    mockService.loadProfile.mockResolvedValueOnce(reverted)
+    mockService.loadProfile.mockResolvedValueOnce({
+      settings: reverted,
+      warnings: [],
+    })
     const { hook, onSettingsLoaded, onMessage } = setup()
     await waitFor(() =>
       expect(hook.result.current.activeProfile).toBe("Default"),
@@ -182,9 +186,10 @@ describe("useProfileActions", () => {
   })
 
   it("loads profile and updates active profile", async () => {
-    mockService.loadProfile.mockResolvedValueOnce(
-      cloneSettings({ active_tab: "repo" }),
-    )
+    mockService.loadProfile.mockResolvedValueOnce({
+      settings: cloneSettings({ active_tab: "repo" }),
+      warnings: [],
+    })
     const { hook, onMessage, onSettingsLoaded } = setup()
 
     await act(async () => {
@@ -301,9 +306,10 @@ describe("useProfileActions", () => {
   it("deletes active profile and switches to another existing profile", async () => {
     mockService.listProfiles.mockResolvedValueOnce(["Work", "Default"])
     mockService.getActiveProfile.mockResolvedValueOnce("Work")
-    mockService.loadProfile.mockResolvedValueOnce(
-      cloneSettings({ active_tab: "lms" }),
-    )
+    mockService.loadProfile.mockResolvedValueOnce({
+      settings: cloneSettings({ active_tab: "lms" }),
+      warnings: [],
+    })
 
     const { hook } = setup()
     await waitFor(() => expect(hook.result.current.activeProfile).toBe("Work"))

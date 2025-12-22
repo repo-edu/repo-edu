@@ -113,10 +113,18 @@ export function useProfileActions(
   const revertProfile = useCallback(async () => {
     if (!activeProfile) return
     try {
-      const settings = await settingsService.loadProfile(activeProfile)
-      onSettingsLoaded(settings, true)
+      const result = await settingsService.loadProfile(activeProfile)
+      const hasWarnings = result.warnings.length > 0
+      onSettingsLoaded(result.settings, !hasWarnings)
       onSuccess?.()
       onMessage(`✓ Reverted to saved: ${activeProfile}`)
+
+      if (hasWarnings) {
+        for (const warning of result.warnings) {
+          onMessage(`⚠ ${warning}`)
+        }
+        onMessage("→ Click Save to persist corrected settings.")
+      }
     } catch (error) {
       onMessage(`✗ Failed to revert profile: ${getErrorMessage(error)}`)
     }
@@ -126,12 +134,24 @@ export function useProfileActions(
     async (name: string) => {
       if (!name) return
       try {
-        const settings = await settingsService.loadProfile(name)
+        const result = await settingsService.loadProfile(name)
         await settingsService.setActiveProfile(name)
-        onSettingsLoaded(settings, true)
+
+        // If warnings exist, don't update baseline (keeps dirty state so user can save)
+        const hasWarnings = result.warnings.length > 0
+        onSettingsLoaded(result.settings, !hasWarnings)
+
         setActiveProfile(name)
         onSuccess?.()
         onMessage(`✓ Loaded profile: ${name}`)
+
+        // Display warnings after success message
+        if (hasWarnings) {
+          for (const warning of result.warnings) {
+            onMessage(`⚠ ${warning}`)
+          }
+          onMessage("→ Click Save to persist corrected settings.")
+        }
       } catch (error) {
         // Load defaults so the app remains functional, but don't update baseline
         // so settings show as dirty and can be saved to fix the profile

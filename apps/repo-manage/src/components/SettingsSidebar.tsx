@@ -169,10 +169,10 @@ export function SettingsSidebar({
       onConfirm: async (newName) => {
         // Load the source profile settings, then save as new profile
         try {
-          const sourceSettings = await settingsService.loadProfile(profileName)
+          const result = await settingsService.loadProfile(profileName)
           await settingsService.saveProfile(
             newName,
-            sourceSettings as Strict<GuiSettings>,
+            result.settings as Strict<GuiSettings>,
           )
           await profileActions.refreshProfiles()
           showSuccessFlash()

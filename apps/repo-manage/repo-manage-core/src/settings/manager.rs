@@ -413,6 +413,33 @@ impl SettingsManager {
         Ok(settings)
     }
 
+    /// Load a profile by name with migration warnings
+    /// Returns combined GuiSettings plus any warnings about corrected fields
+    pub fn load_profile_with_warnings(&self, name: &str) -> ConfigResult<SettingsLoadResult> {
+        let mut all_warnings = Vec::new();
+
+        // Load profile settings with warnings
+        let (profile, profile_warnings) = self.load_profile_settings_warned(name)?;
+        all_warnings.extend(
+            profile_warnings
+                .into_iter()
+                .map(|w| format!("{}.json: {}", name, w)),
+        );
+
+        // Set as active profile
+        self.set_active_profile(name)?;
+
+        // Load app settings and combine
+        let app = self.load_app_settings()?;
+        let mut settings = GuiSettings::from_parts(app, profile);
+        settings.normalize();
+
+        Ok(SettingsLoadResult {
+            settings,
+            warnings: all_warnings,
+        })
+    }
+
     /// Save current settings as a named profile
     /// Only saves the profile settings, not app settings
     pub fn save_profile(&self, name: &str, settings: &GuiSettings) -> ConfigResult<()> {
