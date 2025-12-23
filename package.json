@@ -28,6 +28,8 @@
         "tauri:build": "pnpm --filter @repo-edu/repo-manage tauri:build",
         "tauri:build:release": "pnpm --filter @repo-edu/repo-manage tauri:build:release",
         "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings",
+        "fixture:constraints": "pnpx tsx scripts/create-fixture-constraints.ts",
+        "fixture:create": "pnpm fixture:constraints && cd ../test-fixtures && claude /create-students-repo",
         "docs:dev": "pnpm --filter @repo-edu/docs dev",
         "docs:build": "pnpm --filter @repo-edu/docs build",
         "docs:preview": "pnpm --filter @repo-edu/docs build &&pnpm --filter @repo-edu/docs preview"
