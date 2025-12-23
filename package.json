@@ -27,6 +27,9 @@
         "tauri:dev": "pnpm --filter @repo-edu/repo-manage tauri:dev",
         "tauri:build": "pnpm --filter @repo-edu/repo-manage tauri:build",
         "tauri:build:release": "pnpm --filter @repo-edu/repo-manage tauri:build:release",
-        "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings"
+        "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings",
+        "docs:dev": "pnpm --filter @repo-edu/docs dev",
+        "docs:build": "pnpm --filter @repo-edu/docs build",
+        "docs:preview": "pnpm --filter @repo-edu/docs build &&pnpm --filter @repo-edu/docs preview"
     }
 }

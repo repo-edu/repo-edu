@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: RepoManage
+  name: repo-edu
   text: Educational Repository Management
   tagline: Streamline student repository workflows with LMS integration
   actions:
@@ -19,17 +19,22 @@ features:
   - title: Repository Setup
     details: Batch create student repositories from templates. Support for GitHub, GitLab, Gitea, and local Git.
   - title: Cross-Platform
-    details: Native desktop app for macOS, Windows, and Linux built with Tauri.
+    details: Native desktop app for macOS, Windows, and Linux built with Tauri. CLI available for automation.
 ---
 
 ## Quick Links
 
-- [Installation](/getting-started/installation) - Download and install RepoManage
-- [Quick Start](/getting-started/quick-start) - Get up and running in minutes
-- [User Guide](/user-guide/lms-import) - Detailed usage instructions
+- [Installation](/getting-started/installation) — Download and install repo-edu
+- [Quick Start](/getting-started/quick-start) — Get up and running in minutes
+- [User Guide](/user-guide/lms-import) — Detailed usage instructions
+
+## CLI
+
+- [CLI Overview](/cli/overview) — Command-line interface for automation
+- [CLI Installation](/cli/installation) — Install the `redu` CLI
 
 ## For Developers
 
-- [Architecture](/development/architecture) - Technical overview
-- [Contributing](/development/contributing) - How to contribute
-- [Building](/development/building) - Build from source
+- [Architecture](/development/architecture) — Technical overview
+- [Contributing](/development/contributing) — How to contribute
+- [Building](/development/building) — Build from source

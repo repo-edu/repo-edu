@@ -3,6 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this
 repository.
 
+See the root `/CLAUDE.md` for workspace-wide commands and architecture overview.
+
 This is the `repo-manage-core` crate — the shared Rust library used by both the CLI (
 `repo-manage-cli`) and the Tauri desktop app (`src-tauri`).
 

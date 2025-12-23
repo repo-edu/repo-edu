@@ -60,7 +60,7 @@ repo-edu/
 
 ```bash
 # Clone the repository
-git clone https://github.com/repo-edu/repo-edu.git
+git clone https://github.com/dvbeek/repo-edu.git
 cd repo-edu
 
 # Install dependencies
@@ -90,7 +90,7 @@ pnpm docs:dev
 
 ## Configuration
 
-Settings are stored in `~/.config/repo-manage/settings.json` (or equivalent on Windows/macOS). The
+Settings are stored in `~/.config/repo-edu/settings.json` (or equivalent on Windows/macOS). The
 application provides a GUI for managing all configuration options.
 
 ## Dependency Management
@@ -141,6 +141,22 @@ All packages will automatically use the new version.
 Without catalogs, different packages can end up with different versions of the same dependency. For
 React, this causes runtime errors like "Invalid hook call" because React requires exactly one
 instance in the app.
+
+## Acknowledgments
+
+This project builds upon the work of several contributors:
+
+- **Repository Setup** functionality is based on a subset of
+  [RepoBee](https://github.com/repobee/repobee), created by **Simon Larsén**. RepoBee is a CLI tool
+  for managing Git repositories on GitHub, GitLab, and Gitea in educational contexts.
+- **LMS Import** functionality originated from a RepoBee extension developed by **Huub de Beer**,
+  which included Canvas import among other features.
+- **Jingjing Wang** developed the first Python GUI applications for subsets of RepoBee and the
+  Canvas import functionality.
+- **Bert van Beek** redesigned and integrated both Python applications into the current combined
+  Tauri application, extending LMS support to include Moodle via a unified LMS-agnostic interface,
+  adding profile-based settings management, and replacing RepoBee's plugin system with native
+  platform implementations for GitHub, GitLab, and Gitea.
 
 ## License
 

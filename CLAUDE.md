@@ -48,16 +48,6 @@ pnpm docs:dev             # Preview documentation locally
 ./target/debug/redu profile list      # Example: list profiles
 ```
 
-### CLI Environment Variables
-
-The CLI supports environment variable overrides for automation:
-
-- `REPOBEE_BASE_URL` - Git platform base URL
-- `REPOBEE_TOKEN` - Git platform access token
-- `REPOBEE_ORG` - Student repositories organization
-- `REPOBEE_USER` - Git username
-- `REPOBEE_TEMPLATE_ORG` - Template repositories organization
-
 ## Architecture
 
 ### Workspace Structure

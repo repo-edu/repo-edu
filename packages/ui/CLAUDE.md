@@ -3,6 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this
 repository.
 
+See the root `/CLAUDE.md` for workspace-wide commands and code conventions.
+
 ## Package Overview
 
 Shared shadcn/ui component library for the repo-edu monorepo. Uses the "new-york" style variant with
