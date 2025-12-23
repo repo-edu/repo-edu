@@ -9,7 +9,7 @@
         "tauri:dev": "cargo tauri dev",
         "tauri:build": "cargo tauri build --bundles app --debug",
         "tauri:build:release": "cargo tauri build --release",
-        "cli:build": "cargo build -p repo-manage-cli --debug",
+        "cli:build": "cargo build -p repo-manage-cli",
         "cli:build:release": "cargo build -p repo-manage-cli --release",
         "gen:bindings": "cargo run -p repo-manage-tauri --bin export_bindings",
         "test": "vitest run",

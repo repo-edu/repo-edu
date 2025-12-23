@@ -25,8 +25,8 @@ pnpm test:ts              # Run frontend tests (vitest)
 pnpm test:rs              # Run Rust tests
 
 # Run single tests
-pnpm test:ts -- <pattern>           # Run specific frontend test
-cargo test -p repo-manage-core <n>  # Run specific Rust test
+pnpm test:ts -- <pattern>                     # Run specific frontend test
+pnpm test:rs -- -p repo-manage-core <name>    # Run specific Rust test
 
 # Linting & Formatting
 pnpm fmt                  # Format all (TS + Rust + Markdown)
@@ -38,12 +38,25 @@ pnpm validate             # Run check + typecheck + test
 # Type Bindings
 pnpm gen:bindings         # Regenerate TS bindings from Rust
 
+# Documentation
+pnpm docs:dev             # Preview documentation locally
+
 # CLI
 ./target/debug/redu --help            # Run CLI after building
 ./target/debug/redu lms verify        # Example: verify LMS connection
 ./target/debug/redu repo verify       # Example: verify git platform
 ./target/debug/redu profile list      # Example: list profiles
 ```
+
+### CLI Environment Variables
+
+The CLI supports environment variable overrides for automation:
+
+- `REPOBEE_BASE_URL` - Git platform base URL
+- `REPOBEE_TOKEN` - Git platform access token
+- `REPOBEE_ORG` - Student repositories organization
+- `REPOBEE_USER` - Git username
+- `REPOBEE_TEMPLATE_ORG` - Template repositories organization
 
 ## Architecture
 
