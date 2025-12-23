@@ -1,162 +1,60 @@
 # repo-edu
 
-A monorepo containing tools for educational repository management, designed to streamline the
-workflow of managing student repositories and integrating with Learning Management Systems (LMS).
-
-## Structure
-
-```text
-repo-edu/
-├── apps/
-│   └── repo-manage/          # Tauri desktop app
-│       ├── src/              # React frontend
-│       ├── src-tauri/        # Rust backend
-│       ├── repo-manage-core/ # Core library
-│       └── repo-manage-cli/  # CLI tool
-└── packages/
-    └── ui/                   # Shared UI components
-```
+Tools for educational repository management — streamline student repository workflows with LMS
+integration.
 
 ## Features
 
-### LMS Import Tab
+- **LMS Import**: Fetch student rosters and groups from Canvas or Moodle. Export to YAML, CSV, or
+  XLSX.
+- **Repository Setup**: Batch create student repositories from templates on GitHub, GitLab, or
+  Gitea.
+- **Cross-Platform**: Native desktop app (macOS, Windows, Linux) and CLI for automation.
 
-- **Course Verification**: Validate LMS credentials and verify course access
-- **Student Roster Export**: Fetch students and group assignments from Canvas/Moodle
-- **Multiple Output Formats**: Export to YAML (RepoBee format), CSV, and XLSX
-- **Progress Tracking**: Real-time progress updates during data fetching
-
-### Repository Setup Tab
-
-- **Git Platform Support**: Works with GitHub, GitLab, and Gitea
-- **Repository Creation**: Batch create student repositories from templates
-- **Repository Cloning**: Clone all student repos with configurable directory layouts
-- **Configuration Verification**: Validate platform credentials before operations
-
-## Tech Stack
-
-### Frontend
-
-- **React** with TypeScript
-- **Zustand** for state management
-- **shadcn/ui** components (via `@repo-edu/ui`)
-- **Vite** for bundling
-
-### Backend
-
-- **Tauri** (Rust) for native desktop capabilities
-- **lms-api** for Canvas/Moodle integration
-- **git2** for Git operations
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm
-- Rust (for Tauri development)
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
+# Clone and install
 git clone https://github.com/dvbeek/repo-edu.git
 cd repo-edu
-
-# Install dependencies
 pnpm install
 
-# Run the desktop app in development mode
-cd apps/repo-manage
-pnpm tauri dev
-```
+# Run desktop app
+pnpm tauri:dev
 
-### Building
-
-```bash
-cd apps/repo-manage
-pnpm tauri build
+# Or build CLI
+pnpm cli:build
 ```
 
 ## Documentation
 
-Full documentation is available at [repo-edu.github.io/repo-edu](https://repo-edu.github.io/repo-edu/).
+Full documentation: [repo-edu.github.io/repo-edu](https://repo-edu.github.io/repo-edu/)
 
-To preview documentation locally:
+- [Installation](https://repo-edu.github.io/repo-edu/getting-started/installation)
+- [Quick Start Guide](https://repo-edu.github.io/repo-edu/getting-started/quick-start)
+- [CLI Reference](https://repo-edu.github.io/repo-edu/cli/overview)
+- [Contributing](https://repo-edu.github.io/repo-edu/development/contributing)
 
-```bash
-pnpm docs:dev
+Preview docs locally: `pnpm docs:dev`
+
+## Project Structure
+
+```text
+repo-edu/
+├── apps/repo-manage/     # Tauri app, CLI, and core library
+├── crates/               # LMS client crates
+├── packages/ui/          # Shared UI components
+└── docs/                 # VitePress documentation
 ```
-
-## Configuration
-
-Settings are stored in `~/.config/repo-edu/settings.json` (or equivalent on Windows/macOS). The
-application provides a GUI for managing all configuration options.
-
-## Dependency Management
-
-This monorepo uses [pnpm Catalogs](https://pnpm.io/catalogs) to ensure consistent dependency
-versions across all packages.
-
-### How it works
-
-Shared dependency versions are defined once in `pnpm-workspace.yaml`:
-
-```yaml
-catalog:
-  react: 19.2.1
-  react-dom: 19.2.1
-  "@types/react": 19.2.7
-  "@types/react-dom": 19.2.3
-  typescript: 5.9.3
-```
-
-Package.json files reference these with `catalog:` instead of version numbers:
-
-```json
-{
-  "dependencies": {
-    "react": "catalog:",
-    "react-dom": "catalog:"
-  }
-}
-```
-
-### Updating shared dependencies
-
-To update a shared dependency (e.g., React):
-
-1. Edit the version in `pnpm-workspace.yaml`
-2. Run `pnpm install`
-
-All packages will automatically use the new version.
-
-### Adding new shared dependencies
-
-1. Add the dependency and version to `catalog:` in `pnpm-workspace.yaml`
-2. Use `"package-name": "catalog:"` in package.json files that need it
-
-### Why this matters
-
-Without catalogs, different packages can end up with different versions of the same dependency. For
-React, this causes runtime errors like "Invalid hook call" because React requires exactly one
-instance in the app.
 
 ## Acknowledgments
 
-This project builds upon the work of several contributors:
-
-- **Repository Setup** functionality is based on a subset of
-  [RepoBee](https://github.com/repobee/repobee), created by **Simon Larsén**. RepoBee is a CLI tool
-  for managing Git repositories on GitHub, GitLab, and Gitea in educational contexts.
-- **LMS Import** functionality originated from a RepoBee extension developed by **Huub de Beer**,
-  which included Canvas import among other features.
-- **Jingjing Wang** developed the first Python GUI applications for subsets of RepoBee and the
-  Canvas import functionality.
-- **Bert van Beek** redesigned and integrated both Python applications into the current combined
-  Tauri application, extending LMS support to include Moodle via a unified LMS-agnostic interface,
-  adding profile-based settings management, and replacing RepoBee's plugin system with native
-  platform implementations for GitHub, GitLab, and Gitea.
+- **Repository Setup** is based on [RepoBee](https://github.com/repobee/repobee) by **Simon
+  Larsén**.
+- **LMS Import** originated from a RepoBee extension by **Huub de Beer**.
+- **Jingjing Wang** developed the first Python GUI applications.
+- **Bert van Beek** redesigned and integrated both into the current Tauri application, adding
+  Moodle support, profile management, and native platform implementations.
 
 ## License
 

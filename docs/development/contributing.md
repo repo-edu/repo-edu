@@ -199,33 +199,46 @@ Include:
 
 ### pnpm Catalogs
 
-Shared dependency versions are defined in `pnpm-workspace.yaml`:
+This monorepo uses [pnpm Catalogs](https://pnpm.io/catalogs) to ensure consistent dependency
+versions across all packages.
+
+Shared dependency versions are defined once in `pnpm-workspace.yaml`:
 
 ```yaml
 catalog:
   react: 19.2.1
+  react-dom: 19.2.1
   typescript: 5.9.3
 ```
 
-Reference in package.json:
+Packages reference these with `catalog:` instead of version numbers:
 
 ```json
 {
   "dependencies": {
-    "react": "catalog:"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   }
 }
 ```
 
-### Updating Dependencies
+### Updating Shared Dependencies
 
-```bash
-# Check for updates
-pnpm outdated
+1. Edit the version in `pnpm-workspace.yaml`
+2. Run `pnpm install`
 
-# Update in pnpm-workspace.yaml, then:
-pnpm install
-```
+All packages automatically use the new version.
+
+### Adding New Shared Dependencies
+
+1. Add the dependency and version to `catalog:` in `pnpm-workspace.yaml`
+2. Use `"package-name": "catalog:"` in package.json files that need it
+
+### Why This Matters
+
+Without catalogs, different packages can end up with different versions of the same dependency.
+For React, this causes runtime errors like "Invalid hook call" because React requires exactly one
+instance in the app.
 
 ## Getting Help
 
