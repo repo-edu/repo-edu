@@ -22,6 +22,9 @@ features:
     details: Native desktop app for macOS, Windows, and Linux built with Tauri. CLI available for automation.
 ---
 
+::: warning Pre-alpha Software This project is under active development and not yet ready for
+production use. APIs and features may change without notice.:::
+
 ## Quick Links
 
 - [Installation](/getting-started/installation) — Download and install repo-edu

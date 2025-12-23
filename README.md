@@ -1,5 +1,7 @@
 # repo-edu
 
+> ⚠️ **Pre-alpha**: This project is under active development and not yet ready for production use. APIs and features may change without notice.
+
 Tools for educational repository management — streamline student repository workflows with LMS
 integration.
 
@@ -53,8 +55,8 @@ repo-edu/
   Larsén**.
 - **LMS Import** originated from a RepoBee extension by **Huub de Beer**.
 - **Jingjing Wang** developed the first Python GUI applications.
-- **Bert van Beek** redesigned and integrated both into the current Tauri application, adding
-  Moodle support, profile management, and native platform implementations.
+- **Bert van Beek** redesigned and integrated both into the current Tauri application, adding Moodle
+  support, profile management, and native platform implementations.
 
 ## License
 
