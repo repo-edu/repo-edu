@@ -51,7 +51,7 @@ The `redu` CLI can be installed separately for automation and scripting.
 
 ```bash
 # Clone the repository
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Build and install
@@ -75,7 +75,7 @@ See [Building](/development/building) for complete build instructions.
 # Prerequisites: Node.js 20+, pnpm, Rust
 
 # Clone
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Install dependencies

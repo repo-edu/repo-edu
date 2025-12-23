@@ -199,7 +199,7 @@ mkdir -p ~/.config/repo-edu/profiles
 
 If your issue isn't covered here:
 
-1. Check [GitHub Issues](https://github.com/dvbeek/repo-edu/issues) for known issues
+1. Check [GitHub Issues](https://github.com/repo-edu/repo-edu/issues) for known issues
 2. Search closed issues for solutions
 3. Open a new issue with:
    - Operating system and version

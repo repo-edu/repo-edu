@@ -49,7 +49,7 @@ sudo pacman -S webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-modu
 
 ```bash
 # Clone the repository
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Install dependencies

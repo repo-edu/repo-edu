@@ -1,6 +1,8 @@
 import { defineConfig } from "vitepress"
 
 export default defineConfig({
+  ignoreDeadLinks: false,
+
   title: "repo-edu",
   description: "Tools for educational repository management",
 
@@ -63,7 +65,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: "github", link: "https://github.com/dvbeek/repo-edu" },
+      { icon: "github", link: "https://github.com/repo-edu/repo-edu" },
     ],
 
     search: {

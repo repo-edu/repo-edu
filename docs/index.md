@@ -11,7 +11,7 @@ hero:
       link: /getting-started/installation
     - theme: alt
       text: View on GitHub
-      link: https://github.com/dvbeek/repo-edu
+      link: https://github.com/repo-edu/repo-edu
 
 features:
   - title: LMS Import

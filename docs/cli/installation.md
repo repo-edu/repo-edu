@@ -2,13 +2,13 @@
 
 ## From Release Binary
 
-Download the pre-built binary for your platform from the [GitHub Releases](https://github.com/dvbeek/repo-edu/releases) page.
+Download the pre-built binary for your platform from the [GitHub Releases](https://github.com/repo-edu/repo-edu/releases) page.
 
 ### macOS / Linux
 
 ```bash
 # Download and extract (adjust version and platform as needed)
-curl -LO https://github.com/dvbeek/repo-edu/releases/latest/download/redu-macos-arm64.tar.gz
+curl -LO https://github.com/repo-edu/repo-edu/releases/latest/download/redu-macos-arm64.tar.gz
 tar xzf redu-macos-arm64.tar.gz
 
 # Move to a directory in your PATH
@@ -31,7 +31,7 @@ Build the CLI from source using Cargo:
 
 ```bash
 # Clone the repository
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Build release binary
@@ -53,4 +53,3 @@ redu --version
 redu --help
 # Shows available commands
 ```
-

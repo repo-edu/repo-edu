@@ -36,7 +36,7 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget \
 
 ```bash
 # Clone the repository
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Install dependencies
@@ -242,6 +242,6 @@ instance in the app.
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/dvbeek/repo-edu/issues) — Bug reports and feature requests
+- [GitHub Issues](https://github.com/repo-edu/repo-edu/issues) — Bug reports and feature requests
 - [Architecture](/development/architecture) — System overview
 - [Crates](/development/crates) — Rust crate documentation

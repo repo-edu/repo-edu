@@ -15,7 +15,7 @@ integration.
 
 ```bash
 # Clone and install
-git clone https://github.com/dvbeek/repo-edu.git
+git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 pnpm install
 
