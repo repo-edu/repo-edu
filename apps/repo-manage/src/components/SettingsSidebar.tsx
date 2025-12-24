@@ -28,14 +28,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@repo-edu/ui/components/ui/tooltip"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useState } from "react"
 import { SUCCESS_FLASH_MS, THEME_OPTIONS } from "../constants"
 import { useProfileActions } from "../hooks/useProfileActions"
-import type { Strict } from "../services/commandUtils"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
-import type { GuiSettings } from "../types/settings"
+import type { GuiSettings, ProfileSettings } from "../types/settings"
 import {
   ActionDropdown,
   type ActionDropdownItem,
@@ -49,7 +49,12 @@ import { MdiWeatherSunny } from "./icons/MdiWeatherSunny"
 interface SettingsSidebarProps {
   onClose: () => void
   currentSettings: GuiSettings
-  getSettings: () => GuiSettings
+  getProfileSettings: () => ProfileSettings
+  getUiState: () => {
+    activeTab: "lms" | "repo"
+    collapsedSections: string[]
+    settingsMenuOpen: boolean
+  }
   onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void
   onMessage: (message: string) => void
   isDirty: boolean
@@ -63,7 +68,8 @@ interface ProfileDropdownItem extends ActionDropdownItem {
 export function SettingsSidebar({
   onClose,
   currentSettings,
-  getSettings,
+  getProfileSettings,
+  getUiState,
   onSettingsLoaded,
   onMessage,
   isDirty,
@@ -100,7 +106,7 @@ export function SettingsSidebar({
   }
 
   const profileActions = useProfileActions({
-    getSettings,
+    getProfileSettings,
     onSettingsLoaded: (settings, updateBaseline) =>
       onSettingsLoaded(settings, updateBaseline),
     onMessage,
@@ -115,6 +121,28 @@ export function SettingsSidebar({
       } catch (error) {
         onMessage(`✗ Failed to open file explorer: ${getErrorMessage(error)}`)
       }
+    }
+  }
+
+  const handleSaveWindowState = async () => {
+    try {
+      const win = getCurrentWindow()
+      const size = await win.innerSize()
+      const uiState = getUiState()
+
+      await settingsService.saveAppSettings({
+        theme: currentSettings.theme,
+        active_tab: uiState.activeTab,
+        collapsed_sections: uiState.collapsedSections,
+        sidebar_open: uiState.settingsMenuOpen,
+        window_width: size.width,
+        window_height: size.height,
+        logging: currentSettings.logging,
+      })
+      showSuccessFlash()
+      onMessage("✓ Window state saved")
+    } catch (error) {
+      onMessage(`✗ Failed to save window state: ${getErrorMessage(error)}`)
     }
   }
 
@@ -170,10 +198,12 @@ export function SettingsSidebar({
         // Load the source profile settings, then save as new profile
         try {
           const result = await settingsService.loadProfile(profileName)
-          await settingsService.saveProfile(
-            newName,
-            result.settings as Strict<GuiSettings>,
-          )
+          const profileSettings: ProfileSettings = {
+            git: result.settings.git,
+            lms: result.settings.lms,
+            repo: result.settings.repo,
+          }
+          await settingsService.saveProfile(newName, profileSettings)
           await profileActions.refreshProfiles()
           showSuccessFlash()
           onMessage(`✓ Duplicated "${profileName}" to "${newName}"`)
@@ -412,6 +442,27 @@ export function SettingsSidebar({
             {isDirty && (
               <span className="text-[10px] text-warning">Unsaved changes</span>
             )}
+          </section>
+
+          {/* Window Section */}
+          <section className="settings-section">
+            <h3 className="settings-section-title">Window</h3>
+            <div className="flex">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={handleSaveWindowState}
+                  >
+                    Save State
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Save window size, active tab, and collapsed sections
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </section>
         </div>
       </div>

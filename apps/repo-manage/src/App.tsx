@@ -18,8 +18,8 @@ import {
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { listen } from "@tauri-apps/api/event"
 import { open } from "@tauri-apps/plugin-dialog"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { toBackendFormat, toStoreFormat } from "./adapters/settingsAdapter"
+import { useCallback, useEffect, useState } from "react"
+import { toProfileFormat, toStoreFormat } from "./adapters/settingsAdapter"
 import { ActionBar } from "./components/ActionBar"
 import { GitConfigSection } from "./components/GitConfigSection"
 import { LmsConfigSection } from "./components/LmsConfigSection"
@@ -137,18 +137,7 @@ function App() {
 
   const { saveWindowState } = useWindowState({
     config: windowConfig,
-    onSave: () => saveAppSettings(),
   })
-
-  // Save when active tab or collapsed sections change
-  const uiInitializedRef = useRef(false)
-  useEffect(() => {
-    if (!uiInitializedRef.current) {
-      uiInitializedRef.current = true
-      return // Skip initial render
-    }
-    saveWindowState()
-  }, [ui.activeTab, ui.collapsedSections, saveWindowState])
 
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
@@ -156,34 +145,29 @@ function App() {
     onShowPrompt: ui.showClosePrompt,
     onHidePrompt: ui.hideClosePrompt,
     onSave: async () => {
-      await saveSettingsToDisk()
+      await saveProfileToDisk()
     },
     onBeforeClose: saveWindowState,
   })
 
-  // --- Settings load/save helpers ---
-  const buildCurrentSettings = () => {
-    return toBackendFormat(lmsForm.getState(), repoForm.getState(), {
-      activeTab: ui.activeTab,
-      collapsedSections: ui.getCollapsedSectionsArray(),
-      sidebarOpen: ui.settingsMenuOpen ?? false,
-      theme: currentGuiSettings?.theme || DEFAULT_GUI_THEME,
-      windowWidth: currentGuiSettings?.window_width ?? 0,
-      windowHeight: currentGuiSettings?.window_height ?? 0,
-    })
+  // --- Profile save helpers ---
+  const buildProfileSettings = () => {
+    return toProfileFormat(lmsForm.getState(), repoForm.getState())
   }
 
-  const saveSettingsToDisk = useCallback(async () => {
+  const saveProfileToDisk = useCallback(async () => {
     try {
-      const settings = buildCurrentSettings()
+      const settings = buildProfileSettings()
+      const activeProfile = await settingsService.getActiveProfile()
+      if (!activeProfile) {
+        output.appendWithNewline("⚠ No active profile selected.")
+        return
+      }
 
-      await settingsService.saveSettings(settings)
+      await settingsService.saveProfile(activeProfile, settings)
       markClean()
 
-      const activeProfile = await settingsService.getActiveProfile()
-      output.appendWithNewline(
-        `✓ Settings saved to profile: ${activeProfile || "Default"}`,
-      )
+      output.appendWithNewline(`✓ Settings saved to profile: ${activeProfile}`)
     } catch (error) {
       console.error("Failed to save settings:", error)
       output.appendWithNewline(`⚠ Failed to save settings: ${error}`)
@@ -196,14 +180,14 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault()
-        saveSettingsToDisk()
+        saveProfileToDisk()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
 
     // Listen for menu events from Tauri
     const unlistenSave = listen("menu-save", () => {
-      saveSettingsToDisk()
+      saveProfileToDisk()
     })
     const unlistenShortcuts = listen("menu-keyboard-shortcuts", () => {
       setShortcutsDialogOpen(true)
@@ -214,7 +198,7 @@ function App() {
       unlistenSave.then((unlisten) => unlisten())
       unlistenShortcuts.then((unlisten) => unlisten())
     }
-  }, [saveSettingsToDisk])
+  }, [saveProfileToDisk])
 
   const handleBrowseFolder = async (setter: (path: string) => void) => {
     const selected = await open({ directory: true })
@@ -241,12 +225,8 @@ function App() {
     }
   }
 
-  const handleToggleSettingsSidebar = async () => {
-    const newState = !ui.settingsMenuOpen
-    ui.setSettingsMenuOpen(newState)
-
-    // Save to app.json
-    await saveAppSettings({ sidebar_open: newState })
+  const handleToggleSettingsSidebar = () => {
+    ui.setSettingsMenuOpen(!ui.settingsMenuOpen)
   }
 
   return (
@@ -440,7 +420,8 @@ function App() {
           <SettingsSidebar
             onClose={handleToggleSettingsSidebar}
             currentSettings={currentGuiSettings}
-            getSettings={buildCurrentSettings}
+            getProfileSettings={buildProfileSettings}
+            getUiState={getUiState}
             onSettingsLoaded={handleSettingsLoaded}
             onMessage={(msg) => output.appendWithNewline(msg)}
             isDirty={isDirty}

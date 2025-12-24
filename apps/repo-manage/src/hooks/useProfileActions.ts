@@ -8,14 +8,13 @@
  */
 
 import { useCallback, useEffect, useState } from "react"
-import type { Strict } from "../services/commandUtils"
 import * as settingsService from "../services/settingsService"
 import { getErrorMessage } from "../types/error"
-import type { GuiSettings } from "../types/settings"
+import type { GuiSettings, ProfileSettings } from "../types/settings"
 
 export interface UseProfileActionsOptions {
-  /** Get current settings from the form stores */
-  getSettings: () => GuiSettings
+  /** Get current profile settings from the form stores */
+  getProfileSettings: () => ProfileSettings
   /** Callback when settings are loaded from a profile */
   onSettingsLoaded: (settings: GuiSettings, updateBaseline: boolean) => void
   /** Callback to display messages to the user */
@@ -49,19 +48,24 @@ export interface ProfileActions {
   refreshProfiles: () => Promise<void>
 }
 
-/** Helper to ensure settings have required fields for save operations */
-function ensureComplete(settings: GuiSettings): Strict<GuiSettings> {
+function extractProfileSettings(settings: GuiSettings): ProfileSettings {
   return {
-    ...settings,
-    collapsed_sections: settings.collapsed_sections ?? [],
-  } as Strict<GuiSettings>
+    git: settings.git,
+    lms: settings.lms,
+    repo: settings.repo,
+  }
 }
 
 export function useProfileActions(
   options: UseProfileActionsOptions,
 ): ProfileActions {
-  const { getSettings, onSettingsLoaded, onMessage, onSaved, onSuccess } =
-    options
+  const {
+    getProfileSettings,
+    onSettingsLoaded,
+    onMessage,
+    onSaved,
+    onSuccess,
+  } = options
 
   const [profiles, setProfiles] = useState<string[]>([])
   const [activeProfile, setActiveProfile] = useState<string | null>(null)
@@ -98,17 +102,14 @@ export function useProfileActions(
       return
     }
     try {
-      await settingsService.saveProfile(
-        activeProfile,
-        ensureComplete(getSettings()),
-      )
+      await settingsService.saveProfile(activeProfile, getProfileSettings())
       onSuccess?.()
       onMessage(`✓ Saved profile: ${activeProfile}`)
       onSaved()
     } catch (error) {
       onMessage(`✗ Failed to save profile: ${getErrorMessage(error)}`)
     }
-  }, [activeProfile, getSettings, onMessage, onSaved, onSuccess])
+  }, [activeProfile, getProfileSettings, onMessage, onSaved, onSuccess])
 
   const revertProfile = useCallback(async () => {
     if (!activeProfile) return
@@ -178,14 +179,12 @@ export function useProfileActions(
         return
       }
       try {
-        const settings = ensureComplete(
-          copyFromCurrent
-            ? getSettings()
-            : await settingsService.getDefaultSettings(),
-        )
+        const settings = copyFromCurrent
+          ? getProfileSettings()
+          : extractProfileSettings(await settingsService.getDefaultSettings())
         await settingsService.saveProfile(name, settings)
-        await settingsService.setActiveProfile(name)
-        onSettingsLoaded(settings, true)
+        const loaded = await settingsService.loadProfile(name)
+        onSettingsLoaded(loaded.settings, true)
         setActiveProfile(name)
         await refreshProfiles()
         onSuccess?.()
@@ -194,7 +193,13 @@ export function useProfileActions(
         onMessage(`✗ Failed to create profile: ${getErrorMessage(error)}`)
       }
     },
-    [getSettings, onSettingsLoaded, onMessage, onSuccess, refreshProfiles],
+    [
+      getProfileSettings,
+      onSettingsLoaded,
+      onMessage,
+      onSuccess,
+      refreshProfiles,
+    ],
   )
 
   const renameProfile = useCallback(
@@ -235,10 +240,7 @@ export function useProfileActions(
 
       if (willCreateDefault) {
         // Create and switch to Default profile
-        await settingsService.saveProfile(
-          "Default",
-          ensureComplete(getSettings()),
-        )
+        await settingsService.saveProfile("Default", getProfileSettings())
         await settingsService.setActiveProfile("Default")
         setActiveProfile("Default")
         onMessage(`✓ Created new profile: Default`)
@@ -255,7 +257,7 @@ export function useProfileActions(
   }, [
     activeProfile,
     profiles,
-    getSettings,
+    getProfileSettings,
     loadProfile,
     onMessage,
     onSuccess,

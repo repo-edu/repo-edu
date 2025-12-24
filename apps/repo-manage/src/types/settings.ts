@@ -19,6 +19,7 @@ export type {
   LmsUrlOption,
   LogSettings,
   MemberOption,
+  ProfileSettings,
   RepoSettings,
   Theme,
 } from "../bindings"

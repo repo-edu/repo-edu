@@ -219,20 +219,6 @@ impl SettingsManager {
         Ok(())
     }
 
-    /// Save combined settings
-    /// Saves app settings to app.json and profile settings to active profile
-    pub fn save(&self, settings: &GuiSettings) -> ConfigResult<()> {
-        // Save app settings
-        self.save_app_settings(&settings.app)?;
-
-        // Save profile settings to active profile (if one is set)
-        if let Some(profile_name) = self.get_active_profile()? {
-            self.save_profile_settings(&profile_name, &settings.profile)?;
-        }
-
-        Ok(())
-    }
-
     /// Get the JSON Schema for GuiSettings
     pub fn get_schema() -> ConfigResult<Value> {
         let schema = schema_for!(GuiSettings);

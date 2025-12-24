@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 import { DEFAULT_LOG_LEVELS } from "../constants"
-import type { GuiSettings } from "../types/settings"
+import type { GuiSettings, ProfileSettings } from "../types/settings"
 import { useProfileActions } from "./useProfileActions"
 
 vi.mock("../services/settingsService")
@@ -70,6 +70,12 @@ const baseSettings: GuiSettings = {
   logging: { ...DEFAULT_LOG_LEVELS },
 }
 
+const baseProfileSettings: ProfileSettings = {
+  git: baseSettings.git,
+  lms: baseSettings.lms,
+  repo: baseSettings.repo,
+}
+
 function cloneSettings(overrides: Partial<GuiSettings> = {}) {
   return {
     ...baseSettings,
@@ -80,7 +86,7 @@ function cloneSettings(overrides: Partial<GuiSettings> = {}) {
 }
 
 function setup(options?: Partial<Parameters<typeof useProfileActions>[0]>) {
-  const getSettings = vi.fn(() => cloneSettings())
+  const getProfileSettings = vi.fn(() => baseProfileSettings)
   const onSettingsLoaded = vi.fn()
   const onMessage = vi.fn()
   const onSaved = vi.fn()
@@ -88,7 +94,7 @@ function setup(options?: Partial<Parameters<typeof useProfileActions>[0]>) {
 
   const hook = renderHook(() =>
     useProfileActions({
-      getSettings,
+      getProfileSettings,
       onSettingsLoaded,
       onMessage,
       onSaved,
@@ -97,7 +103,14 @@ function setup(options?: Partial<Parameters<typeof useProfileActions>[0]>) {
     }),
   )
 
-  return { hook, getSettings, onSettingsLoaded, onMessage, onSaved, onSuccess }
+  return {
+    hook,
+    getProfileSettings,
+    onSettingsLoaded,
+    onMessage,
+    onSaved,
+    onSuccess,
+  }
 }
 
 beforeEach(() => {
@@ -130,7 +143,11 @@ describe("useProfileActions", () => {
 
     expect(mockService.saveProfile).toHaveBeenCalledWith(
       "Default",
-      expect.objectContaining({ collapsed_sections: [] }),
+      expect.objectContaining({
+        git: expect.any(Object),
+        lms: expect.any(Object),
+        repo: expect.any(Object),
+      }),
     )
     expect(onMessage).toHaveBeenCalledWith("✓ Saved profile: Default")
     expect(onSaved).toHaveBeenCalledTimes(1)
@@ -230,7 +247,7 @@ describe("useProfileActions", () => {
   })
 
   it("creates profile by copying current settings", async () => {
-    const { hook, getSettings, onMessage } = setup()
+    const { hook, getProfileSettings, onMessage } = setup()
 
     await act(async () => {
       await hook.result.current.createProfile("New", true)
@@ -240,8 +257,8 @@ describe("useProfileActions", () => {
       "New",
       expect.any(Object),
     )
-    expect(mockService.setActiveProfile).toHaveBeenCalledWith("New")
-    expect(getSettings).toHaveBeenCalled()
+    expect(mockService.loadProfile).toHaveBeenCalledWith("New")
+    expect(getProfileSettings).toHaveBeenCalled()
     expect(onMessage).toHaveBeenCalledWith(
       "✓ Created and activated profile: New",
     )
@@ -260,17 +277,22 @@ describe("useProfileActions", () => {
         gitea: { access_token: "", base_url: "", user: "" },
       },
     })
+    const defaultProfileSettings: ProfileSettings = {
+      git: defaultSettings.git,
+      lms: defaultSettings.lms,
+      repo: defaultSettings.repo,
+    }
     mockService.getDefaultSettings.mockResolvedValueOnce(defaultSettings)
-    const { hook, getSettings } = setup()
+    const { hook, getProfileSettings } = setup()
 
     await act(async () => {
       await hook.result.current.createProfile("Fresh", false)
     })
 
-    expect(getSettings).not.toHaveBeenCalled()
+    expect(getProfileSettings).not.toHaveBeenCalled()
     expect(mockService.saveProfile).toHaveBeenCalledWith(
       "Fresh",
-      defaultSettings,
+      defaultProfileSettings,
     )
   })
 
@@ -326,7 +348,7 @@ describe("useProfileActions", () => {
   it("deletes last profile and recreates Default", async () => {
     mockService.listProfiles.mockResolvedValueOnce(["Solo"])
     mockService.getActiveProfile.mockResolvedValueOnce("Solo")
-    const { hook, onMessage, getSettings } = setup()
+    const { hook, onMessage, getProfileSettings } = setup()
     await waitFor(() => expect(hook.result.current.activeProfile).toBe("Solo"))
 
     await act(async () => {
@@ -336,11 +358,15 @@ describe("useProfileActions", () => {
     expect(mockService.deleteProfile).toHaveBeenCalledWith("Solo")
     expect(mockService.saveProfile).toHaveBeenCalledWith(
       "Default",
-      expect.objectContaining({ collapsed_sections: [] }),
+      expect.objectContaining({
+        git: expect.any(Object),
+        lms: expect.any(Object),
+        repo: expect.any(Object),
+      }),
     )
     expect(mockService.setActiveProfile).toHaveBeenCalledWith("Default")
     expect(onMessage).toHaveBeenCalledWith("✓ Created new profile: Default")
-    expect(getSettings).toHaveBeenCalled()
+    expect(getProfileSettings).toHaveBeenCalled()
   })
 
   it("refreshes profiles list and active profile", async () => {

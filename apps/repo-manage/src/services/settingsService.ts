@@ -2,6 +2,7 @@ import {
   type AppSettings,
   commands,
   type GuiSettings,
+  type ProfileSettings,
   type SettingsLoadResult,
 } from "../bindings"
 import { type Strict, unwrap } from "./commandUtils"
@@ -17,8 +18,6 @@ export const loadSettings = async (): Promise<GuiSettings> => {
   const result = await loadSettingsWithWarnings()
   return result.settings
 }
-export const saveSettings = (settings: Strict<GuiSettings>) =>
-  commands.saveSettings(settings).then(unwrap)
 export const loadAppSettings = () => commands.loadAppSettings().then(unwrap)
 export const saveAppSettings = (settings: Strict<AppSettings>) =>
   commands.saveAppSettings(settings).then(unwrap)
@@ -31,7 +30,7 @@ export const setActiveProfile = (name: string) =>
   commands.setActiveProfile(name).then(unwrap)
 export const loadProfile = (name: string) =>
   commands.loadProfile(name).then(unwrap)
-export const saveProfile = (name: string, settings: Strict<GuiSettings>) =>
+export const saveProfile = (name: string, settings: Strict<ProfileSettings>) =>
   commands.saveProfile(name, settings).then(unwrap)
 export const deleteProfile = (name: string) =>
   commands.deleteProfile(name).then(unwrap)

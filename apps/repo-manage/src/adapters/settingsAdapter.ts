@@ -19,7 +19,7 @@ import {
 import type { Strict } from "../services/commandUtils"
 import type { LmsFormState } from "../stores/lmsFormStore"
 import type { RepoFormState } from "../stores/repoFormStore"
-import type { GuiSettings } from "../types/settings"
+import type { GuiSettings, ProfileSettings } from "../types/settings"
 
 /**
  * Result of transforming backend settings to store format
@@ -264,6 +264,79 @@ export function toBackendFormat(
       debug: repoState.logLevels.debug,
       warning: repoState.logLevels.warning,
       error: repoState.logLevels.error,
+    },
+  }
+}
+
+/**
+ * Transform store state to profile-only backend format
+ */
+export function toProfileFormat(
+  lmsState: LmsFormState,
+  repoState: RepoFormState,
+): Strict<ProfileSettings> {
+  return {
+    git: {
+      type: repoState.gitServerType as "GitHub" | "GitLab" | "Gitea",
+      github: {
+        access_token: repoState.github.accessToken,
+        user: repoState.github.user,
+        student_repos_org: repoState.github.studentReposOrg,
+        template_org: repoState.github.templateOrg,
+      },
+      gitlab: {
+        access_token: repoState.gitlab.accessToken,
+        base_url: repoState.gitlab.baseUrl,
+        user: repoState.gitlab.user,
+        student_repos_group: repoState.gitlab.studentReposGroup,
+        template_group: repoState.gitlab.templateGroup,
+      },
+      gitea: {
+        access_token: repoState.gitea.accessToken,
+        base_url: repoState.gitea.baseUrl,
+        user: repoState.gitea.user,
+        student_repos_group: repoState.gitea.studentReposGroup,
+        template_group: repoState.gitea.templateGroup,
+      },
+    },
+    lms: {
+      type: lmsState.lmsType as "Canvas" | "Moodle",
+      canvas: {
+        access_token: lmsState.canvas.accessToken,
+        base_url: lmsState.canvas.baseUrl,
+        custom_url: lmsState.canvas.customUrl,
+        url_option: lmsState.canvas.urlOption as "TUE" | "CUSTOM",
+        courses: stripCourseStatus(lmsState.canvas.courses),
+      },
+      moodle: {
+        access_token: lmsState.moodle.accessToken,
+        base_url: lmsState.moodle.baseUrl,
+        courses: stripCourseStatus(lmsState.moodle.courses),
+      },
+      yaml_file: lmsState.yamlFile,
+      output_folder: lmsState.outputFolder,
+      csv_file: lmsState.csvFile,
+      xlsx_file: lmsState.xlsxFile,
+      member_option: lmsState.memberOption as
+        | "(email, gitid)"
+        | "email"
+        | "git_id",
+      include_group: lmsState.includeGroup,
+      include_member: lmsState.includeMember,
+      include_initials: lmsState.includeInitials,
+      full_groups: lmsState.fullGroups,
+      output_csv: lmsState.csv,
+      output_xlsx: lmsState.xlsx,
+      output_yaml: lmsState.yaml,
+    },
+    repo: {
+      yaml_file: repoState.yamlFile,
+      target_folder: repoState.targetFolder,
+      assignments: repoState.assignments,
+      directory_layout: repoState.directoryLayout as
+        | "flat"
+        | "by-team"
+        | "by-task",
     },
   }
 }

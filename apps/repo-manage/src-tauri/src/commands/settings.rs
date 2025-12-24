@@ -10,15 +10,6 @@ pub async fn load_settings() -> Result<SettingsLoadResult, AppError> {
     Ok(result)
 }
 
-/// Save settings to disk (both app and profile)
-#[tauri::command]
-#[specta::specta]
-pub async fn save_settings(settings: GuiSettings) -> Result<(), AppError> {
-    let manager = SettingsManager::new()?;
-    manager.save(&settings)?;
-    Ok(())
-}
-
 /// Load app-level settings (theme, window position, etc.)
 #[tauri::command]
 #[specta::specta]

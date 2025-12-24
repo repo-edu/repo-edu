@@ -64,7 +64,6 @@ fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         // Settings commands
         commands::settings::load_settings,
-        commands::settings::save_settings,
         commands::settings::load_app_settings,
         commands::settings::save_app_settings,
         commands::settings::reset_settings,
