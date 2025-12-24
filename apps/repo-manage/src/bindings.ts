@@ -254,6 +254,17 @@ async generateLmsFiles(params: GenerateFilesParams, progress: TAURI_CHANNEL<stri
 }
 },
 /**
+ * Get group categories (group sets) for a course
+ */
+async getGroupCategories(params: GetGroupCategoriesParams) : Promise<Result<GroupCategory[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_group_categories", { params }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Verify platform configuration and authentication
  */
 async verifyConfig(params: ConfigParams) : Promise<Result<CommandResult, AppError>> {
@@ -339,6 +350,7 @@ export type CourseEntry = { id: string; name: string | null }
  */
 export type DirectoryLayout = "by-team" | "flat" | "by-task"
 export type GenerateFilesParams = { base_url: string; access_token: string; course_id: string; lms_type: string; yaml_file: string; output_folder: string; csv_file: string; xlsx_file: string; member_option: string; include_group: boolean; include_member: boolean; include_initials: boolean; full_groups: boolean; csv: boolean; xlsx: boolean; yaml: boolean }
+export type GetGroupCategoriesParams = { base_url: string; access_token: string; course_id: string; lms_type: string }
 /**
  * GitHub-specific configuration (no base_url - always github.com)
  */
@@ -359,6 +371,10 @@ export type GitSettings = { gitea: GiteaConfig; github: GitHubConfig; gitlab: Gi
  * Gitea-specific configuration (requires base_url)
  */
 export type GiteaConfig = { access_token: string; base_url: string; user: string; student_repos_group: string; template_group: string }
+/**
+ * Group category (group set) for frontend binding
+ */
+export type GroupCategory = { id: string; name: string; role: string | null; self_signup: string | null; course_id: string | null; group_limit: number | null }
 /**
  * Combined GUI settings (sent to frontend)
  * This combines app settings with the active profile's settings

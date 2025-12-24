@@ -150,6 +150,13 @@ impl lms_common::LmsClient for LmsClient {
             ClientKind::Moodle(client) => client.get_group_members(group_id).await,
         }
     }
+
+    async fn get_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>> {
+        match &self.kind {
+            ClientKind::Canvas(client) => client.get_group_categories(course_id).await,
+            ClientKind::Moodle(client) => client.get_group_categories(course_id).await,
+        }
+    }
 }
 
 #[cfg(test)]

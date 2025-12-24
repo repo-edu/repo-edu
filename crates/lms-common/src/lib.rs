@@ -24,6 +24,7 @@
 //! #     async fn get_assignments(&self, course_id: &str) -> Result<Vec<lms_common::Assignment>, LmsError> { todo!() }
 //! #     async fn get_users(&self, course_id: &str) -> Result<Vec<lms_common::User>, LmsError> { todo!() }
 //! #     async fn get_group_members(&self, group_id: &str) -> Result<Vec<lms_common::GroupMembership>, LmsError> { todo!() }
+//! #     async fn get_group_categories(&self, course_id: &str) -> Result<Vec<lms_common::GroupCategory>, LmsError> { todo!() }
 //! # }
 //! # let client = MyClient;
 //! let courses = client.get_courses().await?;
@@ -48,5 +49,6 @@ pub use helpers::{
 pub use retry::{with_retry, RetryConfig};
 pub use traits::{LmsClient, OAuth, Token};
 pub use types::{
-    Assignment, Course, Enrollment, Group, GroupMembership, PaginationInfo, Submission, User,
+    Assignment, Course, Enrollment, Group, GroupCategory, GroupMembership, PaginationInfo,
+    Submission, User,
 };

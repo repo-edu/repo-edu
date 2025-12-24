@@ -3,7 +3,7 @@
 use crate::models::*;
 use crate::pagination::get_next_page_url;
 use lms_common::{
-    types::{Assignment, Course, Group, GroupMembership, User},
+    types::{Assignment, Course, Group, GroupCategory, GroupMembership, User},
     with_retry, LmsClient, LmsError, LmsResult, RetryConfig,
 };
 use reqwest::{header, Client, Response};
@@ -261,6 +261,21 @@ impl CanvasClient {
             self.get_all_pages(&path, Vec::new()).await?;
         Ok(canvas_memberships.into_iter().map(|m| m.into()).collect())
     }
+
+    /// Get all group categories for a course with automatic pagination
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The course ID
+    pub async fn get_course_group_categories(
+        &self,
+        course_id: &str,
+    ) -> LmsResult<Vec<GroupCategory>> {
+        let path = format!("courses/{}/group_categories", course_id);
+        let canvas_categories: Vec<CanvasGroupCategory> =
+            self.get_all_pages(&path, Vec::new()).await?;
+        Ok(canvas_categories.into_iter().map(|c| c.into()).collect())
+    }
 }
 
 #[async_trait::async_trait]
@@ -288,5 +303,9 @@ impl LmsClient for CanvasClient {
 
     async fn get_group_members(&self, group_id: &str) -> LmsResult<Vec<GroupMembership>> {
         self.get_group_memberships(group_id).await
+    }
+
+    async fn get_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>> {
+        self.get_course_group_categories(course_id).await
     }
 }

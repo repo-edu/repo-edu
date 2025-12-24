@@ -44,3 +44,14 @@ pub async fn my_command(
 
 Use `CommandError` from `error.rs` which wraps `repo-manage-core::PlatformError` and serializes for
 the frontend.
+
+## Debugging
+
+**Empty/black window on `tauri:dev`:** Set `"visible": true` in `tauri.conf.json` window config.
+This shows the window immediately, allowing you to:
+
+- See if the frontend is loading (white background = Vite is serving)
+- Right-click → Inspect to open DevTools and view console errors
+
+The default `"visible": false` expects the frontend to call `show()` after loading, which hides
+startup errors.

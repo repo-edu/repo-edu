@@ -2,7 +2,7 @@
 
 use crate::models::*;
 use lms_common::{
-    types::{Assignment, Course, Group, GroupMembership, User},
+    types::{Assignment, Course, Group, GroupCategory, GroupMembership, User},
     with_retry, LmsClient, LmsError, LmsResult, RetryConfig,
 };
 use reqwest::{Client, Response};
@@ -298,5 +298,10 @@ impl LmsClient for MoodleClient {
 
     async fn get_group_members(&self, group_id: &str) -> LmsResult<Vec<GroupMembership>> {
         self.get_group_users(group_id).await
+    }
+
+    async fn get_group_categories(&self, _course_id: &str) -> LmsResult<Vec<GroupCategory>> {
+        // TODO: Implement Moodle group categories
+        Ok(Vec::new())
     }
 }

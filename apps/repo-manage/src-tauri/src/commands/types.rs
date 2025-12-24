@@ -65,3 +65,35 @@ pub struct VerifyCourseResult {
     pub course_id: String,
     pub course_name: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct GetGroupCategoriesParams {
+    pub base_url: String,
+    pub access_token: String,
+    pub course_id: String,
+    pub lms_type: String,
+}
+
+/// Group category (group set) for frontend binding
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct GroupCategory {
+    pub id: String,
+    pub name: String,
+    pub role: Option<String>,
+    pub self_signup: Option<String>,
+    pub course_id: Option<String>,
+    pub group_limit: Option<u32>,
+}
+
+impl From<repo_manage_core::GroupCategory> for GroupCategory {
+    fn from(gc: repo_manage_core::GroupCategory) -> Self {
+        GroupCategory {
+            id: gc.id,
+            name: gc.name,
+            role: gc.role,
+            self_signup: gc.self_signup,
+            course_id: gc.course_id,
+            group_limit: gc.group_limit,
+        }
+    }
+}

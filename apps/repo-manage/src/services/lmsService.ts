@@ -3,12 +3,20 @@ import {
   type CommandResult,
   commands,
   type GenerateFilesParams,
+  type GetGroupCategoriesParams,
+  type GroupCategory,
   type VerifyCourseParams,
 } from "../bindings"
 import { type Strict, unwrap } from "./commandUtils"
 
 // Re-export types for compatibility
-export type { VerifyCourseParams, GenerateFilesParams, CommandResult }
+export type {
+  VerifyCourseParams,
+  GenerateFilesParams,
+  GetGroupCategoriesParams,
+  GroupCategory,
+  CommandResult,
+}
 
 export const verifyLmsCourse = (params: Strict<VerifyCourseParams>) =>
   commands.verifyLmsCourse(params).then(unwrap)
@@ -23,3 +31,6 @@ export const getTokenInstructions = (lmsType: string) =>
 
 export const openTokenUrl = (baseUrl: string, lmsType: string) =>
   commands.openTokenUrl(baseUrl, lmsType).then(unwrap)
+
+export const getGroupCategories = (params: Strict<GetGroupCategoriesParams>) =>
+  commands.getGroupCategories(params).then(unwrap)

@@ -109,6 +109,24 @@ pub mod enrollments {
     }
 }
 
+/// Group category endpoints
+pub mod group_categories {
+    /// List group categories in a course
+    pub fn list(course_id: &str) -> String {
+        format!("courses/{}/group_categories", course_id)
+    }
+
+    /// Get a specific group category
+    pub fn get(group_category_id: &str) -> String {
+        format!("group_categories/{}", group_category_id)
+    }
+
+    /// List groups in a group category
+    pub fn groups(group_category_id: &str) -> String {
+        format!("group_categories/{}/groups", group_category_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +154,19 @@ mod tests {
         assert_eq!(
             assignments::submissions("123", "789"),
             "courses/123/assignments/789/submissions"
+        );
+    }
+
+    #[test]
+    fn test_group_category_endpoints() {
+        assert_eq!(
+            group_categories::list("123"),
+            "courses/123/group_categories"
+        );
+        assert_eq!(group_categories::get("456"), "group_categories/456");
+        assert_eq!(
+            group_categories::groups("456"),
+            "group_categories/456/groups"
         );
     }
 }

@@ -3,7 +3,9 @@
 //! These models map Canvas API responses to the common LMS types.
 
 use chrono::{DateTime, Utc};
-use lms_common::types::{Assignment, Course, Enrollment, Group, GroupMembership, Submission, User};
+use lms_common::types::{
+    Assignment, Course, Enrollment, Group, GroupCategory, GroupMembership, Submission, User,
+};
 use serde::{Deserialize, Serialize};
 
 /// Canvas course model
@@ -116,6 +118,36 @@ impl From<CanvasGroupMembership> for GroupMembership {
             user_id: canvas.user_id.to_string(),
             group_id: canvas.group_id.to_string(),
             workflow_state: canvas.workflow_state,
+        }
+    }
+}
+
+/// Canvas group category model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasGroupCategory {
+    pub id: u64,
+    pub name: String,
+    pub role: Option<String>,
+    pub self_signup: Option<String>,
+    pub context_type: Option<String>,
+    pub course_id: Option<u64>,
+    pub account_id: Option<u64>,
+    pub group_limit: Option<u32>,
+    pub auto_leader: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub sis_group_category_id: Option<String>,
+    pub sis_import_id: Option<u64>,
+}
+
+impl From<CanvasGroupCategory> for GroupCategory {
+    fn from(canvas: CanvasGroupCategory) -> Self {
+        GroupCategory {
+            id: canvas.id.to_string(),
+            name: canvas.name,
+            role: canvas.role,
+            self_signup: canvas.self_signup,
+            course_id: canvas.course_id.map(|id| id.to_string()),
+            group_limit: canvas.group_limit,
         }
     }
 }

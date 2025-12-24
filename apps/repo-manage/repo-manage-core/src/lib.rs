@@ -37,8 +37,8 @@ pub use lms::{
 // Re-export lms-common types (used throughout the app)
 pub use lms_common::{
     error::LmsError, get_token_generation_instructions, get_token_generation_url,
-    open_token_generation_url, Course, Group, GroupMembership, LmsClient as LmsClientTrait,
-    LmsType as LmsCommonType, User,
+    open_token_generation_url, Course, Group, GroupCategory, GroupMembership,
+    LmsClient as LmsClientTrait, LmsType as LmsCommonType, User,
 };
 
 // Re-export unified LMS client

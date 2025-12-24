@@ -41,3 +41,27 @@ export function formatError(error: unknown): {
   }
   return { message: String(error) }
 }
+
+/**
+ * Convert an error message to a short user-friendly summary for inline UI display.
+ * Use this when space is limited (e.g., form field hints).
+ */
+export function toShortErrorMessage(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.includes("permission") || lower.includes("forbidden")) {
+    return "Insufficient permissions"
+  }
+  if (lower.includes("not found") || lower.includes("404")) {
+    return "Not found"
+  }
+  if (lower.includes("unauthorized") || lower.includes("401")) {
+    return "Invalid credentials"
+  }
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return "Request timed out"
+  }
+  if (lower.includes("network") || lower.includes("connection")) {
+    return "Network error"
+  }
+  return "Failed to load"
+}

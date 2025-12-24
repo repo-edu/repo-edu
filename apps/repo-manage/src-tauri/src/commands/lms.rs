@@ -1,13 +1,17 @@
 use crate::error::AppError;
 use repo_manage_core::{
-    generate_lms_files as core_generate_lms_files, get_token_generation_instructions,
-    open_token_generation_url, verify_lms_course as core_verify_lms_course, GenerateLmsFilesParams,
+    create_lms_client_with_params, generate_lms_files as core_generate_lms_files,
+    get_token_generation_instructions, open_token_generation_url,
+    verify_lms_course as core_verify_lms_course, GenerateLmsFilesParams, LmsClientTrait,
     ProgressEvent, VerifyLmsParams,
 };
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
 
-use super::types::{CommandResult, GenerateFilesParams, VerifyCourseParams, VerifyCourseResult};
+use super::types::{
+    CommandResult, GenerateFilesParams, GetGroupCategoriesParams, GroupCategory,
+    VerifyCourseParams, VerifyCourseResult,
+};
 use super::utils::{
     canonicalize_dir, emit_inline_message, emit_standard_message, parse_lms_type, InlineCliState,
 };
@@ -135,4 +139,23 @@ pub async fn generate_lms_files(
             result.generated_files.join("\n")
         )),
     })
+}
+
+/// Get group categories (group sets) for a course
+#[tauri::command]
+#[specta::specta]
+pub async fn get_group_categories(
+    params: GetGroupCategoriesParams,
+) -> Result<Vec<GroupCategory>, AppError> {
+    let client =
+        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
+            .map_err(|e| AppError::new(e.to_string()))?;
+
+    let categories = client
+        .get_group_categories(&params.course_id)
+        .await
+        .map_err(|e| AppError::new(e.to_string()))?;
+
+    // Convert from repo_manage_core::GroupCategory to local GroupCategory
+    Ok(categories.into_iter().map(|c| c.into()).collect())
 }

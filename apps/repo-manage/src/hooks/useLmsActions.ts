@@ -1,4 +1,5 @@
-import { formatError } from "../services/commandUtils"
+import { useCallback } from "react"
+import { formatError, toShortErrorMessage } from "../services/commandUtils"
 import * as lmsService from "../services/lmsService"
 import { useLmsFormStore, useOutputStore } from "../stores"
 import type { LmsFormState } from "../stores/lmsFormStore"
@@ -27,6 +28,13 @@ function getActiveConfigAndUrl(lms: LmsFormState) {
 export function useLmsActions() {
   const lmsForm = useLmsFormStore()
   const output = useOutputStore()
+  const getLmsState = useLmsFormStore((state) => state.getState)
+  const setGroupCategories = useLmsFormStore(
+    (state) => state.setGroupCategories,
+  )
+  const setGroupCategoriesError = useLmsFormStore(
+    (state) => state.setGroupCategoriesError,
+  )
 
   /**
    * Verify a single course by index in the courses array.
@@ -160,5 +168,34 @@ export function useLmsActions() {
     }
   }
 
-  return { verifyCourse, verifyAllCourses, handleGenerateFiles }
+  /**
+   * Fetch group categories for a course
+   */
+  const fetchGroupCategories = useCallback(
+    async (courseId: string) => {
+      const lms = getLmsState()
+      const { config, baseUrl } = getActiveConfigAndUrl(lms)
+
+      try {
+        const categories = await lmsService.getGroupCategories({
+          base_url: baseUrl,
+          access_token: config.accessToken,
+          course_id: courseId,
+          lms_type: lms.lmsType,
+        })
+        setGroupCategories(categories)
+      } catch (error: unknown) {
+        const { message } = formatError(error)
+        setGroupCategoriesError(toShortErrorMessage(message))
+      }
+    },
+    [getLmsState, setGroupCategories, setGroupCategoriesError],
+  )
+
+  return {
+    verifyCourse,
+    verifyAllCourses,
+    handleGenerateFiles,
+    fetchGroupCategories,
+  }
 }

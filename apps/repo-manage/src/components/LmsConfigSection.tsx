@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useLmsActions } from "../hooks/useLmsActions"
 import { useLmsFormStore, useUiStore } from "../stores"
 import { AddCourseDialog } from "./AddCourseDialog"
@@ -20,7 +20,7 @@ export function LmsConfigSection() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const lmsForm = useLmsFormStore()
   const ui = useUiStore()
-  const { verifyCourse } = useLmsActions()
+  const { verifyCourse, fetchGroupCategories } = useLmsActions()
 
   const handleCourseAdded = (index: number) => {
     verifyCourse(index)
@@ -28,6 +28,25 @@ export function LmsConfigSection() {
 
   const isCanvas = lmsForm.lmsType === "Canvas"
   const activeConfig = isCanvas ? lmsForm.canvas : lmsForm.moodle
+  const courses = isCanvas ? lmsForm.canvas.courses : lmsForm.moodle.courses
+  const activeCourse = courses[lmsForm.activeCourseIndex]
+  const hasVerifiedCourse = activeCourse?.status === "verified"
+  const clearGroupCategories = lmsForm.clearGroupCategories
+
+  // Fetch group categories when a verified course is selected
+  useEffect(() => {
+    if (hasVerifiedCourse && activeCourse?.id && activeConfig.accessToken) {
+      fetchGroupCategories(activeCourse.id)
+    } else {
+      clearGroupCategories()
+    }
+  }, [
+    hasVerifiedCourse,
+    activeCourse?.id,
+    activeConfig.accessToken,
+    fetchGroupCategories,
+    clearGroupCategories,
+  ])
 
   return (
     <Section id="lms-config" title="LMS Configuration">
@@ -131,6 +150,41 @@ export function LmsConfigSection() {
           onVerifyCourse={verifyCourse}
           onAddCourse={() => setAddDialogOpen(true)}
         />
+      </FormField>
+
+      <FormField
+        label="Group Set"
+        tooltip="Filter students by group set (optional)"
+      >
+        {lmsForm.groupCategoriesError ? (
+          <span className="text-xs text-muted-foreground italic">
+            Unable to load ({lmsForm.groupCategoriesError})
+          </span>
+        ) : (
+          <Select
+            value={lmsForm.selectedGroupCategoryId || "all"}
+            onValueChange={(v) =>
+              lmsForm.setSelectedGroupCategoryId(v === "all" ? null : v)
+            }
+            disabled={
+              !hasVerifiedCourse || lmsForm.groupCategories.length === 0
+            }
+          >
+            <SelectTrigger size="xs" className="w-48">
+              <SelectValue placeholder="All groups" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" size="xs">
+                All groups
+              </SelectItem>
+              {lmsForm.groupCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id} size="xs">
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </FormField>
 
       <AddCourseDialog

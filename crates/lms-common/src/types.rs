@@ -68,6 +68,28 @@ pub struct Group {
     pub max_membership: Option<u32>,
 }
 
+/// Represents a group category (group set) in an LMS
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GroupCategory {
+    /// Unique identifier for the group category
+    pub id: String,
+
+    /// Group category name
+    pub name: String,
+
+    /// Role: "communities", "student_organized", "imported", or null for custom
+    pub role: Option<String>,
+
+    /// Self-signup: "restricted", "enabled", or null
+    pub self_signup: Option<String>,
+
+    /// Course ID this category belongs to
+    pub course_id: Option<String>,
+
+    /// Maximum number of members per group
+    pub group_limit: Option<u32>,
+}
+
 /// Represents a user's membership in a group
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GroupMembership {

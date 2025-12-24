@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import type { GroupCategory } from "../bindings"
 import {
   DEFAULT_CANVAS_CONFIG,
   DEFAULT_LMS_SETTINGS,
@@ -32,6 +33,10 @@ export interface LmsFormState {
   canvas: CanvasConfig
   moodle: MoodleConfig
   activeCourseIndex: number
+  // Group categories (group sets)
+  groupCategories: GroupCategory[]
+  groupCategoriesError: string | null
+  selectedGroupCategoryId: string | null
   // Output settings (shared)
   yamlFile: string
   outputFolder: string
@@ -66,6 +71,11 @@ interface LmsFormStore extends LmsFormState {
   updateCourse: (index: number, updates: Partial<CourseEntry>) => void
   setCourseStatus: (index: number, status: CourseStatus) => void
   setActiveCourse: (index: number) => void
+  // Group categories
+  setGroupCategories: (categories: GroupCategory[]) => void
+  setGroupCategoriesError: (error: string | null) => void
+  setSelectedGroupCategoryId: (id: string | null) => void
+  clearGroupCategories: () => void
   reset: () => void
   loadFromSettings: (settings: Partial<LmsFormState>) => void
   getState: () => LmsFormState
@@ -79,6 +89,9 @@ const initialState: LmsFormState = {
   canvas: { ...DEFAULT_CANVAS_CONFIG },
   moodle: { ...DEFAULT_MOODLE_CONFIG },
   activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
+  groupCategories: [],
+  groupCategoriesError: null,
+  selectedGroupCategoryId: null,
   yamlFile: DEFAULT_LMS_SETTINGS.yamlFile,
   outputFolder: DEFAULT_LMS_SETTINGS.outputFolder,
   csvFile: DEFAULT_LMS_SETTINGS.csvFile,
@@ -217,6 +230,29 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
 
   setActiveCourse: (index) => set({ activeCourseIndex: index }),
 
+  setGroupCategories: (categories) =>
+    set({
+      groupCategories: categories,
+      groupCategoriesError: null,
+      selectedGroupCategoryId: null,
+    }),
+
+  setGroupCategoriesError: (error) =>
+    set({
+      groupCategories: [],
+      groupCategoriesError: error,
+      selectedGroupCategoryId: null,
+    }),
+
+  setSelectedGroupCategoryId: (id) => set({ selectedGroupCategoryId: id }),
+
+  clearGroupCategories: () =>
+    set({
+      groupCategories: [],
+      groupCategoriesError: null,
+      selectedGroupCategoryId: null,
+    }),
+
   reset: () =>
     set({
       ...initialState,
@@ -239,6 +275,9 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       canvas: state.canvas,
       moodle: state.moodle,
       activeCourseIndex: state.activeCourseIndex,
+      groupCategories: state.groupCategories,
+      groupCategoriesError: state.groupCategoriesError,
+      selectedGroupCategoryId: state.selectedGroupCategoryId,
       yamlFile: state.yamlFile,
       outputFolder: state.outputFolder,
       csvFile: state.csvFile,

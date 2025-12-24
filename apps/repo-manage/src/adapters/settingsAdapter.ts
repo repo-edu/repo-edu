@@ -78,6 +78,10 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
         courses: mapCourses(lms.moodle?.courses),
       },
       activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
+      // Group categories are runtime-only, not persisted
+      groupCategories: [],
+      groupCategoriesError: null,
+      selectedGroupCategoryId: null,
       yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
       outputFolder: lms.output_folder || DEFAULT_LMS_SETTINGS.outputFolder,
       csvFile: lms.csv_file || DEFAULT_LMS_SETTINGS.csvFile,

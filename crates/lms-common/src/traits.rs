@@ -1,7 +1,7 @@
 //! Core traits for LMS clients
 
 use crate::error::LmsResult;
-use crate::types::{Assignment, Course, Group, GroupMembership, User};
+use crate::types::{Assignment, Course, Group, GroupCategory, GroupMembership, User};
 use async_trait::async_trait;
 
 /// Core trait for LMS API clients
@@ -60,6 +60,13 @@ pub trait LmsClient: Send + Sync {
     ///
     /// * `group_id` - The unique identifier for the group
     async fn get_group_members(&self, group_id: &str) -> LmsResult<Vec<GroupMembership>>;
+
+    /// Get group categories (group sets) for a course
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The unique identifier for the course
+    async fn get_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>>;
 }
 
 /// Token structure for OAuth authentication
