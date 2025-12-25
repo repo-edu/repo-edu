@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { GroupCategory } from "../bindings"
+import type { Group, GroupCategory } from "../bindings"
 import {
   DEFAULT_CANVAS_CONFIG,
   DEFAULT_LMS_SETTINGS,
@@ -33,8 +33,10 @@ export interface LmsFormState {
   canvas: CanvasConfig
   moodle: MoodleConfig
   activeCourseIndex: number
-  // Group categories (group sets)
+  // Group categories (group sets) and groups
   groupCategories: GroupCategory[]
+  groups: Group[]
+  groupsLoading: boolean
   groupCategoriesError: string | null
   selectedGroupCategoryId: string | null
   // Output settings (shared)
@@ -71,14 +73,24 @@ interface LmsFormStore extends LmsFormState {
   updateCourse: (index: number, updates: Partial<CourseEntry>) => void
   setCourseStatus: (index: number, status: CourseStatus) => void
   setActiveCourse: (index: number) => void
-  // Group categories
+  // Group categories and groups
   setGroupCategories: (categories: GroupCategory[]) => void
+  setGroups: (groups: Group[]) => void
+  setGroupsLoading: (loading: boolean) => void
   setGroupCategoriesError: (error: string | null) => void
   setSelectedGroupCategoryId: (id: string | null) => void
   clearGroupCategories: () => void
   reset: () => void
   loadFromSettings: (settings: Partial<LmsFormState>) => void
   getState: () => LmsFormState
+  getSaveableState: () => Omit<
+    LmsFormState,
+    | "groupCategories"
+    | "groups"
+    | "groupsLoading"
+    | "groupCategoriesError"
+    | "selectedGroupCategoryId"
+  >
   // Helper to get the active LMS config
   getActiveConfig: () => CanvasConfig | MoodleConfig
   getActiveCourses: () => CourseEntry[]
@@ -90,6 +102,8 @@ const initialState: LmsFormState = {
   moodle: { ...DEFAULT_MOODLE_CONFIG },
   activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
   groupCategories: [],
+  groups: [],
+  groupsLoading: false,
   groupCategoriesError: null,
   selectedGroupCategoryId: null,
   yamlFile: DEFAULT_LMS_SETTINGS.yamlFile,
@@ -231,24 +245,44 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
   setActiveCourse: (index) => set({ activeCourseIndex: index }),
 
   setGroupCategories: (categories) =>
-    set({
-      groupCategories: categories,
-      groupCategoriesError: null,
-      selectedGroupCategoryId: null,
+    set((state) => {
+      const selectedId = state.selectedGroupCategoryId
+      const keepSelected =
+        selectedId && categories.some((category) => category.id === selectedId)
+      return {
+        groupCategories: categories,
+        groupCategoriesError: null,
+        selectedGroupCategoryId: keepSelected ? selectedId : null,
+      }
     }),
 
-  setGroupCategoriesError: (error) =>
-    set({
-      groupCategories: [],
-      groupCategoriesError: error,
-      selectedGroupCategoryId: null,
-    }),
+  setGroups: (groups) => set({ groups }),
+
+  setGroupsLoading: (loading) => set({ groupsLoading: loading }),
+
+  setGroupCategoriesError: (error) => {
+    if (error) {
+      // On error: clear everything
+      set({
+        groupCategories: [],
+        groups: [],
+        groupsLoading: false,
+        groupCategoriesError: error,
+        selectedGroupCategoryId: null,
+      })
+    } else {
+      // Just clearing error: keep categories
+      set({ groupCategoriesError: null })
+    }
+  },
 
   setSelectedGroupCategoryId: (id) => set({ selectedGroupCategoryId: id }),
 
   clearGroupCategories: () =>
     set({
       groupCategories: [],
+      groups: [],
+      groupsLoading: false,
       groupCategoriesError: null,
       selectedGroupCategoryId: null,
     }),
@@ -276,8 +310,33 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       moodle: state.moodle,
       activeCourseIndex: state.activeCourseIndex,
       groupCategories: state.groupCategories,
+      groups: state.groups,
+      groupsLoading: state.groupsLoading,
       groupCategoriesError: state.groupCategoriesError,
       selectedGroupCategoryId: state.selectedGroupCategoryId,
+      yamlFile: state.yamlFile,
+      outputFolder: state.outputFolder,
+      csvFile: state.csvFile,
+      xlsxFile: state.xlsxFile,
+      memberOption: state.memberOption,
+      includeGroup: state.includeGroup,
+      includeMember: state.includeMember,
+      includeInitials: state.includeInitials,
+      fullGroups: state.fullGroups,
+      csv: state.csv,
+      xlsx: state.xlsx,
+      yaml: state.yaml,
+    }
+  },
+
+  // Get only the state that should be persisted (excludes transient runtime state)
+  getSaveableState: () => {
+    const state = get()
+    return {
+      lmsType: state.lmsType,
+      canvas: state.canvas,
+      moodle: state.moodle,
+      activeCourseIndex: state.activeCourseIndex,
       yamlFile: state.yamlFile,
       outputFolder: state.outputFolder,
       csvFile: state.csvFile,

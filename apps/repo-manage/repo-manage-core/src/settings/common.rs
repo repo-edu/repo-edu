@@ -212,6 +212,9 @@ pub struct LmsSettings {
     pub moodle: MoodleConfig,
     #[serde(rename = "type")]
     pub r#type: String, // "Canvas" or "Moodle"
+    /// Index of the active course in the courses array
+    #[serde(default)]
+    pub active_course_index: u32,
     // Output settings (shared across LMS types)
     pub csv_file: String,
     pub full_groups: bool,
@@ -233,6 +236,7 @@ impl Default for LmsSettings {
             canvas: CanvasConfig::default(),
             moodle: MoodleConfig::default(),
             r#type: "Canvas".to_string(),
+            active_course_index: 0,
             csv_file: "student-info.csv".to_string(),
             full_groups: true,
             include_group: true,

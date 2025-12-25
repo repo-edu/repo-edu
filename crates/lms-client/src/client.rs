@@ -2,7 +2,7 @@
 
 use crate::auth::LmsAuth;
 use canvas_lms::CanvasClient;
-use lms_common::{types::*, LmsResult, LmsType};
+use lms_common::{types::*, LmsError, LmsResult, LmsType};
 use moodle_lms::MoodleClient;
 
 /// Unified LMS client that supports Canvas and Moodle
@@ -102,6 +102,45 @@ impl LmsClient {
         match &self.kind {
             ClientKind::Canvas(_) => LmsType::Canvas,
             ClientKind::Moodle(_) => LmsType::Moodle,
+        }
+    }
+
+    /// Get groups for a course, optionally scoped to a group category if supported
+    pub async fn get_groups_for_category(
+        &self,
+        course_id: &str,
+        group_category_id: Option<&str>,
+    ) -> LmsResult<Vec<Group>> {
+        match &self.kind {
+            ClientKind::Canvas(client) => match group_category_id {
+                Some(category_id) => {
+                    // Try direct endpoint first, fall back to filtering from all groups
+                    match client.get_group_category_groups(category_id).await {
+                        Ok(groups) => Ok(groups),
+                        Err(LmsError::AuthError(_)) => {
+                            // Fallback: filter from course groups
+                            let all_groups = client.get_course_groups(course_id).await?;
+                            Ok(all_groups
+                                .into_iter()
+                                .filter(|g| g.group_category_id.as_deref() == Some(category_id))
+                                .collect())
+                        }
+                        Err(e) => Err(e),
+                    }
+                }
+                None => client.get_course_groups(course_id).await,
+            },
+            ClientKind::Moodle(client) => {
+                let groups = client.get_course_groups(course_id).await?;
+                if let Some(category_id) = group_category_id {
+                    Ok(groups
+                        .into_iter()
+                        .filter(|group| group.group_category_id.as_deref() == Some(category_id))
+                        .collect())
+                } else {
+                    Ok(groups)
+                }
+            }
         }
     }
 }

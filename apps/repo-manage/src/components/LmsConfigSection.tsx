@@ -1,6 +1,10 @@
 import {
   Button,
   cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -14,13 +18,16 @@ import { useLmsFormStore, useUiStore } from "../stores"
 import { AddCourseDialog } from "./AddCourseDialog"
 import { CourseSelector } from "./CourseSelector"
 import { FormField } from "./FormField"
+import { MdiChevronDown } from "./icons/MdiChevronDown"
+import { MdiLoading } from "./icons/MdiLoading"
 import { Section } from "./Section"
 
 export function LmsConfigSection() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const lmsForm = useLmsFormStore()
   const ui = useUiStore()
-  const { verifyCourse, fetchGroupCategories } = useLmsActions()
+  const { verifyCourse, fetchGroupCategories, fetchGroupsForCategory } =
+    useLmsActions()
 
   const handleCourseAdded = (index: number) => {
     verifyCourse(index)
@@ -32,6 +39,12 @@ export function LmsConfigSection() {
   const activeCourse = courses[lmsForm.activeCourseIndex]
   const hasVerifiedCourse = activeCourse?.status === "verified"
   const clearGroupCategories = lmsForm.clearGroupCategories
+  const setGroups = lmsForm.setGroups
+  const setGroupsLoading = lmsForm.setGroupsLoading
+  const selectedCategoryId = lmsForm.selectedGroupCategoryId
+
+  const selectedGroups = lmsForm.groups
+  const showGroupsButton = hasVerifiedCourse
 
   // Fetch group categories when a verified course is selected
   useEffect(() => {
@@ -46,6 +59,24 @@ export function LmsConfigSection() {
     activeConfig.accessToken,
     fetchGroupCategories,
     clearGroupCategories,
+  ])
+
+  useEffect(() => {
+    if (hasVerifiedCourse && activeCourse?.id && activeConfig.accessToken) {
+      // Fetch groups - either for specific category or all groups
+      fetchGroupsForCategory(activeCourse.id, selectedCategoryId ?? undefined)
+    } else {
+      setGroups([])
+      setGroupsLoading(false)
+    }
+  }, [
+    hasVerifiedCourse,
+    activeCourse?.id,
+    activeConfig.accessToken,
+    selectedCategoryId,
+    fetchGroupsForCategory,
+    setGroups,
+    setGroupsLoading,
   ])
 
   return (
@@ -161,29 +192,69 @@ export function LmsConfigSection() {
             Unable to load ({lmsForm.groupCategoriesError})
           </span>
         ) : (
-          <Select
-            value={lmsForm.selectedGroupCategoryId || "all"}
-            onValueChange={(v) =>
-              lmsForm.setSelectedGroupCategoryId(v === "all" ? null : v)
-            }
-            disabled={
-              !hasVerifiedCourse || lmsForm.groupCategories.length === 0
-            }
-          >
-            <SelectTrigger size="xs" className="w-48">
-              <SelectValue placeholder="All groups" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" size="xs">
-                All groups
-              </SelectItem>
-              {lmsForm.groupCategories.map((category) => (
-                <SelectItem key={category.id} value={category.id} size="xs">
-                  {category.name}
+          <div className="flex items-center gap-2">
+            <Select
+              value={lmsForm.selectedGroupCategoryId || "all"}
+              onValueChange={(v) =>
+                lmsForm.setSelectedGroupCategoryId(v === "all" ? null : v)
+              }
+              disabled={
+                !hasVerifiedCourse || lmsForm.groupCategories.length === 0
+              }
+            >
+              <SelectTrigger size="xs" className="w-48">
+                <SelectValue placeholder="All groups" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" size="xs">
+                  All groups
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {lmsForm.groupCategories.map((category) => (
+                  <SelectItem key={category.id} value={category.id} size="xs">
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {showGroupsButton && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={
+                      lmsForm.groupsLoading || selectedGroups.length === 0
+                    }
+                  >
+                    {lmsForm.groupsLoading
+                      ? "Loading..."
+                      : `${selectedGroups.length} groups`}
+                    {lmsForm.groupsLoading ? (
+                      <MdiLoading className="ml-1 h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <MdiChevronDown className="ml-1 h-3 w-3" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                {!lmsForm.groupsLoading && selectedGroups.length > 0 && (
+                  <DropdownMenuContent
+                    align="start"
+                    className="max-h-64 overflow-y-auto"
+                  >
+                    {selectedGroups.map((group) => (
+                      <DropdownMenuItem
+                        key={group.id}
+                        className="text-xs cursor-default"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {group.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                )}
+              </DropdownMenu>
+            )}
+          </div>
         )}
       </FormField>
 

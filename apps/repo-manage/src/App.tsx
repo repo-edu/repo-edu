@@ -83,18 +83,14 @@ function App() {
     [repoForm],
   )
 
-  const {
-    currentGuiSettings,
-    setCurrentGuiSettings,
-    windowConfig,
-    saveAppSettings,
-  } = useAppSettings({ getUiState, getLogging })
+  const { currentGuiSettings, setCurrentGuiSettings, windowConfig } =
+    useAppSettings({ getUiState, getLogging })
 
   // Apply theme from settings
   useTheme(currentGuiSettings?.theme || DEFAULT_GUI_THEME)
 
-  // Dirty state tracking
-  const getLmsState = useCallback(() => lmsForm.getState(), [lmsForm])
+  // Dirty state tracking - use getSaveableState to exclude transient runtime state
+  const getLmsState = useCallback(() => lmsForm.getSaveableState(), [lmsForm])
   const getRepoState = useCallback(() => repoForm.getState(), [repoForm])
   const { isDirty, markClean, forceDirty } = useDirtyState({
     getLmsState,

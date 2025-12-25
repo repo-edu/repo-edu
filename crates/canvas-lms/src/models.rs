@@ -76,11 +76,20 @@ pub struct CanvasGroup {
     pub course_id: Option<u64>,
     pub role: Option<String>,
     pub group_category_id: Option<u64>,
+    /// Group category name (included with include[]=group_category)
+    pub group_category: Option<CanvasGroupCategoryRef>,
     pub sis_group_id: Option<String>,
     pub sis_import_id: Option<u64>,
     pub storage_quota_mb: Option<u64>,
     pub permissions: Option<serde_json::Value>,
     pub max_membership: Option<u32>,
+}
+
+/// Reference to group category included in group response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasGroupCategoryRef {
+    pub id: u64,
+    pub name: String,
 }
 
 impl From<CanvasGroup> for Group {

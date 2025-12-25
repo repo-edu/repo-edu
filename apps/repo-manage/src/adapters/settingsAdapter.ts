@@ -77,9 +77,12 @@ export function toStoreFormat(settings: GuiSettings): StoreFormats {
         baseUrl: lms.moodle?.base_url || DEFAULT_MOODLE_CONFIG.baseUrl,
         courses: mapCourses(lms.moodle?.courses),
       },
-      activeCourseIndex: DEFAULT_LMS_SETTINGS.activeCourseIndex,
-      // Group categories are runtime-only, not persisted
+      activeCourseIndex:
+        lms.active_course_index ?? DEFAULT_LMS_SETTINGS.activeCourseIndex,
+      // Group categories and groups are runtime-only, not persisted
       groupCategories: [],
+      groups: [],
+      groupsLoading: false,
       groupCategoriesError: null,
       selectedGroupCategoryId: null,
       yamlFile: lms.yaml_file || DEFAULT_LMS_SETTINGS.yamlFile,
@@ -214,6 +217,7 @@ export function toBackendFormat(
     // LMS settings
     lms: {
       type: lmsState.lmsType as "Canvas" | "Moodle",
+      active_course_index: lmsState.activeCourseIndex,
       canvas: {
         access_token: lmsState.canvas.accessToken,
         base_url: lmsState.canvas.baseUrl,
@@ -301,6 +305,7 @@ export function toProfileFormat(
     },
     lms: {
       type: lmsState.lmsType as "Canvas" | "Moodle",
+      active_course_index: lmsState.activeCourseIndex,
       canvas: {
         access_token: lmsState.canvas.accessToken,
         base_url: lmsState.canvas.baseUrl,

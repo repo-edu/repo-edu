@@ -5,7 +5,7 @@
  * Provides methods to mark state as clean (after save) or reset baseline.
  */
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { hashSnapshot } from "../utils/snapshot"
 
 export interface DirtyStateHashes {
@@ -48,13 +48,10 @@ export function useDirtyState(
     }),
   )
 
-  // Compute dirty state by comparing current hashes to baseline
-  const isDirty = useMemo(() => {
-    return (
-      hashSnapshot(getLmsState()) !== lastSavedHashes.lms ||
-      hashSnapshot(getRepoState()) !== lastSavedHashes.repo
-    )
-  }, [getLmsState, getRepoState, lastSavedHashes])
+  // Simple dirty check - compare current hashes to baseline
+  const isDirty =
+    hashSnapshot(getLmsState()) !== lastSavedHashes.lms ||
+    hashSnapshot(getRepoState()) !== lastSavedHashes.repo
 
   const markClean = useCallback(() => {
     setLastSavedHashes({

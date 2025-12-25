@@ -1,14 +1,13 @@
 /**
- * Window state management hook - handles window size restoration and saving
+ * Window state management hook - handles window size restoration
  *
  * Extracts Tauri window API usage from App.tsx, isolating:
  * - Window size restoration from settings
- * - Debounced save on resize
  */
 
 import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window"
-import { useCallback, useEffect, useRef } from "react"
-import { RESIZE_DEBOUNCE_MS, WINDOW_MIN_SIZE } from "../constants"
+import { useEffect, useRef } from "react"
+import { WINDOW_MIN_SIZE } from "../constants"
 
 export interface WindowStateConfig {
   /** Current window dimensions from settings */
@@ -19,8 +18,6 @@ export interface WindowStateConfig {
 export interface UseWindowStateOptions {
   /** Window configuration (null until settings are loaded) */
   config: WindowStateConfig | null
-  /** Callback to save window state */
-  onSave: () => Promise<void>
 }
 
 export interface UseWindowStateReturn {
@@ -29,12 +26,12 @@ export interface UseWindowStateReturn {
 }
 
 /**
- * Hook to manage Tauri window state (size restoration and save on resize)
+ * Hook to manage Tauri window state (size restoration)
  */
 export function useWindowState(
   options: UseWindowStateOptions,
 ): UseWindowStateReturn {
-  const { config, onSave } = options
+  const { config } = options
 
   // Track if window has been restored to prevent multiple restores
   const windowRestoredRef = useRef(false)
@@ -58,33 +55,10 @@ export function useWindowState(
     restoreAndShow().catch((e) => console.error("Failed to restore window", e))
   }, [config])
 
-  // Memoize the save callback
-  const saveWindowState = useCallback(async () => {
-    if (!config) return
-    await onSave()
-  }, [config, onSave])
-
-  // Save window size on resize (debounced)
-  useEffect(() => {
-    const win = getCurrentWindow()
-
-    let debounce: number | undefined
-    const scheduleSave = () => {
-      if (debounce) {
-        clearTimeout(debounce)
-      }
-      debounce = window.setTimeout(() => {
-        saveWindowState()
-      }, RESIZE_DEBOUNCE_MS)
-    }
-
-    const unlistenResize = win.onResized(scheduleSave)
-
-    return () => {
-      unlistenResize.then((fn) => fn())
-      if (debounce) clearTimeout(debounce)
-    }
-  }, [saveWindowState])
+  // Placeholder for manual save - actual implementation in sidebar
+  const saveWindowState = async () => {
+    // No-op here, saving is done via SettingsSidebar
+  }
 
   return { saveWindowState }
 }

@@ -203,6 +203,34 @@ impl CanvasClient {
         Ok(canvas_groups.into_iter().map(|g| g.into()).collect())
     }
 
+    /// Get all groups for a specific course with group category info included
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The course ID
+    async fn get_course_groups_with_categories(
+        &self,
+        course_id: &str,
+    ) -> LmsResult<Vec<CanvasGroup>> {
+        let path = format!("courses/{}/groups", course_id);
+        let params = vec![("include[]".to_string(), "group_category".to_string())];
+        self.get_all_pages(&path, params).await
+    }
+
+    /// Get all groups in a specific group category with automatic pagination
+    ///
+    /// # Arguments
+    ///
+    /// * `group_category_id` - The group category (group set) ID
+    pub async fn get_group_category_groups(
+        &self,
+        group_category_id: &str,
+    ) -> LmsResult<Vec<Group>> {
+        let path = format!("group_categories/{}/groups", group_category_id);
+        let canvas_groups: Vec<CanvasGroup> = self.get_all_pages(&path, Vec::new()).await?;
+        Ok(canvas_groups.into_iter().map(|g| g.into()).collect())
+    }
+
     /// Get all users enrolled in a course with automatic pagination
     ///
     /// # Arguments
@@ -267,14 +295,71 @@ impl CanvasClient {
     /// # Arguments
     ///
     /// * `course_id` - The course ID
-    pub async fn get_course_group_categories(
-        &self,
-        course_id: &str,
-    ) -> LmsResult<Vec<GroupCategory>> {
+    async fn get_course_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>> {
         let path = format!("courses/{}/group_categories", course_id);
         let canvas_categories: Vec<CanvasGroupCategory> =
             self.get_all_pages(&path, Vec::new()).await?;
         Ok(canvas_categories.into_iter().map(|c| c.into()).collect())
+    }
+
+    /// Get group categories for a course, filtered to only those with groups
+    /// Falls back to deriving categories from groups if direct endpoint is forbidden
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The course ID
+    pub async fn get_course_group_categories_with_groups(
+        &self,
+        course_id: &str,
+    ) -> LmsResult<Vec<GroupCategory>> {
+        // Try direct endpoint first
+        match self.get_course_group_categories(course_id).await {
+            Ok(categories) => {
+                // Filter to only categories with groups
+                let groups = self.get_course_groups(course_id).await?;
+                let category_ids_with_groups: std::collections::HashSet<String> = groups
+                    .iter()
+                    .filter_map(|g| g.group_category_id.clone())
+                    .collect();
+
+                Ok(categories
+                    .into_iter()
+                    .filter(|c| category_ids_with_groups.contains(&c.id))
+                    .collect())
+            }
+            Err(LmsError::AuthError(_)) => {
+                // Fallback: derive categories from groups (with category info included)
+                let groups = self.get_course_groups_with_categories(course_id).await?;
+
+                // Build unique categories from groups
+                let mut categories_map: std::collections::HashMap<String, GroupCategory> =
+                    std::collections::HashMap::new();
+
+                for group in &groups {
+                    if let Some(cat_id) = group.group_category_id {
+                        let cat_id_str = cat_id.to_string();
+                        categories_map.entry(cat_id_str.clone()).or_insert_with(|| {
+                            let name = group
+                                .group_category
+                                .as_ref()
+                                .map(|c| c.name.clone())
+                                .unwrap_or_else(|| format!("Group Set {}", cat_id));
+                            GroupCategory {
+                                id: cat_id_str,
+                                name,
+                                role: None,
+                                self_signup: None,
+                                course_id: group.course_id.map(|id| id.to_string()),
+                                group_limit: None,
+                            }
+                        });
+                    }
+                }
+
+                Ok(categories_map.into_values().collect())
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -306,6 +391,7 @@ impl LmsClient for CanvasClient {
     }
 
     async fn get_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>> {
-        self.get_course_group_categories(course_id).await
+        self.get_course_group_categories_with_groups(course_id)
+            .await
     }
 }

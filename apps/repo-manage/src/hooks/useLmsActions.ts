@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import { formatError, toShortErrorMessage } from "../services/commandUtils"
 import * as lmsService from "../services/lmsService"
 import { useLmsFormStore, useOutputStore } from "../stores"
@@ -32,9 +32,13 @@ export function useLmsActions() {
   const setGroupCategories = useLmsFormStore(
     (state) => state.setGroupCategories,
   )
+  const setGroups = useLmsFormStore((state) => state.setGroups)
+  const setGroupsLoading = useLmsFormStore((state) => state.setGroupsLoading)
   const setGroupCategoriesError = useLmsFormStore(
     (state) => state.setGroupCategoriesError,
   )
+  const groupCategoriesRequestId = useRef(0)
+  const groupsRequestId = useRef(0)
 
   /**
    * Verify a single course by index in the courses array.
@@ -173,18 +177,31 @@ export function useLmsActions() {
    */
   const fetchGroupCategories = useCallback(
     async (courseId: string) => {
+      groupCategoriesRequestId.current += 1
+      const requestId = groupCategoriesRequestId.current
       const lms = getLmsState()
       const { config, baseUrl } = getActiveConfigAndUrl(lms)
 
+      const params = {
+        base_url: baseUrl,
+        access_token: config.accessToken,
+        course_id: courseId,
+        lms_type: lms.lmsType,
+      }
+
       try {
-        const categories = await lmsService.getGroupCategories({
-          base_url: baseUrl,
-          access_token: config.accessToken,
-          course_id: courseId,
-          lms_type: lms.lmsType,
-        })
+        setGroupCategoriesError(null)
+        const categories = await lmsService.getGroupCategories(params)
+        if (requestId !== groupCategoriesRequestId.current) return
+
+        const latest = getLmsState()
+        const { courses } = getActiveConfigAndUrl(latest)
+        const activeCourse = courses[latest.activeCourseIndex]
+        if (!activeCourse || activeCourse.id !== courseId) return
+
         setGroupCategories(categories)
       } catch (error: unknown) {
+        if (requestId !== groupCategoriesRequestId.current) return
         const { message } = formatError(error)
         setGroupCategoriesError(toShortErrorMessage(message))
       }
@@ -192,10 +209,53 @@ export function useLmsActions() {
     [getLmsState, setGroupCategories, setGroupCategoriesError],
   )
 
+  /**
+   * Fetch groups for a course, optionally filtered by category
+   */
+  const fetchGroupsForCategory = useCallback(
+    async (courseId: string, categoryId?: string) => {
+      groupsRequestId.current += 1
+      const requestId = groupsRequestId.current
+      const lms = getLmsState()
+      const { config, baseUrl } = getActiveConfigAndUrl(lms)
+
+      const params = {
+        base_url: baseUrl,
+        access_token: config.accessToken,
+        course_id: courseId,
+        lms_type: lms.lmsType,
+        group_category_id: categoryId ?? null,
+      }
+
+      try {
+        setGroups([])
+        setGroupsLoading(true)
+        const groups = await lmsService.getGroups(params)
+        if (requestId !== groupsRequestId.current) return
+
+        const latest = getLmsState()
+        const { courses } = getActiveConfigAndUrl(latest)
+        const activeCourse = courses[latest.activeCourseIndex]
+        if (!activeCourse || activeCourse.id !== courseId) return
+        if (latest.selectedGroupCategoryId !== (categoryId ?? null)) return
+
+        setGroups(groups)
+        setGroupsLoading(false)
+      } catch (error: unknown) {
+        if (requestId !== groupsRequestId.current) return
+        // Don't clear categories on groups fetch error - just clear groups
+        setGroups([])
+        setGroupsLoading(false)
+      }
+    },
+    [getLmsState, setGroups, setGroupsLoading],
+  )
+
   return {
     verifyCourse,
     verifyAllCourses,
     handleGenerateFiles,
     fetchGroupCategories,
+    fetchGroupsForCategory,
   }
 }

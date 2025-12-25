@@ -400,7 +400,11 @@ collapsed_sections?: string[]; logging: LogSettings; sidebar_open: boolean; them
 /**
  * LMS app settings (Tab 1)
  */
-export type LmsSettings = { canvas: CanvasConfig; moodle: MoodleConfig; type: string; csv_file: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; xlsx_file: string; yaml_file: string }
+export type LmsSettings = { canvas: CanvasConfig; moodle: MoodleConfig; type: string; 
+/**
+ * Index of the active course in the courses array
+ */
+active_course_index?: number; csv_file: string; full_groups: boolean; include_group: boolean; include_initials: boolean; include_member: boolean; member_option: MemberOption; output_csv: boolean; output_folder: string; output_xlsx: boolean; output_yaml: boolean; xlsx_file: string; yaml_file: string }
 /**
  * LMS URL preset options
  */
