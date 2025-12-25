@@ -33,6 +33,7 @@ const sampleBackendSettings: GuiSettings = {
   },
   lms: {
     type: "Canvas",
+    active_course_index: 0,
     canvas: {
       access_token: "lms-token",
       base_url: "https://canvas.example.com",
