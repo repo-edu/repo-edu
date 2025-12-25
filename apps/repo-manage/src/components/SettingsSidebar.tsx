@@ -439,9 +439,11 @@ export function SettingsSidebar({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {isDirty && (
-              <span className="text-[10px] text-warning">Unsaved changes</span>
-            )}
+            <span
+              className={`text-[10px] ${isDirty ? "text-warning" : "invisible"}`}
+            >
+              Unsaved changes
+            </span>
           </section>
 
           {/* Window Section */}

@@ -241,7 +241,7 @@ export function useLmsActions() {
 
         setGroups(groups)
         setGroupsLoading(false)
-      } catch (error: unknown) {
+      } catch {
         if (requestId !== groupsRequestId.current) return
         // Don't clear categories on groups fetch error - just clear groups
         setGroups([])
