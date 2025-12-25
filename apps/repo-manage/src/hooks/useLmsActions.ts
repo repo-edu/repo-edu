@@ -111,17 +111,20 @@ export function useLmsActions() {
     const lms = lmsForm.getState()
     const { config, baseUrl, courses } = getActiveConfigAndUrl(lms)
 
-    // Get the first verified course for generation
-    const verifiedCourse = courses.find((c) => c.status === "verified")
-    if (!verifiedCourse) {
+    // Get the active course for generation
+    const activeCourse = courses[lms.activeCourseIndex]
+    if (!activeCourse || activeCourse.status !== "verified") {
       output.appendWithNewline(
-        "⚠ No verified course available. Please verify a course first.",
+        "⚠ No verified course selected. Please verify a course first.",
       )
       return
     }
 
+    const courseLabel = activeCourse.name
+      ? `${activeCourse.id} - ${activeCourse.name}`
+      : activeCourse.id
     output.appendWithNewline(
-      `Generating student info files for course ${verifiedCourse.id}...`,
+      `Generating student info files for course ${courseLabel}...`,
     )
 
     try {
@@ -138,7 +141,7 @@ export function useLmsActions() {
         {
           base_url: baseUrl,
           access_token: config.accessToken,
-          course_id: verifiedCourse.id,
+          course_id: activeCourse.id,
           lms_type: lms.lmsType,
           yaml_file: lms.yamlFile,
           output_folder: lms.outputFolder,

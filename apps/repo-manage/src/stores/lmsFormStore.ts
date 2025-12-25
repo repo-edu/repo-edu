@@ -37,6 +37,9 @@ export interface LmsFormState {
   groupCategories: GroupCategory[]
   groupCategoriesError: string | null
   selectedGroupCategoryId: string | null
+  // Groups within selected category (runtime-only)
+  groups: GroupCategory[]
+  groupsLoading: boolean
   // Output settings (shared)
   yamlFile: string
   outputFolder: string
@@ -81,7 +84,11 @@ interface LmsFormStore extends LmsFormState {
   getState: () => LmsFormState
   getSaveableState: () => Omit<
     LmsFormState,
-    "groupCategories" | "groupCategoriesError" | "selectedGroupCategoryId"
+    | "groupCategories"
+    | "groupCategoriesError"
+    | "selectedGroupCategoryId"
+    | "groups"
+    | "groupsLoading"
   >
   // Helper to get the active LMS config
   getActiveConfig: () => CanvasConfig | MoodleConfig
@@ -96,6 +103,8 @@ const initialState: LmsFormState = {
   groupCategories: [],
   groupCategoriesError: null,
   selectedGroupCategoryId: null,
+  groups: [],
+  groupsLoading: false,
   yamlFile: DEFAULT_LMS_SETTINGS.yamlFile,
   outputFolder: DEFAULT_LMS_SETTINGS.outputFolder,
   csvFile: DEFAULT_LMS_SETTINGS.csvFile,
@@ -294,6 +303,8 @@ export const useLmsFormStore = create<LmsFormStore>((set, get) => ({
       groupCategories: state.groupCategories,
       groupCategoriesError: state.groupCategoriesError,
       selectedGroupCategoryId: state.selectedGroupCategoryId,
+      groups: state.groups,
+      groupsLoading: state.groupsLoading,
       yamlFile: state.yamlFile,
       outputFolder: state.outputFolder,
       csvFile: state.csvFile,

@@ -125,19 +125,25 @@ pub async fn generate_lms_files(
         state.finalize();
     }
 
+    let mut message = format!(
+        "Students processed: {}\nGroups: {}",
+        result.student_count, result.group_count
+    );
+    if !result.diagnostics.is_empty() {
+        message.push_str("\nGroup notes:");
+        for line in &result.diagnostics {
+            message.push_str(&format!("\n- {}", line));
+        }
+    }
+    message.push_str(&format!(
+        "\nGenerated files:\n{}",
+        result.generated_files.join("\n")
+    ));
+
     Ok(CommandResult {
         success: true,
-        message: format!(
-            "✓ Successfully generated {} file(s) from {} students",
-            result.generated_files.len(),
-            result.student_count
-        ),
-        details: Some(format!(
-            "Students processed: {}\nTeams: {}\nGenerated files:\n{}",
-            result.student_count,
-            result.team_count,
-            result.generated_files.join("\n")
-        )),
+        message,
+        details: None,
     })
 }
 

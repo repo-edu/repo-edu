@@ -2,12 +2,13 @@
 
 use crate::lms::{
     create_lms_client_with_params, generate_repobee_yaml_with_progress,
-    get_student_info_with_progress, write_csv_file, write_yaml_file, FetchProgress, MemberOption,
-    YamlConfig,
+    get_student_info_and_groups_with_progress, write_csv_file, write_yaml_file, FetchProgress,
+    Group, MemberOption, YamlConfig,
 };
 use crate::progress::ProgressEvent;
 use crate::{PlatformError, Result};
 use lms_common::LmsClient as LmsClientTrait;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 /// Parameters for LMS course verification
@@ -52,8 +53,9 @@ pub struct GenerateLmsFilesParams {
 #[derive(Debug, Clone)]
 pub struct GenerateLmsFilesResult {
     pub student_count: usize,
-    pub team_count: usize,
+    pub group_count: usize,
     pub generated_files: Vec<String>,
+    pub diagnostics: Vec<String>,
 }
 
 /// Verify LMS course connection and credentials
@@ -121,8 +123,10 @@ pub async fn generate_lms_files(
         "Fetching students from LMS...".into(),
     ));
 
-    let students =
-        get_student_info_with_progress(&client, &params.course_id, |update| match update {
+    let fetch_result = get_student_info_and_groups_with_progress(
+        &client,
+        &params.course_id,
+        |update| match &update {
             FetchProgress::FetchingUsers => {}
             FetchProgress::FetchingGroups => {}
             FetchProgress::FetchedUsers { count } => {
@@ -140,13 +144,17 @@ pub async fn generate_lms_files(
                 group_name,
             } => {
                 progress(ProgressEvent::Progress {
-                    current,
-                    total,
+                    current: *current,
+                    total: *total,
                     message: format!("Fetching group: {}", group_name),
                 });
             }
-        })
-        .await?;
+        },
+    )
+    .await?;
+
+    let students = fetch_result.students;
+    let lms_groups = fetch_result.groups;
 
     let student_count = students.len();
     progress(ProgressEvent::Status(format!(
@@ -155,7 +163,15 @@ pub async fn generate_lms_files(
     )));
 
     let mut generated_files = Vec::new();
-    let mut team_count = 0;
+    let mut group_count = 0;
+    let mut diagnostics = Vec::new();
+
+    let mut group_member_counts: HashMap<String, usize> = HashMap::new();
+    for student in &students {
+        if let Some(group) = &student.group {
+            *group_member_counts.entry(group.id.clone()).or_default() += 1;
+        }
+    }
 
     // Generate YAML if requested
     if params.yaml {
@@ -167,15 +183,25 @@ pub async fn generate_lms_files(
             full_groups: params.full_groups,
         };
 
-        let teams = generate_repobee_yaml_with_progress(&students, &config, |_, _, _| {})?;
-        team_count = teams.len();
+        // Track which groups are generated
+        let mut generated_groups: HashSet<String> = HashSet::new();
+        let teams = generate_repobee_yaml_with_progress(&students, &config, |_, _, group_name| {
+            generated_groups.insert(group_name.to_string());
+        })?;
+        group_count = teams.len();
 
+        diagnostics = build_group_diagnostics(
+            &lms_groups,
+            &group_member_counts,
+            &generated_groups,
+            params.full_groups,
+        );
         let yaml_path = params.output_folder.join(&params.yaml_file);
         write_yaml_file(&teams, &yaml_path)?;
         generated_files.push(format!(
-            "YAML: {} ({} teams)",
+            "YAML: {} ({} groups)",
             yaml_path.display(),
-            team_count
+            group_count
         ));
     }
 
@@ -197,7 +223,86 @@ pub async fn generate_lms_files(
 
     Ok(GenerateLmsFilesResult {
         student_count,
-        team_count,
+        group_count,
         generated_files,
+        diagnostics,
     })
+}
+
+fn build_group_diagnostics(
+    lms_groups: &[Group],
+    group_member_counts: &HashMap<String, usize>,
+    generated_group_names: &HashSet<String>,
+    full_groups: bool,
+) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+
+    let mut name_to_groups: HashMap<String, Vec<&Group>> = HashMap::new();
+    for group in lms_groups {
+        name_to_groups
+            .entry(group.name.clone())
+            .or_default()
+            .push(group);
+    }
+
+    let mut duplicate_lines = Vec::new();
+    for (name, groups) in name_to_groups.iter().filter(|(_, groups)| groups.len() > 1) {
+        let mut id_parts = Vec::new();
+        for group in groups {
+            let member_count = group_member_counts.get(&group.id).copied().unwrap_or(0);
+            let detail = match group.max_membership {
+                Some(max) => format!("{} ({}/{})", group.id, member_count, max),
+                None => format!("{} ({} members)", group.id, member_count),
+            };
+            id_parts.push(detail);
+        }
+        id_parts.sort();
+        let display_name = if name.is_empty() {
+            "unnamed".to_string()
+        } else {
+            name.clone()
+        };
+        duplicate_lines.push(format!("{}: {}", display_name, id_parts.join(", ")));
+    }
+    duplicate_lines.sort();
+    if !duplicate_lines.is_empty() {
+        diagnostics.push(format!(
+            "Duplicate group names merged: {}",
+            duplicate_lines.join("; ")
+        ));
+    }
+
+    let mut missing_lines = Vec::new();
+    for group in lms_groups {
+        if generated_group_names.contains(&group.name) {
+            continue;
+        }
+
+        let member_count = group_member_counts.get(&group.id).copied().unwrap_or(0);
+        let reason = if member_count == 0 {
+            "no members".to_string()
+        } else if full_groups {
+            match group.max_membership {
+                Some(max) if member_count < max as usize => {
+                    format!("not full ({}/{})", member_count, max)
+                }
+                _ => "not included".to_string(),
+            }
+        } else {
+            "not included".to_string()
+        };
+
+        let display_name = if group.name.is_empty() {
+            "unnamed".to_string()
+        } else {
+            group.name.clone()
+        };
+        missing_lines.push(format!("{} (id {}): {}", display_name, group.id, reason));
+    }
+    missing_lines.sort();
+    if !missing_lines.is_empty() {
+        diagnostics.push(format!("Groups not included: {}", missing_lines.join("; ")));
+    }
+
+    diagnostics
 }

@@ -1,6 +1,6 @@
 //! Factory for creating unified LMS clients from settings
 use crate::error::{PlatformError, Result};
-use crate::lms::types::StudentInfo;
+use crate::lms::types::{Group, StudentInfo};
 use crate::settings::LmsSettings;
 use lms_client::{LmsAuth, LmsClient, LmsType};
 use lms_common::LmsClient as _; // Import trait to call its methods
@@ -87,6 +87,12 @@ pub enum FetchProgress {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct StudentInfoResult {
+    pub students: Vec<StudentInfo>,
+    pub groups: Vec<Group>,
+}
+
 /// Fetch all student information for a course using the unified LMS client
 pub async fn get_student_info(client: &LmsClient, course_id: &str) -> Result<Vec<StudentInfo>> {
     get_student_info_with_progress(client, course_id, |_| {}).await
@@ -96,8 +102,22 @@ pub async fn get_student_info(client: &LmsClient, course_id: &str) -> Result<Vec
 pub async fn get_student_info_with_progress<F>(
     client: &LmsClient,
     course_id: &str,
-    mut progress_callback: F,
+    progress_callback: F,
 ) -> Result<Vec<StudentInfo>>
+where
+    F: FnMut(FetchProgress),
+{
+    let result =
+        get_student_info_and_groups_with_progress(client, course_id, progress_callback).await?;
+    Ok(result.students)
+}
+
+/// Same as [`get_student_info_with_progress`] but also returns LMS groups
+pub async fn get_student_info_and_groups_with_progress<F>(
+    client: &LmsClient,
+    course_id: &str,
+    mut progress_callback: F,
+) -> Result<StudentInfoResult>
 where
     F: FnMut(FetchProgress),
 {
@@ -152,7 +172,10 @@ where
         student_infos.push(student_info);
     }
 
-    Ok(student_infos)
+    Ok(StudentInfoResult {
+        students: student_infos,
+        groups,
+    })
 }
 
 /// Extract lastname from email (e.g., "john.doe@uni.nl" -> "doe")
