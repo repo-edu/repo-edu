@@ -32,13 +32,10 @@ export function useLmsActions() {
   const setGroupCategories = useLmsFormStore(
     (state) => state.setGroupCategories,
   )
-  const setGroups = useLmsFormStore((state) => state.setGroups)
-  const setGroupsLoading = useLmsFormStore((state) => state.setGroupsLoading)
   const setGroupCategoriesError = useLmsFormStore(
     (state) => state.setGroupCategoriesError,
   )
   const groupCategoriesRequestId = useRef(0)
-  const groupsRequestId = useRef(0)
 
   /**
    * Verify a single course by index in the courses array.
@@ -209,53 +206,10 @@ export function useLmsActions() {
     [getLmsState, setGroupCategories, setGroupCategoriesError],
   )
 
-  /**
-   * Fetch groups for a course, optionally filtered by category
-   */
-  const fetchGroupsForCategory = useCallback(
-    async (courseId: string, categoryId?: string) => {
-      groupsRequestId.current += 1
-      const requestId = groupsRequestId.current
-      const lms = getLmsState()
-      const { config, baseUrl } = getActiveConfigAndUrl(lms)
-
-      const params = {
-        base_url: baseUrl,
-        access_token: config.accessToken,
-        course_id: courseId,
-        lms_type: lms.lmsType,
-        group_category_id: categoryId ?? null,
-      }
-
-      try {
-        setGroups([])
-        setGroupsLoading(true)
-        const groups = await lmsService.getGroups(params)
-        if (requestId !== groupsRequestId.current) return
-
-        const latest = getLmsState()
-        const { courses } = getActiveConfigAndUrl(latest)
-        const activeCourse = courses[latest.activeCourseIndex]
-        if (!activeCourse || activeCourse.id !== courseId) return
-        if (latest.selectedGroupCategoryId !== (categoryId ?? null)) return
-
-        setGroups(groups)
-        setGroupsLoading(false)
-      } catch {
-        if (requestId !== groupsRequestId.current) return
-        // Don't clear categories on groups fetch error - just clear groups
-        setGroups([])
-        setGroupsLoading(false)
-      }
-    },
-    [getLmsState, setGroups, setGroupsLoading],
-  )
-
   return {
     verifyCourse,
     verifyAllCourses,
     handleGenerateFiles,
     fetchGroupCategories,
-    fetchGroupsForCategory,
   }
 }

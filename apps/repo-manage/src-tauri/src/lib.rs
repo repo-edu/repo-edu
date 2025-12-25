@@ -88,7 +88,6 @@ fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         commands::lms::verify_lms_course,
         commands::lms::generate_lms_files,
         commands::lms::get_group_categories,
-        commands::lms::get_groups,
         // Platform commands
         commands::platform::verify_config,
         commands::platform::setup_repos,

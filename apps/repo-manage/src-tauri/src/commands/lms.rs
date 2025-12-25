@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
 
 use super::types::{
-    CommandResult, GenerateFilesParams, GetGroupCategoriesParams, GetGroupsParams, Group,
-    GroupCategory, VerifyCourseParams, VerifyCourseResult,
+    CommandResult, GenerateFilesParams, GetGroupCategoriesParams, GroupCategory,
+    VerifyCourseParams, VerifyCourseResult,
 };
 use super::utils::{
     canonicalize_dir, emit_inline_message, emit_standard_message, parse_lms_type, InlineCliState,
@@ -133,7 +133,7 @@ pub async fn generate_lms_files(
             result.student_count
         ),
         details: Some(format!(
-            "Students processed: {}\nTeams: {}\n\nGenerated files:\n{}",
+            "Students processed: {}\nTeams: {}\nGenerated files:\n{}",
             result.student_count,
             result.team_count,
             result.generated_files.join("\n")
@@ -161,23 +161,4 @@ pub async fn get_group_categories(
 
     // Convert from repo_manage_core::GroupCategory to local GroupCategory
     Ok(categories.into_iter().map(|c| c.into()).collect())
-}
-
-/// Get groups for a course
-#[tauri::command]
-#[specta::specta]
-pub async fn get_groups(params: GetGroupsParams) -> Result<Vec<Group>, AppError> {
-    let client =
-        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
-            .map_err(|e| AppError::new(e.to_string()))?;
-
-    let groups = client
-        .get_groups_for_category(&params.course_id, params.group_category_id.as_deref())
-        .await
-        .map_err(|e| {
-            eprintln!("[get_groups] Error: {}", e);
-            AppError::new(e.to_string())
-        })?;
-
-    Ok(groups.into_iter().map(|g| g.into()).collect())
 }

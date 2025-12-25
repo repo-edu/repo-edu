@@ -74,15 +74,6 @@ pub struct GetGroupCategoriesParams {
     pub lms_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-pub struct GetGroupsParams {
-    pub base_url: String,
-    pub access_token: String,
-    pub course_id: String,
-    pub lms_type: String,
-    pub group_category_id: Option<String>,
-}
-
 /// Group category (group set) for frontend binding
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct GroupCategory {
@@ -103,26 +94,6 @@ impl From<repo_manage_core::GroupCategory> for GroupCategory {
             self_signup: gc.self_signup,
             course_id: gc.course_id,
             group_limit: gc.group_limit,
-        }
-    }
-}
-
-/// Group for frontend binding
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
-pub struct Group {
-    pub id: String,
-    pub name: String,
-    pub group_category_id: Option<String>,
-    pub members_count: Option<u32>,
-}
-
-impl From<repo_manage_core::Group> for Group {
-    fn from(g: repo_manage_core::Group) -> Self {
-        Group {
-            id: g.id,
-            name: g.name,
-            group_category_id: g.group_category_id,
-            members_count: g.members_count,
         }
     }
 }
