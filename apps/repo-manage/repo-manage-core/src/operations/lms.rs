@@ -257,10 +257,11 @@ fn build_group_diagnostics(
             id_parts.push(detail);
         }
         id_parts.sort();
-        let display_name = if name.is_empty() {
-            "unnamed".to_string()
+        let trimmed_name = name.trim();
+        let display_name = if trimmed_name.is_empty() {
+            "unnamed"
         } else {
-            name.clone()
+            trimmed_name
         };
         duplicate_lines.push(format!("{}: {}", display_name, id_parts.join(", ")));
     }
@@ -292,16 +293,18 @@ fn build_group_diagnostics(
             "not included".to_string()
         };
 
-        let display_name = if group.name.is_empty() {
-            "unnamed".to_string()
+        let trimmed_name = group.name.trim();
+        let display_name = if trimmed_name.is_empty() {
+            "unnamed"
         } else {
-            group.name.clone()
+            trimmed_name
         };
-        missing_lines.push(format!("{} (id {}): {}", display_name, group.id, reason));
+        missing_lines.push(format!("- {} (id {}): {}", display_name, group.id, reason));
     }
     missing_lines.sort();
     if !missing_lines.is_empty() {
-        diagnostics.push(format!("Groups not included: {}", missing_lines.join("; ")));
+        diagnostics.push("Groups not included:".to_string());
+        diagnostics.extend(missing_lines);
     }
 
     diagnostics

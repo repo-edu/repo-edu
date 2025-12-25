@@ -129,11 +129,8 @@ pub async fn generate_lms_files(
         "Students processed: {}\nGroups: {}",
         result.student_count, result.group_count
     );
-    if !result.diagnostics.is_empty() {
-        message.push_str("\nGroup notes:");
-        for line in &result.diagnostics {
-            message.push_str(&format!("\n- {}", line));
-        }
+    for line in &result.diagnostics {
+        message.push_str(&format!("\n{}", line));
     }
     message.push_str(&format!(
         "\nGenerated files:\n{}",

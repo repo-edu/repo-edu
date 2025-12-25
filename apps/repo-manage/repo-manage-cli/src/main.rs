@@ -474,11 +474,8 @@ async fn run_lms_generate(config: &ProfileSettings, overrides: LmsGenerateOverri
         result.generated_files.len(),
         result.student_count
     );
-    if !result.diagnostics.is_empty() {
-        println!("  Group notes:");
-        for line in &result.diagnostics {
-            println!("  - {}", line);
-        }
+    for line in &result.diagnostics {
+        println!("  {}", line);
     }
     for file in &result.generated_files {
         println!("  {}", file);
