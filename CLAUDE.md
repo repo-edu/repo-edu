@@ -35,8 +35,9 @@ pnpm fix                  # Fix all auto-fixable issues
 pnpm typecheck            # Type check TS and Rust
 pnpm validate             # Run check + typecheck + test
 
-# Type Bindings
-pnpm gen:bindings         # Regenerate TS bindings from Rust
+# Type Bindings (always use pnpm, never call cargo directly)
+pnpm gen:bindings         # Regenerate TS bindings (hash-based skip if unchanged)
+pnpm gen:bindings:force   # Force regeneration (bypass hash check)
 
 # Documentation
 pnpm docs:dev             # Preview documentation locally
@@ -124,6 +125,7 @@ CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
 Rust types → tauri-specta → bindings.ts → Frontend services → Zustand stores
 
 After changing Rust types, run `pnpm gen:bindings` to update TypeScript bindings.
+The script uses hash-based caching—it skips regeneration if input files haven't changed.
 
 ## Code Conventions
 

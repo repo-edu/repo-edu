@@ -5,4 +5,10 @@ set -euo pipefail
 [ -n "${SKIP_GEN:-}" ] && exit 0
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-"$ROOT_DIR/scripts/run-gen-bindings-if-needed.sh"
+cd "$ROOT_DIR"
+
+# Run binding generation (uses hash-based skip internally)
+pnpm gen:bindings
+
+# Stage bindings.ts if it was regenerated
+git add apps/repo-manage/src/bindings.ts 2>/dev/null || true

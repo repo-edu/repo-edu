@@ -28,3 +28,6 @@ docs/.vitepress/dist/
 
 # Planning files and notes
 .local/
+
+# Binding generation cache
+.bindings-hash
