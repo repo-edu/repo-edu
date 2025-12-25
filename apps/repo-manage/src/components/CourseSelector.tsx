@@ -20,6 +20,7 @@ interface CourseDropdownItem extends ActionDropdownItem {
   courseId: string
   name: string | null
   status: CourseStatus
+  originalIndex: number
 }
 
 function getStatusIcon(status: CourseStatus) {
@@ -63,31 +64,41 @@ export function CourseSelector({
     useLmsFormStore()
   const courses = getActiveCourses()
 
-  // Transform courses to ActionDropdownItem format
-  const items: CourseDropdownItem[] = courses.map((course, index) => ({
-    id: `course-${index}`,
-    label: formatCourseName(course.id, course.name, course.status),
-    statusIcon: getStatusIcon(course.status),
-    statusTitle: getStatusTitle(course.status),
-    courseId: course.id,
-    name: course.name,
-    status: course.status,
-  }))
+  // Transform courses to ActionDropdownItem format, sorted by course ID (high to low)
+  const items: CourseDropdownItem[] = courses
+    .map((course, index) => ({
+      id: `course-${index}`,
+      label: formatCourseName(course.id, course.name, course.status),
+      statusIcon: getStatusIcon(course.status),
+      statusTitle: getStatusTitle(course.status),
+      courseId: course.id,
+      name: course.name,
+      status: course.status,
+      originalIndex: index,
+    }))
+    .sort((a, b) =>
+      b.courseId.localeCompare(a.courseId, undefined, { numeric: true }),
+    )
+
+  // Find sorted index of active course
+  const activeSortedIndex = items.findIndex(
+    (item) => item.originalIndex === activeCourseIndex,
+  )
 
   // Define actions for each item
   const itemActions: ItemAction<CourseDropdownItem>[] = [
     {
       icon: <MdiRefresh className={cn("w-3 h-3")} />,
-      onClick: (_item, index) => onVerifyCourse(index),
+      onClick: (item) => onVerifyCourse(item.originalIndex),
       disabled: (item) => !item.courseId.trim() || item.status === "verifying",
       title: (item) =>
         item.status === "failed" ? "Retry verification" : "Verify course",
     },
     {
       icon: <MdiClose className="w-3 h-3" />,
-      onClick: (_item, index) => {
+      onClick: (item) => {
         if (courses.length > 1) {
-          removeCourse(index)
+          removeCourse(item.originalIndex)
         }
       },
       disabled: () => courses.length === 1,
@@ -96,11 +107,19 @@ export function CourseSelector({
     },
   ]
 
+  // Handle selection by mapping sorted index back to original
+  const handleSelect = (sortedIndex: number) => {
+    const item = items[sortedIndex]
+    if (item) {
+      setActiveCourse(item.originalIndex)
+    }
+  }
+
   return (
     <ActionDropdown
       items={items}
-      activeIndex={activeCourseIndex}
-      onSelect={setActiveCourse}
+      activeIndex={activeSortedIndex}
+      onSelect={handleSelect}
       itemActions={itemActions}
       onAdd={onAddCourse}
       addLabel="Add course"
