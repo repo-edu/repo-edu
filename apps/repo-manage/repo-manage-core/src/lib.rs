@@ -4,6 +4,7 @@
 //! including platform API abstraction for GitHub, GitLab, and Gitea.
 
 pub mod error;
+mod generated;
 pub mod lms;
 pub mod operations;
 pub mod platform;

@@ -1,10 +1,10 @@
-import {
-  type AppSettings,
-  commands,
-  type GuiSettings,
-  type ProfileSettings,
-  type SettingsLoadResult,
-} from "../bindings"
+import { commands } from "../bindings/commands"
+import type {
+  AppSettings,
+  GuiSettings,
+  ProfileSettings,
+  SettingsLoadResult,
+} from "../bindings/types"
 import { type Strict, unwrap } from "./commandUtils"
 
 export const settingsExist = () => commands.settingsExist().then(unwrap)

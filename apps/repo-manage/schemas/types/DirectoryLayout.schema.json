@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DirectoryLayout",
+  "type": "string",
+  "enum": [
+    "by-team",
+    "flat",
+    "by-task"
+  ],
+  "x-rust": {
+    "default": "flat",
+    "serde": {
+      "rename_all": "kebab-case"
+    }
+  },
+  "description": "Directory layout for cloned repositories"
+}

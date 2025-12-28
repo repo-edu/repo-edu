@@ -1,0 +1,695 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+import { compileFromFile } from "json-schema-to-typescript"
+
+type SchemaIndex = {
+  types: { name: string; path: string }[]
+}
+
+type CommandStub = {
+  description?: string
+  input?: { name: string; type: string }[]
+  output?: string
+  error?: string | null
+}
+
+type CommandManifestStub = {
+  commands: Record<string, CommandStub>
+}
+
+type RustField = {
+  name: string
+  type: string
+  serde: string[]
+}
+
+type RustType = {
+  name: string
+  kind: "struct" | "enum"
+  serde: string[]
+  deriveDefault?: boolean
+  fields?: RustField[]
+  variants?: { name: string; serde: string[]; isDefault?: boolean }[]
+}
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(__dirname, "..")
+
+const schemasRoot = resolve(repoRoot, "apps/repo-manage/schemas")
+const typesDir = resolve(schemasRoot, "types")
+const indexPath = resolve(typesDir, "index.json")
+const commandsManifestPath = resolve(schemasRoot, "commands/manifest.json")
+const commandsStubPath = resolve(schemasRoot, "commands/manifest.stub.json")
+
+const bindingsDir = resolve(repoRoot, "apps/repo-manage/src/bindings")
+const tsTypesPath = resolve(bindingsDir, "types.ts")
+const tsCommandsPath = resolve(bindingsDir, "commands.ts")
+
+const rustOutPath = resolve(
+  repoRoot,
+  "apps/repo-manage/src-tauri/src/generated/types.rs",
+)
+const coreRustOutPath = resolve(
+  repoRoot,
+  "apps/repo-manage/repo-manage-core/src/generated/types.rs",
+)
+
+const typesHeader =
+  "// DO NOT EDIT - Generated from schemas/types/*.schema.json\n" +
+  "// Run `pnpm gen:bindings` to regenerate.\n"
+
+const commandsHeader =
+  "// DO NOT EDIT - Generated from schemas/commands/manifest.json\n" +
+  "// Run `pnpm gen:bindings` to regenerate.\n"
+
+const rustHeader =
+  "// DO NOT EDIT - Generated from schemas/types/*.schema.json\n" +
+  "// Run `pnpm gen:bindings` to regenerate.\n\n" +
+  "#![allow(dead_code)]\n" +
+  "#![allow(clippy::upper_case_acronyms)]\n\n"
+
+type RustMeta = {
+  type?: string
+  field?: string
+  default?: string
+  serde?: {
+    rename?: string
+    rename_all?: string
+    default?: boolean | string
+    skip_serializing_if?: string
+  }
+}
+
+function readJson<T>(path: string): T {
+  return JSON.parse(readFileSync(path, "utf-8")) as T
+}
+
+function writeIfChanged(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true })
+  if (existsSync(path)) {
+    const existing = readFileSync(path, "utf-8")
+    if (existing === content) return
+  }
+  writeFileSync(path, content)
+}
+
+function toCamelCase(input: string): string {
+  const parts = input.split(/[_-]/)
+  if (parts.length === 1) return input
+  return (
+    parts[0] +
+    parts
+      .slice(1)
+      .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : ""))
+      .join("")
+  )
+}
+
+function toPascalCase(input: string): string {
+  const parts = input.split(/[^A-Za-z0-9]+/).filter(Boolean)
+  if (parts.length === 0) return "Value"
+  return parts.map((part) => part[0].toUpperCase() + part.slice(1)).join("")
+}
+
+function splitTopLevel(input: string, delimiter: string): string[] {
+  const parts: string[] = []
+  let depthAngle = 0
+  let depthParen = 0
+  let depthBracket = 0
+  let current = ""
+  for (const char of input) {
+    if (char === "<") depthAngle += 1
+    if (char === ">") depthAngle = Math.max(0, depthAngle - 1)
+    if (char === "(") depthParen += 1
+    if (char === ")") depthParen = Math.max(0, depthParen - 1)
+    if (char === "[") depthBracket += 1
+    if (char === "]") depthBracket = Math.max(0, depthBracket - 1)
+    if (
+      char === delimiter &&
+      depthAngle === 0 &&
+      depthParen === 0 &&
+      depthBracket === 0
+    ) {
+      parts.push(current.trim())
+      current = ""
+      continue
+    }
+    current += char
+  }
+  if (current.trim().length > 0) {
+    parts.push(current.trim())
+  }
+  return parts
+}
+
+type TypeExpr = {
+  name: string
+  args: TypeExpr[]
+}
+
+function parseType(typeStr: string): TypeExpr {
+  const trimmed = typeStr.trim()
+  if (trimmed === "()") {
+    return { name: "()", args: [] }
+  }
+  const ltIndex = trimmed.indexOf("<")
+  if (ltIndex !== -1 && trimmed.endsWith(">")) {
+    const name = trimmed.slice(0, ltIndex).trim()
+    const inner = trimmed.slice(ltIndex + 1, -1)
+    const args = splitTopLevel(inner, ",").map(parseType)
+    return { name, args }
+  }
+  return { name: trimmed, args: [] }
+}
+
+function typeExprToTs(
+  expr: TypeExpr,
+  used: Set<string>,
+  channelUsed: { value: boolean },
+): string {
+  if (expr.name === "String") return "string"
+  if (expr.name === "bool") return "boolean"
+  if (expr.name === "()") return "null"
+  if (expr.name === "Vec" && expr.args[0]) {
+    return `${typeExprToTs(expr.args[0], used, channelUsed)}[]`
+  }
+  if (expr.name === "Option" && expr.args[0]) {
+    return `${typeExprToTs(expr.args[0], used, channelUsed)} | null`
+  }
+  if (expr.name === "Channel" && expr.args[0]) {
+    channelUsed.value = true
+    return `TAURI_CHANNEL<${typeExprToTs(expr.args[0], used, channelUsed)}>`
+  }
+  used.add(expr.name)
+  return expr.name
+}
+
+function _typeExprToSchema(expr: TypeExpr): unknown {
+  if (expr.name === "String") return { type: "string" }
+  if (expr.name === "bool") return { type: "boolean" }
+  if (expr.name === "()") return { type: "null" }
+  if (expr.name === "Vec" && expr.args[0]) {
+    return { type: "array", items: _typeExprToSchema(expr.args[0]) }
+  }
+  if (expr.name === "Option" && expr.args[0]) {
+    return {
+      anyOf: [_typeExprToSchema(expr.args[0]), { type: "null" }],
+    }
+  }
+  if (expr.name === "Channel" && expr.args[0]) {
+    return { type: "string", "x-tauri-channel": true }
+  }
+  return { $ref: `../types/${expr.name}.schema.json` }
+}
+
+function generateCommands(manifest: CommandManifestStub): {
+  content: string
+  usedTypes: Set<string>
+} {
+  const usedTypes = new Set<string>()
+  const channelUsed = { value: false }
+  const blocks: string[] = []
+
+  const commandEntries = Object.entries(manifest.commands)
+  for (const [commandName, command] of commandEntries) {
+    const fnName = toCamelCase(commandName)
+    const description = command.description?.trim() ?? ""
+    const inputs = command.input ?? []
+    const params = inputs.map((input) => {
+      const tsType = typeExprToTs(parseType(input.type), usedTypes, channelUsed)
+      return {
+        name: toCamelCase(input.name),
+        tsType,
+      }
+    })
+
+    const outputTypeExpr = parseType(command.output ?? "()")
+    const outputType = typeExprToTs(outputTypeExpr, usedTypes, channelUsed)
+    const errorType = command.error ? parseType(command.error) : null
+    const errorTypeTs = errorType
+      ? typeExprToTs(errorType, usedTypes, channelUsed)
+      : null
+
+    const signatureParams = params
+      .map((param) => `${param.name}: ${param.tsType}`)
+      .join(", ")
+    const invokeArgs =
+      params.length > 0
+        ? `{ ${params.map((param) => param.name).join(", ")} }`
+        : "undefined"
+    const invokeCall =
+      params.length > 0
+        ? `TAURI_INVOKE("${commandName}", ${invokeArgs})`
+        : `TAURI_INVOKE("${commandName}")`
+
+    const returnType = errorTypeTs
+      ? `Promise<Result<${outputType}, ${errorTypeTs}>>`
+      : `Promise<${outputType}>`
+
+    const lines: string[] = []
+    if (description) {
+      lines.push("/**")
+      for (const line of description.split("\n")) {
+        lines.push(` * ${line}`)
+      }
+      lines.push(" */")
+    }
+    lines.push(`async ${fnName}(${signatureParams}) : ${returnType} {`)
+
+    if (errorTypeTs) {
+      lines.push("  try {")
+      lines.push(`    return { status: "ok", data: await ${invokeCall} };`)
+      lines.push("  } catch (e) {")
+      lines.push("    if (e instanceof Error) throw e;")
+      lines.push('    return { status: "error", error: e as any };')
+      lines.push("  }")
+    } else {
+      lines.push(`  return await ${invokeCall};`)
+    }
+    lines.push("}")
+    blocks.push(lines.join("\n"))
+  }
+
+  const importTypes = Array.from(usedTypes).filter((name) => name !== "Result")
+  importTypes.sort((a, b) => a.localeCompare(b))
+
+  const importLines: string[] = []
+  importLines.push(commandsHeader.trimEnd())
+  importLines.push("")
+  importLines.push(
+    "import { invoke as TAURI_INVOKE" +
+      (channelUsed.value ? ", Channel as TAURI_CHANNEL" : "") +
+      ' } from "@tauri-apps/api/core";',
+  )
+  if (importTypes.length > 0) {
+    importLines.push(
+      `import type { ${importTypes.join(", ")}, Result } from "./types";`,
+    )
+  } else {
+    importLines.push(`import type { Result } from "./types";`)
+  }
+  importLines.push("")
+  importLines.push("export const commands = {")
+  importLines.push(
+    blocks
+      .map((block) =>
+        block
+          .split("\n")
+          .map((line) => `  ${line}`)
+          .join("\n"),
+      )
+      .join(",\n"),
+  )
+  importLines.push("};")
+  importLines.push("")
+
+  return { content: `${importLines.join("\n")}\n`, usedTypes }
+}
+
+type JsonSchema = {
+  $ref?: string
+  type?: string
+  anyOf?: JsonSchema[]
+  oneOf?: JsonSchema[]
+  allOf?: JsonSchema[]
+  enum?: string[]
+  items?: JsonSchema
+  properties?: Record<string, JsonSchema>
+  additionalProperties?: JsonSchema | boolean
+  required?: string[]
+  "x-rust"?: RustMeta
+  "x-enum-variants"?: Record<string, string>
+  "x-rust-type"?: string
+}
+
+function isNullableSchema(schema: JsonSchema | undefined): {
+  nullable: boolean
+  inner?: JsonSchema
+} {
+  if (!schema || !schema.anyOf) return { nullable: false }
+  const anyOf = schema.anyOf
+  const nonNull = anyOf.filter((entry) => entry?.type !== "null")
+  const hasNull = nonNull.length !== anyOf.length
+  if (!hasNull) return { nullable: false }
+  if (nonNull.length === 1) return { nullable: true, inner: nonNull[0] }
+  return { nullable: true, inner: { anyOf: nonNull } }
+}
+
+const rustKeywords = new Set([
+  "type",
+  "match",
+  "fn",
+  "struct",
+  "enum",
+  "mod",
+  "crate",
+  "use",
+  "pub",
+  "self",
+  "Self",
+  "super",
+  "as",
+  "in",
+  "let",
+  "const",
+  "static",
+  "ref",
+  "move",
+  "mut",
+  "impl",
+  "trait",
+  "where",
+  "loop",
+  "while",
+  "for",
+  "break",
+  "continue",
+  "return",
+  "async",
+  "await",
+  "dyn",
+  "box",
+  "unsafe",
+  "extern",
+  "true",
+  "false",
+  "use",
+  "yield",
+  "try",
+  "macro",
+])
+
+function rustFieldName(prop: string): { name: string; serdeRename?: string } {
+  const sanitized = prop.replace(/[^A-Za-z0-9_]/g, "_")
+  const normalized = sanitized.length > 0 ? sanitized : "field"
+  const needsRaw = rustKeywords.has(normalized)
+  const name = needsRaw ? `r#${normalized}` : normalized
+  if (normalized !== prop) {
+    return { name, serdeRename: prop }
+  }
+  return { name }
+}
+
+function rustTypeForSchema(schema: JsonSchema | undefined): {
+  rust: string
+  usesValue: boolean
+} {
+  if (!schema) return { rust: "serde_json::Value", usesValue: true }
+  const xRust = schema["x-rust"] as RustMeta | undefined
+  if (xRust?.type) {
+    return { rust: xRust.type, usesValue: false }
+  }
+  if (schema["x-rust-type"]) {
+    return { rust: schema["x-rust-type"], usesValue: false }
+  }
+  if (schema.$ref && typeof schema.$ref === "string") {
+    const ref = schema.$ref.split("/").pop() || ""
+    return { rust: ref.replace(/\.schema\.json$/, ""), usesValue: false }
+  }
+  if (schema.type === "string") return { rust: "String", usesValue: false }
+  if (schema.type === "boolean") return { rust: "bool", usesValue: false }
+  if (schema.type === "number") return { rust: "f64", usesValue: false }
+  if (schema.type === "integer") return { rust: "i64", usesValue: false }
+  if (schema.type === "null") return { rust: "()", usesValue: false }
+  if (schema.type === "array") {
+    const inner = rustTypeForSchema(schema.items)
+    return { rust: `Vec<${inner.rust}>`, usesValue: inner.usesValue }
+  }
+  const nullable = isNullableSchema(schema)
+  if (nullable.nullable && nullable.inner) {
+    const inner = rustTypeForSchema(nullable.inner)
+    return {
+      rust: `Option<${inner.rust}>`,
+      usesValue: inner.usesValue,
+    }
+  }
+  if (
+    schema.type === "object" &&
+    schema.additionalProperties &&
+    !schema.properties
+  ) {
+    const inner = rustTypeForSchema(schema.additionalProperties)
+    return {
+      rust: `std::collections::HashMap<String, ${inner.rust}>`,
+      usesValue: inner.usesValue,
+    }
+  }
+  if (schema.anyOf || schema.oneOf || schema.allOf) {
+    return { rust: "serde_json::Value", usesValue: true }
+  }
+  return { rust: "serde_json::Value", usesValue: true }
+}
+
+function buildRustTypes(
+  typeSchemas: { name: string; schema: JsonSchema }[],
+): string {
+  const rustTypes: RustType[] = []
+  let usesValue = false
+  let usesHashMap = false
+
+  for (const { name, schema } of typeSchemas) {
+    if (schema.enum && Array.isArray(schema.enum)) {
+      const xRust = schema["x-rust"] as RustMeta | undefined
+      const serdeAttrs: string[] = []
+      if (xRust?.serde?.rename_all) {
+        serdeAttrs.push(`#[serde(rename_all = "${xRust.serde.rename_all}")]`)
+      }
+      const defaultValue =
+        xRust?.default !== undefined ? String(xRust.default) : undefined
+      const enumMap = schema["x-enum-variants"] as
+        | Record<string, string>
+        | undefined
+      let hasDefault = false
+      const variants = schema.enum.map((value: string) => {
+        const variantName =
+          enumMap?.[String(value)] ?? toPascalCase(String(value))
+        const serde: string[] = []
+        if (variantName !== value) {
+          serde.push(`#[serde(rename = "${value}")]`)
+        }
+        const isDefault =
+          defaultValue !== undefined && String(value) === defaultValue
+        if (isDefault) {
+          hasDefault = true
+        }
+        return { name: variantName, serde, isDefault }
+      })
+      rustTypes.push({
+        name,
+        kind: "enum",
+        serde: serdeAttrs,
+        deriveDefault: hasDefault,
+        variants,
+      })
+      continue
+    }
+
+    if (schema.type === "object") {
+      const xRust = schema["x-rust"] as RustMeta | undefined
+      const serdeAttrs: string[] = []
+      if (xRust?.serde?.rename_all) {
+        serdeAttrs.push(`#[serde(rename_all = "${xRust.serde.rename_all}")]`)
+      }
+
+      const fields: RustField[] = []
+      const properties = schema.properties ?? {}
+      const required = new Set<string>(schema.required ?? [])
+
+      for (const [propName, propSchema] of Object.entries(properties)) {
+        const prop = propSchema as JsonSchema
+        const propMeta = prop["x-rust"] as RustMeta | undefined
+        const propNullable = isNullableSchema(prop)
+        const isRequired = required.has(propName)
+        const typeSchema =
+          propMeta?.type !== undefined
+            ? prop
+            : propNullable.nullable
+              ? propNullable.inner
+              : prop
+        const rustType = rustTypeForSchema(typeSchema)
+        if (rustType.usesValue) usesValue = true
+        let fieldType = rustType.rust
+        const serdeMeta = propMeta?.serde
+        const hasDefault = serdeMeta?.default !== undefined
+        if (propNullable.nullable || (!isRequired && !hasDefault)) {
+          if (!fieldType.startsWith("Option<")) {
+            fieldType = `Option<${fieldType}>`
+          }
+        }
+        const fieldTarget = propMeta?.field ?? propName
+        const { name: fieldName, serdeRename: sanitizedRename } =
+          rustFieldName(fieldTarget)
+        const serde: string[] = []
+        const explicitRename =
+          propMeta?.serde?.rename ??
+          (fieldTarget !== propName ? propName : undefined)
+        const renameValue = explicitRename ?? sanitizedRename
+        if (renameValue) {
+          serde.push(`#[serde(rename = "${renameValue}")]`)
+        }
+        if (serdeMeta?.default !== undefined) {
+          if (typeof serdeMeta.default === "string") {
+            serde.push(`#[serde(default = "${serdeMeta.default}")]`)
+          } else if (serdeMeta.default === true) {
+            serde.push("#[serde(default)]")
+          }
+        }
+        if (serdeMeta?.skip_serializing_if) {
+          serde.push(
+            `#[serde(skip_serializing_if = "${serdeMeta.skip_serializing_if}")]`,
+          )
+        }
+        fields.push({ name: fieldName, type: fieldType, serde })
+      }
+
+      if (
+        schema.additionalProperties &&
+        schema.additionalProperties !== false &&
+        Object.keys(properties).length === 0
+      ) {
+        const mapType = rustTypeForSchema(schema.additionalProperties)
+        usesHashMap = true
+        if (mapType.usesValue) usesValue = true
+        fields.push({
+          name: "entries",
+          type: `std::collections::HashMap<String, ${mapType.rust}>`,
+          serde: [],
+        })
+      }
+
+      rustTypes.push({
+        name,
+        kind: "struct",
+        serde: serdeAttrs,
+        fields,
+      })
+      continue
+    }
+
+    const base = rustTypeForSchema(schema)
+    if (base.usesValue) usesValue = true
+    rustTypes.push({
+      name,
+      kind: "struct",
+      serde: [],
+      fields: [
+        {
+          name: "value",
+          type: base.rust,
+          serde: [],
+        },
+      ],
+    })
+  }
+
+  const lines: string[] = []
+  lines.push(rustHeader.trimEnd())
+  lines.push("use serde::{Deserialize, Serialize};")
+  if (usesHashMap) {
+    lines.push("use std::collections::HashMap;")
+  }
+  if (usesValue) {
+    lines.push("use serde_json::Value;")
+  }
+  lines.push("")
+
+  for (const type of rustTypes) {
+    if (type.kind === "enum") {
+      const derives = [
+        "Debug",
+        "Clone",
+        "Copy",
+        "PartialEq",
+        "Eq",
+        "Serialize",
+        "Deserialize",
+      ]
+      if (type.deriveDefault) {
+        derives.push("Default")
+      }
+      lines.push(`#[derive(${derives.join(", ")})]`)
+    } else {
+      lines.push("#[derive(Debug, Clone, Serialize, Deserialize)]")
+    }
+    for (const attr of type.serde) {
+      lines.push(attr)
+    }
+    if (type.kind === "enum") {
+      lines.push(`pub enum ${type.name} {`)
+      for (const variant of type.variants ?? []) {
+        for (const attr of variant.serde) {
+          lines.push(`  ${attr}`)
+        }
+        if (variant.isDefault) {
+          lines.push("  #[default]")
+        }
+        lines.push(`  ${variant.name},`)
+      }
+      lines.push("}")
+    } else {
+      lines.push(`pub struct ${type.name} {`)
+      for (const field of type.fields ?? []) {
+        for (const attr of field.serde) {
+          lines.push(`  ${attr}`)
+        }
+        lines.push(`  pub ${field.name}: ${field.type},`)
+      }
+      lines.push("}")
+    }
+    lines.push("")
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`
+}
+
+async function generateTypes(): Promise<Set<string>> {
+  const index = readJson<SchemaIndex>(indexPath)
+  const typeSchemas = index.types.map((entry) => {
+    const schemaPath = resolve(typesDir, entry.path)
+    return {
+      name: entry.name,
+      schemaPath,
+      schema: readJson<JsonSchema>(schemaPath),
+    }
+  })
+
+  const compiledBlocks: string[] = []
+  for (const entry of typeSchemas) {
+    const tsDefinition = await compileFromFile(entry.schemaPath, {
+      bannerComment: "",
+      style: { singleQuote: true },
+      declareExternallyReferenced: false,
+    })
+    compiledBlocks.push(tsDefinition.trim())
+  }
+
+  const typesContent =
+    typesHeader +
+    "\n\n" +
+    compiledBlocks.join("\n\n") +
+    "\n\n" +
+    "export type Result<T, E> =\n" +
+    '  | { status: "ok"; data: T }\n' +
+    '  | { status: "error"; error: E };\n'
+
+  writeIfChanged(tsTypesPath, typesContent)
+
+  const rustContent = buildRustTypes(typeSchemas)
+  writeIfChanged(rustOutPath, rustContent)
+  writeIfChanged(coreRustOutPath, rustContent)
+
+  return new Set(index.types.map((type) => type.name))
+}
+
+async function generateAll(): Promise<void> {
+  const manifestPath = existsSync(commandsManifestPath)
+    ? commandsManifestPath
+    : commandsStubPath
+  const manifest = readJson<CommandManifestStub>(manifestPath)
+  const { content: commandsContent } = generateCommands(manifest)
+  writeIfChanged(tsCommandsPath, commandsContent)
+  await generateTypes()
+}
+
+void generateAll()

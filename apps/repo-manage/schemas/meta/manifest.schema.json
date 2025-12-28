@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "repo-manage://schemas/meta/manifest.schema.json",
+  "type": "object",
+  "required": ["$schema", "commands"],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/command" }
+    }
+  },
+  "$defs": {
+    "inputParam": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "input": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inputParam" }
+        },
+        "output": { "type": "string" },
+        "error": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

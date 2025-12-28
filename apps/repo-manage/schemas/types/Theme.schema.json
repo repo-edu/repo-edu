@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Theme",
+  "type": "string",
+  "enum": [
+    "light",
+    "dark",
+    "system"
+  ],
+  "x-rust": {
+    "default": "system",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "UI theme"
+}

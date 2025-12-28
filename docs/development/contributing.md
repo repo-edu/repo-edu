@@ -103,13 +103,14 @@ cargo clippy
 
 ### Type Bindings
 
-After changing Rust types used in Tauri commands:
+After changing JSON Schemas used in Tauri commands:
 
 ```bash
 pnpm gen:bindings
 ```
 
-This regenerates `apps/repo-manage/src/bindings.ts`.
+This regenerates `apps/repo-manage/src/bindings/types.ts` and
+`apps/repo-manage/src/bindings/commands.ts`.
 
 ## Testing
 

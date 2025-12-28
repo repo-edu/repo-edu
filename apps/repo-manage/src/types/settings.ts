@@ -1,10 +1,10 @@
 /**
  * TypeScript types for RepoBee settings
- * Types are imported from auto-generated bindings.ts (Rust → TypeScript)
+ * Types are imported from auto-generated bindings/types.ts (Rust → TypeScript)
  * This file provides default values and helper functions
  */
 
-// Re-export types from bindings (auto-generated from Rust)
+// Re-export types from bindings (auto-generated from JSON Schemas)
 export type {
   ActiveTab,
   AppSettings,
@@ -22,7 +22,7 @@ export type {
   ProfileSettings,
   RepoSettings,
   Theme,
-} from "../bindings"
+} from "../bindings/types"
 
 // Additional type aliases for compatibility
 export type LmsMemberOption = "(email, gitid)" | "email" | "git_id"

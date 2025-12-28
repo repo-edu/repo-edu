@@ -155,31 +155,28 @@ pub struct AppSettings {
 
 ---
 
-## Rust ⇄ TypeScript Bindings Workflow
+## JSON Schema ⇄ TypeScript Bindings Workflow
 
-**Date:** 2025-12-03
+**Date:** 2025-12-27
 **Status:** Implemented
 
 ### Decision
 
-Rust remains the single source of truth; TypeScript bindings are always generated from the Tauri
-commands. Generation runs locally via `pnpm gen:bindings` and in CI, with a drift check that fails
-if `apps/repo-manage/src/bindings.ts` is stale. An optional guarded hook only runs generation when
-relevant Rust files change.
+JSON Schemas are the source of truth for shared DTOs. TypeScript bindings and Rust DTOs are
+generated from schemas via `pnpm gen:bindings`. Command signatures are checked against
+`apps/repo-manage/schemas/commands/manifest.json` to prevent drift without requiring a Rust
+compile.
 
 ### Rationale
 
-1. Prevent silent drift between Rust DTOs and the frontend.
-2. Give AI (and humans) a reliable, generated contract instead of hand-maintained TS types.
-3. Keep day-to-day flow light: one command (or hook) regenerates bindings; CI enforces sync at
-   push/PR time.
+1. Avoid slow Rust compilation when only regenerating bindings.
+2. Keep a machine-validated contract that AI can safely update.
+3. Catch drift early with parity checks and schema validation.
 
 ### Implementation
 
-- Generator: `cargo run -p repo-manage-tauri --bin export_bindings` (exposed as `pnpm gen:bindings`).
-- Post-processing: fixes tauri payload key casing and removes `// @ts-nocheck` so TS stays
-  type-checked.
-- CI: `.github/workflows/bindings.yml` runs generator and
-  `git diff --exit-code apps/repo-manage/src/bindings.ts`.
-- Local guard: `scripts/run-gen-bindings-if-needed.sh` for use in a git hook; it only runs when
-  staged/working changes touch relevant Rust surfaces.
+- Generator: `scripts/gen-from-schema.ts` (exposed as `pnpm gen:bindings`).
+- Schemas: `apps/repo-manage/schemas/types/*.schema.json` + command manifest.
+- Validation: `scripts/validate-schemas.ts` + `scripts/check-command-parity.ts`.
+- Output: `apps/repo-manage/src/bindings/types.ts`, `apps/repo-manage/src/bindings/commands.ts`,
+  and `apps/repo-manage/src-tauri/src/generated/types.rs`.

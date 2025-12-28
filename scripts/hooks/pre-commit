@@ -7,8 +7,11 @@ set -euo pipefail
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-# Run binding generation (uses hash-based skip internally)
+# Run binding generation
 pnpm gen:bindings
 
-# Stage bindings.ts if it was regenerated
-git add apps/repo-manage/src/bindings.ts 2>/dev/null || true
+# Stage generated outputs if they were regenerated
+git add apps/repo-manage/src/bindings/types.ts 2>/dev/null || true
+git add apps/repo-manage/src/bindings/commands.ts 2>/dev/null || true
+git add apps/repo-manage/src-tauri/src/generated/types.rs 2>/dev/null || true
+git add apps/repo-manage/repo-manage-core/src/generated/types.rs 2>/dev/null || true

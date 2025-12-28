@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProfileSettings",
+  "type": "object",
+  "properties": {
+    "git": {
+      "$ref": "./GitSettings.schema.json"
+    },
+    "lms": {
+      "$ref": "./LmsSettings.schema.json"
+    },
+    "repo": {
+      "$ref": "./RepoSettings.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "git",
+    "lms",
+    "repo"
+  ],
+  "description": "Profile settings (nested structure for per-profile data)"
+}

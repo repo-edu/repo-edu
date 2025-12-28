@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MoodleConfig",
+  "type": "object",
+  "properties": {
+    "access_token": {
+      "type": "string"
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "courses": {
+      "type": "array",
+      "items": {
+        "$ref": "./CourseEntry.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "access_token",
+    "base_url",
+    "courses"
+  ],
+  "description": "Moodle-specific LMS configuration"
+}

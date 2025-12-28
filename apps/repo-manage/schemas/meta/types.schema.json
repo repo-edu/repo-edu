@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "repo-manage://schemas/meta/types.schema.json",
+  "type": "object",
+  "required": ["$schema", "title"],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "properties": {
+      "type": "object"
+    },
+    "required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": {
+      "anyOf": [
+        { "type": "boolean" },
+        { "type": "object" }
+      ]
+    },
+    "enum": {
+      "type": "array"
+    },
+    "items": {
+      "type": "object"
+    },
+    "anyOf": {
+      "type": "array"
+    },
+    "oneOf": {
+      "type": "array"
+    },
+    "allOf": {
+      "type": "array"
+    },
+    "$ref": {
+      "type": "string"
+    },
+    "x-rust": {
+      "$ref": "#/$defs/x-rust"
+    },
+    "x-enum-variants": {
+      "$ref": "#/$defs/x-enum-variants"
+    }
+  },
+  "$defs": {
+    "x-rust": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "field": { "type": "string" },
+        "default": { "type": "string" },
+        "serde": {
+          "type": "object",
+          "properties": {
+            "rename": { "type": "string" },
+            "rename_all": { "type": "string" },
+            "default": { "anyOf": [{ "type": "boolean" }, { "type": "string" }] },
+            "skip_serializing_if": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "x-enum-variants": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "object" }
+        }
+      },
+      "then": {
+        "required": ["additionalProperties"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "array" }
+        }
+      },
+      "then": {
+        "required": ["items"]
+      }
+    },
+    {
+      "if": {
+        "required": ["enum"]
+      },
+      "then": {
+        "required": ["type"]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

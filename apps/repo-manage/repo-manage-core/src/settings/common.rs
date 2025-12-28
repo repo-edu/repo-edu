@@ -1,13 +1,19 @@
-use super::enums::{DirectoryLayout, GitServerType, LmsUrlOption, MemberOption};
-use super::normalization::{normalize_string, normalize_url, Normalize};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+#![allow(clippy::derivable_impls)]
 
-/// A course entry with ID and optional name (populated after verification)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default, PartialEq)]
-pub struct CourseEntry {
-    pub id: String,
-    pub name: Option<String>,
+use super::normalization::{normalize_string, normalize_url, Normalize};
+use super::{DirectoryLayout, GitServerType, LmsUrlOption, MemberOption};
+use crate::generated::types::{
+    CanvasConfig, CourseEntry, GitHubConfig, GitLabConfig, GitSettings, GiteaConfig, LmsSettings,
+    LogSettings, MoodleConfig, ProfileSettings, RepoSettings,
+};
+
+impl Default for CourseEntry {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: None,
+        }
+    }
 }
 
 impl Normalize for CourseEntry {
@@ -19,13 +25,15 @@ impl Normalize for CourseEntry {
     }
 }
 
-/// GitHub-specific configuration (no base_url - always github.com)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
-pub struct GitHubConfig {
-    pub access_token: String,
-    pub user: String,
-    pub student_repos_org: String,
-    pub template_org: String,
+impl Default for GitHubConfig {
+    fn default() -> Self {
+        Self {
+            access_token: String::new(),
+            user: String::new(),
+            student_repos_org: String::new(),
+            template_org: String::new(),
+        }
+    }
 }
 
 impl Normalize for GitHubConfig {
@@ -35,16 +43,6 @@ impl Normalize for GitHubConfig {
         normalize_string(&mut self.student_repos_org);
         normalize_string(&mut self.template_org);
     }
-}
-
-/// GitLab-specific configuration (requires base_url)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct GitLabConfig {
-    pub access_token: String,
-    pub base_url: String,
-    pub user: String,
-    pub student_repos_group: String,
-    pub template_group: String,
 }
 
 impl Default for GitLabConfig {
@@ -69,14 +67,16 @@ impl Normalize for GitLabConfig {
     }
 }
 
-/// Gitea-specific configuration (requires base_url)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
-pub struct GiteaConfig {
-    pub access_token: String,
-    pub base_url: String,
-    pub user: String,
-    pub student_repos_group: String,
-    pub template_group: String,
+impl Default for GiteaConfig {
+    fn default() -> Self {
+        Self {
+            access_token: String::new(),
+            base_url: String::new(),
+            user: String::new(),
+            student_repos_group: String::new(),
+            template_group: String::new(),
+        }
+    }
 }
 
 impl Normalize for GiteaConfig {
@@ -89,14 +89,15 @@ impl Normalize for GiteaConfig {
     }
 }
 
-/// Git server settings (shared across apps)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
-pub struct GitSettings {
-    pub gitea: GiteaConfig,
-    pub github: GitHubConfig,
-    pub gitlab: GitLabConfig,
-    #[serde(rename = "type")]
-    pub server_type: GitServerType,
+impl Default for GitSettings {
+    fn default() -> Self {
+        Self {
+            gitea: GiteaConfig::default(),
+            github: GitHubConfig::default(),
+            gitlab: GitLabConfig::default(),
+            server_type: GitServerType::default(),
+        }
+    }
 }
 
 impl GitSettings {
@@ -154,16 +155,6 @@ impl Normalize for GitSettings {
     }
 }
 
-/// Canvas-specific LMS configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct CanvasConfig {
-    pub access_token: String,
-    pub base_url: String,
-    pub courses: Vec<CourseEntry>,
-    pub custom_url: String,
-    pub url_option: LmsUrlOption,
-}
-
 impl Default for CanvasConfig {
     fn default() -> Self {
         Self {
@@ -187,12 +178,14 @@ impl Normalize for CanvasConfig {
     }
 }
 
-/// Moodle-specific LMS configuration
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct MoodleConfig {
-    pub access_token: String,
-    pub base_url: String,
-    pub courses: Vec<CourseEntry>,
+impl Default for MoodleConfig {
+    fn default() -> Self {
+        Self {
+            access_token: String::new(),
+            base_url: String::new(),
+            courses: Vec::new(),
+        }
+    }
 }
 
 impl Normalize for MoodleConfig {
@@ -203,31 +196,6 @@ impl Normalize for MoodleConfig {
             course.normalize();
         }
     }
-}
-
-/// LMS app settings (Tab 1)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct LmsSettings {
-    pub canvas: CanvasConfig,
-    pub moodle: MoodleConfig,
-    #[serde(rename = "type")]
-    pub r#type: String, // "Canvas" or "Moodle"
-    /// Index of the active course in the courses array
-    #[serde(default)]
-    pub active_course_index: u32,
-    // Output settings (shared across LMS types)
-    pub csv_file: String,
-    pub full_groups: bool,
-    pub include_group: bool,
-    pub include_initials: bool,
-    pub include_member: bool,
-    pub member_option: MemberOption,
-    pub output_csv: bool,
-    pub output_folder: String,
-    pub output_xlsx: bool,
-    pub output_yaml: bool,
-    pub xlsx_file: String,
-    pub yaml_file: String,
 }
 
 impl Default for LmsSettings {
@@ -264,15 +232,6 @@ impl Normalize for LmsSettings {
     }
 }
 
-/// Repo app settings (Tab 2)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct RepoSettings {
-    pub assignments: String,
-    pub directory_layout: DirectoryLayout,
-    pub target_folder: String,
-    pub yaml_file: String,
-}
-
 impl Default for RepoSettings {
     fn default() -> Self {
         Self {
@@ -292,15 +251,6 @@ impl Normalize for RepoSettings {
     }
 }
 
-/// Logging settings (stored in AppSettings)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct LogSettings {
-    pub debug: bool,
-    pub error: bool,
-    pub info: bool,
-    pub warning: bool,
-}
-
 impl Default for LogSettings {
     fn default() -> Self {
         Self {
@@ -312,12 +262,14 @@ impl Default for LogSettings {
     }
 }
 
-/// Profile settings (nested structure for per-profile data)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
-pub struct ProfileSettings {
-    pub git: GitSettings,
-    pub lms: LmsSettings,
-    pub repo: RepoSettings,
+impl Default for ProfileSettings {
+    fn default() -> Self {
+        Self {
+            git: GitSettings::default(),
+            lms: LmsSettings::default(),
+            repo: RepoSettings::default(),
+        }
+    }
 }
 
 impl Normalize for ProfileSettings {

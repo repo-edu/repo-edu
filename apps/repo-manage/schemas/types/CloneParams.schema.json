@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloneParams",
+  "type": "object",
+  "properties": {
+    "config": {
+      "$ref": "./ConfigParams.schema.json"
+    },
+    "yaml_file": {
+      "type": "string"
+    },
+    "assignments": {
+      "type": "string"
+    },
+    "target_folder": {
+      "type": "string"
+    },
+    "directory_layout": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "config",
+    "yaml_file",
+    "assignments",
+    "target_folder",
+    "directory_layout"
+  ]
+}

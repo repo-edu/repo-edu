@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { GroupCategory } from "../bindings"
+import type { GroupCategory } from "../bindings/types"
 import {
   DEFAULT_CANVAS_CONFIG,
   DEFAULT_LMS_SETTINGS,

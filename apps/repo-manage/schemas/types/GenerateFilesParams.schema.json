@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GenerateFilesParams",
+  "type": "object",
+  "properties": {
+    "base_url": {
+      "type": "string"
+    },
+    "access_token": {
+      "type": "string"
+    },
+    "course_id": {
+      "type": "string"
+    },
+    "lms_type": {
+      "type": "string"
+    },
+    "yaml_file": {
+      "type": "string"
+    },
+    "output_folder": {
+      "type": "string"
+    },
+    "csv_file": {
+      "type": "string"
+    },
+    "xlsx_file": {
+      "type": "string"
+    },
+    "member_option": {
+      "type": "string"
+    },
+    "include_group": {
+      "type": "boolean"
+    },
+    "include_member": {
+      "type": "boolean"
+    },
+    "include_initials": {
+      "type": "boolean"
+    },
+    "full_groups": {
+      "type": "boolean"
+    },
+    "csv": {
+      "type": "boolean"
+    },
+    "xlsx": {
+      "type": "boolean"
+    },
+    "yaml": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "base_url",
+    "access_token",
+    "course_id",
+    "lms_type",
+    "yaml_file",
+    "output_folder",
+    "csv_file",
+    "xlsx_file",
+    "member_option",
+    "include_group",
+    "include_member",
+    "include_initials",
+    "full_groups",
+    "csv",
+    "xlsx",
+    "yaml"
+  ]
+}

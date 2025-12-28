@@ -1,24 +1,10 @@
-use super::common::{LogSettings, ProfileSettings};
-use super::enums::{ActiveTab, Theme};
 use super::normalization::Normalize;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use crate::generated::types::{
+    ActiveTab, AppSettings, GuiSettings, LogSettings, ProfileSettings, Theme,
+};
 
 /// App-level settings stored in app.json
 /// These are UI/window settings that don't belong in profiles
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct AppSettings {
-    pub active_tab: ActiveTab,
-    /// IDs of collapsed sections (e.g., ["lms-config", "options"])
-    #[serde(default)]
-    pub collapsed_sections: Vec<String>,
-    pub logging: LogSettings,
-    pub sidebar_open: bool,
-    pub theme: Theme,
-    pub window_height: u32,
-    pub window_width: u32,
-}
-
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -35,15 +21,10 @@ impl Default for AppSettings {
 
 /// Combined GUI settings (sent to frontend)
 /// This combines app settings with the active profile's settings
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type, Default)]
-pub struct GuiSettings {
-    /// App-level settings (from app.json)
-    #[serde(flatten)]
-    pub app: AppSettings,
-
-    /// Profile settings (from active profile)
-    #[serde(flatten)]
-    pub profile: ProfileSettings,
+impl Default for GuiSettings {
+    fn default() -> Self {
+        Self::from_parts(AppSettings::default(), ProfileSettings::default())
+    }
 }
 
 impl GuiSettings {
@@ -54,23 +35,48 @@ impl GuiSettings {
 
     /// Create GUI settings from app settings and profile settings
     pub fn from_parts(app: AppSettings, profile: ProfileSettings) -> Self {
-        Self { app, profile }
+        Self {
+            active_tab: app.active_tab,
+            collapsed_sections: app.collapsed_sections,
+            logging: app.logging,
+            sidebar_open: app.sidebar_open,
+            theme: app.theme,
+            window_height: app.window_height,
+            window_width: app.window_width,
+            git: profile.git,
+            lms: profile.lms,
+            repo: profile.repo,
+        }
     }
 
-    /// Extract app settings
-    pub fn app_settings(&self) -> &AppSettings {
-        &self.app
+    /// Extract app settings (returns a copy)
+    pub fn app_settings(&self) -> AppSettings {
+        AppSettings {
+            active_tab: self.active_tab,
+            collapsed_sections: self.collapsed_sections.clone(),
+            logging: self.logging.clone(),
+            sidebar_open: self.sidebar_open,
+            theme: self.theme,
+            window_height: self.window_height,
+            window_width: self.window_width,
+        }
     }
 
-    /// Extract profile settings
-    pub fn profile_settings(&self) -> &ProfileSettings {
-        &self.profile
+    /// Extract profile settings (returns a copy)
+    pub fn profile_settings(&self) -> ProfileSettings {
+        ProfileSettings {
+            git: self.git.clone(),
+            lms: self.lms.clone(),
+            repo: self.repo.clone(),
+        }
     }
 }
 
 impl Normalize for GuiSettings {
     fn normalize(&mut self) {
-        self.profile.normalize();
+        self.git.normalize();
+        self.lms.normalize();
+        self.repo.normalize();
     }
 }
 
@@ -78,14 +84,4 @@ impl Normalize for AppSettings {
     fn normalize(&mut self) {
         // No normalization needed for app settings
     }
-}
-
-/// Result of loading settings, including any warnings about corrected issues
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, specta::Type)]
-pub struct SettingsLoadResult {
-    /// The loaded settings (with defaults applied for invalid/missing values)
-    pub settings: GuiSettings,
-    /// Warnings about issues found in the settings file
-    /// (unknown fields removed, invalid values replaced with defaults)
-    pub warnings: Vec<String>,
 }

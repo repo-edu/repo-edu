@@ -205,7 +205,7 @@ impl ConfigManager {
 
         // Load configuration or use defaults
         let gui_settings = settings_manager.load().unwrap_or_default();
-        let config = gui_settings.profile;
+        let config = gui_settings.profile_settings();
 
         Ok(Self {
             settings_manager,

@@ -12,12 +12,13 @@
             "**/*.tsx",
             "**/*.js",
             "**/*.jsx",
+            "!apps/repo-manage/src/bindings/commands.ts",
+            "!apps/repo-manage/src/bindings/types.ts",
             "!**/dist",
             "!**/build",
             "!**/target",
             "!**/node_modules",
-            "!**/.vitepress/cache",
-            "!**/bindings.ts"
+            "!**/.vitepress/cache"
         ]
     },
     "formatter": {

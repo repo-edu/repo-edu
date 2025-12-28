@@ -18,7 +18,6 @@ use super::utils::{
 
 /// Get token generation instructions for an LMS type
 #[tauri::command]
-#[specta::specta]
 pub async fn get_token_instructions(lms_type: String) -> Result<String, AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     Ok(get_token_generation_instructions(lms_type_enum).to_string())
@@ -26,7 +25,6 @@ pub async fn get_token_instructions(lms_type: String) -> Result<String, AppError
 
 /// Open the LMS token generation page in the browser
 #[tauri::command]
-#[specta::specta]
 pub async fn open_token_url(base_url: String, lms_type: String) -> Result<(), AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     open_token_generation_url(&base_url, lms_type_enum)?;
@@ -35,7 +33,6 @@ pub async fn open_token_url(base_url: String, lms_type: String) -> Result<(), Ap
 
 /// Verify LMS course credentials and fetch course information
 #[tauri::command]
-#[specta::specta]
 pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<VerifyCourseResult, AppError> {
     let core_params = VerifyLmsParams {
         lms_type: params.lms_type.clone(),
@@ -54,7 +51,6 @@ pub async fn verify_lms_course(params: VerifyCourseParams) -> Result<VerifyCours
 
 /// Generate student files from an LMS course
 #[tauri::command]
-#[specta::specta]
 pub async fn generate_lms_files(
     params: GenerateFilesParams,
     progress: Channel<String>,
@@ -146,7 +142,6 @@ pub async fn generate_lms_files(
 
 /// Get group categories (group sets) for a course
 #[tauri::command]
-#[specta::specta]
 pub async fn get_group_categories(
     params: GetGroupCategoriesParams,
 ) -> Result<Vec<GroupCategory>, AppError> {

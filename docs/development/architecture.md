@@ -43,7 +43,7 @@ repo-edu/
 | shadcn/ui | Component library |
 | Tailwind CSS | Styling |
 | Vite | Build tool |
-| tauri-specta | Type-safe bindings |
+| JSON Schema + generator | Type-safe bindings |
 
 ### Backend
 
@@ -97,13 +97,13 @@ repo-edu/
 
 ### Type Safety Pipeline
 
-TypeScript bindings are auto-generated from Rust types:
+TypeScript bindings are auto-generated from JSON Schemas:
 
 ```text
-Rust structs → tauri-specta → bindings.ts → TypeScript
+JSON Schema → gen:bindings → bindings/types.ts + bindings/commands.ts → TypeScript
 ```
 
-After changing Rust types:
+After changing schemas:
 
 ```bash
 pnpm gen:bindings

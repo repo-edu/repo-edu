@@ -25,7 +25,7 @@ The Tauri desktop application binary.
 
 - **Type**: Binary
 - **Purpose**: Desktop GUI application
-- **Dependencies**: repo-manage-core, tauri, tauri-specta
+- **Dependencies**: repo-manage-core, tauri
 
 ### repo-manage-core
 

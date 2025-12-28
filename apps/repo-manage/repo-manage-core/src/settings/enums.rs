@@ -1,17 +1,8 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use crate::generated::types::{
+    ActiveTab, DirectoryLayout, GitServerType, LmsUrlOption, MemberOption, Theme,
+};
 use std::fmt;
 use std::str::FromStr;
-
-/// LMS URL preset options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
-#[serde(rename_all = "UPPERCASE")]
-#[derive(Default)]
-pub enum LmsUrlOption {
-    #[default]
-    TUE,
-    Custom,
-}
 
 impl fmt::Display for LmsUrlOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -32,20 +23,6 @@ impl FromStr for LmsUrlOption {
             _ => Err(format!("Unknown LMS URL option: {}", s)),
         }
     }
-}
-
-/// Member option for YAML generation
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type, Default,
-)]
-pub enum MemberOption {
-    #[serde(rename = "(email, gitid)")]
-    #[default]
-    EmailAndGitId,
-    #[serde(rename = "email")]
-    Email,
-    #[serde(rename = "git_id")]
-    GitId,
 }
 
 impl fmt::Display for MemberOption {
@@ -71,17 +48,6 @@ impl FromStr for MemberOption {
     }
 }
 
-/// Directory layout for cloned repositories
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum DirectoryLayout {
-    ByTeam,
-    #[default]
-    Flat,
-    ByTask,
-}
-
 impl fmt::Display for DirectoryLayout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -103,27 +69,6 @@ impl FromStr for DirectoryLayout {
             _ => Err(format!("Unknown directory layout: {}", s)),
         }
     }
-}
-
-/// Active tab in the GUI
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
-#[serde(rename_all = "lowercase")]
-#[derive(Default)]
-pub enum ActiveTab {
-    #[default]
-    Lms,
-    Repo,
-}
-
-/// UI theme
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type)]
-#[serde(rename_all = "lowercase")]
-#[derive(Default)]
-pub enum Theme {
-    Light,
-    Dark,
-    #[default]
-    System,
 }
 
 impl fmt::Display for Theme {
@@ -168,17 +113,6 @@ impl FromStr for ActiveTab {
             _ => Err(format!("Unknown active tab: {}", s)),
         }
     }
-}
-
-/// Git server types for repository management
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, specta::Type, Default,
-)]
-pub enum GitServerType {
-    GitHub,
-    #[default]
-    GitLab,
-    Gitea,
 }
 
 impl fmt::Display for GitServerType {
@@ -275,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_tab_serialize() {
+    fn test_active_tab_serialization() {
         let json = serde_json::to_string(&ActiveTab::Lms).unwrap();
         assert_eq!(json, "\"lms\"");
 
@@ -284,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_tab_deserialize() {
+    fn test_active_tab_deserialization() {
         let tab: ActiveTab = serde_json::from_str("\"lms\"").unwrap();
         assert_eq!(tab, ActiveTab::Lms);
 
@@ -316,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn test_git_server_type_serialize() {
+    fn test_git_server_type_serialization() {
         let json = serde_json::to_string(&GitServerType::GitHub).unwrap();
         assert_eq!(json, "\"GitHub\"");
 
@@ -325,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn test_git_server_type_deserialize() {
+    fn test_git_server_type_deserialization() {
         let server: GitServerType = serde_json::from_str("\"GitHub\"").unwrap();
         assert_eq!(server, GitServerType::GitHub);
 

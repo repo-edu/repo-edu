@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SettingsLoadResult",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "$ref": "./GuiSettings.schema.json",
+      "description": "The loaded settings (with defaults applied for invalid/missing values)"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Warnings about issues found in the settings file\n(unknown fields removed, invalid values replaced with defaults)"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "settings",
+    "warnings"
+  ],
+  "description": "Result of loading settings, including any warnings about corrected issues"
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsUrlOption",
+  "type": "string",
+  "enum": [
+    "TUE",
+    "CUSTOM"
+  ],
+  "x-enum-variants": {
+    "TUE": "TUE",
+    "CUSTOM": "Custom"
+  },
+  "x-rust": {
+    "default": "TUE",
+    "serde": {
+      "rename_all": "UPPERCASE"
+    }
+  },
+  "description": "LMS URL preset options"
+}

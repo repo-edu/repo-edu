@@ -97,13 +97,14 @@ The `redu` binary is at:
 
 ### Regenerating Type Bindings
 
-After modifying Rust types used in Tauri commands:
+After modifying JSON Schemas used by Tauri commands:
 
 ```bash
 pnpm gen:bindings
 ```
 
-This updates `apps/repo-manage/src/bindings.ts`.
+This updates `apps/repo-manage/src/bindings/types.ts` and
+`apps/repo-manage/src/bindings/commands.ts`.
 
 ### Testing
 
@@ -184,7 +185,7 @@ Ensure OpenSSL development headers are installed:
 - Fedora: `openssl-devel`
 - macOS: Usually included with Xcode
 
-### Type errors after Rust changes
+### Type errors after schema changes
 
 Regenerate bindings:
 

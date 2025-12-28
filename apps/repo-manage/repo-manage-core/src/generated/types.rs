@@ -1,0 +1,293 @@
+// DO NOT EDIT - Generated from schemas/types/*.schema.json
+// Run `pnpm gen:bindings` to regenerate.
+
+#![allow(dead_code)]
+#![allow(clippy::upper_case_acronyms)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ActiveTab {
+  #[serde(rename = "lms")]
+  #[default]
+  Lms,
+  #[serde(rename = "repo")]
+  Repo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppError {
+  pub message: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub details: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+  pub active_tab: ActiveTab,
+  #[serde(default)]
+  pub collapsed_sections: Vec<String>,
+  pub logging: LogSettings,
+  pub sidebar_open: bool,
+  pub theme: Theme,
+  pub window_height: u32,
+  pub window_width: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasConfig {
+  pub access_token: String,
+  pub base_url: String,
+  pub courses: Vec<CourseEntry>,
+  pub custom_url: String,
+  pub url_option: LmsUrlOption,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloneParams {
+  pub config: ConfigParams,
+  pub yaml_file: String,
+  pub assignments: String,
+  pub target_folder: String,
+  pub directory_layout: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandResult {
+  pub success: bool,
+  pub message: String,
+  pub details: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigParams {
+  pub access_token: String,
+  pub user: String,
+  pub base_url: String,
+  pub student_repos: String,
+  pub template: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CourseEntry {
+  pub id: String,
+  pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum DirectoryLayout {
+  #[serde(rename = "by-team")]
+  ByTeam,
+  #[serde(rename = "flat")]
+  #[default]
+  Flat,
+  #[serde(rename = "by-task")]
+  ByTask,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenerateFilesParams {
+  pub base_url: String,
+  pub access_token: String,
+  pub course_id: String,
+  pub lms_type: String,
+  pub yaml_file: String,
+  pub output_folder: String,
+  pub csv_file: String,
+  pub xlsx_file: String,
+  pub member_option: String,
+  pub include_group: bool,
+  pub include_member: bool,
+  pub include_initials: bool,
+  pub full_groups: bool,
+  pub csv: bool,
+  pub xlsx: bool,
+  pub yaml: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetGroupCategoriesParams {
+  pub base_url: String,
+  pub access_token: String,
+  pub course_id: String,
+  pub lms_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubConfig {
+  pub access_token: String,
+  pub user: String,
+  pub student_repos_org: String,
+  pub template_org: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLabConfig {
+  pub access_token: String,
+  pub base_url: String,
+  pub user: String,
+  pub student_repos_group: String,
+  pub template_group: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum GitServerType {
+  GitHub,
+  #[default]
+  GitLab,
+  Gitea,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitSettings {
+  pub gitea: GiteaConfig,
+  pub github: GitHubConfig,
+  pub gitlab: GitLabConfig,
+  #[serde(rename = "type")]
+  pub server_type: GitServerType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GiteaConfig {
+  pub access_token: String,
+  pub base_url: String,
+  pub user: String,
+  pub student_repos_group: String,
+  pub template_group: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupCategory {
+  pub id: String,
+  pub name: String,
+  pub role: Option<String>,
+  pub self_signup: Option<String>,
+  pub course_id: Option<String>,
+  pub group_limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuiSettings {
+  pub active_tab: ActiveTab,
+  #[serde(default)]
+  pub collapsed_sections: Vec<String>,
+  pub logging: LogSettings,
+  pub sidebar_open: bool,
+  pub theme: Theme,
+  pub window_height: u32,
+  pub window_width: u32,
+  pub git: GitSettings,
+  pub lms: LmsSettings,
+  pub repo: RepoSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsSettings {
+  pub canvas: CanvasConfig,
+  pub moodle: MoodleConfig,
+  pub r#type: String,
+  #[serde(default)]
+  pub active_course_index: u32,
+  pub csv_file: String,
+  pub full_groups: bool,
+  pub include_group: bool,
+  pub include_initials: bool,
+  pub include_member: bool,
+  pub member_option: MemberOption,
+  pub output_csv: bool,
+  pub output_folder: String,
+  pub output_xlsx: bool,
+  pub output_yaml: bool,
+  pub xlsx_file: String,
+  pub yaml_file: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum LmsUrlOption {
+  #[default]
+  TUE,
+  #[serde(rename = "CUSTOM")]
+  Custom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSettings {
+  pub debug: bool,
+  pub error: bool,
+  pub info: bool,
+  pub warning: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum MemberOption {
+  #[serde(rename = "(email, gitid)")]
+  #[default]
+  EmailAndGitId,
+  #[serde(rename = "email")]
+  Email,
+  #[serde(rename = "git_id")]
+  GitId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoodleConfig {
+  pub access_token: String,
+  pub base_url: String,
+  pub courses: Vec<CourseEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileSettings {
+  pub git: GitSettings,
+  pub lms: LmsSettings,
+  pub repo: RepoSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoSettings {
+  pub assignments: String,
+  pub directory_layout: DirectoryLayout,
+  pub target_folder: String,
+  pub yaml_file: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SettingsLoadResult {
+  pub settings: GuiSettings,
+  pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupParams {
+  pub config: ConfigParams,
+  pub yaml_file: String,
+  pub assignments: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+  #[serde(rename = "light")]
+  Light,
+  #[serde(rename = "dark")]
+  Dark,
+  #[serde(rename = "system")]
+  #[default]
+  System,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyCourseParams {
+  pub base_url: String,
+  pub access_token: String,
+  pub course_id: String,
+  pub lms_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyCourseResult {
+  pub course_id: String,
+  pub course_name: String,
+}

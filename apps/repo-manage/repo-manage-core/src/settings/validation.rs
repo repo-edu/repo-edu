@@ -1,7 +1,5 @@
-use super::common::{GitSettings, LmsSettings, ProfileSettings, RepoSettings};
-use super::enums::GitServerType;
 use super::error::{ConfigError, ConfigResult};
-use super::gui::GuiSettings;
+use super::{GitServerType, GitSettings, GuiSettings, LmsSettings, ProfileSettings, RepoSettings};
 use chrono::NaiveDate;
 use std::path::Path;
 
@@ -150,7 +148,7 @@ impl Validate for GuiSettings {
         // Validate profile settings
         if let Err(ConfigError::InvalidConfig {
             errors: profile_errors,
-        }) = self.profile.validate()
+        }) = self.profile_settings().validate()
         {
             for error in profile_errors {
                 errors.add(error);

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MemberOption",
+  "type": "string",
+  "enum": [
+    "(email, gitid)",
+    "email",
+    "git_id"
+  ],
+  "x-enum-variants": {
+    "(email, gitid)": "EmailAndGitId",
+    "email": "Email",
+    "git_id": "GitId"
+  },
+  "x-rust": {
+    "default": "(email, gitid)"
+  },
+  "description": "Member option for YAML generation"
+}

@@ -1,0 +1,260 @@
+{
+  "commands": {
+    "get_token_instructions": {
+      "description": "Get token generation instructions for an LMS type",
+      "input": [
+        {
+          "name": "lms_type",
+          "type": "String"
+        }
+      ],
+      "output": "String",
+      "error": "AppError"
+    },
+    "open_token_url": {
+      "description": "Open the LMS token generation page in the browser",
+      "input": [
+        {
+          "name": "base_url",
+          "type": "String"
+        },
+        {
+          "name": "lms_type",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "verify_lms_course": {
+      "description": "Verify LMS course credentials and fetch course information",
+      "input": [
+        {
+          "name": "params",
+          "type": "VerifyCourseParams"
+        }
+      ],
+      "output": "VerifyCourseResult",
+      "error": "AppError"
+    },
+    "generate_lms_files": {
+      "description": "Generate student files from an LMS course",
+      "input": [
+        {
+          "name": "params",
+          "type": "GenerateFilesParams"
+        },
+        {
+          "name": "progress",
+          "type": "Channel<String>"
+        }
+      ],
+      "output": "CommandResult",
+      "error": "AppError"
+    },
+    "get_group_categories": {
+      "description": "Get group categories (group sets) for a course",
+      "input": [
+        {
+          "name": "params",
+          "type": "GetGroupCategoriesParams"
+        }
+      ],
+      "output": "Vec<GroupCategory>",
+      "error": "AppError"
+    },
+    "verify_config": {
+      "description": "Verify platform configuration and authentication",
+      "input": [
+        {
+          "name": "params",
+          "type": "ConfigParams"
+        }
+      ],
+      "output": "CommandResult",
+      "error": "AppError"
+    },
+    "setup_repos": {
+      "description": "Create student repositories from templates",
+      "input": [
+        {
+          "name": "params",
+          "type": "SetupParams"
+        }
+      ],
+      "output": "CommandResult",
+      "error": "AppError"
+    },
+    "clone_repos": {
+      "description": "Clone student repositories (stub for now)",
+      "input": [
+        {
+          "name": "params",
+          "type": "CloneParams"
+        }
+      ],
+      "output": "CommandResult",
+      "error": "AppError"
+    },
+    "list_profiles": {
+      "description": "List all available profiles",
+      "input": [],
+      "output": "Vec<String>",
+      "error": "AppError"
+    },
+    "get_active_profile": {
+      "description": "Get the currently active profile",
+      "input": [],
+      "output": "Option<String>",
+      "error": "AppError"
+    },
+    "set_active_profile": {
+      "description": "Set the active profile",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "load_profile": {
+      "description": "Load a profile by name, returning any migration warnings",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "SettingsLoadResult",
+      "error": "AppError"
+    },
+    "save_profile": {
+      "description": "Save profile settings as a named profile (app settings are not touched)",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "settings",
+          "type": "ProfileSettings"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "delete_profile": {
+      "description": "Delete a profile by name",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "rename_profile": {
+      "description": "Rename a profile",
+      "input": [
+        {
+          "name": "old_name",
+          "type": "String"
+        },
+        {
+          "name": "new_name",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "load_settings": {
+      "description": "Load settings from disk with warnings for any corrected issues",
+      "input": [],
+      "output": "SettingsLoadResult",
+      "error": "AppError"
+    },
+    "load_app_settings": {
+      "description": "Load app-level settings (theme, window position, etc.)",
+      "input": [],
+      "output": "AppSettings",
+      "error": "AppError"
+    },
+    "save_app_settings": {
+      "description": "Save only app-level settings (theme, window position, etc.)",
+      "input": [
+        {
+          "name": "settings",
+          "type": "AppSettings"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "reset_settings": {
+      "description": "Reset settings to defaults",
+      "input": [],
+      "output": "GuiSettings",
+      "error": "AppError"
+    },
+    "get_default_settings": {
+      "description": "Get default settings (single source of truth from Rust)",
+      "input": [],
+      "output": "GuiSettings",
+      "error": null
+    },
+    "get_settings_path": {
+      "description": "Get settings file path",
+      "input": [],
+      "output": "String",
+      "error": "AppError"
+    },
+    "settings_exist": {
+      "description": "Check if settings file exists",
+      "input": [],
+      "output": "bool",
+      "error": "AppError"
+    },
+    "import_settings": {
+      "description": "Import settings from a specific file",
+      "input": [
+        {
+          "name": "path",
+          "type": "String"
+        }
+      ],
+      "output": "GuiSettings",
+      "error": "AppError"
+    },
+    "export_settings": {
+      "description": "Export settings to a specific file",
+      "input": [
+        {
+          "name": "settings",
+          "type": "GuiSettings"
+        },
+        {
+          "name": "path",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "get_settings_schema": {
+      "description": "Get the JSON schema for GuiSettings",
+      "input": [],
+      "output": "String",
+      "error": "AppError"
+    },
+    "load_settings_or_default": {
+      "description": "Load settings or return defaults (never fails)",
+      "input": [],
+      "output": "GuiSettings",
+      "error": "AppError"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ActiveTab",
+  "type": "string",
+  "enum": [
+    "lms",
+    "repo"
+  ],
+  "x-rust": {
+    "default": "lms",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Active tab in the GUI"
+}

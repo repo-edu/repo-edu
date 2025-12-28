@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SetupParams",
+  "type": "object",
+  "properties": {
+    "config": {
+      "$ref": "./ConfigParams.schema.json"
+    },
+    "yaml_file": {
+      "type": "string"
+    },
+    "assignments": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "config",
+    "yaml_file",
+    "assignments"
+  ]
+}

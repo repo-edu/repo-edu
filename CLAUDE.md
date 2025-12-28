@@ -36,8 +36,8 @@ pnpm typecheck            # Type check TS and Rust
 pnpm validate             # Run check + typecheck + test
 
 # Type Bindings (always use pnpm, never call cargo directly)
-pnpm gen:bindings         # Regenerate TS bindings (hash-based skip if unchanged)
-pnpm gen:bindings:force   # Force regeneration (bypass hash check)
+pnpm gen:bindings         # Regenerate TS + Rust bindings from JSON Schemas
+pnpm gen:bindings:force   # Alias of gen:bindings (no hash cache)
 
 # Documentation
 pnpm docs:dev             # Preview documentation locally
@@ -94,12 +94,13 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 ### Frontend Architecture (apps/repo-manage/src)
 
 - **stores/** - Zustand stores (`lmsFormStore`, `repoFormStore`, `uiStore`, `outputStore`)
-- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state
-  (`useDirtyState`, `useLoadSettings`)
+- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (
+  `useDirtyState`, `useLoadSettings`)
 - **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
   `settingsService`)
 - **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
-- **bindings.ts** - Auto-generated TypeScript bindings from Rust (via tauri-specta)
+- **bindings/types.ts** - Auto-generated TypeScript types from JSON Schemas
+- **bindings/commands.ts** - Auto-generated Tauri command wrappers
 
 ### Rust Backend Architecture (apps/repo-manage/src-tauri)
 
@@ -122,10 +123,9 @@ CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
 
 ### Type Flow
 
-Rust types → tauri-specta → bindings.ts → Frontend services → Zustand stores
+JSON Schema → `pnpm gen:bindings` → TS types + Rust DTOs → Frontend services → Zustand stores
 
-After changing Rust types, run `pnpm gen:bindings` to update TypeScript bindings.
-The script uses hash-based caching—it skips regeneration if input files haven't changed.
+After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 
 ## Code Conventions
 

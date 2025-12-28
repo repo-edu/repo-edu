@@ -1,14 +1,15 @@
 use super::atomic::atomic_write_json;
-use super::common::ProfileSettings;
 use super::error::{ConfigError, ConfigResult};
-use super::gui::{AppSettings, GuiSettings, SettingsLoadResult};
 use super::merge::merge_with_defaults_warned;
 use super::normalization::Normalize;
 use super::validation::Validate;
-use schemars::schema_for;
+use super::{AppSettings, GuiSettings, ProfileSettings, SettingsLoadResult};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+const GUI_SETTINGS_SCHEMA_JSON: &str =
+    include_str!("../../../schemas/types/GuiSettings.schema.json");
 
 /// Settings manager for loading, saving, and managing application settings
 pub struct SettingsManager {
@@ -81,9 +82,7 @@ impl SettingsManager {
 
     /// Validate JSON data against GuiSettings schema
     fn validate_gui_settings(&self, json_value: &Value) -> ConfigResult<Vec<String>> {
-        let schema = schema_for!(GuiSettings);
-        let schema_json = serde_json::to_value(&schema)
-            .map_err(|e| ConfigError::SchemaSerializationError { source: e })?;
+        let schema_json = Self::gui_settings_schema()?;
 
         let validator = jsonschema::validator_for(&schema_json).map_err(|e| {
             ConfigError::SchemaCompileError {
@@ -221,8 +220,11 @@ impl SettingsManager {
 
     /// Get the JSON Schema for GuiSettings
     pub fn get_schema() -> ConfigResult<Value> {
-        let schema = schema_for!(GuiSettings);
-        serde_json::to_value(&schema)
+        Self::gui_settings_schema()
+    }
+
+    fn gui_settings_schema() -> ConfigResult<Value> {
+        serde_json::from_str(GUI_SETTINGS_SCHEMA_JSON)
             .map_err(|e| ConfigError::SchemaSerializationError { source: e })
     }
 
@@ -429,7 +431,7 @@ impl SettingsManager {
     /// Save current settings as a named profile
     /// Only saves the profile settings, not app settings
     pub fn save_profile(&self, name: &str, settings: &GuiSettings) -> ConfigResult<()> {
-        self.save_profile_settings(name, &settings.profile)?;
+        self.save_profile_settings(name, &settings.profile_settings())?;
 
         // Set as active profile
         self.set_active_profile(name)?;
@@ -492,7 +494,7 @@ impl SettingsManager {
 
     /// Save settings to a specific file (for export)
     pub fn save_to(&self, settings: &GuiSettings, path: &Path) -> ConfigResult<()> {
-        settings.profile.validate()?;
+        settings.profile_settings().validate()?;
 
         let json_value =
             serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
@@ -545,7 +547,7 @@ impl SettingsManager {
             })?;
 
         settings.normalize();
-        settings.profile.validate()?;
+        settings.profile_settings().validate()?;
 
         Ok(settings)
     }
@@ -594,15 +596,9 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = GuiSettings::default();
-        assert_eq!(
-            settings.profile.lms.canvas.base_url,
-            "https://canvas.tue.nl"
-        );
-        assert_eq!(
-            settings.profile.git.gitlab.base_url,
-            "https://gitlab.tue.nl"
-        );
-        assert_eq!(settings.app.active_tab, crate::settings::ActiveTab::Lms);
+        assert_eq!(settings.lms.canvas.base_url, "https://canvas.tue.nl");
+        assert_eq!(settings.git.gitlab.base_url, "https://gitlab.tue.nl");
+        assert_eq!(settings.active_tab, crate::settings::ActiveTab::Lms);
     }
 
     #[test]
@@ -612,10 +608,10 @@ mod tests {
         let deserialized: GuiSettings = serde_json::from_str(&json).unwrap();
 
         assert_eq!(
-            settings.profile.lms.canvas.base_url,
-            deserialized.profile.lms.canvas.base_url
+            settings.lms.canvas.base_url,
+            deserialized.lms.canvas.base_url
         );
-        assert_eq!(settings.app.active_tab, deserialized.app.active_tab);
+        assert_eq!(settings.active_tab, deserialized.active_tab);
     }
 
     #[test]

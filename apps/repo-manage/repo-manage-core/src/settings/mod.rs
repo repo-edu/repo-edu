@@ -22,15 +22,14 @@ mod normalization;
 mod validation;
 
 // Public exports
+pub use crate::generated::types::{
+    ActiveTab, AppSettings, CourseEntry, DirectoryLayout, GitHubConfig, GitLabConfig,
+    GitServerType, GitSettings, GiteaConfig, GuiSettings, LmsSettings, LmsUrlOption, LogSettings,
+    MemberOption, ProfileSettings, RepoSettings, SettingsLoadResult, Theme,
+};
 pub use atomic::{atomic_write, atomic_write_json, atomic_write_string};
 pub use cli::CLIConfig;
-pub use common::{
-    CourseEntry, GitHubConfig, GitLabConfig, GitSettings, GiteaConfig, LmsSettings, LogSettings,
-    ProfileSettings, RepoSettings,
-};
-pub use enums::{ActiveTab, DirectoryLayout, GitServerType, LmsUrlOption, MemberOption, Theme};
 pub use error::{ConfigError, ConfigResult, Interface};
-pub use gui::{AppSettings, GuiSettings, SettingsLoadResult};
 pub use manager::SettingsManager;
 pub use merge::{merge_with_defaults, merge_with_defaults_warned, MergeResult};
 pub use normalization::{

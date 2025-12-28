@@ -7,7 +7,6 @@ use super::utils::canonicalize_dir;
 
 /// Verify platform configuration and authentication
 #[tauri::command]
-#[specta::specta]
 pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppError> {
     let verify_params = VerifyParams {
         platform_type: None, // Auto-detect from URL
@@ -40,7 +39,6 @@ pub async fn verify_config(params: ConfigParams) -> Result<CommandResult, AppErr
 
 /// Create student repositories from templates
 #[tauri::command]
-#[specta::specta]
 pub async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError> {
     // Parse YAML file to get student teams
     let yaml_content = std::fs::read_to_string(&params.yaml_file)
@@ -115,7 +113,6 @@ pub async fn setup_repos(params: SetupParams) -> Result<CommandResult, AppError>
 
 /// Clone student repositories (stub for now)
 #[tauri::command]
-#[specta::specta]
 pub async fn clone_repos(params: CloneParams) -> Result<CommandResult, AppError> {
     // Validate target folder exists before doing any work
     let _target_path = canonicalize_dir(&params.target_folder)

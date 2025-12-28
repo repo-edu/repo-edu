@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "types": [
+    {
+      "name": "ActiveTab",
+      "path": "./ActiveTab.schema.json"
+    },
+    {
+      "name": "AppError",
+      "path": "./AppError.schema.json"
+    },
+    {
+      "name": "AppSettings",
+      "path": "./AppSettings.schema.json"
+    },
+    {
+      "name": "CanvasConfig",
+      "path": "./CanvasConfig.schema.json"
+    },
+    {
+      "name": "CloneParams",
+      "path": "./CloneParams.schema.json"
+    },
+    {
+      "name": "CommandResult",
+      "path": "./CommandResult.schema.json"
+    },
+    {
+      "name": "ConfigParams",
+      "path": "./ConfigParams.schema.json"
+    },
+    {
+      "name": "CourseEntry",
+      "path": "./CourseEntry.schema.json"
+    },
+    {
+      "name": "DirectoryLayout",
+      "path": "./DirectoryLayout.schema.json"
+    },
+    {
+      "name": "GenerateFilesParams",
+      "path": "./GenerateFilesParams.schema.json"
+    },
+    {
+      "name": "GetGroupCategoriesParams",
+      "path": "./GetGroupCategoriesParams.schema.json"
+    },
+    {
+      "name": "GitHubConfig",
+      "path": "./GitHubConfig.schema.json"
+    },
+    {
+      "name": "GitLabConfig",
+      "path": "./GitLabConfig.schema.json"
+    },
+    {
+      "name": "GitServerType",
+      "path": "./GitServerType.schema.json"
+    },
+    {
+      "name": "GitSettings",
+      "path": "./GitSettings.schema.json"
+    },
+    {
+      "name": "GiteaConfig",
+      "path": "./GiteaConfig.schema.json"
+    },
+    {
+      "name": "GroupCategory",
+      "path": "./GroupCategory.schema.json"
+    },
+    {
+      "name": "GuiSettings",
+      "path": "./GuiSettings.schema.json"
+    },
+    {
+      "name": "LmsSettings",
+      "path": "./LmsSettings.schema.json"
+    },
+    {
+      "name": "LmsUrlOption",
+      "path": "./LmsUrlOption.schema.json"
+    },
+    {
+      "name": "LogSettings",
+      "path": "./LogSettings.schema.json"
+    },
+    {
+      "name": "MemberOption",
+      "path": "./MemberOption.schema.json"
+    },
+    {
+      "name": "MoodleConfig",
+      "path": "./MoodleConfig.schema.json"
+    },
+    {
+      "name": "ProfileSettings",
+      "path": "./ProfileSettings.schema.json"
+    },
+    {
+      "name": "RepoSettings",
+      "path": "./RepoSettings.schema.json"
+    },
+    {
+      "name": "SettingsLoadResult",
+      "path": "./SettingsLoadResult.schema.json"
+    },
+    {
+      "name": "SetupParams",
+      "path": "./SetupParams.schema.json"
+    },
+    {
+      "name": "Theme",
+      "path": "./Theme.schema.json"
+    },
+    {
+      "name": "VerifyCourseParams",
+      "path": "./VerifyCourseParams.schema.json"
+    },
+    {
+      "name": "VerifyCourseResult",
+      "path": "./VerifyCourseResult.schema.json"
+    }
+  ]
+}

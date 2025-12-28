@@ -1,9 +1,9 @@
-import {
-  type CommandResult,
-  type ConfigParams,
-  commands,
-  type SetupParams,
-} from "../bindings"
+import { commands } from "../bindings/commands"
+import type {
+  CommandResult,
+  ConfigParams,
+  SetupParams,
+} from "../bindings/types"
 import { type Strict, unwrap } from "./commandUtils"
 
 // Re-export for compatibility

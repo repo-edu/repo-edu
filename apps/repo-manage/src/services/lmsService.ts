@@ -1,12 +1,12 @@
 import type { Channel } from "@tauri-apps/api/core"
-import {
-  type CommandResult,
-  commands,
-  type GenerateFilesParams,
-  type GetGroupCategoriesParams,
-  type GroupCategory,
-  type VerifyCourseParams,
-} from "../bindings"
+import { commands } from "../bindings/commands"
+import type {
+  CommandResult,
+  GenerateFilesParams,
+  GetGroupCategoriesParams,
+  GroupCategory,
+  VerifyCourseParams,
+} from "../bindings/types"
 import { type Strict, unwrap } from "./commandUtils"
 
 // Re-export types for compatibility

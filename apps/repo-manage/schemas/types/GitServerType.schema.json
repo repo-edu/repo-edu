@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitServerType",
+  "type": "string",
+  "enum": [
+    "GitHub",
+    "GitLab",
+    "Gitea"
+  ],
+  "x-rust": {
+    "default": "GitLab"
+  },
+  "description": "Git server types for repository management"
+}

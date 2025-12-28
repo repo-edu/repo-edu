@@ -1,4 +1,4 @@
-use super::common::GitSettings;
+use super::GitSettings;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

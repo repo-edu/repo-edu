@@ -92,4 +92,5 @@ This crate depends on shared LMS crates in `crates/`:
 - `lms-common` — Common traits, types, error handling
 - `lms-client` — Unified LMS client (selects Canvas/Moodle at runtime)
 
-Type bindings flow: Changes here → run `pnpm gen:bindings` → updates `bindings.ts` in frontend.
+Type bindings flow: Changes here → update schemas → run `pnpm gen:bindings` → updates bindings in
+frontend.

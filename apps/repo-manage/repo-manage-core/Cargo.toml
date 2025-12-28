@@ -7,7 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-specta = { version = "2.0.0-rc.22", features = ["serde", "derive"] }
 # Async runtime
 tokio.workspace = true
 
@@ -38,7 +37,6 @@ dirs = "6.0"
 directories = "6.0"
 
 # JSON Schema generation and validation
-schemars = "1.1"
 jsonschema = "0.37"
 
 # Pattern matching for file paths

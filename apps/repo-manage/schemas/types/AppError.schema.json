@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AppError",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "User-friendly error message"
+    },
+    "details": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "x-rust": {
+        "serde": {
+          "skip_serializing_if": "Option::is_none"
+        }
+      },
+      "description": "Optional technical details for debugging"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "message"
+  ],
+  "description": "Unified error type for all Tauri commands"
+}
