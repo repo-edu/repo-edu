@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+This file provides guidance to AI coding assistants when working with code in this
 repository.
 
 See the root `/CLAUDE.md` for workspace-wide commands and code conventions.
@@ -19,6 +19,8 @@ pnpm dlx shadcn@latest add <component> --cwd packages/ui
 ```
 
 After adding, export the component from `src/index.ts`.
+
+Configuration: new-york style, zinc base color, CSS variables enabled, no RSC.
 
 ## Exports
 

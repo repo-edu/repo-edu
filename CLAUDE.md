@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+This file provides guidance to AI coding assistants when working with code in this
 repository.
 
 ## Build & Development Commands
@@ -30,17 +30,18 @@ pnpm test:rs -- -p repo-manage-core <name>    # Run specific Rust test
 
 # Linting & Formatting
 pnpm fmt                  # Format all (TS + Rust + Markdown)
-pnpm check                # Check all (Biome + Clippy + Markdown)
+pnpm check                # Check all (Biome + Clippy + Markdown + Schemas)
 pnpm fix                  # Fix all auto-fixable issues
 pnpm typecheck            # Type check TS and Rust
 pnpm validate             # Run check + typecheck + test
 
-# Type Bindings (always use pnpm, never call cargo directly)
+# Type Bindings
 pnpm gen:bindings         # Regenerate TS + Rust bindings from JSON Schemas
-pnpm gen:bindings:force   # Alias of gen:bindings (no hash cache)
+pnpm check:schemas        # Validate schemas + check coverage + command parity
 
 # Documentation
 pnpm docs:dev             # Preview documentation locally
+pnpm docs:build           # Build documentation site
 
 # CLI
 ./target/debug/redu --help            # Run CLI after building
@@ -127,9 +128,37 @@ JSON Schema → `pnpm gen:bindings` → TS types + Rust DTOs → Frontend servic
 
 After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 
+## Generated Code Policy
+
+**NEVER edit these files directly—they are regenerated from JSON Schemas:**
+
+- `apps/repo-manage/src/bindings/types.ts`
+- `apps/repo-manage/src/bindings/commands.ts`
+- `apps/repo-manage/src-tauri/src/generated/types.rs`
+- `apps/repo-manage/repo-manage-core/src/generated/types.rs`
+
+**To change types or commands:**
+
+1. Edit the JSON Schema in `apps/repo-manage/schemas/types/*.schema.json`
+2. For commands, edit `apps/repo-manage/schemas/commands/manifest.json`
+3. Run `pnpm gen:bindings` to regenerate all bindings
+
+The generator script is `scripts/gen-from-schema.ts`. See `apps/repo-manage/schemas/README.md`
+for schema conventions and the `x-rust` extension spec.
+
 ## Code Conventions
 
 - Uses Biome for JS/TS linting/formatting (double quotes, no semicolons except when needed)
 - Uses pnpm Catalogs for shared dependency versions (see `pnpm-workspace.yaml`)
 - Path alias `@/` maps to `apps/repo-manage/src/`
 - Path alias `@repo-edu/ui` maps to `packages/ui/src/`
+
+## Sub-Directory Documentation
+
+For detailed guidance on specific areas, see the CLAUDE.md files in:
+
+- `crates/CLAUDE.md` — LMS client crate architecture
+- `apps/repo-manage/repo-manage-core/CLAUDE.md` — Core library patterns
+- `apps/repo-manage/repo-manage-cli/CLAUDE.md` — CLI structure and testing
+- `apps/repo-manage/src-tauri/CLAUDE.md` — Tauri backend commands
+- `packages/ui/CLAUDE.md` — shadcn/ui component library

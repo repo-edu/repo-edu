@@ -33,10 +33,13 @@
         "fixture:create": "pnpm fixture:constraints && cd ../test-fixtures && claude /create-students-repo",
         "docs:dev": "pnpm --filter @repo-edu/docs dev",
         "docs:build": "pnpm --filter @repo-edu/docs build",
-        "docs:preview": "pnpm --filter @repo-edu/docs build &&pnpm --filter @repo-edu/docs preview"
+        "docs:preview": "pnpm --filter @repo-edu/docs build &&pnpm --filter @repo-edu/docs preview",
+        "claude2agents": "node scripts/claude2agents.mjs"
     },
     "devDependencies": {
+        "@types/node": "^22.0.0",
         "ajv": "catalog:",
+        "globby": "^14.0.0",
         "json-schema-to-typescript": "catalog:"
     }
 }

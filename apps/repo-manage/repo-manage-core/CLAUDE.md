@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+This file provides guidance to AI coding assistants when working with code in this
 repository.
 
 See the root `/CLAUDE.md` for workspace-wide commands and architecture overview.
@@ -84,6 +84,15 @@ Uses `thiserror` for error types:
 - `LmsError` — LMS operation errors (from `lms-common`)
 
 All public functions return `Result<T>` using the crate's error types.
+
+## Test Utilities
+
+The `test_utils` module (test-only) provides:
+
+- **Fixture builders**: `StudentTeamBuilder`, `TeamBuilder`, `RepoBuilder`, `PlatformParamsBuilder`
+- **Mock responses**: `gitlab_responses::*`, `github_responses::*`, `gitea_responses::*`
+- **Git helpers**: `create_test_git_repo()`, `create_bare_repo()`
+- **Assertions**: `assert_setup_success()`, `assert_setup_counts()`
 
 ## Dependencies
 

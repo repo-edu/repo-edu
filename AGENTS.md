@@ -1,57 +1,164 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Structure & Modules
+This file provides guidance to AI coding assistants when working with code in this
+repository.
 
-- Monorepo managed by `pnpm`; shared lockfile at root.
-- App: `apps/repo-manage/` — React + Tauri desktop client (`src` for UI, `src-tauri` for Rust
-  backend, `repo-manage-core`/ `repo-manage-cli` submodules).
-- UI library: `packages/ui/` — reusable React components (exports via `src/components/ui/*`).
-- Docs site: `docs/` — Vite-powered documentation; Markdown content under
-  `docs/{getting-started,user-guide,reference}`.
-- Tests live beside source using `.test.ts(x)` naming (e.g., `components/FormField.test.tsx`);
-  additional helpers in `apps/repo-manage/src/test/`.
+## Build & Development Commands
 
-## Build, Test, and Dev Commands
+All commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
+Use pnpm scripts exclusively—never raw cargo, npm, or npx commands.
 
-- `pnpm dev:repo-manage` — launch desktop app UI via Vite.
-- `pnpm tauri:repo-manage` — run Tauri shell for desktop integration.
-- `pnpm build:repo-manage` — type-check + Vite bundle for the app.
-- `pnpm docs:dev | docs:build | docs:preview` — docs site dev, static build, or preview.
-- `pnpm lint` / `pnpm lint:fix` — Biome lint (optional auto-fix).
-- `pnpm typecheck` — TypeScript `--noEmit` for UI + app.
-- `pnpm test` — run all package tests (Vitest in app).
-- `pnpm check` — lint + typecheck + tests in one go (run before commits/PRs).
+```bash
+# Development
+pnpm install              # Install all dependencies
+pnpm dev                  # Run desktop app in dev mode
 
-## Coding Style & Naming
+# Building
+pnpm cli:build            # Build debug CLI (binary: redu)
+pnpm cli:build:release    # Build release CLI
+pnpm tauri:build          # Build debug Tauri app (.app only)
+pnpm tauri:build:release  # Build release Tauri app (.app + .dmg)
 
-- Formatting and linting via Biome; prefer 2-space indent, trailing commas, semicolons as emitted by
-  `biome format`.
-- React components PascalCase; hooks start with `use*`; shared utilities in
-  `apps/repo-manage/src/utils`.
-- Test files mirror subject name with `.test.ts`/`.test.tsx`.
-- Markdown follows `markdownlint-cli2`; docs content lives in `docs/**/*.md`.
+# Testing
+pnpm test                 # Run all tests (TS + Rust)
+pnpm test:ts              # Run frontend tests (vitest)
+pnpm test:rs              # Run Rust tests
 
-## Testing Guidelines
+# Run single tests
+pnpm test:ts -- <pattern>                     # Run specific frontend test
+pnpm test:rs -- -p repo-manage-core <name>    # Run specific Rust test
 
-- Framework: Vitest with React Testing Library (`@testing-library/react`).
-- Keep unit tests colocated with components/adapters; use `test/` helpers for fixtures.
-- Name tests by behavior: `ComponentName.test.tsx` with descriptive `it("renders …")` blocks.
-- Aim to cover async LMS/git workflows and edge cases (invalid config, missing tokens).
-- For changes, run `pnpm test` and `pnpm check`; include new tests for regressions.
+# Linting & Formatting
+pnpm fmt                  # Format all (TS + Rust + Markdown)
+pnpm check                # Check all (Biome + Clippy + Markdown + Schemas)
+pnpm fix                  # Fix all auto-fixable issues
+pnpm typecheck            # Type check TS and Rust
+pnpm validate             # Run check + typecheck + test
 
-## Commit & Pull Request Guidelines
+# Type Bindings
+pnpm gen:bindings         # Regenerate TS + Rust bindings from JSON Schemas
+pnpm check:schemas        # Validate schemas + check coverage + command parity
 
-- Follow Conventional Commits (`type: concise subject`), mirroring recent history (`chore`, `test`,
-  etc.).
-- Keep commits scoped and focused; prefer smaller diffs over sweeping refactors.
-- PRs should include: summary of change, steps to reproduce/verify, checklist that `pnpm check`
-  passes, and screenshots/GIFs for UI changes.
-- Link related issues/tickets and note any config or migration steps (e.g., updates to
-  `pnpm-workspace.yaml` or settings paths like `~/.config/repo-manage/settings.json` on macOS).
+# Documentation
+pnpm docs:dev             # Preview documentation locally
+pnpm docs:build           # Build documentation site
 
-## Security & Configuration Tips
+# CLI
+./target/debug/redu --help            # Run CLI after building
+./target/debug/redu lms verify        # Example: verify LMS connection
+./target/debug/redu repo verify       # Example: verify git platform
+./target/debug/redu profile list      # Example: list profiles
+```
 
-- Do not commit secrets or LMS/Git tokens; use environment variables or OS keychain where possible.
-- Verify platform credentials with the in-app configuration before batch operations.
-- When adding dependencies, prefer `catalog:` versions in `pnpm-workspace.yaml` to avoid
-  duplication.
+## Architecture
+
+### Workspace Structure
+
+The repository uses two workspace systems:
+
+- **pnpm workspace** (root `pnpm-workspace.yaml`) — manages TypeScript packages
+- **Cargo workspace** (root `Cargo.toml`) — manages all Rust crates
+
+```bash
+repo-edu/
+├── Cargo.toml              # Rust workspace root
+├── Cargo.lock              # Shared lock file for all Rust crates
+├── package.json            # pnpm scripts (delegates to workspaces)
+├── pnpm-workspace.yaml     # TypeScript workspace config
+├── apps/
+│   └── repo-manage/        # Main Tauri desktop app
+│       ├── src/            # React frontend
+│       ├── src-tauri/      # Tauri Rust backend (workspace member)
+│       ├── repo-manage-core/   # Shared Rust library (workspace member)
+│       └── repo-manage-cli/    # CLI tool (workspace member)
+├── crates/                 # Shared Rust libraries
+│   ├── lms-common/         # Common LMS traits, types, error handling
+│   ├── lms-client/         # Unified LMS client (Canvas/Moodle selection)
+│   ├── canvas-lms/         # Canvas LMS API client
+│   └── moodle-lms/         # Moodle LMS API client
+└── packages/
+    └── ui/                 # Shared shadcn/ui components
+```
+
+### Shared Operations Layer
+
+The `repo-manage-core/src/operations/` module contains high-level operations shared between CLI
+and GUI:
+
+- `verify.rs` - Platform connection verification
+- `lms.rs` - LMS course verification and file generation
+- `setup.rs` - Student repository creation from templates
+- `clone.rs` - Repository cloning
+
+Both CLI and Tauri commands call these operations with a progress callback for status updates.
+
+### Frontend Architecture (apps/repo-manage/src)
+
+- **stores/** - Zustand stores (`lmsFormStore`, `repoFormStore`, `uiStore`, `outputStore`)
+- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (
+  `useDirtyState`, `useLoadSettings`)
+- **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
+  `settingsService`)
+- **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
+- **bindings/types.ts** - Auto-generated TypeScript types from JSON Schemas
+- **bindings/commands.ts** - Auto-generated Tauri command wrappers
+
+### Rust Backend Architecture (apps/repo-manage/src-tauri)
+
+- **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs)
+- **repo-manage-core/src/** - Core business logic
+  - **lms/** - Canvas/Moodle LMS client integration
+  - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
+  - **settings/** - Configuration management with JSON Schema validation
+  - **operations/** - Shared operations called by both CLI and GUI
+
+### CLI Structure (repo-manage-cli)
+
+The `redu` CLI uses clap with domain-based subcommands:
+
+- `redu lms verify|generate` - LMS operations
+- `redu repo verify|setup|clone` - Repository operations
+- `redu profile list|active|show|load` - Profile management
+
+CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
+
+### Type Flow
+
+JSON Schema → `pnpm gen:bindings` → TS types + Rust DTOs → Frontend services → Zustand stores
+
+After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
+
+## Generated Code Policy
+
+**NEVER edit these files directly—they are regenerated from JSON Schemas:**
+
+- `apps/repo-manage/src/bindings/types.ts`
+- `apps/repo-manage/src/bindings/commands.ts`
+- `apps/repo-manage/src-tauri/src/generated/types.rs`
+- `apps/repo-manage/repo-manage-core/src/generated/types.rs`
+
+**To change types or commands:**
+
+1. Edit the JSON Schema in `apps/repo-manage/schemas/types/*.schema.json`
+2. For commands, edit `apps/repo-manage/schemas/commands/manifest.json`
+3. Run `pnpm gen:bindings` to regenerate all bindings
+
+The generator script is `scripts/gen-from-schema.ts`. See `apps/repo-manage/schemas/README.md`
+for schema conventions and the `x-rust` extension spec.
+
+## Code Conventions
+
+- Uses Biome for JS/TS linting/formatting (double quotes, no semicolons except when needed)
+- Uses pnpm Catalogs for shared dependency versions (see `pnpm-workspace.yaml`)
+- Path alias `@/` maps to `apps/repo-manage/src/`
+- Path alias `@repo-edu/ui` maps to `packages/ui/src/`
+
+## Sub-Directory Documentation
+
+For detailed guidance on specific areas, see the AGENTS.md files in:
+
+- `crates/AGENTS.md` — LMS client crate architecture
+- `apps/repo-manage/repo-manage-core/AGENTS.md` — Core library patterns
+- `apps/repo-manage/repo-manage-cli/AGENTS.md` — CLI structure and testing
+- `apps/repo-manage/src-tauri/AGENTS.md` — Tauri backend commands
+- `packages/ui/AGENTS.md` — shadcn/ui component library

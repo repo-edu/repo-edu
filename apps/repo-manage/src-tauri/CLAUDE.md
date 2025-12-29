@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+This file provides guidance to AI coding assistants when working with code in this
 repository.
 
 This is the Tauri backend crate (`repo-manage-tauri`). See the root CLAUDE.md for workspace-wide
@@ -44,6 +44,15 @@ pub async fn my_command(
 
 Use `CommandError` from `error.rs` which wraps `repo-manage-core::PlatformError` and serializes for
 the frontend.
+
+## Menu Events
+
+Custom menu items emit events to the frontend via `window.emit()`:
+
+- `menu-save` — Triggered by Cmd+S / File → Save
+- `menu-keyboard-shortcuts` — Triggered by Help → Keyboard Shortcuts
+
+Frontend listens with `listen("menu-save", callback)`.
 
 ## Debugging
 

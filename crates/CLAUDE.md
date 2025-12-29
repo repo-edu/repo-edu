@@ -44,7 +44,8 @@ lms-client
 ### Key Patterns
 
 **Trait-based abstraction**: `lms-common` defines the `LmsClient` trait that both `canvas-lms` and
-`moodle-lms` implement. This allows generic code over any LMS.
+`moodle-lms` implement. This allows generic code over any LMS. There's also an `OAuth` trait for
+platforms supporting OAuth2 flows.
 
 ```rust
 use lms_common::LmsClient;
@@ -67,6 +68,11 @@ trait via delegation, enabling LMS selection at runtime without generics.
 3. Implement in both `canvas-lms/src/client.rs` and `moodle-lms/src/client.rs`
 4. Add delegation in `lms-client/src/client.rs`
 
+## Error Handling
+
+All crates use `LmsError` from `lms-common::error` with `LmsResult<T>` alias. Errors use `thiserror`
+and include variants for HTTP, API, auth, rate-limiting, and serialization errors.
+
 ## Feature Flags
 
-- `lms-common`: `secure-storage` — enables keyring-based token storage
+- `lms-common`: `secure-storage` — enables keyring-based token storage (uses system keychain)
