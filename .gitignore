@@ -1,6 +1,31 @@
 # Git, useful for VSCode and other tools
 .git/
 
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+*.swp
+.DS_Store
+
+# Test artifacts
+.test-config/
+
+# Claude
+.claude/settings.local.json
+
+# Planning files and notes
+.local/
+plan/
+
+# Binding generation cache
+.bindings-hash
+
+# Tools
+.rumdl_cache/
+
 # Dependencies
 node_modules/
 
@@ -11,29 +36,8 @@ site/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 
-# Environment
-.env
-.env.local
-
-# IDE
-.idea/
-*.swp
-.DS_Store
-
 # Logs
 *.log
-
-# Test artifacts
-.test-config/
-
-# Claude
-.claude/settings.local.json
-
-# Planning files and notes
-.local/
-
-# Binding generation cache
-.bindings-hash
 
 # Generated via pnpm claude2agents
 AGENTS.md
