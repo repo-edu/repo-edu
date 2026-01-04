@@ -16,21 +16,24 @@ describe("OutputConsole", () => {
   })
 
   it("displays output text from store", () => {
-    useOutputStore.getState().appendWithNewline("Test output line")
+    // Use new API - appendText adds structured lines
+    useOutputStore.getState().appendText("Test output line")
     render(<OutputConsole />)
     expect(screen.getByDisplayValue(/Test output line/)).toBeInTheDocument()
   })
 
   it("displays multiple lines", () => {
     const store = useOutputStore.getState()
-    store.appendWithNewline("Line 1")
-    store.appendWithNewline("Line 2")
-    store.appendWithNewline("Line 3")
+    // Use new API
+    store.appendText("Line 1")
+    store.appendText("Line 2")
+    store.appendText("Line 3")
 
     render(<OutputConsole />)
 
     const textarea = screen.getByRole("textbox")
-    expect(textarea).toHaveValue("Line 1\nLine 2\nLine 3\n")
+    // New store joins lines without trailing newline
+    expect(textarea).toHaveValue("Line 1\nLine 2\nLine 3")
   })
 
   it("textarea is readonly", () => {

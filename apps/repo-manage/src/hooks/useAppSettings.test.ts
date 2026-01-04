@@ -1,163 +1,74 @@
-import { act, renderHook } from "@testing-library/react"
-import { vi } from "vitest"
-import { DEFAULT_GUI_THEME, DEFAULT_LOG_LEVELS } from "../constants"
-import type { GuiSettings } from "../types/settings"
+import { renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it } from "vitest"
+import { useAppSettingsStore } from "../stores/appSettingsStore"
 import { useAppSettings } from "./useAppSettings"
 
-vi.mock("../services/settingsService")
-
-import * as settingsService from "../services/settingsService"
-
-const mockService = vi.mocked(settingsService)
-
-const existingAppSettings = {
-  theme: "light",
-  logging: { ...DEFAULT_LOG_LEVELS },
-  lms_connection: null,
-  git_connections: {},
-}
-
-const baseSettings: GuiSettings = {
-  git: {
-    type: "GitLab",
-    github: {
-      access_token: "",
-      user: "",
-      student_repos_org: "",
-      template_org: "",
-    },
-    gitlab: {
-      access_token: "",
-      base_url: "",
-      user: "",
-      student_repos_group: "",
-      template_group: "",
-    },
-    gitea: {
-      access_token: "",
-      base_url: "",
-      user: "",
-      student_repos_group: "",
-      template_group: "",
-    },
-  },
-  lms: {
-    canvas: {
-      access_token: "",
-      base_url: "",
-      courses: [],
-      custom_url: "",
-      url_option: "TUE",
-    },
-    moodle: {
-      access_token: "",
-      base_url: "",
-      courses: [],
-    },
-    type: "Canvas",
-    active_course_index: 0,
-    csv_file: "",
-    full_groups: false,
-    include_group: false,
-    include_initials: false,
-    include_member: false,
-    member_option: "(email, gitid)",
-    output_csv: false,
-    output_folder: "",
-    output_xlsx: false,
-    output_yaml: false,
-    xlsx_file: "",
-    yaml_file: "",
-  },
-  repo: {
-    yaml_file: "",
-    target_folder: "",
-    assignments: "",
-    directory_layout: "flat",
-  },
-  active_tab: "lms",
-  collapsed_sections: [],
-  theme: "system",
-  sidebar_open: false,
-  window_width: 1000,
-  window_height: 800,
-  logging: { ...DEFAULT_LOG_LEVELS },
-}
-
 beforeEach(() => {
-  vi.clearAllMocks()
-  mockService.loadAppSettings.mockResolvedValue(existingAppSettings)
-  mockService.saveAppSettings.mockResolvedValue(undefined)
+  // Reset store to initial state before each test
+  useAppSettingsStore.getState().reset()
 })
 
 describe("useAppSettings", () => {
-  it("is a no-op when currentGuiSettings is null", async () => {
-    const { result } = renderHook(() => useAppSettings({}))
-
-    await act(async () => {
-      await result.current.saveAppSettings()
-    })
-
-    expect(mockService.saveAppSettings).not.toHaveBeenCalled()
-    expect(mockService.loadAppSettings).not.toHaveBeenCalled()
+  it("returns theme from store", () => {
+    useAppSettingsStore.setState({ theme: "dark" })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.theme).toBe("dark")
   })
 
-  it("saves using defaults when theme/logging are missing", async () => {
-    const settings = {
-      ...baseSettings,
-      theme: null as unknown as "light",
-      logging: undefined as unknown as GuiSettings["logging"],
+  it("returns lmsConnection from store", () => {
+    const connection = {
+      lms_type: "canvas" as const,
+      base_url: "https://canvas.example.com",
+      access_token: "token",
     }
-    const getLogging = vi.fn(() => ({
-      info: true,
-      debug: true,
-      warning: true,
-      error: true,
-    }))
-    const { result } = renderHook(() =>
-      useAppSettings({
-        getLogging,
-      }),
-    )
-
-    act(() => {
-      result.current.setCurrentGuiSettings(settings)
-    })
-
-    await act(async () => {
-      await result.current.saveAppSettings()
-    })
-
-    expect(getLogging).toHaveBeenCalled()
-    expect(mockService.saveAppSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        theme: DEFAULT_GUI_THEME,
-        logging: getLogging(),
-        git_connections: existingAppSettings.git_connections,
-      }),
-    )
+    useAppSettingsStore.setState({ lmsConnection: connection })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.lmsConnection).toEqual(connection)
   })
 
-  it("merges overrides after computed settings", async () => {
-    const settings = { ...baseSettings }
-    const overrides = {
-      theme: "dark" as const,
+  it("returns gitConnections from store", () => {
+    const connections = {
+      "my-github": {
+        server_type: "GitHub" as const,
+        connection: {
+          access_token: "token",
+          base_url: null,
+          user: "user",
+        },
+        identity_mode: null,
+      },
     }
-    const { result } = renderHook(() => useAppSettings({}))
+    useAppSettingsStore.setState({ gitConnections: connections })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.gitConnections).toEqual(connections)
+  })
 
-    act(() => {
-      result.current.setCurrentGuiSettings(settings)
-    })
+  it("returns logging from store", () => {
+    const logging = { info: false, debug: true, warning: true, error: true }
+    useAppSettingsStore.setState({ logging })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.logging).toEqual(logging)
+  })
 
-    await act(async () => {
-      await result.current.saveAppSettings(overrides)
-    })
+  it("returns status from store", () => {
+    useAppSettingsStore.setState({ status: "loaded" })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.status).toBe("loaded")
+  })
 
-    expect(mockService.saveAppSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ...overrides,
-        git_connections: existingAppSettings.git_connections,
-      }),
-    )
+  it("returns error from store", () => {
+    useAppSettingsStore.setState({ error: "Test error" })
+    const { result } = renderHook(() => useAppSettings())
+    expect(result.current.error).toBe("Test error")
+  })
+
+  it("provides save function", () => {
+    const { result } = renderHook(() => useAppSettings())
+    expect(typeof result.current.save).toBe("function")
+  })
+
+  it("provides load function", () => {
+    const { result } = renderHook(() => useAppSettings())
+    expect(typeof result.current.load).toBe("function")
   })
 })

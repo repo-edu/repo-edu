@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GroupCategory, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, ValidationResult, VerifyCourseParams, VerifyCourseResult, Result } from "./types";
+import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, PathBuf, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -56,6 +56,127 @@ export const commands = {
   async getGroupCategories(params: GetGroupCategoriesParams) : Promise<Result<GroupCategory[], AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("get_group_categories", { params }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify LMS connection using app-level LMS connection
+   */
+  async verifyLmsConnection() : Promise<Result<LmsVerifyResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_lms_connection") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify draft LMS connection (before saving)
+   */
+  async verifyLmsConnectionDraft(connection: LmsConnection) : Promise<Result<LmsVerifyResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_lms_connection_draft", { connection }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Fetch courses from LMS (for profile creation)
+   */
+  async fetchLmsCourses() : Promise<Result<CourseInfo[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Fetch courses using draft connection (inline setup)
+   */
+  async fetchLmsCoursesDraft(connection: LmsConnection) : Promise<Result<CourseInfo[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses_draft", { connection }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Import students from LMS, merge into roster
+   */
+  async importStudentsFromLms(profile: string, roster: Roster | null) : Promise<Result<ImportStudentsResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("import_students_from_lms", { profile, roster }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Import students from CSV/Excel file
+   */
+  async importStudentsFromFile(profile: string, roster: Roster | null, filePath: PathBuf) : Promise<Result<ImportStudentsResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("import_students_from_file", { profile, roster, filePath }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Fetch available group-sets from LMS
+   */
+  async fetchLmsGroupSets(profile: string) : Promise<Result<LmsGroupSet[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_group_sets", { profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Import groups from LMS group-set into assignment
+   */
+  async importGroupsFromLms(profile: string, roster: Roster, assignmentId: AssignmentId, config: GroupImportConfig) : Promise<Result<ImportGroupsResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("import_groups_from_lms", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Check if assignment has existing groups
+   */
+  async assignmentHasGroups(roster: Roster, assignmentId: AssignmentId) : Promise<Result<boolean, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("assignment_has_groups", { roster, assignmentId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify named git connection
+   */
+  async verifyGitConnection(name: string) : Promise<Result<GitVerifyResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_git_connection", { name }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify draft git connection (before saving)
+   */
+  async verifyGitConnectionDraft(connection: GitConnection) : Promise<Result<GitVerifyResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_git_connection_draft", { connection }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
@@ -392,6 +513,83 @@ export const commands = {
   async checkStudentRemoval(profile: string, roster: Roster, studentId: StudentId) : Promise<Result<StudentRemovalCheck, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("check_student_removal", { profile, roster, studentId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Import git usernames from CSV
+   */
+  async importGitUsernames(profile: string, roster: Roster, csvPath: PathBuf) : Promise<Result<ImportGitUsernamesResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("import_git_usernames", { profile, roster, csvPath }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify git usernames exist on platform
+   */
+  async verifyGitUsernames(profile: string, roster: Roster, scope: UsernameVerificationScope) : Promise<Result<VerifyGitUsernamesResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_git_usernames", { profile, roster, scope }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Export teams to YAML for git operations
+   */
+  async exportTeams(profile: string, roster: Roster, assignmentId: AssignmentId, path: PathBuf) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("export_teams", { profile, roster, assignmentId, path }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Export all students to CSV/XLSX
+   */
+  async exportStudents(roster: Roster, path: PathBuf) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("export_students", { roster, path }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Export assignment students with group info
+   */
+  async exportAssignmentStudents(roster: Roster, assignmentId: AssignmentId, path: PathBuf) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("export_assignment_students", { roster, assignmentId, path }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Get coverage report (student distribution)
+   */
+  async getRosterCoverage(roster: Roster) : Promise<Result<CoverageReport, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("get_roster_coverage", { roster }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Export coverage report
+   */
+  async exportRosterCoverage(roster: Roster, path: PathBuf, format: CoverageExportFormat) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("export_roster_coverage", { roster, path, format }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };

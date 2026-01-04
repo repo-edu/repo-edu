@@ -102,7 +102,8 @@ pub async fn load_profile(name: String) -> Result<SettingsLoadResult, AppError> 
 
 /// Save profile settings as a named profile (app settings are not touched)
 #[tauri::command]
-pub async fn save_profile(name: String, mut profile: ProfileSettings) -> Result<(), AppError> {
+pub async fn save_profile(name: String, profile: ProfileSettings) -> Result<(), AppError> {
+    let mut profile = profile;
     let manager = SettingsManager::new()?;
     let existing = manager.load_profile_settings(&name)?;
     profile.course = existing.course;
@@ -126,9 +127,10 @@ pub async fn save_profile(name: String, mut profile: ProfileSettings) -> Result<
 #[tauri::command]
 pub async fn save_profile_and_roster(
     name: String,
-    mut profile: ProfileSettings,
+    profile: ProfileSettings,
     roster: Option<Roster>,
 ) -> Result<(), AppError> {
+    let mut profile = profile;
     let manager = SettingsManager::new()?;
     let existing = manager.load_profile_settings(&name)?;
     profile.course = existing.course;

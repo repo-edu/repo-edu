@@ -216,6 +216,16 @@ impl GiteaAPI {
         }
         self.org_name.clone()
     }
+
+    pub async fn check_username(&self, username: &str) -> Result<()> {
+        let _: GiteaUser = self.get(&format!("/users/{}", username)).await?;
+        Ok(())
+    }
+
+    pub async fn get_authenticated_username(&self) -> Result<String> {
+        let user: GiteaUser = self.get("/user").await?;
+        Ok(user.login)
+    }
 }
 
 impl PlatformAPI for GiteaAPI {

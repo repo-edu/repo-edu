@@ -5,6 +5,7 @@
 
 pub mod error;
 mod generated;
+pub mod import;
 pub mod lms;
 pub mod operations;
 pub mod platform;
@@ -57,6 +58,15 @@ pub use settings::{
     Interface, LmsConnection, LogSettings, MemberOption, Normalize, OperationConfigs,
     PathValidationMode, PlatformConnection, ProfileSettings, SettingsLoadResult, SettingsManager,
     Theme, Validate, ValidationErrors,
+};
+
+// Generated types used by Tauri commands
+pub use generated::types::{
+    CoverageExportFormat, CoverageReport, GitUsernameImportSummary, GitVerifyResult, GroupFilter,
+    GroupImportConfig, GroupImportSummary, ImportGitUsernamesResult, ImportGroupsResult,
+    ImportStudentsResult, ImportSummary, InvalidUsername, LmsGroup, LmsGroupSet, LmsIdConflict,
+    LmsVerifyResult, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    UsernameVerificationScope, VerifyGitUsernamesResult,
 };
 
 // Test utilities (only available in test builds)

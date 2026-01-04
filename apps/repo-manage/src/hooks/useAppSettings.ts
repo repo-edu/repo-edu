@@ -1,79 +1,58 @@
 /**
- * App settings hook - owns current GUI settings and saving app-level prefs.
+ * App settings hook - provides access to app-level settings from the store.
  *
- * Centralizes:
- * - currentGuiSettings state
- * - saving app settings (theme, logging)
- *
- * Storage-layer conversions (snake/camel) remain in adapters; this hook just persists.
+ * Wraps the appSettingsStore for convenient access in components.
  */
 
-import { useCallback, useState } from "react"
-import { DEFAULT_GUI_THEME, DEFAULT_LOG_LEVELS } from "../constants"
-import * as settingsService from "../services/settingsService"
-import type { AppSettings, GuiSettings } from "../types/settings"
+import { useCallback } from "react"
+import { useAppSettingsStore } from "../stores/appSettingsStore"
 
-interface UseAppSettingsOptions {
-  /** Supplies latest logging flags when not present in currentGuiSettings */
-  getLogging?: () => {
-    info: boolean
-    debug: boolean
-    warning: boolean
-    error: boolean
-  }
-}
+import type {
+  GitConnection,
+  LmsConnection,
+  LogSettings,
+  Theme,
+} from "../bindings/types"
+
+type StoreStatus = "loading" | "loaded" | "saving" | "error"
 
 export interface UseAppSettingsReturn {
-  currentGuiSettings: GuiSettings | null
-  setCurrentGuiSettings: (settings: GuiSettings | null) => void
-  saveAppSettings: (overrides?: Partial<AppSettings>) => Promise<void>
+  theme: Theme
+  lmsConnection: LmsConnection | null
+  gitConnections: Record<string, GitConnection>
+  logging: LogSettings
+  status: StoreStatus
+  error: string | null
+  save: () => Promise<void>
+  load: () => Promise<void>
 }
 
-export function useAppSettings(
-  options: UseAppSettingsOptions,
-): UseAppSettingsReturn {
-  const { getLogging } = options
-  const [currentGuiSettings, setCurrentGuiSettings] =
-    useState<GuiSettings | null>(null)
+export function useAppSettings(): UseAppSettingsReturn {
+  const theme = useAppSettingsStore((state) => state.theme)
+  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const gitConnections = useAppSettingsStore((state) => state.gitConnections)
+  const logging = useAppSettingsStore((state) => state.logging)
+  const status = useAppSettingsStore((state) => state.status)
+  const error = useAppSettingsStore((state) => state.error)
+  const storeSave = useAppSettingsStore((state) => state.save)
+  const storeLoad = useAppSettingsStore((state) => state.load)
 
-  const saveAppSettings = useCallback(
-    async (overrides?: Partial<AppSettings>) => {
-      if (!currentGuiSettings) return
-      const resolvedLogging =
-        currentGuiSettings.logging ??
-        (getLogging ? getLogging() : { ...DEFAULT_LOG_LEVELS })
-      const resolvedTheme = currentGuiSettings.theme ?? DEFAULT_GUI_THEME
+  const save = useCallback(async () => {
+    await storeSave()
+  }, [storeSave])
 
-      try {
-        const existing = (await settingsService
-          .loadAppSettings()
-          .catch(() => null)) ?? {
-          theme: resolvedTheme,
-          logging: resolvedLogging,
-          lms_connection: null,
-          git_connections: {},
-        }
-        const lmsConnection = existing.lms_connection ?? null
-        const gitConnections = existing.git_connections ?? {}
-
-        await settingsService.saveAppSettings({
-          ...existing,
-          theme: resolvedTheme,
-          logging: resolvedLogging,
-          lms_connection: lmsConnection,
-          git_connections: gitConnections,
-          ...overrides,
-        })
-      } catch (error) {
-        console.error("Failed to save app settings:", error)
-      }
-    },
-    [currentGuiSettings, getLogging],
-  )
+  const load = useCallback(async () => {
+    await storeLoad()
+  }, [storeLoad])
 
   return {
-    currentGuiSettings,
-    setCurrentGuiSettings,
-    saveAppSettings,
+    theme,
+    lmsConnection,
+    gitConnections,
+    logging,
+    status,
+    error,
+    save,
+    load,
   }
 }

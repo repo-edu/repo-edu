@@ -64,6 +64,145 @@
       "output": "Vec<GroupCategory>",
       "error": "AppError"
     },
+    "verify_lms_connection": {
+      "description": "Verify LMS connection using app-level LMS connection",
+      "input": [],
+      "output": "LmsVerifyResult",
+      "error": "AppError"
+    },
+    "verify_lms_connection_draft": {
+      "description": "Verify draft LMS connection (before saving)",
+      "input": [
+        {
+          "name": "connection",
+          "type": "LmsConnection"
+        }
+      ],
+      "output": "LmsVerifyResult",
+      "error": "AppError"
+    },
+    "fetch_lms_courses": {
+      "description": "Fetch courses from LMS (for profile creation)",
+      "input": [],
+      "output": "Vec<CourseInfo>",
+      "error": "AppError"
+    },
+    "fetch_lms_courses_draft": {
+      "description": "Fetch courses using draft connection (inline setup)",
+      "input": [
+        {
+          "name": "connection",
+          "type": "LmsConnection"
+        }
+      ],
+      "output": "Vec<CourseInfo>",
+      "error": "AppError"
+    },
+    "import_students_from_lms": {
+      "description": "Import students from LMS, merge into roster",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Option<Roster>"
+        }
+      ],
+      "output": "ImportStudentsResult",
+      "error": "AppError"
+    },
+    "import_students_from_file": {
+      "description": "Import students from CSV/Excel file",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Option<Roster>"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "ImportStudentsResult",
+      "error": "AppError"
+    },
+    "fetch_lms_group_sets": {
+      "description": "Fetch available group-sets from LMS",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        }
+      ],
+      "output": "Vec<LmsGroupSet>",
+      "error": "AppError"
+    },
+    "import_groups_from_lms": {
+      "description": "Import groups from LMS group-set into assignment",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "GroupImportConfig"
+        }
+      ],
+      "output": "ImportGroupsResult",
+      "error": "AppError"
+    },
+    "assignment_has_groups": {
+      "description": "Check if assignment has existing groups",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        }
+      ],
+      "output": "bool",
+      "error": "AppError"
+    },
+    "verify_git_connection": {
+      "description": "Verify named git connection",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "GitVerifyResult",
+      "error": "AppError"
+    },
+    "verify_git_connection_draft": {
+      "description": "Verify draft git connection (before saving)",
+      "input": [
+        {
+          "name": "connection",
+          "type": "GitConnection"
+        }
+      ],
+      "output": "GitVerifyResult",
+      "error": "AppError"
+    },
     "verify_config": {
       "description": "Verify platform configuration and authentication",
       "input": [
@@ -384,6 +523,131 @@
         }
       ],
       "output": "StudentRemovalCheck",
+      "error": "AppError"
+    },
+    "import_git_usernames": {
+      "description": "Import git usernames from CSV",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "csv_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "ImportGitUsernamesResult",
+      "error": "AppError"
+    },
+    "verify_git_usernames": {
+      "description": "Verify git usernames exist on platform",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "scope",
+          "type": "UsernameVerificationScope"
+        }
+      ],
+      "output": "VerifyGitUsernamesResult",
+      "error": "AppError"
+    },
+    "export_teams": {
+      "description": "Export teams to YAML for git operations",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "export_students": {
+      "description": "Export all students to CSV/XLSX",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "export_assignment_students": {
+      "description": "Export assignment students with group info",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "get_roster_coverage": {
+      "description": "Get coverage report (student distribution)",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        }
+      ],
+      "output": "CoverageReport",
+      "error": "AppError"
+    },
+    "export_roster_coverage": {
+      "description": "Export coverage report",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "path",
+          "type": "PathBuf"
+        },
+        {
+          "name": "format",
+          "type": "CoverageExportFormat"
+        }
+      ],
+      "output": "()",
       "error": "AppError"
     },
     "validate_roster": {

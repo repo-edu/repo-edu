@@ -61,6 +61,7 @@
       "type": "object",
       "properties": {
         "type": { "type": "string" },
+        "newtype": { "type": "boolean" },
         "field": { "type": "string" },
         "default": { "type": "string" },
         "serde": {

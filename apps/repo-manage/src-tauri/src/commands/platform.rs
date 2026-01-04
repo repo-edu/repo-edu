@@ -1,5 +1,9 @@
 use crate::error::AppError;
-use repo_manage_core::{SetupParams as CoreSetupParams, StudentTeam, VerifyParams};
+use repo_manage_core::platform::{GitHubAPI, GitLabAPI, GiteaAPI};
+use repo_manage_core::{
+    GitConnection, GitServerType, GitVerifyResult, SettingsManager, SetupParams as CoreSetupParams,
+    StudentTeam, VerifyParams,
+};
 use std::path::PathBuf;
 
 use super::types::{CloneParams, CommandResult, ConfigParams, SetupParams};
@@ -120,4 +124,76 @@ pub async fn clone_repos(params: CloneParams) -> Result<CommandResult, AppError>
 
     // TODO: Implement clone functionality
     Err(AppError::new("Clone functionality not yet implemented"))
+}
+
+#[tauri::command]
+pub async fn verify_git_connection(name: String) -> Result<GitVerifyResult, AppError> {
+    let manager = SettingsManager::new()?;
+    let settings = manager.load_app_settings()?;
+    let connection = settings
+        .git_connections
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| AppError::new("Git connection not found"))?;
+    verify_git_connection_with(&connection).await
+}
+
+#[tauri::command]
+pub async fn verify_git_connection_draft(
+    connection: GitConnection,
+) -> Result<GitVerifyResult, AppError> {
+    verify_git_connection_with(&connection).await
+}
+
+async fn verify_git_connection_with(
+    connection: &GitConnection,
+) -> Result<GitVerifyResult, AppError> {
+    let base_url = match connection.server_type {
+        GitServerType::GitHub => connection
+            .connection
+            .base_url
+            .clone()
+            .unwrap_or_else(|| "https://github.com".to_string()),
+        GitServerType::GitLab | GitServerType::Gitea => connection
+            .connection
+            .base_url
+            .clone()
+            .ok_or_else(|| AppError::new("Git connection base URL is required"))?,
+    };
+
+    let username = match connection.server_type {
+        GitServerType::GitHub => {
+            let api = GitHubAPI::new(
+                base_url.clone(),
+                connection.connection.access_token.clone(),
+                String::new(),
+                connection.connection.user.clone(),
+            )?;
+            api.get_authenticated_username().await?
+        }
+        GitServerType::GitLab => {
+            let api = GitLabAPI::new(
+                base_url.clone(),
+                connection.connection.access_token.clone(),
+                String::new(),
+                connection.connection.user.clone(),
+            )?;
+            api.get_authenticated_username().await?
+        }
+        GitServerType::Gitea => {
+            let api = GiteaAPI::new(
+                base_url,
+                connection.connection.access_token.clone(),
+                String::new(),
+                connection.connection.user.clone(),
+            )?;
+            api.get_authenticated_username().await?
+        }
+    };
+
+    Ok(GitVerifyResult {
+        success: true,
+        message: format!("Connected as @{}", username),
+        username: Some(username),
+    })
 }

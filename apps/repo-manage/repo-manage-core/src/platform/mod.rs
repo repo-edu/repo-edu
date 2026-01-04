@@ -19,6 +19,13 @@ pub use local::LocalAPI;
 // Re-export factory
 pub use factory::{create_platform, PlatformParams, PlatformType};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsernameCheck {
+    Found,
+    NotFound,
+    Blocked,
+}
+
 // ============================================================================
 // Platform Enum (Enum + Trait Pattern)
 // ============================================================================
@@ -55,6 +62,25 @@ impl Platform {
     /// Create a new Local (filesystem-based) platform instance
     pub fn local(base_dir: PathBuf, org_name: String, user: String) -> Result<Self> {
         Ok(Self::Local(LocalAPI::new(base_dir, org_name, user)?))
+    }
+
+    pub async fn check_username(&self, username: &str) -> Result<UsernameCheck> {
+        match self {
+            Platform::GitHub(api) => match api.check_username(username).await {
+                Ok(()) => Ok(UsernameCheck::Found),
+                Err(crate::PlatformError::NotFound(_)) => Ok(UsernameCheck::NotFound),
+                Err(err) => Err(err),
+            },
+            Platform::GitLab(api) => api.check_username(username).await,
+            Platform::Gitea(api) => match api.check_username(username).await {
+                Ok(()) => Ok(UsernameCheck::Found),
+                Err(crate::PlatformError::NotFound(_)) => Ok(UsernameCheck::NotFound),
+                Err(err) => Err(err),
+            },
+            Platform::Local(_) => Err(crate::PlatformError::Other(
+                "Username verification is not supported for local platforms".to_string(),
+            )),
+        }
     }
 }
 

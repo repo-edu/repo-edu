@@ -1,78 +1,103 @@
 /**
- * Dirty state tracking hook - tracks whether form state has changed from baseline
+ * Dirty state tracking hook - tracks whether profile/roster state has changed.
  *
  * Uses hash-based comparison for efficient dirty checking without deep equality.
  * Provides methods to mark state as clean (after save) or reset baseline.
+ *
+ * Tracks:
+ * - profileSettingsStore changes (gitConnection, operations, exports)
+ * - rosterStore changes (students, assignments, groups)
+ *
+ * Does NOT track:
+ * - course (immutable after profile creation)
+ * - appSettings (auto-saved separately)
  */
 
-import { useCallback, useState } from "react"
+import { useCallback, useRef } from "react"
+import { useProfileSettingsStore } from "../stores/profileSettingsStore"
+import { useRosterStore } from "../stores/rosterStore"
 import { hashSnapshot } from "../utils/snapshot"
 
 export interface DirtyStateHashes {
-  lms: number
-  repo: number
-}
-
-export interface UseDirtyStateOptions {
-  /** Get current LMS form state */
-  getLmsState: () => unknown
-  /** Get current repo form state */
-  getRepoState: () => unknown
+  profileSettings: number
+  roster: number
 }
 
 export interface UseDirtyStateReturn {
-  /** Whether any form has unsaved changes */
+  /** Whether profile or roster has unsaved changes */
   isDirty: boolean
-  /** Current baseline hashes */
-  lastSavedHashes: DirtyStateHashes
   /** Update baseline hashes (call after saving) */
   markClean: () => void
-  /** Set specific baseline hashes (for external control) */
-  setBaselines: (hashes: DirtyStateHashes) => void
   /** Force dirty state by invalidating baselines */
   forceDirty: () => void
 }
 
 /**
+ * Get saveable profile settings state (excludes course which is immutable)
+ */
+function getSaveableProfileState() {
+  const state = useProfileSettingsStore.getState()
+  return {
+    gitConnection: state.gitConnection,
+    operations: state.operations,
+    exports: state.exports,
+  }
+}
+
+/**
+ * Get roster state for dirty tracking
+ */
+function getRosterState() {
+  const state = useRosterStore.getState()
+  return state.roster
+}
+
+/**
  * Hook to track dirty state using hash comparison
  */
-export function useDirtyState(
-  options: UseDirtyStateOptions,
-): UseDirtyStateReturn {
-  const { getLmsState, getRepoState } = options
+export function useDirtyState(): UseDirtyStateReturn {
+  // Use refs to track baseline hashes
+  const lastSavedHashesRef = useRef<DirtyStateHashes>({
+    profileSettings: hashSnapshot(getSaveableProfileState()),
+    roster: hashSnapshot(getRosterState()),
+  })
 
-  const [lastSavedHashes, setLastSavedHashes] = useState<DirtyStateHashes>(
-    () => ({
-      lms: hashSnapshot(getLmsState()),
-      repo: hashSnapshot(getRepoState()),
-    }),
-  )
+  // Get current state from stores
+  const gitConnection = useProfileSettingsStore((state) => state.gitConnection)
+  const operations = useProfileSettingsStore((state) => state.operations)
+  const exports = useProfileSettingsStore((state) => state.exports)
+  const roster = useRosterStore((state) => state.roster)
 
-  // Simple dirty check - compare current hashes to baseline
+  // Compute current hashes
+  const currentProfileHash = hashSnapshot({
+    gitConnection,
+    operations,
+    exports,
+  })
+  const currentRosterHash = hashSnapshot(roster)
+
+  // Compare current state to baseline
   const isDirty =
-    hashSnapshot(getLmsState()) !== lastSavedHashes.lms ||
-    hashSnapshot(getRepoState()) !== lastSavedHashes.repo
+    currentProfileHash !== lastSavedHashesRef.current.profileSettings ||
+    currentRosterHash !== lastSavedHashesRef.current.roster
 
   const markClean = useCallback(() => {
-    setLastSavedHashes({
-      lms: hashSnapshot(getLmsState()),
-      repo: hashSnapshot(getRepoState()),
-    })
-  }, [getLmsState, getRepoState])
-
-  const setBaselines = useCallback((hashes: DirtyStateHashes) => {
-    setLastSavedHashes(hashes)
+    lastSavedHashesRef.current = {
+      profileSettings: hashSnapshot(getSaveableProfileState()),
+      roster: hashSnapshot(getRosterState()),
+    }
   }, [])
 
   const forceDirty = useCallback(() => {
-    setLastSavedHashes({ lms: 0, repo: 0 })
+    lastSavedHashesRef.current = {
+      profileSettings: 0,
+      roster: 0,
+    }
   }, [])
 
   return {
     isDirty,
-    lastSavedHashes,
     markClean,
-    setBaselines,
     forceDirty,
   }
 }

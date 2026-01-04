@@ -33,6 +33,7 @@ struct GitLabGroup {
 struct GitLabUser {
     id: u64,
     username: String,
+    state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,6 +133,25 @@ impl GitLabAPI {
             auth_user: "oauth2".to_string(),
         };
         Ok(api)
+    }
+
+    pub async fn check_username(&self, username: &str) -> Result<crate::platform::UsernameCheck> {
+        let users = self.get_users_by_username(username).await?;
+        if users.is_empty() {
+            return Ok(crate::platform::UsernameCheck::NotFound);
+        }
+        if users
+            .iter()
+            .any(|user| user.state.as_deref() == Some("blocked"))
+        {
+            return Ok(crate::platform::UsernameCheck::Blocked);
+        }
+        Ok(crate::platform::UsernameCheck::Found)
+    }
+
+    pub async fn get_authenticated_username(&self) -> Result<String> {
+        let user: GitLabAuthUser = self.get("/user").await?;
+        Ok(user.username)
     }
 
     fn encode_path(path: &str) -> String {

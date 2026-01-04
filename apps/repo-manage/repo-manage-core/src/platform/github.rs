@@ -282,6 +282,16 @@ impl GitHubAPI {
             .await?;
         Ok(members.into_iter().map(|m| m.login).collect())
     }
+
+    pub async fn check_username(&self, username: &str) -> Result<()> {
+        let _: GitHubUser = self.get(&format!("/users/{}", username)).await?;
+        Ok(())
+    }
+
+    pub async fn get_authenticated_username(&self) -> Result<String> {
+        let user: GitHubUser = self.get("/user").await?;
+        Ok(user.login)
+    }
 }
 
 impl PlatformAPI for GitHubAPI {

@@ -153,6 +153,13 @@ pub fn run() {
             commands::roster::get_roster,
             commands::roster::clear_roster,
             commands::roster::check_student_removal,
+            commands::roster::import_git_usernames,
+            commands::roster::verify_git_usernames,
+            commands::roster::export_teams,
+            commands::roster::export_students,
+            commands::roster::export_assignment_students,
+            commands::roster::get_roster_coverage,
+            commands::roster::export_roster_coverage,
             // Validation commands
             commands::validation::validate_roster,
             commands::validation::validate_assignment,
@@ -162,10 +169,21 @@ pub fn run() {
             commands::lms::verify_lms_course,
             commands::lms::generate_lms_files,
             commands::lms::get_group_categories,
+            commands::lms::verify_lms_connection,
+            commands::lms::verify_lms_connection_draft,
+            commands::lms::fetch_lms_courses,
+            commands::lms::fetch_lms_courses_draft,
+            commands::lms::import_students_from_lms,
+            commands::lms::import_students_from_file,
+            commands::lms::fetch_lms_group_sets,
+            commands::lms::import_groups_from_lms,
+            commands::lms::assignment_has_groups,
             // Platform commands
             commands::platform::verify_config,
             commands::platform::setup_repos,
             commands::platform::clone_repos,
+            commands::platform::verify_git_connection,
+            commands::platform::verify_git_connection_draft,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

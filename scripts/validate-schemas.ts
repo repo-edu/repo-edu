@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import Ajv from "ajv"
+import Ajv2020 from "ajv/dist/2020"
 
 type LintIssue = {
   file: string
@@ -124,7 +124,7 @@ function lintSchema(path: string, schema: SchemaForLinting): LintIssue[] {
 }
 
 function main(): void {
-  const ajv = new Ajv({ allErrors: true, strict: false })
+  const ajv = new Ajv2020({ allErrors: true, strict: false })
 
   const typeMetaPath = resolve(metaDir, "types.schema.json")
   const indexMetaPath = resolve(metaDir, "index.schema.json")
