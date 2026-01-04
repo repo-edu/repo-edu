@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, CloneParams, CommandResult, ConfigParams, GenerateFilesParams, GetGroupCategoriesParams, GroupCategory, ProfileSettings, SettingsLoadResult, SetupParams, VerifyCourseParams, VerifyCourseResult, Result } from "./types";
+import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GroupCategory, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, ValidationResult, VerifyCourseParams, VerifyCourseResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -141,9 +141,20 @@ export const commands = {
   /**
    * Save profile settings as a named profile (app settings are not touched)
    */
-  async saveProfile(name: string, settings: ProfileSettings) : Promise<Result<null, AppError>> {
+  async saveProfile(name: string, profile: ProfileSettings) : Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("save_profile", { name, settings }) };
+      return { status: "ok", data: await TAURI_INVOKE("save_profile", { name, profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Save profile settings and roster together (atomic)
+   */
+  async saveProfileAndRoster(name: string, profile: ProfileSettings, roster: Roster | null) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("save_profile_and_roster", { name, profile, roster }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
@@ -166,6 +177,17 @@ export const commands = {
   async renameProfile(oldName: string, newName: string) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("rename_profile", { oldName, newName }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Create a new profile with required course binding
+   */
+  async createProfile(name: string, course: CourseInfo) : Promise<Result<ProfileSettings, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("create_profile", { name, course }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
@@ -199,6 +221,61 @@ export const commands = {
   async saveAppSettings(settings: AppSettings) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("save_app_settings", { settings }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * List saved git connection names
+   */
+  async listGitConnections() : Promise<Result<string[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("list_git_connections") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Get a named git connection
+   */
+  async getGitConnection(name: string) : Promise<Result<GitConnection, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("get_git_connection", { name }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Save a named git connection
+   */
+  async saveGitConnection(name: string, connection: GitConnection) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("save_git_connection", { name, connection }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Delete a named git connection
+   */
+  async deleteGitConnection(name: string) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("delete_git_connection", { name }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Get identity mode for a connection name
+   */
+  async getIdentityMode(connectionName: string) : Promise<Result<GitIdentityMode, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("get_identity_mode", { connectionName }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
@@ -282,6 +359,61 @@ export const commands = {
   async loadSettingsOrDefault() : Promise<Result<ProfileSettings, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("load_settings_or_default") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Load roster by profile name
+   */
+  async getRoster(profile: string) : Promise<Result<Roster | null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("get_roster", { profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Clear roster data for a profile
+   */
+  async clearRoster(profile: string) : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("clear_roster", { profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Check whether a student removal impacts any groups
+   */
+  async checkStudentRemoval(profile: string, roster: Roster, studentId: StudentId) : Promise<Result<StudentRemovalCheck, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("check_student_removal", { profile, roster, studentId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Validate roster (students)
+   */
+  async validateRoster(roster: Roster) : Promise<Result<ValidationResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("validate_roster", { roster }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Validate assignment groups within a roster
+   */
+  async validateAssignment(profile: string, roster: Roster, assignmentId: AssignmentId) : Promise<Result<ValidationResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("validate_assignment", { profile, roster, assignmentId }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };

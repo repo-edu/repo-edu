@@ -4,8 +4,10 @@ use super::merge::merge_with_defaults_warned;
 use super::normalization::Normalize;
 use super::validation::Validate;
 use super::{AppSettings, ProfileSettings, SettingsLoadResult};
+use crate::roster::Roster;
 use serde_json::Value;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const PROFILE_SETTINGS_SCHEMA_JSON: &str =
@@ -221,6 +223,11 @@ impl SettingsManager {
         self.config_dir.join("profiles")
     }
 
+    /// Get the rosters directory path
+    fn rosters_dir(&self) -> PathBuf {
+        self.config_dir.join("rosters")
+    }
+
     /// Get the active profile file path
     fn active_profile_file(&self) -> PathBuf {
         self.config_dir.join("active-profile.txt")
@@ -231,6 +238,15 @@ impl SettingsManager {
         let profiles_dir = self.profiles_dir();
         fs::create_dir_all(&profiles_dir).map_err(|e| ConfigError::CreateDirError {
             path: profiles_dir,
+            source: e,
+        })
+    }
+
+    /// Ensure rosters directory exists
+    fn ensure_rosters_dir(&self) -> ConfigResult<()> {
+        let rosters_dir = self.rosters_dir();
+        fs::create_dir_all(&rosters_dir).map_err(|e| ConfigError::CreateDirError {
+            path: rosters_dir,
             source: e,
         })
     }
@@ -349,10 +365,8 @@ impl SettingsManager {
     }
 
     /// Load a profile by name and set it as active
-    pub fn load_profile(&self, name: &str) -> ConfigResult<ProfileSettings> {
-        let profile = self.load_profile_settings(name)?;
-        self.set_active_profile(name)?;
-        Ok(profile)
+    pub fn load_profile(&self, name: &str) -> ConfigResult<SettingsLoadResult> {
+        self.load_profile_with_warnings(name)
     }
 
     /// Load a profile by name with migration warnings
@@ -386,12 +400,42 @@ impl SettingsManager {
         Ok(())
     }
 
+    /// Create a new profile with a required course binding
+    pub fn create_profile(
+        &self,
+        name: &str,
+        course: super::CourseInfo,
+    ) -> ConfigResult<ProfileSettings> {
+        let profile_path = self.profiles_dir().join(format!("{}.json", name));
+        if profile_path.exists() {
+            return Err(ConfigError::Other(format!(
+                "Profile '{}' already exists",
+                name
+            )));
+        }
+
+        let mut settings = ProfileSettings::default();
+        settings.course = course;
+        self.save_profile_settings(name, &settings)?;
+        self.set_active_profile(name)?;
+
+        Ok(settings)
+    }
+
     /// Delete a profile by name
     pub fn delete_profile(&self, name: &str) -> ConfigResult<()> {
         let profile_path = self.profiles_dir().join(format!("{}.json", name));
+        let roster_path = self.rosters_dir().join(format!("{}.json", name));
 
         if !profile_path.exists() {
             return Err(ConfigError::FileNotFound { path: profile_path });
+        }
+
+        if roster_path.exists() {
+            fs::remove_file(&roster_path).map_err(|e| ConfigError::WriteError {
+                path: roster_path.clone(),
+                source: e,
+            })?;
         }
 
         fs::remove_file(&profile_path).map_err(|e| ConfigError::WriteError {
@@ -412,6 +456,8 @@ impl SettingsManager {
     pub fn rename_profile(&self, old_name: &str, new_name: &str) -> ConfigResult<()> {
         let old_path = self.profiles_dir().join(format!("{}.json", old_name));
         let new_path = self.profiles_dir().join(format!("{}.json", new_name));
+        let old_roster_path = self.rosters_dir().join(format!("{}.json", old_name));
+        let new_roster_path = self.rosters_dir().join(format!("{}.json", new_name));
 
         if !old_path.exists() {
             return Err(ConfigError::FileNotFound { path: old_path });
@@ -424,10 +470,27 @@ impl SettingsManager {
             )));
         }
 
+        if old_roster_path.exists() && new_roster_path.exists() {
+            return Err(ConfigError::Other(format!(
+                "Roster '{}' already exists",
+                new_name
+            )));
+        }
+
         fs::rename(&old_path, &new_path).map_err(|e| ConfigError::WriteError {
-            path: new_path,
+            path: new_path.clone(),
             source: e,
         })?;
+
+        if old_roster_path.exists() {
+            if let Err(error) = fs::rename(&old_roster_path, &new_roster_path) {
+                let _ = fs::rename(&new_path, &old_path);
+                return Err(ConfigError::WriteError {
+                    path: new_roster_path,
+                    source: error,
+                });
+            }
+        }
 
         // Update active profile if it was the renamed one
         if self.get_active_profile()? == Some(old_name.to_string()) {
@@ -477,6 +540,219 @@ impl SettingsManager {
 
         Ok(settings)
     }
+
+    // ===== Roster Persistence =====
+
+    /// Load roster by profile name
+    pub fn load_roster(&self, name: &str) -> ConfigResult<Option<Roster>> {
+        self.ensure_rosters_dir()?;
+        let roster_path = self.rosters_dir().join(format!("{}.json", name));
+
+        if !roster_path.exists() {
+            return Ok(None);
+        }
+
+        let contents = fs::read_to_string(&roster_path).map_err(|e| ConfigError::ReadError {
+            path: roster_path.clone(),
+            source: e,
+        })?;
+
+        let roster: Roster =
+            serde_json::from_str(&contents).map_err(|e| ConfigError::JsonParseError {
+                path: roster_path,
+                source: e,
+            })?;
+
+        Ok(Some(roster))
+    }
+
+    /// Save roster by profile name
+    pub fn save_roster(&self, name: &str, roster: &Roster) -> ConfigResult<()> {
+        self.ensure_rosters_dir()?;
+        let roster_path = self.rosters_dir().join(format!("{}.json", name));
+        atomic_write_json(&roster_path, roster)?;
+        Ok(())
+    }
+
+    /// Delete roster file (if it exists)
+    pub fn clear_roster(&self, name: &str) -> ConfigResult<()> {
+        let roster_path = self.rosters_dir().join(format!("{}.json", name));
+        if roster_path.exists() {
+            fs::remove_file(&roster_path).map_err(|e| ConfigError::WriteError {
+                path: roster_path,
+                source: e,
+            })?;
+        }
+        Ok(())
+    }
+
+    /// Save profile settings and roster together using a best-effort atomic swap
+    pub fn save_profile_and_roster(
+        &self,
+        name: &str,
+        settings: &ProfileSettings,
+        roster: Option<&Roster>,
+    ) -> ConfigResult<()> {
+        settings.validate()?;
+        self.ensure_profiles_dir()?;
+        if roster.is_some() {
+            self.ensure_rosters_dir()?;
+        }
+
+        let profile_path = self.profiles_dir().join(format!("{}.json", name));
+        let roster_path = roster.map(|_| self.rosters_dir().join(format!("{}.json", name)));
+
+        let profile_temp = write_temp_json(&profile_path, settings)?;
+        let roster_temp = if let (Some(roster), Some(path)) = (roster, roster_path.as_ref()) {
+            match write_temp_json(path, roster) {
+                Ok(temp_path) => Some(temp_path),
+                Err(error) => {
+                    let _ = cleanup_temp(&profile_temp);
+                    return Err(error);
+                }
+            }
+        } else {
+            None
+        };
+
+        let profile_backup = match backup_existing(&profile_path) {
+            Ok(backup) => backup,
+            Err(error) => {
+                let _ = cleanup_temp(&profile_temp);
+                if let Some(temp_path) = roster_temp.as_ref() {
+                    let _ = cleanup_temp(temp_path);
+                }
+                return Err(error);
+            }
+        };
+        let roster_backup = if let Some(path) = roster_path.as_ref() {
+            match backup_existing(path) {
+                Ok(backup) => backup,
+                Err(error) => {
+                    let _ = cleanup_temp(&profile_temp);
+                    if let Some(temp_path) = roster_temp.as_ref() {
+                        let _ = cleanup_temp(temp_path);
+                    }
+                    if let Some(backup) = profile_backup.as_ref() {
+                        let _ = restore_backup(&profile_path, backup);
+                    }
+                    return Err(error);
+                }
+            }
+        } else {
+            None
+        };
+
+        let result = (|| {
+            fs::rename(&profile_temp, &profile_path).map_err(|e| ConfigError::WriteError {
+                path: profile_path.clone(),
+                source: e,
+            })?;
+
+            if let (Some(temp_path), Some(path)) = (roster_temp.as_ref(), roster_path.as_ref()) {
+                fs::rename(temp_path, path).map_err(|e| ConfigError::WriteError {
+                    path: path.clone(),
+                    source: e,
+                })?;
+            }
+
+            Ok(())
+        })();
+
+        if result.is_err() {
+            let _ = cleanup_temp(&profile_temp);
+            if let Some(temp_path) = roster_temp.as_ref() {
+                let _ = cleanup_temp(temp_path);
+            }
+            if let Some(backup) = profile_backup.as_ref() {
+                let _ = restore_backup(&profile_path, backup);
+            } else {
+                let _ = fs::remove_file(&profile_path);
+            }
+            if let (Some(path), Some(backup)) = (roster_path.as_ref(), roster_backup.as_ref()) {
+                let _ = restore_backup(path, backup);
+            } else if let Some(path) = roster_path.as_ref() {
+                let _ = fs::remove_file(path);
+            }
+        }
+
+        if result.is_ok() {
+            if let Some(backup) = profile_backup {
+                let _ = fs::remove_file(backup);
+            }
+            if let Some(backup) = roster_backup {
+                let _ = fs::remove_file(backup);
+            }
+        }
+
+        result
+    }
+}
+
+fn write_temp_json<T: serde::Serialize>(path: &Path, value: &T) -> ConfigResult<PathBuf> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| ConfigError::CreateDirError {
+            path: parent.to_path_buf(),
+            source: e,
+        })?;
+    }
+
+    let temp_path = path.with_extension("tmp");
+    let json = serde_json::to_string_pretty(value).map_err(|e| ConfigError::JsonParseError {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
+
+    let mut temp_file = fs::File::create(&temp_path).map_err(|e| ConfigError::WriteError {
+        path: temp_path.clone(),
+        source: e,
+    })?;
+    temp_file
+        .write_all(json.as_bytes())
+        .map_err(|e| ConfigError::WriteError {
+            path: temp_path.clone(),
+            source: e,
+        })?;
+    temp_file.sync_all().map_err(|e| ConfigError::WriteError {
+        path: temp_path.clone(),
+        source: e,
+    })?;
+    drop(temp_file);
+
+    Ok(temp_path)
+}
+
+fn backup_existing(path: &Path) -> ConfigResult<Option<PathBuf>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let backup_path = path.with_extension("bak");
+    fs::rename(path, &backup_path).map_err(|e| ConfigError::WriteError {
+        path: backup_path.clone(),
+        source: e,
+    })?;
+    Ok(Some(backup_path))
+}
+
+fn cleanup_temp(path: &Path) -> ConfigResult<()> {
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| ConfigError::WriteError {
+            path: path.to_path_buf(),
+            source: e,
+        })?;
+    }
+    Ok(())
+}
+
+fn restore_backup(path: &Path, backup_path: &Path) -> ConfigResult<()> {
+    if path.exists() {
+        let _ = fs::remove_file(path);
+    }
+    fs::rename(backup_path, path).map_err(|e| ConfigError::WriteError {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
+    Ok(())
 }
 
 /// Load strategy for error handling

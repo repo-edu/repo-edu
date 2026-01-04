@@ -1,6 +1,8 @@
 mod commands;
 mod error;
 mod generated;
+#[cfg(test)]
+mod tests;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager};
@@ -28,6 +30,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             // Build custom menu
             let save_item = MenuItemBuilder::with_id("save", "Save")
@@ -123,6 +126,14 @@ pub fn run() {
             commands::settings::load_settings,
             commands::settings::load_app_settings,
             commands::settings::save_app_settings,
+            commands::settings::list_git_connections,
+            commands::settings::get_git_connection,
+            commands::settings::save_git_connection,
+            commands::settings::delete_git_connection,
+            commands::settings::get_identity_mode,
+            commands::settings::load_profile,
+            commands::settings::save_profile,
+            commands::settings::save_profile_and_roster,
             commands::settings::reset_settings,
             commands::settings::get_default_settings,
             commands::settings::get_settings_path,
@@ -135,10 +146,16 @@ pub fn run() {
             commands::profiles::list_profiles,
             commands::profiles::get_active_profile,
             commands::profiles::set_active_profile,
-            commands::profiles::load_profile,
-            commands::profiles::save_profile,
             commands::profiles::delete_profile,
             commands::profiles::rename_profile,
+            commands::profiles::create_profile,
+            // Roster commands
+            commands::roster::get_roster,
+            commands::roster::clear_roster,
+            commands::roster::check_student_removal,
+            // Validation commands
+            commands::validation::validate_roster,
+            commands::validation::validate_assignment,
             // LMS commands
             commands::lms::get_token_instructions,
             commands::lms::open_token_url,

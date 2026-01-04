@@ -139,8 +139,27 @@
           "type": "String"
         },
         {
-          "name": "settings",
+          "name": "profile",
           "type": "ProfileSettings"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "save_profile_and_roster": {
+      "description": "Save profile settings and roster together (atomic)",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "profile",
+          "type": "ProfileSettings"
+        },
+        {
+          "name": "roster",
+          "type": "Option<Roster>"
         }
       ],
       "output": "()",
@@ -172,6 +191,21 @@
       "output": "()",
       "error": "AppError"
     },
+    "create_profile": {
+      "description": "Create a new profile with required course binding",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "course",
+          "type": "CourseInfo"
+        }
+      ],
+      "output": "ProfileSettings",
+      "error": "AppError"
+    },
     "load_settings": {
       "description": "Load settings from disk with warnings for any corrected issues",
       "input": [],
@@ -193,6 +227,60 @@
         }
       ],
       "output": "()",
+      "error": "AppError"
+    },
+    "list_git_connections": {
+      "description": "List saved git connection names",
+      "input": [],
+      "output": "Vec<String>",
+      "error": "AppError"
+    },
+    "get_git_connection": {
+      "description": "Get a named git connection",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "GitConnection",
+      "error": "AppError"
+    },
+    "save_git_connection": {
+      "description": "Save a named git connection",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "connection",
+          "type": "GitConnection"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "delete_git_connection": {
+      "description": "Delete a named git connection",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "get_identity_mode": {
+      "description": "Get identity mode for a connection name",
+      "input": [
+        {
+          "name": "connection_name",
+          "type": "String"
+        }
+      ],
+      "output": "GitIdentityMode",
       "error": "AppError"
     },
     "reset_settings": {
@@ -255,6 +343,77 @@
       "description": "Load settings or return defaults (never fails)",
       "input": [],
       "output": "ProfileSettings",
+      "error": "AppError"
+    },
+    "get_roster": {
+      "description": "Load roster by profile name",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        }
+      ],
+      "output": "Option<Roster>",
+      "error": "AppError"
+    },
+    "clear_roster": {
+      "description": "Clear roster data for a profile",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "check_student_removal": {
+      "description": "Check whether a student removal impacts any groups",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "student_id",
+          "type": "StudentId"
+        }
+      ],
+      "output": "StudentRemovalCheck",
+      "error": "AppError"
+    },
+    "validate_roster": {
+      "description": "Validate roster (students)",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        }
+      ],
+      "output": "ValidationResult",
+      "error": "AppError"
+    },
+    "validate_assignment": {
+      "description": "Validate assignment groups within a roster",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        }
+      ],
+      "output": "ValidationResult",
       "error": "AppError"
     }
   }

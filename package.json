@@ -12,7 +12,7 @@
         "fmt:rs": "cargo fmt --all",
         "check:rs": "cargo clippy --workspace",
         "check:rs:fix": "cargo clippy --workspace --fix --allow-dirty",
-        "typecheck:rs": "cargo check --workspace",
+        "typecheck:rs": "node scripts/cargo-check.mjs",
         "test:rs": "cargo test --workspace",
         "fmt:md": "rumdl fmt",
         "check:md": "rumdl check",
