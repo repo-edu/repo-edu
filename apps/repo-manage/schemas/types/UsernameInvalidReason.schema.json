@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UsernameInvalidReason",
+  "type": "string",
+  "enum": [
+    "not_found",
+    "blocked"
+  ],
+  "x-rust": {
+    "serde": {
+      "rename_all": "snake_case"
+    }
+  },
+  "description": "Reason a git username is considered invalid"
+}

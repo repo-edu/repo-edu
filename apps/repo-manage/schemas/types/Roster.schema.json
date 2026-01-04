@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Roster",
+  "type": "object",
+  "properties": {
+    "source": {
+      "anyOf": [
+        {
+          "$ref": "./RosterSource.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "students": {
+      "type": "array",
+      "items": {
+        "$ref": "./Student.schema.json"
+      }
+    },
+    "assignments": {
+      "type": "array",
+      "items": {
+        "$ref": "./Assignment.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "students",
+    "assignments"
+  ],
+  "description": "Roster data for a course"
+}

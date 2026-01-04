@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OperationError",
+  "type": "object",
+  "properties": {
+    "repo_name": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "repo_name",
+    "message"
+  ],
+  "description": "Operation error detail"
+}

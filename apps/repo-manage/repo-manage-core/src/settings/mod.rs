@@ -15,7 +15,6 @@ mod cli;
 mod common;
 mod enums;
 mod error;
-mod gui;
 mod manager;
 mod merge;
 mod normalization;
@@ -23,9 +22,10 @@ mod validation;
 
 // Public exports
 pub use crate::generated::types::{
-    ActiveTab, AppSettings, CourseEntry, DirectoryLayout, GitHubConfig, GitLabConfig,
-    GitServerType, GitSettings, GiteaConfig, GuiSettings, LmsSettings, LmsUrlOption, LogSettings,
-    MemberOption, ProfileSettings, RepoSettings, SettingsLoadResult, Theme,
+    AppSettings, CloneConfig, CourseInfo, CreateConfig, DeleteConfig, DirectoryLayout,
+    ExportSettings, GitConnection, GitIdentityMode, GitServerType, LmsConnection, LmsType,
+    LogSettings, MemberOption, OperationConfigs, PlatformConnection, ProfileSettings,
+    SettingsLoadResult, Theme,
 };
 pub use atomic::{atomic_write, atomic_write_json, atomic_write_string};
 pub use cli::CLIConfig;

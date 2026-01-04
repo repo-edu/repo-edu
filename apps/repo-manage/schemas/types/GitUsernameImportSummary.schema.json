@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitUsernameImportSummary",
+  "type": "object",
+  "properties": {
+    "matched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unmatched_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "matched",
+    "unmatched_emails"
+  ],
+  "description": "Summary of git username imports"
+}

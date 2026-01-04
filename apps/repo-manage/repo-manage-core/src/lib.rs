@@ -9,6 +9,7 @@ pub mod lms;
 pub mod operations;
 pub mod platform;
 pub mod progress;
+pub mod roster;
 pub mod settings;
 pub mod setup;
 pub mod types;
@@ -51,10 +52,11 @@ pub use settings::{
     atomic_write, atomic_write_json, atomic_write_string, join_comma_separated, normalize_path,
     normalize_paths, normalize_string, normalize_string_vec, normalize_url, parse_comma_separated,
     path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
-    ActiveTab, AppSettings, CLIConfig, ConfigError, ConfigResult, DirectoryLayout, GitHubConfig,
-    GitLabConfig, GitServerType, GitSettings, GiteaConfig, GuiSettings, Interface, LmsUrlOption,
-    MemberOption, Normalize, PathValidationMode, ProfileSettings, SettingsLoadResult,
-    SettingsManager, Validate, ValidationErrors,
+    AppSettings, CLIConfig, CloneConfig, ConfigError, ConfigResult, CourseInfo, CreateConfig,
+    DeleteConfig, DirectoryLayout, ExportSettings, GitConnection, GitIdentityMode, GitServerType,
+    Interface, LmsConnection, LogSettings, MemberOption, Normalize, OperationConfigs,
+    PathValidationMode, PlatformConnection, ProfileSettings, SettingsLoadResult, SettingsManager,
+    Theme, Validate, ValidationErrors,
 };
 
 // Test utilities (only available in test builds)

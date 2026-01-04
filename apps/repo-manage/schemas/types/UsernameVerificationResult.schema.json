@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UsernameVerificationResult",
+  "type": "object",
+  "properties": {
+    "valid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalid": {
+      "type": "array",
+      "items": {
+        "$ref": "./InvalidUsername.schema.json"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "./UsernameVerificationError.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "valid",
+    "invalid",
+    "errors"
+  ],
+  "description": "Summary of username verification"
+}

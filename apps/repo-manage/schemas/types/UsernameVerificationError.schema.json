@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UsernameVerificationError",
+  "type": "object",
+  "properties": {
+    "student_email": {
+      "type": "string"
+    },
+    "student_name": {
+      "type": "string"
+    },
+    "git_username": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "student_email",
+    "student_name",
+    "git_username",
+    "message"
+  ],
+  "description": "Error encountered during username verification"
+}

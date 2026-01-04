@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use repo_manage_core::{AppSettings, GuiSettings, SettingsLoadResult, SettingsManager};
+use repo_manage_core::{AppSettings, ProfileSettings, SettingsLoadResult, SettingsManager};
 
 /// Load settings from disk with warnings for any corrected issues
 #[tauri::command]
@@ -26,7 +26,7 @@ pub async fn save_app_settings(settings: AppSettings) -> Result<(), AppError> {
 
 /// Reset settings to defaults
 #[tauri::command]
-pub async fn reset_settings() -> Result<GuiSettings, AppError> {
+pub async fn reset_settings() -> Result<ProfileSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.reset()?;
     Ok(settings)
@@ -34,8 +34,8 @@ pub async fn reset_settings() -> Result<GuiSettings, AppError> {
 
 /// Get default settings (single source of truth from Rust)
 #[tauri::command]
-pub async fn get_default_settings() -> GuiSettings {
-    GuiSettings::default()
+pub async fn get_default_settings() -> ProfileSettings {
+    ProfileSettings::default()
 }
 
 /// Get settings file path
@@ -54,7 +54,7 @@ pub async fn settings_exist() -> Result<bool, AppError> {
 
 /// Import settings from a specific file
 #[tauri::command]
-pub async fn import_settings(path: String) -> Result<GuiSettings, AppError> {
+pub async fn import_settings(path: String) -> Result<ProfileSettings, AppError> {
     let manager = SettingsManager::new()?;
     let settings = manager.load_from(std::path::Path::new(&path))?;
     Ok(settings)
@@ -62,13 +62,13 @@ pub async fn import_settings(path: String) -> Result<GuiSettings, AppError> {
 
 /// Export settings to a specific file
 #[tauri::command]
-pub async fn export_settings(settings: GuiSettings, path: String) -> Result<(), AppError> {
+pub async fn export_settings(settings: ProfileSettings, path: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.save_to(&settings, std::path::Path::new(&path))?;
     Ok(())
 }
 
-/// Get the JSON schema for GuiSettings
+/// Get the JSON schema for ProfileSettings
 #[tauri::command]
 pub async fn get_settings_schema() -> Result<String, AppError> {
     serde_json::to_string(&SettingsManager::get_schema()?).map_err(|e| AppError::new(e.to_string()))
@@ -76,7 +76,7 @@ pub async fn get_settings_schema() -> Result<String, AppError> {
 
 /// Load settings or return defaults (never fails)
 #[tauri::command]
-pub async fn load_settings_or_default() -> Result<GuiSettings, AppError> {
+pub async fn load_settings_or_default() -> Result<ProfileSettings, AppError> {
     let manager = SettingsManager::new()?;
     Ok(manager.load_or_default())
 }

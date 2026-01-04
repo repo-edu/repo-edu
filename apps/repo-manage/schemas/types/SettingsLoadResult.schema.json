@@ -4,8 +4,8 @@
   "type": "object",
   "properties": {
     "settings": {
-      "$ref": "./GuiSettings.schema.json",
-      "description": "The loaded settings (with defaults applied for invalid/missing values)"
+      "$ref": "./ProfileSettings.schema.json",
+      "description": "The loaded profile settings (with defaults applied for invalid/missing values)"
     },
     "warnings": {
       "type": "array",

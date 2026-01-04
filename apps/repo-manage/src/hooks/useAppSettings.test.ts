@@ -4,23 +4,18 @@ import { DEFAULT_GUI_THEME, DEFAULT_LOG_LEVELS } from "../constants"
 import type { GuiSettings } from "../types/settings"
 import { useAppSettings } from "./useAppSettings"
 
-const { innerSize, getCurrentWindow } = vi.hoisted(() => {
-  const innerSize = vi.fn()
-  const getCurrentWindow = vi.fn(() => ({
-    innerSize,
-  }))
-  return { innerSize, getCurrentWindow }
-})
-
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow,
-}))
-
 vi.mock("../services/settingsService")
 
 import * as settingsService from "../services/settingsService"
 
 const mockService = vi.mocked(settingsService)
+
+const existingAppSettings = {
+  theme: "light",
+  logging: { ...DEFAULT_LOG_LEVELS },
+  lms_connection: null,
+  git_connections: {},
+}
 
 const baseSettings: GuiSettings = {
   git: {
@@ -47,25 +42,32 @@ const baseSettings: GuiSettings = {
     },
   },
   lms: {
+    canvas: {
+      access_token: "",
+      base_url: "",
+      courses: [],
+      custom_url: "",
+      url_option: "TUE",
+    },
+    moodle: {
+      access_token: "",
+      base_url: "",
+      courses: [],
+    },
     type: "Canvas",
-    base_url: "",
-    custom_url: "",
-    url_option: "TUE",
-    access_token: "",
-    course_id: "",
-    course_name: "",
-    yaml_file: "students.yaml",
-    output_folder: "",
+    active_course_index: 0,
     csv_file: "",
-    xlsx_file: "",
-    member_option: "(email, gitid)",
-    include_group: true,
-    include_member: true,
+    full_groups: false,
+    include_group: false,
     include_initials: false,
-    full_groups: true,
-    output_csv: true,
+    include_member: false,
+    member_option: "(email, gitid)",
+    output_csv: false,
+    output_folder: "",
     output_xlsx: false,
-    output_yaml: true,
+    output_yaml: false,
+    xlsx_file: "",
+    yaml_file: "",
   },
   repo: {
     yaml_file: "",
@@ -84,28 +86,20 @@ const baseSettings: GuiSettings = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  innerSize.mockResolvedValue({ width: 640, height: 480 })
+  mockService.loadAppSettings.mockResolvedValue(existingAppSettings)
   mockService.saveAppSettings.mockResolvedValue(undefined)
 })
 
 describe("useAppSettings", () => {
   it("is a no-op when currentGuiSettings is null", async () => {
-    const { result } = renderHook(() =>
-      useAppSettings({
-        getUiState: () => ({
-          activeTab: "lms",
-          collapsedSections: [],
-          settingsMenuOpen: false,
-        }),
-      }),
-    )
+    const { result } = renderHook(() => useAppSettings({}))
 
     await act(async () => {
       await result.current.saveAppSettings()
     })
 
-    expect(getCurrentWindow).not.toHaveBeenCalled()
     expect(mockService.saveAppSettings).not.toHaveBeenCalled()
+    expect(mockService.loadAppSettings).not.toHaveBeenCalled()
   })
 
   it("saves using defaults when theme/logging are missing", async () => {
@@ -114,11 +108,6 @@ describe("useAppSettings", () => {
       theme: null as unknown as "light",
       logging: undefined as unknown as GuiSettings["logging"],
     }
-    const getUiState = vi.fn(() => ({
-      activeTab: "repo",
-      collapsedSections: ["lms-config"],
-      settingsMenuOpen: true,
-    }))
     const getLogging = vi.fn(() => ({
       info: true,
       debug: true,
@@ -127,7 +116,6 @@ describe("useAppSettings", () => {
     }))
     const { result } = renderHook(() =>
       useAppSettings({
-        getUiState,
         getLogging,
       }),
     )
@@ -141,16 +129,11 @@ describe("useAppSettings", () => {
     })
 
     expect(getLogging).toHaveBeenCalled()
-    expect(getUiState).toHaveBeenCalled()
     expect(mockService.saveAppSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         theme: DEFAULT_GUI_THEME,
         logging: getLogging(),
-        active_tab: "repo",
-        collapsed_sections: ["lms-config"],
-        sidebar_open: true,
-        window_width: 640,
-        window_height: 480,
+        git_connections: existingAppSettings.git_connections,
       }),
     )
   })
@@ -158,21 +141,9 @@ describe("useAppSettings", () => {
   it("merges overrides after computed settings", async () => {
     const settings = { ...baseSettings }
     const overrides = {
-      window_width: 2000,
-      window_height: 1000,
-      sidebar_open: true,
       theme: "dark" as const,
     }
-    const getUiState = vi.fn(() => ({
-      activeTab: "lms",
-      collapsedSections: [],
-      settingsMenuOpen: false,
-    }))
-    const { result } = renderHook(() =>
-      useAppSettings({
-        getUiState,
-      }),
-    )
+    const { result } = renderHook(() => useAppSettings({}))
 
     act(() => {
       result.current.setCurrentGuiSettings(settings)
@@ -182,9 +153,11 @@ describe("useAppSettings", () => {
       await result.current.saveAppSettings(overrides)
     })
 
-    expect(getUiState).toHaveBeenCalled()
     expect(mockService.saveAppSettings).toHaveBeenCalledWith(
-      expect.objectContaining(overrides),
+      expect.objectContaining({
+        ...overrides,
+        git_connections: existingAppSettings.git_connections,
+      }),
     )
   })
 })

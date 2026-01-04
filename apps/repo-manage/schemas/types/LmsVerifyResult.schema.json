@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsVerifyResult",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string"
+    },
+    "lms_type": {
+      "anyOf": [
+        {
+          "$ref": "./LmsType.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message"
+  ],
+  "description": "Result of verifying an LMS connection"
+}

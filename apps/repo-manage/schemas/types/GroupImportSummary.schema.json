@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GroupImportSummary",
+  "type": "object",
+  "properties": {
+    "groups_imported": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "groups_replaced": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "students_referenced": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "filter_applied": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "groups_imported",
+    "groups_replaced",
+    "students_referenced",
+    "filter_applied"
+  ],
+  "description": "Summary of group imports"
+}

@@ -1,9 +1,11 @@
 //! Helper utilities for token generation and management
 
 use crate::error::LmsResult;
+use serde::{Deserialize, Serialize};
 
 /// Supported LMS types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum LmsType {
     /// Canvas LMS
     Canvas,

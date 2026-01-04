@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UsernameVerificationScope",
+  "type": "string",
+  "enum": [
+    "all",
+    "unknown_only"
+  ],
+  "x-rust": {
+    "serde": {
+      "rename_all": "snake_case"
+    }
+  },
+  "description": "Scope of username verification"
+}

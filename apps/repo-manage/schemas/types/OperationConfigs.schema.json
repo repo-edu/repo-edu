@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OperationConfigs",
+  "type": "object",
+  "properties": {
+    "target_org": {
+      "type": "string"
+    },
+    "repo_name_template": {
+      "type": "string"
+    },
+    "create": {
+      "$ref": "./CreateConfig.schema.json"
+    },
+    "clone": {
+      "$ref": "./CloneConfig.schema.json"
+    },
+    "delete": {
+      "$ref": "./DeleteConfig.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "target_org",
+    "repo_name_template",
+    "create",
+    "clone",
+    "delete"
+  ],
+  "description": "Per-profile operation configuration"
+}

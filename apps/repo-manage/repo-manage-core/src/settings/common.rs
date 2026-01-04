@@ -1,252 +1,169 @@
 #![allow(clippy::derivable_impls)]
 
+use std::collections::HashMap;
+
 use super::normalization::{normalize_string, normalize_url, Normalize};
-use super::{DirectoryLayout, GitServerType, LmsUrlOption, MemberOption};
+use super::{DirectoryLayout, GitIdentityMode, GitServerType, MemberOption, Theme};
 use crate::generated::types::{
-    CanvasConfig, CourseEntry, GitHubConfig, GitLabConfig, GitSettings, GiteaConfig, LmsSettings,
-    LogSettings, MoodleConfig, ProfileSettings, RepoSettings,
+    AppSettings, CloneConfig, CourseInfo, CreateConfig, DeleteConfig, ExportSettings,
+    GitConnection, LmsConnection, LogSettings, OperationConfigs, PlatformConnection,
+    ProfileSettings,
 };
 
-impl Default for CourseEntry {
+impl Default for CourseInfo {
     fn default() -> Self {
         Self {
             id: String::new(),
-            name: None,
+            name: String::new(),
         }
     }
 }
 
-impl Normalize for CourseEntry {
+impl Normalize for CourseInfo {
     fn normalize(&mut self) {
         normalize_string(&mut self.id);
-        if let Some(ref mut name) = self.name {
-            normalize_string(name);
-        }
+        normalize_string(&mut self.name);
     }
 }
 
-impl Default for GitHubConfig {
+impl Default for PlatformConnection {
     fn default() -> Self {
         Self {
             access_token: String::new(),
+            base_url: None,
             user: String::new(),
-            student_repos_org: String::new(),
+        }
+    }
+}
+
+impl Normalize for PlatformConnection {
+    fn normalize(&mut self) {
+        normalize_string(&mut self.access_token);
+        if let Some(ref mut base_url) = self.base_url {
+            normalize_url(base_url);
+        }
+        normalize_string(&mut self.user);
+    }
+}
+
+impl Default for GitConnection {
+    fn default() -> Self {
+        Self {
+            server_type: GitServerType::default(),
+            connection: PlatformConnection::default(),
+            identity_mode: None,
+        }
+    }
+}
+
+impl Normalize for GitConnection {
+    fn normalize(&mut self) {
+        self.connection.normalize();
+        match self.server_type {
+            GitServerType::GitLab => {
+                if self.identity_mode.is_none() {
+                    self.identity_mode = Some(GitIdentityMode::default());
+                }
+            }
+            _ => {
+                self.identity_mode = None;
+            }
+        }
+    }
+}
+
+impl Normalize for LmsConnection {
+    fn normalize(&mut self) {
+        normalize_url(&mut self.base_url);
+        normalize_string(&mut self.access_token);
+    }
+}
+
+impl Default for CreateConfig {
+    fn default() -> Self {
+        Self {
             template_org: String::new(),
         }
     }
 }
 
-impl Normalize for GitHubConfig {
+impl Normalize for CreateConfig {
     fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_string(&mut self.user);
-        normalize_string(&mut self.student_repos_org);
         normalize_string(&mut self.template_org);
     }
 }
 
-impl Default for GitLabConfig {
+impl Default for CloneConfig {
     fn default() -> Self {
         Self {
-            access_token: String::new(),
-            base_url: "https://gitlab.tue.nl".to_string(),
-            user: String::new(),
-            student_repos_group: String::new(),
-            template_group: String::new(),
+            target_dir: String::new(),
+            directory_layout: DirectoryLayout::default(),
         }
     }
 }
 
-impl Normalize for GitLabConfig {
+impl Normalize for CloneConfig {
     fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_url(&mut self.base_url);
-        normalize_string(&mut self.user);
-        normalize_string(&mut self.student_repos_group);
-        normalize_string(&mut self.template_group);
+        normalize_string(&mut self.target_dir);
     }
 }
 
-impl Default for GiteaConfig {
+impl Default for DeleteConfig {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl Normalize for DeleteConfig {
+    fn normalize(&mut self) {}
+}
+
+impl Default for OperationConfigs {
     fn default() -> Self {
         Self {
-            access_token: String::new(),
-            base_url: String::new(),
-            user: String::new(),
-            student_repos_group: String::new(),
-            template_group: String::new(),
+            target_org: String::new(),
+            repo_name_template: String::new(),
+            create: CreateConfig::default(),
+            clone: CloneConfig::default(),
+            delete: DeleteConfig::default(),
         }
     }
 }
 
-impl Normalize for GiteaConfig {
+impl Normalize for OperationConfigs {
     fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_url(&mut self.base_url);
-        normalize_string(&mut self.user);
-        normalize_string(&mut self.student_repos_group);
-        normalize_string(&mut self.template_group);
+        normalize_string(&mut self.target_org);
+        normalize_string(&mut self.repo_name_template);
+        self.create.normalize();
+        self.clone.normalize();
+        self.delete.normalize();
     }
 }
 
-impl Default for GitSettings {
+impl Default for ExportSettings {
     fn default() -> Self {
         Self {
-            gitea: GiteaConfig::default(),
-            github: GitHubConfig::default(),
-            gitlab: GitLabConfig::default(),
-            server_type: GitServerType::default(),
-        }
-    }
-}
-
-impl GitSettings {
-    /// Get the access token for the active server
-    pub fn access_token(&self) -> &str {
-        match self.server_type {
-            GitServerType::GitHub => &self.github.access_token,
-            GitServerType::GitLab => &self.gitlab.access_token,
-            GitServerType::Gitea => &self.gitea.access_token,
-        }
-    }
-
-    /// Get the base URL for the active server (GitHub returns "https://github.com")
-    pub fn base_url(&self) -> &str {
-        match self.server_type {
-            GitServerType::GitHub => "https://github.com",
-            GitServerType::GitLab => &self.gitlab.base_url,
-            GitServerType::Gitea => &self.gitea.base_url,
-        }
-    }
-
-    /// Get the user for the active server
-    pub fn user(&self) -> &str {
-        match self.server_type {
-            GitServerType::GitHub => &self.github.user,
-            GitServerType::GitLab => &self.gitlab.user,
-            GitServerType::Gitea => &self.gitea.user,
-        }
-    }
-
-    /// Get the student repos org/group for the active server
-    pub fn student_repos(&self) -> &str {
-        match self.server_type {
-            GitServerType::GitHub => &self.github.student_repos_org,
-            GitServerType::GitLab => &self.gitlab.student_repos_group,
-            GitServerType::Gitea => &self.gitea.student_repos_group,
-        }
-    }
-
-    /// Get the template org/group for the active server
-    pub fn template(&self) -> &str {
-        match self.server_type {
-            GitServerType::GitHub => &self.github.template_org,
-            GitServerType::GitLab => &self.gitlab.template_group,
-            GitServerType::Gitea => &self.gitea.template_group,
-        }
-    }
-}
-
-impl Normalize for GitSettings {
-    fn normalize(&mut self) {
-        self.gitea.normalize();
-        self.github.normalize();
-        self.gitlab.normalize();
-    }
-}
-
-impl Default for CanvasConfig {
-    fn default() -> Self {
-        Self {
-            access_token: String::new(),
-            base_url: "https://canvas.tue.nl".to_string(),
-            courses: Vec::new(),
-            custom_url: String::new(),
-            url_option: LmsUrlOption::TUE,
-        }
-    }
-}
-
-impl Normalize for CanvasConfig {
-    fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_url(&mut self.base_url);
-        for course in &mut self.courses {
-            course.normalize();
-        }
-        normalize_url(&mut self.custom_url);
-    }
-}
-
-impl Default for MoodleConfig {
-    fn default() -> Self {
-        Self {
-            access_token: String::new(),
-            base_url: String::new(),
-            courses: Vec::new(),
-        }
-    }
-}
-
-impl Normalize for MoodleConfig {
-    fn normalize(&mut self) {
-        normalize_string(&mut self.access_token);
-        normalize_url(&mut self.base_url);
-        for course in &mut self.courses {
-            course.normalize();
-        }
-    }
-}
-
-impl Default for LmsSettings {
-    fn default() -> Self {
-        Self {
-            canvas: CanvasConfig::default(),
-            moodle: MoodleConfig::default(),
-            r#type: "Canvas".to_string(),
-            active_course_index: 0,
-            csv_file: "student-info.csv".to_string(),
-            full_groups: true,
-            include_group: true,
-            include_initials: false,
-            include_member: true,
-            member_option: MemberOption::EmailAndGitId,
-            output_csv: false,
             output_folder: String::new(),
+            output_csv: false,
             output_xlsx: false,
-            output_yaml: true,
-            xlsx_file: "student-info.xlsx".to_string(),
-            yaml_file: "students.yaml".to_string(),
+            output_yaml: false,
+            csv_file: String::new(),
+            xlsx_file: String::new(),
+            yaml_file: String::new(),
+            member_option: MemberOption::default(),
+            include_group: false,
+            include_member: false,
+            include_initials: false,
+            full_groups: false,
         }
     }
 }
 
-impl Normalize for LmsSettings {
+impl Normalize for ExportSettings {
     fn normalize(&mut self) {
-        self.canvas.normalize();
-        self.moodle.normalize();
-        normalize_string(&mut self.csv_file);
         normalize_string(&mut self.output_folder);
+        normalize_string(&mut self.csv_file);
         normalize_string(&mut self.xlsx_file);
-        normalize_string(&mut self.yaml_file);
-    }
-}
-
-impl Default for RepoSettings {
-    fn default() -> Self {
-        Self {
-            assignments: String::new(),
-            directory_layout: DirectoryLayout::Flat,
-            target_folder: String::new(),
-            yaml_file: "students.yaml".to_string(),
-        }
-    }
-}
-
-impl Normalize for RepoSettings {
-    fn normalize(&mut self) {
-        normalize_string(&mut self.assignments);
-        normalize_string(&mut self.target_folder);
         normalize_string(&mut self.yaml_file);
     }
 }
@@ -262,20 +179,46 @@ impl Default for LogSettings {
     }
 }
 
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: Theme::default(),
+            logging: LogSettings::default(),
+            lms_connection: None,
+            git_connections: HashMap::new(),
+        }
+    }
+}
+
+impl Normalize for AppSettings {
+    fn normalize(&mut self) {
+        if let Some(ref mut lms_connection) = self.lms_connection {
+            lms_connection.normalize();
+        }
+        for connection in self.git_connections.values_mut() {
+            connection.normalize();
+        }
+    }
+}
+
 impl Default for ProfileSettings {
     fn default() -> Self {
         Self {
-            git: GitSettings::default(),
-            lms: LmsSettings::default(),
-            repo: RepoSettings::default(),
+            course: CourseInfo::default(),
+            git_connection: None,
+            operations: OperationConfigs::default(),
+            exports: ExportSettings::default(),
         }
     }
 }
 
 impl Normalize for ProfileSettings {
     fn normalize(&mut self) {
-        self.git.normalize();
-        self.lms.normalize();
-        self.repo.normalize();
+        self.course.normalize();
+        if let Some(ref mut git_connection) = self.git_connection {
+            normalize_string(git_connection);
+        }
+        self.operations.normalize();
+        self.exports.normalize();
     }
 }

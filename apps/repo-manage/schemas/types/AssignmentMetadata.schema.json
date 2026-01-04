@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AssignmentMetadata",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "./AssignmentId.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "lms_group_set_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name"
+  ],
+  "description": "Assignment metadata without groups"
+}

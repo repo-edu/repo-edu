@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CoverageExportFormat",
+  "type": "string",
+  "enum": [
+    "csv",
+    "xlsx"
+  ],
+  "x-rust": {
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Export format for coverage reports"
+}

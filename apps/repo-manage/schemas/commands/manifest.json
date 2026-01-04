@@ -198,13 +198,13 @@
     "reset_settings": {
       "description": "Reset settings to defaults",
       "input": [],
-      "output": "GuiSettings",
+      "output": "ProfileSettings",
       "error": "AppError"
     },
     "get_default_settings": {
       "description": "Get default settings (single source of truth from Rust)",
       "input": [],
-      "output": "GuiSettings",
+      "output": "ProfileSettings",
       "error": null
     },
     "get_settings_path": {
@@ -227,7 +227,7 @@
           "type": "String"
         }
       ],
-      "output": "GuiSettings",
+      "output": "ProfileSettings",
       "error": "AppError"
     },
     "export_settings": {
@@ -235,7 +235,7 @@
       "input": [
         {
           "name": "settings",
-          "type": "GuiSettings"
+          "type": "ProfileSettings"
         },
         {
           "name": "path",
@@ -246,7 +246,7 @@
       "error": "AppError"
     },
     "get_settings_schema": {
-      "description": "Get the JSON schema for GuiSettings",
+      "description": "Get the JSON schema for ProfileSettings",
       "input": [],
       "output": "String",
       "error": "AppError"
@@ -254,7 +254,7 @@
     "load_settings_or_default": {
       "description": "Load settings or return defaults (never fails)",
       "input": [],
-      "output": "GuiSettings",
+      "output": "ProfileSettings",
       "error": "AppError"
     }
   }

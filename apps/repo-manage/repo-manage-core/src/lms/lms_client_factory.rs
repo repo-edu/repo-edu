@@ -1,48 +1,19 @@
 //! Factory for creating unified LMS clients from settings
 use crate::error::{PlatformError, Result};
 use crate::lms::types::{Group, StudentInfo};
-use crate::settings::LmsSettings;
+use crate::settings::LmsConnection;
 use lms_client::{LmsAuth, LmsClient, LmsType};
 use lms_common::LmsClient as _; // Import trait to call its methods
 use std::collections::HashMap;
 
 /// Create an LMS client based on settings
-pub fn create_lms_client(settings: &LmsSettings) -> Result<LmsClient> {
-    // Determine LMS type and get config from nested structure
-    let (lms_type, base_url, access_token) = match settings.r#type.as_str() {
-        "Canvas" => {
-            let canvas = &settings.canvas;
-            let url = if canvas.url_option == crate::settings::LmsUrlOption::TUE {
-                canvas.base_url.clone()
-            } else {
-                canvas.custom_url.clone()
-            };
-            (LmsType::Canvas, url, canvas.access_token.clone())
-        }
-        "Moodle" => {
-            let moodle = &settings.moodle;
-            (
-                LmsType::Moodle,
-                moodle.base_url.clone(),
-                moodle.access_token.clone(),
-            )
-        }
-        _ => {
-            return Err(PlatformError::Other(format!(
-                "Unknown LMS type: {}. Supported: Canvas, Moodle",
-                settings.r#type
-            )))
-        }
-    };
-
-    // Create authentication (both Canvas and Moodle use token auth)
+pub fn create_lms_client(settings: &LmsConnection) -> Result<LmsClient> {
     let auth = LmsAuth::Token {
-        url: base_url,
-        token: access_token,
+        url: settings.base_url.clone(),
+        token: settings.access_token.clone(),
     };
 
-    // Create the unified client
-    LmsClient::new(lms_type, auth).map_err(|e| PlatformError::Other(e.to_string()))
+    LmsClient::new(settings.lms_type, auth).map_err(|e| PlatformError::Other(e.to_string()))
 }
 
 /// Create an LMS client with explicit parameters (for Tauri commands)

@@ -28,7 +28,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@repo-edu/ui/components/ui/tooltip"
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useState } from "react"
 import { SUCCESS_FLASH_MS, THEME_OPTIONS } from "../constants"
@@ -50,11 +49,6 @@ interface SettingsSidebarProps {
   onClose: () => void
   currentSettings: GuiSettings
   getProfileSettings: () => ProfileSettings
-  getUiState: () => {
-    activeTab: "lms" | "repo"
-    collapsedSections: string[]
-    settingsMenuOpen: boolean
-  }
   onSettingsLoaded: (settings: GuiSettings, updateBaseline?: boolean) => void
   onMessage: (message: string) => void
   isDirty: boolean
@@ -69,7 +63,6 @@ export function SettingsSidebar({
   onClose,
   currentSettings,
   getProfileSettings,
-  getUiState,
   onSettingsLoaded,
   onMessage,
   isDirty,
@@ -125,25 +118,8 @@ export function SettingsSidebar({
   }
 
   const handleSaveWindowState = async () => {
-    try {
-      const win = getCurrentWindow()
-      const size = await win.innerSize()
-      const uiState = getUiState()
-
-      await settingsService.saveAppSettings({
-        theme: currentSettings.theme,
-        active_tab: uiState.activeTab,
-        collapsed_sections: uiState.collapsedSections,
-        sidebar_open: uiState.settingsMenuOpen,
-        window_width: size.width,
-        window_height: size.height,
-        logging: currentSettings.logging,
-      })
-      showSuccessFlash()
-      onMessage("✓ Window state saved")
-    } catch (error) {
-      onMessage(`✗ Failed to save window state: ${getErrorMessage(error)}`)
-    }
+    showSuccessFlash()
+    onMessage("✓ Window state is managed automatically.")
   }
 
   // Transform profiles to ActionDropdownItem format
@@ -328,15 +304,23 @@ export function SettingsSidebar({
                       }
                       onSettingsLoaded(updated, true)
                       try {
-                        await settingsService.saveAppSettings({
+                        const existing = (await settingsService
+                          .loadAppSettings()
+                          .catch(() => null)) ?? {
                           theme: opt.value,
-                          active_tab: currentSettings.active_tab,
-                          collapsed_sections:
-                            currentSettings.collapsed_sections ?? [],
-                          sidebar_open: true,
-                          window_width: currentSettings.window_width,
-                          window_height: currentSettings.window_height,
                           logging: currentSettings.logging,
+                          lms_connection: null,
+                          git_connections: {},
+                        }
+                        const lmsConnection = existing.lms_connection ?? null
+                        const gitConnections = existing.git_connections ?? {}
+
+                        await settingsService.saveAppSettings({
+                          ...existing,
+                          theme: opt.value,
+                          logging: currentSettings.logging,
+                          lms_connection: lmsConnection,
+                          git_connections: gitConnections,
                         })
                         showSuccessFlash()
                       } catch (error) {

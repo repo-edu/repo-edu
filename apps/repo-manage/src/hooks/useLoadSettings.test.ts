@@ -36,12 +36,19 @@ const guiSettings: GuiSettings = {
   },
   lms: {
     type: "Canvas",
-    base_url: "https://canvas.example.com",
-    custom_url: "",
-    url_option: "TUE",
-    access_token: "lms-token",
-    course_id: "42",
-    course_name: "Algorithms",
+    active_course_index: 0,
+    canvas: {
+      access_token: "lms-token",
+      base_url: "https://canvas.example.com",
+      custom_url: "",
+      url_option: "TUE",
+      courses: [{ id: "42", name: "Algorithms" }],
+    },
+    moodle: {
+      access_token: "",
+      base_url: "",
+      courses: [],
+    },
     yaml_file: "students.yaml",
     output_folder: "/tmp/output",
     csv_file: "students.csv",
@@ -79,10 +86,6 @@ beforeEach(() => {
   })
   mockService.getActiveProfile.mockResolvedValue("Work")
   mockService.getDefaultSettings.mockResolvedValue(guiSettings)
-  mockService.loadAppSettings.mockResolvedValue({
-    window_width: 111,
-    window_height: 222,
-  })
 })
 
 describe("useLoadSettings", () => {
@@ -152,11 +155,6 @@ describe("useLoadSettings", () => {
         new Error("boom"),
       )
       mockService.getActiveProfile.mockResolvedValueOnce("Broken")
-      mockService.loadAppSettings.mockResolvedValueOnce({
-        theme: "dark",
-        window_width: 500,
-        window_height: 400,
-      })
       const onLoaded = vi.fn()
       const onForceDirty = vi.fn()
       const log = vi.fn()
@@ -169,13 +167,8 @@ describe("useLoadSettings", () => {
         }),
       )
 
-      await waitFor(() =>
-        expect(onLoaded).toHaveBeenCalledWith(
-          expect.objectContaining({ window_width: 500, window_height: 400 }),
-        ),
-      )
+      await waitFor(() => expect(onLoaded).toHaveBeenCalledWith(guiSettings))
       expect(onForceDirty).toHaveBeenCalled()
-      expect(mockService.loadAppSettings).toHaveBeenCalledTimes(1)
       expect(log).toHaveBeenCalledWith(
         "⚠ Failed to load profile 'Broken':\nboom",
       )

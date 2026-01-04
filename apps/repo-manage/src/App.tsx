@@ -43,7 +43,6 @@ import { useLmsActions } from "./hooks/useLmsActions"
 import { useLoadSettings } from "./hooks/useLoadSettings"
 import { useRepoActions } from "./hooks/useRepoActions"
 import { useTheme } from "./hooks/useTheme"
-import { useWindowState } from "./hooks/useWindowState"
 import * as lmsService from "./services/lmsService"
 import * as settingsService from "./services/settingsService"
 import {
@@ -70,21 +69,14 @@ function App() {
   // Keyboard shortcuts dialog
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
-  const getUiState = useCallback(
-    () => ({
-      activeTab: ui.activeTab,
-      collapsedSections: ui.getCollapsedSectionsArray(),
-      settingsMenuOpen: ui.settingsMenuOpen ?? false,
-    }),
-    [ui],
-  )
   const getLogging = useCallback(
     () => repoForm.getState().logLevels,
     [repoForm],
   )
 
-  const { currentGuiSettings, setCurrentGuiSettings, windowConfig } =
-    useAppSettings({ getUiState, getLogging })
+  const { currentGuiSettings, setCurrentGuiSettings } = useAppSettings({
+    getLogging,
+  })
 
   // Apply theme from settings
   useTheme(currentGuiSettings?.theme || DEFAULT_GUI_THEME)
@@ -131,10 +123,6 @@ function App() {
     log: (msg) => output.appendWithNewline(msg),
   })
 
-  const { saveWindowState } = useWindowState({
-    config: windowConfig,
-  })
-
   // Close guard handling
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
     isDirty,
@@ -143,7 +131,6 @@ function App() {
     onSave: async () => {
       await saveProfileToDisk()
     },
-    onBeforeClose: saveWindowState,
   })
 
   // --- Profile save helpers ---
@@ -417,7 +404,6 @@ function App() {
             onClose={handleToggleSettingsSidebar}
             currentSettings={currentGuiSettings}
             getProfileSettings={buildProfileSettings}
-            getUiState={getUiState}
             onSettingsLoaded={handleSettingsLoaded}
             onMessage={(msg) => output.appendWithNewline(msg)}
             isDirty={isDirty}

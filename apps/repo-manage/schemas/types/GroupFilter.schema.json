@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GroupFilter",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "all",
+        "selected",
+        "pattern"
+      ]
+    },
+    "selected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pattern": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "kind"
+  ],
+  "description": "Filter for importing LMS groups"
+}

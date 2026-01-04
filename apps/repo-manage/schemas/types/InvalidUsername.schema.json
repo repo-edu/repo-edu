@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InvalidUsername",
+  "type": "object",
+  "properties": {
+    "student_email": {
+      "type": "string"
+    },
+    "student_name": {
+      "type": "string"
+    },
+    "git_username": {
+      "type": "string"
+    },
+    "reason": {
+      "$ref": "./UsernameInvalidReason.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "student_email",
+    "student_name",
+    "git_username",
+    "reason"
+  ],
+  "description": "Invalid git username entry"
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OperationResult",
+  "type": "object",
+  "properties": {
+    "succeeded": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped_groups": {
+      "type": "array",
+      "items": {
+        "$ref": "./SkippedGroup.schema.json"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "./OperationError.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "succeeded",
+    "failed",
+    "skipped_groups",
+    "errors"
+  ],
+  "description": "Summary of an operation"
+}

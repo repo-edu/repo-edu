@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkippedGroupReason",
+  "type": "string",
+  "enum": [
+    "empty_group",
+    "all_members_skipped",
+    "repo_exists",
+    "repo_not_found"
+  ],
+  "x-rust": {
+    "serde": {
+      "rename_all": "snake_case"
+    }
+  },
+  "description": "Reason a group was skipped during an operation"
+}

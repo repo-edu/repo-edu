@@ -1,13 +1,13 @@
-use super::GitSettings;
+use super::GitConnection;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// CLI-specific configuration (extends GitSettings)
+/// CLI-specific configuration (extends GitConnection)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CLIConfig {
     /// Git settings shared with GUI
     #[serde(flatten)]
-    pub git: GitSettings,
+    pub git: GitConnection,
 
     // ===== CLI-Only Options =====
     /// Reset settings file location to default
@@ -42,7 +42,7 @@ pub struct CLIConfig {
 impl Default for CLIConfig {
     fn default() -> Self {
         Self {
-            git: GitSettings::default(),
+            git: GitConnection::default(),
             reset_file: false,
             load_path: None,
             reset_defaults: false,
@@ -56,7 +56,7 @@ impl Default for CLIConfig {
 
 impl CLIConfig {
     /// Create a new CLI config from git settings
-    pub fn from_git(git: GitSettings) -> Self {
+    pub fn from_git(git: GitConnection) -> Self {
         Self {
             git,
             ..Default::default()
@@ -64,17 +64,17 @@ impl CLIConfig {
     }
 
     /// Extract the git settings
-    pub fn into_git(self) -> GitSettings {
+    pub fn into_git(self) -> GitConnection {
         self.git
     }
 
     /// Get a reference to the git settings
-    pub fn git(&self) -> &GitSettings {
+    pub fn git(&self) -> &GitConnection {
         &self.git
     }
 
     /// Get a mutable reference to the git settings
-    pub fn git_mut(&mut self) -> &mut GitSettings {
+    pub fn git_mut(&mut self) -> &mut GitConnection {
         &mut self.git
     }
 
@@ -103,16 +103,16 @@ mod tests {
 
     #[test]
     fn test_cli_config_from_git() {
-        let git = GitSettings::default();
+        let git = GitConnection::default();
         let cli_config = CLIConfig::from_git(git.clone());
-        assert_eq!(cli_config.git.base_url(), git.base_url());
+        assert_eq!(cli_config.git.server_type, git.server_type);
     }
 
     #[test]
     fn test_cli_config_into_git() {
         let cli_config = CLIConfig::default();
         let git = cli_config.into_git();
-        assert_eq!(git.base_url(), GitSettings::default().base_url());
+        assert_eq!(git.server_type, GitConnection::default().server_type);
     }
 
     #[test]
@@ -121,11 +121,14 @@ mod tests {
 
         // Test immutable access (default is GitLab)
         let git_ref = cli_config.git();
-        assert_eq!(git_ref.base_url(), "https://gitlab.tue.nl");
+        assert_eq!(git_ref.server_type, crate::GitServerType::GitLab);
 
         // Test mutable access
-        cli_config.git_mut().gitlab.base_url = "https://custom.url".to_string();
-        assert_eq!(cli_config.git.gitlab.base_url, "https://custom.url");
+        cli_config.git_mut().connection.base_url = Some("https://custom.url".to_string());
+        assert_eq!(
+            cli_config.git.connection.base_url.as_deref(),
+            Some("https://custom.url")
+        );
     }
 
     #[test]
@@ -139,6 +142,6 @@ mod tests {
         assert!(!json.contains("show_settings"));
 
         // Git fields should be included
-        assert!(json.contains("base_url"));
+        assert!(json.contains("server_type"));
     }
 }

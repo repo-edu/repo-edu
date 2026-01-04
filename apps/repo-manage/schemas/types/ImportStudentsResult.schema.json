@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ImportStudentsResult",
+  "type": "object",
+  "properties": {
+    "summary": {
+      "$ref": "./ImportSummary.schema.json"
+    },
+    "roster": {
+      "$ref": "./Roster.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "roster"
+  ],
+  "description": "Result of importing students"
+}

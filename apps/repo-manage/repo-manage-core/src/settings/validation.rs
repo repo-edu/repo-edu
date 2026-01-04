@@ -1,5 +1,5 @@
 use super::error::{ConfigError, ConfigResult};
-use super::{GitServerType, GitSettings, GuiSettings, LmsSettings, ProfileSettings, RepoSettings};
+use super::{AppSettings, GitConnection, GitServerType, LmsConnection, ProfileSettings};
 use chrono::NaiveDate;
 use std::path::Path;
 
@@ -42,66 +42,38 @@ pub trait Validate {
     fn validate(&self) -> ConfigResult<()>;
 }
 
-impl Validate for GitSettings {
+impl Validate for GitConnection {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate GitLab base URL
-        if !self.gitlab.base_url.is_empty() && !is_valid_url(&self.gitlab.base_url) {
-            errors.add_field("git.gitlab.base_url", "must be a valid URL");
+        if let Some(base_url) = self.connection.base_url.as_deref() {
+            if !base_url.is_empty() && !is_valid_url(base_url) {
+                errors.add_field("git.connection.base_url", "must be a valid URL");
+            }
         }
 
-        // Validate Gitea base URL
-        if !self.gitea.base_url.is_empty() && !is_valid_url(&self.gitea.base_url) {
-            errors.add_field("git.gitea.base_url", "must be a valid URL");
-        }
-
-        // Validate that active server has required fields
         match self.server_type {
-            GitServerType::GitLab => {
-                if self.gitlab.base_url.is_empty() {
-                    errors.add_field("git.gitlab.base_url", "is required for GitLab");
+            GitServerType::GitLab | GitServerType::Gitea => {
+                if self.connection.base_url.as_deref().unwrap_or("").is_empty() {
+                    errors.add_field("git.connection.base_url", "is required");
                 }
             }
-            GitServerType::Gitea => {
-                if self.gitea.base_url.is_empty() {
-                    errors.add_field("git.gitea.base_url", "is required for Gitea");
-                }
-            }
-            GitServerType::GitHub => {
-                // GitHub doesn't need base_url
-            }
+            GitServerType::GitHub => {}
         }
 
         errors.into_result(())
     }
 }
 
-impl Validate for LmsSettings {
+impl Validate for LmsConnection {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate Canvas URLs
-        if !self.canvas.base_url.is_empty() && !is_valid_url(&self.canvas.base_url) {
-            errors.add_field("lms.canvas.base_url", "must be a valid URL");
-        }
-        if !self.canvas.custom_url.is_empty() && !is_valid_url(&self.canvas.custom_url) {
-            errors.add_field("lms.canvas.custom_url", "must be a valid URL");
-        }
-
-        // Validate Moodle URL
-        if !self.moodle.base_url.is_empty() && !is_valid_url(&self.moodle.base_url) {
-            errors.add_field("lms.moodle.base_url", "must be a valid URL");
+        if !self.base_url.is_empty() && !is_valid_url(&self.base_url) {
+            errors.add_field("lms_connection.base_url", "must be a valid URL");
         }
 
         errors.into_result(())
-    }
-}
-
-impl Validate for RepoSettings {
-    fn validate(&self) -> ConfigResult<()> {
-        // No URL validation needed for repo settings currently
-        Ok(())
     }
 }
 
@@ -109,31 +81,9 @@ impl Validate for ProfileSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate each section
-        if let Err(ConfigError::InvalidConfig {
-            errors: section_errors,
-        }) = self.git.validate()
-        {
-            for error in section_errors {
-                errors.add(error);
-            }
-        }
-
-        if let Err(ConfigError::InvalidConfig {
-            errors: section_errors,
-        }) = self.lms.validate()
-        {
-            for error in section_errors {
-                errors.add(error);
-            }
-        }
-
-        if let Err(ConfigError::InvalidConfig {
-            errors: section_errors,
-        }) = self.repo.validate()
-        {
-            for error in section_errors {
-                errors.add(error);
+        if let Some(connection_name) = self.git_connection.as_deref() {
+            if connection_name.trim().is_empty() {
+                errors.add_field("git_connection", "cannot be empty");
             }
         }
 
@@ -141,21 +91,34 @@ impl Validate for ProfileSettings {
     }
 }
 
-impl Validate for GuiSettings {
+impl Validate for AppSettings {
     fn validate(&self) -> ConfigResult<()> {
         let mut errors = ValidationErrors::new();
 
-        // Validate profile settings
-        if let Err(ConfigError::InvalidConfig {
-            errors: profile_errors,
-        }) = self.profile_settings().validate()
-        {
-            for error in profile_errors {
-                errors.add(error);
+        if let Some(ref lms_connection) = self.lms_connection {
+            if let Err(ConfigError::InvalidConfig {
+                errors: connection_errors,
+            }) = lms_connection.validate()
+            {
+                for error in connection_errors {
+                    errors.add(error);
+                }
             }
         }
 
-        // Validate GUI-specific settings (no constraints for current fields)
+        for (name, connection) in &self.git_connections {
+            if name.trim().is_empty() {
+                errors.add("git_connections: connection name cannot be empty".to_string());
+            }
+            if let Err(ConfigError::InvalidConfig {
+                errors: connection_errors,
+            }) = connection.validate()
+            {
+                for error in connection_errors {
+                    errors.add(error);
+                }
+            }
+        }
 
         errors.into_result(())
     }
@@ -285,6 +248,7 @@ pub fn validate_glob_pattern(pattern: &str) -> ConfigResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::{AppSettings, GitConnection, GitServerType, LmsConnection, LmsType};
     use std::path::PathBuf;
 
     // ===== Date Validation Tests =====
@@ -426,86 +390,50 @@ mod tests {
     // ===== Settings Validation Tests =====
 
     #[test]
-    fn test_validate_git_settings_default() {
-        let settings = GitSettings::default();
+    fn test_validate_git_connection_default() {
+        let settings = GitConnection::default();
         assert!(settings.validate().is_ok());
     }
 
     #[test]
-    fn test_validate_git_settings_invalid_gitlab_url() {
-        let mut settings = GitSettings::default();
-        settings.gitlab.base_url = "ftp://invalid".to_string();
+    fn test_validate_git_connection_invalid_url() {
+        let mut settings = GitConnection::default();
+        settings.connection.base_url = Some("ftp://invalid".to_string());
         assert!(settings.validate().is_err());
     }
 
     #[test]
-    fn test_validate_git_settings_invalid_gitea_url() {
-        let mut settings = GitSettings::default();
-        settings.server_type = GitServerType::Gitea;
-        settings.gitea.base_url = "ftp://invalid".to_string();
-        assert!(settings.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_git_settings_github_no_base_url_required() {
-        let mut settings = GitSettings::default();
+    fn test_validate_git_connection_github_no_base_url_required() {
+        let mut settings = GitConnection::default();
         settings.server_type = GitServerType::GitHub;
-        // GitHub doesn't need base_url, so this should pass
+        settings.connection.base_url = None;
         assert!(settings.validate().is_ok());
     }
 
     #[test]
-    fn test_validate_git_settings_gitea_requires_base_url() {
-        let mut settings = GitSettings::default();
-        settings.server_type = GitServerType::Gitea;
-        settings.gitea.base_url = String::new(); // Empty base_url
+    fn test_validate_git_connection_gitlab_requires_base_url() {
+        let mut settings = GitConnection::default();
+        settings.server_type = GitServerType::GitLab;
+        settings.connection.base_url = None;
         assert!(settings.validate().is_err());
     }
 
     #[test]
-    fn test_validate_lms_settings_default() {
-        let settings = LmsSettings::default();
-        assert!(settings.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_lms_settings_invalid_base_url() {
-        let mut settings = LmsSettings::default();
-        settings.canvas.base_url = "invalid-url".to_string();
+    fn test_validate_lms_connection_invalid_base_url() {
+        let mut settings = LmsConnection {
+            lms_type: LmsType::Canvas,
+            base_url: "invalid".to_string(),
+            access_token: "token".to_string(),
+        };
         assert!(settings.validate().is_err());
     }
 
     #[test]
-    fn test_validate_lms_settings_invalid_custom_url() {
-        let mut settings = LmsSettings::default();
-        settings.canvas.custom_url = "not-a-url".to_string();
-        assert!(settings.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_profile_settings_default() {
-        let settings = ProfileSettings::default();
-        assert!(settings.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_profile_settings_with_invalid_lms() {
-        let mut settings = ProfileSettings::default();
-        settings.lms.canvas.base_url = "invalid".to_string();
-        assert!(settings.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_gui_settings_default() {
-        let settings = GuiSettings::default();
-        assert!(settings.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_gui_settings_with_invalid_profile() {
-        let mut profile = ProfileSettings::default();
-        profile.lms.canvas.base_url = "invalid".to_string();
-        let settings = GuiSettings::from_parts(Default::default(), profile);
+    fn test_validate_app_settings_connection_name() {
+        let mut settings = AppSettings::default();
+        settings
+            .git_connections
+            .insert("".to_string(), GitConnection::default());
         assert!(settings.validate().is_err());
     }
 

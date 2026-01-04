@@ -6,14 +6,12 @@
 #![allow(clippy::upper_case_acronyms)]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum ActiveTab {
-  #[serde(rename = "lms")]
-  #[default]
-  Lms,
-  #[serde(rename = "repo")]
-  Repo,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AffectedGroup {
+  pub assignment_id: AssignmentId,
+  pub assignment_name: String,
+  pub group_id: GroupId,
+  pub group_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,32 +23,43 @@ pub struct AppError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
-  pub active_tab: ActiveTab,
-  #[serde(default)]
-  pub collapsed_sections: Vec<String>,
-  pub logging: LogSettings,
-  pub sidebar_open: bool,
   pub theme: Theme,
-  pub window_height: u32,
-  pub window_width: u32,
+  pub logging: LogSettings,
+  pub lms_connection: Option<LmsConnection>,
+  pub git_connections: std::collections::HashMap<String, GitConnection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CanvasConfig {
-  pub access_token: String,
-  pub base_url: String,
-  pub courses: Vec<CourseEntry>,
-  pub custom_url: String,
-  pub url_option: LmsUrlOption,
+pub struct Assignment {
+  pub id: AssignmentId,
+  pub name: String,
+  pub groups: Vec<Group>,
+  pub lms_group_set_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CloneParams {
-  pub config: ConfigParams,
-  pub yaml_file: String,
-  pub assignments: String,
-  pub target_folder: String,
-  pub directory_layout: String,
+pub struct AssignmentCoverage {
+  pub assignment_id: AssignmentId,
+  pub assignment_name: String,
+  pub student_count: i64,
+  pub missing_students: Vec<StudentSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AssignmentId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssignmentMetadata {
+  pub id: AssignmentId,
+  pub name: String,
+  pub lms_group_set_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloneConfig {
+  pub target_dir: String,
+  pub directory_layout: DirectoryLayout,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,18 +70,35 @@ pub struct CommandResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigParams {
-  pub access_token: String,
-  pub user: String,
-  pub base_url: String,
-  pub student_repos: String,
-  pub template: String,
+pub struct CourseInfo {
+  pub id: String,
+  pub name: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CoverageExportFormat {
+  #[serde(rename = "csv")]
+  Csv,
+  #[serde(rename = "xlsx")]
+  Xlsx,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CourseEntry {
-  pub id: String,
-  pub name: Option<String>,
+pub struct CoverageReport {
+  pub total_students: i64,
+  pub assignments: Vec<AssignmentCoverage>,
+  pub students_in_multiple: Vec<StudentMultipleAssignments>,
+  pub students_in_none: Vec<StudentSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateConfig {
+  pub template_org: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -88,48 +114,36 @@ pub enum DirectoryLayout {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerateFilesParams {
-  pub base_url: String,
-  pub access_token: String,
-  pub course_id: String,
-  pub lms_type: String,
-  pub yaml_file: String,
+pub struct ExportSettings {
   pub output_folder: String,
+  pub output_csv: bool,
+  pub output_xlsx: bool,
+  pub output_yaml: bool,
   pub csv_file: String,
   pub xlsx_file: String,
-  pub member_option: String,
+  pub yaml_file: String,
+  pub member_option: MemberOption,
   pub include_group: bool,
   pub include_member: bool,
   pub include_initials: bool,
   pub full_groups: bool,
-  pub csv: bool,
-  pub xlsx: bool,
-  pub yaml: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetGroupCategoriesParams {
-  pub base_url: String,
-  pub access_token: String,
-  pub course_id: String,
-  pub lms_type: String,
+pub struct GitConnection {
+  pub server_type: GitServerType,
+  pub connection: PlatformConnection,
+  pub identity_mode: Option<GitIdentityMode>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubConfig {
-  pub access_token: String,
-  pub user: String,
-  pub student_repos_org: String,
-  pub template_org: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitLabConfig {
-  pub access_token: String,
-  pub base_url: String,
-  pub user: String,
-  pub student_repos_group: String,
-  pub template_group: String,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum GitIdentityMode {
+  #[serde(rename = "email")]
+  Email,
+  #[serde(rename = "username")]
+  #[default]
+  Username,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -141,76 +155,138 @@ pub enum GitServerType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitSettings {
-  pub gitea: GiteaConfig,
-  pub github: GitHubConfig,
-  pub gitlab: GitLabConfig,
-  #[serde(rename = "type")]
-  pub server_type: GitServerType,
+pub struct GitUsernameEntry {
+  pub email: String,
+  pub git_username: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GiteaConfig {
-  pub access_token: String,
-  pub base_url: String,
-  pub user: String,
-  pub student_repos_group: String,
-  pub template_group: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupCategory {
-  pub id: String,
-  pub name: String,
-  pub role: Option<String>,
-  pub self_signup: Option<String>,
-  pub course_id: Option<String>,
-  pub group_limit: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuiSettings {
-  pub active_tab: ActiveTab,
-  #[serde(default)]
-  pub collapsed_sections: Vec<String>,
-  pub logging: LogSettings,
-  pub sidebar_open: bool,
-  pub theme: Theme,
-  pub window_height: u32,
-  pub window_width: u32,
-  pub git: GitSettings,
-  pub lms: LmsSettings,
-  pub repo: RepoSettings,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LmsSettings {
-  pub canvas: CanvasConfig,
-  pub moodle: MoodleConfig,
-  pub r#type: String,
-  #[serde(default)]
-  pub active_course_index: u32,
-  pub csv_file: String,
-  pub full_groups: bool,
-  pub include_group: bool,
-  pub include_initials: bool,
-  pub include_member: bool,
-  pub member_option: MemberOption,
-  pub output_csv: bool,
-  pub output_folder: String,
-  pub output_xlsx: bool,
-  pub output_yaml: bool,
-  pub xlsx_file: String,
-  pub yaml_file: String,
+pub struct GitUsernameImportSummary {
+  pub matched: i64,
+  pub unmatched_emails: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum LmsUrlOption {
+#[serde(rename_all = "lowercase")]
+pub enum GitUsernameStatus {
+  #[serde(rename = "unknown")]
   #[default]
-  TUE,
-  #[serde(rename = "CUSTOM")]
-  Custom,
+  Unknown,
+  #[serde(rename = "valid")]
+  Valid,
+  #[serde(rename = "invalid")]
+  Invalid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitVerifyResult {
+  pub success: bool,
+  pub message: String,
+  pub username: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Group {
+  pub id: GroupId,
+  pub name: String,
+  pub member_ids: Vec<StudentId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupFilter {
+  pub kind: String,
+  pub selected: Option<Vec<String>>,
+  pub pattern: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct GroupId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupImportConfig {
+  pub group_set_id: String,
+  pub filter: GroupFilter,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupImportSummary {
+  pub groups_imported: i64,
+  pub groups_replaced: i64,
+  pub students_referenced: i64,
+  pub filter_applied: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportGitUsernamesResult {
+  pub summary: GitUsernameImportSummary,
+  pub roster: Roster,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportGroupsResult {
+  pub summary: GroupImportSummary,
+  pub roster: Roster,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportStudentsResult {
+  pub summary: ImportSummary,
+  pub roster: Roster,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportSummary {
+  pub added: i64,
+  pub updated: i64,
+  pub unchanged: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvalidUsername {
+  pub student_email: String,
+  pub student_name: String,
+  pub git_username: String,
+  pub reason: UsernameInvalidReason,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsConnection {
+  pub lms_type: LmsType,
+  pub base_url: String,
+  pub access_token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsGroup {
+  pub id: String,
+  pub name: String,
+  pub member_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsGroupSet {
+  pub id: String,
+  pub name: String,
+  pub groups: Vec<LmsGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsIdConflict {
+  pub email: String,
+  pub roster_lms_user_id: String,
+  pub incoming_lms_user_id: String,
+  pub roster_student_name: String,
+  pub incoming_student_name: String,
+}
+
+pub type LmsType = lms_common::LmsType;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsVerifyResult {
+  pub success: bool,
+  pub message: String,
+  pub lms_type: Option<LmsType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,38 +309,160 @@ pub enum MemberOption {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MoodleConfig {
+pub struct OperationConfigs {
+  pub target_org: String,
+  pub repo_name_template: String,
+  pub create: CreateConfig,
+  pub clone: CloneConfig,
+  pub delete: DeleteConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationError {
+  pub repo_name: String,
+  pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationResult {
+  pub succeeded: i64,
+  pub failed: i64,
+  pub skipped_groups: Vec<SkippedGroup>,
+  pub errors: Vec<OperationError>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputLevel {
+  #[serde(rename = "info")]
+  Info,
+  #[serde(rename = "success")]
+  Success,
+  #[serde(rename = "warning")]
+  Warning,
+  #[serde(rename = "error")]
+  Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutputLine {
+  pub message: String,
+  pub level: OutputLevel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformConnection {
   pub access_token: String,
-  pub base_url: String,
-  pub courses: Vec<CourseEntry>,
+  pub base_url: Option<String>,
+  pub user: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileSettings {
-  pub git: GitSettings,
-  pub lms: LmsSettings,
-  pub repo: RepoSettings,
+  pub course: CourseInfo,
+  pub git_connection: Option<String>,
+  pub operations: OperationConfigs,
+  pub exports: ExportSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RepoSettings {
-  pub assignments: String,
-  pub directory_layout: DirectoryLayout,
-  pub target_folder: String,
-  pub yaml_file: String,
+pub struct RepoCollision {
+  pub group_id: GroupId,
+  pub group_name: String,
+  pub repo_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoPreflightResult {
+  pub collisions: Vec<RepoCollision>,
+  pub ready_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Roster {
+  pub source: Option<RosterSource>,
+  pub students: Vec<Student>,
+  pub assignments: Vec<Assignment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterSource {
+  pub kind: String,
+  pub lms_type: Option<LmsType>,
+  pub base_url: Option<String>,
+  pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
+  pub file_name: Option<String>,
+  pub imported_at: Option<chrono::DateTime<chrono::Utc>>,
+  pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsLoadResult {
-  pub settings: GuiSettings,
+  pub settings: ProfileSettings,
   pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetupParams {
-  pub config: ConfigParams,
-  pub yaml_file: String,
-  pub assignments: String,
+pub struct SkippedGroup {
+  pub assignment_id: AssignmentId,
+  pub group_id: GroupId,
+  pub group_name: String,
+  pub reason: SkippedGroupReason,
+  pub context: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SkippedGroupReason {
+  #[serde(rename = "empty_group")]
+  EmptyGroup,
+  #[serde(rename = "all_members_skipped")]
+  AllMembersSkipped,
+  #[serde(rename = "repo_exists")]
+  RepoExists,
+  #[serde(rename = "repo_not_found")]
+  RepoNotFound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Student {
+  pub id: StudentId,
+  pub name: String,
+  pub email: String,
+  pub student_number: Option<String>,
+  pub git_username: Option<String>,
+  pub git_username_status: GitUsernameStatus,
+  pub lms_user_id: Option<String>,
+  pub custom_fields: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct StudentId(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudentMultipleAssignments {
+  pub student: StudentSummary,
+  pub assignment_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudentRemovalCheck {
+  pub student_id: StudentId,
+  pub student_name: String,
+  pub affected_groups: Vec<AffectedGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudentRemovalResult {
+  pub removed_from_roster: bool,
+  pub removed_from_groups: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudentSummary {
+  pub id: StudentId,
+  pub name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -279,16 +477,80 @@ pub enum Theme {
   System,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerifyCourseParams {
-  pub base_url: String,
-  pub access_token: String,
-  pub course_id: String,
-  pub lms_type: String,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UsernameInvalidReason {
+  #[serde(rename = "not_found")]
+  NotFound,
+  #[serde(rename = "blocked")]
+  Blocked,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerifyCourseResult {
-  pub course_id: String,
-  pub course_name: String,
+pub struct UsernameVerificationError {
+  pub student_email: String,
+  pub student_name: String,
+  pub git_username: String,
+  pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsernameVerificationResult {
+  pub valid: i64,
+  pub invalid: Vec<InvalidUsername>,
+  pub errors: Vec<UsernameVerificationError>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UsernameVerificationScope {
+  #[serde(rename = "all")]
+  All,
+  #[serde(rename = "unknown_only")]
+  UnknownOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationIssue {
+  pub kind: ValidationKind,
+  pub affected_ids: Vec<String>,
+  pub context: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationKind {
+  #[serde(rename = "duplicate_student_id")]
+  DuplicateStudentId,
+  #[serde(rename = "duplicate_email")]
+  DuplicateEmail,
+  #[serde(rename = "duplicate_assignment_name")]
+  DuplicateAssignmentName,
+  #[serde(rename = "duplicate_group_id_in_assignment")]
+  DuplicateGroupIdInAssignment,
+  #[serde(rename = "duplicate_group_name_in_assignment")]
+  DuplicateGroupNameInAssignment,
+  #[serde(rename = "duplicate_repo_name_in_assignment")]
+  DuplicateRepoNameInAssignment,
+  #[serde(rename = "student_in_multiple_groups_in_assignment")]
+  StudentInMultipleGroupsInAssignment,
+  #[serde(rename = "orphan_group_member")]
+  OrphanGroupMember,
+  #[serde(rename = "missing_git_username")]
+  MissingGitUsername,
+  #[serde(rename = "invalid_git_username")]
+  InvalidGitUsername,
+  #[serde(rename = "empty_group")]
+  EmptyGroup,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+  pub issues: Vec<ValidationIssue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyGitUsernamesResult {
+  pub verification: UsernameVerificationResult,
+  pub roster: Roster,
 }

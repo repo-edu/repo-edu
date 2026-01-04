@@ -4,9 +4,14 @@
 
 
 /**
- * Active tab in the GUI
+ * Group that references a student
  */
-export type ActiveTab = 'lms' | 'repo';
+export interface AffectedGroup {
+  assignment_id: AssignmentId;
+  assignment_name: string;
+  group_id: GroupId;
+  group_name: string;
+}
 
 /**
  * Unified error type for all Tauri commands
@@ -24,38 +29,56 @@ export interface AppError {
 
 /**
  * App-level settings stored in app.json
- * These are UI/window settings that don't belong in profiles
  */
 export interface AppSettings {
-  active_tab: ActiveTab;
-  /**
-   * IDs of collapsed sections (e.g., ["lms-config", "options"])
-   */
-  collapsed_sections?: string[];
-  logging: LogSettings;
-  sidebar_open: boolean;
   theme: Theme;
-  window_height: number;
-  window_width: number;
+  logging: LogSettings;
+  lms_connection?: LmsConnection | null;
+  git_connections: {
+    [k: string]: GitConnection;
+  };
 }
 
 /**
- * Canvas-specific LMS configuration
+ * Assignment grouping students into repos
  */
-export interface CanvasConfig {
-  access_token: string;
-  base_url: string;
-  courses: CourseEntry[];
-  custom_url: string;
-  url_option: LmsUrlOption;
+export interface Assignment {
+  id: AssignmentId;
+  name: string;
+  groups: Group[];
+  lms_group_set_id?: string | null;
 }
 
-export interface CloneParams {
-  config: ConfigParams;
-  yaml_file: string;
-  assignments: string;
-  target_folder: string;
-  directory_layout: string;
+/**
+ * Coverage summary for an assignment
+ */
+export interface AssignmentCoverage {
+  assignment_id: AssignmentId;
+  assignment_name: string;
+  student_count: number;
+  missing_students: StudentSummary[];
+}
+
+/**
+ * Strongly-typed assignment ID
+ */
+export type AssignmentId = string;
+
+/**
+ * Assignment metadata without groups
+ */
+export interface AssignmentMetadata {
+  id: AssignmentId;
+  name: string;
+  lms_group_set_id?: string | null;
+}
+
+/**
+ * Repo clone configuration
+ */
+export interface CloneConfig {
+  target_dir: string;
+  directory_layout: DirectoryLayout;
 }
 
 export interface CommandResult {
@@ -64,73 +87,77 @@ export interface CommandResult {
   details: string | null;
 }
 
-export interface ConfigParams {
-  access_token: string;
-  user: string;
-  base_url: string;
-  student_repos: string;
-  template: string;
+/**
+ * Course identifier and display name
+ */
+export interface CourseInfo {
+  id: string;
+  name: string;
 }
 
 /**
- * A course entry with ID and optional name (populated after verification)
+ * Export format for coverage reports
  */
-export interface CourseEntry {
-  id: string;
-  name: string | null;
+export type CoverageExportFormat = 'csv' | 'xlsx';
+
+/**
+ * Coverage report of students across assignments
+ */
+export interface CoverageReport {
+  total_students: number;
+  assignments: AssignmentCoverage[];
+  students_in_multiple: StudentMultipleAssignments[];
+  students_in_none: StudentSummary[];
 }
+
+/**
+ * Repo creation configuration
+ */
+export interface CreateConfig {
+  template_org: string;
+}
+
+/**
+ * Repo delete configuration
+ */
+export interface DeleteConfig {}
 
 /**
  * Directory layout for cloned repositories
  */
 export type DirectoryLayout = 'by-team' | 'flat' | 'by-task';
 
-export interface GenerateFilesParams {
-  base_url: string;
-  access_token: string;
-  course_id: string;
-  lms_type: string;
-  yaml_file: string;
+/**
+ * Export settings for roster outputs
+ */
+export interface ExportSettings {
   output_folder: string;
+  output_csv: boolean;
+  output_xlsx: boolean;
+  output_yaml: boolean;
   csv_file: string;
   xlsx_file: string;
-  member_option: string;
+  yaml_file: string;
+  member_option: MemberOption;
   include_group: boolean;
   include_member: boolean;
   include_initials: boolean;
   full_groups: boolean;
-  csv: boolean;
-  xlsx: boolean;
-  yaml: boolean;
-}
-
-export interface GetGroupCategoriesParams {
-  base_url: string;
-  access_token: string;
-  course_id: string;
-  lms_type: string;
 }
 
 /**
- * GitHub-specific configuration (no base_url - always github.com)
+ * Named git connection
  */
-export interface GitHubConfig {
-  access_token: string;
-  user: string;
-  student_repos_org: string;
-  template_org: string;
+export interface GitConnection {
+  server_type: GitServerType;
+  connection: PlatformConnection;
+  identity_mode?: GitIdentityMode | null;
 }
 
 /**
- * GitLab-specific configuration (requires base_url)
+ * Git identity mode for collaborator matching
  */
-export interface GitLabConfig {
-  access_token: string;
-  base_url: string;
-  user: string;
-  student_repos_group: string;
-  template_group: string;
-}
+export type GitIdentityMode = 'email' | 'username';
 
 /**
  * Git server types for repository management
@@ -138,87 +165,170 @@ export interface GitLabConfig {
 export type GitServerType = 'GitHub' | 'GitLab' | 'Gitea';
 
 /**
- * Git server settings (shared across apps)
+ * Single git username import row
  */
-export interface GitSettings {
-  gitea: GiteaConfig;
-  github: GitHubConfig;
-  gitlab: GitLabConfig;
-  type: GitServerType;
+export interface GitUsernameEntry {
+  email: string;
+  git_username: string;
 }
 
 /**
- * Gitea-specific configuration (requires base_url)
+ * Summary of git username imports
  */
-export interface GiteaConfig {
-  access_token: string;
+export interface GitUsernameImportSummary {
+  matched: number;
+  unmatched_emails: string[];
+}
+
+/**
+ * Verification status for a student's git username
+ */
+export type GitUsernameStatus = 'unknown' | 'valid' | 'invalid';
+
+/**
+ * Result of verifying a git connection
+ */
+export interface GitVerifyResult {
+  success: boolean;
+  message: string;
+  username?: string | null;
+}
+
+/**
+ * Group within an assignment
+ */
+export interface Group {
+  id: GroupId;
+  name: string;
+  member_ids: StudentId[];
+}
+
+/**
+ * Filter for importing LMS groups
+ */
+export interface GroupFilter {
+  kind: 'all' | 'selected' | 'pattern';
+  selected?: string[];
+  pattern?: string;
+}
+
+/**
+ * Strongly-typed group ID
+ */
+export type GroupId = string;
+
+/**
+ * Group import configuration
+ */
+export interface GroupImportConfig {
+  group_set_id: string;
+  filter: GroupFilter;
+}
+
+/**
+ * Summary of group imports
+ */
+export interface GroupImportSummary {
+  groups_imported: number;
+  groups_replaced: number;
+  students_referenced: number;
+  filter_applied: string;
+}
+
+/**
+ * Result of importing git usernames
+ */
+export interface ImportGitUsernamesResult {
+  summary: GitUsernameImportSummary;
+  roster: Roster;
+}
+
+/**
+ * Result of importing groups
+ */
+export interface ImportGroupsResult {
+  summary: GroupImportSummary;
+  roster: Roster;
+}
+
+/**
+ * Result of importing students
+ */
+export interface ImportStudentsResult {
+  summary: ImportSummary;
+  roster: Roster;
+}
+
+/**
+ * Summary of student imports
+ */
+export interface ImportSummary {
+  added: number;
+  updated: number;
+  unchanged: number;
+}
+
+/**
+ * Invalid git username entry
+ */
+export interface InvalidUsername {
+  student_email: string;
+  student_name: string;
+  git_username: string;
+  reason: UsernameInvalidReason;
+}
+
+/**
+ * LMS connection credentials
+ */
+export interface LmsConnection {
+  lms_type: LmsType;
   base_url: string;
-  user: string;
-  student_repos_group: string;
-  template_group: string;
+  access_token: string;
 }
 
 /**
- * Group category (group set) for frontend binding
+ * LMS group used for import
  */
-export interface GroupCategory {
+export interface LmsGroup {
   id: string;
   name: string;
-  role: string | null;
-  self_signup: string | null;
-  course_id: string | null;
-  group_limit: number | null;
+  member_ids: string[];
 }
 
 /**
- * Combined GUI settings (sent to frontend)
- * This combines app settings with the active profile's settings
+ * LMS group set used for import
  */
-export interface GuiSettings {
-  active_tab: ActiveTab;
-  /**
-   * IDs of collapsed sections (e.g., ["lms-config", "options"])
-   */
-  collapsed_sections?: string[];
-  logging: LogSettings;
-  sidebar_open: boolean;
-  theme: Theme;
-  window_height: number;
-  window_width: number;
-  git: GitSettings;
-  lms: LmsSettings;
-  repo: RepoSettings;
+export interface LmsGroupSet {
+  id: string;
+  name: string;
+  groups: LmsGroup[];
 }
 
 /**
- * LMS app settings (Tab 1)
+ * Conflict between LMS user IDs when importing
  */
-export interface LmsSettings {
-  canvas: CanvasConfig;
-  moodle: MoodleConfig;
-  type: string;
-  /**
-   * Index of the active course in the courses array
-   */
-  active_course_index?: number;
-  csv_file: string;
-  full_groups: boolean;
-  include_group: boolean;
-  include_initials: boolean;
-  include_member: boolean;
-  member_option: MemberOption;
-  output_csv: boolean;
-  output_folder: string;
-  output_xlsx: boolean;
-  output_yaml: boolean;
-  xlsx_file: string;
-  yaml_file: string;
+export interface LmsIdConflict {
+  email: string;
+  roster_lms_user_id: string;
+  incoming_lms_user_id: string;
+  roster_student_name: string;
+  incoming_student_name: string;
 }
 
 /**
- * LMS URL preset options
+ * LMS type
  */
-export type LmsUrlOption = 'TUE' | 'CUSTOM';
+export type LmsType = 'canvas' | 'moodle';
+
+/**
+ * Result of verifying an LMS connection
+ */
+export interface LmsVerifyResult {
+  success: boolean;
+  message: string;
+  lms_type?: LmsType | null;
+}
 
 /**
  * Logging settings (stored in AppSettings)
@@ -236,38 +346,110 @@ export interface LogSettings {
 export type MemberOption = '(email, gitid)' | 'email' | 'git_id';
 
 /**
- * Moodle-specific LMS configuration
+ * Per-profile operation configuration
  */
-export interface MoodleConfig {
-  access_token: string;
-  base_url: string;
-  courses: CourseEntry[];
+export interface OperationConfigs {
+  target_org: string;
+  repo_name_template: string;
+  create: CreateConfig;
+  clone: CloneConfig;
+  delete: DeleteConfig;
 }
 
 /**
- * Profile settings (nested structure for per-profile data)
+ * Operation error detail
+ */
+export interface OperationError {
+  repo_name: string;
+  message: string;
+}
+
+/**
+ * Summary of an operation
+ */
+export interface OperationResult {
+  succeeded: number;
+  failed: number;
+  skipped_groups: SkippedGroup[];
+  errors: OperationError[];
+}
+
+/**
+ * Severity level for output lines
+ */
+export type OutputLevel = 'info' | 'success' | 'warning' | 'error';
+
+/**
+ * Structured output line
+ */
+export interface OutputLine {
+  message: string;
+  level: OutputLevel;
+}
+
+/**
+ * Platform connection credentials
+ */
+export interface PlatformConnection {
+  access_token: string;
+  base_url?: string | null;
+  user: string;
+}
+
+/**
+ * Profile settings (per-profile data)
  */
 export interface ProfileSettings {
-  git: GitSettings;
-  lms: LmsSettings;
-  repo: RepoSettings;
+  course: CourseInfo;
+  git_connection?: string | null;
+  operations: OperationConfigs;
+  exports: ExportSettings;
 }
 
 /**
- * Repo app settings (Tab 2)
+ * Repo collision detail
  */
-export interface RepoSettings {
-  assignments: string;
-  directory_layout: DirectoryLayout;
-  target_folder: string;
-  yaml_file: string;
+export interface RepoCollision {
+  group_id: GroupId;
+  group_name: string;
+  repo_name: string;
+}
+
+/**
+ * Preflight result for repo operations
+ */
+export interface RepoPreflightResult {
+  collisions: RepoCollision[];
+  ready_count: number;
+}
+
+/**
+ * Roster data for a course
+ */
+export interface Roster {
+  source?: RosterSource | null;
+  students: Student[];
+  assignments: Assignment[];
+}
+
+/**
+ * Tracks how the roster was sourced for display
+ */
+export interface RosterSource {
+  kind: 'lms' | 'file' | 'manual';
+  lms_type?: LmsType;
+  base_url?: string;
+  fetched_at?: string;
+  file_name?: string;
+  imported_at?: string;
+  created_at?: string;
 }
 
 /**
  * Result of loading settings, including any warnings about corrected issues
  */
 export interface SettingsLoadResult {
-  settings: GuiSettings;
+  settings: ProfileSettings;
   /**
    * Warnings about issues found in the settings file
    * (unknown fields removed, invalid values replaced with defaults)
@@ -275,10 +457,74 @@ export interface SettingsLoadResult {
   warnings: string[];
 }
 
-export interface SetupParams {
-  config: ConfigParams;
-  yaml_file: string;
-  assignments: string;
+/**
+ * Details about a skipped group
+ */
+export interface SkippedGroup {
+  assignment_id: AssignmentId;
+  group_id: GroupId;
+  group_name: string;
+  reason: SkippedGroupReason;
+  context?: string | null;
+}
+
+/**
+ * Reason a group was skipped during an operation
+ */
+export type SkippedGroupReason = 'empty_group' | 'all_members_skipped' | 'repo_exists' | 'repo_not_found';
+
+/**
+ * Student roster entry
+ */
+export interface Student {
+  id: StudentId;
+  name: string;
+  email: string;
+  student_number?: string | null;
+  git_username?: string | null;
+  git_username_status: GitUsernameStatus;
+  lms_user_id?: string | null;
+  custom_fields: {
+    [k: string]: string;
+  };
+}
+
+/**
+ * Strongly-typed student ID
+ */
+export type StudentId = string;
+
+/**
+ * Student appearing in multiple assignments
+ */
+export interface StudentMultipleAssignments {
+  student: StudentSummary;
+  assignment_names: string[];
+}
+
+/**
+ * Check result for removing a student
+ */
+export interface StudentRemovalCheck {
+  student_id: StudentId;
+  student_name: string;
+  affected_groups: AffectedGroup[];
+}
+
+/**
+ * Result of removing a student
+ */
+export interface StudentRemovalResult {
+  removed_from_roster: boolean;
+  removed_from_groups: number;
+}
+
+/**
+ * Summary of a student
+ */
+export interface StudentSummary {
+  id: StudentId;
+  name: string;
 }
 
 /**
@@ -286,16 +532,238 @@ export interface SetupParams {
  */
 export type Theme = 'light' | 'dark' | 'system';
 
+/**
+ * Reason a git username is considered invalid
+ */
+export type UsernameInvalidReason = 'not_found' | 'blocked';
+
+/**
+ * Error encountered during username verification
+ */
+export interface UsernameVerificationError {
+  student_email: string;
+  student_name: string;
+  git_username: string;
+  message: string;
+}
+
+/**
+ * Summary of username verification
+ */
+export interface UsernameVerificationResult {
+  valid: number;
+  invalid: InvalidUsername[];
+  errors: UsernameVerificationError[];
+}
+
+/**
+ * Scope of username verification
+ */
+export type UsernameVerificationScope = 'all' | 'unknown_only';
+
+/**
+ * Single validation issue
+ */
+export interface ValidationIssue {
+  kind: ValidationKind;
+  affected_ids: string[];
+  context?: string | null;
+}
+
+/**
+ * Validation issue type
+ */
+export type ValidationKind =
+  | 'duplicate_student_id'
+  | 'duplicate_email'
+  | 'duplicate_assignment_name'
+  | 'duplicate_group_id_in_assignment'
+  | 'duplicate_group_name_in_assignment'
+  | 'duplicate_repo_name_in_assignment'
+  | 'student_in_multiple_groups_in_assignment'
+  | 'orphan_group_member'
+  | 'missing_git_username'
+  | 'invalid_git_username'
+  | 'empty_group';
+
+/**
+ * Collection of validation issues
+ */
+export interface ValidationResult {
+  issues: ValidationIssue[];
+}
+
+/**
+ * Result of verifying git usernames
+ */
+export interface VerifyGitUsernamesResult {
+  verification: UsernameVerificationResult;
+  roster: Roster;
+}
+
+/**
+ * Legacy GUI and command types retained for frontend compatibility.
+ * These are placeholders until roster-based frontend refactors land.
+ */
+export type ActiveTab = 'lms' | 'repo'
+
+export interface CourseEntry {
+  id: string
+  name: string | null
+}
+
+export type LmsUrlOption = 'TUE' | 'CUSTOM'
+
+export interface CanvasConfig {
+  access_token: string
+  base_url: string
+  courses: CourseEntry[]
+  custom_url: string
+  url_option: LmsUrlOption
+}
+
+export interface MoodleConfig {
+  access_token: string
+  base_url: string
+  courses: CourseEntry[]
+}
+
+export interface LmsSettings {
+  canvas: CanvasConfig
+  moodle: MoodleConfig
+  type: string
+  active_course_index?: number
+  csv_file: string
+  full_groups: boolean
+  include_group: boolean
+  include_initials: boolean
+  include_member: boolean
+  member_option: MemberOption
+  output_csv: boolean
+  output_folder: string
+  output_xlsx: boolean
+  output_yaml: boolean
+  xlsx_file: string
+  yaml_file: string
+}
+
+export interface GitHubConfig {
+  access_token: string
+  user: string
+  student_repos_org: string
+  template_org: string
+}
+
+export interface GitLabConfig {
+  access_token: string
+  base_url: string
+  user: string
+  student_repos_group: string
+  template_group: string
+}
+
+export interface GiteaConfig {
+  access_token: string
+  base_url: string
+  user: string
+  student_repos_group: string
+  template_group: string
+}
+
+export interface GitSettings {
+  gitea: GiteaConfig
+  github: GitHubConfig
+  gitlab: GitLabConfig
+  type: GitServerType
+}
+
+export interface RepoSettings {
+  assignments: string
+  directory_layout: DirectoryLayout
+  target_folder: string
+  yaml_file: string
+}
+
+export interface GuiSettings {
+  active_tab: ActiveTab
+  collapsed_sections?: string[]
+  logging: LogSettings
+  sidebar_open: boolean
+  theme: Theme
+  window_height: number
+  window_width: number
+  git: GitSettings
+  lms: LmsSettings
+  repo: RepoSettings
+}
+
+export interface CloneParams {
+  config: ConfigParams
+  yaml_file: string
+  assignments: string
+  target_folder: string
+  directory_layout: string
+}
+
+export interface ConfigParams {
+  access_token: string
+  user: string
+  base_url: string
+  student_repos: string
+  template: string
+}
+
+export interface GenerateFilesParams {
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
+  yaml_file: string
+  output_folder: string
+  csv_file: string
+  xlsx_file: string
+  member_option: string
+  include_group: boolean
+  include_member: boolean
+  include_initials: boolean
+  full_groups: boolean
+  csv: boolean
+  xlsx: boolean
+  yaml: boolean
+}
+
+export interface GetGroupCategoriesParams {
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
+}
+
+export interface GroupCategory {
+  id: string
+  name: string
+  role: string | null
+  self_signup: string | null
+  course_id: string | null
+  group_limit: number | null
+}
+
+export interface SetupParams {
+  config: ConfigParams
+  yaml_file: string
+  assignments: string
+}
+
 export interface VerifyCourseParams {
-  base_url: string;
-  access_token: string;
-  course_id: string;
-  lms_type: string;
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
 }
 
 export interface VerifyCourseResult {
-  course_id: string;
-  course_name: string;
+  course_id: string
+  course_name: string
 }
 
 export type Result<T, E> =

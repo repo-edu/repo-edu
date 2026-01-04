@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Assignment",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "./AssignmentId.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "./Group.schema.json"
+      }
+    },
+    "lms_group_set_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "groups"
+  ],
+  "description": "Assignment grouping students into repos"
+}

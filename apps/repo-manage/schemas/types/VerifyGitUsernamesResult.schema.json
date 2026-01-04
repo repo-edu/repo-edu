@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VerifyGitUsernamesResult",
+  "type": "object",
+  "properties": {
+    "verification": {
+      "$ref": "./UsernameVerificationResult.schema.json"
+    },
+    "roster": {
+      "$ref": "./Roster.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "verification",
+    "roster"
+  ],
+  "description": "Result of verifying git usernames"
+}

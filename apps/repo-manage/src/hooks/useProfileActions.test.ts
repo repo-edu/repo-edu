@@ -36,12 +36,19 @@ const baseSettings: GuiSettings = {
   },
   lms: {
     type: "Canvas",
-    base_url: "https://canvas.example.com",
-    custom_url: "",
-    url_option: "TUE",
-    access_token: "token",
-    course_id: "42",
-    course_name: "Algorithms",
+    active_course_index: 0,
+    canvas: {
+      access_token: "token",
+      base_url: "https://canvas.example.com",
+      custom_url: "",
+      url_option: "TUE",
+      courses: [{ id: "42", name: "Algorithms" }],
+    },
+    moodle: {
+      access_token: "",
+      base_url: "",
+      courses: [],
+    },
     yaml_file: "students.yaml",
     output_folder: "/tmp",
     csv_file: "students.csv",
@@ -224,7 +231,13 @@ describe("useProfileActions", () => {
     mockService.loadProfile.mockRejectedValueOnce(new Error("corrupt"))
     mockService.getDefaultSettings.mockResolvedValueOnce(
       cloneSettings({
-        lms: { ...baseSettings.lms, base_url: "https://default.example.com" },
+        lms: {
+          ...baseSettings.lms,
+          canvas: {
+            ...baseSettings.lms.canvas,
+            base_url: "https://default.example.com",
+          },
+        },
       }),
     )
     const { hook, onMessage, onSettingsLoaded } = setup()
@@ -236,7 +249,9 @@ describe("useProfileActions", () => {
     expect(onSettingsLoaded).toHaveBeenCalledWith(
       expect.objectContaining({
         lms: expect.objectContaining({
-          base_url: "https://default.example.com",
+          canvas: expect.objectContaining({
+            base_url: "https://default.example.com",
+          }),
         }),
       }),
       false,

@@ -6,11 +6,7 @@
 
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use repo_manage_core::{
-    generate_lms_files, setup_repos, verify_lms_course, verify_platform, GenerateLmsFilesParams,
-    PlatformType as CorePlatformType, ProfileSettings, ProgressEvent, SettingsManager,
-    SetupParams as CoreSetupParams, StudentTeam, VerifyLmsParams, VerifyParams,
-};
+use repo_manage_core::{ProfileSettings, SettingsManager};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -151,41 +147,7 @@ enum PlatformType {
     Local,
 }
 
-impl From<PlatformType> for CorePlatformType {
-    fn from(p: PlatformType) -> Self {
-        match p {
-            PlatformType::GitHub => CorePlatformType::GitHub,
-            PlatformType::GitLab => CorePlatformType::GitLab,
-            PlatformType::Gitea => CorePlatformType::Gitea,
-            PlatformType::Local => CorePlatformType::Local,
-        }
-    }
-}
-
-/// CLI progress handler - prints progress events to stdout/stderr
-fn cli_progress(event: ProgressEvent) {
-    match event {
-        ProgressEvent::Status(msg) => println!("{}", msg),
-        ProgressEvent::Inline(msg) => print!("\r{}", msg),
-        ProgressEvent::Started { operation } => println!("Starting: {}", operation),
-        ProgressEvent::Completed { operation, details } => {
-            println!("✓ {}", operation);
-            if let Some(d) = details {
-                println!("  {}", d);
-            }
-        }
-        ProgressEvent::Failed { operation, error } => {
-            eprintln!("✗ {}: {}", operation, error);
-        }
-        ProgressEvent::Progress {
-            current,
-            total,
-            message,
-        } => {
-            println!("[{}/{}] {}", current, total, message);
-        }
-    }
-}
+// CLI progress handler removed until roster-based commands are implemented.
 
 /// Configuration manager for CLI
 struct ConfigManager {
@@ -204,8 +166,7 @@ impl ConfigManager {
         let active_profile = settings_manager.get_active_profile().ok().flatten();
 
         // Load configuration or use defaults
-        let gui_settings = settings_manager.load().unwrap_or_default();
-        let config = gui_settings.profile_settings();
+        let config = settings_manager.load().unwrap_or_default();
 
         Ok(Self {
             settings_manager,
@@ -224,79 +185,35 @@ impl ConfigManager {
             self.active_profile.as_deref().unwrap_or("(none)")
         );
         println!();
-        println!("Git Settings:");
-        println!("  Server Type     : {}", self.config.git.server_type);
-        println!("  Base URL        : {}", self.config.git.base_url());
-        println!("  User            : {}", self.config.git.user());
+        println!("Course Settings:");
+        println!("  Course ID       : {}", self.config.course.id);
+        println!("  Course Name     : {}", self.config.course.name);
+        println!();
+        println!("Git Connection:");
         println!(
-            "  Access Token    : {}",
-            if self.config.git.access_token().is_empty() {
-                "(not set)"
-            } else {
-                "***"
-            }
+            "  Selected        : {}",
+            self.config.git_connection.as_deref().unwrap_or("(none)")
         );
         println!();
-        println!("Repo Settings:");
-        println!("  Student Org     : {}", self.config.git.student_repos());
-        println!("  Template Org    : {}", self.config.git.template());
-        println!("  YAML File       : {}", self.config.repo.yaml_file);
-        println!("  Target Folder   : {}", self.config.repo.target_folder);
-        println!("  Assignments     : {}", self.config.repo.assignments);
-        println!("  Directory Layout: {}", self.config.repo.directory_layout);
-        println!();
-        println!("LMS Settings:");
-        println!("  Type            : {}", self.config.lms.r#type);
-        let (base_url, courses) = if self.config.lms.r#type == "Canvas" {
-            let c = &self.config.lms.canvas;
-            let url = if c.url_option == repo_manage_core::settings::LmsUrlOption::TUE {
-                &c.base_url
-            } else {
-                &c.custom_url
-            };
-            (url, &c.courses)
-        } else {
-            (
-                &self.config.lms.moodle.base_url,
-                &self.config.lms.moodle.courses,
-            )
-        };
-        println!("  Base URL        : {}", base_url);
-        let courses_display = if courses.is_empty() {
-            "(none)".to_string()
-        } else {
-            courses
-                .iter()
-                .map(|c| {
-                    format!(
-                        "{}{}",
-                        c.id,
-                        c.name
-                            .as_ref()
-                            .map(|n| format!(" ({})", n))
-                            .unwrap_or_default()
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ")
-        };
-        println!("  Courses         : {}", courses_display);
-        let access_token = if self.config.lms.r#type == "Canvas" {
-            &self.config.lms.canvas.access_token
-        } else {
-            &self.config.lms.moodle.access_token
-        };
+        println!("Operations:");
+        println!("  Target Org      : {}", self.config.operations.target_org);
         println!(
-            "  Access Token    : {}",
-            if access_token.is_empty() {
-                "(not set)"
-            } else {
-                "***"
-            }
+            "  Repo Template   : {}",
+            self.config.operations.repo_name_template
         );
-        println!("  Output Folder   : {}", self.config.lms.output_folder);
-        println!("  Output YAML     : {}", self.config.lms.output_yaml);
-        println!("  Output CSV      : {}", self.config.lms.output_csv);
+        println!(
+            "  Clone Layout    : {}",
+            self.config.operations.clone.directory_layout
+        );
+        println!();
+        println!("Exports:");
+        println!("  Output Folder   : {}", self.config.exports.output_folder);
+        println!(
+            "  Formats         : csv={}, xlsx={}, yaml={}",
+            self.config.exports.output_csv,
+            self.config.exports.output_xlsx,
+            self.config.exports.output_yaml
+        );
         println!();
         println!("Settings Directory:");
         println!(
@@ -344,319 +261,8 @@ impl ConfigManager {
     }
 }
 
-// ===== LMS Command Handlers =====
-
-struct LmsVerifyOverrides {
-    lms_type: Option<String>,
-    course_id: Option<String>,
-}
-
-async fn run_lms_verify(config: &ProfileSettings, overrides: LmsVerifyOverrides) -> Result<()> {
-    // Get course ID from override or first configured course
-    let lms_type = overrides
-        .lms_type
-        .clone()
-        .unwrap_or_else(|| config.lms.r#type.clone());
-
-    let (base_url, access_token, courses) = if lms_type == "Canvas" {
-        let c = &config.lms.canvas;
-        let url = if c.url_option == repo_manage_core::settings::LmsUrlOption::TUE {
-            c.base_url.clone()
-        } else {
-            c.custom_url.clone()
-        };
-        (url, c.access_token.clone(), &c.courses)
-    } else {
-        let m = &config.lms.moodle;
-        (m.base_url.clone(), m.access_token.clone(), &m.courses)
-    };
-
-    let course_id = overrides
-        .course_id
-        .unwrap_or_else(|| courses.first().map(|c| c.id.clone()).unwrap_or_default());
-
-    let params = VerifyLmsParams {
-        lms_type,
-        base_url,
-        access_token,
-        course_id,
-    };
-
-    if params.access_token.is_empty() {
-        anyhow::bail!("LMS access token not set. Configure in GUI or set in profile.");
-    }
-    if params.course_id.is_empty() {
-        anyhow::bail!("Course ID not set. Use --course-id or configure in profile.");
-    }
-
-    let result = verify_lms_course(&params, cli_progress)
-        .await
-        .context("LMS verification failed")?;
-
-    println!(
-        "\n✓ {} course verified: {}",
-        params.lms_type, result.course_name
-    );
-    println!("  Course ID: {}", result.course_id);
-    if let Some(code) = result.course_code {
-        println!("  Course Code: {}", code);
-    }
-
-    Ok(())
-}
-
-struct LmsGenerateOverrides {
-    output: Option<String>,
-    yaml: Option<bool>,
-    csv: Option<bool>,
-}
-
-async fn run_lms_generate(config: &ProfileSettings, overrides: LmsGenerateOverrides) -> Result<()> {
-    let output_folder = overrides
-        .output
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(&config.lms.output_folder));
-
-    if output_folder.as_os_str().is_empty() {
-        anyhow::bail!("Output folder not set. Use --output or configure in profile.");
-    }
-
-    // Get config based on LMS type
-    let lms_type = config.lms.r#type.clone();
-    let (base_url, access_token, courses) = if lms_type == "Canvas" {
-        let c = &config.lms.canvas;
-        let url = if c.url_option == repo_manage_core::settings::LmsUrlOption::TUE {
-            c.base_url.clone()
-        } else {
-            c.custom_url.clone()
-        };
-        (url, c.access_token.clone(), &c.courses)
-    } else {
-        let m = &config.lms.moodle;
-        (m.base_url.clone(), m.access_token.clone(), &m.courses)
-    };
-
-    // Get the first course from the list
-    let course = courses
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No courses configured. Add a course to generate files."))?;
-
-    let params = GenerateLmsFilesParams {
-        lms_type,
-        base_url,
-        access_token,
-        course_id: course.id.clone(),
-        output_folder,
-        yaml: overrides.yaml.unwrap_or(config.lms.output_yaml),
-        yaml_file: config.lms.yaml_file.clone(),
-        csv: overrides.csv.unwrap_or(config.lms.output_csv),
-        csv_file: config.lms.csv_file.clone(),
-        member_option: config.lms.member_option.to_string(),
-        include_group: config.lms.include_group,
-        include_member: config.lms.include_member,
-        include_initials: config.lms.include_initials,
-        full_groups: config.lms.full_groups,
-    };
-
-    if params.access_token.is_empty() {
-        anyhow::bail!("LMS access token not set.");
-    }
-    if course.id.is_empty() {
-        anyhow::bail!("Course ID not set.");
-    }
-
-    let result = generate_lms_files(&params, cli_progress)
-        .await
-        .context("Failed to generate LMS files")?;
-
-    println!(
-        "\n✓ Generated {} file(s) from {} students",
-        result.generated_files.len(),
-        result.student_count
-    );
-    for line in &result.diagnostics {
-        println!("  {}", line);
-    }
-    for file in &result.generated_files {
-        println!("  {}", file);
-    }
-
-    Ok(())
-}
-
-// ===== Repo Command Handlers =====
-
-/// Parse team string in format "name:member1,member2" or "member1,member2" (auto-generated name)
-fn parse_team(team_str: &str) -> Result<StudentTeam> {
-    if let Some((name, members_str)) = team_str.split_once(':') {
-        let members: Vec<String> = members_str
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect();
-        Ok(StudentTeam::with_name(name.to_string(), members))
-    } else {
-        let members: Vec<String> = team_str.split(',').map(|s| s.trim().to_string()).collect();
-        Ok(StudentTeam::new(members))
-    }
-}
-
-/// Load teams from a JSON or YAML file
-fn load_teams_from_file(path: &PathBuf) -> Result<Vec<StudentTeam>> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read teams file: {}", path.display()))?;
-
-    // Try JSON first, then YAML
-    let teams: Vec<StudentTeam> = serde_json::from_str(&content)
-        .or_else(|_| serde_yaml::from_str(&content))
-        .with_context(|| "Failed to parse teams file (tried JSON and YAML)")?;
-
-    Ok(teams)
-}
-
-async fn run_repo_verify(config: &ProfileSettings, platform: Option<PlatformType>) -> Result<()> {
-    // Allow environment variable overrides
-    let base_url =
-        std::env::var("REPOBEE_BASE_URL").unwrap_or_else(|_| config.git.base_url().to_string());
-    let access_token =
-        std::env::var("REPOBEE_TOKEN").unwrap_or_else(|_| config.git.access_token().to_string());
-    let organization =
-        std::env::var("REPOBEE_ORG").unwrap_or_else(|_| config.git.student_repos().to_string());
-    let user = std::env::var("REPOBEE_USER").unwrap_or_else(|_| config.git.user().to_string());
-
-    println!("Verifying platform settings...");
-    println!("Platform: {:?}", platform);
-    println!("Organization: {}", organization);
-    println!();
-
-    let params = VerifyParams {
-        platform_type: platform.map(|p| p.into()),
-        base_url,
-        access_token,
-        organization,
-        user,
-    };
-
-    verify_platform(&params, cli_progress)
-        .await
-        .context("Verification failed")?;
-
-    Ok(())
-}
-
-async fn run_repo_setup(
-    config: &ProfileSettings,
-    platform: Option<PlatformType>,
-    templates: Vec<String>,
-    teams_file: Option<PathBuf>,
-    team_strings: Vec<String>,
-    work_dir: Option<PathBuf>,
-    private: Option<bool>,
-) -> Result<()> {
-    // Allow environment variable overrides
-    let base_url =
-        std::env::var("REPOBEE_BASE_URL").unwrap_or_else(|_| config.git.base_url().to_string());
-    let access_token =
-        std::env::var("REPOBEE_TOKEN").unwrap_or_else(|_| config.git.access_token().to_string());
-    let organization =
-        std::env::var("REPOBEE_ORG").unwrap_or_else(|_| config.git.student_repos().to_string());
-    let user = std::env::var("REPOBEE_USER").unwrap_or_else(|_| config.git.user().to_string());
-    let template_org =
-        std::env::var("REPOBEE_TEMPLATE_ORG").unwrap_or_else(|_| config.git.template().to_string());
-
-    // Load student teams - check inline teams first, then file arguments, then config
-    let yaml_path = if !team_strings.is_empty() {
-        // Use team strings directly (return empty path to signal inline teams)
-        PathBuf::new()
-    } else if let Some(file) = teams_file {
-        file
-    } else if !config.repo.yaml_file.is_empty() {
-        PathBuf::from(&config.repo.yaml_file)
-    } else {
-        anyhow::bail!("No student teams specified. Use --yaml-file, --teams-file, or --team");
-    };
-
-    let student_teams = if yaml_path.as_os_str().is_empty() {
-        // Parse from --team arguments
-        team_strings
-            .iter()
-            .map(|s| parse_team(s))
-            .collect::<Result<Vec<_>>>()?
-    } else {
-        load_teams_from_file(&yaml_path)?
-    };
-
-    println!("RepoBee Setup");
-    println!("=============");
-    println!("Platform: {:?}", platform);
-    println!("Organization: {}", organization);
-    println!("Templates: {:?}", templates);
-    println!("Teams: {}", student_teams.len());
-    println!();
-
-    // Check token for non-local platforms
-    let platform_type = platform.map(|p| p.into());
-    let needs_token = platform_type
-        .map(|p| p != CorePlatformType::Local)
-        .unwrap_or(true);
-
-    if needs_token && access_token.is_empty() {
-        anyhow::bail!("Token required. Set with --git-token or REPOBEE_TOKEN");
-    }
-
-    // Determine work directory
-    let work_dir_path = work_dir.unwrap_or_else(|| PathBuf::from("./repobee-work"));
-
-    // Build setup params
-    let params = CoreSetupParams {
-        platform_type,
-        base_url,
-        access_token,
-        organization,
-        user,
-        template_org: if template_org.is_empty() {
-            None
-        } else {
-            Some(template_org)
-        },
-        templates,
-        student_teams,
-        work_dir: work_dir_path,
-        private: private.unwrap_or(true),
-    };
-
-    let result = setup_repos(&params, cli_progress)
-        .await
-        .context("Setup failed")?;
-
-    // Print summary
-    println!("\n=== Final Summary ===");
-    println!(
-        "✓ Successfully created: {} repositories",
-        result.successful_repos.len()
-    );
-    if !result.existing_repos.is_empty() {
-        println!(
-            "  Already existed: {} repositories",
-            result.existing_repos.len()
-        );
-    }
-    if !result.errors.is_empty() {
-        println!("✗ Errors: {} repositories", result.errors.len());
-        for error in &result.errors {
-            eprintln!(
-                "  - {}/{}: {}",
-                error.team_name, error.repo_name, error.error
-            );
-        }
-    }
-
-    if result.is_success() {
-        println!("\n🎉 Setup completed successfully!");
-        Ok(())
-    } else {
-        anyhow::bail!("Setup completed with {} errors", result.errors.len());
-    }
-}
+// ===== LMS / Repo Commands =====
+// CLI operations will be reintroduced after roster-based workflows land.
 
 // ===== Main =====
 
@@ -681,53 +287,12 @@ async fn main() -> Result<()> {
     };
 
     match command {
-        Commands::Lms { action } => match action {
-            LmsAction::Verify {
-                lms_type,
-                course_id,
-            } => {
-                run_lms_verify(
-                    config_mgr.config(),
-                    LmsVerifyOverrides {
-                        lms_type,
-                        course_id,
-                    },
-                )
-                .await
-            }
-            LmsAction::Generate { output, yaml, csv } => {
-                run_lms_generate(
-                    config_mgr.config(),
-                    LmsGenerateOverrides { output, yaml, csv },
-                )
-                .await
-            }
-        },
-        Commands::Repo { action } => match action {
-            RepoAction::Verify { platform } => run_repo_verify(config_mgr.config(), platform).await,
-            RepoAction::Setup {
-                platform,
-                templates,
-                teams_file,
-                work_dir,
-                private,
-                teams,
-            } => {
-                run_repo_setup(
-                    config_mgr.config(),
-                    platform,
-                    templates,
-                    teams_file,
-                    teams,
-                    work_dir,
-                    private,
-                )
-                .await
-            }
-            RepoAction::Clone { .. } => {
-                anyhow::bail!("Clone command not yet implemented")
-            }
-        },
+        Commands::Lms { .. } => {
+            anyhow::bail!("LMS CLI commands are temporarily unavailable during roster refactor")
+        }
+        Commands::Repo { .. } => {
+            anyhow::bail!("Repo CLI commands are temporarily unavailable during roster refactor")
+        }
         Commands::Profile { action } => match action {
             ProfileAction::List => {
                 let profiles = config_mgr.list_profiles()?;

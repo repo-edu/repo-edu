@@ -3,13 +3,13 @@ use super::error::{ConfigError, ConfigResult};
 use super::merge::merge_with_defaults_warned;
 use super::normalization::Normalize;
 use super::validation::Validate;
-use super::{AppSettings, GuiSettings, ProfileSettings, SettingsLoadResult};
+use super::{AppSettings, ProfileSettings, SettingsLoadResult};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const GUI_SETTINGS_SCHEMA_JSON: &str =
-    include_str!("../../../schemas/types/GuiSettings.schema.json");
+const PROFILE_SETTINGS_SCHEMA_JSON: &str =
+    include_str!("../../../schemas/types/ProfileSettings.schema.json");
 
 /// Settings manager for loading, saving, and managing application settings
 pub struct SettingsManager {
@@ -80,31 +80,6 @@ impl SettingsManager {
         Ok(config_dir)
     }
 
-    /// Validate JSON data against GuiSettings schema
-    fn validate_gui_settings(&self, json_value: &Value) -> ConfigResult<Vec<String>> {
-        let schema_json = Self::gui_settings_schema()?;
-
-        let validator = jsonschema::validator_for(&schema_json).map_err(|e| {
-            ConfigError::SchemaCompileError {
-                message: e.to_string(),
-            }
-        })?;
-
-        let errors: Vec<String> = validator
-            .iter_errors(json_value)
-            .map(|error| {
-                let path = error.instance_path().to_string();
-                if path.is_empty() {
-                    error.to_string()
-                } else {
-                    format!("{} (at {})", error, path)
-                }
-            })
-            .collect();
-
-        Ok(errors)
-    }
-
     // ===== App Settings =====
 
     /// Get the path to the app settings file
@@ -155,47 +130,39 @@ impl SettingsManager {
         Ok(())
     }
 
-    // ===== Combined Settings (for frontend) =====
+    // ===== Profile Settings (active) =====
 
-    /// Load combined settings (app + active profile)
+    /// Load active profile settings
     /// Returns default settings if files don't exist (no error)
     /// Creates a "Default" profile if no profiles exist
-    pub fn load(&self) -> ConfigResult<GuiSettings> {
+    pub fn load(&self) -> ConfigResult<ProfileSettings> {
         let result = self.load_with_warnings()?;
         Ok(result.settings)
     }
 
-    /// Load combined settings with warnings for unknown/invalid fields
-    /// Returns settings with defaults applied, plus any warnings about corrected issues
+    /// Load active profile settings with warnings for unknown/invalid fields
     pub fn load_with_warnings(&self) -> ConfigResult<SettingsLoadResult> {
-        let mut all_warnings = Vec::new();
-
-        // Load app settings with warnings
-        let (app, app_warnings) = self.load_app_settings_warned()?;
-        all_warnings.extend(app_warnings.into_iter().map(|w| format!("app.json: {}", w)));
+        let mut warnings = Vec::new();
 
         // Ensure at least one profile exists
         self.ensure_default_profile()?;
 
-        // Load active profile settings with warnings
         let (profile, profile_warnings) = if let Some(profile_name) = self.get_active_profile()? {
-            let (p, w) = self.load_profile_settings_warned(&profile_name)?;
-            let warnings = w
+            let (profile, profile_warnings) = self.load_profile_settings_warned(&profile_name)?;
+            let warnings = profile_warnings
                 .into_iter()
                 .map(|w| format!("{}.json: {}", profile_name, w))
                 .collect();
-            (p, warnings)
+            (profile, warnings)
         } else {
             (ProfileSettings::default(), vec![])
         };
-        all_warnings.extend(profile_warnings);
 
-        let mut settings = GuiSettings::from_parts(app, profile);
-        settings.normalize();
+        warnings.extend(profile_warnings);
 
         Ok(SettingsLoadResult {
-            settings,
-            warnings: all_warnings,
+            settings: profile,
+            warnings,
         })
     }
 
@@ -218,19 +185,15 @@ impl SettingsManager {
         Ok(())
     }
 
-    /// Get the JSON Schema for GuiSettings
+    /// Get the JSON Schema for ProfileSettings
     pub fn get_schema() -> ConfigResult<Value> {
-        Self::gui_settings_schema()
-    }
-
-    fn gui_settings_schema() -> ConfigResult<Value> {
-        serde_json::from_str(GUI_SETTINGS_SCHEMA_JSON)
+        serde_json::from_str(PROFILE_SETTINGS_SCHEMA_JSON)
             .map_err(|e| ConfigError::SchemaSerializationError { source: e })
     }
 
     /// Reset settings to defaults
-    pub fn reset(&self) -> ConfigResult<GuiSettings> {
-        let settings = GuiSettings::default();
+    pub fn reset(&self) -> ConfigResult<ProfileSettings> {
+        let settings = ProfileSettings::default();
         // Don't save on reset - just return defaults
         // User can save if they want to persist
         Ok(settings)
@@ -326,7 +289,7 @@ impl SettingsManager {
         })
     }
 
-    /// Load profile settings by name (ProfileSettings only, not full GuiSettings)
+    /// Load profile settings by name
     pub fn load_profile_settings(&self, name: &str) -> ConfigResult<ProfileSettings> {
         let (settings, _warnings) = self.load_profile_settings_warned(name)?;
         Ok(settings)
@@ -386,23 +349,13 @@ impl SettingsManager {
     }
 
     /// Load a profile by name and set it as active
-    /// Returns combined GuiSettings with the loaded profile
-    pub fn load_profile(&self, name: &str) -> ConfigResult<GuiSettings> {
+    pub fn load_profile(&self, name: &str) -> ConfigResult<ProfileSettings> {
         let profile = self.load_profile_settings(name)?;
-
-        // Set as active profile
         self.set_active_profile(name)?;
-
-        // Load app settings and combine
-        let app = self.load_app_settings()?;
-        let mut settings = GuiSettings::from_parts(app, profile);
-        settings.normalize();
-
-        Ok(settings)
+        Ok(profile)
     }
 
     /// Load a profile by name with migration warnings
-    /// Returns combined GuiSettings plus any warnings about corrected fields
     pub fn load_profile_with_warnings(&self, name: &str) -> ConfigResult<SettingsLoadResult> {
         let mut all_warnings = Vec::new();
 
@@ -417,21 +370,15 @@ impl SettingsManager {
         // Set as active profile
         self.set_active_profile(name)?;
 
-        // Load app settings and combine
-        let app = self.load_app_settings()?;
-        let mut settings = GuiSettings::from_parts(app, profile);
-        settings.normalize();
-
         Ok(SettingsLoadResult {
-            settings,
+            settings: profile,
             warnings: all_warnings,
         })
     }
 
     /// Save current settings as a named profile
-    /// Only saves the profile settings, not app settings
-    pub fn save_profile(&self, name: &str, settings: &GuiSettings) -> ConfigResult<()> {
-        self.save_profile_settings(name, &settings.profile_settings())?;
+    pub fn save_profile(&self, name: &str, settings: &ProfileSettings) -> ConfigResult<()> {
+        self.save_profile_settings(name, settings)?;
 
         // Set as active profile
         self.set_active_profile(name)?;
@@ -490,32 +437,17 @@ impl SettingsManager {
         Ok(())
     }
 
-    // ===== Import/Export (for full GuiSettings) =====
+    // ===== Import/Export (ProfileSettings) =====
 
-    /// Save settings to a specific file (for export)
-    pub fn save_to(&self, settings: &GuiSettings, path: &Path) -> ConfigResult<()> {
-        settings.profile_settings().validate()?;
-
-        let json_value =
-            serde_json::to_value(settings).map_err(|e| ConfigError::JsonParseError {
-                path: path.to_path_buf(),
-                source: e,
-            })?;
-
-        let validation_errors = self.validate_gui_settings(&json_value)?;
-        if !validation_errors.is_empty() {
-            return Err(ConfigError::ValidationError {
-                errors: validation_errors,
-            });
-        }
-
+    /// Save profile settings to a specific file (for export)
+    pub fn save_to(&self, settings: &ProfileSettings, path: &Path) -> ConfigResult<()> {
+        settings.validate()?;
         atomic_write_json(path, settings)?;
-
         Ok(())
     }
 
-    /// Load settings from a specific file (for import)
-    pub fn load_from(&self, path: &Path) -> ConfigResult<GuiSettings> {
+    /// Load profile settings from a specific file (for import)
+    pub fn load_from(&self, path: &Path) -> ConfigResult<ProfileSettings> {
         if !path.exists() {
             return Err(ConfigError::FileNotFound {
                 path: path.to_path_buf(),
@@ -533,21 +465,15 @@ impl SettingsManager {
                 source: e,
             })?;
 
-        let validation_errors = self.validate_gui_settings(&json_value)?;
-        if !validation_errors.is_empty() {
-            return Err(ConfigError::ValidationError {
-                errors: validation_errors,
-            });
-        }
-
-        let mut settings: GuiSettings =
-            serde_json::from_value(json_value).map_err(|e| ConfigError::JsonParseError {
+        let result =
+            merge_with_defaults_warned(&json_value).map_err(|e| ConfigError::JsonParseError {
                 path: path.to_path_buf(),
                 source: e,
             })?;
 
+        let mut settings: ProfileSettings = result.value;
         settings.normalize();
-        settings.profile_settings().validate()?;
+        settings.validate()?;
 
         Ok(settings)
     }
@@ -563,21 +489,21 @@ pub enum LoadStrategy {
 
 impl SettingsManager {
     /// Load settings with a specific error handling strategy
-    pub fn load_with_strategy(&self, strategy: LoadStrategy) -> ConfigResult<GuiSettings> {
+    pub fn load_with_strategy(&self, strategy: LoadStrategy) -> ConfigResult<ProfileSettings> {
         match self.load() {
             Ok(settings) => Ok(settings),
             Err(e) => match strategy {
                 LoadStrategy::Strict => Err(e),
                 LoadStrategy::DefaultOnError => {
                     log::warn!("Failed to load settings, using defaults: {}", e);
-                    Ok(GuiSettings::default())
+                    Ok(ProfileSettings::default())
                 }
             },
         }
     }
 
     /// Load settings or return defaults (never fails)
-    pub fn load_or_default(&self) -> GuiSettings {
+    pub fn load_or_default(&self) -> ProfileSettings {
         self.load_with_strategy(LoadStrategy::DefaultOnError)
             .unwrap_or_default()
     }
@@ -595,23 +521,19 @@ mod tests {
 
     #[test]
     fn test_default_settings() {
-        let settings = GuiSettings::default();
-        assert_eq!(settings.lms.canvas.base_url, "https://canvas.tue.nl");
-        assert_eq!(settings.git.gitlab.base_url, "https://gitlab.tue.nl");
-        assert_eq!(settings.active_tab, crate::settings::ActiveTab::Lms);
+        let settings = ProfileSettings::default();
+        assert!(settings.course.id.is_empty());
+        assert!(settings.course.name.is_empty());
     }
 
     #[test]
     fn test_serialize_deserialize() {
-        let settings = GuiSettings::default();
+        let settings = ProfileSettings::default();
         let json = serde_json::to_string(&settings).unwrap();
-        let deserialized: GuiSettings = serde_json::from_str(&json).unwrap();
+        let deserialized: ProfileSettings = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(
-            settings.lms.canvas.base_url,
-            deserialized.lms.canvas.base_url
-        );
-        assert_eq!(settings.active_tab, deserialized.active_tab);
+        assert_eq!(settings.course.id, deserialized.course.id);
+        assert_eq!(settings.course.name, deserialized.course.name);
     }
 
     #[test]

@@ -26,11 +26,13 @@ type RustField = {
 
 type RustType = {
   name: string
-  kind: "struct" | "enum"
+  kind: "struct" | "enum" | "alias" | "newtype"
   serde: string[]
   deriveDefault?: boolean
   fields?: RustField[]
   variants?: { name: string; serde: string[]; isDefault?: boolean }[]
+  aliasTarget?: string
+  newtypeInner?: string
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -72,10 +74,178 @@ const rustHeader =
   "#![allow(dead_code)]\n" +
   "#![allow(clippy::upper_case_acronyms)]\n\n"
 
+const legacyTypeDefs = `
+/**
+ * Legacy GUI and command types retained for frontend compatibility.
+ * These are placeholders until roster-based frontend refactors land.
+ */
+export type ActiveTab = 'lms' | 'repo'
+
+export interface CourseEntry {
+  id: string
+  name: string | null
+}
+
+export type LmsUrlOption = 'TUE' | 'CUSTOM'
+
+export interface CanvasConfig {
+  access_token: string
+  base_url: string
+  courses: CourseEntry[]
+  custom_url: string
+  url_option: LmsUrlOption
+}
+
+export interface MoodleConfig {
+  access_token: string
+  base_url: string
+  courses: CourseEntry[]
+}
+
+export interface LmsSettings {
+  canvas: CanvasConfig
+  moodle: MoodleConfig
+  type: string
+  active_course_index?: number
+  csv_file: string
+  full_groups: boolean
+  include_group: boolean
+  include_initials: boolean
+  include_member: boolean
+  member_option: MemberOption
+  output_csv: boolean
+  output_folder: string
+  output_xlsx: boolean
+  output_yaml: boolean
+  xlsx_file: string
+  yaml_file: string
+}
+
+export interface GitHubConfig {
+  access_token: string
+  user: string
+  student_repos_org: string
+  template_org: string
+}
+
+export interface GitLabConfig {
+  access_token: string
+  base_url: string
+  user: string
+  student_repos_group: string
+  template_group: string
+}
+
+export interface GiteaConfig {
+  access_token: string
+  base_url: string
+  user: string
+  student_repos_group: string
+  template_group: string
+}
+
+export interface GitSettings {
+  gitea: GiteaConfig
+  github: GitHubConfig
+  gitlab: GitLabConfig
+  type: GitServerType
+}
+
+export interface RepoSettings {
+  assignments: string
+  directory_layout: DirectoryLayout
+  target_folder: string
+  yaml_file: string
+}
+
+export interface GuiSettings {
+  active_tab: ActiveTab
+  collapsed_sections?: string[]
+  logging: LogSettings
+  sidebar_open: boolean
+  theme: Theme
+  window_height: number
+  window_width: number
+  git: GitSettings
+  lms: LmsSettings
+  repo: RepoSettings
+}
+
+export interface CloneParams {
+  config: ConfigParams
+  yaml_file: string
+  assignments: string
+  target_folder: string
+  directory_layout: string
+}
+
+export interface ConfigParams {
+  access_token: string
+  user: string
+  base_url: string
+  student_repos: string
+  template: string
+}
+
+export interface GenerateFilesParams {
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
+  yaml_file: string
+  output_folder: string
+  csv_file: string
+  xlsx_file: string
+  member_option: string
+  include_group: boolean
+  include_member: boolean
+  include_initials: boolean
+  full_groups: boolean
+  csv: boolean
+  xlsx: boolean
+  yaml: boolean
+}
+
+export interface GetGroupCategoriesParams {
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
+}
+
+export interface GroupCategory {
+  id: string
+  name: string
+  role: string | null
+  self_signup: string | null
+  course_id: string | null
+  group_limit: number | null
+}
+
+export interface SetupParams {
+  config: ConfigParams
+  yaml_file: string
+  assignments: string
+}
+
+export interface VerifyCourseParams {
+  base_url: string
+  access_token: string
+  course_id: string
+  lms_type: string
+}
+
+export interface VerifyCourseResult {
+  course_id: string
+  course_name: string
+}
+`
+
 type RustMeta = {
   type?: string
   field?: string
   default?: string
+  newtype?: boolean
   serde?: {
     rename?: string
     rename_all?: string
@@ -452,8 +622,30 @@ function buildRustTypes(
   let usesHashMap = false
 
   for (const { name, schema } of typeSchemas) {
+    const xRust = schema["x-rust"] as RustMeta | undefined
+    if (schema["x-rust-type"]) {
+      rustTypes.push({
+        name,
+        kind: "alias",
+        serde: [],
+        aliasTarget: schema["x-rust-type"],
+      })
+      continue
+    }
+
+    if (xRust?.newtype) {
+      const base = rustTypeForSchema(schema)
+      if (base.usesValue) usesValue = true
+      rustTypes.push({
+        name,
+        kind: "newtype",
+        serde: ["#[serde(transparent)]"],
+        newtypeInner: base.rust,
+      })
+      continue
+    }
+
     if (schema.enum && Array.isArray(schema.enum)) {
-      const xRust = schema["x-rust"] as RustMeta | undefined
       const serdeAttrs: string[] = []
       if (xRust?.serde?.rename_all) {
         serdeAttrs.push(`#[serde(rename_all = "${xRust.serde.rename_all}")]`)
@@ -489,7 +681,6 @@ function buildRustTypes(
     }
 
     if (schema.type === "object") {
-      const xRust = schema["x-rust"] as RustMeta | undefined
       const serdeAttrs: string[] = []
       if (xRust?.serde?.rename_all) {
         serdeAttrs.push(`#[serde(rename_all = "${xRust.serde.rename_all}")]`)
@@ -598,6 +789,12 @@ function buildRustTypes(
   lines.push("")
 
   for (const type of rustTypes) {
+    if (type.kind === "alias") {
+      lines.push(`pub type ${type.name} = ${type.aliasTarget};`)
+      lines.push("")
+      continue
+    }
+
     if (type.kind === "enum") {
       const derives = [
         "Debug",
@@ -612,6 +809,10 @@ function buildRustTypes(
         derives.push("Default")
       }
       lines.push(`#[derive(${derives.join(", ")})]`)
+    } else if (type.kind === "newtype") {
+      lines.push(
+        "#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]",
+      )
     } else {
       lines.push("#[derive(Debug, Clone, Serialize, Deserialize)]")
     }
@@ -630,6 +831,8 @@ function buildRustTypes(
         lines.push(`  ${variant.name},`)
       }
       lines.push("}")
+    } else if (type.kind === "newtype") {
+      lines.push(`pub struct ${type.name}(pub ${type.newtypeInner});`)
     } else {
       lines.push(`pub struct ${type.name} {`)
       for (const field of type.fields ?? []) {
@@ -671,6 +874,8 @@ async function generateTypes(): Promise<Set<string>> {
     typesHeader +
     "\n\n" +
     compiledBlocks.join("\n\n") +
+    "\n\n" +
+    legacyTypeDefs.trim() +
     "\n\n" +
     "export type Result<T, E> =\n" +
     '  | { status: "ok"; data: T }\n' +

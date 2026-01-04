@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitConnection",
+  "type": "object",
+  "properties": {
+    "server_type": {
+      "$ref": "./GitServerType.schema.json"
+    },
+    "connection": {
+      "$ref": "./PlatformConnection.schema.json"
+    },
+    "identity_mode": {
+      "anyOf": [
+        {
+          "$ref": "./GitIdentityMode.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "server_type",
+    "connection"
+  ],
+  "description": "Named git connection"
+}

@@ -21,7 +21,7 @@ export function useLoadSettings({ onLoaded, onForceDirty, log }: Options) {
       const fileExists = await settingsService.settingsExist()
       const result = await settingsService.loadSettingsWithWarnings()
 
-      onLoaded(result.settings)
+      onLoaded(result.settings as unknown as GuiSettings)
 
       const activeProfile = await settingsService.getActiveProfile()
       if (fileExists) {
@@ -55,17 +55,8 @@ export function useLoadSettings({ onLoaded, onForceDirty, log }: Options) {
       )
       log(`→ Using default settings for profile '${profileName}'.`)
 
-      // Try to load app settings (window size, etc.) even if profile failed
       const defaultSettings = await settingsService.getDefaultSettings()
-      let settings = defaultSettings
-      try {
-        const appSettings = await settingsService.loadAppSettings()
-        settings = { ...defaultSettings, ...appSettings }
-      } catch {
-        // Ignore - use full defaults
-      }
-
-      onLoaded(settings)
+      onLoaded(defaultSettings as GuiSettings)
       // Force dirty state so user can save to fix the profile
       onForceDirty?.()
     }

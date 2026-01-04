@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ValidationIssue",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "$ref": "./ValidationKind.schema.json"
+    },
+    "affected_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "affected_ids"
+  ],
+  "description": "Single validation issue"
+}

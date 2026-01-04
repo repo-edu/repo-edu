@@ -20,6 +20,7 @@ tauri-build.workspace = true
 
 [dependencies]
 repo-manage-core = { path = "../repo-manage-core" }
+lms-common = { path = "../../../crates/lms-common" }
 tauri.workspace = true
 tauri-plugin-opener.workspace = true
 tauri-plugin-dialog.workspace = true
@@ -28,6 +29,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 dirs = "6.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]

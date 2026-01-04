@@ -1,29 +1,6 @@
-use crate::generated::types::{
-    ActiveTab, DirectoryLayout, GitServerType, LmsUrlOption, MemberOption, Theme,
-};
+use crate::generated::types::{DirectoryLayout, GitServerType, MemberOption, Theme};
 use std::fmt;
 use std::str::FromStr;
-
-impl fmt::Display for LmsUrlOption {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TUE => write!(f, "TUE"),
-            Self::Custom => write!(f, "Custom"),
-        }
-    }
-}
-
-impl FromStr for LmsUrlOption {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "TUE" => Ok(Self::TUE),
-            "CUSTOM" => Ok(Self::Custom),
-            _ => Err(format!("Unknown LMS URL option: {}", s)),
-        }
-    }
-}
 
 impl fmt::Display for MemberOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -94,27 +71,6 @@ impl FromStr for Theme {
     }
 }
 
-impl fmt::Display for ActiveTab {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Lms => write!(f, "lms"),
-            Self::Repo => write!(f, "repo"),
-        }
-    }
-}
-
-impl FromStr for ActiveTab {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim().to_lowercase().as_str() {
-            "lms" => Ok(Self::Lms),
-            "repo" => Ok(Self::Repo),
-            _ => Err(format!("Unknown active tab: {}", s)),
-        }
-    }
-}
-
 impl fmt::Display for GitServerType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -141,26 +97,6 @@ impl FromStr for GitServerType {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_lms_url_option_display() {
-        assert_eq!(LmsUrlOption::TUE.to_string(), "TUE");
-        assert_eq!(LmsUrlOption::Custom.to_string(), "Custom");
-    }
-
-    #[test]
-    fn test_lms_url_option_from_str() {
-        assert_eq!("TUE".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::TUE);
-        assert_eq!("tue".parse::<LmsUrlOption>().unwrap(), LmsUrlOption::TUE);
-        assert_eq!(
-            "CUSTOM".parse::<LmsUrlOption>().unwrap(),
-            LmsUrlOption::Custom
-        );
-        assert_eq!(
-            "custom".parse::<LmsUrlOption>().unwrap(),
-            LmsUrlOption::Custom
-        );
-    }
 
     #[test]
     fn test_member_option_display() {
@@ -208,25 +144,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_active_tab_serialization() {
-        let json = serde_json::to_string(&ActiveTab::Lms).unwrap();
-        assert_eq!(json, "\"lms\"");
-
-        let json = serde_json::to_string(&ActiveTab::Repo).unwrap();
-        assert_eq!(json, "\"repo\"");
-    }
-
-    #[test]
-    fn test_active_tab_deserialization() {
-        let tab: ActiveTab = serde_json::from_str("\"lms\"").unwrap();
-        assert_eq!(tab, ActiveTab::Lms);
-
-        let tab: ActiveTab = serde_json::from_str("\"repo\"").unwrap();
-        assert_eq!(tab, ActiveTab::Repo);
-    }
-
-    #[test]
     fn test_git_server_type_display() {
         assert_eq!(GitServerType::GitHub.to_string(), "GitHub");
         assert_eq!(GitServerType::GitLab.to_string(), "GitLab");

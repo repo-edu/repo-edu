@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Group",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "./GroupId.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "./StudentId.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "member_ids"
+  ],
+  "description": "Group within an assignment"
+}

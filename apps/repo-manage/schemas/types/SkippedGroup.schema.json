@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkippedGroup",
+  "type": "object",
+  "properties": {
+    "assignment_id": {
+      "$ref": "./AssignmentId.schema.json"
+    },
+    "group_id": {
+      "$ref": "./GroupId.schema.json"
+    },
+    "group_name": {
+      "type": "string"
+    },
+    "reason": {
+      "$ref": "./SkippedGroupReason.schema.json"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "assignment_id",
+    "group_id",
+    "group_name",
+    "reason"
+  ],
+  "description": "Details about a skipped group"
+}

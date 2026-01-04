@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloneConfig",
+  "type": "object",
+  "properties": {
+    "target_dir": {
+      "type": "string"
+    },
+    "directory_layout": {
+      "$ref": "./DirectoryLayout.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "target_dir",
+    "directory_layout"
+  ],
+  "description": "Repo clone configuration"
+}

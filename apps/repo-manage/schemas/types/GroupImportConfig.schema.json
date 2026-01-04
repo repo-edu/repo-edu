@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GroupImportConfig",
+  "type": "object",
+  "properties": {
+    "group_set_id": {
+      "type": "string"
+    },
+    "filter": {
+      "$ref": "./GroupFilter.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "group_set_id",
+    "filter"
+  ],
+  "description": "Group import configuration"
+}

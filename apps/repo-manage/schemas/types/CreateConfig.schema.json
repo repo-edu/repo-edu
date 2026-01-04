@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CreateConfig",
+  "type": "object",
+  "properties": {
+    "template_org": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "template_org"
+  ],
+  "description": "Repo creation configuration"
+}

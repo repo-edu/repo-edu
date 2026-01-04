@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, CloneParams, CommandResult, ConfigParams, GenerateFilesParams, GetGroupCategoriesParams, GroupCategory, GuiSettings, ProfileSettings, SettingsLoadResult, SetupParams, VerifyCourseParams, VerifyCourseResult, Result } from "./types";
+import type { AppError, AppSettings, CloneParams, CommandResult, ConfigParams, GenerateFilesParams, GetGroupCategoriesParams, GroupCategory, ProfileSettings, SettingsLoadResult, SetupParams, VerifyCourseParams, VerifyCourseResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -207,7 +207,7 @@ export const commands = {
   /**
    * Reset settings to defaults
    */
-  async resetSettings() : Promise<Result<GuiSettings, AppError>> {
+  async resetSettings() : Promise<Result<ProfileSettings, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("reset_settings") };
     } catch (e) {
@@ -218,7 +218,7 @@ export const commands = {
   /**
    * Get default settings (single source of truth from Rust)
    */
-  async getDefaultSettings() : Promise<GuiSettings> {
+  async getDefaultSettings() : Promise<ProfileSettings> {
     return await TAURI_INVOKE("get_default_settings");
   },
   /**
@@ -246,7 +246,7 @@ export const commands = {
   /**
    * Import settings from a specific file
    */
-  async importSettings(path: string) : Promise<Result<GuiSettings, AppError>> {
+  async importSettings(path: string) : Promise<Result<ProfileSettings, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("import_settings", { path }) };
     } catch (e) {
@@ -257,7 +257,7 @@ export const commands = {
   /**
    * Export settings to a specific file
    */
-  async exportSettings(settings: GuiSettings, path: string) : Promise<Result<null, AppError>> {
+  async exportSettings(settings: ProfileSettings, path: string) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("export_settings", { settings, path }) };
     } catch (e) {
@@ -266,7 +266,7 @@ export const commands = {
     }
   },
   /**
-   * Get the JSON schema for GuiSettings
+   * Get the JSON schema for ProfileSettings
    */
   async getSettingsSchema() : Promise<Result<string, AppError>> {
     try {
@@ -279,7 +279,7 @@ export const commands = {
   /**
    * Load settings or return defaults (never fails)
    */
-  async loadSettingsOrDefault() : Promise<Result<GuiSettings, AppError>> {
+  async loadSettingsOrDefault() : Promise<Result<ProfileSettings, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("load_settings_or_default") };
     } catch (e) {

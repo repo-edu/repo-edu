@@ -3,21 +3,31 @@
   "title": "ProfileSettings",
   "type": "object",
   "properties": {
-    "git": {
-      "$ref": "./GitSettings.schema.json"
+    "course": {
+      "$ref": "./CourseInfo.schema.json"
     },
-    "lms": {
-      "$ref": "./LmsSettings.schema.json"
+    "git_connection": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "repo": {
-      "$ref": "./RepoSettings.schema.json"
+    "operations": {
+      "$ref": "./OperationConfigs.schema.json"
+    },
+    "exports": {
+      "$ref": "./ExportSettings.schema.json"
     }
   },
   "additionalProperties": false,
   "required": [
-    "git",
-    "lms",
-    "repo"
+    "course",
+    "operations",
+    "exports"
   ],
-  "description": "Profile settings (nested structure for per-profile data)"
+  "description": "Profile settings (per-profile data)"
 }

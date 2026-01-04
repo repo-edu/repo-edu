@@ -45,6 +45,11 @@ glob = "0.3"
 # URL handling
 url.workspace = true
 
+# Roster utilities
+nanoid = "0.4"
+unicode-normalization = "0.1"
+deunicode = "1.4"
+
 # LMS client (unified)
 lms-client = { path = "../../../crates/lms-client" }
 lms-common = { path = "../../../crates/lms-common" }

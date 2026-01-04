@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitUsernameEntry",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "git_username": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "email",
+    "git_username"
+  ],
+  "description": "Single git username import row"
+}

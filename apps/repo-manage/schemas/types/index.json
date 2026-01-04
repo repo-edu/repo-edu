@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "types": [
     {
-      "name": "ActiveTab",
-      "path": "./ActiveTab.schema.json"
+      "name": "AffectedGroup",
+      "path": "./AffectedGroup.schema.json"
     },
     {
       "name": "AppError",
@@ -14,72 +14,148 @@
       "path": "./AppSettings.schema.json"
     },
     {
-      "name": "CanvasConfig",
-      "path": "./CanvasConfig.schema.json"
+      "name": "Assignment",
+      "path": "./Assignment.schema.json"
     },
     {
-      "name": "CloneParams",
-      "path": "./CloneParams.schema.json"
+      "name": "AssignmentCoverage",
+      "path": "./AssignmentCoverage.schema.json"
+    },
+    {
+      "name": "AssignmentId",
+      "path": "./AssignmentId.schema.json"
+    },
+    {
+      "name": "AssignmentMetadata",
+      "path": "./AssignmentMetadata.schema.json"
+    },
+    {
+      "name": "CloneConfig",
+      "path": "./CloneConfig.schema.json"
     },
     {
       "name": "CommandResult",
       "path": "./CommandResult.schema.json"
     },
     {
-      "name": "ConfigParams",
-      "path": "./ConfigParams.schema.json"
+      "name": "CourseInfo",
+      "path": "./CourseInfo.schema.json"
     },
     {
-      "name": "CourseEntry",
-      "path": "./CourseEntry.schema.json"
+      "name": "CoverageExportFormat",
+      "path": "./CoverageExportFormat.schema.json"
+    },
+    {
+      "name": "CoverageReport",
+      "path": "./CoverageReport.schema.json"
+    },
+    {
+      "name": "CreateConfig",
+      "path": "./CreateConfig.schema.json"
+    },
+    {
+      "name": "DeleteConfig",
+      "path": "./DeleteConfig.schema.json"
     },
     {
       "name": "DirectoryLayout",
       "path": "./DirectoryLayout.schema.json"
     },
     {
-      "name": "GenerateFilesParams",
-      "path": "./GenerateFilesParams.schema.json"
+      "name": "ExportSettings",
+      "path": "./ExportSettings.schema.json"
     },
     {
-      "name": "GetGroupCategoriesParams",
-      "path": "./GetGroupCategoriesParams.schema.json"
+      "name": "GitConnection",
+      "path": "./GitConnection.schema.json"
     },
     {
-      "name": "GitHubConfig",
-      "path": "./GitHubConfig.schema.json"
-    },
-    {
-      "name": "GitLabConfig",
-      "path": "./GitLabConfig.schema.json"
+      "name": "GitIdentityMode",
+      "path": "./GitIdentityMode.schema.json"
     },
     {
       "name": "GitServerType",
       "path": "./GitServerType.schema.json"
     },
     {
-      "name": "GitSettings",
-      "path": "./GitSettings.schema.json"
+      "name": "GitUsernameEntry",
+      "path": "./GitUsernameEntry.schema.json"
     },
     {
-      "name": "GiteaConfig",
-      "path": "./GiteaConfig.schema.json"
+      "name": "GitUsernameImportSummary",
+      "path": "./GitUsernameImportSummary.schema.json"
     },
     {
-      "name": "GroupCategory",
-      "path": "./GroupCategory.schema.json"
+      "name": "GitUsernameStatus",
+      "path": "./GitUsernameStatus.schema.json"
     },
     {
-      "name": "GuiSettings",
-      "path": "./GuiSettings.schema.json"
+      "name": "GitVerifyResult",
+      "path": "./GitVerifyResult.schema.json"
     },
     {
-      "name": "LmsSettings",
-      "path": "./LmsSettings.schema.json"
+      "name": "Group",
+      "path": "./Group.schema.json"
     },
     {
-      "name": "LmsUrlOption",
-      "path": "./LmsUrlOption.schema.json"
+      "name": "GroupFilter",
+      "path": "./GroupFilter.schema.json"
+    },
+    {
+      "name": "GroupId",
+      "path": "./GroupId.schema.json"
+    },
+    {
+      "name": "GroupImportConfig",
+      "path": "./GroupImportConfig.schema.json"
+    },
+    {
+      "name": "GroupImportSummary",
+      "path": "./GroupImportSummary.schema.json"
+    },
+    {
+      "name": "ImportGitUsernamesResult",
+      "path": "./ImportGitUsernamesResult.schema.json"
+    },
+    {
+      "name": "ImportGroupsResult",
+      "path": "./ImportGroupsResult.schema.json"
+    },
+    {
+      "name": "ImportStudentsResult",
+      "path": "./ImportStudentsResult.schema.json"
+    },
+    {
+      "name": "ImportSummary",
+      "path": "./ImportSummary.schema.json"
+    },
+    {
+      "name": "InvalidUsername",
+      "path": "./InvalidUsername.schema.json"
+    },
+    {
+      "name": "LmsConnection",
+      "path": "./LmsConnection.schema.json"
+    },
+    {
+      "name": "LmsGroup",
+      "path": "./LmsGroup.schema.json"
+    },
+    {
+      "name": "LmsGroupSet",
+      "path": "./LmsGroupSet.schema.json"
+    },
+    {
+      "name": "LmsIdConflict",
+      "path": "./LmsIdConflict.schema.json"
+    },
+    {
+      "name": "LmsType",
+      "path": "./LmsType.schema.json"
+    },
+    {
+      "name": "LmsVerifyResult",
+      "path": "./LmsVerifyResult.schema.json"
     },
     {
       "name": "LogSettings",
@@ -90,36 +166,120 @@
       "path": "./MemberOption.schema.json"
     },
     {
-      "name": "MoodleConfig",
-      "path": "./MoodleConfig.schema.json"
+      "name": "OperationConfigs",
+      "path": "./OperationConfigs.schema.json"
+    },
+    {
+      "name": "OperationError",
+      "path": "./OperationError.schema.json"
+    },
+    {
+      "name": "OperationResult",
+      "path": "./OperationResult.schema.json"
+    },
+    {
+      "name": "OutputLevel",
+      "path": "./OutputLevel.schema.json"
+    },
+    {
+      "name": "OutputLine",
+      "path": "./OutputLine.schema.json"
+    },
+    {
+      "name": "PlatformConnection",
+      "path": "./PlatformConnection.schema.json"
     },
     {
       "name": "ProfileSettings",
       "path": "./ProfileSettings.schema.json"
     },
     {
-      "name": "RepoSettings",
-      "path": "./RepoSettings.schema.json"
+      "name": "RepoCollision",
+      "path": "./RepoCollision.schema.json"
+    },
+    {
+      "name": "RepoPreflightResult",
+      "path": "./RepoPreflightResult.schema.json"
+    },
+    {
+      "name": "Roster",
+      "path": "./Roster.schema.json"
+    },
+    {
+      "name": "RosterSource",
+      "path": "./RosterSource.schema.json"
     },
     {
       "name": "SettingsLoadResult",
       "path": "./SettingsLoadResult.schema.json"
     },
     {
-      "name": "SetupParams",
-      "path": "./SetupParams.schema.json"
+      "name": "SkippedGroup",
+      "path": "./SkippedGroup.schema.json"
+    },
+    {
+      "name": "SkippedGroupReason",
+      "path": "./SkippedGroupReason.schema.json"
+    },
+    {
+      "name": "Student",
+      "path": "./Student.schema.json"
+    },
+    {
+      "name": "StudentId",
+      "path": "./StudentId.schema.json"
+    },
+    {
+      "name": "StudentMultipleAssignments",
+      "path": "./StudentMultipleAssignments.schema.json"
+    },
+    {
+      "name": "StudentRemovalCheck",
+      "path": "./StudentRemovalCheck.schema.json"
+    },
+    {
+      "name": "StudentRemovalResult",
+      "path": "./StudentRemovalResult.schema.json"
+    },
+    {
+      "name": "StudentSummary",
+      "path": "./StudentSummary.schema.json"
     },
     {
       "name": "Theme",
       "path": "./Theme.schema.json"
     },
     {
-      "name": "VerifyCourseParams",
-      "path": "./VerifyCourseParams.schema.json"
+      "name": "UsernameInvalidReason",
+      "path": "./UsernameInvalidReason.schema.json"
     },
     {
-      "name": "VerifyCourseResult",
-      "path": "./VerifyCourseResult.schema.json"
+      "name": "UsernameVerificationError",
+      "path": "./UsernameVerificationError.schema.json"
+    },
+    {
+      "name": "UsernameVerificationResult",
+      "path": "./UsernameVerificationResult.schema.json"
+    },
+    {
+      "name": "UsernameVerificationScope",
+      "path": "./UsernameVerificationScope.schema.json"
+    },
+    {
+      "name": "ValidationIssue",
+      "path": "./ValidationIssue.schema.json"
+    },
+    {
+      "name": "ValidationKind",
+      "path": "./ValidationKind.schema.json"
+    },
+    {
+      "name": "ValidationResult",
+      "path": "./ValidationResult.schema.json"
+    },
+    {
+      "name": "VerifyGitUsernamesResult",
+      "path": "./VerifyGitUsernamesResult.schema.json"
     }
   ]
 }

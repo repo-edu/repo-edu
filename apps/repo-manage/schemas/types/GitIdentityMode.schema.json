@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitIdentityMode",
+  "type": "string",
+  "enum": [
+    "email",
+    "username"
+  ],
+  "x-rust": {
+    "default": "username",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Git identity mode for collaborator matching"
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsIdConflict",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "roster_lms_user_id": {
+      "type": "string"
+    },
+    "incoming_lms_user_id": {
+      "type": "string"
+    },
+    "roster_student_name": {
+      "type": "string"
+    },
+    "incoming_student_name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "email",
+    "roster_lms_user_id",
+    "incoming_lms_user_id",
+    "roster_student_name",
+    "incoming_student_name"
+  ],
+  "description": "Conflict between LMS user IDs when importing"
+}

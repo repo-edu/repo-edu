@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GitUsernameStatus",
+  "type": "string",
+  "enum": [
+    "unknown",
+    "valid",
+    "invalid"
+  ],
+  "x-rust": {
+    "default": "unknown",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Verification status for a student's git username"
+}

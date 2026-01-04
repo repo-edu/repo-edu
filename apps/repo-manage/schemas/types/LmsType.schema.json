@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsType",
+  "type": "string",
+  "enum": [
+    "canvas",
+    "moodle"
+  ],
+  "x-rust-type": "lms_common::LmsType",
+  "x-rust": {
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "LMS type"
+}

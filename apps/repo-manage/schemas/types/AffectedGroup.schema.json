@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AffectedGroup",
+  "type": "object",
+  "properties": {
+    "assignment_id": {
+      "$ref": "./AssignmentId.schema.json"
+    },
+    "assignment_name": {
+      "type": "string"
+    },
+    "group_id": {
+      "$ref": "./GroupId.schema.json"
+    },
+    "group_name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "assignment_id",
+    "assignment_name",
+    "group_id",
+    "group_name"
+  ],
+  "description": "Group that references a student"
+}

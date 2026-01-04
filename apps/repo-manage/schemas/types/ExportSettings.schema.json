@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExportSettings",
+  "type": "object",
+  "properties": {
+    "output_folder": {
+      "type": "string"
+    },
+    "output_csv": {
+      "type": "boolean"
+    },
+    "output_xlsx": {
+      "type": "boolean"
+    },
+    "output_yaml": {
+      "type": "boolean"
+    },
+    "csv_file": {
+      "type": "string"
+    },
+    "xlsx_file": {
+      "type": "string"
+    },
+    "yaml_file": {
+      "type": "string"
+    },
+    "member_option": {
+      "$ref": "./MemberOption.schema.json"
+    },
+    "include_group": {
+      "type": "boolean"
+    },
+    "include_member": {
+      "type": "boolean"
+    },
+    "include_initials": {
+      "type": "boolean"
+    },
+    "full_groups": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "output_folder",
+    "output_csv",
+    "output_xlsx",
+    "output_yaml",
+    "csv_file",
+    "xlsx_file",
+    "yaml_file",
+    "member_option",
+    "include_group",
+    "include_member",
+    "include_initials",
+    "full_groups"
+  ],
+  "description": "Export settings for roster outputs"
+}
