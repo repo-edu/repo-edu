@@ -10,6 +10,16 @@ import {
 import { useCallback, useEffect } from "react"
 import { OutputConsole } from "./components/OutputConsole"
 import { RosterTab, AssignmentTab, OperationTab } from "./components/tabs"
+import {
+  NewAssignmentDialog,
+  EditAssignmentDialog,
+  DeleteAssignmentDialog,
+  AddGroupDialog,
+  EditGroupDialog,
+  ImportGroupsDialog,
+  ReplaceGroupsConfirmationDialog,
+} from "./components/dialogs"
+import { GroupEditorSheet } from "./components/sheets"
 import { useTheme } from "./hooks/useTheme"
 import { useLoadProfile } from "./hooks/useLoadProfile"
 import { useDirtyState } from "./hooks/useDirtyState"
@@ -199,6 +209,18 @@ function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assignment Tab Dialogs */}
+      <NewAssignmentDialog />
+      <EditAssignmentDialog />
+      <DeleteAssignmentDialog />
+
+      {/* Group Editor Sheet and Dialogs */}
+      <GroupEditorSheet />
+      <AddGroupDialog />
+      <EditGroupDialog />
+      <ImportGroupsDialog />
+      <ReplaceGroupsConfirmationDialog />
     </div>
   )
 }

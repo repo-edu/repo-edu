@@ -6,6 +6,7 @@
 import { create } from "zustand"
 import type {
   CoverageReport,
+  GroupId,
   GroupImportConfig,
   ImportGitUsernamesResult,
   LmsIdConflict,
@@ -37,9 +38,15 @@ interface UiState {
   usernameVerificationDialogOpen: boolean
 
   // Assignment tab dialogs
+  newAssignmentDialogOpen: boolean
+  editAssignmentDialogOpen: boolean
+  deleteAssignmentDialogOpen: boolean
   groupEditorOpen: boolean
+  addGroupDialogOpen: boolean
+  editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
   replaceGroupsConfirmationOpen: boolean
+  editingGroupId: GroupId | null
 
   // Profile dialogs
   courseSelectionDialogOpen: boolean
@@ -93,9 +100,15 @@ interface UiActions {
   setUsernameVerificationDialogOpen: (open: boolean) => void
 
   // Assignment tab dialogs
+  setNewAssignmentDialogOpen: (open: boolean) => void
+  setEditAssignmentDialogOpen: (open: boolean) => void
+  setDeleteAssignmentDialogOpen: (open: boolean) => void
   setGroupEditorOpen: (open: boolean) => void
+  setAddGroupDialogOpen: (open: boolean) => void
+  setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
   setReplaceGroupsConfirmationOpen: (open: boolean) => void
+  setEditingGroupId: (id: GroupId | null) => void
 
   // Profile dialogs
   setCourseSelectionDialogOpen: (open: boolean) => void
@@ -171,9 +184,15 @@ const initialState: UiState = {
   usernameVerificationDialogOpen: false,
 
   // Assignment tab dialogs
+  newAssignmentDialogOpen: false,
+  editAssignmentDialogOpen: false,
+  deleteAssignmentDialogOpen: false,
   groupEditorOpen: false,
+  addGroupDialogOpen: false,
+  editGroupDialogOpen: false,
   importGroupsDialogOpen: false,
   replaceGroupsConfirmationOpen: false,
+  editingGroupId: null,
 
   // Profile dialogs
   courseSelectionDialogOpen: false,
@@ -223,10 +242,18 @@ export const useUiStore = create<UiStore>((set, get) => ({
     set({ usernameVerificationDialogOpen: open }),
 
   // Assignment tab dialogs
+  setNewAssignmentDialogOpen: (open) => set({ newAssignmentDialogOpen: open }),
+  setEditAssignmentDialogOpen: (open) =>
+    set({ editAssignmentDialogOpen: open }),
+  setDeleteAssignmentDialogOpen: (open) =>
+    set({ deleteAssignmentDialogOpen: open }),
   setGroupEditorOpen: (open) => set({ groupEditorOpen: open }),
+  setAddGroupDialogOpen: (open) => set({ addGroupDialogOpen: open }),
+  setEditGroupDialogOpen: (open) => set({ editGroupDialogOpen: open }),
   setImportGroupsDialogOpen: (open) => set({ importGroupsDialogOpen: open }),
   setReplaceGroupsConfirmationOpen: (open) =>
     set({ replaceGroupsConfirmationOpen: open }),
+  setEditingGroupId: (id) => set({ editingGroupId: id }),
 
   // Profile dialogs
   setCourseSelectionDialogOpen: (open) =>
