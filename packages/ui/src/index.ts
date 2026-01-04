@@ -54,14 +54,6 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select"
-export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
-export { Textarea, textareaVariants } from "./components/ui/textarea"
-export {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./components/ui/tooltip"
 export {
   Sheet,
   SheetClose,
@@ -74,4 +66,12 @@ export {
   SheetTitle,
   SheetTrigger,
 } from "./components/ui/sheet"
+export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+export { Textarea, textareaVariants } from "./components/ui/textarea"
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./components/ui/tooltip"
 export { cn } from "./lib/utils"

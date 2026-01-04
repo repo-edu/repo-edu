@@ -5,14 +5,13 @@
  */
 
 import { useCallback } from "react"
-import { useAppSettingsStore } from "../stores/appSettingsStore"
-
 import type {
   GitConnection,
   LmsConnection,
   LogSettings,
   Theme,
 } from "../bindings/types"
+import { useAppSettingsStore } from "../stores/appSettingsStore"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
 

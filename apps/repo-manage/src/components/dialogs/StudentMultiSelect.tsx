@@ -2,8 +2,8 @@
  * Multi-select component for choosing students (group members).
  */
 
-import { useMemo, useState } from "react"
 import { Checkbox, Input } from "@repo-edu/ui"
+import { useMemo, useState } from "react"
 import type { Student, StudentId } from "../../bindings/types"
 
 interface StudentMultiSelectProps {

@@ -184,6 +184,13 @@ pub fn run() {
             commands::platform::clone_repos,
             commands::platform::verify_git_connection,
             commands::platform::verify_git_connection_draft,
+            // Roster-based git operations
+            commands::platform::preflight_create_repos,
+            commands::platform::preflight_clone_repos,
+            commands::platform::preflight_delete_repos,
+            commands::platform::create_repos,
+            commands::platform::clone_repos_from_roster,
+            commands::platform::delete_repos,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,28 +8,28 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect } from "react"
-import { OutputConsole } from "./components/OutputConsole"
-import { RosterTab, AssignmentTab, OperationTab } from "./components/tabs"
 import {
-  NewAssignmentDialog,
-  EditAssignmentDialog,
-  DeleteAssignmentDialog,
   AddGroupDialog,
+  DeleteAssignmentDialog,
+  EditAssignmentDialog,
   EditGroupDialog,
   ImportGroupsDialog,
+  NewAssignmentDialog,
   ReplaceGroupsConfirmationDialog,
 } from "./components/dialogs"
+import { OutputConsole } from "./components/OutputConsole"
 import { GroupEditorSheet } from "./components/sheets"
-import { useTheme } from "./hooks/useTheme"
-import { useLoadProfile } from "./hooks/useLoadProfile"
-import { useDirtyState } from "./hooks/useDirtyState"
-import { useCloseGuard } from "./hooks/useCloseGuard"
-import { useAppSettingsStore } from "./stores/appSettingsStore"
-import { useProfileSettingsStore } from "./stores/profileSettingsStore"
-import { useUiStore, type ActiveTab } from "./stores/uiStore"
-import { useOutputStore } from "./stores/outputStore"
-import * as settingsService from "./services/settingsService"
+import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
 import { CONSOLE_MIN_HEIGHT, DEFAULT_GUI_THEME } from "./constants"
+import { useCloseGuard } from "./hooks/useCloseGuard"
+import { useDirtyState } from "./hooks/useDirtyState"
+import { useLoadProfile } from "./hooks/useLoadProfile"
+import { useTheme } from "./hooks/useTheme"
+import * as settingsService from "./services/settingsService"
+import { useAppSettingsStore } from "./stores/appSettingsStore"
+import { useOutputStore } from "./stores/outputStore"
+import { useProfileSettingsStore } from "./stores/profileSettingsStore"
+import { type ActiveTab, useUiStore } from "./stores/uiStore"
 import "./App.css"
 
 function App() {

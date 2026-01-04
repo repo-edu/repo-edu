@@ -679,6 +679,144 @@
       ],
       "output": "ValidationResult",
       "error": "AppError"
+    },
+    "preflight_create_repos": {
+      "description": "Preflight check for create: identifies repos that already exist",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "CreateConfig"
+        }
+      ],
+      "output": "RepoPreflightResult",
+      "error": "AppError"
+    },
+    "preflight_clone_repos": {
+      "description": "Preflight check for clone: identifies repos that don't exist",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "CloneConfig"
+        }
+      ],
+      "output": "RepoPreflightResult",
+      "error": "AppError"
+    },
+    "preflight_delete_repos": {
+      "description": "Preflight check for delete: identifies repos that don't exist",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "DeleteConfig"
+        }
+      ],
+      "output": "RepoPreflightResult",
+      "error": "AppError"
+    },
+    "create_repos": {
+      "description": "Create repos for assignment groups",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "CreateConfig"
+        }
+      ],
+      "output": "OperationResult",
+      "error": "AppError"
+    },
+    "clone_repos_from_roster": {
+      "description": "Clone repos for assignment groups",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "CloneConfig"
+        }
+      ],
+      "output": "OperationResult",
+      "error": "AppError"
+    },
+    "delete_repos": {
+      "description": "Delete repos for assignment groups",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "DeleteConfig"
+        }
+      ],
+      "output": "OperationResult",
+      "error": "AppError"
     }
   }
 }

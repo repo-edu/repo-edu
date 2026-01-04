@@ -9,6 +9,8 @@ import type {
   ActiveTab,
   AppSettings,
   DirectoryLayout,
+  ProfileSettings as GeneratedProfileSettings,
+  SettingsLoadResult as GeneratedSettingsLoadResult,
   GiteaConfig,
   GitHubConfig,
   GitLabConfig,
@@ -19,9 +21,7 @@ import type {
   LmsUrlOption,
   LogSettings,
   MemberOption,
-  ProfileSettings as GeneratedProfileSettings,
   RepoSettings,
-  SettingsLoadResult as GeneratedSettingsLoadResult,
   Theme,
 } from "../bindings/types"
 

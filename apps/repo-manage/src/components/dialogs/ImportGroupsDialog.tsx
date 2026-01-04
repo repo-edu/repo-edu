@@ -2,7 +2,6 @@
  * Dialog for importing groups from LMS group sets.
  */
 
-import { useEffect, useMemo, useState } from "react"
 import {
   Button,
   Checkbox,
@@ -19,12 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
+import { useEffect, useMemo, useState } from "react"
+import { commands } from "../../bindings/commands"
 import type {
   GroupFilter,
   GroupImportConfig,
   LmsGroupSet,
 } from "../../bindings/types"
-import { commands } from "../../bindings/commands"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 

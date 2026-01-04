@@ -12,6 +12,7 @@ export {
   File,
   FileText,
   Folder,
+  FolderOpen,
   Info,
   Loader2,
   Lock,

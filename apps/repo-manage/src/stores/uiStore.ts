@@ -10,8 +10,10 @@ import type {
   GroupImportConfig,
   ImportGitUsernamesResult,
   LmsIdConflict,
+  RepoPreflightResult,
   StudentRemovalCheck,
   UsernameVerificationResult,
+  ValidationResult,
 } from "../bindings/types"
 
 /**
@@ -52,6 +54,11 @@ interface UiState {
   courseSelectionDialogOpen: boolean
   exportSettingsOpen: boolean
 
+  // Operation tab dialogs
+  validationDialogOpen: boolean
+  preflightDialogOpen: boolean
+  deleteConfirmationOpen: boolean
+
   // Close prompt (unsaved changes)
   closePromptVisible: boolean
 
@@ -62,6 +69,8 @@ interface UiState {
   lmsImportConflicts: LmsIdConflict[] | null
   pendingGroupImport: GroupImportConfig | null
   coverageReport: CoverageReport | null
+  validationResult: ValidationResult | null
+  preflightResult: RepoPreflightResult | null
 
   // Legacy fields (will be removed in Phase 6)
   /** @deprecated Use appSettingsMenuOpen instead */
@@ -114,6 +123,11 @@ interface UiActions {
   setCourseSelectionDialogOpen: (open: boolean) => void
   setExportSettingsOpen: (open: boolean) => void
 
+  // Operation tab dialogs
+  setValidationDialogOpen: (open: boolean) => void
+  setPreflightDialogOpen: (open: boolean) => void
+  setDeleteConfirmationOpen: (open: boolean) => void
+
   // Close prompt
   showClosePrompt: () => void
   hideClosePrompt: () => void
@@ -127,6 +141,8 @@ interface UiActions {
   setLmsImportConflicts: (conflicts: LmsIdConflict[] | null) => void
   setPendingGroupImport: (config: GroupImportConfig | null) => void
   setCoverageReport: (report: CoverageReport | null) => void
+  setValidationResult: (result: ValidationResult | null) => void
+  setPreflightResult: (result: RepoPreflightResult | null) => void
 
   // Reset
   reset: () => void
@@ -198,6 +214,11 @@ const initialState: UiState = {
   courseSelectionDialogOpen: false,
   exportSettingsOpen: false,
 
+  // Operation tab dialogs
+  validationDialogOpen: false,
+  preflightDialogOpen: false,
+  deleteConfirmationOpen: false,
+
   // Close prompt
   closePromptVisible: false,
 
@@ -208,6 +229,8 @@ const initialState: UiState = {
   lmsImportConflicts: null,
   pendingGroupImport: null,
   coverageReport: null,
+  validationResult: null,
+  preflightResult: null,
 
   // Legacy fields
   settingsMenuOpen: false,
@@ -260,6 +283,11 @@ export const useUiStore = create<UiStore>((set, get) => ({
     set({ courseSelectionDialogOpen: open }),
   setExportSettingsOpen: (open) => set({ exportSettingsOpen: open }),
 
+  // Operation tab dialogs
+  setValidationDialogOpen: (open) => set({ validationDialogOpen: open }),
+  setPreflightDialogOpen: (open) => set({ preflightDialogOpen: open }),
+  setDeleteConfirmationOpen: (open) => set({ deleteConfirmationOpen: open }),
+
   // Close prompt
   showClosePrompt: () => set({ closePromptVisible: true }),
   hideClosePrompt: () => set({ closePromptVisible: false }),
@@ -274,6 +302,8 @@ export const useUiStore = create<UiStore>((set, get) => ({
   setLmsImportConflicts: (conflicts) => set({ lmsImportConflicts: conflicts }),
   setPendingGroupImport: (config) => set({ pendingGroupImport: config }),
   setCoverageReport: (report) => set({ coverageReport: report }),
+  setValidationResult: (result) => set({ validationResult: result }),
+  setPreflightResult: (result) => set({ preflightResult: result }),
 
   // Reset
   reset: () => set(initialState),

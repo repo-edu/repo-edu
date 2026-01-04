@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
+import type { AppError, AppSettings, AssignmentId, CloneConfig, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, CreateConfig, DeleteConfig, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, OperationResult, ProfileSettings, RepoPreflightResult, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -612,6 +612,72 @@ export const commands = {
   async validateAssignment(profile: string, roster: Roster, assignmentId: AssignmentId) : Promise<Result<ValidationResult, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("validate_assignment", { profile, roster, assignmentId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Preflight check for create: identifies repos that already exist
+   */
+  async preflightCreateRepos(profile: string, roster: Roster, assignmentId: AssignmentId, config: CreateConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("preflight_create_repos", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Preflight check for clone: identifies repos that don't exist
+   */
+  async preflightCloneRepos(profile: string, roster: Roster, assignmentId: AssignmentId, config: CloneConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("preflight_clone_repos", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Preflight check for delete: identifies repos that don't exist
+   */
+  async preflightDeleteRepos(profile: string, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("preflight_delete_repos", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Create repos for assignment groups
+   */
+  async createRepos(profile: string, roster: Roster, assignmentId: AssignmentId, config: CreateConfig) : Promise<Result<OperationResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("create_repos", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Clone repos for assignment groups
+   */
+  async cloneReposFromRoster(profile: string, roster: Roster, assignmentId: AssignmentId, config: CloneConfig) : Promise<Result<OperationResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("clone_repos_from_roster", { profile, roster, assignmentId, config }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Delete repos for assignment groups
+   */
+  async deleteRepos(profile: string, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig) : Promise<Result<OperationResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("delete_repos", { profile, roster, assignmentId, config }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };

@@ -2,7 +2,6 @@
  * Confirmation dialog shown when importing groups would replace existing ones.
  */
 
-import { useState } from "react"
 import {
   Button,
   Dialog,
@@ -12,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo-edu/ui"
+import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"

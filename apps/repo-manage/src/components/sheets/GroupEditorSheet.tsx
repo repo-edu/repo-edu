@@ -2,7 +2,6 @@
  * Sheet for viewing and editing groups within an assignment.
  */
 
-import { useMemo, useState } from "react"
 import {
   Button,
   Input,
@@ -12,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo-edu/ui"
+import { useMemo, useState } from "react"
 import type { Group, GroupId, Student } from "../../bindings/types"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"

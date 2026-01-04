@@ -3,8 +3,8 @@
  */
 
 import { Button } from "@repo-edu/ui"
-import { useRosterStore } from "../../stores/rosterStore"
 import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
+import { useRosterStore } from "../../stores/rosterStore"
 
 export function RosterTab() {
   const roster = useRosterStore((state) => state.roster)

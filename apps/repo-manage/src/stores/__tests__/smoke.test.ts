@@ -4,6 +4,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { Student } from "../../bindings/types"
+import {
+  generateAssignmentId,
+  generateGroupId,
+  generateStudentId,
+} from "../../utils/nanoid"
 import { useAppSettingsStore } from "../appSettingsStore"
 import { useConnectionsStore } from "../connectionsStore"
 import { useOperationStore } from "../operationStore"
@@ -11,12 +17,6 @@ import { useOutputStore } from "../outputStore"
 import { useProfileSettingsStore } from "../profileSettingsStore"
 import { useRosterStore } from "../rosterStore"
 import { useUiStore } from "../uiStore"
-import {
-  generateStudentId,
-  generateAssignmentId,
-  generateGroupId,
-} from "../../utils/nanoid"
-import type { Student } from "../../bindings/types"
 
 describe("Store Smoke Tests", () => {
   beforeEach(() => {

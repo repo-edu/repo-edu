@@ -2,7 +2,6 @@
  * Dialog for creating a new assignment.
  */
 
-import { useState } from "react"
 import {
   Button,
   Dialog,
@@ -13,6 +12,7 @@ import {
   Input,
   Label,
 } from "@repo-edu/ui"
+import { useState } from "react"
 import type { Assignment } from "../../bindings/types"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"

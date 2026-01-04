@@ -2,7 +2,6 @@
  * Dialog for editing an assignment.
  */
 
-import { useEffect, useState } from "react"
 import {
   Button,
   Dialog,
@@ -13,6 +12,7 @@ import {
   Input,
   Label,
 } from "@repo-edu/ui"
+import { useEffect, useState } from "react"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 

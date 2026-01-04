@@ -1,6 +1,6 @@
 import { Channel } from "@tauri-apps/api/core"
-import { BACKEND_PROGRESS_PREFIX, DISPLAY_PROGRESS_PREFIX } from "../constants"
 import type { OutputLine } from "../bindings/types"
+import { BACKEND_PROGRESS_PREFIX, DISPLAY_PROGRESS_PREFIX } from "../constants"
 
 interface Options {
   onProgress: (line: string) => void
