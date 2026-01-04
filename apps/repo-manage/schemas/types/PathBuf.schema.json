@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PathBuf.schema.json",
+  "title": "PathBuf",
+  "description": "File system path (maps to string in TypeScript)",
+  "type": "string"
+}

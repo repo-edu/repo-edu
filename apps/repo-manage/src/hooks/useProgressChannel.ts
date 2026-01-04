@@ -1,5 +1,6 @@
 import { Channel } from "@tauri-apps/api/core"
 import { BACKEND_PROGRESS_PREFIX, DISPLAY_PROGRESS_PREFIX } from "../constants"
+import type { OutputLine } from "../bindings/types"
 
 interface Options {
   onProgress: (line: string) => void
@@ -25,15 +26,17 @@ export function useProgressChannel({ onProgress }: Options) {
 
 /**
  * Convenience helper to update output store lines in a consistent way.
+ * Works with OutputLine callbacks.
  */
 export function handleProgressMessage(
   msg: string,
-  append: (line: string) => void,
-  updateLast: (line: string) => void,
+  append: (line: OutputLine) => void,
+  updateLast: (line: OutputLine) => void,
 ) {
+  const line: OutputLine = { message: msg, level: "info" }
   if (msg.startsWith(DISPLAY_PROGRESS_PREFIX)) {
-    updateLast(msg)
+    updateLast(line)
   } else {
-    append(msg)
+    append(line)
   }
 }

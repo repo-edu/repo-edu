@@ -342,6 +342,7 @@ function typeExprToTs(
   channelUsed: { value: boolean },
 ): string {
   if (expr.name === "String") return "string"
+  if (expr.name === "PathBuf") return "string"
   if (expr.name === "bool") return "boolean"
   if (expr.name === "()") return "null"
   if (expr.name === "Vec" && expr.args[0]) {

@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, PathBuf, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
+import type { AppError, AppSettings, AssignmentId, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, ProfileSettings, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -119,7 +119,7 @@ export const commands = {
   /**
    * Import students from CSV/Excel file
    */
-  async importStudentsFromFile(profile: string, roster: Roster | null, filePath: PathBuf) : Promise<Result<ImportStudentsResult, AppError>> {
+  async importStudentsFromFile(profile: string, roster: Roster | null, filePath: string) : Promise<Result<ImportStudentsResult, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("import_students_from_file", { profile, roster, filePath }) };
     } catch (e) {
@@ -521,7 +521,7 @@ export const commands = {
   /**
    * Import git usernames from CSV
    */
-  async importGitUsernames(profile: string, roster: Roster, csvPath: PathBuf) : Promise<Result<ImportGitUsernamesResult, AppError>> {
+  async importGitUsernames(profile: string, roster: Roster, csvPath: string) : Promise<Result<ImportGitUsernamesResult, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("import_git_usernames", { profile, roster, csvPath }) };
     } catch (e) {
@@ -543,7 +543,7 @@ export const commands = {
   /**
    * Export teams to YAML for git operations
    */
-  async exportTeams(profile: string, roster: Roster, assignmentId: AssignmentId, path: PathBuf) : Promise<Result<null, AppError>> {
+  async exportTeams(profile: string, roster: Roster, assignmentId: AssignmentId, path: string) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("export_teams", { profile, roster, assignmentId, path }) };
     } catch (e) {
@@ -554,7 +554,7 @@ export const commands = {
   /**
    * Export all students to CSV/XLSX
    */
-  async exportStudents(roster: Roster, path: PathBuf) : Promise<Result<null, AppError>> {
+  async exportStudents(roster: Roster, path: string) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("export_students", { roster, path }) };
     } catch (e) {
@@ -565,7 +565,7 @@ export const commands = {
   /**
    * Export assignment students with group info
    */
-  async exportAssignmentStudents(roster: Roster, assignmentId: AssignmentId, path: PathBuf) : Promise<Result<null, AppError>> {
+  async exportAssignmentStudents(roster: Roster, assignmentId: AssignmentId, path: string) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("export_assignment_students", { roster, assignmentId, path }) };
     } catch (e) {
@@ -587,7 +587,7 @@ export const commands = {
   /**
    * Export coverage report
    */
-  async exportRosterCoverage(roster: Roster, path: PathBuf, format: CoverageExportFormat) : Promise<Result<null, AppError>> {
+  async exportRosterCoverage(roster: Roster, path: string, format: CoverageExportFormat) : Promise<Result<null, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("export_roster_coverage", { roster, path, format }) };
     } catch (e) {

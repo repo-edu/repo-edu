@@ -130,11 +130,7 @@ export function useLmsActions() {
     try {
       const progress = useProgressChannel({
         onProgress: (line) =>
-          handleProgressMessage(
-            line,
-            output.appendWithNewline,
-            output.updateLastLine,
-          ),
+          handleProgressMessage(line, output.append, output.updateLastLine),
       })
 
       const result = await lmsService.generateLmsFiles(
