@@ -262,7 +262,7 @@ fn collect_custom_headers(roster: &Roster) -> Vec<String> {
         }
     }
     let mut headers = keys.into_iter().collect::<Vec<_>>();
-    headers.sort_by(|a, b| normalize_assignment_name(a).cmp(&normalize_assignment_name(b)));
+    headers.sort_by_key(|a| normalize_assignment_name(a));
     headers
 }
 

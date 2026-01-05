@@ -51,6 +51,7 @@ interface UiState {
   editingGroupId: GroupId | null
 
   // Profile dialogs
+  newProfileDialogOpen: boolean
   courseSelectionDialogOpen: boolean
   exportSettingsOpen: boolean
 
@@ -120,6 +121,7 @@ interface UiActions {
   setEditingGroupId: (id: GroupId | null) => void
 
   // Profile dialogs
+  setNewProfileDialogOpen: (open: boolean) => void
   setCourseSelectionDialogOpen: (open: boolean) => void
   setExportSettingsOpen: (open: boolean) => void
 
@@ -211,6 +213,7 @@ const initialState: UiState = {
   editingGroupId: null,
 
   // Profile dialogs
+  newProfileDialogOpen: false,
   courseSelectionDialogOpen: false,
   exportSettingsOpen: false,
 
@@ -279,6 +282,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   setEditingGroupId: (id) => set({ editingGroupId: id }),
 
   // Profile dialogs
+  setNewProfileDialogOpen: (open) => set({ newProfileDialogOpen: open }),
   setCourseSelectionDialogOpen: (open) =>
     set({ courseSelectionDialogOpen: open }),
   setExportSettingsOpen: (open) => set({ exportSettingsOpen: open }),

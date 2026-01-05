@@ -84,19 +84,30 @@ export function StudentMultiSelect({
           </p>
         ) : (
           filteredStudents.map((student) => (
-            <label
+            <div
               key={student.id}
               className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
+              role="option"
+              aria-selected={selected.includes(student.id)}
+              onClick={() => toggleStudent(student.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault()
+                  toggleStudent(student.id)
+                }
+              }}
+              tabIndex={0}
             >
               <Checkbox
                 checked={selected.includes(student.id)}
                 onCheckedChange={() => toggleStudent(student.id)}
+                tabIndex={-1}
               />
               <span className="text-sm flex-1">{student.name}</span>
               <span className="text-xs text-muted-foreground truncate max-w-32">
                 {student.email}
               </span>
-            </label>
+            </div>
           ))
         )}
       </div>

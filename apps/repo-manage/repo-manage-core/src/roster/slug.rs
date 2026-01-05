@@ -20,11 +20,9 @@ pub fn slugify(input: &str) -> String {
         if ch.is_ascii_alphanumeric() {
             output.push(ch);
             last_was_hyphen = false;
-        } else if ch == '-' {
-            if !last_was_hyphen {
-                output.push('-');
-                last_was_hyphen = true;
-            }
+        } else if ch == '-' && !last_was_hyphen {
+            output.push('-');
+            last_was_hyphen = true;
         }
     }
 

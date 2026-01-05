@@ -222,11 +222,6 @@ impl ConfigManager {
         );
     }
 
-    /// Get configuration
-    fn config(&self) -> &ProfileSettings {
-        &self.config
-    }
-
     // ===== Profile Management =====
 
     /// List all profiles

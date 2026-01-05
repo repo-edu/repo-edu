@@ -56,7 +56,7 @@ describe("Store Smoke Tests", () => {
         identity_mode: null,
       }
       useAppSettingsStore.getState().addGitConnection("test", connection)
-      expect(useAppSettingsStore.getState().gitConnections["test"]).toEqual(
+      expect(useAppSettingsStore.getState().gitConnections.test).toEqual(
         connection,
       )
     })
@@ -73,9 +73,7 @@ describe("Store Smoke Tests", () => {
       }
       useAppSettingsStore.getState().addGitConnection("test", connection)
       useAppSettingsStore.getState().removeGitConnection("test")
-      expect(
-        useAppSettingsStore.getState().gitConnections["test"],
-      ).toBeUndefined()
+      expect(useAppSettingsStore.getState().gitConnections.test).toBeUndefined()
     })
   })
 

@@ -414,8 +414,10 @@ impl SettingsManager {
             )));
         }
 
-        let mut settings = ProfileSettings::default();
-        settings.course = course;
+        let settings = ProfileSettings {
+            course,
+            ..Default::default()
+        };
         self.save_profile_settings(name, &settings)?;
         self.set_active_profile(name)?;
 

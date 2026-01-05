@@ -44,7 +44,7 @@ pub async fn check_student_removal(
         .students
         .iter()
         .find(|student| student.id == student_id)
-        .ok_or_else(|| AppError::new(format!("Student '{}' not found", student_id.to_string())))?;
+        .ok_or_else(|| AppError::new(format!("Student '{}' not found", student_id)))?;
 
     let mut affected_groups = Vec::new();
     for assignment in &roster.assignments {

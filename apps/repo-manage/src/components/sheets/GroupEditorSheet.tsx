@@ -172,9 +172,11 @@ function GroupListItem({
 
   return (
     <div className="border rounded-md">
-      <div
-        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50"
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 text-left"
         onClick={onToggle}
+        aria-expanded={expanded}
       >
         <span className="text-muted-foreground text-xs w-4">
           {expanded ? "▼" : "▶"}
@@ -212,7 +214,7 @@ function GroupListItem({
         >
           ×
         </Button>
-      </div>
+      </button>
 
       {expanded && (
         <div className="px-3 py-2 bg-muted/30 border-t text-sm">

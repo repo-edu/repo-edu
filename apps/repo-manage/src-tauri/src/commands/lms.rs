@@ -18,7 +18,7 @@ use repo_manage_core::{
     LmsVerifyResult, SettingsManager,
 };
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
 
@@ -541,7 +541,7 @@ fn merge_lms_students(
 fn merge_file_students(
     roster: Option<Roster>,
     drafts: Vec<StudentDraft>,
-    file_path: &PathBuf,
+    file_path: &Path,
 ) -> Result<ImportStudentsResult, AppError> {
     let base_roster = roster.unwrap_or_else(Roster::empty);
     let mut updated_roster = base_roster.clone();

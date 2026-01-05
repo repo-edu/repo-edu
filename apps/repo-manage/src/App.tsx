@@ -15,11 +15,15 @@ import {
   EditGroupDialog,
   ImportGroupsDialog,
   NewAssignmentDialog,
+  NewProfileDialog,
+  PreflightDialog,
   ReplaceGroupsConfirmationDialog,
+  ValidationDialog,
 } from "./components/dialogs"
 import { OutputConsole } from "./components/OutputConsole"
-import { GroupEditorSheet } from "./components/sheets"
+import { ConnectionsSheet, GroupEditorSheet } from "./components/sheets"
 import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
+import { UtilityBar } from "./components/UtilityBar"
 import { CONSOLE_MIN_HEIGHT, DEFAULT_GUI_THEME } from "./constants"
 import { useCloseGuard } from "./hooks/useCloseGuard"
 import { useDirtyState } from "./hooks/useDirtyState"
@@ -35,6 +39,7 @@ import "./App.css"
 function App() {
   // Stores
   const ui = useUiStore()
+  const setActiveProfile = useUiStore((state) => state.setActiveProfile)
   const output = useOutputStore()
   const theme = useAppSettingsStore((state) => state.theme)
   const appSettingsStatus = useAppSettingsStore((state) => state.status)
@@ -59,11 +64,11 @@ function App() {
       // Get active profile
       const result = await settingsService.getActiveProfile()
       if (result) {
-        ui.setActiveProfile(result)
+        setActiveProfile(result)
       }
     }
     initializeApp()
-  }, [loadAppSettings, ui])
+  }, [loadAppSettings, setActiveProfile])
 
   // Save handler
   const saveCurrentProfile = useCallback(async () => {
@@ -135,20 +140,6 @@ function App() {
                 Operation
               </TabsTrigger>
             </TabsList>
-            <div className="ml-auto pr-2 flex items-center gap-2">
-              {isDirty && (
-                <span className="text-xs text-muted-foreground">
-                  Unsaved changes
-                </span>
-              )}
-              <Button
-                size="xs"
-                onClick={saveCurrentProfile}
-                disabled={!isDirty || !ui.activeProfile}
-              >
-                Save
-              </Button>
-            </div>
           </div>
 
           {/* Tab Content */}
@@ -179,6 +170,9 @@ function App() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Utility Bar */}
+        <UtilityBar isDirty={isDirty} onSaved={markClean} />
 
         {/* Output Console */}
         <OutputConsole
@@ -221,6 +215,16 @@ function App() {
       <EditGroupDialog />
       <ImportGroupsDialog />
       <ReplaceGroupsConfirmationDialog />
+
+      {/* Operation Tab Dialogs */}
+      <ValidationDialog />
+      <PreflightDialog />
+
+      {/* Profile Dialogs */}
+      <NewProfileDialog />
+
+      {/* Global Sheets */}
+      <ConnectionsSheet />
     </div>
   )
 }

@@ -271,20 +271,31 @@ export function ImportGroupsDialog() {
                     </p>
                   ) : (
                     filteredGroups.map((group) => (
-                      <label
+                      <div
                         key={group.id}
                         className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
+                        role="option"
+                        aria-selected={selectedGroupIds.has(group.id)}
+                        onClick={() => toggleGroupSelection(group.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            toggleGroupSelection(group.id)
+                          }
+                        }}
+                        tabIndex={0}
                       >
                         <Checkbox
                           checked={selectedGroupIds.has(group.id)}
                           onCheckedChange={() => toggleGroupSelection(group.id)}
+                          tabIndex={-1}
                         />
                         <span className="text-sm flex-1">{group.name}</span>
                         <span className="text-xs text-muted-foreground">
                           {group.member_ids.length} student
                           {group.member_ids.length !== 1 ? "s" : ""}
                         </span>
-                      </label>
+                      </div>
                     ))
                   )}
                 </div>

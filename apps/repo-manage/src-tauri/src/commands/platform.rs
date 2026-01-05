@@ -321,11 +321,12 @@ async fn verify_git_connection_with(
 
 /// Preflight check for create: identifies repos that already exist
 #[tauri::command]
+#[allow(unused_variables)]
 pub async fn preflight_create_repos(
     profile: String,
     roster: Roster,
     assignment_id: AssignmentId,
-    _config: CreateConfig,
+    config: CreateConfig,
 ) -> Result<RepoPreflightResult, AppError> {
     let (platform, profile_settings) = build_platform_from_profile(&profile)?;
 
@@ -369,11 +370,12 @@ pub async fn preflight_create_repos(
 
 /// Preflight check for clone: identifies repos that don't exist
 #[tauri::command]
+#[allow(unused_variables)]
 pub async fn preflight_clone_repos(
     profile: String,
     roster: Roster,
     assignment_id: AssignmentId,
-    _config: CloneConfig,
+    config: CloneConfig,
 ) -> Result<RepoPreflightResult, AppError> {
     let (platform, profile_settings) = build_platform_from_profile(&profile)?;
 
@@ -417,11 +419,12 @@ pub async fn preflight_clone_repos(
 
 /// Preflight check for delete: identifies repos that don't exist
 #[tauri::command]
+#[allow(unused_variables)]
 pub async fn preflight_delete_repos(
     profile: String,
     roster: Roster,
     assignment_id: AssignmentId,
-    _config: DeleteConfig,
+    config: DeleteConfig,
 ) -> Result<RepoPreflightResult, AppError> {
     // Same logic as clone - repos that don't exist are collisions
     let (platform, profile_settings) = build_platform_from_profile(&profile)?;
@@ -465,11 +468,12 @@ pub async fn preflight_delete_repos(
 
 /// Create repos for assignment groups
 #[tauri::command]
+#[allow(unused_variables)]
 pub async fn create_repos(
     profile: String,
     roster: Roster,
     assignment_id: AssignmentId,
-    _config: CreateConfig,
+    config: CreateConfig,
 ) -> Result<OperationResult, AppError> {
     let (platform, profile_settings) = build_platform_from_profile(&profile)?;
 
@@ -696,11 +700,12 @@ pub async fn clone_repos_from_roster(
 
 /// Delete repos for assignment groups
 #[tauri::command]
+#[allow(unused_variables)]
 pub async fn delete_repos(
     profile: String,
     roster: Roster,
     assignment_id: AssignmentId,
-    _config: DeleteConfig,
+    config: DeleteConfig,
 ) -> Result<OperationResult, AppError> {
     let (platform, profile_settings) = build_platform_from_profile(&profile)?;
 
