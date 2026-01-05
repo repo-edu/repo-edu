@@ -96,6 +96,15 @@ export interface CourseInfo {
 }
 
 /**
+ * Result of verifying a profile's course against the LMS
+ */
+export interface CourseVerifyResult {
+  success: boolean;
+  message: string;
+  updated_name?: string | null;
+}
+
+/**
  * Export format for coverage reports
  */
 export type CoverageExportFormat = 'csv' | 'xlsx';
@@ -263,9 +272,10 @@ export interface ImportStudentsResult {
  * Summary of student imports
  */
 export interface ImportSummary {
-  added: number;
-  updated: number;
-  unchanged: number;
+  students_added: number;
+  students_updated: number;
+  students_unchanged: number;
+  students_missing_email: number;
 }
 
 /**
@@ -584,7 +594,8 @@ export type ValidationKind =
   | 'orphan_group_member'
   | 'missing_git_username'
   | 'invalid_git_username'
-  | 'empty_group';
+  | 'empty_group'
+  | 'missing_email';
 
 /**
  * Collection of validation issues

@@ -13,6 +13,7 @@ export {
   FileText,
   Folder,
   FolderOpen,
+  HelpCircle,
   Info,
   Loader2,
   Lock,

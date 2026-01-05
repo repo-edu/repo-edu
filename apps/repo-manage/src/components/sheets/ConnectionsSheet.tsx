@@ -207,9 +207,18 @@ export function ConnectionsSheet() {
     }
     setLmsConnection(connection)
     await saveAppSettings()
+
+    // Check if save succeeded
+    const { status, error } = useAppSettingsStore.getState()
+    if (status === "error") {
+      appendOutput(`Failed to save LMS connection: ${error}`, "error")
+      return
+    }
+
     setEditingLms(false)
     // Transfer draft status to saved status
     setLmsStatus(draftLmsStatus, draftLmsError)
+    appendOutput("LMS connection saved", "success")
   }
 
   const handleRemoveLms = async () => {

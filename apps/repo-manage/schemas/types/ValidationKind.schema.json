@@ -13,7 +13,8 @@
     "orphan_group_member",
     "missing_git_username",
     "invalid_git_username",
-    "empty_group"
+    "empty_group",
+    "missing_email"
   ],
   "x-rust": {
     "serde": {

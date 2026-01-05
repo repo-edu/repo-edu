@@ -36,6 +36,7 @@ interface UiState {
   studentEditorOpen: boolean
   clearRosterDialogOpen: boolean
   coverageReportOpen: boolean
+  importFileDialogOpen: boolean
   importGitUsernamesDialogOpen: boolean
   usernameVerificationDialogOpen: boolean
 
@@ -106,6 +107,7 @@ interface UiActions {
   setStudentEditorOpen: (open: boolean) => void
   setClearRosterDialogOpen: (open: boolean) => void
   setCoverageReportOpen: (open: boolean) => void
+  setImportFileDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
   setUsernameVerificationDialogOpen: (open: boolean) => void
 
@@ -198,6 +200,7 @@ const initialState: UiState = {
   studentEditorOpen: false,
   clearRosterDialogOpen: false,
   coverageReportOpen: false,
+  importFileDialogOpen: false,
   importGitUsernamesDialogOpen: false,
   usernameVerificationDialogOpen: false,
 
@@ -262,6 +265,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   setStudentEditorOpen: (open) => set({ studentEditorOpen: open }),
   setClearRosterDialogOpen: (open) => set({ clearRosterDialogOpen: open }),
   setCoverageReportOpen: (open) => set({ coverageReportOpen: open }),
+  setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
   setImportGitUsernamesDialogOpen: (open) =>
     set({ importGitUsernamesDialogOpen: open }),
   setUsernameVerificationDialogOpen: (open) =>

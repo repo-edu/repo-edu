@@ -42,6 +42,10 @@
       "path": "./CourseInfo.schema.json"
     },
     {
+      "name": "CourseVerifyResult",
+      "path": "./CourseVerifyResult.schema.json"
+    },
+    {
       "name": "CoverageExportFormat",
       "path": "./CoverageExportFormat.schema.json"
     },

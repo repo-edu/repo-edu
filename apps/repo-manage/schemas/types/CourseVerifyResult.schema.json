@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CourseVerifyResult",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string"
+    },
+    "updated_name": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }]
+    }
+  },
+  "additionalProperties": false,
+  "required": ["success", "message"],
+  "description": "Result of verifying a profile's course against the LMS"
+}

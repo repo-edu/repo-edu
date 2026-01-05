@@ -30,6 +30,9 @@ interface ProfileSettingsActions {
   load: (profileName: string) => Promise<void>
   save: (profileName: string) => Promise<void>
 
+  // Course (for name updates after verification)
+  setCourse: (course: CourseInfo) => void
+
   // Git connection reference
   setGitConnection: (name: string | null) => void
 
@@ -139,6 +142,8 @@ export const useProfileSettingsStore = create<ProfileSettingsStore>(
         set({ status: "error", error: message })
       }
     },
+
+    setCourse: (course) => set({ course }),
 
     setGitConnection: (name) => set({ gitConnection: name }),
 

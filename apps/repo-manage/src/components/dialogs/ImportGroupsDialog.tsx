@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
+import { Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
 import type {
@@ -33,11 +34,14 @@ export function ImportGroupsDialog() {
   const [selectedGroupSetId, setSelectedGroupSetId] = useState<string | null>(
     null,
   )
+  const [groupsLoaded, setGroupsLoaded] = useState(false)
   const [filterPattern, setFilterPattern] = useState("")
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
     new Set(),
   )
-  const [loading, setLoading] = useState(false)
+  const [fetchingGroupSets, setFetchingGroupSets] = useState(false)
+  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const roster = useRosterStore((state) => state.roster)
@@ -58,9 +62,10 @@ export function ImportGroupsDialog() {
 
   const selectedGroupSet = groupSets.find((gs) => gs.id === selectedGroupSetId)
 
-  // Filter groups by pattern
+  // Filter groups by pattern (only when groups are loaded)
   const filteredGroups = useMemo(() => {
-    const groups = selectedGroupSet?.groups ?? []
+    if (!groupsLoaded || !selectedGroupSet) return []
+    const groups = selectedGroupSet.groups
     if (!filterPattern.trim()) return groups
     // Simple glob-like matching: replace * with .*
     const pattern = filterPattern
@@ -68,26 +73,72 @@ export function ImportGroupsDialog() {
       .replace(/\*/g, ".*") // Replace * with .*
     const regex = new RegExp(`^${pattern}$`, "i")
     return groups.filter((g) => regex.test(g.name))
-  }, [selectedGroupSet, filterPattern])
+  }, [selectedGroupSet, filterPattern, groupsLoaded])
 
-  // Fetch group sets on open
+  // Fetch group set list on open (quick - just names/ids)
   useEffect(() => {
-    if (open && activeProfile) {
-      setLoading(true)
+    if (!open || !activeProfile) return
+
+    const fetchGroupSetList = async () => {
+      setFetchingGroupSets(true)
+      setGroupsLoaded(false)
       setError(null)
-      commands
-        .fetchLmsGroupSets(activeProfile)
-        .then((result) => {
-          if (result.status === "ok") {
-            setGroupSets(result.data)
-          } else {
-            setError(result.error.message)
+      try {
+        const result = await commands.fetchLmsGroupSetList(activeProfile)
+        if (result.status === "ok") {
+          setGroupSets(result.data)
+          // Auto-select if only one group set
+          if (result.data.length === 1) {
+            setSelectedGroupSetId(result.data[0].id)
           }
-        })
-        .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-        .finally(() => setLoading(false))
+        } else {
+          setError(result.error.message)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setFetchingGroupSets(false)
+      }
     }
+
+    fetchGroupSetList()
   }, [open, activeProfile])
+
+  // Fetch groups when a group set is selected (slower)
+  useEffect(() => {
+    if (!selectedGroupSetId || !activeProfile) return
+
+    const fetchGroups = async () => {
+      setLoadingGroups(true)
+      setGroupsLoaded(false)
+      setError(null)
+      try {
+        const result = await commands.fetchLmsGroupsForSet(
+          activeProfile,
+          selectedGroupSetId,
+        )
+        if (result.status === "ok") {
+          // Update the selected group set with its groups
+          setGroupSets((prev) =>
+            prev.map((gs) =>
+              gs.id === selectedGroupSetId
+                ? { ...gs, groups: result.data }
+                : gs,
+            ),
+          )
+          setGroupsLoaded(true)
+        } else {
+          setError(result.error.message)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setLoadingGroups(false)
+      }
+    }
+
+    fetchGroups()
+  }, [selectedGroupSetId, activeProfile])
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) => {
@@ -149,7 +200,7 @@ export function ImportGroupsDialog() {
   const doImport = async (config: GroupImportConfig) => {
     if (!roster || !selectedAssignmentId || !activeProfile) return
 
-    setLoading(true)
+    setImporting(true)
     setError(null)
     try {
       const result = await commands.importGroupsFromLms(
@@ -167,7 +218,7 @@ export function ImportGroupsDialog() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setLoading(false)
+      setImporting(false)
     }
   }
 
@@ -175,6 +226,7 @@ export function ImportGroupsDialog() {
     setOpen(false)
     setGroupSets([])
     setSelectedGroupSetId(null)
+    setGroupsLoaded(false)
     setFilterPattern("")
     setSelectedGroupIds(new Set())
     setError(null)
@@ -204,109 +256,124 @@ export function ImportGroupsDialog() {
             </div>
           )}
 
-          {loading && !selectedGroupSetId && (
-            <p className="text-sm text-muted-foreground">
-              Loading group sets...
-            </p>
-          )}
-
           <div className="grid gap-2">
-            <Label>LMS Group Set</Label>
-            <Select
-              value={selectedGroupSetId ?? undefined}
-              onValueChange={setSelectedGroupSetId}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a group set" />
-              </SelectTrigger>
-              <SelectContent>
-                {groupSets.map((gs) => (
-                  <SelectItem key={gs.id} value={gs.id}>
-                    {gs.name} ({gs.groups.length} groups)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-foreground">LMS Group Set</Label>
+            {fetchingGroupSets ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading group sets...
+              </div>
+            ) : groupSets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No group sets found in this course. Create a group set in your
+                LMS first.
+              </p>
+            ) : (
+              <Select
+                value={selectedGroupSetId ?? undefined}
+                onValueChange={setSelectedGroupSetId}
+                disabled={importing}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a group set" />
+                </SelectTrigger>
+                <SelectContent className="z-[100]">
+                  {groupSets.map((gs) => (
+                    <SelectItem key={gs.id} value={gs.id}>
+                      {gs.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
-          {selectedGroupSet && (
-            <>
-              <div className="grid gap-2">
-                <Label>Filter Pattern (optional)</Label>
-                <Input
-                  placeholder="e.g., A1-* or Team-*"
-                  value={filterPattern}
-                  onChange={(e) => setFilterPattern(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Use * as a wildcard. Leave empty to select manually.
-                </p>
+          {selectedGroupSetId &&
+            (loadingGroups ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading groups...
               </div>
+            ) : groupsLoaded ? (
+              <>
+                <div className="grid gap-2">
+                  <Label>Filter Pattern (optional)</Label>
+                  <Input
+                    placeholder="e.g., A1-* or Team-*"
+                    value={filterPattern}
+                    onChange={(e) => setFilterPattern(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use * as a wildcard. Leave empty to select manually.
+                  </p>
+                </div>
 
-              <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                  <Label>Groups</Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline"
-                      onClick={selectAllFiltered}
-                    >
-                      Select all
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline"
-                      onClick={deselectAll}
-                    >
-                      Deselect all
-                    </button>
+                <div className="grid gap-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Groups</Label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={selectAllFiltered}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={deselectAll}
+                      >
+                        Deselect all
+                      </button>
+                    </div>
+                  </div>
+                  <div className="border rounded-md max-h-48 overflow-y-auto">
+                    {filteredGroups.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-3 text-center">
+                        No groups match the filter
+                      </p>
+                    ) : (
+                      filteredGroups.map((group) => (
+                        <div
+                          key={group.id}
+                          className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
+                          role="option"
+                          aria-selected={selectedGroupIds.has(group.id)}
+                          onClick={() => toggleGroupSelection(group.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              toggleGroupSelection(group.id)
+                            }
+                          }}
+                          tabIndex={0}
+                        >
+                          <Checkbox
+                            checked={selectedGroupIds.has(group.id)}
+                            onCheckedChange={() =>
+                              toggleGroupSelection(group.id)
+                            }
+                            tabIndex={-1}
+                          />
+                          <span className="text-sm flex-1">{group.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {group.member_ids.length} student
+                            {group.member_ids.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-                <div className="border rounded-md max-h-48 overflow-y-auto">
-                  {filteredGroups.length === 0 ? (
-                    <p className="text-sm text-muted-foreground p-3 text-center">
-                      No groups match the filter
-                    </p>
-                  ) : (
-                    filteredGroups.map((group) => (
-                      <div
-                        key={group.id}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
-                        role="option"
-                        aria-selected={selectedGroupIds.has(group.id)}
-                        onClick={() => toggleGroupSelection(group.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault()
-                            toggleGroupSelection(group.id)
-                          }
-                        }}
-                        tabIndex={0}
-                      >
-                        <Checkbox
-                          checked={selectedGroupIds.has(group.id)}
-                          onCheckedChange={() => toggleGroupSelection(group.id)}
-                          tabIndex={-1}
-                        />
-                        <span className="text-sm flex-1">{group.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {group.member_ids.length} student
-                          {group.member_ids.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
 
-              <p className="text-sm text-muted-foreground">
-                {selectedCount} group{selectedCount !== 1 ? "s" : ""} selected (
-                {studentCount} student{studentCount !== 1 ? "s" : ""})
-              </p>
-            </>
-          )}
+                <p className="text-sm text-muted-foreground">
+                  {selectedCount} group{selectedCount !== 1 ? "s" : ""} selected
+                  ({studentCount} student
+                  {studentCount !== 1 ? "s" : ""})
+                </p>
+              </>
+            ) : null)}
         </div>
 
         <DialogFooter>
@@ -315,9 +382,15 @@ export function ImportGroupsDialog() {
           </Button>
           <Button
             onClick={handleImport}
-            disabled={!selectedGroupSetId || loading}
+            disabled={
+              !selectedGroupSetId ||
+              !groupsLoaded ||
+              fetchingGroupSets ||
+              loadingGroups ||
+              importing
+            }
           >
-            {loading ? "Importing..." : "Import Selected"}
+            {importing ? "Importing..." : "Import Selected"}
           </Button>
         </DialogFooter>
       </DialogContent>

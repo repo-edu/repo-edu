@@ -176,8 +176,11 @@ pub fn run() {
             commands::lms::import_students_from_lms,
             commands::lms::import_students_from_file,
             commands::lms::fetch_lms_group_sets,
+            commands::lms::fetch_lms_group_set_list,
+            commands::lms::fetch_lms_groups_for_set,
             commands::lms::import_groups_from_lms,
             commands::lms::assignment_has_groups,
+            commands::lms::verify_profile_course,
             // Platform commands
             commands::platform::verify_config,
             commands::platform::setup_repos,

@@ -3,7 +3,7 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, AssignmentId, CloneConfig, CloneParams, CommandResult, ConfigParams, CourseInfo, CoverageExportFormat, CoverageReport, CreateConfig, DeleteConfig, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroupSet, LmsVerifyResult, OperationResult, ProfileSettings, RepoPreflightResult, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
+import type { AppError, AppSettings, AssignmentId, CloneConfig, CloneParams, CommandResult, ConfigParams, CourseInfo, CourseVerifyResult, CoverageExportFormat, CoverageReport, CreateConfig, DeleteConfig, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroup, LmsGroupSet, LmsVerifyResult, OperationResult, ProfileSettings, RepoPreflightResult, Roster, SettingsLoadResult, SetupParams, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
 
 export const commands = {
   /**
@@ -128,11 +128,33 @@ export const commands = {
     }
   },
   /**
-   * Fetch available group-sets from LMS
+   * Fetch available group-sets from LMS (with all groups)
    */
   async fetchLmsGroupSets(profile: string) : Promise<Result<LmsGroupSet[], AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("fetch_lms_group_sets", { profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Fetch group-set names/ids only (fast)
+   */
+  async fetchLmsGroupSetList(profile: string) : Promise<Result<LmsGroupSet[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_group_set_list", { profile }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Fetch groups for a specific group-set
+   */
+  async fetchLmsGroupsForSet(profile: string, groupSetId: string) : Promise<Result<LmsGroup[], AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_groups_for_set", { profile, groupSetId }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
@@ -155,6 +177,17 @@ export const commands = {
   async assignmentHasGroups(roster: Roster, assignmentId: AssignmentId) : Promise<Result<boolean, AppError>> {
     try {
       return { status: "ok", data: await TAURI_INVOKE("assignment_has_groups", { roster, assignmentId }) };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
+  },
+  /**
+   * Verify profile course exists in LMS and return updated name if changed
+   */
+  async verifyProfileCourse(profile: string) : Promise<Result<CourseVerifyResult, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("verify_profile_course", { profile }) };
     } catch (e) {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };

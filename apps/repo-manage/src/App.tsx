@@ -10,18 +10,29 @@ import {
 import { useCallback, useEffect } from "react"
 import {
   AddGroupDialog,
+  ClearRosterDialog,
   DeleteAssignmentDialog,
   EditAssignmentDialog,
   EditGroupDialog,
+  ImportGitUsernamesDialog,
   ImportGroupsDialog,
+  ImportStudentsFromFileDialog,
+  LmsImportConflictDialog,
   NewAssignmentDialog,
   NewProfileDialog,
   PreflightDialog,
   ReplaceGroupsConfirmationDialog,
+  StudentRemovalConfirmationDialog,
+  UsernameVerificationDialog,
   ValidationDialog,
 } from "./components/dialogs"
 import { OutputConsole } from "./components/OutputConsole"
-import { ConnectionsSheet, GroupEditorSheet } from "./components/sheets"
+import {
+  ConnectionsSheet,
+  CoverageReportSheet,
+  GroupEditorSheet,
+  StudentEditorSheet,
+} from "./components/sheets"
 import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
 import { UtilityBar } from "./components/UtilityBar"
 import { CONSOLE_MIN_HEIGHT, DEFAULT_GUI_THEME } from "./constants"
@@ -222,6 +233,16 @@ function App() {
 
       {/* Profile Dialogs */}
       <NewProfileDialog />
+
+      {/* Roster Tab Dialogs and Sheets */}
+      <StudentEditorSheet />
+      <CoverageReportSheet />
+      <ImportStudentsFromFileDialog />
+      <ImportGitUsernamesDialog />
+      <StudentRemovalConfirmationDialog />
+      <LmsImportConflictDialog />
+      <UsernameVerificationDialog />
+      <ClearRosterDialog />
 
       {/* Global Sheets */}
       <ConnectionsSheet />

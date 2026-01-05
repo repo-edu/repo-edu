@@ -3,24 +3,29 @@
   "title": "ImportSummary",
   "type": "object",
   "properties": {
-    "added": {
+    "students_added": {
       "type": "integer",
       "minimum": 0
     },
-    "updated": {
+    "students_updated": {
       "type": "integer",
       "minimum": 0
     },
-    "unchanged": {
+    "students_unchanged": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "students_missing_email": {
       "type": "integer",
       "minimum": 0
     }
   },
   "additionalProperties": false,
   "required": [
-    "added",
-    "updated",
-    "unchanged"
+    "students_added",
+    "students_updated",
+    "students_unchanged",
+    "students_missing_email"
   ],
   "description": "Summary of student imports"
 }

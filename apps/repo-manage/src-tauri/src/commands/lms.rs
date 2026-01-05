@@ -32,6 +32,64 @@ use super::utils::{
 
 /// Get token generation instructions for an LMS type
 #[tauri::command]
+pub async fn fetch_lms_group_set_list(profile: String) -> Result<Vec<LmsGroupSet>, AppError> {
+    let manager = SettingsManager::new()?;
+    let app_settings = manager.load_app_settings()?;
+    let connection = app_settings
+        .lms_connection
+        .ok_or_else(|| AppError::new("No LMS connection configured"))?;
+    let profile_settings = manager.load_profile_settings(&profile)?;
+    let client = create_lms_client(&connection)?;
+    let categories = client
+        .get_group_categories(&profile_settings.course.id)
+        .await?;
+
+    // Return just the group set names/ids without fetching groups
+    Ok(categories
+        .into_iter()
+        .map(|category| LmsGroupSet {
+            id: category.id,
+            name: category.name,
+            groups: vec![], // Empty - groups fetched separately
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn fetch_lms_groups_for_set(
+    profile: String,
+    group_set_id: String,
+) -> Result<Vec<LmsGroup>, AppError> {
+    let manager = SettingsManager::new()?;
+    let app_settings = manager.load_app_settings()?;
+    let connection = app_settings
+        .lms_connection
+        .ok_or_else(|| AppError::new("No LMS connection configured"))?;
+    let profile_settings = manager.load_profile_settings(&profile)?;
+    let client = create_lms_client(&connection)?;
+
+    let groups = client
+        .get_groups_for_category(&profile_settings.course.id, Some(&group_set_id))
+        .await?;
+
+    let mut lms_groups = Vec::new();
+    for group in groups {
+        let memberships = client.get_group_members(&group.id).await?;
+        let member_ids = memberships
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect::<Vec<_>>();
+        lms_groups.push(LmsGroup {
+            id: group.id,
+            name: group.name,
+            member_ids,
+        });
+    }
+
+    Ok(lms_groups)
+}
+
+#[tauri::command]
 pub async fn get_token_instructions(lms_type: String) -> Result<String, AppError> {
     let lms_type_enum = parse_lms_type(&lms_type)?;
     Ok(get_token_generation_instructions(lms_type_enum).to_string())
@@ -377,18 +435,11 @@ fn merge_lms_students(
 ) -> Result<ImportStudentsResult, AppError> {
     let base_roster = roster.unwrap_or_else(Roster::empty);
 
-    let mut missing_emails = Vec::new();
-    for user in &users {
-        if user.email.as_deref().unwrap_or("").trim().is_empty() {
-            missing_emails.push(user.name.clone());
-        }
-    }
-    if !missing_emails.is_empty() {
-        return Err(AppError::new(format!(
-            "LMS users missing email: {}",
-            missing_emails.join(", ")
-        )));
-    }
+    // Track users with missing emails (will be imported but flagged by validation)
+    let missing_email_count = users
+        .iter()
+        .filter(|user| user.email.as_deref().unwrap_or("").trim().is_empty())
+        .count();
 
     let mut lms_index: HashMap<String, usize> = HashMap::new();
     let mut email_index: HashMap<String, usize> = HashMap::new();
@@ -403,20 +454,26 @@ fn merge_lms_students(
     for user in &users {
         let email = normalize_email(user.email.as_deref().unwrap_or(""));
         let lms_user_id = user.id.clone();
+
+        // Skip if already matched by LMS ID
         if lms_index.contains_key(&lms_user_id) {
             continue;
         }
-        if let Some(&idx) = email_index.get(&email) {
-            let student = &base_roster.students[idx];
-            if let Some(existing_lms_id) = student.lms_user_id.as_ref() {
-                if existing_lms_id != &lms_user_id {
-                    conflicts.push(LmsIdConflict {
-                        email: email.clone(),
-                        roster_lms_user_id: existing_lms_id.clone(),
-                        incoming_lms_user_id: lms_user_id.clone(),
-                        roster_student_name: student.name.clone(),
-                        incoming_student_name: user.name.clone(),
-                    });
+
+        // Only check email conflicts for users WITH emails
+        if !email.is_empty() {
+            if let Some(&idx) = email_index.get(&email) {
+                let student = &base_roster.students[idx];
+                if let Some(existing_lms_id) = student.lms_user_id.as_ref() {
+                    if existing_lms_id != &lms_user_id {
+                        conflicts.push(LmsIdConflict {
+                            email: email.clone(),
+                            roster_lms_user_id: existing_lms_id.clone(),
+                            incoming_lms_user_id: lms_user_id.clone(),
+                            roster_student_name: student.name.clone(),
+                            incoming_student_name: user.name.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -458,6 +515,7 @@ fn merge_lms_students(
         let lms_user_id = user.id.clone();
         let student_number = user.login_id.clone();
 
+        // First, try to match by LMS ID (always preferred)
         if let Some(&idx) = lms_index.get(&lms_user_id) {
             let student = &mut updated_roster.students[idx];
             let old_email = normalize_email(&student.email);
@@ -473,35 +531,39 @@ fn merge_lms_students(
             } else {
                 unchanged += 1;
             }
-            if email != old_email {
+            if !email.is_empty() && email != old_email {
                 email_index.insert(email.clone(), idx);
             }
             continue;
         }
 
-        if let Some(&idx) = email_index.get(&email) {
-            let student = &mut updated_roster.students[idx];
-            let old_email = normalize_email(&student.email);
+        // Then, try to match by email (only if user HAS an email)
+        if !email.is_empty() {
+            if let Some(&idx) = email_index.get(&email) {
+                let student = &mut updated_roster.students[idx];
+                let old_email = normalize_email(&student.email);
 
-            let changed = update_student_from_lms(
-                student,
-                &user.name,
-                &email,
-                student_number.clone(),
-                &lms_user_id,
-            );
-            if changed {
-                updated += 1;
-            } else {
-                unchanged += 1;
+                let changed = update_student_from_lms(
+                    student,
+                    &user.name,
+                    &email,
+                    student_number.clone(),
+                    &lms_user_id,
+                );
+                if changed {
+                    updated += 1;
+                } else {
+                    unchanged += 1;
+                }
+                if email != old_email {
+                    email_index.insert(email.clone(), idx);
+                }
+                lms_index.insert(lms_user_id.clone(), idx);
+                continue;
             }
-            if email != old_email {
-                email_index.insert(email.clone(), idx);
-            }
-            lms_index.insert(lms_user_id.clone(), idx);
-            continue;
         }
 
+        // No match found - add as new student
         let draft = StudentDraft {
             name: user.name.clone(),
             email: email.clone(),
@@ -514,7 +576,9 @@ fn merge_lms_students(
         updated_roster.students.push(student);
         let idx = updated_roster.students.len() - 1;
         lms_index.insert(lms_user_id, idx);
-        email_index.insert(email, idx);
+        if !email.is_empty() {
+            email_index.insert(email, idx);
+        }
         added += 1;
     }
 
@@ -530,9 +594,10 @@ fn merge_lms_students(
 
     Ok(ImportStudentsResult {
         summary: ImportSummary {
-            added: added as i64,
-            updated: updated as i64,
-            unchanged: unchanged as i64,
+            students_added: added as i64,
+            students_updated: updated as i64,
+            students_unchanged: unchanged as i64,
+            students_missing_email: missing_email_count as i64,
         },
         roster: updated_roster,
     })
@@ -589,9 +654,10 @@ fn merge_file_students(
 
     Ok(ImportStudentsResult {
         summary: ImportSummary {
-            added: added as i64,
-            updated: updated as i64,
-            unchanged: unchanged as i64,
+            students_added: added as i64,
+            students_updated: updated as i64,
+            students_unchanged: unchanged as i64,
+            students_missing_email: 0, // File imports don't track this
         },
         roster: updated_roster,
     })
@@ -783,4 +849,55 @@ fn merge_lms_groups(
         },
         roster: updated_roster,
     })
+}
+
+/// Result of verifying a profile's course against the LMS
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CourseVerifyResult {
+    pub success: bool,
+    pub message: String,
+    pub updated_name: Option<String>,
+}
+
+/// Verify that the active profile's course exists in the configured LMS.
+/// Returns success/failure and optionally the updated course name if it changed.
+#[tauri::command]
+pub async fn verify_profile_course(profile: String) -> Result<CourseVerifyResult, AppError> {
+    let manager = SettingsManager::new()?;
+    let app_settings = manager.load_app_settings()?;
+    let connection = app_settings
+        .lms_connection
+        .ok_or_else(|| AppError::new("No LMS connection configured"))?;
+
+    let profile_settings = manager.load_profile_settings(&profile)?;
+    let course_id = &profile_settings.course.id;
+
+    if course_id.is_empty() {
+        return Err(AppError::new("Profile has no course ID configured"));
+    }
+
+    let courses = fetch_lms_courses_with(&connection).await?;
+
+    // Find the course by ID
+    let found_course = courses.iter().find(|c| c.id == *course_id);
+
+    match found_course {
+        Some(course) => {
+            let updated_name = if course.name != profile_settings.course.name {
+                Some(course.name.clone())
+            } else {
+                None
+            };
+            Ok(CourseVerifyResult {
+                success: true,
+                message: "Course verified".to_string(),
+                updated_name,
+            })
+        }
+        None => Ok(CourseVerifyResult {
+            success: false,
+            message: format!("Course '{}' not found in LMS", course_id),
+            updated_name: None,
+        }),
+    }
 }

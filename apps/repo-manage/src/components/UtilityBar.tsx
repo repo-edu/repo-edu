@@ -223,6 +223,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
       const result = await commands.setActiveProfile(name)
       if (result.status === "ok") {
         setActiveProfile(name)
+        // Note: useLoadProfile will reset course status and auto-verify
         await loadProfile(name)
         appendOutput(`Switched to profile: ${name}`, "info")
       } else {
@@ -386,6 +387,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
         appendOutput(`Deleted profile: ${profileName}`, "success")
 
         if (isActive) {
+          // Note: useLoadProfile will reset course status and auto-verify
           if (willCreateDefault) {
             // Create and switch to Default profile
             const createResult = await commands.createProfile("Default", {
@@ -691,13 +693,48 @@ function ProfileMenu({ isDirty }: ProfileMenuProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
   const loadProfile = useProfileSettingsStore((state) => state.load)
+  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const setCourseStatus = useConnectionsStore((state) => state.setCourseStatus)
+  const resetCourseStatus = useConnectionsStore(
+    (state) => state.resetCourseStatus,
+  )
+  const setCourse = useProfileSettingsStore((state) => state.setCourse)
 
   const handleRevert = async () => {
     if (!activeProfile) return
 
     try {
+      resetCourseStatus()
       await loadProfile(activeProfile)
       appendOutput(`Reverted to saved state: ${activeProfile}`, "success")
+
+      // Auto-verify course if LMS is connected
+      if (lmsConnection) {
+        const course = useProfileSettingsStore.getState().course
+        if (course.id.trim()) {
+          setCourseStatus("verifying")
+          try {
+            const result = await commands.verifyProfileCourse(activeProfile)
+            if (result.status === "error") {
+              setCourseStatus("failed", result.error.message)
+              return
+            }
+            const { success, message, updated_name } = result.data
+            if (!success) {
+              setCourseStatus("failed", message)
+              return
+            }
+            if (updated_name && updated_name !== course.name) {
+              setCourse({ id: course.id, name: updated_name })
+              appendOutput(`Course name updated: ${updated_name}`, "info")
+            }
+            setCourseStatus("verified")
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error)
+            setCourseStatus("failed", msg)
+          }
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       appendOutput(`Failed to revert: ${message}`, "error")

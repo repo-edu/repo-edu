@@ -21,10 +21,27 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         });
     }
 
+    // Check for missing emails
+    let missing_emails: Vec<String> = roster
+        .students
+        .iter()
+        .filter(|student| student.email.trim().is_empty())
+        .map(|student| student.id.to_string())
+        .collect();
+    if !missing_emails.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::MissingEmail,
+            affected_ids: missing_emails,
+            context: None,
+        });
+    }
+
+    // Only check for duplicate emails among students that have emails
     let duplicate_emails = find_duplicate_strings(
         roster
             .students
             .iter()
+            .filter(|student| !student.email.trim().is_empty())
             .map(|student| normalize_email(&student.email)),
     );
     if !duplicate_emails.is_empty() {
@@ -233,6 +250,7 @@ impl ValidationKind {
                 | Self::StudentInMultipleGroupsInAssignment
                 | Self::OrphanGroupMember
         )
+        // Note: MissingEmail, EmptyGroup, MissingGitUsername, InvalidGitUsername are warnings (non-blocking)
     }
 }
 

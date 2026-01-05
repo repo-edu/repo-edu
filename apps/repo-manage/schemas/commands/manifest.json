@@ -133,7 +133,7 @@
       "error": "AppError"
     },
     "fetch_lms_group_sets": {
-      "description": "Fetch available group-sets from LMS",
+      "description": "Fetch available group-sets from LMS (with all groups)",
       "input": [
         {
           "name": "profile",
@@ -141,6 +141,32 @@
         }
       ],
       "output": "Vec<LmsGroupSet>",
+      "error": "AppError"
+    },
+    "fetch_lms_group_set_list": {
+      "description": "Fetch group-set names/ids only (fast)",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        }
+      ],
+      "output": "Vec<LmsGroupSet>",
+      "error": "AppError"
+    },
+    "fetch_lms_groups_for_set": {
+      "description": "Fetch groups for a specific group-set",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        },
+        {
+          "name": "group_set_id",
+          "type": "String"
+        }
+      ],
+      "output": "Vec<LmsGroup>",
       "error": "AppError"
     },
     "import_groups_from_lms": {
@@ -179,6 +205,17 @@
         }
       ],
       "output": "bool",
+      "error": "AppError"
+    },
+    "verify_profile_course": {
+      "description": "Verify profile course exists in LMS and return updated name if changed",
+      "input": [
+        {
+          "name": "profile",
+          "type": "String"
+        }
+      ],
+      "output": "CourseVerifyResult",
       "error": "AppError"
     },
     "verify_git_connection": {

@@ -18,7 +18,7 @@
         "check:md": "rumdl check",
         "check:schemas": "pnpx tsx scripts/validate-schemas.ts && pnpx tsx scripts/check-schema-coverage.ts && pnpx tsx scripts/check-command-parity.ts",
         "fmt": "pnpm fmt:ts && pnpm fmt:rs && pnpm fmt:md",
-        "check": "pnpm check:ts && pnpm check:rs && pnpm check:md && pnpm check:schemas",
+        "check": "pnpm check:ts && pnpm check:rs && pnpm check:md && pnpm check:schemas && pnpm typecheck",
         "fix": "pnpm check:ts:fix && pnpm fmt:rs && pnpm check:rs:fix && pnpm fmt:md",
         "typecheck": "pnpm typecheck:ts && pnpm typecheck:rs",
         "test": "pnpm test:ts && pnpm test:rs",

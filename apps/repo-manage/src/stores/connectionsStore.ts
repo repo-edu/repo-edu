@@ -6,12 +6,16 @@
 import { create } from "zustand"
 
 type ConnectionStatus = "disconnected" | "verifying" | "connected" | "error"
+type CourseStatus = "unknown" | "verifying" | "verified" | "failed"
 
 interface ConnectionsState {
   lmsStatus: ConnectionStatus
   gitStatuses: Record<string, ConnectionStatus>
   lmsError: string | null
   gitErrors: Record<string, string | null>
+  // Course verification status (per active profile)
+  courseStatus: CourseStatus
+  courseError: string | null
 }
 
 interface ConnectionsActions {
@@ -22,6 +26,10 @@ interface ConnectionsActions {
     status: ConnectionStatus,
     error: string | null,
   ) => void
+
+  // Course verification status
+  setCourseStatus: (status: CourseStatus, error?: string | null) => void
+  resetCourseStatus: () => void
 
   // Reset operations
   resetLmsStatus: () => void
@@ -36,6 +44,8 @@ const initialState: ConnectionsState = {
   gitStatuses: {},
   lmsError: null,
   gitErrors: {},
+  courseStatus: "unknown",
+  courseError: null,
 }
 
 export const useConnectionsStore = create<ConnectionsStore>((set) => ({
@@ -48,6 +58,11 @@ export const useConnectionsStore = create<ConnectionsStore>((set) => ({
       gitStatuses: { ...state.gitStatuses, [name]: status },
       gitErrors: { ...state.gitErrors, [name]: error },
     })),
+
+  setCourseStatus: (status, error = null) =>
+    set({ courseStatus: status, courseError: error }),
+
+  resetCourseStatus: () => set({ courseStatus: "unknown", courseError: null }),
 
   resetLmsStatus: () => set({ lmsStatus: "disconnected", lmsError: null }),
 
@@ -73,3 +88,6 @@ export const selectGitStatus = (name: string) => (state: ConnectionsStore) =>
 export const selectGitErrors = (state: ConnectionsStore) => state.gitErrors
 export const selectGitError = (name: string) => (state: ConnectionsStore) =>
   state.gitErrors[name] ?? null
+export const selectCourseStatus = (state: ConnectionsStore) =>
+  state.courseStatus
+export const selectCourseError = (state: ConnectionsStore) => state.courseError

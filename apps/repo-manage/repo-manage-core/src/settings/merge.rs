@@ -76,7 +76,12 @@ fn merge_values_warned(target: &mut Value, src: &Value, path: String, warnings: 
 }
 
 /// Check if two JSON values have compatible types
+/// A null target (from Option<T> default) accepts any source value
 fn types_compatible(expected: &Value, actual: &Value) -> bool {
+    // Null target (Option::None default) accepts any value
+    if expected.is_null() {
+        return true;
+    }
     matches!(
         (expected, actual),
         (Value::Null, Value::Null)
@@ -250,5 +255,41 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("nested.unknown2")));
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    struct SettingsWithOptional {
+        name: String,
+        optional_obj: Option<NestedSettings>,
+    }
+
+    impl Default for SettingsWithOptional {
+        fn default() -> Self {
+            Self {
+                name: String::new(),
+                optional_obj: None,
+            }
+        }
+    }
+
+    #[test]
+    fn test_merge_null_default_accepts_object() {
+        // When default is None (serializes to null), it should accept an object value
+        let raw = json!({
+            "name": "test",
+            "optional_obj": {
+                "value": "from_file",
+                "flag": true
+            }
+        });
+
+        let result: MergeResult<SettingsWithOptional> = merge_with_defaults_warned(&raw).unwrap();
+
+        assert_eq!(result.value.name, "test");
+        assert!(result.value.optional_obj.is_some());
+        let opt = result.value.optional_obj.unwrap();
+        assert_eq!(opt.value, "from_file");
+        assert!(opt.flag);
+        assert!(result.warnings.is_empty());
     }
 }

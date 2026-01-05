@@ -75,6 +75,13 @@ pub struct CourseInfo {
   pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CourseVerifyResult {
+  pub success: bool,
+  pub message: String,
+  pub updated_name: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CoverageExportFormat {
@@ -237,9 +244,10 @@ pub struct ImportStudentsResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportSummary {
-  pub added: i64,
-  pub updated: i64,
-  pub unchanged: i64,
+  pub students_added: i64,
+  pub students_updated: i64,
+  pub students_unchanged: i64,
+  pub students_missing_email: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -542,6 +550,8 @@ pub enum ValidationKind {
   InvalidGitUsername,
   #[serde(rename = "empty_group")]
   EmptyGroup,
+  #[serde(rename = "missing_email")]
+  MissingEmail,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
