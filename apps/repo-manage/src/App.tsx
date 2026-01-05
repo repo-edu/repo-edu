@@ -45,6 +45,7 @@ import { useAppSettingsStore } from "./stores/appSettingsStore"
 import { useOutputStore } from "./stores/outputStore"
 import { useProfileSettingsStore } from "./stores/profileSettingsStore"
 import { type ActiveTab, useUiStore } from "./stores/uiStore"
+import type { ProfileLoadResult } from "./utils/profileLoader"
 import "./App.css"
 
 function App() {
@@ -60,11 +61,22 @@ function App() {
   // Apply theme
   useTheme(theme || DEFAULT_GUI_THEME)
 
-  // Load profile when active profile changes
-  useLoadProfile(ui.activeProfile)
+  // Dirty state tracking (pass activeProfile to detect profile switches)
+  const { isDirty, markClean, forceDirty } = useDirtyState(ui.activeProfile)
 
-  // Dirty state tracking
-  const { isDirty, markClean } = useDirtyState()
+  const handleProfileLoad = useCallback(
+    (result: ProfileLoadResult) => {
+      if (!result.ok || result.warnings.length > 0) {
+        forceDirty()
+        return
+      }
+      markClean()
+    },
+    [forceDirty, markClean],
+  )
+
+  // Load profile when active profile changes
+  useLoadProfile(ui.activeProfile, handleProfileLoad)
 
   // Initialize app on mount
   useEffect(() => {
@@ -183,7 +195,11 @@ function App() {
         </Tabs>
 
         {/* Utility Bar */}
-        <UtilityBar isDirty={isDirty} onSaved={markClean} />
+        <UtilityBar
+          isDirty={isDirty}
+          onSaved={markClean}
+          onProfileLoadResult={handleProfileLoad}
+        />
 
         {/* Output Console */}
         <OutputConsole

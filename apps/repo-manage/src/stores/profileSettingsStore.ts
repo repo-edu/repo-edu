@@ -12,6 +12,7 @@ import type {
   OperationConfigs,
   ProfileSettings,
 } from "../bindings/types"
+import { errorResult, type LoadResult, okResult } from "../types/load"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
 
@@ -27,7 +28,7 @@ interface ProfileSettingsState {
 
 interface ProfileSettingsActions {
   // Loading and saving
-  load: (profileName: string) => Promise<void>
+  load: (profileName: string) => Promise<LoadResult>
   save: (profileName: string) => Promise<void>
 
   // Course (for name updates after verification)
@@ -103,7 +104,7 @@ export const useProfileSettingsStore = create<ProfileSettingsStore>(
         const result = await commands.loadProfile(profileName)
         if (result.status === "error") {
           set({ status: "error", error: result.error.message })
-          return
+          return errorResult(result.error.message)
         }
         const { settings, warnings } = result.data
         set({
@@ -115,9 +116,11 @@ export const useProfileSettingsStore = create<ProfileSettingsStore>(
           error: null,
           warnings,
         })
+        return okResult(warnings)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         set({ status: "error", error: message })
+        return errorResult(message)
       }
     },
 

@@ -43,8 +43,8 @@ import type { ProfileSettings } from "../bindings/types"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
 import { useConnectionsStore } from "../stores/connectionsStore"
 import { useOutputStore } from "../stores/outputStore"
-import { useProfileSettingsStore } from "../stores/profileSettingsStore"
 import { useUiStore } from "../stores/uiStore"
+import { loadProfileData, type ProfileLoadResult } from "../utils/profileLoader"
 import {
   ActionDropdown,
   type ActionDropdownItem,
@@ -55,9 +55,14 @@ import { SaveButton } from "./SaveButton"
 interface UtilityBarProps {
   isDirty: boolean
   onSaved: () => void
+  onProfileLoadResult: (result: ProfileLoadResult) => void
 }
 
-export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
+export function UtilityBar({
+  isDirty,
+  onSaved,
+  onProfileLoadResult,
+}: UtilityBarProps) {
   return (
     <div className="group/utilitybar flex items-center gap-2 px-2 py-1.5 border-t bg-muted/30">
       <ConnectionsButton />
@@ -65,7 +70,10 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
       <div className="flex-1" />
       <ProfileSelector isDirty={isDirty} />
       <SaveButton isDirty={isDirty} onSaved={onSaved} />
-      <ProfileMenu isDirty={isDirty} />
+      <ProfileMenu
+        isDirty={isDirty}
+        onProfileLoadResult={onProfileLoadResult}
+      />
     </div>
   )
 }
@@ -161,7 +169,6 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
     (state) => state.setNewProfileDialogOpen,
   )
   const appendOutput = useOutputStore((state) => state.appendText)
-  const loadProfile = useProfileSettingsStore((state) => state.load)
 
   const [profiles, setProfiles] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -223,8 +230,6 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
       const result = await commands.setActiveProfile(name)
       if (result.status === "ok") {
         setActiveProfile(name)
-        // Note: useLoadProfile will reset course status and auto-verify
-        await loadProfile(name)
         appendOutput(`Switched to profile: ${name}`, "info")
       } else {
         appendOutput(
@@ -397,14 +402,12 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
             if (createResult.status === "ok") {
               await commands.setActiveProfile("Default")
               setActiveProfile("Default")
-              await loadProfile("Default")
             }
           } else {
             // Switch to another existing profile
             const nextProfile = otherProfiles[0]
             await commands.setActiveProfile(nextProfile)
             setActiveProfile(nextProfile)
-            await loadProfile(nextProfile)
           }
         }
         await refreshProfiles()
@@ -687,53 +690,22 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
 
 interface ProfileMenuProps {
   isDirty: boolean
+  onProfileLoadResult: (result: ProfileLoadResult) => void
 }
 
-function ProfileMenu({ isDirty }: ProfileMenuProps) {
+function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
-  const loadProfile = useProfileSettingsStore((state) => state.load)
-  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const setCourseStatus = useConnectionsStore((state) => state.setCourseStatus)
-  const resetCourseStatus = useConnectionsStore(
-    (state) => state.resetCourseStatus,
-  )
-  const setCourse = useProfileSettingsStore((state) => state.setCourse)
 
   const handleRevert = async () => {
     if (!activeProfile) return
 
     try {
-      resetCourseStatus()
-      await loadProfile(activeProfile)
-      appendOutput(`Reverted to saved state: ${activeProfile}`, "success")
-
-      // Auto-verify course if LMS is connected
-      if (lmsConnection) {
-        const course = useProfileSettingsStore.getState().course
-        if (course.id.trim()) {
-          setCourseStatus("verifying")
-          try {
-            const result = await commands.verifyProfileCourse(activeProfile)
-            if (result.status === "error") {
-              setCourseStatus("failed", result.error.message)
-              return
-            }
-            const { success, message, updated_name } = result.data
-            if (!success) {
-              setCourseStatus("failed", message)
-              return
-            }
-            if (updated_name && updated_name !== course.name) {
-              setCourse({ id: course.id, name: updated_name })
-              appendOutput(`Course name updated: ${updated_name}`, "info")
-            }
-            setCourseStatus("verified")
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error)
-            setCourseStatus("failed", msg)
-          }
-        }
+      const result = await loadProfileData(activeProfile)
+      if (result.stale) return
+      onProfileLoadResult(result)
+      if (result.ok) {
+        appendOutput(`Reverted to saved state: ${activeProfile}`, "success")
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

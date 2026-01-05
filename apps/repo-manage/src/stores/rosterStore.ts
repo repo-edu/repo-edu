@@ -18,6 +18,7 @@ import type {
   StudentId,
   ValidationResult,
 } from "../bindings/types"
+import { errorResult, type LoadResult, okResult } from "../types/load"
 import { debounceAsync } from "../utils/debounce"
 
 type StoreStatus = "empty" | "loading" | "loaded" | "error"
@@ -37,7 +38,7 @@ interface RosterState {
 
 interface RosterActions {
   // Loading
-  load: (profileName: string) => Promise<void>
+  load: (profileName: string) => Promise<LoadResult>
   clear: () => void
 
   // Student CRUD (frontend-only mutations)
@@ -148,7 +149,7 @@ export const useRosterStore = create<RosterStore>((set, get) => {
         const result = await commands.getRoster(profileName)
         if (result.status === "error") {
           set({ status: "error", error: result.error.message })
-          return
+          return errorResult(result.error.message)
         }
         const roster = result.data
         if (roster) {
@@ -166,9 +167,11 @@ export const useRosterStore = create<RosterStore>((set, get) => {
             error: null,
           })
         }
+        return okResult()
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         set({ status: "error", error: message })
+        return errorResult(message)
       }
     },
 
