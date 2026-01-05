@@ -73,24 +73,6 @@ interface UiState {
   coverageReport: CoverageReport | null
   validationResult: ValidationResult | null
   preflightResult: RepoPreflightResult | null
-
-  // Legacy fields (will be removed in Phase 6)
-  /** @deprecated Use appSettingsMenuOpen instead */
-  settingsMenuOpen: boolean
-  /** @deprecated No longer used */
-  collapsedSections: Set<string>
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  tokenDialogOpen: boolean
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  tokenDialogValue: string
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  lmsTokenDialogOpen: boolean
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  lmsTokenDialogValue: string
-  /** @deprecated No longer used */
-  showTokenInstructions: boolean
-  /** @deprecated No longer used */
-  tokenInstructions: string
 }
 
 interface UiActions {
@@ -150,38 +132,6 @@ interface UiActions {
 
   // Reset
   reset: () => void
-
-  // Legacy compatibility methods (will be removed in Phase 6)
-  /** @deprecated Use setAppSettingsMenuOpen instead */
-  setSettingsMenuOpen: (open: boolean) => void
-  /** @deprecated Use setAppSettingsMenuOpen instead */
-  openSettingsMenu: () => void
-  /** @deprecated Use setAppSettingsMenuOpen instead */
-  closeSettingsMenu: () => void
-  /** @deprecated No longer used in new design */
-  setCollapsedSections: (sections: string[]) => void
-  /** @deprecated No longer used in new design */
-  toggleSection: (sectionId: string) => void
-  /** @deprecated No longer used in new design */
-  isSectionCollapsed: (sectionId: string) => boolean
-  /** @deprecated No longer used in new design */
-  getCollapsedSectionsArray: () => string[]
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  openTokenDialog: (value?: string) => void
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  closeTokenDialog: () => void
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  setTokenDialogValue: (value: string) => void
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  openLmsTokenDialog: (value?: string) => void
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  closeLmsTokenDialog: () => void
-  /** @deprecated Token dialogs moved to ConnectionsSheet */
-  setLmsTokenDialogValue: (value: string) => void
-  /** @deprecated No longer used */
-  setShowTokenInstructions: (show: boolean) => void
-  /** @deprecated No longer used */
-  setTokenInstructions: (instructions: string) => void
 }
 
 interface UiStore extends UiState, UiActions {}
@@ -237,19 +187,9 @@ const initialState: UiState = {
   coverageReport: null,
   validationResult: null,
   preflightResult: null,
-
-  // Legacy fields
-  settingsMenuOpen: false,
-  collapsedSections: new Set<string>(),
-  tokenDialogOpen: false,
-  tokenDialogValue: "",
-  lmsTokenDialogOpen: false,
-  lmsTokenDialogValue: "",
-  showTokenInstructions: false,
-  tokenInstructions: "",
 }
 
-export const useUiStore = create<UiStore>((set, get) => ({
+export const useUiStore = create<UiStore>((set) => ({
   ...initialState,
 
   // Navigation
@@ -315,43 +255,6 @@ export const useUiStore = create<UiStore>((set, get) => ({
 
   // Reset
   reset: () => set(initialState),
-
-  // Legacy compatibility methods
-  setSettingsMenuOpen: (open) =>
-    set({ settingsMenuOpen: open, appSettingsMenuOpen: open }),
-  openSettingsMenu: () =>
-    set({ settingsMenuOpen: true, appSettingsMenuOpen: true }),
-  closeSettingsMenu: () =>
-    set({ settingsMenuOpen: false, appSettingsMenuOpen: false }),
-  setCollapsedSections: (sections) =>
-    set({ collapsedSections: new Set(sections) }),
-  toggleSection: (sectionId) =>
-    set((state) => {
-      const newSet = new Set(state.collapsedSections)
-      if (newSet.has(sectionId)) {
-        newSet.delete(sectionId)
-      } else {
-        newSet.add(sectionId)
-      }
-      return { collapsedSections: newSet }
-    }),
-  isSectionCollapsed: (sectionId): boolean => {
-    return get().collapsedSections.has(sectionId)
-  },
-  getCollapsedSectionsArray: (): string[] => {
-    return Array.from(get().collapsedSections)
-  },
-  openTokenDialog: (value = "") =>
-    set({ tokenDialogOpen: true, tokenDialogValue: value }),
-  closeTokenDialog: () => set({ tokenDialogOpen: false }),
-  setTokenDialogValue: (value) => set({ tokenDialogValue: value }),
-  openLmsTokenDialog: (value = "") =>
-    set({ lmsTokenDialogOpen: true, lmsTokenDialogValue: value }),
-  closeLmsTokenDialog: () => set({ lmsTokenDialogOpen: false }),
-  setLmsTokenDialogValue: (value) => set({ lmsTokenDialogValue: value }),
-  setShowTokenInstructions: (show) => set({ showTokenInstructions: show }),
-  setTokenInstructions: (instructions) =>
-    set({ tokenInstructions: instructions }),
 }))
 
 export type { ActiveTab }
