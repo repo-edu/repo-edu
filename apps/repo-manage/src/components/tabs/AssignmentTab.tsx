@@ -175,7 +175,7 @@ function GroupSummary({ groups, validation }: GroupSummaryProps) {
       <span className="text-muted-foreground mx-2">-</span>
       <span>{studentCount} students</span>
       {issueCount > 0 && (
-        <div className="text-yellow-600 mt-1">
+        <div className="text-warning mt-1">
           {issueCount} warning{issueCount > 1 ? "s" : ""}
           {emptyGroups.length > 0 && (
             <span className="ml-1">

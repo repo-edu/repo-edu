@@ -1,6 +1,12 @@
 // Utilities
 
 // Core components
+export {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  alertVariants,
+} from "./components/ui/alert"
 export { Button, buttonVariants } from "./components/ui/button"
 // Layout components
 export {
@@ -67,6 +73,7 @@ export {
   SheetTrigger,
 } from "./components/ui/sheet"
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+export { Text, textVariants } from "./components/ui/text"
 export { Textarea, textareaVariants } from "./components/ui/textarea"
 export {
   Tooltip,

@@ -116,13 +116,13 @@ export function UsernameVerificationDialog() {
           ) : usernameVerificationResult ? (
             // Show results
             <div className="text-sm space-y-2">
-              <p className="text-green-600">
+              <p className="text-success">
                 ✓ {usernameVerificationResult.valid} valid
               </p>
 
               {usernameVerificationResult.invalid.length > 0 && (
                 <div>
-                  <p className="text-red-600">
+                  <p className="text-destructive">
                     ✗ {usernameVerificationResult.invalid.length} invalid
                   </p>
                   <ul className="mt-1 ml-4 text-muted-foreground max-h-32 overflow-auto">
@@ -138,7 +138,7 @@ export function UsernameVerificationDialog() {
 
               {usernameVerificationResult.errors.length > 0 && (
                 <div>
-                  <p className="text-yellow-600">
+                  <p className="text-warning">
                     ⚠ {usernameVerificationResult.errors.length} errors
                   </p>
                   <ul className="mt-1 ml-4 text-muted-foreground max-h-32 overflow-auto">

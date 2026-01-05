@@ -108,19 +108,19 @@ export function CourseDisplay() {
         >
           {isVerifying ? (
             <>
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              <Loader2 className="size-3 mr-1 animate-spin" />
               Verifying...
             </>
           ) : (
             <>
-              <RefreshCw className="h-3 w-3 mr-1" />
+              <RefreshCw className="size-3 mr-1" />
               {courseStatus === "verified" ? "Re-verify" : "Verify"}
             </>
           )}
         </Button>
       </div>
       {courseStatus === "failed" && courseError && (
-        <div className="text-xs text-destructive ml-[52px]">{courseError}</div>
+        <div className="text-xs text-destructive ml-14">{courseError}</div>
       )}
     </div>
   )
@@ -133,30 +133,25 @@ function CourseStatusIcon({
 }) {
   switch (status) {
     case "verified":
-      return (
-        <Check
-          className="h-4 w-4 text-green-600 dark:text-green-500"
-          aria-label="Verified"
-        />
-      )
+      return <Check className="size-4 text-success" aria-label="Verified" />
     case "verifying":
       return (
         <Loader2
-          className="h-4 w-4 text-muted-foreground animate-spin"
+          className="size-4 text-muted-foreground animate-spin"
           aria-label="Verifying"
         />
       )
     case "failed":
       return (
         <AlertCircle
-          className="h-4 w-4 text-destructive"
+          className="size-4 text-destructive"
           aria-label="Verification failed"
         />
       )
     default:
       return (
         <HelpCircle
-          className="h-4 w-4 text-muted-foreground"
+          className="size-4 text-muted-foreground"
           aria-label="Not verified"
         />
       )

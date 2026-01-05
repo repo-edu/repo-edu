@@ -123,7 +123,7 @@ export function StudentEditorSheet() {
 
   return (
     <Sheet open={studentEditorOpen} onOpenChange={setStudentEditorOpen}>
-      <SheetContent className="w-[800px] sm:max-w-[800px] flex flex-col">
+      <SheetContent className="w-full sm:max-w-3xl flex flex-col">
         <SheetHeader>
           <SheetTitle>Students</SheetTitle>
         </SheetHeader>
@@ -132,7 +132,7 @@ export function StudentEditorSheet() {
           {/* Search and Add */}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
               <Input
                 placeholder="Search students..."
                 value={searchQuery}
@@ -141,7 +141,7 @@ export function StudentEditorSheet() {
               />
             </div>
             <Button size="sm" onClick={() => setAddingStudent(true)}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="size-4 mr-1" />
               Add Student
             </Button>
           </div>
@@ -173,7 +173,7 @@ export function StudentEditorSheet() {
                 variant="ghost"
                 onClick={() => setAddingStudent(false)}
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" />
               </Button>
             </div>
           )}
@@ -230,9 +230,7 @@ export function StudentEditorSheet() {
           <div className="text-sm text-muted-foreground">
             {students.length} students
             {issueCount > 0 && (
-              <span className="text-yellow-600 ml-2">
-                • {issueCount} issues
-              </span>
+              <span className="text-warning ml-2">• {issueCount} issues</span>
             )}
           </div>
         </div>
@@ -356,7 +354,7 @@ function StudentRow({
           onClick={onRemove}
           className="h-7 w-7 p-0"
         >
-          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+          <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
         </Button>
       </td>
     </tr>
@@ -366,9 +364,9 @@ function StudentRow({
 function getStatusIcon(status: Student["git_username_status"]) {
   switch (status) {
     case "valid":
-      return <span className="text-green-600">✓</span>
+      return <span className="text-success">✓</span>
     case "invalid":
-      return <span className="text-red-600">✗</span>
+      return <span className="text-destructive">✗</span>
     default:
       return null
   }

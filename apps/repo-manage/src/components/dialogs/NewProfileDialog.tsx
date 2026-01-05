@@ -376,9 +376,9 @@ export function NewProfileDialog() {
                     onClick={() => setShowLmsToken(!showLmsToken)}
                   >
                     {showLmsToken ? (
-                      <EyeOff className="h-3.5 w-3.5" />
+                      <EyeOff className="size-3.5" />
                     ) : (
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="size-3.5" />
                     )}
                   </Button>
                 </div>
@@ -395,10 +395,10 @@ export function NewProfileDialog() {
                   disabled={!isLmsFormValid || lmsSetupStatus === "verifying"}
                 >
                   {lmsSetupStatus === "verifying" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="size-4 animate-spin" />
                   ) : lmsSetupStatus === "connected" ? (
                     <>
-                      <Check className="h-4 w-4 mr-1" />
+                      <Check className="size-4 mr-1" />
                       Connected
                     </>
                   ) : (
@@ -421,7 +421,7 @@ export function NewProfileDialog() {
 
               {courseFetchStatus === "loading" && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                   Loading courses...
                 </div>
               )}
@@ -429,7 +429,7 @@ export function NewProfileDialog() {
               {courseFetchStatus === "loaded" && (
                 <>
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
                       placeholder="Search courses..."
                       className="pl-8 h-8"
@@ -438,7 +438,7 @@ export function NewProfileDialog() {
                     />
                   </div>
 
-                  <div className="border rounded-md max-h-[200px] overflow-y-auto">
+                  <div className="border rounded-md max-h-52 overflow-y-auto">
                     {filteredCourses.length === 0 ? (
                       <p className="text-sm text-muted-foreground p-3">
                         No courses found
@@ -525,7 +525,7 @@ export function NewProfileDialog() {
                       disabled={!courseId.trim() || courseFetchingManual}
                     >
                       {courseFetchingManual ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                       ) : (
                         "Fetch"
                       )}
@@ -569,7 +569,7 @@ export function NewProfileDialog() {
           <Button onClick={handleCreate} disabled={!canCreate || isCreating}>
             {isCreating ? (
               <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Loader2 className="size-4 mr-1 animate-spin" />
                 Creating...
               </>
             ) : (

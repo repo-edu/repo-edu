@@ -86,16 +86,16 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
         disabled={isDisabled}
         variant={isDirty ? "default" : "outline"}
         size="sm"
-        className="min-w-[80px]"
+        className="min-w-20"
       >
         {status === "saving" ? (
           <>
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            <Loader2 className="size-4 mr-1 animate-spin" />
             Saving
           </>
         ) : status === "success" ? (
           <>
-            <Check className="h-4 w-4 mr-1" />
+            <Check className="size-4 mr-1" />
             Saved
           </>
         ) : (
@@ -103,7 +103,7 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
         )}
       </Button>
       {status === "error" && errorMessage && (
-        <span className="text-xs text-destructive max-w-[200px] truncate">
+        <span className="text-xs text-destructive max-w-48 truncate">
           {errorMessage}
         </span>
       )}

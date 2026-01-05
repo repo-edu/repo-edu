@@ -55,7 +55,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+              <AlertCircle className="size-5 text-destructive" />
               No Repositories to Process
             </DialogTitle>
             <DialogDescription>
@@ -80,17 +80,17 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
+            <AlertCircle className="size-5 text-warning" />
             {title}
           </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[250px] overflow-y-auto py-4">
+        <div className="max-h-64 overflow-y-auto py-4">
           <ul className="space-y-1 text-sm">
             {collisions.map((c) => (
               <li key={c.group_id} className="flex gap-2 text-muted-foreground">
-                <span className="text-yellow-600">⚠</span>
+                <span className="text-warning">⚠</span>
                 <span>
                   {c.repo_name}{" "}
                   <span className="text-muted-foreground/70">
@@ -103,7 +103,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         </div>
 
         <div className="flex items-center gap-2 text-sm py-2 px-3 bg-muted rounded-md">
-          <Info className="h-4 w-4 text-muted-foreground" />
+          <Info className="size-4 text-muted-foreground" />
           <span>
             {ready_count} repositor{ready_count !== 1 ? "ies" : "y"} will be{" "}
             {isCreate

@@ -378,7 +378,7 @@ export function ConnectionsSheet() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="w-[450px] sm:max-w-[500px] flex flex-col">
+      <SheetContent className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>
           <SheetTitle>Connections</SheetTitle>
         </SheetHeader>
@@ -392,7 +392,7 @@ export function ConnectionsSheet() {
               </h3>
               {!lmsConnection && !editingLms && (
                 <Button size="sm" variant="outline" onClick={handleEditLms}>
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="size-4 mr-1" />
                   Add
                 </Button>
               )}
@@ -439,7 +439,7 @@ export function ConnectionsSheet() {
               </h3>
               {!addingGit && !editingGit && (
                 <Button size="sm" variant="outline" onClick={handleAddGit}>
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="size-4 mr-1" />
                   Add
                 </Button>
               )}
@@ -550,9 +550,9 @@ function ConnectionCard({
             }
           >
             {isVerifying ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="size-3.5 animate-spin" />
             ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="size-3.5" />
             )}
           </Button>
           <Button
@@ -571,7 +571,7 @@ function ConnectionCard({
             onClick={onRemove}
             disabled={disabled}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="size-3.5" />
           </Button>
         </div>
       </div>
@@ -582,11 +582,11 @@ function ConnectionCard({
 function StatusIndicator({ status }: { status: ConnectionStatus }) {
   switch (status) {
     case "connected":
-      return <Check className="h-4 w-4 text-green-600" />
+      return <Check className="size-4 text-success" />
     case "verifying":
-      return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      return <Loader2 className="size-4 animate-spin text-muted-foreground" />
     case "error":
-      return <X className="h-4 w-4 text-destructive" />
+      return <X className="size-4 text-destructive" />
     default:
       return null
   }
@@ -666,9 +666,9 @@ function LmsForm({
             onClick={() => setShowToken(!showToken)}
           >
             {showToken ? (
-              <EyeOff className="h-4 w-4" />
+              <EyeOff className="size-4" />
             ) : (
-              <Eye className="h-4 w-4" />
+              <Eye className="size-4" />
             )}
           </Button>
         </div>
@@ -687,10 +687,10 @@ function LmsForm({
           disabled={!isValid || status === "verifying"}
         >
           {status === "verifying" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           ) : status === "connected" ? (
             <>
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="size-4 mr-1" />
               Verified
             </>
           ) : (
@@ -814,9 +814,9 @@ function GitForm({
             onClick={() => setShowToken(!showToken)}
           >
             {showToken ? (
-              <EyeOff className="h-4 w-4" />
+              <EyeOff className="size-4" />
             ) : (
-              <Eye className="h-4 w-4" />
+              <Eye className="size-4" />
             )}
           </Button>
         </div>
@@ -856,10 +856,10 @@ function GitForm({
           disabled={!isValid || status === "verifying" || nameConflict}
         >
           {status === "verifying" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           ) : status === "connected" ? (
             <>
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="size-4 mr-1" />
               Verified
             </>
           ) : (

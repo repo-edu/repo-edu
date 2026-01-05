@@ -250,17 +250,17 @@ export function SettingsSidebar({
   // Define actions for each profile item
   const profileItemActions: ItemAction<ProfileDropdownItem>[] = [
     {
-      icon: <MdiContentCopy className="w-3 h-3" />,
+      icon: <MdiContentCopy className="size-3" />,
       onClick: (item) => handleDuplicateProfile(item.name),
       title: "Duplicate",
     },
     {
-      icon: <MdiPencil className="w-3 h-3" />,
+      icon: <MdiPencil className="size-3" />,
       onClick: (item) => handleRenameProfile(item.name),
       title: "Rename",
     },
     {
-      icon: <MdiClose className="w-3 h-3" />,
+      icon: <MdiClose className="size-3" />,
       onClick: (item) => handleDeleteProfile(item.name),
       title: "Delete",
     },
@@ -279,7 +279,7 @@ export function SettingsSidebar({
               <DropdownMenuTrigger asChild>
                 <Button size="xs" variant="outline" className="h-7 w-7 p-0">
                   {currentSettings.theme === "light" ? (
-                    <MdiWeatherSunny className="h-4 w-4" />
+                    <MdiWeatherSunny className="size-4" />
                   ) : currentSettings.theme === "dark" ? (
                     "☾"
                   ) : (
@@ -292,9 +292,7 @@ export function SettingsSidebar({
                   <DropdownMenuItem
                     key={opt.value}
                     className={
-                      currentSettings.theme === opt.value
-                        ? "bg-blue-100 dark:bg-blue-700/60"
-                        : ""
+                      currentSettings.theme === opt.value ? "bg-accent" : ""
                     }
                     onClick={async () => {
                       const updated = {
@@ -339,7 +337,7 @@ export function SettingsSidebar({
               variant="outline"
               size="xs"
               onClick={onClose}
-              className="h-5 w-5 p-0"
+              className="size-5 p-0"
             >
               ×
             </Button>
@@ -424,7 +422,7 @@ export function SettingsSidebar({
               </DropdownMenu>
             </div>
             <span
-              className={`text-[10px] ${isDirty ? "text-warning" : "invisible"}`}
+              className={`text-xs ${isDirty ? "text-warning" : "invisible"}`}
             >
               Unsaved changes
             </span>
@@ -484,7 +482,7 @@ export function SettingsSidebar({
         open={promptDialog.open}
         onOpenChange={(open) => setPromptDialog((prev) => ({ ...prev, open }))}
       >
-        <DialogContent className="max-w-[300px]">
+        <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle>{promptDialog.title}</DialogTitle>
           </DialogHeader>

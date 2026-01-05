@@ -60,10 +60,10 @@ export function OptionsSection() {
               className="justify-between gap-2 w-28"
             >
               <span className="truncate">{currentOption.label}</span>
-              <MdiChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0" />
+              <MdiChevronDown className="size-3.5 opacity-50 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[180px]">
+          <DropdownMenuContent align="start" className="min-w-44">
             {LAYOUT_OPTIONS.map((option) => (
               <Tooltip key={option.value} delayDuration={300}>
                 <TooltipTrigger asChild>
@@ -82,7 +82,7 @@ export function OptionsSection() {
                       "flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-sm cursor-pointer",
                       "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
                       option.value === repoForm.directoryLayout &&
-                        "bg-blue-100 dark:bg-blue-700/60 font-medium",
+                        "bg-accent font-medium",
                     )}
                   >
                     <MdiInformationOutline

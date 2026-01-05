@@ -85,7 +85,7 @@ export function CoverageReportSheet() {
 
   return (
     <Sheet open={coverageReportOpen} onOpenChange={setCoverageReportOpen}>
-      <SheetContent className="w-[600px] sm:max-w-[600px] bg-background">
+      <SheetContent className="w-full sm:max-w-xl bg-background">
         <SheetHeader>
           <SheetTitle>Roster Coverage</SheetTitle>
         </SheetHeader>
@@ -153,12 +153,12 @@ export function CoverageReportSheet() {
 
               {/* Warnings */}
               {report.students_in_multiple.length > 0 && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                  <div className="font-medium text-yellow-800">
+                <div className="p-3 bg-warning-muted border border-warning/30 rounded text-sm">
+                  <div className="font-medium text-warning">
                     ⚠ Students in multiple assignments:{" "}
                     {report.students_in_multiple.length}
                   </div>
-                  <ul className="mt-1 text-yellow-700">
+                  <ul className="mt-1 text-warning/80">
                     {report.students_in_multiple.slice(0, 5).map((entry) => (
                       <li key={entry.student.id}>
                         {entry.student.name} (
@@ -175,12 +175,12 @@ export function CoverageReportSheet() {
               )}
 
               {report.students_in_none.length > 0 && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                  <div className="font-medium text-yellow-800">
+                <div className="p-3 bg-warning-muted border border-warning/30 rounded text-sm">
+                  <div className="font-medium text-warning">
                     ⚠ Students in no assignment:{" "}
                     {report.students_in_none.length}
                   </div>
-                  <ul className="mt-1 text-yellow-700">
+                  <ul className="mt-1 text-warning/80">
                     {report.students_in_none.slice(0, 5).map((student) => (
                       <li key={student.id}>{student.name}</li>
                     ))}

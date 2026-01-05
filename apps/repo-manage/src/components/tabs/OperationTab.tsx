@@ -204,13 +204,13 @@ export function OperationTab() {
       </Tabs>
 
       {/* Common Fields */}
-      <div className="grid grid-cols-[180px_1fr] items-center gap-4">
+      <div className="grid grid-cols-[auto_1fr] items-center gap-4">
         <Label htmlFor="assignment">Assignment</Label>
         <Select
           value={selectedAssignmentId ?? ""}
           onValueChange={(v) => setSelectedAssignmentId(v as AssignmentId)}
         >
-          <SelectTrigger id="assignment" className="w-[300px]">
+          <SelectTrigger id="assignment" className="w-80">
             <SelectValue placeholder="Select an assignment" />
           </SelectTrigger>
           <SelectContent>
@@ -230,7 +230,7 @@ export function OperationTab() {
               id="templateOrg"
               value={templateOrg}
               onChange={(e) => setTemplateOrg(e.target.value)}
-              className="w-[300px]"
+              className="w-80"
               placeholder="e.g., tue-5lia0-templates"
             />
           </>
@@ -241,7 +241,7 @@ export function OperationTab() {
           id="targetOrg"
           value={targetOrg}
           onChange={(e) => setTargetOrg(e.target.value)}
-          className="w-[300px]"
+          className="w-80"
           placeholder="e.g., tue-5lia0-2024"
         />
 
@@ -253,7 +253,7 @@ export function OperationTab() {
                 id="targetDir"
                 value={targetDir}
                 onChange={(e) => setTargetDir(e.target.value)}
-                className="w-[260px]"
+                className="w-64"
                 placeholder="~/repos/5lia0-2024"
               />
               <Button
@@ -261,7 +261,7 @@ export function OperationTab() {
                 size="icon"
                 onClick={handleBrowseFolder}
               >
-                <FolderOpen className="h-4 w-4" />
+                <FolderOpen className="size-4" />
               </Button>
             </div>
 
@@ -305,8 +305,8 @@ export function OperationTab() {
                 ? "cloned"
                 : "deleted"}
             {groupCount !== validGroupCount && (
-              <span className="ml-2 text-amber-600">
-                <AlertCircle className="inline-block h-4 w-4 mr-1" />
+              <span className="ml-2 text-warning">
+                <AlertCircle className="inline-block size-4 mr-1" />
                 {groupCount - validGroupCount} empty groups will be skipped
               </span>
             )}
@@ -322,11 +322,11 @@ export function OperationTab() {
           onClick={handleExecute}
           disabled={isExecuteDisabled}
           variant={operationSelected === "delete" ? "destructive" : "default"}
-          className="min-w-[140px]"
+          className="min-w-36"
         >
           {operationStatus === "running" ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
               Running...
             </>
           ) : operationSelected === "create" ? (

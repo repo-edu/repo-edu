@@ -141,7 +141,7 @@ export function RosterTab() {
         <div className="text-sm">
           <span className="font-medium">{studentCount} students</span>
           {issueCount > 0 && (
-            <span className="text-yellow-600 ml-2">
+            <span className="text-warning ml-2">
               {issueCount} issue{issueCount > 1 ? "s" : ""}
             </span>
           )}
@@ -167,7 +167,7 @@ export function RosterTab() {
           >
             {importing ? (
               <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Loader2 className="size-4 mr-1 animate-spin" />
                 Importing...
               </>
             ) : (
@@ -199,7 +199,7 @@ export function RosterTab() {
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline">
                 Export
-                <ChevronDown className="h-4 w-4 ml-1" />
+                <ChevronDown className="size-4 ml-1" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -240,7 +240,7 @@ export function RosterTab() {
             >
               {importing ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="size-4 mr-1 animate-spin" />
                   Importing...
                 </>
               ) : (

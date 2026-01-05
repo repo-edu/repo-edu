@@ -3,6 +3,7 @@
  */
 
 import {
+  Alert,
   Button,
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Text,
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
@@ -91,17 +93,19 @@ export function ReplaceGroupsConfirmationDialog() {
 
         <div className="py-4">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded mb-4">
+            <Alert variant="destructive" className="mb-4">
               {error}
-            </div>
+            </Alert>
           )}
           <p>
             This assignment already has {assignment?.groups.length ?? 0} groups.
           </p>
-          <p className="text-muted-foreground mt-2">
-            Importing will replace all existing groups with the selected groups
-            from the LMS.
-          </p>
+          <Text variant="muted" asChild>
+            <p className="mt-2">
+              Importing will replace all existing groups with the selected
+              groups from the LMS.
+            </p>
+          </Text>
         </div>
 
         <DialogFooter>

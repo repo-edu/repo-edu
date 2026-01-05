@@ -145,7 +145,7 @@ export function ImportGitUsernamesDialog() {
                   className="flex-1"
                 />
                 <Button variant="outline" onClick={handleBrowse}>
-                  <Folder className="h-4 w-4 mr-1" />
+                  <Folder className="size-4 mr-1" />
                   Browse
                 </Button>
               </div>

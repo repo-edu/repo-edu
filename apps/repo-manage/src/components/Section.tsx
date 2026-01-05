@@ -31,9 +31,9 @@ export function Section({
         <div className="flex items-center justify-between gap-2">
           <CardTitle size="compact" className="flex items-center gap-2">
             {collapsed ? (
-              <MdiChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              <MdiChevronRight className="size-4 text-muted-foreground shrink-0" />
             ) : (
-              <MdiChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+              <MdiChevronDown className="size-4 text-muted-foreground shrink-0" />
             )}
             <span>{title}</span>
           </CardTitle>

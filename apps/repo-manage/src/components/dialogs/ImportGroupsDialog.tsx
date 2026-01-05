@@ -3,6 +3,7 @@
  */
 
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
@@ -17,6 +18,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Text,
 } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
@@ -250,24 +252,22 @@ export function ImportGroupsDialog() {
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-              {error}
-            </div>
-          )}
+          {error && <Alert variant="destructive">{error}</Alert>}
 
           <div className="grid gap-2">
             <Label className="text-foreground">LMS Group Set</Label>
             {fetchingGroupSets ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <Text variant="muted" className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
                 Loading group sets...
-              </div>
+              </Text>
             ) : groupSets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No group sets found in this course. Create a group set in your
-                LMS first.
-              </p>
+              <Text variant="muted" asChild>
+                <p>
+                  No group sets found in this course. Create a group set in your
+                  LMS first.
+                </p>
+              </Text>
             ) : (
               <Select
                 value={selectedGroupSetId ?? undefined}
@@ -290,10 +290,10 @@ export function ImportGroupsDialog() {
 
           {selectedGroupSetId &&
             (loadingGroups ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <Text variant="muted" className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
                 Loading groups...
-              </div>
+              </Text>
             ) : groupsLoaded ? (
               <>
                 <div className="grid gap-2">

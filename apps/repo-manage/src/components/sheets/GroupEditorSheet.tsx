@@ -85,7 +85,7 @@ export function GroupEditorSheet() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="w-[400px] sm:max-w-[500px] flex flex-col bg-background">
+      <SheetContent className="w-full sm:max-w-md flex flex-col bg-background">
         <SheetHeader>
           <SheetTitle>Groups: {assignment?.name ?? "No assignment"}</SheetTitle>
         </SheetHeader>
@@ -133,7 +133,7 @@ export function GroupEditorSheet() {
             {groups.length} group{groups.length !== 1 ? "s" : ""} -{" "}
             {totalStudents} student{totalStudents !== 1 ? "s" : ""}
             {emptyGroupCount > 0 && (
-              <span className="text-yellow-600 ml-2">
+              <span className="text-warning ml-2">
                 - {emptyGroupCount} empty
               </span>
             )}
@@ -188,7 +188,7 @@ function GroupListItem({
           </span>
         </span>
         {isEmpty && (
-          <span className="text-yellow-600 text-xs" title="Empty group">
+          <span className="text-warning text-xs" title="Empty group">
             ⚠
           </span>
         )}

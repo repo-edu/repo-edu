@@ -89,7 +89,7 @@ function ConnectionsButton() {
       className="gap-1.5"
     >
       Connections
-      {hasConnected && <span className="h-2 w-2 rounded-full bg-green-500" />}
+      {hasConnected && <span className="size-2 rounded-full bg-success" />}
     </Button>
   )
 }
@@ -112,7 +112,7 @@ function AppSettingsMenu() {
           size="sm"
           className="h-8 w-8 p-0 text-foreground"
         >
-          <Settings className="h-4 w-4" />
+          <Settings className="size-4" />
           <span className="sr-only">Settings</span>
         </Button>
       </DropdownMenuTrigger>
@@ -121,7 +121,7 @@ function AppSettingsMenu() {
           onClick={() => handleThemeChange("light")}
           className="gap-2"
         >
-          {theme === "light" && <Check className="h-4 w-4" />}
+          {theme === "light" && <Check className="size-4" />}
           {theme !== "light" && <span className="w-4" />}
           Light
         </DropdownMenuItem>
@@ -129,7 +129,7 @@ function AppSettingsMenu() {
           onClick={() => handleThemeChange("dark")}
           className="gap-2"
         >
-          {theme === "dark" && <Check className="h-4 w-4" />}
+          {theme === "dark" && <Check className="size-4" />}
           {theme !== "dark" && <span className="w-4" />}
           Dark
         </DropdownMenuItem>
@@ -137,7 +137,7 @@ function AppSettingsMenu() {
           onClick={() => handleThemeChange("system")}
           className="gap-2"
         >
-          {theme === "system" && <Check className="h-4 w-4" />}
+          {theme === "system" && <Check className="size-4" />}
           {theme !== "system" && <span className="w-4" />}
           System
         </DropdownMenuItem>
@@ -434,17 +434,17 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
   // Define actions for each profile item
   const profileItemActions: ItemAction<ProfileDropdownItem>[] = [
     {
-      icon: <Copy className="w-3 h-3" />,
+      icon: <Copy className="size-3" />,
       onClick: (item) => handleDuplicateProfile(item.name),
       title: "Duplicate",
     },
     {
-      icon: <Pencil className="w-3 h-3" />,
+      icon: <Pencil className="size-3" />,
       onClick: (item) => handleRenameProfile(item.name),
       title: "Rename",
     },
     {
-      icon: <Trash2 className="w-3 h-3" />,
+      icon: <Trash2 className="size-3" />,
       onClick: (item) => handleDeleteProfile(item.name),
       title: "Delete",
     },
@@ -460,8 +460,8 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
       <div className="flex items-center gap-1.5">
         <span className="text-sm text-muted-foreground">Profile:</span>
         {loading ? (
-          <Button variant="outline" size="sm" disabled className="w-[180px]">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <Button variant="outline" size="sm" disabled className="w-44">
+            <Loader2 className="size-4 animate-spin" />
           </Button>
         ) : (
           <ActionDropdown
@@ -514,7 +514,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
           }
         }}
       >
-        <DialogContent className="max-w-[400px]">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Duplicate Profile</DialogTitle>
             <DialogDescription>
@@ -587,7 +587,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
             >
               {duplicateDialog.isProcessing ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="size-4 mr-1 animate-spin" />
                   Creating...
                 </>
               ) : (
@@ -603,7 +603,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
         open={renameDialog.open}
         onOpenChange={(open) => setRenameDialog((prev) => ({ ...prev, open }))}
       >
-        <DialogContent className="max-w-[320px]">
+        <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle>Rename Profile</DialogTitle>
           </DialogHeader>
@@ -750,7 +750,7 @@ function ProfileMenu({ isDirty }: ProfileMenuProps) {
           className="h-8 w-8 p-0"
           disabled={!activeProfile}
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="size-4" />
           <span className="sr-only">Profile menu</span>
         </Button>
       </DropdownMenuTrigger>

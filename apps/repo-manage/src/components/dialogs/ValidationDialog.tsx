@@ -60,7 +60,7 @@ export function ValidationDialog({ onProceed }: ValidationDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle
-              className={`h-5 w-5 ${hasBlocking ? "text-destructive" : "text-yellow-600"}`}
+              className={`size-5 ${hasBlocking ? "text-destructive" : "text-warning"}`}
             />
             {hasBlocking ? "Cannot Proceed" : "Warnings"}
           </DialogTitle>
@@ -71,7 +71,7 @@ export function ValidationDialog({ onProceed }: ValidationDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[300px] overflow-y-auto py-4">
+        <div className="max-h-72 overflow-y-auto py-4">
           {blockingIssues.length > 0 && (
             <div className="mb-4">
               <h4 className="text-sm font-medium text-destructive mb-2">
@@ -83,7 +83,7 @@ export function ValidationDialog({ onProceed }: ValidationDialogProps) {
 
           {warningIssues.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-yellow-600 mb-2">
+              <h4 className="text-sm font-medium text-warning mb-2">
                 Warnings ({warningIssues.length})
               </h4>
               <IssueList issues={warningIssues} variant="warning" />

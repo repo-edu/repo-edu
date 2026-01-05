@@ -25,10 +25,10 @@ interface CourseDropdownItem extends ActionDropdownItem {
 
 function getStatusIcon(status: CourseStatus) {
   if (status === "verifying") {
-    return <MdiLoading className="w-3 h-3 text-muted-foreground" />
+    return <MdiLoading className="size-3 text-muted-foreground" />
   }
   if (status === "verified") {
-    return <MdiCheck className="w-3 h-3 text-green-600 dark:text-green-500" />
+    return <MdiCheck className="size-3 text-success" />
   }
   return null
 }
@@ -88,14 +88,14 @@ export function CourseSelector({
   // Define actions for each item
   const itemActions: ItemAction<CourseDropdownItem>[] = [
     {
-      icon: <MdiRefresh className={cn("w-3 h-3")} />,
+      icon: <MdiRefresh className={cn("size-3")} />,
       onClick: (item) => onVerifyCourse(item.originalIndex),
       disabled: (item) => !item.courseId.trim() || item.status === "verifying",
       title: (item) =>
         item.status === "failed" ? "Retry verification" : "Verify course",
     },
     {
-      icon: <MdiClose className="w-3 h-3" />,
+      icon: <MdiClose className="size-3" />,
       onClick: (item) => {
         if (courses.length > 1) {
           removeCourse(item.originalIndex)

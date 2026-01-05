@@ -116,7 +116,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
   if (items.length === 0) {
     return (
       <Button size="xs" variant="outline" onClick={onAdd} className="gap-1">
-        <MdiPlus className="w-3.5 h-3.5" />
+        <MdiPlus className="size-3.5" />
         {addLabel}
       </Button>
     )
@@ -134,7 +134,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
           <span className="flex items-center gap-1.5 truncate">
             {activeItem?.statusIcon !== undefined && (
               <span
-                className="w-3 h-3 shrink-0 flex items-center justify-center"
+                className="size-3 shrink-0 flex items-center justify-center"
                 title={activeItem.statusTitle}
               >
                 {activeItem.statusIcon}
@@ -144,7 +144,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
               {activeItem ? activeItem.label : placeholder}
             </span>
           </span>
-          <MdiChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0" />
+          <MdiChevronDown className="size-3.5 opacity-50 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" style={{ minWidth: contentMinWidth }}>
@@ -159,13 +159,13 @@ export function ActionDropdown<T extends ActionDropdownItem>({
             className={cn(
               "flex items-center justify-between gap-2 px-2 py-1.5 text-xs rounded-sm cursor-pointer",
               "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-              index === activeIndex && "bg-blue-100 dark:bg-blue-700/60",
+              index === activeIndex && "bg-accent",
             )}
           >
             <span className="flex items-center gap-1.5 truncate min-w-0">
               {item.statusIcon !== undefined && (
                 <span
-                  className="w-3 h-3 shrink-0 flex items-center justify-center"
+                  className="size-3 shrink-0 flex items-center justify-center"
                   title={item.statusTitle}
                 >
                   {item.statusIcon}
@@ -192,7 +192,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
                     onClick={(e) => handleActionClick(action, item, index, e)}
                     disabled={isDisabled}
                     title={getActionTitle(action, item, index)}
-                    className="h-5 w-5"
+                    className="size-5"
                   >
                     {action.icon}
                   </Button>
@@ -212,7 +212,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
           onKeyDown={handleAddKeyDown}
           className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
         >
-          <MdiPlus className="w-3.5 h-3.5" />
+          <MdiPlus className="size-3.5" />
           {addLabel}
         </div>
       </DropdownMenuContent>
