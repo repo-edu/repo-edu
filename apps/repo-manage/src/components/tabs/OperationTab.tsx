@@ -53,9 +53,13 @@ export function OperationTab() {
 
   const append = useOutputStore((state) => state.append)
 
+  // Use shared assignment selection from rosterStore
+  const selectedAssignmentId = useRosterStore(
+    (state) => state.selectedAssignmentId,
+  )
+  const selectAssignment = useRosterStore((state) => state.selectAssignment)
+
   // Local form state
-  const [selectedAssignmentId, setSelectedAssignmentId] =
-    useState<AssignmentId | null>(null)
   const [templateOrg, setTemplateOrg] = useState(
     operations.create.template_org ?? "",
   )
@@ -208,7 +212,7 @@ export function OperationTab() {
         <Label htmlFor="assignment">Assignment</Label>
         <Select
           value={selectedAssignmentId ?? ""}
-          onValueChange={(v) => setSelectedAssignmentId(v as AssignmentId)}
+          onValueChange={(v) => selectAssignment(v as AssignmentId)}
         >
           <SelectTrigger id="assignment" className="w-80">
             <SelectValue placeholder="Select an assignment" />

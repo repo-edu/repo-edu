@@ -157,6 +157,7 @@ export const useRosterStore = create<RosterStore>((set, get) => {
             roster,
             status: "loaded",
             error: null,
+            selectedAssignmentId: roster.assignments[0]?.id ?? null,
           })
           // Trigger initial validation
           debouncedRosterValidation?.()
@@ -276,9 +277,11 @@ export const useRosterStore = create<RosterStore>((set, get) => {
           ...state.roster,
           assignments: state.roster.assignments.filter((a) => a.id !== id),
         }
-        // Clear selection if removed assignment was selected
+        // If removed assignment was selected, select first remaining (or null)
         const selectedAssignmentId =
-          state.selectedAssignmentId === id ? null : state.selectedAssignmentId
+          state.selectedAssignmentId === id
+            ? (updated.assignments[0]?.id ?? null)
+            : state.selectedAssignmentId
         debouncedRosterValidation?.()
         return { roster: updated, selectedAssignmentId }
       }),
@@ -338,7 +341,11 @@ export const useRosterStore = create<RosterStore>((set, get) => {
 
     // Import
     setRoster: (roster) => {
-      set({ roster, status: "loaded" })
+      set({
+        roster,
+        status: "loaded",
+        selectedAssignmentId: roster.assignments[0]?.id ?? null,
+      })
       debouncedRosterValidation?.()
     },
 
