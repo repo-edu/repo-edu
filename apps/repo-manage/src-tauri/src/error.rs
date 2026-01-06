@@ -76,7 +76,44 @@ impl From<PlatformError> for AppError {
 impl From<LmsError> for AppError {
     fn from(e: LmsError) -> Self {
         let message = match &e {
-            LmsError::HttpError(_) => "Network request failed. Check your connection.".to_string(),
+            LmsError::HttpError(err) => {
+                // Provide more specific error messages based on the underlying cause
+                let err_str = err.to_string();
+                let err_lower = err_str.to_lowercase();
+
+                if err.is_timeout() || err_lower.contains("timeout") {
+                    "Connection timed out. The server may be slow or unreachable.".to_string()
+                } else if err.is_builder() || err.is_request() {
+                    "Invalid URL format. Check the LMS base URL.".to_string()
+                } else if err.is_connect() {
+                    if err_lower.contains("dns")
+                        || err_lower.contains("resolve")
+                        || err_lower.contains("lookup")
+                    {
+                        "Could not find server. Check the URL is correct.".to_string()
+                    } else if err_lower.contains("certificate")
+                        || err_lower.contains("ssl")
+                        || err_lower.contains("tls")
+                        || err_lower.contains("handshake")
+                    {
+                        "SSL/TLS error. The server's certificate may be invalid.".to_string()
+                    } else {
+                        "Could not connect to server. Check the URL and your network.".to_string()
+                    }
+                } else if err_lower.contains("certificate")
+                    || err_lower.contains("ssl")
+                    || err_lower.contains("tls")
+                    || err_lower.contains("handshake")
+                {
+                    "SSL/TLS error. The server's certificate may be invalid.".to_string()
+                } else if err_lower.contains("dns") || err_lower.contains("resolve") {
+                    "Could not find server. Check the URL is correct.".to_string()
+                } else if err_lower.contains("connect") || err_lower.contains("connection") {
+                    "Could not connect to server. Check the URL and your network.".to_string()
+                } else {
+                    format!("Network request failed: {}", err_str)
+                }
+            }
             LmsError::ApiError { status, message } => {
                 format!("API error ({}): {}", status, message)
             }

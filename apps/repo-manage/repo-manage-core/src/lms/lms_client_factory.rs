@@ -6,10 +6,20 @@ use lms_client::{LmsAuth, LmsClient, LmsType};
 use lms_common::LmsClient as _; // Import trait to call its methods
 use std::collections::HashMap;
 
+/// Normalize a base URL by ensuring it has an https:// scheme
+fn normalize_base_url(url: &str) -> String {
+    let trimmed = url.trim().trim_end_matches('/');
+    if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{}", trimmed)
+    }
+}
+
 /// Create an LMS client based on settings
 pub fn create_lms_client(settings: &LmsConnection) -> Result<LmsClient> {
     let auth = LmsAuth::Token {
-        url: settings.base_url.clone(),
+        url: normalize_base_url(&settings.base_url),
         token: settings.access_token.clone(),
     };
 
@@ -34,7 +44,7 @@ pub fn create_lms_client_with_params(
     };
 
     let auth = LmsAuth::Token {
-        url: base_url,
+        url: normalize_base_url(&base_url),
         token: access_token,
     };
 
