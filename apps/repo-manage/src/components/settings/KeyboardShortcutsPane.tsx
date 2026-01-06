@@ -42,16 +42,14 @@ export function KeyboardShortcutsPane() {
     <div className="space-y-6">
       {shortcutGroups.map((group) => (
         <div key={group.title}>
-          <h3 className="font-medium text-foreground mb-3">{group.title}</h3>
+          <h3 className="font-medium mb-3">{group.title}</h3>
           <div className="space-y-2">
             {group.shortcuts.map((shortcut) => (
               <div
                 key={shortcut.description}
                 className="flex items-center justify-between py-1.5"
               >
-                <span className="text-muted-foreground">
-                  {shortcut.description}
-                </span>
+                <span>{shortcut.description}</span>
                 <div className="flex items-center gap-1">
                   {shortcut.keys.map((key, index) => (
                     <span key={key}>

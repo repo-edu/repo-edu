@@ -13,8 +13,9 @@
 # Test artifacts
 .test-config/
 
-# Claude
+# AI assistants
 .claude/settings.local.json
+.gemini-clipboard/
 
 # Planning files and notes
 .local/

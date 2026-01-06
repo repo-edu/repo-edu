@@ -44,7 +44,7 @@ export function LmsImportConflictDialog() {
                 className="border rounded p-3 text-sm space-y-2"
               >
                 <p className="font-medium">{conflict.email}</p>
-                <div className="text-muted-foreground space-y-1">
+                <div className="space-y-1">
                   <p>
                     Roster: "{conflict.roster_student_name}" (LMS ID:{" "}
                     {conflict.roster_lms_user_id})

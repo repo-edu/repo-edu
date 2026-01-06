@@ -412,7 +412,7 @@ export function NewProfileDialog() {
           {/* LMS Course Selection */}
           {courseMode === "lms" && lmsConnection && (
             <div className="grid gap-2">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs">
                 LMS:{" "}
                 {LMS_TYPES.find((t) => t.value === lmsConnection.lms_type)
                   ?.label ?? lmsConnection.lms_type}{" "}
@@ -420,7 +420,7 @@ export function NewProfileDialog() {
               </p>
 
               {courseFetchStatus === "loading" && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <div className="flex items-center gap-2 text-sm py-4">
                   <Loader2 className="size-4 animate-spin" />
                   Loading courses...
                 </div>
@@ -429,7 +429,7 @@ export function NewProfileDialog() {
               {courseFetchStatus === "loaded" && (
                 <>
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-4" />
                     <Input
                       placeholder="Search courses..."
                       className="pl-8 h-8"

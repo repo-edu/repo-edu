@@ -169,10 +169,10 @@ function GroupSummary({ groups, validation }: GroupSummaryProps) {
 
   return (
     <div>
-      <span className="font-medium">
+      <span>
         {groupCount} group{groupCount !== 1 ? "s" : ""}
       </span>
-      <span className="text-muted-foreground mx-2">-</span>
+      <span className="mx-2">-</span>
       <span>{studentCount} students</span>
       {issueCount > 0 && (
         <div className="text-warning mt-1">

@@ -91,11 +91,11 @@ export function CoverageReportSheet() {
         </SheetHeader>
 
         <div className="flex flex-col gap-4 mt-4">
-          {loading && <div className="text-muted-foreground">Loading...</div>}
+          {loading && <div>Loading...</div>}
 
           {report && (
             <>
-              <div className="font-medium text-foreground">
+              <div className="font-medium">
                 {report.total_students} students in roster
               </div>
 
@@ -104,27 +104,17 @@ export function CoverageReportSheet() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="text-left p-2 font-medium text-foreground">
-                        Assignment
-                      </th>
-                      <th className="text-left p-2 font-medium text-foreground">
-                        Students
-                      </th>
-                      <th className="text-left p-2 font-medium text-foreground">
-                        Missing
-                      </th>
+                      <th className="text-left p-2 font-medium">Assignment</th>
+                      <th className="text-left p-2 font-medium">Students</th>
+                      <th className="text-left p-2 font-medium">Missing</th>
                     </tr>
                   </thead>
                   <tbody>
                     {report.assignments.map((assignment) => (
                       <tr key={assignment.assignment_id} className="border-t">
-                        <td className="p-2 text-foreground">
-                          {assignment.assignment_name}
-                        </td>
-                        <td className="p-2 text-foreground">
-                          {assignment.student_count}
-                        </td>
-                        <td className="p-2 text-muted-foreground">
+                        <td className="p-2">{assignment.assignment_name}</td>
+                        <td className="p-2">{assignment.student_count}</td>
+                        <td className="p-2">
                           {assignment.missing_students.length > 0
                             ? assignment.missing_students.length <= 3
                               ? assignment.missing_students
@@ -191,8 +181,8 @@ export function CoverageReportSheet() {
 
               {/* Export */}
               <div className="flex items-center gap-4 pt-4 border-t">
-                <span className="text-foreground">Export format:</span>
-                <label className="flex items-center gap-1 text-foreground">
+                <span>Export format:</span>
+                <label className="flex items-center gap-1">
                   <input
                     type="radio"
                     name="exportFormat"
@@ -201,7 +191,7 @@ export function CoverageReportSheet() {
                   />
                   CSV
                 </label>
-                <label className="flex items-center gap-1 text-foreground">
+                <label className="flex items-center gap-1">
                   <input
                     type="radio"
                     name="exportFormat"

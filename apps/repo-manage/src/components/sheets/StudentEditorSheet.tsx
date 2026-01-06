@@ -132,7 +132,7 @@ export function StudentEditorSheet() {
           {/* Search and Add */}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 size-4" />
               <Input
                 placeholder="Search students..."
                 value={searchQuery}
@@ -183,15 +183,9 @@ export function StudentEditorSheet() {
             <table className="w-full text-sm">
               <thead className="bg-muted sticky top-0">
                 <tr>
-                  <th className="text-left p-2 font-medium text-foreground">
-                    Name
-                  </th>
-                  <th className="text-left p-2 font-medium text-foreground">
-                    Email
-                  </th>
-                  <th className="text-left p-2 font-medium text-foreground">
-                    Git Username
-                  </th>
+                  <th className="text-left p-2 font-medium">Name</th>
+                  <th className="text-left p-2 font-medium">Email</th>
+                  <th className="text-left p-2 font-medium">Git Username</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -227,7 +221,7 @@ export function StudentEditorSheet() {
           </div>
 
           {/* Footer summary */}
-          <div className="text-muted-foreground">
+          <div>
             {students.length} students
             {issueCount > 0 && (
               <span className="text-warning ml-2">• {issueCount} issues</span>
@@ -281,7 +275,7 @@ function StudentRow({
         ) : (
           <button
             type="button"
-            className="bg-transparent border-none p-0 font-normal text-foreground cursor-pointer hover:underline text-left"
+            className="bg-transparent border-none p-0 font-normal cursor-pointer hover:underline text-left"
             onClick={() => setEditingField("name")}
           >
             {student.name}
@@ -309,7 +303,7 @@ function StudentRow({
         ) : (
           <button
             type="button"
-            className="bg-transparent border-none p-0 font-normal text-foreground cursor-pointer hover:underline text-left"
+            className="bg-transparent border-none p-0 font-normal cursor-pointer hover:underline text-left"
             onClick={() => setEditingField("email")}
           >
             {student.email || <span className="text-muted-foreground">—</span>}
@@ -337,7 +331,7 @@ function StudentRow({
         ) : (
           <button
             type="button"
-            className="bg-transparent border-none p-0 font-normal text-foreground cursor-pointer hover:underline flex items-center gap-1 text-left"
+            className="bg-transparent border-none p-0 font-normal cursor-pointer hover:underline flex items-center gap-1 text-left"
             onClick={() => setEditingField("git_username")}
           >
             {student.git_username || (
@@ -354,7 +348,7 @@ function StudentRow({
           onClick={onRemove}
           className="h-7 w-7 p-0"
         >
-          <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+          <Trash2 className="size-4 hover:text-destructive" />
         </Button>
       </td>
     </tr>

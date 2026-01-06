@@ -104,9 +104,7 @@ export function StudentMultiSelect({
                 tabIndex={-1}
               />
               <span className="text-sm flex-1">{student.name}</span>
-              <span className="text-xs text-muted-foreground truncate max-w-32">
-                {student.email}
-              </span>
+              <span className="text-xs truncate max-w-32">{student.email}</span>
             </div>
           ))
         )}

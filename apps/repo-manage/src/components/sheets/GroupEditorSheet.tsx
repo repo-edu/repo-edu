@@ -178,10 +178,8 @@ function GroupListItem({
         onClick={onToggle}
         aria-expanded={expanded}
       >
-        <span className="text-muted-foreground text-xs w-4">
-          {expanded ? "▼" : "▶"}
-        </span>
-        <span className="flex-1 font-medium text-foreground">
+        <span className="text-xs w-4">{expanded ? "▼" : "▶"}</span>
+        <span className="flex-1 font-medium">
           {group.name}
           <span className="text-muted-foreground font-normal ml-1">
             ({members.length} student{members.length !== 1 ? "s" : ""})
@@ -217,7 +215,7 @@ function GroupListItem({
       </button>
 
       {expanded && (
-        <div className="px-3 py-2 bg-muted/30 border-t text-foreground">
+        <div className="px-3 py-2 bg-muted/30 border-t">
           {members.length === 0 ? (
             <span className="text-muted-foreground italic">No members</span>
           ) : (

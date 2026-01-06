@@ -53,7 +53,7 @@ export function SettingsSheet() {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="rounded-sm p-1 hover:bg-muted"
           >
             <X className="size-4" />
             <span className="sr-only">Close</span>
@@ -72,8 +72,8 @@ export function SettingsSheet() {
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap",
                       activeCategory === cat.id
-                        ? "bg-blue-100 dark:bg-blue-700/60 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        ? "bg-blue-100 dark:bg-blue-700/60"
+                        : "hover:bg-muted",
                     )}
                   >
                     {cat.icon}

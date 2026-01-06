@@ -173,7 +173,7 @@ function App() {
   if (appSettingsStatus === "loading") {
     return (
       <div className="repobee-container flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p>Loading...</p>
       </div>
     )
   }

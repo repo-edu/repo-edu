@@ -125,7 +125,7 @@ export function UsernameVerificationDialog() {
                   <p className="text-destructive">
                     ✗ {usernameVerificationResult.invalid.length} invalid
                   </p>
-                  <ul className="mt-1 ml-4 text-muted-foreground max-h-32 overflow-auto">
+                  <ul className="mt-1 ml-4 max-h-32 overflow-auto">
                     {usernameVerificationResult.invalid.map((inv) => (
                       <li key={inv.student_email}>
                         {inv.student_name} ({inv.git_username}):{" "}
@@ -141,7 +141,7 @@ export function UsernameVerificationDialog() {
                   <p className="text-warning">
                     ⚠ {usernameVerificationResult.errors.length} errors
                   </p>
-                  <ul className="mt-1 ml-4 text-muted-foreground max-h-32 overflow-auto">
+                  <ul className="mt-1 ml-4 max-h-32 overflow-auto">
                     {usernameVerificationResult.errors.map((err) => (
                       <li key={err.student_email}>
                         {err.student_name} ({err.git_username}): {err.message}

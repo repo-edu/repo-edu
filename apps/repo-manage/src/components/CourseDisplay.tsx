@@ -83,8 +83,8 @@ export function CourseDisplay() {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">Course:</span>
-        <span className="text-foreground">{courseDisplay}</span>
+        <span>Course:</span>
+        <span>{courseDisplay}</span>
         <CourseStatusIcon status={courseStatus} />
         <Button
           variant="ghost"
@@ -128,12 +128,7 @@ function CourseStatusIcon({
     case "verified":
       return <Check className="size-4 text-success" aria-label="Verified" />
     case "verifying":
-      return (
-        <Loader2
-          className="size-4 text-muted-foreground animate-spin"
-          aria-label="Verifying"
-        />
-      )
+      return <Loader2 className="size-4 animate-spin" aria-label="Verifying" />
     case "failed":
       return (
         <AlertCircle
@@ -142,11 +137,6 @@ function CourseStatusIcon({
         />
       )
     default:
-      return (
-        <HelpCircle
-          className="size-4 text-muted-foreground"
-          aria-label="Not verified"
-        />
-      )
+      return <HelpCircle className="size-4" aria-label="Not verified" />
   }
 }

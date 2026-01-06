@@ -299,7 +299,7 @@ export function OperationTab() {
       </div>
 
       {/* Summary */}
-      <div className="text-muted-foreground">
+      <div>
         {selectedAssignment ? (
           <>
             {validGroupCount} repositories will be{" "}

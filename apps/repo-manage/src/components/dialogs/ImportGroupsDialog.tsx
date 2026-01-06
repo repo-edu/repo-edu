@@ -255,7 +255,7 @@ export function ImportGroupsDialog() {
           {error && <Alert variant="destructive">{error}</Alert>}
 
           <div className="grid gap-2">
-            <Label className="text-foreground">LMS Group Set</Label>
+            <Label>LMS Group Set</Label>
             {fetchingGroupSets ? (
               <Text variant="muted" className="flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" />

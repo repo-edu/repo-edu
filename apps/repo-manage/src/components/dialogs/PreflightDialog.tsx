@@ -89,7 +89,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         <div className="max-h-64 overflow-y-auto py-4">
           <ul className="space-y-1 text-sm">
             {collisions.map((c) => (
-              <li key={c.group_id} className="flex gap-2 text-muted-foreground">
+              <li key={c.group_id} className="flex gap-2">
                 <span className="text-warning">⚠</span>
                 <span>
                   {c.repo_name}{" "}
@@ -103,7 +103,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         </div>
 
         <div className="flex items-center gap-2 text-sm py-2 px-3 bg-muted rounded-md">
-          <Info className="size-4 text-muted-foreground" />
+          <Info className="size-4" />
           <span>
             {ready_count} repositor{ready_count !== 1 ? "ies" : "y"} will be{" "}
             {isCreate

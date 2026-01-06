@@ -203,7 +203,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
           aria-selected={false}
           onClick={handleAdd}
           onKeyDown={handleAddKeyDown}
-          className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
         >
           <MdiPlus className="size-3.5" />
           {addLabel}

@@ -244,7 +244,7 @@ export function RosterTab() {
       {/* Student count + issues (only when students exist) */}
       {hasStudents && (
         <div>
-          <span className="text-foreground">{studentCount} students</span>
+          <span>{studentCount} students</span>
           {issueCount > 0 && (
             <IssuesIndicator
               issues={rosterValidation?.issues ?? []}
@@ -281,9 +281,7 @@ export function RosterTab() {
         />
       )}
 
-      {rosterStatus === "loading" && (
-        <div className="text-muted-foreground">Loading...</div>
-      )}
+      {rosterStatus === "loading" && <div>Loading...</div>}
     </div>
   )
 }
@@ -514,8 +512,7 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
   if (!roster?.source) {
     return (
       <div>
-        <span className="text-muted-foreground">Source:</span>{" "}
-        <span className="text-foreground">None (no roster loaded)</span>
+        <span>Source:</span> <span>None (no roster loaded)</span>
       </div>
     )
   }
@@ -543,8 +540,7 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
 
   return (
     <div>
-      <span className="text-muted-foreground">Source:</span>{" "}
-      <span className="text-foreground">{sourceLabel}</span>
+      <span>Source:</span> <span>{sourceLabel}</span>
       {timestamp && (
         <span className="text-muted-foreground ml-1">
           ({formatDateTime(timestamp, dateFormat, timeFormat)})

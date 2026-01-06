@@ -9,6 +9,7 @@
 
 import type {
   AppSettings,
+  DateFormat,
   ExportSettings,
   GitConnection,
   LmsConnection,
@@ -17,6 +18,7 @@ import type {
   ProfileSettings,
   Roster,
   Theme,
+  TimeFormat,
 } from "../bindings/types"
 
 // ============================================================================
@@ -29,6 +31,8 @@ import type {
  */
 export interface AppSettingsStoreState {
   theme: Theme
+  dateFormat: DateFormat
+  timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
   logging: LogSettings
@@ -62,6 +66,8 @@ export function appSettingsToStore(
 ): AppSettingsStoreState {
   return {
     theme: settings.theme,
+    dateFormat: settings.date_format,
+    timeFormat: settings.time_format,
     lmsConnection: settings.lms_connection ?? null,
     gitConnections: settings.git_connections ?? {},
     logging: settings.logging,
@@ -74,6 +80,8 @@ export function appSettingsToStore(
 export function storeToAppSettings(state: AppSettingsStoreState): AppSettings {
   return {
     theme: state.theme,
+    date_format: state.dateFormat,
+    time_format: state.timeFormat,
     lms_connection: state.lmsConnection,
     git_connections: state.gitConnections,
     logging: state.logging,
@@ -142,6 +150,8 @@ export function storeToRoster(roster: Roster | null): Roster | null {
  */
 export const defaultAppSettingsState: AppSettingsStoreState = {
   theme: "system",
+  dateFormat: "MDY",
+  timeFormat: "12h",
   lmsConnection: null,
   gitConnections: {},
   logging: {

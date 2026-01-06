@@ -367,7 +367,7 @@ export function ConnectionsPane() {
       {/* LMS Section */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-foreground">LMS Connection</h3>
+          <h3 className="font-medium">LMS Connection</h3>
           {!lmsConnection && !editingLms && (
             <Button size="sm" variant="outline" onClick={handleEditLms}>
               <Plus className="size-4 mr-1" />
@@ -410,7 +410,7 @@ export function ConnectionsPane() {
       {/* Git Connections Section */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-foreground">Git Connections</h3>
+          <h3 className="font-medium">Git Connections</h3>
           {!addingGit && !editingGit && (
             <Button size="sm" variant="outline" onClick={handleAddGit}>
               <Plus className="size-4 mr-1" />
@@ -550,7 +550,7 @@ function StatusIndicator({ status }: { status: ConnectionStatus }) {
     case "connected":
       return <Check className="size-4 text-success" />
     case "verifying":
-      return <Loader2 className="size-4 animate-spin text-muted-foreground" />
+      return <Loader2 className="size-4 animate-spin" />
     case "error":
       return <X className="size-4 text-destructive" />
     default:
