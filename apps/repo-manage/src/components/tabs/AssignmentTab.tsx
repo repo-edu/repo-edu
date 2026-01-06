@@ -168,7 +168,7 @@ function GroupSummary({ groups, validation }: GroupSummaryProps) {
   const emptyGroups = groups.filter((g) => g.member_ids.length === 0)
 
   return (
-    <div className="text-sm">
+    <div>
       <span className="font-medium">
         {groupCount} group{groupCount !== 1 ? "s" : ""}
       </span>

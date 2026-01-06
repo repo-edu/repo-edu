@@ -46,9 +46,9 @@ export function SettingsSheet() {
         className="w-full sm:max-w-2xl flex flex-col p-0 gap-0"
         showCloseButton={false}
       >
-        {/* Custom header matching tab bar height (h-9 = 36px accounts for 4px container padding + 32px tab bar) */}
-        <div className="h-9 px-4 border-b shrink-0 flex items-center">
-          <SheetTitle className="text-sm font-medium">Settings</SheetTitle>
+        {/* Custom header matching tab bar height */}
+        <div className="h-11 px-4 border-b shrink-0 flex items-center">
+          <SheetTitle className="font-medium">Settings</SheetTitle>
           <div className="flex-1" />
           <button
             type="button"
@@ -70,9 +70,9 @@ export function SettingsSheet() {
                     type="button"
                     onClick={() => setCategory(cat.id)}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors whitespace-nowrap",
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap",
                       activeCategory === cat.id
-                        ? "bg-accent text-accent-foreground"
+                        ? "bg-blue-100 dark:bg-blue-700/60 text-foreground"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >

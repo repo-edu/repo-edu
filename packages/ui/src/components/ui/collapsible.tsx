@@ -17,7 +17,7 @@ function CollapsibleTrigger({
     <CollapsiblePrimitive.CollapsibleTrigger
       data-slot="collapsible-trigger"
       className={cn(
-        "flex items-center gap-2 text-sm font-medium cursor-pointer select-none",
+        "flex items-center gap-2 font-medium cursor-pointer select-none",
         className,
       )}
       {...props}

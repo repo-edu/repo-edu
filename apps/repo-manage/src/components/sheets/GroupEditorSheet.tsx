@@ -107,7 +107,7 @@ export function GroupEditorSheet() {
           {/* Group list */}
           <div className="flex-1 overflow-y-auto space-y-2">
             {filteredGroups.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">
+              <p className="text-muted-foreground text-center py-4">
                 {groups.length === 0
                   ? "No groups yet. Add a group or import from LMS."
                   : "No groups match your search."}
@@ -129,7 +129,7 @@ export function GroupEditorSheet() {
         </div>
 
         <SheetFooter className="border-t pt-4">
-          <div className="flex-1 text-sm text-muted-foreground">
+          <div className="flex-1 text-muted-foreground">
             {groups.length} group{groups.length !== 1 ? "s" : ""} -{" "}
             {totalStudents} student{totalStudents !== 1 ? "s" : ""}
             {emptyGroupCount > 0 && (
@@ -181,7 +181,7 @@ function GroupListItem({
         <span className="text-muted-foreground text-xs w-4">
           {expanded ? "▼" : "▶"}
         </span>
-        <span className="flex-1 font-medium text-sm text-foreground">
+        <span className="flex-1 font-medium text-foreground">
           {group.name}
           <span className="text-muted-foreground font-normal ml-1">
             ({members.length} student{members.length !== 1 ? "s" : ""})
@@ -217,7 +217,7 @@ function GroupListItem({
       </button>
 
       {expanded && (
-        <div className="px-3 py-2 bg-muted/30 border-t text-sm text-foreground">
+        <div className="px-3 py-2 bg-muted/30 border-t text-foreground">
           {members.length === 0 ? (
             <span className="text-muted-foreground italic">No members</span>
           ) : (

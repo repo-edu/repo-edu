@@ -227,7 +227,7 @@ export function StudentEditorSheet() {
           </div>
 
           {/* Footer summary */}
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground">
             {students.length} students
             {issueCount > 0 && (
               <span className="text-warning ml-2">• {issueCount} issues</span>

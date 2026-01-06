@@ -367,9 +367,7 @@ export function ConnectionsPane() {
       {/* LMS Section */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-sm text-foreground">
-            LMS Connection
-          </h3>
+          <h3 className="font-medium text-foreground">LMS Connection</h3>
           {!lmsConnection && !editingLms && (
             <Button size="sm" variant="outline" onClick={handleEditLms}>
               <Plus className="size-4 mr-1" />
@@ -405,18 +403,14 @@ export function ConnectionsPane() {
             onRemove={handleRemoveLms}
           />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No LMS connection configured.
-          </p>
+          <p className="text-muted-foreground">No LMS connection configured.</p>
         )}
       </section>
 
       {/* Git Connections Section */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-sm text-foreground">
-            Git Connections
-          </h3>
+          <h3 className="font-medium text-foreground">Git Connections</h3>
           {!addingGit && !editingGit && (
             <Button size="sm" variant="outline" onClick={handleAddGit}>
               <Plus className="size-4 mr-1" />
@@ -447,7 +441,7 @@ export function ConnectionsPane() {
         {Object.keys(gitConnections).length === 0 &&
         !addingGit &&
         !editingGit ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground">
             No git connections configured.
           </p>
         ) : (
@@ -500,7 +494,7 @@ function ConnectionCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm truncate">{title}</span>
+            <span className="font-medium truncate">{title}</span>
             <StatusIndicator status={status} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -646,7 +640,7 @@ function LmsForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-destructive">{error}</p>}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>
@@ -815,7 +809,7 @@ function GitForm({
         </Select>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-destructive">{error}</p>}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>

@@ -379,8 +379,8 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm text-muted-foreground">Profile:</span>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground">Profile:</span>
         {loading ? (
           <Button variant="outline" size="sm" disabled className="w-44">
             <Loader2 className="size-4 animate-spin" />

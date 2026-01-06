@@ -1,17 +1,35 @@
 /**
  * RosterTab - displays course info, roster source, student count, and actions.
+ *
+ * Button styling logic:
+ * - Neither import button is "primary" - they are parallel entry points for different user contexts
+ * - "Import from LMS" is disabled when no LMS connection is configured
+ * - Other action buttons are disabled when roster is empty
+ * - Primary emphasis should be on progressing to next tab, not staying on Roster
  */
 
 import {
+  Alert,
+  AlertDescription,
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@repo-edu/ui"
-import { ChevronDown, Loader2 } from "@repo-edu/ui/components/icons"
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
+import type { ValidationIssue, ValidationKind } from "../../bindings/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
@@ -20,6 +38,76 @@ import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatDateTime } from "../../utils/formatDate"
 import { CourseDisplay } from "../CourseDisplay"
+
+/**
+ * Human-readable descriptions for validation issue kinds.
+ */
+const ISSUE_DESCRIPTIONS: Record<
+  ValidationKind,
+  { title: string; description: string; action?: string }
+> = {
+  duplicate_student_id: {
+    title: "Duplicate student ID",
+    description: "Multiple students share the same ID.",
+    action: "Edit affected students to use unique IDs.",
+  },
+  duplicate_email: {
+    title: "Duplicate email",
+    description: "Multiple students share the same email address.",
+    action: "Edit affected students to use unique emails.",
+  },
+  duplicate_assignment_name: {
+    title: "Duplicate assignment name",
+    description: "Multiple assignments share the same name.",
+    action: "Rename assignments to be unique.",
+  },
+  duplicate_group_id_in_assignment: {
+    title: "Duplicate group ID",
+    description: "Multiple groups in an assignment share the same ID.",
+    action: "Edit the assignment to fix group IDs.",
+  },
+  duplicate_group_name_in_assignment: {
+    title: "Duplicate group name",
+    description: "Multiple groups in an assignment share the same name.",
+    action: "Rename groups to be unique.",
+  },
+  duplicate_repo_name_in_assignment: {
+    title: "Duplicate repository name",
+    description:
+      "Multiple groups would create repositories with the same name.",
+    action: "Change group names or the repo naming template.",
+  },
+  student_in_multiple_groups_in_assignment: {
+    title: "Student in multiple groups",
+    description: "A student appears in more than one group for an assignment.",
+    action: "Remove the student from one of the groups.",
+  },
+  orphan_group_member: {
+    title: "Unknown group member",
+    description: "A group references a student ID that doesn't exist.",
+    action: "Remove the invalid member or add the missing student.",
+  },
+  missing_git_username: {
+    title: "Missing git username",
+    description: "Some students don't have a git username set.",
+    action: "Import git usernames or add them manually.",
+  },
+  invalid_git_username: {
+    title: "Invalid git username",
+    description: "Some students have git usernames that couldn't be verified.",
+    action: "Verify and correct the git usernames.",
+  },
+  empty_group: {
+    title: "Empty group",
+    description: "A group has no members assigned.",
+    action: "Add members to the group or delete it.",
+  },
+  missing_email: {
+    title: "Missing email",
+    description: "Some students don't have an email address.",
+    action: "Add email addresses to affected students.",
+  },
+}
 
 export function RosterTab() {
   const roster = useRosterStore((state) => state.roster)
@@ -34,6 +122,7 @@ export function RosterTab() {
   const appendOutput = useOutputStore((state) => state.appendText)
 
   // Dialog/sheet openers
+  const openSettings = useUiStore((state) => state.openSettings)
   const setStudentEditorOpen = useUiStore((state) => state.setStudentEditorOpen)
   const setCoverageReportOpen = useUiStore(
     (state) => state.setCoverageReportOpen,
@@ -46,10 +135,12 @@ export function RosterTab() {
   )
 
   const [importing, setImporting] = useState(false)
+  const [issuesExpanded, setIssuesExpanded] = useState(false)
 
   const studentCount = roster?.students.length ?? 0
   const issueCount = rosterValidation?.issues.length ?? 0
   const hasStudents = studentCount > 0
+  const hasLmsConnection = lmsConnection !== null
 
   // Can import from LMS if:
   // - LMS connection exists
@@ -57,10 +148,23 @@ export function RosterTab() {
   // - Course is verified (or we haven't tried yet)
   // - Not currently importing
   const canImportFromLms =
-    lmsConnection !== null &&
+    hasLmsConnection &&
     course.id.trim() !== "" &&
     courseStatus !== "failed" &&
     !importing
+
+  // Tooltip message for disabled LMS import button
+  const lmsImportTooltip = !hasLmsConnection
+    ? "Configure an LMS connection in Settings first"
+    : !course.id.trim()
+      ? "No course configured for this profile"
+      : courseStatus === "failed"
+        ? "Course verification failed - check Settings"
+        : importing
+          ? "Import in progress..."
+          : hasStudents
+            ? "Re-import students from LMS"
+            : "Import students from LMS"
 
   const handleImportFromLms = async () => {
     if (!activeProfile || !canImportFromLms) return
@@ -139,136 +243,262 @@ export function RosterTab() {
 
       {/* Student count + issues (only when students exist) */}
       {hasStudents && (
-        <div className="text-sm">
-          <span className="font-medium">{studentCount} students</span>
+        <div>
+          <span className="text-foreground">{studentCount} students</span>
           {issueCount > 0 && (
-            <span className="text-warning ml-2">
-              {issueCount} issue{issueCount > 1 ? "s" : ""}
-            </span>
+            <IssuesIndicator
+              issues={rosterValidation?.issues ?? []}
+              expanded={issuesExpanded}
+              onToggle={() => setIssuesExpanded(!issuesExpanded)}
+            />
           )}
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons - different layout for empty vs populated roster */}
       {hasStudents ? (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={handleImportFromLms}
-            disabled={!canImportFromLms}
-            title={
-              !lmsConnection
-                ? "Configure LMS connection first"
-                : !course.id.trim()
-                  ? "No course configured"
-                  : courseStatus === "failed"
-                    ? "Course verification failed"
-                    : "Re-import students from LMS"
-            }
-          >
-            {importing ? (
-              <>
-                <Loader2 className="size-4 mr-1 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              "Import from LMS"
-            )}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setImportFileDialogOpen(true)}
-          >
-            Import from File
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setStudentEditorOpen(true)}
-          >
-            View/Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCoverageReportOpen(true)}
-          >
-            Coverage
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline">
-                Export
-                <ChevronDown className="size-4 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExportStudents("csv")}>
-                Students (CSV)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportStudents("xlsx")}>
-                Students (XLSX)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleClear}
-            disabled={!hasStudents}
-          >
-            Clear
-          </Button>
-        </div>
+        <RosterActions
+          canImportFromLms={canImportFromLms}
+          lmsImportTooltip={lmsImportTooltip}
+          importing={importing}
+          onImportFromLms={handleImportFromLms}
+          onImportFromFile={() => setImportFileDialogOpen(true)}
+          onViewEdit={() => setStudentEditorOpen(true)}
+          onCoverage={() => setCoverageReportOpen(true)}
+          onExport={handleExportStudents}
+          onClear={handleClear}
+        />
       ) : (
-        <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-          <p className="text-muted-foreground">No students in roster</p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleImportFromLms}
-              disabled={!canImportFromLms}
-              title={
-                !lmsConnection
-                  ? "Configure LMS connection first"
-                  : !course.id.trim()
-                    ? "No course configured"
-                    : courseStatus === "failed"
-                      ? "Course verification failed"
-                      : "Import students from LMS"
-              }
-            >
-              {importing ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                "Import from LMS"
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setImportFileDialogOpen(true)}
-            >
-              Import from File
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStudentEditorOpen(true)}
-            >
-              Add Student Manually
-            </Button>
-          </div>
-        </div>
+        <EmptyRosterState
+          hasLmsConnection={hasLmsConnection}
+          canImportFromLms={canImportFromLms}
+          lmsImportTooltip={lmsImportTooltip}
+          importing={importing}
+          onImportFromLms={handleImportFromLms}
+          onImportFromFile={() => setImportFileDialogOpen(true)}
+          onAddManually={() => setStudentEditorOpen(true)}
+          onOpenSettings={() => openSettings("connections")}
+        />
       )}
 
       {rosterStatus === "loading" && (
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">Loading...</div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Clickable issues indicator with expandable details.
+ */
+interface IssuesIndicatorProps {
+  issues: ValidationIssue[]
+  expanded: boolean
+  onToggle: () => void
+}
+
+function IssuesIndicator({ issues, expanded, onToggle }: IssuesIndicatorProps) {
+  const issueCount = issues.length
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="text-warning ml-2 hover:underline cursor-pointer"
+      >
+        {expanded ? (
+          <ChevronDown className="inline size-4 align-text-bottom" />
+        ) : (
+          <ChevronRight className="inline size-4 align-text-bottom" />
+        )}{" "}
+        {issueCount} issue{issueCount > 1 ? "s" : ""}
+      </button>
+      {expanded && (
+        <Alert variant="warning" className="mt-3">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            <ul className="mt-1 space-y-2">
+              {issues.map((issue, index) => {
+                const info = ISSUE_DESCRIPTIONS[issue.kind]
+                return (
+                  <li key={index}>
+                    <span className="font-medium">{info.title}:</span>{" "}
+                    {info.description}
+                    {info.action && (
+                      <span className="text-muted-foreground ml-1">
+                        {info.action}
+                      </span>
+                    )}
+                    {issue.context && (
+                      <span className="text-muted-foreground ml-1">
+                        ({issue.context})
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+    </>
+  )
+}
+
+/**
+ * Empty roster state with guidance based on LMS configuration.
+ */
+interface EmptyRosterStateProps {
+  hasLmsConnection: boolean
+  canImportFromLms: boolean
+  lmsImportTooltip: string
+  importing: boolean
+  onImportFromLms: () => void
+  onImportFromFile: () => void
+  onAddManually: () => void
+  onOpenSettings: () => void
+}
+
+function EmptyRosterState({
+  hasLmsConnection,
+  canImportFromLms,
+  lmsImportTooltip,
+  importing,
+  onImportFromLms,
+  onImportFromFile,
+  onAddManually,
+  onOpenSettings,
+}: EmptyRosterStateProps) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
+      <p className="text-muted-foreground max-w-md">
+        {hasLmsConnection
+          ? "No students in roster. Import from your LMS or a file."
+          : "Import a student roster from a CSV/Excel file, or configure an LMS connection in Settings to import directly."}
+      </p>
+      <div className="flex gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onImportFromLms}
+                  disabled={!canImportFromLms}
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="size-4 mr-1 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    "Import from LMS"
+                  )}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{lmsImportTooltip}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <Button size="sm" variant="outline" onClick={onImportFromFile}>
+          Import from File
+        </Button>
+        <Button size="sm" variant="outline" onClick={onAddManually}>
+          Add Manually
+        </Button>
+      </div>
+      {!hasLmsConnection && (
+        <Button variant="link" size="sm" onClick={onOpenSettings}>
+          Configure LMS Connection →
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Action buttons for populated roster.
+ * All buttons are secondary (outline) - no primary button.
+ */
+interface RosterActionsProps {
+  canImportFromLms: boolean
+  lmsImportTooltip: string
+  importing: boolean
+  onImportFromLms: () => void
+  onImportFromFile: () => void
+  onViewEdit: () => void
+  onCoverage: () => void
+  onExport: (format: "csv" | "xlsx") => void
+  onClear: () => void
+}
+
+function RosterActions({
+  canImportFromLms,
+  lmsImportTooltip,
+  importing,
+  onImportFromLms,
+  onImportFromFile,
+  onViewEdit,
+  onCoverage,
+  onExport,
+  onClear,
+}: RosterActionsProps) {
+  return (
+    <div className="flex gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onImportFromLms}
+                disabled={!canImportFromLms}
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="size-4 mr-1 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  "Import from LMS"
+                )}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{lmsImportTooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <Button size="sm" variant="outline" onClick={onImportFromFile}>
+        Import from File
+      </Button>
+      <Button size="sm" variant="outline" onClick={onViewEdit}>
+        View/Edit
+      </Button>
+      <Button size="sm" variant="outline" onClick={onCoverage}>
+        Coverage
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline">
+            Export
+            <ChevronDown className="size-4 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onExport("csv")}>
+            Students (CSV)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onExport("xlsx")}>
+            Students (XLSX)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button size="sm" variant="outline" onClick={onClear}>
+        Clear
+      </Button>
     </div>
   )
 }
@@ -283,8 +513,9 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
 
   if (!roster?.source) {
     return (
-      <div className="text-sm text-muted-foreground">
-        <span className="font-medium">Source:</span> None (no roster loaded)
+      <div>
+        <span className="text-muted-foreground">Source:</span>{" "}
+        <span className="text-foreground">None (no roster loaded)</span>
       </div>
     )
   }
@@ -297,11 +528,8 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
     case "lms":
       sourceLabel = "LMS"
       break
-    case "csv":
-      sourceLabel = "CSV file"
-      break
-    case "xlsx":
-      sourceLabel = "Excel file"
+    case "file":
+      sourceLabel = source.file_name ?? "File"
       break
     case "manual":
       sourceLabel = "Manual entry"
@@ -314,10 +542,11 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
   const timestamp = source.fetched_at ?? source.imported_at ?? source.created_at
 
   return (
-    <div className="text-sm text-muted-foreground">
-      <span className="font-medium">Source:</span> {sourceLabel}
+    <div>
+      <span className="text-muted-foreground">Source:</span>{" "}
+      <span className="text-foreground">{sourceLabel}</span>
       {timestamp && (
-        <span className="ml-1">
+        <span className="text-muted-foreground ml-1">
           ({formatDateTime(timestamp, dateFormat, timeFormat)})
         </span>
       )}

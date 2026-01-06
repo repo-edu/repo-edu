@@ -180,7 +180,7 @@
     background-color: var(--background);
   }
   body {
-    @apply bg-background text-foreground text-xs antialiased;
+    @apply bg-background text-foreground text-sm antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
       Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
     overflow: hidden;
@@ -394,6 +394,11 @@ input.password-input[type="password"][data-slot="input"] {
 [data-slot="button"].border {
   background: var(--secondary-gradient);
   border: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+[data-slot="button"][class*="variant-outline"]:hover,
+[data-slot="button"].border:hover {
   color: var(--foreground);
 }
 
@@ -408,18 +413,26 @@ input.password-input[type="password"][data-slot="input"] {
 
 [data-slot="tabs-trigger"] {
   border: none;
-  border-radius: 0;
-  padding: 3px 0;
-  margin-right: 12px;
-  color: var(--foreground);
+  border-radius: 4px;
+  padding: 3px 8px;
+  margin-right: 4px;
+  color: var(--muted-foreground);
   box-shadow: none !important;
-  transition: color 120ms ease, box-shadow 120ms ease;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+[data-slot="tabs-trigger"]:hover {
+  color: var(--foreground);
+  background-color: var(--muted);
 }
 
 [data-slot="tabs-trigger"][data-state="active"] {
-  color: var(--tab-active);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--tab-active) !important;
+  color: var(--foreground);
+  background-color: #dbeafe;
+}
+
+.theme-dark [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: rgb(29 78 216 / 0.6);
 }
 
 [data-slot="checkbox"] {

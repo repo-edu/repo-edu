@@ -83,15 +83,13 @@ export function CourseDisplay() {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Course:</span>
-        <span className="text-sm font-medium text-foreground">
-          {courseDisplay}
-        </span>
+        <span className="text-muted-foreground">Course:</span>
+        <span className="text-foreground">{courseDisplay}</span>
         <CourseStatusIcon status={courseStatus} />
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-xs"
+          className="h-6 px-2"
           disabled={!canVerify}
           onClick={handleVerify}
           title={
@@ -106,17 +104,12 @@ export function CourseDisplay() {
                     : "Verify course"
           }
         >
-          {isVerifying ? (
-            <>
-              <Loader2 className="size-3 mr-1 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="size-3 mr-1" />
-              {courseStatus === "verified" ? "Re-verify" : "Verify"}
-            </>
-          )}
+          <RefreshCw className="size-3 mr-1" />
+          {isVerifying
+            ? "Verifying..."
+            : courseStatus === "verified"
+              ? "Re-verify"
+              : "Verify"}
         </Button>
       </div>
       {courseStatus === "failed" && courseError && (

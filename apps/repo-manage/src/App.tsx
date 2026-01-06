@@ -185,19 +185,12 @@ function App() {
           value={ui.activeTab}
           onValueChange={(v) => ui.setActiveTab(v as ActiveTab)}
           className="flex-1 flex flex-col min-h-0 overflow-hidden"
-          size="compact"
         >
           <div className="flex items-center border-b">
-            <TabsList size="compact">
-              <TabsTrigger value="roster" size="compact">
-                Roster
-              </TabsTrigger>
-              <TabsTrigger value="assignment" size="compact">
-                Assignment
-              </TabsTrigger>
-              <TabsTrigger value="operation" size="compact">
-                Operation
-              </TabsTrigger>
+            <TabsList>
+              <TabsTrigger value="roster">Roster</TabsTrigger>
+              <TabsTrigger value="assignment">Assignment</TabsTrigger>
+              <TabsTrigger value="operation">Operation</TabsTrigger>
             </TabsList>
             <div className="flex-1" />
             <div className="pr-2">

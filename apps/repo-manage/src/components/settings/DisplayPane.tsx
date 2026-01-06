@@ -87,7 +87,7 @@ export function DisplayPane() {
             {DATE_FORMATS.map((f) => (
               <SelectItem key={f.value} value={f.value}>
                 {f.label}
-                <span className="ml-2 text-muted-foreground">
+                <span className="ml-2 text-xs text-muted-foreground">
                   ({f.example})
                 </span>
               </SelectItem>
@@ -110,7 +110,7 @@ export function DisplayPane() {
             {TIME_FORMATS.map((f) => (
               <SelectItem key={f.value} value={f.value}>
                 {f.label}
-                <span className="ml-2 text-muted-foreground">
+                <span className="ml-2 text-xs text-muted-foreground">
                   ({f.example})
                 </span>
               </SelectItem>

@@ -9,8 +9,8 @@ const labelVariants = cva(
   {
     variants: {
       size: {
-        default: "text-sm",
-        sm: "text-sm",
+        default: "",
+        sm: "",
         xs: "text-xs",
       },
     },

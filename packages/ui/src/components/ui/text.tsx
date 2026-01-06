@@ -14,7 +14,7 @@ const textVariants = cva("", {
       success: "text-success",
     },
     size: {
-      default: "text-sm",
+      default: "",
       xs: "text-xs",
       base: "text-base",
       lg: "text-lg",

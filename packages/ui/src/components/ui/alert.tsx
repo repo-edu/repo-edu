@@ -4,7 +4,7 @@ import type * as React from "react"
 import { cn } from "../../lib/utils"
 
 const alertVariants = cva(
-  "relative w-full rounded-md border p-3 text-sm [&>svg]:absolute [&>svg]:left-3 [&>svg]:top-3 [&>svg]:size-4 [&>svg+div]:translate-y-[-3px] [&:has(svg)]:pl-9",
+  "relative w-full rounded-md border p-3 [&>svg]:absolute [&>svg]:left-3 [&>svg]:top-3 [&>svg]:size-4 [&>svg+div]:translate-y-[-3px] [&:has(svg)]:pl-9",
   {
     variants: {
       variant: {
@@ -55,7 +55,7 @@ function AlertDescription({
   return (
     <div
       data-slot="alert-description"
-      className={cn("text-sm [&_p]:leading-relaxed", className)}
+      className={cn("[&_p]:leading-relaxed", className)}
       {...props}
     />
   )

@@ -106,7 +106,7 @@ export function OutputConsole({ className, style }: OutputConsoleProps) {
         >
           <button
             type="button"
-            className="px-3 py-2 text-sm text-foreground bg-popover hover:bg-accent flex items-center gap-2 whitespace-nowrap"
+            className="px-3 py-2 text-foreground bg-popover hover:bg-accent flex items-center gap-2 whitespace-nowrap"
             onClick={handleCopy}
             aria-label={
               contextMenu.selectionLength > 0

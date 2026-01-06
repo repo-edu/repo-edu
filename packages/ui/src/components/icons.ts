@@ -1,6 +1,7 @@
 // Re-export icons from lucide-react for consistent usage across the monorepo
 export {
   AlertCircle,
+  AlertTriangle,
   Check,
   ChevronDown,
   ChevronRight,

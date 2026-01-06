@@ -8,8 +8,8 @@ const textareaVariants = cva(
   {
     variants: {
       size: {
-        default: "px-3 py-2 text-sm",
-        sm: "px-3 py-1.5 text-sm",
+        default: "px-3 py-2",
+        sm: "px-3 py-1.5",
         xs: "px-2 py-1 text-xs",
       },
     },

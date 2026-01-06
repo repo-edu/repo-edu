@@ -53,7 +53,7 @@ function CardTitle({ className, size = "default", ...props }: CardTitleProps) {
       data-slot="card-title"
       className={cn(
         "leading-none font-semibold",
-        size === "compact" ? "text-xs" : "text-sm",
+        size === "compact" ? "text-xs" : "",
         className,
       )}
       {...props}
@@ -65,7 +65,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground", className)}
       {...props}
     />
   )

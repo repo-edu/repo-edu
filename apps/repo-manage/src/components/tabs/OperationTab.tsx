@@ -194,7 +194,7 @@ export function OperationTab() {
     !activeProfile
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-4">
       {/* Operation Type Tabs */}
       <Tabs
         value={operationSelected}
@@ -299,7 +299,7 @@ export function OperationTab() {
       </div>
 
       {/* Summary */}
-      <div className="text-sm text-muted-foreground">
+      <div className="text-muted-foreground">
         {selectedAssignment ? (
           <>
             {validGroupCount} repositories will be{" "}

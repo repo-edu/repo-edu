@@ -36,8 +36,8 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         "border-input data-[placeholder]:text-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "data-[size=default]:h-9 data-[size=default]:px-3 data-[size=default]:py-2 data-[size=default]:text-sm",
-        "data-[size=sm]:h-8 data-[size=sm]:px-3 data-[size=sm]:py-1.5 data-[size=sm]:text-sm",
+        "data-[size=default]:h-9 data-[size=default]:px-3 data-[size=default]:py-2",
+        "data-[size=sm]:h-8 data-[size=sm]:px-3 data-[size=sm]:py-1.5",
         "data-[size=xs]:h-6 data-[size=xs]:px-2 data-[size=xs]:py-0.5 data-[size=xs]:text-xs data-[size=xs]:gap-1",
         className,
       )}
@@ -115,7 +115,7 @@ function SelectItem({
       className={cn(
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         "data-[state=checked]:bg-blue-100 data-[state=checked]:dark:bg-blue-700/60",
-        size === "xs" ? "py-1 px-2 text-xs" : "py-1.5 px-2 text-sm",
+        size === "xs" ? "py-1 px-2 text-xs" : "py-1.5 px-2",
         className,
       )}
       {...props}

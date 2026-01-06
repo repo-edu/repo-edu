@@ -91,13 +91,11 @@ export function CoverageReportSheet() {
         </SheetHeader>
 
         <div className="flex flex-col gap-4 mt-4">
-          {loading && (
-            <div className="text-sm text-muted-foreground">Loading...</div>
-          )}
+          {loading && <div className="text-muted-foreground">Loading...</div>}
 
           {report && (
             <>
-              <div className="text-sm font-medium text-foreground">
+              <div className="font-medium text-foreground">
                 {report.total_students} students in roster
               </div>
 
@@ -153,7 +151,7 @@ export function CoverageReportSheet() {
 
               {/* Warnings */}
               {report.students_in_multiple.length > 0 && (
-                <div className="p-3 bg-warning-muted border border-warning/30 rounded text-sm">
+                <div className="p-3 bg-warning-muted border border-warning/30 rounded">
                   <div className="font-medium text-warning">
                     ⚠ Students in multiple assignments:{" "}
                     {report.students_in_multiple.length}
@@ -175,7 +173,7 @@ export function CoverageReportSheet() {
               )}
 
               {report.students_in_none.length > 0 && (
-                <div className="p-3 bg-warning-muted border border-warning/30 rounded text-sm">
+                <div className="p-3 bg-warning-muted border border-warning/30 rounded">
                   <div className="font-medium text-warning">
                     ⚠ Students in no assignment:{" "}
                     {report.students_in_none.length}
@@ -193,8 +191,8 @@ export function CoverageReportSheet() {
 
               {/* Export */}
               <div className="flex items-center gap-4 pt-4 border-t">
-                <span className="text-sm text-foreground">Export format:</span>
-                <label className="flex items-center gap-1 text-sm text-foreground">
+                <span className="text-foreground">Export format:</span>
+                <label className="flex items-center gap-1 text-foreground">
                   <input
                     type="radio"
                     name="exportFormat"
@@ -203,7 +201,7 @@ export function CoverageReportSheet() {
                   />
                   CSV
                 </label>
-                <label className="flex items-center gap-1 text-sm text-foreground">
+                <label className="flex items-center gap-1 text-foreground">
                   <input
                     type="radio"
                     name="exportFormat"
