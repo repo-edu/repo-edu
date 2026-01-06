@@ -27,8 +27,9 @@ import {
   ValidationDialog,
 } from "./components/dialogs"
 import { OutputConsole } from "./components/OutputConsole"
+import { SettingsButton } from "./components/SettingsButton"
+import { SettingsSheet } from "./components/settings"
 import {
-  ConnectionsSheet,
   CoverageReportSheet,
   GroupEditorSheet,
   StudentEditorSheet,
@@ -121,17 +122,52 @@ function App() {
     onSave: saveCurrentProfile,
   })
 
-  // Keyboard shortcut (Cmd/Ctrl+S)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault()
         saveCurrentProfile()
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault()
+        ui.openSettings()
+      }
+      // Tab navigation shortcuts
+      if ((e.metaKey || e.ctrlKey) && e.key === "1") {
+        e.preventDefault()
+        ui.setActiveTab("roster")
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "2") {
+        e.preventDefault()
+        ui.setActiveTab("assignment")
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "3") {
+        e.preventDefault()
+        ui.setActiveTab("operation")
+      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [saveCurrentProfile])
+  }, [saveCurrentProfile, ui])
+
+  // Handle Tauri menu events
+  useEffect(() => {
+    let cleanup: (() => void) | undefined
+
+    async function setupMenuListeners() {
+      const { listen } = await import("@tauri-apps/api/event")
+      const unlistenShortcuts = await listen("menu-keyboard-shortcuts", () => {
+        ui.openSettings("shortcuts")
+      })
+      cleanup = () => {
+        unlistenShortcuts()
+      }
+    }
+
+    setupMenuListeners()
+    return () => cleanup?.()
+  }, [ui])
 
   // Loading state
   if (appSettingsStatus === "loading") {
@@ -163,6 +199,10 @@ function App() {
                 Operation
               </TabsTrigger>
             </TabsList>
+            <div className="flex-1" />
+            <div className="pr-2">
+              <SettingsButton />
+            </div>
           </div>
 
           {/* Tab Content */}
@@ -261,7 +301,7 @@ function App() {
       <ClearRosterDialog />
 
       {/* Global Sheets */}
-      <ConnectionsSheet />
+      <SettingsSheet />
     </div>
   )
 }

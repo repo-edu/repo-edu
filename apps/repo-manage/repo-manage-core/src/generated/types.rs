@@ -24,6 +24,8 @@ pub struct AppError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
   pub theme: Theme,
+  pub date_format: DateFormat,
+  pub time_format: TimeFormat,
   pub logging: LogSettings,
   pub lms_connection: Option<LmsConnection>,
   pub git_connections: std::collections::HashMap<String, GitConnection>,
@@ -102,6 +104,13 @@ pub struct CoverageReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateConfig {
   pub template_org: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum DateFormat {
+  MDY,
+  #[default]
+  DMY,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -483,6 +492,15 @@ pub enum Theme {
   #[serde(rename = "system")]
   #[default]
   System,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum TimeFormat {
+  #[serde(rename = "12h")]
+  TwelveHour,
+  #[serde(rename = "24h")]
+  #[default]
+  TwentyFourHour,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

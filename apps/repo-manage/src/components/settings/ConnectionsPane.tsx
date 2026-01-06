@@ -1,6 +1,6 @@
 /**
- * Sheet for managing LMS and Git connections.
- * Allows adding, editing, verifying, and removing connections.
+ * ConnectionsPane - Content for managing LMS and Git connections.
+ * Used within the SettingsDialog.
  */
 
 import {
@@ -12,11 +12,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
 } from "@repo-edu/ui"
 import {
   Check,
@@ -40,7 +35,6 @@ import type {
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
-import { useUiStore } from "../../stores/uiStore"
 
 type ConnectionStatus = "disconnected" | "verifying" | "connected" | "error"
 
@@ -75,9 +69,7 @@ const IDENTITY_MODES: { value: GitIdentityMode; label: string }[] = [
   { value: "username", label: "Username matching" },
 ]
 
-export function ConnectionsSheet() {
-  const open = useUiStore((state) => state.connectionsSheetOpen)
-  const setOpen = useUiStore((state) => state.setConnectionsSheetOpen)
+export function ConnectionsPane() {
   const appendOutput = useOutputStore((state) => state.appendText)
 
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
@@ -147,7 +139,6 @@ export function ConnectionsSheet() {
     setDraftLmsStatus("disconnected")
   }
 
-  // Verify saved LMS connection directly (without editing)
   const handleVerifyLmsSaved = async () => {
     if (!lmsConnection) return
 
@@ -208,7 +199,6 @@ export function ConnectionsSheet() {
     setLmsConnection(connection)
     await saveAppSettings()
 
-    // Check if save succeeded
     const { status, error } = useAppSettingsStore.getState()
     if (status === "error") {
       appendOutput(`Failed to save LMS connection: ${error}`, "error")
@@ -216,7 +206,6 @@ export function ConnectionsSheet() {
     }
 
     setEditingLms(false)
-    // Transfer draft status to saved status
     setLmsStatus(draftLmsStatus, draftLmsError)
     appendOutput("LMS connection saved", "success")
   }
@@ -258,7 +247,6 @@ export function ConnectionsSheet() {
     }
   }
 
-  // Verify saved Git connection directly (without editing)
   const handleVerifyGitSaved = async (name: string) => {
     const conn = gitConnections[name]
     if (!conn) return
@@ -338,7 +326,6 @@ export function ConnectionsSheet() {
     if (addingGit) {
       addGitConnection(gitForm.name, connection)
     } else if (editingGit) {
-      // If name changed, remove old and add new
       if (editingGit !== gitForm.name) {
         removeGitConnection(editingGit)
         addGitConnection(gitForm.name, connection)
@@ -349,7 +336,6 @@ export function ConnectionsSheet() {
     await saveAppSettings()
     setAddingGit(false)
     setEditingGit(null)
-    // Transfer draft status to saved status
     setGitStatus(savedName, draftGitStatus, draftGitError)
   }
 
@@ -377,126 +363,112 @@ export function ConnectionsSheet() {
     gitForm.name.trim() && gitForm.user.trim() && gitForm.access_token.trim()
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader>
-          <SheetTitle>Connections</SheetTitle>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {/* LMS Section */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-sm text-foreground">
-                LMS Connection
-              </h3>
-              {!lmsConnection && !editingLms && (
-                <Button size="sm" variant="outline" onClick={handleEditLms}>
-                  <Plus className="size-4 mr-1" />
-                  Add
-                </Button>
-              )}
-            </div>
-
-            {editingLms ? (
-              <LmsForm
-                form={lmsForm}
-                setForm={setLmsForm}
-                showToken={showLmsToken}
-                setShowToken={setShowLmsToken}
-                status={draftLmsStatus}
-                error={draftLmsError}
-                isValid={!!isLmsFormValid}
-                onVerify={handleVerifyLms}
-                onSave={handleSaveLms}
-                onCancel={handleCancelLms}
-              />
-            ) : lmsConnection ? (
-              <ConnectionCard
-                title={
-                  LMS_TYPES.find((t) => t.value === lmsConnection.lms_type)
-                    ?.label ?? lmsConnection.lms_type
-                }
-                subtitle={lmsConnection.base_url}
-                status={lmsStatus}
-                error={lmsError}
-                onVerify={handleVerifyLmsSaved}
-                onEdit={handleEditLms}
-                onRemove={handleRemoveLms}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No LMS connection configured.
-              </p>
-            )}
-          </section>
-
-          {/* Git Connections Section */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-sm text-foreground">
-                Git Connections
-              </h3>
-              {!addingGit && !editingGit && (
-                <Button size="sm" variant="outline" onClick={handleAddGit}>
-                  <Plus className="size-4 mr-1" />
-                  Add
-                </Button>
-              )}
-            </div>
-
-            {(addingGit || editingGit) && (
-              <GitForm
-                form={gitForm}
-                setForm={setGitForm}
-                showToken={showGitToken}
-                setShowToken={setShowGitToken}
-                status={draftGitStatus}
-                error={draftGitError}
-                isValid={!!isGitFormValid}
-                isNew={addingGit}
-                existingNames={Object.keys(gitConnections).filter(
-                  (n) => n !== editingGit,
-                )}
-                onVerify={handleVerifyGit}
-                onSave={handleSaveGit}
-                onCancel={handleCancelGit}
-              />
-            )}
-
-            {Object.keys(gitConnections).length === 0 &&
-            !addingGit &&
-            !editingGit ? (
-              <p className="text-sm text-muted-foreground">
-                No git connections configured.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {Object.entries(gitConnections).map(([name, conn]) => (
-                  <ConnectionCard
-                    key={name}
-                    title={name}
-                    subtitle={`${conn.server_type} • ${conn.connection.user}`}
-                    status={gitStatuses[name] ?? "disconnected"}
-                    error={gitErrors[name] ?? null}
-                    onVerify={() => handleVerifyGitSaved(name)}
-                    onEdit={() => handleEditGit(name)}
-                    onRemove={() => handleRemoveGit(name)}
-                    disabled={editingGit === name}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+    <div className="space-y-6">
+      {/* LMS Section */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-medium text-sm text-foreground">
+            LMS Connection
+          </h3>
+          {!lmsConnection && !editingLms && (
+            <Button size="sm" variant="outline" onClick={handleEditLms}>
+              <Plus className="size-4 mr-1" />
+              Add
+            </Button>
+          )}
         </div>
 
-        <SheetFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Close
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        {editingLms ? (
+          <LmsForm
+            form={lmsForm}
+            setForm={setLmsForm}
+            showToken={showLmsToken}
+            setShowToken={setShowLmsToken}
+            status={draftLmsStatus}
+            error={draftLmsError}
+            isValid={!!isLmsFormValid}
+            onVerify={handleVerifyLms}
+            onSave={handleSaveLms}
+            onCancel={handleCancelLms}
+          />
+        ) : lmsConnection ? (
+          <ConnectionCard
+            title={
+              LMS_TYPES.find((t) => t.value === lmsConnection.lms_type)
+                ?.label ?? lmsConnection.lms_type
+            }
+            subtitle={lmsConnection.base_url}
+            status={lmsStatus}
+            error={lmsError}
+            onVerify={handleVerifyLmsSaved}
+            onEdit={handleEditLms}
+            onRemove={handleRemoveLms}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No LMS connection configured.
+          </p>
+        )}
+      </section>
+
+      {/* Git Connections Section */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-medium text-sm text-foreground">
+            Git Connections
+          </h3>
+          {!addingGit && !editingGit && (
+            <Button size="sm" variant="outline" onClick={handleAddGit}>
+              <Plus className="size-4 mr-1" />
+              Add
+            </Button>
+          )}
+        </div>
+
+        {(addingGit || editingGit) && (
+          <GitForm
+            form={gitForm}
+            setForm={setGitForm}
+            showToken={showGitToken}
+            setShowToken={setShowGitToken}
+            status={draftGitStatus}
+            error={draftGitError}
+            isValid={!!isGitFormValid}
+            isNew={addingGit}
+            existingNames={Object.keys(gitConnections).filter(
+              (n) => n !== editingGit,
+            )}
+            onVerify={handleVerifyGit}
+            onSave={handleSaveGit}
+            onCancel={handleCancelGit}
+          />
+        )}
+
+        {Object.keys(gitConnections).length === 0 &&
+        !addingGit &&
+        !editingGit ? (
+          <p className="text-sm text-muted-foreground">
+            No git connections configured.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {Object.entries(gitConnections).map(([name, conn]) => (
+              <ConnectionCard
+                key={name}
+                title={name}
+                subtitle={`${conn.server_type} • ${conn.connection.user}`}
+                status={gitStatuses[name] ?? "disconnected"}
+                error={gitErrors[name] ?? null}
+                onVerify={() => handleVerifyGitSaved(name)}
+                onEdit={() => handleEditGit(name)}
+                onRemove={() => handleRemoveGit(name)}
+                disabled={editingGit === name}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   )
 }
 

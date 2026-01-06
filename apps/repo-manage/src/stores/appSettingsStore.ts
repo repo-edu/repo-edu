@@ -8,16 +8,20 @@ import { create } from "zustand"
 import { commands } from "../bindings/commands"
 import type {
   AppSettings,
+  DateFormat,
   GitConnection,
   LmsConnection,
   LogSettings,
   Theme,
+  TimeFormat,
 } from "../bindings/types"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
 
 interface AppSettingsState {
   theme: Theme
+  dateFormat: DateFormat
+  timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
   logging: LogSettings
@@ -30,8 +34,10 @@ interface AppSettingsActions {
   load: () => Promise<void>
   save: () => Promise<void>
 
-  // Theme
+  // Display settings
   setTheme: (theme: Theme) => void
+  setDateFormat: (format: DateFormat) => void
+  setTimeFormat: (format: TimeFormat) => void
 
   // LMS connection
   setLmsConnection: (connection: LmsConnection | null) => void
@@ -52,6 +58,8 @@ interface AppSettingsStore extends AppSettingsState, AppSettingsActions {}
 
 const initialState: AppSettingsState = {
   theme: "system",
+  dateFormat: "DMY",
+  timeFormat: "24h",
   lmsConnection: null,
   gitConnections: {},
   logging: {
@@ -78,6 +86,8 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
       const settings = result.data
       set({
         theme: settings.theme,
+        dateFormat: settings.date_format,
+        timeFormat: settings.time_format,
         lmsConnection: settings.lms_connection ?? null,
         gitConnections: settings.git_connections ?? {},
         logging: settings.logging,
@@ -96,6 +106,8 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
     try {
       const settings: AppSettings = {
         theme: state.theme,
+        date_format: state.dateFormat,
+        time_format: state.timeFormat,
         lms_connection: state.lmsConnection,
         git_connections: state.gitConnections,
         logging: state.logging,
@@ -113,6 +125,8 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
   },
 
   setTheme: (theme) => set({ theme }),
+  setDateFormat: (dateFormat) => set({ dateFormat }),
+  setTimeFormat: (timeFormat) => set({ timeFormat }),
 
   setLmsConnection: (connection) => set({ lmsConnection: connection }),
 

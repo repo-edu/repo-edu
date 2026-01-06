@@ -9,6 +9,7 @@ use crate::generated::types::{
     GitConnection, LmsConnection, LogSettings, OperationConfigs, PlatformConnection,
     ProfileSettings,
 };
+use crate::generated::types::{DateFormat, TimeFormat};
 
 impl Default for CourseInfo {
     fn default() -> Self {
@@ -183,6 +184,8 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: Theme::default(),
+            date_format: DateFormat::default(),
+            time_format: TimeFormat::default(),
             logging: LogSettings::default(),
             lms_connection: None,
             git_connections: HashMap::new(),

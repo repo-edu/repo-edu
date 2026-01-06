@@ -18,6 +18,7 @@ import { useOutputStore } from "../../stores/outputStore"
 import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
+import { formatDateTime } from "../../utils/formatDate"
 import { CourseDisplay } from "../CourseDisplay"
 
 export function RosterTab() {
@@ -277,6 +278,9 @@ interface RosterSourceDisplayProps {
 }
 
 function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
+  const dateFormat = useAppSettingsStore((state) => state.dateFormat)
+  const timeFormat = useAppSettingsStore((state) => state.timeFormat)
+
   if (!roster?.source) {
     return (
       <div className="text-sm text-muted-foreground">
@@ -313,7 +317,9 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
     <div className="text-sm text-muted-foreground">
       <span className="font-medium">Source:</span> {sourceLabel}
       {timestamp && (
-        <span className="ml-1">({new Date(timestamp).toLocaleString()})</span>
+        <span className="ml-1">
+          ({formatDateTime(timestamp, dateFormat, timeFormat)})
+        </span>
       )}
     </div>
   )

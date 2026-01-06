@@ -27,8 +27,8 @@ interface UiState {
   activeTab: ActiveTab
 
   // App-level dialogs/sheets
-  connectionsSheetOpen: boolean
-  appSettingsMenuOpen: boolean
+  settingsDialogOpen: boolean
+  settingsDialogCategory: "connections" | "display" | "shortcuts"
   profileMenuOpen: boolean
   activeProfile: string | null
 
@@ -80,8 +80,11 @@ interface UiActions {
   setActiveTab: (tab: ActiveTab) => void
 
   // App-level dialogs/sheets
-  setConnectionsSheetOpen: (open: boolean) => void
-  setAppSettingsMenuOpen: (open: boolean) => void
+  setSettingsDialogOpen: (open: boolean) => void
+  setSettingsDialogCategory: (
+    category: "connections" | "display" | "shortcuts",
+  ) => void
+  openSettings: (category?: "connections" | "display" | "shortcuts") => void
   setProfileMenuOpen: (open: boolean) => void
   setActiveProfile: (profile: string | null) => void
 
@@ -141,8 +144,8 @@ const initialState: UiState = {
   activeTab: "roster",
 
   // App-level dialogs/sheets
-  connectionsSheetOpen: false,
-  appSettingsMenuOpen: false,
+  settingsDialogOpen: false,
+  settingsDialogCategory: "connections",
   profileMenuOpen: false,
   activeProfile: null,
 
@@ -196,8 +199,11 @@ export const useUiStore = create<UiStore>((set) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   // App-level dialogs/sheets
-  setConnectionsSheetOpen: (open) => set({ connectionsSheetOpen: open }),
-  setAppSettingsMenuOpen: (open) => set({ appSettingsMenuOpen: open }),
+  setSettingsDialogOpen: (open) => set({ settingsDialogOpen: open }),
+  setSettingsDialogCategory: (category) =>
+    set({ settingsDialogCategory: category }),
+  openSettings: (category = "connections") =>
+    set({ settingsDialogOpen: true, settingsDialogCategory: category }),
   setProfileMenuOpen: (open) => set({ profileMenuOpen: open }),
   setActiveProfile: (profile) => set({ activeProfile: profile }),
 

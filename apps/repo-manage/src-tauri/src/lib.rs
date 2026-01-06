@@ -149,6 +149,7 @@ pub fn run() {
             commands::profiles::delete_profile,
             commands::profiles::rename_profile,
             commands::profiles::create_profile,
+            commands::profiles::reveal_profiles_directory,
             // Roster commands
             commands::roster::get_roster,
             commands::roster::clear_roster,

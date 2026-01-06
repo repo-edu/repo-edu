@@ -715,6 +715,17 @@ export const commands = {
       if (e instanceof Error) throw e;
       return { status: "error", error: e as any };
     }
+  },
+  /**
+   * Open the profiles directory in the system file manager
+   */
+  async revealProfilesDirectory() : Promise<Result<null, AppError>> {
+    try {
+      return { status: "ok", data: await TAURI_INVOKE("reveal_profiles_directory") };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      return { status: "error", error: e as any };
+    }
   }
 };
 

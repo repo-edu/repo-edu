@@ -1,6 +1,6 @@
 /**
  * UtilityBar - Bottom bar between tab content and output console.
- * Contains: Connections button, App settings, Profile selector, Save button, Profile menu.
+ * Contains: Profile selector, Save button, Profile menu.
  */
 
 import {
@@ -19,12 +19,11 @@ import {
   Label,
 } from "@repo-edu/ui"
 import {
-  Check,
   Copy,
+  FolderOpen,
   Loader2,
   Menu,
   Pencil,
-  Settings,
   Trash2,
 } from "@repo-edu/ui/components/icons"
 import {
@@ -40,8 +39,6 @@ import {
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../bindings/commands"
 import type { ProfileSettings } from "../bindings/types"
-import { useAppSettingsStore } from "../stores/appSettingsStore"
-import { useConnectionsStore } from "../stores/connectionsStore"
 import { useOutputStore } from "../stores/outputStore"
 import { useUiStore } from "../stores/uiStore"
 import { loadProfileData, type ProfileLoadResult } from "../utils/profileLoader"
@@ -65,8 +62,6 @@ export function UtilityBar({
 }: UtilityBarProps) {
   return (
     <div className="group/utilitybar flex items-center gap-2 px-2 py-1.5 border-t bg-muted/30">
-      <ConnectionsButton />
-      <AppSettingsMenu />
       <div className="flex-1" />
       <ProfileSelector isDirty={isDirty} />
       <SaveButton isDirty={isDirty} onSaved={onSaved} />
@@ -75,82 +70,6 @@ export function UtilityBar({
         onProfileLoadResult={onProfileLoadResult}
       />
     </div>
-  )
-}
-
-function ConnectionsButton() {
-  const setConnectionsSheetOpen = useUiStore(
-    (state) => state.setConnectionsSheetOpen,
-  )
-  const lmsStatus = useConnectionsStore((state) => state.lmsStatus)
-  const gitStatuses = useConnectionsStore((state) => state.gitStatuses)
-
-  const hasConnected =
-    lmsStatus === "connected" ||
-    Object.values(gitStatuses).some((s) => s === "connected")
-
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setConnectionsSheetOpen(true)}
-      className="gap-1.5"
-    >
-      Connections
-      {hasConnected && <span className="size-2 rounded-full bg-success" />}
-    </Button>
-  )
-}
-
-function AppSettingsMenu() {
-  const theme = useAppSettingsStore((state) => state.theme)
-  const setTheme = useAppSettingsStore((state) => state.setTheme)
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
-
-  const handleThemeChange = async (newTheme: "light" | "dark" | "system") => {
-    setTheme(newTheme)
-    await saveAppSettings()
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-foreground"
-        >
-          <Settings className="size-4" />
-          <span className="sr-only">Settings</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem
-          onClick={() => handleThemeChange("light")}
-          className="gap-2"
-        >
-          {theme === "light" && <Check className="size-4" />}
-          {theme !== "light" && <span className="w-4" />}
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => handleThemeChange("dark")}
-          className="gap-2"
-        >
-          {theme === "dark" && <Check className="size-4" />}
-          {theme !== "dark" && <span className="w-4" />}
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => handleThemeChange("system")}
-          className="gap-2"
-        >
-          {theme === "system" && <Check className="size-4" />}
-          {theme !== "system" && <span className="w-4" />}
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
@@ -713,6 +632,21 @@ function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
     }
   }
 
+  const handleShowProfileLocation = async () => {
+    try {
+      const result = await commands.revealProfilesDirectory()
+      if (result.status === "error") {
+        appendOutput(
+          `Failed to open profiles directory: ${result.error.message}`,
+          "error",
+        )
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendOutput(`Failed to open profiles directory: ${message}`, "error")
+    }
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -729,6 +663,10 @@ function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleRevert} disabled={!isDirty}>
           Revert to Saved
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleShowProfileLocation}>
+          <FolderOpen className="size-4 mr-2" />
+          Show Profile Location
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

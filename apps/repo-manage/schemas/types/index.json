@@ -58,6 +58,10 @@
       "path": "./CreateConfig.schema.json"
     },
     {
+      "name": "DateFormat",
+      "path": "./DateFormat.schema.json"
+    },
+    {
       "name": "DeleteConfig",
       "path": "./DeleteConfig.schema.json"
     },
@@ -252,6 +256,10 @@
     {
       "name": "Theme",
       "path": "./Theme.schema.json"
+    },
+    {
+      "name": "TimeFormat",
+      "path": "./TimeFormat.schema.json"
     },
     {
       "name": "UsernameInvalidReason",

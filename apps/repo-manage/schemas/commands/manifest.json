@@ -854,6 +854,12 @@
       ],
       "output": "OperationResult",
       "error": "AppError"
+    },
+    "reveal_profiles_directory": {
+      "description": "Open the profiles directory in the system file manager",
+      "input": [],
+      "output": "()",
+      "error": "AppError"
     }
   }
 }

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DateFormat",
+  "type": "string",
+  "enum": ["MDY", "DMY"],
+  "x-rust": {
+    "default": "DMY"
+  },
+  "description": "Date display format: MDY (MM/DD/YYYY) or DMY (DD/MM/YYYY)"
+}

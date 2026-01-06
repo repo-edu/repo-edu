@@ -32,6 +32,8 @@ export interface AppError {
  */
 export interface AppSettings {
   theme: Theme;
+  date_format: DateFormat;
+  time_format: TimeFormat;
   logging: LogSettings;
   lms_connection?: LmsConnection | null;
   git_connections: {
@@ -125,6 +127,11 @@ export interface CoverageReport {
 export interface CreateConfig {
   template_org: string;
 }
+
+/**
+ * Date display format: MDY (MM/DD/YYYY) or DMY (DD/MM/YYYY)
+ */
+export type DateFormat = 'MDY' | 'DMY';
 
 /**
  * Repo delete configuration
@@ -541,6 +548,11 @@ export interface StudentSummary {
  * UI theme
  */
 export type Theme = 'light' | 'dark' | 'system';
+
+/**
+ * Time display format: 12h (AM/PM) or 24h
+ */
+export type TimeFormat = '12h' | '24h';
 
 /**
  * Reason a git username is considered invalid

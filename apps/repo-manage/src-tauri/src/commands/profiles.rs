@@ -1,6 +1,39 @@
 use crate::error::AppError;
 use repo_manage_core::{CourseInfo, ProfileSettings, SettingsManager};
 
+/// Open the profiles directory in the system file manager
+#[tauri::command]
+pub async fn reveal_profiles_directory() -> Result<(), AppError> {
+    let manager = SettingsManager::new()?;
+    let config_dir = manager.config_dir_path().clone();
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&config_dir)
+            .spawn()
+            .map_err(|e| AppError::new(format!("Failed to open Finder: {}", e)))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&config_dir)
+            .spawn()
+            .map_err(|e| AppError::new(format!("Failed to open Explorer: {}", e)))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&config_dir)
+            .spawn()
+            .map_err(|e| AppError::new(format!("Failed to open file manager: {}", e)))?;
+    }
+
+    Ok(())
+}
+
 /// List all available profiles
 #[tauri::command]
 pub async fn list_profiles() -> Result<Vec<String>, AppError> {

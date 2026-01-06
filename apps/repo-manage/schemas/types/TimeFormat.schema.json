@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimeFormat",
+  "type": "string",
+  "enum": ["12h", "24h"],
+  "x-rust": {
+    "default": "24h"
+  },
+  "x-enum-variants": {
+    "12h": "TwelveHour",
+    "24h": "TwentyFourHour"
+  },
+  "description": "Time display format: 12h (AM/PM) or 24h"
+}

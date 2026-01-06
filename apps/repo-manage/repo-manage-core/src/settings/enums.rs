@@ -1,4 +1,6 @@
-use crate::generated::types::{DirectoryLayout, GitServerType, MemberOption, Theme};
+use crate::generated::types::{
+    DateFormat, DirectoryLayout, GitServerType, MemberOption, Theme, TimeFormat,
+};
 use std::fmt;
 use std::str::FromStr;
 
@@ -67,6 +69,48 @@ impl FromStr for Theme {
             "dark" => Ok(Self::Dark),
             "system" => Ok(Self::System),
             _ => Err(format!("Unknown theme: {}", s)),
+        }
+    }
+}
+
+impl fmt::Display for DateFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MDY => write!(f, "MDY"),
+            Self::DMY => write!(f, "DMY"),
+        }
+    }
+}
+
+impl FromStr for DateFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_uppercase().as_str() {
+            "MDY" => Ok(Self::MDY),
+            "DMY" => Ok(Self::DMY),
+            _ => Err(format!("Unknown date format: {}", s)),
+        }
+    }
+}
+
+impl fmt::Display for TimeFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TwelveHour => write!(f, "12h"),
+            Self::TwentyFourHour => write!(f, "24h"),
+        }
+    }
+}
+
+impl FromStr for TimeFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "12h" => Ok(Self::TwelveHour),
+            "24h" => Ok(Self::TwentyFourHour),
+            _ => Err(format!("Unknown time format: {}", s)),
         }
     }
 }
