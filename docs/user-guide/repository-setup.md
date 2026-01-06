@@ -186,6 +186,6 @@ When a repository already exists:
 
 ## See Also
 
-- [Settings Reference](/reference/settings-reference) — Complete settings documentation
-- [CLI Repo Commands](/cli/repo-commands) — Command-line usage
-- [Troubleshooting](/reference/troubleshooting) — Common issues
+- [Settings Reference](../reference/settings-reference.md) — Complete settings documentation
+- [CLI Repo Commands](../cli/repo-commands.md) — Command-line usage
+- [Troubleshooting](../reference/troubleshooting.md) — Common issues

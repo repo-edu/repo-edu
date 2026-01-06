@@ -72,7 +72,7 @@ Usage indicates direct appearance in Tauri command signatures (nested usage is n
 | open_token_url | base_url: String, lms_type: String | () | AppError | apps/repo-manage/src-tauri/src/commands/lms.rs |
 | verify_lms_course | params: VerifyCourseParams | VerifyCourseResult | AppError | apps/repo-manage/src-tauri/src/commands/lms.rs |
 | generate_lms_files | params: GenerateFilesParams, progress: Channel<String> | CommandResult | AppError | apps/repo-manage/src-tauri/src/commands/lms.rs |
-| get_group_categories | params: GetGroupCategoriesParams | Vec<GroupCategory> | AppError | apps/repo-manage/src-tauri/src/commands/lms.rs |
+| get_group_categories | params: GetGroupCategoriesParams | `Vec<GroupCategory>` | AppError | apps/repo-manage/src-tauri/src/commands/lms.rs |
 | verify_config | params: ConfigParams | CommandResult | AppError | apps/repo-manage/src-tauri/src/commands/platform.rs |
 | setup_repos | params: SetupParams | CommandResult | AppError | apps/repo-manage/src-tauri/src/commands/platform.rs |
 | clone_repos | params: CloneParams | CommandResult | AppError | apps/repo-manage/src-tauri/src/commands/platform.rs |

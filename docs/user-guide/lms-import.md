@@ -165,6 +165,6 @@ student's full name:
 
 ## See Also
 
-- [Settings Reference](/reference/settings-reference) — Complete settings documentation
-- [Output Formats](/reference/output-formats) — Detailed format specifications
-- [CLI LMS Commands](/cli/lms-commands) — Command-line usage
+- [Settings Reference](../reference/settings-reference.md) — Complete settings documentation
+- [Output Formats](../reference/output-formats.md) — Detailed format specifications
+- [CLI LMS Commands](../cli/lms-commands.md) — Command-line usage

@@ -67,7 +67,7 @@ redu --help
 
 ## Building from Source
 
-See [Building](/development/building) for complete build instructions.
+See [Building](../development/building.md) for complete build instructions.
 
 ### Quick Start
 

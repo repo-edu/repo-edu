@@ -13,3 +13,6 @@ line-length = 100
 code-blocks = false
 tables = false
 reflow = true  # Enable automatic line wrapping (required for --fix)
+
+[MD033] # Inline HTML - allow elements used in auto-generated docs
+allowed-elements = ["hr", "small", "i", "a", "code"]

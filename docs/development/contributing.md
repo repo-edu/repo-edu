@@ -244,5 +244,5 @@ instance in the app.
 ## Getting Help
 
 - [GitHub Issues](https://github.com/repo-edu/repo-edu/issues) — Bug reports and feature requests
-- [Architecture](/development/architecture) — System overview
-- [Crates](/development/crates) — Rust crate documentation
+- [Architecture](./architecture.md) — System overview
+- [Crates](./crates.md) — Rust crate documentation

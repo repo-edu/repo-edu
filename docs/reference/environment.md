@@ -122,5 +122,5 @@ Or use a tool like `direnv` for automatic loading.
 
 ## See Also
 
-- [CLI Configuration](/cli/configuration) — Full configuration options
-- [CLI Repo Commands](/cli/repo-commands) — Repository command reference
+- [CLI Configuration](../cli/configuration.md) — Full configuration options
+- [CLI Repo Commands](../cli/repo-commands.md) — Repository command reference

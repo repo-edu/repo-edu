@@ -102,7 +102,7 @@ Each profile contains:
 - `lms` — LMS connection and output settings
 - `repo` — Repository setup and clone settings
 
-See [Settings Reference](/reference/settings-reference) for complete field documentation.
+See [Settings Reference](../reference/settings-reference.md) for complete field documentation.
 
 ## Importing/Exporting Profiles
 

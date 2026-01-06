@@ -27,17 +27,17 @@ production use. APIs and features may change without notice.:::
 
 ## Quick Links
 
-- [Installation](/getting-started/installation) — Download and install repo-edu
-- [Quick Start](/getting-started/quick-start) — Get up and running in minutes
-- [User Guide](/user-guide/lms-import) — Detailed usage instructions
+- [Installation](./getting-started/installation.md) — Download and install repo-edu
+- [Quick Start](./getting-started/quick-start.md) — Get up and running in minutes
+- [User Guide](./user-guide/lms-import.md) — Detailed usage instructions
 
 ## CLI
 
-- [CLI Overview](/cli/overview) — Command-line interface for automation
-- [CLI Installation](/cli/installation) — Install the `redu` CLI
+- [CLI Overview](./cli/overview.md) — Command-line interface for automation
+- [CLI Installation](./cli/installation.md) — Install the `redu` CLI
 
 ## For Developers
 
-- [Architecture](/development/architecture) — Technical overview
-- [Contributing](/development/contributing) — How to contribute
-- [Building](/development/building) — Build from source
+- [Architecture](./development/architecture.md) — Technical overview
+- [Contributing](./development/contributing.md) — How to contribute
+- [Building](./development/building.md) — Build from source

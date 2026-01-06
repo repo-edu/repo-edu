@@ -101,11 +101,11 @@ redu repo verify
 redu repo setup --template task-1
 ```
 
-See [CLI Overview](/cli/overview) for details.
+See [CLI Overview](../cli/overview.md) for details.
 
 ## Next Steps
 
-- [LMS Import Guide](/user-guide/lms-import) — Detailed import options
-- [Repository Setup Guide](/user-guide/repository-setup) — Repository management
-- [Settings & Profiles](/user-guide/settings) — Profile management
-- [CLI Reference](/cli/overview) — Command-line interface
+- [LMS Import Guide](../user-guide/lms-import.md) — Detailed import options
+- [Repository Setup Guide](../user-guide/repository-setup.md) — Repository management
+- [Settings & Profiles](../user-guide/settings.md) — Profile management
+- [CLI Reference](../cli/overview.md) — Command-line interface

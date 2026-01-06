@@ -195,6 +195,6 @@ Settings are validated against a JSON Schema on load. Invalid fields are normali
 
 ## See Also
 
-- [Crates](/development/crates) — Detailed crate documentation
-- [Building](/development/building) — Build instructions
-- [Contributing](/development/contributing) — Development workflow
+- [Crates](./crates.md) — Detailed crate documentation
+- [Building](./building.md) — Build instructions
+- [Contributing](./contributing.md) — Development workflow

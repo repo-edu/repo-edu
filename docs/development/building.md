@@ -240,6 +240,6 @@ jobs:
 
 ## See Also
 
-- [Architecture](/development/architecture) — Project structure
-- [Contributing](/development/contributing) — Development workflow
-- [Crates](/development/crates) — Rust crate documentation
+- [Architecture](./architecture.md) — Project structure
+- [Contributing](./contributing.md) — Development workflow
+- [Crates](./crates.md) — Rust crate documentation

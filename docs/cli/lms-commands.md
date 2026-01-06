@@ -105,8 +105,8 @@ LMS commands use settings from the active profile. Key settings:
 | `lms.output_yaml` | Enable YAML output by default |
 | `lms.output_csv` | Enable CSV output by default |
 
-See [Settings Reference](/reference/settings-reference) for the complete list.
+See [Settings Reference](../reference/settings-reference.md) for the complete list.
 
 ## Output Formats
 
-See [Output Formats](/reference/output-formats) for details on the generated file formats.
+See [Output Formats](../reference/output-formats.md) for details on the generated file formats.

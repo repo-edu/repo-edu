@@ -191,4 +191,4 @@ Repo commands use settings from the active profile. Key settings:
 | `git.gitlab.template_group` | GitLab group with templates |
 | `repo.yaml_file` | Default teams file path |
 
-See [Settings Reference](/reference/settings-reference) for the complete list.
+See [Settings Reference](../reference/settings-reference.md) for the complete list.
