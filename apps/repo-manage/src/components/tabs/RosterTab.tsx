@@ -234,7 +234,7 @@ export function RosterTab() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-3 p-3">
       {/* Course display with verification */}
       <CourseDisplay />
 
@@ -369,7 +369,7 @@ function EmptyRosterState({
   onOpenSettings,
 }: EmptyRosterStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 py-4 text-center">
       <p className="text-muted-foreground max-w-md">
         {hasLmsConnection
           ? "No students in roster. Import from your LMS or a file."

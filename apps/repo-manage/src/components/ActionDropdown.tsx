@@ -115,7 +115,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
 
   if (items.length === 0) {
     return (
-      <Button size="xs" variant="outline" onClick={onAdd} className="gap-1">
+      <Button size="sm" variant="outline" onClick={onAdd} className="gap-1">
         <MdiPlus className="size-3.5" />
         {addLabel}
       </Button>
@@ -126,7 +126,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
-          size="xs"
+          size="sm"
           variant="outline"
           className="justify-between gap-2 w-fit"
           style={{ minWidth, maxWidth }}

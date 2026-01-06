@@ -39,7 +39,7 @@ export function AssignmentTab() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-3 p-3">
       {/* Assignment selector + CRUD buttons */}
       <div className="flex items-center gap-2">
         <AssignmentSelector
@@ -72,7 +72,7 @@ function AssignmentEmptyState() {
   )
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 p-4 text-center">
       <p className="text-muted-foreground">No assignments yet</p>
       <Button onClick={() => setNewAssignmentDialogOpen(true)}>
         Create Assignment

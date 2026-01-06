@@ -19,7 +19,6 @@ import {
 } from "@repo-edu/ui"
 import { AlertCircle, FolderOpen, Loader2 } from "@repo-edu/ui/components/icons"
 import { open } from "@tauri-apps/plugin-dialog"
-import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import type {
   AppError,
@@ -44,6 +43,9 @@ export function OperationTab() {
   const assignments = roster?.assignments ?? []
   const activeProfile = useUiStore((state) => state.activeProfile)
   const operations = useProfileSettingsStore((state) => state.operations)
+  const updateOperations = useProfileSettingsStore(
+    (state) => state.updateOperations,
+  )
 
   const operationSelected = useOperationStore((state) => state.selected)
   const setOperationSelected = useOperationStore((state) => state.setSelected)
@@ -59,15 +61,23 @@ export function OperationTab() {
   )
   const selectAssignment = useRosterStore((state) => state.selectAssignment)
 
-  // Local form state
-  const [templateOrg, setTemplateOrg] = useState(
-    operations.create.template_org ?? "",
-  )
-  const [targetOrg, setTargetOrg] = useState(operations.target_org ?? "")
-  const [targetDir, setTargetDir] = useState(operations.clone.target_dir ?? "")
-  const [directoryLayout, setDirectoryLayout] = useState<DirectoryLayout>(
-    operations.clone.directory_layout ?? "flat",
-  )
+  // Read form values from store
+  const templateOrg = operations.create.template_org ?? ""
+  const targetOrg = operations.target_org ?? ""
+  const targetDir = operations.clone.target_dir ?? ""
+  const directoryLayout = operations.clone.directory_layout ?? "flat"
+
+  // Update handlers that persist to store
+  const setTemplateOrg = (value: string) =>
+    updateOperations({ create: { ...operations.create, template_org: value } })
+  const setTargetOrg = (value: string) =>
+    updateOperations({ target_org: value })
+  const setTargetDir = (value: string) =>
+    updateOperations({ clone: { ...operations.clone, target_dir: value } })
+  const setDirectoryLayout = (value: DirectoryLayout) =>
+    updateOperations({
+      clone: { ...operations.clone, directory_layout: value },
+    })
 
   const selectedAssignment = assignments.find(
     (a) => a.id === selectedAssignmentId,
@@ -194,21 +204,23 @@ export function OperationTab() {
     !activeProfile
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-3 p-3">
       {/* Operation Type Tabs */}
       <Tabs
         value={operationSelected}
         onValueChange={(v) => setOperationSelected(v as OperationType)}
       >
-        <TabsList>
-          <TabsTrigger value="create">Create Repos</TabsTrigger>
+        <TabsList className="!pl-0 -ml-2">
+          <TabsTrigger value="create" className="justify-start">
+            Create Repos
+          </TabsTrigger>
           <TabsTrigger value="clone">Clone</TabsTrigger>
           <TabsTrigger value="delete">Delete</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Common Fields */}
-      <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
         <Label htmlFor="assignment">Assignment</Label>
         <Select
           value={selectedAssignmentId ?? ""}
@@ -298,35 +310,33 @@ export function OperationTab() {
         )}
       </div>
 
-      {/* Summary */}
-      <div>
-        {selectedAssignment ? (
-          <>
-            {validGroupCount} repositories will be{" "}
-            {operationSelected === "create"
-              ? "created"
-              : operationSelected === "clone"
-                ? "cloned"
-                : "deleted"}
-            {groupCount !== validGroupCount && (
-              <span className="ml-2 text-warning">
-                <AlertCircle className="inline-block size-4 mr-1" />
-                {groupCount - validGroupCount} empty groups will be skipped
-              </span>
-            )}
-          </>
-        ) : (
-          "Select an assignment to see repository count"
-        )}
-      </div>
-
-      {/* Execute Button */}
-      <div className="flex justify-end">
+      {/* Summary and Execute Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          {selectedAssignment ? (
+            <>
+              {validGroupCount} repositories will be{" "}
+              {operationSelected === "create"
+                ? "created"
+                : operationSelected === "clone"
+                  ? "cloned"
+                  : "deleted"}
+              {groupCount !== validGroupCount && (
+                <span className="ml-2 text-warning">
+                  <AlertCircle className="inline-block size-4 mr-1" />
+                  {groupCount - validGroupCount} empty groups will be skipped
+                </span>
+              )}
+            </>
+          ) : (
+            "Select an assignment to see repository count"
+          )}
+        </div>
         <Button
           onClick={handleExecute}
           disabled={isExecuteDisabled}
-          variant={operationSelected === "delete" ? "destructive" : "default"}
-          className="min-w-36"
+          variant={operationSelected === "delete" ? "destructive" : "outline"}
+          className={operationSelected !== "delete" ? "!text-foreground" : ""}
         >
           {operationStatus === "running" ? (
             <>
