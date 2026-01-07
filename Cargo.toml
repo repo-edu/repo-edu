@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "apps/repo-manage/src-tauri",
-    "apps/repo-manage/repo-manage-core",
-    "apps/repo-manage/repo-manage-cli",
+    "apps/repo-manage/core",
+    "apps/repo-manage/cli",
     "crates/lms-common",
     "crates/lms-client",
     "crates/canvas-lms",

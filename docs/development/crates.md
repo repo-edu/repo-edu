@@ -8,8 +8,8 @@ The repo-edu monorepo contains several Rust crates organized by purpose.
 repo-edu/
 ├── apps/repo-manage/
 │   ├── src-tauri/          # Tauri app (binary)
-│   ├── repo-manage-core/   # Core business logic
-│   └── repo-manage-cli/    # CLI binary
+│   ├── core/               # Core business logic
+│   └── cli/                # CLI binary
 └── crates/
     ├── lms-client/         # Unified LMS client
     ├── lms-common/         # Shared LMS types/traits

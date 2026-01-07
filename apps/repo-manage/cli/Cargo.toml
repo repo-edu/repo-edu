@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core library
-repo-manage-core = { path = "../repo-manage-core" }
+repo-manage-core = { path = "../core" }
 
 # CLI framework
 clap.workspace = true

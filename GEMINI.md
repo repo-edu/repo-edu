@@ -21,8 +21,8 @@ The repository utilizes a dual-workspace structure:
 * `apps/repo-manage/`: Main application directory.
   * `src/`: React frontend (Vite).
   * `src-tauri/`: Tauri Rust backend.
-  * `repo-manage-core/`: Shared Rust business logic.
-  * `repo-manage-cli/`: The `redu` CLI tool.
+  * `core/`: Shared Rust business logic.
+  * `cli/`: The `redu` CLI tool.
   * `schemas/`: JSON Schemas for type generation.
 * `crates/`: Shared Rust libraries (LMS clients for Canvas/Moodle).
 * `packages/ui/`: Shared UI components (based on shadcn/ui).

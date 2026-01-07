@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install redu
-        run: cargo install --path apps/repo-manage/repo-manage-cli
+        run: cargo install --path apps/repo-manage/cli
 
       - name: Create repositories
         env:

@@ -2,4 +2,4 @@
 
 apps/repo-manage/src/bindings/
 apps/repo-manage/src-tauri/src/generated/
-apps/repo-manage/repo-manage-core/src/generated/
+apps/repo-manage/core/src/generated/

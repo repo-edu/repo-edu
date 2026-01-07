@@ -23,7 +23,7 @@ const repoRoot = resolve(__dirname, "..")
 
 const bindingsPath = resolve(repoRoot, "apps/repo-manage/src/bindings/types.ts")
 const tauriSrcDir = resolve(repoRoot, "apps/repo-manage/src-tauri/src")
-const coreSrcDir = resolve(repoRoot, "apps/repo-manage/repo-manage-core/src")
+const coreSrcDir = resolve(repoRoot, "apps/repo-manage/core/src")
 
 const outputDoc = resolve(repoRoot, "docs/migration/schema-types.md")
 const outputManifestStub = resolve(

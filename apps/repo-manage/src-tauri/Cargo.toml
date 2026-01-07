@@ -19,7 +19,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build.workspace = true
 
 [dependencies]
-repo-manage-core = { path = "../repo-manage-core" }
+repo-manage-core = { path = "../core" }
 lms-common = { path = "../../../crates/lms-common" }
 tauri.workspace = true
 tauri-plugin-opener.workspace = true

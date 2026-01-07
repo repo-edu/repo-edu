@@ -69,8 +69,8 @@ repo-edu/
 │   └── repo-manage/        # Main Tauri desktop app
 │       ├── src/            # React frontend
 │       ├── src-tauri/      # Tauri Rust backend (workspace member)
-│       ├── repo-manage-core/   # Shared Rust library (workspace member)
-│       └── repo-manage-cli/    # CLI tool (workspace member)
+│       ├── core/               # Shared Rust library (workspace member)
+│       └── cli/                # CLI tool (workspace member)
 ├── crates/                 # Shared Rust libraries
 │   ├── lms-common/         # Common LMS traits, types, error handling
 │   ├── lms-client/         # Unified LMS client (Canvas/Moodle selection)
@@ -82,7 +82,7 @@ repo-edu/
 
 ### Shared Operations Layer
 
-The `repo-manage-core/src/operations/` module contains high-level operations shared between CLI
+The `core/src/operations/` module contains high-level operations shared between CLI
 and GUI:
 
 - `verify.rs` - Platform connection verification
@@ -106,13 +106,13 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 ### Rust Backend Architecture (apps/repo-manage/src-tauri)
 
 - **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs)
-- **repo-manage-core/src/** - Core business logic
+- **core/src/** - Core business logic
   - **lms/** - Canvas/Moodle LMS client integration
   - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
   - **settings/** - Configuration management with JSON Schema validation
   - **operations/** - Shared operations called by both CLI and GUI
 
-### CLI Structure (repo-manage-cli)
+### CLI Structure (cli)
 
 The `redu` CLI uses clap with domain-based subcommands:
 
@@ -135,7 +135,7 @@ After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 - `apps/repo-manage/src/bindings/types.ts`
 - `apps/repo-manage/src/bindings/commands.ts`
 - `apps/repo-manage/src-tauri/src/generated/types.rs`
-- `apps/repo-manage/repo-manage-core/src/generated/types.rs`
+- `apps/repo-manage/core/src/generated/types.rs`
 
 **To change types or commands:**
 
@@ -158,7 +158,7 @@ for schema conventions and the `x-rust` extension spec.
 For detailed guidance on specific areas, see the CLAUDE.md files in:
 
 - `crates/CLAUDE.md` — LMS client crate architecture
-- `apps/repo-manage/repo-manage-core/CLAUDE.md` — Core library patterns
-- `apps/repo-manage/repo-manage-cli/CLAUDE.md` — CLI structure and testing
+- `apps/repo-manage/core/CLAUDE.md` — Core library patterns
+- `apps/repo-manage/cli/CLAUDE.md` — CLI structure and testing
 - `apps/repo-manage/src-tauri/CLAUDE.md` — Tauri backend commands
 - `packages/ui/CLAUDE.md` — shadcn/ui component library

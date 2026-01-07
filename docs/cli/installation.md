@@ -41,7 +41,7 @@ cargo build --release -p repo-manage-cli
 ./target/release/redu --version
 
 # Optionally install to ~/.cargo/bin
-cargo install --path apps/repo-manage/repo-manage-cli
+cargo install --path apps/repo-manage/cli
 ```
 
 ## Verify Installation

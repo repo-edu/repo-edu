@@ -54,7 +54,7 @@ const rustOutPath = resolve(
 )
 const coreRustOutPath = resolve(
   repoRoot,
-  "apps/repo-manage/repo-manage-core/src/generated/types.rs",
+  "apps/repo-manage/core/src/generated/types.rs",
 )
 
 const typesHeader =

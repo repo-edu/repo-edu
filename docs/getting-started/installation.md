@@ -55,7 +55,7 @@ git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 
 # Build and install
-cargo install --path apps/repo-manage/repo-manage-cli
+cargo install --path apps/repo-manage/cli
 ```
 
 ### Verify Installation
@@ -99,7 +99,7 @@ Download the latest release and replace the existing application.
 ```bash
 cd repo-edu
 git pull
-cargo install --path apps/repo-manage/repo-manage-cli --force
+cargo install --path apps/repo-manage/cli --force
 ```
 
 ## Uninstalling

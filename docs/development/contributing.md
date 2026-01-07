@@ -53,8 +53,8 @@ repo-edu/
 ├── apps/repo-manage/     # Main application
 │   ├── src/              # React frontend
 │   ├── src-tauri/        # Rust backend
-│   ├── repo-manage-core/ # Shared Rust library
-│   └── repo-manage-cli/  # CLI tool
+│   ├── core/             # Shared Rust library
+│   └── cli/              # CLI tool
 ├── crates/               # LMS crates
 ├── packages/ui/          # Shared UI components
 └── docs/                 # VitePress documentation

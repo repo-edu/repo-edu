@@ -17,11 +17,11 @@ repo-edu/
 │       │   └── adapters/         # Data transformation
 │       ├── src-tauri/            # Tauri/Rust backend
 │       │   └── src/commands/     # Tauri command handlers
-│       ├── repo-manage-core/     # Shared Rust library
+│       ├── core/                 # Shared Rust library
 │       │   ├── src/lms/          # LMS operations
 │       │   ├── src/platform/     # Git platform APIs
 │       │   └── src/settings/     # Configuration
-│       └── repo-manage-cli/      # CLI tool
+│       └── cli/                  # CLI tool
 ├── crates/
 │   ├── lms-client/               # Unified LMS client
 │   ├── lms-common/               # Shared LMS types
