@@ -76,6 +76,12 @@ impl Normalize for LmsConnection {
     fn normalize(&mut self) {
         normalize_url(&mut self.base_url);
         normalize_string(&mut self.access_token);
+        if let Some(ref mut user_agent) = self.user_agent {
+            normalize_string(user_agent);
+            if user_agent.is_empty() {
+                self.user_agent = None;
+            }
+        }
     }
 }
 

@@ -67,6 +67,7 @@ pub struct GetGroupCategoriesParams {
     pub access_token: String,
     pub course_id: String,
     pub lms_type: String,
+    pub user_agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

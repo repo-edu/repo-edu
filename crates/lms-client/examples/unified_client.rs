@@ -41,7 +41,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let token = env::var("LMS_TOKEN").expect("LMS_TOKEN must be set for Canvas/Moodle");
-    let auth = LmsAuth::Token { url, token };
+    let auth = LmsAuth::Token {
+        url,
+        token,
+        user_agent: None,
+    };
 
     // Create unified client - same code regardless of LMS type!
     println!("Creating {} client...", lms_type.as_str());

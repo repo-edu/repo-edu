@@ -42,6 +42,7 @@ interface LmsFormState {
   lms_type: LmsType
   base_url: string
   access_token: string
+  user_agent: string
 }
 
 interface GitFormState {
@@ -105,6 +106,7 @@ export function ConnectionsPane() {
     lms_type: "canvas",
     base_url: "",
     access_token: "",
+    user_agent: "",
   })
   const [gitForm, setGitForm] = useState<GitFormState>({
     name: "",
@@ -133,6 +135,7 @@ export function ConnectionsPane() {
         lms_type: lmsConnection.lms_type,
         base_url: lmsConnection.base_url,
         access_token: lmsConnection.access_token,
+        user_agent: lmsConnection.user_agent ?? "",
       })
     }
     setEditingLms(true)
@@ -173,6 +176,7 @@ export function ConnectionsPane() {
         lms_type: lmsForm.lms_type,
         base_url: lmsForm.base_url,
         access_token: lmsForm.access_token,
+        user_agent: lmsForm.user_agent || undefined,
       }
       const result = await commands.verifyLmsConnectionDraft(connection)
       if (result.status === "error") {
@@ -195,6 +199,7 @@ export function ConnectionsPane() {
       lms_type: lmsForm.lms_type,
       base_url: lmsForm.base_url,
       access_token: lmsForm.access_token,
+      user_agent: lmsForm.user_agent || undefined,
     }
     setLmsConnection(connection)
     await saveAppSettings()
@@ -638,6 +643,20 @@ function LmsForm({
             )}
           </Button>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="lms-user-agent">User-Agent (optional)</Label>
+        <Input
+          id="lms-user-agent"
+          value={form.user_agent}
+          onChange={(e) => setForm({ ...form, user_agent: e.target.value })}
+          placeholder="YourName / contact@university.edu"
+        />
+        <p className="text-xs text-muted-foreground">
+          Identifies you to LMS administrators. Recommended format: Organization
+          / email
+        </p>
       </div>
 
       {error && <p className="text-destructive">{error}</p>}

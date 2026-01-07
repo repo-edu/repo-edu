@@ -21,6 +21,7 @@ pub fn create_lms_client(settings: &LmsConnection) -> Result<LmsClient> {
     let auth = LmsAuth::Token {
         url: normalize_base_url(&settings.base_url),
         token: settings.access_token.clone(),
+        user_agent: settings.user_agent.clone(),
     };
 
     LmsClient::new(settings.lms_type, auth).map_err(|e| PlatformError::Other(e.to_string()))
@@ -31,6 +32,7 @@ pub fn create_lms_client_with_params(
     lms_type: &str,
     base_url: String,
     access_token: String,
+    user_agent: Option<String>,
 ) -> Result<LmsClient> {
     let lms_type = match lms_type {
         "Canvas" => LmsType::Canvas,
@@ -46,6 +48,7 @@ pub fn create_lms_client_with_params(
     let auth = LmsAuth::Token {
         url: normalize_base_url(&base_url),
         token: access_token,
+        user_agent,
     };
 
     LmsClient::new(lms_type, auth).map_err(|e| PlatformError::Other(e.to_string()))

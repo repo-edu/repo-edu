@@ -76,6 +76,7 @@ pub async fn verify_lms_course(
         &params.lms_type,
         params.base_url.clone(),
         params.access_token.clone(),
+        None,
     )?;
 
     let course = client.get_course(&params.course_id).await?;
@@ -116,6 +117,7 @@ pub async fn generate_lms_files(
         &params.lms_type,
         params.base_url.clone(),
         params.access_token.clone(),
+        None,
     )?;
 
     // Fetch students with progress

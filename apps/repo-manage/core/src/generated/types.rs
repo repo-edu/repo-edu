@@ -270,6 +270,7 @@ pub struct LmsConnection {
   pub lms_type: LmsType,
   pub base_url: String,
   pub access_token: String,
+  pub user_agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

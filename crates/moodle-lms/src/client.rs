@@ -10,6 +10,9 @@ use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
 use std::time::Duration;
 
+/// Default User-Agent when none is provided
+const DEFAULT_USER_AGENT: &str = "repo-edu";
+
 /// Moodle Web Services client
 #[derive(Debug, Clone)]
 pub struct MoodleClient {
@@ -26,6 +29,7 @@ impl MoodleClient {
     ///
     /// * `base_url` - The base URL of the Moodle instance (e.g., `https://moodle.example.edu`)
     /// * `token` - The web services token
+    /// * `user_agent` - Optional User-Agent header identifying the caller (recommended format: "Organization / contact@email.edu")
     ///
     /// # Example
     ///
@@ -34,15 +38,22 @@ impl MoodleClient {
     ///
     /// let client = MoodleClient::new(
     ///     "https://moodle.example.edu",
-    ///     "your_webservice_token"
+    ///     "your_webservice_token",
+    ///     Some("MyUniversity / admin@uni.edu"),
     /// )?;
     /// # Ok::<(), lms_common::LmsError>(())
     /// ```
-    pub fn new(base_url: impl Into<String>, token: impl Into<String>) -> LmsResult<Self> {
+    pub fn new(
+        base_url: impl Into<String>,
+        token: impl Into<String>,
+        user_agent: Option<&str>,
+    ) -> LmsResult<Self> {
         let base_url = base_url.into().trim_end_matches('/').to_string();
         let token = token.into();
+        let user_agent = user_agent.unwrap_or(DEFAULT_USER_AGENT);
 
         let http_client = Client::builder()
+            .user_agent(user_agent)
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|e| LmsError::Other(format!("Failed to build HTTP client: {}", e)))?;

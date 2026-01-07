@@ -426,6 +426,7 @@ mod tests {
             lms_type: LmsType::Canvas,
             base_url: "invalid".to_string(),
             access_token: "token".to_string(),
+            user_agent: None,
         };
         assert!(settings.validate().is_err());
     }

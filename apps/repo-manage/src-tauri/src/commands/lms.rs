@@ -217,9 +217,13 @@ pub async fn generate_lms_files(
 pub async fn get_group_categories(
     params: GetGroupCategoriesParams,
 ) -> Result<Vec<GroupCategory>, AppError> {
-    let client =
-        create_lms_client_with_params(&params.lms_type, params.base_url, params.access_token)
-            .map_err(|e| AppError::new(e.to_string()))?;
+    let client = create_lms_client_with_params(
+        &params.lms_type,
+        params.base_url,
+        params.access_token,
+        params.user_agent,
+    )
+    .map_err(|e| AppError::new(e.to_string()))?;
 
     let categories = client
         .get_group_categories(&params.course_id)

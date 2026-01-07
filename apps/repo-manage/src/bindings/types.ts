@@ -301,6 +301,10 @@ export interface LmsConnection {
   lms_type: LmsType;
   base_url: string;
   access_token: string;
+  /**
+   * User-Agent header for API requests. Identifies you to LMS administrators. Recommended format: 'Organization / contact@email.edu'
+   */
+  user_agent?: string;
 }
 
 /**

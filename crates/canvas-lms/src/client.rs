@@ -10,6 +10,9 @@ use reqwest::{header, Client, Response};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
 
+/// Default User-Agent when none is provided
+const DEFAULT_USER_AGENT: &str = "repo-edu";
+
 /// Canvas API client
 #[derive(Debug, Clone)]
 pub struct CanvasClient {
@@ -25,6 +28,7 @@ impl CanvasClient {
     ///
     /// * `base_url` - The base URL of the Canvas instance (e.g., `https://canvas.instructure.com`)
     /// * `token` - The access token for authentication
+    /// * `user_agent` - Optional User-Agent header identifying the caller (recommended format: "Organization / contact@email.edu")
     ///
     /// # Example
     ///
@@ -33,13 +37,19 @@ impl CanvasClient {
     ///
     /// let client = CanvasClient::new(
     ///     "https://canvas.instructure.com",
-    ///     "your_access_token"
+    ///     "your_access_token",
+    ///     Some("MyUniversity / admin@uni.edu"),
     /// )?;
     /// # Ok::<(), lms_common::LmsError>(())
     /// ```
-    pub fn new(base_url: impl Into<String>, token: impl Into<String>) -> LmsResult<Self> {
+    pub fn new(
+        base_url: impl Into<String>,
+        token: impl Into<String>,
+        user_agent: Option<&str>,
+    ) -> LmsResult<Self> {
         let base_url = base_url.into().trim_end_matches('/').to_string();
         let token = token.into();
+        let user_agent = user_agent.unwrap_or(DEFAULT_USER_AGENT);
 
         // Build HTTP client with default headers
         let mut headers = header::HeaderMap::new();
@@ -55,6 +65,7 @@ impl CanvasClient {
 
         let http_client = Client::builder()
             .default_headers(headers)
+            .user_agent(user_agent)
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|e| LmsError::Other(format!("Failed to build HTTP client: {}", e)))?;

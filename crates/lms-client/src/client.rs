@@ -23,6 +23,7 @@ use moodle_lms::MoodleClient;
 ///     LmsAuth::Token {
 ///         url: "https://canvas.tue.nl".to_string(),
 ///         token: "your_token".to_string(),
+///         user_agent: Some("MyOrg / admin@example.edu".to_string()),
 ///     }
 /// )?;
 ///
@@ -70,6 +71,7 @@ impl LmsClient {
     ///     LmsAuth::Token {
     ///         url: "https://canvas.tue.nl".to_string(),
     ///         token: "token".to_string(),
+    ///         user_agent: None,
     ///     }
     /// )?;
     ///
@@ -79,19 +81,28 @@ impl LmsClient {
     ///     LmsAuth::Token {
     ///         url: "https://moodle.edu".to_string(),
     ///         token: "token".to_string(),
+    ///         user_agent: Some("MyUniversity / dept@uni.edu".to_string()),
     ///     }
     /// )?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn new(lms_type: LmsType, auth: LmsAuth) -> LmsResult<Self> {
-        let (url, token) = match auth {
-            LmsAuth::Token { url, token } => (url, token),
+        let (url, token, user_agent) = match auth {
+            LmsAuth::Token {
+                url,
+                token,
+                user_agent,
+            } => (url, token, user_agent),
         };
 
         let kind = match lms_type {
-            LmsType::Canvas => ClientKind::Canvas(CanvasClient::new(url, token)?),
-            LmsType::Moodle => ClientKind::Moodle(MoodleClient::new(url, token)?),
+            LmsType::Canvas => {
+                ClientKind::Canvas(CanvasClient::new(url, token, user_agent.as_deref())?)
+            }
+            LmsType::Moodle => {
+                ClientKind::Moodle(MoodleClient::new(url, token, user_agent.as_deref())?)
+            }
         };
 
         Ok(Self { kind })
@@ -209,6 +220,7 @@ mod tests {
             LmsAuth::Token {
                 url: "https://canvas.tue.nl".to_string(),
                 token: "test_token".to_string(),
+                user_agent: None,
             },
         );
 
@@ -224,11 +236,26 @@ mod tests {
             LmsAuth::Token {
                 url: "https://moodle.edu".to_string(),
                 token: "test_token".to_string(),
+                user_agent: None,
             },
         );
 
         assert!(result.is_ok());
         let client = result.unwrap();
         assert_eq!(client.lms_type(), LmsType::Moodle);
+    }
+
+    #[test]
+    fn test_canvas_with_user_agent() {
+        let result = LmsClient::new(
+            LmsType::Canvas,
+            LmsAuth::Token {
+                url: "https://canvas.tue.nl".to_string(),
+                token: "test_token".to_string(),
+                user_agent: Some("TestOrg / test@example.com".to_string()),
+            },
+        );
+
+        assert!(result.is_ok());
     }
 }
