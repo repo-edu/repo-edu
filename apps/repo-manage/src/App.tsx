@@ -1,4 +1,5 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo-edu/ui"
+import { listen } from "@tauri-apps/api/event"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -153,20 +154,12 @@ function App() {
 
   // Handle Tauri menu events
   useEffect(() => {
-    let cleanup: (() => void) | undefined
-
-    async function setupMenuListeners() {
-      const { listen } = await import("@tauri-apps/api/event")
-      const unlistenShortcuts = await listen("menu-keyboard-shortcuts", () => {
-        ui.openSettings("shortcuts")
-      })
-      cleanup = () => {
-        unlistenShortcuts()
-      }
+    const unlistenShortcuts = listen("menu-keyboard-shortcuts", () => {
+      ui.openSettings("shortcuts")
+    })
+    return () => {
+      unlistenShortcuts.then((unlisten) => unlisten())
     }
-
-    setupMenuListeners()
-    return () => cleanup?.()
   }, [ui])
 
   // Loading state

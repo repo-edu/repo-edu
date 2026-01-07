@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo-edu/ui"
+import { save } from "@tauri-apps/plugin-dialog"
 import { useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
 import type { CoverageExportFormat, CoverageReport } from "../../bindings/types"
@@ -53,8 +54,6 @@ export function CoverageReportSheet() {
     if (!roster) return
 
     try {
-      // Use Tauri dialog to select save path
-      const { save } = await import("@tauri-apps/plugin-dialog")
       const path = await save({
         defaultPath: `coverage.${exportFormat}`,
         filters: [

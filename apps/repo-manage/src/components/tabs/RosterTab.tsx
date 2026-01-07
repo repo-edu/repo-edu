@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Loader2,
 } from "@repo-edu/ui/components/icons"
+import { save } from "@tauri-apps/plugin-dialog"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import type { ValidationIssue, ValidationKind } from "../../bindings/types"
@@ -208,7 +209,6 @@ export function RosterTab() {
     if (!roster) return
 
     try {
-      const { save } = await import("@tauri-apps/plugin-dialog")
       const path = await save({
         defaultPath: `students.${format}`,
         filters: [
