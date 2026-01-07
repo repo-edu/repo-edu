@@ -257,19 +257,10 @@ mod tests {
             .any(|w| w.contains("nested.unknown2")));
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
     struct SettingsWithOptional {
         name: String,
         optional_obj: Option<NestedSettings>,
-    }
-
-    impl Default for SettingsWithOptional {
-        fn default() -> Self {
-            Self {
-                name: String::new(),
-                optional_obj: None,
-            }
-        }
     }
 
     #[test]

@@ -478,9 +478,10 @@ mod tests {
             TemplateRepo::new("assignment2".to_string(), "url2".to_string()),
         ];
 
-        let (created, existing) = create_student_repos(&[team.clone()], &templates, &api, true)
-            .await
-            .unwrap();
+        let (created, existing) =
+            create_student_repos(std::slice::from_ref(&team), &templates, &api, true)
+                .await
+                .unwrap();
         assert_eq!(created.len(), 2);
         assert!(existing.is_empty());
 
@@ -517,7 +518,7 @@ mod tests {
 
         // For testing, we'll use the local template path as URL
         // In real usage, this would be a git URL
-        let template_urls = vec![format!("file://{}", template_dir.display())];
+        let template_urls = [format!("file://{}", template_dir.display())];
 
         // Run setup (without push since we're using local file:// URLs)
         // We'll test the components separately instead

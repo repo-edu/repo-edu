@@ -404,23 +404,25 @@ mod tests {
 
     #[test]
     fn test_validate_git_connection_github_no_base_url_required() {
-        let mut settings = GitConnection::default();
-        settings.server_type = GitServerType::GitHub;
-        settings.connection.base_url = None;
+        let settings = GitConnection {
+            server_type: GitServerType::GitHub,
+            ..Default::default()
+        };
         assert!(settings.validate().is_ok());
     }
 
     #[test]
     fn test_validate_git_connection_gitlab_requires_base_url() {
-        let mut settings = GitConnection::default();
-        settings.server_type = GitServerType::GitLab;
-        settings.connection.base_url = None;
+        let settings = GitConnection {
+            server_type: GitServerType::GitLab,
+            ..Default::default()
+        };
         assert!(settings.validate().is_err());
     }
 
     #[test]
     fn test_validate_lms_connection_invalid_base_url() {
-        let mut settings = LmsConnection {
+        let settings = LmsConnection {
             lms_type: LmsType::Canvas,
             base_url: "invalid".to_string(),
             access_token: "token".to_string(),

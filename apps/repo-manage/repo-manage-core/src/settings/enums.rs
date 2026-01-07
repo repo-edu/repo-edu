@@ -188,6 +188,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn test_git_server_type_display() {
         assert_eq!(GitServerType::GitHub.to_string(), "GitHub");
         assert_eq!(GitServerType::GitLab.to_string(), "GitLab");

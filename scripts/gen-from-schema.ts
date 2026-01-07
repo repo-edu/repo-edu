@@ -1,7 +1,7 @@
-import { compileFromFile } from "json-schema-to-typescript"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { compileFromFile } from "json-schema-to-typescript"
 
 type SchemaIndex = {
   types: { name: string; path: string }[]

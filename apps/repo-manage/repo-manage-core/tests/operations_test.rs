@@ -191,9 +191,10 @@ mod create_student_repos_tests {
         let templates = vec![TemplateRepo::new("hw1".into(), "url".into())];
 
         // First creation
-        let (created1, existing1) = create_student_repos(&[team.clone()], &templates, &api, true)
-            .await
-            .unwrap();
+        let (created1, existing1) =
+            create_student_repos(std::slice::from_ref(&team), &templates, &api, true)
+                .await
+                .unwrap();
         assert_eq!(created1.len(), 1);
         assert!(existing1.is_empty());
 
@@ -272,7 +273,7 @@ mod create_student_repos_tests {
 
         let templates = vec![TemplateRepo::new("hw1".into(), "url".into())];
 
-        create_student_repos(&[team.clone()], &templates, &api, true)
+        create_student_repos(std::slice::from_ref(&team), &templates, &api, true)
             .await
             .unwrap();
 

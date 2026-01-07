@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to AI coding assistants when working with code in this
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
 repository.
 
 See the root `/CLAUDE.md` for workspace-wide commands and architecture overview.
@@ -23,11 +23,10 @@ pnpm test:rs -- -p repo-manage-cli <name>     # Run specific test
 
 ## Architecture
 
-The CLI is a thin wrapper around `repo-manage-core` operations. Key components:
+The CLI is a thin wrapper around `repo-manage-core` operations:
 
 - `main.rs` - Clap command definitions and handlers
 - `ConfigManager` - Loads settings from `~/.config/repo-manage/settings.json` (shared with GUI)
-- `cli_progress()` - Progress callback that prints status to stdout/stderr
 
 ### Command Structure
 
@@ -36,6 +35,9 @@ Commands use domain-based grouping:
 - `redu lms verify|generate` - LMS operations (Canvas/Moodle)
 - `redu repo verify|setup|clone` - Repository operations (GitHub/GitLab/Gitea/Local)
 - `redu profile list|active|show|load` - Profile management
+
+**Note:** LMS and Repo commands are temporarily disabled during roster refactor. Only Profile
+commands are currently functional.
 
 ### Environment Variable Overrides
 

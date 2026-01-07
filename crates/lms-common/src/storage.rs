@@ -309,7 +309,7 @@ impl TokenManager {
             .map_err(|e| LmsError::token_storage_error(format!("Keychain error: {}", e)))?;
 
         entry
-            .delete_password()
+            .delete_credential()
             .map_err(|e| LmsError::token_storage_error(format!("Failed to delete token: {}", e)))?;
 
         Ok(())

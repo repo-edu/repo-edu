@@ -2,7 +2,9 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { globbySync } from "globby"
 
-const files = globbySync("**/CLAUDE.md", { gitignore: true })
+const files = globbySync("**/CLAUDE.md", { gitignore: true }).filter(
+  (file) => file !== "CLAUDE.md"
+)
 
 for (const file of files) {
   const content = readFileSync(file, "utf-8")
