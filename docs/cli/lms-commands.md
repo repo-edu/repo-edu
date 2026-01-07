@@ -1,5 +1,10 @@
 # LMS Commands
 
+::: warning Commands Disabled
+LMS commands are temporarily disabled during the roster refactor. Use the GUI application for LMS
+operations, or check back for CLI updates.
+:::
+
 The `redu lms` command group provides operations for working with Learning Management Systems
 (Canvas and Moodle).
 

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to AI coding assistants when working with code in this
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
 repository.
 
 This is the Tauri backend crate (`repo-manage-tauri`). See the root CLAUDE.md for workspace-wide
@@ -9,14 +9,21 @@ commands and architecture.
 ## Crate Structure
 
 - **src/lib.rs** - App entry point, menu setup, and Tauri invoke handler
-- **src/commands/** - Tauri command handlers that wrap core operations
-- **src/error.rs** - Error types implementing `serde::Serialize` for frontend
+- **src/commands/** - Tauri command handlers:
+  - `lms.rs` - LMS operations (verify, import students/groups)
+  - `platform.rs` - Git platform operations (verify, setup, clone)
+  - `settings.rs` - Settings loading/saving
+  - `profiles.rs` - Profile management
+  - `roster.rs` - Roster operations (save, export, student/group/assignment management)
+  - `validation.rs` - Roster and connection validation
+- **src/error.rs** - `AppError` type implementing `serde::Serialize` for frontend
+- **src/generated/** - Auto-generated types from JSON schemas (do not edit)
 
 Commands are thin wrappers that:
 
 1. Deserialize frontend parameters
-2. Call `repo-manage-core` operations with a progress channel
-3. Stream progress events to the frontend via Tauri channels
+2. Call `repo-manage-core` operations
+3. Stream progress to frontend via Tauri channels (for long-running operations)
 
 ## Adding New Commands
 
@@ -27,23 +34,23 @@ Commands are thin wrappers that:
 
 ## Progress Events
 
-Commands use Tauri channels to stream progress:
+Commands use Tauri channels to stream progress messages (see `src/commands/utils.rs`):
 
 ```rust
+use tauri::ipc::Channel;
+
 #[tauri::command]
-pub async fn my_command(
-    channel: tauri::ipc::Channel<ProgressEvent>,
-) -> Result<(), CommandError> {
-    let callback = |event| { let _ = channel.send(event); };
-    core_operation(&callback).await?;
+pub async fn my_command(channel: Channel<String>) -> Result<(), AppError> {
+    emit_standard_message(&channel, "Starting operation...");
+    core_operation().await?;
     Ok(())
 }
 ```
 
 ## Error Handling
 
-Use `CommandError` from `error.rs` which wraps `repo-manage-core::PlatformError` and serializes for
-the frontend.
+Use `AppError` from `error.rs` which converts from `repo-manage-core` error types
+(`ConfigError`, `PlatformError`, `LmsError`) and serializes for the frontend.
 
 ## Menu Events
 
@@ -56,7 +63,7 @@ Frontend listens with `listen("menu-save", callback)`.
 
 ## Debugging
 
-**Empty/black window on `tauri:dev`:** Set `"visible": true` in `tauri.conf.json` window config.
+**Empty/black window on `pnpm dev`:** Set `"visible": true` in `tauri.conf.json` window config.
 This shows the window immediately, allowing you to:
 
 - See if the frontend is loading (white background = Vite is serving)

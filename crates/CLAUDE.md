@@ -19,15 +19,13 @@ All commands should be run from the repository root using pnpm scripts:
 pnpm test:rs                              # Run all Rust tests
 pnpm test:rs -- -p lms-common             # Test specific crate
 pnpm test:rs -- -p canvas-lms <test_name> # Run single test
-
-cargo doc -p lms-client --open            # Generate and view docs
 ```
 
 ## Crate Architecture
 
 ```text
 crates/
-├── lms-common/     # Foundation: traits, types, error handling
+├── lms-common/     # Foundation: traits, types, error handling, retry, token storage
 ├── canvas-lms/     # Canvas LMS API implementation
 ├── moodle-lms/     # Moodle LMS API implementation
 └── lms-client/     # Unified client with runtime LMS selection
@@ -72,6 +70,19 @@ trait via delegation, enabling LMS selection at runtime without generics.
 
 All crates use `LmsError` from `lms-common::error` with `LmsResult<T>` alias. Errors use `thiserror`
 and include variants for HTTP, API, auth, rate-limiting, and serialization errors.
+
+## Rate Limiting
+
+Use `lms_common::retry::with_retry()` for automatic exponential backoff on rate-limited requests.
+Configurable via `RetryConfig` (default: 3 retries, 1-60s backoff).
+
+## Token Storage
+
+`lms_common::storage::TokenManager` provides two modes:
+
+- `PlainFile` (default): `~/.config/lms-api/tokens.json` with 0600 permissions
+- `Keychain` (requires `secure-storage` feature): OS keychain (macOS Keychain, Windows Credential
+  Manager, Linux Secret Service)
 
 ## Feature Flags
 

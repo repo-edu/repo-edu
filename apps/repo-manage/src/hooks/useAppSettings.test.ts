@@ -43,13 +43,6 @@ describe("useAppSettings", () => {
     expect(result.current.gitConnections).toEqual(connections)
   })
 
-  it("returns logging from store", () => {
-    const logging = { info: false, debug: true, warning: true, error: true }
-    useAppSettingsStore.setState({ logging })
-    const { result } = renderHook(() => useAppSettings())
-    expect(result.current.logging).toEqual(logging)
-  })
-
   it("returns status from store", () => {
     useAppSettingsStore.setState({ status: "loaded" })
     const { result } = renderHook(() => useAppSettings())

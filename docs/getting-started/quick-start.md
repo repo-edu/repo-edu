@@ -5,45 +5,62 @@ Get up and running with repo-edu in minutes.
 ## Step 1: Create a Profile
 
 1. Open repo-edu
-2. Click the **gear icon** to open settings
-3. Click **New** to create a profile
+2. Click the **gear icon** (or press `Cmd+,`) to open Settings
+3. Click **New Profile**
 4. Name it after your course (e.g., `cs101-fall-2025`)
 
-## Step 2: Configure LMS Connection
+## Step 2: Configure Connections
 
-1. Go to the **LMS Import** tab
+In the Settings sheet:
+
+### LMS Connection
+
+1. Go to the **LMS** section
 2. Select your LMS type (Canvas or Moodle)
 3. Enter your institution's base URL
 4. Add your API access token (see [Getting an Access Token](#getting-an-access-token))
 5. Enter your course ID
 6. Click **Verify** to test the connection
 
-✓ You should see your course name confirming the connection.
+### Git Platform Connection
 
-## Step 3: Export Student Roster
-
-1. Set the output folder
-2. Enable desired formats (YAML, CSV, XLSX)
-3. Click **Generate**
-
-✓ Files are created in your output folder.
-
-## Step 4: Configure Git Platform
-
-1. Go to the **Repository Setup** tab
+1. Go to the **Git** section
 2. Select your platform (GitHub, GitLab, or Gitea)
 3. Enter your platform credentials
 4. Set the student repos organization/group
 5. Set the template organization/group
 6. Click **Verify** to test the connection
 
-## Step 5: Create Student Repositories
+## Step 3: Import Students (Roster Tab)
 
-1. Set the YAML file path (from Step 3)
-2. Enter template names (comma-separated)
-3. Click **Setup**
+1. Go to the **Roster** tab
+2. Click the import dropdown and select **Import from LMS**
+3. Choose whether to import students only or with groups
+4. Review the imported roster
 
-✓ Repositories are created for each team.
+✓ Your student roster is now loaded.
+
+## Step 4: Define Assignments (Assignment Tab)
+
+1. Go to the **Assignment** tab
+2. Click **New Assignment**
+3. Enter the assignment name (e.g., `task-1`)
+4. Configure group settings (use original groups, subset, or custom)
+5. Click **Save**
+
+## Step 5: Create Repositories (Operation Tab)
+
+1. Go to the **Operation** tab
+2. Select the assignment to set up
+3. Click **Validate** to check for issues
+4. Click **Setup** to create repositories
+
+✓ Repositories are created for each group.
+
+## Step 6: Save Your Work
+
+1. Click **Save** (or press `Cmd+S`) to save the profile
+2. Your roster, assignments, and settings are persisted
 
 ---
 
@@ -85,21 +102,23 @@ Keep your access tokens secure. Never share them or commit them to version contr
 
 ## Command-Line Alternative
 
-All steps can also be done via CLI:
+Profile management is available via CLI:
 
 ```bash
-# Verify LMS
-redu lms verify
+# List available profiles
+redu profile list
 
-# Generate student files
-redu lms generate --yaml
+# Switch to a profile
+redu profile load cs101-fall-2025
 
-# Verify Git platform
-redu repo verify
-
-# Create repositories
-redu repo setup --template task-1
+# View current profile settings
+redu profile show
 ```
+
+::: tip CLI Status
+LMS and Repo CLI commands are temporarily disabled during the roster refactor. Use the GUI
+application for LMS import and repository operations.
+:::
 
 See [CLI Overview](../cli/overview.md) for details.
 

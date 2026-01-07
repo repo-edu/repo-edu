@@ -166,10 +166,6 @@
       "path": "./LmsVerifyResult.schema.json"
     },
     {
-      "name": "LogSettings",
-      "path": "./LogSettings.schema.json"
-    },
-    {
       "name": "MemberOption",
       "path": "./MemberOption.schema.json"
     },

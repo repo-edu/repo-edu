@@ -25,7 +25,6 @@ pub struct AppSettings {
   pub theme: Theme,
   pub date_format: DateFormat,
   pub time_format: TimeFormat,
-  pub logging: LogSettings,
   pub lms_connection: Option<LmsConnection>,
   pub git_connections: std::collections::HashMap<String, GitConnection>,
 }
@@ -303,14 +302,6 @@ pub struct LmsVerifyResult {
   pub success: bool,
   pub message: String,
   pub lms_type: Option<LmsType>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogSettings {
-  pub debug: bool,
-  pub error: bool,
-  pub info: bool,
-  pub warning: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

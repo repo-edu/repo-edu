@@ -161,7 +161,6 @@ export interface RepoSettings {
 export interface GuiSettings {
   active_tab: ActiveTab
   collapsed_sections?: string[]
-  logging: LogSettings
   sidebar_open: boolean
   theme: Theme
   window_height: number

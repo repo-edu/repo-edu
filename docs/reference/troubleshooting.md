@@ -117,6 +117,11 @@ GitHub and GitLab have API rate limits.
 
 ## CLI Issues
 
+::: warning Commands Disabled
+LMS and Repo CLI commands are temporarily disabled during the roster refactor. Only Profile
+commands (`redu profile list|active|show|load`) are currently functional.
+:::
+
 ### "Command not found: redu"
 
 The CLI is not in your PATH.

@@ -24,8 +24,8 @@ mod validation;
 pub use crate::generated::types::{
     AppSettings, CloneConfig, CourseInfo, CreateConfig, DateFormat, DeleteConfig, DirectoryLayout,
     ExportSettings, GitConnection, GitIdentityMode, GitServerType, LmsConnection, LmsType,
-    LogSettings, MemberOption, OperationConfigs, PlatformConnection, ProfileSettings,
-    SettingsLoadResult, Theme, TimeFormat,
+    MemberOption, OperationConfigs, PlatformConnection, ProfileSettings, SettingsLoadResult, Theme,
+    TimeFormat,
 };
 pub use atomic::{atomic_write, atomic_write_json, atomic_write_string};
 pub use cli::CLIConfig;

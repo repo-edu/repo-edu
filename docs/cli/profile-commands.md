@@ -58,25 +58,23 @@ Current Configuration:
 
 Active Profile: cs101-fall-2025
 
-Git Settings:
+Course:
+  ID              : 12345
+  Name            : CS101 Introduction to Programming
+
+Git Connection: gitlab-main
   Server Type     : GitLab
-  Base URL        : https://gitlab.tue.nl
+  Base URL        : https://gitlab.example.com
   User            : instructor
   Access Token    : ***
 
-Repo Settings:
-  Student Org     : cs101-repos
+Operations:
+  Target Org      : cs101-students-2025
   Template Org    : cs101-templates
-  YAML File       : students.yaml
-  Target Folder   : ./repos
-  Assignments     : task-1,task-2
-  Directory Layout: Flat
+  Clone Directory : ./repos
+  Directory Layout: ByTeam
 
-LMS Settings:
-  Type            : Canvas
-  Base URL        : https://canvas.tue.nl
-  Courses         : 12345 (CS101 - Fall 2025)
-  Access Token    : ***
+Export Settings:
   Output Folder   : ./output
   Output YAML     : true
   Output CSV      : false
@@ -120,14 +118,17 @@ Error: Failed to load profile: no-such-profile
 Profiles are stored as JSON files in the configuration directory:
 
 ```text
-~/.config/repo-edu/          # Linux
-~/Library/Application Support/repo-edu/   # macOS
-%APPDATA%\repo-edu\          # Windows
-├── settings.json            # App-level settings (active profile, theme)
-└── profiles/
-    ├── cs101-fall-2025.json
-    ├── cs201-spring-2025.json
-    └── sandbox.json
+~/.config/repo-edu/                              # Linux
+~/Library/Application Support/repo-edu/          # macOS
+%APPDATA%\repo-edu\                              # Windows
+├── app.json                 # App-level settings (theme, connections)
+├── profiles/
+│   ├── cs101-fall-2025.json
+│   ├── cs201-spring-2025.json
+│   └── sandbox.json
+└── rosters/
+    ├── cs101-fall-2025.json  # Roster data (students, assignments)
+    └── ...
 ```
 
 ## Sharing Profiles
@@ -135,12 +136,13 @@ Profiles are stored as JSON files in the configuration directory:
 Profile files are portable JSON. To share a profile:
 
 1. Copy the profile JSON file from `profiles/`
-2. Remove or redact sensitive fields (`access_token`)
-3. Share the file with colleagues
+2. Optionally copy the corresponding roster from `rosters/`
+3. Remove or redact sensitive fields (`access_token`)
+4. Share the files with colleagues
 
 To import a shared profile:
 
-1. Place the JSON file in your `profiles/` directory
+1. Place the JSON file(s) in the appropriate directories
 2. Run `redu profile load <filename-without-extension>`
 
 ::: warning Security

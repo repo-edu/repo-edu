@@ -3,6 +3,11 @@
 The CLI uses the same configuration system as the GUI application, with additional support for
 environment variable overrides.
 
+::: warning CLI Commands Disabled
+LMS and Repo commands are temporarily disabled during the roster refactor. Only Profile commands
+are currently functional.
+:::
+
 ## Configuration Priority
 
 Settings are resolved in this order (highest priority first):
@@ -26,23 +31,27 @@ Settings are stored in a platform-specific directory:
 
 ```text
 repo-edu/
-├── settings.json           # App settings (active profile, theme)
-└── profiles/
-    ├── default.json        # Default profile
-    └── my-course.json      # Custom profiles
+├── app.json                # App settings (theme, connections)
+├── profiles/
+│   ├── default.json        # Default profile
+│   └── my-course.json      # Custom profiles
+└── rosters/
+    ├── default.json        # Roster data for profiles
+    └── my-course.json
 ```
 
 ## Environment Variables
 
 Override Git platform settings via environment variables:
 
-| Variable | Description | Overrides |
-|----------|-------------|-----------|
-| `REPOBEE_BASE_URL` | Git platform URL | `git.*.base_url` |
-| `REPOBEE_TOKEN` | Access token | `git.*.access_token` |
-| `REPOBEE_ORG` | Student repos org/group | `git.*.student_repos_*` |
-| `REPOBEE_USER` | Platform username | `git.*.user` |
-| `REPOBEE_TEMPLATE_ORG` | Template org/group | `git.*.template_*` |
+| Variable | Description |
+|----------|-------------|
+| `REPOBEE_BASE_URL` | Git platform URL |
+| `REPOBEE_TOKEN` | Access token |
+| `REPOBEE_ORG` | Student repos org/group |
+| `REPOBEE_USER` | Platform username |
+| `REPOBEE_TEMPLATE_ORG` | Template org/group |
+| `REPOBEE_CONFIG_DIR` | Override config directory |
 
 ### Example: CI/CD Pipeline
 
@@ -65,7 +74,7 @@ jobs:
       - name: Setup repos
         env:
           REPOBEE_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          REPOBEE_BASE_URL: https://gitlab.tue.nl
+          REPOBEE_BASE_URL: https://gitlab.example.com
           REPOBEE_ORG: cs101-repos
           REPOBEE_TEMPLATE_ORG: cs101-templates
         run: |
@@ -75,70 +84,81 @@ jobs:
             --teams-file students.yaml
 ```
 
-## Profile JSON Schema
+::: warning
+The `redu repo setup` command is currently disabled. This example shows the planned usage when
+re-enabled.
+:::
 
-Profile files follow this structure:
+## Configuration Files
+
+### App Settings (`app.json`)
+
+App-level settings shared across all profiles:
 
 ```json
 {
-  "git": {
-    "type": "GitLab",
-    "github": {
-      "access_token": "",
-      "user": "",
-      "student_repos_org": "",
-      "template_org": ""
-    },
-    "gitlab": {
-      "access_token": "glpat-xxx",
-      "base_url": "https://gitlab.tue.nl",
-      "user": "instructor",
-      "student_repos_group": "cs101-repos",
-      "template_group": "cs101-templates"
-    },
-    "gitea": {
-      "access_token": "",
-      "base_url": "",
-      "user": "",
-      "student_repos_group": "",
-      "template_group": ""
-    }
+  "theme": "system",
+  "date_format": "iso",
+  "time_format": "24h",
+  "lms_connection": {
+    "lms_type": "Canvas",
+    "base_url": "https://canvas.example.com",
+    "access_token": "..."
   },
-  "lms": {
-    "type": "Canvas",
-    "canvas": {
-      "access_token": "xxx",
-      "base_url": "https://canvas.tue.nl",
-      "courses": [{ "id": "12345", "name": "CS101" }],
-      "custom_url": "",
-      "url_option": "TUE"
+  "git_connections": {
+    "gitlab-main": {
+      "server_type": "GitLab",
+      "connection": {
+        "access_token": "glpat-xxx",
+        "base_url": "https://gitlab.example.com",
+        "user": "instructor"
+      }
+    }
+  }
+}
+```
+
+### Profile Settings (`profiles/*.json`)
+
+Per-profile configuration:
+
+```json
+{
+  "course": {
+    "id": "12345",
+    "name": "CS101 Introduction to Programming"
+  },
+  "git_connection": "gitlab-main",
+  "operations": {
+    "target_org": "cs101-students-2025",
+    "repo_name_template": "{group}-{assignment}",
+    "create": {
+      "template_org": "cs101-templates"
     },
-    "moodle": {
-      "access_token": "",
-      "base_url": "",
-      "courses": []
+    "clone": {
+      "target_dir": "./repos",
+      "directory_layout": "ByTeam"
     },
+    "delete": {}
+  },
+  "exports": {
     "output_folder": "./output",
     "output_yaml": true,
     "output_csv": false,
     "output_xlsx": false,
     "yaml_file": "students.yaml",
-    "csv_file": "student-info.csv",
-    "xlsx_file": "student-info.xlsx",
+    "csv_file": "students.csv",
+    "xlsx_file": "students.xlsx",
     "member_option": "EmailAndGitId",
     "include_group": true,
     "include_member": true,
     "include_initials": false,
     "full_groups": true
-  },
-  "repo": {
-    "assignments": "task-1,task-2",
-    "directory_layout": "Flat",
-    "target_folder": "./repos",
-    "yaml_file": "students.yaml"
   }
 }
 ```
+
+See [Settings Reference](../reference/settings-reference.md) for complete field documentation.
 
 ## Debugging Configuration
 

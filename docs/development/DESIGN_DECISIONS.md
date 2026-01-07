@@ -131,14 +131,16 @@ Settings use nested structure (Option B) rather than flat with prefixes:
 
 ```rust
 pub struct ProfileSettings {
-    pub common: CommonSettings,  // Git credentials
-    pub lms: LmsSettings,        // LMS tab settings
-    pub repo: RepoSettings,      // Repo tab settings
+    pub course: CourseInfo,           // Course ID and name
+    pub git_connection: Option<String>, // Reference to named git connection
+    pub operations: OperationConfigs, // Repo operations settings
+    pub exports: ExportSettings,      // Export format settings
 }
 
 pub struct AppSettings {
     pub theme: Theme,
-    pub logging: LogSettings,
+    pub lms_connection: Option<LmsConnection>, // LMS credentials
+    pub git_connections: HashMap<String, GitConnection>, // Named git connections
     // ... app-level settings
 }
 ```

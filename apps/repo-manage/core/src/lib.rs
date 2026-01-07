@@ -55,9 +55,9 @@ pub use settings::{
     path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
     AppSettings, CLIConfig, CloneConfig, ConfigError, ConfigResult, CourseInfo, CreateConfig,
     DeleteConfig, DirectoryLayout, ExportSettings, GitConnection, GitIdentityMode, GitServerType,
-    Interface, LmsConnection, LogSettings, MemberOption, Normalize, OperationConfigs,
-    PathValidationMode, PlatformConnection, ProfileSettings, SettingsLoadResult, SettingsManager,
-    Theme, Validate, ValidationErrors,
+    Interface, LmsConnection, MemberOption, Normalize, OperationConfigs, PathValidationMode,
+    PlatformConnection, ProfileSettings, SettingsLoadResult, SettingsManager, Theme, Validate,
+    ValidationErrors,
 };
 
 // Generated types used by Tauri commands

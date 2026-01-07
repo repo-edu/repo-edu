@@ -1,7 +1,6 @@
 # Repository Setup
 
-The Repository Setup tab allows you to create and manage student repositories on Git hosting
-platforms.
+Create and manage student repositories on Git hosting platforms using the **Operation** tab.
 
 ## Supported Platforms
 
@@ -12,9 +11,19 @@ platforms.
 | **Gitea** | Organizations, template repos |
 | **Local** | Filesystem-based repos (for testing) |
 
+## Prerequisites
+
+Before setting up repositories:
+
+1. **Roster** — Import or create a student roster in the Roster tab
+2. **Assignments** — Define assignments in the Assignment tab
+3. **Git Connection** — Configure your Git platform in Settings
+
 ## Configuration
 
 ### Git Platform Settings
+
+Configure in **Settings** (gear icon or `Cmd+,`) under the Git section:
 
 | Setting | Description |
 |---------|-------------|
@@ -36,51 +45,65 @@ platforms.
 
 ## Workflow
 
-### Step 1: Configure Platform
+### Step 1: Prepare Roster and Assignments
 
-1. Select your Git platform
-2. For GitLab/Gitea: enter the base URL
-3. Enter your personal access token
-4. Enter your username
-5. Set the student repos organization/group
-6. Set the template organization/group
+1. **Roster tab**: Import students from LMS or file, or add manually
+2. **Assignment tab**: Create assignments with:
+   - Assignment name (becomes part of repo name)
+   - Template repository reference
+   - Group configuration (use original groups, subset, or custom)
 
-### Step 2: Verify Connection
+### Step 2: Configure Git Platform
 
-Click **Verify** to test your configuration. Successful verification confirms:
+1. Open Settings (gear icon)
+2. Go to the **Git** section
+3. Select your platform
+4. Enter credentials and organization details
+5. Click **Verify** to test the connection
 
-- Valid authentication
-- Access to student repos organization
-- Access to template organization
+### Step 3: Preview and Validate
 
-### Step 3: Configure Repository Setup
+In the **Operation** tab:
 
-| Setting | Description |
-|---------|-------------|
-| YAML File | Path to student teams file (from LMS Import) |
-| Assignments | Template repository names (comma-separated) |
-| Target Folder | Local directory for cloning (optional) |
-| Directory Layout | How to organize cloned repos |
+1. Select the assignment to set up
+2. Click **Validate** to check:
+   - All students have git usernames
+   - Template repository exists
+   - Target organization is accessible
+3. Review the validation report
 
 ### Step 4: Create Repositories
 
-Click **Setup** to create repositories. For each team and template combination:
+1. Review the preflight summary showing:
+   - Number of repositories to create
+   - Target organization
+   - Template being used
+2. Click **Setup** to begin creation
+3. Monitor progress in the output console
 
-1. Clone template repository locally
-2. Create new repository in student organization
-3. Push template content to new repository
-4. Set repository visibility (public/private)
+## Assignment Groups
+
+Each assignment can have different group configurations:
+
+| Type | Description |
+|------|-------------|
+| **Use Original** | Use groups as imported from LMS |
+| **Subset** | Select specific groups to include |
+| **Custom** | Define new group compositions |
+| **Individual** | Create individual repos (one per student) |
+
+Configure in the **Assignment** tab when creating or editing assignments.
 
 ## Repository Naming
 
-Repositories are named using the pattern: `{team-name}-{template-name}`
+Repositories are named using the pattern: `{group-name}-{assignment-name}`
 
-| Team | Template | Repository Name |
-|------|----------|-----------------|
+| Group | Assignment | Repository Name |
+|-------|------------|-----------------|
 | team-alpha | task-1 | team-alpha-task-1 |
 | alice-bob | assignment-1 | alice-bob-assignment-1 |
 
-## Directory Layouts
+## Directory Layouts (Clone)
 
 When cloning repositories locally, choose an organization layout:
 
@@ -187,5 +210,4 @@ When a repository already exists:
 ## See Also
 
 - [Settings Reference](../reference/settings-reference.md) — Complete settings documentation
-- [CLI Repo Commands](../cli/repo-commands.md) — Command-line usage
 - [Troubleshooting](../reference/troubleshooting.md) — Common issues

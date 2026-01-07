@@ -11,6 +11,8 @@ import {
 
 const sampleAppSettings: AppSettings = {
   theme: "dark",
+  date_format: "DMY",
+  time_format: "24h",
   lms_connection: {
     lms_type: "canvas",
     base_url: "https://canvas.example.com",
@@ -26,12 +28,6 @@ const sampleAppSettings: AppSettings = {
       },
       identity_mode: "username",
     },
-  },
-  logging: {
-    info: true,
-    debug: true,
-    warning: true,
-    error: true,
   },
 }
 
@@ -93,7 +89,6 @@ describe("settingsAdapter", () => {
       expect(defaultAppSettingsState.theme).toBe("system")
       expect(defaultAppSettingsState.lmsConnection).toBeNull()
       expect(defaultAppSettingsState.gitConnections).toEqual({})
-      expect(defaultAppSettingsState.logging.info).toBe(true)
     })
   })
 

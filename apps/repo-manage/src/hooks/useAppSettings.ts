@@ -5,12 +5,7 @@
  */
 
 import { useCallback } from "react"
-import type {
-  GitConnection,
-  LmsConnection,
-  LogSettings,
-  Theme,
-} from "../bindings/types"
+import type { GitConnection, LmsConnection, Theme } from "../bindings/types"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
@@ -19,7 +14,6 @@ export interface UseAppSettingsReturn {
   theme: Theme
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
-  logging: LogSettings
   status: StoreStatus
   error: string | null
   save: () => Promise<void>
@@ -30,7 +24,6 @@ export function useAppSettings(): UseAppSettingsReturn {
   const theme = useAppSettingsStore((state) => state.theme)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const gitConnections = useAppSettingsStore((state) => state.gitConnections)
-  const logging = useAppSettingsStore((state) => state.logging)
   const status = useAppSettingsStore((state) => state.status)
   const error = useAppSettingsStore((state) => state.error)
   const storeSave = useAppSettingsStore((state) => state.save)
@@ -48,7 +41,6 @@ export function useAppSettings(): UseAppSettingsReturn {
     theme,
     lmsConnection,
     gitConnections,
-    logging,
     status,
     error,
     save,

@@ -91,7 +91,12 @@ Excel format with the same structure as CSV, plus:
 
 ## Teams File (JSON/YAML)
 
-Input format for `redu repo setup` when specifying teams directly.
+Input format for repository setup when specifying teams directly.
+
+::: tip CLI Status
+The `redu repo setup` command is currently disabled. Use the GUI Operation tab for repository
+setup.
+:::
 
 ### YAML Format
 

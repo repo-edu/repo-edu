@@ -11,7 +11,6 @@ import type {
   DateFormat,
   GitConnection,
   LmsConnection,
-  LogSettings,
   Theme,
   TimeFormat,
 } from "../bindings/types"
@@ -24,7 +23,6 @@ interface AppSettingsState {
   timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
-  logging: LogSettings
   status: StoreStatus
   error: string | null
 }
@@ -47,9 +45,6 @@ interface AppSettingsActions {
   updateGitConnection: (name: string, connection: GitConnection) => void
   removeGitConnection: (name: string) => void
 
-  // Logging
-  setLogging: (logging: LogSettings) => void
-
   // Reset
   reset: () => void
 }
@@ -62,12 +57,6 @@ const initialState: AppSettingsState = {
   timeFormat: "24h",
   lmsConnection: null,
   gitConnections: {},
-  logging: {
-    info: true,
-    debug: false,
-    warning: true,
-    error: true,
-  },
   status: "loading",
   error: null,
 }
@@ -90,7 +79,6 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
         timeFormat: settings.time_format,
         lmsConnection: settings.lms_connection ?? null,
         gitConnections: settings.git_connections ?? {},
-        logging: settings.logging,
         status: "loaded",
         error: null,
       })
@@ -110,7 +98,6 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
         time_format: state.timeFormat,
         lms_connection: state.lmsConnection,
         git_connections: state.gitConnections,
-        logging: state.logging,
       }
       const result = await commands.saveAppSettings(settings)
       if (result.status === "error") {
@@ -146,8 +133,6 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
       return { gitConnections: rest }
     }),
 
-  setLogging: (logging) => set({ logging }),
-
   reset: () => set(initialState),
 }))
 
@@ -160,6 +145,5 @@ export const selectGitConnections = (state: AppSettingsStore) =>
 export const selectGitConnection =
   (name: string) => (state: AppSettingsStore) =>
     state.gitConnections[name] ?? null
-export const selectLogging = (state: AppSettingsStore) => state.logging
 export const selectAppSettingsStatus = (state: AppSettingsStore) => state.status
 export const selectAppSettingsError = (state: AppSettingsStore) => state.error

@@ -6,8 +6,7 @@ use super::normalization::{normalize_string, normalize_url, Normalize};
 use super::{DirectoryLayout, GitIdentityMode, GitServerType, MemberOption, Theme};
 use crate::generated::types::{
     AppSettings, CloneConfig, CourseInfo, CreateConfig, DeleteConfig, ExportSettings,
-    GitConnection, LmsConnection, LogSettings, OperationConfigs, PlatformConnection,
-    ProfileSettings,
+    GitConnection, LmsConnection, OperationConfigs, PlatformConnection, ProfileSettings,
 };
 use crate::generated::types::{DateFormat, TimeFormat};
 
@@ -169,24 +168,12 @@ impl Normalize for ExportSettings {
     }
 }
 
-impl Default for LogSettings {
-    fn default() -> Self {
-        Self {
-            debug: false,
-            error: true,
-            info: true,
-            warning: true,
-        }
-    }
-}
-
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: Theme::default(),
             date_format: DateFormat::default(),
             time_format: TimeFormat::default(),
-            logging: LogSettings::default(),
             lms_connection: None,
             git_connections: HashMap::new(),
         }

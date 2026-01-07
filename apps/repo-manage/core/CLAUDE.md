@@ -20,10 +20,12 @@ pnpm test:rs -- -p repo-manage-core <name>    # Run specific test by name
 
 ### Module Overview
 
+- **roster/** — Roster types, validation, export (YAML/CSV/XLSX), and slug generation
 - **operations/** — High-level operations shared between CLI and GUI (verify, setup, clone, lms)
 - **platform/** — Git platform abstraction (GitHub, GitLab, Gitea, Local)
 - **settings/** — Configuration management with JSON Schema validation and profiles
 - **lms/** — LMS client integration (wraps `lms-client` crate)
+- **import/** — Import adapters for roster data from LMS and files
 - **progress.rs** — Progress event types for status updates
 
 ### Platform Abstraction Pattern

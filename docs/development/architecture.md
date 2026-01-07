@@ -80,18 +80,32 @@ repo-edu/
 
 ### Frontend Layer
 
-1. **Components** — React components for UI
-2. **Stores** — Zustand stores hold form state and async status
-3. **Hooks** — `useXxxActions` hooks wrap store mutations with service calls
+The frontend uses a roster-centric design with three main tabs: Roster, Assignment, and Operation.
+
+1. **Components** — React components organized by:
+   - `tabs/` — Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
+   - `dialogs/` — Modal dialogs for editing
+   - `sheets/` — Slide-out panels for settings and editors
+2. **Stores** — Zustand stores:
+   - `rosterStore` — Roster data and selection state
+   - `appSettingsStore` — App-level settings
+   - `profileSettingsStore` — Per-profile connection settings
+   - `connectionsStore` — LMS/Git connection configuration
+   - `operationStore` — Git operation state
+   - `outputStore` — Console output
+   - `uiStore` — UI state (dialogs, sheets, active profile)
+3. **Hooks** — `useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`
 4. **Services** — Thin wrappers that call Tauri commands via `invoke()`
 5. **Adapters** — Transform between frontend state and backend types
 
 ### Backend Layer
 
-1. **Commands** — Tauri `#[tauri::command]` handlers
-2. **Operations** — High-level business logic
-3. **Platform/LMS** — External API clients
-4. **Settings** — Configuration loading/saving
+1. **Commands** — Tauri `#[tauri::command]` handlers (lms, platform, settings, profiles, roster,
+   validation)
+2. **Roster** — Roster types, validation, and export
+3. **Operations** — High-level business logic (verify, setup, clone)
+4. **Platform/LMS** — External API clients (GitHub, GitLab, Gitea, Canvas, Moodle)
+5. **Settings** — Configuration loading/saving with profiles
 
 ## Key Patterns
 
@@ -160,14 +174,14 @@ The CLI shares `repo-manage-core` with the GUI:
 ```text
 ┌───────────────────┐     ┌───────────────────┐
 │   Tauri GUI       │     │   CLI (redu)      │
-│   (src-tauri)     │     │   (repo-manage-cli)│
+│   (src-tauri)     │     │   (cli)           │
 └─────────┬─────────┘     └─────────┬─────────┘
           │                         │
           └────────────┬────────────┘
                        ▼
             ┌─────────────────────┐
             │  repo-manage-core   │
-            │  (shared library)   │
+            │  (core)             │
             └─────────────────────┘
 ```
 
@@ -177,21 +191,27 @@ Both interfaces:
 - Call the same core operations
 - Share the same platform/LMS clients
 
+::: warning CLI Commands Disabled
+LMS and Repo commands are temporarily disabled during the roster refactor. Only Profile commands
+(`redu profile list|active|show|load`) are currently functional.
+:::
+
 ## Configuration Architecture
 
 ```text
 ~/.config/repo-edu/
-├── settings.json          # App-level settings
-│   ├── activeProfile      # Current profile name
-│   ├── theme              # UI theme
-│   └── activeTab          # Last active tab
-└── profiles/
-    ├── default.json       # Profile settings
+├── app.json               # App-level settings (theme, connections)
+├── profiles/
+│   ├── default.json       # Profile settings (course, operations, exports)
+│   ├── course-a.json
+│   └── course-b.json
+└── rosters/
+    ├── default.json       # Roster data (students, assignments)
     ├── course-a.json
     └── course-b.json
 ```
 
-Settings are validated against a JSON Schema on load. Invalid fields are normalized to defaults.
+Settings are validated against JSON Schemas on load. Invalid fields are normalized to defaults.
 
 ## See Also
 

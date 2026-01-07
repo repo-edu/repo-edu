@@ -94,9 +94,21 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 
 ### Frontend Architecture (apps/repo-manage/src)
 
-- **stores/** - Zustand stores (`lmsFormStore`, `repoFormStore`, `uiStore`, `outputStore`)
-- **hooks/** - React hooks for actions (`useLmsActions`, `useRepoActions`) and state (
-  `useDirtyState`, `useLoadSettings`)
+The frontend uses a roster-centric design with three main tabs: Roster, Assignment, and Operation.
+
+- **components/tabs/** - Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
+- **components/dialogs/** - Modal dialogs for editing students, assignments, groups
+- **components/sheets/** - Slide-out panels (`SettingsSheet`, `StudentEditorSheet`,
+  `GroupEditorSheet`)
+- **stores/** - Zustand stores:
+  - `rosterStore` - Student roster data and selection state
+  - `appSettingsStore` - App-level settings (theme, active tab)
+  - `profileSettingsStore` - Per-profile connection settings
+  - `connectionsStore` - LMS/Git connection configuration
+  - `operationStore` - Git operation state
+  - `outputStore` - Console output messages
+  - `uiStore` - UI state (dialogs, sheets, active profile)
+- **hooks/** - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`)
 - **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
   `settingsService`)
 - **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
@@ -105,8 +117,10 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 
 ### Rust Backend Architecture (apps/repo-manage/src-tauri)
 
-- **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs)
+- **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs,
+  roster.rs)
 - **core/src/** - Core business logic
+  - **roster/** - Roster types, validation, and export
   - **lms/** - Canvas/Moodle LMS client integration
   - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
   - **settings/** - Configuration management with JSON Schema validation
@@ -116,8 +130,8 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 
 The `redu` CLI uses clap with domain-based subcommands:
 
-- `redu lms verify|generate` - LMS operations
-- `redu repo verify|setup|clone` - Repository operations
+- `redu lms verify|generate` - LMS operations *(disabled during roster refactor)*
+- `redu repo verify|setup|clone` - Repository operations *(disabled during roster refactor)*
 - `redu profile list|active|show|load` - Profile management
 
 CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).

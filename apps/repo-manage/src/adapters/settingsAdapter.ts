@@ -2,7 +2,7 @@
  * Settings adapter - transforms between backend and store formats.
  *
  * Provides separate adapters for:
- * - AppSettings (theme, connections, logging)
+ * - AppSettings (theme, connections)
  * - ProfileSettings (course, git_connection ref, operations, exports)
  * - Roster (pass-through, minimal transformation)
  */
@@ -13,7 +13,6 @@ import type {
   ExportSettings,
   GitConnection,
   LmsConnection,
-  LogSettings,
   OperationConfigs,
   ProfileSettings,
   Roster,
@@ -35,7 +34,6 @@ export interface AppSettingsStoreState {
   timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
-  logging: LogSettings
 }
 
 // ============================================================================
@@ -70,7 +68,6 @@ export function appSettingsToStore(
     timeFormat: settings.time_format,
     lmsConnection: settings.lms_connection ?? null,
     gitConnections: settings.git_connections ?? {},
-    logging: settings.logging,
   }
 }
 
@@ -84,7 +81,6 @@ export function storeToAppSettings(state: AppSettingsStoreState): AppSettings {
     time_format: state.timeFormat,
     lms_connection: state.lmsConnection,
     git_connections: state.gitConnections,
-    logging: state.logging,
   }
 }
 
@@ -154,12 +150,6 @@ export const defaultAppSettingsState: AppSettingsStoreState = {
   timeFormat: "12h",
   lmsConnection: null,
   gitConnections: {},
-  logging: {
-    info: true,
-    debug: false,
-    warning: true,
-    error: true,
-  },
 }
 
 /**

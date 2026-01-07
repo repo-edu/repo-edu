@@ -1,5 +1,10 @@
 # Repo Commands
 
+::: warning Commands Disabled
+Repo commands are temporarily disabled during the roster refactor. Use the GUI application for
+repository operations, or check back for CLI updates.
+:::
+
 The `redu repo` command group provides operations for managing Git repositories on GitHub, GitLab,
 Gitea, or local filesystem.
 

@@ -1,7 +1,7 @@
 # LMS Import
 
-The LMS Import tab allows you to fetch student rosters and group assignments from your Learning
-Management System.
+Import student rosters and group assignments from your Learning Management System into the Roster
+tab.
 
 ## Supported LMS Platforms
 
@@ -10,6 +10,8 @@ Management System.
 
 ## Configuration
 
+Before importing, configure your LMS connection in **Settings** (click the gear icon):
+
 ### LMS Settings
 
 | Setting | Description |
@@ -17,13 +19,7 @@ Management System.
 | LMS Type | Canvas or Moodle |
 | Base URL | Your institution's LMS URL |
 | Access Token | API token for authentication |
-| Course | The course to fetch data from |
-
-### Adding a Course
-
-1. Enter the numeric course ID
-2. Click **Add** to add it to the course list
-3. Optionally enter a display name for easy identification
+| Course ID | The course to fetch data from |
 
 ::: tip Finding Course ID
 The course ID is typically in the URL when viewing your course:
@@ -32,41 +28,16 @@ The course ID is typically in the URL when viewing your course:
 - Moodle: `https://moodle.example.com/course/view.php?id=67890` → ID is `67890`
 :::
 
-### Output Options
-
-| Option | Format | Use Case |
-|--------|--------|----------|
-| YAML | RepoBee-compatible | Repository setup operations |
-| CSV | Spreadsheet | Data analysis, external tools |
-| XLSX | Excel | Sharing with colleagues |
-
-## Member Options
-
-Control how student identifiers are formatted in output files.
-
-| Option | Output Format | Example |
-|--------|---------------|---------|
-| Email Only | Full email | `alice@university.edu` |
-| Email and Git ID | Email or username | `alice` |
-| Git ID Only | Username only | `alice` |
-
-Additional options:
-
-| Setting | Effect |
-|---------|--------|
-| Include Group | Add group name column to CSV/XLSX |
-| Include Member | Add member identifier column |
-| Include Initials | Append initials to member ID (e.g., `alice-AD`) |
-| Full Groups | Include all group members, not just first |
-
-## Workflow
+## Import Workflow
 
 ### Step 1: Configure Connection
 
-1. Select your LMS type (Canvas or Moodle)
-2. Enter your institution's base URL
-3. Paste your API access token
-4. Add at least one course ID
+1. Open Settings (gear icon or `Cmd+,`)
+2. Go to the **Connections** section
+3. Select your LMS type (Canvas or Moodle)
+4. Enter your institution's base URL
+5. Paste your API access token
+6. Enter the course ID
 
 ### Step 2: Verify Connection
 
@@ -83,56 +54,52 @@ Click **Verify** to test your configuration. A successful verification shows:
 - **Connection failed**: Check base URL format
 :::
 
-### Step 3: Configure Output
+### Step 3: Import Students
 
-1. Set the output folder (click folder icon to browse)
-2. Enable desired formats (YAML, CSV, XLSX)
-3. Adjust member options as needed
+From the **Roster** tab:
 
-### Step 4: Generate Files
+1. Click the import dropdown in the utility bar
+2. Select **Import from LMS**
+3. Choose what to import:
+   - Students only
+   - Students with groups
+4. Review the imported roster in the student table
 
-Click **Generate** to fetch data and create files. Progress is shown for:
+### Step 4: Review and Edit
 
-1. Fetching students
-2. Fetching groups
-3. Processing memberships
-4. Writing output files
+After import, the Roster tab displays:
 
-## Output File Formats
+- **Student table** — All imported students with name, email, and git username
+- **Group assignments** — Which group each student belongs to
+- **Validation warnings** — Students missing git usernames, duplicate emails, etc.
 
-### YAML (RepoBee Format)
+You can:
 
-```yaml
-- name: team-alpha
-  members:
-    - alice@university.edu
-    - bob@university.edu
-- name: team-beta
-  members:
-    - charlie@university.edu
-    - diana@university.edu
-```
+- Edit student details inline
+- Add or remove students
+- Import git usernames from a file
+- Verify git usernames against the platform
 
-This format is directly usable with the Repository Setup tab or the `redu repo setup` command.
+## Conflict Resolution
 
-### CSV Format
+When importing into an existing roster:
 
-```csv
-group,member,email,name
-team-alpha,alice@university.edu,alice@university.edu,Alice Doe
-team-alpha,bob@university.edu,bob@university.edu,Bob Smith
-```
+- **Merge** — Add new students, update existing by email match
+- **Replace** — Clear existing roster and import fresh
 
-### Solo Students
+A dialog appears to help resolve conflicts when student data differs.
 
-Students not assigned to any group are output as single-member teams, with names derived from the
-student's full name:
+## Export Options
 
-```yaml
-- name: alice-doe
-  members:
-    - alice@university.edu
-```
+Export your roster for use with the CLI or external tools:
+
+| Format | Use Case |
+|--------|----------|
+| YAML | Repository setup operations, CLI |
+| CSV | Spreadsheet analysis, external tools |
+| XLSX | Sharing with colleagues |
+
+Export from the Roster tab toolbar or via **File → Export**.
 
 ## Getting an Access Token
 
@@ -167,4 +134,3 @@ student's full name:
 
 - [Settings Reference](../reference/settings-reference.md) — Complete settings documentation
 - [Output Formats](../reference/output-formats.md) — Detailed format specifications
-- [CLI LMS Commands](../cli/lms-commands.md) — Command-line usage

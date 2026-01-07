@@ -34,7 +34,6 @@ export interface AppSettings {
   theme: Theme;
   date_format: DateFormat;
   time_format: TimeFormat;
-  logging: LogSettings;
   lms_connection?: LmsConnection | null;
   git_connections: {
     [k: string]: GitConnection;
@@ -345,16 +344,6 @@ export interface LmsVerifyResult {
   success: boolean;
   message: string;
   lms_type?: LmsType | null;
-}
-
-/**
- * Logging settings (stored in AppSettings)
- */
-export interface LogSettings {
-  debug: boolean;
-  error: boolean;
-  info: boolean;
-  warning: boolean;
 }
 
 /**
@@ -710,7 +699,6 @@ export interface RepoSettings {
 export interface GuiSettings {
   active_tab: ActiveTab
   collapsed_sections?: string[]
-  logging: LogSettings
   sidebar_open: boolean
   theme: Theme
   window_height: number

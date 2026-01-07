@@ -10,6 +10,11 @@ and configuration as the GUI application.
 - **Headless environments** — Run on servers without a display
 - **Scripting** — Combine with other tools in shell workflows
 
+::: warning CLI Commands Disabled
+LMS and Repo commands are temporarily disabled during the roster refactor. Only Profile commands
+are currently functional.
+:::
+
 ## Command Structure
 
 ```text
@@ -18,13 +23,30 @@ redu <command> <subcommand> [options]
 
 Three main command groups:
 
-| Command | Description |
-|---------|-------------|
-| `redu lms` | LMS operations (verify, generate) |
-| `redu repo` | Repository operations (verify, setup, clone) |
-| `redu profile` | Profile management (list, show, load) |
+| Command | Description | Status |
+|---------|-------------|--------|
+| `redu lms` | LMS operations (verify, generate) | *Disabled* |
+| `redu repo` | Repository operations (verify, setup, clone) | *Disabled* |
+| `redu profile` | Profile management (list, show, load) | Available |
 
 ## Quick Examples
+
+```bash
+# List available profiles
+redu profile list
+
+# Show active profile name
+redu profile active
+
+# Show current profile settings
+redu profile show
+
+# Switch to a different profile
+redu profile load winter-2025
+```
+
+::: tip Future Commands
+When LMS and Repo commands are re-enabled:
 
 ```bash
 # Verify LMS connection
@@ -38,10 +60,9 @@ redu repo verify --platform gitlab
 
 # Set up student repositories
 redu repo setup --template task-1 --team "alice,bob" --team "charlie,diana"
-
-# Switch to a different profile
-redu profile load winter-2025
 ```
+
+:::
 
 ## Configuration
 
