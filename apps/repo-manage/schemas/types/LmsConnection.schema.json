@@ -14,7 +14,7 @@
     },
     "user_agent": {
       "type": "string",
-      "description": "User-Agent header for API requests. Identifies you to LMS administrators. Recommended format: 'Organization / contact@email.edu'"
+      "description": "User-Agent header for API requests. Identifies you to LMS administrators. Recommended format: 'Name / Organization / email'"
     }
   },
   "additionalProperties": false,

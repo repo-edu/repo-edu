@@ -1,5 +1,4 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo-edu/ui"
-import { listen } from "@tauri-apps/api/event"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,6 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
+import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect } from "react"
 import {
   AddGroupDialog,

@@ -651,11 +651,11 @@ function LmsForm({
           id="lms-user-agent"
           value={form.user_agent}
           onChange={(e) => setForm({ ...form, user_agent: e.target.value })}
-          placeholder="YourName / contact@university.edu"
+          placeholder="Your Name / Organization / email@university.edu"
         />
         <p className="text-xs text-muted-foreground">
-          Identifies you to LMS administrators. Recommended format: Organization
-          / email
+          Identifies you to LMS administrators. Recommended format: Name /
+          Organization / email
         </p>
       </div>
 
