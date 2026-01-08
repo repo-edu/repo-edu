@@ -4,7 +4,6 @@
 //! creating fixtures, and common assertions. Only compiled in test builds.
 
 use crate::platform::PlatformParams;
-use crate::setup::SetupResult;
 use crate::types::{Repo, StudentTeam, Team};
 use git2::Repository;
 use std::fs;
@@ -332,37 +331,4 @@ pub fn create_test_git_repo(path: &Path) -> Repository {
 /// Create a bare git repository (for testing push operations)
 pub fn create_bare_repo(path: &Path) -> Repository {
     Repository::init_bare(path).expect("Failed to init bare repo")
-}
-
-// ============================================================================
-// Assertion Helpers
-// ============================================================================
-
-/// Assert that a SetupResult indicates complete success
-pub fn assert_setup_success(result: &SetupResult) {
-    assert!(
-        result.errors.is_empty(),
-        "Expected no errors, got: {:?}",
-        result.errors
-    );
-}
-
-/// Assert the counts in a SetupResult
-pub fn assert_setup_counts(
-    result: &SetupResult,
-    expected_created: usize,
-    expected_existing: usize,
-    expected_errors: usize,
-) {
-    assert_eq!(
-        result.successful_repos.len(),
-        expected_created,
-        "Created count mismatch"
-    );
-    assert_eq!(
-        result.existing_repos.len(),
-        expected_existing,
-        "Existing count mismatch"
-    );
-    assert_eq!(result.errors.len(), expected_errors, "Error count mismatch");
 }

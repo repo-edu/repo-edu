@@ -28,8 +28,11 @@ import type {
   GroupImportConfig,
   LmsGroupSet,
 } from "../../bindings/types"
+import { useAppSettingsStore } from "../../stores/appSettingsStore"
+import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
+import { buildLmsOperationContext } from "../../utils/operationContext"
 
 export function ImportGroupsDialog() {
   const [groupSets, setGroupSets] = useState<LmsGroupSet[]>([])
@@ -61,6 +64,14 @@ export function ImportGroupsDialog() {
     (state) => state.setPendingGroupImport,
   )
   const activeProfile = useUiStore((state) => state.activeProfile)
+  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const courseId = useProfileSettingsStore((state) => state.course.id)
+  const lmsContext = buildLmsOperationContext(lmsConnection, courseId)
+  const lmsContextError = !lmsConnection
+    ? "No LMS connection configured"
+    : !courseId.trim()
+      ? "Profile has no course configured"
+      : null
 
   const selectedGroupSet = groupSets.find((gs) => gs.id === selectedGroupSetId)
 
@@ -80,13 +91,17 @@ export function ImportGroupsDialog() {
   // Fetch group set list on open (quick - just names/ids)
   useEffect(() => {
     if (!open || !activeProfile) return
+    if (!lmsContext) {
+      setError(lmsContextError)
+      return
+    }
 
     const fetchGroupSetList = async () => {
       setFetchingGroupSets(true)
       setGroupsLoaded(false)
       setError(null)
       try {
-        const result = await commands.fetchLmsGroupSetList(activeProfile)
+        const result = await commands.fetchLmsGroupSetList(lmsContext)
         if (result.status === "ok") {
           setGroupSets(result.data)
           // Auto-select if only one group set
@@ -104,11 +119,11 @@ export function ImportGroupsDialog() {
     }
 
     fetchGroupSetList()
-  }, [open, activeProfile])
+  }, [open, activeProfile, lmsContext, lmsContextError])
 
   // Fetch groups when a group set is selected (slower)
   useEffect(() => {
-    if (!selectedGroupSetId || !activeProfile) return
+    if (!selectedGroupSetId || !activeProfile || !lmsContext) return
 
     const fetchGroups = async () => {
       setLoadingGroups(true)
@@ -116,7 +131,7 @@ export function ImportGroupsDialog() {
       setError(null)
       try {
         const result = await commands.fetchLmsGroupsForSet(
-          activeProfile,
+          lmsContext,
           selectedGroupSetId,
         )
         if (result.status === "ok") {
@@ -140,7 +155,7 @@ export function ImportGroupsDialog() {
     }
 
     fetchGroups()
-  }, [selectedGroupSetId, activeProfile])
+  }, [selectedGroupSetId, activeProfile, lmsContext])
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) => {
@@ -184,6 +199,10 @@ export function ImportGroupsDialog() {
   const handleImport = async () => {
     const config = getImportConfig()
     if (!config || !roster || !selectedAssignmentId || !activeProfile) return
+    if (!lmsContext) {
+      setError(lmsContextError)
+      return
+    }
 
     // Check if assignment has groups
     const assignment = roster.assignments.find(
@@ -200,13 +219,14 @@ export function ImportGroupsDialog() {
   }
 
   const doImport = async (config: GroupImportConfig) => {
-    if (!roster || !selectedAssignmentId || !activeProfile) return
+    if (!roster || !selectedAssignmentId || !activeProfile || !lmsContext)
+      return
 
     setImporting(true)
     setError(null)
     try {
       const result = await commands.importGroupsFromLms(
-        activeProfile,
+        lmsContext,
         roster,
         selectedAssignmentId,
         config,

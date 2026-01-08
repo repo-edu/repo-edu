@@ -33,6 +33,7 @@ import type { CourseInfo, LmsConnection, LmsType } from "../../bindings/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOutputStore } from "../../stores/outputStore"
 import { useUiStore } from "../../stores/uiStore"
+import { buildLmsOperationContext } from "../../utils/operationContext"
 
 type CourseMode = "lms" | "manual"
 type LmsSetupStatus = "idle" | "verifying" | "connected" | "error"
@@ -176,7 +177,11 @@ export function NewProfileDialog() {
         base_url: lmsForm.base_url,
         access_token: lmsForm.access_token,
       }
-      const result = await commands.verifyLmsConnectionDraft(connection)
+      const context = buildLmsOperationContext(connection, "") ?? {
+        connection,
+        course_id: "",
+      }
+      const result = await commands.verifyLmsConnectionDraft(context)
       if (result.status === "error") {
         setLmsSetupStatus("error")
         setLmsSetupError(result.error.message)

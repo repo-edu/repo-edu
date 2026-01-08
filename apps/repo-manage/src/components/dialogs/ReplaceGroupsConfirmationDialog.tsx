@@ -15,8 +15,11 @@ import {
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
+import { useAppSettingsStore } from "../../stores/appSettingsStore"
+import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
+import { buildLmsOperationContext } from "../../utils/operationContext"
 
 export function ReplaceGroupsConfirmationDialog() {
   const [loading, setLoading] = useState(false)
@@ -38,6 +41,14 @@ export function ReplaceGroupsConfirmationDialog() {
     (state) => state.setImportGroupsDialogOpen,
   )
   const activeProfile = useUiStore((state) => state.activeProfile)
+  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const courseId = useProfileSettingsStore((state) => state.course.id)
+  const lmsContext = buildLmsOperationContext(lmsConnection, courseId)
+  const lmsContextError = !lmsConnection
+    ? "No LMS connection configured"
+    : !courseId.trim()
+      ? "Profile has no course configured"
+      : null
 
   const assignment = roster?.assignments.find(
     (a) => a.id === selectedAssignmentId,
@@ -53,12 +64,16 @@ export function ReplaceGroupsConfirmationDialog() {
       handleClose()
       return
     }
+    if (!lmsContext) {
+      setError(lmsContextError)
+      return
+    }
 
     setLoading(true)
     setError(null)
     try {
       const result = await commands.importGroupsFromLms(
-        activeProfile,
+        lmsContext,
         roster,
         selectedAssignmentId,
         pendingGroupImport,

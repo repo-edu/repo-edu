@@ -35,6 +35,7 @@ import type {
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
+import { buildLmsOperationContext } from "../../utils/operationContext"
 
 type ConnectionStatus = "disconnected" | "verifying" | "connected" | "error"
 
@@ -144,10 +145,14 @@ export function ConnectionsPane() {
 
   const handleVerifyLmsSaved = async () => {
     if (!lmsConnection) return
+    const context = buildLmsOperationContext(lmsConnection, "") ?? {
+      connection: lmsConnection,
+      course_id: "",
+    }
 
     setLmsStatus("verifying", null)
     try {
-      const result = await commands.verifyLmsConnectionDraft(lmsConnection)
+      const result = await commands.verifyLmsConnectionDraft(context)
       if (result.status === "error") {
         setLmsStatus("error", result.error.message)
         appendOutput(
@@ -178,7 +183,11 @@ export function ConnectionsPane() {
         access_token: lmsForm.access_token,
         user_agent: lmsForm.user_agent || undefined,
       }
-      const result = await commands.verifyLmsConnectionDraft(connection)
+      const context = buildLmsOperationContext(connection, "") ?? {
+        connection,
+        course_id: "",
+      }
+      const result = await commands.verifyLmsConnectionDraft(context)
       if (result.status === "error") {
         setDraftLmsStatus("error")
         setDraftLmsError(result.error.message)

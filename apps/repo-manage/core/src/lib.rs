@@ -12,19 +12,18 @@ pub mod platform;
 pub mod progress;
 pub mod roster;
 pub mod settings;
-pub mod setup;
 pub mod types;
 
 // Re-export commonly used items
 pub use error::{PlatformError, Result};
 pub use operations::{
-    clone_repos, generate_lms_files, setup_repos, verify_lms_course, verify_platform, CloneParams,
-    GenerateLmsFilesParams, GenerateLmsFilesResult, SetupParams, VerifyLmsParams, VerifyLmsResult,
-    VerifyParams,
+    clone_repos, create_repos, delete_repos, fetch_group_set_list, fetch_groups_for_set,
+    import_groups, import_students, preflight_clone, preflight_create, preflight_delete,
+    validate_assignment, validate_roster, verify_connection, verify_lms_connection,
+    CloneReposParams, CreateReposParams, DeleteReposParams, HandlerError,
 };
 pub use platform::{create_platform, Platform, PlatformAPI, PlatformParams, PlatformType};
 pub use progress::ProgressEvent;
-pub use setup::{setup_student_repos, SetupError, SetupResult};
 pub use types::{
     Issue, IssueState, Repo, RepoCreateResult, StudentRepo, StudentTeam, Team, TeamPermission,
     TemplateRepo,
@@ -32,10 +31,12 @@ pub use types::{
 
 // LMS re-exports
 pub use lms::{
-    create_lms_client_with_params, generate_repobee_yaml, generate_repobee_yaml_with_progress,
-    get_student_info, get_student_info_and_groups_with_progress, get_student_info_with_progress,
-    write_csv_file, write_yaml_file, FetchProgress, MemberOption as LmsMemberOption, StudentInfo,
-    StudentInfoResult, YamlConfig,
+    create_lms_client_with_params, generate_lms_files, generate_repobee_yaml,
+    generate_repobee_yaml_with_progress, get_student_info,
+    get_student_info_and_groups_with_progress, get_student_info_with_progress, verify_lms_course,
+    write_csv_file, write_yaml_file, FetchProgress, GenerateLmsFilesParams, GenerateLmsFilesResult,
+    MemberOption as LmsMemberOption, StudentInfo, StudentInfoResult, VerifyLmsParams,
+    VerifyLmsResult, YamlConfig,
 };
 
 // Re-export lms-common types (used throughout the app)
@@ -53,20 +54,23 @@ pub use settings::{
     atomic_write, atomic_write_json, atomic_write_string, join_comma_separated, normalize_path,
     normalize_paths, normalize_string, normalize_string_vec, normalize_url, parse_comma_separated,
     path_to_posix_string, validate_date, validate_date_range, validate_glob_pattern, validate_path,
-    AppSettings, CLIConfig, CloneConfig, ConfigError, ConfigResult, CourseInfo, CreateConfig,
-    DeleteConfig, DirectoryLayout, ExportSettings, GitConnection, GitIdentityMode, GitServerType,
-    Interface, LmsConnection, MemberOption, Normalize, OperationConfigs, PathValidationMode,
-    PlatformConnection, ProfileSettings, SettingsLoadResult, SettingsManager, Theme, Validate,
-    ValidationErrors,
+    AppSettings, CLIConfig, ConfigError, ConfigResult, CourseInfo, ExportSettings, GitConnection,
+    GitIdentityMode, GitServerType, Interface, LmsConnection, MemberOption, Normalize,
+    OperationConfigs, PathValidationMode, PlatformConnection, ProfileSettings, SettingsLoadResult,
+    SettingsManager, Theme, Validate, ValidationErrors,
 };
 
 // Generated types used by Tauri commands
 pub use generated::types::{
-    CoverageExportFormat, CoverageReport, GitUsernameImportSummary, GitVerifyResult, GroupFilter,
+    AssignmentId, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport, CreateConfig,
+    DeleteConfig, DirectoryLayout, GitUsernameImportSummary, GitVerifyResult, GroupFilter, GroupId,
     GroupImportConfig, GroupImportSummary, ImportGitUsernamesResult, ImportGroupsResult,
     ImportStudentsResult, ImportSummary, InvalidUsername, LmsGroup, LmsGroupSet, LmsIdConflict,
-    LmsVerifyResult, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
-    UsernameVerificationScope, VerifyGitUsernamesResult,
+    LmsOperationContext, LmsVerifyResult, OperationError, OperationResult, RepoCollision,
+    RepoCollisionKind, RepoOperationContext, RepoPreflightResult, SkippedGroup, SkippedGroupReason,
+    StudentId, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    UsernameVerificationScope, ValidationIssue, ValidationKind, ValidationResult,
+    VerifyGitUsernamesResult,
 };
 
 // Test utilities (only available in test builds)

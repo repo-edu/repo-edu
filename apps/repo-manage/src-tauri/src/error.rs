@@ -3,7 +3,7 @@
 //! All Tauri commands return `Result<T, AppError>` for consistent error handling.
 //! Error types from repo-manage-core convert to AppError via From traits.
 
-use repo_manage_core::{ConfigError, LmsError, PlatformError};
+use repo_manage_core::{ConfigError, HandlerError, LmsError, PlatformError};
 use serde::Serialize;
 
 /// Unified error type for all Tauri commands
@@ -136,6 +136,12 @@ impl From<LmsError> for AppError {
             message,
             details: Some(e.to_string()),
         }
+    }
+}
+
+impl From<HandlerError> for AppError {
+    fn from(err: HandlerError) -> Self {
+        AppError::new(err.to_string())
     }
 }
 

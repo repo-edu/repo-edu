@@ -148,7 +148,6 @@ After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 
 - `apps/repo-manage/src/bindings/types.ts`
 - `apps/repo-manage/src/bindings/commands.ts`
-- `apps/repo-manage/src-tauri/src/generated/types.rs`
 - `apps/repo-manage/core/src/generated/types.rs`
 
 **To change types or commands:**

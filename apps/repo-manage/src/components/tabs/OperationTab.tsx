@@ -30,11 +30,13 @@ import type {
   OperationResult,
   Result,
 } from "../../bindings/types"
+import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOperationStore } from "../../stores/operationStore"
 import { useOutputStore } from "../../stores/outputStore"
 import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
+import { buildRepoOperationContext } from "../../utils/operationContext"
 
 type OperationType = "create" | "clone" | "delete"
 
@@ -43,6 +45,10 @@ export function OperationTab() {
   const assignments = roster?.assignments ?? []
   const activeProfile = useUiStore((state) => state.activeProfile)
   const operations = useProfileSettingsStore((state) => state.operations)
+  const gitConnectionName = useProfileSettingsStore(
+    (state) => state.gitConnection,
+  )
+  const gitConnections = useAppSettingsStore((state) => state.gitConnections)
   const updateOperations = useProfileSettingsStore(
     (state) => state.updateOperations,
   )
@@ -66,6 +72,10 @@ export function OperationTab() {
   const targetOrg = operations.target_org ?? ""
   const targetDir = operations.clone.target_dir ?? ""
   const directoryLayout = operations.clone.directory_layout ?? "flat"
+  const gitConnection = gitConnectionName
+    ? (gitConnections[gitConnectionName] ?? null)
+    : null
+  const repoContext = buildRepoOperationContext(gitConnection, operations)
 
   // Update handlers that persist to store
   const setTemplateOrg = (value: string) =>
@@ -95,7 +105,13 @@ export function OperationTab() {
   }
 
   const handleExecute = async () => {
-    if (!activeProfile || !roster || !selectedAssignmentId) {
+    if (!activeProfile || !roster || !selectedAssignmentId || !repoContext) {
+      if (!repoContext) {
+        setOperationStatus("error")
+        const message = "No git connection configured for this profile"
+        setOperationError(message)
+        append({ message, level: "error" })
+      }
       return
     }
 
@@ -113,7 +129,7 @@ export function OperationTab() {
             level: "info",
           })
           result = await commands.createRepos(
-            activeProfile,
+            repoContext,
             roster,
             selectedAssignmentId,
             config,
@@ -130,7 +146,7 @@ export function OperationTab() {
             level: "info",
           })
           result = await commands.cloneReposFromRoster(
-            activeProfile,
+            repoContext,
             roster,
             selectedAssignmentId,
             config,
@@ -144,7 +160,7 @@ export function OperationTab() {
             level: "warning",
           })
           result = await commands.deleteRepos(
-            activeProfile,
+            repoContext,
             roster,
             selectedAssignmentId,
             config,
@@ -201,7 +217,8 @@ export function OperationTab() {
     validGroupCount === 0 ||
     operationStatus === "running" ||
     (operationSelected === "clone" && !targetDir) ||
-    !activeProfile
+    !activeProfile ||
+    !repoContext
 
   return (
     <div className="flex flex-col gap-3 p-3">

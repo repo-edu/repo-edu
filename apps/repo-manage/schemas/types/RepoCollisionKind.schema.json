@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepoCollisionKind",
+  "type": "string",
+  "enum": [
+    "already_exists",
+    "not_found"
+  ],
+  "x-rust": {
+    "serde": {
+      "rename_all": "snake_case"
+    }
+  },
+  "description": "Reason a repository appears in a preflight collision list"
+}

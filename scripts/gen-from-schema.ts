@@ -48,10 +48,6 @@ const bindingsDir = resolve(repoRoot, "apps/repo-manage/src/bindings")
 const tsTypesPath = resolve(bindingsDir, "types.ts")
 const tsCommandsPath = resolve(bindingsDir, "commands.ts")
 
-const rustOutPath = resolve(
-  repoRoot,
-  "apps/repo-manage/src-tauri/src/generated/types.rs",
-)
 const coreRustOutPath = resolve(
   repoRoot,
   "apps/repo-manage/core/src/generated/types.rs",
@@ -884,7 +880,6 @@ async function generateTypes(): Promise<Set<string>> {
   writeIfChanged(tsTypesPath, typesContent)
 
   const rustContent = buildRustTypes(typeSchemas)
-  writeIfChanged(rustOutPath, rustContent)
   writeIfChanged(coreRustOutPath, rustContent)
 
   return new Set(index.types.map((type) => type.name))

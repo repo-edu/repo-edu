@@ -326,6 +326,14 @@ export interface LmsGroupSet {
 }
 
 /**
+ * Snapshot of LMS settings for operations (draft or saved)
+ */
+export interface LmsOperationContext {
+  connection: LmsConnection;
+  course_id: string;
+}
+
+/**
  * Conflict between LMS user IDs when importing
  */
 export interface LmsIdConflict {
@@ -423,7 +431,22 @@ export interface RepoCollision {
   group_id: GroupId;
   group_name: string;
   repo_name: string;
+  kind: RepoCollisionKind;
 }
+
+/**
+ * Snapshot of repo operation settings (draft or saved)
+ */
+export interface RepoOperationContext {
+  target_org: string;
+  repo_name_template: string;
+  git_connection: GitConnection;
+}
+
+/**
+ * Reason a repository appears in a preflight collision list
+ */
+export type RepoCollisionKind = 'already_exists' | 'not_found';
 
 /**
  * Preflight result for repo operations

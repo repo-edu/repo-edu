@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RepoOperationContext",
+  "type": "object",
+  "properties": {
+    "target_org": {
+      "type": "string"
+    },
+    "repo_name_template": {
+      "type": "string"
+    },
+    "git_connection": {
+      "$ref": "./GitConnection.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "target_org",
+    "repo_name_template",
+    "git_connection"
+  ],
+  "description": "Snapshot of repo operation settings (draft or saved)"
+}

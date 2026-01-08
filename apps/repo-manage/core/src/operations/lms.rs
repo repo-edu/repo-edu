@@ -1,313 +1,440 @@
-//! LMS operations - verify course and generate student files
-
-use crate::lms::{
-    create_lms_client_with_params, generate_repobee_yaml_with_progress,
-    get_student_info_and_groups_with_progress, write_csv_file, write_yaml_file, FetchProgress,
-    Group, MemberOption, YamlConfig,
+use crate::import::{normalize_email, normalize_group_name};
+use crate::lms::create_lms_client;
+use crate::roster::{AssignmentId, Group, GroupDraft, Roster, RosterSource, Student, StudentDraft};
+use crate::{
+    GroupFilter, GroupImportConfig, GroupImportSummary, ImportGroupsResult, ImportStudentsResult,
+    ImportSummary, LmsGroup, LmsGroupSet, LmsIdConflict, LmsOperationContext, LmsVerifyResult,
 };
-use crate::progress::ProgressEvent;
-use crate::{PlatformError, Result};
+use chrono::Utc;
 use lms_common::LmsClient as LmsClientTrait;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
-/// Parameters for LMS course verification
-#[derive(Debug, Clone)]
-pub struct VerifyLmsParams {
-    pub lms_type: String, // "Canvas" or "Moodle"
-    pub base_url: String,
-    pub access_token: String,
-    pub course_id: String,
-}
+use super::error::HandlerError;
 
-/// Result of LMS course verification
-#[derive(Debug, Clone)]
-pub struct VerifyLmsResult {
-    pub course_id: String,
-    pub course_name: String,
-    pub course_code: Option<String>,
-}
-
-/// Parameters for generating student files from LMS
-#[derive(Debug, Clone)]
-pub struct GenerateLmsFilesParams {
-    pub lms_type: String,
-    pub base_url: String,
-    pub access_token: String,
-    pub course_id: String,
-    pub output_folder: PathBuf,
-    // Output file options
-    pub yaml: bool,
-    pub yaml_file: String,
-    pub csv: bool,
-    pub csv_file: String,
-    // YAML generation options
-    pub member_option: String, // "(email, gitid)", "email", "git_id"
-    pub include_group: bool,
-    pub include_member: bool,
-    pub include_initials: bool,
-    pub full_groups: bool,
-}
-
-/// Result of generating LMS files
-#[derive(Debug, Clone)]
-pub struct GenerateLmsFilesResult {
-    pub student_count: usize,
-    pub group_count: usize,
-    pub generated_files: Vec<String>,
-    pub diagnostics: Vec<String>,
-}
-
-/// Verify LMS course connection and credentials
-pub async fn verify_lms_course(
-    params: &VerifyLmsParams,
-    progress: impl Fn(ProgressEvent) + Send,
-) -> Result<VerifyLmsResult> {
-    progress(ProgressEvent::Started {
-        operation: "Verify LMS course".into(),
-    });
-
-    progress(ProgressEvent::Status(format!(
-        "Connecting to {} at {}...",
-        params.lms_type, params.base_url
-    )));
-
-    let client = create_lms_client_with_params(
-        &params.lms_type,
-        params.base_url.clone(),
-        params.access_token.clone(),
-        None,
-    )?;
-
-    let course = client.get_course(&params.course_id).await?;
-
-    let result = VerifyLmsResult {
-        course_id: course.id.to_string(),
-        course_name: course.name.clone(),
-        course_code: course.course_code.clone(),
-    };
-
-    progress(ProgressEvent::Completed {
-        operation: "Verify LMS course".into(),
-        details: Some(format!("Course: {}", course.name)),
-    });
-
-    Ok(result)
-}
-
-/// Generate student files (YAML, CSV) from LMS course
-pub async fn generate_lms_files(
-    params: &GenerateLmsFilesParams,
-    progress: impl Fn(ProgressEvent) + Send,
-) -> Result<GenerateLmsFilesResult> {
-    progress(ProgressEvent::Started {
-        operation: "Generate student files".into(),
-    });
-
-    // Validate output folder exists
-    if !params.output_folder.exists() {
-        return Err(PlatformError::FileError(format!(
-            "Output folder does not exist: {}",
-            params.output_folder.display()
-        )));
-    }
-
-    // Create LMS client
-    let client = create_lms_client_with_params(
-        &params.lms_type,
-        params.base_url.clone(),
-        params.access_token.clone(),
-        None,
-    )?;
-
-    // Fetch students with progress
-    progress(ProgressEvent::Status(
-        "Fetching students from LMS...".into(),
-    ));
-
-    let fetch_result = get_student_info_and_groups_with_progress(
-        &client,
-        &params.course_id,
-        |update| match &update {
-            FetchProgress::FetchingUsers => {}
-            FetchProgress::FetchingGroups => {}
-            FetchProgress::FetchedUsers { count } => {
-                progress(ProgressEvent::Status(format!(
-                    "Retrieved {} students",
-                    count
-                )));
-            }
-            FetchProgress::FetchedGroups { count } => {
-                progress(ProgressEvent::Status(format!("Retrieved {} groups", count)));
-            }
-            FetchProgress::FetchingGroupMembers {
-                current,
-                total,
-                group_name,
-            } => {
-                progress(ProgressEvent::Progress {
-                    current: *current,
-                    total: *total,
-                    message: format!("Fetching group: {}", group_name),
-                });
-            }
-        },
-    )
-    .await?;
-
-    let students = fetch_result.students;
-    let lms_groups = fetch_result.groups;
-
-    let student_count = students.len();
-    progress(ProgressEvent::Status(format!(
-        "Fetched {} students. Generating files...",
-        student_count
-    )));
-
-    let mut generated_files = Vec::new();
-    let mut group_count = 0;
-    let mut diagnostics = Vec::new();
-
-    let mut group_member_counts: HashMap<String, usize> = HashMap::new();
-    for student in &students {
-        if let Some(group) = &student.group {
-            *group_member_counts.entry(group.id.clone()).or_default() += 1;
-        }
-    }
-
-    // Generate YAML if requested
-    if params.yaml {
-        let config = YamlConfig {
-            member_option: MemberOption::parse(&params.member_option)?,
-            include_group: params.include_group,
-            include_member: params.include_member,
-            include_initials: params.include_initials,
-            full_groups: params.full_groups,
-        };
-
-        // Track which groups are generated
-        let mut generated_groups: HashSet<String> = HashSet::new();
-        let teams = generate_repobee_yaml_with_progress(&students, &config, |_, _, group_name| {
-            generated_groups.insert(group_name.to_string());
-        })?;
-        group_count = teams.len();
-
-        diagnostics = build_group_diagnostics(
-            &lms_groups,
-            &group_member_counts,
-            &generated_groups,
-            params.full_groups,
-        );
-        let yaml_path = params.output_folder.join(&params.yaml_file);
-        write_yaml_file(&teams, &yaml_path)?;
-        generated_files.push(format!(
-            "YAML: {} ({} groups)",
-            yaml_path.display(),
-            group_count
-        ));
-    }
-
-    // Generate CSV if requested
-    if params.csv {
-        let csv_path = params.output_folder.join(&params.csv_file);
-        write_csv_file(&students, &csv_path)?;
-        generated_files.push(format!("CSV: {}", csv_path.display()));
-    }
-
-    progress(ProgressEvent::Completed {
-        operation: "Generate student files".into(),
-        details: Some(format!(
-            "{} students, {} files generated",
-            student_count,
-            generated_files.len()
-        )),
-    });
-
-    Ok(GenerateLmsFilesResult {
-        student_count,
-        group_count,
-        generated_files,
-        diagnostics,
+pub async fn verify_connection(
+    context: &LmsOperationContext,
+) -> Result<LmsVerifyResult, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+    client.get_courses().await?;
+    Ok(LmsVerifyResult {
+        success: true,
+        message: format!("Connected to {:?}", context.connection.lms_type),
+        lms_type: Some(context.connection.lms_type),
     })
 }
 
-fn build_group_diagnostics(
-    lms_groups: &[Group],
-    group_member_counts: &HashMap<String, usize>,
-    generated_group_names: &HashSet<String>,
-    full_groups: bool,
-) -> Vec<String> {
-    let mut diagnostics = Vec::new();
+pub async fn import_students(
+    context: &LmsOperationContext,
+    existing_roster: Option<Roster>,
+) -> Result<ImportStudentsResult, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+    let users = client.get_users(&context.course_id).await?;
+    merge_lms_students(existing_roster, users, &context.connection)
+}
 
-    let mut name_to_groups: HashMap<String, Vec<&Group>> = HashMap::new();
-    for group in lms_groups {
-        name_to_groups
-            .entry(group.name.clone())
-            .or_default()
-            .push(group);
+pub async fn import_groups(
+    context: &LmsOperationContext,
+    roster: Roster,
+    assignment_id: &AssignmentId,
+    config: GroupImportConfig,
+) -> Result<ImportGroupsResult, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+    let categories = client.get_group_categories(&context.course_id).await?;
+    let category = categories
+        .into_iter()
+        .find(|category| category.id == config.group_set_id)
+        .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
+
+    let groups = client
+        .get_groups_for_category(&context.course_id, Some(&category.id))
+        .await?;
+
+    let mut lms_groups = Vec::new();
+    for group in groups {
+        let memberships = client.get_group_members(&group.id).await?;
+        let member_ids = memberships
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect::<Vec<_>>();
+        lms_groups.push(LmsGroup {
+            id: group.id,
+            name: group.name,
+            member_ids,
+        });
     }
 
-    let mut duplicate_lines = Vec::new();
-    for (name, groups) in name_to_groups.iter().filter(|(_, groups)| groups.len() > 1) {
-        let mut id_parts = Vec::new();
-        for group in groups {
-            let member_count = group_member_counts.get(&group.id).copied().unwrap_or(0);
-            let detail = match group.max_membership {
-                Some(max) => format!("{} ({}/{})", group.id, member_count, max),
-                None => format!("{} ({} members)", group.id, member_count),
-            };
-            id_parts.push(detail);
+    let (filtered_groups, filter_label) = apply_group_filter(&lms_groups, &config.filter)?;
+    merge_lms_groups(
+        roster,
+        assignment_id,
+        &config.group_set_id,
+        filtered_groups,
+        filter_label,
+    )
+}
+
+pub async fn fetch_group_set_list(
+    context: &LmsOperationContext,
+) -> Result<Vec<LmsGroupSet>, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+    let categories = client.get_group_categories(&context.course_id).await?;
+
+    Ok(categories
+        .into_iter()
+        .map(|category| LmsGroupSet {
+            id: category.id,
+            name: category.name,
+            groups: vec![],
+        })
+        .collect())
+}
+
+pub async fn fetch_groups_for_set(
+    context: &LmsOperationContext,
+    group_set_id: &str,
+) -> Result<Vec<LmsGroup>, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+    let groups = client
+        .get_groups_for_category(&context.course_id, Some(group_set_id))
+        .await?;
+
+    let mut lms_groups = Vec::new();
+    for group in groups {
+        let memberships = client.get_group_members(&group.id).await?;
+        let member_ids = memberships
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect::<Vec<_>>();
+        lms_groups.push(LmsGroup {
+            id: group.id,
+            name: group.name,
+            member_ids,
+        });
+    }
+
+    Ok(lms_groups)
+}
+
+fn merge_lms_students(
+    roster: Option<Roster>,
+    users: Vec<crate::User>,
+    connection: &crate::LmsConnection,
+) -> Result<ImportStudentsResult, HandlerError> {
+    let base_roster = roster.unwrap_or_else(Roster::empty);
+
+    let missing_email_count = users
+        .iter()
+        .filter(|user| user.email.as_deref().unwrap_or("").trim().is_empty())
+        .count();
+
+    let mut lms_index: HashMap<String, usize> = HashMap::new();
+    let mut email_index: HashMap<String, usize> = HashMap::new();
+    for (idx, student) in base_roster.students.iter().enumerate() {
+        if let Some(lms_id) = student.lms_user_id.as_ref() {
+            lms_index.insert(lms_id.clone(), idx);
         }
-        id_parts.sort();
-        let trimmed_name = name.trim();
-        let display_name = if trimmed_name.is_empty() {
-            "unnamed"
-        } else {
-            trimmed_name
-        };
-        duplicate_lines.push(format!("{}: {}", display_name, id_parts.join(", ")));
-    }
-    duplicate_lines.sort();
-    if !duplicate_lines.is_empty() {
-        diagnostics.push(format!(
-            "Duplicate group names merged: {}",
-            duplicate_lines.join("; ")
-        ));
+        email_index.insert(normalize_email(&student.email), idx);
     }
 
-    let mut missing_lines = Vec::new();
-    for group in lms_groups {
-        if generated_group_names.contains(&group.name) {
+    let mut conflicts = Vec::new();
+    for user in &users {
+        let email = normalize_email(user.email.as_deref().unwrap_or(""));
+        let lms_user_id = user.id.clone();
+
+        if lms_index.contains_key(&lms_user_id) {
             continue;
         }
 
-        let member_count = group_member_counts.get(&group.id).copied().unwrap_or(0);
-        let reason = if member_count == 0 {
-            "no members".to_string()
-        } else if full_groups {
-            match group.max_membership {
-                Some(max) if member_count < max as usize => {
-                    format!("not full ({}/{})", member_count, max)
+        if !email.is_empty() {
+            if let Some(&idx) = email_index.get(&email) {
+                let student = &base_roster.students[idx];
+                if let Some(existing_lms_id) = student.lms_user_id.as_ref() {
+                    if existing_lms_id != &lms_user_id {
+                        conflicts.push(LmsIdConflict {
+                            email: email.clone(),
+                            roster_lms_user_id: existing_lms_id.clone(),
+                            incoming_lms_user_id: lms_user_id.clone(),
+                            roster_student_name: student.name.clone(),
+                            incoming_student_name: user.name.clone(),
+                        });
+                    }
                 }
-                _ => "not included".to_string(),
             }
-        } else {
-            "not included".to_string()
-        };
-
-        let trimmed_name = group.name.trim();
-        let display_name = if trimmed_name.is_empty() {
-            "unnamed"
-        } else {
-            trimmed_name
-        };
-        missing_lines.push(format!("- {} (id {}): {}", display_name, group.id, reason));
-    }
-    missing_lines.sort();
-    if !missing_lines.is_empty() {
-        diagnostics.push("Groups not included:".to_string());
-        diagnostics.extend(missing_lines);
+        }
     }
 
-    diagnostics
+    if !conflicts.is_empty() {
+        let details = conflicts
+            .iter()
+            .map(|conflict| {
+                format!(
+                    "{} (roster: {}, incoming: {})",
+                    conflict.email, conflict.roster_lms_user_id, conflict.incoming_lms_user_id
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(HandlerError::Validation(format!(
+            "LMS ID conflicts detected: {}",
+            details
+        )));
+    }
+
+    let mut updated_roster = base_roster.clone();
+    let mut lms_index: HashMap<String, usize> = HashMap::new();
+    let mut email_index: HashMap<String, usize> = HashMap::new();
+    for (idx, student) in updated_roster.students.iter().enumerate() {
+        if let Some(lms_id) = student.lms_user_id.as_ref() {
+            lms_index.insert(lms_id.clone(), idx);
+        }
+        email_index.insert(normalize_email(&student.email), idx);
+    }
+
+    let mut added = 0;
+    let mut updated = 0;
+    let mut unchanged = 0;
+
+    for user in users {
+        let email = normalize_email(user.email.as_deref().unwrap_or(""));
+        let lms_user_id = user.id.clone();
+        let student_number = user.login_id.clone();
+
+        if let Some(&idx) = lms_index.get(&lms_user_id) {
+            let student = &mut updated_roster.students[idx];
+            let old_email = normalize_email(&student.email);
+            let changed = update_student_from_lms(
+                student,
+                &user.name,
+                &email,
+                student_number.clone(),
+                &lms_user_id,
+            );
+            if changed {
+                updated += 1;
+            } else {
+                unchanged += 1;
+            }
+            if !email.is_empty() && email != old_email {
+                email_index.insert(email.clone(), idx);
+            }
+            continue;
+        }
+
+        if !email.is_empty() {
+            if let Some(&idx) = email_index.get(&email) {
+                let student = &mut updated_roster.students[idx];
+                let old_email = normalize_email(&student.email);
+
+                let changed = update_student_from_lms(
+                    student,
+                    &user.name,
+                    &email,
+                    student_number.clone(),
+                    &lms_user_id,
+                );
+                if changed {
+                    updated += 1;
+                } else {
+                    unchanged += 1;
+                }
+                if email != old_email {
+                    email_index.insert(email.clone(), idx);
+                }
+                lms_index.insert(lms_user_id.clone(), idx);
+                continue;
+            }
+        }
+
+        let draft = StudentDraft {
+            name: user.name.clone(),
+            email: email.clone(),
+            student_number,
+            git_username: None,
+            lms_user_id: Some(lms_user_id.clone()),
+            custom_fields: HashMap::new(),
+        };
+        let student = Student::new(draft);
+        updated_roster.students.push(student);
+        let idx = updated_roster.students.len() - 1;
+        lms_index.insert(lms_user_id, idx);
+        if !email.is_empty() {
+            email_index.insert(email, idx);
+        }
+        added += 1;
+    }
+
+    updated_roster.source = Some(RosterSource {
+        kind: "lms".to_string(),
+        lms_type: Some(connection.lms_type),
+        base_url: Some(connection.base_url.clone()),
+        fetched_at: Some(Utc::now()),
+        file_name: None,
+        imported_at: None,
+        created_at: None,
+    });
+
+    Ok(ImportStudentsResult {
+        summary: ImportSummary {
+            students_added: added as i64,
+            students_updated: updated as i64,
+            students_unchanged: unchanged as i64,
+            students_missing_email: missing_email_count as i64,
+        },
+        roster: updated_roster,
+    })
+}
+
+fn update_student_from_lms(
+    student: &mut Student,
+    name: &str,
+    email: &str,
+    student_number: Option<String>,
+    lms_user_id: &str,
+) -> bool {
+    let mut changed = false;
+    if student.name != name {
+        student.name = name.to_string();
+        changed = true;
+    }
+    if student.email != email {
+        student.email = email.to_string();
+        changed = true;
+    }
+    if student.student_number != student_number {
+        student.student_number = student_number;
+        changed = true;
+    }
+    if student.lms_user_id.as_deref() != Some(lms_user_id) {
+        student.lms_user_id = Some(lms_user_id.to_string());
+        changed = true;
+    }
+    changed
+}
+
+fn apply_group_filter(
+    groups: &[LmsGroup],
+    filter: &GroupFilter,
+) -> Result<(Vec<LmsGroup>, String), HandlerError> {
+    match filter.kind.as_str() {
+        "all" => Ok((groups.to_vec(), "All".to_string())),
+        "selected" => {
+            let selected = filter.selected.clone().unwrap_or_default();
+            let set: HashSet<String> = selected.iter().cloned().collect();
+            let filtered = groups
+                .iter()
+                .filter(|group| set.contains(&group.id))
+                .cloned()
+                .collect::<Vec<_>>();
+            Ok((filtered, format!("{} selected", selected.len())))
+        }
+        "pattern" => {
+            let pattern = filter.pattern.clone().ok_or_else(|| {
+                HandlerError::Validation("Pattern filter requires a pattern".into())
+            })?;
+            let glob = glob::Pattern::new(&pattern)
+                .map_err(|e| HandlerError::Validation(format!("Invalid pattern: {}", e)))?;
+            let filtered = groups
+                .iter()
+                .filter(|group| glob.matches(&group.name))
+                .cloned()
+                .collect::<Vec<_>>();
+            Ok((filtered, format!("Pattern: {}", pattern)))
+        }
+        other => Err(HandlerError::Validation(format!(
+            "Unknown filter kind: {}",
+            other
+        ))),
+    }
+}
+
+fn merge_lms_groups(
+    roster: Roster,
+    assignment_id: &AssignmentId,
+    group_set_id: &str,
+    groups: Vec<LmsGroup>,
+    filter_label: String,
+) -> Result<ImportGroupsResult, HandlerError> {
+    let mut updated_roster = roster.clone();
+    let assignment = updated_roster
+        .assignments
+        .iter_mut()
+        .find(|assignment| assignment.id == *assignment_id)
+        .ok_or_else(|| HandlerError::not_found("Assignment not found"))?;
+
+    let mut missing_members = Vec::new();
+    let mut name_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut lms_to_student: HashMap<String, crate::roster::StudentId> = HashMap::new();
+    for student in &updated_roster.students {
+        if let Some(lms_id) = student.lms_user_id.as_ref() {
+            lms_to_student.insert(lms_id.clone(), student.id.clone());
+        }
+    }
+
+    let mut new_groups = Vec::new();
+    let mut students_referenced = 0;
+
+    for group in groups {
+        let normalized = normalize_group_name(&group.name);
+        name_map
+            .entry(normalized)
+            .or_default()
+            .push(group.name.clone());
+
+        let mut member_ids: HashSet<crate::roster::StudentId> = HashSet::new();
+        for member_id in group.member_ids {
+            if let Some(student_id) = lms_to_student.get(&member_id) {
+                member_ids.insert(student_id.clone());
+            } else {
+                missing_members.push(member_id);
+            }
+        }
+
+        students_referenced += member_ids.len();
+
+        let draft = GroupDraft {
+            name: group.name,
+            member_ids: member_ids.into_iter().collect(),
+        };
+        new_groups.push(Group::new(draft));
+    }
+
+    if !missing_members.is_empty() {
+        let mut unique_missing: HashSet<String> = HashSet::new();
+        for member in missing_members {
+            unique_missing.insert(member);
+        }
+        let mut list = unique_missing.into_iter().collect::<Vec<_>>();
+        list.sort();
+        return Err(HandlerError::Validation(format!(
+            "Unresolved LMS member IDs: {}",
+            list.join(", ")
+        )));
+    }
+
+    let mut duplicates = Vec::new();
+    for (normalized, names) in name_map {
+        if names.len() > 1 {
+            duplicates.push(format!("{} ({})", normalized, names.join(", ")));
+        }
+    }
+    if !duplicates.is_empty() {
+        return Err(HandlerError::Validation(format!(
+            "Duplicate group names detected: {}",
+            duplicates.join("; ")
+        )));
+    }
+
+    let groups_replaced = assignment.groups.len();
+    assignment.groups = new_groups;
+    assignment.lms_group_set_id = Some(group_set_id.to_string());
+
+    Ok(ImportGroupsResult {
+        summary: GroupImportSummary {
+            groups_imported: assignment.groups.len() as i64,
+            groups_replaced: groups_replaced as i64,
+            students_referenced: students_referenced as i64,
+            filter_applied: filter_label,
+        },
+        roster: updated_roster,
+    })
 }

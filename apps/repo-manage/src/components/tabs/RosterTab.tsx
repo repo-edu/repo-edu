@@ -38,6 +38,7 @@ import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatDateTime } from "../../utils/formatDate"
+import { buildLmsOperationContext } from "../../utils/operationContext"
 import { CourseDisplay } from "../CourseDisplay"
 
 /**
@@ -142,6 +143,7 @@ export function RosterTab() {
   const issueCount = rosterValidation?.issues.length ?? 0
   const hasStudents = studentCount > 0
   const hasLmsConnection = lmsConnection !== null
+  const lmsContext = buildLmsOperationContext(lmsConnection, course.id)
 
   // Can import from LMS if:
   // - LMS connection exists
@@ -168,14 +170,14 @@ export function RosterTab() {
             : "Import students from LMS"
 
   const handleImportFromLms = async () => {
-    if (!activeProfile || !canImportFromLms) return
+    if (!activeProfile || !canImportFromLms || !lmsContext) return
 
     setImporting(true)
     appendOutput("Importing students from LMS...", "info")
 
     try {
       const result = await commands.importStudentsFromLms(
-        activeProfile,
+        lmsContext,
         roster ?? null,
       )
 

@@ -1,14 +1,28 @@
-//! High-level operations shared between CLI and GUI
+//! Shared operation handlers for CLI and GUI.
+//!
+//! These handlers contain the business logic extracted from Tauri commands.
+//! Both CLI and Tauri call these handlers, differing only in how they
+//! obtain parameters and report progress.
 
-mod clone;
+mod error;
 mod lms;
-mod setup;
-mod verify;
+mod platform;
+mod repo;
+mod validation;
 
-pub use clone::{clone_repos, CloneParams};
+pub use crate::{LmsOperationContext, ProgressEvent, RepoOperationContext};
+pub use error::HandlerError;
+
 pub use lms::{
-    generate_lms_files, verify_lms_course, GenerateLmsFilesParams, GenerateLmsFilesResult,
-    VerifyLmsParams, VerifyLmsResult,
+    fetch_group_set_list, fetch_groups_for_set, import_groups, import_students,
+    verify_connection as verify_lms_connection,
 };
-pub use setup::{setup_repos, SetupParams};
-pub use verify::{verify_platform, VerifyParams};
+
+pub use platform::verify_connection;
+
+pub use repo::{
+    clone_repos, create_repos, delete_repos, preflight_clone, preflight_create, preflight_delete,
+    CloneReposParams, CreateReposParams, DeleteReposParams,
+};
+
+pub use validation::{validate_assignment, validate_roster};

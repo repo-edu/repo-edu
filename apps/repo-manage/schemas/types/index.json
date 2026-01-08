@@ -154,6 +154,10 @@
       "path": "./LmsGroupSet.schema.json"
     },
     {
+      "name": "LmsOperationContext",
+      "path": "./LmsOperationContext.schema.json"
+    },
+    {
       "name": "LmsIdConflict",
       "path": "./LmsIdConflict.schema.json"
     },
@@ -200,6 +204,14 @@
     {
       "name": "RepoCollision",
       "path": "./RepoCollision.schema.json"
+    },
+    {
+      "name": "RepoOperationContext",
+      "path": "./RepoOperationContext.schema.json"
+    },
+    {
+      "name": "RepoCollisionKind",
+      "path": "./RepoCollisionKind.schema.json"
     },
     {
       "name": "RepoPreflightResult",

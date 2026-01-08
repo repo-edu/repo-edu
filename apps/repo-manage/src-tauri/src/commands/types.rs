@@ -1,31 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::generated::types::CommandResult;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigParams {
-    pub access_token: String,
-    pub user: String,
-    pub base_url: String,
-    pub student_repos: String,
-    pub template: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CloneParams {
-    pub config: ConfigParams,
-    pub yaml_file: String,
-    pub assignments: String,
-    pub target_folder: String,
-    pub directory_layout: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetupParams {
-    pub config: ConfigParams,
-    pub yaml_file: String,
-    pub assignments: String,
-}
+pub use repo_manage_core::CommandResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerifyCourseParams {

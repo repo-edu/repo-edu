@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsOperationContext",
+  "type": "object",
+  "properties": {
+    "connection": {
+      "$ref": "./LmsConnection.schema.json"
+    },
+    "course_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "connection",
+    "course_id"
+  ],
+  "description": "Snapshot of LMS settings for operations (draft or saved)"
+}

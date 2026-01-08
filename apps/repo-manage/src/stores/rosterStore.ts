@@ -11,6 +11,7 @@ import type {
   Assignment,
   AssignmentId,
   AssignmentMetadata,
+  GitIdentityMode,
   Group,
   GroupId,
   Roster,
@@ -20,6 +21,8 @@ import type {
 } from "../bindings/types"
 import { errorResult, type LoadResult, okResult } from "../types/load"
 import { debounceAsync } from "../utils/debounce"
+import { useAppSettingsStore } from "./appSettingsStore"
+import { useProfileSettingsStore } from "./profileSettingsStore"
 
 type StoreStatus = "empty" | "loading" | "loaded" | "error"
 
@@ -69,11 +72,11 @@ interface RosterActions {
 
   // Validation (debounced, called after mutations)
   validateRoster: () => Promise<void>
-  validateAssignment: (profileName: string) => Promise<void>
+  validateAssignment: () => Promise<void>
 
   // Internal helpers
   _triggerRosterValidation: () => void
-  _triggerAssignmentValidation: (profileName: string) => void
+  _triggerAssignmentValidation: () => void
 
   // Reset
   reset: () => void
@@ -93,7 +96,7 @@ const initialState: RosterState = {
 // Create debounced validation functions outside the store
 // to ensure they persist across renders
 let debouncedRosterValidation: (() => void) | null = null
-let debouncedAssignmentValidation: ((profileName: string) => void) | null = null
+let debouncedAssignmentValidation: (() => void) | null = null
 
 export const useRosterStore = create<RosterStore>((set, get) => {
   // Initialize debounced functions that reference the store
@@ -115,7 +118,19 @@ export const useRosterStore = create<RosterStore>((set, get) => {
     }
   }
 
-  const validateAssignmentImpl = async (profileName: string) => {
+  const resolveIdentityMode = (): GitIdentityMode => {
+    const gitConnectionName = useProfileSettingsStore.getState().gitConnection
+    if (!gitConnectionName) return "username"
+    const connection =
+      useAppSettingsStore.getState().gitConnections[gitConnectionName]
+    if (!connection) return "username"
+    if (connection.server_type === "GitLab") {
+      return connection.identity_mode ?? "username"
+    }
+    return "username"
+  }
+
+  const validateAssignmentImpl = async () => {
     const { roster, selectedAssignmentId } = get()
     if (!roster || !selectedAssignmentId) {
       set({ assignmentValidation: null })
@@ -123,7 +138,7 @@ export const useRosterStore = create<RosterStore>((set, get) => {
     }
     try {
       const result = await commands.validateAssignment(
-        profileName,
+        resolveIdentityMode(),
         roster,
         selectedAssignmentId,
       )
@@ -357,8 +372,8 @@ export const useRosterStore = create<RosterStore>((set, get) => {
       debouncedRosterValidation?.()
     },
 
-    _triggerAssignmentValidation: (profileName) => {
-      debouncedAssignmentValidation?.(profileName)
+    _triggerAssignmentValidation: () => {
+      debouncedAssignmentValidation?.()
     },
 
     reset: () => set(initialState),

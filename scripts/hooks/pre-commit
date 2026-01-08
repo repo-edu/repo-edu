@@ -13,5 +13,4 @@ pnpm gen:bindings
 # Stage generated outputs if they were regenerated
 git add apps/repo-manage/src/bindings/types.ts 2>/dev/null || true
 git add apps/repo-manage/src/bindings/commands.ts 2>/dev/null || true
-git add apps/repo-manage/src-tauri/src/generated/types.rs 2>/dev/null || true
 git add apps/repo-manage/core/src/generated/types.rs 2>/dev/null || true

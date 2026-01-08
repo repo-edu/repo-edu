@@ -11,13 +11,17 @@
     },
     "repo_name": {
       "type": "string"
+    },
+    "kind": {
+      "$ref": "./RepoCollisionKind.schema.json"
     }
   },
   "additionalProperties": false,
   "required": [
     "group_id",
     "group_name",
-    "repo_name"
+    "repo_name",
+    "kind"
   ],
   "description": "Repo collision detail"
 }

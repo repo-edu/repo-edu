@@ -1,6 +1,5 @@
 mod commands;
 mod error;
-mod generated;
 #[cfg(test)]
 mod tests;
 
@@ -183,9 +182,6 @@ pub fn run() {
             commands::lms::assignment_has_groups,
             commands::lms::verify_profile_course,
             // Platform commands
-            commands::platform::verify_config,
-            commands::platform::setup_repos,
-            commands::platform::clone_repos,
             commands::platform::verify_git_connection,
             commands::platform::verify_git_connection_draft,
             // Roster-based git operations

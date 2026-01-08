@@ -288,6 +288,12 @@ pub struct LmsGroupSet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsOperationContext {
+  pub connection: LmsConnection,
+  pub course_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LmsIdConflict {
   pub email: String,
   pub roster_lms_user_id: String,
@@ -378,6 +384,23 @@ pub struct RepoCollision {
   pub group_id: GroupId,
   pub group_name: String,
   pub repo_name: String,
+  pub kind: RepoCollisionKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoOperationContext {
+  pub target_org: String,
+  pub repo_name_template: String,
+  pub git_connection: GitConnection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoCollisionKind {
+  #[serde(rename = "already_exists")]
+  AlreadyExists,
+  #[serde(rename = "not_found")]
+  NotFound,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

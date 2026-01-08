@@ -63,39 +63,6 @@
       "output": "Vec<GroupCategory>",
       "error": "AppError"
     },
-    "verify_config": {
-      "description": "Verify platform configuration and authentication",
-      "input": [
-        {
-          "name": "params",
-          "type": "ConfigParams"
-        }
-      ],
-      "output": "CommandResult",
-      "error": "AppError"
-    },
-    "setup_repos": {
-      "description": "Create student repositories from templates",
-      "input": [
-        {
-          "name": "params",
-          "type": "SetupParams"
-        }
-      ],
-      "output": "CommandResult",
-      "error": "AppError"
-    },
-    "clone_repos": {
-      "description": "Clone student repositories (stub for now)",
-      "input": [
-        {
-          "name": "params",
-          "type": "CloneParams"
-        }
-      ],
-      "output": "CommandResult",
-      "error": "AppError"
-    },
     "list_profiles": {
       "description": "List all available profiles",
       "input": [],

@@ -66,7 +66,12 @@
     },
     "verify_lms_connection": {
       "description": "Verify LMS connection using app-level LMS connection",
-      "input": [],
+      "input": [
+        {
+          "name": "context",
+          "type": "LmsOperationContext"
+        }
+      ],
       "output": "LmsVerifyResult",
       "error": "AppError"
     },
@@ -74,8 +79,8 @@
       "description": "Verify draft LMS connection (before saving)",
       "input": [
         {
-          "name": "connection",
-          "type": "LmsConnection"
+          "name": "context",
+          "type": "LmsOperationContext"
         }
       ],
       "output": "LmsVerifyResult",
@@ -102,8 +107,8 @@
       "description": "Import students from LMS, merge into roster",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "LmsOperationContext"
         },
         {
           "name": "roster",
@@ -136,8 +141,8 @@
       "description": "Fetch available group-sets from LMS (with all groups)",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "LmsOperationContext"
         }
       ],
       "output": "Vec<LmsGroupSet>",
@@ -147,8 +152,8 @@
       "description": "Fetch group-set names/ids only (fast)",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "LmsOperationContext"
         }
       ],
       "output": "Vec<LmsGroupSet>",
@@ -158,8 +163,8 @@
       "description": "Fetch groups for a specific group-set",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "LmsOperationContext"
         },
         {
           "name": "group_set_id",
@@ -173,8 +178,8 @@
       "description": "Import groups from LMS group-set into assignment",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "LmsOperationContext"
         },
         {
           "name": "roster",
@@ -238,39 +243,6 @@
         }
       ],
       "output": "GitVerifyResult",
-      "error": "AppError"
-    },
-    "verify_config": {
-      "description": "Verify platform configuration and authentication",
-      "input": [
-        {
-          "name": "params",
-          "type": "ConfigParams"
-        }
-      ],
-      "output": "CommandResult",
-      "error": "AppError"
-    },
-    "setup_repos": {
-      "description": "Create student repositories from templates",
-      "input": [
-        {
-          "name": "params",
-          "type": "SetupParams"
-        }
-      ],
-      "output": "CommandResult",
-      "error": "AppError"
-    },
-    "clone_repos": {
-      "description": "Clone student repositories (stub for now)",
-      "input": [
-        {
-          "name": "params",
-          "type": "CloneParams"
-        }
-      ],
-      "output": "CommandResult",
       "error": "AppError"
     },
     "list_profiles": {
@@ -702,8 +674,8 @@
       "description": "Validate assignment groups within a roster",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "identity_mode",
+          "type": "GitIdentityMode"
         },
         {
           "name": "roster",
@@ -721,8 +693,8 @@
       "description": "Preflight check for create: identifies repos that already exist",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",
@@ -744,8 +716,8 @@
       "description": "Preflight check for clone: identifies repos that don't exist",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",
@@ -767,8 +739,8 @@
       "description": "Preflight check for delete: identifies repos that don't exist",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",
@@ -790,8 +762,8 @@
       "description": "Create repos for assignment groups",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",
@@ -813,8 +785,8 @@
       "description": "Clone repos for assignment groups",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",
@@ -836,8 +808,8 @@
       "description": "Delete repos for assignment groups",
       "input": [
         {
-          "name": "profile",
-          "type": "String"
+          "name": "context",
+          "type": "RepoOperationContext"
         },
         {
           "name": "roster",

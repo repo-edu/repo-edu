@@ -181,4 +181,4 @@ compile.
 - Schemas: `apps/repo-manage/schemas/types/*.schema.json` + command manifest.
 - Validation: `scripts/validate-schemas.ts` + `scripts/check-command-parity.ts`.
 - Output: `apps/repo-manage/src/bindings/types.ts`, `apps/repo-manage/src/bindings/commands.ts`,
-  and `apps/repo-manage/src-tauri/src/generated/types.rs`.
+  and `apps/repo-manage/core/src/generated/types.rs`.
