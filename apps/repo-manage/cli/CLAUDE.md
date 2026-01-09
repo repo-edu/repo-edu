@@ -1,60 +1,50 @@
-# CLAUDE.md
+# CLI Crate
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
-repository.
-
-See the root `/CLAUDE.md` for workspace-wide commands and architecture overview.
-
-## CLI-Specific Commands
-
-```bash
-# Build
-pnpm cli:build                                # Build debug binary (./target/debug/redu)
-pnpm cli:build:release                        # Build release binary
-
-# Test
-pnpm test:rs -- -p repo-manage-cli            # Run all CLI tests
-pnpm test:rs -- -p repo-manage-cli <name>     # Run specific test
-
-# Run
-./target/debug/redu --help                    # Show usage
-./target/debug/redu --markdown-help           # Generate CLI docs as markdown
-```
-
-## Current Status
-
-**LMS and Repo commands are temporarily disabled during roster refactor.** Only Profile commands
-are currently functional (`redu profile list|active|show|load`).
+Command-line interface for repo-manage operations.
 
 ## Architecture
 
-The CLI is a thin wrapper around `repo-manage-core` operations:
+The CLI is a thin wrapper around shared handlers in `repo-manage-core/src/operations/`.
+All business logic lives in core; the CLI handles argument parsing and output formatting.
 
-- `main.rs` - Clap command definitions, handlers, and `ConfigManager`
-- `ConfigManager` - Loads settings from `~/.config/repo-manage/settings.json` (shared with GUI)
+```text
+cli/src/
+├── main.rs          # Clap definitions, command dispatch
+├── commands/        # Command implementations (call handlers)
+│   ├── mod.rs
+│   ├── git.rs
+│   ├── lms.rs
+│   ├── profile.rs
+│   ├── repo.rs
+│   ├── roster.rs
+│   └── validate.rs
+├── output.rs        # Output formatting (success/error/progress)
+└── util.rs          # Profile resolution, roster loading, prompts
+```
 
-### Command Structure
+## Commands
 
-Commands use domain-based grouping:
+| Command | Handler |
+|---------|---------|
+| `profile list\|active\|show\|load` | Direct SettingsManager calls |
+| `roster show` | Direct roster access |
+| `lms verify` | `operations::verify_lms_connection` |
+| `lms import-students` | `operations::import_students` |
+| `lms import-groups` | `operations::import_groups` |
+| `git verify` | `operations::verify_connection` |
+| `repo create` | `operations::create_repos` |
+| `repo clone` | `operations::clone_repos` |
+| `repo delete` | `operations::delete_repos` |
+| `validate` | `operations::validate_assignment` |
 
-- `redu lms verify|generate` - LMS operations (Canvas/Moodle) — *disabled*
-- `redu repo verify|setup|clone` - Repository operations (GitHub/GitLab/Gitea/Local) — *disabled*
-- `redu profile list|active|show|load` - Profile management
+## Building
 
-### Environment Variable Overrides
-
-For CI/automation, settings can be overridden via environment:
-
-- `REPOBEE_BASE_URL`, `REPOBEE_TOKEN`, `REPOBEE_ORG`, `REPOBEE_USER`, `REPOBEE_TEMPLATE_ORG`
-- `REPOBEE_CONFIG_DIR` - Override config directory (used in tests for isolation)
+```bash
+cargo build -p repo-manage-cli
+```
 
 ## Testing
 
-Integration tests (`tests/integration_tests.rs`) use `assert_cmd` with mockito for HTTP mocking.
-
-Test helpers:
-
-- `cli()` - Creates command with isolated temp config directory
-- `cli_with_config_dir(path)` - Creates command with specific config for inspection
-- `create_students_yaml(dir, content)` - Creates a student teams YAML file for testing
-- `gitlab_user_json()`, `gitlab_group_json()`, `gitlab_members_json()` - Mock GitLab API responses
+```bash
+cargo test -p repo-manage-cli
+```

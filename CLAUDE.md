@@ -1,7 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
-repository.
+This file provides guidance to AI coding assistants when working with code in this repository.
 
 ## Build & Development Commands
 
@@ -16,8 +15,8 @@ pnpm dev                  # Run desktop app in dev mode
 # Building
 pnpm cli:build            # Build debug CLI (binary: redu)
 pnpm cli:build:release    # Build release CLI
-pnpm tauri:build          # Build debug Tauri app (.app only)
-pnpm tauri:build:release  # Build release Tauri app (.app + .dmg)
+pnpm build                # Build debug Tauri app (.app only)
+pnpm build:release        # Build release Tauri app (.app + .dmg)
 
 # Testing
 pnpm test                 # Run all tests (TS + Rust)
@@ -46,9 +45,15 @@ pnpm docs:build           # Build documentation site
 # CLI
 ./target/debug/redu --help            # Run CLI after building
 ./target/debug/redu lms verify        # Example: verify LMS connection
-./target/debug/redu repo verify       # Example: verify git platform
+./target/debug/redu git verify        # Example: verify git platform
+./target/debug/redu roster show       # Example: show roster summary
 ./target/debug/redu profile list      # Example: list profiles
 ```
+
+## Commit & PR Guidelines
+
+- Commit messages use conventional prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`,
+  `chore:`.
 
 ## Architecture
 
@@ -85,10 +90,10 @@ repo-edu/
 The `core/src/operations/` module contains high-level operations shared between CLI
 and GUI:
 
-- `verify.rs` - Platform connection verification
-- `lms.rs` - LMS course verification and file generation
-- `setup.rs` - Student repository creation from templates
-- `clone.rs` - Repository cloning
+- `platform.rs` - Git platform verification
+- `lms.rs` - LMS verification and roster imports
+- `repo.rs` - Repository create/clone/delete operations
+- `validation.rs` - Assignment validation
 
 Both CLI and Tauri commands call these operations with a progress callback for status updates.
 
@@ -130,8 +135,11 @@ The frontend uses a roster-centric design with three main tabs: Roster, Assignme
 
 The `redu` CLI uses clap with domain-based subcommands:
 
-- `redu lms verify|generate` - LMS operations *(disabled during roster refactor)*
-- `redu repo verify|setup|clone` - Repository operations *(disabled during roster refactor)*
+- `redu lms verify|import-students|import-groups` - LMS operations
+- `redu git verify` - Git platform operations
+- `redu repo create|clone|delete` - Repository operations
+- `redu roster show` - Roster inspection
+- `redu validate` - Assignment validation
 - `redu profile list|active|show|load` - Profile management
 
 CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
@@ -175,3 +183,8 @@ For detailed guidance on specific areas, see the CLAUDE.md files in:
 - `apps/repo-manage/cli/CLAUDE.md` — CLI structure and testing
 - `apps/repo-manage/src-tauri/CLAUDE.md` — Tauri backend commands
 - `packages/ui/CLAUDE.md` — shadcn/ui component library
+
+## Test Locations
+
+- Frontend tests live under `apps/repo-manage/src/**/*.test.ts(x)`.
+- Rust tests live under `crates/**/tests` or `mod tests` blocks.

@@ -1,14 +1,33 @@
 packages:
-  - "packages/*"
-  - "apps/*"
-  - "docs"
+  - packages/*
+  - apps/*
+  - docs
 
-# Shared dependency versions - use catalog: in package.json to reference
 catalog:
-  react: 19.2.1
-  react-dom: 19.2.1
-  "@types/react": 19.2.7
-  "@types/react-dom": 19.2.3
-  typescript: 5.9.3
+  '@types/react': 19.2.7
+  '@types/react-dom': 19.2.3
   ajv: 8.12.0
   json-schema-to-typescript: 15.0.4
+  react: 19.2.1
+  react-dom: 19.2.1
+  typescript: 5.9.3
+
+onlyBuiltDependencies:
+  - ' '
+  - '"'
+  - ','
+  - '['
+  - ']'
+  - a
+  - b
+  - d
+  - e
+  - esbuild
+  - h
+  - i
+  - l
+  - p
+  - r
+  - s
+  - sharp
+  - u

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+This file provides guidance to AI coding assistants when working with code in this
 repository.
 
 This is the Tauri backend crate (`repo-manage-tauri`). See the root CLAUDE.md for workspace-wide

@@ -1,77 +1,192 @@
-# repo-edu
+<!-- AUTO-GENERATED FROM CLAUDE.md — DO NOT EDIT MANUALLY -->
 
-## Project Overview
+# GEMINI.md
 
-**repo-edu** is a tool for educational repository management, designed to streamline student
-workflows through LMS integration (Canvas, Moodle). It allows for batch creation of student
-repositories, fetching rosters, and managing assignments across GitHub, GitLab, and Gitea.
+This file provides guidance to AI coding assistants when working with code in this repository.
 
-The project is a monorepo offering both a **GUI** (Tauri + React) and a **CLI** (`redu`) for
-automation.
+## Build & Development Commands
 
-### Architecture
+All commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
+Use pnpm scripts exclusively—never raw cargo, npm, or npx commands.
 
-The repository utilizes a dual-workspace structure:
+```bash
+# Development
+pnpm install              # Install all dependencies
+pnpm dev                  # Run desktop app in dev mode
 
-* **pnpm workspace:** Manages TypeScript packages (frontend, docs, UI library).
-* **Cargo workspace:** Manages Rust crates (backend logic, CLI, LMS clients).
+# Building
+pnpm cli:build            # Build debug CLI (binary: redu)
+pnpm cli:build:release    # Build release CLI
+pnpm build                # Build debug Tauri app (.app only)
+pnpm build:release        # Build release Tauri app (.app + .dmg)
 
-**Key Directories:**
+# Testing
+pnpm test                 # Run all tests (TS + Rust)
+pnpm test:ts              # Run frontend tests (vitest)
+pnpm test:rs              # Run Rust tests
 
-* `apps/repo-manage/`: Main application directory.
-  * `src/`: React frontend (Vite).
-  * `src-tauri/`: Tauri Rust backend.
-  * `core/`: Shared Rust business logic.
-  * `cli/`: The `redu` CLI tool.
-  * `schemas/`: JSON Schemas for type generation.
-* `crates/`: Shared Rust libraries (LMS clients for Canvas/Moodle).
-* `packages/ui/`: Shared UI components (based on shadcn/ui).
-* `docs/`: VitePress documentation site.
+# Run single tests
+pnpm test:ts -- <pattern>                     # Run specific frontend test
+pnpm test:rs -- -p repo-manage-core <name>    # Run specific Rust test
 
-## Building and Running
+# Linting & Formatting
+pnpm fmt                  # Format all (TS + Rust + Markdown)
+pnpm check                # Check all (Biome + Clippy + Markdown + Schemas)
+pnpm fix                  # Fix all auto-fixable issues
+pnpm typecheck            # Type check TS and Rust
+pnpm validate             # Run check + typecheck + test
 
-**Important:** Always use `pnpm` scripts. Do not use raw `cargo`, `npm`, or `npx` commands.
+# Type Bindings
+pnpm gen:bindings         # Regenerate TS + Rust bindings from JSON Schemas
+pnpm check:schemas        # Validate schemas + check coverage + command parity
 
-### Development
+# Documentation
+pnpm docs:dev             # Preview documentation locally
+pnpm docs:build           # Build documentation site
 
-* **Install dependencies:** `pnpm install`
-* **Run Desktop App (Dev):** `pnpm dev`
-* **Run CLI (Dev):** `pnpm cli:build` (Binary output: `./target/debug/redu`)
-* **Preview Docs:** `pnpm docs:dev`
+# CLI
+./target/debug/redu --help            # Run CLI after building
+./target/debug/redu lms verify        # Example: verify LMS connection
+./target/debug/redu git verify        # Example: verify git platform
+./target/debug/redu roster show       # Example: show roster summary
+./target/debug/redu profile list      # Example: list profiles
+```
 
-### Building
+## Commit & PR Guidelines
 
-* **Build CLI (Release):** `pnpm cli:build:release`
-* **Build Tauri App (Debug):** `pnpm tauri:build`
-* **Build Tauri App (Release):** `pnpm tauri:build:release`
+- Commit messages use conventional prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`,
+  `chore:`.
 
-### Testing
+## Architecture
 
-* **Run All Tests:** `pnpm test`
-* **Frontend Tests (Vitest):** `pnpm test:ts`
-* **Rust Tests:** `pnpm test:rs`
+### Workspace Structure
 
-### Code Generation
+The repository uses two workspace systems:
 
-This project relies heavily on code generation from JSON Schemas.
+- **pnpm workspace** (root `pnpm-workspace.yaml`) — manages TypeScript packages
+- **Cargo workspace** (root `Cargo.toml`) — manages all Rust crates
 
-* **Regenerate Bindings:** `pnpm gen:bindings`
-  * *Note:* Run this after modifying any schema in `apps/repo-manage/schemas/`.
+```bash
+repo-edu/
+├── Cargo.toml              # Rust workspace root
+├── Cargo.lock              # Shared lock file for all Rust crates
+├── package.json            # pnpm scripts (delegates to workspaces)
+├── pnpm-workspace.yaml     # TypeScript workspace config
+├── apps/
+│   └── repo-manage/        # Main Tauri desktop app
+│       ├── src/            # React frontend
+│       ├── src-tauri/      # Tauri Rust backend (workspace member)
+│       ├── core/               # Shared Rust library (workspace member)
+│       └── cli/                # CLI tool (workspace member)
+├── crates/                 # Shared Rust libraries
+│   ├── lms-common/         # Common LMS traits, types, error handling
+│   ├── lms-client/         # Unified LMS client (Canvas/Moodle selection)
+│   ├── canvas-lms/         # Canvas LMS API client
+│   └── moodle-lms/         # Moodle LMS API client
+└── packages/
+    └── ui/                 # Shared shadcn/ui components
+```
 
-## Development Conventions
+### Shared Operations Layer
 
-* **Style:**
-  * **JS/TS:** Uses **Biome** (`pnpm fmt`, `pnpm check`, `pnpm fix`). Double quotes, no semicolons
-    (mostly).
-  * **Rust:** Uses `rustfmt` and `clippy`.
-* **Generated Code:**
-  * Never edit files in `bindings/` or `generated/` directories directly.
-  * Modify the source JSON Schemas and run `pnpm gen:bindings`.
-* **State Management:** Frontend uses **Zustand**.
-* **UI Components:** Located in `packages/ui` and aliased as `@repo-edu/ui`.
-* **Path Aliases:** `@/` maps to `apps/repo-manage/src/`.
+The `core/src/operations/` module contains high-level operations shared between CLI
+and GUI:
 
-## Documentation
+- `platform.rs` - Git platform verification
+- `lms.rs` - LMS verification and roster imports
+- `repo.rs` - Repository create/clone/delete operations
+- `validation.rs` - Assignment validation
 
-Full documentation is available at [repo-edu.github.io/repo-edu](https://repo-edu.github.io/repo-edu/).
-Local documentation can be found in the `docs/` directory.
+Both CLI and Tauri commands call these operations with a progress callback for status updates.
+
+### Frontend Architecture (apps/repo-manage/src)
+
+The frontend uses a roster-centric design with three main tabs: Roster, Assignment, and Operation.
+
+- **components/tabs/** - Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
+- **components/dialogs/** - Modal dialogs for editing students, assignments, groups
+- **components/sheets/** - Slide-out panels (`SettingsSheet`, `StudentEditorSheet`,
+  `GroupEditorSheet`)
+- **stores/** - Zustand stores:
+  - `rosterStore` - Student roster data and selection state
+  - `appSettingsStore` - App-level settings (theme, active tab)
+  - `profileSettingsStore` - Per-profile connection settings
+  - `connectionsStore` - LMS/Git connection configuration
+  - `operationStore` - Git operation state
+  - `outputStore` - Console output messages
+  - `uiStore` - UI state (dialogs, sheets, active profile)
+- **hooks/** - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`)
+- **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
+  `settingsService`)
+- **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
+- **bindings/types.ts** - Auto-generated TypeScript types from JSON Schemas
+- **bindings/commands.ts** - Auto-generated Tauri command wrappers
+
+### Rust Backend Architecture (apps/repo-manage/src-tauri)
+
+- **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs,
+  roster.rs)
+- **core/src/** - Core business logic
+  - **roster/** - Roster types, validation, and export
+  - **lms/** - Canvas/Moodle LMS client integration
+  - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
+  - **settings/** - Configuration management with JSON Schema validation
+  - **operations/** - Shared operations called by both CLI and GUI
+
+### CLI Structure (cli)
+
+The `redu` CLI uses clap with domain-based subcommands:
+
+- `redu lms verify|import-students|import-groups` - LMS operations
+- `redu git verify` - Git platform operations
+- `redu repo create|clone|delete` - Repository operations
+- `redu roster show` - Roster inspection
+- `redu validate` - Assignment validation
+- `redu profile list|active|show|load` - Profile management
+
+CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
+
+### Type Flow
+
+JSON Schema → `pnpm gen:bindings` → TS types + Rust DTOs → Frontend services → Zustand stores
+
+After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
+
+## Generated Code Policy
+
+**NEVER edit these files directly—they are regenerated from JSON Schemas:**
+
+- `apps/repo-manage/src/bindings/types.ts`
+- `apps/repo-manage/src/bindings/commands.ts`
+- `apps/repo-manage/core/src/generated/types.rs`
+
+**To change types or commands:**
+
+1. Edit the JSON Schema in `apps/repo-manage/schemas/types/*.schema.json`
+2. For commands, edit `apps/repo-manage/schemas/commands/manifest.json`
+3. Run `pnpm gen:bindings` to regenerate all bindings
+
+The generator script is `scripts/gen-from-schema.ts`. See `apps/repo-manage/schemas/README.md`
+for schema conventions and the `x-rust` extension spec.
+
+## Code Conventions
+
+- Uses Biome for JS/TS linting/formatting (double quotes, no semicolons except when needed)
+- Uses pnpm Catalogs for shared dependency versions (see `pnpm-workspace.yaml`)
+- Path alias `@/` maps to `apps/repo-manage/src/`
+- Path alias `@repo-edu/ui` maps to `packages/ui/src/`
+
+## Sub-Directory Documentation
+
+For detailed guidance on specific areas, see the GEMINI.md files in:
+
+- `crates/GEMINI.md` — LMS client crate architecture
+- `apps/repo-manage/core/GEMINI.md` — Core library patterns
+- `apps/repo-manage/cli/GEMINI.md` — CLI structure and testing
+- `apps/repo-manage/src-tauri/GEMINI.md` — Tauri backend commands
+- `packages/ui/GEMINI.md` — shadcn/ui component library
+
+## Test Locations
+
+- Frontend tests live under `apps/repo-manage/src/**/*.test.ts(x)`.
+- Rust tests live under `crates/**/tests` or `mod tests` blocks.

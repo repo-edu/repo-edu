@@ -40,5 +40,6 @@ docs/.vitepress/dist/
 # Logs
 *.log
 
-# Generated via pnpm claude2agents
+# Generated via pnpm claude2assistants
 AGENTS.md
+GEMINI.md

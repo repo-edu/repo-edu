@@ -1,0 +1,39 @@
+---
+title: repo-edu
+description: Streamline student repository workflows with LMS integration
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+
+:::caution
+[Pre-alpha Software] This project is under active development and not yet ready for
+production use. APIs and features may change without notice.
+:::
+
+## Key Features
+
+<CardGrid>
+  <LinkCard
+    title="LMS Import"
+    description="Fetch student rosters and group assignments from Canvas or Moodle."
+    href="/user-guide/lms-import/"
+  />
+  <LinkCard
+    title="Repository Setup"
+    description="Batch create student repositories from templates on GitHub, GitLab, or Gitea."
+    href="/user-guide/repository-setup/"
+  />
+  <LinkCard
+    title="CLI Automation"
+    description="Automate workflows with the redu command-line interface."
+    href="/cli/overview/"
+  />
+</CardGrid>
+
+## Quick Links
+
+<CardGrid>
+  <LinkCard title="Installation" href="/getting-started/installation/" />
+  <LinkCard title="Quick Start" href="/getting-started/quick-start/" />
+  <LinkCard title="Settings Reference" href="/reference/settings-reference/" />
+</CardGrid>
