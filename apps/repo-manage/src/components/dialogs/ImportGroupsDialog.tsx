@@ -66,7 +66,10 @@ export function ImportGroupsDialog() {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const courseId = useProfileSettingsStore((state) => state.course.id)
-  const lmsContext = buildLmsOperationContext(lmsConnection, courseId)
+  const lmsContext = useMemo(
+    () => buildLmsOperationContext(lmsConnection, courseId),
+    [lmsConnection, courseId],
+  )
   const lmsContextError = !lmsConnection
     ? "No LMS connection configured"
     : !courseId.trim()

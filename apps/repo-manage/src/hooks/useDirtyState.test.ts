@@ -23,7 +23,9 @@ describe("useDirtyState", () => {
     expect(result.current.isDirty).toBe(false)
 
     // Mutate profile settings
-    useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    act(() => {
+      useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    })
     rerender()
 
     expect(result.current.isDirty).toBe(true)
@@ -36,24 +38,26 @@ describe("useDirtyState", () => {
     expect(result.current.isDirty).toBe(false)
 
     // Mutate roster
-    useRosterStore.setState({
-      roster: {
-        source: null,
-        students: [
-          {
-            id: "s1",
-            name: "Test",
-            email: "test@example.com",
-            student_number: null,
-            git_username: null,
-            git_username_status: "unknown",
-            lms_user_id: null,
-            custom_fields: {},
-          },
-        ],
-        assignments: [],
-      },
-      status: "loaded",
+    act(() => {
+      useRosterStore.setState({
+        roster: {
+          source: null,
+          students: [
+            {
+              id: "s1",
+              name: "Test",
+              email: "test@example.com",
+              student_number: null,
+              git_username: null,
+              git_username_status: "unknown",
+              lms_user_id: null,
+              custom_fields: {},
+            },
+          ],
+          assignments: [],
+        },
+        status: "loaded",
+      })
     })
     rerender()
 
@@ -64,7 +68,9 @@ describe("useDirtyState", () => {
     const { result, rerender } = renderHook(() => useDirtyState("test-profile"))
 
     // Mutate profile settings
-    useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    act(() => {
+      useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    })
     rerender()
     expect(result.current.isDirty).toBe(true)
 
@@ -92,13 +98,17 @@ describe("useDirtyState", () => {
     )
 
     // Make dirty by changing store
-    useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    act(() => {
+      useProfileSettingsStore.setState({ gitConnection: "my-github" })
+    })
     rerender({ profile: "profile-a" })
     expect(result.current.isDirty).toBe(true)
 
     // Switch to a different profile - baseline was for profile-a, now profile-b
     // Should be clean because baseline doesn't match current profile
-    rerender({ profile: "profile-b" })
+    act(() => {
+      rerender({ profile: "profile-b" })
+    })
     expect(result.current.isDirty).toBe(false)
   })
 
@@ -109,17 +119,25 @@ describe("useDirtyState", () => {
     )
 
     // Switch profile
-    rerender({ profile: "profile-b" })
+    act(() => {
+      rerender({ profile: "profile-b" })
+    })
     expect(result.current.isDirty).toBe(false)
 
     // Mark clean to capture baseline for new profile
     act(() => result.current.markClean())
-    rerender({ profile: "profile-b" })
+    act(() => {
+      rerender({ profile: "profile-b" })
+    })
     expect(result.current.isDirty).toBe(false)
 
     // Now make changes - should become dirty
-    useProfileSettingsStore.setState({ gitConnection: "changed-connection" })
-    rerender({ profile: "profile-b" })
+    act(() => {
+      useProfileSettingsStore.setState({ gitConnection: "changed-connection" })
+    })
+    act(() => {
+      rerender({ profile: "profile-b" })
+    })
     expect(result.current.isDirty).toBe(true)
   })
 
@@ -129,7 +147,9 @@ describe("useDirtyState", () => {
       { initialProps: { profile: "profile-a" } },
     )
 
-    rerender({ profile: "profile-b" })
+    act(() => {
+      rerender({ profile: "profile-b" })
+    })
     expect(result.current.isDirty).toBe(false)
 
     act(() => result.current.forceDirty())

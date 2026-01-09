@@ -4140,11 +4140,8 @@ dependencies = [
  "assert_cmd",
  "clap",
  "clap-markdown",
- "mockito",
  "predicates",
  "repo-manage-core",
- "serde_json",
- "serde_yaml",
  "tempfile",
  "tokio",
 ]
