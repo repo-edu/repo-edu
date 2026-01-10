@@ -34,8 +34,7 @@ node_modules/
 target/
 dist/
 site/
-docs/.vitepress/cache/
-docs/.vitepress/dist/
+docs/.astro/
 
 # Logs
 *.log

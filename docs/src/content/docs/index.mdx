@@ -1,39 +1,109 @@
 ---
 title: repo-edu
-description: Streamline student repository workflows with LMS integration
+description: Streamline student repository management with LMS integration
+template: splash
+hero:
+  title: repo-edu
+  tagline: Import rosters from Canvas or Moodle. Batch-create repos on GitHub, GitLab, or Gitea.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: Try the Demo
+      link: /demo/
+      variant: secondary
+    - text: View on GitHub
+      link: https://github.com/repo-edu/repo-edu
+      icon: external
+      variant: minimal
 ---
 
 import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+import TerminalPreview from "../../components/TerminalPreview.astro"
+import RoleCard from "../../components/RoleCard.astro"
 
-:::caution
-[Pre-alpha Software] This project is under active development and not yet ready for
-production use. APIs and features may change without notice.
+:::caution[Pre-alpha Software]
+This project is under active development. APIs and features may change without notice.
 :::
 
-## Key Features
+## What is repo-edu?
 
-<CardGrid>
-  <LinkCard
-    title="LMS Import"
-    description="Fetch student rosters and group assignments from Canvas or Moodle."
-    href="/user-guide/lms-import/"
+**repo-edu** is a tool for educators who manage programming courses. It bridges your Learning
+Management System with Git hosting platforms, eliminating the tedious manual work of setting up
+student repositories.
+
+<div class="feature-grid not-content">
+  <div class="feature-card">
+    <h3>LMS Integration</h3>
+    <p>Import student rosters and group assignments directly from Canvas or Moodle. No manual data entry required.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Batch Repository Creation</h3>
+    <p>Create dozens or hundreds of repositories in seconds using your templates on GitHub, GitLab, or Gitea.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Flexible Workflow</h3>
+    <p>Use the desktop app for interactive work or the CLI for automation and scripting.</p>
+  </div>
+</div>
+
+## See It in Action
+
+<TerminalPreview title="redu">
+<span class="line"><span class="prompt">$</span> redu profile load cs101-fall-2025</span>
+<span class="line muted">Profile loaded: cs101-fall-2025</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu lms verify</span>
+<span class="line muted">Verifying LMS connection...</span>
+<span class="line success">OK: Connected to Canvas</span>
+<span class="line">  Course: CS101 - Introduction to Programming</span>
+<span class="line">  Students: 156</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu roster show</span>
+<span class="line">Roster Summary</span>
+<span class="line">==============</span>
+<span class="line">Profile: cs101-fall-2025</span>
+<span class="line">Students: 156</span>
+<span class="line">Assignments: 2</span>
+<span class="line">  - project-1 (32 groups)</span>
+<span class="line">  - project-2 (32 groups)</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu repo create --assignment project-1</span>
+<span class="line muted">Creating repositories for project-1...</span>
+<span class="line">  [########################################] 32/32</span>
+<span class="line"></span>
+<span class="line success">Setup complete: 32 repositories created</span>
+</TerminalPreview>
+
+## Choose Your Path
+
+<div class="role-grid not-content">
+  <RoleCard
+    title="Desktop App User"
+    description="Use the visual interface to manage rosters, assignments, and repositories. Perfect for getting started."
+    href="/getting-started/quick-start/"
+    icon="&#128421;"
   />
-  <LinkCard
-    title="Repository Setup"
-    description="Batch create student repositories from templates on GitHub, GitLab, or Gitea."
-    href="/user-guide/repository-setup/"
-  />
-  <LinkCard
-    title="CLI Automation"
-    description="Automate workflows with the redu command-line interface."
+  <RoleCard
+    title="CLI Power User"
+    description="Automate workflows with the redu command-line tool. Integrate with scripts and CI/CD pipelines."
     href="/cli/overview/"
+    icon="&#9000;"
   />
-</CardGrid>
+  <RoleCard
+    title="Contributor"
+    description="Help improve repo-edu. Learn about the architecture and how to contribute."
+    href="/development/contributing/"
+    icon="&#128295;"
+  />
+</div>
 
 ## Quick Links
 
 <CardGrid>
-  <LinkCard title="Installation" href="/getting-started/installation/" />
-  <LinkCard title="Quick Start" href="/getting-started/quick-start/" />
-  <LinkCard title="Settings Reference" href="/reference/settings-reference/" />
-</CardGrid>
+<LinkCard title="Installation" href="/getting-started/installation/" description="Download and install repo-edu" />
+<LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Get up and running in minutes" />
+<LinkCard title="Settings Reference" href="/reference/settings-reference/" description="Complete configuration options" />
+<LinkCard title="Troubleshooting" href="/reference/troubleshooting/" description="Common issues and solutions" />
+  </CardGrid>

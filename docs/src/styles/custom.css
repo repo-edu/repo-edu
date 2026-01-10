@@ -1,0 +1,256 @@
+/* repo-edu custom styles */
+
+/* ============================================
+   Custom Properties
+   ============================================ */
+
+:root {
+  /* Primary accent - professional blue */
+  --sl-color-accent-low: #1e3a5f;
+  --sl-color-accent: #2563eb;
+  --sl-color-accent-high: #60a5fa;
+
+  /* Terminal styling (Catppuccin-inspired) */
+  --terminal-bg: #1e1e2e;
+  --terminal-text: #cdd6f4;
+  --terminal-prompt: #89b4fa;
+  --terminal-success: #a6e3a1;
+  --terminal-muted: #6c7086;
+  --terminal-border: #45475a;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #1e3a5f;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #93c5fd;
+}
+
+/* ============================================
+   Hero Enhancements
+   ============================================ */
+
+[data-hero] {
+  padding-block: 3rem !important;
+}
+
+[data-hero] h1 {
+  font-size: clamp(2.5rem, 6vw, 3.5rem) !important;
+  line-height: 1.1 !important;
+}
+
+/* ============================================
+   Feature Grid
+   ============================================ */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background: var(--sl-color-bg-nav);
+  border-left: 4px solid var(--sl-color-accent);
+}
+
+.feature-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.feature-card p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--sl-color-gray-2);
+  line-height: 1.5;
+}
+
+/* ============================================
+   Terminal Preview
+   ============================================ */
+
+.terminal-preview {
+  max-width: 48rem;
+  margin: 2.5rem auto;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 25px 50px -12px rgb(0 0 0 / 0.15),
+    0 0 0 1px var(--terminal-border);
+}
+
+.terminal-header {
+  background: var(--terminal-border);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.terminal-header .dots {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.terminal-header .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminal-header .dot--red {
+  background: #ff5f56;
+}
+
+.terminal-header .dot--yellow {
+  background: #ffbd2e;
+}
+
+.terminal-header .dot--green {
+  background: #27c93f;
+}
+
+.terminal-header .title {
+  margin-left: 1rem;
+  font-size: 0.8125rem;
+  color: #a6adc8;
+}
+
+.terminal-body {
+  background: var(--terminal-bg);
+  padding: 1.5rem;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    "SF Mono",
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--terminal-text);
+  overflow-x: auto;
+}
+
+.terminal-body .line {
+  display: block;
+}
+
+.terminal-body .prompt {
+  color: var(--terminal-prompt);
+  user-select: none;
+}
+
+.terminal-body .success {
+  color: var(--terminal-success);
+}
+
+.terminal-body .muted {
+  color: var(--terminal-muted);
+}
+
+/* ============================================
+   Role-Based Navigation Cards
+   ============================================ */
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--sl-color-bg-nav);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.role-card:hover {
+  border-color: var(--sl-color-accent);
+  box-shadow: 0 10px 30px -5px rgb(0 0 0 / 0.1);
+  transform: translateY(-4px);
+}
+
+.role-card .icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.role-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  color: var(--sl-color-text);
+}
+
+.role-card p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--sl-color-gray-2);
+  line-height: 1.5;
+}
+
+/* ============================================
+   Section Headings
+   ============================================ */
+
+.section-heading {
+  text-align: center;
+  margin: 3rem 0 1.5rem;
+}
+
+.section-heading h2 {
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+/* ============================================
+   Quick Links Enhancement
+   ============================================ */
+
+.sl-link-card {
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.sl-link-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 50rem) {
+  .terminal-preview {
+    margin: 2rem 0;
+    border-radius: 8px;
+  }
+
+  .terminal-body {
+    font-size: 0.75rem;
+    padding: 1rem;
+  }
+
+  .feature-grid,
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,16 @@
+---
+interface Props {
+  title: string
+  description: string
+  href: string
+  icon: string
+}
+
+const { title, description, href, icon } = Astro.props
+---
+
+<a href={href} class="role-card not-content">
+  <div class="icon">{icon}</div>
+  <h3>{title}</h3>
+  <p>{description}</p>
+</a>

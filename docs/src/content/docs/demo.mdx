@@ -1,0 +1,59 @@
+---
+title: Interactive Demo
+description: Try the repo-edu desktop app in your browser
+template: splash
+hero:
+  title: Interactive Demo
+  tagline: Experience the repo-edu desktop app without installing anything.
+  actions:
+    - text: Launch Demo
+      link: "#demo"
+      icon: right-arrow
+      variant: primary
+    - text: Install the App
+      link: /getting-started/installation/
+      variant: secondary
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+
+:::note[Coming Soon]
+The interactive demo is under development. It will let you explore the full desktop app
+experience with simulated LMS and Git platform responses.
+:::
+
+## What to Expect
+
+The demo provides a fully functional simulation of the repo-edu desktop app running directly in
+your browser. All backend interactions are mocked, so you can safely explore every feature without
+connecting to real services.
+
+<div class="feature-grid not-content">
+  <div class="feature-card">
+    <h3>No Installation Required</h3>
+    <p>Run the complete desktop app experience in your browser. No downloads, no setup.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Realistic Workflows</h3>
+    <p>Import students, create assignments, and batch-create repositories using simulated data.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Safe to Experiment</h3>
+    <p>All operations are simulated. Nothing connects to real LMS or Git platforms.</p>
+  </div>
+</div>
+
+## Demo Scenarios
+
+The simulation includes pre-configured scenarios to showcase different workflows:
+
+- **New Course Setup** - Start from scratch: configure LMS connection, import roster, create repos
+- **Mid-Semester** - Work with an existing roster: add a new assignment, manage groups
+- **Bulk Operations** - See how repo-edu handles large classes with 200+ students
+
+## Ready to Install?
+
+<CardGrid>
+<LinkCard title="Installation Guide" href="/getting-started/installation/" description="Download and install the desktop app" />
+<LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Get up and running in minutes" />
+ </CardGrid>

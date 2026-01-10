@@ -9,7 +9,9 @@ export default defineConfig({
       social: {
         github: "https://github.com/repo-edu/repo-edu",
       },
+      customCss: ["./src/styles/custom.css"],
       sidebar: [
+        { label: "Interactive Demo", slug: "demo" },
         {
             label: "Getting Started",
             items: [
