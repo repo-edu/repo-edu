@@ -119,9 +119,9 @@ mod tests {
     fn test_cli_config_accessors() {
         let mut cli_config = CLIConfig::default();
 
-        // Test immutable access (default is GitLab)
+        // Test immutable access (default is GitHub)
         let git_ref = cli_config.git();
-        assert_eq!(git_ref.server_type, crate::GitServerType::GitLab);
+        assert_eq!(git_ref.server_type, crate::GitServerType::GitHub);
 
         // Test mutable access
         cli_config.git_mut().connection.base_url = Some("https://custom.url".to_string());

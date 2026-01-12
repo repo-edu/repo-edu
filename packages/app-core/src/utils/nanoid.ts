@@ -14,7 +14,11 @@ const nanoid = customAlphabet(
   21,
 )
 
-import type { AssignmentId, GroupId, StudentId } from "@repo-edu/backend-interface/types"
+import type {
+  AssignmentId,
+  GroupId,
+  StudentId,
+} from "@repo-edu/backend-interface/types"
 
 /**
  * Generate a new student ID

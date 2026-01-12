@@ -1,25 +1,29 @@
-import React, { createContext, useContext, ReactNode } from "react";
-import type { BackendAPI } from "@repo-edu/backend-interface";
+import type { BackendAPI } from "@repo-edu/backend-interface"
+import type React from "react"
+import { createContext, type ReactNode, useContext } from "react"
 
-const BackendContext = createContext<BackendAPI | null>(null);
+const BackendContext = createContext<BackendAPI | null>(null)
 
 export interface BackendProviderProps {
-  backend: BackendAPI;
-  children: ReactNode;
+  backend: BackendAPI
+  children: ReactNode
 }
 
-export const BackendProvider: React.FC<BackendProviderProps> = ({ backend, children }) => {
+export const BackendProvider: React.FC<BackendProviderProps> = ({
+  backend,
+  children,
+}) => {
   return (
     <BackendContext.Provider value={backend}>
       {children}
     </BackendContext.Provider>
-  );
-};
+  )
+}
 
 export const useBackend = (): BackendAPI => {
-  const context = useContext(BackendContext);
+  const context = useContext(BackendContext)
   if (!context) {
-    throw new Error("useBackend must be used within a BackendProvider");
+    throw new Error("useBackend must be used within a BackendProvider")
   }
-  return context;
-};
+  return context
+}

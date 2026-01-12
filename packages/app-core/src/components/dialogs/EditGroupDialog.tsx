@@ -2,6 +2,7 @@
  * Dialog for editing a group (name and members).
  */
 
+import type { StudentId } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -13,7 +14,6 @@ import {
   Label,
 } from "@repo-edu/ui"
 import { useEffect, useState } from "react"
-import type { StudentId } from "@repo-edu/backend-interface/types"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 import { StudentMultiSelect } from "./StudentMultiSelect"

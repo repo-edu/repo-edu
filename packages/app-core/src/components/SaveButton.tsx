@@ -3,11 +3,11 @@
  * Displays dirty state and handles saving with feedback.
  */
 
+import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
 import { commands } from "../bindings/commands"
-import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import { useProfileSettingsStore } from "../stores/profileSettingsStore"
 import { useRosterStore } from "../stores/rosterStore"
 import { useUiStore } from "../stores/uiStore"

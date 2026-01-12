@@ -2,6 +2,7 @@
  * Sheet for viewing and editing groups within an assignment.
  */
 
+import type { Group, GroupId, Student } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
@@ -12,7 +13,6 @@ import {
   SheetTitle,
 } from "@repo-edu/ui"
 import { useMemo, useState } from "react"
-import type { Group, GroupId, Student } from "@repo-edu/backend-interface/types"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 
@@ -85,7 +85,7 @@ export function GroupEditorSheet() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent className="w-full sm:max-w-md flex flex-col bg-background">
+      <SheetContent className="w-full sm:max-w-md flex flex-col bg-background h-full">
         <SheetHeader>
           <SheetTitle>Groups: {assignment?.name ?? "No assignment"}</SheetTitle>
         </SheetHeader>
@@ -172,47 +172,45 @@ function GroupListItem({
 
   return (
     <div className="border rounded-md">
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 text-left"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <span className="text-xs w-4">{expanded ? "▼" : "▶"}</span>
-        <span className="flex-1 font-medium">
-          {group.name}
-          <span className="text-muted-foreground font-normal ml-1">
-            ({members.length} student{members.length !== 1 ? "s" : ""})
-          </span>
-        </span>
-        {isEmpty && (
-          <span className="text-warning text-xs" title="Empty group">
-            ⚠
-          </span>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs"
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit()
-          }}
+      <div className="flex w-full items-center gap-2 px-3 py-2 hover:bg-muted/50">
+        <button
+          type="button"
+          className="flex-1 flex items-center gap-2 text-left cursor-pointer bg-transparent border-0 p-0"
+          onClick={onToggle}
+          aria-expanded={expanded}
         >
-          Edit
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs"
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove()
-          }}
-        >
-          ×
-        </Button>
-      </button>
+          <span className="text-xs w-4">{expanded ? "▼" : "▶"}</span>
+          <span className="flex-1 font-medium">
+            {group.name}
+            <span className="text-muted-foreground font-normal ml-1">
+              ({members.length} student{members.length !== 1 ? "s" : ""})
+            </span>
+          </span>
+          {isEmpty && (
+            <span className="text-warning text-xs" title="Empty group">
+              ⚠
+            </span>
+          )}
+        </button>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={onEdit}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={onRemove}
+          >
+            ×
+          </Button>
+        </div>
+      </div>
 
       {expanded && (
         <div className="px-3 py-2 bg-muted/30 border-t">

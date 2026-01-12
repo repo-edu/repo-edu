@@ -5,6 +5,7 @@
  * (GitHub, GitLab, Gitea). Updates student status to valid/invalid.
  */
 
+import type { UsernameVerificationScope } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -15,7 +16,6 @@ import {
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
-import type { UsernameVerificationScope } from "@repo-edu/backend-interface/types"
 import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"

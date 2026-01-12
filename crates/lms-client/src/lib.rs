@@ -25,6 +25,7 @@
 //!     LmsAuth::Token {
 //!         url: "https://canvas.tue.nl".to_string(),
 //!         token: "your_token".to_string(),
+//!         user_agent: None,
 //!     }
 //! )?;
 //!
@@ -46,7 +47,7 @@
 //! use lms_common::LmsClient as _;
 //!
 //! # async fn example() -> Result<(), lms_common::LmsError> {
-//! let client = CanvasClient::new("https://canvas.tue.nl", "token")?;
+//! let client = CanvasClient::new("https://canvas.tue.nl", "token", None)?;
 //! let courses = client.get_courses().await?;
 //! # Ok(())
 //! # }
@@ -62,6 +63,7 @@
 //! let auth = LmsAuth::Token {
 //!     url: "https://canvas.tue.nl".to_string(),
 //!     token: "your_access_token".to_string(),
+//!     user_agent: None,
 //! };
 //! ```
 //!

@@ -3,8 +3,8 @@
  * These tests verify basic functionality without mocking Tauri commands.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Student } from "@repo-edu/backend-interface/types"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   generateAssignmentId,
   generateGroupId,

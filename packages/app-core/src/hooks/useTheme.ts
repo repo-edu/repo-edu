@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useEffect } from "react"
 import {
   DARK_BG,
@@ -6,11 +5,12 @@ import {
   THEME_CLASSES,
   THEME_STORAGE_KEY,
 } from "../constants"
+import { setWindowBackgroundColor, setWindowTheme } from "../services/platform"
 import type { Theme } from "../types/settings"
 
 /**
  * Apply the selected theme class to the document element.
- * Also updates the Tauri window theme for the title bar.
+ * Also updates the platform window theme for the title bar.
  */
 export function useTheme(theme: Theme) {
   useEffect(() => {
@@ -27,16 +27,7 @@ export function useTheme(theme: Theme) {
     // Cache theme in localStorage for fast initial load
     localStorage.setItem(THEME_STORAGE_KEY, theme)
 
-    // Update Tauri window theme
-    const win = getCurrentWindow()
-
-    if (theme === "system") {
-      // Let Tauri follow the OS theme by passing null
-      win.setTheme(null).catch(console.error)
-    } else {
-      // Explicitly set light or dark
-      win.setTheme(theme).catch(console.error)
-    }
+    setWindowTheme(theme).catch(console.error)
 
     return () => {
       for (const cls of THEME_CLASSES) {
@@ -47,8 +38,6 @@ export function useTheme(theme: Theme) {
 
   // Update background color based on effective theme
   useEffect(() => {
-    const win = getCurrentWindow()
-
     const updateBackground = () => {
       let dark: boolean
       if (theme === "dark") {
@@ -59,7 +48,7 @@ export function useTheme(theme: Theme) {
         // system - check actual OS preference
         dark = window.matchMedia("(prefers-color-scheme: dark)").matches
       }
-      win.setBackgroundColor(dark ? DARK_BG : LIGHT_BG).catch(console.error)
+      setWindowBackgroundColor(dark ? DARK_BG : LIGHT_BG).catch(console.error)
     }
 
     updateBackground()

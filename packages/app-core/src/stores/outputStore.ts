@@ -3,8 +3,8 @@
  * Uses OutputLine[] instead of raw text for structured display.
  */
 
-import { create } from "zustand"
 import type { OutputLevel, OutputLine } from "@repo-edu/backend-interface/types"
+import { create } from "zustand"
 
 interface OutputState {
   lines: OutputLine[]

@@ -4,14 +4,14 @@
  * References git connections by name (stored in appSettingsStore).
  */
 
-import { create } from "zustand"
-import { commands } from "../bindings/commands"
 import type {
   CourseInfo,
   ExportSettings,
   OperationConfigs,
   ProfileSettings,
 } from "@repo-edu/backend-interface/types"
+import { create } from "zustand"
+import { commands } from "../bindings/commands"
 import { errorResult, type LoadResult, okResult } from "../types/load"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"

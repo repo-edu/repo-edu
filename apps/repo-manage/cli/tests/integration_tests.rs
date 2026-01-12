@@ -2,7 +2,7 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 
 fn cli() -> Command {
-    Command::cargo_bin("redu").unwrap()
+    Command::new(env!("CARGO_BIN_EXE_redu"))
 }
 
 mod help_tests {

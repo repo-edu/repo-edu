@@ -21,7 +21,8 @@
 //!     // Create a client
 //!     let client = MoodleClient::new(
 //!         "https://moodle.example.edu",
-//!         "your_webservice_token"
+//!         "your_webservice_token",
+//!         None
 //!     )?;
 //!
 //!     // Get all courses

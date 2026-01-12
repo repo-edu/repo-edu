@@ -12,7 +12,7 @@
         "cli:build": "cargo build -p repo-manage-cli",
         "cli:build:release": "cargo build -p repo-manage-cli --release",
         "gen:bindings": "pnpx tsx ../../scripts/gen-from-schema.ts",
-        "test": "vitest run",
+        "test": "echo \"No tests in repo-manage shell\"",
         "fmt": "pnpm -w run fmt",
         "check": "pnpm -w run check",
         "fix": "pnpm -w run fix",

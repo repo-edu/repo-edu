@@ -7,7 +7,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
-import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect } from "react"
 import {
   AddGroupDialog,
@@ -42,6 +41,7 @@ import { useCloseGuard } from "./hooks/useCloseGuard"
 import { useDirtyState } from "./hooks/useDirtyState"
 import { useLoadProfile } from "./hooks/useLoadProfile"
 import { useTheme } from "./hooks/useTheme"
+import { listenEvent } from "./services/platform"
 import * as settingsService from "./services/settingsService"
 import { useAppSettingsStore } from "./stores/appSettingsStore"
 import { useOutputStore } from "./stores/outputStore"
@@ -152,17 +152,20 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [saveCurrentProfile, ui])
 
-  // Handle Tauri menu events
+  // Handle menu events
   useEffect(() => {
-    // Check if running in Tauri
-    if (!(window as any).__TAURI_INTERNALS__) return;
-
-    const unlistenShortcuts = listen("menu-keyboard-shortcuts", () => {
-      ui.openSettings("shortcuts")
-    })
-    return () => {
-      unlistenShortcuts.then((unlisten) => unlisten())
+    let unlisten: (() => void) | undefined
+    const setup = async () => {
+      try {
+        unlisten = await listenEvent("menu-keyboard-shortcuts", () => {
+          ui.openSettings("shortcuts")
+        })
+      } catch (error) {
+        console.error("Failed to register menu listener:", error)
+      }
     }
+    setup()
+    return () => unlisten?.()
   }, [ui])
 
   // Loading state

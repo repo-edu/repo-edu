@@ -1,6 +1,6 @@
+import { AppRoot, BackendProvider, setBackend } from "@repo-edu/app-core"
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { AppRoot, BackendProvider, setBackend } from "@repo-edu/app-core"
 import { TauriBackend } from "./bindings/tauri"
 import "@repo-edu/app-core/src/App.css" // Import styles
 

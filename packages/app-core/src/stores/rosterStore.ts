@@ -5,8 +5,6 @@
  * Validation runs debounced after mutations.
  */
 
-import { create } from "zustand"
-import { commands } from "../bindings/commands"
 import type {
   Assignment,
   AssignmentId,
@@ -19,6 +17,8 @@ import type {
   StudentId,
   ValidationResult,
 } from "@repo-edu/backend-interface/types"
+import { create } from "zustand"
+import { commands } from "../bindings/commands"
 import { errorResult, type LoadResult, okResult } from "../types/load"
 import { debounceAsync } from "../utils/debounce"
 import { useAppSettingsStore } from "./appSettingsStore"

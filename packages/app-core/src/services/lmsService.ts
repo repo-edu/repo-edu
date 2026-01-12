@@ -1,5 +1,4 @@
-import type { Channel } from "@tauri-apps/api/core"
-import { commands } from "../bindings/commands"
+import type { ProgressCallback } from "@repo-edu/backend-interface"
 import type {
   CommandResult,
   GenerateFilesParams,
@@ -7,6 +6,7 @@ import type {
   GroupCategory,
   VerifyCourseParams,
 } from "@repo-edu/backend-interface/types"
+import { commands } from "../bindings/commands"
 import { type Strict, unwrap } from "./commandUtils"
 
 // Re-export types for compatibility
@@ -23,7 +23,7 @@ export const verifyLmsCourse = (params: Strict<VerifyCourseParams>) =>
 
 export const generateLmsFiles = (
   params: Strict<GenerateFilesParams>,
-  progress: Channel<string>,
+  progress: ProgressCallback<string>,
 ) => commands.generateLmsFiles(params, progress).then(unwrap)
 
 export const getTokenInstructions = (lmsType: string) =>

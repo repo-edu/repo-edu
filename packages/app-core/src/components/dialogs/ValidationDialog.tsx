@@ -3,6 +3,10 @@
  * Displays blocking errors or warnings before operation execution.
  */
 
+import type {
+  ValidationIssue,
+  ValidationKind,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -13,7 +17,6 @@ import {
   DialogTitle,
 } from "@repo-edu/ui"
 import { AlertCircle } from "@repo-edu/ui/components/icons"
-import type { ValidationIssue, ValidationKind } from "@repo-edu/backend-interface/types"
 import { useUiStore } from "../../stores/uiStore"
 
 /** ValidationKinds that block operations (errors, not warnings) */

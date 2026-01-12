@@ -2,9 +2,9 @@
  * Multi-select component for choosing students (group members).
  */
 
+import type { Student, StudentId } from "@repo-edu/backend-interface/types"
 import { Checkbox, Input } from "@repo-edu/ui"
 import { useMemo, useState } from "react"
-import type { Student, StudentId } from "@repo-edu/backend-interface/types"
 
 interface StudentMultiSelectProps {
   students: Student[]

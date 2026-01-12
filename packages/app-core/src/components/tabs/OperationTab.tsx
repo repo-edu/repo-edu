@@ -2,6 +2,16 @@
  * OperationTab - Repository operations: Create, Clone, Delete.
  */
 
+import type {
+  AppError,
+  AssignmentId,
+  CloneConfig,
+  CreateConfig,
+  DeleteConfig,
+  DirectoryLayout,
+  OperationResult,
+  Result,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
@@ -18,18 +28,8 @@ import {
   TabsTrigger,
 } from "@repo-edu/ui"
 import { AlertCircle, FolderOpen, Loader2 } from "@repo-edu/ui/components/icons"
-import { open } from "@tauri-apps/plugin-dialog"
 import { commands } from "../../bindings/commands"
-import type {
-  AppError,
-  AssignmentId,
-  CloneConfig,
-  CreateConfig,
-  DeleteConfig,
-  DirectoryLayout,
-  OperationResult,
-  Result,
-} from "@repo-edu/backend-interface/types"
+import { openDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOperationStore } from "../../stores/operationStore"
 import { useOutputStore } from "../../stores/outputStore"
@@ -98,7 +98,7 @@ export function OperationTab() {
     0
 
   const handleBrowseFolder = async () => {
-    const result = await open({ directory: true, multiple: false })
+    const result = await openDialog({ directory: true, multiple: false })
     if (result && typeof result === "string") {
       setTargetDir(result)
     }

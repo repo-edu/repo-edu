@@ -8,6 +8,10 @@
  * - Primary emphasis should be on progressing to next tab, not staying on Roster
  */
 
+import type {
+  ValidationIssue,
+  ValidationKind,
+} from "@repo-edu/backend-interface/types"
 import {
   Alert,
   AlertDescription,
@@ -27,10 +31,9 @@ import {
   ChevronRight,
   Loader2,
 } from "@repo-edu/ui/components/icons"
-import { save } from "@tauri-apps/plugin-dialog"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
-import type { ValidationIssue, ValidationKind } from "@repo-edu/backend-interface/types"
+import { saveDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
@@ -211,7 +214,7 @@ export function RosterTab() {
     if (!roster) return
 
     try {
-      const path = await save({
+      const path = await saveDialog({
         defaultPath: `students.${format}`,
         filters: [
           {

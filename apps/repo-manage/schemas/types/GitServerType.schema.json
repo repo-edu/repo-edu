@@ -8,7 +8,7 @@
     "Gitea"
   ],
   "x-rust": {
-    "default": "GitLab"
+    "default": "GitHub"
   },
   "description": "Git server types for repository management"
 }

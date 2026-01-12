@@ -1,5 +1,8 @@
+import type {
+  AppSettings,
+  ProfileSettings,
+} from "@repo-edu/backend-interface/types"
 import { describe, expect, it } from "vitest"
-import type { AppSettings, ProfileSettings } from "@repo-edu/backend-interface/types"
 import {
   appSettingsToStore,
   defaultAppSettingsState,

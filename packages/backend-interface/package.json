@@ -9,7 +9,5 @@
     ".": "./src/index.ts",
     "./types": "./src/types.ts"
   },
-  "dependencies": {
-    "@tauri-apps/api": "^2.2.8"
-  }
+  "dependencies": {}
 }

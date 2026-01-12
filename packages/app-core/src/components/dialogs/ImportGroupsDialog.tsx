@@ -2,6 +2,11 @@
  * Dialog for importing groups from LMS group sets.
  */
 
+import type {
+  GroupFilter,
+  GroupImportConfig,
+  LmsGroupSet,
+} from "@repo-edu/backend-interface/types"
 import {
   Alert,
   Button,
@@ -23,11 +28,6 @@ import {
 import { Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
-import type {
-  GroupFilter,
-  GroupImportConfig,
-  LmsGroupSet,
-} from "@repo-edu/backend-interface/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"

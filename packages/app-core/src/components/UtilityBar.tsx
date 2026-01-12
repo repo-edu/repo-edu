@@ -3,6 +3,7 @@
  * Contains: Profile selector, Save button, Profile menu.
  */
 
+import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -38,7 +39,6 @@ import {
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../bindings/commands"
-import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import { useOutputStore } from "../stores/outputStore"
 import { useUiStore } from "../stores/uiStore"
 import { loadProfileData, type ProfileLoadResult } from "../utils/profileLoader"

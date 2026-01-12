@@ -4,8 +4,12 @@
  * Wraps the appSettingsStore for convenient access in components.
  */
 
+import type {
+  GitConnection,
+  LmsConnection,
+  Theme,
+} from "@repo-edu/backend-interface/types"
 import { useCallback } from "react"
-import type { GitConnection, LmsConnection, Theme } from "@repo-edu/backend-interface/types"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"

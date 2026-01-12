@@ -2,6 +2,10 @@
  * CoverageReportSheet - Shows student distribution across assignments
  */
 
+import type {
+  CoverageExportFormat,
+  CoverageReport,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Sheet,
@@ -9,10 +13,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo-edu/ui"
-import { save } from "@tauri-apps/plugin-dialog"
 import { useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
-import type { CoverageExportFormat, CoverageReport } from "@repo-edu/backend-interface/types"
+import { saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -54,7 +57,7 @@ export function CoverageReportSheet() {
     if (!roster) return
 
     try {
-      const path = await save({
+      const path = await saveDialog({
         defaultPath: `coverage.${exportFormat}`,
         filters: [
           {

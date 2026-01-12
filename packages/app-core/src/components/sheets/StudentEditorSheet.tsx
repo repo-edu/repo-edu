@@ -2,6 +2,7 @@
  * StudentEditorSheet - View and edit students in the roster
  */
 
+import type { Student, StudentId } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
@@ -13,7 +14,6 @@ import {
 import { Plus, Search, Trash2, X } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
-import type { Student, StudentId } from "@repo-edu/backend-interface/types"
 import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"

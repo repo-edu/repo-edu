@@ -15,9 +15,9 @@ import {
   Input,
 } from "@repo-edu/ui"
 import { Folder } from "@repo-edu/ui/components/icons"
-import { open } from "@tauri-apps/plugin-dialog"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
+import { openDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -44,7 +44,7 @@ export function ImportGitUsernamesDialog() {
 
   const handleBrowse = async () => {
     try {
-      const selected = await open({
+      const selected = await openDialog({
         multiple: false,
         filters: [
           {

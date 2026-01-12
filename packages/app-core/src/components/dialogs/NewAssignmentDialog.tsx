@@ -2,6 +2,7 @@
  * Dialog for creating a new assignment.
  */
 
+import type { Assignment } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -13,7 +14,6 @@ import {
   Label,
 } from "@repo-edu/ui"
 import { useState } from "react"
-import type { Assignment } from "@repo-edu/backend-interface/types"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 import { generateAssignmentId } from "../../utils/nanoid"

@@ -1,5 +1,5 @@
-import { getCurrentWindow, type Window } from "@tauri-apps/api/window"
 import { useEffect, useRef } from "react"
+import { closeWindow, onCloseRequested } from "../services/platform"
 
 interface Options {
   isDirty: boolean
@@ -22,7 +22,6 @@ export function useCloseGuard({
   const isDirtyRef = useRef(isDirty)
   const isClosingRef = useRef(false)
   const allowImmediateCloseRef = useRef(false)
-  const pendingCloseWindowRef = useRef<Window | null>(null)
   const beforeCloseRef = useRef(onBeforeClose)
 
   // Keep dirty flag in sync for the event handler closure.
@@ -40,8 +39,7 @@ export function useCloseGuard({
 
     const setup = async () => {
       try {
-        const currentWindow = getCurrentWindow()
-        unlisten = await currentWindow.onCloseRequested(async (event) => {
+        unlisten = await onCloseRequested(async (event) => {
           if (allowImmediateCloseRef.current) {
             allowImmediateCloseRef.current = false
             return
@@ -54,8 +52,6 @@ export function useCloseGuard({
 
           event.preventDefault()
           isClosingRef.current = true
-          pendingCloseWindowRef.current = currentWindow
-
           if (!isDirtyRef.current) {
             await closeNow()
             return
@@ -83,7 +79,7 @@ export function useCloseGuard({
     } catch (error) {
       console.error("Failed during onBeforeClose:", error)
     }
-    await pendingCloseWindowRef.current?.close()
+    await closeWindow()
   }
 
   const handlePromptSave = async () => {
@@ -99,7 +95,6 @@ export function useCloseGuard({
 
   const handlePromptCancel = () => {
     onHidePrompt()
-    pendingCloseWindowRef.current = null
     isClosingRef.current = false
   }
 

@@ -3,6 +3,11 @@
  * Used within the SettingsDialog.
  */
 
+import type {
+  DateFormat,
+  Theme,
+  TimeFormat,
+} from "@repo-edu/backend-interface/types"
 import { Label } from "@repo-edu/ui"
 import {
   Select,
@@ -11,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui/components/ui/select"
-import type { DateFormat, Theme, TimeFormat } from "@repo-edu/backend-interface/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 
 const THEMES: { value: Theme; label: string }[] = [

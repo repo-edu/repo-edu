@@ -3,7 +3,6 @@
  * This store holds transient UI state that is not persisted.
  */
 
-import { create } from "zustand"
 import type {
   CoverageReport,
   GroupId,
@@ -15,6 +14,7 @@ import type {
   UsernameVerificationResult,
   ValidationResult,
 } from "@repo-edu/backend-interface/types"
+import { create } from "zustand"
 
 /**
  * Active tab in the main layout.

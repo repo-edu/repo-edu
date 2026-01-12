@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* Tell Tailwind to scan the shared UI package for classes */
+/* Tell Tailwind to scan this package and the shared UI package for classes */
+@source ".";
 @source "../../../packages/ui/src";
 
 /* ===== Theme Variables ===== */

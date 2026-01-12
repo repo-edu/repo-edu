@@ -1,8 +1,8 @@
-import { commands } from "../bindings/commands"
 import type {
   AppSettings,
   ProfileSettings as GeneratedProfileSettings,
 } from "@repo-edu/backend-interface/types"
+import { commands } from "../bindings/commands"
 import type {
   GuiSettings,
   ProfileSettings,

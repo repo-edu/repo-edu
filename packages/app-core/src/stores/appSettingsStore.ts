@@ -4,8 +4,6 @@
  * These are global settings shared across all profiles.
  */
 
-import { create } from "zustand"
-import { commands } from "../bindings/commands"
 import type {
   AppSettings,
   DateFormat,
@@ -14,6 +12,8 @@ import type {
   Theme,
   TimeFormat,
 } from "@repo-edu/backend-interface/types"
+import { create } from "zustand"
+import { commands } from "../bindings/commands"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
 

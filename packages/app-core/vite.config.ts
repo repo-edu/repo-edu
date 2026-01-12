@@ -11,5 +11,5 @@ export default defineConfig({
       "@repo-edu/ui": path.resolve(__dirname, "../../packages/ui/src"),
     },
     dedupe: ["react", "react-dom"],
-  }
+  },
 })

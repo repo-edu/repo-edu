@@ -341,24 +341,31 @@ function parseType(typeStr: string): TypeExpr {
   return { name: trimmed, args: [] }
 }
 
+type ChannelMode = "tauri" | "callback"
+
 function typeExprToTs(
   expr: TypeExpr,
   used: Set<string>,
   channelUsed: { value: boolean },
+  channelMode: ChannelMode = "tauri",
 ): string {
   if (expr.name === "String") return "string"
   if (expr.name === "PathBuf") return "string"
   if (expr.name === "bool") return "boolean"
   if (expr.name === "()") return "null"
   if (expr.name === "Vec" && expr.args[0]) {
-    return `${typeExprToTs(expr.args[0], used, channelUsed)}[]`
+    return `${typeExprToTs(expr.args[0], used, channelUsed, channelMode)}[]`
   }
   if (expr.name === "Option" && expr.args[0]) {
-    return `${typeExprToTs(expr.args[0], used, channelUsed)} | null`
+    return `${typeExprToTs(expr.args[0], used, channelUsed, channelMode)} | null`
   }
   if (expr.name === "Channel" && expr.args[0]) {
     channelUsed.value = true
-    return `TAURI_CHANNEL<${typeExprToTs(expr.args[0], used, channelUsed)}>`
+    const innerType = typeExprToTs(expr.args[0], used, channelUsed, channelMode)
+    if (channelMode === "callback") {
+      return `ProgressCallback<${innerType}>`
+    }
+    return `TAURI_CHANNEL<${innerType}>`
   }
   used.add(expr.name)
   return expr.name
@@ -389,6 +396,7 @@ function generateInterface(manifest: CommandManifestStub): {
   const usedTypes = new Set<string>()
   const channelUsed = { value: false }
   const blocks: string[] = []
+  const platformBlocks: string[] = []
 
   const commandEntries = Object.entries(manifest.commands)
   for (const [commandName, command] of commandEntries) {
@@ -396,7 +404,12 @@ function generateInterface(manifest: CommandManifestStub): {
     const description = command.description?.trim() ?? ""
     const inputs = command.input ?? []
     const params = inputs.map((input) => {
-      const tsType = typeExprToTs(parseType(input.type), usedTypes, channelUsed)
+      const tsType = typeExprToTs(
+        parseType(input.type),
+        usedTypes,
+        channelUsed,
+        "callback",
+      )
       return {
         name: toCamelCase(input.name),
         tsType,
@@ -404,10 +417,15 @@ function generateInterface(manifest: CommandManifestStub): {
     })
 
     const outputTypeExpr = parseType(command.output ?? "()")
-    const outputType = typeExprToTs(outputTypeExpr, usedTypes, channelUsed)
+    const outputType = typeExprToTs(
+      outputTypeExpr,
+      usedTypes,
+      channelUsed,
+      "callback",
+    )
     const errorType = command.error ? parseType(command.error) : null
     const errorTypeTs = errorType
-      ? typeExprToTs(errorType, usedTypes, channelUsed)
+      ? typeExprToTs(errorType, usedTypes, channelUsed, "callback")
       : null
 
     const signatureParams = params
@@ -430,14 +448,58 @@ function generateInterface(manifest: CommandManifestStub): {
     blocks.push(lines.join("\n"))
   }
 
+  platformBlocks.push(
+    [
+      "  /**",
+      "   * Open a file or folder selection dialog.",
+      "   */",
+      "  openDialog(options: OpenDialogOptions): Promise<string | null>",
+      "",
+      "  /**",
+      "   * Open a file save dialog.",
+      "   */",
+      "  saveDialog(options: SaveDialogOptions): Promise<string | null>",
+      "",
+      "  /**",
+      "   * Listen for platform events such as menu actions.",
+      "   */",
+      "  listenEvent<T = unknown>(",
+      "    event: string,",
+      "    handler: (payload: T) => void,",
+      "  ): Promise<() => void>",
+      "",
+      "  /**",
+      "   * Register a handler for window close requests.",
+      "   */",
+      "  onCloseRequested(handler: CloseRequestedHandler): Promise<() => void>",
+      "",
+      "  /**",
+      "   * Programmatically close the current window.",
+      "   */",
+      "  closeWindow(): Promise<void>",
+      "",
+      "  /**",
+      "   * Set the window theme for platform chrome.",
+      "   */",
+      "  setWindowTheme(theme: WindowTheme): Promise<void>",
+      "",
+      "  /**",
+      "   * Set the window background color.",
+      "   */",
+      "  setWindowBackgroundColor(color: string): Promise<void>",
+    ].join("\n"),
+  )
+
   const importTypes = Array.from(usedTypes).filter((name) => name !== "Result")
   importTypes.sort((a, b) => a.localeCompare(b))
 
   const importLines: string[] = []
   importLines.push(interfaceHeader.trimEnd())
   importLines.push("")
+  // ProgressCallback is platform-agnostic, no Tauri import needed
   if (channelUsed.value) {
-    importLines.push('import type { Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";')
+    importLines.push("export type ProgressCallback<T> = (message: T) => void;")
+    importLines.push("")
   }
   if (importTypes.length > 0) {
     importLines.push(
@@ -447,8 +509,39 @@ function generateInterface(manifest: CommandManifestStub): {
     importLines.push(`import type { Result } from "./types";`)
   }
   importLines.push("")
+  importLines.push("export interface DialogFilter {")
+  importLines.push("  name: string")
+  importLines.push("  extensions: string[]")
+  importLines.push("}")
+  importLines.push("")
+  importLines.push("export interface OpenDialogOptions {")
+  importLines.push("  directory?: boolean")
+  importLines.push("  multiple?: boolean")
+  importLines.push("  filters?: DialogFilter[]")
+  importLines.push("  defaultPath?: string")
+  importLines.push("  title?: string")
+  importLines.push("}")
+  importLines.push("")
+  importLines.push("export interface SaveDialogOptions {")
+  importLines.push("  defaultPath?: string")
+  importLines.push("  filters?: DialogFilter[]")
+  importLines.push("  title?: string")
+  importLines.push("}")
+  importLines.push("")
+  importLines.push("export interface CloseRequestedEvent {")
+  importLines.push("  preventDefault(): void")
+  importLines.push("}")
+  importLines.push("")
+  importLines.push(
+    "export type CloseRequestedHandler = (event: CloseRequestedEvent) => void | Promise<void>",
+  )
+  importLines.push("")
+  importLines.push('export type WindowTheme = "light" | "dark" | "system"')
+  importLines.push("")
   importLines.push("export interface BackendAPI {")
   importLines.push(blocks.join("\n\n"))
+  importLines.push("")
+  importLines.push(platformBlocks.join("\n\n"))
   importLines.push("}")
   importLines.push("")
 
@@ -462,17 +555,44 @@ function generateTauriBackend(manifest: CommandManifestStub): {
   const usedTypes = new Set<string>()
   const channelUsed = { value: false }
   const blocks: string[] = []
+  const platformBlocks: string[] = []
 
   const commandEntries = Object.entries(manifest.commands)
   for (const [commandName, command] of commandEntries) {
     const fnName = toCamelCase(commandName)
     const description = command.description?.trim() ?? ""
     const inputs = command.input ?? []
+
+    // Track which params are Channel types and need adaptation
+    const channelParams: { name: string; innerType: string }[] = []
+
     const params = inputs.map((input) => {
-      const tsType = typeExprToTs(parseType(input.type), usedTypes, channelUsed)
+      const parsed = parseType(input.type)
+      const paramName = toCamelCase(input.name)
+
+      // Check if this is a Channel type
+      if (parsed.name === "Channel" && parsed.args[0]) {
+        channelUsed.value = true
+        const innerType = typeExprToTs(
+          parsed.args[0],
+          usedTypes,
+          channelUsed,
+          "callback",
+        )
+        channelParams.push({ name: paramName, innerType })
+        // Use ProgressCallback in signature (matches BackendAPI interface)
+        return {
+          name: paramName,
+          tsType: `ProgressCallback<${innerType}>`,
+          isChannel: true,
+        }
+      }
+
+      const tsType = typeExprToTs(parsed, usedTypes, channelUsed, "tauri")
       return {
-        name: toCamelCase(input.name),
+        name: paramName,
         tsType,
+        isChannel: false,
       }
     })
 
@@ -486,10 +606,16 @@ function generateTauriBackend(manifest: CommandManifestStub): {
     const signatureParams = params
       .map((param) => `${param.name}: ${param.tsType}`)
       .join(", ")
+
+    // Build invoke args, replacing callback params with channel variables
+    const invokeArgParts = params.map((param) => {
+      if (param.isChannel) {
+        return `${param.name}: ${param.name}Channel`
+      }
+      return param.name
+    })
     const invokeArgs =
-      params.length > 0
-        ? `{ ${params.map((param) => param.name).join(", ")} }`
-        : "undefined"
+      params.length > 0 ? `{ ${invokeArgParts.join(", ")} }` : "undefined"
     const invokeCall =
       params.length > 0
         ? `TAURI_INVOKE("${commandName}", ${invokeArgs})`
@@ -509,11 +635,22 @@ function generateTauriBackend(manifest: CommandManifestStub): {
     }
     lines.push(`  async ${fnName}(${signatureParams}) : ${returnType} {`)
 
+    // Generate channel creation and wiring for each channel param
+    for (const cp of channelParams) {
+      lines.push(
+        `    const ${cp.name}Channel = new TAURI_CHANNEL<${cp.innerType}>();`,
+      )
+      lines.push(`    ${cp.name}Channel.onmessage = ${cp.name};`)
+    }
+
     if (errorTypeTs) {
       lines.push("    try {")
       lines.push(`      return { status: "ok", data: await ${invokeCall} };`)
       lines.push("    } catch (e) {")
       lines.push("      if (e instanceof Error) throw e;")
+      lines.push(
+        "      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke",
+      )
       lines.push('      return { status: "error", error: e as any };')
       lines.push("    }")
     } else {
@@ -522,6 +659,79 @@ function generateTauriBackend(manifest: CommandManifestStub): {
     lines.push("  }")
     blocks.push(lines.join("\n"))
   }
+
+  platformBlocks.push(
+    [
+      "  /**",
+      "   * Open a file or folder selection dialog.",
+      "   */",
+      "  async openDialog(options: OpenDialogOptions): Promise<string | null> {",
+      "    const result = await TAURI_OPEN(options)",
+      "    if (Array.isArray(result)) {",
+      "      return result[0] ?? null",
+      "    }",
+      "    return result ?? null",
+      "  }",
+      "",
+      "  /**",
+      "   * Open a file save dialog.",
+      "   */",
+      "  async saveDialog(options: SaveDialogOptions): Promise<string | null> {",
+      "    return TAURI_SAVE(options)",
+      "  }",
+      "",
+      "  /**",
+      "   * Listen for platform events such as menu actions.",
+      "   */",
+      "  async listenEvent<T = unknown>(",
+      "    event: string,",
+      "    handler: (payload: T) => void,",
+      "  ): Promise<() => void> {",
+      "    const unlisten = await TAURI_LISTEN(event, (event) => {",
+      "      handler(event.payload as T)",
+      "    })",
+      "    return unlisten",
+      "  }",
+      "",
+      "  /**",
+      "   * Register a handler for window close requests.",
+      "   */",
+      "  async onCloseRequested(handler: CloseRequestedHandler): Promise<() => void> {",
+      "    const currentWindow = getCurrentWindow()",
+      "    const unlisten = await currentWindow.onCloseRequested((event) => {",
+      "      handler({",
+      "        preventDefault: () => event.preventDefault(),",
+      "      })",
+      "    })",
+      "    return unlisten",
+      "  }",
+      "",
+      "  /**",
+      "   * Programmatically close the current window.",
+      "   */",
+      "  async closeWindow(): Promise<void> {",
+      "    const currentWindow = getCurrentWindow()",
+      "    await currentWindow.close()",
+      "  }",
+      "",
+      "  /**",
+      "   * Set the window theme for platform chrome.",
+      "   */",
+      "  async setWindowTheme(theme: WindowTheme): Promise<void> {",
+      '    const resolvedTheme = theme === "system" ? null : theme',
+      "    const currentWindow = getCurrentWindow()",
+      "    await currentWindow.setTheme(resolvedTheme)",
+      "  }",
+      "",
+      "  /**",
+      "   * Set the window background color.",
+      "   */",
+      "  async setWindowBackgroundColor(color: string): Promise<void> {",
+      "    const currentWindow = getCurrentWindow()",
+      "    await currentWindow.setBackgroundColor(color)",
+      "  }",
+    ].join("\n"),
+  )
 
   const importTypes = Array.from(usedTypes).filter((name) => name !== "Result")
   importTypes.sort((a, b) => a.localeCompare(b))
@@ -534,17 +744,32 @@ function generateTauriBackend(manifest: CommandManifestStub): {
       (channelUsed.value ? ", Channel as TAURI_CHANNEL" : "") +
       ' } from "@tauri-apps/api/core";',
   )
-  importLines.push('import type { BackendAPI } from "@repo-edu/backend-interface";')
+  importLines.push(
+    'import { listen as TAURI_LISTEN } from "@tauri-apps/api/event";',
+  )
+  importLines.push('import { getCurrentWindow } from "@tauri-apps/api/window";')
+  importLines.push(
+    'import { open as TAURI_OPEN, save as TAURI_SAVE } from "@tauri-apps/plugin-dialog";',
+  )
+  importLines.push(
+    "import type { BackendAPI, CloseRequestedHandler, OpenDialogOptions, SaveDialogOptions, WindowTheme" +
+      (channelUsed.value ? ", ProgressCallback" : "") +
+      ' } from "@repo-edu/backend-interface";',
+  )
   if (importTypes.length > 0) {
     importLines.push(
       `import type { ${importTypes.join(", ")}, Result } from "@repo-edu/backend-interface/types";`,
     )
   } else {
-    importLines.push(`import type { Result } from "@repo-edu/backend-interface/types";`)
+    importLines.push(
+      `import type { Result } from "@repo-edu/backend-interface/types";`,
+    )
   }
   importLines.push("")
   importLines.push("export class TauriBackend implements BackendAPI {")
   importLines.push(blocks.join("\n\n"))
+  importLines.push("")
+  importLines.push(platformBlocks.join("\n\n"))
   importLines.push("}")
   importLines.push("")
 
@@ -565,7 +790,12 @@ function generateCommands(manifest: CommandManifestStub): {
     const description = command.description?.trim() ?? ""
     const inputs = command.input ?? []
     const params = inputs.map((input) => {
-      const tsType = typeExprToTs(parseType(input.type), usedTypes, channelUsed)
+      const tsType = typeExprToTs(
+        parseType(input.type),
+        usedTypes,
+        channelUsed,
+        "callback",
+      )
       return {
         name: toCamelCase(input.name),
         tsType,
@@ -573,10 +803,15 @@ function generateCommands(manifest: CommandManifestStub): {
     })
 
     const outputTypeExpr = parseType(command.output ?? "()")
-    const outputType = typeExprToTs(outputTypeExpr, usedTypes, channelUsed)
+    const outputType = typeExprToTs(
+      outputTypeExpr,
+      usedTypes,
+      channelUsed,
+      "callback",
+    )
     const errorType = command.error ? parseType(command.error) : null
     const errorTypeTs = errorType
-      ? typeExprToTs(errorType, usedTypes, channelUsed)
+      ? typeExprToTs(errorType, usedTypes, channelUsed, "callback")
       : null
 
     const signatureParams = params
@@ -595,7 +830,7 @@ function generateCommands(manifest: CommandManifestStub): {
       }
       lines.push("   */")
     }
-    const args = params.map(p => p.name).join(", ");
+    const args = params.map((p) => p.name).join(", ")
     lines.push(`  ${fnName}(${signatureParams}): ${returnType} {`)
     lines.push(`    return getBackend().${fnName}(${args});`)
     lines.push("  }")
@@ -608,8 +843,11 @@ function generateCommands(manifest: CommandManifestStub): {
   const importLines: string[] = []
   importLines.push(commandsHeader.trimEnd())
   importLines.push("")
+  // Import ProgressCallback from interface (no Tauri dependency)
   if (channelUsed.value) {
-    importLines.push('import type { Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";')
+    importLines.push(
+      'import type { ProgressCallback } from "@repo-edu/backend-interface";',
+    )
   }
   importLines.push('import { getBackend } from "../services/backend";')
   if (importTypes.length > 0) {
@@ -617,7 +855,9 @@ function generateCommands(manifest: CommandManifestStub): {
       `import type { ${importTypes.join(", ")}, Result } from "@repo-edu/backend-interface/types";`,
     )
   } else {
-    importLines.push(`import type { Result } from "@repo-edu/backend-interface/types";`)
+    importLines.push(
+      `import type { Result } from "@repo-edu/backend-interface/types";`,
+    )
   }
   importLines.push("")
   importLines.push("export const commands = {")
@@ -1018,7 +1258,7 @@ async function generateTypes(): Promise<Set<string>> {
     compiledBlocks.push(tsDefinition.trim())
   }
 
-  const typesContent =
+  let typesContent =
     typesHeader +
     "\n\n" +
     compiledBlocks.join("\n\n") +
@@ -1028,6 +1268,12 @@ async function generateTypes(): Promise<Set<string>> {
     "export type Result<T, E> =\n" +
     '  | { status: "ok"; data: T }\n' +
     '  | { status: "error"; error: E };\n'
+
+  // Fix empty interfaces for Biome
+  typesContent = typesContent.replace(
+    /export interface (\w+) \{\s*\}/g,
+    "// biome-ignore lint/suspicious/noEmptyInterface: Generated empty interface\nexport interface $1 {}",
+  )
 
   writeIfChanged(interfaceTypesPath, typesContent)
 

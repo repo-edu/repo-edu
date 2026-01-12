@@ -2,15 +2,14 @@
 // Source: apps/repo-manage/schemas/types/*.schema.json
 // To modify types, edit the schema files and run `pnpm gen:bindings`
 
-
 /**
  * Group that references a student
  */
 export interface AffectedGroup {
-  assignment_id: AssignmentId;
-  assignment_name: string;
-  group_id: GroupId;
-  group_name: string;
+  assignment_id: AssignmentId
+  assignment_name: string
+  group_id: GroupId
+  group_name: string
 }
 
 /**
@@ -20,638 +19,643 @@ export interface AppError {
   /**
    * User-friendly error message
    */
-  message: string;
+  message: string
   /**
    * Optional technical details for debugging
    */
-  details?: string | null;
+  details?: string | null
 }
 
 /**
  * App-level settings stored in app.json
  */
 export interface AppSettings {
-  theme: Theme;
-  date_format: DateFormat;
-  time_format: TimeFormat;
-  lms_connection?: LmsConnection | null;
+  theme: Theme
+  date_format: DateFormat
+  time_format: TimeFormat
+  lms_connection?: LmsConnection | null
   git_connections: {
-    [k: string]: GitConnection;
-  };
+    [k: string]: GitConnection
+  }
 }
 
 /**
  * Assignment grouping students into repos
  */
 export interface Assignment {
-  id: AssignmentId;
-  name: string;
-  groups: Group[];
-  lms_group_set_id?: string | null;
+  id: AssignmentId
+  name: string
+  groups: Group[]
+  lms_group_set_id?: string | null
 }
 
 /**
  * Coverage summary for an assignment
  */
 export interface AssignmentCoverage {
-  assignment_id: AssignmentId;
-  assignment_name: string;
-  student_count: number;
-  missing_students: StudentSummary[];
+  assignment_id: AssignmentId
+  assignment_name: string
+  student_count: number
+  missing_students: StudentSummary[]
 }
 
 /**
  * Strongly-typed assignment ID
  */
-export type AssignmentId = string;
+export type AssignmentId = string
 
 /**
  * Assignment metadata without groups
  */
 export interface AssignmentMetadata {
-  id: AssignmentId;
-  name: string;
-  lms_group_set_id?: string | null;
+  id: AssignmentId
+  name: string
+  lms_group_set_id?: string | null
 }
 
 /**
  * Repo clone configuration
  */
 export interface CloneConfig {
-  target_dir: string;
-  directory_layout: DirectoryLayout;
+  target_dir: string
+  directory_layout: DirectoryLayout
 }
 
 export interface CommandResult {
-  success: boolean;
-  message: string;
-  details: string | null;
+  success: boolean
+  message: string
+  details: string | null
 }
 
 /**
  * Course identifier and display name
  */
 export interface CourseInfo {
-  id: string;
-  name: string;
+  id: string
+  name: string
 }
 
 /**
  * Result of verifying a profile's course against the LMS
  */
 export interface CourseVerifyResult {
-  success: boolean;
-  message: string;
-  updated_name?: string | null;
+  success: boolean
+  message: string
+  updated_name?: string | null
 }
 
 /**
  * Export format for coverage reports
  */
-export type CoverageExportFormat = 'csv' | 'xlsx';
+export type CoverageExportFormat = "csv" | "xlsx"
 
 /**
  * Coverage report of students across assignments
  */
 export interface CoverageReport {
-  total_students: number;
-  assignments: AssignmentCoverage[];
-  students_in_multiple: StudentMultipleAssignments[];
-  students_in_none: StudentSummary[];
+  total_students: number
+  assignments: AssignmentCoverage[]
+  students_in_multiple: StudentMultipleAssignments[]
+  students_in_none: StudentSummary[]
 }
 
 /**
  * Repo creation configuration
  */
 export interface CreateConfig {
-  template_org: string;
+  template_org: string
 }
 
 /**
  * Date display format: MDY (MM/DD/YYYY) or DMY (DD/MM/YYYY)
  */
-export type DateFormat = 'MDY' | 'DMY';
+export type DateFormat = "MDY" | "DMY"
 
 /**
  * Repo delete configuration
  */
+// biome-ignore lint/suspicious/noEmptyInterface: Generated empty interface
 export interface DeleteConfig {}
 
 /**
  * Directory layout for cloned repositories
  */
-export type DirectoryLayout = 'by-team' | 'flat' | 'by-task';
+export type DirectoryLayout = "by-team" | "flat" | "by-task"
 
 /**
  * Export settings for roster outputs
  */
 export interface ExportSettings {
-  output_folder: string;
-  output_csv: boolean;
-  output_xlsx: boolean;
-  output_yaml: boolean;
-  csv_file: string;
-  xlsx_file: string;
-  yaml_file: string;
-  member_option: MemberOption;
-  include_group: boolean;
-  include_member: boolean;
-  include_initials: boolean;
-  full_groups: boolean;
+  output_folder: string
+  output_csv: boolean
+  output_xlsx: boolean
+  output_yaml: boolean
+  csv_file: string
+  xlsx_file: string
+  yaml_file: string
+  member_option: MemberOption
+  include_group: boolean
+  include_member: boolean
+  include_initials: boolean
+  full_groups: boolean
 }
 
 /**
  * Named git connection
  */
 export interface GitConnection {
-  server_type: GitServerType;
-  connection: PlatformConnection;
-  identity_mode?: GitIdentityMode | null;
+  server_type: GitServerType
+  connection: PlatformConnection
+  identity_mode?: GitIdentityMode | null
 }
 
 /**
  * Git identity mode for collaborator matching
  */
-export type GitIdentityMode = 'email' | 'username';
+export type GitIdentityMode = "email" | "username"
 
 /**
  * Git server types for repository management
  */
-export type GitServerType = 'GitHub' | 'GitLab' | 'Gitea';
+export type GitServerType = "GitHub" | "GitLab" | "Gitea"
 
 /**
  * Single git username import row
  */
 export interface GitUsernameEntry {
-  email: string;
-  git_username: string;
+  email: string
+  git_username: string
 }
 
 /**
  * Summary of git username imports
  */
 export interface GitUsernameImportSummary {
-  matched: number;
-  unmatched_emails: string[];
+  matched: number
+  unmatched_emails: string[]
 }
 
 /**
  * Verification status for a student's git username
  */
-export type GitUsernameStatus = 'unknown' | 'valid' | 'invalid';
+export type GitUsernameStatus = "unknown" | "valid" | "invalid"
 
 /**
  * Result of verifying a git connection
  */
 export interface GitVerifyResult {
-  success: boolean;
-  message: string;
-  username?: string | null;
+  success: boolean
+  message: string
+  username?: string | null
 }
 
 /**
  * Group within an assignment
  */
 export interface Group {
-  id: GroupId;
-  name: string;
-  member_ids: StudentId[];
+  id: GroupId
+  name: string
+  member_ids: StudentId[]
 }
 
 /**
  * Filter for importing LMS groups
  */
 export interface GroupFilter {
-  kind: 'all' | 'selected' | 'pattern';
-  selected?: string[];
-  pattern?: string;
+  kind: "all" | "selected" | "pattern"
+  selected?: string[]
+  pattern?: string
 }
 
 /**
  * Strongly-typed group ID
  */
-export type GroupId = string;
+export type GroupId = string
 
 /**
  * Group import configuration
  */
 export interface GroupImportConfig {
-  group_set_id: string;
-  filter: GroupFilter;
+  group_set_id: string
+  filter: GroupFilter
 }
 
 /**
  * Summary of group imports
  */
 export interface GroupImportSummary {
-  groups_imported: number;
-  groups_replaced: number;
-  students_referenced: number;
-  filter_applied: string;
+  groups_imported: number
+  groups_replaced: number
+  students_referenced: number
+  filter_applied: string
 }
 
 /**
  * Result of importing git usernames
  */
 export interface ImportGitUsernamesResult {
-  summary: GitUsernameImportSummary;
-  roster: Roster;
+  summary: GitUsernameImportSummary
+  roster: Roster
 }
 
 /**
  * Result of importing groups
  */
 export interface ImportGroupsResult {
-  summary: GroupImportSummary;
-  roster: Roster;
+  summary: GroupImportSummary
+  roster: Roster
 }
 
 /**
  * Result of importing students
  */
 export interface ImportStudentsResult {
-  summary: ImportSummary;
-  roster: Roster;
+  summary: ImportSummary
+  roster: Roster
 }
 
 /**
  * Summary of student imports
  */
 export interface ImportSummary {
-  students_added: number;
-  students_updated: number;
-  students_unchanged: number;
-  students_missing_email: number;
+  students_added: number
+  students_updated: number
+  students_unchanged: number
+  students_missing_email: number
 }
 
 /**
  * Invalid git username entry
  */
 export interface InvalidUsername {
-  student_email: string;
-  student_name: string;
-  git_username: string;
-  reason: UsernameInvalidReason;
+  student_email: string
+  student_name: string
+  git_username: string
+  reason: UsernameInvalidReason
 }
 
 /**
  * LMS connection credentials
  */
 export interface LmsConnection {
-  lms_type: LmsType;
-  base_url: string;
-  access_token: string;
+  lms_type: LmsType
+  base_url: string
+  access_token: string
   /**
    * User-Agent header for API requests. Identifies you to LMS administrators. Recommended format: 'Name / Organization / email'
    */
-  user_agent?: string;
+  user_agent?: string
 }
 
 /**
  * LMS group used for import
  */
 export interface LmsGroup {
-  id: string;
-  name: string;
-  member_ids: string[];
+  id: string
+  name: string
+  member_ids: string[]
 }
 
 /**
  * LMS group set used for import
  */
 export interface LmsGroupSet {
-  id: string;
-  name: string;
-  groups: LmsGroup[];
+  id: string
+  name: string
+  groups: LmsGroup[]
 }
 
 /**
  * Snapshot of LMS settings for operations (draft or saved)
  */
 export interface LmsOperationContext {
-  connection: LmsConnection;
-  course_id: string;
+  connection: LmsConnection
+  course_id: string
 }
 
 /**
  * Conflict between LMS user IDs when importing
  */
 export interface LmsIdConflict {
-  email: string;
-  roster_lms_user_id: string;
-  incoming_lms_user_id: string;
-  roster_student_name: string;
-  incoming_student_name: string;
+  email: string
+  roster_lms_user_id: string
+  incoming_lms_user_id: string
+  roster_student_name: string
+  incoming_student_name: string
 }
 
 /**
  * LMS type
  */
-export type LmsType = 'canvas' | 'moodle';
+export type LmsType = "canvas" | "moodle"
 
 /**
  * Result of verifying an LMS connection
  */
 export interface LmsVerifyResult {
-  success: boolean;
-  message: string;
-  lms_type?: LmsType | null;
+  success: boolean
+  message: string
+  lms_type?: LmsType | null
 }
 
 /**
  * Member option for YAML generation
  */
-export type MemberOption = '(email, gitid)' | 'email' | 'git_id';
+export type MemberOption = "(email, gitid)" | "email" | "git_id"
 
 /**
  * Per-profile operation configuration
  */
 export interface OperationConfigs {
-  target_org: string;
-  repo_name_template: string;
-  create: CreateConfig;
-  clone: CloneConfig;
-  delete: DeleteConfig;
+  target_org: string
+  repo_name_template: string
+  create: CreateConfig
+  clone: CloneConfig
+  delete: DeleteConfig
 }
 
 /**
  * Operation error detail
  */
 export interface OperationError {
-  repo_name: string;
-  message: string;
+  repo_name: string
+  message: string
 }
 
 /**
  * Summary of an operation
  */
 export interface OperationResult {
-  succeeded: number;
-  failed: number;
-  skipped_groups: SkippedGroup[];
-  errors: OperationError[];
+  succeeded: number
+  failed: number
+  skipped_groups: SkippedGroup[]
+  errors: OperationError[]
 }
 
 /**
  * Severity level for output lines
  */
-export type OutputLevel = 'info' | 'success' | 'warning' | 'error';
+export type OutputLevel = "info" | "success" | "warning" | "error"
 
 /**
  * Structured output line
  */
 export interface OutputLine {
-  message: string;
-  level: OutputLevel;
+  message: string
+  level: OutputLevel
 }
 
 /**
  * Platform connection credentials
  */
 export interface PlatformConnection {
-  access_token: string;
-  base_url?: string | null;
-  user: string;
+  access_token: string
+  base_url?: string | null
+  user: string
 }
 
 /**
  * Profile settings (per-profile data)
  */
 export interface ProfileSettings {
-  course: CourseInfo;
-  git_connection?: string | null;
-  operations: OperationConfigs;
-  exports: ExportSettings;
+  course: CourseInfo
+  git_connection?: string | null
+  operations: OperationConfigs
+  exports: ExportSettings
 }
 
 /**
  * Repo collision detail
  */
 export interface RepoCollision {
-  group_id: GroupId;
-  group_name: string;
-  repo_name: string;
-  kind: RepoCollisionKind;
+  group_id: GroupId
+  group_name: string
+  repo_name: string
+  kind: RepoCollisionKind
 }
 
 /**
  * Snapshot of repo operation settings (draft or saved)
  */
 export interface RepoOperationContext {
-  target_org: string;
-  repo_name_template: string;
-  git_connection: GitConnection;
+  target_org: string
+  repo_name_template: string
+  git_connection: GitConnection
 }
 
 /**
  * Reason a repository appears in a preflight collision list
  */
-export type RepoCollisionKind = 'already_exists' | 'not_found';
+export type RepoCollisionKind = "already_exists" | "not_found"
 
 /**
  * Preflight result for repo operations
  */
 export interface RepoPreflightResult {
-  collisions: RepoCollision[];
-  ready_count: number;
+  collisions: RepoCollision[]
+  ready_count: number
 }
 
 /**
  * Roster data for a course
  */
 export interface Roster {
-  source?: RosterSource | null;
-  students: Student[];
-  assignments: Assignment[];
+  source?: RosterSource | null
+  students: Student[]
+  assignments: Assignment[]
 }
 
 /**
  * Tracks how the roster was sourced for display
  */
 export interface RosterSource {
-  kind: 'lms' | 'file' | 'manual';
-  lms_type?: LmsType;
-  base_url?: string;
-  fetched_at?: string;
-  file_name?: string;
-  imported_at?: string;
-  created_at?: string;
+  kind: "lms" | "file" | "manual"
+  lms_type?: LmsType
+  base_url?: string
+  fetched_at?: string
+  file_name?: string
+  imported_at?: string
+  created_at?: string
 }
 
 /**
  * Result of loading settings, including any warnings about corrected issues
  */
 export interface SettingsLoadResult {
-  settings: ProfileSettings;
+  settings: ProfileSettings
   /**
    * Warnings about issues found in the settings file
    * (unknown fields removed, invalid values replaced with defaults)
    */
-  warnings: string[];
+  warnings: string[]
 }
 
 /**
  * Details about a skipped group
  */
 export interface SkippedGroup {
-  assignment_id: AssignmentId;
-  group_id: GroupId;
-  group_name: string;
-  reason: SkippedGroupReason;
-  context?: string | null;
+  assignment_id: AssignmentId
+  group_id: GroupId
+  group_name: string
+  reason: SkippedGroupReason
+  context?: string | null
 }
 
 /**
  * Reason a group was skipped during an operation
  */
-export type SkippedGroupReason = 'empty_group' | 'all_members_skipped' | 'repo_exists' | 'repo_not_found';
+export type SkippedGroupReason =
+  | "empty_group"
+  | "all_members_skipped"
+  | "repo_exists"
+  | "repo_not_found"
 
 /**
  * Student roster entry
  */
 export interface Student {
-  id: StudentId;
-  name: string;
-  email: string;
-  student_number?: string | null;
-  git_username?: string | null;
-  git_username_status: GitUsernameStatus;
-  lms_user_id?: string | null;
+  id: StudentId
+  name: string
+  email: string
+  student_number?: string | null
+  git_username?: string | null
+  git_username_status: GitUsernameStatus
+  lms_user_id?: string | null
   custom_fields: {
-    [k: string]: string;
-  };
+    [k: string]: string
+  }
 }
 
 /**
  * Strongly-typed student ID
  */
-export type StudentId = string;
+export type StudentId = string
 
 /**
  * Student appearing in multiple assignments
  */
 export interface StudentMultipleAssignments {
-  student: StudentSummary;
-  assignment_names: string[];
+  student: StudentSummary
+  assignment_names: string[]
 }
 
 /**
  * Check result for removing a student
  */
 export interface StudentRemovalCheck {
-  student_id: StudentId;
-  student_name: string;
-  affected_groups: AffectedGroup[];
+  student_id: StudentId
+  student_name: string
+  affected_groups: AffectedGroup[]
 }
 
 /**
  * Result of removing a student
  */
 export interface StudentRemovalResult {
-  removed_from_roster: boolean;
-  removed_from_groups: number;
+  removed_from_roster: boolean
+  removed_from_groups: number
 }
 
 /**
  * Summary of a student
  */
 export interface StudentSummary {
-  id: StudentId;
-  name: string;
+  id: StudentId
+  name: string
 }
 
 /**
  * UI theme
  */
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = "light" | "dark" | "system"
 
 /**
  * Time display format: 12h (AM/PM) or 24h
  */
-export type TimeFormat = '12h' | '24h';
+export type TimeFormat = "12h" | "24h"
 
 /**
  * Reason a git username is considered invalid
  */
-export type UsernameInvalidReason = 'not_found' | 'blocked';
+export type UsernameInvalidReason = "not_found" | "blocked"
 
 /**
  * Error encountered during username verification
  */
 export interface UsernameVerificationError {
-  student_email: string;
-  student_name: string;
-  git_username: string;
-  message: string;
+  student_email: string
+  student_name: string
+  git_username: string
+  message: string
 }
 
 /**
  * Summary of username verification
  */
 export interface UsernameVerificationResult {
-  valid: number;
-  invalid: InvalidUsername[];
-  errors: UsernameVerificationError[];
+  valid: number
+  invalid: InvalidUsername[]
+  errors: UsernameVerificationError[]
 }
 
 /**
  * Scope of username verification
  */
-export type UsernameVerificationScope = 'all' | 'unknown_only';
+export type UsernameVerificationScope = "all" | "unknown_only"
 
 /**
  * Single validation issue
  */
 export interface ValidationIssue {
-  kind: ValidationKind;
-  affected_ids: string[];
-  context?: string | null;
+  kind: ValidationKind
+  affected_ids: string[]
+  context?: string | null
 }
 
 /**
  * Validation issue type
  */
 export type ValidationKind =
-  | 'duplicate_student_id'
-  | 'duplicate_email'
-  | 'duplicate_assignment_name'
-  | 'duplicate_group_id_in_assignment'
-  | 'duplicate_group_name_in_assignment'
-  | 'duplicate_repo_name_in_assignment'
-  | 'student_in_multiple_groups_in_assignment'
-  | 'orphan_group_member'
-  | 'missing_git_username'
-  | 'invalid_git_username'
-  | 'empty_group'
-  | 'missing_email';
+  | "duplicate_student_id"
+  | "duplicate_email"
+  | "duplicate_assignment_name"
+  | "duplicate_group_id_in_assignment"
+  | "duplicate_group_name_in_assignment"
+  | "duplicate_repo_name_in_assignment"
+  | "student_in_multiple_groups_in_assignment"
+  | "orphan_group_member"
+  | "missing_git_username"
+  | "invalid_git_username"
+  | "empty_group"
+  | "missing_email"
 
 /**
  * Collection of validation issues
  */
 export interface ValidationResult {
-  issues: ValidationIssue[];
+  issues: ValidationIssue[]
 }
 
 /**
  * Result of verifying git usernames
  */
 export interface VerifyGitUsernamesResult {
-  verification: UsernameVerificationResult;
-  roster: Roster;
+  verification: UsernameVerificationResult
+  roster: Roster
 }
 
 /**
  * Legacy GUI and command types retained for frontend compatibility.
  * These are placeholders until roster-based frontend refactors land.
  */
-export type ActiveTab = 'lms' | 'repo'
+export type ActiveTab = "lms" | "repo"
 
 export interface CourseEntry {
   id: string
   name: string | null
 }
 
-export type LmsUrlOption = 'TUE' | 'CUSTOM'
+export type LmsUrlOption = "TUE" | "CUSTOM"
 
 export interface CanvasConfig {
   access_token: string
@@ -806,4 +810,4 @@ export interface VerifyCourseResult {
 
 export type Result<T, E> =
   | { status: "ok"; data: T }
-  | { status: "error"; error: E };
+  | { status: "error"; error: E }

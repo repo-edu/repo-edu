@@ -2,760 +2,1330 @@
 // Source: apps/repo-manage/schemas/commands/manifest.json
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
-import { invoke as TAURI_INVOKE, Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { BackendAPI } from "@repo-edu/backend-interface";
-import type { AppError, AppSettings, AssignmentId, CloneConfig, CommandResult, CourseInfo, CourseVerifyResult, CoverageExportFormat, CoverageReport, CreateConfig, DeleteConfig, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroup, LmsGroupSet, LmsOperationContext, LmsVerifyResult, OperationResult, ProfileSettings, RepoOperationContext, RepoPreflightResult, Roster, SettingsLoadResult, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "@repo-edu/backend-interface/types";
+import {
+  invoke as TAURI_INVOKE,
+  Channel as TAURI_CHANNEL,
+} from "@tauri-apps/api/core"
+import { listen as TAURI_LISTEN } from "@tauri-apps/api/event"
+import { getCurrentWindow } from "@tauri-apps/api/window"
+import {
+  open as TAURI_OPEN,
+  save as TAURI_SAVE,
+} from "@tauri-apps/plugin-dialog"
+import type {
+  BackendAPI,
+  CloseRequestedHandler,
+  OpenDialogOptions,
+  SaveDialogOptions,
+  WindowTheme,
+  ProgressCallback,
+} from "@repo-edu/backend-interface"
+import type {
+  AppError,
+  AppSettings,
+  AssignmentId,
+  CloneConfig,
+  CommandResult,
+  CourseInfo,
+  CourseVerifyResult,
+  CoverageExportFormat,
+  CoverageReport,
+  CreateConfig,
+  DeleteConfig,
+  GenerateFilesParams,
+  GetGroupCategoriesParams,
+  GitConnection,
+  GitIdentityMode,
+  GitVerifyResult,
+  GroupCategory,
+  GroupImportConfig,
+  ImportGitUsernamesResult,
+  ImportGroupsResult,
+  ImportStudentsResult,
+  LmsConnection,
+  LmsGroup,
+  LmsGroupSet,
+  LmsOperationContext,
+  LmsVerifyResult,
+  OperationResult,
+  ProfileSettings,
+  RepoOperationContext,
+  RepoPreflightResult,
+  Roster,
+  SettingsLoadResult,
+  StudentId,
+  StudentRemovalCheck,
+  UsernameVerificationScope,
+  ValidationResult,
+  VerifyCourseParams,
+  VerifyCourseResult,
+  VerifyGitUsernamesResult,
+  Result,
+} from "@repo-edu/backend-interface/types"
 
 export class TauriBackend implements BackendAPI {
   /**
    * Get token generation instructions for an LMS type
    */
-  async getTokenInstructions(lmsType: string) : Promise<Result<string, AppError>> {
+  async getTokenInstructions(
+    lmsType: string,
+  ): Promise<Result<string, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_token_instructions", { lmsType }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_token_instructions", { lmsType }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Open the LMS token generation page in the browser
    */
-  async openTokenUrl(baseUrl: string, lmsType: string) : Promise<Result<null, AppError>> {
+  async openTokenUrl(
+    baseUrl: string,
+    lmsType: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("open_token_url", { baseUrl, lmsType }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("open_token_url", { baseUrl, lmsType }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify LMS course credentials and fetch course information
    */
-  async verifyLmsCourse(params: VerifyCourseParams) : Promise<Result<VerifyCourseResult, AppError>> {
+  async verifyLmsCourse(
+    params: VerifyCourseParams,
+  ): Promise<Result<VerifyCourseResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_lms_course", { params }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_lms_course", { params }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Generate student files from an LMS course
    */
-  async generateLmsFiles(params: GenerateFilesParams, progress: TAURI_CHANNEL<string>) : Promise<Result<CommandResult, AppError>> {
+  async generateLmsFiles(
+    params: GenerateFilesParams,
+    progress: ProgressCallback<string>,
+  ): Promise<Result<CommandResult, AppError>> {
+    const progressChannel = new TAURI_CHANNEL<string>()
+    progressChannel.onmessage = progress
     try {
-      return { status: "ok", data: await TAURI_INVOKE("generate_lms_files", { params, progress }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("generate_lms_files", {
+          params,
+          progress: progressChannel,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get group categories (group sets) for a course
    */
-  async getGroupCategories(params: GetGroupCategoriesParams) : Promise<Result<GroupCategory[], AppError>> {
+  async getGroupCategories(
+    params: GetGroupCategoriesParams,
+  ): Promise<Result<GroupCategory[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_group_categories", { params }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_group_categories", { params }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify LMS connection using app-level LMS connection
    */
-  async verifyLmsConnection(context: LmsOperationContext) : Promise<Result<LmsVerifyResult, AppError>> {
+  async verifyLmsConnection(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsVerifyResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_lms_connection", { context }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_lms_connection", { context }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify draft LMS connection (before saving)
    */
-  async verifyLmsConnectionDraft(context: LmsOperationContext) : Promise<Result<LmsVerifyResult, AppError>> {
+  async verifyLmsConnectionDraft(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsVerifyResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_lms_connection_draft", { context }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_lms_connection_draft", { context }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Fetch courses from LMS (for profile creation)
    */
-  async fetchLmsCourses() : Promise<Result<CourseInfo[], AppError>> {
+  async fetchLmsCourses(): Promise<Result<CourseInfo[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses") };
+      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Fetch courses using draft connection (inline setup)
    */
-  async fetchLmsCoursesDraft(connection: LmsConnection) : Promise<Result<CourseInfo[], AppError>> {
+  async fetchLmsCoursesDraft(
+    connection: LmsConnection,
+  ): Promise<Result<CourseInfo[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses_draft", { connection }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("fetch_lms_courses_draft", { connection }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Import students from LMS, merge into roster
    */
-  async importStudentsFromLms(context: LmsOperationContext, roster: Roster | null) : Promise<Result<ImportStudentsResult, AppError>> {
+  async importStudentsFromLms(
+    context: LmsOperationContext,
+    roster: Roster | null,
+  ): Promise<Result<ImportStudentsResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("import_students_from_lms", { context, roster }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_students_from_lms", {
+          context,
+          roster,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Import students from CSV/Excel file
    */
-  async importStudentsFromFile(profile: string, roster: Roster | null, filePath: string) : Promise<Result<ImportStudentsResult, AppError>> {
+  async importStudentsFromFile(
+    profile: string,
+    roster: Roster | null,
+    filePath: string,
+  ): Promise<Result<ImportStudentsResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("import_students_from_file", { profile, roster, filePath }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_students_from_file", {
+          profile,
+          roster,
+          filePath,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Fetch available group-sets from LMS (with all groups)
    */
-  async fetchLmsGroupSets(context: LmsOperationContext) : Promise<Result<LmsGroupSet[], AppError>> {
+  async fetchLmsGroupSets(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsGroupSet[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_group_sets", { context }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("fetch_lms_group_sets", { context }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Fetch group-set names/ids only (fast)
    */
-  async fetchLmsGroupSetList(context: LmsOperationContext) : Promise<Result<LmsGroupSet[], AppError>> {
+  async fetchLmsGroupSetList(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsGroupSet[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_group_set_list", { context }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("fetch_lms_group_set_list", { context }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Fetch groups for a specific group-set
    */
-  async fetchLmsGroupsForSet(context: LmsOperationContext, groupSetId: string) : Promise<Result<LmsGroup[], AppError>> {
+  async fetchLmsGroupsForSet(
+    context: LmsOperationContext,
+    groupSetId: string,
+  ): Promise<Result<LmsGroup[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("fetch_lms_groups_for_set", { context, groupSetId }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("fetch_lms_groups_for_set", {
+          context,
+          groupSetId,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Import groups from LMS group-set into assignment
    */
-  async importGroupsFromLms(context: LmsOperationContext, roster: Roster, assignmentId: AssignmentId, config: GroupImportConfig) : Promise<Result<ImportGroupsResult, AppError>> {
+  async importGroupsFromLms(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<ImportGroupsResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("import_groups_from_lms", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_groups_from_lms", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Check if assignment has existing groups
    */
-  async assignmentHasGroups(roster: Roster, assignmentId: AssignmentId) : Promise<Result<boolean, AppError>> {
+  async assignmentHasGroups(
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<boolean, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("assignment_has_groups", { roster, assignmentId }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("assignment_has_groups", {
+          roster,
+          assignmentId,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify profile course exists in LMS and return updated name if changed
    */
-  async verifyProfileCourse(profile: string) : Promise<Result<CourseVerifyResult, AppError>> {
+  async verifyProfileCourse(
+    profile: string,
+  ): Promise<Result<CourseVerifyResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_profile_course", { profile }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_profile_course", { profile }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify named git connection
    */
-  async verifyGitConnection(name: string) : Promise<Result<GitVerifyResult, AppError>> {
+  async verifyGitConnection(
+    name: string,
+  ): Promise<Result<GitVerifyResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_git_connection", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_git_connection", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify draft git connection (before saving)
    */
-  async verifyGitConnectionDraft(connection: GitConnection) : Promise<Result<GitVerifyResult, AppError>> {
+  async verifyGitConnectionDraft(
+    connection: GitConnection,
+  ): Promise<Result<GitVerifyResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_git_connection_draft", { connection }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_git_connection_draft", { connection }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * List all available profiles
    */
-  async listProfiles() : Promise<Result<string[], AppError>> {
+  async listProfiles(): Promise<Result<string[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("list_profiles") };
+      return { status: "ok", data: await TAURI_INVOKE("list_profiles") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get the currently active profile
    */
-  async getActiveProfile() : Promise<Result<string | null, AppError>> {
+  async getActiveProfile(): Promise<Result<string | null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_active_profile") };
+      return { status: "ok", data: await TAURI_INVOKE("get_active_profile") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Set the active profile
    */
-  async setActiveProfile(name: string) : Promise<Result<null, AppError>> {
+  async setActiveProfile(name: string): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("set_active_profile", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("set_active_profile", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Load a profile by name, returning any migration warnings
    */
-  async loadProfile(name: string) : Promise<Result<SettingsLoadResult, AppError>> {
+  async loadProfile(
+    name: string,
+  ): Promise<Result<SettingsLoadResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("load_profile", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("load_profile", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Save profile settings as a named profile (app settings are not touched)
    */
-  async saveProfile(name: string, profile: ProfileSettings) : Promise<Result<null, AppError>> {
+  async saveProfile(
+    name: string,
+    profile: ProfileSettings,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("save_profile", { name, profile }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("save_profile", { name, profile }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Save profile settings and roster together (atomic)
    */
-  async saveProfileAndRoster(name: string, profile: ProfileSettings, roster: Roster | null) : Promise<Result<null, AppError>> {
+  async saveProfileAndRoster(
+    name: string,
+    profile: ProfileSettings,
+    roster: Roster | null,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("save_profile_and_roster", { name, profile, roster }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("save_profile_and_roster", {
+          name,
+          profile,
+          roster,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Delete a profile by name
    */
-  async deleteProfile(name: string) : Promise<Result<null, AppError>> {
+  async deleteProfile(name: string): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("delete_profile", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_profile", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Rename a profile
    */
-  async renameProfile(oldName: string, newName: string) : Promise<Result<null, AppError>> {
+  async renameProfile(
+    oldName: string,
+    newName: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("rename_profile", { oldName, newName }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("rename_profile", { oldName, newName }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Create a new profile with required course binding
    */
-  async createProfile(name: string, course: CourseInfo) : Promise<Result<ProfileSettings, AppError>> {
+  async createProfile(
+    name: string,
+    course: CourseInfo,
+  ): Promise<Result<ProfileSettings, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("create_profile", { name, course }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("create_profile", { name, course }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Load settings from disk with warnings for any corrected issues
    */
-  async loadSettings() : Promise<Result<SettingsLoadResult, AppError>> {
+  async loadSettings(): Promise<Result<SettingsLoadResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("load_settings") };
+      return { status: "ok", data: await TAURI_INVOKE("load_settings") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Load app-level settings (theme, window position, etc.)
    */
-  async loadAppSettings() : Promise<Result<AppSettings, AppError>> {
+  async loadAppSettings(): Promise<Result<AppSettings, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("load_app_settings") };
+      return { status: "ok", data: await TAURI_INVOKE("load_app_settings") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Save only app-level settings (theme, window position, etc.)
    */
-  async saveAppSettings(settings: AppSettings) : Promise<Result<null, AppError>> {
+  async saveAppSettings(
+    settings: AppSettings,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("save_app_settings", { settings }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("save_app_settings", { settings }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * List saved git connection names
    */
-  async listGitConnections() : Promise<Result<string[], AppError>> {
+  async listGitConnections(): Promise<Result<string[], AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("list_git_connections") };
+      return { status: "ok", data: await TAURI_INVOKE("list_git_connections") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get a named git connection
    */
-  async getGitConnection(name: string) : Promise<Result<GitConnection, AppError>> {
+  async getGitConnection(
+    name: string,
+  ): Promise<Result<GitConnection, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_git_connection", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_git_connection", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Save a named git connection
    */
-  async saveGitConnection(name: string, connection: GitConnection) : Promise<Result<null, AppError>> {
+  async saveGitConnection(
+    name: string,
+    connection: GitConnection,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("save_git_connection", { name, connection }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("save_git_connection", { name, connection }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Delete a named git connection
    */
-  async deleteGitConnection(name: string) : Promise<Result<null, AppError>> {
+  async deleteGitConnection(name: string): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("delete_git_connection", { name }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_git_connection", { name }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get identity mode for a connection name
    */
-  async getIdentityMode(connectionName: string) : Promise<Result<GitIdentityMode, AppError>> {
+  async getIdentityMode(
+    connectionName: string,
+  ): Promise<Result<GitIdentityMode, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_identity_mode", { connectionName }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_identity_mode", { connectionName }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Reset settings to defaults
    */
-  async resetSettings() : Promise<Result<ProfileSettings, AppError>> {
+  async resetSettings(): Promise<Result<ProfileSettings, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("reset_settings") };
+      return { status: "ok", data: await TAURI_INVOKE("reset_settings") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get default settings (single source of truth from Rust)
    */
-  async getDefaultSettings() : Promise<ProfileSettings> {
-    return await TAURI_INVOKE("get_default_settings");
+  async getDefaultSettings(): Promise<ProfileSettings> {
+    return await TAURI_INVOKE("get_default_settings")
   }
 
   /**
    * Get settings file path
    */
-  async getSettingsPath() : Promise<Result<string, AppError>> {
+  async getSettingsPath(): Promise<Result<string, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_settings_path") };
+      return { status: "ok", data: await TAURI_INVOKE("get_settings_path") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Check if settings file exists
    */
-  async settingsExist() : Promise<Result<boolean, AppError>> {
+  async settingsExist(): Promise<Result<boolean, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("settings_exist") };
+      return { status: "ok", data: await TAURI_INVOKE("settings_exist") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Import settings from a specific file
    */
-  async importSettings(path: string) : Promise<Result<ProfileSettings, AppError>> {
+  async importSettings(
+    path: string,
+  ): Promise<Result<ProfileSettings, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("import_settings", { path }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_settings", { path }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Export settings to a specific file
    */
-  async exportSettings(settings: ProfileSettings, path: string) : Promise<Result<null, AppError>> {
+  async exportSettings(
+    settings: ProfileSettings,
+    path: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("export_settings", { settings, path }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_settings", { settings, path }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get the JSON schema for ProfileSettings
    */
-  async getSettingsSchema() : Promise<Result<string, AppError>> {
+  async getSettingsSchema(): Promise<Result<string, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_settings_schema") };
+      return { status: "ok", data: await TAURI_INVOKE("get_settings_schema") }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Load settings or return defaults (never fails)
    */
-  async loadSettingsOrDefault() : Promise<Result<ProfileSettings, AppError>> {
+  async loadSettingsOrDefault(): Promise<Result<ProfileSettings, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("load_settings_or_default") };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("load_settings_or_default"),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Load roster by profile name
    */
-  async getRoster(profile: string) : Promise<Result<Roster | null, AppError>> {
+  async getRoster(profile: string): Promise<Result<Roster | null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_roster", { profile }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_roster", { profile }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Clear roster data for a profile
    */
-  async clearRoster(profile: string) : Promise<Result<null, AppError>> {
+  async clearRoster(profile: string): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("clear_roster", { profile }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("clear_roster", { profile }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Check whether a student removal impacts any groups
    */
-  async checkStudentRemoval(profile: string, roster: Roster, studentId: StudentId) : Promise<Result<StudentRemovalCheck, AppError>> {
+  async checkStudentRemoval(
+    profile: string,
+    roster: Roster,
+    studentId: StudentId,
+  ): Promise<Result<StudentRemovalCheck, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("check_student_removal", { profile, roster, studentId }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("check_student_removal", {
+          profile,
+          roster,
+          studentId,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Import git usernames from CSV
    */
-  async importGitUsernames(profile: string, roster: Roster, csvPath: string) : Promise<Result<ImportGitUsernamesResult, AppError>> {
+  async importGitUsernames(
+    profile: string,
+    roster: Roster,
+    csvPath: string,
+  ): Promise<Result<ImportGitUsernamesResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("import_git_usernames", { profile, roster, csvPath }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_git_usernames", {
+          profile,
+          roster,
+          csvPath,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Verify git usernames exist on platform
    */
-  async verifyGitUsernames(profile: string, roster: Roster, scope: UsernameVerificationScope) : Promise<Result<VerifyGitUsernamesResult, AppError>> {
+  async verifyGitUsernames(
+    profile: string,
+    roster: Roster,
+    scope: UsernameVerificationScope,
+  ): Promise<Result<VerifyGitUsernamesResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("verify_git_usernames", { profile, roster, scope }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("verify_git_usernames", {
+          profile,
+          roster,
+          scope,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Export teams to YAML for git operations
    */
-  async exportTeams(profile: string, roster: Roster, assignmentId: AssignmentId, path: string) : Promise<Result<null, AppError>> {
+  async exportTeams(
+    profile: string,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("export_teams", { profile, roster, assignmentId, path }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_teams", {
+          profile,
+          roster,
+          assignmentId,
+          path,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Export all students to CSV/XLSX
    */
-  async exportStudents(roster: Roster, path: string) : Promise<Result<null, AppError>> {
+  async exportStudents(
+    roster: Roster,
+    path: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("export_students", { roster, path }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_students", { roster, path }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Export assignment students with group info
    */
-  async exportAssignmentStudents(roster: Roster, assignmentId: AssignmentId, path: string) : Promise<Result<null, AppError>> {
+  async exportAssignmentStudents(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("export_assignment_students", { roster, assignmentId, path }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_assignment_students", {
+          roster,
+          assignmentId,
+          path,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Get coverage report (student distribution)
    */
-  async getRosterCoverage(roster: Roster) : Promise<Result<CoverageReport, AppError>> {
+  async getRosterCoverage(
+    roster: Roster,
+  ): Promise<Result<CoverageReport, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("get_roster_coverage", { roster }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("get_roster_coverage", { roster }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Export coverage report
    */
-  async exportRosterCoverage(roster: Roster, path: string, format: CoverageExportFormat) : Promise<Result<null, AppError>> {
+  async exportRosterCoverage(
+    roster: Roster,
+    path: string,
+    format: CoverageExportFormat,
+  ): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("export_roster_coverage", { roster, path, format }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_roster_coverage", {
+          roster,
+          path,
+          format,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Validate roster (students)
    */
-  async validateRoster(roster: Roster) : Promise<Result<ValidationResult, AppError>> {
+  async validateRoster(
+    roster: Roster,
+  ): Promise<Result<ValidationResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("validate_roster", { roster }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("validate_roster", { roster }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Validate assignment groups within a roster
    */
-  async validateAssignment(identityMode: GitIdentityMode, roster: Roster, assignmentId: AssignmentId) : Promise<Result<ValidationResult, AppError>> {
+  async validateAssignment(
+    identityMode: GitIdentityMode,
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<ValidationResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("validate_assignment", { identityMode, roster, assignmentId }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("validate_assignment", {
+          identityMode,
+          roster,
+          assignmentId,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Preflight check for create: identifies repos that already exist
    */
-  async preflightCreateRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CreateConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+  async preflightCreateRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CreateConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("preflight_create_repos", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("preflight_create_repos", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Preflight check for clone: identifies repos that don't exist
    */
-  async preflightCloneRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CloneConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+  async preflightCloneRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CloneConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("preflight_clone_repos", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("preflight_clone_repos", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Preflight check for delete: identifies repos that don't exist
    */
-  async preflightDeleteRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig) : Promise<Result<RepoPreflightResult, AppError>> {
+  async preflightDeleteRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: DeleteConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("preflight_delete_repos", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("preflight_delete_repos", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Create repos for assignment groups
    */
-  async createRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CreateConfig) : Promise<Result<OperationResult, AppError>> {
+  async createRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CreateConfig,
+  ): Promise<Result<OperationResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("create_repos", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("create_repos", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Clone repos for assignment groups
    */
-  async cloneReposFromRoster(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CloneConfig) : Promise<Result<OperationResult, AppError>> {
+  async cloneReposFromRoster(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CloneConfig,
+  ): Promise<Result<OperationResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("clone_repos_from_roster", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("clone_repos_from_roster", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Delete repos for assignment groups
    */
-  async deleteRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig) : Promise<Result<OperationResult, AppError>> {
+  async deleteRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: DeleteConfig,
+  ): Promise<Result<OperationResult, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("delete_repos", { context, roster, assignmentId, config }) };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_repos", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
 
   /**
    * Open the profiles directory in the system file manager
    */
-  async revealProfilesDirectory() : Promise<Result<null, AppError>> {
+  async revealProfilesDirectory(): Promise<Result<null, AppError>> {
     try {
-      return { status: "ok", data: await TAURI_INVOKE("reveal_profiles_directory") };
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("reveal_profiles_directory"),
+      }
     } catch (e) {
-      if (e instanceof Error) throw e;
-      return { status: "error", error: e as any };
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
     }
   }
-}
 
+  /**
+   * Open a file or folder selection dialog.
+   */
+  async openDialog(options: OpenDialogOptions): Promise<string | null> {
+    const result = await TAURI_OPEN(options)
+    if (Array.isArray(result)) {
+      return result[0] ?? null
+    }
+    return result ?? null
+  }
+
+  /**
+   * Open a file save dialog.
+   */
+  async saveDialog(options: SaveDialogOptions): Promise<string | null> {
+    return TAURI_SAVE(options)
+  }
+
+  /**
+   * Listen for platform events such as menu actions.
+   */
+  async listenEvent<T = unknown>(
+    event: string,
+    handler: (payload: T) => void,
+  ): Promise<() => void> {
+    const unlisten = await TAURI_LISTEN(event, (event) => {
+      handler(event.payload as T)
+    })
+    return unlisten
+  }
+
+  /**
+   * Register a handler for window close requests.
+   */
+  async onCloseRequested(handler: CloseRequestedHandler): Promise<() => void> {
+    const currentWindow = getCurrentWindow()
+    const unlisten = await currentWindow.onCloseRequested((event) => {
+      handler({
+        preventDefault: () => event.preventDefault(),
+      })
+    })
+    return unlisten
+  }
+
+  /**
+   * Programmatically close the current window.
+   */
+  async closeWindow(): Promise<void> {
+    const currentWindow = getCurrentWindow()
+    await currentWindow.close()
+  }
+
+  /**
+   * Set the window theme for platform chrome.
+   */
+  async setWindowTheme(theme: WindowTheme): Promise<void> {
+    const resolvedTheme = theme === "system" ? null : theme
+    const currentWindow = getCurrentWindow()
+    await currentWindow.setTheme(resolvedTheme)
+  }
+
+  /**
+   * Set the window background color.
+   */
+  async setWindowBackgroundColor(color: string): Promise<void> {
+    const currentWindow = getCurrentWindow()
+    await currentWindow.setBackgroundColor(color)
+  }
+}

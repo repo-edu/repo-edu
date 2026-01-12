@@ -2,8 +2,79 @@
 // Source: apps/repo-manage/schemas/commands/manifest.json
 // To modify the interface, edit the manifest and run `pnpm gen:bindings`
 
-import type { Channel as TAURI_CHANNEL } from "@tauri-apps/api/core";
-import type { AppError, AppSettings, AssignmentId, CloneConfig, CommandResult, CourseInfo, CourseVerifyResult, CoverageExportFormat, CoverageReport, CreateConfig, DeleteConfig, GenerateFilesParams, GetGroupCategoriesParams, GitConnection, GitIdentityMode, GitVerifyResult, GroupCategory, GroupImportConfig, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult, LmsConnection, LmsGroup, LmsGroupSet, LmsOperationContext, LmsVerifyResult, OperationResult, ProfileSettings, RepoOperationContext, RepoPreflightResult, Roster, SettingsLoadResult, StudentId, StudentRemovalCheck, UsernameVerificationScope, ValidationResult, VerifyCourseParams, VerifyCourseResult, VerifyGitUsernamesResult, Result } from "./types";
+export type ProgressCallback<T> = (message: T) => void
+
+import type {
+  AppError,
+  AppSettings,
+  AssignmentId,
+  CloneConfig,
+  CommandResult,
+  CourseInfo,
+  CourseVerifyResult,
+  CoverageExportFormat,
+  CoverageReport,
+  CreateConfig,
+  DeleteConfig,
+  GenerateFilesParams,
+  GetGroupCategoriesParams,
+  GitConnection,
+  GitIdentityMode,
+  GitVerifyResult,
+  GroupCategory,
+  GroupImportConfig,
+  ImportGitUsernamesResult,
+  ImportGroupsResult,
+  ImportStudentsResult,
+  LmsConnection,
+  LmsGroup,
+  LmsGroupSet,
+  LmsOperationContext,
+  LmsVerifyResult,
+  OperationResult,
+  ProfileSettings,
+  RepoOperationContext,
+  RepoPreflightResult,
+  Roster,
+  SettingsLoadResult,
+  StudentId,
+  StudentRemovalCheck,
+  UsernameVerificationScope,
+  ValidationResult,
+  VerifyCourseParams,
+  VerifyCourseResult,
+  VerifyGitUsernamesResult,
+  Result,
+} from "./types"
+
+export interface DialogFilter {
+  name: string
+  extensions: string[]
+}
+
+export interface OpenDialogOptions {
+  directory?: boolean
+  multiple?: boolean
+  filters?: DialogFilter[]
+  defaultPath?: string
+  title?: string
+}
+
+export interface SaveDialogOptions {
+  defaultPath?: string
+  filters?: DialogFilter[]
+  title?: string
+}
+
+export interface CloseRequestedEvent {
+  preventDefault(): void
+}
+
+export type CloseRequestedHandler = (
+  event: CloseRequestedEvent,
+) => void | Promise<void>
+
+export type WindowTheme = "light" | "dark" | "system"
 
 export interface BackendAPI {
   /**
@@ -14,32 +85,46 @@ export interface BackendAPI {
   /**
    * Open the LMS token generation page in the browser
    */
-  openTokenUrl(baseUrl: string, lmsType: string): Promise<Result<null, AppError>>
+  openTokenUrl(
+    baseUrl: string,
+    lmsType: string,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Verify LMS course credentials and fetch course information
    */
-  verifyLmsCourse(params: VerifyCourseParams): Promise<Result<VerifyCourseResult, AppError>>
+  verifyLmsCourse(
+    params: VerifyCourseParams,
+  ): Promise<Result<VerifyCourseResult, AppError>>
 
   /**
    * Generate student files from an LMS course
    */
-  generateLmsFiles(params: GenerateFilesParams, progress: TAURI_CHANNEL<string>): Promise<Result<CommandResult, AppError>>
+  generateLmsFiles(
+    params: GenerateFilesParams,
+    progress: ProgressCallback<string>,
+  ): Promise<Result<CommandResult, AppError>>
 
   /**
    * Get group categories (group sets) for a course
    */
-  getGroupCategories(params: GetGroupCategoriesParams): Promise<Result<GroupCategory[], AppError>>
+  getGroupCategories(
+    params: GetGroupCategoriesParams,
+  ): Promise<Result<GroupCategory[], AppError>>
 
   /**
    * Verify LMS connection using app-level LMS connection
    */
-  verifyLmsConnection(context: LmsOperationContext): Promise<Result<LmsVerifyResult, AppError>>
+  verifyLmsConnection(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsVerifyResult, AppError>>
 
   /**
    * Verify draft LMS connection (before saving)
    */
-  verifyLmsConnectionDraft(context: LmsOperationContext): Promise<Result<LmsVerifyResult, AppError>>
+  verifyLmsConnectionDraft(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsVerifyResult, AppError>>
 
   /**
    * Fetch courses from LMS (for profile creation)
@@ -49,47 +134,73 @@ export interface BackendAPI {
   /**
    * Fetch courses using draft connection (inline setup)
    */
-  fetchLmsCoursesDraft(connection: LmsConnection): Promise<Result<CourseInfo[], AppError>>
+  fetchLmsCoursesDraft(
+    connection: LmsConnection,
+  ): Promise<Result<CourseInfo[], AppError>>
 
   /**
    * Import students from LMS, merge into roster
    */
-  importStudentsFromLms(context: LmsOperationContext, roster: Roster | null): Promise<Result<ImportStudentsResult, AppError>>
+  importStudentsFromLms(
+    context: LmsOperationContext,
+    roster: Roster | null,
+  ): Promise<Result<ImportStudentsResult, AppError>>
 
   /**
    * Import students from CSV/Excel file
    */
-  importStudentsFromFile(profile: string, roster: Roster | null, filePath: string): Promise<Result<ImportStudentsResult, AppError>>
+  importStudentsFromFile(
+    profile: string,
+    roster: Roster | null,
+    filePath: string,
+  ): Promise<Result<ImportStudentsResult, AppError>>
 
   /**
    * Fetch available group-sets from LMS (with all groups)
    */
-  fetchLmsGroupSets(context: LmsOperationContext): Promise<Result<LmsGroupSet[], AppError>>
+  fetchLmsGroupSets(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsGroupSet[], AppError>>
 
   /**
    * Fetch group-set names/ids only (fast)
    */
-  fetchLmsGroupSetList(context: LmsOperationContext): Promise<Result<LmsGroupSet[], AppError>>
+  fetchLmsGroupSetList(
+    context: LmsOperationContext,
+  ): Promise<Result<LmsGroupSet[], AppError>>
 
   /**
    * Fetch groups for a specific group-set
    */
-  fetchLmsGroupsForSet(context: LmsOperationContext, groupSetId: string): Promise<Result<LmsGroup[], AppError>>
+  fetchLmsGroupsForSet(
+    context: LmsOperationContext,
+    groupSetId: string,
+  ): Promise<Result<LmsGroup[], AppError>>
 
   /**
    * Import groups from LMS group-set into assignment
    */
-  importGroupsFromLms(context: LmsOperationContext, roster: Roster, assignmentId: AssignmentId, config: GroupImportConfig): Promise<Result<ImportGroupsResult, AppError>>
+  importGroupsFromLms(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<ImportGroupsResult, AppError>>
 
   /**
    * Check if assignment has existing groups
    */
-  assignmentHasGroups(roster: Roster, assignmentId: AssignmentId): Promise<Result<boolean, AppError>>
+  assignmentHasGroups(
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<boolean, AppError>>
 
   /**
    * Verify profile course exists in LMS and return updated name if changed
    */
-  verifyProfileCourse(profile: string): Promise<Result<CourseVerifyResult, AppError>>
+  verifyProfileCourse(
+    profile: string,
+  ): Promise<Result<CourseVerifyResult, AppError>>
 
   /**
    * Verify named git connection
@@ -99,7 +210,9 @@ export interface BackendAPI {
   /**
    * Verify draft git connection (before saving)
    */
-  verifyGitConnectionDraft(connection: GitConnection): Promise<Result<GitVerifyResult, AppError>>
+  verifyGitConnectionDraft(
+    connection: GitConnection,
+  ): Promise<Result<GitVerifyResult, AppError>>
 
   /**
    * List all available profiles
@@ -124,12 +237,19 @@ export interface BackendAPI {
   /**
    * Save profile settings as a named profile (app settings are not touched)
    */
-  saveProfile(name: string, profile: ProfileSettings): Promise<Result<null, AppError>>
+  saveProfile(
+    name: string,
+    profile: ProfileSettings,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Save profile settings and roster together (atomic)
    */
-  saveProfileAndRoster(name: string, profile: ProfileSettings, roster: Roster | null): Promise<Result<null, AppError>>
+  saveProfileAndRoster(
+    name: string,
+    profile: ProfileSettings,
+    roster: Roster | null,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Delete a profile by name
@@ -139,12 +259,18 @@ export interface BackendAPI {
   /**
    * Rename a profile
    */
-  renameProfile(oldName: string, newName: string): Promise<Result<null, AppError>>
+  renameProfile(
+    oldName: string,
+    newName: string,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Create a new profile with required course binding
    */
-  createProfile(name: string, course: CourseInfo): Promise<Result<ProfileSettings, AppError>>
+  createProfile(
+    name: string,
+    course: CourseInfo,
+  ): Promise<Result<ProfileSettings, AppError>>
 
   /**
    * Load settings from disk with warnings for any corrected issues
@@ -174,7 +300,10 @@ export interface BackendAPI {
   /**
    * Save a named git connection
    */
-  saveGitConnection(name: string, connection: GitConnection): Promise<Result<null, AppError>>
+  saveGitConnection(
+    name: string,
+    connection: GitConnection,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Delete a named git connection
@@ -184,7 +313,9 @@ export interface BackendAPI {
   /**
    * Get identity mode for a connection name
    */
-  getIdentityMode(connectionName: string): Promise<Result<GitIdentityMode, AppError>>
+  getIdentityMode(
+    connectionName: string,
+  ): Promise<Result<GitIdentityMode, AppError>>
 
   /**
    * Reset settings to defaults
@@ -214,7 +345,10 @@ export interface BackendAPI {
   /**
    * Export settings to a specific file
    */
-  exportSettings(settings: ProfileSettings, path: string): Promise<Result<null, AppError>>
+  exportSettings(
+    settings: ProfileSettings,
+    path: string,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Get the JSON schema for ProfileSettings
@@ -239,22 +373,39 @@ export interface BackendAPI {
   /**
    * Check whether a student removal impacts any groups
    */
-  checkStudentRemoval(profile: string, roster: Roster, studentId: StudentId): Promise<Result<StudentRemovalCheck, AppError>>
+  checkStudentRemoval(
+    profile: string,
+    roster: Roster,
+    studentId: StudentId,
+  ): Promise<Result<StudentRemovalCheck, AppError>>
 
   /**
    * Import git usernames from CSV
    */
-  importGitUsernames(profile: string, roster: Roster, csvPath: string): Promise<Result<ImportGitUsernamesResult, AppError>>
+  importGitUsernames(
+    profile: string,
+    roster: Roster,
+    csvPath: string,
+  ): Promise<Result<ImportGitUsernamesResult, AppError>>
 
   /**
    * Verify git usernames exist on platform
    */
-  verifyGitUsernames(profile: string, roster: Roster, scope: UsernameVerificationScope): Promise<Result<VerifyGitUsernamesResult, AppError>>
+  verifyGitUsernames(
+    profile: string,
+    roster: Roster,
+    scope: UsernameVerificationScope,
+  ): Promise<Result<VerifyGitUsernamesResult, AppError>>
 
   /**
    * Export teams to YAML for git operations
    */
-  exportTeams(profile: string, roster: Roster, assignmentId: AssignmentId, path: string): Promise<Result<null, AppError>>
+  exportTeams(
+    profile: string,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Export all students to CSV/XLSX
@@ -264,7 +415,11 @@ export interface BackendAPI {
   /**
    * Export assignment students with group info
    */
-  exportAssignmentStudents(roster: Roster, assignmentId: AssignmentId, path: string): Promise<Result<null, AppError>>
+  exportAssignmentStudents(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Get coverage report (student distribution)
@@ -274,7 +429,11 @@ export interface BackendAPI {
   /**
    * Export coverage report
    */
-  exportRosterCoverage(roster: Roster, path: string, format: CoverageExportFormat): Promise<Result<null, AppError>>
+  exportRosterCoverage(
+    roster: Roster,
+    path: string,
+    format: CoverageExportFormat,
+  ): Promise<Result<null, AppError>>
 
   /**
    * Validate roster (students)
@@ -284,41 +443,112 @@ export interface BackendAPI {
   /**
    * Validate assignment groups within a roster
    */
-  validateAssignment(identityMode: GitIdentityMode, roster: Roster, assignmentId: AssignmentId): Promise<Result<ValidationResult, AppError>>
+  validateAssignment(
+    identityMode: GitIdentityMode,
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<ValidationResult, AppError>>
 
   /**
    * Preflight check for create: identifies repos that already exist
    */
-  preflightCreateRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CreateConfig): Promise<Result<RepoPreflightResult, AppError>>
+  preflightCreateRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CreateConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>>
 
   /**
    * Preflight check for clone: identifies repos that don't exist
    */
-  preflightCloneRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CloneConfig): Promise<Result<RepoPreflightResult, AppError>>
+  preflightCloneRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CloneConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>>
 
   /**
    * Preflight check for delete: identifies repos that don't exist
    */
-  preflightDeleteRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig): Promise<Result<RepoPreflightResult, AppError>>
+  preflightDeleteRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: DeleteConfig,
+  ): Promise<Result<RepoPreflightResult, AppError>>
 
   /**
    * Create repos for assignment groups
    */
-  createRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CreateConfig): Promise<Result<OperationResult, AppError>>
+  createRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CreateConfig,
+  ): Promise<Result<OperationResult, AppError>>
 
   /**
    * Clone repos for assignment groups
    */
-  cloneReposFromRoster(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: CloneConfig): Promise<Result<OperationResult, AppError>>
+  cloneReposFromRoster(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: CloneConfig,
+  ): Promise<Result<OperationResult, AppError>>
 
   /**
    * Delete repos for assignment groups
    */
-  deleteRepos(context: RepoOperationContext, roster: Roster, assignmentId: AssignmentId, config: DeleteConfig): Promise<Result<OperationResult, AppError>>
+  deleteRepos(
+    context: RepoOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: DeleteConfig,
+  ): Promise<Result<OperationResult, AppError>>
 
   /**
    * Open the profiles directory in the system file manager
    */
   revealProfilesDirectory(): Promise<Result<null, AppError>>
-}
 
+  /**
+   * Open a file or folder selection dialog.
+   */
+  openDialog(options: OpenDialogOptions): Promise<string | null>
+
+  /**
+   * Open a file save dialog.
+   */
+  saveDialog(options: SaveDialogOptions): Promise<string | null>
+
+  /**
+   * Listen for platform events such as menu actions.
+   */
+  listenEvent<T = unknown>(
+    event: string,
+    handler: (payload: T) => void,
+  ): Promise<() => void>
+
+  /**
+   * Register a handler for window close requests.
+   */
+  onCloseRequested(handler: CloseRequestedHandler): Promise<() => void>
+
+  /**
+   * Programmatically close the current window.
+   */
+  closeWindow(): Promise<void>
+
+  /**
+   * Set the window theme for platform chrome.
+   */
+  setWindowTheme(theme: WindowTheme): Promise<void>
+
+  /**
+   * Set the window background color.
+   */
+  setWindowBackgroundColor(color: string): Promise<void>
+}

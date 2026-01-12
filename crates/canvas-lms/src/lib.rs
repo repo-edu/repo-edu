@@ -22,7 +22,8 @@
 //!     // Create a client
 //!     let client = CanvasClient::new(
 //!         "https://canvas.instructure.com",
-//!         "your_access_token"
+//!         "your_access_token",
+//!         None,
 //!     )?;
 //!
 //!     // Get all courses
@@ -46,7 +47,7 @@
 //!
 //! ```rust,no_run
 //! # use canvas_lms::CanvasClient;
-//! let client = CanvasClient::new("https://canvas.edu", "your_token")?;
+//! let client = CanvasClient::new("https://canvas.edu", "your_token", None)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

@@ -3,6 +3,13 @@
  * Used within the SettingsDialog.
  */
 
+import type {
+  GitConnection,
+  GitIdentityMode,
+  GitServerType,
+  LmsConnection,
+  LmsType,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
@@ -25,13 +32,6 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
-import type {
-  GitConnection,
-  GitIdentityMode,
-  GitServerType,
-  LmsConnection,
-  LmsType,
-} from "@repo-edu/backend-interface/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"

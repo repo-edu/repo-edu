@@ -3,6 +3,11 @@
  * Course is required at profile creation and is immutable after.
  */
 
+import type {
+  CourseInfo,
+  LmsConnection,
+  LmsType,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -29,7 +34,6 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
-import type { CourseInfo, LmsConnection, LmsType } from "@repo-edu/backend-interface/types"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOutputStore } from "../../stores/outputStore"
 import { useUiStore } from "../../stores/uiStore"
