@@ -20,6 +20,9 @@
         "validate": "pnpm -w run validate"
     },
     "dependencies": {
+        "@repo-edu/app-core": "workspace:*",
+        "@repo-edu/backend-interface": "workspace:*",
+        "@repo-edu/backend-mock": "workspace:*",
         "@repo-edu/ui": "workspace:*",
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-dialog": "^2",

@@ -47,6 +47,15 @@ importers:
 
   apps/repo-manage:
     dependencies:
+      '@repo-edu/app-core':
+        specifier: workspace:*
+        version: link:../../packages/app-core
+      '@repo-edu/backend-interface':
+        specifier: workspace:*
+        version: link:../../packages/backend-interface
+      '@repo-edu/backend-mock':
+        specifier: workspace:*
+        version: link:../../packages/backend-mock
       '@repo-edu/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -120,6 +129,85 @@ importers:
       sharp:
         specifier: ^0.33.0
         version: 0.33.5
+
+  packages/app-core:
+    dependencies:
+      '@repo-edu/backend-interface':
+        specifier: workspace:*
+        version: link:../backend-interface
+      '@repo-edu/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@tauri-apps/api':
+        specifier: ^2.2.8
+        version: 2.9.0
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2.2.0
+        version: 2.4.2
+      '@tauri-apps/plugin-opener':
+        specifier: ^2.2.5
+        version: 2.5.2
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.6
+      react:
+        specifier: 'catalog:'
+        version: 19.2.1
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.1(react@19.2.1)
+      zustand:
+        specifier: ^5.0.9
+        version: 5.0.9(@types/react@19.2.7)(react@19.2.1)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.1.17
+        version: 4.1.17(vite@7.2.6(@types/node@22.19.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
+      '@testing-library/jest-dom':
+        specifier: ^6.9.1
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.3.0
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.7
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.7)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.1(vite@7.2.6(@types/node@22.19.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
+      jsdom:
+        specifier: ^27.2.0
+        version: 27.2.0
+      tailwindcss:
+        specifier: ^4.1.17
+        version: 4.1.17
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^7.2.6
+        version: 7.2.6(@types/node@22.19.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
+      vitest:
+        specifier: ^4.0.15
+        version: 4.0.15(@types/node@22.19.3)(jiti@2.6.1)(jsdom@27.2.0)(lightningcss@1.30.2)(tsx@4.21.0)
+
+  packages/backend-interface:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.2.8
+        version: 2.9.0
+
+  packages/backend-mock:
+    dependencies:
+      '@repo-edu/backend-interface':
+        specifier: workspace:*
+        version: link:../backend-interface
+      '@tauri-apps/api':
+        specifier: ^2.2.8
+        version: 2.9.0
 
   packages/ui:
     dependencies:

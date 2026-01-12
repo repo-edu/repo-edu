@@ -1,10 +1,16 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import App from "./App"
-import "./App.css"
+import { AppRoot, BackendProvider, setBackend } from "@repo-edu/app-core"
+import { TauriBackend } from "./bindings/tauri"
+import "@repo-edu/app-core/src/App.css" // Import styles
+
+const backend = new TauriBackend()
+setBackend(backend)
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <BackendProvider backend={backend}>
+      <AppRoot />
+    </BackendProvider>
   </React.StrictMode>,
 )

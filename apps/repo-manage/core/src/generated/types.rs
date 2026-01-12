@@ -162,8 +162,8 @@ pub enum GitIdentityMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum GitServerType {
-  GitHub,
   #[default]
+  GitHub,
   GitLab,
   Gitea,
 }

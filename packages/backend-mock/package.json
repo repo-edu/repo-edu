@@ -1,0 +1,12 @@
+{
+  "name": "@repo-edu/backend-mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@repo-edu/backend-interface": "workspace:*",
+    "@tauri-apps/api": "^2.2.8"
+  }
+}
