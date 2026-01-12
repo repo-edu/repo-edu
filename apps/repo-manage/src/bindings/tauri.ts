@@ -2,23 +2,13 @@
 // Source: apps/repo-manage/schemas/commands/manifest.json
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
-import {
-  invoke as TAURI_INVOKE,
-  Channel as TAURI_CHANNEL,
-} from "@tauri-apps/api/core"
-import { listen as TAURI_LISTEN } from "@tauri-apps/api/event"
-import { getCurrentWindow } from "@tauri-apps/api/window"
-import {
-  open as TAURI_OPEN,
-  save as TAURI_SAVE,
-} from "@tauri-apps/plugin-dialog"
 import type {
   BackendAPI,
   CloseRequestedHandler,
   OpenDialogOptions,
+  ProgressCallback,
   SaveDialogOptions,
   WindowTheme,
-  ProgressCallback,
 } from "@repo-edu/backend-interface"
 import type {
   AppError,
@@ -51,6 +41,7 @@ import type {
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
+  Result,
   Roster,
   SettingsLoadResult,
   StudentId,
@@ -60,8 +51,17 @@ import type {
   VerifyCourseParams,
   VerifyCourseResult,
   VerifyGitUsernamesResult,
-  Result,
 } from "@repo-edu/backend-interface/types"
+import {
+  Channel as TAURI_CHANNEL,
+  invoke as TAURI_INVOKE,
+} from "@tauri-apps/api/core"
+import { listen as TAURI_LISTEN } from "@tauri-apps/api/event"
+import { getCurrentWindow } from "@tauri-apps/api/window"
+import {
+  open as TAURI_OPEN,
+  save as TAURI_SAVE,
+} from "@tauri-apps/plugin-dialog"
 
 export class TauriBackend implements BackendAPI {
   /**

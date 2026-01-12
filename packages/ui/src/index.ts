@@ -69,6 +69,7 @@ export {
   SheetHeader,
   SheetOverlay,
   SheetPortal,
+  SheetPortalProvider,
   SheetTitle,
   SheetTrigger,
 } from "./components/ui/sheet"

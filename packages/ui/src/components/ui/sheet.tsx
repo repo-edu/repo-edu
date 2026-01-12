@@ -1,9 +1,27 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { cva, type VariantProps } from "class-variance-authority"
 import { XIcon } from "lucide-react"
-import type * as React from "react"
+import * as React from "react"
 
 import { cn } from "../../lib/utils"
+
+const SheetPortalContext = React.createContext<{
+  container: HTMLElement | null
+}>({ container: null })
+
+function SheetPortalProvider({
+  container,
+  children,
+}: {
+  container: HTMLElement | null
+  children: React.ReactNode
+}) {
+  return (
+    <SheetPortalContext.Provider value={{ container }}>
+      {children}
+    </SheetPortalContext.Provider>
+  )
+}
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -75,8 +93,9 @@ function SheetContent({
   showCloseButton = true,
   ...props
 }: SheetContentProps) {
+  const { container } = React.useContext(SheetPortalContext)
   return (
-    <SheetPortal>
+    <SheetPortal container={container}>
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
@@ -153,6 +172,7 @@ export {
   SheetHeader,
   SheetOverlay,
   SheetPortal,
+  SheetPortalProvider,
   SheetTitle,
   SheetTrigger,
 }

@@ -6,21 +6,18 @@ hero:
   title: Interactive Demo
   tagline: Experience the repo-edu desktop app without installing anything.
   actions:
-    - text: Launch Demo
-      link: "#demo"
-      icon: right-arrow
-      variant: primary
     - text: Install the App
       link: /getting-started/installation/
-      variant: secondary
+      icon: right-arrow
+      variant: primary
 ---
 
 import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+import AppDemo from "../../components/AppDemo"
 
-:::note[Coming Soon]
-The interactive demo is under development. It will let you explore the full desktop app
-experience with simulated LMS and Git platform responses.
-:::
+<div id="demo-root" className="mt-8 mb-12">
+  <AppDemo client:only="react" />
+</div>
 
 ## What to Expect
 
@@ -56,4 +53,4 @@ The simulation includes pre-configured scenarios to showcase different workflows
 <CardGrid>
 <LinkCard title="Installation Guide" href="/getting-started/installation/" description="Download and install the desktop app" />
 <LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Get up and running in minutes" />
-                     </CardGrid>
+             </CardGrid>

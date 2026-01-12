@@ -30,7 +30,7 @@
         "dev": "pnpm --filter @repo-edu/repo-manage tauri:dev",
         "build": "pnpm --filter @repo-edu/repo-manage tauri:build",
         "build:release": "pnpm --filter @repo-edu/repo-manage tauri:build:release",
-        "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings && pnpm fmt",
+        "gen:bindings": "pnpm --filter @repo-edu/repo-manage gen:bindings && pnpm fmt && pnpm lint:ts:fix",
         "fixture:constraints": "pnpx tsx scripts/create-fixture-constraints.ts",
         "fixture:create": "pnpm fixture:constraints && cd ../test-fixtures && claude /create-students-repo",
         "docs:dev": "pnpm --filter @repo-edu/docs dev",

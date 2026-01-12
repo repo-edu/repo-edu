@@ -35,6 +35,7 @@ import type {
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
+  Result,
   Roster,
   SettingsLoadResult,
   StudentId,
@@ -44,7 +45,6 @@ import type {
   VerifyCourseParams,
   VerifyCourseResult,
   VerifyGitUsernamesResult,
-  Result,
 } from "./types"
 
 export interface DialogFilter {

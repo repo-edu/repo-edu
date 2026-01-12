@@ -3,7 +3,6 @@
 // To modify commands, edit the manifest and run `pnpm gen:bindings`
 
 import type { ProgressCallback } from "@repo-edu/backend-interface"
-import { getBackend } from "../services/backend"
 import type {
   AppError,
   AppSettings,
@@ -35,6 +34,7 @@ import type {
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
+  Result,
   Roster,
   SettingsLoadResult,
   StudentId,
@@ -44,8 +44,8 @@ import type {
   VerifyCourseParams,
   VerifyCourseResult,
   VerifyGitUsernamesResult,
-  Result,
 } from "@repo-edu/backend-interface/types"
+import { getBackend } from "../services/backend"
 
 export const commands = {
   /**
