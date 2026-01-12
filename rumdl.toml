@@ -6,6 +6,8 @@ line-length = 100
 disable = [
     "MD041", # First line heading - conflicts with VitePress frontmatter
     "MD060", # Table column style - too strict, tables render fine without it
+    "MD013", # Line length - disabled to allow long links and component props
+    "MD033", # Inline HTML - disabled because MDX files use HTML/JSX heavily
 ]
 
 [MD013] # Line length
