@@ -16,6 +16,8 @@ export interface ActionDropdownItem {
   id: string
   /** Display label for the item */
   label: string
+  /** Optional secondary label (e.g. course name) displayed below the main label */
+  secondaryLabel?: string
   /** Optional status icon displayed before the label */
   statusIcon?: ReactNode
   /** Optional tooltip for the status icon */
@@ -128,10 +130,13 @@ export function ActionDropdown<T extends ActionDropdownItem>({
         <Button
           size="sm"
           variant="outline"
-          className="justify-between gap-2 w-fit"
+          className={cn(
+            "justify-between gap-2 w-fit",
+            activeItem?.secondaryLabel ? "h-9" : "",
+          )}
           style={{ minWidth, maxWidth }}
         >
-          <span className="flex items-center gap-1.5 truncate">
+          <span className="flex items-center gap-1.5 truncate text-left">
             {activeItem?.statusIcon !== undefined && (
               <span
                 className="size-3 shrink-0 flex items-center justify-center"
@@ -140,8 +145,15 @@ export function ActionDropdown<T extends ActionDropdownItem>({
                 {activeItem.statusIcon}
               </span>
             )}
-            <span className="truncate">
-              {activeItem ? activeItem.label : placeholder}
+            <span className="flex flex-col truncate leading-tight">
+              <span className="truncate">
+                {activeItem ? activeItem.label : placeholder}
+              </span>
+              {activeItem?.secondaryLabel && (
+                <span className="text-[10px] text-muted-foreground font-normal truncate">
+                  {activeItem.secondaryLabel}
+                </span>
+              )}
             </span>
           </span>
           <MdiChevronDown className="size-3.5 opacity-50 shrink-0" />
@@ -162,7 +174,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
               index === activeIndex && "bg-blue-100 dark:bg-blue-700/60",
             )}
           >
-            <span className="flex items-center gap-1.5 truncate min-w-0">
+            <span className="flex items-center gap-1.5 truncate min-w-0 text-left">
               {item.statusIcon !== undefined && (
                 <span
                   className="size-3 shrink-0 flex items-center justify-center"
@@ -171,7 +183,14 @@ export function ActionDropdown<T extends ActionDropdownItem>({
                   {item.statusIcon}
                 </span>
               )}
-              <span className="truncate">{item.label}</span>
+              <span className="flex flex-col truncate">
+                <span className="truncate">{item.label}</span>
+                {item.secondaryLabel && (
+                  <span className="text-[10px] text-muted-foreground font-normal truncate">
+                    {item.secondaryLabel}
+                  </span>
+                )}
+              </span>
             </span>
 
             <div className="flex items-center gap-0.5 shrink-0">

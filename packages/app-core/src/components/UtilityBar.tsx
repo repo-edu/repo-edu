@@ -40,6 +40,7 @@ import {
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../bindings/commands"
 import { useOutputStore } from "../stores/outputStore"
+import { useProfileSettingsStore } from "../stores/profileSettingsStore"
 import { useUiStore } from "../stores/uiStore"
 import { loadProfileData, type ProfileLoadResult } from "../utils/profileLoader"
 import {
@@ -88,8 +89,12 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
     (state) => state.setNewProfileDialogOpen,
   )
   const appendOutput = useOutputStore((state) => state.appendText)
+  const course = useProfileSettingsStore((state) => state.course)
 
   const [profiles, setProfiles] = useState<string[]>([])
+  const [profileCourses, setProfileCourses] = useState<Record<string, string>>(
+    {},
+  )
   const [loading, setLoading] = useState(false)
 
   // Rename dialog state
@@ -132,7 +137,24 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
     try {
       const result = await commands.listProfiles()
       if (result.status === "ok") {
-        setProfiles(result.data)
+        const profileList = result.data
+        setProfiles(profileList)
+
+        // Fetch course names for all profiles to show in the dropdown
+        const courses: Record<string, string> = {}
+        await Promise.all(
+          profileList.map(async (name) => {
+            try {
+              const res = await commands.loadProfile(name)
+              if (res.status === "ok") {
+                courses[name] = res.data.settings.course.name
+              }
+            } catch (e) {
+              console.error(`Failed to load course for profile ${name}:`, e)
+            }
+          }),
+        )
+        setProfileCourses(courses)
       }
     } catch (error) {
       console.error("Failed to load profiles:", error)
@@ -349,6 +371,10 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
     id: name,
     label: name,
     name,
+    secondaryLabel:
+      name === activeProfile
+        ? course?.name || "No connected course"
+        : profileCourses[name] || "No connected course",
   }))
 
   const activeProfileIndex = profiles.indexOf(activeProfile ?? "")

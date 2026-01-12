@@ -440,6 +440,19 @@ export class MockBackend implements BackendAPI {
     const settings = createProfileSettings(demoCourses[0])
     this.profiles.set(demoProfileName, settings)
     this.rosters.set(demoProfileName, defaultRoster)
+
+    // Add more demo profiles
+    const cs101 = createProfileSettings(demoCourses[0])
+    this.profiles.set("CS101 Intro", cs101)
+    this.rosters.set("CS101 Intro", createRoster("manual"))
+
+    const advGit = createProfileSettings(demoCourses[1])
+    this.profiles.set("Advanced Git", advGit)
+    this.rosters.set("Advanced Git", createRoster("manual"))
+
+    const empty = createProfileSettings({ id: "", name: "" })
+    this.profiles.set("Empty Profile", empty)
+    this.rosters.set("Empty Profile", null)
   }
 
   private ok<T>(data: T): Promise<Result<T, AppError>> {
