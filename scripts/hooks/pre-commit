@@ -14,3 +14,6 @@ pnpm gen:bindings
 git add apps/repo-manage/src/bindings/types.ts 2>/dev/null || true
 git add apps/repo-manage/src/bindings/commands.ts 2>/dev/null || true
 git add apps/repo-manage/core/src/generated/types.rs 2>/dev/null || true
+
+# Stage formatted markdown files (fixes flapping rumdl fmt)
+git add docs/src/content/docs/*.mdx 2>/dev/null || true
