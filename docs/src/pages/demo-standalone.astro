@@ -1,0 +1,24 @@
+---
+import DemoApp from '../components/DemoApp';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Repo Edu Demo</title>
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                overflow: hidden;
+                background-color: #09090b; /* zinc-950 */
+            }
+        </style>
+	</head>
+	<body>
+		<DemoApp client:only="react" />
+	</body>
+</html>

@@ -2,21 +2,20 @@
 title: Interactive Demo
 description: Try the repo-edu desktop app in your browser
 template: splash
-hero:
-  title: Interactive Demo
-  tagline: Experience the repo-edu desktop app without installing anything.
-  actions:
-    - text: Install the App
-      link: /getting-started/installation/
-      icon: right-arrow
-      variant: primary
 ---
 
 import { LinkCard, CardGrid } from "@astrojs/starlight/components"
-import AppDemo from "../../components/AppDemo"
 
-<div id="demo-root" className="mt-8 mb-12">
-  <AppDemo client:only="react" />
+<style>{`
+  .sl-container:has(h1#_top) { display: none; }
+  h1#_top { display: none; }
+  main { padding-top: 0 !important; }
+  .content-panel { padding-top: 0 !important; border-top: none !important; }
+  .main-frame { border-top: none !important; }
+`}</style>
+
+<div className="not-content mt-0 mb-12 border border-gray-700 bg-zinc-900 rounded-lg overflow-hidden min-h-[600px] shadow-2xl relative left-1/2 -translate-x-1/2 w-[95vw] max-w-[1600px]" style={{ height: "calc((100vh - var(--sl-nav-height, 3.5rem)) * 0.90)" }}>
+  <iframe src="/demo-standalone" className="w-full h-full border-none" title="Repo Edu Interactive Demo" />
 </div>
 
 ## What to Expect
@@ -53,4 +52,4 @@ The simulation includes pre-configured scenarios to showcase different workflows
 <CardGrid>
 <LinkCard title="Installation Guide" href="/getting-started/installation/" description="Download and install the desktop app" />
 <LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Get up and running in minutes" />
-                </CardGrid>
+                           </CardGrid>
