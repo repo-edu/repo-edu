@@ -4,7 +4,7 @@ This file provides guidance to AI coding assistants when working with code in th
 
 ## Build & Development Commands
 
-All commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
+Most commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
 Use pnpm scripts exclusively—never raw cargo, npm, or npx commands.
 
 ```bash
@@ -74,21 +74,26 @@ repo-edu/
 │   └── repo-manage/        # Main Tauri desktop app
 │       ├── src/            # React frontend
 │       ├── src-tauri/      # Tauri Rust backend (workspace member)
-│       ├── core/               # Shared Rust library (workspace member)
-│       └── cli/                # CLI tool (workspace member)
+│       ├── core/           # Shared Rust library (workspace member)
+│       └── cli/            # CLI tool (workspace member)
 ├── crates/                 # Shared Rust libraries
 │   ├── lms-common/         # Common LMS traits, types, error handling
 │   ├── lms-client/         # Unified LMS client (Canvas/Moodle selection)
 │   ├── canvas-lms/         # Canvas LMS API client
 │   └── moodle-lms/         # Moodle LMS API client
-└── packages/
-    └── ui/                 # Shared shadcn/ui components
+├── docs/                   # Documentation site with Astro/Starlight
+└── packages/               # TypeScript packages for frontend
+    ├── ui/                 # Shared shadcn/ui components
+    ├── app-core/           # Environment-agnostic core UI and state management
+    ├── backend-interface/  # TypeScript contract between frontend and backend
+    └── backend-mock/       # In-memory mock backend for testing and demos
 ```
 
 ### Shared Operations Layer
 
-The `core/src/operations/` module contains high-level operations shared between CLI
-and GUI:
+`apps/repo-manage/core/src/operations/`
+
+High-level operations shared between CLI and GUI:
 
 - `platform.rs` - Git platform verification
 - `lms.rs` - LMS verification and roster imports
@@ -97,41 +102,69 @@ and GUI:
 
 Both CLI and Tauri commands call these operations with a progress callback for status updates.
 
-### Frontend Architecture (apps/repo-manage/src)
+### Frontend Architecture
 
-The frontend uses a roster-centric design with three main tabs: Roster, Assignment, and Operation.
+#### Backend Isolation
 
-- **components/tabs/** - Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
-- **components/dialogs/** - Modal dialogs for editing students, assignments, groups
-- **components/sheets/** - Slide-out panels (`SettingsSheet`, `StudentEditorSheet`,
-  `GroupEditorSheet`)
-- **stores/** - Zustand stores:
+The frontend is isolated from platform-specific backends through a `BackendAPI` interface.
+This enables the same UI to run in Tauri (desktop) or with a mock backend (tests/demos).
+
+**`packages/backend-interface/`** — TypeScript contract between frontend and backend
+
+- `index.ts` - `BackendAPI` interface with 70+ methods (LMS, Git, profiles, roster, settings)
+- `types.ts` - Auto-generated domain types from JSON Schemas
+
+**`packages/app-core/`** — Environment-agnostic core UI and state management
+
+- `stores/` - Zustand stores:
   - `rosterStore` - Student roster data and selection state
-  - `appSettingsStore` - App-level settings (theme, active tab)
+  - `appSettingsStore` - App-level settings (theme, LMS, git connections)
   - `profileSettingsStore` - Per-profile connection settings
-  - `connectionsStore` - LMS/Git connection configuration
-  - `operationStore` - Git operation state
+  - `connectionsStore` - Draft connection state during editing
+  - `operationStore` - Git operation progress and results
   - `outputStore` - Console output messages
-  - `uiStore` - UI state (dialogs, sheets, active profile)
-- **hooks/** - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`)
-- **services/** - Thin wrappers around Tauri commands (`lmsService`, `repoService`,
-  `settingsService`)
-- **adapters/** - Data transformers between frontend state and backend types (`settingsAdapter`)
-- **bindings/types.ts** - Auto-generated TypeScript types from JSON Schemas
-- **bindings/commands.ts** - Auto-generated Tauri command wrappers
+  - `uiStore` - Active tab, dialog visibility, sheet state
+- `components/tabs/` - Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
+- `components/dialogs/` - Modal dialogs for editing students, assignments, groups
+- `components/sheets/` - Slide-out panels (`StudentEditorSheet`, `GroupEditorSheet`,
+  `CoverageReportSheet`)
+- `hooks/` - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`)
+- `services/` - Backend abstraction (`setBackend`, `getBackend`, `BackendProvider`)
+- `adapters/` - Data transformers between frontend state and backend types (`settingsAdapter`)
+- `bindings/commands.ts` - Auto-generated command delegation to injected backend
 
-### Rust Backend Architecture (apps/repo-manage/src-tauri)
+**`packages/backend-mock/`** — In-memory mock backend for testing and demos
 
-- **src/commands/** - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs,
+- `index.ts` - `MockBackend` class implementing `BackendAPI`
+- Pre-populated demo data (6 students, 2 assignments, 2 LMS group sets)
+
+#### Shared UI Components
+
+**`packages/ui/`** — Shared shadcn/ui component library
+
+#### Tauri Desktop Entry Point
+
+**`apps/repo-manage/src/`**
+
+- `main.tsx` - Injects `TauriBackend` and renders `AppRoot` from app-core
+- `bindings/tauri.ts` - Auto-generated `TauriBackend` wrapping Rust commands
+
+### Rust Backend Architecture
+
+`apps/repo-manage/src-tauri/`
+
+- `src/commands/` - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs,
   roster.rs)
-- **core/src/** - Core business logic
-  - **roster/** - Roster types, validation, and export
-  - **lms/** - Canvas/Moodle LMS client integration
-  - **platform/** - Git platform APIs (GitHub, GitLab, Gitea)
-  - **settings/** - Configuration management with JSON Schema validation
-  - **operations/** - Shared operations called by both CLI and GUI
+- `core/src/` - Core business logic
+  - `roster/` - Roster types, validation, and export
+  - `lms/` - Canvas/Moodle LMS client integration
+  - `platform/` - Git platform APIs (GitHub, GitLab, Gitea)
+  - `settings/` - Configuration management with JSON Schema validation
+  - `operations/` - Shared operations called by both CLI and GUI
 
-### CLI Structure (cli)
+### CLI Structure
+
+`apps/repo-manage/cli/`
 
 The `redu` CLI uses clap with domain-based subcommands:
 
@@ -146,7 +179,19 @@ CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
 
 ### Type Flow
 
-JSON Schema → `pnpm gen:bindings` → TS types + Rust DTOs → Frontend services → Zustand stores
+```text
+JSON Schemas (apps/repo-manage/schemas/)
+    ↓ pnpm gen:bindings
+Generated TypeScript:
+    - packages/backend-interface/src/types.ts (domain types)
+    - packages/backend-interface/src/index.ts (BackendAPI interface)
+    - packages/app-core/src/bindings/commands.ts (command delegation)
+    - apps/repo-manage/src/bindings/tauri.ts (TauriBackend)
+Generated Rust:
+    - apps/repo-manage/core/src/generated/types.rs
+    ↓
+Zustand stores → React components
+```
 
 After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 
@@ -154,8 +199,10 @@ After changing schemas, run `pnpm gen:bindings` to regenerate bindings.
 
 **NEVER edit these files directly—they are regenerated from JSON Schemas:**
 
-- `apps/repo-manage/src/bindings/types.ts`
-- `apps/repo-manage/src/bindings/commands.ts`
+- `packages/backend-interface/src/index.ts`
+- `packages/backend-interface/src/types.ts`
+- `packages/app-core/src/bindings/commands.ts`
+- `apps/repo-manage/src/bindings/tauri.ts`
 - `apps/repo-manage/core/src/generated/types.rs`
 
 **To change types or commands:**
@@ -173,22 +220,27 @@ for schema conventions and the `x-rust` extension spec.
 - Uses pnpm Catalogs for shared dependency versions (see `pnpm-workspace.yaml`)
 - Path alias `@/` maps to `apps/repo-manage/src/`
 - Path alias `@repo-edu/ui` maps to `packages/ui/src/`
+- Path alias `@repo-edu/app-core` maps to `packages/app-core/src/`
+- Path alias `@repo-edu/backend-interface` maps to `packages/backend-interface/src/`
+- Path alias `@repo-edu/backend-mock` maps to `packages/backend-mock/src/`
 
 ## Sub-Directory Documentation
 
-For detailed guidance on specific areas, see the CLAUDE.md files in:
+For detailed guidance on specific areas, see:
 
-- `crates/CLAUDE.md` — LMS client crate architecture
-- `apps/repo-manage/core/CLAUDE.md` — Core library patterns
-- `apps/repo-manage/cli/CLAUDE.md` — CLI structure and testing
-- `apps/repo-manage/src-tauri/CLAUDE.md` — Tauri backend commands
-- `packages/ui/CLAUDE.md` — shadcn/ui component library
-- `packages/app-core/CLAUDE.md` — Environment-agnostic core UI and state management
-- `packages/backend-interface/CLAUDE.md` — TypeScript contract between frontend and backend
-- `packages/backend-mock/CLAUDE.md` — In-memory mock backend for testing and demos
-- `docs/CLAUDE.md` — Documentation site with Astro/Starlight
+| File | Description |
+| :--- | ----------- |
+| `crates/CLAUDE.md` | LMS client crate architecture |
+| `apps/repo-manage/core/CLAUDE.md` | Core library patterns |
+| `apps/repo-manage/cli/CLAUDE.md` | CLI structure and testing |
+| `apps/repo-manage/src-tauri/CLAUDE.md` | Tauri backend commands |
+| `packages/ui/CLAUDE.md` | shadcn/ui component library |
+| `packages/app-core/CLAUDE.md` | Environment-agnostic core UI and state management |
+| `packages/backend-interface/CLAUDE.md` | TypeScript contract between frontend and backend |
+| `packages/backend-mock/CLAUDE.md` | In-memory mock backend for testing and demos |
+| `docs/CLAUDE.md` | Documentation site with Astro/Starlight |
 
 ## Test Locations
 
-- Frontend tests live under `apps/repo-manage/src/**/*.test.ts(x)`.
+- Frontend tests live under `packages/app-core/src/**/*.test.ts(x)`.
 - Rust tests live under `crates/**/tests` or `mod tests` blocks.
