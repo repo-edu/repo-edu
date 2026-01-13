@@ -5,7 +5,7 @@
         "fmt:ts": "biome format --write",
         "lint:ts": "biome check",
         "lint:ts:fix": "biome check --write",
-        "typecheck:ts": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage --filter @repo-edu/app-core exec tsc --noEmit",
+        "typecheck:ts": "pnpm --filter @repo-edu/ui --filter @repo-edu/repo-manage --filter @repo-edu/app-core --filter @repo-edu/backend-interface --filter @repo-edu/backend-mock exec tsc --noEmit",
         "check:ts": "pnpm lint:ts && pnpm typecheck:ts",
         "test:ts": "pnpm -r run test",
         "fmt:rs": "cargo fmt --all",

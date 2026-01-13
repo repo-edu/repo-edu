@@ -9,7 +9,6 @@ import type {
   AffectedGroup,
   AppError,
   AppSettings,
-  Assignment,
   AssignmentId,
   CloneConfig,
   CommandResult,
@@ -19,11 +18,11 @@ import type {
   CoverageReport,
   CreateConfig,
   DeleteConfig,
-  ExportSettings,
   GenerateFilesParams,
   GetGroupCategoriesParams,
   GitConnection,
   GitIdentityMode,
+  GitUsernameStatus,
   GitVerifyResult,
   GroupCategory,
   GroupFilter,
@@ -37,7 +36,6 @@ import type {
   LmsGroupSet,
   LmsOperationContext,
   LmsVerifyResult,
-  OperationConfigs,
   OperationResult,
   ProfileSettings,
   RepoOperationContext,
@@ -55,209 +53,54 @@ import type {
   VerifyCourseResult,
   VerifyGitUsernamesResult,
 } from "@repo-edu/backend-interface/types"
+import {
+  type CourseType,
+  createProfileSettings,
+  cs101Assignments,
+  cs101GroupSets,
+  cs201Assignments,
+  cs201GroupSets,
+  cs201Students,
+  demoCourses,
+  demoGitConnection,
+  demoStudents,
+} from "./data"
 
 const nowIso = () => new Date().toISOString()
 
-const demoCourses: CourseInfo[] = [
-  { id: "course-101", name: "Intro to Repositories" },
-  { id: "course-202", name: "Team Workflows" },
-]
-
-const demoStudents: Student[] = [
-  {
-    id: "student-ada",
-    name: "Ada Lovelace",
-    email: "ada@example.edu",
-    student_number: "1001",
-    git_username: "ada-l",
-    git_username_status: "valid",
-    lms_user_id: "lms-101",
-    custom_fields: {},
-  },
-  {
-    id: "student-grace",
-    name: "Grace Hopper",
-    email: "grace@example.edu",
-    student_number: "1002",
-    git_username: "grace-h",
-    git_username_status: "valid",
-    lms_user_id: "lms-102",
-    custom_fields: {},
-  },
-  {
-    id: "student-alan",
-    name: "Alan Turing",
-    email: "alan@example.edu",
-    student_number: "1003",
-    git_username: "alan-t",
-    git_username_status: "valid",
-    lms_user_id: "lms-103",
-    custom_fields: {},
-  },
-  {
-    id: "student-katherine",
-    name: "Katherine Johnson",
-    email: "katherine@example.edu",
-    student_number: "1004",
-    git_username: "kjohnson",
-    git_username_status: "valid",
-    lms_user_id: "lms-104",
-    custom_fields: {},
-  },
-  {
-    id: "student-donald",
-    name: "Donald Knuth",
-    email: "donald@example.edu",
-    student_number: "1005",
-    git_username: "dknuth",
-    git_username_status: "valid",
-    lms_user_id: "lms-105",
-    custom_fields: {},
-  },
-  {
-    id: "student-margaret",
-    name: "Margaret Hamilton",
-    email: "margaret@example.edu",
-    student_number: "1006",
-    git_username: "mhamilton",
-    git_username_status: "valid",
-    lms_user_id: "lms-106",
-    custom_fields: {},
-  },
-]
-
-const demoAssignments: Assignment[] = [
-  {
-    id: "assignment-1",
-    name: "Starter Repo",
-    lms_group_set_id: "group-set-1",
-    groups: [
-      {
-        id: "group-1",
-        name: "Team Ada",
-        member_ids: ["student-ada", "student-grace"],
-      },
-      {
-        id: "group-2",
-        name: "Team Alan",
-        member_ids: ["student-alan", "student-katherine"],
-      },
-      {
-        id: "group-3",
-        name: "Team Donald",
-        member_ids: ["student-donald", "student-margaret"],
-      },
-    ],
-  },
-  {
-    id: "assignment-2",
-    name: "Project Repo",
-    lms_group_set_id: "group-set-2",
-    groups: [
-      {
-        id: "group-4",
-        name: "Project Apollo",
-        member_ids: ["student-ada", "student-alan", "student-margaret"],
-      },
-      {
-        id: "group-5",
-        name: "Project Discovery",
-        member_ids: ["student-grace", "student-katherine", "student-donald"],
-      },
-    ],
-  },
-]
-
-const demoGroupSets: LmsGroupSet[] = [
-  {
-    id: "group-set-1",
-    name: "Starter Teams",
-    groups: demoAssignments[0].groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: group.member_ids,
-    })),
-  },
-  {
-    id: "group-set-2",
-    name: "Project Teams",
-    groups: demoAssignments[1].groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: group.member_ids,
-    })),
-  },
-]
-
-const demoGitConnection: GitConnection = {
-  server_type: "GitHub",
-  connection: {
-    access_token: "demo-token",
-    base_url: null,
-    user: "demo-instructor",
-  },
-  identity_mode: "username",
-}
-
-const defaultOperations: OperationConfigs = {
-  target_org: "demo-org",
-  repo_name_template: "{assignment}-{group}",
-  create: {
-    template_org: "starter-templates",
-  },
-  clone: {
-    target_dir: "/demo/repos",
-    directory_layout: "by-team",
-  },
-  delete: {},
-}
-
-const defaultExports: ExportSettings = {
-  output_folder: "/demo/exports",
-  output_csv: true,
-  output_xlsx: true,
-  output_yaml: true,
-  csv_file: "student-info.csv",
-  xlsx_file: "student-info.xlsx",
-  yaml_file: "students.yaml",
-  member_option: "(email, gitid)",
-  include_group: true,
-  include_member: true,
-  include_initials: false,
-  full_groups: true,
-}
-
-const createProfileSettings = (course: CourseInfo): ProfileSettings => ({
-  course,
-  git_connection: "demo-github",
-  operations: { ...defaultOperations },
-  exports: { ...defaultExports },
-})
-
 const createRoster = (
   sourceKind: "lms" | "file" | "manual",
+  courseType: CourseType,
   fileName?: string,
 ): Roster => {
+  const students = courseType === "cs101" ? demoStudents : cs201Students
+  const assignments =
+    courseType === "cs101" ? cs101Assignments : cs201Assignments
+
   const sourceBase = {
     kind: sourceKind,
   }
+
+  const copyStudents = () => students.map((student) => ({ ...student }))
+  const copyAssignments = () =>
+    assignments.map((assignment) => ({
+      ...assignment,
+      groups: assignment.groups.map((group) => ({
+        ...group,
+        member_ids: [...group.member_ids],
+      })),
+    }))
 
   if (sourceKind === "lms") {
     return {
       source: {
         ...sourceBase,
         lms_type: "canvas",
-        base_url: "https://canvas.demo.edu",
+        base_url: "https://canvas.university.edu",
         fetched_at: nowIso(),
       },
-      students: demoStudents.map((student) => ({ ...student })),
-      assignments: demoAssignments.map((assignment) => ({
-        ...assignment,
-        groups: assignment.groups.map((group) => ({
-          ...group,
-          member_ids: [...group.member_ids],
-        })),
-      })),
+      students: copyStudents(),
+      assignments: copyAssignments(),
     }
   }
 
@@ -268,14 +111,8 @@ const createRoster = (
         file_name: fileName ?? "students.csv",
         imported_at: nowIso(),
       },
-      students: demoStudents.map((student) => ({ ...student })),
-      assignments: demoAssignments.map((assignment) => ({
-        ...assignment,
-        groups: assignment.groups.map((group) => ({
-          ...group,
-          member_ids: [...group.member_ids],
-        })),
-      })),
+      students: copyStudents(),
+      assignments: copyAssignments(),
     }
   }
 
@@ -284,18 +121,10 @@ const createRoster = (
       ...sourceBase,
       created_at: nowIso(),
     },
-    students: demoStudents.map((student) => ({ ...student })),
-    assignments: demoAssignments.map((assignment) => ({
-      ...assignment,
-      groups: assignment.groups.map((group) => ({
-        ...group,
-        member_ids: [...group.member_ids],
-      })),
-    })),
+    students: copyStudents(),
+    assignments: copyAssignments(),
   }
 }
-
-const defaultRoster = createRoster("lms")
 
 const buildCoverageReport = (roster: Roster): CoverageReport => {
   const studentAssignments = new Map<string, Set<string>>()
@@ -420,14 +249,14 @@ const rosterAssignment = (roster: Roster, assignmentId: AssignmentId) =>
 export class MockBackend implements BackendAPI {
   private profiles = new Map<string, ProfileSettings>()
   private rosters = new Map<string, Roster | null>()
-  private activeProfile: string | null = "Demo Profile"
+  private activeProfile: string | null = "CS101 2026"
   private appSettings: AppSettings = {
     theme: "system",
     date_format: "DMY",
     time_format: "24h",
     lms_connection: {
       lms_type: "canvas",
-      base_url: "https://canvas.demo.edu",
+      base_url: "https://canvas.university.edu",
       access_token: "demo-token",
     },
     git_connections: {
@@ -436,23 +265,15 @@ export class MockBackend implements BackendAPI {
   }
 
   constructor() {
-    const demoProfileName = "Demo Profile"
-    const settings = createProfileSettings(demoCourses[0])
-    this.profiles.set(demoProfileName, settings)
-    this.rosters.set(demoProfileName, defaultRoster)
+    // Profile 1: CS 101 course
+    const cs101Settings = createProfileSettings(demoCourses[0])
+    this.profiles.set("CS101 2026", cs101Settings)
+    this.rosters.set("CS101 2026", createRoster("lms", "cs101"))
 
-    // Add more demo profiles
-    const cs101 = createProfileSettings(demoCourses[0])
-    this.profiles.set("CS101 Intro", cs101)
-    this.rosters.set("CS101 Intro", createRoster("manual"))
-
-    const advGit = createProfileSettings(demoCourses[1])
-    this.profiles.set("Advanced Git", advGit)
-    this.rosters.set("Advanced Git", createRoster("manual"))
-
-    const empty = createProfileSettings({ id: "", name: "" })
-    this.profiles.set("Empty Profile", empty)
-    this.rosters.set("Empty Profile", null)
+    // Profile 2: CS 201 course
+    const cs201Settings = createProfileSettings(demoCourses[1])
+    this.profiles.set("CS201 2026", cs201Settings)
+    this.rosters.set("CS201 2026", createRoster("lms", "cs201"))
   }
 
   private ok<T>(data: T): Promise<Result<T, AppError>> {
@@ -466,8 +287,24 @@ export class MockBackend implements BackendAPI {
     }
     const fallback = createProfileSettings(demoCourses[0])
     this.profiles.set(name, fallback)
-    this.rosters.set(name, createRoster("manual"))
+    this.rosters.set(name, createRoster("manual", "cs101"))
     return fallback
+  }
+
+  private getCourseType(): CourseType {
+    // Determine course type from active profile name
+    if (this.activeProfile?.includes("201")) {
+      return "cs201"
+    }
+    return "cs101"
+  }
+
+  private getGroupSets(): LmsGroupSet[] {
+    return this.getCourseType() === "cs201" ? cs201GroupSets : cs101GroupSets
+  }
+
+  private getStudents(): Student[] {
+    return this.getCourseType() === "cs201" ? cs201Students : demoStudents
   }
 
   async listProfiles(): Promise<Result<string[], AppError>> {
@@ -528,7 +365,7 @@ export class MockBackend implements BackendAPI {
   async getGroupCategories(
     params: GetGroupCategoriesParams,
   ): Promise<Result<GroupCategory[], AppError>> {
-    const categories = demoGroupSets.map((set) => ({
+    const categories = this.getGroupSets().map((set) => ({
       id: set.id,
       name: set.name,
       role: null,
@@ -569,15 +406,16 @@ export class MockBackend implements BackendAPI {
     _: LmsOperationContext,
     roster: Roster | null,
   ): Promise<Result<ImportStudentsResult, AppError>> {
-    const baseRoster = roster ? { ...roster } : createRoster("lms")
+    const courseType = this.getCourseType()
+    const baseRoster = roster ? { ...roster } : createRoster("lms", courseType)
     baseRoster.source = {
       kind: "lms",
       lms_type: "canvas",
-      base_url: "https://canvas.demo.edu",
+      base_url: "https://canvas.university.edu",
       fetched_at: nowIso(),
     }
 
-    const merged = mergeStudents(baseRoster, demoStudents)
+    const merged = mergeStudents(baseRoster, this.getStudents())
     if (this.activeProfile) {
       this.rosters.set(this.activeProfile, merged.roster)
     }
@@ -589,14 +427,17 @@ export class MockBackend implements BackendAPI {
     roster: Roster | null,
     filePath: string,
   ): Promise<Result<ImportStudentsResult, AppError>> {
-    const baseRoster = roster ? { ...roster } : createRoster("file", filePath)
+    const courseType = this.getCourseType()
+    const baseRoster = roster
+      ? { ...roster }
+      : createRoster("file", courseType, filePath)
     baseRoster.source = {
       kind: "file",
       file_name: filePath.split("/").pop() ?? filePath,
       imported_at: nowIso(),
     }
 
-    const merged = mergeStudents(baseRoster, demoStudents)
+    const merged = mergeStudents(baseRoster, this.getStudents())
     if (this.activeProfile) {
       this.rosters.set(this.activeProfile, merged.roster)
     }
@@ -606,20 +447,20 @@ export class MockBackend implements BackendAPI {
   async fetchLmsGroupSets(
     _: LmsOperationContext,
   ): Promise<Result<LmsGroupSet[], AppError>> {
-    return this.ok(demoGroupSets)
+    return this.ok(this.getGroupSets())
   }
 
   async fetchLmsGroupSetList(
     _: LmsOperationContext,
   ): Promise<Result<LmsGroupSet[], AppError>> {
-    return this.ok(demoGroupSets.map((set) => ({ ...set, groups: [] })))
+    return this.ok(this.getGroupSets().map((set) => ({ ...set, groups: [] })))
   }
 
   async fetchLmsGroupsForSet(
     _: LmsOperationContext,
     groupSetId: string,
   ): Promise<Result<LmsGroup[], AppError>> {
-    const groupSet = demoGroupSets.find((set) => set.id === groupSetId)
+    const groupSet = this.getGroupSets().find((set) => set.id === groupSetId)
     return this.ok(groupSet?.groups ?? [])
   }
 
@@ -642,7 +483,9 @@ export class MockBackend implements BackendAPI {
       })
     }
 
-    const groupSet = demoGroupSets.find((set) => set.id === config.group_set_id)
+    const groupSet = this.getGroupSets().find(
+      (set) => set.id === config.group_set_id,
+    )
     const allGroups = groupSet?.groups ?? []
     const filtered = applyGroupFilter(allGroups, config.filter)
 
@@ -772,7 +615,7 @@ export class MockBackend implements BackendAPI {
   ): Promise<Result<ProfileSettings, AppError>> {
     const settings = createProfileSettings(course)
     this.profiles.set(name, settings)
-    this.rosters.set(name, createRoster("manual"))
+    this.rosters.set(name, createRoster("manual", "cs101"))
     return this.ok(settings)
   }
 
@@ -903,7 +746,7 @@ export class MockBackend implements BackendAPI {
       git_username:
         student.git_username ??
         `${student.name.toLowerCase().split(" ")[0]}-demo`,
-      git_username_status: "valid",
+      git_username_status: "valid" as GitUsernameStatus,
     }))
 
     const updatedRoster = { ...roster, students: updated }
@@ -926,7 +769,7 @@ export class MockBackend implements BackendAPI {
   ): Promise<Result<VerifyGitUsernamesResult, AppError>> {
     const updated = roster.students.map((student) => ({
       ...student,
-      git_username_status: "valid",
+      git_username_status: "valid" as GitUsernameStatus,
     }))
 
     const updatedRoster = { ...roster, students: updated }

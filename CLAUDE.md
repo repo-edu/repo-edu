@@ -5,7 +5,7 @@ This file provides guidance to AI coding assistants when working with code in th
 ## Build & Development Commands
 
 Most commands work from both repository root and `apps/repo-manage` (bidirectional forwarding).
-Use pnpm scripts exclusively—never raw cargo, npm, or npx commands.
+Use pnpm scripts exclusively—never npm or npx commands.
 
 ```bash
 # Development
