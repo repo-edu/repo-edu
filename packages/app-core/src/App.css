@@ -4,6 +4,8 @@
 @source ".";
 @source "../../../packages/ui/src";
 
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
 /* ===== Theme Variables ===== */
 
 /* Light theme (default) */

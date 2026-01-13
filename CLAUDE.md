@@ -183,6 +183,10 @@ For detailed guidance on specific areas, see the CLAUDE.md files in:
 - `apps/repo-manage/cli/CLAUDE.md` — CLI structure and testing
 - `apps/repo-manage/src-tauri/CLAUDE.md` — Tauri backend commands
 - `packages/ui/CLAUDE.md` — shadcn/ui component library
+- `packages/app-core/CLAUDE.md` — Environment-agnostic core UI and state management
+- `packages/backend-interface/CLAUDE.md` — TypeScript contract between frontend and backend
+- `packages/backend-mock/CLAUDE.md` — In-memory mock backend for testing and demos
+- `docs/CLAUDE.md` — Documentation site with Astro/Starlight
 
 ## Test Locations
 
