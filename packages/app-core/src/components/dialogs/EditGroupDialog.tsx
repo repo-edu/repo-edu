@@ -6,12 +6,13 @@ import type { StudentId } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FormField,
   Input,
-  Label,
 } from "@repo-edu/ui"
 import { useEffect, useState } from "react"
 import { useRosterStore } from "../../stores/rosterStore"
@@ -74,24 +75,22 @@ export function EditGroupDialog() {
         <DialogHeader>
           <DialogTitle>Edit Group</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="edit-group-name">Group Name</Label>
+        <DialogBody>
+          <FormField label="Group Name" htmlFor="edit-group-name">
             <Input
               id="edit-group-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-          </div>
-          <div className="grid gap-2">
-            <Label>Members</Label>
+          </FormField>
+          <FormField label="Members">
             <StudentMultiSelect
               students={students}
               selected={selectedMembers}
               onChange={setSelectedMembers}
             />
-          </div>
-        </div>
+          </FormField>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Cancel

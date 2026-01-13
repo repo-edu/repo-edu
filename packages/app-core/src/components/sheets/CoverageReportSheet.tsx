@@ -7,7 +7,15 @@ import type {
   CoverageReport,
 } from "@repo-edu/backend-interface/types"
 import {
+  Alert,
   Button,
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -103,53 +111,43 @@ export function CoverageReportSheet() {
               </div>
 
               {/* Assignment coverage table */}
-              <div className="border rounded">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left p-2 font-medium">Assignment</th>
-                      <th className="text-left p-2 font-medium">Students</th>
-                      <th className="text-left p-2 font-medium">Missing</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.assignments.map((assignment) => (
-                      <tr key={assignment.assignment_id} className="border-t">
-                        <td className="p-2">{assignment.assignment_name}</td>
-                        <td className="p-2">{assignment.student_count}</td>
-                        <td className="p-2">
-                          {assignment.missing_students.length > 0
-                            ? assignment.missing_students.length <= 3
-                              ? assignment.missing_students
-                                  .map((s) => s.name)
-                                  .join(", ")
-                              : `${assignment.missing_students.length} not in this assignment`
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                    {report.assignments.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="p-4 text-center text-muted-foreground"
-                        >
-                          No assignments
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableHead>Assignment</DataTableHead>
+                  <DataTableHead>Students</DataTableHead>
+                  <DataTableHead>Missing</DataTableHead>
+                </DataTableHeader>
+                <DataTableBody>
+                  {report.assignments.map((assignment) => (
+                    <DataTableRow key={assignment.assignment_id}>
+                      <DataTableCell>
+                        {assignment.assignment_name}
+                      </DataTableCell>
+                      <DataTableCell>{assignment.student_count}</DataTableCell>
+                      <DataTableCell>
+                        {assignment.missing_students.length > 0
+                          ? assignment.missing_students.length <= 3
+                            ? assignment.missing_students
+                                .map((s) => s.name)
+                                .join(", ")
+                            : `${assignment.missing_students.length} not in this assignment`
+                          : "—"}
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))}
+                  {report.assignments.length === 0 && (
+                    <DataTableEmptyRow colSpan={3} message="No assignments" />
+                  )}
+                </DataTableBody>
+              </DataTable>
 
               {/* Warning: students not in any assignment */}
               {report.students_in_none.length > 0 && (
-                <div className="p-3 bg-warning-muted border border-warning/30 rounded">
-                  <div className="font-medium text-warning">
-                    ⚠ Students in no assignment:{" "}
-                    {report.students_in_none.length}
+                <Alert variant="warning">
+                  <div className="font-medium">
+                    Students in no assignment: {report.students_in_none.length}
                   </div>
-                  <ul className="mt-1 text-warning/80">
+                  <ul className="mt-1">
                     {report.students_in_none.slice(0, 5).map((student) => (
                       <li key={student.id}>{student.name}</li>
                     ))}
@@ -157,7 +155,7 @@ export function CoverageReportSheet() {
                       <li>...and {report.students_in_none.length - 5} more</li>
                     )}
                   </ul>
-                </div>
+                </Alert>
               )}
 
               {/* Export */}

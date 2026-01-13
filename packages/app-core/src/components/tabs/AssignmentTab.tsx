@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  EmptyState,
   Select,
   SelectContent,
   SelectItem,
@@ -71,12 +72,11 @@ function AssignmentEmptyState() {
   )
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3 p-4 text-center">
-      <p className="text-muted-foreground">No assignments yet</p>
+    <EmptyState message="No assignments yet">
       <Button onClick={() => setNewAssignmentDialogOpen(true)}>
         Create Assignment
       </Button>
-    </div>
+    </EmptyState>
   )
 }
 

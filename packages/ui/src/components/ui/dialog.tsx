@@ -155,8 +155,23 @@ function DialogDescription({
   )
 }
 
+/**
+ * DialogBody provides consistent spacing for dialog form content.
+ * Use this to wrap form fields between DialogHeader and DialogFooter.
+ */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("grid gap-4 py-4", className)}
+      {...props}
+    />
+  )
+}
+
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

@@ -11,12 +11,15 @@ import type {
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FormField,
   Input,
   Label,
+  PasswordInput,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -25,13 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import {
-  Check,
-  Eye,
-  EyeOff,
-  Loader2,
-  Search,
-} from "@repo-edu/ui/components/icons"
+import { Check, Loader2, Search } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
@@ -87,7 +84,6 @@ export function NewProfileDialog() {
     base_url: "",
     access_token: "",
   })
-  const [showLmsToken, setShowLmsToken] = useState(false)
   const [lmsSetupStatus, setLmsSetupStatus] = useState<LmsSetupStatus>("idle")
   const [lmsSetupError, setLmsSetupError] = useState<string | null>(null)
 
@@ -273,21 +269,19 @@ export function NewProfileDialog() {
           <DialogTitle>New Profile</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <DialogBody>
           {/* Profile Name */}
-          <div className="grid gap-2">
-            <Label htmlFor="profile-name">Profile Name</Label>
+          <FormField label="Profile Name" htmlFor="profile-name">
             <Input
               id="profile-name"
               placeholder="e.g., 4TC00-2024"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
             />
-          </div>
+          </FormField>
 
           {/* Course Mode Selection */}
-          <div className="grid gap-2">
-            <Label>Course</Label>
+          <FormField label="Course">
             <RadioGroup
               value={courseMode}
               onValueChange={(v) => setCourseMode(v as CourseMode)}
@@ -316,7 +310,7 @@ export function NewProfileDialog() {
                 </Label>
               </div>
             </RadioGroup>
-          </div>
+          </FormField>
 
           {/* Inline LMS Setup (if no connection) */}
           {showInlineLmsSetup && (
@@ -325,10 +319,11 @@ export function NewProfileDialog() {
                 LMS Connection (not configured)
               </p>
 
-              <div className="grid gap-2">
-                <Label htmlFor="lms-type" className="text-xs">
-                  LMS Type
-                </Label>
+              <FormField
+                label="LMS Type"
+                htmlFor="lms-type"
+                className="text-xs"
+              >
                 <Select
                   value={lmsForm.lms_type}
                   onValueChange={(v) =>
@@ -346,12 +341,9 @@ export function NewProfileDialog() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
 
-              <div className="grid gap-2">
-                <Label htmlFor="lms-url" className="text-xs">
-                  Base URL
-                </Label>
+              <FormField label="Base URL" htmlFor="lms-url" className="text-xs">
                 <Input
                   id="lms-url"
                   className="h-8"
@@ -361,37 +353,22 @@ export function NewProfileDialog() {
                   }
                   placeholder="https://canvas.example.com"
                 />
-              </div>
+              </FormField>
 
-              <div className="grid gap-2">
-                <Label htmlFor="lms-token" className="text-xs">
-                  Access Token
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="lms-token"
-                    className="h-8 pr-10"
-                    type={showLmsToken ? "text" : "password"}
-                    value={lmsForm.access_token}
-                    onChange={(e) =>
-                      setLmsForm({ ...lmsForm, access_token: e.target.value })
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-2"
-                    onClick={() => setShowLmsToken(!showLmsToken)}
-                  >
-                    {showLmsToken ? (
-                      <EyeOff className="size-3.5" />
-                    ) : (
-                      <Eye className="size-3.5" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+              <FormField
+                label="Access Token"
+                htmlFor="lms-token"
+                className="text-xs"
+              >
+                <PasswordInput
+                  id="lms-token"
+                  className="h-8"
+                  value={lmsForm.access_token}
+                  onChange={(e) =>
+                    setLmsForm({ ...lmsForm, access_token: e.target.value })
+                  }
+                />
+              </FormField>
 
               {lmsSetupError && (
                 <p className="text-xs text-destructive">{lmsSetupError}</p>
@@ -513,8 +490,7 @@ export function NewProfileDialog() {
           {/* Manual Course Entry */}
           {courseMode === "manual" && (
             <>
-              <div className="grid gap-2">
-                <Label htmlFor="course-id">Course ID</Label>
+              <FormField label="Course ID" htmlFor="course-id">
                 <div className="flex gap-2">
                   <Input
                     id="course-id"
@@ -541,10 +517,17 @@ export function NewProfileDialog() {
                     </Button>
                   )}
                 </div>
-              </div>
+              </FormField>
 
-              <div className="grid gap-2">
-                <Label htmlFor="course-name">Course Name</Label>
+              <FormField
+                label="Course Name"
+                htmlFor="course-name"
+                description={
+                  lmsConnection && !courseName
+                    ? "Enter a Course ID and click Fetch to retrieve the name"
+                    : undefined
+                }
+              >
                 {lmsConnection ? (
                   <Input
                     id="course-name"
@@ -561,15 +544,10 @@ export function NewProfileDialog() {
                     onChange={(e) => setCourseName(e.target.value)}
                   />
                 )}
-                {lmsConnection && !courseName && (
-                  <p className="text-xs text-muted-foreground">
-                    Enter a Course ID and click Fetch to retrieve the name
-                  </p>
-                )}
-              </div>
+              </FormField>
             </>
           )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>

@@ -6,12 +6,13 @@ import type { Assignment } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FormField,
   Input,
-  Label,
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { useRosterStore } from "../../stores/rosterStore"
@@ -55,14 +56,12 @@ export function NewAssignmentDialog() {
         <DialogHeader>
           <DialogTitle>New Assignment</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label
-              htmlFor="assignment-name"
-              title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
-            >
-              Name
-            </Label>
+        <DialogBody>
+          <FormField
+            label="Name"
+            htmlFor="assignment-name"
+            title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
+          >
             <Input
               id="assignment-name"
               placeholder="e.g., lab-1"
@@ -75,14 +74,12 @@ export function NewAssignmentDialog() {
               }}
               title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
             />
-          </div>
-          <div className="grid gap-2">
-            <Label
-              htmlFor="assignment-description"
-              title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
-            >
-              Description (optional)
-            </Label>
+          </FormField>
+          <FormField
+            label="Description (optional)"
+            htmlFor="assignment-description"
+            title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
+          >
             <Input
               id="assignment-description"
               placeholder="e.g., Lab 1: Python Basics"
@@ -90,8 +87,8 @@ export function NewAssignmentDialog() {
               onChange={(e) => setDescription(e.target.value)}
               title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
             />
-          </div>
-        </div>
+          </FormField>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel

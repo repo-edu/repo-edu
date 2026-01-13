@@ -12,10 +12,12 @@ import {
   Button,
   Checkbox,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FormField,
   Input,
   Label,
   Select,
@@ -274,11 +276,10 @@ export function ImportGroupsDialog() {
           <DialogTitle>Import Groups from LMS</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <DialogBody>
           {error && <Alert variant="destructive">{error}</Alert>}
 
-          <div className="grid gap-2">
-            <Label>LMS Group Set</Label>
+          <FormField label="LMS Group Set">
             {fetchingGroupSets ? (
               <Text variant="muted" className="flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" />
@@ -309,7 +310,7 @@ export function ImportGroupsDialog() {
                 </SelectContent>
               </Select>
             )}
-          </div>
+          </FormField>
 
           {selectedGroupSetId &&
             (loadingGroups ? (
@@ -319,17 +320,16 @@ export function ImportGroupsDialog() {
               </Text>
             ) : groupsLoaded ? (
               <>
-                <div className="grid gap-2">
-                  <Label>Filter Pattern (optional)</Label>
+                <FormField
+                  label="Filter Pattern (optional)"
+                  description="Use * as a wildcard. Leave empty to select manually."
+                >
                   <Input
                     placeholder="e.g., A1-* or Team-*"
                     value={filterPattern}
                     onChange={(e) => setFilterPattern(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Use * as a wildcard. Leave empty to select manually.
-                  </p>
-                </div>
+                </FormField>
 
                 <div className="grid gap-2">
                   <div className="flex justify-between items-center">
@@ -398,7 +398,7 @@ export function ImportGroupsDialog() {
                 </p>
               </>
             ) : null)}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>

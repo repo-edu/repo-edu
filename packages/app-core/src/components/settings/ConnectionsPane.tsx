@@ -12,8 +12,9 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
+  FormField,
   Input,
-  Label,
+  PasswordInput,
   Select,
   SelectContent,
   SelectItem,
@@ -22,8 +23,6 @@ import {
 } from "@repo-edu/ui"
 import {
   Check,
-  Eye,
-  EyeOff,
   Loader2,
   Plus,
   RefreshCw,
@@ -117,10 +116,6 @@ export function ConnectionsPane() {
     access_token: "",
     identity_mode: "email",
   })
-
-  // Token visibility
-  const [showLmsToken, setShowLmsToken] = useState(false)
-  const [showGitToken, setShowGitToken] = useState(false)
 
   // Verification state for drafts
   const [draftLmsStatus, setDraftLmsStatus] =
@@ -394,8 +389,6 @@ export function ConnectionsPane() {
           <LmsForm
             form={lmsForm}
             setForm={setLmsForm}
-            showToken={showLmsToken}
-            setShowToken={setShowLmsToken}
             status={draftLmsStatus}
             error={draftLmsError}
             isValid={!!isLmsFormValid}
@@ -437,8 +430,6 @@ export function ConnectionsPane() {
           <GitForm
             form={gitForm}
             setForm={setGitForm}
-            showToken={showGitToken}
-            setShowToken={setShowGitToken}
             status={draftGitStatus}
             error={draftGitError}
             isValid={!!isGitFormValid}
@@ -575,8 +566,6 @@ function StatusIndicator({ status }: { status: ConnectionStatus }) {
 interface LmsFormProps {
   form: LmsFormState
   setForm: (form: LmsFormState) => void
-  showToken: boolean
-  setShowToken: (show: boolean) => void
   status: ConnectionStatus
   error: string | null
   isValid: boolean
@@ -588,8 +577,6 @@ interface LmsFormProps {
 function LmsForm({
   form,
   setForm,
-  showToken,
-  setShowToken,
   status,
   error,
   isValid,
@@ -599,13 +586,11 @@ function LmsForm({
 }: LmsFormProps) {
   return (
     <div className="border rounded-md p-4 space-y-4">
-      <div className="space-y-2">
-        <Label
-          htmlFor="lms-type"
-          title="Your institution's learning management system."
-        >
-          LMS Type
-        </Label>
+      <FormField
+        label="LMS Type"
+        htmlFor="lms-type"
+        title="Your institution's learning management system."
+      >
         <Select
           value={form.lms_type}
           onValueChange={(v) => setForm({ ...form, lms_type: v as LmsType })}
@@ -624,15 +609,13 @@ function LmsForm({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="lms-url"
-          title="The URL of your LMS instance (e.g., https://canvas.university.edu)."
-        >
-          Base URL
-        </Label>
+      <FormField
+        label="Base URL"
+        htmlFor="lms-url"
+        title="The URL of your LMS instance (e.g., https://canvas.university.edu)."
+      >
         <Input
           id="lms-url"
           value={form.base_url}
@@ -640,48 +623,27 @@ function LmsForm({
           placeholder="https://canvas.example.com"
           title="The URL of your LMS instance (e.g., https://canvas.university.edu)."
         />
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="lms-token"
+      <FormField
+        label="Access Token"
+        htmlFor="lms-token"
+        title="API access token from your LMS. In Canvas: Settings → Approved Integrations → New Access Token."
+      >
+        <PasswordInput
+          id="lms-token"
+          value={form.access_token}
+          onChange={(e) => setForm({ ...form, access_token: e.target.value })}
           title="API access token from your LMS. In Canvas: Settings → Approved Integrations → New Access Token."
-        >
-          Access Token
-        </Label>
-        <div className="relative">
-          <Input
-            id="lms-token"
-            type={showToken ? "text" : "password"}
-            value={form.access_token}
-            onChange={(e) => setForm({ ...form, access_token: e.target.value })}
-            className="pr-10"
-            title="API access token from your LMS. In Canvas: Settings → Approved Integrations → New Access Token."
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="absolute right-0 top-0 h-full px-3"
-            onClick={() => setShowToken(!showToken)}
-            title={showToken ? "Hide token" : "Show token"}
-          >
-            {showToken ? (
-              <EyeOff className="size-4" />
-            ) : (
-              <Eye className="size-4" />
-            )}
-          </Button>
-        </div>
-      </div>
+        />
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="lms-user-agent"
-          title="Identifies this application to the LMS API. Usually can be left as default."
-        >
-          User-Agent (optional)
-        </Label>
+      <FormField
+        label="User-Agent (optional)"
+        htmlFor="lms-user-agent"
+        title="Identifies this application to the LMS API. Usually can be left as default."
+        description="Identifies you to LMS administrators. Recommended format: Name / Organization / email"
+      >
         <Input
           id="lms-user-agent"
           value={form.user_agent}
@@ -689,11 +651,7 @@ function LmsForm({
           placeholder="Your Name / Organization / email@university.edu"
           title="Identifies this application to the LMS API. Usually can be left as default."
         />
-        <p className="text-xs text-muted-foreground">
-          Identifies you to LMS administrators. Recommended format: Name /
-          Organization / email
-        </p>
-      </div>
+      </FormField>
 
       {error && <p className="text-destructive">{error}</p>}
 
@@ -729,8 +687,6 @@ function LmsForm({
 interface GitFormProps {
   form: GitFormState
   setForm: (form: GitFormState) => void
-  showToken: boolean
-  setShowToken: (show: boolean) => void
   status: ConnectionStatus
   error: string | null
   isValid: boolean
@@ -744,8 +700,6 @@ interface GitFormProps {
 function GitForm({
   form,
   setForm,
-  showToken,
-  setShowToken,
   status,
   error,
   isValid,
@@ -759,13 +713,11 @@ function GitForm({
 
   return (
     <div className="border rounded-md p-4 space-y-4 mb-3">
-      <div className="space-y-2">
-        <Label
-          htmlFor="git-name"
-          title="A friendly name to identify this connection (e.g., 'GitHub Work', 'GitLab Personal')."
-        >
-          Connection Name
-        </Label>
+      <FormField
+        label="Connection Name"
+        htmlFor="git-name"
+        title="A friendly name to identify this connection (e.g., 'GitHub Work', 'GitLab Personal')."
+      >
         <Input
           id="git-name"
           value={form.name}
@@ -778,15 +730,13 @@ function GitForm({
             A connection with this name already exists.
           </p>
         )}
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="git-type"
-          title="The git hosting platform: GitHub, GitLab, or Gitea."
-        >
-          Server Type
-        </Label>
+      <FormField
+        label="Server Type"
+        htmlFor="git-type"
+        title="The git hosting platform: GitHub, GitLab, or Gitea."
+      >
         <Select
           value={form.server_type}
           onValueChange={(v) =>
@@ -807,16 +757,14 @@ function GitForm({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </FormField>
 
       {form.server_type !== "GitHub" && (
-        <div className="space-y-2">
-          <Label
-            htmlFor="git-url"
-            title="API endpoint. For self-hosted GitLab/Gitea: your instance URL (e.g., https://gitlab.example.com)."
-          >
-            Base URL
-          </Label>
+        <FormField
+          label="Base URL"
+          htmlFor="git-url"
+          title="API endpoint. For self-hosted GitLab/Gitea: your instance URL (e.g., https://gitlab.example.com)."
+        >
           <Input
             id="git-url"
             value={form.base_url}
@@ -824,13 +772,14 @@ function GitForm({
             placeholder="https://gitlab.example.com"
             title="API endpoint. For self-hosted GitLab/Gitea: your instance URL (e.g., https://gitlab.example.com)."
           />
-        </div>
+        </FormField>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="git-user" title="Your username on the git platform.">
-          Username / Org
-        </Label>
+      <FormField
+        label="Username / Org"
+        htmlFor="git-user"
+        title="Your username on the git platform."
+      >
         <Input
           id="git-user"
           value={form.user}
@@ -838,48 +787,26 @@ function GitForm({
           placeholder="e.g., my-org"
           title="Your username on the git platform."
         />
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="git-token"
+      <FormField
+        label="Access Token"
+        htmlFor="git-token"
+        title="Personal access token with repo permissions. In GitHub: Settings → Developer Settings → Personal Access Tokens."
+      >
+        <PasswordInput
+          id="git-token"
+          value={form.access_token}
+          onChange={(e) => setForm({ ...form, access_token: e.target.value })}
           title="Personal access token with repo permissions. In GitHub: Settings → Developer Settings → Personal Access Tokens."
-        >
-          Access Token
-        </Label>
-        <div className="relative">
-          <Input
-            id="git-token"
-            type={showToken ? "text" : "password"}
-            value={form.access_token}
-            onChange={(e) => setForm({ ...form, access_token: e.target.value })}
-            className="pr-10"
-            title="Personal access token with repo permissions. In GitHub: Settings → Developer Settings → Personal Access Tokens."
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="absolute right-0 top-0 h-full px-3"
-            onClick={() => setShowToken(!showToken)}
-            title={showToken ? "Hide token" : "Show token"}
-          >
-            {showToken ? (
-              <EyeOff className="size-4" />
-            ) : (
-              <Eye className="size-4" />
-            )}
-          </Button>
-        </div>
-      </div>
+        />
+      </FormField>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="git-identity"
-          title="How to match students to git accounts. 'Email' matches by email address. 'Username' matches by git username field in roster."
-        >
-          Identity Mode
-        </Label>
+      <FormField
+        label="Identity Mode"
+        htmlFor="git-identity"
+        title="How to match students to git accounts. 'Email' matches by email address. 'Username' matches by git username field in roster."
+      >
         <Select
           value={form.identity_mode}
           onValueChange={(v) =>
@@ -900,7 +827,7 @@ function GitForm({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </FormField>
 
       {error && <p className="text-destructive">{error}</p>}
 

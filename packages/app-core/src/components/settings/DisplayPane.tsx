@@ -8,14 +8,14 @@ import type {
   Theme,
   TimeFormat,
 } from "@repo-edu/backend-interface/types"
-import { Label } from "@repo-edu/ui"
 import {
+  FormField,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repo-edu/ui/components/ui/select"
+} from "@repo-edu/ui"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -61,8 +61,11 @@ export function DisplayPane() {
   return (
     <div className="space-y-6">
       {/* Theme */}
-      <div className="space-y-2">
-        <Label htmlFor="theme">Theme</Label>
+      <FormField
+        label="Theme"
+        htmlFor="theme"
+        description="Choose how the application appears."
+      >
         <Select value={theme} onValueChange={handleThemeChange}>
           <SelectTrigger id="theme" className="w-48">
             <SelectValue />
@@ -75,14 +78,14 @@ export function DisplayPane() {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">
-          Choose how the application appears.
-        </p>
-      </div>
+      </FormField>
 
       {/* Date Format */}
-      <div className="space-y-2">
-        <Label htmlFor="date-format">Date Format</Label>
+      <FormField
+        label="Date Format"
+        htmlFor="date-format"
+        description="Format used for displaying dates throughout the application."
+      >
         <Select value={dateFormat} onValueChange={handleDateFormatChange}>
           <SelectTrigger id="date-format" className="w-48">
             <SelectValue />
@@ -98,14 +101,14 @@ export function DisplayPane() {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">
-          Format used for displaying dates throughout the application.
-        </p>
-      </div>
+      </FormField>
 
       {/* Time Format */}
-      <div className="space-y-2">
-        <Label htmlFor="time-format">Time Format</Label>
+      <FormField
+        label="Time Format"
+        htmlFor="time-format"
+        description="Format used for displaying times throughout the application."
+      >
         <Select value={timeFormat} onValueChange={handleTimeFormatChange}>
           <SelectTrigger id="time-format" className="w-48">
             <SelectValue />
@@ -121,10 +124,7 @@ export function DisplayPane() {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">
-          Format used for displaying times throughout the application.
-        </p>
-      </div>
+      </FormField>
     </div>
   )
 }

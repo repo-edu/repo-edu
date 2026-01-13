@@ -25,9 +25,20 @@ export {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./components/ui/collapsible"
+// Data display components
+export {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from "./components/ui/data-table"
 // Overlay components
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -45,8 +56,11 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu"
+export { EmptyState } from "./components/ui/empty-state"
+export { FormField } from "./components/ui/form-field"
 export { Input, inputVariants } from "./components/ui/input"
 export { Label, labelVariants } from "./components/ui/label"
+export { PasswordInput } from "./components/ui/password-input"
 export { RadioGroup, RadioGroupItem } from "./components/ui/radio-group"
 export {
   Select,
