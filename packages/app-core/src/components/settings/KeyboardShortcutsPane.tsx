@@ -27,14 +27,6 @@ const shortcutGroups: ShortcutGroup[] = [
       { keys: [modKey, ","], description: "Open Settings" },
     ],
   },
-  {
-    title: "Navigation",
-    shortcuts: [
-      { keys: [modKey, "1"], description: "Go to Roster tab" },
-      { keys: [modKey, "2"], description: "Go to Assignment tab" },
-      { keys: [modKey, "3"], description: "Go to Operation tab" },
-    ],
-  },
 ]
 
 export function KeyboardShortcutsPane() {

@@ -20,6 +20,7 @@ import { generateAssignmentId } from "../../utils/nanoid"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
   const addAssignment = useRosterStore((state) => state.addAssignment)
   const selectAssignment = useRosterStore((state) => state.selectAssignment)
   const open = useUiStore((state) => state.newAssignmentDialogOpen)
@@ -29,6 +30,7 @@ export function NewAssignmentDialog() {
     const assignment: Assignment = {
       id: generateAssignmentId(),
       name: name.trim(),
+      description: description.trim() || null,
       groups: [],
       lms_group_set_id: null,
     }
@@ -36,12 +38,14 @@ export function NewAssignmentDialog() {
     selectAssignment(assignment.id)
     setOpen(false)
     setName("")
+    setDescription("")
   }
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (!newOpen) {
       setName("")
+      setDescription("")
     }
   }
 
@@ -53,10 +57,15 @@ export function NewAssignmentDialog() {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="assignment-name">Assignment Name</Label>
+            <Label
+              htmlFor="assignment-name"
+              title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
+            >
+              Name
+            </Label>
             <Input
               id="assignment-name"
-              placeholder="e.g., Assignment 1"
+              placeholder="e.g., lab-1"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
@@ -64,6 +73,22 @@ export function NewAssignmentDialog() {
                   handleCreate()
                 }
               }}
+              title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label
+              htmlFor="assignment-description"
+              title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
+            >
+              Description (optional)
+            </Label>
+            <Input
+              id="assignment-description"
+              placeholder="e.g., Lab 1: Python Basics"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
             />
           </div>
         </div>

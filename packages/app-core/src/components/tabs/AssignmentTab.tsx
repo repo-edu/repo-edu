@@ -13,7 +13,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@repo-edu/ui"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -82,7 +81,7 @@ function AssignmentEmptyState() {
 }
 
 interface AssignmentSelectorProps {
-  assignments: { id: string; name: string }[]
+  assignments: { id: string; name: string; description?: string | null }[]
   selected: string | null
   onSelect: (id: string | null) => void
 }
@@ -92,18 +91,43 @@ function AssignmentSelector({
   selected,
   onSelect,
 }: AssignmentSelectorProps) {
+  const selectedAssignment = assignments.find((a) => a.id === selected)
+
   return (
     <Select
       value={selected ?? undefined}
       onValueChange={(val) => onSelect(val || null)}
     >
-      <SelectTrigger className="w-64">
-        <SelectValue placeholder="Select assignment" />
+      <SelectTrigger
+        className="w-64"
+        title="Select the assignment to operate on. The assignment name is used as part of the repository name."
+      >
+        <span className="flex flex-col items-start truncate text-left">
+          {selectedAssignment ? (
+            <>
+              <span className="truncate">{selectedAssignment.name}</span>
+              {selectedAssignment.description && (
+                <span className="text-[10px] text-muted-foreground font-normal truncate">
+                  {selectedAssignment.description}
+                </span>
+              )}
+            </>
+          ) : (
+            <span>Select assignment</span>
+          )}
+        </span>
       </SelectTrigger>
       <SelectContent>
         {assignments.map((a) => (
-          <SelectItem key={a.id} value={a.id}>
-            {a.name}
+          <SelectItem key={a.id} value={a.id} className="py-1.5">
+            <span className="flex flex-col">
+              <span>{a.name}</span>
+              {a.description && (
+                <span className="text-[10px] text-muted-foreground">
+                  {a.description}
+                </span>
+              )}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>
@@ -204,6 +228,7 @@ function AssignmentActions() {
         size="sm"
         variant="outline"
         onClick={() => setImportGroupsDialogOpen(true)}
+        title="Import group assignments from your LMS. Groups define which students work together on an assignment."
       >
         Import Groups
       </Button>
@@ -211,12 +236,17 @@ function AssignmentActions() {
         size="sm"
         variant="outline"
         onClick={() => setGroupEditorOpen(true)}
+        title="View and manually edit group membership."
       >
         View/Edit
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button
+            size="sm"
+            variant="outline"
+            title="Export assignment groups as YAML for use with RepoBee, or export students."
+          >
             Export
           </Button>
         </DropdownMenuTrigger>

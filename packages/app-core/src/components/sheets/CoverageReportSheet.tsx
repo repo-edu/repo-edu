@@ -19,6 +19,7 @@ import { saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
+import { StyledRadioGroup } from "../StyledRadioGroup"
 
 export function CoverageReportSheet() {
   const coverageReportOpen = useUiStore((state) => state.coverageReportOpen)
@@ -87,7 +88,7 @@ export function CoverageReportSheet() {
 
   return (
     <Sheet open={coverageReportOpen} onOpenChange={setCoverageReportOpen}>
-      <SheetContent className="w-full sm:max-w-xl bg-background">
+      <SheetContent className="w-full sm:max-w-xl bg-background pl-5">
         <SheetHeader>
           <SheetTitle>Roster Coverage</SheetTitle>
         </SheetHeader>
@@ -141,29 +142,7 @@ export function CoverageReportSheet() {
                 </table>
               </div>
 
-              {/* Warnings */}
-              {report.students_in_multiple.length > 0 && (
-                <div className="p-3 bg-warning-muted border border-warning/30 rounded">
-                  <div className="font-medium text-warning">
-                    ⚠ Students in multiple assignments:{" "}
-                    {report.students_in_multiple.length}
-                  </div>
-                  <ul className="mt-1 text-warning/80">
-                    {report.students_in_multiple.slice(0, 5).map((entry) => (
-                      <li key={entry.student.id}>
-                        {entry.student.name} (
-                        {entry.assignment_names.join(", ")})
-                      </li>
-                    ))}
-                    {report.students_in_multiple.length > 5 && (
-                      <li>
-                        ...and {report.students_in_multiple.length - 5} more
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              )}
-
+              {/* Warning: students not in any assignment */}
               {report.students_in_none.length > 0 && (
                 <div className="p-3 bg-warning-muted border border-warning/30 rounded">
                   <div className="font-medium text-warning">
@@ -182,27 +161,28 @@ export function CoverageReportSheet() {
               )}
 
               {/* Export */}
-              <div className="flex items-center gap-4 pt-4 border-t">
-                <span>Export format:</span>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name="exportFormat"
-                    checked={exportFormat === "csv"}
-                    onChange={() => setExportFormat("csv")}
-                  />
-                  CSV
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name="exportFormat"
-                    checked={exportFormat === "xlsx"}
-                    onChange={() => setExportFormat("xlsx")}
-                  />
-                  XLSX
-                </label>
-                <Button size="sm" onClick={handleExport}>
+              <div
+                className="flex items-center gap-4 pt-4 border-t"
+                title="Export assignment coverage showing which students are in which assignments."
+              >
+                <span className="text-sm">Export format:</span>
+                <StyledRadioGroup
+                  value={exportFormat}
+                  onValueChange={(v) =>
+                    setExportFormat(v as CoverageExportFormat)
+                  }
+                  name="export-format"
+                  options={[
+                    { value: "csv", label: "CSV" },
+                    { value: "xlsx", label: "XLSX" },
+                  ]}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleExport}
+                  title="Export assignment coverage showing which students are in which assignments."
+                >
                   Export
                 </Button>
               </div>

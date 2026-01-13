@@ -341,6 +341,7 @@ mod tests {
             assignments: vec![Assignment {
                 id: AssignmentId("a1".to_string()),
                 name: "Assignment".to_string(),
+                description: None,
                 groups: vec![
                     Group {
                         id: GroupId("g1".to_string()),

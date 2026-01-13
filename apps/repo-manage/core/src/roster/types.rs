@@ -54,6 +54,7 @@ impl Assignment {
         Self {
             id: generate_assignment_id(),
             name: name.into(),
+            description: None,
             groups: Vec::new(),
             lms_group_set_id,
         }

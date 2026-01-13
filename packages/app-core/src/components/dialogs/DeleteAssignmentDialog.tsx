@@ -50,8 +50,8 @@ export function DeleteAssignmentDialog() {
           <p>Delete "{assignment?.name}"?</p>
           {assignment && assignment.groups.length > 0 && (
             <p className="text-muted-foreground mt-2">
-              This will also delete {assignment.groups.length} group
-              {assignment.groups.length !== 1 ? "s" : ""}.
+              This assignment has {assignment.groups.length} group
+              {assignment.groups.length !== 1 ? "s" : ""} configured.
             </p>
           )}
         </div>

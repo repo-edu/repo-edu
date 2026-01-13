@@ -33,6 +33,7 @@ pub struct AppSettings {
 pub struct Assignment {
   pub id: AssignmentId,
   pub name: String,
+  pub description: Option<String>,
   pub groups: Vec<Group>,
   pub lms_group_set_id: Option<String>,
 }
@@ -53,6 +54,7 @@ pub struct AssignmentId(pub String);
 pub struct AssignmentMetadata {
   pub id: AssignmentId,
   pub name: String,
+  pub description: Option<String>,
   pub lms_group_set_id: Option<String>,
 }
 

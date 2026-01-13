@@ -374,6 +374,7 @@ export function ImportGroupsDialog() {
                         >
                           <Checkbox
                             checked={selectedGroupIds.has(group.id)}
+                            onClick={(e) => e.stopPropagation()}
                             onCheckedChange={() =>
                               toggleGroupSelection(group.id)
                             }

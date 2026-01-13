@@ -134,19 +134,6 @@ function App() {
         e.preventDefault()
         ui.openSettings()
       }
-      // Tab navigation shortcuts
-      if ((e.metaKey || e.ctrlKey) && e.key === "1") {
-        e.preventDefault()
-        ui.setActiveTab("roster")
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "2") {
-        e.preventDefault()
-        ui.setActiveTab("assignment")
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "3") {
-        e.preventDefault()
-        ui.setActiveTab("operation")
-      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)

@@ -16,13 +16,10 @@ import {
   Button,
   Input,
   Label,
-  RadioGroup,
-  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -37,8 +34,14 @@ import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildRepoOperationContext } from "../../utils/operationContext"
+import { StyledRadioGroup } from "../StyledRadioGroup"
 
 type OperationType = "create" | "clone" | "delete"
+
+/** Width of the label column in the form grid */
+const LABEL_WIDTH = 100
+/** Extended label width for standalone rows (adds space for "Directory Layout" text) */
+const LABEL_WIDTH_EXTENDED = LABEL_WIDTH + 20
 
 export function OperationTab() {
   const roster = useRosterStore((state) => state.roster)
@@ -237,19 +240,51 @@ export function OperationTab() {
       </Tabs>
 
       {/* Common Fields */}
-      <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
-        <Label htmlFor="assignment">Assignment</Label>
+      <div
+        className="grid items-center gap-x-4 gap-y-2"
+        style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
+      >
+        <Label
+          htmlFor="assignment"
+          title="Select the assignment to operate on. The assignment name is used as part of the repository name."
+        >
+          Assignment
+        </Label>
         <Select
           value={selectedAssignmentId ?? ""}
           onValueChange={(v) => selectAssignment(v as AssignmentId)}
         >
-          <SelectTrigger id="assignment" className="w-80">
-            <SelectValue placeholder="Select an assignment" />
+          <SelectTrigger
+            id="assignment"
+            className="w-80"
+            title="Select the assignment to operate on. The assignment name is used as part of the repository name."
+          >
+            <span className="flex flex-col items-start truncate text-left">
+              {selectedAssignment ? (
+                <>
+                  <span className="truncate">{selectedAssignment.name}</span>
+                  {selectedAssignment.description && (
+                    <span className="text-[10px] text-muted-foreground font-normal truncate">
+                      {selectedAssignment.description}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span>Select an assignment</span>
+              )}
+            </span>
           </SelectTrigger>
           <SelectContent>
             {assignments.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.name}
+              <SelectItem key={a.id} value={a.id} className="py-1.5">
+                <span className="flex flex-col">
+                  <span>{a.name}</span>
+                  {a.description && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {a.description}
+                    </span>
+                  )}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -258,29 +293,46 @@ export function OperationTab() {
         {/* Operation-specific fields */}
         {operationSelected === "create" && (
           <>
-            <Label htmlFor="templateOrg">Template Org</Label>
+            <Label
+              htmlFor="templateOrg"
+              title="The GitHub/GitLab organization containing template repositories. Each assignment's name should match a template repo in this org (e.g., assignment 'lab-1' uses template 'template-org/lab-1')."
+            >
+              Template Org
+            </Label>
             <Input
               id="templateOrg"
               value={templateOrg}
               onChange={(e) => setTemplateOrg(e.target.value)}
               className="w-80"
               placeholder="e.g., tue-5lia0-templates"
+              title="The GitHub/GitLab organization containing template repositories. Each assignment's name should match a template repo in this org (e.g., assignment 'lab-1' uses template 'template-org/lab-1')."
             />
           </>
         )}
 
-        <Label htmlFor="targetOrg">Target Org</Label>
+        <Label
+          htmlFor="targetOrg"
+          title="The GitHub/GitLab organization where student repositories will be created. Repos are named using the pattern: {assignment}-{group} (e.g., 'lab-1-team-alpha')."
+        >
+          Target Org
+        </Label>
         <Input
           id="targetOrg"
           value={targetOrg}
           onChange={(e) => setTargetOrg(e.target.value)}
           className="w-80"
           placeholder="e.g., tue-5lia0-2024"
+          title="The GitHub/GitLab organization where student repositories will be created. Repos are named using the pattern: {assignment}-{group} (e.g., 'lab-1-team-alpha')."
         />
 
         {operationSelected === "clone" && (
           <>
-            <Label htmlFor="targetDir">Target Folder</Label>
+            <Label
+              htmlFor="targetDir"
+              title="Local folder where repositories will be cloned."
+            >
+              Target Folder
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="targetDir"
@@ -288,44 +340,58 @@ export function OperationTab() {
                 onChange={(e) => setTargetDir(e.target.value)}
                 className="w-64"
                 placeholder="~/repos/5lia0-2024"
+                title="Local folder where repositories will be cloned."
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleBrowseFolder}
+                title="Browse for folder"
               >
                 <FolderOpen className="size-4" />
               </Button>
             </div>
-
-            <Label>Directory Layout</Label>
-            <RadioGroup
-              value={directoryLayout}
-              onValueChange={(v) => setDirectoryLayout(v as DirectoryLayout)}
-              className="flex gap-4"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="flat" id="flat" />
-                <Label htmlFor="flat" className="font-normal">
-                  Flat
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="by-team" id="by-team" />
-                <Label htmlFor="by-team" className="font-normal">
-                  By Team
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="by-task" id="by-task" />
-                <Label htmlFor="by-task" className="font-normal">
-                  By Task
-                </Label>
-              </div>
-            </RadioGroup>
           </>
         )}
       </div>
+
+      {/* Directory Layout - separate from grid for better alignment */}
+      {operationSelected === "clone" && (
+        <div
+          className="flex items-center gap-4"
+          title="How cloned repos are organized locally."
+        >
+          <Label
+            className="text-sm font-medium shrink-0"
+            style={{ width: LABEL_WIDTH_EXTENDED }}
+            title="How cloned repos are organized locally. 'Flat' puts all repos directly in the target folder. 'By Team' groups by team name. 'By Task' groups by assignment."
+          >
+            Directory Layout
+          </Label>
+          <StyledRadioGroup
+            value={directoryLayout}
+            onValueChange={(v) => setDirectoryLayout(v as DirectoryLayout)}
+            name="directory-layout"
+            options={[
+              {
+                value: "flat",
+                label: "Flat",
+                title: "All repos directly in the target folder",
+              },
+              {
+                value: "by-team",
+                label: "By Team",
+                title: "Repos grouped by team name",
+              },
+              {
+                value: "by-task",
+                label: "By Task",
+                title: "Repos grouped by assignment",
+              },
+            ]}
+          />
+        </div>
+      )}
 
       {/* Summary and Execute Button */}
       <div className="flex items-center justify-between">

@@ -5,9 +5,10 @@
  */
 
 import { Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
-import { Command, Link, Monitor, X } from "@repo-edu/ui/components/icons"
+import { Command, Link, Monitor } from "@repo-edu/ui/components/icons"
 import { cn } from "@repo-edu/ui/lib/utils"
 import { useUiStore } from "../../stores/uiStore"
+import { CloseButton } from "../CloseButton"
 import { ConnectionsPane } from "./ConnectionsPane"
 import { DisplayPane } from "./DisplayPane"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane"
@@ -50,14 +51,7 @@ export function SettingsSheet() {
         <div className="h-11 px-4 border-b shrink-0 flex items-center">
           <SheetTitle className="font-medium">Settings</SheetTitle>
           <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="rounded-sm p-1 hover:bg-muted"
-          >
-            <X className="size-4" />
-            <span className="sr-only">Close</span>
-          </button>
+          <CloseButton onClick={() => setOpen(false)} />
         </div>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">

@@ -20,10 +20,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from "@repo-edu/ui"
 import {
   AlertTriangle,
@@ -381,30 +377,22 @@ function EmptyRosterState({
           : "Import a student roster from a CSV/Excel file, or configure an LMS connection in Settings to import directly."}
       </p>
       <div className="flex gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onImportFromLms}
-                  disabled={!canImportFromLms}
-                >
-                  {importing ? (
-                    <>
-                      <Loader2 className="size-4 mr-1 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    "Import from LMS"
-                  )}
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{lmsImportTooltip}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onImportFromLms}
+          disabled={!canImportFromLms}
+          title={lmsImportTooltip}
+        >
+          {importing ? (
+            <>
+              <Loader2 className="size-4 mr-1 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            "Import from LMS"
+          )}
+        </Button>
         <Button size="sm" variant="outline" onClick={onImportFromFile}>
           Import from File
         </Button>
@@ -450,42 +438,53 @@ function RosterActions({
 }: RosterActionsProps) {
   return (
     <div className="flex gap-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onImportFromLms}
-                disabled={!canImportFromLms}
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="size-4 mr-1 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  "Import from LMS"
-                )}
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{lmsImportTooltip}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <Button size="sm" variant="outline" onClick={onImportFromFile}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onImportFromLms}
+        disabled={!canImportFromLms}
+        title={lmsImportTooltip}
+      >
+        {importing ? (
+          <>
+            <Loader2 className="size-4 mr-1 animate-spin" />
+            Importing...
+          </>
+        ) : (
+          "Import from LMS"
+        )}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onImportFromFile}
+        title="Import students from a CSV or Excel file."
+      >
         Import from File
       </Button>
-      <Button size="sm" variant="outline" onClick={onViewEdit}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onViewEdit}
+        title="View and manually edit student information."
+      >
         View/Edit
       </Button>
-      <Button size="sm" variant="outline" onClick={onCoverage}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onCoverage}
+        title="Shows if each student has a valid git account. Green = verified, Yellow = unverified, Red = not found."
+      >
         Coverage
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button
+            size="sm"
+            variant="outline"
+            title="Export the student list with names, emails, and git usernames."
+          >
             Export
             <ChevronDown className="size-4 ml-1" />
           </Button>
@@ -499,7 +498,12 @@ function RosterActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button size="sm" variant="outline" onClick={onClear}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onClear}
+        title="Remove all students, assignments, and git username mappings from this profile."
+      >
         Clear
       </Button>
     </div>

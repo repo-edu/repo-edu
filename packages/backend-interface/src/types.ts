@@ -45,6 +45,7 @@ export interface AppSettings {
 export interface Assignment {
   id: AssignmentId
   name: string
+  description?: string | null
   groups: Group[]
   lms_group_set_id?: string | null
 }
@@ -70,6 +71,7 @@ export type AssignmentId = string
 export interface AssignmentMetadata {
   id: AssignmentId
   name: string
+  description?: string | null
   lms_group_set_id?: string | null
 }
 

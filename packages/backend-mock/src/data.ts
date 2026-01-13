@@ -171,7 +171,8 @@ export const cs201Students = demoStudents.filter((s) =>
 export const cs101Assignments: Assignment[] = [
   {
     id: "lab-basics",
-    name: "Lab 1: Python Basics",
+    name: "lab-1",
+    description: "Lab 1: Python Basics",
     lms_group_set_id: "gs-lab-teams",
     groups: [
       {
@@ -198,7 +199,8 @@ export const cs101Assignments: Assignment[] = [
   },
   {
     id: "lab-functions",
-    name: "Lab 2: Functions and Modules",
+    name: "lab-2",
+    description: "Lab 2: Functions and Modules",
     lms_group_set_id: "gs-lab-teams",
     groups: [
       {
@@ -229,7 +231,8 @@ export const cs101Assignments: Assignment[] = [
 export const cs201Assignments: Assignment[] = [
   {
     id: "project-datavis",
-    name: "Project: Data Visualization",
+    name: "project-1",
+    description: "Project: Data Visualization",
     lms_group_set_id: "gs-project-teams",
     groups: [
       {
@@ -246,7 +249,8 @@ export const cs201Assignments: Assignment[] = [
   },
   {
     id: "project-api",
-    name: "Project: REST API Client",
+    name: "project-2",
+    description: "Project: REST API Client",
     lms_group_set_id: "gs-project-teams",
     groups: [
       {
