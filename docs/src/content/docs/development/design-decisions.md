@@ -187,3 +187,151 @@ compile.
 - Validation: `scripts/validate-schemas.ts` + `scripts/check-command-parity.ts`.
 - Output: `apps/repo-manage/src/bindings/types.ts`, `apps/repo-manage/src/bindings/commands.ts`,
   and `apps/repo-manage/core/src/generated/types.rs`.
+
+---
+
+## Unified Profile Store with Immer
+
+**Date:** 2026-01-14
+**Status:** Implemented
+
+### Context
+
+The original frontend architecture had 7 Zustand stores, including separate `profileSettingsStore`
+and `rosterStore`. This caused race conditions when switching profiles: the two stores loaded
+independently, creating timing windows where components could observe inconsistent state (e.g., new
+roster with old settings). Cross-store coordination was handled by a `profileLoader` utility that
+orchestrated 6 stores—a maintenance burden and source of subtle bugs.
+
+### Decision
+
+Consolidate profile settings and roster into a single `profileStore` with:
+
+1. **Atomic document model** — Single `ProfileDocument` containing settings, roster, and resolved
+   identity mode
+2. **Single load sequence** — One `load()` function with stale detection
+3. **Immer middleware** — For consistent draft-based mutations (profileStore only)
+4. **Wrapper helpers** — `mutateRoster()` automatically triggers validation
+
+### Store Architecture (After)
+
+| Store | Responsibility |
+|-------|----------------|
+| `appSettingsStore` | Theme, LMS connection, git connections (app-level) |
+| `profileStore` | Profile document (settings + roster) with Immer mutations |
+| `connectionsStore` | Draft connection state during editing + status cleanup |
+| `operationStore` | Git operation progress, validation/preflight results |
+| `uiStore` | Active tab, dialog visibility |
+| `outputStore` | Console output lines |
+
+**Result: 7 stores → 6 stores**, with clearer responsibilities.
+
+### Why Atomic Loading Fixes Race Conditions
+
+The race condition occurred because:
+
+1. `profileSettingsStore` and `rosterStore` loaded independently
+2. When switching profiles, one might complete before the other
+3. Components reading from both stores could see mismatched data
+
+The fix:
+
+```typescript
+load: async (profileName) => {
+  loadSequence += 1
+  const currentLoadId = loadSequence
+
+  const [settingsResult, rosterResult] = await Promise.all([
+    commands.loadProfile(profileName),
+    commands.getRoster(profileName),
+  ])
+
+  // Discard if a newer load started
+  if (currentLoadId !== loadSequence) {
+    return { stale: true, ... }
+  }
+
+  // Set atomically
+  set((state) => {
+    state.document = { settings, roster, resolvedIdentityMode }
+    state.status = "loaded"
+  })
+}
+```
+
+Components now read from one store with one status—impossible to observe partial state.
+
+### Why Immer (for profileStore Only)
+
+Immer is applied selectively to `profileStore` because it has deep nesting (4-5 levels for
+`roster.assignments[].groups[].members`). Other stores have flat state where spread syntax is
+clearer.
+
+**Benefits for profileStore:**
+
+| Aspect | Without Immer | With Immer |
+|--------|---------------|------------|
+| Nested update | ~8 lines of spread | 1 line |
+| Bug surface | Easy to forget nested spread | Impossible |
+| Consistency | Mixed patterns | Uniform draft syntax |
+
+**Example:**
+
+```typescript
+// With Immer
+set((state) => {
+  state.document.settings.course.name = updated_name
+})
+
+// Without Immer
+set((state) => ({
+  ...state,
+  document: {
+    ...state.document,
+    settings: {
+      ...state.document.settings,
+      course: { ...state.document.settings.course, name: updated_name }
+    }
+  }
+}))
+```
+
+**Why not Immer for other stores:**
+
+| Store | Immer? | Reason |
+|-------|--------|--------|
+| `profileStore` | Yes | Deep nesting (roster, assignments, groups) |
+| `outputStore` | No | Append-only array, simple operations |
+| `connectionsStore` | No | Flat status/error maps |
+| `operationStore` | No | Flat state (status, error, results) |
+| `uiStore` | No | Flat booleans |
+| `appSettingsStore` | No | Simple object replacements |
+
+### Stable Selector Fallbacks
+
+Selectors returning `roster?.students ?? []` create new array references each render, causing
+infinite re-render loops. Solution: module-level stable fallbacks.
+
+```typescript
+const EMPTY_STUDENTS: Student[] = []
+
+// In selector
+const students = useProfileStore((s) => s.document?.roster?.students ?? EMPTY_STUDENTS)
+```
+
+### Quality Improvements
+
+| Attribute | Primary Factor | Secondary Factor |
+|-----------|----------------|------------------|
+| Race condition fix | Atomic load + stale detection | — |
+| Maintainability | Store consolidation | Wrapper helpers |
+| Readability | Immer | Atomic document |
+| Robustness | Stable fallbacks | Atomic updates |
+| Flexibility | Immer | Clear store boundaries |
+
+### Implementation
+
+- `packages/app-core/src/stores/profileStore.ts` — Unified store with Immer
+- `packages/app-core/src/hooks/useLoadProfile.ts` — Simplified profile loading hook
+- `packages/app-core/src/hooks/useDirtyState.ts` — Now hashes single document
+- Deleted: `rosterStore.ts`, `profileSettingsStore.ts`, `profileLoader.ts`

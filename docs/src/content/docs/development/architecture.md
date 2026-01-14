@@ -92,13 +92,12 @@ The frontend uses a roster-centric design with three main tabs: Roster, Assignme
    - `dialogs/` — Modal dialogs for editing
    - `sheets/` — Slide-out panels for settings and editors
 2. **Stores** — Zustand stores:
-   - `rosterStore` — Roster data and selection state
-   - `appSettingsStore` — App-level settings
-   - `profileSettingsStore` — Per-profile connection settings
-   - `connectionsStore` — LMS/Git connection configuration
-   - `operationStore` — Git operation state
-   - `outputStore` — Console output
-   - `uiStore` — UI state (dialogs, sheets, active profile)
+   - `appSettingsStore` — App-level settings (theme, LMS, git connections)
+   - `profileStore` — Profile document (settings + roster) with Immer mutations
+   - `connectionsStore` — Draft connection state during editing + status cleanup
+   - `operationStore` — Git operation progress, validation/preflight results
+   - `uiStore` — Active tab, dialog visibility
+   - `outputStore` — Console output lines
 3. **Hooks** — `useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`
 4. **Services** — Thin wrappers that call Tauri commands via `invoke()`
 5. **Adapters** — Transform between frontend state and backend types
