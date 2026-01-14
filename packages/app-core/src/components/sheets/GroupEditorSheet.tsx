@@ -13,15 +13,15 @@ import {
   SheetTitle,
 } from "@repo-edu/ui"
 import { useMemo, useState } from "react"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function GroupEditorSheet() {
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const removeGroup = useRosterStore((state) => state.removeGroup)
+  const removeGroup = useProfileStore((state) => state.removeGroup)
   const open = useUiStore((state) => state.groupEditorOpen)
   const setOpen = useUiStore((state) => state.setGroupEditorOpen)
   const setAddGroupDialogOpen = useUiStore(

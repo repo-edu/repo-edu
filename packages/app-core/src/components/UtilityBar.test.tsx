@@ -1,7 +1,7 @@
 import { render, waitFor } from "@testing-library/react"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { useOutputStore } from "../stores/outputStore"
-import { useProfileSettingsStore } from "../stores/profileSettingsStore"
+import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 import { UtilityBar } from "./UtilityBar"
 
@@ -32,7 +32,7 @@ describe("UtilityBar", () => {
 
   beforeEach(() => {
     useUiStore.getState().reset()
-    useProfileSettingsStore.getState().reset()
+    useProfileStore.getState().reset()
     useOutputStore.getState().clear()
     vi.clearAllMocks()
 

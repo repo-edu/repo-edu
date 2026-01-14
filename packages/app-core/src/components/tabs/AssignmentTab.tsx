@@ -21,16 +21,16 @@ import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { commands } from "../../bindings/commands"
 import { saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function AssignmentTab() {
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const selectAssignment = useRosterStore((state) => state.selectAssignment)
-  const assignmentValidation = useRosterStore(
+  const selectAssignment = useProfileStore((state) => state.selectAssignment)
+  const assignmentValidation = useProfileStore(
     (state) => state.assignmentValidation,
   )
 
@@ -142,7 +142,7 @@ function AssignmentSelector({
 }
 
 function AssignmentCrudButtons() {
-  const selectedAssignmentId = useRosterStore(
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
   const setNewAssignmentDialogOpen = useUiStore(
@@ -231,8 +231,8 @@ function AssignmentActions() {
     (state) => state.setExportSettingsOpen,
   )
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
   const appendOutput = useOutputStore((state) => state.appendText)

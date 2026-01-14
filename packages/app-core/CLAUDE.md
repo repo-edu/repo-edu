@@ -37,17 +37,19 @@ via `getBackend()`.
 
 ### State Management (Zustand Stores)
 
-Six stores manage application state:
+Five stores manage application state:
 
-| Store                    | Responsibility                                         |
-| ------------------------ | ------------------------------------------------------ |
-| `appSettingsStore`       | Theme, LMS connection, git connections (app-level)     |
-| `profileSettingsStore`   | Course binding, git connection ref, operations/exports |
-| `rosterStore`            | Students, assignments, groups + validation             |
-| `connectionsStore`       | Draft connection state during editing                  |
-| `operationStore`         | Git operation progress and results                     |
-| `uiStore`                | Active tab, dialogs, sheets                            |
-| `outputStore`            | Console output lines                                   |
+| Store               | Responsibility                                                 |
+| ------------------- | -------------------------------------------------------------- |
+| `appSettingsStore`  | Theme, LMS connection, git connections (app-level)             |
+| `profileStore`      | Profile document (settings + roster) with Immer mutations      |
+| `connectionsStore`  | Draft connection state during editing + git status cleanup     |
+| `operationStore`    | Git operation progress, results, validation/preflight results  |
+| `uiStore`           | Active tab, dialogs, sheets                                    |
+| `outputStore`       | Console output lines                                           |
+
+The `profileStore` uses Immer middleware for draft-based mutations. It combines profile settings
+and roster into a single atomic `ProfileDocument` to prevent synchronization issues.
 
 ### Data Flow
 
@@ -63,14 +65,13 @@ BackendAPI → commands.ts → stores → adapters → components
 
 `useDirtyState` uses hash comparison to detect unsaved changes:
 
-- Tracks `profileSettingsStore` (gitConnection, operations, exports)
-- Tracks `rosterStore` (students, assignments, groups)
+- Tracks `profileStore.document` (gitConnection, operations, exports, roster)
 - Does NOT track course (immutable) or appSettings (auto-saved)
 
 ### Validation
 
-Roster validation runs debounced (200ms) after mutations via `rosterStore`. Results are stored
-in `rosterValidation` and `assignmentValidation` fields.
+Roster validation runs debounced (200ms) after mutations via `profileStore`. Results are stored
+in `rosterValidation` and `assignmentValidation` fields within the profile store.
 
 ## Generated Code
 

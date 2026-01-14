@@ -4,15 +4,12 @@
  */
 
 import type {
-  CoverageReport,
   GroupId,
   GroupImportConfig,
   ImportGitUsernamesResult,
   LmsIdConflict,
-  RepoPreflightResult,
   StudentRemovalCheck,
   UsernameVerificationResult,
-  ValidationResult,
 } from "@repo-edu/backend-interface/types"
 import { create } from "zustand"
 
@@ -71,9 +68,6 @@ interface UiState {
   usernameVerificationResult: UsernameVerificationResult | null
   lmsImportConflicts: LmsIdConflict[] | null
   pendingGroupImport: GroupImportConfig | null
-  coverageReport: CoverageReport | null
-  validationResult: ValidationResult | null
-  preflightResult: RepoPreflightResult | null
 }
 
 interface UiActions {
@@ -131,9 +125,6 @@ interface UiActions {
   ) => void
   setLmsImportConflicts: (conflicts: LmsIdConflict[] | null) => void
   setPendingGroupImport: (config: GroupImportConfig | null) => void
-  setCoverageReport: (report: CoverageReport | null) => void
-  setValidationResult: (result: ValidationResult | null) => void
-  setPreflightResult: (result: RepoPreflightResult | null) => void
 
   // Reset
   reset: () => void
@@ -190,9 +181,6 @@ const initialState: UiState = {
   usernameVerificationResult: null,
   lmsImportConflicts: null,
   pendingGroupImport: null,
-  coverageReport: null,
-  validationResult: null,
-  preflightResult: null,
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -260,9 +248,6 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ usernameVerificationResult: result }),
   setLmsImportConflicts: (conflicts) => set({ lmsImportConflicts: conflicts }),
   setPendingGroupImport: (config) => set({ pendingGroupImport: config }),
-  setCoverageReport: (report) => set({ coverageReport: report }),
-  setValidationResult: (result) => set({ validationResult: result }),
-  setPreflightResult: (result) => set({ preflightResult: result }),
 
   // Reset
   reset: () => set(initialState),

@@ -35,6 +35,10 @@ interface ConnectionsActions {
   resetLmsStatus: () => void
   resetGitStatus: (name: string) => void
   resetAllStatuses: () => void
+
+  // Cleanup operations (for orphan prevention)
+  removeGitStatus: (name: string) => void
+  renameGitStatus: (oldName: string, newName: string) => void
 }
 
 interface ConnectionsStore extends ConnectionsState, ConnectionsActions {}
@@ -77,6 +81,33 @@ export const useConnectionsStore = create<ConnectionsStore>((set) => ({
     }),
 
   resetAllStatuses: () => set(initialState),
+
+  // Cleanup: completely remove a git status entry (used when connection is deleted)
+  removeGitStatus: (name) =>
+    set((state) => {
+      const { [name]: _status, ...restStatuses } = state.gitStatuses
+      const { [name]: _error, ...restErrors } = state.gitErrors
+      return { gitStatuses: restStatuses, gitErrors: restErrors }
+    }),
+
+  // Cleanup: rename a git status entry (used when connection is renamed)
+  renameGitStatus: (oldName, newName) =>
+    set((state) => {
+      const status = state.gitStatuses[oldName]
+      const error = state.gitErrors[oldName]
+      const { [oldName]: _status, ...restStatuses } = state.gitStatuses
+      const { [oldName]: _error, ...restErrors } = state.gitErrors
+      return {
+        gitStatuses:
+          status !== undefined
+            ? { ...restStatuses, [newName]: status }
+            : restStatuses,
+        gitErrors:
+          error !== undefined
+            ? { ...restErrors, [newName]: error }
+            : restErrors,
+      }
+    }),
 }))
 
 // Selector helpers

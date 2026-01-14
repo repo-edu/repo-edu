@@ -1,18 +1,15 @@
 /**
- * Load profile hook - loads profile settings and roster when profile changes.
+ * Load profile hook - loads profile document when profile changes.
  *
- * Replaces useLoadSettings for the roster-centric design.
+ * Uses the unified profileStore.load() which atomically loads both
+ * settings and roster, resolves identity mode, and triggers validation.
  */
 
 import { useEffect, useRef } from "react"
-import {
-  loadProfileData,
-  type ProfileLoadOptions,
-  type ProfileLoadResult,
-} from "../utils/profileLoader"
+import { type ProfileLoadResult, useProfileStore } from "../stores/profileStore"
 
 /**
- * Hook to load profile settings and roster when the profile name changes.
+ * Hook to load profile document when the profile name changes.
  *
  * @param profileName - The name of the profile to load, or null to skip loading
  * @param onResult - Optional callback invoked after profile data is loaded
@@ -22,6 +19,7 @@ export function useLoadProfile(
   onResult?: (result: ProfileLoadResult) => void,
 ): void {
   const onResultRef = useRef(onResult)
+  const load = useProfileStore((state) => state.load)
 
   useEffect(() => {
     onResultRef.current = onResult
@@ -31,7 +29,7 @@ export function useLoadProfile(
     if (!profileName) return
     let cancelled = false
 
-    void loadProfileData(profileName).then((result) => {
+    void load(profileName).then((result) => {
       if (cancelled || result.stale) return
       onResultRef.current?.(result)
     })
@@ -39,7 +37,7 @@ export function useLoadProfile(
     return () => {
       cancelled = true
     }
-  }, [profileName, loadProfileData])
+  }, [profileName, load])
 }
 
 /**
@@ -48,8 +46,10 @@ export function useLoadProfile(
  */
 export function useReloadProfile(): (
   profileName: string,
-  options?: ProfileLoadOptions,
 ) => Promise<ProfileLoadResult> {
-  return (profileName: string, options?: ProfileLoadOptions) =>
-    loadProfileData(profileName, options)
+  const load = useProfileStore((state) => state.load)
+  return load
 }
+
+// Re-export ProfileLoadResult for convenience
+export type { ProfileLoadResult }

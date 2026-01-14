@@ -14,6 +14,7 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import { create } from "zustand"
 import { commands } from "../bindings/commands"
+import { useConnectionsStore } from "./connectionsStore"
 
 type StoreStatus = "loading" | "loaded" | "saving" | "error"
 
@@ -43,6 +44,11 @@ interface AppSettingsActions {
   // Git connections (CRUD)
   addGitConnection: (name: string, connection: GitConnection) => void
   updateGitConnection: (name: string, connection: GitConnection) => void
+  renameGitConnection: (
+    oldName: string,
+    newName: string,
+    connection: GitConnection,
+  ) => void
   removeGitConnection: (name: string) => void
 
   // Reset
@@ -127,9 +133,19 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
       gitConnections: { ...state.gitConnections, [name]: connection },
     })),
 
+  renameGitConnection: (oldName, newName, connection) =>
+    set((state) => {
+      const { [oldName]: _, ...rest } = state.gitConnections
+      // Trigger cleanup in connectionsStore to move status to new name
+      useConnectionsStore.getState().renameGitStatus(oldName, newName)
+      return { gitConnections: { ...rest, [newName]: connection } }
+    }),
+
   removeGitConnection: (name) =>
     set((state) => {
       const { [name]: _, ...rest } = state.gitConnections
+      // Trigger cleanup in connectionsStore to remove orphaned status
+      useConnectionsStore.getState().removeGitStatus(name)
       return { gitConnections: rest }
     }),
 

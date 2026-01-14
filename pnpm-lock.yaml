@@ -79,7 +79,7 @@ importers:
         version: 19.2.1(react@19.2.1)
       zustand:
         specifier: ^5.0.9
-        version: 5.0.9(@types/react@19.2.7)(react@19.2.1)
+        version: 5.0.9(@types/react@19.2.7)(immer@10.2.0)(react@19.2.1)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.1.17
@@ -172,6 +172,9 @@ importers:
       '@repo-edu/ui':
         specifier: workspace:*
         version: link:../ui
+      immer:
+        specifier: ^10.1.1
+        version: 10.2.0
       nanoid:
         specifier: ^5.1.5
         version: 5.1.6
@@ -183,7 +186,7 @@ importers:
         version: 19.2.1(react@19.2.1)
       zustand:
         specifier: ^5.0.9
-        version: 5.0.9(@types/react@19.2.7)(react@19.2.1)
+        version: 5.0.9(@types/react@19.2.7)(immer@10.2.0)(react@19.2.1)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.1.17
@@ -2648,6 +2651,9 @@ packages:
   ignore@7.0.5:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
+
+  immer@10.2.0:
+    resolution: {integrity: sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw==}
 
   import-meta-resolve@4.2.0:
     resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
@@ -6423,6 +6429,8 @@ snapshots:
 
   ignore@7.0.5: {}
 
+  immer@10.2.0: {}
+
   import-meta-resolve@4.2.0: {}
 
   indent-string@4.0.0: {}
@@ -7983,9 +7991,10 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@5.0.9(@types/react@19.2.7)(react@19.2.1):
+  zustand@5.0.9(@types/react@19.2.7)(immer@10.2.0)(react@19.2.1):
     optionalDependencies:
       '@types/react': 19.2.7
+      immer: 10.2.0
       react: 19.2.1
 
   zwitch@2.0.4: {}

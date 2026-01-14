@@ -17,18 +17,18 @@ import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function ImportGroupsFromFileDialog() {
   const open = useUiStore((state) => state.importGroupsFromFileDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGroupsFromFileDialogOpen)
 
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const setRoster = useRosterStore((state) => state.setRoster)
+  const setRoster = useProfileStore((state) => state.setRoster)
   const hasStudents = Boolean(roster?.students.length)
 
   const appendOutput = useOutputStore((state) => state.appendText)

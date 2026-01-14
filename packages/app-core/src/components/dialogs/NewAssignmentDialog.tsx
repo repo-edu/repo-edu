@@ -15,15 +15,15 @@ import {
   Input,
 } from "@repo-edu/ui"
 import { useState } from "react"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { generateAssignmentId } from "../../utils/nanoid"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const addAssignment = useRosterStore((state) => state.addAssignment)
-  const selectAssignment = useRosterStore((state) => state.selectAssignment)
+  const addAssignment = useProfileStore((state) => state.addAssignment)
+  const selectAssignment = useProfileStore((state) => state.selectAssignment)
   const open = useUiStore((state) => state.newAssignmentDialogOpen)
   const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen)
 

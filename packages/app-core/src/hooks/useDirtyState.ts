@@ -1,12 +1,14 @@
 /**
- * Dirty state tracking hook - tracks whether profile/roster state has changed.
+ * Dirty state tracking hook - tracks whether profile document has changed.
  *
  * Uses hash-based comparison for efficient dirty checking without deep equality.
  * Provides methods to mark state as clean (after save) or reset baseline.
  *
- * Tracks:
- * - profileSettingsStore changes (gitConnection, operations, exports)
- * - rosterStore changes (students, assignments, groups)
+ * Tracks changes to:
+ * - gitConnection (settings)
+ * - operations (settings)
+ * - exports (settings)
+ * - roster (students, assignments, groups)
  *
  * Does NOT track:
  * - course (immutable after profile creation)
@@ -14,19 +16,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useProfileSettingsStore } from "../stores/profileSettingsStore"
-import { useRosterStore } from "../stores/rosterStore"
+import { useProfileStore } from "../stores/profileStore"
 import { hashSnapshot } from "../utils/snapshot"
 
 export interface DirtyStateHashes {
-  profileSettings: number
-  roster: number
+  /** Combined hash of document state */
+  document: number
   /** Profile name the baseline was captured for */
   profileName: string | null
 }
 
 export interface UseDirtyStateReturn {
-  /** Whether profile or roster has unsaved changes */
+  /** Whether profile document has unsaved changes */
   isDirty: boolean
   /** Update baseline hashes (call after saving) */
   markClean: () => void
@@ -35,23 +36,17 @@ export interface UseDirtyStateReturn {
 }
 
 /**
- * Get saveable profile settings state (excludes course which is immutable)
+ * Get saveable document state (excludes course which is immutable)
  */
-function getSaveableProfileState() {
-  const state = useProfileSettingsStore.getState()
+function getSaveableDocumentState() {
+  const state = useProfileStore.getState()
+  if (!state.document) return null
   return {
-    gitConnection: state.gitConnection,
-    operations: state.operations,
-    exports: state.exports,
+    gitConnection: state.document.settings.git_connection,
+    operations: state.document.settings.operations,
+    exports: state.document.settings.exports,
+    roster: state.document.roster,
   }
-}
-
-/**
- * Get roster state for dirty tracking
- */
-function getRosterState() {
-  const state = useRosterStore.getState()
-  return state.roster
 }
 
 /**
@@ -64,32 +59,31 @@ export function useDirtyState(
 ): UseDirtyStateReturn {
   // Use state for baseline hashes so updates trigger a rerender
   const [baseline, setBaseline] = useState<DirtyStateHashes>(() => ({
-    profileSettings: hashSnapshot(getSaveableProfileState()),
-    roster: hashSnapshot(getRosterState()),
+    document: hashSnapshot(getSaveableDocumentState()),
     profileName: activeProfile,
   }))
 
-  // Get current state from stores
-  const gitConnection = useProfileSettingsStore((state) => state.gitConnection)
-  const operations = useProfileSettingsStore((state) => state.operations)
-  const exports = useProfileSettingsStore((state) => state.exports)
-  const roster = useRosterStore((state) => state.roster)
+  // Subscribe to relevant document fields from profileStore
+  const document = useProfileStore((state) => state.document)
 
-  // Compute current hashes
-  const currentProfileHash = hashSnapshot({
-    gitConnection,
-    operations,
-    exports,
-  })
-  const currentRosterHash = hashSnapshot(roster)
+  // Compute current hash consistently with getSaveableDocumentState
+  // When document is null, both baseline and current should hash `null`
+  const currentState = document
+    ? {
+        gitConnection: document.settings.git_connection,
+        operations: document.settings.operations,
+        exports: document.settings.exports,
+        roster: document.roster,
+      }
+    : null
+  const currentHash = hashSnapshot(currentState)
 
   // Track the previous profile to detect switches
   const prevProfileRef = useRef(activeProfile)
 
   const updateBaseline = useCallback((profileName: string | null) => {
     setBaseline({
-      profileSettings: hashSnapshot(getSaveableProfileState()),
-      roster: hashSnapshot(getRosterState()),
+      document: hashSnapshot(getSaveableDocumentState()),
       profileName,
     })
   }, [])
@@ -108,10 +102,7 @@ export function useDirtyState(
   // Compare current state to baseline, but only if baseline is for current profile
   // During profile switches, the baseline's profileName won't match, so isDirty = false
   const baselineMatchesProfile = baseline.profileName === activeProfile
-  const isDirty =
-    baselineMatchesProfile &&
-    (currentProfileHash !== baseline.profileSettings ||
-      currentRosterHash !== baseline.roster)
+  const isDirty = baselineMatchesProfile && currentHash !== baseline.document
 
   // markClean is stable (empty deps) - updates baseline snapshot
   const markClean = useCallback(() => {
@@ -121,8 +112,7 @@ export function useDirtyState(
   // forceDirty is stable (empty deps) - invalidates baseline snapshot
   const forceDirty = useCallback(() => {
     setBaseline({
-      profileSettings: 0,
-      roster: 0,
+      document: 0,
       profileName: prevProfileRef.current,
     })
   }, [])

@@ -1,17 +1,30 @@
-// New roster-centric stores
+// Stores
 export { useAppSettingsStore } from "./appSettingsStore"
 export { useConnectionsStore } from "./connectionsStore"
 export { useOperationStore } from "./operationStore"
 export { selectOutputLines, useOutputStore } from "./outputStore"
-export { useProfileSettingsStore } from "./profileSettingsStore"
 export {
+  type ProfileLoadResult,
   selectAssignments,
+  selectAssignmentValidation,
+  selectCourse,
+  selectCoverageReport,
+  selectDocument,
+  selectExports,
+  selectGitConnectionRef,
   selectGroups,
+  selectOperations,
+  selectProfileError,
+  selectProfileStatus,
+  selectProfileWarnings,
+  selectResolvedIdentityMode,
   selectRoster,
+  selectRosterValidation,
   selectSelectedAssignment,
   selectSelectedAssignmentId,
+  selectSettings,
   selectStudents,
-  useRosterStore,
-} from "./rosterStore"
+  useProfileStore,
+} from "./profileStore"
 export type { ActiveTab } from "./uiStore"
 export { useUiStore } from "./uiStore"

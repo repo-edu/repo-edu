@@ -15,7 +15,7 @@ import { Plus, Search, Trash2, X } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { generateStudentId } from "../../utils/nanoid"
 
@@ -23,11 +23,11 @@ export function StudentEditorSheet() {
   const studentEditorOpen = useUiStore((state) => state.studentEditorOpen)
   const setStudentEditorOpen = useUiStore((state) => state.setStudentEditorOpen)
 
-  const roster = useRosterStore((state) => state.roster)
-  const rosterValidation = useRosterStore((state) => state.rosterValidation)
-  const addStudent = useRosterStore((state) => state.addStudent)
-  const updateStudent = useRosterStore((state) => state.updateStudent)
-  const removeStudent = useRosterStore((state) => state.removeStudent)
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const rosterValidation = useProfileStore((state) => state.rosterValidation)
+  const addStudent = useProfileStore((state) => state.addStudent)
+  const updateStudent = useProfileStore((state) => state.updateStudent)
+  const removeStudent = useProfileStore((state) => state.removeStudent)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [addingStudent, setAddingStudent] = useState(false)

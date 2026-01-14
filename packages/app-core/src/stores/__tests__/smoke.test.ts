@@ -1,9 +1,14 @@
 /**
- * Smoke tests for the new roster-centric stores.
+ * Smoke tests for the stores.
  * These tests verify basic functionality without mocking Tauri commands.
  */
 
-import type { Student } from "@repo-edu/backend-interface/types"
+import type {
+  ExportSettings,
+  OperationConfigs,
+  ProfileSettings,
+  Student,
+} from "@repo-edu/backend-interface/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   generateAssignmentId,
@@ -14,17 +19,49 @@ import { useAppSettingsStore } from "../appSettingsStore"
 import { useConnectionsStore } from "../connectionsStore"
 import { useOperationStore } from "../operationStore"
 import { useOutputStore } from "../outputStore"
-import { useProfileSettingsStore } from "../profileSettingsStore"
-import { useRosterStore } from "../rosterStore"
+import { useProfileStore } from "../profileStore"
 import { useUiStore } from "../uiStore"
+
+// Test fixture for ProfileSettings
+function createTestSettings(
+  overrides: Partial<ProfileSettings> = {},
+): ProfileSettings {
+  const defaultOperations: OperationConfigs = {
+    target_org: "",
+    repo_name_template: "{assignment}-{group}",
+    create: { template_org: "" },
+    clone: { target_dir: "", directory_layout: "flat" },
+    delete: {},
+  }
+  const defaultExports: ExportSettings = {
+    output_folder: "",
+    output_csv: false,
+    output_xlsx: false,
+    output_yaml: false,
+    csv_file: "repos.csv",
+    xlsx_file: "repos.xlsx",
+    yaml_file: "repos.yaml",
+    member_option: "email",
+    include_group: true,
+    include_member: true,
+    include_initials: false,
+    full_groups: false,
+  }
+  return {
+    course: { id: "", name: "" },
+    git_connection: null,
+    operations: defaultOperations,
+    exports: defaultExports,
+    ...overrides,
+  }
+}
 
 describe("Store Smoke Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset all stores to initial state
     useAppSettingsStore.getState().reset()
-    useProfileSettingsStore.getState().reset()
-    useRosterStore.getState().reset()
+    useProfileStore.getState().reset()
     useConnectionsStore.getState().resetAllStatuses()
     useOperationStore.getState().reset()
     useOutputStore.getState().clear()
@@ -77,28 +114,40 @@ describe("Store Smoke Tests", () => {
     })
   })
 
-  describe("profileSettingsStore", () => {
+  describe("profileStore", () => {
     it("smoke: initializes with correct defaults", () => {
-      const state = useProfileSettingsStore.getState()
-      expect(state.status).toBe("loading")
-      expect(state.course).toEqual({ id: "", name: "" })
-      expect(state.gitConnection).toBeNull()
+      const state = useProfileStore.getState()
+      expect(state.status).toBe("empty")
+      expect(state.document).toBeNull()
     })
 
     it("smoke: setGitConnection updates git connection reference", () => {
-      useProfileSettingsStore.getState().setGitConnection("my-github")
-      expect(useProfileSettingsStore.getState().gitConnection).toBe("my-github")
-    })
-  })
-
-  describe("rosterStore", () => {
-    it("smoke: initializes with empty state", () => {
-      const state = useRosterStore.getState()
-      expect(state.status).toBe("empty")
-      expect(state.roster).toBeNull()
+      // First set up a document
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: null,
+          resolvedIdentityMode: "email",
+        },
+        status: "loaded",
+      })
+      useProfileStore.getState().setGitConnection("my-github")
+      expect(useProfileStore.getState().document?.settings.git_connection).toBe(
+        "my-github",
+      )
     })
 
     it("smoke: addStudent creates roster and adds student", () => {
+      // First set up a document without roster
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: null,
+          resolvedIdentityMode: "email",
+        },
+        status: "loaded",
+      })
+
       const student: Student = {
         id: generateStudentId(),
         name: "Test Student",
@@ -109,12 +158,11 @@ describe("Store Smoke Tests", () => {
         lms_user_id: null,
         custom_fields: {},
       }
-      useRosterStore.getState().addStudent(student)
+      useProfileStore.getState().addStudent(student)
 
-      const state = useRosterStore.getState()
-      expect(state.roster?.students).toHaveLength(1)
-      expect(state.roster?.students[0]).toEqual(student)
-      expect(state.status).toBe("loaded")
+      const state = useProfileStore.getState()
+      expect(state.document?.roster?.students).toHaveLength(1)
+      expect(state.document?.roster?.students[0]).toEqual(student)
     })
 
     it("smoke: removeStudent removes student and cascades to groups", () => {
@@ -122,53 +170,60 @@ describe("Store Smoke Tests", () => {
       const assignmentId = generateAssignmentId()
       const groupId = generateGroupId()
 
-      // Set up roster with student in a group
-      useRosterStore.setState({
-        roster: {
-          source: null,
-          students: [
-            {
-              id: studentId,
-              name: "Test",
-              email: "test@example.com",
-              student_number: null,
-              git_username: null,
-              git_username_status: "unknown",
-              lms_user_id: null,
-              custom_fields: {},
-            },
-          ],
-          assignments: [
-            {
-              id: assignmentId,
-              name: "Assignment 1",
-              groups: [
-                {
-                  id: groupId,
-                  name: "Group 1",
-                  member_ids: [studentId],
-                },
-              ],
-              lms_group_set_id: null,
-            },
-          ],
+      // Set up document with student in a group
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: {
+            source: null,
+            students: [
+              {
+                id: studentId,
+                name: "Test",
+                email: "test@example.com",
+                student_number: null,
+                git_username: null,
+                git_username_status: "unknown",
+                lms_user_id: null,
+                custom_fields: {},
+              },
+            ],
+            assignments: [
+              {
+                id: assignmentId,
+                name: "Assignment 1",
+                description: null,
+                groups: [
+                  {
+                    id: groupId,
+                    name: "Group 1",
+                    member_ids: [studentId],
+                  },
+                ],
+                lms_group_set_id: null,
+              },
+            ],
+          },
+          resolvedIdentityMode: "email",
         },
         status: "loaded",
       })
 
       // Remove student
-      useRosterStore.getState().removeStudent(studentId)
+      useProfileStore.getState().removeStudent(studentId)
 
       // Verify cascade
-      const state = useRosterStore.getState()
-      expect(state.roster?.students).toHaveLength(0)
-      expect(state.roster?.assignments[0].groups[0].member_ids).toHaveLength(0)
+      const state = useProfileStore.getState()
+      expect(state.document?.roster?.students).toHaveLength(0)
+      expect(
+        state.document?.roster?.assignments[0].groups[0].member_ids,
+      ).toHaveLength(0)
     })
 
     it("smoke: selectAssignment updates selection", () => {
       const assignmentId = generateAssignmentId()
-      useRosterStore.getState().selectAssignment(assignmentId)
-      expect(useRosterStore.getState().selectedAssignmentId).toBe(assignmentId)
+      useProfileStore.getState().selectAssignment(assignmentId)
+      expect(useProfileStore.getState().selectedAssignmentId).toBe(assignmentId)
     })
   })
 

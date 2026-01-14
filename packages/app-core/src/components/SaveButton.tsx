@@ -3,13 +3,10 @@
  * Displays dirty state and handles saving with feedback.
  */
 
-import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
-import { commands } from "../bindings/commands"
-import { useProfileSettingsStore } from "../stores/profileSettingsStore"
-import { useRosterStore } from "../stores/rosterStore"
+import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 
 type SaveStatus = "idle" | "saving" | "success" | "error"
@@ -24,12 +21,8 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
   const [status, setStatus] = useState<SaveStatus>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Get current state from stores
-  const course = useProfileSettingsStore((state) => state.course)
-  const gitConnection = useProfileSettingsStore((state) => state.gitConnection)
-  const operations = useProfileSettingsStore((state) => state.operations)
-  const exports = useProfileSettingsStore((state) => state.exports)
-  const roster = useRosterStore((state) => state.roster)
+  // Get save function from profileStore
+  const save = useProfileStore((state) => state.save)
 
   const handleSave = useCallback(async () => {
     if (!activeProfile) return
@@ -38,22 +31,12 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
     setErrorMessage(null)
 
     try {
-      const profileSettings: ProfileSettings = {
-        course,
-        git_connection: gitConnection,
-        operations,
-        exports,
-      }
+      const success = await save(activeProfile)
 
-      const result = await commands.saveProfileAndRoster(
-        activeProfile,
-        profileSettings,
-        roster,
-      )
-
-      if (result.status === "error") {
+      if (!success) {
+        const error = useProfileStore.getState().error
         setStatus("error")
-        setErrorMessage(result.error.message)
+        setErrorMessage(error ?? "Save failed")
         return
       }
 
@@ -67,15 +50,7 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
       setStatus("error")
       setErrorMessage(error instanceof Error ? error.message : String(error))
     }
-  }, [
-    activeProfile,
-    course,
-    gitConnection,
-    operations,
-    exports,
-    roster,
-    onSaved,
-  ])
+  }, [activeProfile, save, onSaved])
 
   const isDisabled = !activeProfile || !isDirty || status === "saving"
 

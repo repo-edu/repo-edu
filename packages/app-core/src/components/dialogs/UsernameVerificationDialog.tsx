@@ -17,7 +17,7 @@ import {
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function UsernameVerificationDialog() {
@@ -35,8 +35,8 @@ export function UsernameVerificationDialog() {
   )
   const activeProfile = useUiStore((state) => state.activeProfile)
 
-  const roster = useRosterStore((state) => state.roster)
-  const setRoster = useRosterStore((state) => state.setRoster)
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const setRoster = useProfileStore((state) => state.setRoster)
 
   const appendOutput = useOutputStore((state) => state.appendText)
 

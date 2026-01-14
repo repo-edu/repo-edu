@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@repo-edu/ui"
 import { AlertCircle } from "@repo-edu/ui/components/icons"
+import { useOperationStore } from "../../stores/operationStore"
 import { useUiStore } from "../../stores/uiStore"
 
 /** ValidationKinds that block operations (errors, not warnings) */
@@ -43,7 +44,7 @@ interface ValidationDialogProps {
 export function ValidationDialog({ onProceed }: ValidationDialogProps) {
   const open = useUiStore((state) => state.validationDialogOpen)
   const setOpen = useUiStore((state) => state.setValidationDialogOpen)
-  const validationResult = useUiStore((state) => state.validationResult)
+  const validationResult = useOperationStore((state) => state.validationResult)
 
   if (!validationResult) return null
 

@@ -14,15 +14,17 @@ import {
   Input,
 } from "@repo-edu/ui"
 import { useEffect, useState } from "react"
-import { useRosterStore } from "../../stores/rosterStore"
+import {
+  selectRoster,
+  selectSelectedAssignmentId,
+  useProfileStore,
+} from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function EditAssignmentDialog() {
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
-    (state) => state.selectedAssignmentId,
-  )
-  const updateAssignment = useRosterStore((state) => state.updateAssignment)
+  const roster = useProfileStore(selectRoster)
+  const selectedAssignmentId = useProfileStore(selectSelectedAssignmentId)
+  const updateAssignment = useProfileStore((state) => state.updateAssignment)
   const open = useUiStore((state) => state.editAssignmentDialogOpen)
   const setOpen = useUiStore((state) => state.setEditAssignmentDialogOpen)
 

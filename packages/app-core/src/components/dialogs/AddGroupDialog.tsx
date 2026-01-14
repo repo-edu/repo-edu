@@ -15,7 +15,7 @@ import {
   Input,
 } from "@repo-edu/ui"
 import { useState } from "react"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { generateGroupId } from "../../utils/nanoid"
 import { StudentMultiSelect } from "./StudentMultiSelect"
@@ -24,11 +24,11 @@ export function AddGroupDialog() {
   const [name, setName] = useState("")
   const [selectedMembers, setSelectedMembers] = useState<StudentId[]>([])
 
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const addGroup = useRosterStore((state) => state.addGroup)
+  const addGroup = useProfileStore((state) => state.addGroup)
   const open = useUiStore((state) => state.addGroupDialogOpen)
   const setOpen = useUiStore((state) => state.setAddGroupDialogOpen)
 

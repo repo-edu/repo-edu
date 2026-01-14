@@ -25,7 +25,7 @@ import { useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { StyledRadioGroup } from "../StyledRadioGroup"
 
@@ -34,7 +34,7 @@ export function CoverageReportSheet() {
   const setCoverageReportOpen = useUiStore(
     (state) => state.setCoverageReportOpen,
   )
-  const roster = useRosterStore((state) => state.roster)
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
   const appendOutput = useOutputStore((state) => state.appendText)
 
   const [report, setReport] = useState<CoverageReport | null>(null)

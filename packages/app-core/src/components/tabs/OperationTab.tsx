@@ -30,8 +30,7 @@ import { openDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOperationStore } from "../../stores/operationStore"
 import { useOutputStore } from "../../stores/outputStore"
-import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildRepoOperationContext } from "../../utils/operationContext"
 import { StyledRadioGroup } from "../StyledRadioGroup"
@@ -44,17 +43,17 @@ const LABEL_WIDTH = 100
 const LABEL_WIDTH_EXTENDED = LABEL_WIDTH + 20
 
 export function OperationTab() {
-  const roster = useRosterStore((state) => state.roster)
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
   const assignments = roster?.assignments ?? []
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const operations = useProfileSettingsStore((state) => state.operations)
-  const gitConnectionName = useProfileSettingsStore(
-    (state) => state.gitConnection,
+  const operations = useProfileStore(
+    (state) => state.document?.settings.operations,
+  )
+  const gitConnectionName = useProfileStore(
+    (state) => state.document?.settings.git_connection ?? null,
   )
   const gitConnections = useAppSettingsStore((state) => state.gitConnections)
-  const updateOperations = useProfileSettingsStore(
-    (state) => state.updateOperations,
-  )
+  const updateOperations = useProfileStore((state) => state.updateOperations)
 
   const operationSelected = useOperationStore((state) => state.selected)
   const setOperationSelected = useOperationStore((state) => state.setSelected)
@@ -64,33 +63,40 @@ export function OperationTab() {
 
   const append = useOutputStore((state) => state.append)
 
-  // Use shared assignment selection from rosterStore
-  const selectedAssignmentId = useRosterStore(
+  // Use shared assignment selection from profileStore
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const selectAssignment = useRosterStore((state) => state.selectAssignment)
+  const selectAssignment = useProfileStore((state) => state.selectAssignment)
 
-  // Read form values from store
-  const templateOrg = operations.create.template_org ?? ""
-  const targetOrg = operations.target_org ?? ""
-  const targetDir = operations.clone.target_dir ?? ""
-  const directoryLayout = operations.clone.directory_layout ?? "flat"
+  // Read form values from store (with defaults)
+  const templateOrg = operations?.create.template_org ?? ""
+  const targetOrg = operations?.target_org ?? ""
+  const targetDir = operations?.clone.target_dir ?? ""
+  const directoryLayout = operations?.clone.directory_layout ?? "flat"
   const gitConnection = gitConnectionName
     ? (gitConnections[gitConnectionName] ?? null)
     : null
-  const repoContext = buildRepoOperationContext(gitConnection, operations)
+  const repoContext =
+    operations && buildRepoOperationContext(gitConnection, operations)
 
   // Update handlers that persist to store
-  const setTemplateOrg = (value: string) =>
+  const setTemplateOrg = (value: string) => {
+    if (!operations) return
     updateOperations({ create: { ...operations.create, template_org: value } })
+  }
   const setTargetOrg = (value: string) =>
     updateOperations({ target_org: value })
-  const setTargetDir = (value: string) =>
+  const setTargetDir = (value: string) => {
+    if (!operations) return
     updateOperations({ clone: { ...operations.clone, target_dir: value } })
-  const setDirectoryLayout = (value: DirectoryLayout) =>
+  }
+  const setDirectoryLayout = (value: DirectoryLayout) => {
+    if (!operations) return
     updateOperations({
       clone: { ...operations.clone, directory_layout: value },
     })
+  }
 
   const selectedAssignment = assignments.find(
     (a) => a.id === selectedAssignmentId,

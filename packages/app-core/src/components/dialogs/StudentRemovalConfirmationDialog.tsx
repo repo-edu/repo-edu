@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@repo-edu/ui"
 import { useOutputStore } from "../../stores/outputStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function StudentRemovalConfirmationDialog() {
@@ -22,7 +22,7 @@ export function StudentRemovalConfirmationDialog() {
     (state) => state.setStudentRemovalConfirmation,
   )
 
-  const removeStudent = useRosterStore((state) => state.removeStudent)
+  const removeStudent = useProfileStore((state) => state.removeStudent)
   const appendOutput = useOutputStore((state) => state.appendText)
 
   if (!studentRemovalConfirmation) return null

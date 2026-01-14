@@ -40,9 +40,8 @@ import {
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../bindings/commands"
 import { useOutputStore } from "../stores/outputStore"
-import { useProfileSettingsStore } from "../stores/profileSettingsStore"
+import { type ProfileLoadResult, useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
-import { loadProfileData, type ProfileLoadResult } from "../utils/profileLoader"
 import {
   ActionDropdown,
   type ActionDropdownItem,
@@ -89,8 +88,10 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
     (state) => state.setNewProfileDialogOpen,
   )
   const appendOutput = useOutputStore((state) => state.appendText)
-  const course = useProfileSettingsStore((state) => state.course)
-  const profileStatus = useProfileSettingsStore((state) => state.status)
+  const course = useProfileStore(
+    (state) => state.document?.settings.course ?? null,
+  )
+  const profileStatus = useProfileStore((state) => state.status)
 
   const [profiles, setProfiles] = useState<string[]>([])
   const [profileCourses, setProfileCourses] = useState<Record<string, string>>(
@@ -654,12 +655,13 @@ interface ProfileMenuProps {
 function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
+  const load = useProfileStore((state) => state.load)
 
   const handleRevert = async () => {
     if (!activeProfile) return
 
     try {
-      const result = await loadProfileData(activeProfile)
+      const result = await load(activeProfile)
       if (result.stale) return
       onProfileLoadResult(result)
       if (result.ok) {

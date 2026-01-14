@@ -46,9 +46,8 @@ import { listenEvent } from "./services/platform"
 import * as settingsService from "./services/settingsService"
 import { useAppSettingsStore } from "./stores/appSettingsStore"
 import { useOutputStore } from "./stores/outputStore"
-import { useProfileSettingsStore } from "./stores/profileSettingsStore"
+import { type ProfileLoadResult, useProfileStore } from "./stores/profileStore"
 import { type ActiveTab, useUiStore } from "./stores/uiStore"
-import type { ProfileLoadResult } from "./utils/profileLoader"
 import "./App.css"
 
 function App() {
@@ -59,7 +58,7 @@ function App() {
   const theme = useAppSettingsStore((state) => state.theme)
   const appSettingsStatus = useAppSettingsStore((state) => state.status)
   const loadAppSettings = useAppSettingsStore((state) => state.load)
-  const saveProfile = useProfileSettingsStore((state) => state.save)
+  const save = useProfileStore((state) => state.save)
 
   // Apply theme
   useTheme(theme || DEFAULT_GUI_THEME)
@@ -103,18 +102,22 @@ function App() {
       return
     }
     try {
-      await saveProfile(ui.activeProfile)
-      // Also save roster if needed
-      markClean()
-      output.appendText(
-        `Settings saved to profile: ${ui.activeProfile}`,
-        "success",
-      )
+      const success = await save(ui.activeProfile)
+      if (success) {
+        markClean()
+        output.appendText(
+          `Settings saved to profile: ${ui.activeProfile}`,
+          "success",
+        )
+      } else {
+        const error = useProfileStore.getState().error
+        output.appendText(`Failed to save settings: ${error}`, "error")
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       output.appendText(`Failed to save settings: ${message}`, "error")
     }
-  }, [ui.activeProfile, saveProfile, markClean, output])
+  }, [ui.activeProfile, save, markClean, output])
 
   // Close guard
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({

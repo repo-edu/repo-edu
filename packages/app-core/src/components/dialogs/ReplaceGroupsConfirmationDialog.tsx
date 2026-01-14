@@ -16,8 +16,7 @@ import {
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
-import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildLmsOperationContext } from "../../utils/operationContext"
 
@@ -25,11 +24,14 @@ export function ReplaceGroupsConfirmationDialog() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const selectedAssignmentId = useProfileStore(
     (state) => state.selectedAssignmentId,
   )
-  const setRoster = useRosterStore((state) => state.setRoster)
+  const setRoster = useProfileStore((state) => state.setRoster)
+  const courseId = useProfileStore(
+    (state) => state.document?.settings.course.id ?? "",
+  )
 
   const open = useUiStore((state) => state.replaceGroupsConfirmationOpen)
   const setOpen = useUiStore((state) => state.setReplaceGroupsConfirmationOpen)
@@ -42,7 +44,6 @@ export function ReplaceGroupsConfirmationDialog() {
   )
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const courseId = useProfileSettingsStore((state) => state.course.id)
   const lmsContext = buildLmsOperationContext(lmsConnection, courseId)
   const lmsContextError = !lmsConnection
     ? "No LMS connection configured"

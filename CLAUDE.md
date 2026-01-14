@@ -117,9 +117,8 @@ This enables the same UI to run in Tauri (desktop) or with a mock backend (tests
 **`packages/app-core/`** — Environment-agnostic core UI and state management
 
 - `stores/` - Zustand stores:
-  - `rosterStore` - Student roster data and selection state
   - `appSettingsStore` - App-level settings (theme, LMS, git connections)
-  - `profileSettingsStore` - Per-profile connection settings
+  - `profileStore` - Profile document (settings + roster) with Immer mutations
   - `connectionsStore` - Draft connection state during editing
   - `operationStore` - Git operation progress and results
   - `outputStore` - Console output messages

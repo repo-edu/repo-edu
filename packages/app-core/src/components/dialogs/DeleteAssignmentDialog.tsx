@@ -11,16 +11,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo-edu/ui"
-import { useRosterStore } from "../../stores/rosterStore"
+import {
+  selectRoster,
+  selectSelectedAssignmentId,
+  useProfileStore,
+} from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function DeleteAssignmentDialog() {
-  const roster = useRosterStore((state) => state.roster)
-  const selectedAssignmentId = useRosterStore(
-    (state) => state.selectedAssignmentId,
-  )
-  const removeAssignment = useRosterStore((state) => state.removeAssignment)
-  const selectAssignment = useRosterStore((state) => state.selectAssignment)
+  const roster = useProfileStore(selectRoster)
+  const selectedAssignmentId = useProfileStore(selectSelectedAssignmentId)
+  const removeAssignment = useProfileStore((state) => state.removeAssignment)
+  const selectAssignment = useProfileStore((state) => state.selectAssignment)
   const open = useUiStore((state) => state.deleteAssignmentDialogOpen)
   const setOpen = useUiStore((state) => state.setDeleteAssignmentDialogOpen)
 

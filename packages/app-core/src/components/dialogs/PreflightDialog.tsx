@@ -24,7 +24,7 @@ interface PreflightDialogProps {
 export function PreflightDialog({ onContinue }: PreflightDialogProps) {
   const open = useUiStore((state) => state.preflightDialogOpen)
   const setOpen = useUiStore((state) => state.setPreflightDialogOpen)
-  const preflightResult = useUiStore((state) => state.preflightResult)
+  const preflightResult = useOperationStore((state) => state.preflightResult)
   const operationSelected = useOperationStore((state) => state.selected)
 
   if (!preflightResult) return null

@@ -9,6 +9,7 @@
  */
 
 import type {
+  Roster,
   ValidationIssue,
   ValidationKind,
 } from "@repo-edu/backend-interface/types"
@@ -33,8 +34,7 @@ import { saveDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
-import { useProfileSettingsStore } from "../../stores/profileSettingsStore"
-import { useRosterStore } from "../../stores/rosterStore"
+import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatDateTime } from "../../utils/formatDate"
 import { buildLmsOperationContext } from "../../utils/operationContext"
@@ -111,13 +111,15 @@ const ISSUE_DESCRIPTIONS: Record<
 }
 
 export function RosterTab() {
-  const roster = useRosterStore((state) => state.roster)
-  const setRoster = useRosterStore((state) => state.setRoster)
-  const rosterValidation = useRosterStore((state) => state.rosterValidation)
-  const rosterStatus = useRosterStore((state) => state.status)
+  const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const setRoster = useProfileStore((state) => state.setRoster)
+  const rosterValidation = useProfileStore((state) => state.rosterValidation)
+  const rosterStatus = useProfileStore((state) => state.status)
+  const course = useProfileStore(
+    (state) => state.document?.settings.course ?? { id: "", name: "" },
+  )
 
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const course = useProfileSettingsStore((state) => state.course)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const courseStatus = useConnectionsStore((state) => state.courseStatus)
   const appendOutput = useOutputStore((state) => state.appendText)
@@ -511,7 +513,7 @@ function RosterActions({
 }
 
 interface RosterSourceDisplayProps {
-  roster: ReturnType<typeof useRosterStore.getState>["roster"]
+  roster: Roster | null
 }
 
 function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
