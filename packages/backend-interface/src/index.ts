@@ -22,6 +22,7 @@ import type {
   GitIdentityMode,
   GitVerifyResult,
   GroupCategory,
+  GroupFileImportResult,
   GroupImportConfig,
   ImportGitUsernamesResult,
   ImportGroupsResult,
@@ -154,6 +155,15 @@ export interface BackendAPI {
     roster: Roster | null,
     filePath: string,
   ): Promise<Result<ImportStudentsResult, AppError>>
+
+  /**
+   * Import groups from CSV/Excel file
+   */
+  importGroupsFromFile(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    filePath: string,
+  ): Promise<Result<GroupFileImportResult, AppError>>
 
   /**
    * Fetch available group-sets from LMS (with all groups)
@@ -402,6 +412,15 @@ export interface BackendAPI {
    */
   exportTeams(
     profile: string,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>>
+
+  /**
+   * Export assignment groups for external editing
+   */
+  exportGroupsForEdit(
     roster: Roster,
     assignmentId: AssignmentId,
     path: string,

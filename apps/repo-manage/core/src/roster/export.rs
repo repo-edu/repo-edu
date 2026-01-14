@@ -254,6 +254,52 @@ pub fn export_assignment_students(
     write_by_extension(path, "Assignment Students", rows)
 }
 
+pub fn export_groups_for_edit(
+    roster: &Roster,
+    assignment_id: &AssignmentId,
+    path: &Path,
+) -> Result<()> {
+    let assignment = roster
+        .assignments
+        .iter()
+        .find(|assignment| assignment.id == *assignment_id)
+        .ok_or_else(|| PlatformError::Other("Assignment not found".to_string()))?;
+
+    let student_map: HashMap<StudentId, &crate::generated::types::Student> = roster
+        .students
+        .iter()
+        .map(|student| (student.id.clone(), student))
+        .collect();
+
+    let mut rows = Vec::new();
+    rows.push(vec![
+        "group_id".to_string(),
+        "group_name".to_string(),
+        "student_id".to_string(),
+        "student_email".to_string(),
+        "student_name".to_string(),
+        "notes".to_string(),
+    ]);
+
+    for group in &assignment.groups {
+        for member_id in &group.member_ids {
+            let student = student_map.get(member_id).ok_or_else(|| {
+                PlatformError::Other(format!("Unknown student ID in group: {}", member_id))
+            })?;
+            rows.push(vec![
+                group.id.as_str().to_string(),
+                group.name.clone(),
+                student.id.as_str().to_string(),
+                student.email.clone(),
+                student.name.clone(),
+                String::new(),
+            ]);
+        }
+    }
+
+    write_by_extension(path, "Assignment Groups", rows)
+}
+
 fn collect_custom_headers(roster: &Roster) -> Vec<String> {
     let mut keys: HashSet<String> = HashSet::new();
     for student in &roster.students {

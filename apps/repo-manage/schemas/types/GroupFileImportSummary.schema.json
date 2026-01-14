@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GroupFileImportSummary",
+  "type": "object",
+  "properties": {
+    "groups_added": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "groups_removed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "groups_renamed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "members_added": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "members_removed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "members_moved": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "groups_added",
+    "groups_removed",
+    "groups_renamed",
+    "members_added",
+    "members_removed",
+    "members_moved"
+  ],
+  "description": "Summary of group file imports"
+}

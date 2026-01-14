@@ -11,6 +11,15 @@ pub(crate) struct HeaderInfo {
     pub(crate) normalized: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct GroupEditEntry {
+    pub group_id: Option<String>,
+    pub group_name: String,
+    pub student_id: Option<String>,
+    pub student_email: Option<String>,
+    pub row_number: usize,
+}
+
 pub fn parse_students_csv<R: Read>(reader: R) -> Result<Vec<StudentDraft>> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .flexible(true)
@@ -47,6 +56,25 @@ pub fn parse_git_usernames_csv<R: Read>(reader: R) -> Result<Vec<GitUsernameEntr
         .collect::<Vec<_>>();
 
     parse_git_username_rows(&headers, csv_reader.records())
+}
+
+pub fn parse_group_edit_csv<R: Read>(reader: R) -> Result<Vec<GroupEditEntry>> {
+    let mut csv_reader = csv::ReaderBuilder::new()
+        .flexible(true)
+        .has_headers(true)
+        .from_reader(reader);
+
+    let headers = csv_reader
+        .headers()
+        .map_err(|e| PlatformError::Other(format!("Failed to read CSV headers: {}", e)))?
+        .iter()
+        .map(|h| HeaderInfo {
+            original: h.trim().to_string(),
+            normalized: normalize_header(h),
+        })
+        .collect::<Vec<_>>();
+
+    parse_group_edit_rows(&headers, csv_reader.records())
 }
 
 pub(crate) fn parse_student_rows<I>(headers: &[HeaderInfo], records: I) -> Result<Vec<StudentDraft>>
@@ -207,6 +235,97 @@ where
             email_to_index.insert(normalized_email, entries.len());
             entries.push(entry);
         }
+    }
+
+    if !missing_rows.is_empty() {
+        return Err(PlatformError::Other(format!(
+            "Missing required fields in rows: {}",
+            missing_rows
+                .iter()
+                .map(|row| row.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
+
+    Ok(entries)
+}
+
+pub(crate) fn parse_group_edit_rows<I>(
+    headers: &[HeaderInfo],
+    records: I,
+) -> Result<Vec<GroupEditEntry>>
+where
+    I: Iterator<Item = std::result::Result<csv::StringRecord, csv::Error>>,
+{
+    let mut missing_headers = Vec::new();
+    if !headers
+        .iter()
+        .any(|h| h.normalized == "group_name" || h.normalized == "group")
+    {
+        missing_headers.push("group_name");
+    }
+    let has_student_id = headers.iter().any(|h| h.normalized == "student_id");
+    let has_student_email = headers
+        .iter()
+        .any(|h| h.normalized == "student_email" || h.normalized == "email");
+    if !has_student_id && !has_student_email {
+        missing_headers.push("student_id or student_email");
+    }
+
+    if !missing_headers.is_empty() {
+        return Err(PlatformError::Other(format!(
+            "Missing required headers: {}",
+            missing_headers.join(", ")
+        )));
+    }
+
+    let mut entries = Vec::new();
+    let mut missing_rows: Vec<usize> = Vec::new();
+
+    for (row_index, record) in records.enumerate() {
+        let record =
+            record.map_err(|e| PlatformError::Other(format!("Failed to read CSV row: {}", e)))?;
+
+        if record.iter().all(|cell| cell.trim().is_empty()) {
+            continue;
+        }
+
+        let mut group_id: Option<String> = None;
+        let mut group_name = String::new();
+        let mut student_id: Option<String> = None;
+        let mut student_email: Option<String> = None;
+
+        for (idx, header) in headers.iter().enumerate() {
+            let value = record.get(idx).unwrap_or("").trim();
+            if value.is_empty() {
+                continue;
+            }
+            match header.normalized.as_str() {
+                "group_id" => group_id = Some(value.to_string()),
+                "group_name" | "group" => group_name = value.to_string(),
+                "student_id" => student_id = Some(value.to_string()),
+                "student_email" | "email" => student_email = Some(value.to_string()),
+                _ => {}
+            }
+        }
+
+        let row_number = row_index + 2;
+        if group_name.trim().is_empty()
+            || (student_id.as_deref().unwrap_or("").trim().is_empty()
+                && student_email.as_deref().unwrap_or("").trim().is_empty())
+        {
+            missing_rows.push(row_number);
+            continue;
+        }
+
+        entries.push(GroupEditEntry {
+            group_id: group_id.filter(|value| !value.trim().is_empty()),
+            group_name: group_name.trim().to_string(),
+            student_id: student_id.filter(|value| !value.trim().is_empty()),
+            student_email: student_email.filter(|value| !value.trim().is_empty()),
+            row_number,
+        });
     }
 
     if !missing_rows.is_empty() {

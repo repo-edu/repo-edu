@@ -253,6 +253,26 @@ export interface GroupImportSummary {
 }
 
 /**
+ * Result of importing groups from file
+ */
+export interface GroupFileImportResult {
+  summary: GroupFileImportSummary
+  roster: Roster
+}
+
+/**
+ * Summary of group file imports
+ */
+export interface GroupFileImportSummary {
+  groups_added: number
+  groups_removed: number
+  groups_renamed: number
+  members_added: number
+  members_removed: number
+  members_moved: number
+}
+
+/**
  * Result of importing git usernames
  */
 export interface ImportGitUsernamesResult {

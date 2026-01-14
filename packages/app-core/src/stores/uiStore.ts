@@ -48,6 +48,7 @@ interface UiState {
   addGroupDialogOpen: boolean
   editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
+  importGroupsFromFileDialogOpen: boolean
   replaceGroupsConfirmationOpen: boolean
   editingGroupId: GroupId | null
 
@@ -104,6 +105,7 @@ interface UiActions {
   setAddGroupDialogOpen: (open: boolean) => void
   setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
+  setImportGroupsFromFileDialogOpen: (open: boolean) => void
   setReplaceGroupsConfirmationOpen: (open: boolean) => void
   setEditingGroupId: (id: GroupId | null) => void
 
@@ -165,6 +167,7 @@ const initialState: UiState = {
   addGroupDialogOpen: false,
   editGroupDialogOpen: false,
   importGroupsDialogOpen: false,
+  importGroupsFromFileDialogOpen: false,
   replaceGroupsConfirmationOpen: false,
   editingGroupId: null,
 
@@ -227,6 +230,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setAddGroupDialogOpen: (open) => set({ addGroupDialogOpen: open }),
   setEditGroupDialogOpen: (open) => set({ editGroupDialogOpen: open }),
   setImportGroupsDialogOpen: (open) => set({ importGroupsDialogOpen: open }),
+  setImportGroupsFromFileDialogOpen: (open) =>
+    set({ importGroupsFromFileDialogOpen: open }),
   setReplaceGroupsConfirmationOpen: (open) =>
     set({ replaceGroupsConfirmationOpen: open }),
   setEditingGroupId: (id) => set({ editingGroupId: id }),

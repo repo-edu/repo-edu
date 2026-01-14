@@ -28,6 +28,7 @@ import type {
   GitIdentityMode,
   GitVerifyResult,
   GroupCategory,
+  GroupFileImportResult,
   GroupImportConfig,
   ImportGitUsernamesResult,
   ImportGroupsResult,
@@ -264,6 +265,30 @@ export class TauriBackend implements BackendAPI {
         data: await TAURI_INVOKE("import_students_from_file", {
           profile,
           roster,
+          filePath,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Import groups from CSV/Excel file
+   */
+  async importGroupsFromFile(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    filePath: string,
+  ): Promise<Result<GroupFileImportResult, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_groups_from_file", {
+          roster,
+          assignmentId,
           filePath,
         }),
       }
@@ -949,6 +974,30 @@ export class TauriBackend implements BackendAPI {
         status: "ok",
         data: await TAURI_INVOKE("export_teams", {
           profile,
+          roster,
+          assignmentId,
+          path,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Export assignment groups for external editing
+   */
+  async exportGroupsForEdit(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_groups_for_edit", {
           roster,
           assignmentId,
           path,

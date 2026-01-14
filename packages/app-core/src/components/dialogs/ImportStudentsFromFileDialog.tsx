@@ -137,6 +137,9 @@ export function ImportStudentsFromFileDialog() {
             Existing students matched by email will be updated. New students
             will be added.
           </p>
+          <p className="text-sm text-muted-foreground">
+            Next: import groups in the Assignment tab if needed.
+          </p>
         </div>
 
         <DialogFooter>

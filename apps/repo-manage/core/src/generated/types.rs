@@ -234,6 +234,22 @@ pub struct GroupImportSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupFileImportResult {
+  pub summary: GroupFileImportSummary,
+  pub roster: Roster,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupFileImportSummary {
+  pub groups_added: i64,
+  pub groups_removed: i64,
+  pub groups_renamed: i64,
+  pub members_added: i64,
+  pub members_removed: i64,
+  pub members_moved: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportGitUsernamesResult {
   pub summary: GitUsernameImportSummary,
   pub roster: Roster,

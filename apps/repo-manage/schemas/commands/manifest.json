@@ -137,6 +137,25 @@
       "output": "ImportStudentsResult",
       "error": "AppError"
     },
+    "import_groups_from_file": {
+      "description": "Import groups from CSV/Excel file",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "GroupFileImportResult",
+      "error": "AppError"
+    },
     "fetch_lms_group_sets": {
       "description": "Fetch available group-sets from LMS (with all groups)",
       "input": [
@@ -579,6 +598,25 @@
           "name": "profile",
           "type": "String"
         },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "()",
+      "error": "AppError"
+    },
+    "export_groups_for_edit": {
+      "description": "Export assignment groups for external editing",
+      "input": [
         {
           "name": "roster",
           "type": "Roster"

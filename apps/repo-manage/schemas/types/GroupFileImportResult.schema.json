@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GroupFileImportResult",
+  "type": "object",
+  "properties": {
+    "summary": {
+      "$ref": "./GroupFileImportSummary.schema.json"
+    },
+    "roster": {
+      "$ref": "./Roster.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "roster"
+  ],
+  "description": "Result of importing groups from file"
+}

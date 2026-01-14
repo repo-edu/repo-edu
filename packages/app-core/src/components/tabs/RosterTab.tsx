@@ -458,9 +458,9 @@ function RosterActions({
         size="sm"
         variant="outline"
         onClick={onImportFromFile}
-        title="Import students from a CSV or Excel file."
+        title="Import roster students from a CSV or Excel file."
       >
-        Import from File
+        Import Students (File)
       </Button>
       <Button
         size="sm"
@@ -483,7 +483,7 @@ function RosterActions({
           <Button
             size="sm"
             variant="outline"
-            title="Export the student list with names, emails, and git usernames."
+            title="Export the roster student list (names, emails, git usernames). For group round-trip editing, use Assignment → Export → Groups."
           >
             Export
             <ChevronDown className="size-4 ml-1" />
@@ -491,10 +491,10 @@ function RosterActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => onExport("csv")}>
-            Students (CSV)
+            Roster Students (CSV)
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onExport("xlsx")}>
-            Students (XLSX)
+            Roster Students (XLSX)
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

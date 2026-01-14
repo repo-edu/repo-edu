@@ -63,12 +63,13 @@ pub use settings::{
 // Generated types used by Tauri commands
 pub use generated::types::{
     AssignmentId, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport, CreateConfig,
-    DeleteConfig, DirectoryLayout, GitUsernameImportSummary, GitVerifyResult, GroupFilter, GroupId,
-    GroupImportConfig, GroupImportSummary, ImportGitUsernamesResult, ImportGroupsResult,
-    ImportStudentsResult, ImportSummary, InvalidUsername, LmsGroup, LmsGroupSet, LmsIdConflict,
-    LmsOperationContext, LmsVerifyResult, OperationError, OperationResult, RepoCollision,
-    RepoCollisionKind, RepoOperationContext, RepoPreflightResult, SkippedGroup, SkippedGroupReason,
-    StudentId, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    DeleteConfig, DirectoryLayout, GitUsernameImportSummary, GitVerifyResult,
+    GroupFileImportResult, GroupFileImportSummary, GroupFilter, GroupId, GroupImportConfig,
+    GroupImportSummary, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult,
+    ImportSummary, InvalidUsername, LmsGroup, LmsGroupSet, LmsIdConflict, LmsOperationContext,
+    LmsVerifyResult, OperationError, OperationResult, RepoCollision, RepoCollisionKind,
+    RepoOperationContext, RepoPreflightResult, SkippedGroup, SkippedGroupReason, StudentId,
+    UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
     UsernameVerificationScope, ValidationIssue, ValidationKind, ValidationResult,
     VerifyGitUsernamesResult,
 };

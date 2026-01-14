@@ -3,6 +3,8 @@
  */
 
 import {
+  Alert,
+  AlertDescription,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +17,10 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@repo-edu/ui"
+import { AlertTriangle } from "@repo-edu/ui/components/icons"
+import { commands } from "../../bindings/commands"
+import { saveDialog } from "../../services/platform"
+import { useOutputStore } from "../../stores/outputStore"
 import { useRosterStore } from "../../stores/rosterStore"
 import { useUiStore } from "../../stores/uiStore"
 
@@ -218,48 +224,199 @@ function AssignmentActions() {
   const setImportGroupsDialogOpen = useUiStore(
     (state) => state.setImportGroupsDialogOpen,
   )
+  const setImportGroupsFromFileDialogOpen = useUiStore(
+    (state) => state.setImportGroupsFromFileDialogOpen,
+  )
   const setExportSettingsOpen = useUiStore(
     (state) => state.setExportSettingsOpen,
   )
+  const activeProfile = useUiStore((state) => state.activeProfile)
+  const roster = useRosterStore((state) => state.roster)
+  const selectedAssignmentId = useRosterStore(
+    (state) => state.selectedAssignmentId,
+  )
+  const appendOutput = useOutputStore((state) => state.appendText)
+  const canImportGroupsFromFile = Boolean(roster?.students.length)
+
+  const handleExportGroups = async (format: "csv" | "xlsx") => {
+    if (!roster || !selectedAssignmentId) return
+
+    try {
+      const path = await saveDialog({
+        defaultPath: `assignment-groups.${format}`,
+        filters: [
+          {
+            name: format === "csv" ? "CSV files" : "Excel files",
+            extensions: [format],
+          },
+        ],
+      })
+
+      if (!path) return
+
+      const result = await commands.exportGroupsForEdit(
+        roster,
+        selectedAssignmentId,
+        path,
+      )
+      if (result.status === "ok") {
+        appendOutput(`Groups exported to ${path}`, "success")
+      } else {
+        appendOutput(`Export failed: ${result.error.message}`, "error")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendOutput(`Export failed: ${message}`, "error")
+    }
+  }
+
+  const handleExportTeams = async () => {
+    if (!roster || !selectedAssignmentId) return
+    if (!activeProfile) {
+      appendOutput("No active profile selected.", "warning")
+      return
+    }
+
+    try {
+      const path = await saveDialog({
+        defaultPath: "teams.yaml",
+        filters: [
+          {
+            name: "YAML files",
+            extensions: ["yaml", "yml"],
+          },
+        ],
+      })
+
+      if (!path) return
+
+      const result = await commands.exportTeams(
+        activeProfile,
+        roster,
+        selectedAssignmentId,
+        path,
+      )
+      if (result.status === "ok") {
+        appendOutput(`Teams exported to ${path}`, "success")
+      } else {
+        appendOutput(`Export failed: ${result.error.message}`, "error")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendOutput(`Export failed: ${message}`, "error")
+    }
+  }
+
+  const handleExportAssignmentStudents = async (format: "csv" | "xlsx") => {
+    if (!roster || !selectedAssignmentId) return
+
+    try {
+      const path = await saveDialog({
+        defaultPath: `assignment-students.${format}`,
+        filters: [
+          {
+            name: format === "csv" ? "CSV files" : "Excel files",
+            extensions: [format],
+          },
+        ],
+      })
+
+      if (!path) return
+
+      const result = await commands.exportAssignmentStudents(
+        roster,
+        selectedAssignmentId,
+        path,
+      )
+      if (result.status === "ok") {
+        appendOutput(`Assignment students exported to ${path}`, "success")
+      } else {
+        appendOutput(`Export failed: ${result.error.message}`, "error")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendOutput(`Export failed: ${message}`, "error")
+    }
+  }
 
   return (
-    <div className="flex gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setImportGroupsDialogOpen(true)}
-        title="Import group assignments from your LMS. Groups define which students work together on an assignment."
-      >
-        Import Groups
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setGroupEditorOpen(true)}
-        title="View and manually edit group membership."
-      >
-        View/Edit
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            title="Export assignment groups as YAML for use with RepoBee, or export students."
-          >
-            Export
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem disabled>Teams (YAML)</DropdownMenuItem>
-          <DropdownMenuItem disabled>Students (CSV)</DropdownMenuItem>
-          <DropdownMenuItem disabled>Students (XLSX)</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setExportSettingsOpen(true)}>
-            Export Settings...
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="flex flex-col gap-2">
+      {!canImportGroupsFromFile && (
+        <Alert variant="warning">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            Import students first in the Roster tab so group imports can match
+            by student_id or email.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportGroupsDialogOpen(true)}
+          title="Import group assignments from your LMS. Groups define which students work together on an assignment."
+        >
+          Import Groups
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportGroupsFromFileDialogOpen(true)}
+          title={
+            canImportGroupsFromFile
+              ? "Import groups from CSV/XLSX (round-trip if group_id exists; otherwise create new groups)."
+              : "Import students first (Roster tab) so groups can match by student_id/email."
+          }
+          disabled={!canImportGroupsFromFile}
+        >
+          Import Groups (File)
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setGroupEditorOpen(true)}
+          title="View and manually edit group membership."
+        >
+          View/Edit
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              title="Export assignment-specific data. Groups CSV/XLSX supports round-trip editing; Teams YAML is for RepoBee."
+            >
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleExportGroups("csv")}>
+              Groups (CSV, editable)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExportGroups("xlsx")}>
+              Groups (XLSX, editable)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportTeams}>
+              Teams (YAML, RepoBee)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleExportAssignmentStudents("csv")}
+            >
+              Assignment Students (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleExportAssignmentStudents("xlsx")}
+            >
+              Assignment Students (XLSX)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setExportSettingsOpen(true)}>
+              Export Settings...
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }

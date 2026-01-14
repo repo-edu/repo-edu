@@ -21,6 +21,7 @@ import type {
   GitIdentityMode,
   GitVerifyResult,
   GroupCategory,
+  GroupFileImportResult,
   GroupImportConfig,
   ImportGitUsernamesResult,
   ImportGroupsResult,
@@ -136,6 +137,16 @@ export const commands = {
     filePath: string,
   ): Promise<Result<ImportStudentsResult, AppError>> {
     return getBackend().importStudentsFromFile(profile, roster, filePath)
+  },
+  /**
+   * Import groups from CSV/Excel file
+   */
+  importGroupsFromFile(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    filePath: string,
+  ): Promise<Result<GroupFileImportResult, AppError>> {
+    return getBackend().importGroupsFromFile(roster, assignmentId, filePath)
   },
   /**
    * Fetch available group-sets from LMS (with all groups)
@@ -434,6 +445,16 @@ export const commands = {
     path: string,
   ): Promise<Result<null, AppError>> {
     return getBackend().exportTeams(profile, roster, assignmentId, path)
+  },
+  /**
+   * Export assignment groups for external editing
+   */
+  exportGroupsForEdit(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    path: string,
+  ): Promise<Result<null, AppError>> {
+    return getBackend().exportGroupsForEdit(roster, assignmentId, path)
   },
   /**
    * Export all students to CSV/XLSX

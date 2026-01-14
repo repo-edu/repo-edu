@@ -16,6 +16,7 @@ import {
   EditGroupDialog,
   ImportGitUsernamesDialog,
   ImportGroupsDialog,
+  ImportGroupsFromFileDialog,
   ImportStudentsFromFileDialog,
   LmsImportConflictDialog,
   NewAssignmentDialog,
@@ -260,6 +261,7 @@ function App() {
       <AddGroupDialog />
       <EditGroupDialog />
       <ImportGroupsDialog />
+      <ImportGroupsFromFileDialog />
       <ReplaceGroupsConfirmationDialog />
 
       {/* Operation Tab Dialogs */}

@@ -3,15 +3,16 @@ use repo_manage_core::import::{normalize_email, parse_git_usernames_csv};
 use repo_manage_core::platform::{PlatformParams, PlatformType, UsernameCheck};
 use repo_manage_core::roster::{
     export_assignment_students as core_export_assignment_students,
+    export_groups_for_edit as core_export_groups_for_edit,
     export_roster_coverage as core_export_roster_coverage, export_students as core_export_students,
     export_teams as core_export_teams, get_roster_coverage as core_get_roster_coverage,
-    AffectedGroup, AssignmentId, GitIdentityMode, GitUsernameStatus, Roster, StudentId,
-    StudentRemovalCheck,
+    import_groups_from_file as core_import_groups_from_file, AffectedGroup, AssignmentId,
+    GitIdentityMode, GitUsernameStatus, Roster, StudentId, StudentRemovalCheck,
 };
 use repo_manage_core::{
     create_platform, AppSettings, CoverageExportFormat, CoverageReport, GitConnection,
-    GitServerType, ImportGitUsernamesResult, InvalidUsername, SettingsManager,
-    UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    GitServerType, GroupFileImportResult, ImportGitUsernamesResult, InvalidUsername,
+    SettingsManager, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
     UsernameVerificationScope, VerifyGitUsernamesResult,
 };
 use std::collections::HashMap;
@@ -197,6 +198,22 @@ pub async fn verify_git_usernames(
 }
 
 #[tauri::command]
+pub async fn import_groups_from_file(
+    roster: Roster,
+    assignment_id: AssignmentId,
+    file_path: PathBuf,
+) -> Result<GroupFileImportResult, AppError> {
+    if !file_path.exists() {
+        return Err(AppError::new("Import file not found"));
+    }
+    Ok(core_import_groups_from_file(
+        roster,
+        &assignment_id,
+        &file_path,
+    )?)
+}
+
+#[tauri::command]
 pub async fn export_teams(
     profile: String,
     roster: Roster,
@@ -208,6 +225,16 @@ pub async fn export_teams(
     let profile_settings = manager.load_profile_settings(&profile)?;
     let identity_mode = resolve_identity_mode(&profile_settings.git_connection, &app_settings)?;
     core_export_teams(&roster, &assignment_id, identity_mode, &path)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn export_groups_for_edit(
+    roster: Roster,
+    assignment_id: AssignmentId,
+    path: PathBuf,
+) -> Result<(), AppError> {
+    core_export_groups_for_edit(&roster, &assignment_id, &path)?;
     Ok(())
 }
 

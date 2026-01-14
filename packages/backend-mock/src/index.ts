@@ -25,6 +25,7 @@ import type {
   GitUsernameStatus,
   GitVerifyResult,
   GroupCategory,
+  GroupFileImportResult,
   GroupFilter,
   GroupImportConfig,
   ImportGitUsernamesResult,
@@ -512,6 +513,43 @@ export class MockBackend implements BackendAPI {
     })
   }
 
+  async importGroupsFromFile(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    _: string,
+  ): Promise<Result<GroupFileImportResult, AppError>> {
+    const assignment = rosterAssignment(roster, assignmentId)
+    if (!assignment) {
+      return this.ok({
+        summary: {
+          groups_added: 0,
+          groups_removed: 0,
+          groups_renamed: 0,
+          members_added: 0,
+          members_removed: 0,
+          members_moved: 0,
+        },
+        roster,
+      })
+    }
+
+    if (this.activeProfile) {
+      this.rosters.set(this.activeProfile, roster)
+    }
+
+    return this.ok({
+      summary: {
+        groups_added: 0,
+        groups_removed: 0,
+        groups_renamed: 0,
+        members_added: 0,
+        members_removed: 0,
+        members_moved: 0,
+      },
+      roster,
+    })
+  }
+
   async assignmentHasGroups(
     roster: Roster,
     assignmentId: AssignmentId,
@@ -790,6 +828,14 @@ export class MockBackend implements BackendAPI {
     __: Roster,
     ___: AssignmentId,
     ____: string,
+  ): Promise<Result<null, AppError>> {
+    return this.ok(null)
+  }
+
+  async exportGroupsForEdit(
+    _: Roster,
+    __: AssignmentId,
+    ___: string,
   ): Promise<Result<null, AppError>> {
     return this.ok(null)
   }

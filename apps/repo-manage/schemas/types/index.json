@@ -122,6 +122,14 @@
       "path": "./GroupImportSummary.schema.json"
     },
     {
+      "name": "GroupFileImportResult",
+      "path": "./GroupFileImportResult.schema.json"
+    },
+    {
+      "name": "GroupFileImportSummary",
+      "path": "./GroupFileImportSummary.schema.json"
+    },
+    {
       "name": "ImportGitUsernamesResult",
       "path": "./ImportGitUsernamesResult.schema.json"
     },
