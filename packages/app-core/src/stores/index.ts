@@ -2,11 +2,7 @@
 export { useAppSettingsStore } from "./appSettingsStore"
 export { useConnectionsStore } from "./connectionsStore"
 export { useOperationStore } from "./operationStore"
-export {
-  selectOutputLines,
-  selectOutputText,
-  useOutputStore,
-} from "./outputStore"
+export { selectOutputLines, useOutputStore } from "./outputStore"
 export { useProfileSettingsStore } from "./profileSettingsStore"
 export {
   selectAssignments,

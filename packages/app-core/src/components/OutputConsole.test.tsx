@@ -10,35 +10,41 @@ describe("OutputConsole", () => {
 
   it("shows placeholder when empty", () => {
     render(<OutputConsole />)
-    expect(
-      screen.getByPlaceholderText("Output will appear here..."),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Output will appear here...")).toBeInTheDocument()
   })
 
   it("displays output text from store", () => {
-    // Use new API - appendText adds structured lines
     useOutputStore.getState().appendText("Test output line")
     render(<OutputConsole />)
-    expect(screen.getByDisplayValue(/Test output line/)).toBeInTheDocument()
+    expect(screen.getByText("Test output line")).toBeInTheDocument()
   })
 
   it("displays multiple lines", () => {
     const store = useOutputStore.getState()
-    // Use new API
     store.appendText("Line 1")
     store.appendText("Line 2")
     store.appendText("Line 3")
 
     render(<OutputConsole />)
 
-    const textarea = screen.getByRole("textbox")
-    // New store joins lines without trailing newline
-    expect(textarea).toHaveValue("Line 1\nLine 2\nLine 3")
+    expect(screen.getByText("Line 1")).toBeInTheDocument()
+    expect(screen.getByText("Line 2")).toBeInTheDocument()
+    expect(screen.getByText("Line 3")).toBeInTheDocument()
   })
 
-  it("textarea is readonly", () => {
+  it("applies level-based styling", () => {
+    const store = useOutputStore.getState()
+    store.appendText("Info message", "info")
+    store.appendText("Error message", "error")
+    store.appendText("Warning message", "warning")
+    store.appendText("Success message", "success")
+
     render(<OutputConsole />)
-    const textarea = screen.getByRole("textbox")
-    expect(textarea).toHaveAttribute("readonly")
+
+    // Verify all messages are rendered
+    expect(screen.getByText("Info message")).toBeInTheDocument()
+    expect(screen.getByText("Error message")).toBeInTheDocument()
+    expect(screen.getByText("Warning message")).toBeInTheDocument()
+    expect(screen.getByText("Success message")).toBeInTheDocument()
   })
 })

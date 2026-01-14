@@ -1,8 +1,9 @@
-import { Button, cn, Textarea } from "@repo-edu/ui"
+import type { OutputLevel } from "@repo-edu/backend-interface/types"
+import { Button, cn } from "@repo-edu/ui"
 import type { CSSProperties } from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { OUTPUT_NEAR_BOTTOM_PX } from "../constants"
-import { useOutputStore } from "../stores"
+import { selectOutputLines, useOutputStore } from "../stores"
 
 interface OutputConsoleProps {
   className?: string
@@ -12,21 +13,34 @@ interface OutputConsoleProps {
 interface ContextMenuState {
   x: number
   y: number
-  selectionLength: number
+  hasSelection: boolean
+}
+
+const levelColors: Record<OutputLevel, string> = {
+  info: "text-muted-foreground",
+  success: "text-green-600 dark:text-green-400",
+  warning: "text-yellow-600 dark:text-yellow-400",
+  error: "text-red-600 dark:text-red-400",
 }
 
 export function OutputConsole({ className, style }: OutputConsoleProps) {
-  const text = useOutputStore((s) => s.text)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const lines = useOutputStore(selectOutputLines)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [atBottom, setAtBottom] = useState(true)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
 
+  // Compute plain text for copy operations
+  const plainText = useMemo(
+    () => lines.map((line) => line.message).join("\n"),
+    [lines],
+  )
+
   useEffect(() => {
-    if (atBottom && textareaRef.current) {
-      const el = textareaRef.current
+    if (atBottom && containerRef.current) {
+      const el = containerRef.current
       el.scrollTop = el.scrollHeight
     }
-  }, [text, atBottom])
+  }, [lines, atBottom])
 
   // Close context menu on click outside
   useEffect(() => {
@@ -37,47 +51,36 @@ export function OutputConsole({ className, style }: OutputConsoleProps) {
   }, [contextMenu])
 
   const handleScroll = () => {
-    if (!textareaRef.current) return
-    const el = textareaRef.current
+    if (!containerRef.current) return
+    const el = containerRef.current
     const nearBottom =
       el.scrollHeight - el.scrollTop - el.clientHeight < OUTPUT_NEAR_BOTTOM_PX
     setAtBottom(nearBottom)
   }
 
   const scrollToBottom = () => {
-    if (textareaRef.current) {
-      textareaRef.current.scrollTop = textareaRef.current.scrollHeight
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
       setAtBottom(true)
     }
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
-    const selLength =
-      textareaRef.current?.selectionEnd && textareaRef.current?.selectionStart
-        ? Math.abs(
-            textareaRef.current.selectionEnd -
-              textareaRef.current.selectionStart,
-          )
-        : 0
+    const selection = window.getSelection()
+    const hasSelection = selection !== null && selection.toString().length > 0
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-      selectionLength: selLength,
+      hasSelection,
     })
   }
 
   const handleCopy = () => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const hasSelection = end > start
-      const textToCopy = hasSelection
-        ? textarea.value.substring(start, end)
-        : textarea.value
-      navigator.clipboard.writeText(textToCopy)
-    }
+    const selection = window.getSelection()
+    const hasSelection = selection !== null && selection.toString().length > 0
+    const textToCopy = hasSelection ? selection.toString() : plainText
+    navigator.clipboard.writeText(textToCopy)
     setContextMenu(null)
   }
 
@@ -86,16 +89,28 @@ export function OutputConsole({ className, style }: OutputConsoleProps) {
       className={cn("relative flex-1 min-h-0 flex flex-col", className)}
       style={style}
     >
-      <Textarea
-        ref={textareaRef}
-        size="xs"
-        value={text}
-        readOnly
+      <div
+        ref={containerRef}
+        role="log"
         onScroll={handleScroll}
         onContextMenu={handleContextMenu}
-        className="font-mono console-output console-panel flex-1"
-        placeholder="Output will appear here..."
-      />
+        className="font-mono text-xs console-output console-panel flex-1 overflow-auto p-2 select-text"
+      >
+        {lines.length === 0 ? (
+          <span className="text-muted-foreground">
+            Output will appear here...
+          </span>
+        ) : (
+          lines.map((line, index) => (
+            <div
+              key={index}
+              className={cn("whitespace-pre-wrap", levelColors[line.level])}
+            >
+              {line.message}
+            </div>
+          ))
+        )}
+      </div>
       {contextMenu && (
         <div
           className="fixed z-50 bg-popover border border-border rounded-md shadow-md"
@@ -109,16 +124,14 @@ export function OutputConsole({ className, style }: OutputConsoleProps) {
             className="px-3 py-2 bg-popover hover:bg-accent flex items-center gap-2 whitespace-nowrap"
             onClick={handleCopy}
             aria-label={
-              contextMenu.selectionLength > 0
-                ? "Copy selection"
-                : "Copy all output"
+              contextMenu.hasSelection ? "Copy selection" : "Copy all output"
             }
           >
             <span className="text-base" aria-hidden>
               ⧉
             </span>
             <span>
-              {contextMenu.selectionLength > 0 ? "Copy selection" : "Copy all"}
+              {contextMenu.hasSelection ? "Copy selection" : "Copy all"}
             </span>
           </button>
         </div>
