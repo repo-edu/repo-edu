@@ -15,13 +15,11 @@ import { commands } from "../bindings/commands"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
 import { useConnectionsStore } from "../stores/connectionsStore"
 import { useOutputStore } from "../stores/outputStore"
-import { useProfileStore } from "../stores/profileStore"
+import { selectCourse, useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 
 export function CourseDisplay() {
-  const course = useProfileStore(
-    (state) => state.document?.settings.course ?? { id: "", name: "" },
-  )
+  const course = useProfileStore(selectCourse)
   const setCourse = useProfileStore((state) => state.setCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const courseStatus = useConnectionsStore((state) => state.courseStatus)

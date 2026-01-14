@@ -34,7 +34,7 @@ import { saveDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
-import { useProfileStore } from "../../stores/profileStore"
+import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatDateTime } from "../../utils/formatDate"
 import { buildLmsOperationContext } from "../../utils/operationContext"
@@ -115,9 +115,7 @@ export function RosterTab() {
   const setRoster = useProfileStore((state) => state.setRoster)
   const rosterValidation = useProfileStore((state) => state.rosterValidation)
   const rosterStatus = useProfileStore((state) => state.status)
-  const course = useProfileStore(
-    (state) => state.document?.settings.course ?? { id: "", name: "" },
-  )
+  const course = useProfileStore(selectCourse)
 
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)

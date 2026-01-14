@@ -30,6 +30,12 @@ import { useOutputStore } from "./outputStore"
 
 type DocumentStatus = "empty" | "loading" | "loaded" | "error"
 
+// Stable fallback objects to avoid infinite re-render loops in selectors
+const EMPTY_COURSE: CourseInfo = { id: "", name: "" }
+const EMPTY_STUDENTS: Student[] = []
+const EMPTY_ASSIGNMENTS: Assignment[] = []
+const EMPTY_GROUPS: Group[] = []
+
 interface ProfileDocument {
   settings: ProfileSettings
   roster: Roster | null
@@ -695,9 +701,9 @@ export const selectSettings = (state: ProfileStore) =>
 export const selectRoster = (state: ProfileStore) =>
   state.document?.roster ?? null
 export const selectStudents = (state: ProfileStore) =>
-  state.document?.roster?.students ?? []
+  state.document?.roster?.students ?? EMPTY_STUDENTS
 export const selectAssignments = (state: ProfileStore) =>
-  state.document?.roster?.assignments ?? []
+  state.document?.roster?.assignments ?? EMPTY_ASSIGNMENTS
 export const selectSelectedAssignmentId = (state: ProfileStore) =>
   state.selectedAssignmentId
 export const selectSelectedAssignment = (state: ProfileStore) =>
@@ -705,9 +711,9 @@ export const selectSelectedAssignment = (state: ProfileStore) =>
     (a) => a.id === state.selectedAssignmentId,
   ) ?? null
 export const selectGroups = (state: ProfileStore) =>
-  selectSelectedAssignment(state)?.groups ?? []
+  selectSelectedAssignment(state)?.groups ?? EMPTY_GROUPS
 export const selectCourse = (state: ProfileStore) =>
-  state.document?.settings.course ?? { id: "", name: "" }
+  state.document?.settings.course ?? EMPTY_COURSE
 export const selectGitConnectionRef = (state: ProfileStore) =>
   state.document?.settings.git_connection ?? null
 export const selectOperations = (state: ProfileStore) =>
