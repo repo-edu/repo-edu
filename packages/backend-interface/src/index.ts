@@ -245,6 +245,13 @@ export interface BackendAPI {
   loadProfile(name: string): Promise<Result<SettingsLoadResult, AppError>>
 
   /**
+   * Load a profile by name without changing the active profile
+   */
+  loadProfileSettings(
+    name: string,
+  ): Promise<Result<SettingsLoadResult, AppError>>
+
+  /**
    * Save profile settings as a named profile (app settings are not touched)
    */
   saveProfile(

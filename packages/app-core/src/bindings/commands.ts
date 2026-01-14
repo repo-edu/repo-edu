@@ -247,6 +247,14 @@ export const commands = {
     return getBackend().loadProfile(name)
   },
   /**
+   * Load a profile by name without changing the active profile
+   */
+  loadProfileSettings(
+    name: string,
+  ): Promise<Result<SettingsLoadResult, AppError>> {
+    return getBackend().loadProfileSettings(name)
+  },
+  /**
    * Save profile settings as a named profile (app settings are not touched)
    */
   saveProfile(

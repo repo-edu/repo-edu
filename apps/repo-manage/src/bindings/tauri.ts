@@ -520,6 +520,24 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
+   * Load a profile by name without changing the active profile
+   */
+  async loadProfileSettings(
+    name: string,
+  ): Promise<Result<SettingsLoadResult, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("load_profile_settings", { name }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
    * Save profile settings as a named profile (app settings are not touched)
    */
   async saveProfile(

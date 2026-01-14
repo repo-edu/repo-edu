@@ -604,6 +604,13 @@ export class MockBackend implements BackendAPI {
     return this.ok({ settings, warnings: [] })
   }
 
+  async loadProfileSettings(
+    name: string,
+  ): Promise<Result<SettingsLoadResult, AppError>> {
+    const settings = this.ensureProfile(name)
+    return this.ok({ settings, warnings: [] })
+  }
+
   async saveProfile(
     name: string,
     profile: ProfileSettings,

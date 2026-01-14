@@ -131,6 +131,7 @@ pub fn run() {
             commands::settings::delete_git_connection,
             commands::settings::get_identity_mode,
             commands::settings::load_profile,
+            commands::settings::load_profile_settings,
             commands::settings::save_profile,
             commands::settings::save_profile_and_roster,
             commands::settings::reset_settings,

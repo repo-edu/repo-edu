@@ -90,6 +90,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
   )
   const appendOutput = useOutputStore((state) => state.appendText)
   const course = useProfileSettingsStore((state) => state.course)
+  const profileStatus = useProfileSettingsStore((state) => state.status)
 
   const [profiles, setProfiles] = useState<string[]>([])
   const [profileCourses, setProfileCourses] = useState<Record<string, string>>(
@@ -145,7 +146,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
         await Promise.all(
           profileList.map(async (name) => {
             try {
-              const res = await commands.loadProfile(name)
+              const res = await commands.loadProfileSettings(name)
               if (res.status === "ok") {
                 courses[name] = res.data.settings.course.name
               }
@@ -164,6 +165,18 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
   useEffect(() => {
     refreshProfiles()
   }, [refreshProfiles, activeProfile])
+
+  // Ensure the active profile is in the list (handles auto-created profiles)
+  useEffect(() => {
+    if (
+      activeProfile &&
+      profileStatus === "loaded" &&
+      profiles.length > 0 &&
+      !profiles.includes(activeProfile)
+    ) {
+      refreshProfiles()
+    }
+  }, [activeProfile, profileStatus, profiles, refreshProfiles])
 
   const switchToProfile = async (name: string) => {
     setLoading(true)
@@ -223,7 +236,7 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
 
     try {
       // Load source profile settings
-      const loadResult = await commands.loadProfile(sourceProfile)
+      const loadResult = await commands.loadProfileSettings(sourceProfile)
       if (loadResult.status === "error") {
         appendOutput(
           `Failed to load source profile: ${loadResult.error.message}`,

@@ -298,6 +298,17 @@
       "output": "SettingsLoadResult",
       "error": "AppError"
     },
+    "load_profile_settings": {
+      "description": "Load a profile by name without changing the active profile",
+      "input": [
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "output": "SettingsLoadResult",
+      "error": "AppError"
+    },
     "save_profile": {
       "description": "Save profile settings as a named profile (app settings are not touched)",
       "input": [

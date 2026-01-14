@@ -369,24 +369,44 @@ impl SettingsManager {
         self.load_profile_with_warnings(name)
     }
 
+    /// Load a profile by name with migration warnings (does not change active profile)
+    pub fn load_profile_settings_with_warnings(
+        &self,
+        name: &str,
+    ) -> ConfigResult<SettingsLoadResult> {
+        self.load_profile_result(name)
+    }
+
     /// Load a profile by name with migration warnings
     pub fn load_profile_with_warnings(&self, name: &str) -> ConfigResult<SettingsLoadResult> {
-        let mut all_warnings = Vec::new();
+        match self.load_profile_result(name) {
+            Ok(result) => {
+                self.set_active_profile(name)?;
+                Ok(result)
+            }
+            Err(ConfigError::FileNotFound { .. }) => {
+                // Auto-create missing profile with default settings.
+                let settings = ProfileSettings::default();
+                self.save_profile_settings(name, &settings)?;
+                self.set_active_profile(name)?;
+                Ok(SettingsLoadResult {
+                    settings,
+                    warnings: Vec::new(),
+                })
+            }
+            Err(error) => Err(error),
+        }
+    }
 
-        // Load profile settings with warnings
+    fn load_profile_result(&self, name: &str) -> ConfigResult<SettingsLoadResult> {
         let (profile, profile_warnings) = self.load_profile_settings_warned(name)?;
-        all_warnings.extend(
-            profile_warnings
-                .into_iter()
-                .map(|w| format!("{}.json: {}", name, w)),
-        );
-
-        // Set as active profile
-        self.set_active_profile(name)?;
-
+        let warnings = profile_warnings
+            .into_iter()
+            .map(|w| format!("{}.json: {}", name, w))
+            .collect();
         Ok(SettingsLoadResult {
             settings: profile,
-            warnings: all_warnings,
+            warnings,
         })
     }
 

@@ -100,6 +100,13 @@ pub async fn load_profile(name: String) -> Result<SettingsLoadResult, AppError> 
     Ok(manager.load_profile(&name)?)
 }
 
+/// Load profile settings by name without updating the active profile
+#[tauri::command]
+pub async fn load_profile_settings(name: String) -> Result<SettingsLoadResult, AppError> {
+    let manager = SettingsManager::new()?;
+    Ok(manager.load_profile_settings_with_warnings(&name)?)
+}
+
 /// Save profile settings as a named profile (app settings are not touched)
 #[tauri::command]
 pub async fn save_profile(name: String, profile: ProfileSettings) -> Result<(), AppError> {
