@@ -19,6 +19,9 @@
         }
       ]
     },
+    "assignment_type": {
+      "$ref": "./AssignmentType.schema.json"
+    },
     "groups": {
       "type": "array",
       "items": {
@@ -40,6 +43,7 @@
   "required": [
     "id",
     "name",
+    "assignment_type",
     "groups"
   ],
   "description": "Assignment grouping students into repos"

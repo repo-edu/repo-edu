@@ -1,4 +1,5 @@
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo-edu/ui"
+import { Info, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,10 +9,9 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect } from "react"
+import { DataOverviewStatusBar } from "./components/DataOverviewStatusBar"
 import {
   AddGroupDialog,
-  ClearRosterDialog,
-  DeleteAssignmentDialog,
   EditAssignmentDialog,
   EditGroupDialog,
   ImportGitUsernamesDialog,
@@ -31,10 +31,13 @@ import { OutputConsole } from "./components/OutputConsole"
 import { SettingsButton } from "./components/SettingsButton"
 import { SettingsSheet } from "./components/settings"
 import {
+  AssignmentCoverageSheet,
   CoverageReportSheet,
+  DataOverviewSheet,
   GroupEditorSheet,
   StudentEditorSheet,
 } from "./components/sheets"
+import { ToastStack } from "./components/ToastStack"
 import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
 import { UtilityBar } from "./components/UtilityBar"
 import { CONSOLE_MIN_HEIGHT, DEFAULT_GUI_THEME } from "./constants"
@@ -46,7 +49,13 @@ import { listenEvent } from "./services/platform"
 import * as settingsService from "./services/settingsService"
 import { useAppSettingsStore } from "./stores/appSettingsStore"
 import { useOutputStore } from "./stores/outputStore"
-import { type ProfileLoadResult, useProfileStore } from "./stores/profileStore"
+import {
+  type ProfileLoadResult,
+  selectCanRedo,
+  selectCanUndo,
+  useProfileStore,
+} from "./stores/profileStore"
+import { useToastStore } from "./stores/toastStore"
 import { type ActiveTab, useUiStore } from "./stores/uiStore"
 import "./App.css"
 
@@ -54,11 +63,17 @@ function App() {
   // Stores
   const ui = useUiStore()
   const setActiveProfile = useUiStore((state) => state.setActiveProfile)
+  const setDataOverviewOpen = useUiStore((state) => state.setDataOverviewOpen)
   const output = useOutputStore()
+  const addToast = useToastStore((state) => state.addToast)
   const theme = useAppSettingsStore((state) => state.theme)
   const appSettingsStatus = useAppSettingsStore((state) => state.status)
   const loadAppSettings = useAppSettingsStore((state) => state.load)
   const save = useProfileStore((state) => state.save)
+  const undo = useProfileStore((state) => state.undo)
+  const redo = useProfileStore((state) => state.redo)
+  const canUndo = useProfileStore(selectCanUndo)
+  const canRedo = useProfileStore(selectCanRedo)
 
   // Apply theme
   useTheme(theme || DEFAULT_GUI_THEME)
@@ -119,6 +134,20 @@ function App() {
     }
   }, [ui.activeProfile, save, markClean, output])
 
+  const handleUndo = useCallback(() => {
+    const entry = undo()
+    if (entry) {
+      addToast(`Undid: ${entry.description}`, { tone: "info" })
+    }
+  }, [undo, addToast])
+
+  const handleRedo = useCallback(() => {
+    const entry = redo()
+    if (entry) {
+      addToast(`Redid: ${entry.description}`, { tone: "info" })
+    }
+  }, [redo, addToast])
+
   // Close guard
   const { handlePromptDiscard, handlePromptCancel } = useCloseGuard({
     isDirty,
@@ -130,18 +159,37 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+      const key = e.key.toLowerCase()
+      const target = e.target as HTMLElement | null
+      const isEditable =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+
+      if ((e.metaKey || e.ctrlKey) && key === "s") {
         e.preventDefault()
         saveCurrentProfile()
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+      if ((e.metaKey || e.ctrlKey) && key === ",") {
         e.preventDefault()
         ui.openSettings()
+      }
+      if ((e.metaKey || e.ctrlKey) && key === "i") {
+        e.preventDefault()
+        setDataOverviewOpen(true)
+      }
+      if (isEditable) return
+      if ((e.metaKey || e.ctrlKey) && key === "z" && e.shiftKey) {
+        e.preventDefault()
+        handleRedo()
+      } else if ((e.metaKey || e.ctrlKey) && key === "z") {
+        e.preventDefault()
+        handleUndo()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [saveCurrentProfile, ui])
+  }, [saveCurrentProfile, ui, handleUndo, handleRedo, setDataOverviewOpen])
 
   // Handle menu events
   useEffect(() => {
@@ -183,10 +231,44 @@ function App() {
               <TabsTrigger value="operation">Operation</TabsTrigger>
             </TabsList>
             <div className="flex-1" />
-            <div className="pr-2">
+            <div className="flex items-center gap-1 pr-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={handleUndo}
+                disabled={!canUndo}
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 className="size-4" />
+                <span className="sr-only">Undo</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={handleRedo}
+                disabled={!canRedo}
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="size-4" />
+                <span className="sr-only">Redo</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setDataOverviewOpen(true)}
+                title="Data Overview (Ctrl+I)"
+              >
+                <Info className="size-4" />
+                <span className="sr-only">Data Overview</span>
+              </Button>
               <SettingsButton />
             </div>
           </div>
+
+          <DataOverviewStatusBar />
 
           {/* Tab Content */}
           <TabsContent
@@ -218,11 +300,7 @@ function App() {
         </Tabs>
 
         {/* Utility Bar */}
-        <UtilityBar
-          isDirty={isDirty}
-          onSaved={markClean}
-          onProfileLoadResult={handleProfileLoad}
-        />
+        <UtilityBar isDirty={isDirty} onSaved={markClean} />
 
         {/* Output Console */}
         <OutputConsole
@@ -257,7 +335,6 @@ function App() {
       {/* Assignment Tab Dialogs */}
       <NewAssignmentDialog />
       <EditAssignmentDialog />
-      <DeleteAssignmentDialog />
 
       {/* Group Editor Sheet and Dialogs */}
       <GroupEditorSheet />
@@ -277,15 +354,18 @@ function App() {
       {/* Roster Tab Dialogs and Sheets */}
       <StudentEditorSheet />
       <CoverageReportSheet />
+      <AssignmentCoverageSheet />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />
       <StudentRemovalConfirmationDialog />
       <LmsImportConflictDialog />
       <UsernameVerificationDialog />
-      <ClearRosterDialog />
 
       {/* Global Sheets */}
+      <DataOverviewSheet />
       <SettingsSheet />
+
+      <ToastStack />
     </div>
   )
 }

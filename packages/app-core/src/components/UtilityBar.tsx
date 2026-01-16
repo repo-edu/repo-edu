@@ -40,7 +40,7 @@ import {
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../bindings/commands"
 import { useOutputStore } from "../stores/outputStore"
-import { type ProfileLoadResult, useProfileStore } from "../stores/profileStore"
+import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 import {
   ActionDropdown,
@@ -52,23 +52,15 @@ import { SaveButton } from "./SaveButton"
 interface UtilityBarProps {
   isDirty: boolean
   onSaved: () => void
-  onProfileLoadResult: (result: ProfileLoadResult) => void
 }
 
-export function UtilityBar({
-  isDirty,
-  onSaved,
-  onProfileLoadResult,
-}: UtilityBarProps) {
+export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
   return (
     <div className="group/utilitybar flex items-center gap-2 px-2 py-1.5 border-t bg-muted/30">
       <div className="flex-1" />
       <ProfileSelector isDirty={isDirty} />
       <SaveButton isDirty={isDirty} onSaved={onSaved} />
-      <ProfileMenu
-        isDirty={isDirty}
-        onProfileLoadResult={onProfileLoadResult}
-      />
+      <ProfileMenu />
     </div>
   )
 }
@@ -647,31 +639,9 @@ function ProfileSelector({ isDirty }: ProfileSelectorProps) {
   )
 }
 
-interface ProfileMenuProps {
-  isDirty: boolean
-  onProfileLoadResult: (result: ProfileLoadResult) => void
-}
-
-function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
+function ProfileMenu() {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
-  const load = useProfileStore((state) => state.load)
-
-  const handleRevert = async () => {
-    if (!activeProfile) return
-
-    try {
-      const result = await load(activeProfile)
-      if (result.stale) return
-      onProfileLoadResult(result)
-      if (result.ok) {
-        appendOutput(`Reverted to saved state: ${activeProfile}`, "success")
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to revert: ${message}`, "error")
-    }
-  }
 
   const handleShowProfileLocation = async () => {
     try {
@@ -702,9 +672,6 @@ function ProfileMenu({ isDirty, onProfileLoadResult }: ProfileMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleRevert} disabled={!isDirty}>
-          Revert to Saved
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleShowProfileLocation}>
           <FolderOpen className="size-4 mr-2" />
           Show Profile Location

@@ -20,6 +20,7 @@ import {
   useProfileStore,
 } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
+import { formatAssignmentType } from "../../utils/labels"
 
 export function EditAssignmentDialog() {
   const roster = useProfileStore(selectRoster)
@@ -89,6 +90,21 @@ export function EditAssignmentDialog() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
+            />
+          </FormField>
+          <FormField
+            label="Type"
+            htmlFor="edit-assignment-type"
+            title="Assignment type cannot be changed after creation."
+          >
+            <Input
+              id="edit-assignment-type"
+              value={
+                assignment
+                  ? formatAssignmentType(assignment.assignment_type)
+                  : ""
+              }
+              disabled
             />
           </FormField>
         </DialogBody>

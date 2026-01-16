@@ -72,7 +72,7 @@ export function ImportStudentsFromFileDialog() {
       }
 
       const { roster: newRoster, summary } = result.data
-      setRoster(newRoster)
+      setRoster(newRoster, "Import students from file")
 
       let message = `Imported ${summary.students_added} students (${summary.students_updated} updated, ${summary.students_unchanged} unchanged)`
       if (summary.students_missing_email > 0) {

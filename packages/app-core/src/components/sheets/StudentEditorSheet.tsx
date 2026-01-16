@@ -6,6 +6,10 @@ import type { Student, StudentId } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -16,7 +20,9 @@ import { useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
+import { formatStudentStatus } from "../../utils/labels"
 import { generateStudentId } from "../../utils/nanoid"
 
 export function StudentEditorSheet() {
@@ -28,6 +34,7 @@ export function StudentEditorSheet() {
   const addStudent = useProfileStore((state) => state.addStudent)
   const updateStudent = useProfileStore((state) => state.updateStudent)
   const removeStudent = useProfileStore((state) => state.removeStudent)
+  const addToast = useToastStore((state) => state.addToast)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [addingStudent, setAddingStudent] = useState(false)
@@ -57,6 +64,7 @@ export function StudentEditorSheet() {
       student_number: null,
       git_username: null,
       git_username_status: "unknown",
+      status: "active",
       lms_user_id: null,
       custom_fields: {},
     }
@@ -80,6 +88,31 @@ export function StudentEditorSheet() {
       git_username: git_username || null,
       git_username_status: "unknown",
     })
+  }
+
+  const handleUpdateStatus = (id: StudentId, status: Student["status"]) => {
+    updateStudent(id, { status })
+    const student = students.find((entry) => entry.id === id)
+    if (!student) return
+    if (status === "dropped" || status === "incomplete") {
+      addToast(`${student.name} excluded from coverage`, {
+        tone: "info",
+      })
+      return
+    }
+    if (status === "active") {
+      const unassignedInClassWide =
+        roster?.assignments.filter(
+          (assignment) =>
+            assignment.assignment_type === "class_wide" &&
+            !assignment.groups.some((group) => group.member_ids.includes(id)),
+        ) ?? []
+      if (unassignedInClassWide.length > 0) {
+        addToast(`${student.name} is now unassigned`, {
+          tone: "warning",
+        })
+      }
+    }
   }
 
   const setStudentRemovalConfirmation = useUiStore(
@@ -186,6 +219,7 @@ export function StudentEditorSheet() {
                   <th className="text-left p-2 font-medium">Name</th>
                   <th className="text-left p-2 font-medium">Email</th>
                   <th className="text-left p-2 font-medium">Git Username</th>
+                  <th className="text-left p-2 font-medium">Status</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -201,13 +235,16 @@ export function StudentEditorSheet() {
                     onUpdateGitUsername={(username) =>
                       handleUpdateGitUsername(student.id, username)
                     }
+                    onUpdateStatus={(status) =>
+                      handleUpdateStatus(student.id, status)
+                    }
                     onRemove={() => handleRemoveStudent(student.id)}
                   />
                 ))}
                 {filteredStudents.length === 0 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="p-4 text-center text-muted-foreground"
                     >
                       {searchQuery
@@ -238,6 +275,7 @@ interface StudentRowProps {
   onUpdateName: (name: string) => void
   onUpdateEmail: (email: string) => void
   onUpdateGitUsername: (username: string) => void
+  onUpdateStatus: (status: Student["status"]) => void
   onRemove: () => void
 }
 
@@ -246,14 +284,18 @@ function StudentRow({
   onUpdateName,
   onUpdateEmail,
   onUpdateGitUsername,
+  onUpdateStatus,
   onRemove,
 }: StudentRowProps) {
   const [editingField, setEditingField] = useState<string | null>(null)
 
   const statusIcon = getStatusIcon(student.git_username_status)
+  const isInactive = student.status !== "active"
 
   return (
-    <tr className="border-t hover:bg-muted/50">
+    <tr
+      className={`border-t hover:bg-muted/50 ${isInactive ? "text-muted-foreground" : ""}`}
+    >
       <td className="p-2">
         {editingField === "name" ? (
           <Input
@@ -340,6 +382,23 @@ function StudentRow({
             {statusIcon}
           </button>
         )}
+      </td>
+      <td className="p-2">
+        <Select
+          value={student.status}
+          onValueChange={(value) => onUpdateStatus(value as Student["status"])}
+        >
+          <SelectTrigger className="h-7 w-32">
+            <span className="text-sm">
+              {formatStudentStatus(student.status)}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="dropped">Dropped</SelectItem>
+            <SelectItem value="incomplete">Incomplete</SelectItem>
+          </SelectContent>
+        </Select>
       </td>
       <td className="p-2">
         <Button

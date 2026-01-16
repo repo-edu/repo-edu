@@ -19,6 +19,9 @@
         }
       ]
     },
+    "assignment_type": {
+      "$ref": "./AssignmentType.schema.json"
+    },
     "lms_group_set_id": {
       "anyOf": [
         {
@@ -33,7 +36,8 @@
   "additionalProperties": false,
   "required": [
     "id",
-    "name"
+    "name",
+    "assignment_type"
   ],
   "description": "Assignment metadata without groups"
 }

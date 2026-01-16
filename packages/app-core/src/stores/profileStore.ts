@@ -21,6 +21,12 @@ import type {
   StudentId,
   ValidationResult,
 } from "@repo-edu/backend-interface/types"
+import {
+  applyPatches,
+  enablePatches,
+  type Patch,
+  produceWithPatches,
+} from "immer"
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { commands } from "../bindings/commands"
@@ -35,6 +41,9 @@ const EMPTY_COURSE: CourseInfo = { id: "", name: "" }
 const EMPTY_STUDENTS: Student[] = []
 const EMPTY_ASSIGNMENTS: Assignment[] = []
 const EMPTY_GROUPS: Group[] = []
+const HISTORY_LIMIT = 100
+
+enablePatches()
 
 interface ProfileDocument {
   settings: ProfileSettings
@@ -54,9 +63,14 @@ interface ProfileState {
   // Validation results (computed on changes, debounced)
   rosterValidation: ValidationResult | null
   assignmentValidation: ValidationResult | null
+  assignmentValidations: Record<AssignmentId, ValidationResult>
 
   // Coverage report
   coverageReport: CoverageReport | null
+
+  // Undo/Redo
+  history: HistoryEntry[]
+  future: HistoryEntry[]
 }
 
 interface ProfileActions {
@@ -80,7 +94,10 @@ interface ProfileActions {
   removeStudent: (id: StudentId) => void
 
   // Assignment CRUD
-  addAssignment: (assignment: Assignment) => void
+  addAssignment: (
+    assignment: Assignment,
+    options?: { select?: boolean },
+  ) => void
   updateAssignment: (
     id: AssignmentId,
     updates: Partial<AssignmentMetadata>,
@@ -98,7 +115,7 @@ interface ProfileActions {
   removeGroup: (assignmentId: AssignmentId, groupId: GroupId) => void
 
   // Roster replacement (for imports)
-  setRoster: (roster: Roster) => void
+  setRoster: (roster: Roster, description?: string) => void
 
   // Validation (debounced, called after mutations)
   validateRoster: () => Promise<void>
@@ -114,6 +131,11 @@ interface ProfileActions {
 
   // Reset
   reset: () => void
+
+  // Undo/Redo
+  undo: () => HistoryEntry | null
+  redo: () => HistoryEntry | null
+  clearHistory: () => void
 }
 
 interface ProfileStore extends ProfileState, ProfileActions {}
@@ -125,6 +147,17 @@ export interface ProfileLoadResult {
   error: string | null
   profileName: string
   stale: boolean
+}
+
+interface HistoryEntry {
+  patches: Patch[]
+  inversePatches: Patch[]
+  description: string
+}
+
+interface UndoState {
+  document: ProfileDocument | null
+  selectedAssignmentId: AssignmentId | null
 }
 
 // Default values
@@ -159,7 +192,10 @@ const initialState: ProfileState = {
   selectedAssignmentId: null,
   rosterValidation: null,
   assignmentValidation: null,
+  assignmentValidations: {},
   coverageReport: null,
+  history: [],
+  future: [],
 }
 
 // Debounce state (module-level to persist across renders)
@@ -198,10 +234,45 @@ export const useProfileStore = create<ProfileStore>()(
       }, 200)
     }
 
-    // Wrapper for roster mutations - triggers validation after mutation
-    const mutateRoster = (fn: (state: ProfileState) => void) => {
-      set(fn)
+    const applyUndoState = (nextState: UndoState, entry?: HistoryEntry) => {
+      set((state) => {
+        state.document = nextState.document
+        state.selectedAssignmentId = nextState.selectedAssignmentId
+        if (entry) {
+          state.history.push(entry)
+          if (state.history.length > HISTORY_LIMIT) {
+            state.history.shift()
+          }
+          state.future = []
+        }
+      })
+    }
+
+    const mutateDocument = (
+      description: string,
+      recipe: (state: UndoState) => void,
+    ) => {
+      const current: UndoState = {
+        document: get().document,
+        selectedAssignmentId: get().selectedAssignmentId,
+      }
+      const [nextState, patches, inversePatches] = produceWithPatches(
+        current,
+        recipe,
+      )
+      if (patches.length === 0) return
+
+      applyUndoState(nextState, { patches, inversePatches, description })
       scheduleRosterValidation()
+      scheduleAssignmentValidation()
+    }
+
+    // Wrapper for roster mutations - triggers validation after mutation
+    const mutateRoster = (
+      description: string,
+      fn: (state: UndoState) => void,
+    ) => {
+      mutateDocument(description, fn)
     }
 
     return {
@@ -242,53 +313,133 @@ export const useProfileStore = create<ProfileStore>()(
             }
           }
 
-          // Handle errors
-          if (
-            settingsResult.status === "error" ||
-            rosterResult.status === "error"
-          ) {
-            const errors: string[] = []
-            if (settingsResult.status === "error") {
-              errors.push(`settings: ${settingsResult.error.message}`)
+          // Handle settings load errors
+          if (settingsResult.status === "error") {
+            const error = `settings: ${settingsResult.error.message}`
+            try {
+              const defaults = await commands.getDefaultSettings()
+              const resolvedMode = resolveIdentityMode(
+                defaults.git_connection ?? null,
+              )
+              set((state) => {
+                state.document = {
+                  settings: defaults,
+                  roster: null,
+                  resolvedIdentityMode: resolvedMode,
+                }
+                state.status = "loaded"
+                state.error = null
+                state.warnings = []
+                state.selectedAssignmentId = null
+                state.rosterValidation = null
+                state.assignmentValidation = null
+                state.assignmentValidations = {}
+                state.coverageReport = null
+                state.history = []
+                state.future = []
+              })
+            } catch {
+              set((state) => {
+                state.status = "error"
+                state.error = error
+              })
             }
-            if (rosterResult.status === "error") {
-              errors.push(`roster: ${rosterResult.error.message}`)
-            }
-            const error = errors.join("; ") || "Failed to load profile"
 
-            // Try loading defaults on settings failure
-            if (settingsResult.status === "error") {
-              try {
-                const defaults = await commands.getDefaultSettings()
-                const resolvedMode = resolveIdentityMode(
-                  defaults.git_connection ?? null,
-                )
-                set((state) => {
-                  state.document = {
-                    settings: defaults,
-                    roster:
-                      rosterResult.status === "ok" ? rosterResult.data : null,
-                    resolvedIdentityMode: resolvedMode,
-                  }
-                  state.status = "loaded"
-                  state.selectedAssignmentId =
-                    rosterResult.status === "ok"
-                      ? (rosterResult.data?.assignments[0]?.id ?? null)
-                      : null
-                })
-              } catch {
-                set((state) => {
-                  state.status = "error"
-                  state.error = error
-                })
+            appendText(
+              `Failed to load profile '${profileName}': ${error}. Loaded default settings.`,
+              "warning",
+            )
+            return {
+              ok: false,
+              warnings: [],
+              error,
+              profileName,
+              stale: false,
+            }
+          }
+
+          // Handle roster load errors (settings already loaded)
+          if (rosterResult.status === "error") {
+            const { settings, warnings } = settingsResult.data
+            const rosterError = `roster: ${rosterResult.error.message}`
+            const resolvedMode = resolveIdentityMode(
+              settings.git_connection ?? null,
+            )
+
+            set((state) => {
+              state.document = {
+                settings,
+                roster: null,
+                resolvedIdentityMode: resolvedMode,
+              }
+              state.status = "loaded"
+              state.error = null
+              state.warnings = warnings
+              state.selectedAssignmentId = null
+              state.rosterValidation = null
+              state.assignmentValidation = null
+              state.assignmentValidations = {}
+              state.coverageReport = null
+              state.history = []
+              state.future = []
+            })
+
+            if (warnings.length > 0) {
+              for (const warning of warnings) {
+                appendText(`${warning}`, "warning")
               }
             }
 
             appendText(
-              `Failed to load profile '${profileName}': ${error}`,
-              "error",
+              `Failed to load roster for profile '${profileName}': ${rosterError}. Loaded profile settings without roster.`,
+              "warning",
             )
-            return { ok: false, warnings: [], error, profileName, stale: false }
+
+            // Verify course if LMS connected (settings were loaded)
+            if (lmsConnection && settings.course.id.trim()) {
+              setCourseStatus("verifying")
+              try {
+                const result = await commands.verifyProfileCourse(profileName)
+                if (currentLoadId !== loadSequence) {
+                  return {
+                    ok: false,
+                    warnings,
+                    error: rosterError,
+                    profileName,
+                    stale: true,
+                  }
+                }
+                if (result.status === "error") {
+                  setCourseStatus("failed", result.error.message)
+                } else {
+                  const { success, message, updated_name } = result.data
+                  if (!success) {
+                    setCourseStatus("failed", message)
+                  } else {
+                    if (updated_name && updated_name !== settings.course.name) {
+                      set((state) => {
+                        if (state.document) {
+                          state.document.settings.course.name = updated_name
+                        }
+                      })
+                      appendText(`Course name updated: ${updated_name}`, "info")
+                    }
+                    setCourseStatus("verified")
+                  }
+                }
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err)
+                setCourseStatus("failed", msg)
+              }
+            }
+
+            return {
+              ok: false,
+              warnings,
+              error: rosterError,
+              profileName,
+              stale: false,
+            }
           }
 
           // Success - set document atomically
@@ -308,6 +459,10 @@ export const useProfileStore = create<ProfileStore>()(
             state.error = null
             state.warnings = warnings
             state.selectedAssignmentId = roster?.assignments[0]?.id ?? null
+            state.assignmentValidation = null
+            state.assignmentValidations = {}
+            state.history = []
+            state.future = []
           })
 
           // Log warnings
@@ -408,6 +563,8 @@ export const useProfileStore = create<ProfileStore>()(
           set((state) => {
             state.status = "loaded"
             state.error = null
+            state.history = []
+            state.future = []
           })
           return true
         } catch (error) {
@@ -426,6 +583,10 @@ export const useProfileStore = create<ProfileStore>()(
           state.status = "loaded"
           state.selectedAssignmentId =
             document.roster?.assignments[0]?.id ?? null
+          state.assignmentValidation = null
+          state.assignmentValidations = {}
+          state.history = []
+          state.future = []
         }),
 
       clear: () =>
@@ -437,7 +598,10 @@ export const useProfileStore = create<ProfileStore>()(
           state.selectedAssignmentId = null
           state.rosterValidation = null
           state.assignmentValidation = null
+          state.assignmentValidations = {}
           state.coverageReport = null
+          state.history = []
+          state.future = []
         }),
 
       // Settings mutations
@@ -485,8 +649,10 @@ export const useProfileStore = create<ProfileStore>()(
         }),
 
       // Student CRUD
-      addStudent: (student) =>
-        mutateRoster((state) => {
+      addStudent: (student) => {
+        const description = `Add student ${student.name}`
+        const shouldSetLoaded = !get().document
+        mutateRoster(description, (state) => {
           if (!state.document) {
             state.document = {
               settings: {
@@ -498,7 +664,6 @@ export const useProfileStore = create<ProfileStore>()(
               roster: { source: null, students: [student], assignments: [] },
               resolvedIdentityMode: "username",
             }
-            state.status = "loaded"
           } else if (!state.document.roster) {
             state.document.roster = {
               source: null,
@@ -508,20 +673,33 @@ export const useProfileStore = create<ProfileStore>()(
           } else {
             state.document.roster.students.push(student)
           }
-        }),
+        })
+        if (shouldSetLoaded) {
+          set((state) => {
+            state.status = "loaded"
+          })
+        }
+      },
 
-      updateStudent: (id, updates) =>
-        mutateRoster((state) => {
+      updateStudent: (id, updates) => {
+        const studentName =
+          get().document?.roster?.students.find((student) => student.id === id)
+            ?.name ?? "student"
+        mutateRoster(`Edit student ${studentName}`, (state) => {
           const student = state.document?.roster?.students.find(
             (s) => s.id === id,
           )
           if (student) {
             Object.assign(student, updates)
           }
-        }),
+        })
+      },
 
-      removeStudent: (id) =>
-        mutateRoster((state) => {
+      removeStudent: (id) => {
+        const studentName =
+          get().document?.roster?.students.find((student) => student.id === id)
+            ?.name ?? "student"
+        mutateRoster(`Remove student ${studentName}`, (state) => {
           if (!state.document?.roster) return
           // Remove from students array
           state.document.roster.students =
@@ -532,11 +710,12 @@ export const useProfileStore = create<ProfileStore>()(
               group.member_ids = group.member_ids.filter((m) => m !== id)
             }
           }
-        }),
+        })
+      },
 
       // Assignment CRUD
-      addAssignment: (assignment) =>
-        mutateRoster((state) => {
+      addAssignment: (assignment, options) =>
+        mutateRoster(`Add assignment ${assignment.name}`, (state) => {
           if (!state.document) return
           if (!state.document.roster) {
             state.document.roster = {
@@ -547,20 +726,33 @@ export const useProfileStore = create<ProfileStore>()(
           } else {
             state.document.roster.assignments.push(assignment)
           }
+          if (options?.select) {
+            state.selectedAssignmentId = assignment.id
+          }
         }),
 
-      updateAssignment: (id, updates) =>
-        mutateRoster((state) => {
+      updateAssignment: (id, updates) => {
+        const assignmentName =
+          get().document?.roster?.assignments.find(
+            (assignment) => assignment.id === id,
+          )?.name ?? "assignment"
+        mutateRoster(`Edit assignment ${assignmentName}`, (state) => {
           const assignment = state.document?.roster?.assignments.find(
             (a) => a.id === id,
           )
           if (assignment) {
-            Object.assign(assignment, updates)
+            const { assignment_type: _, ...rest } = updates
+            Object.assign(assignment, rest)
           }
-        }),
+        })
+      },
 
-      removeAssignment: (id) =>
-        mutateRoster((state) => {
+      removeAssignment: (id) => {
+        const assignmentName =
+          get().document?.roster?.assignments.find(
+            (assignment) => assignment.id === id,
+          )?.name ?? "assignment"
+        mutateRoster(`Delete assignment ${assignmentName}`, (state) => {
           if (!state.document?.roster) return
           state.document.roster.assignments =
             state.document.roster.assignments.filter((a) => a.id !== id)
@@ -569,27 +761,39 @@ export const useProfileStore = create<ProfileStore>()(
             state.selectedAssignmentId =
               state.document.roster.assignments[0]?.id ?? null
           }
-        }),
+        })
+      },
 
-      selectAssignment: (id) =>
+      selectAssignment: (id) => {
         set((state) => {
           state.selectedAssignmentId = id
-          state.assignmentValidation = null
-        }),
+          state.assignmentValidation = id
+            ? state.assignmentValidations[id]
+            : null
+        })
+        scheduleAssignmentValidation()
+      },
 
       // Group CRUD
-      addGroup: (assignmentId, group) =>
-        mutateRoster((state) => {
+      addGroup: (assignmentId, group) => {
+        mutateRoster(`Add group ${group.name}`, (state) => {
           const assignment = state.document?.roster?.assignments.find(
             (a) => a.id === assignmentId,
           )
           if (assignment) {
             assignment.groups.push(group)
           }
-        }),
+        })
+      },
 
-      updateGroup: (assignmentId, groupId, updates) =>
-        mutateRoster((state) => {
+      updateGroup: (assignmentId, groupId, updates) => {
+        const groupName =
+          get()
+            .document?.roster?.assignments.find(
+              (assignment) => assignment.id === assignmentId,
+            )
+            ?.groups.find((group) => group.id === groupId)?.name ?? "group"
+        mutateRoster(`Edit group ${groupName}`, (state) => {
           const assignment = state.document?.roster?.assignments.find(
             (a) => a.id === assignmentId,
           )
@@ -597,10 +801,17 @@ export const useProfileStore = create<ProfileStore>()(
           if (group) {
             Object.assign(group, updates)
           }
-        }),
+        })
+      },
 
-      removeGroup: (assignmentId, groupId) =>
-        mutateRoster((state) => {
+      removeGroup: (assignmentId, groupId) => {
+        const groupName =
+          get()
+            .document?.roster?.assignments.find(
+              (assignment) => assignment.id === assignmentId,
+            )
+            ?.groups.find((group) => group.id === groupId)?.name ?? "group"
+        mutateRoster(`Delete group ${groupName}`, (state) => {
           const assignment = state.document?.roster?.assignments.find(
             (a) => a.id === assignmentId,
           )
@@ -609,17 +820,21 @@ export const useProfileStore = create<ProfileStore>()(
               (g) => g.id !== groupId,
             )
           }
-        }),
+        })
+      },
 
       // Roster replacement (for imports)
-      setRoster: (roster) => {
-        set((state) => {
+      setRoster: (roster, description = "Update roster") => {
+        mutateDocument(description, (state) => {
           if (state.document) {
             state.document.roster = roster
             state.selectedAssignmentId = roster.assignments[0]?.id ?? null
           }
         })
-        scheduleRosterValidation()
+        set((state) => {
+          state.assignmentValidation = null
+          state.assignmentValidations = {}
+        })
       },
 
       // Validation
@@ -645,23 +860,40 @@ export const useProfileStore = create<ProfileStore>()(
 
       validateAssignment: async () => {
         const { document, selectedAssignmentId } = get()
-        if (!document?.roster || !selectedAssignmentId) {
+        const roster = document?.roster
+        if (!roster) {
           set((state) => {
             state.assignmentValidation = null
+            state.assignmentValidations = {}
           })
           return
         }
         try {
-          const result = await commands.validateAssignment(
-            document.resolvedIdentityMode,
-            document.roster,
-            selectedAssignmentId,
+          const validations = await Promise.all(
+            roster.assignments.map(async (assignment) => {
+              const result = await commands.validateAssignment(
+                document.resolvedIdentityMode,
+                roster,
+                assignment.id,
+              )
+              if (result.status === "ok") {
+                return [assignment.id, result.data] as const
+              }
+              return null
+            }),
           )
-          if (result.status === "ok") {
-            set((state) => {
-              state.assignmentValidation = result.data
-            })
+          const map: Record<AssignmentId, ValidationResult> = {}
+          for (const entry of validations) {
+            if (entry) {
+              map[entry[0]] = entry[1]
+            }
           }
+          set((state) => {
+            state.assignmentValidations = map
+            state.assignmentValidation = selectedAssignmentId
+              ? (map[selectedAssignmentId] ?? null)
+              : null
+          })
         } catch (err) {
           console.error("Assignment validation error:", err)
         }
@@ -687,6 +919,50 @@ export const useProfileStore = create<ProfileStore>()(
               state.document.settings.git_connection ?? null,
             )
           }
+        }),
+
+      undo: () => {
+        const { history, future, document, selectedAssignmentId } = get()
+        if (history.length === 0) return null
+        const entry = history[history.length - 1]
+        const current: UndoState = { document, selectedAssignmentId }
+        const nextState = applyPatches(current, entry.inversePatches)
+
+        set((state) => {
+          state.document = nextState.document
+          state.selectedAssignmentId = nextState.selectedAssignmentId
+          state.history = history.slice(0, -1)
+          state.future = [entry, ...future]
+        })
+
+        scheduleRosterValidation()
+        scheduleAssignmentValidation()
+        return entry
+      },
+
+      redo: () => {
+        const { history, future, document, selectedAssignmentId } = get()
+        if (future.length === 0) return null
+        const entry = future[0]
+        const current: UndoState = { document, selectedAssignmentId }
+        const nextState = applyPatches(current, entry.patches)
+
+        set((state) => {
+          state.document = nextState.document
+          state.selectedAssignmentId = nextState.selectedAssignmentId
+          state.history = [...history, entry].slice(-HISTORY_LIMIT)
+          state.future = future.slice(1)
+        })
+
+        scheduleRosterValidation()
+        scheduleAssignmentValidation()
+        return entry
+      },
+
+      clearHistory: () =>
+        set((state) => {
+          state.history = []
+          state.future = []
         }),
 
       reset: () => set(initialState),
@@ -727,7 +1003,11 @@ export const selectRosterValidation = (state: ProfileStore) =>
   state.rosterValidation
 export const selectAssignmentValidation = (state: ProfileStore) =>
   state.assignmentValidation
+export const selectAssignmentValidations = (state: ProfileStore) =>
+  state.assignmentValidations
 export const selectResolvedIdentityMode = (state: ProfileStore) =>
   state.document?.resolvedIdentityMode ?? "username"
 export const selectCoverageReport = (state: ProfileStore) =>
   state.coverageReport
+export const selectCanUndo = (state: ProfileStore) => state.history.length > 0
+export const selectCanRedo = (state: ProfileStore) => state.future.length > 0

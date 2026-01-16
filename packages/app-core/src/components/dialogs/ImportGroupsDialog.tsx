@@ -238,7 +238,7 @@ export function ImportGroupsDialog() {
         config,
       )
       if (result.status === "ok") {
-        setRoster(result.data.roster)
+        setRoster(result.data.roster, "Import groups from LMS")
         handleClose()
       } else {
         setError(result.error.message)

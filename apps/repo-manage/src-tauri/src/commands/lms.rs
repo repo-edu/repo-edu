@@ -402,6 +402,12 @@ fn update_student_from_file(student: &mut Student, draft: StudentDraft) -> bool 
         student.student_number = draft.student_number;
         changed = true;
     }
+    if let Some(status) = draft.status {
+        if student.status != status {
+            student.status = status;
+            changed = true;
+        }
+    }
 
     for (key, value) in draft.custom_fields {
         if student.custom_fields.get(&key) != Some(&value) {

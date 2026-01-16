@@ -19,6 +19,10 @@ import { create } from "zustand"
  */
 type ActiveTab = "roster" | "assignment" | "operation"
 
+type GroupEditorFilter = "all" | "unknown" | "empty"
+
+type AssignmentCoverageFocus = "unassigned"
+
 interface UiState {
   // Navigation
   activeTab: ActiveTab
@@ -31,7 +35,6 @@ interface UiState {
 
   // Roster tab dialogs
   studentEditorOpen: boolean
-  clearRosterDialogOpen: boolean
   coverageReportOpen: boolean
   importFileDialogOpen: boolean
   importGitUsernamesDialogOpen: boolean
@@ -40,14 +43,17 @@ interface UiState {
   // Assignment tab dialogs
   newAssignmentDialogOpen: boolean
   editAssignmentDialogOpen: boolean
-  deleteAssignmentDialogOpen: boolean
   groupEditorOpen: boolean
+  groupEditorFilter: GroupEditorFilter | null
   addGroupDialogOpen: boolean
   editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
   importGroupsFromFileDialogOpen: boolean
   replaceGroupsConfirmationOpen: boolean
   editingGroupId: GroupId | null
+  dataOverviewOpen: boolean
+  assignmentCoverageOpen: boolean
+  assignmentCoverageFocus: AssignmentCoverageFocus | null
 
   // Profile dialogs
   newProfileDialogOpen: boolean
@@ -85,7 +91,6 @@ interface UiActions {
 
   // Roster tab dialogs
   setStudentEditorOpen: (open: boolean) => void
-  setClearRosterDialogOpen: (open: boolean) => void
   setCoverageReportOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
@@ -94,14 +99,17 @@ interface UiActions {
   // Assignment tab dialogs
   setNewAssignmentDialogOpen: (open: boolean) => void
   setEditAssignmentDialogOpen: (open: boolean) => void
-  setDeleteAssignmentDialogOpen: (open: boolean) => void
   setGroupEditorOpen: (open: boolean) => void
+  setGroupEditorFilter: (filter: GroupEditorFilter | null) => void
   setAddGroupDialogOpen: (open: boolean) => void
   setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
   setImportGroupsFromFileDialogOpen: (open: boolean) => void
   setReplaceGroupsConfirmationOpen: (open: boolean) => void
   setEditingGroupId: (id: GroupId | null) => void
+  setDataOverviewOpen: (open: boolean) => void
+  setAssignmentCoverageOpen: (open: boolean) => void
+  setAssignmentCoverageFocus: (focus: AssignmentCoverageFocus | null) => void
 
   // Profile dialogs
   setNewProfileDialogOpen: (open: boolean) => void
@@ -144,7 +152,6 @@ const initialState: UiState = {
 
   // Roster tab dialogs
   studentEditorOpen: false,
-  clearRosterDialogOpen: false,
   coverageReportOpen: false,
   importFileDialogOpen: false,
   importGitUsernamesDialogOpen: false,
@@ -153,14 +160,17 @@ const initialState: UiState = {
   // Assignment tab dialogs
   newAssignmentDialogOpen: false,
   editAssignmentDialogOpen: false,
-  deleteAssignmentDialogOpen: false,
   groupEditorOpen: false,
+  groupEditorFilter: null,
   addGroupDialogOpen: false,
   editGroupDialogOpen: false,
   importGroupsDialogOpen: false,
   importGroupsFromFileDialogOpen: false,
   replaceGroupsConfirmationOpen: false,
   editingGroupId: null,
+  dataOverviewOpen: false,
+  assignmentCoverageOpen: false,
+  assignmentCoverageFocus: null,
 
   // Profile dialogs
   newProfileDialogOpen: false,
@@ -200,7 +210,6 @@ export const useUiStore = create<UiStore>((set) => ({
 
   // Roster tab dialogs
   setStudentEditorOpen: (open) => set({ studentEditorOpen: open }),
-  setClearRosterDialogOpen: (open) => set({ clearRosterDialogOpen: open }),
   setCoverageReportOpen: (open) => set({ coverageReportOpen: open }),
   setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
   setImportGitUsernamesDialogOpen: (open) =>
@@ -212,9 +221,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setNewAssignmentDialogOpen: (open) => set({ newAssignmentDialogOpen: open }),
   setEditAssignmentDialogOpen: (open) =>
     set({ editAssignmentDialogOpen: open }),
-  setDeleteAssignmentDialogOpen: (open) =>
-    set({ deleteAssignmentDialogOpen: open }),
   setGroupEditorOpen: (open) => set({ groupEditorOpen: open }),
+  setGroupEditorFilter: (filter) => set({ groupEditorFilter: filter }),
   setAddGroupDialogOpen: (open) => set({ addGroupDialogOpen: open }),
   setEditGroupDialogOpen: (open) => set({ editGroupDialogOpen: open }),
   setImportGroupsDialogOpen: (open) => set({ importGroupsDialogOpen: open }),
@@ -223,6 +231,10 @@ export const useUiStore = create<UiStore>((set) => ({
   setReplaceGroupsConfirmationOpen: (open) =>
     set({ replaceGroupsConfirmationOpen: open }),
   setEditingGroupId: (id) => set({ editingGroupId: id }),
+  setDataOverviewOpen: (open) => set({ dataOverviewOpen: open }),
+  setAssignmentCoverageOpen: (open) => set({ assignmentCoverageOpen: open }),
+  setAssignmentCoverageFocus: (focus) =>
+    set({ assignmentCoverageFocus: focus }),
 
   // Profile dialogs
   setNewProfileDialogOpen: (open) => set({ newProfileDialogOpen: open }),
@@ -253,7 +265,7 @@ export const useUiStore = create<UiStore>((set) => ({
   reset: () => set(initialState),
 }))
 
-export type { ActiveTab }
+export type { ActiveTab, AssignmentCoverageFocus, GroupEditorFilter }
 
 // Selector helpers
 export const selectActiveTab = (state: UiStore) => state.activeTab

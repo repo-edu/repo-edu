@@ -41,6 +41,13 @@ export function CoverageReportSheet() {
   const [loading, setLoading] = useState(false)
   const [exportFormat, setExportFormat] = useState<CoverageExportFormat>("csv")
 
+  const assignmentTypeById = new Map(
+    roster?.assignments.map((assignment) => [
+      assignment.id,
+      assignment.assignment_type,
+    ]) ?? [],
+  )
+
   useEffect(() => {
     if (coverageReportOpen && roster) {
       setLoading(true)
@@ -96,7 +103,7 @@ export function CoverageReportSheet() {
 
   return (
     <Sheet open={coverageReportOpen} onOpenChange={setCoverageReportOpen}>
-      <SheetContent className="w-full sm:max-w-xl bg-background pl-5">
+      <SheetContent className="w-full sm:max-w-xl bg-background">
         <SheetHeader>
           <SheetTitle>Roster Coverage</SheetTitle>
         </SheetHeader>
@@ -107,15 +114,15 @@ export function CoverageReportSheet() {
           {report && (
             <>
               <div className="font-medium">
-                {report.total_students} students in roster
+                {report.total_students} active students in roster
               </div>
 
               {/* Assignment coverage table */}
               <DataTable>
                 <DataTableHeader>
                   <DataTableHead>Assignment</DataTableHead>
-                  <DataTableHead>Students</DataTableHead>
-                  <DataTableHead>Missing</DataTableHead>
+                  <DataTableHead>Active students</DataTableHead>
+                  <DataTableHead>Missing (class-wide)</DataTableHead>
                 </DataTableHeader>
                 <DataTableBody>
                   {report.assignments.map((assignment) => (
@@ -125,13 +132,16 @@ export function CoverageReportSheet() {
                       </DataTableCell>
                       <DataTableCell>{assignment.student_count}</DataTableCell>
                       <DataTableCell>
-                        {assignment.missing_students.length > 0
-                          ? assignment.missing_students.length <= 3
-                            ? assignment.missing_students
-                                .map((s) => s.name)
-                                .join(", ")
-                            : `${assignment.missing_students.length} not in this assignment`
-                          : "—"}
+                        {assignmentTypeById.get(assignment.assignment_id) ===
+                        "selective"
+                          ? "Selective assignment"
+                          : assignment.missing_students.length > 0
+                            ? assignment.missing_students.length <= 3
+                              ? assignment.missing_students
+                                  .map((s) => s.name)
+                                  .join(", ")
+                              : `${assignment.missing_students.length} not in this assignment`
+                            : "—"}
                       </DataTableCell>
                     </DataTableRow>
                   ))}
@@ -145,7 +155,8 @@ export function CoverageReportSheet() {
               {report.students_in_none.length > 0 && (
                 <Alert variant="warning">
                   <div className="font-medium">
-                    Students in no assignment: {report.students_in_none.length}
+                    Active students in no assignment:{" "}
+                    {report.students_in_none.length}
                   </div>
                   <ul className="mt-1">
                     {report.students_in_none.slice(0, 5).map((student) => (

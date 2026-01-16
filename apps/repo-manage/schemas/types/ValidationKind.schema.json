@@ -5,6 +5,7 @@
   "enum": [
     "duplicate_student_id",
     "duplicate_email",
+    "invalid_email",
     "duplicate_assignment_name",
     "duplicate_group_id_in_assignment",
     "duplicate_group_name_in_assignment",
@@ -14,6 +15,7 @@
     "missing_git_username",
     "invalid_git_username",
     "empty_group",
+    "unassigned_student",
     "missing_email"
   ],
   "x-rust": {

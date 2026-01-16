@@ -28,10 +28,12 @@ export {
   Monitor,
   Pencil,
   Plus,
+  Redo2,
   RefreshCw,
   Search,
   Settings,
   Trash2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react"

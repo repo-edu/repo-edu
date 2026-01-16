@@ -99,6 +99,7 @@ describe("useDirtyState", () => {
         student_number: null,
         git_username: null,
         git_username_status: "unknown",
+        status: "active",
         lms_user_id: null,
         custom_fields: {},
       })

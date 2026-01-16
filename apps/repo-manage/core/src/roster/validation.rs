@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use super::slug::compute_repo_name;
 use super::types::{
-    AssignmentId, GitIdentityMode, GitUsernameStatus, GroupId, Roster, ValidationIssue,
-    ValidationKind, ValidationResult,
+    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, Roster,
+    StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
 };
 
 const DEFAULT_REPO_TEMPLATE: &str = "{assignment}-{group}";
@@ -32,6 +32,22 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         issues.push(ValidationIssue {
             kind: ValidationKind::MissingEmail,
             affected_ids: missing_emails,
+            context: None,
+        });
+    }
+
+    // Check for invalid email formats (non-empty emails only)
+    let invalid_emails: Vec<String> = roster
+        .students
+        .iter()
+        .filter(|student| !student.email.trim().is_empty())
+        .filter(|student| !is_valid_email(&student.email))
+        .map(|student| student.id.to_string())
+        .collect();
+    if !invalid_emails.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::InvalidEmail,
+            affected_ids: invalid_emails,
             context: None,
         });
     }
@@ -127,6 +143,7 @@ pub fn validate_assignment_with_template(
     let mut empty_groups: HashSet<String> = HashSet::new();
     let mut missing_git_usernames: HashSet<String> = HashSet::new();
     let mut invalid_git_usernames: HashSet<String> = HashSet::new();
+    let mut assigned_active_students: HashSet<String> = HashSet::new();
 
     for group in &assignment.groups {
         if group.member_ids.is_empty() {
@@ -134,11 +151,15 @@ pub fn validate_assignment_with_template(
         }
         for member_id in &group.member_ids {
             let member_key = member_id.to_string();
-            *student_group_counts.entry(member_key.clone()).or_insert(0) += 1;
             let Some(student) = student_lookup.get(&member_key) else {
                 orphan_members.insert(member_key);
                 continue;
             };
+            if student.status != StudentStatus::Active {
+                continue;
+            }
+            assigned_active_students.insert(member_key.clone());
+            *student_group_counts.entry(member_key.clone()).or_insert(0) += 1;
             if identity_mode == GitIdentityMode::Username {
                 let username = student.git_username.as_deref().map(str::trim);
                 if username.is_none() || username == Some("") {
@@ -195,6 +216,23 @@ pub fn validate_assignment_with_template(
         });
     }
 
+    if assignment.assignment_type == AssignmentType::ClassWide {
+        let unassigned_active = roster
+            .students
+            .iter()
+            .filter(|student| student.status == StudentStatus::Active)
+            .filter(|student| !assigned_active_students.contains(&student.id.to_string()))
+            .map(|student| student.id.to_string())
+            .collect::<Vec<_>>();
+        if !unassigned_active.is_empty() {
+            issues.push(ValidationIssue {
+                kind: ValidationKind::UnassignedStudent,
+                affected_ids: sorted_strings(unassigned_active),
+                context: None,
+            });
+        }
+    }
+
     let mut repo_name_map: HashMap<String, Vec<GroupId>> = HashMap::new();
     for group in &assignment.groups {
         let repo_name = compute_repo_name(template, assignment, group);
@@ -243,15 +281,35 @@ impl ValidationKind {
             self,
             Self::DuplicateStudentId
                 | Self::DuplicateEmail
+                | Self::InvalidEmail
                 | Self::DuplicateAssignmentName
                 | Self::DuplicateGroupIdInAssignment
                 | Self::DuplicateGroupNameInAssignment
                 | Self::DuplicateRepoNameInAssignment
-                | Self::StudentInMultipleGroupsInAssignment
                 | Self::OrphanGroupMember
+                | Self::EmptyGroup
+                | Self::UnassignedStudent
         )
-        // Note: MissingEmail, EmptyGroup, MissingGitUsername, InvalidGitUsername are warnings (non-blocking)
+        // Note: MissingEmail, MissingGitUsername, InvalidGitUsername are warnings (non-blocking)
     }
+}
+
+fn is_valid_email(email: &str) -> bool {
+    let email = email.trim();
+    let mut parts = email.split('@');
+    let local = match parts.next() {
+        Some(part) if !part.is_empty() => part,
+        _ => return false,
+    };
+    let domain = match parts.next() {
+        Some(part) if !part.is_empty() => part,
+        _ => return false,
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    let dot_index = domain.rfind('.');
+    dot_index.is_some_and(|idx| idx > 0 && idx < domain.len() - 1) && !local.contains(' ')
 }
 
 fn normalize_email(email: &str) -> String {
@@ -293,8 +351,8 @@ mod tests {
 
     use super::{validate_assignment, validate_roster};
     use crate::roster::types::{
-        Assignment, AssignmentId, GitIdentityMode, GitUsernameStatus, Group, GroupId, Roster,
-        Student, StudentId,
+        Assignment, AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, Group,
+        GroupId, Roster, Student, StudentId, StudentStatus,
     };
 
     fn build_student(id: &str, email: &str) -> Student {
@@ -305,6 +363,7 @@ mod tests {
             student_number: None,
             git_username: None,
             git_username_status: GitUsernameStatus::Unknown,
+            status: StudentStatus::Active,
             lms_user_id: None,
             custom_fields: HashMap::new(),
         }
@@ -342,6 +401,7 @@ mod tests {
                 id: AssignmentId("a1".to_string()),
                 name: "Assignment".to_string(),
                 description: None,
+                assignment_type: AssignmentType::ClassWide,
                 groups: vec![
                     Group {
                         id: GroupId("g1".to_string()),
@@ -376,6 +436,6 @@ mod tests {
     #[test]
     fn validation_kind_is_blocking() {
         assert!(super::ValidationKind::DuplicateEmail.is_blocking());
-        assert!(!super::ValidationKind::EmptyGroup.is_blocking());
+        assert!(super::ValidationKind::EmptyGroup.is_blocking());
     }
 }

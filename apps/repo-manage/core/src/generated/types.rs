@@ -34,8 +34,19 @@ pub struct Assignment {
   pub id: AssignmentId,
   pub name: String,
   pub description: Option<String>,
+  pub assignment_type: AssignmentType,
   pub groups: Vec<Group>,
   pub lms_group_set_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AssignmentType {
+  #[serde(rename = "class_wide")]
+  #[default]
+  ClassWide,
+  #[serde(rename = "selective")]
+  Selective,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +66,7 @@ pub struct AssignmentMetadata {
   pub id: AssignmentId,
   pub name: String,
   pub description: Option<String>,
+  pub assignment_type: AssignmentType,
   pub lms_group_set_id: Option<String>,
 }
 
@@ -481,8 +493,21 @@ pub struct Student {
   pub student_number: Option<String>,
   pub git_username: Option<String>,
   pub git_username_status: GitUsernameStatus,
+  pub status: StudentStatus,
   pub lms_user_id: Option<String>,
   pub custom_fields: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum StudentStatus {
+  #[serde(rename = "active")]
+  #[default]
+  Active,
+  #[serde(rename = "dropped")]
+  Dropped,
+  #[serde(rename = "incomplete")]
+  Incomplete,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -582,6 +607,8 @@ pub enum ValidationKind {
   DuplicateStudentId,
   #[serde(rename = "duplicate_email")]
   DuplicateEmail,
+  #[serde(rename = "invalid_email")]
+  InvalidEmail,
   #[serde(rename = "duplicate_assignment_name")]
   DuplicateAssignmentName,
   #[serde(rename = "duplicate_group_id_in_assignment")]
@@ -600,6 +627,8 @@ pub enum ValidationKind {
   InvalidGitUsername,
   #[serde(rename = "empty_group")]
   EmptyGroup,
+  #[serde(rename = "unassigned_student")]
+  UnassignedStudent,
   #[serde(rename = "missing_email")]
   MissingEmail,
 }

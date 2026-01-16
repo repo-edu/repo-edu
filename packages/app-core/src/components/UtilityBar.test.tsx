@@ -52,13 +52,7 @@ describe("UtilityBar", () => {
   })
 
   it("refreshes profiles without loading or switching the active profile", async () => {
-    render(
-      <UtilityBar
-        isDirty={false}
-        onSaved={() => {}}
-        onProfileLoadResult={() => {}}
-      />,
-    )
+    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
 
     await waitFor(() =>
       expect(commandMocks.listProfiles).toHaveBeenCalledTimes(1),

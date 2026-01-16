@@ -88,6 +88,8 @@ export function EditGroupDialog() {
               students={students}
               selected={selectedMembers}
               onChange={setSelectedMembers}
+              groups={assignment?.groups ?? []}
+              currentGroupId={editingGroupId}
             />
           </FormField>
         </DialogBody>

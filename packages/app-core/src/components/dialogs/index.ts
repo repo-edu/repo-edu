@@ -1,6 +1,4 @@
 export { AddGroupDialog } from "./AddGroupDialog"
-export { ClearRosterDialog } from "./ClearRosterDialog"
-export { DeleteAssignmentDialog } from "./DeleteAssignmentDialog"
 export { EditAssignmentDialog } from "./EditAssignmentDialog"
 export { EditGroupDialog } from "./EditGroupDialog"
 export { ImportGitUsernamesDialog } from "./ImportGitUsernamesDialog"

@@ -46,9 +46,15 @@ export interface Assignment {
   id: AssignmentId
   name: string
   description?: string | null
+  assignment_type: AssignmentType
   groups: Group[]
   lms_group_set_id?: string | null
 }
+
+/**
+ * Assignment type determining validation behavior
+ */
+export type AssignmentType = "class_wide" | "selective"
 
 /**
  * Coverage summary for an assignment
@@ -72,6 +78,7 @@ export interface AssignmentMetadata {
   id: AssignmentId
   name: string
   description?: string | null
+  assignment_type: AssignmentType
   lms_group_set_id?: string | null
 }
 
@@ -542,11 +549,17 @@ export interface Student {
   student_number?: string | null
   git_username?: string | null
   git_username_status: GitUsernameStatus
+  status: StudentStatus
   lms_user_id?: string | null
   custom_fields: {
     [k: string]: string
   }
 }
+
+/**
+ * Enrollment status for coverage calculations
+ */
+export type StudentStatus = "active" | "dropped" | "incomplete"
 
 /**
  * Strongly-typed student ID
@@ -640,6 +653,7 @@ export interface ValidationIssue {
 export type ValidationKind =
   | "duplicate_student_id"
   | "duplicate_email"
+  | "invalid_email"
   | "duplicate_assignment_name"
   | "duplicate_group_id_in_assignment"
   | "duplicate_group_name_in_assignment"
@@ -649,6 +663,7 @@ export type ValidationKind =
   | "missing_git_username"
   | "invalid_git_username"
   | "empty_group"
+  | "unassigned_student"
   | "missing_email"
 
 /**

@@ -251,6 +251,7 @@ fn merge_lms_students(
             student_number,
             git_username: None,
             lms_user_id: Some(lms_user_id.clone()),
+            status: None,
             custom_fields: HashMap::new(),
         };
         let student = Student::new(draft);

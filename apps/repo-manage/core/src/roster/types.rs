@@ -3,9 +3,9 @@ use std::fmt;
 
 use super::nanoid::{generate_assignment_id, generate_group_id, generate_student_id};
 pub use crate::generated::types::{
-    Assignment, AssignmentId, AssignmentMetadata, GitIdentityMode, GitUsernameStatus, Group,
-    GroupId, Roster, RosterSource, Student, StudentId, ValidationIssue, ValidationKind,
-    ValidationResult,
+    Assignment, AssignmentId, AssignmentMetadata, AssignmentType, GitIdentityMode,
+    GitUsernameStatus, Group, GroupId, Roster, RosterSource, Student, StudentId, StudentStatus,
+    ValidationIssue, ValidationKind, ValidationResult,
 };
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -15,6 +15,7 @@ pub struct StudentDraft {
     pub student_number: Option<String>,
     pub git_username: Option<String>,
     pub lms_user_id: Option<String>,
+    pub status: Option<StudentStatus>,
     pub custom_fields: HashMap<String, String>,
 }
 
@@ -43,6 +44,7 @@ impl Student {
             student_number: draft.student_number,
             git_username: draft.git_username,
             git_username_status: GitUsernameStatus::default(),
+            status: draft.status.unwrap_or_default(),
             lms_user_id: draft.lms_user_id,
             custom_fields: draft.custom_fields,
         }
@@ -55,6 +57,7 @@ impl Assignment {
             id: generate_assignment_id(),
             name: name.into(),
             description: None,
+            assignment_type: AssignmentType::default(),
             groups: Vec::new(),
             lms_group_set_id,
         }

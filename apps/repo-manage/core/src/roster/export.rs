@@ -4,13 +4,19 @@ use crate::generated::types::{
     StudentMultipleAssignments, StudentSummary,
 };
 use crate::import::normalize_assignment_name;
-use crate::roster::{AssignmentId, Roster, StudentId};
+use crate::roster::{AssignmentId, Roster, StudentId, StudentStatus};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
+    let active_students = roster
+        .students
+        .iter()
+        .filter(|student| student.status == StudentStatus::Active)
+        .collect::<Vec<_>>();
+
     let mut student_summary: HashMap<StudentId, StudentSummary> = HashMap::new();
-    for student in &roster.students {
+    for student in &active_students {
         student_summary.insert(
             student.id.clone(),
             StudentSummary {
@@ -22,12 +28,18 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
 
     let mut student_assignments: HashMap<StudentId, Vec<String>> = HashMap::new();
     let mut assignments = Vec::new();
+    let active_ids: HashSet<StudentId> = active_students
+        .iter()
+        .map(|student| student.id.clone())
+        .collect();
 
     for assignment in &roster.assignments {
         let mut member_ids: HashSet<StudentId> = HashSet::new();
         for group in &assignment.groups {
             for member_id in &group.member_ids {
-                member_ids.insert(member_id.clone());
+                if active_ids.contains(member_id) {
+                    member_ids.insert(member_id.clone());
+                }
             }
         }
 
@@ -39,8 +51,7 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
                 .push(assignment_name.clone());
         }
 
-        let missing_students = roster
-            .students
+        let missing_students = active_students
             .iter()
             .filter(|student| !member_ids.contains(&student.id))
             .filter_map(|student| student_summary.get(&student.id).cloned())
@@ -57,7 +68,7 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
     let mut students_in_multiple = Vec::new();
     let mut students_in_none = Vec::new();
 
-    for student in &roster.students {
+    for student in &active_students {
         match student_assignments.get(&student.id) {
             Some(assignments_list) if assignments_list.len() > 1 => {
                 if let Some(summary) = student_summary.get(&student.id) {
@@ -77,7 +88,7 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
     }
 
     CoverageReport {
-        total_students: roster.students.len() as i64,
+        total_students: active_students.len() as i64,
         assignments,
         students_in_multiple,
         students_in_none,
@@ -179,6 +190,7 @@ pub fn export_students(roster: &Roster, path: &Path) -> Result<()> {
         "email".to_string(),
         "student_number".to_string(),
         "git_username".to_string(),
+        "status".to_string(),
     ];
     header.extend(custom_headers.iter().cloned());
     rows.push(header);
@@ -189,6 +201,7 @@ pub fn export_students(roster: &Roster, path: &Path) -> Result<()> {
             student.email.clone(),
             student.student_number.clone().unwrap_or_default(),
             student.git_username.clone().unwrap_or_default(),
+            format_student_status(student.status),
         ];
         for key in &custom_headers {
             row.push(student.custom_fields.get(key).cloned().unwrap_or_default());
@@ -227,6 +240,7 @@ pub fn export_assignment_students(
         "email".to_string(),
         "student_number".to_string(),
         "git_username".to_string(),
+        "status".to_string(),
         "group_name".to_string(),
     ];
     header.extend(custom_headers.iter().cloned());
@@ -243,6 +257,7 @@ pub fn export_assignment_students(
             student.email.clone(),
             student.student_number.clone().unwrap_or_default(),
             student.git_username.clone().unwrap_or_default(),
+            format_student_status(student.status),
             group_name,
         ];
         for key in &custom_headers {
@@ -298,6 +313,14 @@ pub fn export_groups_for_edit(
     }
 
     write_by_extension(path, "Assignment Groups", rows)
+}
+
+fn format_student_status(status: StudentStatus) -> String {
+    match status {
+        StudentStatus::Active => "active".to_string(),
+        StudentStatus::Dropped => "dropped".to_string(),
+        StudentStatus::Incomplete => "incomplete".to_string(),
+    }
 }
 
 fn collect_custom_headers(roster: &Roster) -> Vec<String> {

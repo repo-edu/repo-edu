@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StudentStatus",
+  "type": "string",
+  "enum": [
+    "active",
+    "dropped",
+    "incomplete"
+  ],
+  "x-rust": {
+    "default": "active",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Enrollment status for coverage calculations"
+}

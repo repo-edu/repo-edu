@@ -155,6 +155,7 @@ describe("Store Smoke Tests", () => {
         student_number: null,
         git_username: null,
         git_username_status: "unknown",
+        status: "active",
         lms_user_id: null,
         custom_fields: {},
       }
@@ -184,6 +185,7 @@ describe("Store Smoke Tests", () => {
                 student_number: null,
                 git_username: null,
                 git_username_status: "unknown",
+                status: "active",
                 lms_user_id: null,
                 custom_fields: {},
               },
@@ -193,6 +195,7 @@ describe("Store Smoke Tests", () => {
                 id: assignmentId,
                 name: "Assignment 1",
                 description: null,
+                assignment_type: "class_wide",
                 groups: [
                   {
                     id: groupId,

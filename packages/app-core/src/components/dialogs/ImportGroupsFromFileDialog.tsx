@@ -77,7 +77,7 @@ export function ImportGroupsFromFileDialog() {
       }
 
       const { roster: newRoster, summary } = result.data
-      setRoster(newRoster)
+      setRoster(newRoster, "Import groups from file")
 
       const message =
         `Groups imported: +${summary.groups_added}, ` +

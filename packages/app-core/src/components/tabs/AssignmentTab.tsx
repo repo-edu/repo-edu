@@ -2,6 +2,10 @@
  * AssignmentTab - assignment management with group operations.
  */
 
+import type {
+  Assignment,
+  AssignmentId,
+} from "@repo-edu/backend-interface/types"
 import {
   Alert,
   AlertDescription,
@@ -18,11 +22,18 @@ import {
   SelectTrigger,
 } from "@repo-edu/ui"
 import { AlertTriangle } from "@repo-edu/ui/components/icons"
+import { useMemo } from "react"
 import { commands } from "../../bindings/commands"
 import { saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
+import { formatAssignmentType } from "../../utils/labels"
+import {
+  type AssignmentCoverageSummary,
+  getAssignmentCoverageSummary,
+} from "../../utils/rosterMetrics"
 
 export function AssignmentTab() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
@@ -35,9 +46,17 @@ export function AssignmentTab() {
   )
 
   const assignments = roster?.assignments ?? []
+  const students = roster?.students ?? []
   const selectedAssignment = assignments.find(
     (a) => a.id === selectedAssignmentId,
   )
+  const coverageByAssignment = useMemo(() => {
+    const map = new Map<AssignmentId, AssignmentCoverageSummary>()
+    for (const assignment of assignments) {
+      map.set(assignment.id, getAssignmentCoverageSummary(assignment, students))
+    }
+    return map
+  }, [assignments, students])
 
   // Empty state (no assignments)
   if (assignments.length === 0) {
@@ -52,6 +71,7 @@ export function AssignmentTab() {
           assignments={assignments}
           selected={selectedAssignmentId}
           onSelect={selectAssignment}
+          coverageByAssignment={coverageByAssignment}
         />
         <AssignmentCrudButtons />
       </div>
@@ -60,7 +80,8 @@ export function AssignmentTab() {
         <>
           {/* Group summary */}
           <GroupSummary
-            groups={selectedAssignment.groups}
+            assignment={selectedAssignment}
+            coverage={coverageByAssignment.get(selectedAssignment.id) ?? null}
             validation={assignmentValidation}
           />
 
@@ -87,17 +108,25 @@ function AssignmentEmptyState() {
 }
 
 interface AssignmentSelectorProps {
-  assignments: { id: string; name: string; description?: string | null }[]
-  selected: string | null
-  onSelect: (id: string | null) => void
+  assignments: Assignment[]
+  selected: AssignmentId | null
+  onSelect: (id: AssignmentId | null) => void
+  coverageByAssignment: Map<AssignmentId, AssignmentCoverageSummary>
 }
 
 function AssignmentSelector({
   assignments,
   selected,
   onSelect,
+  coverageByAssignment,
 }: AssignmentSelectorProps) {
   const selectedAssignment = assignments.find((a) => a.id === selected)
+  const selectedCoverage = selectedAssignment
+    ? (coverageByAssignment.get(selectedAssignment.id) ?? null)
+    : null
+  const unassignedCount = selectedCoverage?.unassignedActiveStudents.length ?? 0
+  const showWarning =
+    selectedAssignment?.assignment_type === "class_wide" && unassignedCount > 0
 
   return (
     <Select
@@ -111,10 +140,30 @@ function AssignmentSelector({
         <span className="flex flex-col items-start truncate text-left">
           {selectedAssignment ? (
             <>
-              <span className="truncate">{selectedAssignment.name}</span>
+              <span className="truncate flex items-center gap-2">
+                {selectedAssignment.name}
+                {showWarning && (
+                  <span
+                    className="inline-flex"
+                    title={`${unassignedCount} active students unassigned`}
+                  >
+                    <AlertTriangle
+                      className="size-3 text-warning"
+                      aria-hidden="true"
+                    />
+                  </span>
+                )}
+              </span>
               {selectedAssignment.description && (
                 <span className="text-[10px] text-muted-foreground font-normal truncate">
                   {selectedAssignment.description}
+                </span>
+              )}
+              {selectedCoverage && (
+                <span className="text-[10px] text-muted-foreground font-normal truncate">
+                  {formatAssignmentType(selectedAssignment.assignment_type)} ·{" "}
+                  {selectedCoverage.assignedActiveCount}/
+                  {selectedCoverage.activeCount} active
                 </span>
               )}
             </>
@@ -124,18 +173,44 @@ function AssignmentSelector({
         </span>
       </SelectTrigger>
       <SelectContent>
-        {assignments.map((a) => (
-          <SelectItem key={a.id} value={a.id} className="py-1.5">
-            <span className="flex flex-col">
-              <span>{a.name}</span>
-              {a.description && (
-                <span className="text-[10px] text-muted-foreground">
-                  {a.description}
+        {assignments.map((a) => {
+          const coverage = coverageByAssignment.get(a.id)
+          const assignmentUnassigned =
+            coverage?.unassignedActiveStudents.length ?? 0
+          const assignmentWarning =
+            a.assignment_type === "class_wide" && assignmentUnassigned > 0
+          return (
+            <SelectItem key={a.id} value={a.id} className="py-1.5">
+              <span className="flex flex-col">
+                <span className="flex items-center gap-2">
+                  {a.name}
+                  {assignmentWarning && (
+                    <span
+                      className="inline-flex"
+                      title={`${assignmentUnassigned} active students unassigned`}
+                    >
+                      <AlertTriangle
+                        className="size-3 text-warning"
+                        aria-hidden="true"
+                      />
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-          </SelectItem>
-        ))}
+                {a.description && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {a.description}
+                  </span>
+                )}
+                {coverage && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatAssignmentType(a.assignment_type)} ·{" "}
+                    {coverage.assignedActiveCount}/{coverage.activeCount} active
+                  </span>
+                )}
+              </span>
+            </SelectItem>
+          )
+        })}
       </SelectContent>
     </Select>
   )
@@ -151,9 +226,11 @@ function AssignmentCrudButtons() {
   const setEditAssignmentDialogOpen = useUiStore(
     (state) => state.setEditAssignmentDialogOpen,
   )
-  const setDeleteAssignmentDialogOpen = useUiStore(
-    (state) => state.setDeleteAssignmentDialogOpen,
+  const removeAssignment = useProfileStore((state) => state.removeAssignment)
+  const assignments = useProfileStore(
+    (state) => state.document?.roster?.assignments ?? [],
   )
+  const addToast = useToastStore((state) => state.addToast)
 
   return (
     <div className="flex gap-1">
@@ -175,7 +252,16 @@ function AssignmentCrudButtons() {
       <Button
         size="sm"
         variant="outline"
-        onClick={() => setDeleteAssignmentDialogOpen(true)}
+        onClick={() => {
+          const assignment = assignments.find(
+            (a) => a.id === selectedAssignmentId,
+          )
+          if (!selectedAssignmentId || !assignment) return
+          removeAssignment(selectedAssignmentId)
+          addToast(`Deleted ${assignment.name}. Ctrl+Z to undo`, {
+            tone: "warning",
+          })
+        }}
         disabled={!selectedAssignmentId}
       >
         Delete
@@ -185,36 +271,76 @@ function AssignmentCrudButtons() {
 }
 
 interface GroupSummaryProps {
-  groups: { id: string; name: string; member_ids: string[] }[]
+  assignment: Assignment
+  coverage: AssignmentCoverageSummary | null
   validation: { issues: { kind: string; affected_ids: string[] }[] } | null
 }
 
-function GroupSummary({ groups, validation }: GroupSummaryProps) {
-  const groupCount = groups.length
-  const studentCount = groups.reduce((acc, g) => acc + g.member_ids.length, 0)
-  const issueCount = validation?.issues.length ?? 0
+function GroupSummary({ assignment, coverage, validation }: GroupSummaryProps) {
+  const setAssignmentCoverageOpen = useUiStore(
+    (state) => state.setAssignmentCoverageOpen,
+  )
+  const setAssignmentCoverageFocus = useUiStore(
+    (state) => state.setAssignmentCoverageFocus,
+  )
 
-  // Find specific warnings
-  const emptyGroups = groups.filter((g) => g.member_ids.length === 0)
+  const groupCount = assignment.groups.length
+  const studentCount = assignment.groups.reduce(
+    (acc, g) => acc + g.member_ids.length,
+    0,
+  )
+  const unassignedCount = coverage?.unassignedActiveStudents.length ?? 0
+  const hasUnassigned =
+    assignment.assignment_type === "class_wide" && unassignedCount > 0
+  const activeTotal = coverage?.activeCount ?? 0
+  const assignedActive = coverage?.assignedActiveCount ?? 0
 
   return (
-    <div>
-      <span>
-        {groupCount} group{groupCount !== 1 ? "s" : ""}
-      </span>
-      <span className="mx-2">-</span>
-      <span>{studentCount} students</span>
-      {issueCount > 0 && (
-        <div className="text-warning mt-1">
-          {issueCount} warning{issueCount > 1 ? "s" : ""}
-          {emptyGroups.length > 0 && (
-            <span className="ml-1">
-              (empty group{emptyGroups.length > 1 ? "s" : ""}:{" "}
-              {emptyGroups.map((g) => `"${g.name}"`).join(", ")})
-            </span>
+    <div className="space-y-1">
+      <div>
+        <span>
+          {groupCount} group{groupCount !== 1 ? "s" : ""}
+        </span>
+        <span className="mx-2">-</span>
+        <span>{studentCount} students</span>
+      </div>
+      {coverage && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button
+            type="button"
+            className="text-primary hover:underline inline-flex items-center gap-1"
+            onClick={() => {
+              setAssignmentCoverageFocus(null)
+              setAssignmentCoverageOpen(true)
+            }}
+            title="View coverage details"
+          >
+            {assignedActive}/{activeTotal} active
+            <span aria-hidden="true">›</span>
+          </button>
+          {assignment.assignment_type === "class_wide" ? (
+            hasUnassigned ? (
+              <span
+                className="text-warning inline-flex items-center gap-1"
+                title={`${unassignedCount} active students unassigned`}
+              >
+                <AlertTriangle className="size-3" />
+                {unassignedCount} unassigned
+              </span>
+            ) : (
+              <span className="text-muted-foreground">All active assigned</span>
+            )
+          ) : (
+            <span className="text-muted-foreground">Selective assignment</span>
           )}
         </div>
       )}
+      {validation?.issues.length ? (
+        <div className="text-muted-foreground text-xs">
+          {validation.issues.length} validation signal
+          {validation.issues.length > 1 ? "s" : ""}
+        </div>
+      ) : null}
     </div>
   )
 }

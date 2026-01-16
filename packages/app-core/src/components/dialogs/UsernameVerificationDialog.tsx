@@ -62,7 +62,7 @@ export function UsernameVerificationDialog() {
       }
 
       const { roster: newRoster, verification } = result.data
-      setRoster(newRoster)
+      setRoster(newRoster, "Verify git usernames")
       setUsernameVerificationResult(verification)
 
       const { valid, invalid, errors } = verification

@@ -8,26 +8,15 @@
  * - Primary emphasis should be on progressing to next tab, not staying on Roster
  */
 
-import type {
-  Roster,
-  ValidationIssue,
-  ValidationKind,
-} from "@repo-edu/backend-interface/types"
+import type { Roster } from "@repo-edu/backend-interface/types"
 import {
-  Alert,
-  AlertDescription,
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo-edu/ui"
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-} from "@repo-edu/ui/components/icons"
+import { ChevronDown, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { saveDialog } from "../../services/platform"
@@ -35,85 +24,15 @@ import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatDateTime } from "../../utils/formatDate"
 import { buildLmsOperationContext } from "../../utils/operationContext"
 import { CourseDisplay } from "../CourseDisplay"
 
-/**
- * Human-readable descriptions for validation issue kinds.
- */
-const ISSUE_DESCRIPTIONS: Record<
-  ValidationKind,
-  { title: string; description: string; action?: string }
-> = {
-  duplicate_student_id: {
-    title: "Duplicate student ID",
-    description: "Multiple students share the same ID.",
-    action: "Edit affected students to use unique IDs.",
-  },
-  duplicate_email: {
-    title: "Duplicate email",
-    description: "Multiple students share the same email address.",
-    action: "Edit affected students to use unique emails.",
-  },
-  duplicate_assignment_name: {
-    title: "Duplicate assignment name",
-    description: "Multiple assignments share the same name.",
-    action: "Rename assignments to be unique.",
-  },
-  duplicate_group_id_in_assignment: {
-    title: "Duplicate group ID",
-    description: "Multiple groups in an assignment share the same ID.",
-    action: "Edit the assignment to fix group IDs.",
-  },
-  duplicate_group_name_in_assignment: {
-    title: "Duplicate group name",
-    description: "Multiple groups in an assignment share the same name.",
-    action: "Rename groups to be unique.",
-  },
-  duplicate_repo_name_in_assignment: {
-    title: "Duplicate repository name",
-    description:
-      "Multiple groups would create repositories with the same name.",
-    action: "Change group names or the repo naming template.",
-  },
-  student_in_multiple_groups_in_assignment: {
-    title: "Student in multiple groups",
-    description: "A student appears in more than one group for an assignment.",
-    action: "Remove the student from one of the groups.",
-  },
-  orphan_group_member: {
-    title: "Unknown group member",
-    description: "A group references a student ID that doesn't exist.",
-    action: "Remove the invalid member or add the missing student.",
-  },
-  missing_git_username: {
-    title: "Missing git username",
-    description: "Some students don't have a git username set.",
-    action: "Import git usernames or add them manually.",
-  },
-  invalid_git_username: {
-    title: "Invalid git username",
-    description: "Some students have git usernames that couldn't be verified.",
-    action: "Verify and correct the git usernames.",
-  },
-  empty_group: {
-    title: "Empty group",
-    description: "A group has no members assigned.",
-    action: "Add members to the group or delete it.",
-  },
-  missing_email: {
-    title: "Missing email",
-    description: "Some students don't have an email address.",
-    action: "Add email addresses to affected students.",
-  },
-}
-
 export function RosterTab() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
-  const rosterValidation = useProfileStore((state) => state.rosterValidation)
   const rosterStatus = useProfileStore((state) => state.status)
   const course = useProfileStore(selectCourse)
 
@@ -131,17 +50,16 @@ export function RosterTab() {
   const setImportFileDialogOpen = useUiStore(
     (state) => state.setImportFileDialogOpen,
   )
-  const setClearRosterDialogOpen = useUiStore(
-    (state) => state.setClearRosterDialogOpen,
+  const setNewProfileDialogOpen = useUiStore(
+    (state) => state.setNewProfileDialogOpen,
   )
+  const addToast = useToastStore((state) => state.addToast)
 
   const [importing, setImporting] = useState(false)
-  const [issuesExpanded, setIssuesExpanded] = useState(false)
-
   const studentCount = roster?.students.length ?? 0
-  const issueCount = rosterValidation?.issues.length ?? 0
   const hasStudents = studentCount > 0
   const hasLmsConnection = lmsConnection !== null
+  const hasCourseId = course.id.trim() !== ""
   const lmsContext = buildLmsOperationContext(lmsConnection, course.id)
 
   // Can import from LMS if:
@@ -186,7 +104,7 @@ export function RosterTab() {
       }
 
       const { roster: newRoster, summary } = result.data
-      setRoster(newRoster)
+      setRoster(newRoster, "Import students from LMS")
 
       let message = `Imported ${summary.students_added} students (${summary.students_updated} updated, ${summary.students_unchanged} unchanged)`
       if (summary.students_missing_email > 0) {
@@ -203,7 +121,15 @@ export function RosterTab() {
 
   const handleClear = () => {
     if (!hasStudents) return
-    setClearRosterDialogOpen(true)
+    setRoster(
+      {
+        source: null,
+        students: [],
+        assignments: [],
+      },
+      "Clear roster",
+    )
+    addToast("Roster cleared. Ctrl+Z to undo", { tone: "warning" })
   }
 
   const handleExportStudents = async (format: "csv" | "xlsx") => {
@@ -238,6 +164,20 @@ export function RosterTab() {
     <div className="flex flex-col gap-3 p-3">
       {/* Course display with verification */}
       <CourseDisplay />
+      {!hasCourseId && (
+        <div className="text-sm text-muted-foreground">
+          No course configured for this profile.{" "}
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0 align-baseline"
+            onClick={() => setNewProfileDialogOpen(true)}
+          >
+            Add the course for this profile
+          </Button>
+          .
+        </div>
+      )}
 
       {/* Roster source - always shown */}
       <RosterSourceDisplay roster={roster} />
@@ -246,13 +186,6 @@ export function RosterTab() {
       {hasStudents && (
         <div>
           <span>{studentCount} students</span>
-          {issueCount > 0 && (
-            <IssuesIndicator
-              issues={rosterValidation?.issues ?? []}
-              expanded={issuesExpanded}
-              onToggle={() => setIssuesExpanded(!issuesExpanded)}
-            />
-          )}
         </div>
       )}
 
@@ -284,64 +217,6 @@ export function RosterTab() {
 
       {rosterStatus === "loading" && <div>Loading...</div>}
     </div>
-  )
-}
-
-/**
- * Clickable issues indicator with expandable details.
- */
-interface IssuesIndicatorProps {
-  issues: ValidationIssue[]
-  expanded: boolean
-  onToggle: () => void
-}
-
-function IssuesIndicator({ issues, expanded, onToggle }: IssuesIndicatorProps) {
-  const issueCount = issues.length
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="text-warning ml-2 hover:underline cursor-pointer"
-      >
-        {expanded ? (
-          <ChevronDown className="inline size-4 align-text-bottom" />
-        ) : (
-          <ChevronRight className="inline size-4 align-text-bottom" />
-        )}{" "}
-        {issueCount} issue{issueCount > 1 ? "s" : ""}
-      </button>
-      {expanded && (
-        <Alert variant="warning" className="mt-3">
-          <AlertTriangle className="size-4" />
-          <AlertDescription>
-            <ul className="mt-1 space-y-2">
-              {issues.map((issue, index) => {
-                const info = ISSUE_DESCRIPTIONS[issue.kind]
-                return (
-                  <li key={index}>
-                    <span className="font-medium">{info.title}:</span>{" "}
-                    {info.description}
-                    {info.action && (
-                      <span className="text-muted-foreground ml-1">
-                        {info.action}
-                      </span>
-                    )}
-                    {issue.context && (
-                      <span className="text-muted-foreground ml-1">
-                        ({issue.context})
-                      </span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
-    </>
   )
 }
 

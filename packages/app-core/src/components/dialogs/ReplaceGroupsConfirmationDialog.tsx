@@ -80,7 +80,7 @@ export function ReplaceGroupsConfirmationDialog() {
         pendingGroupImport,
       )
       if (result.status === "ok") {
-        setRoster(result.data.roster)
+        setRoster(result.data.roster, "Replace groups from LMS")
         handleClose()
         setImportGroupsDialogOpen(false)
       } else {

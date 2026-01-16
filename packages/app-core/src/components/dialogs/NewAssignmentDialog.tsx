@@ -2,7 +2,10 @@
  * Dialog for creating a new assignment.
  */
 
-import type { Assignment } from "@repo-edu/backend-interface/types"
+import type {
+  Assignment,
+  AssignmentType,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Dialog,
@@ -13,17 +16,22 @@ import {
   DialogTitle,
   FormField,
   Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
+import { formatAssignmentType } from "../../utils/labels"
 import { generateAssignmentId } from "../../utils/nanoid"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [assignmentType, setAssignmentType] =
+    useState<AssignmentType>("class_wide")
   const addAssignment = useProfileStore((state) => state.addAssignment)
-  const selectAssignment = useProfileStore((state) => state.selectAssignment)
   const open = useUiStore((state) => state.newAssignmentDialogOpen)
   const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen)
 
@@ -32,14 +40,15 @@ export function NewAssignmentDialog() {
       id: generateAssignmentId(),
       name: name.trim(),
       description: description.trim() || null,
+      assignment_type: assignmentType,
       groups: [],
       lms_group_set_id: null,
     }
-    addAssignment(assignment)
-    selectAssignment(assignment.id)
+    addAssignment(assignment, { select: true })
     setOpen(false)
     setName("")
     setDescription("")
+    setAssignmentType("class_wide")
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -47,6 +56,7 @@ export function NewAssignmentDialog() {
     if (!newOpen) {
       setName("")
       setDescription("")
+      setAssignmentType("class_wide")
     }
   }
 
@@ -88,6 +98,47 @@ export function NewAssignmentDialog() {
               title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
             />
           </FormField>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Type (cannot be changed after creation)
+            </Label>
+            <RadioGroup
+              value={assignmentType}
+              onValueChange={(value) =>
+                setAssignmentType(value as AssignmentType)
+              }
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
+                <RadioGroupItem value="class_wide" id="assignment-type-class" />
+                <div className="space-y-0.5">
+                  <Label
+                    htmlFor="assignment-type-class"
+                    className="font-medium"
+                  >
+                    {formatAssignmentType("class_wide")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    All active students must be assigned to a group.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
+                <RadioGroupItem value="selective" id="assignment-type-select" />
+                <div className="space-y-0.5">
+                  <Label
+                    htmlFor="assignment-type-select"
+                    className="font-medium"
+                  >
+                    {formatAssignmentType("selective")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Any subset of active students can participate.
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>

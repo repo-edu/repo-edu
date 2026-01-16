@@ -332,7 +332,8 @@ fn apply_group_edit_entries(
 mod tests {
     use super::{import_groups_from_file, GroupId};
     use crate::roster::{
-        export_groups_for_edit, Assignment, AssignmentId, Group, Roster, Student, StudentDraft,
+        export_groups_for_edit, Assignment, AssignmentId, AssignmentType, Group, Roster, Student,
+        StudentDraft,
     };
     use tempfile::Builder;
 
@@ -359,6 +360,7 @@ mod tests {
             id: assignment_id.clone(),
             name: "Lab 1".to_string(),
             description: None,
+            assignment_type: AssignmentType::ClassWide,
             groups: vec![group],
             lms_group_set_id: Some("lms-set-1".to_string()),
         };
@@ -419,6 +421,7 @@ mod tests {
             id: assignment_id.clone(),
             name: "Lab 1".to_string(),
             description: None,
+            assignment_type: AssignmentType::ClassWide,
             groups: vec![],
             lms_group_set_id: Some("lms-set-1".to_string()),
         };

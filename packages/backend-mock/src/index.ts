@@ -128,11 +128,16 @@ const createRoster = (
 }
 
 const buildCoverageReport = (roster: Roster): CoverageReport => {
+  const activeStudents = roster.students.filter(
+    (student) => student.status === "active",
+  )
+  const activeIds = new Set(activeStudents.map((student) => student.id))
   const studentAssignments = new Map<string, Set<string>>()
 
   for (const assignment of roster.assignments) {
     for (const group of assignment.groups) {
       for (const memberId of group.member_ids) {
+        if (!activeIds.has(memberId)) continue
         const assignments =
           studentAssignments.get(memberId) ?? new Set<string>()
         assignments.add(assignment.name)
@@ -141,11 +146,11 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
     }
   }
 
-  const studentsInNone: StudentSummary[] = roster.students
+  const studentsInNone: StudentSummary[] = activeStudents
     .filter((student) => !studentAssignments.has(student.id))
     .map((student) => ({ id: student.id, name: student.name }))
 
-  const studentsInMultiple = roster.students
+  const studentsInMultiple = activeStudents
     .filter((student) => (studentAssignments.get(student.id)?.size ?? 0) > 1)
     .map((student) => ({
       student: { id: student.id, name: student.name },
@@ -161,6 +166,7 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
     }
 
     const missingStudents = roster.students
+      .filter((student) => student.status === "active")
       .filter((student) => !memberIds.has(student.id))
       .map((student) => ({ id: student.id, name: student.name }))
 
@@ -173,7 +179,7 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
   })
 
   return {
-    total_students: roster.students.length,
+    total_students: activeStudents.length,
     assignments,
     students_in_multiple: studentsInMultiple,
     students_in_none: studentsInNone,

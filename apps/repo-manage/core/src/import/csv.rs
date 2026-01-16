@@ -1,7 +1,7 @@
 use crate::error::{PlatformError, Result};
 use crate::generated::types::GitUsernameEntry;
 use crate::import::normalize::{normalize_email, normalize_git_username, normalize_header};
-use crate::roster::StudentDraft;
+use crate::roster::{StudentDraft, StudentStatus};
 use std::collections::HashMap;
 use std::io::Read;
 
@@ -111,6 +111,7 @@ where
         let mut email = String::new();
         let mut student_number: Option<String> = None;
         let mut git_username: Option<String> = None;
+        let mut status: Option<StudentStatus> = None;
         let mut custom_fields: HashMap<String, String> = HashMap::new();
 
         for (idx, header) in headers.iter().enumerate() {
@@ -124,6 +125,11 @@ where
                 "email" => email = value.to_string(),
                 "student_number" => student_number = Some(value.to_string()),
                 "git_username" => git_username = Some(normalize_git_username(value)),
+                "status" | "student_status" => {
+                    status = Some(parse_student_status(value).map_err(|err| {
+                        PlatformError::Other(format!("Row {}: {}", row_index + 2, err))
+                    })?)
+                }
                 _ => {
                     custom_fields.insert(header.original.clone(), value.to_string());
                 }
@@ -143,6 +149,7 @@ where
             student_number: student_number.filter(|v| !v.trim().is_empty()),
             git_username: git_username.filter(|v| !v.trim().is_empty()),
             lms_user_id: None,
+            status,
             custom_fields,
         };
 
@@ -166,6 +173,18 @@ where
     }
 
     Ok(drafts)
+}
+
+fn parse_student_status(value: &str) -> Result<StudentStatus> {
+    match value.trim().to_lowercase().as_str() {
+        "active" => Ok(StudentStatus::Active),
+        "dropped" => Ok(StudentStatus::Dropped),
+        "incomplete" => Ok(StudentStatus::Incomplete),
+        _ => Err(PlatformError::Other(format!(
+            "Invalid status '{}'. Expected active, dropped, or incomplete.",
+            value
+        ))),
+    }
 }
 
 pub(crate) fn parse_git_username_rows<I>(

@@ -24,12 +24,14 @@ import { useUiStore } from "../../stores/uiStore"
 const BLOCKING_KINDS: Set<ValidationKind> = new Set([
   "duplicate_student_id",
   "duplicate_email",
+  "invalid_email",
   "duplicate_assignment_name",
   "duplicate_group_id_in_assignment",
   "duplicate_group_name_in_assignment",
   "duplicate_repo_name_in_assignment",
-  "student_in_multiple_groups_in_assignment",
   "orphan_group_member",
+  "empty_group",
+  "unassigned_student",
 ])
 
 function isBlockingIssue(kind: ValidationKind): boolean {
@@ -143,6 +145,10 @@ function formatIssue(issue: ValidationIssue): string {
       return `Duplicate email: ${context ?? "unknown"} (${count} students)`
     case "duplicate_assignment_name":
       return `Duplicate assignment name: ${context ?? "unknown"}`
+    case "invalid_email":
+      return `${count} invalid email${count !== 1 ? "s" : ""}`
+    case "missing_email":
+      return `${count} missing email${count !== 1 ? "s" : ""}`
     case "duplicate_group_id_in_assignment":
       return `Duplicate group ID in assignment (${count} groups)`
     case "duplicate_group_name_in_assignment":
@@ -150,7 +156,7 @@ function formatIssue(issue: ValidationIssue): string {
     case "duplicate_repo_name_in_assignment":
       return `Duplicate repo name: ${context ?? "unknown"} (${count} groups)`
     case "student_in_multiple_groups_in_assignment":
-      return `Student in multiple groups: ${context ?? "unknown"}`
+      return `${count} student${count !== 1 ? "s" : ""} in multiple groups`
     case "orphan_group_member":
       return `${count} group member${count !== 1 ? "s" : ""} reference unknown student${count !== 1 ? "s" : ""}`
     case "missing_git_username":
@@ -158,7 +164,9 @@ function formatIssue(issue: ValidationIssue): string {
     case "invalid_git_username":
       return `${count} student${count !== 1 ? "s" : ""} with invalid git username`
     case "empty_group":
-      return `${count} empty group${count !== 1 ? "s" : ""} (will be skipped)`
+      return `${count} empty group${count !== 1 ? "s" : ""}`
+    case "unassigned_student":
+      return `${count} unassigned student${count !== 1 ? "s" : ""}`
     default:
       return `Unknown issue: ${issue.kind}`
   }

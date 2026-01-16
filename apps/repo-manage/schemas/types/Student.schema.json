@@ -35,6 +35,9 @@
     "git_username_status": {
       "$ref": "./GitUsernameStatus.schema.json"
     },
+    "status": {
+      "$ref": "./StudentStatus.schema.json"
+    },
     "lms_user_id": {
       "anyOf": [
         {
@@ -58,6 +61,7 @@
     "name",
     "email",
     "git_username_status",
+    "status",
     "custom_fields"
   ],
   "description": "Student roster entry"

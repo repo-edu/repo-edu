@@ -80,7 +80,7 @@ export function ImportGitUsernamesDialog() {
       }
 
       const { roster: newRoster, summary } = result.data
-      setRoster(newRoster)
+      setRoster(newRoster, "Import git usernames")
       setGitUsernameImportResult(result.data)
 
       let message = `Matched ${summary.matched} git usernames`
