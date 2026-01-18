@@ -1,21 +1,13 @@
-import { render, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 import { UtilityBar } from "./UtilityBar"
 
-const commandMocks = vi.hoisted(() => ({
-  listProfiles: vi.fn(),
-  loadProfileSettings: vi.fn(),
-  loadProfile: vi.fn(),
-}))
-
 vi.mock("../bindings/commands", () => ({
   commands: {
-    listProfiles: commandMocks.listProfiles,
-    loadProfileSettings: commandMocks.loadProfileSettings,
-    loadProfile: commandMocks.loadProfile,
+    revealProfilesDirectory: vi.fn(),
   },
 }))
 
@@ -35,31 +27,41 @@ describe("UtilityBar", () => {
     useProfileStore.getState().reset()
     useOutputStore.getState().clear()
     vi.clearAllMocks()
-
-    commandMocks.listProfiles.mockResolvedValue({
-      status: "ok",
-      data: ["CS101 2026", "CS201 2026"],
-    })
-    commandMocks.loadProfileSettings.mockImplementation(
-      async (name: string) => ({
-        status: "ok",
-        data: {
-          settings: { course: { id: "", name: `Course for ${name}` } },
-          warnings: [],
-        },
-      }),
-    )
   })
 
-  it("refreshes profiles without loading or switching the active profile", async () => {
+  it("shows profile indicator with 'None' when no profile is active", () => {
     render(<UtilityBar isDirty={false} onSaved={() => {}} />)
 
-    await waitFor(() =>
-      expect(commandMocks.listProfiles).toHaveBeenCalledTimes(1),
+    expect(screen.getByText("Profile:")).toBeInTheDocument()
+    expect(screen.getByText("None")).toBeInTheDocument()
+  })
+
+  it("shows active profile name when profile is set", () => {
+    useUiStore.getState().setActiveProfile("CS101 2026")
+    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
+
+    expect(screen.getByText("CS101 2026")).toBeInTheDocument()
+  })
+
+  it("navigates to roster tab when profile indicator is clicked", () => {
+    useUiStore.getState().setActiveProfile("CS101 2026")
+    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
+
+    const profileButton = screen.getByTitle(
+      "Click to manage profiles in Roster tab",
     )
-    await waitFor(() =>
-      expect(commandMocks.loadProfileSettings).toHaveBeenCalledTimes(2),
-    )
-    expect(commandMocks.loadProfile).not.toHaveBeenCalled()
+    fireEvent.click(profileButton)
+
+    expect(useUiStore.getState().activeTab).toBe("roster")
+  })
+
+  it("has Clear button that clears output", () => {
+    useOutputStore.getState().appendText("Test message", "info")
+    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
+
+    const clearButton = screen.getByText("Clear")
+    fireEvent.click(clearButton)
+
+    expect(useOutputStore.getState().lines).toHaveLength(0)
   })
 })

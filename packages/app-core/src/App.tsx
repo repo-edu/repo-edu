@@ -65,7 +65,12 @@ import {
   useProfileStore,
 } from "./stores/profileStore"
 import { useToastStore } from "./stores/toastStore"
-import { type ActiveTab, useUiStore } from "./stores/uiStore"
+import {
+  type ActiveTab,
+  type ProfileListItem,
+  useUiStore,
+} from "./stores/uiStore"
+import { commands } from "./bindings/commands"
 import "./App.css"
 
 function App() {
@@ -104,6 +109,12 @@ function App() {
   // Load profile when active profile changes
   useLoadProfile(ui.activeProfile, handleProfileLoad)
 
+  // Profile list cache
+  const setProfileList = useUiStore((state) => state.setProfileList)
+  const setProfileListLoading = useUiStore(
+    (state) => state.setProfileListLoading,
+  )
+
   // Initialize app on mount
   useEffect(() => {
     async function initializeApp() {
@@ -115,9 +126,40 @@ function App() {
       if (result) {
         setActiveProfile(result)
       }
+
+      // Pre-load profile list (so Roster tab renders instantly)
+      setProfileListLoading(true)
+      try {
+        const listResult = await commands.listProfiles()
+        if (listResult.status === "ok") {
+          const profileNames = listResult.data
+          const profilesWithCourses: ProfileListItem[] = await Promise.all(
+            profileNames.map(async (name) => {
+              try {
+                const res = await commands.loadProfileSettings(name)
+                if (res.status === "ok") {
+                  return {
+                    name,
+                    courseName:
+                      res.data.settings.course.name || "No connected course",
+                  }
+                }
+              } catch (e) {
+                console.error(`Failed to load course for profile ${name}:`, e)
+              }
+              return { name, courseName: "No connected course" }
+            }),
+          )
+          setProfileList(profilesWithCourses)
+        }
+      } catch (error) {
+        console.error("Failed to load profiles:", error)
+      } finally {
+        setProfileListLoading(false)
+      }
     }
     initializeApp()
-  }, [loadAppSettings, setActiveProfile])
+  }, [loadAppSettings, setActiveProfile, setProfileList, setProfileListLoading])
 
   // Save handler
   const saveCurrentProfile = useCallback(async () => {
@@ -287,7 +329,7 @@ function App() {
                 className="flex-1 flex flex-col min-h-0 p-1"
               >
                 <div className="flex-1 overflow-auto">
-                  <RosterTab />
+                  <RosterTab isDirty={isDirty} />
                 </div>
               </TabsContent>
 

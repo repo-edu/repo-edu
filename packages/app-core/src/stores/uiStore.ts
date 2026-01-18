@@ -14,6 +14,14 @@ import type {
 import { create } from "zustand"
 
 /**
+ * Profile list item - cached in store to avoid repeated fetches.
+ */
+export interface ProfileListItem {
+  name: string
+  courseName: string
+}
+
+/**
  * Active tab in the main layout.
  * Frontend-only, not persisted.
  */
@@ -30,6 +38,10 @@ interface UiState {
   settingsDialogCategory: "connections" | "display" | "shortcuts"
   profileMenuOpen: boolean
   activeProfile: string | null
+
+  // Profile list cache (to avoid fetching on every tab switch)
+  profileList: ProfileListItem[]
+  profileListLoading: boolean
 
   // Roster tab dialogs
   studentEditorOpen: boolean
@@ -85,6 +97,10 @@ interface UiActions {
   openSettings: (category?: "connections" | "display" | "shortcuts") => void
   setProfileMenuOpen: (open: boolean) => void
   setActiveProfile: (profile: string | null) => void
+
+  // Profile list cache
+  setProfileList: (profiles: ProfileListItem[]) => void
+  setProfileListLoading: (loading: boolean) => void
 
   // Roster tab dialogs
   setStudentEditorOpen: (open: boolean) => void
@@ -146,6 +162,10 @@ const initialState: UiState = {
   profileMenuOpen: false,
   activeProfile: null,
 
+  // Profile list cache
+  profileList: [],
+  profileListLoading: false,
+
   // Roster tab dialogs
   studentEditorOpen: false,
   coverageReportOpen: false,
@@ -202,6 +222,10 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ settingsDialogOpen: true, settingsDialogCategory: category }),
   setProfileMenuOpen: (open) => set({ profileMenuOpen: open }),
   setActiveProfile: (profile) => set({ activeProfile: profile }),
+
+  // Profile list cache
+  setProfileList: (profiles) => set({ profileList: profiles }),
+  setProfileListLoading: (loading) => set({ profileListLoading: loading }),
 
   // Roster tab dialogs
   setStudentEditorOpen: (open) => set({ studentEditorOpen: open }),

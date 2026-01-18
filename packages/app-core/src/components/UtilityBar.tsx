@@ -1,52 +1,20 @@
 /**
  * UtilityBar - Bottom bar between tab content and output console.
- * Contains: Clear button, Profile selector, Save button, Profile menu.
+ * Contains: Clear button, Profile indicator, Save button, Profile menu.
  */
 
-import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Input,
-  Label,
 } from "@repo-edu/ui"
-import {
-  Copy,
-  FolderOpen,
-  Loader2,
-  Menu,
-  Pencil,
-  Trash2,
-} from "@repo-edu/ui/components/icons"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@repo-edu/ui/components/ui/alert-dialog"
-import { useCallback, useEffect, useState } from "react"
+import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { commands } from "../bindings/commands"
 import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
-import {
-  ActionDropdown,
-  type ActionDropdownItem,
-  type ItemAction,
-} from "./ActionDropdown"
 import { SaveButton } from "./SaveButton"
 
 interface UtilityBarProps {
@@ -63,587 +31,45 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
         Clear
       </Button>
       <div className="flex-1" />
-      <ProfileSelector isDirty={isDirty} />
+      <ProfileIndicator />
       <SaveButton isDirty={isDirty} onSaved={onSaved} />
       <ProfileMenu />
     </div>
   )
 }
 
-interface ProfileDropdownItem extends ActionDropdownItem {
-  name: string
-}
-
-interface ProfileSelectorProps {
-  isDirty: boolean
-}
-
-function ProfileSelector({ isDirty }: ProfileSelectorProps) {
+/**
+ * ProfileIndicator - Shows active profile name, click to navigate to Roster tab.
+ */
+function ProfileIndicator() {
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const setActiveProfile = useUiStore((state) => state.setActiveProfile)
-  const setNewProfileDialogOpen = useUiStore(
-    (state) => state.setNewProfileDialogOpen,
-  )
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const setActiveTab = useUiStore((state) => state.setActiveTab)
   const course = useProfileStore(
     (state) => state.document?.settings.course ?? null,
   )
-  const profileStatus = useProfileStore((state) => state.status)
-
-  const [profiles, setProfiles] = useState<string[]>([])
-  const [profileCourses, setProfileCourses] = useState<Record<string, string>>(
-    {},
-  )
-  const [loading, setLoading] = useState(false)
-
-  // Rename dialog state
-  const [renameDialog, setRenameDialog] = useState<{
-    open: boolean
-    profileName: string
-    newName: string
-  }>({ open: false, profileName: "", newName: "" })
-
-  // Duplicate dialog state
-  const [duplicateDialog, setDuplicateDialog] = useState<{
-    open: boolean
-    sourceProfile: string
-    newProfileName: string
-    courseId: string
-    courseName: string
-    isProcessing: boolean
-  }>({
-    open: false,
-    sourceProfile: "",
-    newProfileName: "",
-    courseId: "",
-    courseName: "",
-    isProcessing: false,
-  })
-
-  // Delete confirmation dialog state
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean
-    profileName: string
-  }>({ open: false, profileName: "" })
-
-  // Unsaved changes confirmation dialog state
-  const [unsavedDialog, setUnsavedDialog] = useState<{
-    open: boolean
-    targetProfile: string
-  }>({ open: false, targetProfile: "" })
-
-  const refreshProfiles = useCallback(async () => {
-    try {
-      const result = await commands.listProfiles()
-      if (result.status === "ok") {
-        const profileList = result.data
-        setProfiles(profileList)
-
-        // Fetch course names for all profiles to show in the dropdown
-        const courses: Record<string, string> = {}
-        await Promise.all(
-          profileList.map(async (name) => {
-            try {
-              const res = await commands.loadProfileSettings(name)
-              if (res.status === "ok") {
-                courses[name] = res.data.settings.course.name
-              }
-            } catch (e) {
-              console.error(`Failed to load course for profile ${name}:`, e)
-            }
-          }),
-        )
-        setProfileCourses(courses)
-      }
-    } catch (error) {
-      console.error("Failed to load profiles:", error)
-    }
-  }, [])
-
-  useEffect(() => {
-    refreshProfiles()
-  }, [refreshProfiles, activeProfile])
-
-  // Ensure the active profile is in the list (handles auto-created profiles)
-  useEffect(() => {
-    if (
-      activeProfile &&
-      profileStatus === "loaded" &&
-      profiles.length > 0 &&
-      !profiles.includes(activeProfile)
-    ) {
-      refreshProfiles()
-    }
-  }, [activeProfile, profileStatus, profiles, refreshProfiles])
-
-  const switchToProfile = async (name: string) => {
-    setLoading(true)
-    try {
-      const result = await commands.setActiveProfile(name)
-      if (result.status === "ok") {
-        setActiveProfile(name)
-        appendOutput(`Switched to profile: ${name}`, "info")
-      } else {
-        appendOutput(
-          `Failed to switch profile: ${result.error.message}`,
-          "error",
-        )
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to switch profile: ${message}`, "error")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleProfileSelect = (index: number) => {
-    const name = profiles[index]
-    if (!name || name === activeProfile) return
-
-    if (isDirty) {
-      setUnsavedDialog({ open: true, targetProfile: name })
-    } else {
-      switchToProfile(name)
-    }
-  }
-
-  const handleNewProfile = () => {
-    setNewProfileDialogOpen(true)
-  }
-
-  const handleDuplicateProfile = (profileName: string) => {
-    setDuplicateDialog({
-      open: true,
-      sourceProfile: profileName,
-      newProfileName: `${profileName} copy`,
-      courseId: "",
-      courseName: "",
-      isProcessing: false,
-    })
-  }
-
-  const handleDuplicateConfirm = async () => {
-    const { sourceProfile, newProfileName, courseId, courseName } =
-      duplicateDialog
-    if (!newProfileName.trim() || !courseId.trim() || !courseName.trim()) {
-      return
-    }
-
-    setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
-
-    try {
-      // Load source profile settings
-      const loadResult = await commands.loadProfileSettings(sourceProfile)
-      if (loadResult.status === "error") {
-        appendOutput(
-          `Failed to load source profile: ${loadResult.error.message}`,
-          "error",
-        )
-        setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
-        return
-      }
-
-      // Create new profile settings with new course, keeping other settings
-      const sourceSettings = loadResult.data.settings
-      const newSettings: ProfileSettings = {
-        course: { id: courseId.trim(), name: courseName.trim() },
-        git_connection: sourceSettings.git_connection,
-        operations: sourceSettings.operations,
-        exports: sourceSettings.exports,
-      }
-
-      // Save as new profile (roster is not copied - new profile starts with empty roster)
-      const saveResult = await commands.saveProfile(
-        newProfileName.trim(),
-        newSettings,
-      )
-      if (saveResult.status === "error") {
-        appendOutput(
-          `Failed to create profile: ${saveResult.error.message}`,
-          "error",
-        )
-        setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
-        return
-      }
-
-      await refreshProfiles()
-      appendOutput(
-        `Duplicated "${sourceProfile}" to "${newProfileName.trim()}" with course ${courseId.trim()}`,
-        "success",
-      )
-      setDuplicateDialog({
-        open: false,
-        sourceProfile: "",
-        newProfileName: "",
-        courseId: "",
-        courseName: "",
-        isProcessing: false,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to duplicate profile: ${message}`, "error")
-      setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
-    }
-  }
-
-  const handleRenameProfile = (profileName: string) => {
-    setRenameDialog({
-      open: true,
-      profileName,
-      newName: profileName,
-    })
-  }
-
-  const handleRenameConfirm = async () => {
-    const { profileName, newName } = renameDialog
-    if (!newName.trim() || newName === profileName) {
-      setRenameDialog({ open: false, profileName: "", newName: "" })
-      return
-    }
-
-    try {
-      const result = await commands.renameProfile(profileName, newName.trim())
-      if (result.status === "ok") {
-        appendOutput(
-          `Renamed profile: ${profileName} → ${newName.trim()}`,
-          "success",
-        )
-        // If we renamed the active profile, update it
-        if (profileName === activeProfile) {
-          setActiveProfile(newName.trim())
-        }
-        await refreshProfiles()
-      } else {
-        appendOutput(
-          `Failed to rename profile: ${result.error.message}`,
-          "error",
-        )
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to rename profile: ${message}`, "error")
-    } finally {
-      setRenameDialog({ open: false, profileName: "", newName: "" })
-    }
-  }
-
-  const handleDeleteProfile = (profileName: string) => {
-    setDeleteDialog({ open: true, profileName })
-  }
-
-  const handleDeleteConfirm = async () => {
-    const { profileName } = deleteDialog
-    const isActive = profileName === activeProfile
-    const otherProfiles = profiles.filter((p) => p !== profileName)
-    const willCreateDefault = otherProfiles.length === 0
-
-    try {
-      const result = await commands.deleteProfile(profileName)
-      if (result.status === "ok") {
-        appendOutput(`Deleted profile: ${profileName}`, "success")
-
-        if (isActive) {
-          // Note: useLoadProfile will reset course status and auto-verify
-          if (willCreateDefault) {
-            // Create and switch to Default profile
-            const createResult = await commands.createProfile("Default", {
-              id: "",
-              name: "Default Course",
-            })
-            if (createResult.status === "ok") {
-              await commands.setActiveProfile("Default")
-              setActiveProfile("Default")
-            }
-          } else {
-            // Switch to another existing profile
-            const nextProfile = otherProfiles[0]
-            await commands.setActiveProfile(nextProfile)
-            setActiveProfile(nextProfile)
-          }
-        }
-        await refreshProfiles()
-      } else {
-        appendOutput(
-          `Failed to delete profile: ${result.error.message}`,
-          "error",
-        )
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to delete profile: ${message}`, "error")
-    } finally {
-      setDeleteDialog({ open: false, profileName: "" })
-    }
-  }
-
-  // Transform profiles to ActionDropdownItem format
-  const profileItems: ProfileDropdownItem[] = profiles.map((name) => ({
-    id: name,
-    label: name,
-    name,
-    secondaryLabel:
-      name === activeProfile
-        ? course?.name || "No connected course"
-        : profileCourses[name] || "No connected course",
-  }))
-
-  const activeProfileIndex = profiles.indexOf(activeProfile ?? "")
-
-  // Define actions for each profile item
-  const profileItemActions: ItemAction<ProfileDropdownItem>[] = [
-    {
-      icon: <Copy className="size-3" />,
-      onClick: (item) => handleDuplicateProfile(item.name),
-      title: "Duplicate",
-    },
-    {
-      icon: <Pencil className="size-3" />,
-      onClick: (item) => handleRenameProfile(item.name),
-      title: "Rename",
-    },
-    {
-      icon: <Trash2 className="size-3" />,
-      onClick: (item) => handleDeleteProfile(item.name),
-      title: "Delete",
-    },
-  ]
-
-  const canDuplicate =
-    duplicateDialog.newProfileName.trim() &&
-    duplicateDialog.courseId.trim() &&
-    duplicateDialog.courseName.trim()
 
   return (
-    <>
-      <div className="flex items-center gap-2">
-        <span>Profile:</span>
-        {loading ? (
-          <Button variant="outline" size="sm" disabled className="w-44">
-            <Loader2 className="size-4 animate-spin" />
-          </Button>
-        ) : (
-          <ActionDropdown
-            items={profileItems}
-            activeIndex={activeProfileIndex >= 0 ? activeProfileIndex : 0}
-            onSelect={handleProfileSelect}
-            itemActions={profileItemActions}
-            onAdd={handleNewProfile}
-            addLabel="New Profile"
-            placeholder="Select profile..."
-            minWidth="140px"
-            maxWidth="200px"
-            contentMinWidth="260px"
-          />
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setActiveTab("roster")}
+      title="Click to manage profiles in Roster tab"
+      className="max-w-[200px]"
+    >
+      <span className="truncate">
+        <span className="text-muted-foreground">Profile:</span>{" "}
+        {activeProfile ?? "None"}
+        {course?.name && (
+          <span className="text-muted-foreground ml-1">({course.name})</span>
         )}
-      </div>
-
-      {/* Unsaved Changes Confirmation Dialog */}
-      <AlertDialog
-        open={unsavedDialog.open}
-        onOpenChange={(open) => setUnsavedDialog((prev) => ({ ...prev, open }))}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              Loading a different profile will discard your unsaved changes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                switchToProfile(unsavedDialog.targetProfile)
-                setUnsavedDialog({ open: false, targetProfile: "" })
-              }}
-            >
-              Discard & Switch
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Duplicate Dialog */}
-      <Dialog
-        open={duplicateDialog.open}
-        onOpenChange={(open) => {
-          if (!duplicateDialog.isProcessing) {
-            setDuplicateDialog((prev) => ({ ...prev, open }))
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Duplicate Profile</DialogTitle>
-            <DialogDescription>
-              Create a copy of "{duplicateDialog.sourceProfile}" for a different
-              course. Settings will be copied but the roster will start empty.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="dup-profile-name">Profile Name</Label>
-              <Input
-                id="dup-profile-name"
-                placeholder="New profile name"
-                value={duplicateDialog.newProfileName}
-                onChange={(e) =>
-                  setDuplicateDialog((prev) => ({
-                    ...prev,
-                    newProfileName: e.target.value,
-                  }))
-                }
-                disabled={duplicateDialog.isProcessing}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="dup-course-id">Course ID</Label>
-              <Input
-                id="dup-course-id"
-                placeholder="e.g., 4TC00"
-                value={duplicateDialog.courseId}
-                onChange={(e) =>
-                  setDuplicateDialog((prev) => ({
-                    ...prev,
-                    courseId: e.target.value,
-                  }))
-                }
-                disabled={duplicateDialog.isProcessing}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="dup-course-name">Course Name</Label>
-              <Input
-                id="dup-course-name"
-                placeholder="e.g., Model-based Systems Engineering"
-                value={duplicateDialog.courseName}
-                onChange={(e) =>
-                  setDuplicateDialog((prev) => ({
-                    ...prev,
-                    courseName: e.target.value,
-                  }))
-                }
-                disabled={duplicateDialog.isProcessing}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setDuplicateDialog((prev) => ({ ...prev, open: false }))
-              }
-              disabled={duplicateDialog.isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!canDuplicate || duplicateDialog.isProcessing}
-              onClick={handleDuplicateConfirm}
-            >
-              {duplicateDialog.isProcessing ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Duplicate"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Dialog */}
-      <Dialog
-        open={renameDialog.open}
-        onOpenChange={(open) => setRenameDialog((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Rename Profile</DialogTitle>
-          </DialogHeader>
-          <Input
-            placeholder="New name"
-            value={renameDialog.newName}
-            onChange={(e) =>
-              setRenameDialog((prev) => ({ ...prev, newName: e.target.value }))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && renameDialog.newName.trim()) {
-                handleRenameConfirm()
-              }
-            }}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setRenameDialog({ open: false, profileName: "", newName: "" })
-              }
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!renameDialog.newName.trim()}
-              onClick={handleRenameConfirm}
-            >
-              Rename
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Profile</AlertDialogTitle>
-            <AlertDialogDescription>
-              {profiles.filter((p) => p !== deleteDialog.profileName).length ===
-              0 ? (
-                <>
-                  Delete "{deleteDialog.profileName}"? A new "Default" profile
-                  will be created.
-                </>
-              ) : deleteDialog.profileName === activeProfile ? (
-                <>
-                  Delete "{deleteDialog.profileName}"? You will be switched to "
-                  {profiles.find((p) => p !== deleteDialog.profileName)}".
-                </>
-              ) : (
-                <>Delete "{deleteDialog.profileName}"?</>
-              )}
-              <br />
-              <br />
-              This will also delete the roster data associated with this
-              profile.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      </span>
+    </Button>
   )
 }
 
+/**
+ * ProfileMenu - Dropdown with profile-related actions.
+ */
 function ProfileMenu() {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
