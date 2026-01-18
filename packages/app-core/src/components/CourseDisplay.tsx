@@ -25,6 +25,9 @@ import { useUiStore } from "../stores/uiStore"
 export function CourseDisplay() {
   const course = useProfileStore(selectCourse)
   const setCourse = useProfileStore((state) => state.setCourse)
+  const setCourseVerifiedAt = useProfileStore(
+    (state) => state.setCourseVerifiedAt,
+  )
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const courseStatus = useConnectionsStore(selectCourseStatus)
   const courseError = useConnectionsStore(selectCourseError)
@@ -69,6 +72,7 @@ export function CourseDisplay() {
       }
 
       setCourseStatus(activeProfile, "verified")
+      setCourseVerifiedAt(new Date().toISOString())
       appendOutput("Course verified", "success")
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

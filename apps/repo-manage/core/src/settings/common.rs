@@ -201,6 +201,7 @@ impl Default for ProfileSettings {
     fn default() -> Self {
         Self {
             course: CourseInfo::default(),
+            course_verified_at: None,
             git_connection: None,
             operations: OperationConfigs::default(),
             exports: ExportSettings::default(),

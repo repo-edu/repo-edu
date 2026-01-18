@@ -404,6 +404,7 @@ pub struct PlatformConnection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileSettings {
   pub course: CourseInfo,
+  pub course_verified_at: Option<String>,
   pub git_connection: Option<String>,
   pub operations: OperationConfigs,
   pub exports: ExportSettings,

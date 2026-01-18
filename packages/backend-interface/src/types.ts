@@ -448,6 +448,10 @@ export interface PlatformConnection {
  */
 export interface ProfileSettings {
   course: CourseInfo
+  /**
+   * ISO timestamp when course was last verified against LMS
+   */
+  course_verified_at?: string | null
   git_connection?: string | null
   operations: OperationConfigs
   exports: ExportSettings

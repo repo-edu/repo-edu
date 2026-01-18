@@ -6,6 +6,10 @@
     "course": {
       "$ref": "./CourseInfo.schema.json"
     },
+    "course_verified_at": {
+      "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }],
+      "description": "ISO timestamp when course was last verified against LMS"
+    },
     "git_connection": {
       "anyOf": [
         {

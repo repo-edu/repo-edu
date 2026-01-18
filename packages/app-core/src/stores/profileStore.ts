@@ -82,6 +82,7 @@ interface ProfileActions {
 
   // Settings mutations
   setCourse: (course: CourseInfo) => void
+  setCourseVerifiedAt: (timestamp: string | null) => void
   setGitConnection: (name: string | null) => void
   updateOperations: (operations: Partial<OperationConfigs>) => void
   setOperations: (operations: OperationConfigs) => void
@@ -288,7 +289,8 @@ export const useProfileStore = create<ProfileStore>()(
         loadSequence += 1
         const currentLoadId = loadSequence
 
-        const { setActiveProfileForCourse } = useConnectionsStore.getState()
+        const { setActiveProfileForCourse, setCourseStatus } =
+          useConnectionsStore.getState()
         const { appendText } = useOutputStore.getState()
 
         setActiveProfileForCourse(profileName)
@@ -425,6 +427,11 @@ export const useProfileStore = create<ProfileStore>()(
             state.future = []
           })
 
+          // Restore course verification status if previously verified
+          if (settings.course_verified_at) {
+            setCourseStatus(profileName, "verified")
+          }
+
           // Log warnings
           if (warnings.length > 0) {
             for (const warning of warnings) {
@@ -531,6 +538,13 @@ export const useProfileStore = create<ProfileStore>()(
         set((state) => {
           if (state.document) {
             state.document.settings.course = course
+          }
+        }),
+
+      setCourseVerifiedAt: (timestamp) =>
+        set((state) => {
+          if (state.document) {
+            state.document.settings.course_verified_at = timestamp
           }
         }),
 

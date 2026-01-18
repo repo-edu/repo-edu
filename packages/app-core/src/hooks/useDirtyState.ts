@@ -6,6 +6,7 @@
  *
  * Tracks changes to:
  * - gitConnection (settings)
+ * - courseVerifiedAt (settings)
  * - operations (settings)
  * - exports (settings)
  * - roster (students, assignments, groups)
@@ -43,6 +44,7 @@ function getSaveableDocumentState() {
   if (!state.document) return null
   return {
     gitConnection: state.document.settings.git_connection,
+    courseVerifiedAt: state.document.settings.course_verified_at,
     operations: state.document.settings.operations,
     exports: state.document.settings.exports,
     roster: state.document.roster,
@@ -71,6 +73,7 @@ export function useDirtyState(
   const currentState = document
     ? {
         gitConnection: document.settings.git_connection,
+        courseVerifiedAt: document.settings.course_verified_at,
         operations: document.settings.operations,
         exports: document.settings.exports,
         roster: document.roster,
