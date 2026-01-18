@@ -13,9 +13,11 @@ interface ConnectionsState {
   gitStatuses: Record<string, ConnectionStatus>
   lmsError: string | null
   gitErrors: Record<string, string | null>
-  // Course verification status (per active profile)
-  courseStatus: CourseStatus
-  courseError: string | null
+  // Course verification status per profile (keyed by profile name)
+  courseStatuses: Record<string, CourseStatus>
+  courseErrors: Record<string, string | null>
+  // Currently active profile for course status
+  activeProfileForCourse: string | null
 }
 
 interface ConnectionsActions {
@@ -27,9 +29,13 @@ interface ConnectionsActions {
     error: string | null,
   ) => void
 
-  // Course verification status
-  setCourseStatus: (status: CourseStatus, error?: string | null) => void
-  resetCourseStatus: () => void
+  // Course verification status (per profile)
+  setCourseStatus: (
+    profile: string,
+    status: CourseStatus,
+    error?: string | null,
+  ) => void
+  setActiveProfileForCourse: (profile: string | null) => void
 
   // Reset operations
   resetLmsStatus: () => void
@@ -48,8 +54,9 @@ const initialState: ConnectionsState = {
   gitStatuses: {},
   lmsError: null,
   gitErrors: {},
-  courseStatus: "unknown",
-  courseError: null,
+  courseStatuses: {},
+  courseErrors: {},
+  activeProfileForCourse: null,
 }
 
 export const useConnectionsStore = create<ConnectionsStore>((set) => ({
@@ -63,10 +70,15 @@ export const useConnectionsStore = create<ConnectionsStore>((set) => ({
       gitErrors: { ...state.gitErrors, [name]: error },
     })),
 
-  setCourseStatus: (status, error = null) =>
-    set({ courseStatus: status, courseError: error }),
+  setCourseStatus: (profile, status, error = null) =>
+    set((state) => ({
+      courseStatuses: { ...state.courseStatuses, [profile]: status },
+      courseErrors: { ...state.courseErrors, [profile]: error },
+      activeProfileForCourse: profile,
+    })),
 
-  resetCourseStatus: () => set({ courseStatus: "unknown", courseError: null }),
+  setActiveProfileForCourse: (profile) =>
+    set({ activeProfileForCourse: profile }),
 
   resetLmsStatus: () => set({ lmsStatus: "disconnected", lmsError: null }),
 
@@ -119,6 +131,11 @@ export const selectGitStatus = (name: string) => (state: ConnectionsStore) =>
 export const selectGitErrors = (state: ConnectionsStore) => state.gitErrors
 export const selectGitError = (name: string) => (state: ConnectionsStore) =>
   state.gitErrors[name] ?? null
-export const selectCourseStatus = (state: ConnectionsStore) =>
-  state.courseStatus
-export const selectCourseError = (state: ConnectionsStore) => state.courseError
+export const selectCourseStatus = (state: ConnectionsStore) => {
+  const profile = state.activeProfileForCourse
+  return profile ? (state.courseStatuses[profile] ?? "unknown") : "unknown"
+}
+export const selectCourseError = (state: ConnectionsStore) => {
+  const profile = state.activeProfileForCourse
+  return profile ? (state.courseErrors[profile] ?? null) : null
+}

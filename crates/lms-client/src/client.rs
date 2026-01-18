@@ -207,6 +207,13 @@ impl lms_common::LmsClient for LmsClient {
             ClientKind::Moodle(client) => client.get_group_categories(course_id).await,
         }
     }
+
+    async fn validate_token(&self) -> LmsResult<User> {
+        match &self.kind {
+            ClientKind::Canvas(client) => client.validate_token().await,
+            ClientKind::Moodle(client) => client.validate_token().await,
+        }
+    }
 }
 
 #[cfg(test)]

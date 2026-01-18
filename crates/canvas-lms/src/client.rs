@@ -409,4 +409,8 @@ impl LmsClient for CanvasClient {
         self.get_course_group_categories_with_groups(course_id)
             .await
     }
+
+    async fn validate_token(&self) -> LmsResult<User> {
+        self.get_current_user().await
+    }
 }

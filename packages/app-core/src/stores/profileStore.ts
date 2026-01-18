@@ -288,12 +288,10 @@ export const useProfileStore = create<ProfileStore>()(
         loadSequence += 1
         const currentLoadId = loadSequence
 
-        const { lmsConnection } = useAppSettingsStore.getState()
-        const { setCourseStatus, resetCourseStatus } =
-          useConnectionsStore.getState()
+        const { setActiveProfileForCourse } = useConnectionsStore.getState()
         const { appendText } = useOutputStore.getState()
 
-        resetCourseStatus()
+        setActiveProfileForCourse(profileName)
 
         try {
           // Load settings and roster in parallel
@@ -395,44 +393,6 @@ export const useProfileStore = create<ProfileStore>()(
               "warning",
             )
 
-            // Verify course if LMS connected (settings were loaded)
-            if (lmsConnection && settings.course.id.trim()) {
-              setCourseStatus("verifying")
-              try {
-                const result = await commands.verifyProfileCourse(profileName)
-                if (currentLoadId !== loadSequence) {
-                  return {
-                    ok: false,
-                    warnings,
-                    error: rosterError,
-                    profileName,
-                    stale: true,
-                  }
-                }
-                if (result.status === "error") {
-                  setCourseStatus("failed", result.error.message)
-                } else {
-                  const { success, message, updated_name } = result.data
-                  if (!success) {
-                    setCourseStatus("failed", message)
-                  } else {
-                    if (updated_name && updated_name !== settings.course.name) {
-                      set((state) => {
-                        if (state.document) {
-                          state.document.settings.course.name = updated_name
-                        }
-                      })
-                      appendText(`Course name updated: ${updated_name}`, "info")
-                    }
-                    setCourseStatus("verified")
-                  }
-                }
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err)
-                setCourseStatus("failed", msg)
-              }
-            }
-
             return {
               ok: false,
               warnings,
@@ -474,44 +434,6 @@ export const useProfileStore = create<ProfileStore>()(
 
           // Trigger initial validation
           scheduleRosterValidation()
-
-          // Verify course if LMS connected
-          if (lmsConnection && settings.course.id.trim()) {
-            setCourseStatus("verifying")
-            try {
-              const result = await commands.verifyProfileCourse(profileName)
-              if (currentLoadId !== loadSequence) {
-                return {
-                  ok: true,
-                  warnings,
-                  error: null,
-                  profileName,
-                  stale: true,
-                }
-              }
-              if (result.status === "error") {
-                setCourseStatus("failed", result.error.message)
-              } else {
-                const { success, message, updated_name } = result.data
-                if (!success) {
-                  setCourseStatus("failed", message)
-                } else {
-                  if (updated_name && updated_name !== settings.course.name) {
-                    set((state) => {
-                      if (state.document) {
-                        state.document.settings.course.name = updated_name
-                      }
-                    })
-                    appendText(`Course name updated: ${updated_name}`, "info")
-                  }
-                  setCourseStatus("verified")
-                }
-              }
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err)
-              setCourseStatus("failed", msg)
-            }
-          }
 
           return {
             ok: true,

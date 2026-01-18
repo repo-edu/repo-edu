@@ -13,7 +13,11 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { commands } from "../bindings/commands"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
-import { useConnectionsStore } from "../stores/connectionsStore"
+import {
+  selectCourseError,
+  selectCourseStatus,
+  useConnectionsStore,
+} from "../stores/connectionsStore"
 import { useOutputStore } from "../stores/outputStore"
 import { selectCourse, useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
@@ -22,8 +26,8 @@ export function CourseDisplay() {
   const course = useProfileStore(selectCourse)
   const setCourse = useProfileStore((state) => state.setCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const courseStatus = useConnectionsStore((state) => state.courseStatus)
-  const courseError = useConnectionsStore((state) => state.courseError)
+  const courseStatus = useConnectionsStore(selectCourseStatus)
+  const courseError = useConnectionsStore(selectCourseError)
   const setCourseStatus = useConnectionsStore((state) => state.setCourseStatus)
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
@@ -36,13 +40,13 @@ export function CourseDisplay() {
   const handleVerify = async () => {
     if (!activeProfile || !canVerify) return
 
-    setCourseStatus("verifying")
+    setCourseStatus(activeProfile, "verifying")
 
     try {
       const result = await commands.verifyProfileCourse(activeProfile)
 
       if (result.status === "error") {
-        setCourseStatus("failed", result.error.message)
+        setCourseStatus(activeProfile, "failed", result.error.message)
         appendOutput(
           `Course verification failed: ${result.error.message}`,
           "error",
@@ -53,7 +57,7 @@ export function CourseDisplay() {
       const { success, message, updated_name } = result.data
 
       if (!success) {
-        setCourseStatus("failed", message)
+        setCourseStatus(activeProfile, "failed", message)
         appendOutput(`Course verification failed: ${message}`, "error")
         return
       }
@@ -64,11 +68,11 @@ export function CourseDisplay() {
         appendOutput(`Course name updated: ${updated_name}`, "info")
       }
 
-      setCourseStatus("verified")
+      setCourseStatus(activeProfile, "verified")
       appendOutput("Course verified", "success")
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setCourseStatus("failed", message)
+      setCourseStatus(activeProfile, "failed", message)
       appendOutput(`Course verification failed: ${message}`, "error")
     }
   }
@@ -126,17 +130,27 @@ function CourseStatusIcon({
 }) {
   switch (status) {
     case "verified":
-      return <Check className="size-4 text-success" aria-label="Verified" />
+      return (
+        <span title="Course verified in LMS">
+          <Check className="size-4 text-success" aria-label="Verified" />
+        </span>
+      )
     case "verifying":
       return <Loader2 className="size-4 animate-spin" aria-label="Verifying" />
     case "failed":
       return (
-        <AlertCircle
-          className="size-4 text-destructive"
-          aria-label="Verification failed"
-        />
+        <span title="Course verification failed. Click Re-verify to try again.">
+          <AlertCircle
+            className="size-4 text-destructive"
+            aria-label="Verification failed"
+          />
+        </span>
       )
     default:
-      return <HelpCircle className="size-4" aria-label="Not verified" />
+      return (
+        <span title="Course not verified. Click Verify to check if this course exists in your LMS.">
+          <HelpCircle className="size-4" aria-label="Not verified" />
+        </span>
+      )
   }
 }

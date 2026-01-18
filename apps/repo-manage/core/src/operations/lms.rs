@@ -15,7 +15,8 @@ pub async fn verify_connection(
     context: &LmsOperationContext,
 ) -> Result<LmsVerifyResult, HandlerError> {
     let client = create_lms_client(&context.connection)?;
-    client.get_courses().await?;
+    // Use validate_token (fetches current user) instead of get_courses for efficiency
+    client.validate_token().await?;
     Ok(LmsVerifyResult {
         success: true,
         message: format!("Connected to {:?}", context.connection.lms_type),

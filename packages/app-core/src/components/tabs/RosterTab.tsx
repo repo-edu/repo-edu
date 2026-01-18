@@ -9,7 +9,10 @@ import { commands } from "../../bindings/commands"
 import { useProfiles } from "../../hooks/useProfiles"
 import { saveDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
-import { useConnectionsStore } from "../../stores/connectionsStore"
+import {
+  selectCourseStatus,
+  useConnectionsStore,
+} from "../../stores/connectionsStore"
 import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
@@ -27,7 +30,7 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   const course = useProfileStore(selectCourse)
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const courseStatus = useConnectionsStore((state) => state.courseStatus)
+  const courseStatus = useConnectionsStore(selectCourseStatus)
   const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 

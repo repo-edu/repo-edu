@@ -67,6 +67,12 @@ pub trait LmsClient: Send + Sync {
     ///
     /// * `course_id` - The unique identifier for the course
     async fn get_group_categories(&self, course_id: &str) -> LmsResult<Vec<GroupCategory>>;
+
+    /// Validate the access token by fetching current user info
+    ///
+    /// This is a lightweight way to verify credentials are valid without
+    /// fetching all courses.
+    async fn validate_token(&self) -> LmsResult<User>;
 }
 
 /// Token structure for OAuth authentication

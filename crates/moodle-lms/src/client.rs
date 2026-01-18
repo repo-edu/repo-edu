@@ -315,4 +315,8 @@ impl LmsClient for MoodleClient {
         // TODO: Implement Moodle group categories
         Ok(Vec::new())
     }
+
+    async fn validate_token(&self) -> LmsResult<User> {
+        self.get_current_user().await
+    }
 }

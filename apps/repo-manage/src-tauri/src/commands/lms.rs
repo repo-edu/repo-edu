@@ -454,13 +454,11 @@ pub async fn verify_profile_course(profile: String) -> Result<CourseVerifyResult
         return Err(AppError::new("Profile has no course ID configured"));
     }
 
-    let courses = fetch_lms_courses_with(&connection).await?;
+    let client = create_lms_client(&connection)?;
 
-    // Find the course by ID
-    let found_course = courses.iter().find(|c| c.id == *course_id);
-
-    match found_course {
-        Some(course) => {
+    // Fetch single course by ID (more efficient than fetching all courses)
+    match client.get_course(course_id).await {
+        Ok(course) => {
             let updated_name = if course.name != profile_settings.course.name {
                 Some(course.name.clone())
             } else {
@@ -472,7 +470,7 @@ pub async fn verify_profile_course(profile: String) -> Result<CourseVerifyResult
                 updated_name,
             })
         }
-        None => Ok(CourseVerifyResult {
+        Err(_) => Ok(CourseVerifyResult {
             success: false,
             message: format!("Course '{}' not found in LMS", course_id),
             updated_name: None,
