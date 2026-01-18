@@ -21,6 +21,7 @@ import {
 import { useOutputStore } from "../stores/outputStore"
 import { selectCourse, useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
+import { formatDate, formatDateTime } from "../utils/formatDate"
 
 export function CourseDisplay() {
   const course = useProfileStore(selectCourse)
@@ -28,7 +29,12 @@ export function CourseDisplay() {
   const setCourseVerifiedAt = useProfileStore(
     (state) => state.setCourseVerifiedAt,
   )
+  const courseVerifiedAt = useProfileStore(
+    (state) => state.document?.settings.course_verified_at ?? null,
+  )
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const dateFormat = useAppSettingsStore((state) => state.dateFormat)
+  const timeFormat = useAppSettingsStore((state) => state.timeFormat)
   const courseStatus = useConnectionsStore(selectCourseStatus)
   const courseError = useConnectionsStore(selectCourseError)
   const setCourseStatus = useConnectionsStore((state) => state.setCourseStatus)
@@ -90,14 +96,14 @@ export function CourseDisplay() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span>Course:</span>
+      <div className="flex items-center text-sm">
+        <span className="text-muted-foreground w-14 shrink-0">Course:</span>
         <span>{courseDisplay}</span>
         <CourseStatusIcon status={courseStatus} />
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2"
+          className="h-6 px-2 ml-1"
           disabled={!canVerify}
           onClick={handleVerify}
           title={
@@ -119,6 +125,14 @@ export function CourseDisplay() {
               ? "Re-verify"
               : "Verify"}
         </Button>
+        {courseStatus === "verified" && courseVerifiedAt && (
+          <span
+            className="text-muted-foreground ml-1"
+            title={formatDateTime(courseVerifiedAt, dateFormat, timeFormat)}
+          >
+            {formatDate(courseVerifiedAt, dateFormat)}
+          </span>
+        )}
       </div>
       {courseStatus === "failed" && courseError && (
         <div className="text-xs text-destructive ml-14">{courseError}</div>
@@ -135,15 +149,20 @@ function CourseStatusIcon({
   switch (status) {
     case "verified":
       return (
-        <span title="Course verified in LMS">
+        <span className="ml-1" title="Course verified in LMS">
           <Check className="size-4 text-success" aria-label="Verified" />
         </span>
       )
     case "verifying":
-      return <Loader2 className="size-4 animate-spin" aria-label="Verifying" />
+      return (
+        <Loader2 className="ml-1 size-4 animate-spin" aria-label="Verifying" />
+      )
     case "failed":
       return (
-        <span title="Course verification failed. Click Re-verify to try again.">
+        <span
+          className="ml-1"
+          title="Course verification failed. Click Re-verify to try again."
+        >
           <AlertCircle
             className="size-4 text-destructive"
             aria-label="Verification failed"
@@ -152,7 +171,10 @@ function CourseStatusIcon({
       )
     default:
       return (
-        <span title="Course not verified. Click Verify to check if this course exists in your LMS.">
+        <span
+          className="ml-1"
+          title="Course not verified. Click Verify to check if this course exists in your LMS."
+        >
           <HelpCircle className="size-4" aria-label="Not verified" />
         </span>
       )

@@ -35,7 +35,7 @@ import { useOutputStore } from "../../../stores/outputStore"
 import { useProfileStore } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
 import { useUiStore } from "../../../stores/uiStore"
-import { formatDateTime } from "../../../utils/formatDate"
+import { formatDate, formatDateTime } from "../../../utils/formatDate"
 import { formatStudentStatus } from "../../../utils/labels"
 import { generateStudentId } from "../../../utils/nanoid"
 import { CourseDisplay } from "../../CourseDisplay"
@@ -472,8 +472,8 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
 
   if (!roster?.source) {
     return (
-      <div className="text-sm">
-        <span className="text-muted-foreground">Source:</span>{" "}
+      <div className="flex items-center text-sm h-6">
+        <span className="text-muted-foreground w-14 shrink-0">Source:</span>
         <span>None (no roster loaded)</span>
       </div>
     )
@@ -499,12 +499,15 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
   const timestamp = source.fetched_at ?? source.imported_at ?? source.created_at
 
   return (
-    <div className="text-sm">
-      <span className="text-muted-foreground">Source:</span>{" "}
+    <div className="flex items-center text-sm h-6">
+      <span className="text-muted-foreground w-14 shrink-0">Source:</span>
       <span>{sourceLabel}</span>
       {timestamp && (
-        <span className="text-muted-foreground ml-1">
-          ({formatDateTime(timestamp, dateFormat, timeFormat)})
+        <span
+          className="text-muted-foreground ml-1"
+          title={formatDateTime(timestamp, dateFormat, timeFormat)}
+        >
+          {formatDate(timestamp, dateFormat)}
         </span>
       )}
     </div>

@@ -5,6 +5,28 @@
 import type { DateFormat, TimeFormat } from "@repo-edu/backend-interface/types"
 
 /**
+ * Format a date string or Date object to date only according to user preferences.
+ */
+export function formatDate(
+  value: string | Date,
+  dateFormat: DateFormat,
+): string {
+  const date = typeof value === "string" ? new Date(value) : value
+
+  if (Number.isNaN(date.getTime())) {
+    return "Invalid date"
+  }
+
+  const day = date.getDate().toString().padStart(2, "0")
+  const month = (date.getMonth() + 1).toString().padStart(2, "0")
+  const year = date.getFullYear()
+
+  return dateFormat === "DMY"
+    ? `${day}/${month}/${year}`
+    : `${month}/${day}/${year}`
+}
+
+/**
  * Format a date string or Date object according to user preferences.
  */
 export function formatDateTime(
@@ -18,12 +40,7 @@ export function formatDateTime(
     return "Invalid date"
   }
 
-  const day = date.getDate().toString().padStart(2, "0")
-  const month = (date.getMonth() + 1).toString().padStart(2, "0")
-  const year = date.getFullYear()
-
-  const datePart =
-    dateFormat === "DMY" ? `${day}/${month}/${year}` : `${month}/${day}/${year}`
+  const datePart = formatDate(date, dateFormat)
 
   const hours24 = date.getHours()
   const minutes = date.getMinutes().toString().padStart(2, "0")
@@ -37,5 +54,5 @@ export function formatDateTime(
     timePart = `${hours12}:${minutes} ${ampm}`
   }
 
-  return `${datePart}, ${timePart}`
+  return `${datePart}  ${timePart}`
 }
