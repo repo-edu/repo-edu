@@ -63,6 +63,11 @@ export { Label, labelVariants } from "./components/ui/label"
 export { PasswordInput } from "./components/ui/password-input"
 export { RadioGroup, RadioGroupItem } from "./components/ui/radio-group"
 export {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "./components/ui/resizable"
+export {
   Select,
   SelectContent,
   SelectGroup,
