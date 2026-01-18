@@ -328,7 +328,11 @@ export function StudentListPane({
                 className="pl-8"
               />
             </div>
-            <Button size="sm" onClick={() => setAddingStudent(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddingStudent(true)}
+            >
               <Plus className="size-4 mr-1" />
               Add
             </Button>
