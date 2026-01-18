@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanvasCourse {
     pub id: u64,
-    pub name: String,
+    pub name: Option<String>,
     pub account_id: Option<u64>,
     pub uuid: Option<String>,
     pub start_at: Option<DateTime<Utc>>,
@@ -46,9 +46,16 @@ pub struct CanvasCourse {
 
 impl From<CanvasCourse> for Course {
     fn from(canvas: CanvasCourse) -> Self {
+        let mut name = canvas.name.unwrap_or_default();
+        if name.trim().is_empty() {
+            name = canvas
+                .course_code
+                .clone()
+                .unwrap_or_else(|| format!("Missing name for Course {}", canvas.id));
+        }
         Course {
             id: canvas.id.to_string(),
-            name: canvas.name,
+            name,
             course_code: canvas.course_code,
             description: None, // Canvas doesn't include description in list view
             enrollment_term_id: canvas.enrollment_term_id.map(|id| id.to_string()),

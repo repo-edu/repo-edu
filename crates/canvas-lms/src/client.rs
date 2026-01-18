@@ -153,15 +153,18 @@ impl CanvasClient {
         // Get response as text first for better error reporting
         let response_text = response.text().await?;
 
-        // Try to deserialize, but provide better error message on failure
-        let data = serde_json::from_str::<T>(&response_text).map_err(|e| {
+        let data = Self::decode_response(&response_text)?;
+        Ok(data)
+    }
+
+    fn decode_response<T: DeserializeOwned>(response_text: &str) -> LmsResult<T> {
+        serde_json::from_str::<T>(response_text).map_err(|e| {
+            let preview = response_text.chars().take(500).collect::<String>();
             LmsError::Other(format!(
                 "Failed to decode Canvas API response: {}\n\nResponse body preview (first 500 chars):\n{}\n\nThis may indicate a data format mismatch or API version incompatibility.",
-                e,
-                &response_text.chars().take(500).collect::<String>()
+                e, preview
             ))
-        })?;
-        Ok(data)
+        })
     }
 
     /// Fetch all pages of a paginated resource
@@ -181,7 +184,8 @@ impl CanvasClient {
         loop {
             let response = self.get_response_with_params(path, &current_params).await?;
             let headers = response.headers().clone();
-            let items: Vec<T> = response.json().await?;
+            let response_text = response.text().await?;
+            let items: Vec<T> = Self::decode_response(&response_text)?;
 
             all_items.extend(items);
 
