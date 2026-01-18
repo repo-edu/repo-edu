@@ -74,7 +74,6 @@ export function StudentListPane({
   const course = useProfileStore(
     (state) => state.document?.settings.course ?? null,
   )
-  const rosterValidation = useProfileStore((state) => state.rosterValidation)
   const addStudent = useProfileStore((state) => state.addStudent)
   const updateStudent = useProfileStore((state) => state.updateStudent)
   const removeStudent = useProfileStore((state) => state.removeStudent)
@@ -193,8 +192,6 @@ export function StudentListPane({
       appendOutput(`Failed to check student removal: ${message}`, "error")
     }
   }
-
-  const issueCount = rosterValidation?.issues.length ?? 0
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -422,9 +419,6 @@ export function StudentListPane({
           {/* Footer summary */}
           <div className="px-3 py-2 border-t text-sm text-muted-foreground">
             {students.length} student{students.length !== 1 ? "s" : ""}
-            {issueCount > 0 && (
-              <span className="text-warning ml-2">· {issueCount} issues</span>
-            )}
           </div>
         </>
       )}

@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect } from "react"
-import { DataOverviewStatusBar } from "./components/DataOverviewStatusBar"
+import { commands } from "./bindings/commands"
 import {
   AddGroupDialog,
   EditAssignmentDialog,
@@ -70,7 +70,6 @@ import {
   type ProfileListItem,
   useUiStore,
 } from "./stores/uiStore"
-import { commands } from "./bindings/commands"
 import "./App.css"
 
 function App() {
@@ -320,8 +319,6 @@ function App() {
                   <SettingsButton />
                 </div>
               </div>
-
-              <DataOverviewStatusBar />
 
               {/* Tab Content */}
               <TabsContent
