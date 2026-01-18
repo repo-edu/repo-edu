@@ -10,7 +10,6 @@ import {
   selectAssignmentValidations,
   useProfileStore,
 } from "../stores/profileStore"
-import { useUiStore } from "../stores/uiStore"
 import {
   buildStudentMap,
   getActiveStudents,
@@ -67,7 +66,6 @@ export function useDataOverview() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const rosterValidation = useProfileStore((state) => state.rosterValidation)
   const assignmentValidations = useProfileStore(selectAssignmentValidations)
-  const groupEditorOpen = useUiStore((state) => state.groupEditorOpen)
 
   return useMemo(() => {
     if (!roster) {
@@ -131,7 +129,7 @@ export function useDataOverview() {
         if (unknownIds.length > 0) {
           unknownGroups.push({ groupName: group.name, unknownIds })
         }
-        if (!groupEditorOpen && group.member_ids.length === 0) {
+        if (group.member_ids.length === 0) {
           emptyGroups.push(group.name)
         }
       }
@@ -281,7 +279,7 @@ export function useDataOverview() {
       issueCards: issueCards.sort((a, b) => b.count - a.count),
       rosterInsights,
     }
-  }, [roster, rosterValidation, assignmentValidations, groupEditorOpen])
+  }, [roster, rosterValidation, assignmentValidations])
 }
 
 /** Issue kinds where affected_ids are student IDs (not assignment/group names) */

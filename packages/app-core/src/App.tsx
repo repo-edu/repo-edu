@@ -1,4 +1,13 @@
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo-edu/ui"
+import {
+  Button,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo-edu/ui"
 import { Info, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import {
   AlertDialog,
@@ -34,13 +43,13 @@ import {
   AssignmentCoverageSheet,
   CoverageReportSheet,
   DataOverviewSheet,
-  GroupEditorSheet,
+  FileImportExportSheet,
   StudentEditorSheet,
 } from "./components/sheets"
 import { ToastStack } from "./components/ToastStack"
 import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
 import { UtilityBar } from "./components/UtilityBar"
-import { CONSOLE_MIN_HEIGHT, DEFAULT_GUI_THEME } from "./constants"
+import { DEFAULT_GUI_THEME } from "./constants"
 import { useCloseGuard } from "./hooks/useCloseGuard"
 import { useDirtyState } from "./hooks/useDirtyState"
 import { useLoadProfile } from "./hooks/useLoadProfile"
@@ -218,96 +227,100 @@ function App() {
 
   return (
     <div className="repobee-container">
-      <div className="flex flex-1 min-h-0 flex-col">
-        <Tabs
-          value={ui.activeTab}
-          onValueChange={(v) => ui.setActiveTab(v as ActiveTab)}
-          className="flex-1 flex flex-col min-h-0 overflow-hidden"
-        >
-          <div className="flex items-center border-b">
-            <TabsList>
-              <TabsTrigger value="roster">Roster</TabsTrigger>
-              <TabsTrigger value="assignment">Assignment</TabsTrigger>
-              <TabsTrigger value="operation">Operation</TabsTrigger>
-            </TabsList>
-            <div className="flex-1" />
-            <div className="flex items-center gap-1 pr-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={handleUndo}
-                disabled={!canUndo}
-                title="Undo (Ctrl+Z)"
+      <ResizablePanelGroup direction="vertical">
+        <ResizablePanel defaultSize={75} minSize={20}>
+          <div className="flex h-full flex-col overflow-hidden">
+            <Tabs
+              value={ui.activeTab}
+              onValueChange={(v) => ui.setActiveTab(v as ActiveTab)}
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
+            >
+              <div className="flex items-center border-b">
+                <TabsList>
+                  <TabsTrigger value="roster">Roster</TabsTrigger>
+                  <TabsTrigger value="assignment">Assignment</TabsTrigger>
+                  <TabsTrigger value="operation">Operation</TabsTrigger>
+                </TabsList>
+                <div className="flex-1" />
+                <div className="flex items-center gap-1 pr-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 className="size-4" />
+                    <span className="sr-only">Undo</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    title="Redo (Ctrl+Shift+Z)"
+                  >
+                    <Redo2 className="size-4" />
+                    <span className="sr-only">Redo</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setDataOverviewOpen(true)}
+                    title="Data Overview (Ctrl+I)"
+                  >
+                    <Info className="size-4" />
+                    <span className="sr-only">Data Overview</span>
+                  </Button>
+                  <SettingsButton />
+                </div>
+              </div>
+
+              <DataOverviewStatusBar />
+
+              {/* Tab Content */}
+              <TabsContent
+                value="roster"
+                className="flex-1 flex flex-col min-h-0 p-1"
               >
-                <Undo2 className="size-4" />
-                <span className="sr-only">Undo</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={handleRedo}
-                disabled={!canRedo}
-                title="Redo (Ctrl+Shift+Z)"
+                <div className="flex-1 overflow-auto">
+                  <RosterTab />
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="assignment"
+                className="flex-1 flex flex-col min-h-0 p-1"
               >
-                <Redo2 className="size-4" />
-                <span className="sr-only">Redo</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => setDataOverviewOpen(true)}
-                title="Data Overview (Ctrl+I)"
+                <div className="flex-1 overflow-auto">
+                  <AssignmentTab />
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="operation"
+                className="flex-1 flex flex-col min-h-0 p-1"
               >
-                <Info className="size-4" />
-                <span className="sr-only">Data Overview</span>
-              </Button>
-              <SettingsButton />
-            </div>
+                <div className="flex-1 overflow-auto">
+                  <OperationTab />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Utility Bar */}
+            <UtilityBar isDirty={isDirty} onSaved={markClean} />
           </div>
+        </ResizablePanel>
 
-          <DataOverviewStatusBar />
+        <ResizableHandle withHandle />
 
-          {/* Tab Content */}
-          <TabsContent
-            value="roster"
-            className="flex-1 flex flex-col min-h-0 p-1"
-          >
-            <div className="flex-1 overflow-auto">
-              <RosterTab />
-            </div>
-          </TabsContent>
-
-          <TabsContent
-            value="assignment"
-            className="flex-1 flex flex-col min-h-0 p-1"
-          >
-            <div className="flex-1 overflow-auto">
-              <AssignmentTab />
-            </div>
-          </TabsContent>
-
-          <TabsContent
-            value="operation"
-            className="flex-1 flex flex-col min-h-0 p-1"
-          >
-            <div className="flex-1 overflow-auto">
-              <OperationTab />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Utility Bar */}
-        <UtilityBar isDirty={isDirty} onSaved={markClean} />
-
-        {/* Output Console */}
-        <OutputConsole
-          className="shrink-0"
-          style={{ minHeight: `${CONSOLE_MIN_HEIGHT}px` }}
-        />
-      </div>
+        <ResizablePanel defaultSize={25} minSize={10}>
+          <OutputConsole className="h-full" />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Close Confirmation Dialog */}
       <AlertDialog
@@ -336,8 +349,8 @@ function App() {
       <NewAssignmentDialog />
       <EditAssignmentDialog />
 
-      {/* Group Editor Sheet and Dialogs */}
-      <GroupEditorSheet />
+      {/* Group Dialogs and Sheets */}
+      <FileImportExportSheet />
       <AddGroupDialog />
       <EditGroupDialog />
       <ImportGroupsDialog />

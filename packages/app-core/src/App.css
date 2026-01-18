@@ -299,7 +299,6 @@
   color: #d8dee9;
   border: 1px solid var(--border);
   padding: 6px;
-  resize: none;
 }
 
 .console-wrapper {

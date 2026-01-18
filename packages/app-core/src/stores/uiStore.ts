@@ -19,8 +19,6 @@ import { create } from "zustand"
  */
 type ActiveTab = "roster" | "assignment" | "operation"
 
-type GroupEditorFilter = "all" | "unknown" | "empty"
-
 type AssignmentCoverageFocus = "unassigned"
 
 interface UiState {
@@ -43,8 +41,7 @@ interface UiState {
   // Assignment tab dialogs
   newAssignmentDialogOpen: boolean
   editAssignmentDialogOpen: boolean
-  groupEditorOpen: boolean
-  groupEditorFilter: GroupEditorFilter | null
+  fileImportExportOpen: boolean
   addGroupDialogOpen: boolean
   editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
@@ -99,8 +96,7 @@ interface UiActions {
   // Assignment tab dialogs
   setNewAssignmentDialogOpen: (open: boolean) => void
   setEditAssignmentDialogOpen: (open: boolean) => void
-  setGroupEditorOpen: (open: boolean) => void
-  setGroupEditorFilter: (filter: GroupEditorFilter | null) => void
+  setFileImportExportOpen: (open: boolean) => void
   setAddGroupDialogOpen: (open: boolean) => void
   setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
@@ -160,8 +156,7 @@ const initialState: UiState = {
   // Assignment tab dialogs
   newAssignmentDialogOpen: false,
   editAssignmentDialogOpen: false,
-  groupEditorOpen: false,
-  groupEditorFilter: null,
+  fileImportExportOpen: false,
   addGroupDialogOpen: false,
   editGroupDialogOpen: false,
   importGroupsDialogOpen: false,
@@ -221,8 +216,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setNewAssignmentDialogOpen: (open) => set({ newAssignmentDialogOpen: open }),
   setEditAssignmentDialogOpen: (open) =>
     set({ editAssignmentDialogOpen: open }),
-  setGroupEditorOpen: (open) => set({ groupEditorOpen: open }),
-  setGroupEditorFilter: (filter) => set({ groupEditorFilter: filter }),
+  setFileImportExportOpen: (open) => set({ fileImportExportOpen: open }),
   setAddGroupDialogOpen: (open) => set({ addGroupDialogOpen: open }),
   setEditGroupDialogOpen: (open) => set({ editGroupDialogOpen: open }),
   setImportGroupsDialogOpen: (open) => set({ importGroupsDialogOpen: open }),
@@ -265,7 +259,7 @@ export const useUiStore = create<UiStore>((set) => ({
   reset: () => set(initialState),
 }))
 
-export type { ActiveTab, AssignmentCoverageFocus, GroupEditorFilter }
+export type { ActiveTab, AssignmentCoverageFocus }
 
 // Selector helpers
 export const selectActiveTab = (state: UiStore) => state.activeTab

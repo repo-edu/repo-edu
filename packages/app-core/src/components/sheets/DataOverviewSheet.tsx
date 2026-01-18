@@ -19,8 +19,6 @@ export function DataOverviewSheet() {
   const open = useUiStore((state) => state.dataOverviewOpen)
   const setOpen = useUiStore((state) => state.setDataOverviewOpen)
   const setActiveTab = useUiStore((state) => state.setActiveTab)
-  const setGroupEditorOpen = useUiStore((state) => state.setGroupEditorOpen)
-  const setGroupEditorFilter = useUiStore((state) => state.setGroupEditorFilter)
   const setAssignmentCoverageOpen = useUiStore(
     (state) => state.setAssignmentCoverageOpen,
   )
@@ -48,11 +46,9 @@ export function DataOverviewSheet() {
     if (issue.kind === "unknown_students" && issue.assignmentId) {
       setActiveTab("assignment")
       selectAssignment(issue.assignmentId)
-      setGroupEditorFilter("unknown")
-      setGroupEditorOpen(true)
       setAssignmentCoverageFocus(null)
       showToast(
-        `Showing unknown students${assignmentName ? ` in ${assignmentName}` : ""}`,
+        `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (search for unknown students)`,
       )
       setOpen(false)
       return
@@ -61,11 +57,9 @@ export function DataOverviewSheet() {
     if (issue.kind === "empty_groups" && issue.assignmentId) {
       setActiveTab("assignment")
       selectAssignment(issue.assignmentId)
-      setGroupEditorFilter("empty")
-      setGroupEditorOpen(true)
       setAssignmentCoverageFocus(null)
       showToast(
-        `Showing empty groups${assignmentName ? ` in ${assignmentName}` : ""}`,
+        `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (look for empty groups)`,
       )
       setOpen(false)
       return
@@ -99,8 +93,6 @@ export function DataOverviewSheet() {
     if (issue.kind === "assignment_validation" && issue.assignmentId) {
       setActiveTab("assignment")
       selectAssignment(issue.assignmentId)
-      setGroupEditorFilter("all")
-      setGroupEditorOpen(true)
       showToast(
         `Showing groups${assignmentName ? ` in ${assignmentName}` : ""}`,
       )
