@@ -1,6 +1,6 @@
 /**
  * UtilityBar - Bottom bar between tab content and output console.
- * Contains: Profile selector, Save button, Profile menu.
+ * Contains: Clear button, Profile selector, Save button, Profile menu.
  */
 
 import type { ProfileSettings } from "@repo-edu/backend-interface/types"
@@ -55,8 +55,13 @@ interface UtilityBarProps {
 }
 
 export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
+  const clearOutput = useOutputStore((state) => state.clear)
+
   return (
     <div className="group/utilitybar flex items-center gap-2 px-2 py-1.5 border-t bg-muted/30">
+      <Button variant="outline" size="sm" onClick={clearOutput}>
+        Clear
+      </Button>
       <div className="flex-1" />
       <ProfileSelector isDirty={isDirty} />
       <SaveButton isDirty={isDirty} onSaved={onSaved} />

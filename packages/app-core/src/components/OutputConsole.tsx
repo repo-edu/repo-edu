@@ -17,7 +17,7 @@ interface ContextMenuState {
 }
 
 const levelColors: Record<OutputLevel, string> = {
-  info: "text-muted-foreground",
+  info: "text-slate-300",
   success: "text-green-600 dark:text-green-400",
   warning: "text-yellow-600 dark:text-yellow-400",
   error: "text-red-600 dark:text-red-400",
