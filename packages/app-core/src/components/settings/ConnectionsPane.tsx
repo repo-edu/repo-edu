@@ -368,8 +368,25 @@ export function ConnectionsPane() {
   }
 
   const isLmsFormValid = lmsForm.base_url.trim() && lmsForm.access_token.trim()
+  const isLmsFormDirty =
+    !lmsConnection ||
+    lmsForm.lms_type !== lmsConnection.lms_type ||
+    lmsForm.base_url !== lmsConnection.base_url ||
+    lmsForm.access_token !== lmsConnection.access_token ||
+    lmsForm.user_agent !== (lmsConnection.user_agent ?? "")
+
   const isGitFormValid =
     gitForm.name.trim() && gitForm.user.trim() && gitForm.access_token.trim()
+  const editingGitConnection = editingGit ? gitConnections[editingGit] : null
+  const isGitFormDirty =
+    addingGit ||
+    !editingGitConnection ||
+    gitForm.name !== editingGit ||
+    gitForm.server_type !== editingGitConnection.server_type ||
+    gitForm.base_url !== (editingGitConnection.connection.base_url ?? "") ||
+    gitForm.user !== editingGitConnection.connection.user ||
+    gitForm.access_token !== editingGitConnection.connection.access_token ||
+    gitForm.identity_mode !== (editingGitConnection.identity_mode ?? "email")
 
   return (
     <div className="space-y-6">
@@ -392,6 +409,7 @@ export function ConnectionsPane() {
             status={draftLmsStatus}
             error={draftLmsError}
             isValid={!!isLmsFormValid}
+            isDirty={isLmsFormDirty}
             onVerify={handleVerifyLms}
             onSave={handleSaveLms}
             onCancel={handleCancelLms}
@@ -433,6 +451,7 @@ export function ConnectionsPane() {
             status={draftGitStatus}
             error={draftGitError}
             isValid={!!isGitFormValid}
+            isDirty={isGitFormDirty}
             isNew={addingGit}
             existingNames={Object.keys(gitConnections).filter(
               (n) => n !== editingGit,
@@ -569,6 +588,7 @@ interface LmsFormProps {
   status: ConnectionStatus
   error: string | null
   isValid: boolean
+  isDirty: boolean
   onVerify: () => void
   onSave: () => void
   onCancel: () => void
@@ -580,6 +600,7 @@ function LmsForm({
   status,
   error,
   isValid,
+  isDirty,
   onVerify,
   onSave,
   onCancel,
@@ -676,7 +697,12 @@ function LmsForm({
             "Verify"
           )}
         </Button>
-        <Button size="sm" onClick={onSave} disabled={!isValid}>
+        <Button
+          size="sm"
+          variant={isDirty ? "default" : "outline"}
+          onClick={onSave}
+          disabled={!isValid || !isDirty}
+        >
           Save
         </Button>
       </div>
@@ -690,6 +716,7 @@ interface GitFormProps {
   status: ConnectionStatus
   error: string | null
   isValid: boolean
+  isDirty: boolean
   isNew: boolean
   existingNames: string[]
   onVerify: () => void
@@ -703,6 +730,7 @@ function GitForm({
   status,
   error,
   isValid,
+  isDirty,
   isNew,
   existingNames,
   onVerify,
@@ -852,7 +880,12 @@ function GitForm({
             "Verify"
           )}
         </Button>
-        <Button size="sm" onClick={onSave} disabled={!isValid || nameConflict}>
+        <Button
+          size="sm"
+          variant={isDirty ? "default" : "outline"}
+          onClick={onSave}
+          disabled={!isValid || !isDirty || nameConflict}
+        >
           Save
         </Button>
       </div>
