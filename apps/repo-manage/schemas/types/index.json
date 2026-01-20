@@ -130,8 +130,8 @@
       "path": "./GroupImportSummary.schema.json"
     },
     {
-      "name": "GroupSetOrigin",
-      "path": "./GroupSetOrigin.schema.json"
+      "name": "GroupSetKind",
+      "path": "./GroupSetKind.schema.json"
     },
     {
       "name": "GroupFileImportResult",

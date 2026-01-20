@@ -28,7 +28,7 @@
         "$ref": "./Group.schema.json"
       }
     },
-    "group_set_cache_id": {
+    "group_set_id": {
       "anyOf": [
         {
           "type": "string"
@@ -37,18 +37,6 @@
           "type": "null"
         }
       ]
-    },
-    "source_fetched_at": {
-      "anyOf": [
-        {
-          "type": "string",
-          "format": "date-time"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "ISO timestamp when assignment groups were last synced from LMS cache"
     }
   },
   "additionalProperties": false,

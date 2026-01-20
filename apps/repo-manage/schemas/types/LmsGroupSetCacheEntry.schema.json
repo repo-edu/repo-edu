@@ -6,13 +6,8 @@
     "id": {
       "type": "string"
     },
-    "origin": {
-      "$ref": "./GroupSetOrigin.schema.json",
-      "x-rust": {
-        "serde": {
-          "default": true
-        }
-      }
+    "kind": {
+      "$ref": "./GroupSetKind.schema.json"
     },
     "name": {
       "type": "string"
@@ -22,6 +17,16 @@
       "items": {
         "$ref": "./CachedLmsGroup.schema.json"
       }
+    },
+    "filter": {
+      "anyOf": [
+        {
+          "$ref": "./GroupFilter.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "fetched_at": {
       "anyOf": [
@@ -48,26 +53,48 @@
       ]
     },
     "lms_type": {
-      "$ref": "./LmsType.schema.json"
+      "anyOf": [
+        {
+          "$ref": "./LmsType.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "base_url": {
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "course_id": {
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
   "required": [
     "id",
-    "origin",
+    "kind",
     "name",
     "groups",
+    "filter",
     "fetched_at",
     "lms_group_set_id",
     "lms_type",
     "base_url",
     "course_id"
   ],
-  "description": "Cached LMS group set scoped to a profile context"
+  "description": "Cached group set scoped to a profile context"
 }

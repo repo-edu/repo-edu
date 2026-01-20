@@ -1,10 +1,10 @@
 /**
- * UnassignedStudentsView - Lists students not in any cached LMS group.
+ * UnassignedStudentsView - Lists students not in any group set.
  *
  * Shows:
  * - List of active students not found in any cached group set
  * - Read-only informational view
- * - Note: This is cache-only; assignment snapshots may differ
+ * - Note: This is group-set-only; assignments may differ
  */
 
 import type {
@@ -89,7 +89,7 @@ export function UnassignedStudentsView({
 
       {/* Footer */}
       <div className="px-3 py-2 border-t text-xs text-muted-foreground">
-        Based on cached group data only. Assignment snapshots may differ.
+        Based on group set data only. Assignment snapshots may differ.
       </div>
     </div>
   )

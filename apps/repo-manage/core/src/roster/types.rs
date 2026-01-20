@@ -4,7 +4,7 @@ use std::fmt;
 use super::nanoid::{generate_assignment_id, generate_group_id, generate_student_id};
 pub use crate::generated::types::{
     Assignment, AssignmentId, AssignmentMetadata, AssignmentType, GitIdentityMode,
-    GitUsernameStatus, Group, GroupId, GroupSetOrigin, Roster, RosterSource, Student, StudentId,
+    GitUsernameStatus, Group, GroupId, GroupSetKind, Roster, RosterSource, Student, StudentId,
     StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
 };
 
@@ -53,15 +53,14 @@ impl Student {
 }
 
 impl Assignment {
-    pub fn new(name: impl Into<String>, group_set_cache_id: Option<String>) -> Self {
+    pub fn new(name: impl Into<String>, group_set_id: Option<String>) -> Self {
         Self {
             id: generate_assignment_id(),
             name: name.into(),
             description: None,
             assignment_type: AssignmentType::default(),
             groups: Vec::new(),
-            group_set_cache_id,
-            source_fetched_at: None,
+            group_set_id,
         }
     }
 }

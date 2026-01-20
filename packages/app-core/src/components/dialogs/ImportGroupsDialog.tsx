@@ -1,9 +1,5 @@
 /**
- * Dialog for importing groups from LMS group sets.
- *
- * Supports two modes:
- * - Use cached group set (if any exist)
- * - Fetch from LMS (caches and applies)
+ * Dialog for linking or copying LMS group sets into the roster.
  */
 
 import type {
@@ -42,38 +38,10 @@ import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildLmsOperationContext } from "../../utils/operationContext"
 
-type ImportMode = "cached" | "lms"
-
-const STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1000 // 24 hours
-
-function isStale(fetchedAt: string | null): boolean {
-  if (!fetchedAt) return false
-  const fetchedTime = Date.parse(fetchedAt)
-  if (Number.isNaN(fetchedTime)) return false
-  return Date.now() - fetchedTime > STALENESS_THRESHOLD_MS
-}
-
-function formatRelativeTime(isoDate: string | null): string {
-  if (!isoDate) return "—"
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+type GroupSetMode = "link" | "copy"
 
 export function ImportGroupsDialog() {
-  // Mode selection
-  const [importMode, setImportMode] = useState<ImportMode>("cached")
-
-  // LMS fetch state
+  const [mode, setMode] = useState<GroupSetMode>("link")
   const [groupSets, setGroupSets] = useState<LmsGroupSet[]>([])
   const [selectedGroupSetId, setSelectedGroupSetId] = useState<string | null>(
     null,
@@ -85,22 +53,10 @@ export function ImportGroupsDialog() {
   )
   const [fetchingGroupSets, setFetchingGroupSets] = useState(false)
   const [loadingGroups, setLoadingGroups] = useState(false)
-
-  // Cached selection state
-  const [selectedCachedSetId, setSelectedCachedSetId] = useState<string | null>(
-    null,
-  )
-
-  // Shared state
-  const [importing, setImporting] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const assignmentSelection = useProfileStore(
-    (state) => state.assignmentSelection,
-  )
-  const selectedAssignmentId =
-    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const setRoster = useProfileStore((state) => state.setRoster)
   const courseId = useProfileStore(
     (state) => state.document?.settings.course.id ?? "",
@@ -109,15 +65,6 @@ export function ImportGroupsDialog() {
 
   const open = useUiStore((state) => state.importGroupsDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGroupsDialogOpen)
-  const setReplaceGroupsConfirmationOpen = useUiStore(
-    (state) => state.setReplaceGroupsConfirmationOpen,
-  )
-  const setPendingGroupImport = useUiStore(
-    (state) => state.setPendingGroupImport,
-  )
-  const setPendingGroupImportSource = useUiStore(
-    (state) => state.setPendingGroupImportSource,
-  )
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const lmsContext = useMemo(
@@ -130,66 +77,22 @@ export function ImportGroupsDialog() {
       ? "Profile has no course configured"
       : null
 
-  // Cached group sets from roster
-  const cachedGroupSets = roster?.lms_group_sets ?? []
-  const hasCachedSets = cachedGroupSets.length > 0
-
-  // Build a set of cached IDs for quick lookup
-  const cachedSetIds = useMemo(
-    () => new Set(cachedGroupSets.map((c) => c.id)),
-    [cachedGroupSets],
-  )
-
-  // Default to cached mode if we have cached sets, otherwise LMS
-  useEffect(() => {
-    if (open) {
-      setImportMode(hasCachedSets ? "cached" : "lms")
-    }
-  }, [open, hasCachedSets])
-
   const selectedGroupSet = groupSets.find((gs) => gs.id === selectedGroupSetId)
-  const selectedCachedSet = cachedGroupSets.find(
-    (c) => c.id === selectedCachedSetId,
-  )
-
-  const activeGroupsLoaded =
-    importMode === "cached" ? Boolean(selectedCachedSet) : groupsLoaded
-
-  const activeGroups = useMemo(() => {
-    if (!activeGroupsLoaded) return []
-    if (importMode === "cached") {
-      return (
-        selectedCachedSet?.groups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          member_ids: [...group.resolved_member_ids],
-        })) ?? []
-      )
-    }
-    return selectedGroupSet?.groups ?? []
-  }, [activeGroupsLoaded, importMode, selectedCachedSet, selectedGroupSet])
+  const activeGroups = selectedGroupSet?.groups ?? []
 
   // Filter groups by pattern (only when groups are loaded)
   const filteredGroups = useMemo(() => {
-    if (!activeGroupsLoaded) return []
-    const groups = activeGroups
-    if (!filterPattern.trim()) return groups
-    // Simple glob-like matching: replace * with .*
+    if (!groupsLoaded) return []
+    if (!filterPattern.trim()) return activeGroups
     const pattern = filterPattern
-      .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // Escape regex special chars
-      .replace(/\*/g, ".*") // Replace * with .*
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
     const regex = new RegExp(`^${pattern}$`, "i")
-    return groups.filter((g) => regex.test(g.name))
-  }, [activeGroups, filterPattern, activeGroupsLoaded])
+    return activeGroups.filter((g) => regex.test(g.name))
+  }, [activeGroups, filterPattern, groupsLoaded])
 
   useEffect(() => {
-    setSelectedGroupIds(new Set())
-    setFilterPattern("")
-  }, [importMode, selectedGroupSetId, selectedCachedSetId])
-
-  // Fetch group set list on open (quick - just names/ids)
-  useEffect(() => {
-    if (!open || !activeProfile || importMode !== "lms") return
+    if (!open || !activeProfile) return
     if (!lmsContext) {
       setError(lmsContextError)
       return
@@ -203,7 +106,6 @@ export function ImportGroupsDialog() {
         const result = await commands.fetchLmsGroupSetList(lmsContext)
         if (result.status === "ok") {
           setGroupSets(result.data)
-          // Auto-select if only one group set
           if (result.data.length === 1) {
             setSelectedGroupSetId(result.data[0].id)
           }
@@ -218,17 +120,10 @@ export function ImportGroupsDialog() {
     }
 
     fetchGroupSetList()
-  }, [open, activeProfile, lmsContext, lmsContextError, importMode])
+  }, [open, activeProfile, lmsContext, lmsContextError])
 
-  // Fetch groups when a group set is selected (slower)
   useEffect(() => {
-    if (
-      importMode !== "lms" ||
-      !selectedGroupSetId ||
-      !activeProfile ||
-      !lmsContext
-    )
-      return
+    if (!selectedGroupSetId || !activeProfile || !lmsContext) return
 
     const fetchGroups = async () => {
       setLoadingGroups(true)
@@ -240,7 +135,6 @@ export function ImportGroupsDialog() {
           selectedGroupSetId,
         )
         if (result.status === "ok") {
-          // Update the selected group set with its groups
           setGroupSets((prev) =>
             prev.map((gs) =>
               gs.id === selectedGroupSetId
@@ -260,7 +154,12 @@ export function ImportGroupsDialog() {
     }
 
     fetchGroups()
-  }, [selectedGroupSetId, activeProfile, lmsContext, importMode])
+  }, [selectedGroupSetId, activeProfile, lmsContext])
+
+  useEffect(() => {
+    setSelectedGroupIds(new Set())
+    setFilterPattern("")
+  }, [selectedGroupSetId])
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) => {
@@ -303,88 +202,26 @@ export function ImportGroupsDialog() {
     }
   }
 
-  const handleImportFromLms = async () => {
+  const handleSubmit = async () => {
     const config = getImportConfig(selectedGroupSetId)
-    if (!config || !roster || !selectedAssignmentId || !activeProfile) return
-    if (!lmsContext) {
-      setError(lmsContextError)
-      return
-    }
+    if (!config || !lmsContext) return
 
-    // Check if assignment has groups
-    const assignment = roster.assignments.find(
-      (a) => a.id === selectedAssignmentId,
-    )
-    if (assignment && assignment.groups.length > 0) {
-      // Show confirmation dialog
-      setPendingGroupImport(config)
-      setPendingGroupImportSource("lms")
-      setReplaceGroupsConfirmationOpen(true)
-    } else {
-      // Import directly
-      await doImportFromLms(config)
-    }
-  }
-
-  const doImportFromLms = async (config: GroupImportConfig) => {
-    if (!roster || !selectedAssignmentId || !activeProfile || !lmsContext)
-      return
-
-    setImporting(true)
+    setSubmitting(true)
     setError(null)
     try {
-      const result = await commands.importGroupsFromLms(
-        lmsContext,
-        roster,
-        selectedAssignmentId,
-        config,
-      )
+      const result =
+        mode === "link"
+          ? await commands.linkLmsGroupSet(lmsContext, roster, config)
+          : await commands.copyLmsGroupSet(lmsContext, roster, config)
       if (result.status === "ok") {
-        setRoster(result.data.roster, "Import groups from LMS")
-        handleClose()
-      } else {
-        setError(result.error.message)
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const handleImportFromCache = async () => {
-    const config = getImportConfig(selectedCachedSetId)
-    if (!roster || !selectedAssignmentId || !config) return
-
-    // Check if assignment has groups
-    const assignment = roster.assignments.find(
-      (a) => a.id === selectedAssignmentId,
-    )
-    if (assignment && assignment.groups.length > 0) {
-      // Show confirmation dialog
-      setPendingGroupImport(config)
-      setPendingGroupImportSource("cached")
-      setReplaceGroupsConfirmationOpen(true)
-    } else {
-      await doImportFromCache(config)
-    }
-  }
-
-  const doImportFromCache = async (config: GroupImportConfig) => {
-    if (!roster || !selectedAssignmentId) return
-
-    setImporting(true)
-    setError(null)
-    try {
-      const result = await commands.applyCachedGroupSetToAssignment(
-        roster,
-        selectedAssignmentId,
-        config,
-      )
-      if (result.status === "ok") {
-        setRoster(result.data.roster, "Apply cached group set")
+        setRoster(
+          result.data,
+          mode === "link" ? "Link group set" : "Copy group set",
+        )
         addToast(
-          `Applied "${selectedCachedSet?.name}" to assignment (${result.data.summary.groups_imported} groups)`,
+          mode === "link"
+            ? "Linked group set from LMS"
+            : "Copied group set from LMS",
         )
         handleClose()
       } else {
@@ -393,7 +230,7 @@ export function ImportGroupsDialog() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setImporting(false)
+      setSubmitting(false)
     }
   }
 
@@ -401,14 +238,12 @@ export function ImportGroupsDialog() {
     setOpen(false)
     setGroupSets([])
     setSelectedGroupSetId(null)
-    setSelectedCachedSetId(null)
     setGroupsLoaded(false)
     setFilterPattern("")
     setSelectedGroupIds(new Set())
     setError(null)
   }
 
-  // Count for display
   const selectedCount =
     selectedGroupIds.size > 0 ? selectedGroupIds.size : filteredGroups.length
   const studentCount =
@@ -418,291 +253,168 @@ export function ImportGroupsDialog() {
           .reduce((acc, g) => acc + g.member_ids.length, 0)
       : filteredGroups.reduce((acc, g) => acc + g.member_ids.length, 0)
 
-  const renderGroupFilterPanel = () => (
-    <>
-      <FormField
-        label="Filter Pattern (optional)"
-        description="Use * as a wildcard. Leave empty to select manually."
-      >
-        <Input
-          placeholder="e.g., A1-* or Team-*"
-          value={filterPattern}
-          onChange={(e) => setFilterPattern(e.target.value)}
-        />
-      </FormField>
-
-      <div className="grid gap-2">
-        <div className="flex justify-between items-center">
-          <Label>Groups</Label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline"
-              onClick={selectAllFiltered}
-            >
-              Select all
-            </button>
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline"
-              onClick={deselectAll}
-            >
-              Deselect all
-            </button>
-          </div>
-        </div>
-        <div className="border rounded-md max-h-48 overflow-y-auto">
-          {filteredGroups.length === 0 ? (
-            <p className="text-sm text-muted-foreground p-3 text-center">
-              No groups match the filter
-            </p>
-          ) : (
-            filteredGroups.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
-                role="option"
-                aria-selected={selectedGroupIds.has(group.id)}
-                onClick={() => toggleGroupSelection(group.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    toggleGroupSelection(group.id)
-                  }
-                }}
-                tabIndex={0}
-              >
-                <Checkbox
-                  checked={selectedGroupIds.has(group.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  onCheckedChange={() => toggleGroupSelection(group.id)}
-                  tabIndex={-1}
-                />
-                <span className="text-sm flex-1">{group.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {group.member_ids.length} student
-                  {group.member_ids.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <p className="text-sm text-muted-foreground">
-        {selectedCount} group{selectedCount !== 1 ? "s" : ""} selected (
-        {studentCount} student{studentCount !== 1 ? "s" : ""})
-      </p>
-    </>
-  )
-
-  // Compute cached set stats
-  const cachedSetStats = selectedCachedSet
-    ? {
-        groupCount: selectedCachedSet.groups.length,
-        memberCount: selectedCachedSet.groups.reduce(
-          (acc, g) => acc + g.resolved_member_ids.length,
-          0,
-        ),
-        unresolvedCount: selectedCachedSet.groups.reduce(
-          (acc, g) => acc + g.unresolved_count,
-          0,
-        ),
-        needsReresolution: selectedCachedSet.groups.some(
-          (g) => g.needs_reresolution,
-        ),
-        stale: isStale(selectedCachedSet.fetched_at),
-      }
-    : null
-
-  const handleImport =
-    importMode === "cached" ? handleImportFromCache : handleImportFromLms
-
-  const canImport =
-    importMode === "cached"
-      ? selectedCachedSetId != null
-      : selectedGroupSetId != null && groupsLoaded
+  const canSubmit = selectedGroupSetId != null && groupsLoaded
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import Groups</DialogTitle>
+          <DialogTitle>Add Group Set</DialogTitle>
         </DialogHeader>
 
-        <DialogBody>
+        <DialogBody className="space-y-4">
           {error && <Alert variant="destructive">{error}</Alert>}
 
-          {/* Mode selection */}
-          {hasCachedSets && (
-            <FormField label="Import Source">
-              <RadioGroup
-                value={importMode}
-                onValueChange={(v) => setImportMode(v as ImportMode)}
-                className="flex flex-col gap-2"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="cached" id="mode-cached" />
-                  <Label htmlFor="mode-cached" className="cursor-pointer">
-                    Use cached group set ({cachedGroupSets.length} available)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="lms" id="mode-lms" />
-                  <Label htmlFor="mode-lms" className="cursor-pointer">
-                    Fetch from LMS
-                  </Label>
-                </div>
-              </RadioGroup>
-            </FormField>
-          )}
+          <FormField label="Mode">
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as GroupSetMode)}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="link" id="mode-link" />
+                <Label htmlFor="mode-link" className="cursor-pointer">
+                  Link group set (read-only)
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="copy" id="mode-copy" />
+                <Label htmlFor="mode-copy" className="cursor-pointer">
+                  Copy group set (editable)
+                </Label>
+              </div>
+            </RadioGroup>
+          </FormField>
 
-          {/* Cached mode UI */}
-          {importMode === "cached" && (
-            <>
-              <FormField label="Cached Group Set">
-                <Select
-                  value={selectedCachedSetId ?? undefined}
-                  onValueChange={setSelectedCachedSetId}
-                  disabled={importing}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a cached group set" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[100]">
-                    {cachedGroupSets.map((cached) => {
-                      const stale = isStale(cached.fetched_at)
-                      const hasWarnings =
-                        cached.groups.some((g) => g.needs_reresolution) ||
-                        cached.groups.some((g) => g.unresolved_count > 0)
-                      return (
-                        <SelectItem key={cached.id} value={cached.id}>
-                          <span className="flex items-center gap-2">
-                            {cached.name}
-                            {(stale || hasWarnings) && (
-                              <AlertTriangle className="size-3 text-warning" />
-                            )}
-                          </span>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </FormField>
-
-              {selectedCachedSet && cachedSetStats && (
-                <div className="rounded-md border p-3 space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">
-                      {selectedCachedSet.name}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {cachedSetStats.groupCount} groups ·{" "}
-                    {cachedSetStats.memberCount} members · fetched{" "}
-                    {formatRelativeTime(selectedCachedSet.fetched_at)}
-                  </div>
-                  {cachedSetStats.stale && (
-                    <div className="text-xs text-warning flex items-center gap-1">
-                      <AlertTriangle className="size-3" />
-                      Data may be outdated (over 24h old)
-                    </div>
-                  )}
-                  {cachedSetStats.needsReresolution && (
-                    <div className="text-xs text-warning flex items-center gap-1">
-                      <AlertTriangle className="size-3" />
-                      Members need re-resolution after roster changes
-                    </div>
-                  )}
-                  {cachedSetStats.unresolvedCount > 0 &&
-                    !cachedSetStats.needsReresolution && (
-                      <div className="text-xs text-warning flex items-center gap-1">
-                        <AlertTriangle className="size-3" />
-                        {cachedSetStats.unresolvedCount} LMS user(s) could not
-                        be matched to students
-                      </div>
-                    )}
-                </div>
+          <FormField label="LMS Group Set">
+            <Select
+              value={selectedGroupSetId ?? undefined}
+              onValueChange={setSelectedGroupSetId}
+              disabled={fetchingGroupSets || submitting}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a group set" />
+              </SelectTrigger>
+              <SelectContent className="z-[100]">
+                {groupSets.map((groupSet) => (
+                  <SelectItem key={groupSet.id} value={groupSet.id}>
+                    {groupSet.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {fetchingGroupSets && (
+              <Text className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
+                <Loader2 className="size-3 animate-spin" />
+                Loading group sets...
+              </Text>
+            )}
+            {!fetchingGroupSets &&
+              groupSets.length === 0 &&
+              lmsContextError === null && (
+                <Text className="text-xs text-muted-foreground mt-2">
+                  No group sets found in this course.
+                </Text>
               )}
+          </FormField>
 
-              {selectedCachedSet && renderGroupFilterPanel()}
+          {selectedGroupSetId && (
+            <>
+              <FormField
+                label="Filter Pattern (optional)"
+                description="Use * as a wildcard. Leave empty to select manually."
+              >
+                <Input
+                  placeholder="e.g., A1-* or Team-*"
+                  value={filterPattern}
+                  onChange={(e) => setFilterPattern(e.target.value)}
+                />
+              </FormField>
+
+              <div className="grid gap-2">
+                <div className="flex justify-between items-center">
+                  <Label>Groups</Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-primary hover:underline"
+                      onClick={selectAllFiltered}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-primary hover:underline"
+                      onClick={deselectAll}
+                    >
+                      Deselect all
+                    </button>
+                  </div>
+                </div>
+                <div className="border rounded-md max-h-48 overflow-y-auto">
+                  {loadingGroups && (
+                    <p className="text-sm text-muted-foreground p-3 text-center">
+                      Loading groups...
+                    </p>
+                  )}
+                  {!loadingGroups && filteredGroups.length === 0 && (
+                    <p className="text-sm text-muted-foreground p-3 text-center">
+                      No groups match the filter
+                    </p>
+                  )}
+                  {!loadingGroups &&
+                    filteredGroups.map((group) => (
+                      <div
+                        key={group.id}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
+                        role="option"
+                        aria-selected={selectedGroupIds.has(group.id)}
+                        onClick={() => toggleGroupSelection(group.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            toggleGroupSelection(group.id)
+                          }
+                        }}
+                        tabIndex={0}
+                      >
+                        <Checkbox
+                          checked={selectedGroupIds.has(group.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={() => toggleGroupSelection(group.id)}
+                          tabIndex={-1}
+                        />
+                        <span className="text-sm flex-1">{group.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {group.member_ids.length} student
+                          {group.member_ids.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {selectedCount} group{selectedCount !== 1 ? "s" : ""} selected (
+                {studentCount} student{studentCount !== 1 ? "s" : ""})
+              </p>
             </>
           )}
 
-          {/* LMS mode UI */}
-          {importMode === "lms" && (
-            <>
-              <FormField label="LMS Group Set">
-                {fetchingGroupSets ? (
-                  <Text variant="muted" className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading group sets...
-                  </Text>
-                ) : groupSets.length === 0 ? (
-                  <Text variant="muted" asChild>
-                    <p>
-                      No group sets found in this course. Create a group set in
-                      your LMS first.
-                    </p>
-                  </Text>
-                ) : (
-                  <Select
-                    value={selectedGroupSetId ?? undefined}
-                    onValueChange={setSelectedGroupSetId}
-                    disabled={importing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a group set" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[100]">
-                      {groupSets.map((gs) => {
-                        const isCached = cachedSetIds.has(gs.id)
-                        return (
-                          <SelectItem key={gs.id} value={gs.id}>
-                            <span className="flex items-center gap-2">
-                              {gs.name}
-                              {isCached && (
-                                <span className="text-xs text-muted-foreground">
-                                  (cached)
-                                </span>
-                              )}
-                            </span>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                )}
-              </FormField>
-
-              {selectedGroupSetId &&
-                (loadingGroups ? (
-                  <Text variant="muted" className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading groups...
-                  </Text>
-                ) : groupsLoaded ? (
-                  renderGroupFilterPanel()
-                ) : null)}
-            </>
+          {lmsContextError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" />
+              <span>{lmsContextError}</span>
+            </Alert>
           )}
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleImport}
-            disabled={
-              !canImport || fetchingGroupSets || loadingGroups || importing
-            }
-          >
-            {importing
-              ? "Importing..."
-              : importMode === "cached"
-                ? "Apply Cached Set"
-                : "Import Selected"}
+          <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            {submitting ? "Working..." : mode === "link" ? "Link" : "Copy"}
           </Button>
         </DialogFooter>
       </DialogContent>

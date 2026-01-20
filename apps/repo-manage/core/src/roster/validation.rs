@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::slug::compute_repo_name;
 use super::types::{
-    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, GroupSetOrigin,
+    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, GroupSetKind,
     Roster, StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
 };
 
@@ -84,7 +84,10 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
 
     if let Some(group_sets) = roster.lms_group_sets.as_ref() {
         for group_set in group_sets {
-            if group_set.origin == GroupSetOrigin::Local {
+            if matches!(
+                group_set.kind,
+                GroupSetKind::Copied | GroupSetKind::Unlinked
+            ) {
                 continue;
             }
             let mut affected = Vec::new();
@@ -371,7 +374,9 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{validate_assignment, validate_roster};
-    use crate::generated::types::{CachedLmsGroup, GroupSetOrigin, LmsGroupSetCacheEntry};
+    use crate::generated::types::{
+        CachedLmsGroup, GroupFilter, GroupSetKind, LmsGroupSetCacheEntry,
+    };
     use crate::roster::types::{
         Assignment, AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, Group,
         GroupId, Roster, Student, StudentId, StudentStatus,
@@ -439,8 +444,7 @@ mod tests {
                         member_ids: vec![StudentId("s1".to_string())],
                     },
                 ],
-                group_set_cache_id: None,
-                source_fetched_at: None,
+                group_set_id: None,
             }],
             lms_group_sets: Some(Vec::new()),
         };
@@ -478,14 +482,19 @@ mod tests {
         };
         let group_set = LmsGroupSetCacheEntry {
             id: "set-1".to_string(),
-            origin: GroupSetOrigin::Lms,
+            kind: GroupSetKind::Linked,
             name: "Set One".to_string(),
             groups: vec![group],
+            filter: Some(GroupFilter {
+                kind: "all".to_string(),
+                selected: None,
+                pattern: None,
+            }),
             fetched_at: Some(chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()),
             lms_group_set_id: Some("set-1".to_string()),
-            lms_type: LmsType::Canvas,
-            base_url: "https://example.edu".to_string(),
-            course_id: "course-1".to_string(),
+            lms_type: Some(LmsType::Canvas),
+            base_url: Some("https://example.edu".to_string()),
+            course_id: Some("course-1".to_string()),
         };
 
         let roster = Roster {

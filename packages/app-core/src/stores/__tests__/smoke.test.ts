@@ -204,7 +204,7 @@ describe("Store Smoke Tests", () => {
                     member_ids: [studentId],
                   },
                 ],
-                group_set_cache_id: null,
+                group_set_id: null,
               },
             ],
           },
@@ -231,12 +231,13 @@ describe("Store Smoke Tests", () => {
       expect(selection).toEqual({ mode: "assignment", id: assignmentId })
     })
 
-    it("smoke: setAssignmentSelection updates selection with aggregation mode", () => {
+    it("smoke: setAssignmentSelection updates selection", () => {
+      const assignmentId = generateAssignmentId()
       useProfileStore
         .getState()
-        .setAssignmentSelection({ mode: "all-group-sets" })
+        .setAssignmentSelection({ mode: "assignment", id: assignmentId })
       const selection = useProfileStore.getState().assignmentSelection
-      expect(selection).toEqual({ mode: "all-group-sets" })
+      expect(selection).toEqual({ mode: "assignment", id: assignmentId })
     })
 
     it("smoke: default selection prefers assignments over cache", () => {
@@ -251,16 +252,16 @@ describe("Store Smoke Tests", () => {
             description: null,
             assignment_type: "class_wide",
             groups: [],
-            group_set_cache_id: null,
-            source_fetched_at: null,
+            group_set_id: null,
           },
         ],
         lms_group_sets: [
           {
             id: "set-1",
-            origin: "lms",
+            kind: "linked",
             name: "Set 1",
             groups: [],
+            filter: null,
             fetched_at: new Date().toISOString(),
             lms_group_set_id: "set-1",
             lms_type: "canvas",
@@ -280,7 +281,7 @@ describe("Store Smoke Tests", () => {
       expect(selection).toEqual({ mode: "assignment", id: assignmentId })
     })
 
-    it("smoke: default selection uses cache when no assignments", () => {
+    it("smoke: default selection is null when no assignments", () => {
       const roster: Roster = {
         source: null,
         students: [],
@@ -288,9 +289,10 @@ describe("Store Smoke Tests", () => {
         lms_group_sets: [
           {
             id: "set-1",
-            origin: "lms",
+            kind: "linked",
             name: "Set 1",
             groups: [],
+            filter: null,
             fetched_at: new Date().toISOString(),
             lms_group_set_id: "set-1",
             lms_type: "canvas",
@@ -307,7 +309,7 @@ describe("Store Smoke Tests", () => {
       })
 
       const selection = useProfileStore.getState().assignmentSelection
-      expect(selection).toEqual({ mode: "all-group-sets" })
+      expect(selection).toBeNull()
     })
 
     it("smoke: default selection is null when roster is empty", () => {

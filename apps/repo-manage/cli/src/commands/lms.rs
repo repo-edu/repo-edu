@@ -14,9 +14,9 @@ use crate::util::{
 const STALENESS_THRESHOLD_HOURS: i64 = 24;
 
 fn matches_context(entry: &LmsGroupSetCacheEntry, context_key: &LmsContextKey) -> bool {
-    entry.lms_type == context_key.lms_type
-        && entry.base_url == context_key.base_url
-        && entry.course_id == context_key.course_id
+    entry.lms_type.as_ref() == Some(&context_key.lms_type)
+        && entry.base_url.as_deref() == Some(&context_key.base_url)
+        && entry.course_id.as_deref() == Some(&context_key.course_id)
 }
 
 fn filter_cache_entries(
@@ -164,38 +164,39 @@ pub async fn import_groups(
     };
 
     if use_cache {
-        println!("Importing groups from cache into '{}'...", assignment);
+        println!("Attaching cached group set to '{}'...", assignment);
 
-        let result = operations::apply_cached_group_set_to_assignment(
-            roster,
-            &assignment_id,
-            GroupImportConfig {
-                group_set_id,
-                filter: GroupFilter {
-                    kind: "all".to_string(),
-                    selected: None,
-                    pattern: None,
-                },
-            },
-        )?;
+        let updated_roster =
+            operations::attach_group_set_to_assignment(roster, &assignment_id, &group_set_id)?;
 
-        print_success(&format!(
-            "Imported {} groups ({} students)",
-            result.summary.groups_imported, result.summary.students_referenced
-        ));
-        println!("  Replaced: {}", result.summary.groups_replaced);
-        println!("  Source: Cached");
+        if let Some(updated_assignment) = updated_roster
+            .assignments
+            .iter()
+            .find(|assignment| assignment.id == assignment_id)
+        {
+            let total_students: usize = updated_assignment
+                .groups
+                .iter()
+                .map(|group| group.member_ids.len())
+                .sum();
+            print_success(&format!(
+                "Attached {} groups ({} students)",
+                updated_assignment.groups.len(),
+                total_students
+            ));
+        } else {
+            print_success("Attached group set");
+        }
 
-        manager.save_roster(&profile, &result.roster)?;
+        manager.save_roster(&profile, &updated_roster)?;
         println!("\nRoster saved.");
     } else {
-        // Import from LMS (and cache)
         let context = load_lms_context(&manager, &profile)?;
 
-        println!("Importing groups into '{}'...", assignment);
+        println!("Linking group set and attaching to '{}'...", assignment);
 
         let config = GroupImportConfig {
-            group_set_id,
+            group_set_id: group_set_id.clone(),
             filter: GroupFilter {
                 kind: "all".to_string(),
                 selected: None,
@@ -203,16 +204,30 @@ pub async fn import_groups(
             },
         };
 
-        let result = operations::import_groups(&context, roster, &assignment_id, config).await?;
+        let roster = operations::link_group_set(&context, Some(roster), config).await?;
+        let updated_roster =
+            operations::attach_group_set_to_assignment(roster, &assignment_id, &group_set_id)?;
 
-        print_success(&format!(
-            "Imported {} groups ({} students)",
-            result.summary.groups_imported, result.summary.students_referenced
-        ));
-        println!("  Replaced: {}", result.summary.groups_replaced);
-        println!("  Filter: {}", result.summary.filter_applied);
+        if let Some(updated_assignment) = updated_roster
+            .assignments
+            .iter()
+            .find(|assignment| assignment.id == assignment_id)
+        {
+            let total_students: usize = updated_assignment
+                .groups
+                .iter()
+                .map(|group| group.member_ids.len())
+                .sum();
+            print_success(&format!(
+                "Linked and attached {} groups ({} students)",
+                updated_assignment.groups.len(),
+                total_students
+            ));
+        } else {
+            print_success("Linked and attached group set");
+        }
 
-        manager.save_roster(&profile, &result.roster)?;
+        manager.save_roster(&profile, &updated_roster)?;
         println!("\nRoster saved.");
     }
 
@@ -309,9 +324,21 @@ pub async fn cache_fetch(profile: Option<String>, group_set: Option<String>) -> 
         }
     };
 
-    println!("Caching group-set from LMS...");
+    println!("Linking group-set from LMS...");
 
-    let roster = operations::cache_group_set(&context, existing_roster, &group_set_id).await?;
+    let roster = operations::link_group_set(
+        &context,
+        existing_roster,
+        GroupImportConfig {
+            group_set_id: group_set_id.clone(),
+            filter: GroupFilter {
+                kind: "all".to_string(),
+                selected: None,
+                pattern: None,
+            },
+        },
+    )
+    .await?;
 
     // Find the cached entry to report stats
     let entry = roster
@@ -328,7 +355,7 @@ pub async fn cache_fetch(profile: Option<String>, group_set: Option<String>) -> 
         let unresolved: i64 = entry.groups.iter().map(|g| g.unresolved_count).sum();
 
         print_success(&format!(
-            "Cached '{}' ({} groups, {} members)",
+            "Linked '{}' ({} groups, {} members)",
             entry.name,
             entry.groups.len(),
             total_members
@@ -337,7 +364,7 @@ pub async fn cache_fetch(profile: Option<String>, group_set: Option<String>) -> 
             print_warning(&format!("{} LMS users could not be resolved", unresolved));
         }
     } else {
-        print_success("Group-set cached");
+        print_success("Group-set linked");
     }
 
     manager.save_roster(&profile, &roster)?;
@@ -364,10 +391,10 @@ pub async fn cache_refresh(profile: Option<String>, group_set_id: String) -> Res
         );
     }
 
-    println!("Refreshing cached group-set from LMS...");
+    println!("Refreshing linked group-set from LMS...");
 
     let updated_roster =
-        operations::refresh_cached_group_set(&context, roster, &group_set_id).await?;
+        operations::refresh_linked_group_set(&context, roster, &group_set_id).await?;
 
     // Find the refreshed entry to report stats
     let entry = updated_roster
@@ -426,19 +453,19 @@ pub fn cache_delete(profile: Option<String>, group_set_id: String) -> Result<()>
         );
     }
 
-    let updated_roster = operations::delete_cached_group_set(roster, &group_set_id)?;
+    let updated_roster = operations::delete_group_set(roster, &group_set_id)?;
 
     if let Some(name) = entry_name {
-        print_success(&format!("Deleted cached group-set '{}'", name));
+        print_success(&format!("Deleted group-set '{}'", name));
     } else {
-        print_success("Deleted cached group-set");
+        print_success("Deleted group-set");
     }
 
     // Check if any assignments reference this deleted cache entry
     let affected_assignments: Vec<_> = updated_roster
         .assignments
         .iter()
-        .filter(|a| a.group_set_cache_id.as_deref() == Some(&group_set_id))
+        .filter(|a| a.group_set_id.as_deref() == Some(&group_set_id))
         .map(|a| a.name.clone())
         .collect();
 

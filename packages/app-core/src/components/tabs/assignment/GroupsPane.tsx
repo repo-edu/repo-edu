@@ -5,37 +5,45 @@
 
 import type {
   Assignment,
-  Group,
-  GroupId,
+  LmsGroupSetCacheEntry,
   Student,
 } from "@repo-edu/backend-interface/types"
-import { Button, Input } from "@repo-edu/ui"
-import { AlertTriangle } from "@repo-edu/ui/components/icons"
-import { useMemo, useState } from "react"
+import { Button } from "@repo-edu/ui"
+import { Copy } from "@repo-edu/ui/components/icons"
+import { commands } from "../../../bindings/commands"
+import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useProfileStore } from "../../../stores/profileStore"
+import { useToastStore } from "../../../stores/toastStore"
 import { useUiStore } from "../../../stores/uiStore"
-import { formatStudentStatus } from "../../../utils/labels"
+import { formatRelativeTime } from "../../../utils/relativeTime"
 import { getAssignmentCoverageSummary } from "../../../utils/rosterMetrics"
+import { GroupList } from "../../groups/GroupList"
 
 interface GroupsPaneProps {
   assignment: Assignment | null
+  groupSets: LmsGroupSetCacheEntry[]
   students: Student[]
-  onImportGroups: () => void
   onFileImportExport: () => void
 }
 
 export function GroupsPane({
   assignment,
+  groupSets,
   students,
-  onImportGroups,
   onFileImportExport,
 }: GroupsPaneProps) {
+  const setRoster = useProfileStore((state) => state.setRoster)
   const removeGroup = useProfileStore((state) => state.removeGroup)
+  const duplicateGroupSetAsLocal = useProfileStore(
+    (state) => state.duplicateGroupSetAsLocal,
+  )
+  const courseId = useProfileStore(
+    (state) => state.document?.settings.course.id ?? "",
+  )
   const assignmentSelection = useProfileStore(
     (state) => state.assignmentSelection,
   )
-  const selectedAssignmentId =
-    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
+  const selectedAssignmentId = assignmentSelection?.id ?? null
   const setAddGroupDialogOpen = useUiStore(
     (state) => state.setAddGroupDialogOpen,
   )
@@ -43,49 +51,67 @@ export function GroupsPane({
     (state) => state.setEditGroupDialogOpen,
   )
   const setEditingGroupId = useUiStore((state) => state.setEditingGroupId)
-
-  const [searchQuery, setSearchQuery] = useState("")
-  const [expandedGroups, setExpandedGroups] = useState<Set<GroupId>>(new Set())
+  const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
+  const addToast = useToastStore((state) => state.addToast)
 
   const groups = assignment?.groups ?? []
-  const studentMap = useMemo(
-    () => new Map(students.map((student) => [student.id, student])),
-    [students],
-  )
+  const selectedGroupSet = assignment?.group_set_id
+    ? groupSets.find((set) => set.id === assignment.group_set_id)
+    : null
+  const isReadOnly = selectedGroupSet?.kind === "linked"
 
-  // Filter groups by search query
-  const filteredGroups = useMemo(() => {
-    if (!searchQuery.trim()) return groups
-    const query = searchQuery.toLowerCase()
-    return groups.filter((group) => {
-      // Match group name
-      if (group.name.toLowerCase().includes(query)) return true
-      // Match member names
-      const members = group.member_ids
-        .map((id) => students.find((s) => s.id === id))
-        .filter(Boolean) as Student[]
-      return members.some((m) => m.name.toLowerCase().includes(query))
-    })
-  }, [groups, searchQuery, students])
+  const handleBreakLink = async () => {
+    if (!assignment || !selectedGroupSet) return
+    if (!lmsConnection || !courseId.trim()) {
+      addToast("No LMS connection or course configured", { tone: "error" })
+      return
+    }
+    const contextResult = await commands.normalizeContext(
+      lmsConnection.lms_type,
+      lmsConnection.base_url,
+      courseId,
+    )
+    if (contextResult.status !== "ok") {
+      addToast(
+        `Failed to resolve LMS context: ${contextResult.error.message}`,
+        {
+          tone: "error",
+        },
+      )
+      return
+    }
 
-  const toggleExpand = (groupId: GroupId) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) {
-        next.delete(groupId)
-      } else {
-        next.add(groupId)
-      }
-      return next
-    })
+    const newGroupSetId = duplicateGroupSetAsLocal(
+      selectedGroupSet.id,
+      contextResult.data,
+    )
+    if (!newGroupSetId) return
+    const updatedRoster = useProfileStore.getState().document?.roster
+    if (!updatedRoster) return
+
+    const result = await commands.attachGroupSetToAssignment(
+      updatedRoster,
+      assignment.id,
+      newGroupSetId,
+    )
+    if (result.status === "ok") {
+      setRoster(result.data, "Break group set link")
+      addToast("Group set link broken; now editable", { tone: "success" })
+    } else {
+      addToast(`Failed to break link: ${result.error.message}`, {
+        tone: "error",
+      })
+    }
   }
 
-  const handleEditGroup = (groupId: GroupId) => {
+  const handleEditGroup = (groupId: string) => {
+    if (isReadOnly) return
     setEditingGroupId(groupId)
     setEditGroupDialogOpen(true)
   }
 
-  const handleRemoveGroup = (groupId: GroupId) => {
+  const handleRemoveGroup = (groupId: string) => {
+    if (isReadOnly) return
     if (selectedAssignmentId) {
       removeGroup(selectedAssignmentId, groupId)
     }
@@ -106,58 +132,78 @@ export function GroupsPane({
     )
   }
 
+  const groupSetTitle = selectedGroupSet
+    ? selectedGroupSet.name
+    : assignment.group_set_id
+      ? "Unknown group set"
+      : "Manual groups"
+  const groupSetDetail = selectedGroupSet
+    ? `${selectedGroupSet.kind === "linked" ? "Linked set" : selectedGroupSet.kind === "copied" ? "Copied set" : "Unlinked set"} · ${
+        selectedGroupSet.fetched_at
+          ? `synced ${formatRelativeTime(selectedGroupSet.fetched_at)}`
+          : "never synced"
+      }`
+    : assignment.group_set_id
+      ? "Group set not found in roster"
+      : "Not linked"
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Header */}
+      {/* Group set header */}
       <div className="flex items-center justify-between px-3 h-11 pb-3 border-b">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {groupSetTitle}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {groupSetDetail}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectedGroupSet?.kind === "linked" && (
+            <Button size="sm" variant="outline" onClick={handleBreakLink}>
+              <Copy className="mr-2 size-4" />
+              Break link
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 h-11 border-b">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Groups
         </span>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={onImportGroups}>
-            Import Groups
-          </Button>
-          <Button size="sm" variant="outline" onClick={onFileImportExport}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onFileImportExport}
+            disabled={isReadOnly}
+            title={isReadOnly ? "Linked groups are read-only" : undefined}
+          >
             File Import/Export...
           </Button>
         </div>
       </div>
 
       {/* Search and Add */}
-      <div className="flex gap-2 px-3 py-2">
-        <Input
-          placeholder="Search groups or members..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
-        />
-        <Button size="sm" onClick={() => setAddGroupDialogOpen(true)}>
-          + Add
-        </Button>
-      </div>
-
-      {/* Group list */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-        {filteredGroups.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">
-            {groups.length === 0
-              ? "No groups yet. Add a group or import from LMS."
-              : "No groups match your search."}
-          </p>
-        ) : (
-          filteredGroups.map((group) => (
-            <GroupListItem
-              key={group.id}
-              group={group}
-              studentMap={studentMap}
-              expanded={expandedGroups.has(group.id)}
-              onToggle={() => toggleExpand(group.id)}
-              onEdit={() => handleEditGroup(group.id)}
-              onRemove={() => handleRemoveGroup(group.id)}
-            />
-          ))
-        )}
-      </div>
+      <GroupList
+        groups={groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          memberIds: group.member_ids,
+        }))}
+        students={students}
+        editable={!isReadOnly}
+        onEditGroup={handleEditGroup}
+        onRemoveGroup={handleRemoveGroup}
+        onAddGroup={() => setAddGroupDialogOpen(true)}
+        addDisabled={isReadOnly}
+        addTitle={isReadOnly ? "Linked groups are read-only" : undefined}
+        emptyMessage="No groups yet. Add groups or import from LMS when creating the assignment."
+        noResultsMessage="No groups match your search."
+      />
 
       {/* Footer */}
       <div className="px-3 py-2 border-t text-sm text-muted-foreground">
@@ -178,114 +224,6 @@ export function GroupsPane({
           </span>
         )}
       </div>
-    </div>
-  )
-}
-
-interface GroupListItemProps {
-  group: Group
-  studentMap: Map<string, Student>
-  expanded: boolean
-  onToggle: () => void
-  onEdit: () => void
-  onRemove: () => void
-}
-
-function GroupListItem({
-  group,
-  studentMap,
-  expanded,
-  onToggle,
-  onEdit,
-  onRemove,
-}: GroupListItemProps) {
-  const members = group.member_ids.map((id) => {
-    const student = studentMap.get(id)
-    return {
-      id,
-      name: student?.name ?? `Unknown (${id})`,
-      status: student?.status ?? null,
-      isUnknown: !student,
-    }
-  })
-
-  const hasUnknown = members.some((member) => member.isUnknown)
-
-  return (
-    <div className="border rounded-md">
-      <div className="flex w-full items-center gap-2 px-3 py-2 hover:bg-muted/50">
-        <button
-          type="button"
-          className="flex-1 flex items-center gap-2 text-left cursor-pointer bg-transparent border-0 p-0"
-          onClick={onToggle}
-          aria-expanded={expanded}
-        >
-          <span className="text-xs w-4">{expanded ? "▼" : "▶"}</span>
-          <span className="flex-1 font-medium">
-            {group.name}
-            <span className="text-muted-foreground font-normal ml-1">
-              ({members.length} student{members.length !== 1 ? "s" : ""})
-            </span>
-          </span>
-          {hasUnknown && (
-            <span
-              className="inline-flex"
-              title="Unknown student IDs in this group"
-            >
-              <AlertTriangle
-                className="size-3 text-warning"
-                aria-hidden="true"
-              />
-            </span>
-          )}
-        </button>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={onEdit}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={onRemove}
-          >
-            ×
-          </Button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="px-3 py-2 bg-muted/30 border-t">
-          {members.length === 0 ? (
-            <span className="text-muted-foreground italic">No members</span>
-          ) : (
-            <div className="flex flex-wrap gap-2 text-xs">
-              {members.map((member) => (
-                <span
-                  key={member.id}
-                  className={
-                    member.isUnknown
-                      ? "text-warning"
-                      : member.status && member.status !== "active"
-                        ? "text-muted-foreground"
-                        : ""
-                  }
-                >
-                  {member.name}
-                  {member.status && member.status !== "active"
-                    ? ` (${formatStudentStatus(member.status)})`
-                    : ""}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

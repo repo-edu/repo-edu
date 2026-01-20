@@ -15,5 +15,5 @@
     "group_set_id",
     "filter"
   ],
-  "description": "Group import configuration"
+  "description": "Group set selection and filter configuration"
 }

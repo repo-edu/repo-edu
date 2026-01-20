@@ -29,7 +29,6 @@ import type {
   GroupFilter,
   GroupImportConfig,
   ImportGitUsernamesResult,
-  ImportGroupsResult,
   ImportStudentsResult,
   ImportSummary,
   LmsConnection,
@@ -454,12 +453,6 @@ export class MockBackend implements BackendAPI {
     return this.ok({ roster: merged.roster, summary: merged.summary })
   }
 
-  async fetchLmsGroupSets(
-    _: LmsOperationContext,
-  ): Promise<Result<LmsGroupSet[], AppError>> {
-    return this.ok(this.getGroupSets())
-  }
-
   async fetchLmsGroupSetList(
     _: LmsOperationContext,
   ): Promise<Result<LmsGroupSet[], AppError>> {
@@ -474,30 +467,34 @@ export class MockBackend implements BackendAPI {
     return this.ok(groupSet?.groups ?? [])
   }
 
-  // Cache operations (Phase 3)
-  async cacheLmsGroupSet(
+  // Group set operations
+  async linkLmsGroupSet(
     context: LmsOperationContext,
     roster: Roster | null,
-    groupSetId: string,
+    config: GroupImportConfig,
   ): Promise<Result<Roster, AppError>> {
-    const groupSet = this.getGroupSets().find((set) => set.id === groupSetId)
+    const groupSet = this.getGroupSets().find(
+      (set) => set.id === config.group_set_id,
+    )
     if (!groupSet) {
       return this.ok(roster ?? { source: null, students: [], assignments: [] })
     }
 
+    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
     const baseRoster = roster ?? { source: null, students: [], assignments: [] }
     const cacheEntry: LmsGroupSetCacheEntry = {
       id: groupSet.id,
-      origin: "lms",
+      kind: "linked",
       name: groupSet.name,
-      groups: groupSet.groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        lms_member_ids: [...g.member_ids],
-        resolved_member_ids: [...g.member_ids],
+      groups: filteredGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        lms_member_ids: [...group.member_ids],
+        resolved_member_ids: [...group.member_ids],
         unresolved_count: 0,
         needs_reresolution: false,
       })),
+      filter: config.filter,
       fetched_at: nowIso(),
       lms_group_set_id: groupSet.id,
       lms_type: context.connection.lms_type,
@@ -506,7 +503,7 @@ export class MockBackend implements BackendAPI {
     }
 
     const lmsGroupSets = baseRoster.lms_group_sets ?? []
-    const existingIdx = lmsGroupSets.findIndex((e) => e.id === groupSetId)
+    const existingIdx = lmsGroupSets.findIndex((e) => e.id === groupSet.id)
     if (existingIdx >= 0) {
       lmsGroupSets[existingIdx] = cacheEntry
     } else {
@@ -520,15 +517,138 @@ export class MockBackend implements BackendAPI {
     return this.ok(updatedRoster)
   }
 
-  async refreshCachedLmsGroupSet(
+  async copyLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster | null,
+    config: GroupImportConfig,
+  ): Promise<Result<Roster, AppError>> {
+    const groupSet = this.getGroupSets().find(
+      (set) => set.id === config.group_set_id,
+    )
+    if (!groupSet) {
+      return this.ok(roster ?? { source: null, students: [], assignments: [] })
+    }
+
+    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
+    const baseRoster = roster ?? { source: null, students: [], assignments: [] }
+    const copyId = `copy-${groupSet.id}-${Math.random().toString(36).slice(2, 8)}`
+    const cacheEntry: LmsGroupSetCacheEntry = {
+      id: copyId,
+      kind: "copied",
+      name: groupSet.name,
+      groups: filteredGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        lms_member_ids: [...group.member_ids],
+        resolved_member_ids: [...group.member_ids],
+        unresolved_count: 0,
+        needs_reresolution: false,
+      })),
+      filter: config.filter,
+      fetched_at: nowIso(),
+      lms_group_set_id: groupSet.id,
+      lms_type: context.connection.lms_type,
+      base_url: context.connection.base_url,
+      course_id: context.course_id,
+    }
+
+    const lmsGroupSets = baseRoster.lms_group_sets ?? []
+    lmsGroupSets.push(cacheEntry)
+
+    const updatedRoster = { ...baseRoster, lms_group_sets: lmsGroupSets }
+    if (this.activeProfile) {
+      this.rosters.set(this.activeProfile, updatedRoster)
+    }
+    return this.ok(updatedRoster)
+  }
+
+  async copyLmsGroupSetToAssignment(
+    _context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<Roster, AppError>> {
+    const groupSet = this.getGroupSets().find(
+      (set) => set.id === config.group_set_id,
+    )
+    if (!groupSet) {
+      return this.ok(roster)
+    }
+
+    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
+    const assignment = rosterAssignment(roster, assignmentId)
+    if (!assignment) {
+      return this.ok(roster)
+    }
+
+    assignment.groups = filteredGroups.map((group) => ({
+      id: `asg-${assignmentId}-${group.id}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+      name: group.name,
+      member_ids: [...group.member_ids],
+    }))
+    assignment.group_set_id = null
+
+    if (this.activeProfile) {
+      this.rosters.set(this.activeProfile, roster)
+    }
+    return this.ok(roster)
+  }
+
+  async refreshLinkedGroupSet(
     context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
   ): Promise<Result<Roster, AppError>> {
-    return this.cacheLmsGroupSet(context, roster, groupSetId)
+    const entry = (roster.lms_group_sets ?? []).find(
+      (set) => set.id === groupSetId,
+    )
+    if (!entry || entry.kind !== "linked") {
+      return this.ok(roster)
+    }
+
+    const filter = entry.filter ?? { kind: "all" }
+    return this.linkLmsGroupSet(context, roster, {
+      group_set_id: entry.lms_group_set_id ?? entry.id,
+      filter,
+    })
   }
 
-  async deleteCachedLmsGroupSet(
+  async breakGroupSetLink(
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    const lmsGroupSets = roster.lms_group_sets ?? []
+    const entry = lmsGroupSets.find((set) => set.id === groupSetId)
+    if (!entry || entry.kind !== "linked") {
+      return this.ok(roster)
+    }
+
+    const updatedEntry: LmsGroupSetCacheEntry = {
+      ...entry,
+      kind: "copied",
+      groups: entry.groups.map((group) => ({
+        ...group,
+        lms_member_ids: [],
+        unresolved_count: 0,
+        needs_reresolution: false,
+      })),
+    }
+
+    const updatedRoster = {
+      ...roster,
+      lms_group_sets: lmsGroupSets.map((set) =>
+        set.id === groupSetId ? updatedEntry : set,
+      ),
+    }
+    if (this.activeProfile) {
+      this.rosters.set(this.activeProfile, updatedRoster)
+    }
+    return this.ok(updatedRoster)
+  }
+
+  async deleteGroupSet(
     roster: Roster,
     groupSetId: string,
   ): Promise<Result<Roster, AppError>> {
@@ -542,92 +662,51 @@ export class MockBackend implements BackendAPI {
     return this.ok(updatedRoster)
   }
 
-  async listCachedLmsGroupSets(
+  async listGroupSets(
     roster: Roster,
   ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
     return this.ok(roster.lms_group_sets ?? [])
   }
 
-  async recacheGroupSetForAssignment(
-    context: LmsOperationContext,
+  async attachGroupSetToAssignment(
     roster: Roster,
     assignmentId: AssignmentId,
+    groupSetId: string,
   ): Promise<Result<Roster, AppError>> {
     const assignment = rosterAssignment(roster, assignmentId)
-    if (!assignment?.group_set_cache_id) {
+    const cacheEntry = (roster.lms_group_sets ?? []).find(
+      (e) => e.id === groupSetId,
+    )
+
+    if (!assignment || !cacheEntry) {
       return this.ok(roster)
     }
-    return this.cacheLmsGroupSet(context, roster, assignment.group_set_cache_id)
-  }
 
-  async detachAssignmentSource(
-    roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<Roster, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    if (assignment) {
-      assignment.group_set_cache_id = null
-      assignment.source_fetched_at = null
-    }
+    assignment.groups = cacheEntry.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      member_ids: [...group.resolved_member_ids],
+    }))
+    assignment.group_set_id = cacheEntry.id
+
     if (this.activeProfile) {
       this.rosters.set(this.activeProfile, roster)
     }
     return this.ok(roster)
   }
 
-  async applyCachedGroupSetToAssignment(
+  async clearAssignmentGroupSet(
     roster: Roster,
     assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<ImportGroupsResult, AppError>> {
+  ): Promise<Result<Roster, AppError>> {
     const assignment = rosterAssignment(roster, assignmentId)
-    const cacheEntry = (roster.lms_group_sets ?? []).find(
-      (e) => e.id === config.group_set_id,
-    )
-
-    if (!assignment || !cacheEntry) {
-      return this.ok({
-        summary: {
-          groups_imported: 0,
-          groups_replaced: 0,
-          students_referenced: 0,
-          filter_applied: "No assignment or cache entry found",
-        },
-        roster,
-      })
+    if (assignment) {
+      assignment.group_set_id = null
     }
-
-    const previousCount = assignment.groups.length
-    const allGroups = cacheEntry.groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: [...group.resolved_member_ids],
-    }))
-    const filteredGroups = applyGroupFilter(allGroups, config.filter)
-    assignment.groups = filteredGroups
-    assignment.group_set_cache_id = config.group_set_id
-    assignment.source_fetched_at = cacheEntry.fetched_at
-
-    const studentIds = new Set(filteredGroups.flatMap((g) => g.member_ids))
-    const filterLabel =
-      config.filter.kind === "selected"
-        ? `${config.filter.selected?.length ?? 0} selected`
-        : config.filter.kind === "pattern"
-          ? `Pattern: ${config.filter.pattern ?? ""}`
-          : "All"
-
     if (this.activeProfile) {
       this.rosters.set(this.activeProfile, roster)
     }
-    return this.ok({
-      summary: {
-        groups_imported: filteredGroups.length,
-        groups_replaced: previousCount,
-        students_referenced: studentIds.size,
-        filter_applied: filterLabel,
-      },
-      roster,
-    })
+    return this.ok(roster)
   }
 
   async normalizeContext(
@@ -639,54 +718,6 @@ export class MockBackend implements BackendAPI {
       lms_type: lmsType,
       base_url: baseUrl.replace(/\/+$/, "").toLowerCase(),
       course_id: courseId.trim(),
-    })
-  }
-
-  async importGroupsFromLms(
-    _: LmsOperationContext,
-    roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<ImportGroupsResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    if (!assignment) {
-      return this.ok({
-        summary: {
-          groups_imported: 0,
-          groups_replaced: 0,
-          students_referenced: 0,
-          filter_applied: "No assignment found",
-        },
-        roster,
-      })
-    }
-
-    const groupSet = this.getGroupSets().find(
-      (set) => set.id === config.group_set_id,
-    )
-    const allGroups = groupSet?.groups ?? []
-    const filtered = applyGroupFilter(allGroups, config.filter)
-
-    const previousCount = assignment.groups.length
-    assignment.groups = filtered.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: [...group.member_ids],
-    }))
-
-    const studentIds = new Set(filtered.flatMap((group) => group.member_ids))
-
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, roster)
-    }
-    return this.ok({
-      summary: {
-        groups_imported: filtered.length,
-        groups_replaced: previousCount,
-        students_referenced: studentIds.size,
-        filter_applied: config.filter.kind,
-      },
-      roster,
     })
   }
 

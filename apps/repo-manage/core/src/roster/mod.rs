@@ -11,7 +11,9 @@ pub use export::{
     export_teams, get_roster_coverage,
 };
 pub use group_edit::import_groups_from_file;
-pub use nanoid::{generate_assignment_id, generate_group_id, generate_student_id};
+pub use nanoid::{
+    generate_assignment_id, generate_group_id, generate_group_set_id, generate_student_id,
+};
 pub use slug::{compute_repo_name, expand_template, slugify};
 pub use types::{
     Assignment, AssignmentId, AssignmentMetadata, AssignmentType, GitIdentityMode,

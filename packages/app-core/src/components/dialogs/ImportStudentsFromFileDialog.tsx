@@ -138,7 +138,7 @@ export function ImportStudentsFromFileDialog() {
             will be added.
           </p>
           <p className="text-sm text-muted-foreground">
-            Next: import groups in the Assignment tab if needed.
+            Next: link or copy group sets in the Group tab if needed.
           </p>
         </div>
 

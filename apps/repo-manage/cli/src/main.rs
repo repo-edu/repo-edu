@@ -100,22 +100,22 @@ pub enum LmsAction {
     /// Import students from LMS
     ImportStudents,
 
-    /// Import groups from LMS group-set
+    /// Attach a group-set to an assignment
     ImportGroups {
         /// Target assignment name
         #[arg(long, required = true)]
         assignment: String,
 
-        /// LMS group-set ID (prompts if omitted)
+        /// Group-set ID (prompts if omitted)
         #[arg(long)]
         group_set: Option<String>,
 
-        /// Import from cached group-set (no LMS API call)
+        /// Use a cached group-set (no LMS API call)
         #[arg(long)]
         from_cache: bool,
     },
 
-    /// Manage cached LMS group-sets
+    /// Manage cached group-sets
     Cache {
         #[command(subcommand)]
         action: CacheAction,
@@ -127,20 +127,20 @@ pub enum CacheAction {
     /// List cached group-sets
     List,
 
-    /// Fetch and cache a group-set from LMS
+    /// Link a group-set from LMS
     Fetch {
         /// LMS group-set ID (prompts if omitted)
         #[arg(long)]
         group_set: Option<String>,
     },
 
-    /// Refresh a cached group-set from LMS
+    /// Refresh a linked group-set from LMS
     Refresh {
         /// Cached group-set ID
         group_set_id: String,
     },
 
-    /// Delete a cached group-set
+    /// Delete a group-set
     Delete {
         /// Cached group-set ID
         group_set_id: String,

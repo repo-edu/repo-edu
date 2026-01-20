@@ -1,5 +1,3 @@
-export { AllGroupSetsView } from "./AllGroupSetsView"
 export { AssignmentSidebar } from "./AssignmentSidebar"
 export { GroupsPane } from "./GroupsPane"
 export { UnassignedStudentsView } from "./UnassignedStudentsView"
-export { UnusedGroupSetsView } from "./UnusedGroupSetsView"

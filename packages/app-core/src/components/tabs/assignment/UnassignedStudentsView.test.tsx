@@ -11,7 +11,8 @@ const baseStudent = {
 const baseGroupSet = {
   fetched_at: new Date().toISOString(),
   lms_group_set_id: null,
-  origin: "lms" as const,
+  kind: "linked" as const,
+  filter: null,
   lms_type: "canvas" as const,
   base_url: "https://example.edu",
   course_id: "course-1",

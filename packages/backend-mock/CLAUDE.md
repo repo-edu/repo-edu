@@ -46,7 +46,8 @@ instance.
 The mock simulates realistic behavior:
 
 - `importStudentsFromLms` merges incoming students by email
-- `importGroupsFromLms` applies group filters (all/selected/pattern)
+- `linkLmsGroupSet` and `copyLmsGroupSet` apply group filters (all/selected/pattern)
+- `attachGroupSetToAssignment` links group sets to assignments
 - `getRosterCoverage` computes actual coverage from roster data
 - Dialog methods (`openDialog`, `saveDialog`) return sensible default paths
 

@@ -5,7 +5,6 @@
 
 import type {
   GroupId,
-  GroupImportConfig,
   ImportGitUsernamesResult,
   LmsIdConflict,
   StudentRemovalCheck,
@@ -58,7 +57,6 @@ interface UiState {
   editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
   importGroupsFromFileDialogOpen: boolean
-  replaceGroupsConfirmationOpen: boolean
   editingGroupId: GroupId | null
   dataOverviewOpen: boolean
   assignmentCoverageOpen: boolean
@@ -82,8 +80,6 @@ interface UiState {
   gitUsernameImportResult: ImportGitUsernamesResult | null
   usernameVerificationResult: UsernameVerificationResult | null
   lmsImportConflicts: LmsIdConflict[] | null
-  pendingGroupImport: GroupImportConfig | null
-  pendingGroupImportSource: "lms" | "cached" | null
 }
 
 interface UiActions {
@@ -118,7 +114,6 @@ interface UiActions {
   setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
   setImportGroupsFromFileDialogOpen: (open: boolean) => void
-  setReplaceGroupsConfirmationOpen: (open: boolean) => void
   setEditingGroupId: (id: GroupId | null) => void
   setDataOverviewOpen: (open: boolean) => void
   setAssignmentCoverageOpen: (open: boolean) => void
@@ -145,8 +140,6 @@ interface UiActions {
     result: UsernameVerificationResult | null,
   ) => void
   setLmsImportConflicts: (conflicts: LmsIdConflict[] | null) => void
-  setPendingGroupImport: (config: GroupImportConfig | null) => void
-  setPendingGroupImportSource: (source: "lms" | "cached" | null) => void
 
   // Reset
   reset: () => void
@@ -183,7 +176,6 @@ const initialState: UiState = {
   editGroupDialogOpen: false,
   importGroupsDialogOpen: false,
   importGroupsFromFileDialogOpen: false,
-  replaceGroupsConfirmationOpen: false,
   editingGroupId: null,
   dataOverviewOpen: false,
   assignmentCoverageOpen: false,
@@ -207,8 +199,6 @@ const initialState: UiState = {
   gitUsernameImportResult: null,
   usernameVerificationResult: null,
   lmsImportConflicts: null,
-  pendingGroupImport: null,
-  pendingGroupImportSource: null,
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -249,8 +239,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setImportGroupsDialogOpen: (open) => set({ importGroupsDialogOpen: open }),
   setImportGroupsFromFileDialogOpen: (open) =>
     set({ importGroupsFromFileDialogOpen: open }),
-  setReplaceGroupsConfirmationOpen: (open) =>
-    set({ replaceGroupsConfirmationOpen: open }),
   setEditingGroupId: (id) => set({ editingGroupId: id }),
   setDataOverviewOpen: (open) => set({ dataOverviewOpen: open }),
   setAssignmentCoverageOpen: (open) => set({ assignmentCoverageOpen: open }),
@@ -280,9 +268,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setUsernameVerificationResult: (result) =>
     set({ usernameVerificationResult: result }),
   setLmsImportConflicts: (conflicts) => set({ lmsImportConflicts: conflicts }),
-  setPendingGroupImport: (config) => set({ pendingGroupImport: config }),
-  setPendingGroupImportSource: (source) =>
-    set({ pendingGroupImportSource: source }),
 
   // Reset
   reset: () => set(initialState),

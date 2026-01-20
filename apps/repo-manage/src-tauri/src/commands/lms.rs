@@ -12,9 +12,9 @@ use repo_manage_core::{
     lms::create_lms_client,
     operations,
     roster::{AssignmentId, GitUsernameStatus, Roster, RosterSource, Student, StudentDraft},
-    CourseInfo, GroupImportConfig, ImportGroupsResult, ImportStudentsResult, ImportSummary,
-    LmsConnection, LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry,
-    LmsOperationContext, LmsType, LmsVerifyResult, SettingsManager,
+    CourseInfo, GroupImportConfig, ImportStudentsResult, ImportSummary, LmsConnection,
+    LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry, LmsOperationContext, LmsType,
+    LmsVerifyResult, SettingsManager,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -59,69 +59,84 @@ pub async fn normalize_context(
 }
 
 #[tauri::command]
-pub async fn cache_lms_group_set(
+pub async fn link_lms_group_set(
     context: LmsOperationContext,
     roster: Option<Roster>,
-    group_set_id: String,
+    config: GroupImportConfig,
 ) -> Result<Roster, AppError> {
-    operations::cache_group_set(&context, roster, &group_set_id)
+    operations::link_group_set(&context, roster, config)
         .await
         .map_err(Into::into)
 }
 
 #[tauri::command]
-pub async fn refresh_cached_lms_group_set(
+pub async fn copy_lms_group_set(
     context: LmsOperationContext,
-    roster: Roster,
-    group_set_id: String,
+    roster: Option<Roster>,
+    config: GroupImportConfig,
 ) -> Result<Roster, AppError> {
-    operations::refresh_cached_group_set(&context, roster, &group_set_id)
+    operations::copy_group_set(&context, roster, config)
         .await
         .map_err(Into::into)
 }
 
 #[tauri::command]
-pub async fn delete_cached_lms_group_set(
-    roster: Roster,
-    group_set_id: String,
-) -> Result<Roster, AppError> {
-    operations::delete_cached_group_set(roster, &group_set_id).map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn list_cached_lms_group_sets(
-    roster: Roster,
-) -> Result<Vec<LmsGroupSetCacheEntry>, AppError> {
-    Ok(operations::list_cached_group_sets(&roster))
-}
-
-#[tauri::command]
-pub async fn recache_group_set_for_assignment(
+pub async fn copy_lms_group_set_to_assignment(
     context: LmsOperationContext,
-    roster: Roster,
-    assignment_id: AssignmentId,
-) -> Result<Roster, AppError> {
-    operations::recache_group_set_for_assignment(&context, roster, &assignment_id)
-        .await
-        .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn detach_assignment_source(
-    roster: Roster,
-    assignment_id: AssignmentId,
-) -> Result<Roster, AppError> {
-    operations::detach_assignment_source(roster, &assignment_id).map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn apply_cached_group_set_to_assignment(
     roster: Roster,
     assignment_id: AssignmentId,
     config: GroupImportConfig,
-) -> Result<ImportGroupsResult, AppError> {
-    operations::apply_cached_group_set_to_assignment(roster, &assignment_id, config)
+) -> Result<Roster, AppError> {
+    operations::copy_group_set_to_assignment(&context, roster, &assignment_id, config)
+        .await
         .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn refresh_linked_group_set(
+    context: LmsOperationContext,
+    roster: Roster,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::refresh_linked_group_set(&context, roster, &group_set_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn break_group_set_link(
+    roster: Roster,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::break_group_set_link(roster, &group_set_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn delete_group_set(roster: Roster, group_set_id: String) -> Result<Roster, AppError> {
+    operations::delete_group_set(roster, &group_set_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn list_group_sets(roster: Roster) -> Result<Vec<LmsGroupSetCacheEntry>, AppError> {
+    Ok(operations::list_group_sets(&roster))
+}
+
+#[tauri::command]
+pub async fn attach_group_set_to_assignment(
+    roster: Roster,
+    assignment_id: AssignmentId,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::attach_group_set_to_assignment(roster, &assignment_id, &group_set_id)
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn clear_assignment_group_set(
+    roster: Roster,
+    assignment_id: AssignmentId,
+) -> Result<Roster, AppError> {
+    operations::clear_assignment_group_set(roster, &assignment_id).map_err(Into::into)
 }
 
 #[tauri::command]
@@ -329,55 +344,6 @@ pub async fn import_students_from_file(
     }
     let drafts = parse_students_file(&file_path)?;
     merge_file_students(roster, drafts, &file_path)
-}
-
-#[tauri::command]
-pub async fn fetch_lms_group_sets(
-    context: LmsOperationContext,
-) -> Result<Vec<LmsGroupSet>, AppError> {
-    let client = create_lms_client(&context.connection)?;
-    let categories = client.get_group_categories(&context.course_id).await?;
-
-    let mut group_sets = Vec::new();
-    for category in categories {
-        let groups = client
-            .get_groups_for_category(&context.course_id, Some(&category.id))
-            .await?;
-
-        let mut lms_groups = Vec::new();
-        for group in groups {
-            let memberships = client.get_group_members(&group.id).await?;
-            let member_ids = memberships
-                .into_iter()
-                .map(|membership| membership.user_id)
-                .collect::<Vec<_>>();
-            lms_groups.push(LmsGroup {
-                id: group.id,
-                name: group.name,
-                member_ids,
-            });
-        }
-
-        group_sets.push(LmsGroupSet {
-            id: category.id,
-            name: category.name,
-            groups: lms_groups,
-        });
-    }
-
-    Ok(group_sets)
-}
-
-#[tauri::command]
-pub async fn import_groups_from_lms(
-    context: LmsOperationContext,
-    roster: Roster,
-    assignment_id: AssignmentId,
-    config: GroupImportConfig,
-) -> Result<ImportGroupsResult, AppError> {
-    operations::import_groups(&context, roster, &assignment_id, config)
-        .await
-        .map_err(Into::into)
 }
 
 #[tauri::command]

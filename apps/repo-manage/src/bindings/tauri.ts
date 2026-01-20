@@ -31,7 +31,6 @@ import type {
   GroupFileImportResult,
   GroupImportConfig,
   ImportGitUsernamesResult,
-  ImportGroupsResult,
   ImportStudentsResult,
   LmsConnection,
   LmsContextKey,
@@ -303,24 +302,6 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Fetch available group-sets from LMS (with all groups)
-   */
-  async fetchLmsGroupSets(
-    context: LmsOperationContext,
-  ): Promise<Result<LmsGroupSet[], AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("fetch_lms_group_sets", { context }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
    * Fetch group-set names/ids only (fast)
    */
   async fetchLmsGroupSetList(
@@ -361,20 +342,20 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Fetch and cache a group-set in the roster
+   * Link an LMS group-set into the roster (read-only)
    */
-  async cacheLmsGroupSet(
+  async linkLmsGroupSet(
     context: LmsOperationContext,
     roster: Roster | null,
-    groupSetId: string,
+    config: GroupImportConfig,
   ): Promise<Result<Roster, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("cache_lms_group_set", {
+        data: await TAURI_INVOKE("link_lms_group_set", {
           context,
           roster,
-          groupSetId,
+          config,
         }),
       }
     } catch (e) {
@@ -385,9 +366,59 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Refresh a cached group-set from LMS
+   * Copy an LMS group-set into the roster (editable snapshot)
    */
-  async refreshCachedLmsGroupSet(
+  async copyLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster | null,
+    config: GroupImportConfig,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("copy_lms_group_set", {
+          context,
+          roster,
+          config,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Copy an LMS group-set into an assignment (editable snapshot, no cache)
+   */
+  async copyLmsGroupSetToAssignment(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("copy_lms_group_set_to_assignment", {
+          context,
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Refresh a linked group-set from LMS
+   */
+  async refreshLinkedGroupSet(
     context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
@@ -395,7 +426,7 @@ export class TauriBackend implements BackendAPI {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("refresh_cached_lms_group_set", {
+        data: await TAURI_INVOKE("refresh_linked_group_set", {
           context,
           roster,
           groupSetId,
@@ -409,16 +440,16 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Delete a cached group-set from the roster
+   * Break a linked group-set sync (convert to editable copy)
    */
-  async deleteCachedLmsGroupSet(
+  async breakGroupSetLink(
     roster: Roster,
     groupSetId: string,
   ): Promise<Result<Roster, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("delete_cached_lms_group_set", {
+        data: await TAURI_INVOKE("break_group_set_link", {
           roster,
           groupSetId,
         }),
@@ -431,15 +462,34 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * List cached group-sets from the roster
+   * Delete a group-set from the roster
    */
-  async listCachedLmsGroupSets(
+  async deleteGroupSet(
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_group_set", { roster, groupSetId }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * List group-sets from the roster
+   */
+  async listGroupSets(
     roster: Roster,
   ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("list_cached_lms_group_sets", { roster }),
+        data: await TAURI_INVOKE("list_group_sets", { roster }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
@@ -449,20 +499,20 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Re-cache the LMS group-set referenced by an assignment
+   * Attach a group-set to an assignment (copy groups)
    */
-  async recacheGroupSetForAssignment(
-    context: LmsOperationContext,
+  async attachGroupSetToAssignment(
     roster: Roster,
     assignmentId: AssignmentId,
+    groupSetId: string,
   ): Promise<Result<Roster, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("recache_group_set_for_assignment", {
-          context,
+        data: await TAURI_INVOKE("attach_group_set_to_assignment", {
           roster,
           assignmentId,
+          groupSetId,
         }),
       }
     } catch (e) {
@@ -473,42 +523,18 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Detach an assignment from its cached LMS group-set
+   * Clear the group-set reference for an assignment
    */
-  async detachAssignmentSource(
+  async clearAssignmentGroupSet(
     roster: Roster,
     assignmentId: AssignmentId,
   ): Promise<Result<Roster, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("detach_assignment_source", {
+        data: await TAURI_INVOKE("clear_assignment_group_set", {
           roster,
           assignmentId,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * Apply a cached LMS group-set to an assignment
-   */
-  async applyCachedGroupSetToAssignment(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<ImportGroupsResult, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("apply_cached_group_set_to_assignment", {
-          roster,
-          assignmentId,
-          config,
         }),
       }
     } catch (e) {
@@ -533,32 +559,6 @@ export class TauriBackend implements BackendAPI {
           lmsType,
           baseUrl,
           courseId,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * Import groups from LMS group-set into assignment
-   */
-  async importGroupsFromLms(
-    context: LmsOperationContext,
-    roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<ImportGroupsResult, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("import_groups_from_lms", {
-          context,
-          roster,
-          assignmentId,
-          config,
         }),
       }
     } catch (e) {

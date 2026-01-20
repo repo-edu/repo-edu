@@ -186,7 +186,7 @@ export const cs101Assignments: Assignment[] = [
     name: "lab-1",
     description: "Lab 1: Python Basics",
     assignment_type: "class_wide",
-    group_set_cache_id: "gs-lab-teams",
+    group_set_id: "gs-lab-teams",
     groups: [
       {
         id: "g-basics-1",
@@ -215,7 +215,7 @@ export const cs101Assignments: Assignment[] = [
     name: "lab-2",
     description: "Lab 2: Functions and Modules",
     assignment_type: "class_wide",
-    group_set_cache_id: "gs-lab-teams",
+    group_set_id: "gs-lab-teams",
     groups: [
       {
         id: "g-func-1",
@@ -248,7 +248,7 @@ export const cs201Assignments: Assignment[] = [
     name: "project-1",
     description: "Project: Data Visualization",
     assignment_type: "class_wide",
-    group_set_cache_id: "gs-project-teams",
+    group_set_id: "gs-project-teams",
     groups: [
       {
         id: "g-proj-1",
@@ -267,7 +267,7 @@ export const cs201Assignments: Assignment[] = [
     name: "project-2",
     description: "Project: REST API Client",
     assignment_type: "selective",
-    group_set_cache_id: "gs-project-teams",
+    group_set_id: "gs-project-teams",
     groups: [
       {
         id: "g-api-1",

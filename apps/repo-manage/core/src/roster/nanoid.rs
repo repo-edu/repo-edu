@@ -24,9 +24,15 @@ pub fn generate_group_id() -> GroupId {
     GroupId(generate_id())
 }
 
+pub fn generate_group_set_id() -> String {
+    generate_id()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{generate_assignment_id, generate_group_id, generate_student_id};
+    use super::{
+        generate_assignment_id, generate_group_id, generate_group_set_id, generate_student_id,
+    };
 
     #[test]
     fn ids_have_expected_length_and_charset() {
@@ -34,6 +40,7 @@ mod tests {
             generate_student_id().to_string(),
             generate_assignment_id().to_string(),
             generate_group_id().to_string(),
+            generate_group_set_id(),
         ];
 
         for id in ids {

@@ -313,8 +313,7 @@ fn apply_group_edit_entries(
         .count() as i64;
 
     assignment.groups = new_groups;
-    assignment.group_set_cache_id = None;
-    assignment.source_fetched_at = None;
+    assignment.group_set_id = None;
 
     Ok(GroupFileImportResult {
         summary: GroupFileImportSummary {
@@ -363,8 +362,7 @@ mod tests {
             description: None,
             assignment_type: AssignmentType::ClassWide,
             groups: vec![group],
-            group_set_cache_id: Some("lms-set-1".to_string()),
-            source_fetched_at: None,
+            group_set_id: Some("lms-set-1".to_string()),
         };
 
         let roster = Roster {
@@ -396,7 +394,7 @@ mod tests {
         assert_eq!(result.summary.members_added, 0);
         assert_eq!(result.summary.members_removed, 0);
         assert_eq!(result.summary.members_moved, 0);
-        assert_eq!(updated_assignment.group_set_cache_id, None);
+        assert_eq!(updated_assignment.group_set_id, None);
         assert_eq!(updated_assignment.groups.len(), 1);
         assert_eq!(updated_assignment.groups[0].member_ids.len(), 2);
     }
@@ -426,8 +424,7 @@ mod tests {
             description: None,
             assignment_type: AssignmentType::ClassWide,
             groups: vec![],
-            group_set_cache_id: Some("lms-set-1".to_string()),
-            source_fetched_at: None,
+            group_set_id: Some("lms-set-1".to_string()),
         };
 
         let roster = Roster {
@@ -463,7 +460,7 @@ mod tests {
         assert_eq!(result.summary.members_added, 3);
         assert_eq!(result.summary.members_removed, 0);
         assert_eq!(result.summary.members_moved, 0);
-        assert_eq!(updated_assignment.group_set_cache_id, None);
+        assert_eq!(updated_assignment.group_set_id, None);
         assert_eq!(updated_assignment.groups.len(), 2);
 
         let mut names = updated_assignment

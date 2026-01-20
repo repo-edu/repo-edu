@@ -1,13 +1,14 @@
 use crate::context;
-use crate::generated::types::{CachedLmsGroup, GroupSetOrigin, LmsGroupSetCacheEntry};
-use crate::import::{normalize_email, normalize_group_name};
+use crate::generated::types::{CachedLmsGroup, GroupSetKind, LmsGroupSetCacheEntry};
+use crate::import::normalize_email;
 use crate::lms::create_lms_client;
 use crate::roster::{
-    AssignmentId, Group, GroupDraft, Roster, RosterSource, Student, StudentDraft, StudentId,
+    generate_group_id, AssignmentId, Group, GroupDraft, Roster, RosterSource, Student,
+    StudentDraft, StudentId,
 };
 use crate::{
-    GroupFilter, GroupImportConfig, GroupImportSummary, ImportGroupsResult, ImportStudentsResult,
-    ImportSummary, LmsGroup, LmsGroupSet, LmsIdConflict, LmsOperationContext, LmsVerifyResult,
+    GroupFilter, GroupImportConfig, ImportStudentsResult, ImportSummary, LmsGroup, LmsGroupSet,
+    LmsIdConflict, LmsOperationContext, LmsVerifyResult,
 };
 use chrono::Utc;
 use lms_common::LmsClient as LmsClientTrait;
@@ -37,50 +38,88 @@ pub async fn import_students(
     merge_lms_students(existing_roster, users, &context.connection)
 }
 
-pub async fn import_groups(
+pub async fn link_group_set(
+    context: &LmsOperationContext,
+    roster: Option<Roster>,
+    config: GroupImportConfig,
+) -> Result<Roster, HandlerError> {
+    create_group_set_from_lms(context, roster, config, GroupSetKind::Linked).await
+}
+
+pub async fn copy_group_set(
+    context: &LmsOperationContext,
+    roster: Option<Roster>,
+    config: GroupImportConfig,
+) -> Result<Roster, HandlerError> {
+    create_group_set_from_lms(context, roster, config, GroupSetKind::Copied).await
+}
+
+pub async fn copy_group_set_to_assignment(
     context: &LmsOperationContext,
     roster: Roster,
     assignment_id: &AssignmentId,
     config: GroupImportConfig,
-) -> Result<ImportGroupsResult, HandlerError> {
+) -> Result<Roster, HandlerError> {
+    let client = create_lms_client(&context.connection)?;
+
+    let (_, lms_groups) =
+        fetch_group_set_details(&client, &context.course_id, &config.group_set_id).await?;
+    let (filtered_groups, _) = apply_group_filter(&lms_groups, &config.filter)?;
+
+    let mut updated_roster = roster;
+    let cached_groups = build_cached_groups(&updated_roster, filtered_groups);
+    let assignment = updated_roster
+        .assignments
+        .iter_mut()
+        .find(|assignment| assignment.id == *assignment_id)
+        .ok_or_else(|| HandlerError::not_found("Assignment not found"))?;
+    assignment.groups = cached_groups_to_assignment_groups(&cached_groups);
+    assignment.group_set_id = None;
+
+    Ok(updated_roster)
+}
+
+async fn create_group_set_from_lms(
+    context: &LmsOperationContext,
+    roster: Option<Roster>,
+    config: GroupImportConfig,
+    kind: GroupSetKind,
+) -> Result<Roster, HandlerError> {
     let client = create_lms_client(&context.connection)?;
 
     // Fetch group set details (name and all groups with members)
     let (group_set_name, lms_groups) =
         fetch_group_set_details(&client, &context.course_id, &config.group_set_id).await?;
 
-    // Cache the full group set (all groups, not filtered)
-    let mut updated_roster = roster;
+    // Apply filter before caching
+    let (filtered_groups, _filter_label) = apply_group_filter(&lms_groups, &config.filter)?;
+
+    let mut updated_roster = roster.unwrap_or_else(Roster::empty);
     let context_key = context::normalize_context(
         context.connection.lms_type,
         &context.connection.base_url,
         &context.course_id,
     );
-    let cached_groups = build_cached_groups(&updated_roster, lms_groups.clone());
+    let cached_groups = build_cached_groups(&updated_roster, filtered_groups);
     let fetched_at = Utc::now();
+    let entry_id = match kind {
+        GroupSetKind::Linked | GroupSetKind::Unlinked => config.group_set_id.clone(),
+        GroupSetKind::Copied => crate::roster::generate_group_set_id(),
+    };
     let entry = LmsGroupSetCacheEntry {
-        id: config.group_set_id.clone(),
-        origin: GroupSetOrigin::Lms,
+        id: entry_id,
+        kind,
         name: group_set_name,
         groups: cached_groups,
+        filter: Some(config.filter.clone()),
         fetched_at: Some(fetched_at),
         lms_group_set_id: Some(config.group_set_id.clone()),
-        lms_type: context_key.lms_type,
-        base_url: context_key.base_url,
-        course_id: context_key.course_id,
+        lms_type: Some(context_key.lms_type),
+        base_url: Some(context_key.base_url),
+        course_id: Some(context_key.course_id),
     };
     upsert_cache_entry(&mut updated_roster, entry);
-
-    // Apply filtered groups to the assignment
-    let (filtered_groups, filter_label) = apply_group_filter(&lms_groups, &config.filter)?;
-    merge_lms_groups_with_cache_timestamp(
-        updated_roster,
-        assignment_id,
-        &config.group_set_id,
-        filtered_groups,
-        filter_label,
-        fetched_at,
-    )
+    Ok(updated_roster)
 }
 
 pub async fn fetch_group_set_list(
@@ -125,95 +164,99 @@ pub async fn fetch_groups_for_set(
     Ok(lms_groups)
 }
 
-pub async fn cache_group_set(
+pub async fn refresh_linked_group_set(
     context: &LmsOperationContext,
-    roster: Option<Roster>,
+    roster: Roster,
     group_set_id: &str,
 ) -> Result<Roster, HandlerError> {
-    let client = create_lms_client(&context.connection)?;
-    let (group_set_name, groups) =
-        fetch_group_set_details(&client, &context.course_id, group_set_id).await?;
+    let mut updated_roster = roster;
+    let entry_index = updated_roster
+        .lms_group_sets
+        .as_ref()
+        .and_then(|entries| entries.iter().position(|entry| entry.id == group_set_id))
+        .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
 
-    let mut updated_roster = roster.unwrap_or_else(Roster::empty);
+    let (entry_id, lms_group_set_id, filter) = {
+        let entry = updated_roster
+            .lms_group_sets
+            .as_ref()
+            .and_then(|entries| entries.get(entry_index))
+            .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
+
+        if entry.kind != GroupSetKind::Linked {
+            return Err(HandlerError::Validation("Group set is not linked".into()));
+        }
+
+        let lms_group_set_id = entry
+            .lms_group_set_id
+            .clone()
+            .unwrap_or_else(|| entry.id.clone());
+        let filter = entry.filter.clone().unwrap_or(GroupFilter {
+            kind: "all".to_string(),
+            selected: None,
+            pattern: None,
+        });
+
+        (entry.id.clone(), lms_group_set_id, filter)
+    };
+
+    let client = create_lms_client(&context.connection)?;
+    let (group_set_name, lms_groups) =
+        fetch_group_set_details(&client, &context.course_id, &lms_group_set_id).await?;
+    let (filtered_groups, _filter_label) = apply_group_filter(&lms_groups, &filter)?;
+
     let context_key = context::normalize_context(
         context.connection.lms_type,
         &context.connection.base_url,
         &context.course_id,
     );
-    let cached_groups = build_cached_groups(&updated_roster, groups);
-    let entry = LmsGroupSetCacheEntry {
-        id: group_set_id.to_string(),
-        origin: GroupSetOrigin::Lms,
-        name: group_set_name,
-        groups: cached_groups,
-        fetched_at: Some(Utc::now()),
-        lms_group_set_id: Some(group_set_id.to_string()),
-        lms_type: context_key.lms_type,
-        base_url: context_key.base_url,
-        course_id: context_key.course_id,
-    };
+    let cached_groups = build_cached_groups(&updated_roster, filtered_groups);
+    let fetched_at = Utc::now();
 
-    upsert_cache_entry(&mut updated_roster, entry);
+    {
+        let entry = updated_roster
+            .lms_group_sets
+            .as_mut()
+            .and_then(|entries| entries.get_mut(entry_index))
+            .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
+        entry.name = group_set_name;
+        entry.groups = cached_groups.clone();
+        entry.filter = Some(filter);
+        entry.fetched_at = Some(fetched_at);
+        entry.lms_group_set_id = Some(lms_group_set_id);
+        entry.lms_type = Some(context_key.lms_type);
+        entry.base_url = Some(context_key.base_url);
+        entry.course_id = Some(context_key.course_id);
+    }
+
+    sync_assignments_to_group_set(&mut updated_roster, &entry_id, &cached_groups);
     Ok(updated_roster)
 }
 
-pub async fn refresh_cached_group_set(
-    context: &LmsOperationContext,
-    roster: Roster,
-    group_set_id: &str,
-) -> Result<Roster, HandlerError> {
-    let entry = roster
+pub fn break_group_set_link(roster: Roster, group_set_id: &str) -> Result<Roster, HandlerError> {
+    let mut updated_roster = roster;
+    let entry = updated_roster
         .lms_group_sets
-        .as_ref()
-        .and_then(|entries| entries.iter().find(|entry| entry.id == group_set_id))
-        .ok_or_else(|| HandlerError::not_found("Cached group set not found"))?;
+        .as_mut()
+        .and_then(|entries| entries.iter_mut().find(|entry| entry.id == group_set_id))
+        .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
 
-    if entry.origin != GroupSetOrigin::Lms {
-        return Err(HandlerError::Validation("Cached group set is local".into()));
+    if entry.kind != GroupSetKind::Linked {
+        return Err(HandlerError::Validation("Group set is not linked".into()));
     }
 
-    let lms_group_set_id = entry
-        .lms_group_set_id
-        .clone()
-        .unwrap_or_else(|| entry.id.clone());
-    let refreshed = cache_group_set(context, Some(roster), &lms_group_set_id).await?;
-    Ok(refreshed)
+    entry.kind = GroupSetKind::Copied;
+    for group in &mut entry.groups {
+        group.id = generate_group_id().to_string();
+        group.lms_member_ids.clear();
+        group.unresolved_count = 0;
+        group.needs_reresolution = false;
+    }
+
+    Ok(updated_roster)
 }
 
-pub async fn recache_group_set_for_assignment(
-    context: &LmsOperationContext,
-    roster: Roster,
-    assignment_id: &AssignmentId,
-) -> Result<Roster, HandlerError> {
-    let group_set_id = roster
-        .assignments
-        .iter()
-        .find(|assignment| assignment.id == *assignment_id)
-        .and_then(|assignment| assignment.group_set_cache_id.clone())
-        .ok_or_else(|| HandlerError::not_found("Assignment has no group set source"))?;
-
-    let group_set_id = roster
-        .lms_group_sets
-        .as_ref()
-        .and_then(|entries| entries.iter().find(|entry| entry.id == group_set_id))
-        .map(|entry| {
-            if entry.origin != GroupSetOrigin::Lms {
-                return Err(HandlerError::Validation(
-                    "Assignment group set is local".into(),
-                ));
-            }
-            Ok(entry
-                .lms_group_set_id
-                .clone()
-                .unwrap_or_else(|| entry.id.clone()))
-        })
-        .transpose()?
-        .unwrap_or(group_set_id);
-
-    cache_group_set(context, Some(roster), &group_set_id).await
-}
-
-pub fn delete_cached_group_set(roster: Roster, group_set_id: &str) -> Result<Roster, HandlerError> {
+pub fn delete_group_set(roster: Roster, group_set_id: &str) -> Result<Roster, HandlerError> {
     let mut updated_roster = roster;
     if let Some(group_sets) = updated_roster.lms_group_sets.as_mut() {
         group_sets.retain(|entry| entry.id != group_set_id);
@@ -221,11 +264,11 @@ pub fn delete_cached_group_set(roster: Roster, group_set_id: &str) -> Result<Ros
     Ok(updated_roster)
 }
 
-pub fn list_cached_group_sets(roster: &Roster) -> Vec<LmsGroupSetCacheEntry> {
+pub fn list_group_sets(roster: &Roster) -> Vec<LmsGroupSetCacheEntry> {
     roster.lms_group_sets.clone().unwrap_or_default()
 }
 
-pub fn detach_assignment_source(
+pub fn clear_assignment_group_set(
     roster: Roster,
     assignment_id: &AssignmentId,
 ) -> Result<Roster, HandlerError> {
@@ -236,23 +279,22 @@ pub fn detach_assignment_source(
         .find(|assignment| assignment.id == *assignment_id)
         .ok_or_else(|| HandlerError::not_found("Assignment not found"))?;
 
-    assignment.group_set_cache_id = None;
-    assignment.source_fetched_at = None;
+    assignment.group_set_id = None;
     Ok(updated_roster)
 }
 
-pub fn apply_cached_group_set_to_assignment(
+pub fn attach_group_set_to_assignment(
     roster: Roster,
     assignment_id: &AssignmentId,
-    config: GroupImportConfig,
-) -> Result<ImportGroupsResult, HandlerError> {
+    group_set_id: &str,
+) -> Result<Roster, HandlerError> {
     let mut updated_roster = roster;
     let cached_entry = updated_roster
         .lms_group_sets
         .as_ref()
-        .and_then(|entries| entries.iter().find(|entry| entry.id == config.group_set_id))
+        .and_then(|entries| entries.iter().find(|entry| entry.id == group_set_id))
         .cloned()
-        .ok_or_else(|| HandlerError::not_found("Cached group set not found"))?;
+        .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
 
     let assignment = updated_roster
         .assignments
@@ -260,38 +302,9 @@ pub fn apply_cached_group_set_to_assignment(
         .find(|assignment| assignment.id == *assignment_id)
         .ok_or_else(|| HandlerError::not_found("Assignment not found"))?;
 
-    let groups_replaced = assignment.groups.len();
-    let mut students_referenced = 0usize;
-    let mut new_groups = Vec::new();
-    let (filtered_groups, filter_label) =
-        apply_cached_group_filter(&cached_entry.groups, &config.filter)?;
-
-    for cached_group in &filtered_groups {
-        let member_ids = cached_group.resolved_member_ids.clone();
-        students_referenced += member_ids.len();
-        let draft = GroupDraft {
-            name: cached_group.name.clone(),
-            member_ids,
-        };
-        new_groups.push(Group::new(draft));
-    }
-
-    assignment.groups = new_groups;
-    assignment.group_set_cache_id = Some(cached_entry.id.clone());
-    assignment.source_fetched_at = cached_entry
-        .fetched_at
-        .as_ref()
-        .map(chrono::DateTime::to_rfc3339);
-
-    Ok(ImportGroupsResult {
-        summary: GroupImportSummary {
-            groups_imported: assignment.groups.len() as i64,
-            groups_replaced: groups_replaced as i64,
-            students_referenced: students_referenced as i64,
-            filter_applied: filter_label,
-        },
-        roster: updated_roster,
-    })
+    assignment.groups = cached_groups_to_assignment_groups(&cached_entry.groups);
+    assignment.group_set_id = Some(cached_entry.id.clone());
+    Ok(updated_roster)
 }
 
 fn merge_lms_students(
@@ -541,138 +554,6 @@ fn apply_group_filter(
     }
 }
 
-fn apply_cached_group_filter(
-    groups: &[CachedLmsGroup],
-    filter: &GroupFilter,
-) -> Result<(Vec<CachedLmsGroup>, String), HandlerError> {
-    match filter.kind.as_str() {
-        "all" => Ok((groups.to_vec(), "All".to_string())),
-        "selected" => {
-            let selected = filter.selected.clone().unwrap_or_default();
-            let set: HashSet<String> = selected.iter().cloned().collect();
-            let filtered = groups
-                .iter()
-                .filter(|group| set.contains(&group.id))
-                .cloned()
-                .collect::<Vec<_>>();
-            Ok((filtered, format!("{} selected", selected.len())))
-        }
-        "pattern" => {
-            let pattern = filter.pattern.clone().ok_or_else(|| {
-                HandlerError::Validation("Pattern filter requires a pattern".into())
-            })?;
-            let glob = glob::Pattern::new(&pattern)
-                .map_err(|e| HandlerError::Validation(format!("Invalid pattern: {}", e)))?;
-            let filtered = groups
-                .iter()
-                .filter(|group| glob.matches(&group.name))
-                .cloned()
-                .collect::<Vec<_>>();
-            Ok((filtered, format!("Pattern: {}", pattern)))
-        }
-        other => Err(HandlerError::Validation(format!(
-            "Unknown filter kind: {}",
-            other
-        ))),
-    }
-}
-
-/// Merge LMS groups into an assignment, using the provided timestamp for source_fetched_at.
-/// Used when importing groups after caching, to keep timestamps consistent.
-fn merge_lms_groups_with_cache_timestamp(
-    roster: Roster,
-    assignment_id: &AssignmentId,
-    group_set_id: &str,
-    groups: Vec<LmsGroup>,
-    filter_label: String,
-    fetched_at: chrono::DateTime<Utc>,
-) -> Result<ImportGroupsResult, HandlerError> {
-    let mut updated_roster = roster.clone();
-    let assignment = updated_roster
-        .assignments
-        .iter_mut()
-        .find(|assignment| assignment.id == *assignment_id)
-        .ok_or_else(|| HandlerError::not_found("Assignment not found"))?;
-
-    let mut missing_members = Vec::new();
-    let mut name_map: HashMap<String, Vec<String>> = HashMap::new();
-    let mut lms_to_student: HashMap<String, crate::roster::StudentId> = HashMap::new();
-    for student in &updated_roster.students {
-        if let Some(lms_id) = student.lms_user_id.as_ref() {
-            lms_to_student.insert(lms_id.clone(), student.id.clone());
-        }
-    }
-
-    let mut new_groups = Vec::new();
-    let mut students_referenced = 0;
-
-    for group in groups {
-        let normalized = normalize_group_name(&group.name);
-        name_map
-            .entry(normalized)
-            .or_default()
-            .push(group.name.clone());
-
-        let mut member_ids: HashSet<crate::roster::StudentId> = HashSet::new();
-        for member_id in group.member_ids {
-            if let Some(student_id) = lms_to_student.get(&member_id) {
-                member_ids.insert(student_id.clone());
-            } else {
-                missing_members.push(member_id);
-            }
-        }
-
-        students_referenced += member_ids.len();
-
-        let draft = GroupDraft {
-            name: group.name,
-            member_ids: member_ids.into_iter().collect(),
-        };
-        new_groups.push(Group::new(draft));
-    }
-
-    if !missing_members.is_empty() {
-        let mut unique_missing: HashSet<String> = HashSet::new();
-        for member in missing_members {
-            unique_missing.insert(member);
-        }
-        let mut list = unique_missing.into_iter().collect::<Vec<_>>();
-        list.sort();
-        return Err(HandlerError::Validation(format!(
-            "Unresolved LMS member IDs: {}",
-            list.join(", ")
-        )));
-    }
-
-    let mut duplicates = Vec::new();
-    for (normalized, names) in name_map {
-        if names.len() > 1 {
-            duplicates.push(format!("{} ({})", normalized, names.join(", ")));
-        }
-    }
-    if !duplicates.is_empty() {
-        return Err(HandlerError::Validation(format!(
-            "Duplicate group names detected: {}",
-            duplicates.join("; ")
-        )));
-    }
-
-    let groups_replaced = assignment.groups.len();
-    assignment.groups = new_groups;
-    assignment.group_set_cache_id = Some(group_set_id.to_string());
-    assignment.source_fetched_at = Some(fetched_at.to_rfc3339());
-
-    Ok(ImportGroupsResult {
-        summary: GroupImportSummary {
-            groups_imported: assignment.groups.len() as i64,
-            groups_replaced: groups_replaced as i64,
-            students_referenced: students_referenced as i64,
-            filter_applied: filter_label,
-        },
-        roster: updated_roster,
-    })
-}
-
 async fn fetch_group_set_details(
     client: &lms_client::LmsClient,
     course_id: &str,
@@ -742,6 +623,30 @@ fn build_cached_groups(roster: &Roster, groups: Vec<LmsGroup>) -> Vec<CachedLmsG
         .collect()
 }
 
+fn cached_groups_to_assignment_groups(cached_groups: &[CachedLmsGroup]) -> Vec<Group> {
+    cached_groups
+        .iter()
+        .map(|cached_group| {
+            Group::new(GroupDraft {
+                name: cached_group.name.clone(),
+                member_ids: cached_group.resolved_member_ids.clone(),
+            })
+        })
+        .collect()
+}
+
+fn sync_assignments_to_group_set(
+    roster: &mut Roster,
+    group_set_id: &str,
+    cached_groups: &[CachedLmsGroup],
+) {
+    for assignment in &mut roster.assignments {
+        if assignment.group_set_id.as_deref() == Some(group_set_id) {
+            assignment.groups = cached_groups_to_assignment_groups(cached_groups);
+        }
+    }
+}
+
 fn build_lms_student_map(roster: &Roster) -> HashMap<String, StudentId> {
     let mut map = HashMap::new();
     for student in &roster.students {
@@ -776,7 +681,10 @@ fn mark_cache_for_reresolution(roster: &mut Roster) {
         return;
     };
     for group_set in group_sets {
-        if group_set.origin == GroupSetOrigin::Local {
+        if matches!(
+            group_set.kind,
+            GroupSetKind::Copied | GroupSetKind::Unlinked
+        ) {
             continue;
         }
         for group in &mut group_set.groups {
@@ -796,7 +704,10 @@ fn reresolve_cached_groups_if_needed(roster: &mut Roster) {
         return;
     };
     for group_set in group_sets {
-        if group_set.origin == GroupSetOrigin::Local {
+        if matches!(
+            group_set.kind,
+            GroupSetKind::Copied | GroupSetKind::Unlinked
+        ) {
             continue;
         }
         for group in &mut group_set.groups {
@@ -835,14 +746,19 @@ mod tests {
     fn cache_entry_with_groups(id: &str, groups: Vec<CachedLmsGroup>) -> LmsGroupSetCacheEntry {
         LmsGroupSetCacheEntry {
             id: id.to_string(),
-            origin: GroupSetOrigin::Lms,
+            kind: GroupSetKind::Linked,
             name: format!("Set {id}"),
             groups,
+            filter: Some(GroupFilter {
+                kind: "all".to_string(),
+                selected: None,
+                pattern: None,
+            }),
             fetched_at: Some(Utc.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
             lms_group_set_id: Some(id.to_string()),
-            lms_type: LmsType::Canvas,
-            base_url: "https://example.edu".to_string(),
-            course_id: "course-1".to_string(),
+            lms_type: Some(LmsType::Canvas),
+            base_url: Some("https://example.edu".to_string()),
+            course_id: Some("course-1".to_string()),
         }
     }
 
@@ -962,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_cached_group_set_to_assignment_copies_groups_and_sets_source() {
+    fn attach_group_set_to_assignment_copies_groups() {
         let student_a = student_with_lms("s1", "u1");
         let student_b = student_with_lms("s2", "u2");
         let assignment_id = AssignmentId("assignment-1".to_string());
@@ -975,11 +891,9 @@ mod tests {
                 name: "Old Group".to_string(),
                 member_ids: vec![student_a.id.clone()],
             })],
-            group_set_cache_id: None,
-            source_fetched_at: None,
+            group_set_id: None,
         };
 
-        let fetched_at = Utc.with_ymd_and_hms(2025, 1, 2, 8, 30, 0).unwrap();
         let cached_group_a = CachedLmsGroup {
             id: "cg1".to_string(),
             name: "Group A".to_string(),
@@ -996,8 +910,7 @@ mod tests {
             unresolved_count: 0,
             needs_reresolution: false,
         };
-        let mut entry = cache_entry_with_groups("set-1", vec![cached_group_a, cached_group_b]);
-        entry.fetched_at = Some(fetched_at);
+        let entry = cache_entry_with_groups("set-1", vec![cached_group_a, cached_group_b]);
 
         let roster = Roster {
             source: None,
@@ -1006,34 +919,15 @@ mod tests {
             lms_group_sets: Some(vec![entry]),
         };
 
-        let result = apply_cached_group_set_to_assignment(
-            roster,
-            &assignment_id,
-            GroupImportConfig {
-                group_set_id: "set-1".to_string(),
-                filter: GroupFilter {
-                    kind: "all".to_string(),
-                    selected: None,
-                    pattern: None,
-                },
-            },
-        )
-        .unwrap();
-        let updated = result
-            .roster
+        let updated_roster =
+            attach_group_set_to_assignment(roster, &assignment_id, "set-1").unwrap();
+        let updated = updated_roster
             .assignments
             .iter()
             .find(|a| a.id == assignment_id)
             .unwrap();
 
-        assert_eq!(result.summary.groups_replaced, 1);
-        assert_eq!(result.summary.groups_imported, 2);
-        assert_eq!(result.summary.filter_applied, "All");
-        assert_eq!(updated.group_set_cache_id.as_deref(), Some("set-1"));
-        assert_eq!(
-            updated.source_fetched_at.as_deref(),
-            Some(fetched_at.to_rfc3339().as_str())
-        );
+        assert_eq!(updated.group_set_id.as_deref(), Some("set-1"));
         let names = updated
             .groups
             .iter()

@@ -48,11 +48,7 @@ export interface Assignment {
   description?: string | null
   assignment_type: AssignmentType
   groups: Group[]
-  group_set_cache_id?: string | null
-  /**
-   * ISO timestamp when assignment groups were last synced from LMS cache
-   */
-  source_fetched_at?: string | null
+  group_set_id?: string | null
 }
 
 /**
@@ -83,7 +79,7 @@ export interface AssignmentMetadata {
   name: string
   description?: string | null
   assignment_type: AssignmentType
-  group_set_cache_id?: string | null
+  group_set_id?: string | null
 }
 
 /**
@@ -258,7 +254,7 @@ export interface GroupFilter {
 export type GroupId = string
 
 /**
- * Group import configuration
+ * Group set selection and filter configuration
  */
 export interface GroupImportConfig {
   group_set_id: string
@@ -275,7 +271,7 @@ export interface GroupImportSummary {
   filter_applied: string
 }
 
-export type GroupSetOrigin = "lms" | "local"
+export type GroupSetKind = "unlinked" | "linked" | "copied"
 
 /**
  * Result of importing groups from file
@@ -382,18 +378,19 @@ export interface LmsGroupSet {
 }
 
 /**
- * Cached LMS group set scoped to a profile context
+ * Cached group set scoped to a profile context
  */
 export interface LmsGroupSetCacheEntry {
   id: string
-  origin: GroupSetOrigin
+  kind: GroupSetKind
   name: string
   groups: CachedLmsGroup[]
+  filter: GroupFilter | null
   fetched_at: string | null
   lms_group_set_id: string | null
-  lms_type: LmsType
-  base_url: string
-  course_id: string
+  lms_type: LmsType | null
+  base_url: string | null
+  course_id: string | null
 }
 
 /**

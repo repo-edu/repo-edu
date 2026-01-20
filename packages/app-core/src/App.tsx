@@ -31,7 +31,6 @@ import {
   NewAssignmentDialog,
   NewProfileDialog,
   PreflightDialog,
-  ReplaceGroupsConfirmationDialog,
   StudentRemovalConfirmationDialog,
   UsernameVerificationDialog,
   ValidationDialog,
@@ -409,7 +408,6 @@ function App() {
       <EditGroupDialog />
       <ImportGroupsDialog />
       <ImportGroupsFromFileDialog />
-      <ReplaceGroupsConfirmationDialog />
 
       {/* Operation Tab Dialogs */}
       <ValidationDialog />

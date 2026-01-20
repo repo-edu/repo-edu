@@ -18,10 +18,10 @@ pub mod types;
 // Re-export commonly used items
 pub use error::{PlatformError, Result};
 pub use operations::{
-    apply_cached_group_set_to_assignment, cache_group_set, clone_repos, create_repos,
-    delete_cached_group_set, delete_repos, detach_assignment_source, fetch_group_set_list,
-    fetch_groups_for_set, import_groups, import_students, list_cached_group_sets, preflight_clone,
-    preflight_create, preflight_delete, recache_group_set_for_assignment, refresh_cached_group_set,
+    attach_group_set_to_assignment, break_group_set_link, clear_assignment_group_set, clone_repos,
+    copy_group_set, copy_group_set_to_assignment, create_repos, delete_group_set, delete_repos,
+    fetch_group_set_list, fetch_groups_for_set, import_students, link_group_set, list_group_sets,
+    preflight_clone, preflight_create, preflight_delete, refresh_linked_group_set,
     validate_assignment, validate_roster, verify_connection, verify_lms_connection,
     CloneReposParams, CreateReposParams, DeleteReposParams, HandlerError,
 };
@@ -68,13 +68,13 @@ pub use generated::types::{
     AssignmentId, CachedLmsGroup, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport,
     CreateConfig, DeleteConfig, DirectoryLayout, GitUsernameImportSummary, GitVerifyResult,
     GroupFileImportResult, GroupFileImportSummary, GroupFilter, GroupId, GroupImportConfig,
-    GroupImportSummary, ImportGitUsernamesResult, ImportGroupsResult, ImportStudentsResult,
-    ImportSummary, InvalidUsername, LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry,
-    LmsIdConflict, LmsOperationContext, LmsVerifyResult, OperationError, OperationResult,
-    RepoCollision, RepoCollisionKind, RepoOperationContext, RepoPreflightResult, SkippedGroup,
-    SkippedGroupReason, StudentId, UsernameInvalidReason, UsernameVerificationError,
-    UsernameVerificationResult, UsernameVerificationScope, ValidationIssue, ValidationKind,
-    ValidationResult, VerifyGitUsernamesResult,
+    GroupSetKind, ImportGitUsernamesResult, ImportStudentsResult, ImportSummary, InvalidUsername,
+    LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry, LmsIdConflict,
+    LmsOperationContext, LmsVerifyResult, OperationError, OperationResult, RepoCollision,
+    RepoCollisionKind, RepoOperationContext, RepoPreflightResult, SkippedGroup, SkippedGroupReason,
+    StudentId, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    UsernameVerificationScope, ValidationIssue, ValidationKind, ValidationResult,
+    VerifyGitUsernamesResult,
 };
 
 // Test utilities (only available in test builds)

@@ -1,6 +1,6 @@
 /**
- * GroupTab - LMS group set management with master-detail layout.
- * Left panel lists group sets (LMS + local), right panel caches and shows groups.
+ * GroupTab - Group set management with master-detail layout.
+ * Left panel lists all group sets with status, right panel shows groups and actions.
  */
 
 import type {
@@ -29,8 +29,8 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
+  UserX,
 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
@@ -40,17 +40,19 @@ import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 import { generateGroupId } from "../../utils/nanoid"
 import { buildLmsOperationContext } from "../../utils/operationContext"
+import { formatRelativeTime } from "../../utils/relativeTime"
 import { StudentMultiSelect } from "../dialogs/StudentMultiSelect"
-
-type GroupSetListItem = {
-  id: string
-  name: string
-  source: "lms" | "local"
-  missingFromLms: boolean
-  cachedEntry?: LmsGroupSetCacheEntry
-}
+import { GroupList } from "../groups/GroupList"
+import { UnassignedStudentsView } from "./assignment/UnassignedStudentsView"
 
 const STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1000 // 24 hours
+const EMPTY_STUDENTS: Student[] = []
+
+type GroupSetSelection = { kind: "unassigned" } | { kind: "cached"; id: string }
+
+type GroupSetListItem =
+  | { source: "cached"; entry: LmsGroupSetCacheEntry }
+  | { source: "lms"; entry: LmsGroupSet }
 
 function isStale(fetchedAt: string | null): boolean {
   if (!fetchedAt) return false
@@ -59,33 +61,14 @@ function isStale(fetchedAt: string | null): boolean {
   return Date.now() - fetchedTime > STALENESS_THRESHOLD_MS
 }
 
-function formatRelativeTime(isoDate: string | null): string {
-  if (!isoDate) return "—"
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
-
 export function GroupTab() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const students = useProfileStore(
-    (state) => state.document?.roster?.students ?? [],
+    (state) => state.document?.roster?.students ?? EMPTY_STUDENTS,
   )
   const setRoster = useProfileStore((state) => state.setRoster)
   const createLocalGroupSet = useProfileStore(
     (state) => state.createLocalGroupSet,
-  )
-  const duplicateGroupSetAsLocal = useProfileStore(
-    (state) => state.duplicateGroupSetAsLocal,
   )
   const renameLocalGroupSet = useProfileStore(
     (state) => state.renameLocalGroupSet,
@@ -99,11 +82,19 @@ export function GroupTab() {
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const addToast = useToastStore((state) => state.addToast)
   const activeProfile = useUiStore((state) => state.activeProfile)
+  const activeTab = useUiStore((state) => state.activeTab)
+  const setImportGroupsDialogOpen = useUiStore(
+    (state) => state.setImportGroupsDialogOpen,
+  )
 
   const lmsContext = useMemo(
     () => buildLmsOperationContext(lmsConnection, courseId),
     [lmsConnection, courseId],
   )
+  const lmsContextKey = useMemo(() => {
+    if (!lmsConnection || !courseId.trim()) return null
+    return `${lmsConnection.lms_type}|${lmsConnection.base_url}|${courseId}`
+  }, [lmsConnection, courseId])
 
   const lmsContextError = !lmsConnection
     ? "No LMS connection configured"
@@ -111,18 +102,8 @@ export function GroupTab() {
       ? "Profile has no course configured"
       : null
 
-  const [groupSets, setGroupSets] = useState<LmsGroupSet[]>([])
-  const [fetchingList, setFetchingList] = useState(false)
-  const [listError, setListError] = useState<string | null>(null)
-  const [selectedGroupSetId, setSelectedGroupSetId] = useState<string | null>(
-    null,
-  )
-  const [loadingGroupSetId, setLoadingGroupSetId] = useState<string | null>(
-    null,
-  )
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [selection, setSelection] = useState<GroupSetSelection | null>(null)
   const [refreshingId, setRefreshingId] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [localSetName, setLocalSetName] = useState("")
@@ -131,147 +112,150 @@ export function GroupTab() {
   const [groupName, setGroupName] = useState("")
   const [groupMembers, setGroupMembers] = useState<string[]>([])
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [lmsGroupSets, setLmsGroupSets] = useState<LmsGroupSet[]>([])
+  const [fetchingLmsGroupSets, setFetchingLmsGroupSets] = useState(false)
+  const [lmsGroupSetsError, setLmsGroupSetsError] = useState<string | null>(
+    null,
+  )
+  const [importingLmsSetId, setImportingLmsSetId] = useState<string | null>(
+    null,
+  )
 
   const cachedGroupSets = roster?.lms_group_sets ?? []
 
-  const cachedById = useMemo(() => {
-    return new Map(cachedGroupSets.map((entry) => [entry.id, entry]))
+  const displayCachedGroupSets = useMemo(() => {
+    return [...cachedGroupSets].sort((a, b) => a.name.localeCompare(b.name))
   }, [cachedGroupSets])
 
-  const displayGroupSets = useMemo(() => {
-    const lmsIds = new Set(groupSets.map((set) => set.id))
-    const items: GroupSetListItem[] = groupSets.map((set) => ({
-      id: set.id,
-      name: set.name,
-      source: "lms",
-      missingFromLms: false,
-      cachedEntry: cachedById.get(set.id),
-    }))
+  const filteredCachedGroupSets = displayCachedGroupSets
+  const selectableCachedGroupSets = useMemo(
+    () => filteredCachedGroupSets.filter((set) => set.kind !== "unlinked"),
+    [filteredCachedGroupSets],
+  )
 
-    for (const entry of cachedGroupSets) {
-      if (entry.origin === "local" || !lmsIds.has(entry.id)) {
-        items.push({
-          id: entry.id,
-          name: entry.name,
-          source: entry.origin === "local" ? "local" : "lms",
-          missingFromLms: entry.origin !== "local" && !lmsIds.has(entry.id),
-          cachedEntry: entry,
-        })
-      }
-    }
-
-    items.sort((a, b) => a.name.localeCompare(b.name))
-    return items
-  }, [groupSets, cachedGroupSets, cachedById])
-
-  const filteredGroupSets = useMemo(() => {
-    if (!searchQuery.trim()) return displayGroupSets
-    const query = searchQuery.toLowerCase()
-    return displayGroupSets.filter((set) =>
-      set.name.toLowerCase().includes(query),
+  const cachedLmsGroupSetIds = useMemo(() => {
+    return new Set(
+      cachedGroupSets
+        .map((set) => set.lms_group_set_id)
+        .filter((id): id is string => !!id),
     )
-  }, [displayGroupSets, searchQuery])
+  }, [cachedGroupSets])
+
+  const availableLmsGroupSets = useMemo(() => {
+    if (cachedLmsGroupSetIds.size === 0) return lmsGroupSets
+    return lmsGroupSets.filter((set) => !cachedLmsGroupSetIds.has(set.id))
+  }, [cachedLmsGroupSetIds, lmsGroupSets])
+
+  const displayLmsGroupSets = useMemo(() => {
+    return [...availableLmsGroupSets].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
+  }, [availableLmsGroupSets])
+
+  const mergedGroupSets = useMemo<GroupSetListItem[]>(() => {
+    const items = [
+      ...displayCachedGroupSets.map((entry) => ({
+        source: "cached" as const,
+        entry,
+      })),
+      ...displayLmsGroupSets.map((entry) => ({
+        source: "lms" as const,
+        entry,
+      })),
+    ]
+    return items.sort((a, b) => a.entry.name.localeCompare(b.entry.name))
+  }, [displayCachedGroupSets, displayLmsGroupSets])
 
   useEffect(() => {
-    if (filteredGroupSets.length === 0) return
+    if (selection?.kind === "unassigned") return
     if (
-      selectedGroupSetId &&
-      filteredGroupSets.some((set) => set.id === selectedGroupSetId)
+      selection?.kind === "cached" &&
+      selectableCachedGroupSets.some((set) => set.id === selection.id)
     ) {
       return
     }
-    setSelectedGroupSetId(filteredGroupSets[0].id)
-  }, [filteredGroupSets, selectedGroupSetId])
+    if (selectableCachedGroupSets.length > 0) {
+      setSelection({ kind: "cached", id: selectableCachedGroupSets[0].id })
+    } else {
+      setSelection(null)
+    }
+  }, [selectableCachedGroupSets, selection])
 
-  const fetchGroupSetList = async () => {
-    if (!lmsContext) {
-      setListError(lmsContextError)
+  useEffect(() => {
+    if (!activeProfile) {
+      setSelection(null)
+      setLmsGroupSets([])
+      setLmsGroupSetsError(null)
+      setFetchingLmsGroupSets(false)
+    }
+  }, [activeProfile])
+
+  useEffect(() => {
+    if (!lmsContextKey) {
+      setLmsGroupSets([])
+      setLmsGroupSetsError(null)
+      setFetchingLmsGroupSets(false)
       return
     }
+    setLmsGroupSets([])
+    setLmsGroupSetsError(null)
+  }, [lmsContextKey])
 
-    setFetchingList(true)
-    setListError(null)
+  const fetchLmsGroupSets = async (force = false) => {
+    if (fetchingLmsGroupSets) return
+    if (!lmsContext || lmsContextError) {
+      setLmsGroupSetsError(lmsContextError)
+      return
+    }
+    const hasCachedGroupSets = cachedGroupSets.length > 0
+    if (!force && (lmsGroupSets.length > 0 || hasCachedGroupSets)) return
+
+    setFetchingLmsGroupSets(true)
+    setLmsGroupSetsError(null)
     try {
       const result = await commands.fetchLmsGroupSetList(lmsContext)
       if (result.status === "ok") {
-        setGroupSets(result.data)
+        setLmsGroupSets(result.data)
+        mergeLmsGroupSetsIntoRoster(result.data)
       } else {
-        setListError(result.error.message)
+        setLmsGroupSetsError(result.error.message)
       }
     } catch (error) {
-      setListError(error instanceof Error ? error.message : String(error))
+      setLmsGroupSetsError(
+        error instanceof Error ? error.message : String(error),
+      )
     } finally {
-      setFetchingList(false)
+      setFetchingLmsGroupSets(false)
     }
   }
 
   useEffect(() => {
-    if (!activeProfile) {
-      setGroupSets([])
-      setSelectedGroupSetId(null)
-      return
-    }
-    if (!lmsContext) {
-      setGroupSets([])
-      setListError(lmsContextError)
-      return
-    }
-    fetchGroupSetList()
-  }, [activeProfile, lmsContext, lmsContextError])
+    if (activeTab !== "group" || !activeProfile) return
+    fetchLmsGroupSets(false)
+  }, [activeTab, activeProfile, lmsContextKey])
 
-  const selectedItem = displayGroupSets.find(
-    (set) => set.id === selectedGroupSetId,
-  )
-  const selectedCachedEntry = selectedItem?.cachedEntry ?? null
-
-  useEffect(() => {
-    if (!selectedItem) return
-    if (selectedItem.source === "local") return
-    if (selectedItem.cachedEntry) return
-    if (!roster || !lmsContext) return
-    if (loadingGroupSetId === selectedItem.id) return
-
-    const cacheGroupSet = async () => {
-      setLoadingGroupSetId(selectedItem.id)
-      setLoadError(null)
-      try {
-        const result = await commands.cacheLmsGroupSet(
-          lmsContext,
-          roster,
-          selectedItem.id,
-        )
-        if (result.status === "ok") {
-          setRoster(result.data, `Cache group set "${selectedItem.name}"`)
-          addToast(`Cached "${selectedItem.name}" from LMS`)
-        } else {
-          setLoadError(result.error.message)
-        }
-      } catch (error) {
-        setLoadError(error instanceof Error ? error.message : String(error))
-      } finally {
-        setLoadingGroupSetId(null)
-      }
-    }
-
-    cacheGroupSet()
-  }, [selectedItem, roster, lmsContext, addToast, loadingGroupSetId, setRoster])
+  const selectedCachedGroupSet =
+    selection?.kind === "cached"
+      ? displayCachedGroupSets.find((set) => set.id === selection.id)
+      : null
+  const showingUnassigned = selection?.kind === "unassigned"
 
   const handleRefresh = async () => {
-    if (!selectedCachedEntry || !roster || !lmsContext) return
-    if (selectedCachedEntry.origin !== "lms") return
-    setRefreshingId(selectedCachedEntry.id)
+    if (!selectedCachedGroupSet || !roster || !lmsContext) return
+    if (selectedCachedGroupSet.kind !== "linked") return
+    setRefreshingId(selectedCachedGroupSet.id)
     try {
-      const result = await commands.refreshCachedLmsGroupSet(
+      const result = await commands.refreshLinkedGroupSet(
         lmsContext,
         roster,
-        selectedCachedEntry.id,
+        selectedCachedGroupSet.id,
       )
       if (result.status === "ok") {
         setRoster(
           result.data,
-          `Refresh group set "${selectedCachedEntry.name}"`,
+          `Refresh group set "${selectedCachedGroupSet.name}"`,
         )
-        addToast(`Refreshed "${selectedCachedEntry.name}"`)
+        addToast(`Refreshed "${selectedCachedGroupSet.name}"`)
       } else {
         addToast(`Refresh failed: ${result.error.message}`, { tone: "error" })
       }
@@ -282,14 +266,85 @@ export function GroupTab() {
     }
   }
 
-  const studentMap = useMemo(() => {
-    return new Map(students.map((student) => [student.id, student]))
-  }, [students])
+  const handleBreakSync = async () => {
+    if (!selectedCachedGroupSet || !roster) return
+    if (selectedCachedGroupSet.kind !== "linked") return
+    const result = await commands.breakGroupSetLink(
+      roster,
+      selectedCachedGroupSet.id,
+    )
+    if (result.status === "ok") {
+      setRoster(result.data, `Break sync for "${selectedCachedGroupSet.name}"`)
+      addToast(
+        `Sync broken; "${selectedCachedGroupSet.name}" is now editable`,
+        {
+          tone: "success",
+        },
+      )
+    } else {
+      addToast(`Break sync failed: ${result.error.message}`, { tone: "error" })
+    }
+  }
 
-  const cachedGroups = selectedCachedEntry?.groups ?? []
-  const canFetchGroups = !!roster && !!lmsContext
+  const handleDeleteGroupSet = async () => {
+    if (!selectedCachedGroupSet || !roster) return
+    const result = await commands.deleteGroupSet(
+      roster,
+      selectedCachedGroupSet.id,
+    )
+    if (result.status === "ok") {
+      setRoster(
+        result.data,
+        `Delete group set "${selectedCachedGroupSet.name}"`,
+      )
+      addToast(`Deleted "${selectedCachedGroupSet.name}"`, { tone: "warning" })
+    } else {
+      addToast(`Delete failed: ${result.error.message}`, { tone: "error" })
+    }
+  }
+
+  const unassignedCount = useMemo(() => {
+    const assignedStudentIds = new Set<string>()
+    for (const groupSet of cachedGroupSets) {
+      for (const group of groupSet.groups) {
+        for (const memberId of group.resolved_member_ids) {
+          assignedStudentIds.add(memberId)
+        }
+      }
+    }
+    return students.filter(
+      (student) =>
+        student.status === "active" && !assignedStudentIds.has(student.id),
+    ).length
+  }, [cachedGroupSets, students])
+
+  const cachedGroups = selectedCachedGroupSet?.groups ?? []
+  const groupListItems = useMemo(
+    () =>
+      cachedGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        memberIds: group.resolved_member_ids,
+        unresolvedCount: group.unresolved_count,
+        needsResolution: group.needs_reresolution,
+      })),
+    [cachedGroups],
+  )
+  const totalMembers = useMemo(
+    () =>
+      cachedGroups.reduce(
+        (acc, group) => acc + group.resolved_member_ids.length,
+        0,
+      ),
+    [cachedGroups],
+  )
+  const unresolvedTotal = useMemo(
+    () => cachedGroups.reduce((acc, group) => acc + group.unresolved_count, 0),
+    [cachedGroups],
+  )
   const editableLocalSet =
-    selectedCachedEntry?.origin === "local" ? selectedCachedEntry : null
+    selectedCachedGroupSet?.kind === "copied" ? selectedCachedGroupSet : null
+  const isEditableSet = !!editableLocalSet
 
   const groupMemberships = useMemo(
     () =>
@@ -323,20 +378,9 @@ export function GroupTab() {
     if (!contextKey) return
     const setId = createLocalGroupSet(localSetName, contextKey)
     if (setId) {
-      setSelectedGroupSetId(setId)
+      setSelection({ kind: "cached", id: setId })
       setCreateDialogOpen(false)
       setLocalSetName("")
-    }
-  }
-
-  const handleDuplicateLocal = async () => {
-    if (!selectedCachedEntry) return
-    const contextKey = await resolveContextKey()
-    if (!contextKey) return
-    const setId = duplicateGroupSetAsLocal(selectedCachedEntry.id, contextKey)
-    if (setId) {
-      setSelectedGroupSetId(setId)
-      addToast(`Created local copy of "${selectedCachedEntry.name}"`)
     }
   }
 
@@ -391,6 +435,98 @@ export function GroupTab() {
     setEditingGroupId(null)
   }
 
+  const handleImportLmsGroupSet = async (groupSet: LmsGroupSet) => {
+    if (!lmsContext || lmsContextError) return
+    setImportingLmsSetId(groupSet.id)
+    const config = {
+      group_set_id: groupSet.id,
+      filter: { kind: "all" as const },
+    }
+    try {
+      const result = await commands.linkLmsGroupSet(lmsContext, roster, config)
+      if (result.status === "ok") {
+        setRoster(result.data, "Link group set")
+        const importedEntry = result.data.lms_group_sets?.find(
+          (entry) => entry.lms_group_set_id === groupSet.id,
+        )
+        if (importedEntry) {
+          setSelection({ kind: "cached", id: importedEntry.id })
+        }
+        addToast(`Linked "${groupSet.name}"`)
+      } else {
+        addToast(`Import failed: ${result.error.message}`, { tone: "error" })
+      }
+    } catch (error) {
+      addToast(`Import failed: ${String(error)}`, { tone: "error" })
+    } finally {
+      setImportingLmsSetId(null)
+    }
+  }
+
+  const mergeLmsGroupSetsIntoRoster = (lmsSets: LmsGroupSet[]) => {
+    if (!roster || !lmsContext) return
+    const existing = roster.lms_group_sets ?? []
+    const lmsById = new Map(lmsSets.map((set) => [set.id, set]))
+    const lmsIds = new Set(lmsSets.map((set) => set.id))
+
+    let changed = false
+    const nextGroupSets: LmsGroupSetCacheEntry[] = []
+
+    for (const entry of existing) {
+      if (entry.kind === "unlinked") {
+        const lmsId = entry.lms_group_set_id ?? entry.id
+        if (!lmsId || !lmsIds.has(lmsId)) {
+          changed = true
+          continue
+        }
+        const lmsSet = lmsById.get(lmsId)
+        if (lmsSet && lmsSet.name !== entry.name) {
+          nextGroupSets.push({ ...entry, name: lmsSet.name })
+          changed = true
+        } else {
+          nextGroupSets.push(entry)
+        }
+      } else {
+        nextGroupSets.push(entry)
+      }
+    }
+
+    const represented = new Set<string>()
+    for (const entry of nextGroupSets) {
+      const lmsId = entry.lms_group_set_id ?? entry.id
+      if (lmsId) {
+        represented.add(lmsId)
+      }
+    }
+
+    for (const lmsSet of lmsSets) {
+      if (represented.has(lmsSet.id)) continue
+      nextGroupSets.push({
+        id: lmsSet.id,
+        kind: "unlinked",
+        name: lmsSet.name,
+        groups: [],
+        filter: null,
+        fetched_at: null,
+        lms_group_set_id: lmsSet.id,
+        lms_type: lmsContext.connection.lms_type,
+        base_url: lmsContext.connection.base_url,
+        course_id: lmsContext.course_id,
+      })
+      changed = true
+    }
+
+    if (!changed) return
+    setRoster(
+      { ...roster, lms_group_sets: nextGroupSets },
+      "Cache LMS group sets",
+    )
+  }
+
+  const handleReloadLmsGroupSets = () => {
+    fetchLmsGroupSets(true)
+  }
+
   return (
     <div className="flex h-full">
       {/* Left panel - Group set list */}
@@ -404,96 +540,188 @@ export function GroupTab() {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setCreateDialogOpen(true)}
-              title="New local group set"
-              disabled={!!lmsContextError}
+              onClick={handleReloadLmsGroupSets}
+              title="Reload LMS group sets"
+              disabled={
+                fetchingLmsGroupSets || !!lmsContextError || !lmsContext
+              }
             >
-              <Plus className="size-4" />
+              <RefreshCw
+                className={`size-4 ${fetchingLmsGroupSets ? "animate-spin" : ""}`}
+              />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={fetchGroupSetList}
-              disabled={fetchingList || !lmsContext}
-              title="Refresh group set list"
+              onClick={() => setImportGroupsDialogOpen(true)}
+              title="Link or copy from LMS"
+              disabled={!!lmsContextError}
             >
-              <RefreshCw
-                className={`size-4 ${fetchingList ? "animate-spin" : ""}`}
-              />
+              <Layers className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCreateDialogOpen(true)}
+              title="New copied group set"
+              disabled={!!lmsContextError}
+            >
+              <Plus className="size-4" />
             </Button>
           </div>
         </div>
 
-        <div className="px-3 py-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Search group sets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+        <div className="px-2 pb-2">
+          <button
+            type="button"
+            className={`w-full text-left rounded-md px-2 py-2 border ${
+              selection?.kind === "unassigned"
+                ? "bg-muted border-muted-foreground/30"
+                : "border-transparent"
+            } hover:bg-muted/50`}
+            onClick={() => setSelection({ kind: "unassigned" })}
+          >
+            <div className="flex items-center gap-2">
+              <UserX className="size-4 text-muted-foreground" />
+              <span className="font-medium truncate">Unassigned students</span>
+              <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                {unassignedCount}
+              </span>
+            </div>
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-          {listError && (
-            <div className="px-2 py-2 text-xs text-warning flex items-center gap-2">
-              <AlertTriangle className="size-3" />
-              {listError}
-            </div>
-          )}
-
-          {filteredGroupSets.length === 0 ? (
+          {mergedGroupSets.length === 0 ? (
             <div className="px-2 py-3 text-sm text-muted-foreground">
               No group sets available.
             </div>
           ) : (
-            filteredGroupSets.map((set) => {
-              const selected = set.id === selectedGroupSetId
-              const cached = !!set.cachedEntry
-              const stale = cached
-                ? isStale(set.cachedEntry?.fetched_at ?? null)
-                : false
+            mergedGroupSets.map((item) => {
+              if (item.source === "cached") {
+                const set = item.entry
+                const isUnlinked = set.kind === "unlinked"
+                const selected =
+                  selection?.kind === "cached" && set.id === selection.id
+                const stale = set.kind === "linked" && isStale(set.fetched_at)
+                const filtered = set.filter != null && set.filter.kind !== "all"
+                const importing = isUnlinked && importingLmsSetId === set.id
+                const importingOther =
+                  isUnlinked &&
+                  importingLmsSetId != null &&
+                  importingLmsSetId !== set.id
+                const statusLabel =
+                  set.kind === "linked"
+                    ? "Linked"
+                    : set.kind === "copied"
+                      ? "Copied"
+                      : "Unlinked"
+                return (
+                  <button
+                    key={set.id}
+                    type="button"
+                    className={`w-full text-left rounded-md px-2 py-2 border ${
+                      selected || importing
+                        ? "bg-muted border-muted-foreground/30"
+                        : "border-transparent"
+                    } hover:bg-muted/50`}
+                    onClick={() => {
+                      if (isUnlinked) {
+                        handleImportLmsGroupSet({
+                          id: set.lms_group_set_id ?? set.id,
+                          name: set.name,
+                          groups: [],
+                        })
+                        return
+                      }
+                      setSelection({ kind: "cached", id: set.id })
+                    }}
+                    disabled={
+                      isUnlinked &&
+                      (importing ||
+                        importingOther ||
+                        !!lmsContextError ||
+                        !lmsContext)
+                    }
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="size-4 text-muted-foreground" />
+                      <span className="font-medium truncate">{set.name}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{importing ? "Linking..." : statusLabel}</span>
+                      {filtered && <span>· filtered</span>}
+                      {stale && (
+                        <span className="text-warning flex items-center gap-1">
+                          <AlertTriangle className="size-3" />
+                          stale
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              }
+
+              const set = item.entry
+              const importing = importingLmsSetId === set.id
+              const importingOther =
+                importingLmsSetId != null && importingLmsSetId !== set.id
               return (
                 <button
                   key={set.id}
                   type="button"
                   className={`w-full text-left rounded-md px-2 py-2 border ${
-                    selected
+                    importing
                       ? "bg-muted border-muted-foreground/30"
                       : "border-transparent"
                   } hover:bg-muted/50`}
-                  onClick={() => setSelectedGroupSetId(set.id)}
+                  onClick={() => handleImportLmsGroupSet(set)}
+                  disabled={
+                    importing ||
+                    importingOther ||
+                    !!lmsContextError ||
+                    !lmsContext
+                  }
                 >
                   <div className="flex items-center gap-2">
                     <Layers className="size-4 text-muted-foreground" />
                     <span className="font-medium truncate">{set.name}</span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{set.source === "local" ? "Local" : "LMS"}</span>
-                    {cached && <span>· cached</span>}
-                    {stale && (
-                      <span className="text-warning flex items-center gap-1">
-                        <AlertTriangle className="size-3" />
-                        stale
-                      </span>
-                    )}
-                    {set.missingFromLms && (
-                      <span className="text-warning">· missing from LMS</span>
-                    )}
+                    <span>{importing ? "Linking..." : "Unlinked"}</span>
                   </div>
                 </button>
               )
             })
+          )}
+          {fetchingLmsGroupSets && (
+            <div className="px-2 py-2 text-xs text-muted-foreground">
+              Loading LMS group sets...
+            </div>
+          )}
+          {lmsContextError && (
+            <div className="px-2 py-2 text-xs text-muted-foreground">
+              {lmsContextError}
+            </div>
+          )}
+          {!lmsContextError && lmsGroupSetsError && (
+            <div className="px-2 py-2 text-xs text-muted-foreground">
+              Failed to load LMS group sets: {lmsGroupSetsError}
+            </div>
           )}
         </div>
       </div>
 
       {/* Right panel - Group set detail */}
       <div className="flex-1 flex flex-col min-h-0">
-        {!selectedItem ? (
+        {showingUnassigned ? (
+          <UnassignedStudentsView
+            groupSets={cachedGroupSets}
+            students={students}
+          />
+        ) : !selectedCachedGroupSet ? (
           <EmptyState message="Select a group set">
             <Text className="text-muted-foreground text-center">
               Choose a group set from the list to view its groups.
@@ -504,43 +732,46 @@ export function GroupTab() {
             <div className="flex items-center justify-between px-3 h-11 pb-3 border-b">
               <div className="flex flex-col">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {selectedItem.name}
+                  {selectedCachedGroupSet.name}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {selectedItem.source === "local" ? "Local set" : "LMS set"} ·{" "}
-                  {selectedCachedEntry
-                    ? `fetched ${formatRelativeTime(selectedCachedEntry.fetched_at)}`
-                    : "not cached"}
+                  {selectedCachedGroupSet.kind === "linked"
+                    ? "Linked set"
+                    : selectedCachedGroupSet.kind === "copied"
+                      ? "Copied set"
+                      : "Unlinked set"}{" "}
+                  ·{" "}
+                  {selectedCachedGroupSet.fetched_at
+                    ? `synced ${formatRelativeTime(
+                        selectedCachedGroupSet.fetched_at,
+                      )}`
+                    : "never synced"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {selectedCachedEntry?.origin === "lms" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleDuplicateLocal}
-                  >
+                {selectedCachedGroupSet.kind === "linked" && (
+                  <Button size="sm" variant="outline" onClick={handleBreakSync}>
                     <Copy className="mr-2 size-4" />
-                    Duplicate as local
+                    Break sync
                   </Button>
                 )}
-                {selectedCachedEntry?.origin === "lms" && (
+                {selectedCachedGroupSet.kind === "linked" && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={handleRefresh}
                     disabled={
-                      refreshingId === selectedCachedEntry.id || !lmsContext
+                      refreshingId === selectedCachedGroupSet.id || !lmsContext
                     }
                   >
                     <RefreshCw
                       className={`mr-2 size-4 ${
-                        refreshingId === selectedCachedEntry.id
+                        refreshingId === selectedCachedGroupSet.id
                           ? "animate-spin"
                           : ""
                       }`}
                     />
-                    Refresh
+                    Sync now
                   </Button>
                 )}
                 {editableLocalSet && (
@@ -562,51 +793,52 @@ export function GroupTab() {
                     </Button>
                   </>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={handleDeleteGroupSet}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Delete
+                </Button>
               </div>
             </div>
 
-            {!selectedCachedEntry && (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                {!canFetchGroups ? (
-                  <div className="text-center space-y-2">
-                    <div>{lmsContextError ?? "No roster loaded."}</div>
-                  </div>
-                ) : loadingGroupSetId === selectedItem.id ? (
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="size-4 animate-spin" />
-                    Fetching groups from LMS...
-                  </div>
-                ) : loadError ? (
-                  <div className="text-center space-y-2">
-                    <div className="text-warning">{loadError}</div>
-                    <Button
-                      onClick={() => setSelectedGroupSetId(selectedItem.id)}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="size-4 animate-spin" />
-                    Fetching groups from LMS...
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedCachedEntry && (
-              <GroupSetGroupsPane
-                groups={cachedGroups}
-                studentMap={studentMap}
-                editable={!!editableLocalSet}
-                onEditGroup={openEditGroupDialog}
-                onRemoveGroup={(group) =>
-                  editableLocalSet
-                    ? removeLocalGroup(editableLocalSet.id, group.id)
-                    : null
-                }
-              />
-            )}
+            <GroupList
+              groups={groupListItems}
+              students={students}
+              editable={isEditableSet}
+              onEditGroup={
+                isEditableSet
+                  ? (groupId) => {
+                      const group = cachedGroups.find(
+                        (item) => item.id === groupId,
+                      )
+                      if (group) {
+                        openEditGroupDialog(group)
+                      }
+                    }
+                  : undefined
+              }
+              onRemoveGroup={
+                isEditableSet
+                  ? (groupId) => removeLocalGroup(editableLocalSet.id, groupId)
+                  : undefined
+              }
+              emptyMessage="No groups in this set."
+              noResultsMessage="No groups match your search."
+            />
+            <div className="px-3 py-2 border-t text-sm text-muted-foreground">
+              {cachedGroups.length} group{cachedGroups.length !== 1 ? "s" : ""}{" "}
+              · {totalMembers} student{totalMembers !== 1 ? "s" : ""}
+              {unresolvedTotal > 0 && (
+                <span className="text-warning">
+                  {" "}
+                  · {unresolvedTotal} unresolved
+                </span>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -620,7 +852,7 @@ export function GroupTab() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>New Local Group Set</DialogTitle>
+            <DialogTitle>New Copied Group Set</DialogTitle>
           </DialogHeader>
           <DialogBody>
             <FormField label="Name" htmlFor="local-group-set-name">
@@ -731,136 +963,6 @@ export function GroupTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-interface GroupSetGroupsPaneProps {
-  groups: CachedLmsGroup[]
-  studentMap: Map<string, Student>
-  editable?: boolean
-  onEditGroup?: (group: CachedLmsGroup) => void
-  onRemoveGroup?: (group: CachedLmsGroup) => void
-}
-
-function GroupSetGroupsPane({
-  groups,
-  studentMap,
-  editable = false,
-  onEditGroup,
-  onRemoveGroup,
-}: GroupSetGroupsPaneProps) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-
-  const toggleExpand = (groupId: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) {
-        next.delete(groupId)
-      } else {
-        next.add(groupId)
-      }
-      return next
-    })
-  }
-
-  const totalMembers = groups.reduce(
-    (acc, group) => acc + group.resolved_member_ids.length,
-    0,
-  )
-  const unresolvedTotal = groups.reduce(
-    (acc, group) => acc + group.unresolved_count,
-    0,
-  )
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-3 py-2 border-b text-sm text-muted-foreground">
-        {groups.length} group{groups.length !== 1 ? "s" : ""} · {totalMembers}{" "}
-        resolved member{totalMembers !== 1 ? "s" : ""}
-        {unresolvedTotal > 0 && (
-          <span className="text-warning"> · {unresolvedTotal} unresolved</span>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
-        {groups.length === 0 ? (
-          <div className="text-muted-foreground text-center py-4">
-            No groups in this set.
-          </div>
-        ) : (
-          groups.map((group) => {
-            const resolvedMembers = group.resolved_member_ids.map((id) => {
-              const student = studentMap.get(id)
-              return student?.name ?? `Unknown (${id})`
-            })
-            const expanded = expandedGroups.has(group.id)
-            return (
-              <div key={group.id} className="border rounded-md">
-                <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/50">
-                  <button
-                    type="button"
-                    className="flex-1 text-left"
-                    onClick={() => toggleExpand(group.id)}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{group.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {resolvedMembers.length} resolved
-                        {group.unresolved_count > 0 && (
-                          <span className="text-warning">
-                            {" "}
-                            · {group.unresolved_count} unresolved
-                          </span>
-                        )}
-                        {group.needs_reresolution && (
-                          <span className="text-warning flex items-center gap-1">
-                            <AlertTriangle className="inline size-3" />
-                            needs re-resolution
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  {editable && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        onClick={() => onEditGroup?.(group)}
-                      >
-                        <Pencil className="size-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                        onClick={() => onRemoveGroup?.(group)}
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {expanded && (
-                  <div className="border-t px-3 py-2 text-sm text-muted-foreground">
-                    {resolvedMembers.length === 0 ? (
-                      <div>No resolved members.</div>
-                    ) : (
-                      <ul className="space-y-1">
-                        {resolvedMembers.map((name, idx) => (
-                          <li key={`${group.id}-${idx}`}>{name}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
-      </div>
     </div>
   )
 }

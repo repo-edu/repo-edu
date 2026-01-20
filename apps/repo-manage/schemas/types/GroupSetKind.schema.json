@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GroupSetOrigin",
+  "title": "GroupSetKind",
   "type": "string",
-  "enum": ["lms", "local"],
+  "enum": ["unlinked", "linked", "copied"],
   "x-rust": {
-    "default": "lms"
+    "default": "linked"
   }
 }

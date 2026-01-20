@@ -15,7 +15,7 @@ import type {
   GitIdentityMode,
   Group,
   GroupId,
-  GroupSetOrigin,
+  GroupSetKind,
   LmsContextKey,
   LmsGroupSetCacheEntry,
   OperationConfigs,
@@ -43,18 +43,13 @@ type DocumentStatus = "empty" | "loading" | "loaded" | "error"
 
 /**
  * Selection state for the assignment tab sidebar.
- * Supports both assignment selection and special aggregation views.
  * This state is NOT part of undo/redo to avoid surprising behavior.
  */
-export type AssignmentSelection =
-  | { mode: "all-group-sets" }
-  | { mode: "unused-group-sets" }
-  | { mode: "unassigned-students" }
-  | { mode: "assignment"; id: AssignmentId }
+export type AssignmentSelection = { mode: "assignment"; id: AssignmentId }
 
 /**
  * Compute the default assignment selection based on roster state.
- * Priority: first assignment > all-group-sets if cache exists > null
+ * Priority: first assignment > null
  */
 function computeDefaultSelection(
   roster: Roster | null,
@@ -63,10 +58,6 @@ function computeDefaultSelection(
   // If assignments exist, select the first one
   if (roster.assignments.length > 0) {
     return { mode: "assignment", id: roster.assignments[0].id }
-  }
-  // If cache entries exist, show all group sets view
-  if (roster.lms_group_sets && roster.lms_group_sets.length > 0) {
-    return { mode: "all-group-sets" }
   }
   return null
 }
@@ -846,9 +837,10 @@ export const useProfileStore = create<ProfileStore>()(
           if (!roster) return
           const entry: LmsGroupSetCacheEntry = {
             id: setId,
-            origin: "local" as GroupSetOrigin,
+            kind: "copied" as GroupSetKind,
             name: name.trim(),
             groups: [],
+            filter: null,
             fetched_at: null,
             lms_group_set_id: null,
             lms_type: context.lms_type,
@@ -883,14 +875,15 @@ export const useProfileStore = create<ProfileStore>()(
           if (!roster) return
           const entry: LmsGroupSetCacheEntry = {
             id: setId,
-            origin: "local" as GroupSetOrigin,
+            kind: "copied" as GroupSetKind,
             name: `${source.name} (local)`,
             groups: duplicatedGroups,
-            fetched_at: null,
-            lms_group_set_id: null,
-            lms_type: context.lms_type,
-            base_url: context.base_url,
-            course_id: context.course_id,
+            filter: source.filter ?? null,
+            fetched_at: source.fetched_at ?? null,
+            lms_group_set_id: source.lms_group_set_id ?? null,
+            lms_type: source.lms_type ?? context.lms_type,
+            base_url: source.base_url ?? context.base_url,
+            course_id: source.course_id ?? context.course_id,
           }
           if (!roster.lms_group_sets) {
             roster.lms_group_sets = [entry]
@@ -908,7 +901,7 @@ export const useProfileStore = create<ProfileStore>()(
           const entry = state.document?.roster?.lms_group_sets?.find(
             (groupSet) => groupSet.id === setId,
           )
-          if (!entry || entry.origin !== "local") return
+          if (!entry || entry.kind !== "copied") return
           entry.name = trimmed
         })
       },
@@ -918,7 +911,7 @@ export const useProfileStore = create<ProfileStore>()(
           const entry = state.document?.roster?.lms_group_sets?.find(
             (groupSet) => groupSet.id === setId,
           )
-          if (!entry || entry.origin !== "local") return
+          if (!entry || entry.kind !== "copied") return
           entry.groups.push(group)
         })
       },
@@ -928,7 +921,7 @@ export const useProfileStore = create<ProfileStore>()(
           const entry = state.document?.roster?.lms_group_sets?.find(
             (groupSet) => groupSet.id === setId,
           )
-          if (!entry || entry.origin !== "local") return
+          if (!entry || entry.kind !== "copied") return
           const group = entry.groups.find((g) => g.id === groupId)
           if (!group) return
           Object.assign(group, updates)
@@ -940,7 +933,7 @@ export const useProfileStore = create<ProfileStore>()(
           const entry = state.document?.roster?.lms_group_sets?.find(
             (groupSet) => groupSet.id === setId,
           )
-          if (!entry || entry.origin !== "local") return
+          if (!entry || entry.kind !== "copied") return
           entry.groups = entry.groups.filter((group) => group.id !== groupId)
         })
       },

@@ -36,8 +36,7 @@ pub struct Assignment {
   pub description: Option<String>,
   pub assignment_type: AssignmentType,
   pub groups: Vec<Group>,
-  pub group_set_cache_id: Option<String>,
-  pub source_fetched_at: Option<String>,
+  pub group_set_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -68,7 +67,7 @@ pub struct AssignmentMetadata {
   pub name: String,
   pub description: Option<String>,
   pub assignment_type: AssignmentType,
-  pub group_set_cache_id: Option<String>,
+  pub group_set_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,12 +256,14 @@ pub struct GroupImportSummary {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum GroupSetOrigin {
-  #[serde(rename = "lms")]
+pub enum GroupSetKind {
+  #[serde(rename = "unlinked")]
+  Unlinked,
+  #[serde(rename = "linked")]
   #[default]
-  Lms,
-  #[serde(rename = "local")]
-  Local,
+  Linked,
+  #[serde(rename = "copied")]
+  Copied,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -347,15 +348,15 @@ pub struct LmsGroupSet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LmsGroupSetCacheEntry {
   pub id: String,
-  #[serde(default)]
-  pub origin: GroupSetOrigin,
+  pub kind: GroupSetKind,
   pub name: String,
   pub groups: Vec<CachedLmsGroup>,
+  pub filter: Option<GroupFilter>,
   pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
   pub lms_group_set_id: Option<String>,
-  pub lms_type: LmsType,
-  pub base_url: String,
-  pub course_id: String,
+  pub lms_type: Option<LmsType>,
+  pub base_url: Option<String>,
+  pub course_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
