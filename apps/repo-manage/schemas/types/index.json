@@ -34,6 +34,10 @@
       "path": "./AssignmentMetadata.schema.json"
     },
     {
+      "name": "CachedLmsGroup",
+      "path": "./CachedLmsGroup.schema.json"
+    },
+    {
       "name": "CloneConfig",
       "path": "./CloneConfig.schema.json"
     },
@@ -126,6 +130,10 @@
       "path": "./GroupImportSummary.schema.json"
     },
     {
+      "name": "GroupSetOrigin",
+      "path": "./GroupSetOrigin.schema.json"
+    },
+    {
       "name": "GroupFileImportResult",
       "path": "./GroupFileImportResult.schema.json"
     },
@@ -158,12 +166,20 @@
       "path": "./LmsConnection.schema.json"
     },
     {
+      "name": "LmsContextKey",
+      "path": "./LmsContextKey.schema.json"
+    },
+    {
       "name": "LmsGroup",
       "path": "./LmsGroup.schema.json"
     },
     {
       "name": "LmsGroupSet",
       "path": "./LmsGroupSet.schema.json"
+    },
+    {
+      "name": "LmsGroupSetCacheEntry",
+      "path": "./LmsGroupSetCacheEntry.schema.json"
     },
     {
       "name": "LmsOperationContext",

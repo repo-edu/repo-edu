@@ -310,6 +310,7 @@ const buildRosterIssueCard = (
     empty_group: "Empty groups",
     unassigned_student: "Unassigned students",
     missing_email: "Missing emails",
+    cached_group_resolution_pending: "Cached groups need re-resolution",
   }
 
   // For student-related issues, show names instead of IDs
@@ -350,6 +351,7 @@ const buildAssignmentIssueCard = (
     empty_group: "Empty groups",
     unassigned_student: "Unassigned students",
     missing_email: "Missing emails",
+    cached_group_resolution_pending: "Cached groups need re-resolution",
   }
 
   return {

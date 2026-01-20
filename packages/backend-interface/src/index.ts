@@ -28,9 +28,12 @@ import type {
   ImportGroupsResult,
   ImportStudentsResult,
   LmsConnection,
+  LmsContextKey,
   LmsGroup,
   LmsGroupSet,
+  LmsGroupSetCacheEntry,
   LmsOperationContext,
+  LmsType,
   LmsVerifyResult,
   OperationResult,
   ProfileSettings,
@@ -186,6 +189,74 @@ export interface BackendAPI {
     context: LmsOperationContext,
     groupSetId: string,
   ): Promise<Result<LmsGroup[], AppError>>
+
+  /**
+   * Fetch and cache a group-set in the roster
+   */
+  cacheLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster | null,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>>
+
+  /**
+   * Refresh a cached group-set from LMS
+   */
+  refreshCachedLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>>
+
+  /**
+   * Delete a cached group-set from the roster
+   */
+  deleteCachedLmsGroupSet(
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>>
+
+  /**
+   * List cached group-sets from the roster
+   */
+  listCachedLmsGroupSets(
+    roster: Roster,
+  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>>
+
+  /**
+   * Re-cache the LMS group-set referenced by an assignment
+   */
+  recacheGroupSetForAssignment(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>>
+
+  /**
+   * Detach an assignment from its cached LMS group-set
+   */
+  detachAssignmentSource(
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>>
+
+  /**
+   * Apply a cached LMS group-set to an assignment
+   */
+  applyCachedGroupSetToAssignment(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<ImportGroupsResult, AppError>>
+
+  /**
+   * Normalize LMS context fields (type, base URL, course)
+   */
+  normalizeContext(
+    lmsType: LmsType,
+    baseUrl: string,
+    courseId: string,
+  ): Promise<Result<LmsContextKey, AppError>>
 
   /**
    * Import groups from LMS group-set into assignment

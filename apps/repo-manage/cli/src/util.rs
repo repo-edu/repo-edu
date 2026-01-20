@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use repo_manage_core::roster::{AssignmentId, Roster};
 use repo_manage_core::{
-    settings::ConfigError, GitConnection, GitIdentityMode, GitServerType, LmsOperationContext,
-    RepoOperationContext, SettingsManager,
+    context, settings::ConfigError, GitConnection, GitIdentityMode, GitServerType, LmsContextKey,
+    LmsOperationContext, RepoOperationContext, SettingsManager,
 };
 use std::io::{self, Write};
 
@@ -73,6 +73,15 @@ pub fn load_lms_context(manager: &SettingsManager, profile: &str) -> Result<LmsO
         connection,
         course_id: profile_settings.course.id.clone(),
     })
+}
+
+pub fn load_lms_context_key(manager: &SettingsManager, profile: &str) -> Result<LmsContextKey> {
+    let context = load_lms_context(manager, profile)?;
+    Ok(context::normalize_context(
+        context.connection.lms_type,
+        &context.connection.base_url,
+        &context.course_id,
+    ))
 }
 
 pub fn resolve_identity_mode(connection: &GitConnection) -> GitIdentityMode {

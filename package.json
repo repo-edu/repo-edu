@@ -13,7 +13,7 @@
         "lint:rs:fix": "cargo clippy --workspace --all-targets --all-features --fix --allow-dirty",
         "typecheck:rs": "cargo check --workspace --all-targets --all-features",
         "check:rs": "pnpm lint:rs && pnpm typecheck:rs",
-        "test:rs": "cargo test --workspace",
+        "test:rs": "node scripts/cargo-test.mjs",
         "fmt:md": "rumdl fmt",
         "fmt": "pnpm fmt:ts && pnpm fmt:rs && pnpm fmt:md",
         "lint:md": "rumdl check",

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsContextKey",
+  "type": "object",
+  "properties": {
+    "lms_type": {
+      "$ref": "./LmsType.schema.json"
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "course_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "lms_type",
+    "base_url",
+    "course_id"
+  ],
+  "description": "Normalized LMS context fingerprint (no secrets)"
+}

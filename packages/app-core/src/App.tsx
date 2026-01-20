@@ -47,7 +47,12 @@ import {
   StudentEditorSheet,
 } from "./components/sheets"
 import { ToastStack } from "./components/ToastStack"
-import { AssignmentTab, OperationTab, RosterTab } from "./components/tabs"
+import {
+  AssignmentTab,
+  GroupTab,
+  OperationTab,
+  RosterTab,
+} from "./components/tabs"
 import { UtilityBar } from "./components/UtilityBar"
 import { DEFAULT_GUI_THEME } from "./constants"
 import { useCloseGuard } from "./hooks/useCloseGuard"
@@ -279,6 +284,7 @@ function App() {
               <div className="flex items-center border-b">
                 <TabsList>
                   <TabsTrigger value="roster">Roster</TabsTrigger>
+                  <TabsTrigger value="group">Group</TabsTrigger>
                   <TabsTrigger value="assignment">Assignment</TabsTrigger>
                   <TabsTrigger value="operation">Operation</TabsTrigger>
                 </TabsList>
@@ -327,6 +333,15 @@ function App() {
               >
                 <div className="flex-1 overflow-auto">
                   <RosterTab isDirty={isDirty} />
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="group"
+                className="flex-1 flex flex-col min-h-0 p-1"
+              >
+                <div className="flex-1 overflow-auto">
+                  <GroupTab />
                 </div>
               </TabsContent>
 

@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use super::slug::compute_repo_name;
 use super::types::{
-    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, Roster,
-    StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
+    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, GroupSetOrigin,
+    Roster, StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
 };
 
 const DEFAULT_REPO_TEMPLATE: &str = "{assignment}-{group}";
@@ -80,6 +80,27 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
             affected_ids: duplicate_assignments,
             context: None,
         });
+    }
+
+    if let Some(group_sets) = roster.lms_group_sets.as_ref() {
+        for group_set in group_sets {
+            if group_set.origin == GroupSetOrigin::Local {
+                continue;
+            }
+            let mut affected = Vec::new();
+            for group in &group_set.groups {
+                if group.needs_reresolution || group.unresolved_count > 0 {
+                    affected.push(group.name.clone());
+                }
+            }
+            if !affected.is_empty() {
+                issues.push(ValidationIssue {
+                    kind: ValidationKind::CachedGroupResolutionPending,
+                    affected_ids: sorted_strings(affected),
+                    context: Some(group_set.name.clone()),
+                });
+            }
+        }
     }
 
     ValidationResult { issues }
@@ -350,10 +371,13 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{validate_assignment, validate_roster};
+    use crate::generated::types::{CachedLmsGroup, GroupSetOrigin, LmsGroupSetCacheEntry};
     use crate::roster::types::{
         Assignment, AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, Group,
         GroupId, Roster, Student, StudentId, StudentStatus,
     };
+    use chrono::TimeZone;
+    use lms_common::LmsType;
 
     fn build_student(id: &str, email: &str) -> Student {
         Student {
@@ -378,6 +402,7 @@ mod tests {
                 build_student("dup", "dup@example.com"),
             ],
             assignments: vec![],
+            lms_group_sets: Some(Vec::new()),
         };
 
         let result = validate_roster(&roster);
@@ -414,8 +439,10 @@ mod tests {
                         member_ids: vec![StudentId("s1".to_string())],
                     },
                 ],
-                lms_group_set_id: None,
+                group_set_cache_id: None,
+                source_fetched_at: None,
             }],
+            lms_group_sets: Some(Vec::new()),
         };
 
         let result = validate_assignment(
@@ -437,5 +464,45 @@ mod tests {
     fn validation_kind_is_blocking() {
         assert!(super::ValidationKind::DuplicateEmail.is_blocking());
         assert!(super::ValidationKind::EmptyGroup.is_blocking());
+    }
+
+    #[test]
+    fn validate_roster_flags_cached_group_resolution_pending() {
+        let group = CachedLmsGroup {
+            id: "g1".to_string(),
+            name: "Group One".to_string(),
+            lms_member_ids: vec!["u1".to_string()],
+            resolved_member_ids: Vec::new(),
+            unresolved_count: 1,
+            needs_reresolution: false,
+        };
+        let group_set = LmsGroupSetCacheEntry {
+            id: "set-1".to_string(),
+            origin: GroupSetOrigin::Lms,
+            name: "Set One".to_string(),
+            groups: vec![group],
+            fetched_at: Some(chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()),
+            lms_group_set_id: Some("set-1".to_string()),
+            lms_type: LmsType::Canvas,
+            base_url: "https://example.edu".to_string(),
+            course_id: "course-1".to_string(),
+        };
+
+        let roster = Roster {
+            source: None,
+            students: vec![],
+            assignments: vec![],
+            lms_group_sets: Some(vec![group_set]),
+        };
+
+        let result = validate_roster(&roster);
+        let issue = result
+            .issues
+            .iter()
+            .find(|issue| issue.kind == super::ValidationKind::CachedGroupResolutionPending);
+        assert!(issue.is_some());
+        let issue = issue.unwrap();
+        assert_eq!(issue.context.as_deref(), Some("Set One"));
+        assert_eq!(issue.affected_ids, vec!["Group One".to_string()]);
     }
 }

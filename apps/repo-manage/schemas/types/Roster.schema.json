@@ -24,6 +24,12 @@
       "items": {
         "$ref": "./Assignment.schema.json"
       }
+    },
+    "lms_group_sets": {
+      "type": "array",
+      "items": {
+        "$ref": "./LmsGroupSetCacheEntry.schema.json"
+      }
     }
   },
   "additionalProperties": false,

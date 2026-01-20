@@ -22,7 +22,7 @@
     "assignment_type": {
       "$ref": "./AssignmentType.schema.json"
     },
-    "lms_group_set_id": {
+    "group_set_cache_id": {
       "anyOf": [
         {
           "type": "string"

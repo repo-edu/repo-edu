@@ -31,9 +31,11 @@ export function GroupsPane({
   onFileImportExport,
 }: GroupsPaneProps) {
   const removeGroup = useProfileStore((state) => state.removeGroup)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const setAddGroupDialogOpen = useUiStore(
     (state) => state.setAddGroupDialogOpen,
   )

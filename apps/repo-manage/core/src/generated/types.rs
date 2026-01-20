@@ -36,7 +36,8 @@ pub struct Assignment {
   pub description: Option<String>,
   pub assignment_type: AssignmentType,
   pub groups: Vec<Group>,
-  pub lms_group_set_id: Option<String>,
+  pub group_set_cache_id: Option<String>,
+  pub source_fetched_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -67,7 +68,17 @@ pub struct AssignmentMetadata {
   pub name: String,
   pub description: Option<String>,
   pub assignment_type: AssignmentType,
-  pub lms_group_set_id: Option<String>,
+  pub group_set_cache_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedLmsGroup {
+  pub id: String,
+  pub name: String,
+  pub lms_member_ids: Vec<String>,
+  pub resolved_member_ids: Vec<StudentId>,
+  pub unresolved_count: i64,
+  pub needs_reresolution: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,6 +256,15 @@ pub struct GroupImportSummary {
   pub filter_applied: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum GroupSetOrigin {
+  #[serde(rename = "lms")]
+  #[default]
+  Lms,
+  #[serde(rename = "local")]
+  Local,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupFileImportResult {
   pub summary: GroupFileImportSummary,
@@ -304,6 +324,13 @@ pub struct LmsConnection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsContextKey {
+  pub lms_type: LmsType,
+  pub base_url: String,
+  pub course_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LmsGroup {
   pub id: String,
   pub name: String,
@@ -315,6 +342,20 @@ pub struct LmsGroupSet {
   pub id: String,
   pub name: String,
   pub groups: Vec<LmsGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmsGroupSetCacheEntry {
+  pub id: String,
+  #[serde(default)]
+  pub origin: GroupSetOrigin,
+  pub name: String,
+  pub groups: Vec<CachedLmsGroup>,
+  pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
+  pub lms_group_set_id: Option<String>,
+  pub lms_type: LmsType,
+  pub base_url: String,
+  pub course_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -445,6 +486,7 @@ pub struct Roster {
   pub source: Option<RosterSource>,
   pub students: Vec<Student>,
   pub assignments: Vec<Assignment>,
+  pub lms_group_sets: Option<Vec<LmsGroupSetCacheEntry>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -632,6 +674,8 @@ pub enum ValidationKind {
   UnassignedStudent,
   #[serde(rename = "missing_email")]
   MissingEmail,
+  #[serde(rename = "cached_group_resolution_pending")]
+  CachedGroupResolutionPending,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

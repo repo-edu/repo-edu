@@ -64,9 +64,11 @@ export function OperationTab() {
   const append = useOutputStore((state) => state.append)
 
   // Use shared assignment selection from profileStore
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const selectAssignment = useProfileStore((state) => state.selectAssignment)
 
   // Read form values from store (with defaults)

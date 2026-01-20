@@ -193,6 +193,142 @@
       "output": "Vec<LmsGroup>",
       "error": "AppError"
     },
+    "cache_lms_group_set": {
+      "description": "Fetch and cache a group-set in the roster",
+      "input": [
+        {
+          "name": "context",
+          "type": "LmsOperationContext"
+        },
+        {
+          "name": "roster",
+          "type": "Option<Roster>"
+        },
+        {
+          "name": "group_set_id",
+          "type": "String"
+        }
+      ],
+      "output": "Roster",
+      "error": "AppError"
+    },
+    "refresh_cached_lms_group_set": {
+      "description": "Refresh a cached group-set from LMS",
+      "input": [
+        {
+          "name": "context",
+          "type": "LmsOperationContext"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "group_set_id",
+          "type": "String"
+        }
+      ],
+      "output": "Roster",
+      "error": "AppError"
+    },
+    "delete_cached_lms_group_set": {
+      "description": "Delete a cached group-set from the roster",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "group_set_id",
+          "type": "String"
+        }
+      ],
+      "output": "Roster",
+      "error": "AppError"
+    },
+    "list_cached_lms_group_sets": {
+      "description": "List cached group-sets from the roster",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        }
+      ],
+      "output": "Vec<LmsGroupSetCacheEntry>",
+      "error": "AppError"
+    },
+    "recache_group_set_for_assignment": {
+      "description": "Re-cache the LMS group-set referenced by an assignment",
+      "input": [
+        {
+          "name": "context",
+          "type": "LmsOperationContext"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        }
+      ],
+      "output": "Roster",
+      "error": "AppError"
+    },
+    "detach_assignment_source": {
+      "description": "Detach an assignment from its cached LMS group-set",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        }
+      ],
+      "output": "Roster",
+      "error": "AppError"
+    },
+    "apply_cached_group_set_to_assignment": {
+      "description": "Apply a cached LMS group-set to an assignment",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "assignment_id",
+          "type": "AssignmentId"
+        },
+        {
+          "name": "config",
+          "type": "GroupImportConfig"
+        }
+      ],
+      "output": "ImportGroupsResult",
+      "error": "AppError"
+    },
+    "normalize_context": {
+      "description": "Normalize LMS context fields (type, base URL, course)",
+      "input": [
+        {
+          "name": "lms_type",
+          "type": "LmsType"
+        },
+        {
+          "name": "base_url",
+          "type": "String"
+        },
+        {
+          "name": "course_id",
+          "type": "String"
+        }
+      ],
+      "output": "LmsContextKey",
+      "error": "AppError"
+    },
     "import_groups_from_lms": {
       "description": "Import groups from LMS group-set into assignment",
       "input": [

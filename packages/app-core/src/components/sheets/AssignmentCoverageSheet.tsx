@@ -29,9 +29,11 @@ export function AssignmentCoverageSheet() {
   const setDataOverviewOpen = useUiStore((state) => state.setDataOverviewOpen)
 
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const addGroup = useProfileStore((state) => state.addGroup)
   const updateGroup = useProfileStore((state) => state.updateGroup)
 

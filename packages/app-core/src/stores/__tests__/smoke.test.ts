@@ -7,6 +7,7 @@ import type {
   ExportSettings,
   OperationConfigs,
   ProfileSettings,
+  Roster,
   Student,
 } from "@repo-edu/backend-interface/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -203,7 +204,7 @@ describe("Store Smoke Tests", () => {
                     member_ids: [studentId],
                   },
                 ],
-                lms_group_set_id: null,
+                group_set_cache_id: null,
               },
             ],
           },
@@ -226,7 +227,105 @@ describe("Store Smoke Tests", () => {
     it("smoke: selectAssignment updates selection", () => {
       const assignmentId = generateAssignmentId()
       useProfileStore.getState().selectAssignment(assignmentId)
-      expect(useProfileStore.getState().selectedAssignmentId).toBe(assignmentId)
+      const selection = useProfileStore.getState().assignmentSelection
+      expect(selection).toEqual({ mode: "assignment", id: assignmentId })
+    })
+
+    it("smoke: setAssignmentSelection updates selection with aggregation mode", () => {
+      useProfileStore
+        .getState()
+        .setAssignmentSelection({ mode: "all-group-sets" })
+      const selection = useProfileStore.getState().assignmentSelection
+      expect(selection).toEqual({ mode: "all-group-sets" })
+    })
+
+    it("smoke: default selection prefers assignments over cache", () => {
+      const assignmentId = generateAssignmentId()
+      const roster: Roster = {
+        source: null,
+        students: [],
+        assignments: [
+          {
+            id: assignmentId,
+            name: "Assignment 1",
+            description: null,
+            assignment_type: "class_wide",
+            groups: [],
+            group_set_cache_id: null,
+            source_fetched_at: null,
+          },
+        ],
+        lms_group_sets: [
+          {
+            id: "set-1",
+            origin: "lms",
+            name: "Set 1",
+            groups: [],
+            fetched_at: new Date().toISOString(),
+            lms_group_set_id: "set-1",
+            lms_type: "canvas",
+            base_url: "https://example.edu",
+            course_id: "course-1",
+          },
+        ],
+      }
+
+      useProfileStore.getState().setDocument({
+        settings: createTestSettings(),
+        roster,
+        resolvedIdentityMode: "username",
+      })
+
+      const selection = useProfileStore.getState().assignmentSelection
+      expect(selection).toEqual({ mode: "assignment", id: assignmentId })
+    })
+
+    it("smoke: default selection uses cache when no assignments", () => {
+      const roster: Roster = {
+        source: null,
+        students: [],
+        assignments: [],
+        lms_group_sets: [
+          {
+            id: "set-1",
+            origin: "lms",
+            name: "Set 1",
+            groups: [],
+            fetched_at: new Date().toISOString(),
+            lms_group_set_id: "set-1",
+            lms_type: "canvas",
+            base_url: "https://example.edu",
+            course_id: "course-1",
+          },
+        ],
+      }
+
+      useProfileStore.getState().setDocument({
+        settings: createTestSettings(),
+        roster,
+        resolvedIdentityMode: "username",
+      })
+
+      const selection = useProfileStore.getState().assignmentSelection
+      expect(selection).toEqual({ mode: "all-group-sets" })
+    })
+
+    it("smoke: default selection is null when roster is empty", () => {
+      const roster: Roster = {
+        source: null,
+        students: [],
+        assignments: [],
+        lms_group_sets: [],
+      }
+
+      useProfileStore.getState().setDocument({
+        settings: createTestSettings(),
+        roster,
+        resolvedIdentityMode: "username",
+      })
+
+      const selection = useProfileStore.getState().assignmentSelection
+      expect(selection).toBeNull()
     })
   })
 

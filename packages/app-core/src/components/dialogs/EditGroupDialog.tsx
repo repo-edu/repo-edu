@@ -24,9 +24,11 @@ export function EditGroupDialog() {
   const [selectedMembers, setSelectedMembers] = useState<StudentId[]>([])
 
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const updateGroup = useProfileStore((state) => state.updateGroup)
   const open = useUiStore((state) => state.editGroupDialogOpen)
   const setOpen = useUiStore((state) => state.setEditGroupDialogOpen)

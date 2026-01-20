@@ -2,6 +2,11 @@
  * Confirmation dialog shown when importing groups would replace existing ones.
  */
 
+import type {
+  AppError,
+  ImportGroupsResult,
+  Result,
+} from "@repo-edu/backend-interface/types"
 import {
   Alert,
   Button,
@@ -25,9 +30,11 @@ export function ReplaceGroupsConfirmationDialog() {
   const [error, setError] = useState<string | null>(null)
 
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const setRoster = useProfileStore((state) => state.setRoster)
   const courseId = useProfileStore(
     (state) => state.document?.settings.course.id ?? "",
@@ -38,6 +45,12 @@ export function ReplaceGroupsConfirmationDialog() {
   const pendingGroupImport = useUiStore((state) => state.pendingGroupImport)
   const setPendingGroupImport = useUiStore(
     (state) => state.setPendingGroupImport,
+  )
+  const pendingGroupImportSource = useUiStore(
+    (state) => state.pendingGroupImportSource,
+  )
+  const setPendingGroupImportSource = useUiStore(
+    (state) => state.setPendingGroupImportSource,
   )
   const setImportGroupsDialogOpen = useUiStore(
     (state) => state.setImportGroupsDialogOpen,
@@ -65,7 +78,7 @@ export function ReplaceGroupsConfirmationDialog() {
       handleClose()
       return
     }
-    if (!lmsContext) {
+    if (pendingGroupImportSource !== "cached" && !lmsContext) {
       setError(lmsContextError)
       return
     }
@@ -73,14 +86,32 @@ export function ReplaceGroupsConfirmationDialog() {
     setLoading(true)
     setError(null)
     try {
-      const result = await commands.importGroupsFromLms(
-        lmsContext,
-        roster,
-        selectedAssignmentId,
-        pendingGroupImport,
-      )
+      let result: Result<ImportGroupsResult, AppError>
+      if (pendingGroupImportSource === "cached") {
+        result = await commands.applyCachedGroupSetToAssignment(
+          roster,
+          selectedAssignmentId,
+          pendingGroupImport,
+        )
+      } else {
+        if (!lmsContext) {
+          setError(lmsContextError)
+          return
+        }
+        result = await commands.importGroupsFromLms(
+          lmsContext,
+          roster,
+          selectedAssignmentId,
+          pendingGroupImport,
+        )
+      }
       if (result.status === "ok") {
-        setRoster(result.data.roster, "Replace groups from LMS")
+        setRoster(
+          result.data.roster,
+          pendingGroupImportSource === "cached"
+            ? "Replace groups from cached set"
+            : "Replace groups from LMS",
+        )
         handleClose()
         setImportGroupsDialogOpen(false)
       } else {
@@ -96,6 +127,7 @@ export function ReplaceGroupsConfirmationDialog() {
   const handleClose = () => {
     setOpen(false)
     setPendingGroupImport(null)
+    setPendingGroupImportSource(null)
     setError(null)
   }
 
@@ -119,7 +151,11 @@ export function ReplaceGroupsConfirmationDialog() {
           <Text variant="muted" asChild>
             <p className="mt-2">
               Importing will replace all existing groups with the selected
-              groups from the LMS.
+              groups from the{" "}
+              {pendingGroupImportSource === "cached"
+                ? "cached group set"
+                : "LMS"}
+              .
             </p>
           </Text>
         </div>

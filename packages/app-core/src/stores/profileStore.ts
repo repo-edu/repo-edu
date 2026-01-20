@@ -8,12 +8,16 @@ import type {
   Assignment,
   AssignmentId,
   AssignmentMetadata,
+  CachedLmsGroup,
   CourseInfo,
   CoverageReport,
   ExportSettings,
   GitIdentityMode,
   Group,
   GroupId,
+  GroupSetOrigin,
+  LmsContextKey,
+  LmsGroupSetCacheEntry,
   OperationConfigs,
   ProfileSettings,
   Roster,
@@ -30,17 +34,49 @@ import {
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { commands } from "../bindings/commands"
+import { generateGroupId, generateGroupSetId } from "../utils/nanoid"
 import { useAppSettingsStore } from "./appSettingsStore"
 import { useConnectionsStore } from "./connectionsStore"
 import { useOutputStore } from "./outputStore"
 
 type DocumentStatus = "empty" | "loading" | "loaded" | "error"
 
+/**
+ * Selection state for the assignment tab sidebar.
+ * Supports both assignment selection and special aggregation views.
+ * This state is NOT part of undo/redo to avoid surprising behavior.
+ */
+export type AssignmentSelection =
+  | { mode: "all-group-sets" }
+  | { mode: "unused-group-sets" }
+  | { mode: "unassigned-students" }
+  | { mode: "assignment"; id: AssignmentId }
+
+/**
+ * Compute the default assignment selection based on roster state.
+ * Priority: first assignment > all-group-sets if cache exists > null
+ */
+function computeDefaultSelection(
+  roster: Roster | null,
+): AssignmentSelection | null {
+  if (!roster) return null
+  // If assignments exist, select the first one
+  if (roster.assignments.length > 0) {
+    return { mode: "assignment", id: roster.assignments[0].id }
+  }
+  // If cache entries exist, show all group sets view
+  if (roster.lms_group_sets && roster.lms_group_sets.length > 0) {
+    return { mode: "all-group-sets" }
+  }
+  return null
+}
+
 // Stable fallback objects to avoid infinite re-render loops in selectors
 const EMPTY_COURSE: CourseInfo = { id: "", name: "" }
 const EMPTY_STUDENTS: Student[] = []
 const EMPTY_ASSIGNMENTS: Assignment[] = []
 const EMPTY_GROUPS: Group[] = []
+const EMPTY_LMS_GROUP_SETS: LmsGroupSetCacheEntry[] = []
 const HISTORY_LIMIT = 100
 
 enablePatches()
@@ -57,8 +93,8 @@ interface ProfileState {
   error: string | null
   warnings: string[]
 
-  // Profile-scoped selection
-  selectedAssignmentId: AssignmentId | null
+  // Profile-scoped selection (NOT part of undo/redo)
+  assignmentSelection: AssignmentSelection | null
 
   // Validation results (computed on changes, debounced)
   rosterValidation: ValidationResult | null
@@ -104,6 +140,10 @@ interface ProfileActions {
     updates: Partial<AssignmentMetadata>,
   ) => void
   removeAssignment: (id: AssignmentId) => void
+
+  // Selection (not part of undo/redo)
+  setAssignmentSelection: (selection: AssignmentSelection | null) => void
+  /** @deprecated Use setAssignmentSelection instead */
   selectAssignment: (id: AssignmentId | null) => void
 
   // Group CRUD
@@ -114,6 +154,21 @@ interface ProfileActions {
     updates: Partial<Group>,
   ) => void
   removeGroup: (assignmentId: AssignmentId, groupId: GroupId) => void
+
+  // Cached group set CRUD (local only)
+  createLocalGroupSet: (name: string, context: LmsContextKey) => string | null
+  duplicateGroupSetAsLocal: (
+    sourceId: string,
+    context: LmsContextKey,
+  ) => string | null
+  renameLocalGroupSet: (setId: string, name: string) => void
+  addLocalGroup: (setId: string, group: CachedLmsGroup) => void
+  updateLocalGroup: (
+    setId: string,
+    groupId: string,
+    updates: Partial<CachedLmsGroup>,
+  ) => void
+  removeLocalGroup: (setId: string, groupId: string) => void
 
   // Roster replacement (for imports)
   setRoster: (roster: Roster, description?: string) => void
@@ -158,7 +213,7 @@ interface HistoryEntry {
 
 interface UndoState {
   document: ProfileDocument | null
-  selectedAssignmentId: AssignmentId | null
+  // Note: assignmentSelection is NOT part of undo/redo
 }
 
 // Default values
@@ -190,7 +245,7 @@ const initialState: ProfileState = {
   status: "empty",
   error: null,
   warnings: [],
-  selectedAssignmentId: null,
+  assignmentSelection: null,
   rosterValidation: null,
   assignmentValidation: null,
   assignmentValidations: {},
@@ -238,7 +293,7 @@ export const useProfileStore = create<ProfileStore>()(
     const applyUndoState = (nextState: UndoState, entry?: HistoryEntry) => {
       set((state) => {
         state.document = nextState.document
-        state.selectedAssignmentId = nextState.selectedAssignmentId
+        // Note: assignmentSelection is NOT part of undo/redo
         if (entry) {
           state.history.push(entry)
           if (state.history.length > HISTORY_LIMIT) {
@@ -255,7 +310,7 @@ export const useProfileStore = create<ProfileStore>()(
     ) => {
       const current: UndoState = {
         document: get().document,
-        selectedAssignmentId: get().selectedAssignmentId,
+        // Note: assignmentSelection is NOT part of undo/redo
       }
       const [nextState, patches, inversePatches] = produceWithPatches(
         current,
@@ -330,7 +385,7 @@ export const useProfileStore = create<ProfileStore>()(
                 state.status = "loaded"
                 state.error = null
                 state.warnings = []
-                state.selectedAssignmentId = null
+                state.assignmentSelection = null
                 state.rosterValidation = null
                 state.assignmentValidation = null
                 state.assignmentValidations = {}
@@ -375,7 +430,7 @@ export const useProfileStore = create<ProfileStore>()(
               state.status = "loaded"
               state.error = null
               state.warnings = warnings
-              state.selectedAssignmentId = null
+              state.assignmentSelection = null
               state.rosterValidation = null
               state.assignmentValidation = null
               state.assignmentValidations = {}
@@ -420,7 +475,7 @@ export const useProfileStore = create<ProfileStore>()(
             state.status = "loaded"
             state.error = null
             state.warnings = warnings
-            state.selectedAssignmentId = roster?.assignments[0]?.id ?? null
+            state.assignmentSelection = computeDefaultSelection(roster)
             state.assignmentValidation = null
             state.assignmentValidations = {}
             state.history = []
@@ -510,8 +565,7 @@ export const useProfileStore = create<ProfileStore>()(
         set((state) => {
           state.document = document
           state.status = "loaded"
-          state.selectedAssignmentId =
-            document.roster?.assignments[0]?.id ?? null
+          state.assignmentSelection = computeDefaultSelection(document.roster)
           state.assignmentValidation = null
           state.assignmentValidations = {}
           state.history = []
@@ -524,7 +578,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.status = "empty"
           state.error = null
           state.warnings = []
-          state.selectedAssignmentId = null
+          state.assignmentSelection = null
           state.rosterValidation = null
           state.assignmentValidation = null
           state.assignmentValidations = {}
@@ -650,7 +704,7 @@ export const useProfileStore = create<ProfileStore>()(
       },
 
       // Assignment CRUD
-      addAssignment: (assignment, options) =>
+      addAssignment: (assignment, options) => {
         mutateRoster(`Add assignment ${assignment.name}`, (state) => {
           if (!state.document) return
           if (!state.document.roster) {
@@ -662,10 +716,14 @@ export const useProfileStore = create<ProfileStore>()(
           } else {
             state.document.roster.assignments.push(assignment)
           }
-          if (options?.select) {
-            state.selectedAssignmentId = assignment.id
-          }
-        }),
+        })
+        // Handle selection outside of undo/redo state
+        if (options?.select) {
+          set((s) => {
+            s.assignmentSelection = { mode: "assignment", id: assignment.id }
+          })
+        }
+      },
 
       updateAssignment: (id, updates) => {
         const assignmentName =
@@ -688,23 +746,44 @@ export const useProfileStore = create<ProfileStore>()(
           get().document?.roster?.assignments.find(
             (assignment) => assignment.id === id,
           )?.name ?? "assignment"
+        const currentSelection = get().assignmentSelection
         mutateRoster(`Delete assignment ${assignmentName}`, (state) => {
           if (!state.document?.roster) return
           state.document.roster.assignments =
             state.document.roster.assignments.filter((a) => a.id !== id)
-          // Cleanup selection
-          if (state.selectedAssignmentId === id) {
-            state.selectedAssignmentId =
-              state.document.roster.assignments[0]?.id ?? null
-          }
         })
+        // Cleanup selection outside of undo/redo state
+        if (
+          currentSelection?.mode === "assignment" &&
+          currentSelection.id === id
+        ) {
+          const roster = get().document?.roster ?? null
+          set((s) => {
+            s.assignmentSelection = computeDefaultSelection(roster)
+          })
+        }
       },
 
+      setAssignmentSelection: (selection) => {
+        set((state) => {
+          state.assignmentSelection = selection
+          // Update validation for assignment mode
+          if (selection?.mode === "assignment") {
+            state.assignmentValidation =
+              state.assignmentValidations[selection.id] ?? null
+          } else {
+            state.assignmentValidation = null
+          }
+        })
+        scheduleAssignmentValidation()
+      },
+
+      /** @deprecated Use setAssignmentSelection instead */
       selectAssignment: (id) => {
         set((state) => {
-          state.selectedAssignmentId = id
+          state.assignmentSelection = id ? { mode: "assignment", id } : null
           state.assignmentValidation = id
-            ? state.assignmentValidations[id]
+            ? (state.assignmentValidations[id] ?? null)
             : null
         })
         scheduleAssignmentValidation()
@@ -759,15 +838,135 @@ export const useProfileStore = create<ProfileStore>()(
         })
       },
 
+      createLocalGroupSet: (name, context) => {
+        if (!name.trim()) return null
+        const setId = generateGroupSetId()
+        mutateRoster(`Create local group set ${name}`, (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const entry: LmsGroupSetCacheEntry = {
+            id: setId,
+            origin: "local" as GroupSetOrigin,
+            name: name.trim(),
+            groups: [],
+            fetched_at: null,
+            lms_group_set_id: null,
+            lms_type: context.lms_type,
+            base_url: context.base_url,
+            course_id: context.course_id,
+          }
+          if (!roster.lms_group_sets) {
+            roster.lms_group_sets = [entry]
+          } else {
+            roster.lms_group_sets.push(entry)
+          }
+        })
+        return setId
+      },
+
+      duplicateGroupSetAsLocal: (sourceId, context) => {
+        const source = get().document?.roster?.lms_group_sets?.find(
+          (entry) => entry.id === sourceId,
+        )
+        if (!source) return null
+        const setId = generateGroupSetId()
+        const duplicatedGroups = source.groups.map((group) => ({
+          id: generateGroupId(),
+          name: group.name,
+          lms_member_ids: [],
+          resolved_member_ids: [...group.resolved_member_ids],
+          unresolved_count: 0,
+          needs_reresolution: false,
+        }))
+        mutateRoster(`Duplicate group set ${source.name}`, (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const entry: LmsGroupSetCacheEntry = {
+            id: setId,
+            origin: "local" as GroupSetOrigin,
+            name: `${source.name} (local)`,
+            groups: duplicatedGroups,
+            fetched_at: null,
+            lms_group_set_id: null,
+            lms_type: context.lms_type,
+            base_url: context.base_url,
+            course_id: context.course_id,
+          }
+          if (!roster.lms_group_sets) {
+            roster.lms_group_sets = [entry]
+          } else {
+            roster.lms_group_sets.push(entry)
+          }
+        })
+        return setId
+      },
+
+      renameLocalGroupSet: (setId, name) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        mutateRoster(`Rename group set ${trimmed}`, (state) => {
+          const entry = state.document?.roster?.lms_group_sets?.find(
+            (groupSet) => groupSet.id === setId,
+          )
+          if (!entry || entry.origin !== "local") return
+          entry.name = trimmed
+        })
+      },
+
+      addLocalGroup: (setId, group) => {
+        mutateRoster(`Add group ${group.name}`, (state) => {
+          const entry = state.document?.roster?.lms_group_sets?.find(
+            (groupSet) => groupSet.id === setId,
+          )
+          if (!entry || entry.origin !== "local") return
+          entry.groups.push(group)
+        })
+      },
+
+      updateLocalGroup: (setId, groupId, updates) => {
+        mutateRoster("Edit group", (state) => {
+          const entry = state.document?.roster?.lms_group_sets?.find(
+            (groupSet) => groupSet.id === setId,
+          )
+          if (!entry || entry.origin !== "local") return
+          const group = entry.groups.find((g) => g.id === groupId)
+          if (!group) return
+          Object.assign(group, updates)
+        })
+      },
+
+      removeLocalGroup: (setId, groupId) => {
+        mutateRoster("Delete group", (state) => {
+          const entry = state.document?.roster?.lms_group_sets?.find(
+            (groupSet) => groupSet.id === setId,
+          )
+          if (!entry || entry.origin !== "local") return
+          entry.groups = entry.groups.filter((group) => group.id !== groupId)
+        })
+      },
+
       // Roster replacement (for imports)
       setRoster: (roster, description = "Update roster") => {
         mutateDocument(description, (state) => {
           if (state.document) {
             state.document.roster = roster
-            state.selectedAssignmentId = roster.assignments[0]?.id ?? null
           }
         })
+        // Update selection outside of undo/redo, recompute default
+        const currentSelection = get().assignmentSelection
         set((state) => {
+          // If current selection is invalid, reset to default
+          if (currentSelection?.mode === "assignment") {
+            const stillExists = roster.assignments.some(
+              (a) => a.id === currentSelection.id,
+            )
+            if (!stillExists) {
+              state.assignmentSelection = computeDefaultSelection(roster)
+            }
+          } else {
+            // Keep aggregation views if valid, or reset
+            state.assignmentSelection = computeDefaultSelection(roster)
+          }
           state.assignmentValidation = null
           state.assignmentValidations = {}
         })
@@ -795,7 +994,7 @@ export const useProfileStore = create<ProfileStore>()(
       },
 
       validateAssignment: async () => {
-        const { document, selectedAssignmentId } = get()
+        const { document, assignmentSelection } = get()
         const roster = document?.roster
         if (!roster) {
           set((state) => {
@@ -824,6 +1023,10 @@ export const useProfileStore = create<ProfileStore>()(
               map[entry[0]] = entry[1]
             }
           }
+          const selectedAssignmentId =
+            assignmentSelection?.mode === "assignment"
+              ? assignmentSelection.id
+              : null
           set((state) => {
             state.assignmentValidations = map
             state.assignmentValidation = selectedAssignmentId
@@ -858,15 +1061,15 @@ export const useProfileStore = create<ProfileStore>()(
         }),
 
       undo: () => {
-        const { history, future, document, selectedAssignmentId } = get()
+        const { history, future, document } = get()
         if (history.length === 0) return null
         const entry = history[history.length - 1]
-        const current: UndoState = { document, selectedAssignmentId }
+        const current: UndoState = { document }
         const nextState = applyPatches(current, entry.inversePatches)
 
         set((state) => {
           state.document = nextState.document
-          state.selectedAssignmentId = nextState.selectedAssignmentId
+          // Note: assignmentSelection is NOT part of undo/redo
           state.history = history.slice(0, -1)
           state.future = [entry, ...future]
         })
@@ -877,15 +1080,15 @@ export const useProfileStore = create<ProfileStore>()(
       },
 
       redo: () => {
-        const { history, future, document, selectedAssignmentId } = get()
+        const { history, future, document } = get()
         if (future.length === 0) return null
         const entry = future[0]
-        const current: UndoState = { document, selectedAssignmentId }
+        const current: UndoState = { document }
         const nextState = applyPatches(current, entry.patches)
 
         set((state) => {
           state.document = nextState.document
-          state.selectedAssignmentId = nextState.selectedAssignmentId
+          // Note: assignmentSelection is NOT part of undo/redo
           state.history = [...history, entry].slice(-HISTORY_LIMIT)
           state.future = future.slice(1)
         })
@@ -916,12 +1119,23 @@ export const selectStudents = (state: ProfileStore) =>
   state.document?.roster?.students ?? EMPTY_STUDENTS
 export const selectAssignments = (state: ProfileStore) =>
   state.document?.roster?.assignments ?? EMPTY_ASSIGNMENTS
+export const selectLmsGroupSets = (state: ProfileStore) =>
+  state.document?.roster?.lms_group_sets ?? EMPTY_LMS_GROUP_SETS
+export const selectAssignmentSelection = (state: ProfileStore) =>
+  state.assignmentSelection
+/** @deprecated Use selectAssignmentSelection instead */
 export const selectSelectedAssignmentId = (state: ProfileStore) =>
-  state.selectedAssignmentId
-export const selectSelectedAssignment = (state: ProfileStore) =>
-  state.document?.roster?.assignments.find(
-    (a) => a.id === state.selectedAssignmentId,
-  ) ?? null
+  state.assignmentSelection?.mode === "assignment"
+    ? state.assignmentSelection.id
+    : null
+export const selectSelectedAssignment = (state: ProfileStore) => {
+  const selection = state.assignmentSelection
+  if (selection?.mode !== "assignment") return null
+  return (
+    state.document?.roster?.assignments.find((a) => a.id === selection.id) ??
+    null
+  )
+}
 export const selectGroups = (state: ProfileStore) =>
   selectSelectedAssignment(state)?.groups ?? EMPTY_GROUPS
 export const selectCourse = (state: ProfileStore) =>

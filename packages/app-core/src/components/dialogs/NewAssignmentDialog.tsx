@@ -42,7 +42,7 @@ export function NewAssignmentDialog() {
       description: description.trim() || null,
       assignment_type: assignmentType,
       groups: [],
-      lms_group_set_id: null,
+      group_set_cache_id: null,
     }
     addAssignment(assignment, { select: true })
     setOpen(false)

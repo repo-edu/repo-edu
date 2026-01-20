@@ -79,6 +79,7 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select"
+export { Separator } from "./components/ui/separator"
 export {
   Sheet,
   SheetClose,

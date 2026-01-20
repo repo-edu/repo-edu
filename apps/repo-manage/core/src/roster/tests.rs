@@ -14,6 +14,7 @@ mod smoke_tests {
             students: vec![student],
             assignments: vec![],
             source: None,
+            lms_group_sets: Some(Vec::new()),
         };
 
         let result = validate_roster(&roster);

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LmsGroupSetCacheEntry",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "origin": {
+      "$ref": "./GroupSetOrigin.schema.json",
+      "x-rust": {
+        "serde": {
+          "default": true
+        }
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "./CachedLmsGroup.schema.json"
+      }
+    },
+    "fetched_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": {
+            "type": "chrono::DateTime<chrono::Utc>"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lms_group_set_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lms_type": {
+      "$ref": "./LmsType.schema.json"
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "course_id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "origin",
+    "name",
+    "groups",
+    "fetched_at",
+    "lms_group_set_id",
+    "lms_type",
+    "base_url",
+    "course_id"
+  ],
+  "description": "Cached LMS group set scoped to a profile context"
+}

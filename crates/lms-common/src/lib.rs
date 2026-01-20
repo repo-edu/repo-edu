@@ -25,6 +25,7 @@
 //! #     async fn get_users(&self, course_id: &str) -> Result<Vec<lms_common::User>, LmsError> { todo!() }
 //! #     async fn get_group_members(&self, group_id: &str) -> Result<Vec<lms_common::GroupMembership>, LmsError> { todo!() }
 //! #     async fn get_group_categories(&self, course_id: &str) -> Result<Vec<lms_common::GroupCategory>, LmsError> { todo!() }
+//! #     async fn validate_token(&self) -> Result<lms_common::User, LmsError> { todo!() }
 //! # }
 //! # let client = MyClient;
 //! let courses = client.get_courses().await?;

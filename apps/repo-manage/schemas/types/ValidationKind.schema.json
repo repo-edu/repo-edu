@@ -16,7 +16,8 @@
     "invalid_git_username",
     "empty_group",
     "unassigned_student",
-    "missing_email"
+    "missing_email",
+    "cached_group_resolution_pending"
   ],
   "x-rust": {
     "serde": {

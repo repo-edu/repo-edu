@@ -4,7 +4,9 @@ export { useConnectionsStore } from "./connectionsStore"
 export { useOperationStore } from "./operationStore"
 export { selectOutputLines, useOutputStore } from "./outputStore"
 export {
+  type AssignmentSelection,
   type ProfileLoadResult,
+  selectAssignmentSelection,
   selectAssignments,
   selectAssignmentValidation,
   selectAssignmentValidations,
@@ -16,6 +18,7 @@ export {
   selectExports,
   selectGitConnectionRef,
   selectGroups,
+  selectLmsGroupSets,
   selectOperations,
   selectProfileError,
   selectProfileStatus,

@@ -48,7 +48,11 @@ export interface Assignment {
   description?: string | null
   assignment_type: AssignmentType
   groups: Group[]
-  lms_group_set_id?: string | null
+  group_set_cache_id?: string | null
+  /**
+   * ISO timestamp when assignment groups were last synced from LMS cache
+   */
+  source_fetched_at?: string | null
 }
 
 /**
@@ -79,7 +83,19 @@ export interface AssignmentMetadata {
   name: string
   description?: string | null
   assignment_type: AssignmentType
-  lms_group_set_id?: string | null
+  group_set_cache_id?: string | null
+}
+
+/**
+ * Cached LMS group with resolved and unresolved member tracking
+ */
+export interface CachedLmsGroup {
+  id: string
+  name: string
+  lms_member_ids: string[]
+  resolved_member_ids: StudentId[]
+  unresolved_count: number
+  needs_reresolution: boolean
 }
 
 /**
@@ -259,6 +275,8 @@ export interface GroupImportSummary {
   filter_applied: string
 }
 
+export type GroupSetOrigin = "lms" | "local"
+
 /**
  * Result of importing groups from file
  */
@@ -337,6 +355,15 @@ export interface LmsConnection {
 }
 
 /**
+ * Normalized LMS context fingerprint (no secrets)
+ */
+export interface LmsContextKey {
+  lms_type: LmsType
+  base_url: string
+  course_id: string
+}
+
+/**
  * LMS group used for import
  */
 export interface LmsGroup {
@@ -352,6 +379,21 @@ export interface LmsGroupSet {
   id: string
   name: string
   groups: LmsGroup[]
+}
+
+/**
+ * Cached LMS group set scoped to a profile context
+ */
+export interface LmsGroupSetCacheEntry {
+  id: string
+  origin: GroupSetOrigin
+  name: string
+  groups: CachedLmsGroup[]
+  fetched_at: string | null
+  lms_group_set_id: string | null
+  lms_type: LmsType
+  base_url: string
+  course_id: string
 }
 
 /**
@@ -496,6 +538,7 @@ export interface Roster {
   source?: RosterSource | null
   students: Student[]
   assignments: Assignment[]
+  lms_group_sets?: LmsGroupSetCacheEntry[]
 }
 
 /**
@@ -669,6 +712,7 @@ export type ValidationKind =
   | "empty_group"
   | "unassigned_student"
   | "missing_email"
+  | "cached_group_resolution_pending"
 
 /**
  * Collection of validation issues

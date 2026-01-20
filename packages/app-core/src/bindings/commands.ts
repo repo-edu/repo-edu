@@ -27,9 +27,12 @@ import type {
   ImportGroupsResult,
   ImportStudentsResult,
   LmsConnection,
+  LmsContextKey,
   LmsGroup,
   LmsGroupSet,
+  LmsGroupSetCacheEntry,
   LmsOperationContext,
+  LmsType,
   LmsVerifyResult,
   OperationResult,
   ProfileSettings,
@@ -172,6 +175,90 @@ export const commands = {
     groupSetId: string,
   ): Promise<Result<LmsGroup[], AppError>> {
     return getBackend().fetchLmsGroupsForSet(context, groupSetId)
+  },
+  /**
+   * Fetch and cache a group-set in the roster
+   */
+  cacheLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster | null,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    return getBackend().cacheLmsGroupSet(context, roster, groupSetId)
+  },
+  /**
+   * Refresh a cached group-set from LMS
+   */
+  refreshCachedLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    return getBackend().refreshCachedLmsGroupSet(context, roster, groupSetId)
+  },
+  /**
+   * Delete a cached group-set from the roster
+   */
+  deleteCachedLmsGroupSet(
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    return getBackend().deleteCachedLmsGroupSet(roster, groupSetId)
+  },
+  /**
+   * List cached group-sets from the roster
+   */
+  listCachedLmsGroupSets(
+    roster: Roster,
+  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
+    return getBackend().listCachedLmsGroupSets(roster)
+  },
+  /**
+   * Re-cache the LMS group-set referenced by an assignment
+   */
+  recacheGroupSetForAssignment(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>> {
+    return getBackend().recacheGroupSetForAssignment(
+      context,
+      roster,
+      assignmentId,
+    )
+  },
+  /**
+   * Detach an assignment from its cached LMS group-set
+   */
+  detachAssignmentSource(
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>> {
+    return getBackend().detachAssignmentSource(roster, assignmentId)
+  },
+  /**
+   * Apply a cached LMS group-set to an assignment
+   */
+  applyCachedGroupSetToAssignment(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<ImportGroupsResult, AppError>> {
+    return getBackend().applyCachedGroupSetToAssignment(
+      roster,
+      assignmentId,
+      config,
+    )
+  },
+  /**
+   * Normalize LMS context fields (type, base URL, course)
+   */
+  normalizeContext(
+    lmsType: LmsType,
+    baseUrl: string,
+    courseId: string,
+  ): Promise<Result<LmsContextKey, AppError>> {
+    return getBackend().normalizeContext(lmsType, baseUrl, courseId)
   },
   /**
    * Import groups from LMS group-set into assignment

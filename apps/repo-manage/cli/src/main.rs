@@ -109,6 +109,41 @@ pub enum LmsAction {
         /// LMS group-set ID (prompts if omitted)
         #[arg(long)]
         group_set: Option<String>,
+
+        /// Import from cached group-set (no LMS API call)
+        #[arg(long)]
+        from_cache: bool,
+    },
+
+    /// Manage cached LMS group-sets
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum CacheAction {
+    /// List cached group-sets
+    List,
+
+    /// Fetch and cache a group-set from LMS
+    Fetch {
+        /// LMS group-set ID (prompts if omitted)
+        #[arg(long)]
+        group_set: Option<String>,
+    },
+
+    /// Refresh a cached group-set from LMS
+    Refresh {
+        /// Cached group-set ID
+        group_set_id: String,
+    },
+
+    /// Delete a cached group-set
+    Delete {
+        /// Cached group-set ID
+        group_set_id: String,
     },
 }
 
@@ -195,7 +230,20 @@ async fn main() -> anyhow::Result<()> {
             LmsAction::ImportGroups {
                 assignment,
                 group_set,
-            } => commands::lms::import_groups(profile, assignment, group_set).await?,
+                from_cache,
+            } => commands::lms::import_groups(profile, assignment, group_set, from_cache).await?,
+            LmsAction::Cache { action } => match action {
+                CacheAction::List => commands::lms::cache_list(profile)?,
+                CacheAction::Fetch { group_set } => {
+                    commands::lms::cache_fetch(profile, group_set).await?
+                }
+                CacheAction::Refresh { group_set_id } => {
+                    commands::lms::cache_refresh(profile, group_set_id).await?
+                }
+                CacheAction::Delete { group_set_id } => {
+                    commands::lms::cache_delete(profile, group_set_id)?
+                }
+            },
         },
 
         Commands::Git { action } => match action {

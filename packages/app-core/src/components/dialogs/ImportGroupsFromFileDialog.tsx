@@ -25,9 +25,11 @@ export function ImportGroupsFromFileDialog() {
   const setOpen = useUiStore((state) => state.setImportGroupsFromFileDialogOpen)
 
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const setRoster = useProfileStore((state) => state.setRoster)
   const hasStudents = Boolean(roster?.students.length)
 

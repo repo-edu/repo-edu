@@ -313,7 +313,8 @@ fn apply_group_edit_entries(
         .count() as i64;
 
     assignment.groups = new_groups;
-    assignment.lms_group_set_id = None;
+    assignment.group_set_cache_id = None;
+    assignment.source_fetched_at = None;
 
     Ok(GroupFileImportResult {
         summary: GroupFileImportSummary {
@@ -362,13 +363,15 @@ mod tests {
             description: None,
             assignment_type: AssignmentType::ClassWide,
             groups: vec![group],
-            lms_group_set_id: Some("lms-set-1".to_string()),
+            group_set_cache_id: Some("lms-set-1".to_string()),
+            source_fetched_at: None,
         };
 
         let roster = Roster {
             students: vec![student_a, student_b],
             assignments: vec![assignment],
             source: None,
+            lms_group_sets: Some(Vec::new()),
         };
 
         let temp_path = Builder::new()
@@ -393,7 +396,7 @@ mod tests {
         assert_eq!(result.summary.members_added, 0);
         assert_eq!(result.summary.members_removed, 0);
         assert_eq!(result.summary.members_moved, 0);
-        assert_eq!(updated_assignment.lms_group_set_id, None);
+        assert_eq!(updated_assignment.group_set_cache_id, None);
         assert_eq!(updated_assignment.groups.len(), 1);
         assert_eq!(updated_assignment.groups[0].member_ids.len(), 2);
     }
@@ -423,13 +426,15 @@ mod tests {
             description: None,
             assignment_type: AssignmentType::ClassWide,
             groups: vec![],
-            lms_group_set_id: Some("lms-set-1".to_string()),
+            group_set_cache_id: Some("lms-set-1".to_string()),
+            source_fetched_at: None,
         };
 
         let roster = Roster {
             students: vec![student_a.clone(), student_b.clone(), student_c.clone()],
             assignments: vec![assignment],
             source: None,
+            lms_group_sets: Some(Vec::new()),
         };
 
         let csv = format!(
@@ -458,7 +463,7 @@ mod tests {
         assert_eq!(result.summary.members_added, 3);
         assert_eq!(result.summary.members_removed, 0);
         assert_eq!(result.summary.members_moved, 0);
-        assert_eq!(updated_assignment.lms_group_set_id, None);
+        assert_eq!(updated_assignment.group_set_cache_id, None);
         assert_eq!(updated_assignment.groups.len(), 2);
 
         let mut names = updated_assignment

@@ -25,6 +25,7 @@ mod smoke_tests {
             students: vec![student.clone()],
             assignments: vec![],
             source: None,
+            lms_group_sets: Some(Vec::new()),
         };
 
         manager.save_roster("test-profile", &roster).unwrap();

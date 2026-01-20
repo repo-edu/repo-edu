@@ -25,7 +25,7 @@ export interface ProfileListItem {
  * Active tab in the main layout.
  * Frontend-only, not persisted.
  */
-type ActiveTab = "roster" | "assignment" | "operation"
+type ActiveTab = "roster" | "group" | "assignment" | "operation"
 
 type AssignmentCoverageFocus = "unassigned"
 
@@ -83,6 +83,7 @@ interface UiState {
   usernameVerificationResult: UsernameVerificationResult | null
   lmsImportConflicts: LmsIdConflict[] | null
   pendingGroupImport: GroupImportConfig | null
+  pendingGroupImportSource: "lms" | "cached" | null
 }
 
 interface UiActions {
@@ -145,6 +146,7 @@ interface UiActions {
   ) => void
   setLmsImportConflicts: (conflicts: LmsIdConflict[] | null) => void
   setPendingGroupImport: (config: GroupImportConfig | null) => void
+  setPendingGroupImportSource: (source: "lms" | "cached" | null) => void
 
   // Reset
   reset: () => void
@@ -206,6 +208,7 @@ const initialState: UiState = {
   usernameVerificationResult: null,
   lmsImportConflicts: null,
   pendingGroupImport: null,
+  pendingGroupImportSource: null,
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -278,6 +281,8 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ usernameVerificationResult: result }),
   setLmsImportConflicts: (conflicts) => set({ lmsImportConflicts: conflicts }),
   setPendingGroupImport: (config) => set({ pendingGroupImport: config }),
+  setPendingGroupImportSource: (source) =>
+    set({ pendingGroupImportSource: source }),
 
   // Reset
   reset: () => set(initialState),

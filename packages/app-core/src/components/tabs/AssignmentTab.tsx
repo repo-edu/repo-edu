@@ -1,6 +1,6 @@
 /**
  * AssignmentTab - assignment management with master-detail layout.
- * Left sidebar shows assignments, main body shows groups for selected assignment.
+ * Left sidebar shows aggregation views and assignments, main body shows content for selection.
  */
 
 import type { AssignmentId } from "@repo-edu/backend-interface/types"
@@ -8,14 +8,22 @@ import { Button, EmptyState } from "@repo-edu/ui"
 import { useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
-import { AssignmentSidebar, GroupsPane } from "./assignment"
+import {
+  AllGroupSetsView,
+  AssignmentSidebar,
+  GroupsPane,
+  UnassignedStudentsView,
+  UnusedGroupSetsView,
+} from "./assignment"
 
 export function AssignmentTab() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const selectedAssignmentId = useProfileStore(
-    (state) => state.selectedAssignmentId,
+  const assignmentSelection = useProfileStore(
+    (state) => state.assignmentSelection,
   )
-  const selectAssignment = useProfileStore((state) => state.selectAssignment)
+  const setAssignmentSelection = useProfileStore(
+    (state) => state.setAssignmentSelection,
+  )
   const removeAssignment = useProfileStore((state) => state.removeAssignment)
 
   const setNewAssignmentDialogOpen = useUiStore(
@@ -34,12 +42,26 @@ export function AssignmentTab() {
 
   const assignments = roster?.assignments ?? []
   const students = roster?.students ?? []
+  const lmsGroupSets = roster?.lms_group_sets ?? []
+
+  const selectedAssignmentId =
+    assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
   const selectedAssignment = assignments.find(
     (a) => a.id === selectedAssignmentId,
   )
 
+  const handleSelectAssignment = (id: AssignmentId) => {
+    setAssignmentSelection({ mode: "assignment", id })
+  }
+
+  const handleSelectAggregation = (
+    mode: "all-group-sets" | "unused-group-sets" | "unassigned-students",
+  ) => {
+    setAssignmentSelection({ mode })
+  }
+
   const handleEditAssignment = (id: AssignmentId) => {
-    selectAssignment(id)
+    setAssignmentSelection({ mode: "assignment", id })
     setEditAssignmentDialogOpen(true)
   }
 
@@ -50,8 +72,8 @@ export function AssignmentTab() {
     addToast(`Deleted ${assignment.name}. Ctrl+Z to undo`, { tone: "warning" })
   }
 
-  // Empty state (no assignments)
-  if (assignments.length === 0) {
+  // Empty state (no assignments and no cached group sets)
+  if (assignments.length === 0 && lmsGroupSets.length === 0) {
     return (
       <EmptyState message="No assignments yet">
         <Button onClick={() => setNewAssignmentDialogOpen(true)}>
@@ -61,25 +83,65 @@ export function AssignmentTab() {
     )
   }
 
+  // Determine what to show in the main content area based on selection
+  const renderMainContent = () => {
+    if (!assignmentSelection) {
+      return <EmptyState message="Select an item from the sidebar" />
+    }
+
+    switch (assignmentSelection.mode) {
+      case "assignment":
+        return (
+          <GroupsPane
+            assignment={selectedAssignment ?? null}
+            students={students}
+            onImportGroups={() => setImportGroupsDialogOpen(true)}
+            onFileImportExport={() => setFileImportExportOpen(true)}
+          />
+        )
+      case "all-group-sets":
+        return (
+          <AllGroupSetsView
+            groupSets={lmsGroupSets}
+            assignments={assignments}
+          />
+        )
+      case "unused-group-sets":
+        return (
+          <UnusedGroupSetsView
+            groupSets={lmsGroupSets}
+            assignments={assignments}
+          />
+        )
+      case "unassigned-students":
+        return (
+          <UnassignedStudentsView
+            groupSets={lmsGroupSets}
+            students={students}
+          />
+        )
+      default:
+        return <EmptyState message="Select an item from the sidebar" />
+    }
+  }
+
   return (
     <div className="flex h-full">
-      {/* Left sidebar - Assignment list */}
+      {/* Left sidebar - Aggregation views and assignments */}
       <AssignmentSidebar
         assignments={assignments}
-        selectedId={selectedAssignmentId}
-        onSelect={selectAssignment}
+        lmsGroupSets={lmsGroupSets}
+        students={students}
+        selection={assignmentSelection}
+        onSelectAssignment={handleSelectAssignment}
+        onSelectAggregation={handleSelectAggregation}
         onNew={() => setNewAssignmentDialogOpen(true)}
         onEdit={handleEditAssignment}
         onDelete={handleDeleteAssignment}
       />
 
-      {/* Main body - Groups pane */}
-      <GroupsPane
-        assignment={selectedAssignment ?? null}
-        students={students}
-        onImportGroups={() => setImportGroupsDialogOpen(true)}
-        onFileImportExport={() => setFileImportExportOpen(true)}
-      />
+      {/* Main body - Content based on selection */}
+      {renderMainContent()}
     </div>
   )
 }

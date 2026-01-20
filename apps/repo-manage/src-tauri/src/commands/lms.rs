@@ -1,5 +1,6 @@
 use crate::error::AppError;
 use chrono::Utc;
+use repo_manage_core::context;
 use repo_manage_core::{
     create_lms_client_with_params, generate_lms_files as core_generate_lms_files,
     get_token_generation_instructions, open_token_generation_url,
@@ -12,7 +13,8 @@ use repo_manage_core::{
     operations,
     roster::{AssignmentId, GitUsernameStatus, Roster, RosterSource, Student, StudentDraft},
     CourseInfo, GroupImportConfig, ImportGroupsResult, ImportStudentsResult, ImportSummary,
-    LmsConnection, LmsGroup, LmsGroupSet, LmsOperationContext, LmsVerifyResult, SettingsManager,
+    LmsConnection, LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry,
+    LmsOperationContext, LmsType, LmsVerifyResult, SettingsManager,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -44,6 +46,81 @@ pub async fn fetch_lms_groups_for_set(
 ) -> Result<Vec<LmsGroup>, AppError> {
     operations::fetch_groups_for_set(&context, &group_set_id)
         .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn normalize_context(
+    lms_type: LmsType,
+    base_url: String,
+    course_id: String,
+) -> Result<LmsContextKey, AppError> {
+    Ok(context::normalize_context(lms_type, &base_url, &course_id))
+}
+
+#[tauri::command]
+pub async fn cache_lms_group_set(
+    context: LmsOperationContext,
+    roster: Option<Roster>,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::cache_group_set(&context, roster, &group_set_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn refresh_cached_lms_group_set(
+    context: LmsOperationContext,
+    roster: Roster,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::refresh_cached_group_set(&context, roster, &group_set_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn delete_cached_lms_group_set(
+    roster: Roster,
+    group_set_id: String,
+) -> Result<Roster, AppError> {
+    operations::delete_cached_group_set(roster, &group_set_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn list_cached_lms_group_sets(
+    roster: Roster,
+) -> Result<Vec<LmsGroupSetCacheEntry>, AppError> {
+    Ok(operations::list_cached_group_sets(&roster))
+}
+
+#[tauri::command]
+pub async fn recache_group_set_for_assignment(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignment_id: AssignmentId,
+) -> Result<Roster, AppError> {
+    operations::recache_group_set_for_assignment(&context, roster, &assignment_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn detach_assignment_source(
+    roster: Roster,
+    assignment_id: AssignmentId,
+) -> Result<Roster, AppError> {
+    operations::detach_assignment_source(roster, &assignment_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn apply_cached_group_set_to_assignment(
+    roster: Roster,
+    assignment_id: AssignmentId,
+    config: GroupImportConfig,
+) -> Result<ImportGroupsResult, AppError> {
+    operations::apply_cached_group_set_to_assignment(roster, &assignment_id, config)
         .map_err(Into::into)
 }
 

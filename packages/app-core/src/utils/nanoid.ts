@@ -34,3 +34,8 @@ export const generateAssignmentId = (): AssignmentId => nanoid() as AssignmentId
  * Generate a new group ID
  */
 export const generateGroupId = (): GroupId => nanoid() as GroupId
+
+/**
+ * Generate a new cached group set ID
+ */
+export const generateGroupSetId = (): string => nanoid()

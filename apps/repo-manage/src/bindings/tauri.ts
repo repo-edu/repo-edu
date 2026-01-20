@@ -34,9 +34,12 @@ import type {
   ImportGroupsResult,
   ImportStudentsResult,
   LmsConnection,
+  LmsContextKey,
   LmsGroup,
   LmsGroupSet,
+  LmsGroupSetCacheEntry,
   LmsOperationContext,
+  LmsType,
   LmsVerifyResult,
   OperationResult,
   ProfileSettings,
@@ -348,6 +351,188 @@ export class TauriBackend implements BackendAPI {
         data: await TAURI_INVOKE("fetch_lms_groups_for_set", {
           context,
           groupSetId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Fetch and cache a group-set in the roster
+   */
+  async cacheLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster | null,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("cache_lms_group_set", {
+          context,
+          roster,
+          groupSetId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Refresh a cached group-set from LMS
+   */
+  async refreshCachedLmsGroupSet(
+    context: LmsOperationContext,
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("refresh_cached_lms_group_set", {
+          context,
+          roster,
+          groupSetId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Delete a cached group-set from the roster
+   */
+  async deleteCachedLmsGroupSet(
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_cached_lms_group_set", {
+          roster,
+          groupSetId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * List cached group-sets from the roster
+   */
+  async listCachedLmsGroupSets(
+    roster: Roster,
+  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("list_cached_lms_group_sets", { roster }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Re-cache the LMS group-set referenced by an assignment
+   */
+  async recacheGroupSetForAssignment(
+    context: LmsOperationContext,
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("recache_group_set_for_assignment", {
+          context,
+          roster,
+          assignmentId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Detach an assignment from its cached LMS group-set
+   */
+  async detachAssignmentSource(
+    roster: Roster,
+    assignmentId: AssignmentId,
+  ): Promise<Result<Roster, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("detach_assignment_source", {
+          roster,
+          assignmentId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Apply a cached LMS group-set to an assignment
+   */
+  async applyCachedGroupSetToAssignment(
+    roster: Roster,
+    assignmentId: AssignmentId,
+    config: GroupImportConfig,
+  ): Promise<Result<ImportGroupsResult, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("apply_cached_group_set_to_assignment", {
+          roster,
+          assignmentId,
+          config,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Normalize LMS context fields (type, base URL, course)
+   */
+  async normalizeContext(
+    lmsType: LmsType,
+    baseUrl: string,
+    courseId: string,
+  ): Promise<Result<LmsContextKey, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("normalize_context", {
+          lmsType,
+          baseUrl,
+          courseId,
         }),
       }
     } catch (e) {
