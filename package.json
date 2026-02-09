@@ -21,7 +21,7 @@
         "lint:fix": "pnpm lint:ts:fix && pnpm lint:rs:fix && pnpm fmt:md",
         "fix": "pnpm lint:fix",
         "typecheck": "pnpm typecheck:ts && pnpm typecheck:rs",
-        "check:schemas": "pnpx tsx scripts/validate-schemas.ts && pnpx tsx scripts/check-schema-coverage.ts && pnpx tsx scripts/check-command-parity.ts",
+        "check:schemas": "pnpx tsx scripts/validate-schemas.ts && pnpx tsx scripts/check-schema-coverage.ts && pnpx tsx scripts/check-command-parity.ts && pnpx tsx scripts/check-bindings-freshness.ts",
         "check": "pnpm lint && pnpm typecheck && pnpm check:schemas",
         "test": "pnpm test:ts && pnpm test:rs",
         "validate": "pnpm check && pnpm test",
