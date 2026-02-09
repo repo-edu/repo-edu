@@ -6,7 +6,9 @@
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
+import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
+import { useToastStore } from "../stores/toastStore"
 import { useUiStore } from "../stores/uiStore"
 
 type SaveStatus = "idle" | "saving" | "success" | "error"
@@ -19,7 +21,8 @@ interface SaveButtonProps {
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const [status, setStatus] = useState<SaveStatus>("idle")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   // Get save function from profileStore
   const save = useProfileStore((state) => state.save)
@@ -28,15 +31,17 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
     if (!activeProfile) return
 
     setStatus("saving")
-    setErrorMessage(null)
 
     try {
       const success = await save(activeProfile)
 
       if (!success) {
         const error = useProfileStore.getState().error
+        const message = error ?? "Save failed"
         setStatus("error")
-        setErrorMessage(error ?? "Save failed")
+        appendOutput(`Failed to save settings: ${message}`, "error")
+        addToast(`Save failed: ${message}`, { tone: "error" })
+        setTimeout(() => setStatus("idle"), 1500)
         return
       }
 
@@ -47,10 +52,13 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
       // Reset to idle after showing success briefly
       setTimeout(() => setStatus("idle"), 1500)
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
       setStatus("error")
-      setErrorMessage(error instanceof Error ? error.message : String(error))
+      appendOutput(`Failed to save settings: ${message}`, "error")
+      addToast(`Save failed: ${message}`, { tone: "error" })
+      setTimeout(() => setStatus("idle"), 1500)
     }
-  }, [activeProfile, save, onSaved])
+  }, [activeProfile, addToast, appendOutput, save, onSaved])
 
   const isDisabled = !activeProfile || !isDirty || status === "saving"
 
@@ -77,11 +85,6 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
           "Save"
         )}
       </Button>
-      {status === "error" && errorMessage && (
-        <span className="text-xs text-destructive max-w-48 truncate">
-          {errorMessage}
-        </span>
-      )}
     </div>
   )
 }

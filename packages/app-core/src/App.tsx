@@ -7,6 +7,9 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo-edu/ui"
 import { Info, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import {
@@ -21,16 +24,21 @@ import { useCallback, useEffect } from "react"
 import { commands } from "./bindings/commands"
 import {
   AddGroupDialog,
-  EditAssignmentDialog,
-  EditGroupDialog,
+  ChangeGroupSetDialog,
+  ConnectLmsGroupSetDialog,
+  CopyGroupSetDialog,
+  DeleteGroupDialog,
+  DeleteGroupSetDialog,
   ImportGitUsernamesDialog,
-  ImportGroupsDialog,
-  ImportGroupsFromFileDialog,
+  ImportGroupSetDialog,
   ImportStudentsFromFileDialog,
   LmsImportConflictDialog,
   NewAssignmentDialog,
+  NewLocalGroupSetDialog,
   NewProfileDialog,
   PreflightDialog,
+  ReimportGroupSetDialog,
+  RosterSyncDialog,
   StudentRemovalConfirmationDialog,
   UsernameVerificationDialog,
   ValidationDialog,
@@ -47,8 +55,7 @@ import {
 } from "./components/sheets"
 import { ToastStack } from "./components/ToastStack"
 import {
-  AssignmentTab,
-  GroupTab,
+  GroupsAssignmentsTab,
   OperationTab,
   RosterTab,
 } from "./components/tabs"
@@ -66,6 +73,8 @@ import {
   type ProfileLoadResult,
   selectCanRedo,
   selectCanUndo,
+  selectNextRedoDescription,
+  selectNextUndoDescription,
   useProfileStore,
 } from "./stores/profileStore"
 import { useToastStore } from "./stores/toastStore"
@@ -91,6 +100,8 @@ function App() {
   const redo = useProfileStore((state) => state.redo)
   const canUndo = useProfileStore(selectCanUndo)
   const canRedo = useProfileStore(selectCanRedo)
+  const nextUndoDescription = useProfileStore(selectNextUndoDescription)
+  const nextRedoDescription = useProfileStore(selectNextRedoDescription)
 
   // Apply theme
   useTheme(theme || DEFAULT_GUI_THEME)
@@ -283,34 +294,51 @@ function App() {
               <div className="flex items-center border-b">
                 <TabsList>
                   <TabsTrigger value="roster">Roster</TabsTrigger>
-                  <TabsTrigger value="group">Group</TabsTrigger>
-                  <TabsTrigger value="assignment">Assignment</TabsTrigger>
+                  <TabsTrigger value="groups-assignments">
+                    Groups & Assignments
+                  </TabsTrigger>
                   <TabsTrigger value="operation">Operation</TabsTrigger>
                 </TabsList>
                 <div className="flex-1" />
                 <div className="flex items-center gap-1 pr-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                    title="Undo (Ctrl+Z)"
-                  >
-                    <Undo2 className="size-4" />
-                    <span className="sr-only">Undo</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={handleRedo}
-                    disabled={!canRedo}
-                    title="Redo (Ctrl+Shift+Z)"
-                  >
-                    <Redo2 className="size-4" />
-                    <span className="sr-only">Redo</span>
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={handleUndo}
+                        disabled={!canUndo}
+                      >
+                        <Undo2 className="size-4" />
+                        <span className="sr-only">Undo</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {nextUndoDescription
+                        ? `Undo: ${nextUndoDescription} (Ctrl+Z)`
+                        : "Undo (Ctrl+Z)"}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={handleRedo}
+                        disabled={!canRedo}
+                      >
+                        <Redo2 className="size-4" />
+                        <span className="sr-only">Redo</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {nextRedoDescription
+                        ? `Redo: ${nextRedoDescription} (Ctrl+Shift+Z)`
+                        : "Redo (Ctrl+Shift+Z)"}
+                    </TooltipContent>
+                  </Tooltip>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -336,20 +364,11 @@ function App() {
               </TabsContent>
 
               <TabsContent
-                value="group"
+                value="groups-assignments"
                 className="flex-1 flex flex-col min-h-0 p-1"
               >
                 <div className="flex-1 overflow-auto">
-                  <GroupTab />
-                </div>
-              </TabsContent>
-
-              <TabsContent
-                value="assignment"
-                className="flex-1 flex flex-col min-h-0 p-1"
-              >
-                <div className="flex-1 overflow-auto">
-                  <AssignmentTab />
+                  <GroupsAssignmentsTab />
                 </div>
               </TabsContent>
 
@@ -400,14 +419,22 @@ function App() {
 
       {/* Assignment Tab Dialogs */}
       <NewAssignmentDialog />
-      <EditAssignmentDialog />
+      <ChangeGroupSetDialog />
 
-      {/* Group Dialogs and Sheets */}
-      <FileImportExportSheet />
+      {/* Group Set Dialogs */}
+      <ConnectLmsGroupSetDialog />
+      <NewLocalGroupSetDialog />
+      <ImportGroupSetDialog />
+      <ReimportGroupSetDialog />
+      <CopyGroupSetDialog />
+      <DeleteGroupSetDialog />
+      <DeleteGroupDialog />
+
+      {/* Group Dialogs */}
       <AddGroupDialog />
-      <EditGroupDialog />
-      <ImportGroupsDialog />
-      <ImportGroupsFromFileDialog />
+
+      {/* Legacy Sheets (to be updated in Phase 11-13) */}
+      <FileImportExportSheet />
 
       {/* Operation Tab Dialogs */}
       <ValidationDialog />
@@ -420,6 +447,7 @@ function App() {
       <StudentEditorSheet />
       <CoverageReportSheet />
       <AssignmentCoverageSheet />
+      <RosterSyncDialog />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />
       <StudentRemovalConfirmationDialog />

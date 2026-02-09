@@ -33,6 +33,7 @@ import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildRepoOperationContext } from "../../utils/operationContext"
+import { resolveAssignmentGroups } from "../../utils/rosterMetrics"
 import { StyledRadioGroup } from "../StyledRadioGroup"
 
 type OperationType = "create" | "clone" | "delete"
@@ -103,10 +104,14 @@ export function OperationTab() {
   const selectedAssignment = assignments.find(
     (a) => a.id === selectedAssignmentId,
   )
-  const groupCount = selectedAssignment?.groups.length ?? 0
-  const validGroupCount =
-    selectedAssignment?.groups.filter((g) => g.member_ids.length > 0).length ??
-    0
+  const resolvedGroups =
+    selectedAssignment && roster
+      ? resolveAssignmentGroups(roster, selectedAssignment)
+      : []
+  const groupCount = resolvedGroups.length
+  const validGroupCount = resolvedGroups.filter(
+    (group) => group.member_ids.length > 0,
+  ).length
 
   const handleBrowseFolder = async () => {
     const result = await openDialog({ directory: true, multiple: false })

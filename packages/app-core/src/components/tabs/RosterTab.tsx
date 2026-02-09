@@ -4,7 +4,6 @@
  */
 
 import { Button, EmptyState } from "@repo-edu/ui"
-import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useProfiles } from "../../hooks/useProfiles"
 import { saveDialog } from "../../services/platform"
@@ -17,8 +16,7 @@ import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
-import { buildLmsOperationContext } from "../../utils/operationContext"
-import { ProfileSidebar, StudentListPane } from "./roster"
+import { MemberListPane, ProfileSidebar } from "./roster"
 
 interface RosterTabProps {
   isDirty: boolean
@@ -44,8 +42,9 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   const setImportFileDialogOpen = useUiStore(
     (state) => state.setImportFileDialogOpen,
   )
-
-  const [importing, setImporting] = useState(false)
+  const setRosterSyncDialogOpen = useUiStore(
+    (state) => state.setRosterSyncDialogOpen,
+  )
 
   // Profile management hook
   const {
@@ -59,10 +58,8 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   // LMS import state
   const hasLmsConnection = lmsConnection !== null
   const hasCourseId = course.id.trim() !== ""
-  const lmsContext = buildLmsOperationContext(lmsConnection, course.id)
-
   const canImportFromLms =
-    hasLmsConnection && hasCourseId && courseStatus !== "failed" && !importing
+    hasLmsConnection && hasCourseId && courseStatus !== "failed"
 
   const lmsImportTooltip = !hasLmsConnection
     ? "Configure an LMS connection in Settings first"
@@ -70,51 +67,17 @@ export function RosterTab({ isDirty }: RosterTabProps) {
       ? "No course configured for this profile"
       : courseStatus === "failed"
         ? "Course verification failed - check Settings"
-        : importing
-          ? "Import in progress..."
-          : roster?.students.length
-            ? "Re-import students from LMS"
-            : "Import students from LMS"
-
-  const handleImportFromLms = async () => {
-    if (!activeProfile || !canImportFromLms || !lmsContext) return
-
-    setImporting(true)
-    appendOutput("Importing students from LMS...", "info")
-
-    try {
-      const result = await commands.importStudentsFromLms(
-        lmsContext,
-        roster ?? null,
-      )
-
-      if (result.status === "error") {
-        appendOutput(`Import failed: ${result.error.message}`, "error")
-        return
-      }
-
-      const { roster: newRoster, summary } = result.data
-      setRoster(newRoster, "Import students from LMS")
-
-      let message = `Imported ${summary.students_added} students (${summary.students_updated} updated, ${summary.students_unchanged} unchanged)`
-      if (summary.students_missing_email > 0) {
-        message += `. Warning: ${summary.students_missing_email} students missing email`
-      }
-      appendOutput(message, "success")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Import failed: ${message}`, "error")
-    } finally {
-      setImporting(false)
-    }
-  }
+        : "Sync roster from LMS (students and staff)"
 
   const handleClear = () => {
     if (!roster?.students.length) return
     setRoster(
       {
-        source: null,
+        connection: null,
         students: [],
+        staff: [],
+        groups: [],
+        group_sets: [],
         assignments: [],
       },
       "Clear roster",
@@ -176,13 +139,13 @@ export function RosterTab({ isDirty }: RosterTabProps) {
       />
 
       {/* Main body - Student list */}
-      <StudentListPane
+      <MemberListPane
         roster={roster}
-        importing={importing}
+        importing={false}
         canImportFromLms={canImportFromLms}
         lmsImportTooltip={lmsImportTooltip}
         hasLmsConnection={hasLmsConnection}
-        onImportFromLms={handleImportFromLms}
+        onImportFromLms={() => setRosterSyncDialogOpen(true)}
         onImportFromFile={() => setImportFileDialogOpen(true)}
         onCoverage={() => setCoverageReportOpen(true)}
         onClear={handleClear}

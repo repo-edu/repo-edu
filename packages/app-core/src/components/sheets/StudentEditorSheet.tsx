@@ -2,7 +2,10 @@
  * StudentEditorSheet - View and edit students in the roster
  */
 
-import type { Student, StudentId } from "@repo-edu/backend-interface/types"
+import type {
+  RosterMember,
+  RosterMemberId,
+} from "@repo-edu/backend-interface/types"
 import {
   Button,
   Input,
@@ -57,7 +60,7 @@ export function StudentEditorSheet() {
   const handleAddStudent = () => {
     if (!newStudentName.trim() || !newStudentEmail.trim()) return
 
-    const student: Student = {
+    const student: RosterMember = {
       id: generateStudentId(),
       name: newStudentName.trim(),
       email: newStudentEmail.trim(),
@@ -66,7 +69,8 @@ export function StudentEditorSheet() {
       git_username_status: "unknown",
       status: "active",
       lms_user_id: null,
-      custom_fields: {},
+      enrollment_type: "student",
+      source: "local",
     }
 
     addStudent(student)
@@ -75,22 +79,28 @@ export function StudentEditorSheet() {
     setAddingStudent(false)
   }
 
-  const handleUpdateName = (id: StudentId, name: string) => {
+  const handleUpdateName = (id: RosterMemberId, name: string) => {
     updateStudent(id, { name })
   }
 
-  const handleUpdateEmail = (id: StudentId, email: string) => {
+  const handleUpdateEmail = (id: RosterMemberId, email: string) => {
     updateStudent(id, { email })
   }
 
-  const handleUpdateGitUsername = (id: StudentId, git_username: string) => {
+  const handleUpdateGitUsername = (
+    id: RosterMemberId,
+    git_username: string,
+  ) => {
     updateStudent(id, {
       git_username: git_username || null,
       git_username_status: "unknown",
     })
   }
 
-  const handleUpdateStatus = (id: StudentId, status: Student["status"]) => {
+  const handleUpdateStatus = (
+    id: RosterMemberId,
+    status: RosterMember["status"],
+  ) => {
     updateStudent(id, { status })
     const student = students.find((entry) => entry.id === id)
     if (!student) return
@@ -98,20 +108,6 @@ export function StudentEditorSheet() {
       addToast(`${student.name} excluded from coverage`, {
         tone: "info",
       })
-      return
-    }
-    if (status === "active") {
-      const unassignedInClassWide =
-        roster?.assignments.filter(
-          (assignment) =>
-            assignment.assignment_type === "class_wide" &&
-            !assignment.groups.some((group) => group.member_ids.includes(id)),
-        ) ?? []
-      if (unassignedInClassWide.length > 0) {
-        addToast(`${student.name} is now unassigned`, {
-          tone: "warning",
-        })
-      }
     }
   }
 
@@ -121,7 +117,7 @@ export function StudentEditorSheet() {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const appendOutput = useOutputStore((state) => state.appendText)
 
-  const handleRemoveStudent = async (id: StudentId) => {
+  const handleRemoveStudent = async (id: RosterMemberId) => {
     if (!activeProfile || !roster) return
 
     try {
@@ -271,11 +267,11 @@ export function StudentEditorSheet() {
 }
 
 interface StudentRowProps {
-  student: Student
+  student: RosterMember
   onUpdateName: (name: string) => void
   onUpdateEmail: (email: string) => void
   onUpdateGitUsername: (username: string) => void
-  onUpdateStatus: (status: Student["status"]) => void
+  onUpdateStatus: (status: RosterMember["status"]) => void
   onRemove: () => void
 }
 
@@ -386,7 +382,9 @@ function StudentRow({
       <td className="p-2">
         <Select
           value={student.status}
-          onValueChange={(value) => onUpdateStatus(value as Student["status"])}
+          onValueChange={(value) =>
+            onUpdateStatus(value as RosterMember["status"])
+          }
         >
           <SelectTrigger className="h-7 w-32">
             <span className="text-sm">
@@ -414,7 +412,7 @@ function StudentRow({
   )
 }
 
-function getStatusIcon(status: Student["git_username_status"]) {
+function getStatusIcon(status: RosterMember["git_username_status"]) {
   switch (status) {
     case "valid":
       return <span className="text-success">✓</span>

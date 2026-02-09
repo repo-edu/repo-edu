@@ -1,4 +1,3 @@
-export { AssignmentTab } from "./AssignmentTab"
-export { GroupTab } from "./GroupTab"
+export { GroupsAssignmentsTab } from "./groups-assignments"
 export { OperationTab } from "./OperationTab"
 export { RosterTab } from "./RosterTab"

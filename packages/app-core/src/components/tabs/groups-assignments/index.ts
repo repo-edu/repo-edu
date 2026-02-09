@@ -1,0 +1,1 @@
+export { GroupsAssignmentsTab } from "./GroupsAssignmentsTab"

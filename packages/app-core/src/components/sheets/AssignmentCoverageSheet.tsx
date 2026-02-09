@@ -1,4 +1,4 @@
-import type { StudentId } from "@repo-edu/backend-interface/types"
+import type { RosterMemberId } from "@repo-edu/backend-interface/types"
 import {
   Button,
   Select,
@@ -15,7 +15,6 @@ import { useMemo } from "react"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { formatStudentStatus } from "../../utils/labels"
-import { generateGroupId } from "../../utils/nanoid"
 import {
   buildStudentMap,
   getAssignmentCoverageSummary,
@@ -34,7 +33,7 @@ export function AssignmentCoverageSheet() {
   )
   const selectedAssignmentId =
     assignmentSelection?.mode === "assignment" ? assignmentSelection.id : null
-  const addGroup = useProfileStore((state) => state.addGroup)
+  const createGroup = useProfileStore((state) => state.createGroup)
   const updateGroup = useProfileStore((state) => state.updateGroup)
 
   const assignment = roster?.assignments.find(
@@ -43,9 +42,14 @@ export function AssignmentCoverageSheet() {
   const students = roster?.students ?? []
   const studentMap = useMemo(() => buildStudentMap(students), [students])
 
-  const coverage = assignment
-    ? getAssignmentCoverageSummary(assignment, students)
-    : null
+  const coverage =
+    assignment && roster
+      ? getAssignmentCoverageSummary(assignment, roster)
+      : null
+  const resolvedGroups = coverage?.resolvedGroups ?? []
+  const editableGroups = resolvedGroups.filter(
+    (group) => group.origin === "local",
+  )
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -54,23 +58,18 @@ export function AssignmentCoverageSheet() {
     }
   }
 
-  const handleAddToGroup = (groupId: string, studentId: StudentId) => {
-    if (!assignment) return
-    const group = assignment.groups.find((entry) => entry.id === groupId)
+  const handleAddToGroup = (groupId: string, studentId: RosterMemberId) => {
+    const group = editableGroups.find((entry) => entry.id === groupId)
     if (!group || group.member_ids.includes(studentId)) return
-    updateGroup(assignment.id, group.id, {
+    updateGroup(group.id, {
       member_ids: [...group.member_ids, studentId],
     })
   }
 
-  const handleAddNewGroup = (studentId: StudentId) => {
+  const handleAddNewGroup = (studentId: RosterMemberId) => {
     if (!assignment) return
-    const groupName = `Group ${assignment.groups.length + 1}`
-    addGroup(assignment.id, {
-      id: generateGroupId(),
-      name: groupName,
-      member_ids: [studentId],
-    })
+    const groupName = `Group ${resolvedGroups.length + 1}`
+    createGroup(assignment.group_set_id, groupName, [studentId])
   }
 
   if (!assignment || !coverage) {
@@ -109,83 +108,80 @@ export function AssignmentCoverageSheet() {
               {coverage.assignedActiveCount}/{coverage.activeCount} active
               students assigned
             </span>
-            {assignment.assignment_type === "class_wide" &&
-              coverage.unassignedActiveStudents.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-warning">
-                  <AlertTriangle className="size-3" />
-                  {coverage.unassignedActiveStudents.length} unassigned
-                </span>
-              )}
+            {coverage.unassignedActiveStudents.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-warning">
+                <AlertTriangle className="size-3" />
+                {coverage.unassignedActiveStudents.length} unassigned
+              </span>
+            )}
           </div>
 
-          {assignment.assignment_type === "class_wide" && (
-            <section
-              className={`rounded-md border px-3 py-2 ${
-                focus === "unassigned" ? "border-warning/60" : "border-border"
-              }`}
-            >
-              <div className="font-medium text-sm">Unassigned students</div>
-              {coverage.unassignedActiveStudents.length === 0 ? (
-                <div className="text-xs text-muted-foreground mt-1">
-                  All active students are assigned.
-                </div>
-              ) : (
-                <div className="mt-2 space-y-2">
-                  {coverage.unassignedActiveStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex flex-col gap-2 rounded-md border border-dashed px-2 py-2"
-                    >
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <span>{student.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatStudentStatus(student.status)}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddNewGroup(student.id)}
-                        >
-                          Add to new group
-                        </Button>
-                        {assignment.groups.length > 0 && (
-                          <Select
-                            onValueChange={(groupId) =>
-                              handleAddToGroup(groupId, student.id)
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-44">
-                              <span className="text-xs text-muted-foreground">
-                                Add to existing
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {assignment.groups.map((group) => (
-                                <SelectItem key={group.id} value={group.id}>
-                                  {group.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
+          <section
+            className={`rounded-md border px-3 py-2 ${
+              focus === "unassigned" ? "border-warning/60" : "border-border"
+            }`}
+          >
+            <div className="font-medium text-sm">Unassigned students</div>
+            {coverage.unassignedActiveStudents.length === 0 ? (
+              <div className="text-xs text-muted-foreground mt-1">
+                All active students are assigned.
+              </div>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {coverage.unassignedActiveStudents.map((student) => (
+                  <div
+                    key={student.id}
+                    className="flex flex-col gap-2 rounded-md border border-dashed px-2 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span>{student.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatStudentStatus(student.status)}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAddNewGroup(student.id)}
+                      >
+                        Add to new group
+                      </Button>
+                      {editableGroups.length > 0 && (
+                        <Select
+                          onValueChange={(groupId) =>
+                            handleAddToGroup(groupId, student.id)
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-44">
+                            <span className="text-xs text-muted-foreground">
+                              Add to existing
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {editableGroups.map((group) => (
+                              <SelectItem key={group.id} value={group.id}>
+                                {group.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           <section className="space-y-2">
             <div className="text-sm font-medium">Assigned groups</div>
-            {assignment.groups.length === 0 ? (
+            {resolvedGroups.length === 0 ? (
               <div className="text-xs text-muted-foreground">
                 No groups yet.
               </div>
             ) : (
-              assignment.groups.map((group) => {
+              resolvedGroups.map((group) => {
                 const members = group.member_ids.map((memberId) => {
                   const student = studentMap.get(memberId)
                   if (!student) {

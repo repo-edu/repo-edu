@@ -1,19 +1,50 @@
+import type { Roster } from "@repo-edu/backend-interface/types"
 import {
   Button,
+  Checkbox,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+  Input,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@repo-edu/ui"
-import { AlertTriangle, ChevronDown } from "@repo-edu/ui/components/icons"
-import { useState } from "react"
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+} from "@repo-edu/ui/components/icons"
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+  type VisibilityState,
+} from "@tanstack/react-table"
+import { useMemo, useState } from "react"
 import { type IssueCard, useDataOverview } from "../../hooks/useDataOverview"
 import { useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
+import { unwrapGroupSetConnection } from "../../utils/groupSetConnection"
+
+interface MembershipMatrixRow {
+  studentId: string
+  studentName: string
+  memberships: Record<string, string>
+}
 
 export function DataOverviewSheet() {
   const open = useUiStore((state) => state.dataOverviewOpen)
@@ -32,6 +63,7 @@ export function DataOverviewSheet() {
 
   const { issueCards, rosterInsights } = useDataOverview()
   const [rosterOpen, setRosterOpen] = useState(true)
+  const [matrixOpen, setMatrixOpen] = useState(true)
 
   const totalIssues = issueCards.length
 
@@ -44,7 +76,7 @@ export function DataOverviewSheet() {
       addToast(message, { tone: "info", durationMs: 3000 })
 
     if (issue.kind === "unknown_students" && issue.assignmentId) {
-      setActiveTab("assignment")
+      setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
       setAssignmentCoverageFocus(null)
       showToast(
@@ -55,7 +87,7 @@ export function DataOverviewSheet() {
     }
 
     if (issue.kind === "empty_groups" && issue.assignmentId) {
-      setActiveTab("assignment")
+      setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
       setAssignmentCoverageFocus(null)
       showToast(
@@ -66,7 +98,7 @@ export function DataOverviewSheet() {
     }
 
     if (issue.kind === "unassigned_students" && issue.assignmentId) {
-      setActiveTab("assignment")
+      setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
       setAssignmentCoverageFocus("unassigned")
       setAssignmentCoverageOpen(true)
@@ -79,7 +111,7 @@ export function DataOverviewSheet() {
 
     if (issue.kind === "roster_validation") {
       if (issue.issueKind === "duplicate_assignment_name") {
-        setActiveTab("assignment")
+        setActiveTab("groups-assignments")
         showToast("Showing assignments")
       } else {
         setActiveTab("roster")
@@ -91,7 +123,7 @@ export function DataOverviewSheet() {
     }
 
     if (issue.kind === "assignment_validation" && issue.assignmentId) {
-      setActiveTab("assignment")
+      setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
       showToast(
         `Showing groups${assignmentName ? ` in ${assignmentName}` : ""}`,
@@ -130,6 +162,14 @@ export function DataOverviewSheet() {
           </section>
 
           <section>
+            <MembershipMatrixSection
+              roster={roster}
+              open={matrixOpen}
+              onOpenChange={setMatrixOpen}
+            />
+          </section>
+
+          <section>
             <Collapsible open={rosterOpen} onOpenChange={setRosterOpen}>
               <CollapsibleTrigger className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Roster Insights</span>
@@ -163,6 +203,253 @@ export function DataOverviewSheet() {
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function MembershipMatrixSection({
+  roster,
+  open,
+  onOpenChange,
+}: {
+  roster: Roster | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+
+  const matrixData = useMemo(() => {
+    if (!roster) {
+      return {
+        rows: [] as MembershipMatrixRow[],
+        groupSets: [] as { id: string; name: string }[],
+      }
+    }
+
+    const groupById = new Map(roster.groups.map((group) => [group.id, group]))
+    const sortedGroupSets = [...roster.group_sets].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
+    const seenSystemTypes = new Set<"individual_students" | "staff">()
+    const dedupedGroupSets = sortedGroupSets.filter((groupSet) => {
+      const connection = unwrapGroupSetConnection(groupSet.connection)
+      if (connection?.kind !== "system") return true
+      if (seenSystemTypes.has(connection.system_type)) return false
+      seenSystemTypes.add(connection.system_type)
+      return true
+    })
+    const groupSets = dedupedGroupSets.map((groupSet) => ({
+      id: groupSet.id,
+      name: groupSet.name,
+    }))
+
+    const rows: MembershipMatrixRow[] = roster.students.map((student) => {
+      const memberships: Record<string, string> = {}
+
+      for (const groupSet of dedupedGroupSets) {
+        const memberGroupNames = groupSet.group_ids
+          .map((groupId) => groupById.get(groupId))
+          .filter((group): group is NonNullable<typeof group> => !!group)
+          .filter((group) => group.member_ids.includes(student.id))
+          .map((group) => group.name)
+
+        memberships[groupSet.id] = memberGroupNames.join(", ")
+      }
+
+      return {
+        studentId: student.id,
+        studentName: student.name,
+        memberships,
+      }
+    })
+
+    return { rows, groupSets }
+  }, [roster])
+
+  const columns = useMemo<ColumnDef<MembershipMatrixRow>[]>(() => {
+    const groupSetColumns: ColumnDef<MembershipMatrixRow>[] =
+      matrixData.groupSets.map(
+        (groupSet): ColumnDef<MembershipMatrixRow> => ({
+          id: groupSet.id,
+          accessorFn: (row) => row.memberships[groupSet.id] ?? "",
+          header: (info) => (
+            <SortHeaderButton label={groupSet.name} column={info.column} />
+          ),
+          cell: (info) => {
+            const value = info.getValue() as string
+            return value || "—"
+          },
+        }),
+      )
+
+    return [
+      {
+        id: "studentName",
+        accessorFn: (row) => row.studentName,
+        enableHiding: false,
+        header: (info) => (
+          <SortHeaderButton label="Student" column={info.column} />
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.studentName}</span>
+        ),
+      },
+      ...groupSetColumns,
+    ]
+  }, [matrixData.groupSets])
+
+  const table = useReactTable({
+    data: matrixData.rows,
+    columns,
+    state: {
+      sorting,
+      globalFilter,
+      columnVisibility,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const query = String(filterValue ?? "")
+        .trim()
+        .toLowerCase()
+      if (!query) return true
+      return row.original.studentName.toLowerCase().includes(query)
+    },
+  })
+
+  const toggleableColumns = table
+    .getAllLeafColumns()
+    .filter((column) => column.getCanHide())
+
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <CollapsibleTrigger className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span>Membership Matrix</span>
+        <ChevronDown
+          className={`size-4 transition-transform ${
+            open ? "rotate-0" : "-rotate-90"
+          }`}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Cross-tab of students against group sets. Staff is excluded.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={globalFilter}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            placeholder="Filter students..."
+            className="h-8 w-52"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSorting([])}
+            disabled={sorting.length === 0}
+          >
+            Clear sort
+          </Button>
+        </div>
+
+        {toggleableColumns.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {toggleableColumns.map((column) => (
+              <div
+                key={column.id}
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
+                <Checkbox
+                  size="sm"
+                  checked={column.getIsVisible()}
+                  onCheckedChange={(checked) =>
+                    column.toggleVisibility(checked === true)
+                  }
+                />
+                <span className="truncate max-w-36">
+                  {matrixData.groupSets.find(
+                    (groupSet) => groupSet.id === column.id,
+                  )?.name ?? column.id}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DataTable className="max-h-72 overflow-auto" stickyHeader>
+          <DataTableHeader>
+            {table
+              .getHeaderGroups()
+              .map((headerGroup) =>
+                headerGroup.headers.map((header) => (
+                  <DataTableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </DataTableHead>
+                )),
+              )}
+          </DataTableHeader>
+          <DataTableBody>
+            {table.getRowModel().rows.length === 0 ? (
+              <DataTableEmptyRow
+                colSpan={table.getAllLeafColumns().length}
+                message={
+                  matrixData.rows.length === 0
+                    ? "No students or group sets available"
+                    : "No students match this filter"
+                }
+              />
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <DataTableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <DataTableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </DataTableCell>
+                  ))}
+                </DataTableRow>
+              ))
+            )}
+          </DataTableBody>
+        </DataTable>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+function SortHeaderButton({
+  label,
+  column,
+}: {
+  label: string
+  column: {
+    getIsSorted: () => false | "asc" | "desc"
+    toggleSorting: (desc?: boolean) => void
+  }
+}) {
+  const sorted = column.getIsSorted()
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 hover:underline"
+      onClick={() => column.toggleSorting(sorted === "asc")}
+    >
+      <span className="truncate">{label}</span>
+      {sorted === "asc" && <ChevronUp className="size-3.5 shrink-0" />}
+      {sorted === "desc" && <ChevronDown className="size-3.5 shrink-0" />}
+    </button>
   )
 }
 

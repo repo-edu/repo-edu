@@ -41,13 +41,6 @@ export function CoverageReportSheet() {
   const [loading, setLoading] = useState(false)
   const [exportFormat, setExportFormat] = useState<CoverageExportFormat>("csv")
 
-  const assignmentTypeById = new Map(
-    roster?.assignments.map((assignment) => [
-      assignment.id,
-      assignment.assignment_type,
-    ]) ?? [],
-  )
-
   useEffect(() => {
     if (coverageReportOpen && roster) {
       setLoading(true)
@@ -122,7 +115,7 @@ export function CoverageReportSheet() {
                 <DataTableHeader>
                   <DataTableHead>Assignment</DataTableHead>
                   <DataTableHead>Active students</DataTableHead>
-                  <DataTableHead>Missing (class-wide)</DataTableHead>
+                  <DataTableHead>Missing students</DataTableHead>
                 </DataTableHeader>
                 <DataTableBody>
                   {report.assignments.map((assignment) => (
@@ -132,16 +125,13 @@ export function CoverageReportSheet() {
                       </DataTableCell>
                       <DataTableCell>{assignment.student_count}</DataTableCell>
                       <DataTableCell>
-                        {assignmentTypeById.get(assignment.assignment_id) ===
-                        "selective"
-                          ? "Selective assignment"
-                          : assignment.missing_students.length > 0
-                            ? assignment.missing_students.length <= 3
-                              ? assignment.missing_students
-                                  .map((s) => s.name)
-                                  .join(", ")
-                              : `${assignment.missing_students.length} not in this assignment`
-                            : "—"}
+                        {assignment.missing_students.length > 0
+                          ? assignment.missing_students.length <= 3
+                            ? assignment.missing_students
+                                .map((s) => s.name)
+                                .join(", ")
+                            : `${assignment.missing_students.length} not in this assignment`
+                          : "—"}
                       </DataTableCell>
                     </DataTableRow>
                   ))}

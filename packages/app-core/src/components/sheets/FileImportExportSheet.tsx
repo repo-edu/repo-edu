@@ -20,6 +20,7 @@ import { openDialog, saveDialog } from "../../services/platform"
 import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
+import { applyGroupSetPatch } from "../../utils/groupSetPatch"
 
 export function FileImportExportSheet() {
   const open = useUiStore((state) => state.fileImportExportOpen)
@@ -166,14 +167,10 @@ export function FileImportExportSheet() {
 
     setImporting(true)
     setImportError(null)
-    appendOutput("Importing groups from file...", "info")
+    appendOutput("Importing group set from file...", "info")
 
     try {
-      const result = await commands.importGroupsFromFile(
-        roster,
-        selectedAssignmentId,
-        importFilePath,
-      )
+      const result = await commands.importGroupSet(roster, importFilePath)
 
       if (result.status === "error") {
         setImportError(result.error.message)
@@ -181,16 +178,16 @@ export function FileImportExportSheet() {
         return
       }
 
-      const { roster: newRoster, summary } = result.data
-      setRoster(newRoster, "Import groups from file")
+      const updatedRoster = applyGroupSetPatch(roster, result.data)
+      setRoster(updatedRoster, "Import group set from file")
 
       const message =
-        `Groups imported: +${summary.groups_added}, ` +
-        `-${summary.groups_removed}, ` +
-        `${summary.groups_renamed} renamed; ` +
-        `members +${summary.members_added}, ` +
-        `-${summary.members_removed}, ` +
-        `${summary.members_moved} moved`
+        `Imported group set "${result.data.group_set.name}": ` +
+        `${result.data.groups_upserted.length} groups upserted, ` +
+        `${result.data.deleted_group_ids.length} groups removed` +
+        (result.data.total_missing > 0
+          ? `, ${result.data.total_missing} members missing from roster`
+          : "")
 
       appendOutput(message, "success")
       setImportFilePath("")
