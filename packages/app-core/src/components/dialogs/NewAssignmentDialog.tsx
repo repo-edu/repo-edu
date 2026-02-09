@@ -1,16 +1,13 @@
 /**
  * Dialog for creating a new assignment.
+ *
+ * In the new model, assignments reference a group_set_id and have
+ * a group_selection (all / pattern). No owned groups.
  */
 
-import type {
-  Assignment,
-  AssignmentType,
-  CachedLmsGroup,
-  LmsGroupSetCacheEntry,
-} from "@repo-edu/backend-interface/types"
+import type { GroupSelectionMode } from "@repo-edu/backend-interface/types"
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogBody,
   DialogContent,
@@ -30,223 +27,118 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useEffect, useMemo, useState } from "react"
-import { useProfileStore } from "../../stores/profileStore"
+import {
+  selectGroupSets,
+  selectSystemGroupSet,
+  useProfileStore,
+} from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
-import { formatAssignmentType } from "../../utils/labels"
-import { generateAssignmentId, generateGroupId } from "../../utils/nanoid"
+import { unwrapGroupSetConnection } from "../../utils/groupSetConnection"
 
-type GroupSourceMode = "manual" | "link" | "copy"
-
-const buildAssignmentGroups = (groups: CachedLmsGroup[]) =>
-  groups.map((group) => ({
-    id: generateGroupId(),
-    name: group.name,
-    member_ids: [...group.resolved_member_ids],
-  }))
-
-const filterGroupsByPattern = (groups: CachedLmsGroup[], pattern: string) => {
-  if (!pattern.trim()) return groups
-  const escaped = pattern
-    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*/g, ".*")
-  const regex = new RegExp(`^${escaped}$`, "i")
-  return groups.filter((group) => regex.test(group.name))
-}
+type SelectionKind = "all" | "pattern"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [assignmentType, setAssignmentType] =
-    useState<AssignmentType>("class_wide")
-  const [groupMode, setGroupMode] = useState<GroupSourceMode>("manual")
-  const [selectedGroupSetId, setSelectedGroupSetId] = useState<string | null>(
-    null,
-  )
-  const [filterPattern, setFilterPattern] = useState("")
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
-    new Set(),
-  )
-  const [error, setError] = useState<string | null>(null)
+  const [groupSetId, setGroupSetId] = useState<string | null>(null)
+  const [selectionKind, setSelectionKind] = useState<SelectionKind>("all")
+  const [pattern, setPattern] = useState("")
 
-  const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const addAssignment = useProfileStore((state) => state.addAssignment)
-  const setAssignmentSelection = useProfileStore(
-    (state) => state.setAssignmentSelection,
+  const groupSets = useProfileStore(selectGroupSets)
+  const individualStudentsSet = useProfileStore(
+    selectSystemGroupSet("individual_students"),
   )
+  const createAssignment = useProfileStore((state) => state.createAssignment)
   const open = useUiStore((state) => state.newAssignmentDialogOpen)
   const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen)
+  const preSelectedGroupSetId = useUiStore(
+    (state) => state.preSelectedGroupSetId,
+  )
+  const setPreSelectedGroupSetId = useUiStore(
+    (state) => state.setPreSelectedGroupSetId,
+  )
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
 
-  const cachedGroupSets = useMemo(() => roster?.lms_group_sets ?? [], [roster])
-  const selectableGroupSets = useMemo(() => {
-    if (groupMode === "link") {
-      return cachedGroupSets.filter((set) => set.kind === "linked")
-    }
-    return cachedGroupSets.filter((set) => set.kind !== "unlinked")
-  }, [cachedGroupSets, groupMode])
-
-  const selectedGroupSet: LmsGroupSetCacheEntry | null =
-    selectedGroupSetId &&
-    selectableGroupSets.some((set) => set.id === selectedGroupSetId)
-      ? (selectableGroupSets.find((set) => set.id === selectedGroupSetId) ??
-        null)
-      : null
-
-  const filteredGroups = useMemo(() => {
-    if (!selectedGroupSet) return []
-    return filterGroupsByPattern(selectedGroupSet.groups, filterPattern)
-  }, [filterPattern, selectedGroupSet])
-
-  useEffect(() => {
-    if (groupMode === "manual") {
-      if (selectedGroupSetId !== null) {
-        setSelectedGroupSetId(null)
-      }
-      return
-    }
-
-    if (selectableGroupSets.length === 0) {
-      if (selectedGroupSetId !== null) {
-        setSelectedGroupSetId(null)
-      }
-      return
-    }
-
-    if (
-      !selectedGroupSetId ||
-      !selectableGroupSets.some((set) => set.id === selectedGroupSetId)
-    ) {
-      setSelectedGroupSetId(selectableGroupSets[0].id)
-    }
-  }, [groupMode, selectableGroupSets, selectedGroupSetId])
-
-  useEffect(() => {
-    setSelectedGroupIds(new Set())
-    setFilterPattern("")
-    setError(null)
-  }, [selectedGroupSetId, groupMode])
-
-  const toggleGroupSelection = (groupId: string) => {
-    setSelectedGroupIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) {
-        next.delete(groupId)
-      } else {
-        next.add(groupId)
-      }
-      return next
+  // Sort group sets: system first, then alphabetical
+  const sortedGroupSets = useMemo(() => {
+    return [...groupSets].sort((a, b) => {
+      const aSystem =
+        unwrapGroupSetConnection(a.connection)?.kind === "system" ? 0 : 1
+      const bSystem =
+        unwrapGroupSetConnection(b.connection)?.kind === "system" ? 0 : 1
+      if (aSystem !== bSystem) return aSystem - bSystem
+      return a.name.localeCompare(b.name)
     })
-  }
+  }, [groupSets])
 
-  const selectAllFiltered = () => {
-    const ids = filteredGroups.map((group) => group.id)
-    setSelectedGroupIds(new Set(ids))
-  }
+  // Handle pre-selection and default on open
+  useEffect(() => {
+    if (!open) return
 
-  const deselectAll = () => {
-    setSelectedGroupIds(new Set())
-  }
-
-  const resolveCopyGroups = (groups: CachedLmsGroup[]) => {
-    if (selectedGroupIds.size > 0) {
-      return groups.filter((group) => selectedGroupIds.has(group.id))
+    if (preSelectedGroupSetId) {
+      const exists = groupSets.some((gs) => gs.id === preSelectedGroupSetId)
+      if (exists) {
+        setGroupSetId(preSelectedGroupSetId)
+      }
+      setPreSelectedGroupSetId(null)
+    } else if (!groupSetId) {
+      // Default to Individual Students if available
+      setGroupSetId(individualStudentsSet?.id ?? groupSets[0]?.id ?? null)
     }
-    if (filterPattern.trim()) {
-      return filteredGroups
-    }
-    return groups
-  }
+  }, [
+    open,
+    preSelectedGroupSetId,
+    groupSets,
+    individualStudentsSet,
+    groupSetId,
+    setPreSelectedGroupSetId,
+  ])
+
+  const trimmedName = name.trim()
+  const canCreate = trimmedName.length > 0 && groupSetId !== null
 
   const handleCreate = () => {
-    const trimmedName = name.trim()
-    if (!trimmedName) return
+    if (!canCreate || !groupSetId) return
 
-    if (!roster) {
-      setError("No roster loaded")
-      return
-    }
+    const groupSelection: GroupSelectionMode =
+      selectionKind === "pattern"
+        ? { kind: "pattern", pattern: pattern || "*", excluded_group_ids: [] }
+        : { kind: "all", excluded_group_ids: [] }
 
-    let groups: ReturnType<typeof buildAssignmentGroups> = []
-    let groupSetId: string | null = null
+    const id = createAssignment(
+      {
+        name: trimmedName,
+        description: description.trim() || null,
+        group_set_id: groupSetId,
+        group_selection: groupSelection,
+      },
+      { select: true },
+    )
 
-    if (groupMode === "link") {
-      if (!selectedGroupSet) {
-        setError("Select a linked group set")
-        return
-      }
-      groups = buildAssignmentGroups(selectedGroupSet.groups)
-      groupSetId = selectedGroupSet.id
-    }
-
-    if (groupMode === "copy") {
-      if (!selectedGroupSet) {
-        setError("Select a group set")
-        return
-      }
-      const groupsToCopy = resolveCopyGroups(selectedGroupSet.groups)
-      groups = buildAssignmentGroups(groupsToCopy)
-      groupSetId = null
-    }
-
-    const assignment: Assignment = {
-      id: generateAssignmentId(),
-      name: trimmedName,
-      description: description.trim() || null,
-      assignment_type: assignmentType,
-      groups,
-      group_set_id: groupSetId,
-    }
-
-    addAssignment(assignment, { select: true })
-    setAssignmentSelection({ mode: "assignment", id: assignment.id })
-    setOpen(false)
-    resetDialogState()
+    setSidebarSelection({ kind: "assignment", id })
+    handleClose()
   }
 
-  const resetDialogState = () => {
+  const handleClose = () => {
+    setOpen(false)
     setName("")
     setDescription("")
-    setAssignmentType("class_wide")
-    setGroupMode("manual")
-    setSelectedGroupSetId(null)
-    setFilterPattern("")
-    setSelectedGroupIds(new Set())
-    setError(null)
+    setGroupSetId(null)
+    setSelectionKind("all")
+    setPattern("")
   }
-
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen)
-    if (!newOpen) {
-      resetDialogState()
-    }
-  }
-
-  const selectedCount =
-    selectedGroupIds.size > 0 ? selectedGroupIds.size : filteredGroups.length
-  const studentCount =
-    selectedGroupIds.size > 0
-      ? filteredGroups
-          .filter((group) => selectedGroupIds.has(group.id))
-          .reduce((acc, group) => acc + group.resolved_member_ids.length, 0)
-      : filteredGroups.reduce(
-          (acc, group) => acc + group.resolved_member_ids.length,
-          0,
-        )
-
-  const hasName = name.trim().length > 0
-  const canCreate = hasName && (groupMode === "manual" || !!selectedGroupSet)
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Assignment</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          {error && <Text className="text-sm text-destructive">{error}</Text>}
           <FormField
             label="Name"
             htmlFor="assignment-name"
-            title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
+            title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2')"
           >
             <Input
               id="assignment-name"
@@ -254,215 +146,91 @@ export function NewAssignmentDialog() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && canCreate) {
-                  handleCreate()
-                }
+                if (e.key === "Enter" && canCreate) handleCreate()
               }}
-              title="A short identifier used for repository naming (e.g., 'lab-1', 'project-2'). This should match the name of the template repository in your template org."
+              autoFocus
             />
           </FormField>
+
           <FormField
             label="Description (optional)"
             htmlFor="assignment-description"
-            title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
+            title="Optional human-readable name shown in the UI"
           >
             <Input
               id="assignment-description"
               placeholder="e.g., Lab 1: Python Basics"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              title="Optional human-readable name shown in the UI (e.g., 'Lab 1: Python Basics'). If empty, the name is displayed."
             />
           </FormField>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Type (cannot be changed after creation)
-            </Label>
-            <RadioGroup
-              value={assignmentType}
-              onValueChange={(value) =>
-                setAssignmentType(value as AssignmentType)
-              }
-              className="flex flex-col gap-2"
-            >
-              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-                <RadioGroupItem value="class_wide" id="assignment-type-class" />
-                <div className="space-y-0.5">
-                  <Label
-                    htmlFor="assignment-type-class"
-                    className="font-medium"
-                  >
-                    {formatAssignmentType("class_wide")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    All active students must be assigned to a group.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-                <RadioGroupItem value="selective" id="assignment-type-select" />
-                <div className="space-y-0.5">
-                  <Label
-                    htmlFor="assignment-type-select"
-                    className="font-medium"
-                  >
-                    {formatAssignmentType("selective")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Any subset of active students can participate.
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Group source</Label>
-            <RadioGroup
-              value={groupMode}
-              onValueChange={(value) => setGroupMode(value as GroupSourceMode)}
-              className="flex flex-col gap-2"
-            >
-              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-                <RadioGroupItem value="manual" id="group-mode-manual" />
-                <div className="space-y-0.5">
-                  <Label htmlFor="group-mode-manual" className="font-medium">
-                    Manual groups
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Start with empty groups and add members yourself.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-                <RadioGroupItem value="link" id="group-mode-link" />
-                <div className="space-y-0.5">
-                  <Label htmlFor="group-mode-link" className="font-medium">
-                    Link group set (read-only)
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Keep groups synced with cached LMS data.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-                <RadioGroupItem value="copy" id="group-mode-copy" />
-                <div className="space-y-0.5">
-                  <Label htmlFor="group-mode-copy" className="font-medium">
-                    Copy group set (editable)
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Import a snapshot you can edit without syncing.
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
 
-          {groupMode !== "manual" && (
-            <FormField label="Group Set">
+          <FormField label="Group Set" htmlFor="assignment-group-set">
+            {sortedGroupSets.length === 0 ? (
+              <Text className="text-xs text-muted-foreground">
+                No group sets available. Create a group set first.
+              </Text>
+            ) : (
               <Select
-                value={selectedGroupSetId ?? undefined}
-                onValueChange={setSelectedGroupSetId}
-                disabled={selectableGroupSets.length === 0}
+                value={groupSetId ?? undefined}
+                onValueChange={setGroupSetId}
               >
-                <SelectTrigger>
+                <SelectTrigger id="assignment-group-set">
                   <SelectValue placeholder="Select a group set" />
                 </SelectTrigger>
                 <SelectContent className="z-[100]">
-                  {selectableGroupSets.map((groupSet) => (
-                    <SelectItem key={groupSet.id} value={groupSet.id}>
-                      {groupSet.name}
+                  {sortedGroupSets.map((gs) => (
+                    <SelectItem key={gs.id} value={gs.id}>
+                      {gs.name}
+                      {unwrapGroupSetConnection(gs.connection)?.kind ===
+                      "system"
+                        ? " (System)"
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectableGroupSets.length === 0 && (
-                <Text className="text-xs text-muted-foreground mt-2">
-                  No cached group sets. Import one in the Group tab first.
-                </Text>
-              )}
-            </FormField>
-          )}
+            )}
+          </FormField>
 
-          {groupMode === "copy" && selectedGroupSet && (
-            <>
-              <FormField
-                label="Filter Pattern (optional)"
-                description="Use * as a wildcard. Leave empty to select manually."
-              >
-                <Input
-                  placeholder="e.g., A1-* or Team-*"
-                  value={filterPattern}
-                  onChange={(e) => setFilterPattern(e.target.value)}
-                />
-              </FormField>
-
-              <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                  <Label>Groups</Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline"
-                      onClick={selectAllFiltered}
-                    >
-                      Select all
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline"
-                      onClick={deselectAll}
-                    >
-                      Deselect all
-                    </button>
-                  </div>
-                </div>
-                <div className="border rounded-md max-h-48 overflow-y-auto">
-                  {filteredGroups.length === 0 && (
-                    <p className="text-sm text-muted-foreground p-3 text-center">
-                      No groups match the filter
-                    </p>
-                  )}
-                  {filteredGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer"
-                      role="option"
-                      aria-selected={selectedGroupIds.has(group.id)}
-                      onClick={() => toggleGroupSelection(group.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault()
-                          toggleGroupSelection(group.id)
-                        }
-                      }}
-                      tabIndex={0}
-                    >
-                      <Checkbox
-                        checked={selectedGroupIds.has(group.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onCheckedChange={() => toggleGroupSelection(group.id)}
-                        tabIndex={-1}
-                      />
-                      <span className="text-sm flex-1">{group.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {group.resolved_member_ids.length} student
-                        {group.resolved_member_ids.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Group selection</Label>
+            <RadioGroup
+              value={selectionKind}
+              onValueChange={(v) => setSelectionKind(v as SelectionKind)}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="all" id="new-assign-sel-all" />
+                <Label htmlFor="new-assign-sel-all" className="text-sm">
+                  All groups
+                </Label>
               </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="pattern" id="new-assign-sel-pattern" />
+                <Label htmlFor="new-assign-sel-pattern" className="text-sm">
+                  Pattern filter
+                </Label>
+              </div>
+            </RadioGroup>
 
-              <p className="text-sm text-muted-foreground">
-                {selectedCount} group{selectedCount !== 1 ? "s" : ""} selected (
-                {studentCount} student{studentCount !== 1 ? "s" : ""})
-              </p>
-            </>
-          )}
+            {selectionKind === "pattern" && (
+              <div className="pl-6 space-y-1.5">
+                <Input
+                  value={pattern}
+                  onChange={(e) => setPattern(e.target.value)}
+                  placeholder="e.g., 1D* or Team-*"
+                  className="h-7 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Glob pattern matched against group names. Use * for wildcard.
+                </p>
+              </div>
+            )}
+          </div>
         </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
           <Button onClick={handleCreate} disabled={!canCreate}>

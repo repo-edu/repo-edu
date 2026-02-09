@@ -2,15 +2,18 @@
  * Multi-select component for choosing students (group members).
  */
 
-import type { Student, StudentId } from "@repo-edu/backend-interface/types"
+import type {
+  RosterMember,
+  RosterMemberId,
+} from "@repo-edu/backend-interface/types"
 import { Checkbox, Input } from "@repo-edu/ui"
 import { useMemo, useState } from "react"
 
 interface StudentMultiSelectProps {
-  students: Student[]
-  selected: StudentId[]
-  onChange: (selected: StudentId[]) => void
-  groups?: { id: string; name: string; member_ids: StudentId[] }[]
+  students: RosterMember[]
+  selected: RosterMemberId[]
+  onChange: (selected: RosterMemberId[]) => void
+  groups?: { id: string; name: string; member_ids: RosterMemberId[] }[]
   currentGroupId?: string | null
 }
 
@@ -24,7 +27,7 @@ export function StudentMultiSelect({
   const [search, setSearch] = useState("")
 
   const filteredStudents = useMemo(() => {
-    const statusOrder: Record<Student["status"], number> = {
+    const statusOrder: Record<RosterMember["status"], number> = {
       active: 0,
       dropped: 1,
       incomplete: 2,
@@ -47,7 +50,10 @@ export function StudentMultiSelect({
   }, [students, search])
 
   const membershipMap = useMemo(() => {
-    const map = new Map<StudentId, { groupId: string; groupName: string }[]>()
+    const map = new Map<
+      RosterMemberId,
+      { groupId: string; groupName: string }[]
+    >()
     if (!groups) return map
     for (const group of groups) {
       for (const memberId of group.member_ids) {
@@ -59,7 +65,7 @@ export function StudentMultiSelect({
     return map
   }, [groups])
 
-  const toggleStudent = (id: StudentId) => {
+  const toggleStudent = (id: RosterMemberId) => {
     if (selected.includes(id)) {
       onChange(selected.filter((s) => s !== id))
     } else {
@@ -175,8 +181,8 @@ function MultiGroupIndicator({
   studentId,
   currentGroupId,
 }: {
-  membershipMap: Map<StudentId, { groupId: string; groupName: string }[]>
-  studentId: StudentId
+  membershipMap: Map<RosterMemberId, { groupId: string; groupName: string }[]>
+  studentId: RosterMemberId
   currentGroupId?: string | null
 }) {
   const otherGroups = getOtherGroups(membershipMap, studentId, currentGroupId)
@@ -197,8 +203,8 @@ function MultiGroupIndicator({
 }
 
 function getOtherGroups(
-  membershipMap: Map<StudentId, { groupId: string; groupName: string }[]>,
-  studentId: StudentId,
+  membershipMap: Map<RosterMemberId, { groupId: string; groupName: string }[]>,
+  studentId: RosterMemberId,
   currentGroupId?: string | null,
 ) {
   const groups = membershipMap.get(studentId) ?? []
