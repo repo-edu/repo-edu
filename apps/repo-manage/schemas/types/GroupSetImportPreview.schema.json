@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSetImportPreview.schema.json",
+  "title": "GroupSetImportPreview",
+  "type": "object",
+  "additionalProperties": true,
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "mode": { "const": "import" },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "member_count": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["name", "member_count"],
+            "additionalProperties": false
+          }
+        },
+        "missing_members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "group_name": { "type": "string" },
+              "missing_count": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["group_name", "missing_count"],
+            "additionalProperties": false
+          }
+        },
+        "total_missing": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["mode", "groups", "missing_members", "total_missing"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "mode": { "const": "reimport" },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "member_count": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["name", "member_count"],
+            "additionalProperties": false
+          }
+        },
+        "missing_members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "group_name": { "type": "string" },
+              "missing_count": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["group_name", "missing_count"],
+            "additionalProperties": false
+          }
+        },
+        "total_missing": { "type": "integer", "minimum": 0 },
+        "added_group_names": { "type": "array", "items": { "type": "string" } },
+        "removed_group_names": { "type": "array", "items": { "type": "string" } },
+        "updated_group_names": { "type": "array", "items": { "type": "string" } },
+        "renamed_groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" }
+            },
+            "required": ["from", "to"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "groups",
+        "missing_members",
+        "total_missing",
+        "added_group_names",
+        "removed_group_names",
+        "updated_group_names",
+        "renamed_groups"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Preview payload for import and re-import dialogs"
+}

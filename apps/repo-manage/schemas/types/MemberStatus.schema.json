@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "MemberStatus.schema.json",
+  "title": "MemberStatus",
+  "type": "string",
+  "enum": ["active", "incomplete", "dropped"],
+  "x-rust": {
+    "default": "active",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "Internal normalized roster member status for filtering and coverage calculations"
+}

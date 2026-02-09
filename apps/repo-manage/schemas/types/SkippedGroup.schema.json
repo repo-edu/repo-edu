@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "SkippedGroup.schema.json",
   "title": "SkippedGroup",
   "type": "object",
   "properties": {
@@ -7,7 +8,8 @@
       "$ref": "./AssignmentId.schema.json"
     },
     "group_id": {
-      "$ref": "./GroupId.schema.json"
+      "type": "string",
+      "format": "uuid"
     },
     "group_name": {
       "type": "string"
@@ -17,21 +19,12 @@
     },
     "context": {
       "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+        { "type": "string" },
+        { "type": "null" }
       ]
     }
   },
   "additionalProperties": false,
-  "required": [
-    "assignment_id",
-    "group_id",
-    "group_name",
-    "reason"
-  ],
+  "required": ["assignment_id", "group_id", "group_name", "reason"],
   "description": "Details about a skipped group"
 }

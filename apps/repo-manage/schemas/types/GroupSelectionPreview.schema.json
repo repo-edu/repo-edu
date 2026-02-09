@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSelectionPreview.schema.json",
+  "title": "GroupSelectionPreview",
+  "type": "object",
+  "properties": {
+    "valid": {
+      "type": "boolean",
+      "description": "False when the glob pattern is invalid"
+    },
+    "error": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "Validation error message when valid=false"
+    },
+    "group_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "Resolved group IDs after applying group_selection and exclusions (ordered as in group set)"
+    },
+    "empty_group_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "Resolved group IDs that have zero members"
+    },
+    "group_member_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "group_id": { "type": "string", "format": "uuid" },
+          "member_count": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["group_id", "member_count"],
+        "additionalProperties": false
+      },
+      "description": "Per-group member counts (parallel to group_ids)"
+    },
+    "total_groups": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total groups in the selected group set"
+    },
+    "matched_groups": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of groups matched by selection before exclusions (for kind=all, equals total_groups)"
+    }
+  },
+  "required": [
+    "valid",
+    "error",
+    "group_ids",
+    "empty_group_ids",
+    "group_member_counts",
+    "total_groups",
+    "matched_groups"
+  ],
+  "additionalProperties": false,
+  "description": "Backend preview result for group selection validation and resolution"
+}

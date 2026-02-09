@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Assignment.schema.json",
   "title": "Assignment",
   "type": "object",
   "properties": {
@@ -11,40 +12,21 @@
     },
     "description": {
       "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+        { "type": "string" },
+        { "type": "null" }
       ]
-    },
-    "assignment_type": {
-      "$ref": "./AssignmentType.schema.json"
-    },
-    "groups": {
-      "type": "array",
-      "items": {
-        "$ref": "./Group.schema.json"
-      }
     },
     "group_set_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to group set by ID (required)"
+    },
+    "group_selection": {
+      "$ref": "./GroupSelectionMode.schema.json",
+      "description": "How to select groups from the group set"
     }
   },
   "additionalProperties": false,
-  "required": [
-    "id",
-    "name",
-    "assignment_type",
-    "groups"
-  ],
-  "description": "Assignment grouping students into repos"
+  "required": ["id", "name", "group_set_id", "group_selection"],
+  "description": "Assignment grouping roster members into repos"
 }

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSetSyncResult.schema.json",
+  "title": "GroupSetSyncResult",
+  "type": "object",
+  "properties": {
+    "group_set": { "$ref": "./GroupSet.schema.json" },
+    "groups_upserted": {
+      "type": "array",
+      "items": { "$ref": "./Group.schema.json" }
+    },
+    "deleted_group_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "missing_members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "group_name": { "type": "string" },
+          "missing_count": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["group_name", "missing_count"],
+        "additionalProperties": false
+      }
+    },
+    "total_missing": { "type": "integer", "minimum": 0 }
+  },
+  "required": [
+    "group_set",
+    "groups_upserted",
+    "deleted_group_ids",
+    "missing_members",
+    "total_missing"
+  ],
+  "additionalProperties": false,
+  "description": "Patch payload for sync_group_set"
+}

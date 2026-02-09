@@ -1,10 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RepoCollision.schema.json",
   "title": "RepoCollision",
   "type": "object",
   "properties": {
     "group_id": {
-      "$ref": "./GroupId.schema.json"
+      "type": "string",
+      "format": "uuid"
     },
     "group_name": {
       "type": "string"
@@ -17,11 +19,6 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "group_id",
-    "group_name",
-    "repo_name",
-    "kind"
-  ],
+  "required": ["group_id", "group_name", "repo_name", "kind"],
   "description": "Repo collision detail"
 }

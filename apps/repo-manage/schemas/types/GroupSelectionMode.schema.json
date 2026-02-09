@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSelectionMode.schema.json",
+  "title": "GroupSelectionMode",
+  "type": "object",
+  "additionalProperties": true,
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "all" },
+        "excluded_group_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Explicitly excluded groups (by group UUID)"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["kind", "excluded_group_ids"]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "pattern" },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Validated simple glob pattern matched against group name (e.g., \"1D*\")"
+        },
+        "excluded_group_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Explicitly excluded groups (by group UUID)"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["kind", "pattern", "excluded_group_ids"]
+    }
+  ],
+  "description": "How to select groups from a group set for an assignment"
+}

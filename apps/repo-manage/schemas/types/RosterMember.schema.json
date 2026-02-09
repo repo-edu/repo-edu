@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RosterMember.schema.json",
+  "title": "RosterMember",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "./RosterMemberId.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "student_number": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "Institution ID (Canvas sis_user_id / Moodle idnumber)"
+    },
+    "git_username": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }]
+    },
+    "git_username_status": {
+      "$ref": "./GitUsernameStatus.schema.json"
+    },
+    "status": {
+      "$ref": "./MemberStatus.schema.json",
+      "default": "active"
+    },
+    "lms_user_id": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }]
+    },
+    "enrollment_type": {
+      "$ref": "./EnrollmentType.schema.json",
+      "description": "User role from LMS (student, teacher, TA, etc.)",
+      "default": "student"
+    },
+    "enrollment_display": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "LMS-native enrollment label for UI (e.g., Invited, Suspended)"
+    },
+    "department": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "Moodle department field"
+    },
+    "institution": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "Moodle institution field"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["lms", "local"],
+      "description": "Origin of roster member: synced from LMS or added locally",
+      "default": "local"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "name", "email", "git_username_status", "status", "enrollment_type", "source"],
+  "description": "Roster member entry (student or staff)"
+}

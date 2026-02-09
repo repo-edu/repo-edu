@@ -1,9 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GroupSetKind",
-  "type": "string",
-  "enum": ["unlinked", "linked", "copied"],
-  "x-rust": {
-    "default": "linked"
-  }
-}

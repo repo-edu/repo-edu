@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ImportConflict.schema.json",
+  "title": "ImportConflict",
+  "type": "object",
+  "properties": {
+    "match_key": {
+      "type": "string",
+      "enum": ["lms_user_id", "email", "student_number"]
+    },
+    "value": {
+      "type": "string",
+      "description": "Conflicting key value from LMS payload"
+    },
+    "matched_ids": {
+      "type": "array",
+      "items": { "$ref": "./RosterMemberId.schema.json" },
+      "minItems": 2
+    }
+  },
+  "required": ["match_key", "value", "matched_ids"],
+  "additionalProperties": false,
+  "description": "Conflict detail for roster sync when multiple existing roster members match a single LMS identity key"
+}

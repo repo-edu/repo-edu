@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RosterConnection.schema.json",
+  "title": "RosterConnection",
+  "type": "object",
+  "additionalProperties": true,
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "canvas" },
+        "course_id": { "type": "string" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "course_id", "last_updated"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "moodle" },
+        "course_id": { "type": "string" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "course_id", "last_updated"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "import" },
+        "source_filename": { "type": "string", "description": "Original filename for display" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "source_filename", "last_updated"],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Roster connection info (LMS sync or file import)"
+}

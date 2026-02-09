@@ -8,7 +8,7 @@
 export interface AffectedGroup {
   assignment_id: AssignmentId
   assignment_name: string
-  group_id: GroupId
+  group_id: string
   group_name: string
 }
 
@@ -40,21 +40,18 @@ export interface AppSettings {
 }
 
 /**
- * Assignment grouping students into repos
+ * Assignment grouping roster members into repos
  */
 export interface Assignment {
   id: AssignmentId
   name: string
   description?: string | null
-  assignment_type: AssignmentType
-  groups: Group[]
-  group_set_id?: string | null
+  /**
+   * Reference to group set by ID (required)
+   */
+  group_set_id: string
+  group_selection: GroupSelectionMode
 }
-
-/**
- * Assignment type determining validation behavior
- */
-export type AssignmentType = "class_wide" | "selective"
 
 /**
  * Coverage summary for an assignment
@@ -72,26 +69,17 @@ export interface AssignmentCoverage {
 export type AssignmentId = string
 
 /**
- * Assignment metadata without groups
+ * Assignment metadata without resolved groups
  */
 export interface AssignmentMetadata {
   id: AssignmentId
   name: string
   description?: string | null
-  assignment_type: AssignmentType
-  group_set_id?: string | null
-}
-
-/**
- * Cached LMS group with resolved and unresolved member tracking
- */
-export interface CachedLmsGroup {
-  id: string
-  name: string
-  lms_member_ids: string[]
-  resolved_member_ids: StudentId[]
-  unresolved_count: number
-  needs_reresolution: boolean
+  /**
+   * Reference to group set by ID (required)
+   */
+  group_set_id: string
+  group_selection: GroupSelectionMode
 }
 
 /**
@@ -164,6 +152,17 @@ export interface DeleteConfig {}
 export type DirectoryLayout = "by-team" | "flat" | "by-task"
 
 /**
+ * User enrollment type from LMS (Canvas enrollment type or Moodle role)
+ */
+export type EnrollmentType =
+  | "student"
+  | "teacher"
+  | "ta"
+  | "designer"
+  | "observer"
+  | "other"
+
+/**
  * Export settings for roster outputs
  */
 export interface ExportSettings {
@@ -231,34 +230,36 @@ export interface GitVerifyResult {
 }
 
 /**
- * Group within an assignment
+ * Group entity (top-level, can be referenced by multiple GroupSets)
  */
-export interface Group {
-  id: GroupId
+export type Group = {
+  [k: string]: unknown
+} & {
+  /**
+   * Unique stable identifier (UUID)
+   */
+  id: string
   name: string
-  member_ids: StudentId[]
+  /**
+   * Roster member IDs
+   */
+  member_ids: RosterMemberId[]
+  /**
+   * Group origin; editability is origin-based
+   */
+  origin: "system" | "lms" | "local"
+  /**
+   * LMS group ID for sync matching (Canvas group_id / Moodle group id)
+   */
+  lms_group_id: string | null
 }
-
-/**
- * Filter for importing LMS groups
- */
-export interface GroupFilter {
-  kind: "all" | "selected" | "pattern"
-  selected?: string[]
-  pattern?: string
-}
-
-/**
- * Strongly-typed group ID
- */
-export type GroupId = string
 
 /**
  * Group set selection and filter configuration
  */
 export interface GroupImportConfig {
   group_set_id: string
-  filter: GroupFilter
+  group_selection: GroupSelectionMode
 }
 
 /**
@@ -271,7 +272,178 @@ export interface GroupImportSummary {
   filter_applied: string
 }
 
-export type GroupSetKind = "unlinked" | "linked" | "copied"
+/**
+ * How to select groups from a group set for an assignment
+ */
+export type GroupSelectionMode =
+  | {
+      kind: "all"
+      /**
+       * Explicitly excluded groups (by group UUID)
+       */
+      excluded_group_ids: string[]
+    }
+  | {
+      kind: "pattern"
+      /**
+       * Validated simple glob pattern matched against group name (e.g., "1D*")
+       */
+      pattern: string
+      /**
+       * Explicitly excluded groups (by group UUID)
+       */
+      excluded_group_ids: string[]
+    }
+
+/**
+ * Backend preview result for group selection validation and resolution
+ */
+export interface GroupSelectionPreview {
+  /**
+   * False when the glob pattern is invalid
+   */
+  valid: boolean
+  /**
+   * Validation error message when valid=false
+   */
+  error: string | null
+  /**
+   * Resolved group IDs after applying group_selection and exclusions (ordered as in group set)
+   */
+  group_ids: string[]
+  /**
+   * Resolved group IDs that have zero members
+   */
+  empty_group_ids: string[]
+  /**
+   * Per-group member counts (parallel to group_ids)
+   */
+  group_member_counts: {
+    group_id: string
+    member_count: number
+  }[]
+  /**
+   * Total groups in the selected group set
+   */
+  total_groups: number
+  /**
+   * Count of groups matched by selection before exclusions (for kind=all, equals total_groups)
+   */
+  matched_groups: number
+}
+
+/**
+ * Group set containing references to groups by ID
+ */
+export interface GroupSet {
+  /**
+   * Unique stable identifier (UUID)
+   */
+  id: string
+  name: string
+  /**
+   * References to Group entities by ID
+   */
+  group_ids: string[]
+  /**
+   * Connection info, or null for local group sets
+   */
+  connection: GroupSetConnection | null
+}
+
+/**
+ * Connection metadata for a GroupSet
+ */
+export type GroupSetConnection =
+  | {
+      kind: "system"
+      system_type: "individual_students" | "staff"
+    }
+  | {
+      kind: "canvas"
+      course_id: string
+      group_set_id: string
+      last_updated: string
+    }
+  | {
+      kind: "moodle"
+      course_id: string
+      grouping_id: string
+      last_updated: string
+    }
+  | {
+      kind: "import"
+      /**
+       * Original filename for display
+       */
+      source_filename: string
+      last_updated: string
+    }
+
+/**
+ * Preview payload for import and re-import dialogs
+ */
+export type GroupSetImportPreview =
+  | {
+      mode: "import"
+      groups: {
+        name: string
+        member_count: number
+      }[]
+      missing_members: {
+        group_name: string
+        missing_count: number
+      }[]
+      total_missing: number
+    }
+  | {
+      mode: "reimport"
+      groups: {
+        name: string
+        member_count: number
+      }[]
+      missing_members: {
+        group_name: string
+        missing_count: number
+      }[]
+      total_missing: number
+      added_group_names: string[]
+      removed_group_names: string[]
+      updated_group_names: string[]
+      renamed_groups: {
+        from: string
+        to: string
+      }[]
+    }
+
+/**
+ * Patch payload for import_group_set and reimport_group_set
+ */
+export interface GroupSetImportResult {
+  mode: "import" | "reimport"
+  group_set: GroupSet
+  groups_upserted: Group[]
+  deleted_group_ids: string[]
+  missing_members: {
+    group_name: string
+    missing_count: number
+  }[]
+  total_missing: number
+}
+
+/**
+ * Patch payload for sync_group_set
+ */
+export interface GroupSetSyncResult {
+  group_set: GroupSet
+  groups_upserted: Group[]
+  deleted_group_ids: string[]
+  missing_members: {
+    group_name: string
+    missing_count: number
+  }[]
+  total_missing: number
+}
 
 /**
  * Result of importing groups from file
@@ -294,6 +466,21 @@ export interface GroupFileImportSummary {
 }
 
 /**
+ * Conflict detail for roster sync when multiple existing roster members match a single LMS identity key
+ */
+export interface ImportConflict {
+  match_key: "lms_user_id" | "email" | "student_number"
+  /**
+   * Conflicting key value from LMS payload
+   */
+  value: string
+  /**
+   * @minItems 2
+   */
+  matched_ids: [RosterMemberId, RosterMemberId, ...RosterMemberId[]]
+}
+
+/**
  * Result of importing git usernames
  */
 export interface ImportGitUsernamesResult {
@@ -307,6 +494,16 @@ export interface ImportGitUsernamesResult {
 export interface ImportGroupsResult {
   summary: GroupImportSummary
   roster: Roster
+}
+
+/**
+ * Result of importing roster with conflict reporting
+ */
+export interface ImportRosterResult {
+  summary: ImportSummary
+  roster: Roster
+  conflicts: ImportConflict[]
+  total_conflicts: number
 }
 
 /**
@@ -378,22 +575,6 @@ export interface LmsGroupSet {
 }
 
 /**
- * Cached group set scoped to a profile context
- */
-export interface LmsGroupSetCacheEntry {
-  id: string
-  kind: GroupSetKind
-  name: string
-  groups: CachedLmsGroup[]
-  filter: GroupFilter | null
-  fetched_at: string | null
-  lms_group_set_id: string | null
-  lms_type: LmsType | null
-  base_url: string | null
-  course_id: string | null
-}
-
-/**
  * Snapshot of LMS settings for operations (draft or saved)
  */
 export interface LmsOperationContext {
@@ -430,6 +611,11 @@ export interface LmsVerifyResult {
  * Member option for YAML generation
  */
 export type MemberOption = "(email, gitid)" | "email" | "git_id"
+
+/**
+ * Internal normalized roster member status for filtering and coverage calculations
+ */
+export type MemberStatus = "active" | "incomplete" | "dropped"
 
 /**
  * Per-profile operation configuration
@@ -474,6 +660,25 @@ export interface OutputLine {
 }
 
 /**
+ * Backend result for filter_by_pattern, used by debounced frontend local filters
+ */
+export interface PatternFilterResult {
+  /**
+   * False when the glob pattern is invalid
+   */
+  valid: boolean
+  /**
+   * Validation error message when valid=false
+   */
+  error: string | null
+  /**
+   * Indexes of matched values in input order
+   */
+  matched_indexes: number[]
+  matched_count: number
+}
+
+/**
  * Platform connection credentials
  */
 export interface PlatformConnection {
@@ -500,7 +705,7 @@ export interface ProfileSettings {
  * Repo collision detail
  */
 export interface RepoCollision {
-  group_id: GroupId
+  group_id: string
   group_name: string
   repo_name: string
   kind: RepoCollisionKind
@@ -532,24 +737,84 @@ export interface RepoPreflightResult {
  * Roster data for a course
  */
 export interface Roster {
-  source?: RosterSource | null
-  students: Student[]
+  /**
+   * Roster connection info, or null if not connected to LMS
+   */
+  connection: RosterConnection | null
+  students: RosterMember[]
+  staff: RosterMember[]
+  /**
+   * All groups (top-level entities, referenced by group sets)
+   */
+  groups: Group[]
+  /**
+   * All group sets (reference groups by ID)
+   */
+  group_sets: GroupSet[]
   assignments: Assignment[]
-  lms_group_sets?: LmsGroupSetCacheEntry[]
 }
 
 /**
- * Tracks how the roster was sourced for display
+ * Roster connection info (LMS sync or file import)
  */
-export interface RosterSource {
-  kind: "lms" | "file" | "manual"
-  lms_type?: LmsType
-  base_url?: string
-  fetched_at?: string
-  file_name?: string
-  imported_at?: string
-  created_at?: string
+export type RosterConnection =
+  | {
+      kind: "canvas"
+      course_id: string
+      last_updated: string
+    }
+  | {
+      kind: "moodle"
+      course_id: string
+      last_updated: string
+    }
+  | {
+      kind: "import"
+      /**
+       * Original filename for display
+       */
+      source_filename: string
+      last_updated: string
+    }
+
+/**
+ * Roster member entry (student or staff)
+ */
+export interface RosterMember {
+  id: RosterMemberId
+  name: string
+  email: string
+  /**
+   * Institution ID (Canvas sis_user_id / Moodle idnumber)
+   */
+  student_number?: string | null
+  git_username?: string | null
+  git_username_status: GitUsernameStatus
+  status: MemberStatus
+  lms_user_id?: string | null
+  enrollment_type: EnrollmentType
+  /**
+   * LMS-native enrollment label for UI (e.g., Invited, Suspended)
+   */
+  enrollment_display?: string | null
+  /**
+   * Moodle department field
+   */
+  department?: string | null
+  /**
+   * Moodle institution field
+   */
+  institution?: string | null
+  /**
+   * Origin of roster member: synced from LMS or added locally
+   */
+  source: "lms" | "local"
 }
+
+/**
+ * Canonical internal roster-member ID (UUID)
+ */
+export type RosterMemberId = string
 
 /**
  * Result of loading settings, including any warnings about corrected issues
@@ -568,7 +833,7 @@ export interface SettingsLoadResult {
  */
 export interface SkippedGroup {
   assignment_id: AssignmentId
-  group_id: GroupId
+  group_id: string
   group_name: string
   reason: SkippedGroupReason
   context?: string | null
@@ -644,6 +909,18 @@ export interface StudentSummary {
 }
 
 /**
+ * Bootstrap payload for ensure_system_group_sets
+ */
+export interface SystemGroupSetEnsureResult {
+  /**
+   * System group sets (individual_students + staff)
+   */
+  group_sets: GroupSet[]
+  groups_upserted: Group[]
+  deleted_group_ids: string[]
+}
+
+/**
  * UI theme
  */
 export type Theme = "light" | "dark" | "system"
@@ -709,7 +986,9 @@ export type ValidationKind =
   | "empty_group"
   | "unassigned_student"
   | "missing_email"
-  | "cached_group_resolution_pending"
+  | "system_group_sets_missing"
+  | "invalid_enrollment_partition"
+  | "invalid_group_origin"
 
 /**
  * Collection of validation issues

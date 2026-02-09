@@ -17,7 +17,9 @@
     "empty_group",
     "unassigned_student",
     "missing_email",
-    "cached_group_resolution_pending"
+    "system_group_sets_missing",
+    "invalid_enrollment_partition",
+    "invalid_group_origin"
   ],
   "x-rust": {
     "serde": {

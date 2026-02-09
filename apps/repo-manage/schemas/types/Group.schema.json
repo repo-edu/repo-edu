@@ -1,26 +1,50 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Group.schema.json",
   "title": "Group",
   "type": "object",
   "properties": {
     "id": {
-      "$ref": "./GroupId.schema.json"
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique stable identifier (UUID)"
     },
     "name": {
       "type": "string"
     },
     "member_ids": {
       "type": "array",
-      "items": {
-        "$ref": "./StudentId.schema.json"
-      }
+      "items": { "$ref": "./RosterMemberId.schema.json" },
+      "uniqueItems": true,
+      "description": "Roster member IDs"
+    },
+    "origin": {
+      "type": "string",
+      "enum": ["system", "lms", "local"],
+      "description": "Group origin; editability is origin-based"
+    },
+    "lms_group_id": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "LMS group ID for sync matching (Canvas group_id / Moodle group id)"
     }
   },
   "additionalProperties": false,
-  "required": [
-    "id",
-    "name",
-    "member_ids"
+  "required": ["id", "name", "member_ids", "origin", "lms_group_id"],
+  "allOf": [
+    {
+      "if": {
+        "required": ["origin"],
+        "properties": { "origin": { "const": "lms" } }
+      },
+      "then": { "properties": { "lms_group_id": { "type": "string" } } }
+    },
+    {
+      "if": {
+        "required": ["origin"],
+        "properties": { "origin": { "enum": ["system", "local"] } }
+      },
+      "then": { "properties": { "lms_group_id": { "type": "null" } } }
+    }
   ],
-  "description": "Group within an assignment"
+  "description": "Group entity (top-level, can be referenced by multiple GroupSets)"
 }

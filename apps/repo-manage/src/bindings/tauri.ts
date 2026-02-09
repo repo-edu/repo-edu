@@ -28,27 +28,32 @@ import type {
   GitIdentityMode,
   GitVerifyResult,
   GroupCategory,
-  GroupFileImportResult,
-  GroupImportConfig,
+  GroupSelectionMode,
+  GroupSelectionPreview,
+  GroupSetImportPreview,
+  GroupSetImportResult,
+  GroupSetSyncResult,
   ImportGitUsernamesResult,
+  ImportRosterResult,
   ImportStudentsResult,
   LmsConnection,
   LmsContextKey,
   LmsGroup,
   LmsGroupSet,
-  LmsGroupSetCacheEntry,
   LmsOperationContext,
   LmsType,
   LmsVerifyResult,
   OperationResult,
+  PatternFilterResult,
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
   Result,
   Roster,
+  RosterMemberId,
   SettingsLoadResult,
-  StudentId,
   StudentRemovalCheck,
+  SystemGroupSetEnsureResult,
   UsernameVerificationScope,
   ValidationResult,
   VerifyCourseParams,
@@ -278,30 +283,6 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Import groups from CSV/Excel file
-   */
-  async importGroupsFromFile(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    filePath: string,
-  ): Promise<Result<GroupFileImportResult, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("import_groups_from_file", {
-          roster,
-          assignmentId,
-          filePath,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
    * Fetch group-set names/ids only (fast)
    */
   async fetchLmsGroupSetList(
@@ -342,21 +323,40 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Link an LMS group-set into the roster (read-only)
+   * Sync LMS group set: fetch from LMS, update groups in place
    */
-  async linkLmsGroupSet(
+  async syncGroupSet(
+    context: LmsOperationContext,
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<GroupSetSyncResult, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("sync_group_set", {
+          context,
+          roster,
+          groupSetId,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Import full roster from LMS (students + staff), merge into existing roster
+   */
+  async importRosterFromLms(
     context: LmsOperationContext,
     roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
+  ): Promise<Result<ImportRosterResult, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("link_lms_group_set", {
-          context,
-          roster,
-          config,
-        }),
+        data: await TAURI_INVOKE("import_roster_from_lms", { context, roster }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
@@ -366,47 +366,15 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Copy an LMS group-set into the roster (editable snapshot)
+   * Create/repair system group sets and normalize group memberships (idempotent)
    */
-  async copyLmsGroupSet(
-    context: LmsOperationContext,
-    roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("copy_lms_group_set", {
-          context,
-          roster,
-          config,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * Copy an LMS group-set into an assignment (editable snapshot, no cache)
-   */
-  async copyLmsGroupSetToAssignment(
-    context: LmsOperationContext,
+  async ensureSystemGroupSets(
     roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
+  ): Promise<Result<SystemGroupSetEnsureResult, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("copy_lms_group_set_to_assignment", {
-          context,
-          roster,
-          assignmentId,
-          config,
-        }),
+        data: await TAURI_INVOKE("ensure_system_group_sets", { roster }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
@@ -416,20 +384,36 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Refresh a linked group-set from LMS
+   * Normalize a group name using backend slug rules
    */
-  async refreshLinkedGroupSet(
-    context: LmsOperationContext,
+  async normalizeGroupName(name: string): Promise<Result<string, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("normalize_group_name", { name }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Validate glob and resolve group IDs for assignment preview
+   */
+  async previewGroupSelection(
     roster: Roster,
     groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
+    groupSelection: GroupSelectionMode,
+  ): Promise<Result<GroupSelectionPreview, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("refresh_linked_group_set", {
-          context,
+        data: await TAURI_INVOKE("preview_group_selection", {
           roster,
           groupSetId,
+          groupSelection,
         }),
       }
     } catch (e) {
@@ -440,18 +424,80 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Break a linked group-set sync (convert to editable copy)
+   * Validate glob and return matched value indexes for UI filtering
    */
-  async breakGroupSetLink(
-    roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
+  async filterByPattern(
+    pattern: string,
+    values: string[],
+  ): Promise<Result<PatternFilterResult, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("break_group_set_link", {
+        data: await TAURI_INVOKE("filter_by_pattern", { pattern, values }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Parse CSV for import preview (no persistence)
+   */
+  async previewImportGroupSet(
+    roster: Roster,
+    filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("preview_import_group_set", {
+          roster,
+          filePath,
+        }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Parse CSV and create new group set
+   */
+  async importGroupSet(
+    roster: Roster,
+    filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("import_group_set", { roster, filePath }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
+      return { status: "error", error: e as any }
+    }
+  }
+
+  /**
+   * Re-parse CSV for reimport preview (no persistence)
+   */
+  async previewReimportGroupSet(
+    roster: Roster,
+    groupSetId: string,
+    filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("preview_reimport_group_set", {
           roster,
           groupSetId,
+          filePath,
         }),
       }
     } catch (e) {
@@ -462,57 +508,20 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Delete a group-set from the roster
+   * Re-parse CSV and update existing group set
    */
-  async deleteGroupSet(
+  async reimportGroupSet(
     roster: Roster,
     groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
+    filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("delete_group_set", { roster, groupSetId }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * List group-sets from the roster
-   */
-  async listGroupSets(
-    roster: Roster,
-  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("list_group_sets", { roster }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * Attach a group-set to an assignment (copy groups)
-   */
-  async attachGroupSetToAssignment(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("attach_group_set_to_assignment", {
+        data: await TAURI_INVOKE("reimport_group_set", {
           roster,
-          assignmentId,
           groupSetId,
+          filePath,
         }),
       }
     } catch (e) {
@@ -523,18 +532,20 @@ export class TauriBackend implements BackendAPI {
   }
 
   /**
-   * Clear the group-set reference for an assignment
+   * Export group set to CSV file
    */
-  async clearAssignmentGroupSet(
+  async exportGroupSet(
     roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<Roster, AppError>> {
+    groupSetId: string,
+    filePath: string,
+  ): Promise<Result<null, AppError>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("clear_assignment_group_set", {
+        data: await TAURI_INVOKE("export_group_set", {
           roster,
-          assignmentId,
+          groupSetId,
+          filePath,
         }),
       }
     } catch (e) {
@@ -559,28 +570,6 @@ export class TauriBackend implements BackendAPI {
           lmsType,
           baseUrl,
           courseId,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
-    }
-  }
-
-  /**
-   * Check if assignment has existing groups
-   */
-  async assignmentHasGroups(
-    roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<boolean, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("assignment_has_groups", {
-          roster,
-          assignmentId,
         }),
       }
     } catch (e) {
@@ -1097,7 +1086,7 @@ export class TauriBackend implements BackendAPI {
   async checkStudentRemoval(
     profile: string,
     roster: Roster,
-    studentId: StudentId,
+    studentId: RosterMemberId,
   ): Promise<Result<StudentRemovalCheck, AppError>> {
     try {
       return {

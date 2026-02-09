@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSet.schema.json",
+  "title": "GroupSet",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique stable identifier (UUID)"
+    },
+    "name": {
+      "type": "string"
+    },
+    "group_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "uniqueItems": true,
+      "description": "References to Group entities by ID"
+    },
+    "connection": {
+      "anyOf": [
+        { "$ref": "./GroupSetConnection.schema.json" },
+        { "type": "null" }
+      ],
+      "description": "Connection info, or null for local group sets"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "name", "group_ids", "connection"],
+  "description": "Group set containing references to groups by ID"
+}

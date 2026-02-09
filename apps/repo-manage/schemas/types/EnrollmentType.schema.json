@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "EnrollmentType.schema.json",
+  "title": "EnrollmentType",
+  "type": "string",
+  "enum": ["student", "teacher", "ta", "designer", "observer", "other"],
+  "x-rust": {
+    "default": "student",
+    "serde": {
+      "rename_all": "lowercase"
+    }
+  },
+  "description": "User enrollment type from LMS (Canvas enrollment type or Moodle role)"
+}

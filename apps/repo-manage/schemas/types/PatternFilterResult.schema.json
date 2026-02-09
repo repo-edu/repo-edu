@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PatternFilterResult.schema.json",
+  "title": "PatternFilterResult",
+  "type": "object",
+  "properties": {
+    "valid": {
+      "type": "boolean",
+      "description": "False when the glob pattern is invalid"
+    },
+    "error": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "Validation error message when valid=false"
+    },
+    "matched_indexes": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "description": "Indexes of matched values in input order"
+    },
+    "matched_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": ["valid", "error", "matched_indexes", "matched_count"],
+  "additionalProperties": false,
+  "description": "Backend result for filter_by_pattern, used by debounced frontend local filters"
+}

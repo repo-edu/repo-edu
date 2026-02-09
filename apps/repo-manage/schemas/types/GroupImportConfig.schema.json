@@ -1,19 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupImportConfig.schema.json",
   "title": "GroupImportConfig",
   "type": "object",
   "properties": {
     "group_set_id": {
-      "type": "string"
+      "type": "string",
+      "format": "uuid"
     },
-    "filter": {
-      "$ref": "./GroupFilter.schema.json"
+    "group_selection": {
+      "$ref": "./GroupSelectionMode.schema.json"
     }
   },
   "additionalProperties": false,
-  "required": [
-    "group_set_id",
-    "filter"
-  ],
+  "required": ["group_set_id", "group_selection"],
   "description": "Group set selection and filter configuration"
 }

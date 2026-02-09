@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AssignmentMetadata.schema.json",
   "title": "AssignmentMetadata",
   "type": "object",
   "properties": {
@@ -11,33 +12,21 @@
     },
     "description": {
       "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+        { "type": "string" },
+        { "type": "null" }
       ]
-    },
-    "assignment_type": {
-      "$ref": "./AssignmentType.schema.json"
     },
     "group_set_id": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to group set by ID (required)"
+    },
+    "group_selection": {
+      "$ref": "./GroupSelectionMode.schema.json",
+      "description": "How to select groups from the group set"
     }
   },
   "additionalProperties": false,
-  "required": [
-    "id",
-    "name",
-    "assignment_type"
-  ],
-  "description": "Assignment metadata without groups"
+  "required": ["id", "name", "group_set_id", "group_selection"],
+  "description": "Assignment metadata without resolved groups"
 }

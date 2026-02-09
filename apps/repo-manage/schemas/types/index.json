@@ -18,10 +18,6 @@
       "path": "./Assignment.schema.json"
     },
     {
-      "name": "AssignmentType",
-      "path": "./AssignmentType.schema.json"
-    },
-    {
       "name": "AssignmentCoverage",
       "path": "./AssignmentCoverage.schema.json"
     },
@@ -32,10 +28,6 @@
     {
       "name": "AssignmentMetadata",
       "path": "./AssignmentMetadata.schema.json"
-    },
-    {
-      "name": "CachedLmsGroup",
-      "path": "./CachedLmsGroup.schema.json"
     },
     {
       "name": "CloneConfig",
@@ -78,6 +70,10 @@
       "path": "./DirectoryLayout.schema.json"
     },
     {
+      "name": "EnrollmentType",
+      "path": "./EnrollmentType.schema.json"
+    },
+    {
       "name": "ExportSettings",
       "path": "./ExportSettings.schema.json"
     },
@@ -114,14 +110,6 @@
       "path": "./Group.schema.json"
     },
     {
-      "name": "GroupFilter",
-      "path": "./GroupFilter.schema.json"
-    },
-    {
-      "name": "GroupId",
-      "path": "./GroupId.schema.json"
-    },
-    {
       "name": "GroupImportConfig",
       "path": "./GroupImportConfig.schema.json"
     },
@@ -130,8 +118,32 @@
       "path": "./GroupImportSummary.schema.json"
     },
     {
-      "name": "GroupSetKind",
-      "path": "./GroupSetKind.schema.json"
+      "name": "GroupSelectionMode",
+      "path": "./GroupSelectionMode.schema.json"
+    },
+    {
+      "name": "GroupSelectionPreview",
+      "path": "./GroupSelectionPreview.schema.json"
+    },
+    {
+      "name": "GroupSet",
+      "path": "./GroupSet.schema.json"
+    },
+    {
+      "name": "GroupSetConnection",
+      "path": "./GroupSetConnection.schema.json"
+    },
+    {
+      "name": "GroupSetImportPreview",
+      "path": "./GroupSetImportPreview.schema.json"
+    },
+    {
+      "name": "GroupSetImportResult",
+      "path": "./GroupSetImportResult.schema.json"
+    },
+    {
+      "name": "GroupSetSyncResult",
+      "path": "./GroupSetSyncResult.schema.json"
     },
     {
       "name": "GroupFileImportResult",
@@ -142,12 +154,20 @@
       "path": "./GroupFileImportSummary.schema.json"
     },
     {
+      "name": "ImportConflict",
+      "path": "./ImportConflict.schema.json"
+    },
+    {
       "name": "ImportGitUsernamesResult",
       "path": "./ImportGitUsernamesResult.schema.json"
     },
     {
       "name": "ImportGroupsResult",
       "path": "./ImportGroupsResult.schema.json"
+    },
+    {
+      "name": "ImportRosterResult",
+      "path": "./ImportRosterResult.schema.json"
     },
     {
       "name": "ImportStudentsResult",
@@ -178,10 +198,6 @@
       "path": "./LmsGroupSet.schema.json"
     },
     {
-      "name": "LmsGroupSetCacheEntry",
-      "path": "./LmsGroupSetCacheEntry.schema.json"
-    },
-    {
       "name": "LmsOperationContext",
       "path": "./LmsOperationContext.schema.json"
     },
@@ -202,6 +218,10 @@
       "path": "./MemberOption.schema.json"
     },
     {
+      "name": "MemberStatus",
+      "path": "./MemberStatus.schema.json"
+    },
+    {
       "name": "OperationConfigs",
       "path": "./OperationConfigs.schema.json"
     },
@@ -220,6 +240,10 @@
     {
       "name": "OutputLine",
       "path": "./OutputLine.schema.json"
+    },
+    {
+      "name": "PatternFilterResult",
+      "path": "./PatternFilterResult.schema.json"
     },
     {
       "name": "PlatformConnection",
@@ -250,8 +274,16 @@
       "path": "./Roster.schema.json"
     },
     {
-      "name": "RosterSource",
-      "path": "./RosterSource.schema.json"
+      "name": "RosterConnection",
+      "path": "./RosterConnection.schema.json"
+    },
+    {
+      "name": "RosterMember",
+      "path": "./RosterMember.schema.json"
+    },
+    {
+      "name": "RosterMemberId",
+      "path": "./RosterMemberId.schema.json"
     },
     {
       "name": "SettingsLoadResult",
@@ -292,6 +324,10 @@
     {
       "name": "StudentSummary",
       "path": "./StudentSummary.schema.json"
+    },
+    {
+      "name": "SystemGroupSetEnsureResult",
+      "path": "./SystemGroupSetEnsureResult.schema.json"
     },
     {
       "name": "Theme",

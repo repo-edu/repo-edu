@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AffectedGroup.schema.json",
   "title": "AffectedGroup",
   "type": "object",
   "properties": {
@@ -10,18 +11,14 @@
       "type": "string"
     },
     "group_id": {
-      "$ref": "./GroupId.schema.json"
+      "type": "string",
+      "format": "uuid"
     },
     "group_name": {
       "type": "string"
     }
   },
   "additionalProperties": false,
-  "required": [
-    "assignment_id",
-    "assignment_name",
-    "group_id",
-    "group_name"
-  ],
+  "required": ["assignment_id", "assignment_name", "group_id", "group_name"],
   "description": "Group that references a student"
 }

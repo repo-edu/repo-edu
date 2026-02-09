@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "SystemGroupSetEnsureResult.schema.json",
+  "title": "SystemGroupSetEnsureResult",
+  "type": "object",
+  "properties": {
+    "group_sets": {
+      "type": "array",
+      "items": { "$ref": "./GroupSet.schema.json" },
+      "description": "System group sets (individual_students + staff)"
+    },
+    "groups_upserted": {
+      "type": "array",
+      "items": { "$ref": "./Group.schema.json" }
+    },
+    "deleted_group_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" }
+    }
+  },
+  "required": [
+    "group_sets",
+    "groups_upserted",
+    "deleted_group_ids"
+  ],
+  "additionalProperties": false,
+  "description": "Bootstrap payload for ensure_system_group_sets"
+}

@@ -1,41 +1,40 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Roster.schema.json",
   "title": "Roster",
   "type": "object",
   "properties": {
-    "source": {
+    "connection": {
       "anyOf": [
-        {
-          "$ref": "./RosterSource.schema.json"
-        },
-        {
-          "type": "null"
-        }
-      ]
+        { "$ref": "./RosterConnection.schema.json" },
+        { "type": "null" }
+      ],
+      "description": "Roster connection info, or null if not connected to LMS"
     },
     "students": {
       "type": "array",
-      "items": {
-        "$ref": "./Student.schema.json"
-      }
+      "items": { "$ref": "./RosterMember.schema.json" }
+    },
+    "staff": {
+      "type": "array",
+      "items": { "$ref": "./RosterMember.schema.json" }
+    },
+    "groups": {
+      "type": "array",
+      "items": { "$ref": "./Group.schema.json" },
+      "description": "All groups (top-level entities, referenced by group sets)"
+    },
+    "group_sets": {
+      "type": "array",
+      "items": { "$ref": "./GroupSet.schema.json" },
+      "description": "All group sets (reference groups by ID)"
     },
     "assignments": {
       "type": "array",
-      "items": {
-        "$ref": "./Assignment.schema.json"
-      }
-    },
-    "lms_group_sets": {
-      "type": "array",
-      "items": {
-        "$ref": "./LmsGroupSetCacheEntry.schema.json"
-      }
+      "items": { "$ref": "./Assignment.schema.json" }
     }
   },
   "additionalProperties": false,
-  "required": [
-    "students",
-    "assignments"
-  ],
+  "required": ["connection", "students", "staff", "groups", "group_sets", "assignments"],
   "description": "Roster data for a course"
 }

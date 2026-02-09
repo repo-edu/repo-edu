@@ -137,25 +137,6 @@
       "output": "ImportStudentsResult",
       "error": "AppError"
     },
-    "import_groups_from_file": {
-      "description": "Import groups from CSV/Excel file",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
-        },
-        {
-          "name": "assignment_id",
-          "type": "AssignmentId"
-        },
-        {
-          "name": "file_path",
-          "type": "PathBuf"
-        }
-      ],
-      "output": "GroupFileImportResult",
-      "error": "AppError"
-    },
     "fetch_lms_group_set_list": {
       "description": "Fetch group-set names/ids only (fast)",
       "input": [
@@ -182,8 +163,27 @@
       "output": "Vec<LmsGroup>",
       "error": "AppError"
     },
-    "link_lms_group_set": {
-      "description": "Link an LMS group-set into the roster (read-only)",
+    "sync_group_set": {
+      "description": "Sync LMS group set: fetch from LMS, update groups in place",
+      "input": [
+        {
+          "name": "context",
+          "type": "LmsOperationContext"
+        },
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "group_set_id",
+          "type": "String"
+        }
+      ],
+      "output": "GroupSetSyncResult",
+      "error": "AppError"
+    },
+    "import_roster_from_lms": {
+      "description": "Import full roster from LMS (students + staff), merge into existing roster",
       "input": [
         {
           "name": "context",
@@ -192,78 +192,35 @@
         {
           "name": "roster",
           "type": "Option<Roster>"
-        },
-        {
-          "name": "config",
-          "type": "GroupImportConfig"
         }
       ],
-      "output": "Roster",
+      "output": "ImportRosterResult",
       "error": "AppError"
     },
-    "copy_lms_group_set": {
-      "description": "Copy an LMS group-set into the roster (editable snapshot)",
+    "ensure_system_group_sets": {
+      "description": "Create/repair system group sets and normalize group memberships (idempotent)",
       "input": [
-        {
-          "name": "context",
-          "type": "LmsOperationContext"
-        },
-        {
-          "name": "roster",
-          "type": "Option<Roster>"
-        },
-        {
-          "name": "config",
-          "type": "GroupImportConfig"
-        }
-      ],
-      "output": "Roster",
-      "error": "AppError"
-    },
-    "copy_lms_group_set_to_assignment": {
-      "description": "Copy an LMS group-set into an assignment (editable snapshot, no cache)",
-      "input": [
-        {
-          "name": "context",
-          "type": "LmsOperationContext"
-        },
         {
           "name": "roster",
           "type": "Roster"
-        },
-        {
-          "name": "assignment_id",
-          "type": "AssignmentId"
-        },
-        {
-          "name": "config",
-          "type": "GroupImportConfig"
         }
       ],
-      "output": "Roster",
+      "output": "SystemGroupSetEnsureResult",
       "error": "AppError"
     },
-    "refresh_linked_group_set": {
-      "description": "Refresh a linked group-set from LMS",
+    "normalize_group_name": {
+      "description": "Normalize a group name using backend slug rules",
       "input": [
         {
-          "name": "context",
-          "type": "LmsOperationContext"
-        },
-        {
-          "name": "roster",
-          "type": "Roster"
-        },
-        {
-          "name": "group_set_id",
+          "name": "name",
           "type": "String"
         }
       ],
-      "output": "Roster",
+      "output": "String",
       "error": "AppError"
     },
-    "break_group_set_link": {
-      "description": "Break a linked group-set sync (convert to editable copy)",
+    "preview_group_selection": {
+      "description": "Validate glob and resolve group IDs for assignment preview",
       "input": [
         {
           "name": "roster",
@@ -272,13 +229,62 @@
         {
           "name": "group_set_id",
           "type": "String"
+        },
+        {
+          "name": "group_selection",
+          "type": "GroupSelectionMode"
         }
       ],
-      "output": "Roster",
+      "output": "GroupSelectionPreview",
       "error": "AppError"
     },
-    "delete_group_set": {
-      "description": "Delete a group-set from the roster",
+    "filter_by_pattern": {
+      "description": "Validate glob and return matched value indexes for UI filtering",
+      "input": [
+        {
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "name": "values",
+          "type": "Vec<String>"
+        }
+      ],
+      "output": "PatternFilterResult",
+      "error": "AppError"
+    },
+    "preview_import_group_set": {
+      "description": "Parse CSV for import preview (no persistence)",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "GroupSetImportPreview",
+      "error": "AppError"
+    },
+    "import_group_set": {
+      "description": "Parse CSV and create new group set",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "GroupSetImportResult",
+      "error": "AppError"
+    },
+    "preview_reimport_group_set": {
+      "description": "Re-parse CSV for reimport preview (no persistence)",
       "input": [
         {
           "name": "roster",
@@ -287,54 +293,51 @@
         {
           "name": "group_set_id",
           "type": "String"
-        }
-      ],
-      "output": "Roster",
-      "error": "AppError"
-    },
-    "list_group_sets": {
-      "description": "List group-sets from the roster",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
-        }
-      ],
-      "output": "Vec<LmsGroupSetCacheEntry>",
-      "error": "AppError"
-    },
-    "attach_group_set_to_assignment": {
-      "description": "Attach a group-set to an assignment (copy groups)",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
         },
         {
-          "name": "assignment_id",
-          "type": "AssignmentId"
+          "name": "file_path",
+          "type": "PathBuf"
+        }
+      ],
+      "output": "GroupSetImportPreview",
+      "error": "AppError"
+    },
+    "reimport_group_set": {
+      "description": "Re-parse CSV and update existing group set",
+      "input": [
+        {
+          "name": "roster",
+          "type": "Roster"
         },
         {
           "name": "group_set_id",
           "type": "String"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
         }
       ],
-      "output": "Roster",
+      "output": "GroupSetImportResult",
       "error": "AppError"
     },
-    "clear_assignment_group_set": {
-      "description": "Clear the group-set reference for an assignment",
+    "export_group_set": {
+      "description": "Export group set to CSV file",
       "input": [
         {
           "name": "roster",
           "type": "Roster"
         },
         {
-          "name": "assignment_id",
-          "type": "AssignmentId"
+          "name": "group_set_id",
+          "type": "String"
+        },
+        {
+          "name": "file_path",
+          "type": "PathBuf"
         }
       ],
-      "output": "Roster",
+      "output": "()",
       "error": "AppError"
     },
     "normalize_context": {
@@ -354,21 +357,6 @@
         }
       ],
       "output": "LmsContextKey",
-      "error": "AppError"
-    },
-    "assignment_has_groups": {
-      "description": "Check if assignment has existing groups",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
-        },
-        {
-          "name": "assignment_id",
-          "type": "AssignmentId"
-        }
-      ],
-      "output": "bool",
       "error": "AppError"
     },
     "verify_profile_course": {
@@ -698,7 +686,7 @@
         },
         {
           "name": "student_id",
-          "type": "StudentId"
+          "type": "RosterMemberId"
         }
       ],
       "output": "StudentRemovalCheck",

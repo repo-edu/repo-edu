@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ImportRosterResult.schema.json",
+  "title": "ImportRosterResult",
+  "type": "object",
+  "properties": {
+    "summary": { "$ref": "./ImportSummary.schema.json" },
+    "roster": { "$ref": "./Roster.schema.json" },
+    "conflicts": {
+      "type": "array",
+      "items": { "$ref": "./ImportConflict.schema.json" }
+    },
+    "total_conflicts": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": ["summary", "roster", "conflicts", "total_conflicts"],
+  "description": "Result of importing roster with conflict reporting"
+}

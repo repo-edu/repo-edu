@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "GroupSetConnection.schema.json",
+  "title": "GroupSetConnection",
+  "type": "object",
+  "additionalProperties": true,
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "system" },
+        "system_type": { "type": "string", "enum": ["individual_students", "staff"] }
+      },
+      "required": ["kind", "system_type"],
+      "additionalProperties": false,
+      "description": "System-maintained group set (auto-syncs with roster)"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "canvas" },
+        "course_id": { "type": "string" },
+        "group_set_id": { "type": "string" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "course_id", "group_set_id", "last_updated"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "moodle" },
+        "course_id": { "type": "string" },
+        "grouping_id": { "type": "string" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "course_id", "grouping_id", "last_updated"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "import" },
+        "source_filename": { "type": "string", "description": "Original filename for display" },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "x-rust": { "type": "chrono::DateTime<chrono::Utc>" }
+        }
+      },
+      "required": ["kind", "source_filename", "last_updated"],
+      "additionalProperties": false,
+      "description": "Imported from CSV. Groups are mutable (origin: local, lms_group_id: null). Set is editable."
+    }
+  ],
+  "description": "Connection metadata for a GroupSet"
+}

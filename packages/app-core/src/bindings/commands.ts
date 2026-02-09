@@ -21,27 +21,32 @@ import type {
   GitIdentityMode,
   GitVerifyResult,
   GroupCategory,
-  GroupFileImportResult,
-  GroupImportConfig,
+  GroupSelectionMode,
+  GroupSelectionPreview,
+  GroupSetImportPreview,
+  GroupSetImportResult,
+  GroupSetSyncResult,
   ImportGitUsernamesResult,
+  ImportRosterResult,
   ImportStudentsResult,
   LmsConnection,
   LmsContextKey,
   LmsGroup,
   LmsGroupSet,
-  LmsGroupSetCacheEntry,
   LmsOperationContext,
   LmsType,
   LmsVerifyResult,
   OperationResult,
+  PatternFilterResult,
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
   Result,
   Roster,
+  RosterMemberId,
   SettingsLoadResult,
-  StudentId,
   StudentRemovalCheck,
+  SystemGroupSetEnsureResult,
   UsernameVerificationScope,
   ValidationResult,
   VerifyCourseParams,
@@ -141,16 +146,6 @@ export const commands = {
     return getBackend().importStudentsFromFile(profile, roster, filePath)
   },
   /**
-   * Import groups from CSV/Excel file
-   */
-  importGroupsFromFile(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    filePath: string,
-  ): Promise<Result<GroupFileImportResult, AppError>> {
-    return getBackend().importGroupsFromFile(roster, assignmentId, filePath)
-  },
-  /**
    * Fetch group-set names/ids only (fast)
    */
   fetchLmsGroupSetList(
@@ -168,99 +163,108 @@ export const commands = {
     return getBackend().fetchLmsGroupsForSet(context, groupSetId)
   },
   /**
-   * Link an LMS group-set into the roster (read-only)
+   * Sync LMS group set: fetch from LMS, update groups in place
    */
-  linkLmsGroupSet(
+  syncGroupSet(
+    context: LmsOperationContext,
+    roster: Roster,
+    groupSetId: string,
+  ): Promise<Result<GroupSetSyncResult, AppError>> {
+    return getBackend().syncGroupSet(context, roster, groupSetId)
+  },
+  /**
+   * Import full roster from LMS (students + staff), merge into existing roster
+   */
+  importRosterFromLms(
     context: LmsOperationContext,
     roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().linkLmsGroupSet(context, roster, config)
+  ): Promise<Result<ImportRosterResult, AppError>> {
+    return getBackend().importRosterFromLms(context, roster)
   },
   /**
-   * Copy an LMS group-set into the roster (editable snapshot)
+   * Create/repair system group sets and normalize group memberships (idempotent)
    */
-  copyLmsGroupSet(
-    context: LmsOperationContext,
-    roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().copyLmsGroupSet(context, roster, config)
-  },
-  /**
-   * Copy an LMS group-set into an assignment (editable snapshot, no cache)
-   */
-  copyLmsGroupSetToAssignment(
-    context: LmsOperationContext,
+  ensureSystemGroupSets(
     roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().copyLmsGroupSetToAssignment(
-      context,
+  ): Promise<Result<SystemGroupSetEnsureResult, AppError>> {
+    return getBackend().ensureSystemGroupSets(roster)
+  },
+  /**
+   * Normalize a group name using backend slug rules
+   */
+  normalizeGroupName(name: string): Promise<Result<string, AppError>> {
+    return getBackend().normalizeGroupName(name)
+  },
+  /**
+   * Validate glob and resolve group IDs for assignment preview
+   */
+  previewGroupSelection(
+    roster: Roster,
+    groupSetId: string,
+    groupSelection: GroupSelectionMode,
+  ): Promise<Result<GroupSelectionPreview, AppError>> {
+    return getBackend().previewGroupSelection(
       roster,
-      assignmentId,
-      config,
-    )
-  },
-  /**
-   * Refresh a linked group-set from LMS
-   */
-  refreshLinkedGroupSet(
-    context: LmsOperationContext,
-    roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().refreshLinkedGroupSet(context, roster, groupSetId)
-  },
-  /**
-   * Break a linked group-set sync (convert to editable copy)
-   */
-  breakGroupSetLink(
-    roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().breakGroupSetLink(roster, groupSetId)
-  },
-  /**
-   * Delete a group-set from the roster
-   */
-  deleteGroupSet(
-    roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().deleteGroupSet(roster, groupSetId)
-  },
-  /**
-   * List group-sets from the roster
-   */
-  listGroupSets(
-    roster: Roster,
-  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
-    return getBackend().listGroupSets(roster)
-  },
-  /**
-   * Attach a group-set to an assignment (copy groups)
-   */
-  attachGroupSetToAssignment(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().attachGroupSetToAssignment(
-      roster,
-      assignmentId,
       groupSetId,
+      groupSelection,
     )
   },
   /**
-   * Clear the group-set reference for an assignment
+   * Validate glob and return matched value indexes for UI filtering
    */
-  clearAssignmentGroupSet(
+  filterByPattern(
+    pattern: string,
+    values: string[],
+  ): Promise<Result<PatternFilterResult, AppError>> {
+    return getBackend().filterByPattern(pattern, values)
+  },
+  /**
+   * Parse CSV for import preview (no persistence)
+   */
+  previewImportGroupSet(
     roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<Roster, AppError>> {
-    return getBackend().clearAssignmentGroupSet(roster, assignmentId)
+    filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    return getBackend().previewImportGroupSet(roster, filePath)
+  },
+  /**
+   * Parse CSV and create new group set
+   */
+  importGroupSet(
+    roster: Roster,
+    filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
+    return getBackend().importGroupSet(roster, filePath)
+  },
+  /**
+   * Re-parse CSV for reimport preview (no persistence)
+   */
+  previewReimportGroupSet(
+    roster: Roster,
+    groupSetId: string,
+    filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    return getBackend().previewReimportGroupSet(roster, groupSetId, filePath)
+  },
+  /**
+   * Re-parse CSV and update existing group set
+   */
+  reimportGroupSet(
+    roster: Roster,
+    groupSetId: string,
+    filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
+    return getBackend().reimportGroupSet(roster, groupSetId, filePath)
+  },
+  /**
+   * Export group set to CSV file
+   */
+  exportGroupSet(
+    roster: Roster,
+    groupSetId: string,
+    filePath: string,
+  ): Promise<Result<null, AppError>> {
+    return getBackend().exportGroupSet(roster, groupSetId, filePath)
   },
   /**
    * Normalize LMS context fields (type, base URL, course)
@@ -271,15 +275,6 @@ export const commands = {
     courseId: string,
   ): Promise<Result<LmsContextKey, AppError>> {
     return getBackend().normalizeContext(lmsType, baseUrl, courseId)
-  },
-  /**
-   * Check if assignment has existing groups
-   */
-  assignmentHasGroups(
-    roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<boolean, AppError>> {
-    return getBackend().assignmentHasGroups(roster, assignmentId)
   },
   /**
    * Verify profile course exists in LMS and return updated name if changed
@@ -502,7 +497,7 @@ export const commands = {
   checkStudentRemoval(
     profile: string,
     roster: Roster,
-    studentId: StudentId,
+    studentId: RosterMemberId,
   ): Promise<Result<StudentRemovalCheck, AppError>> {
     return getBackend().checkStudentRemoval(profile, roster, studentId)
   },
