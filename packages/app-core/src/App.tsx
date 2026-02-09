@@ -128,6 +128,9 @@ function App() {
   const setProfileListLoading = useUiStore(
     (state) => state.setProfileListLoading,
   )
+  const setNewProfileDialogOpen = useUiStore(
+    (state) => state.setNewProfileDialogOpen,
+  )
 
   // Initialize app on mount
   useEffect(() => {
@@ -143,10 +146,12 @@ function App() {
 
       // Pre-load profile list (so Roster tab renders instantly)
       setProfileListLoading(true)
+      let hasProfiles = false
       try {
         const listResult = await commands.listProfiles()
         if (listResult.status === "ok") {
           const profileNames = listResult.data
+          hasProfiles = profileNames.length > 0
           const profilesWithCourses: ProfileListItem[] = await Promise.all(
             profileNames.map(async (name) => {
               try {
@@ -171,9 +176,20 @@ function App() {
       } finally {
         setProfileListLoading(false)
       }
+
+      // Auto-open profile creation dialog on first launch
+      if (!result && !hasProfiles) {
+        setNewProfileDialogOpen(true)
+      }
     }
     initializeApp()
-  }, [loadAppSettings, setActiveProfile, setProfileList, setProfileListLoading])
+  }, [
+    loadAppSettings,
+    setActiveProfile,
+    setProfileList,
+    setProfileListLoading,
+    setNewProfileDialogOpen,
+  ])
 
   // Save handler
   const saveCurrentProfile = useCallback(async () => {

@@ -28,7 +28,7 @@ pub struct AppSettings {
   pub date_format: DateFormat,
   pub time_format: TimeFormat,
   pub lms_connection: Option<LmsConnection>,
-  pub git_connections: std::collections::HashMap<String, GitConnection>,
+  pub git_connections: HashMap<String, GitConnection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,7 +247,7 @@ pub struct GroupImportSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSelectionMode {
-  pub entries: std::collections::HashMap<String, Value>,
+  pub entries: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,12 +271,12 @@ pub struct GroupSet {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSetConnection {
-  pub entries: std::collections::HashMap<String, Value>,
+  pub entries: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSetImportPreview {
-  pub entries: std::collections::HashMap<String, Value>,
+  pub entries: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -547,7 +547,7 @@ pub struct Roster {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RosterConnection {
-  pub entries: std::collections::HashMap<String, Value>,
+  pub entries: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -609,7 +609,7 @@ pub struct Student {
   pub git_username_status: GitUsernameStatus,
   pub status: StudentStatus,
   pub lms_user_id: Option<String>,
-  pub custom_fields: std::collections::HashMap<String, String>,
+  pub custom_fields: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

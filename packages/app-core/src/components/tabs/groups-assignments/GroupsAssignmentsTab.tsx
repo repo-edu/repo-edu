@@ -1,3 +1,4 @@
+import { Button, EmptyState } from "@repo-edu/ui"
 import { useCallback, useEffect, useRef } from "react"
 import {
   selectSystemSetsReady,
@@ -16,6 +17,10 @@ import { GroupsAssignmentsSidebar } from "./GroupsAssignmentsSidebar"
 export function GroupsAssignmentsTab() {
   const panelRef = useRef<HTMLDivElement>(null)
 
+  const activeProfile = useUiStore((state) => state.activeProfile)
+  const setNewProfileDialogOpen = useUiStore(
+    (state) => state.setNewProfileDialogOpen,
+  )
   const selection = useUiStore((state) => state.sidebarSelection)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setNewAssignmentDialogOpen = useUiStore(
@@ -73,6 +78,16 @@ export function GroupsAssignmentsTab() {
     )
     firstFocusable?.focus()
   }, [])
+
+  if (!activeProfile) {
+    return (
+      <EmptyState message="No profile selected">
+        <Button onClick={() => setNewProfileDialogOpen(true)}>
+          Create Profile
+        </Button>
+      </EmptyState>
+    )
+  }
 
   return (
     <div className="flex h-full">

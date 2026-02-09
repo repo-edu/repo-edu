@@ -78,9 +78,6 @@ export function MemberListPane({
   onExport,
 }: MemberListPaneProps) {
   const openSettings = useUiStore((state) => state.openSettings)
-  const setNewProfileDialogOpen = useUiStore(
-    (state) => state.setNewProfileDialogOpen,
-  )
   const activeProfile = useUiStore((state) => state.activeProfile)
   const rosterMemberColumnVisibility = useUiStore(
     (state) => state.rosterMemberColumnVisibility,
@@ -89,9 +86,6 @@ export function MemberListPane({
     (state) => state.setRosterMemberColumnVisibility,
   )
 
-  const course = useProfileStore(
-    (state) => state.document?.settings.course ?? null,
-  )
   const addMember = useProfileStore((state) => state.addMember)
   const updateMember = useProfileStore((state) => state.updateMember)
   const removeMember = useProfileStore((state) => state.removeMember)
@@ -114,7 +108,6 @@ export function MemberListPane({
   const studentCount = students.length
   const staffCount = staff.length
   const hasMembers = members.length > 0
-  const hasCourseId = course?.id?.trim() !== ""
 
   const handleAddStudent = () => {
     if (!newStudentName.trim() || !newStudentEmail.trim()) return
@@ -409,20 +402,6 @@ export function MemberListPane({
       {/* Course info section */}
       <div className="px-3 py-2 border-b space-y-1">
         <CourseDisplay />
-        {!hasCourseId && (
-          <div className="text-sm text-muted-foreground">
-            No course configured for this profile.{" "}
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 align-baseline"
-              onClick={() => setNewProfileDialogOpen(true)}
-            >
-              Add the course for this profile
-            </Button>
-            .
-          </div>
-        )}
         <RosterSourceDisplay roster={roster} />
       </div>
 
@@ -431,10 +410,27 @@ export function MemberListPane({
         <div className="flex-1 flex flex-col items-center justify-center gap-3 py-4 text-center">
           <p className="text-muted-foreground max-w-md">
             {hasLmsConnection
-              ? "No roster members yet. Import from your LMS or a file."
-              : "Import a student roster from a CSV/Excel file, or configure an LMS connection in Settings to import directly."}
+              ? "No roster members yet. Import from your LMS or a file, or add manually."
+              : "Import a student roster from a CSV/Excel file, add manually, or configure an LMS connection to import directly."}
           </p>
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onImportFromLms}
+              disabled={!canImportFromLms}
+              title={lmsImportTooltip}
+            >
+              Import from LMS
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onImportFromFile}
+              title="Import roster students from a CSV or Excel file."
+            >
+              Import from File
+            </Button>
             <Button
               size="sm"
               variant="outline"

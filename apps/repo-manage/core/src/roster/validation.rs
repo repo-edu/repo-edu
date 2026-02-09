@@ -212,7 +212,7 @@ fn validate_group_set_origin_consistency(
     let connection_kind = group_set
         .connection
         .as_ref()
-        .and_then(|c| c.value.get("kind").and_then(|v| v.as_str()));
+        .and_then(|c| c.entries.get("kind").and_then(|v| v.as_str()));
 
     for group_id in &group_set.group_ids {
         let Some(group) = roster.groups.iter().find(|g| &g.id == group_id) else {

@@ -955,27 +955,41 @@ function rustFieldName(prop: string): { name: string; serdeRename?: string } {
 function rustTypeForSchema(schema: JsonSchema | undefined): {
   rust: string
   usesValue: boolean
+  usesHashMap: boolean
 } {
-  if (!schema) return { rust: "Value", usesValue: true }
+  if (!schema) return { rust: "Value", usesValue: true, usesHashMap: false }
   const xRust = schema["x-rust"] as RustMeta | undefined
   if (xRust?.type) {
-    return { rust: xRust.type, usesValue: false }
+    return { rust: xRust.type, usesValue: false, usesHashMap: false }
   }
   if (schema["x-rust-type"]) {
-    return { rust: schema["x-rust-type"], usesValue: false }
+    return { rust: schema["x-rust-type"], usesValue: false, usesHashMap: false }
   }
   if (schema.$ref && typeof schema.$ref === "string") {
     const ref = schema.$ref.split("/").pop() || ""
-    return { rust: ref.replace(/\.schema\.json$/, ""), usesValue: false }
+    return {
+      rust: ref.replace(/\.schema\.json$/, ""),
+      usesValue: false,
+      usesHashMap: false,
+    }
   }
-  if (schema.type === "string") return { rust: "String", usesValue: false }
-  if (schema.type === "boolean") return { rust: "bool", usesValue: false }
-  if (schema.type === "number") return { rust: "f64", usesValue: false }
-  if (schema.type === "integer") return { rust: "i64", usesValue: false }
-  if (schema.type === "null") return { rust: "()", usesValue: false }
+  if (schema.type === "string")
+    return { rust: "String", usesValue: false, usesHashMap: false }
+  if (schema.type === "boolean")
+    return { rust: "bool", usesValue: false, usesHashMap: false }
+  if (schema.type === "number")
+    return { rust: "f64", usesValue: false, usesHashMap: false }
+  if (schema.type === "integer")
+    return { rust: "i64", usesValue: false, usesHashMap: false }
+  if (schema.type === "null")
+    return { rust: "()", usesValue: false, usesHashMap: false }
   if (schema.type === "array") {
     const inner = rustTypeForSchema(schema.items)
-    return { rust: `Vec<${inner.rust}>`, usesValue: inner.usesValue }
+    return {
+      rust: `Vec<${inner.rust}>`,
+      usesValue: inner.usesValue,
+      usesHashMap: inner.usesHashMap,
+    }
   }
   const nullable = isNullableSchema(schema)
   if (nullable.nullable && nullable.inner) {
@@ -983,6 +997,7 @@ function rustTypeForSchema(schema: JsonSchema | undefined): {
     return {
       rust: `Option<${inner.rust}>`,
       usesValue: inner.usesValue,
+      usesHashMap: inner.usesHashMap,
     }
   }
   if (
@@ -992,14 +1007,15 @@ function rustTypeForSchema(schema: JsonSchema | undefined): {
   ) {
     const inner = rustTypeForSchema(schema.additionalProperties)
     return {
-      rust: `std::collections::HashMap<String, ${inner.rust}>`,
+      rust: `HashMap<String, ${inner.rust}>`,
       usesValue: inner.usesValue,
+      usesHashMap: true,
     }
   }
   if (schema.anyOf || schema.oneOf || schema.allOf) {
-    return { rust: "Value", usesValue: true }
+    return { rust: "Value", usesValue: true, usesHashMap: false }
   }
-  return { rust: "Value", usesValue: true }
+  return { rust: "Value", usesValue: true, usesHashMap: false }
 }
 
 function buildRustTypes(
@@ -1024,6 +1040,7 @@ function buildRustTypes(
     if (xRust?.newtype) {
       const base = rustTypeForSchema(schema)
       if (base.usesValue) usesValue = true
+      if (base.usesHashMap) usesHashMap = true
       rustTypes.push({
         name,
         kind: "newtype",
@@ -1091,6 +1108,7 @@ function buildRustTypes(
               : prop
         const rustType = rustTypeForSchema(typeSchema)
         if (rustType.usesValue) usesValue = true
+        if (rustType.usesHashMap) usesHashMap = true
         let fieldType = rustType.rust
         const serdeMeta = propMeta?.serde
         const hasDefault = serdeMeta?.default !== undefined
@@ -1135,7 +1153,7 @@ function buildRustTypes(
         if (mapType.usesValue) usesValue = true
         fields.push({
           name: "entries",
-          type: `std::collections::HashMap<String, ${mapType.rust}>`,
+          type: `HashMap<String, ${mapType.rust}>`,
           serde: [],
         })
       }
@@ -1151,6 +1169,7 @@ function buildRustTypes(
 
     const base = rustTypeForSchema(schema)
     if (base.usesValue) usesValue = true
+    if (base.usesHashMap) usesHashMap = true
     rustTypes.push({
       name,
       kind: "struct",

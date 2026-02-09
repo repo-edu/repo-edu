@@ -113,8 +113,8 @@ pub async fn sync_group_set(
         .connection
         .as_ref()
         .ok_or_else(|| HandlerError::Validation("Group set has no connection".into()))?;
-    let conn_value = &connection.value;
-    let kind = conn_value
+    let conn_entries = &connection.entries;
+    let kind = conn_entries
         .get("kind")
         .and_then(|v| v.as_str())
         .unwrap_or("");
@@ -123,7 +123,7 @@ pub async fn sync_group_set(
             "Group set is not LMS-connected".into(),
         ));
     }
-    let lms_group_set_id = conn_value
+    let lms_group_set_id = conn_entries
         .get("lms_group_set_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| HandlerError::Validation("Missing lms_group_set_id in connection".into()))?;
@@ -210,14 +210,12 @@ pub async fn sync_group_set(
     updated_group_set.group_ids = new_group_ids;
 
     // Update connection metadata with sync timestamp
-    let mut conn_obj = conn_value.as_object().cloned().unwrap_or_default();
-    conn_obj.insert(
+    let mut conn_map = conn_entries.clone();
+    conn_map.insert(
         "last_synced".to_string(),
         serde_json::Value::String(Utc::now().to_rfc3339()),
     );
-    updated_group_set.connection = Some(GroupSetConnection {
-        value: serde_json::Value::Object(conn_obj),
-    });
+    updated_group_set.connection = Some(GroupSetConnection { entries: conn_map });
 
     Ok(GroupSetSyncResult {
         group_set: updated_group_set,
@@ -444,7 +442,9 @@ fn merge_lms_roster_with_conflicts(
     });
 
     let updated_roster = Roster {
-        connection: Some(crate::RosterConnection { value: connection }),
+        connection: Some(crate::RosterConnection {
+            entries: serde_json::from_value(connection).unwrap_or_default(),
+        }),
         students: updated_students,
         staff: updated_staff,
         groups: base_roster.groups,

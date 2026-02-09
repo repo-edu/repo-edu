@@ -14,6 +14,7 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
+  EmptyState,
   Input,
   Label,
   Select,
@@ -47,6 +48,9 @@ export function OperationTab() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const assignments = roster?.assignments ?? []
   const activeProfile = useUiStore((state) => state.activeProfile)
+  const setNewProfileDialogOpen = useUiStore(
+    (state) => state.setNewProfileDialogOpen,
+  )
   const operations = useProfileStore(
     (state) => state.document?.settings.operations,
   )
@@ -228,12 +232,21 @@ export function OperationTab() {
     }
   }
 
+  if (!activeProfile) {
+    return (
+      <EmptyState message="No profile selected">
+        <Button onClick={() => setNewProfileDialogOpen(true)}>
+          Create Profile
+        </Button>
+      </EmptyState>
+    )
+  }
+
   const isExecuteDisabled =
     !selectedAssignmentId ||
     validGroupCount === 0 ||
     operationStatus === "running" ||
     (operationSelected === "clone" && !targetDir) ||
-    !activeProfile ||
     !repoContext
 
   return (

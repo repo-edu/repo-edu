@@ -186,7 +186,7 @@ export function ProfileSidebar({
   // Calculate what happens on delete for the dialog message
   const profileToDelete = deleteDialog.profileName
   const remainingProfiles = profiles.filter((p) => p.name !== profileToDelete)
-  const willCreateDefault = remainingProfiles.length === 0
+  const isLastProfile = remainingProfiles.length === 0
   const nextProfile = remainingProfiles[0]?.name
 
   return (
@@ -392,11 +392,8 @@ export function ProfileSidebar({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              {willCreateDefault ? (
-                <>
-                  Delete "{profileToDelete}"? A new "Default" profile will be
-                  created.
-                </>
+              {isLastProfile ? (
+                <>Delete "{profileToDelete}"? This is your last profile.</>
               ) : profileToDelete === activeProfile ? (
                 <>
                   Delete "{profileToDelete}"? You will be switched to "

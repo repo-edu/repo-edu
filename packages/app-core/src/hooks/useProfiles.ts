@@ -224,7 +224,6 @@ export function useProfiles(): UseProfilesReturn {
     async (profileName: string): Promise<boolean> => {
       const isActive = profileName === activeProfile
       const otherProfiles = profiles.filter((p) => p.name !== profileName)
-      const willCreateDefault = otherProfiles.length === 0
 
       try {
         const result = await commands.deleteProfile(profileName)
@@ -232,21 +231,14 @@ export function useProfiles(): UseProfilesReturn {
           appendOutput(`Deleted profile: ${profileName}`, "success")
 
           if (isActive) {
-            if (willCreateDefault) {
-              // Create and switch to Default profile
-              const createResult = await commands.createProfile("Default", {
-                id: "",
-                name: "Default Course",
-              })
-              if (createResult.status === "ok") {
-                await commands.setActiveProfile("Default")
-                setActiveProfile("Default")
-              }
-            } else {
+            if (otherProfiles.length > 0) {
               // Switch to another existing profile
               const nextProfile = otherProfiles[0].name
               await commands.setActiveProfile(nextProfile)
               setActiveProfile(nextProfile)
+            } else {
+              // No profiles left — clear active profile
+              setActiveProfile(null)
             }
           }
           await refresh()

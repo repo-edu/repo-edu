@@ -136,7 +136,6 @@ impl SettingsManager {
 
     /// Load active profile settings
     /// Returns default settings if files don't exist (no error)
-    /// Creates a "Default" profile if no profiles exist
     pub fn load(&self) -> ConfigResult<ProfileSettings> {
         let result = self.load_with_warnings()?;
         Ok(result.settings)
@@ -146,8 +145,8 @@ impl SettingsManager {
     pub fn load_with_warnings(&self) -> ConfigResult<SettingsLoadResult> {
         let mut warnings = Vec::new();
 
-        // Ensure at least one profile exists
-        self.ensure_default_profile()?;
+        // Ensure an active profile is set if profiles exist
+        self.ensure_active_profile()?;
 
         let (profile, profile_warnings) = if let Some(profile_name) = self.get_active_profile()? {
             let (profile, profile_warnings) = self.load_profile_settings_warned(&profile_name)?;
@@ -168,22 +167,14 @@ impl SettingsManager {
         })
     }
 
-    /// Ensure at least one profile exists, creating "Default" if needed
-    fn ensure_default_profile(&self) -> ConfigResult<()> {
-        let profiles = self.list_profiles()?;
-
-        if profiles.is_empty() {
-            // Create Default profile with default settings
-            let default_settings = ProfileSettings::default();
-            self.save_profile_settings("Default", &default_settings)?;
-            self.set_active_profile("Default")?;
-        } else if self.get_active_profile()?.is_none() {
-            // Profiles exist but none is active - activate the first one
+    /// Ensure an active profile is set when profiles exist but none is active
+    fn ensure_active_profile(&self) -> ConfigResult<()> {
+        if self.get_active_profile()?.is_none() {
+            let profiles = self.list_profiles()?;
             if let Some(first_profile) = profiles.first() {
                 self.set_active_profile(first_profile)?;
             }
         }
-
         Ok(())
     }
 

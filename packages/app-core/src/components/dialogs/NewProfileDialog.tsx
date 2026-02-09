@@ -49,6 +49,9 @@ export function NewProfileDialog() {
   const open = useUiStore((state) => state.newProfileDialogOpen)
   const setOpen = useUiStore((state) => state.setNewProfileDialogOpen)
   const setActiveProfile = useUiStore((state) => state.setActiveProfile)
+  const setRosterSyncDialogOpen = useUiStore(
+    (state) => state.setRosterSyncDialogOpen,
+  )
   const appendOutput = useOutputStore((state) => state.appendText)
 
   // App settings for LMS connection
@@ -239,6 +242,9 @@ export function NewProfileDialog() {
         "success",
       )
       setOpen(false)
+      if (courseMode === "lms") {
+        setRosterSyncDialogOpen(true)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       appendOutput(`Failed to create profile: ${message}`, "error")

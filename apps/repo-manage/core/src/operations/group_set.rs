@@ -305,11 +305,12 @@ fn missing_members_json(missing: &[MissingMember]) -> Vec<serde_json::Value> {
 
 fn make_import_connection(filename: &str) -> Option<GroupSetConnection> {
     Some(GroupSetConnection {
-        value: serde_json::json!({
+        entries: serde_json::from_value(serde_json::json!({
             "kind": "import",
             "source_filename": filename,
             "last_updated": Utc::now().to_rfc3339()
-        }),
+        }))
+        .unwrap_or_default(),
     })
 }
 
@@ -337,12 +338,13 @@ pub fn preview_import_group_set(
         .collect();
 
     Ok(GroupSetImportPreview {
-        value: serde_json::json!({
+        entries: serde_json::from_value(serde_json::json!({
             "mode": "import",
             "groups": groups,
             "missing_members": missing_members_json(&match_result.missing_members),
             "total_missing": match_result.total_missing
-        }),
+        }))
+        .unwrap_or_default(),
     })
 }
 
@@ -494,7 +496,7 @@ pub fn preview_reimport_group_set(
         .collect();
 
     Ok(GroupSetImportPreview {
-        value: serde_json::json!({
+        entries: serde_json::from_value(serde_json::json!({
             "mode": "reimport",
             "groups": groups_preview,
             "missing_members": missing_members_json(&match_result.missing_members),
@@ -503,7 +505,8 @@ pub fn preview_reimport_group_set(
             "removed_group_names": removed_group_names,
             "updated_group_names": updated_group_names,
             "renamed_groups": renamed_groups
-        }),
+        }))
+        .unwrap_or_default(),
     })
 }
 
@@ -1041,7 +1044,7 @@ mod tests {
         );
 
         let preview = preview_reimport_group_set(&roster, &gs_id, &csv).unwrap();
-        let renamed = preview.value["renamed_groups"].as_array().unwrap();
+        let renamed = preview.entries["renamed_groups"].as_array().unwrap();
         assert_eq!(renamed.len(), 1);
         assert_eq!(renamed[0]["from"], "Original Name");
         assert_eq!(renamed[0]["to"], "New Name");
