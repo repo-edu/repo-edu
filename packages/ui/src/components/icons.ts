@@ -2,6 +2,7 @@
 export {
   AlertCircle,
   AlertTriangle,
+  ArrowRightLeft,
   Check,
   ChevronDown,
   ChevronRight,
@@ -39,6 +40,8 @@ export {
   Trash2,
   Undo2,
   Upload,
+  User,
+  Users,
   UserX,
   X,
 } from "lucide-react"

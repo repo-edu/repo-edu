@@ -956,7 +956,7 @@ function rustTypeForSchema(schema: JsonSchema | undefined): {
   rust: string
   usesValue: boolean
 } {
-  if (!schema) return { rust: "serde_json::Value", usesValue: true }
+  if (!schema) return { rust: "Value", usesValue: true }
   const xRust = schema["x-rust"] as RustMeta | undefined
   if (xRust?.type) {
     return { rust: xRust.type, usesValue: false }
@@ -997,9 +997,9 @@ function rustTypeForSchema(schema: JsonSchema | undefined): {
     }
   }
   if (schema.anyOf || schema.oneOf || schema.allOf) {
-    return { rust: "serde_json::Value", usesValue: true }
+    return { rust: "Value", usesValue: true }
   }
-  return { rust: "serde_json::Value", usesValue: true }
+  return { rust: "Value", usesValue: true }
 }
 
 function buildRustTypes(

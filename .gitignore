@@ -19,7 +19,6 @@
 
 # Planning files and notes
 .local/
-plan/
 
 # Binding generation cache
 .bindings-hash

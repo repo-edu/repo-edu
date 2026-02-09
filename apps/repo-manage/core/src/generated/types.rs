@@ -4,12 +4,14 @@
 #![allow(dead_code)]
 #![allow(clippy::upper_case_acronyms)]
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AffectedGroup {
   pub assignment_id: AssignmentId,
   pub assignment_name: String,
-  pub group_id: GroupId,
+  pub group_id: String,
   pub group_name: String,
 }
 
@@ -34,19 +36,8 @@ pub struct Assignment {
   pub id: AssignmentId,
   pub name: String,
   pub description: Option<String>,
-  pub assignment_type: AssignmentType,
-  pub groups: Vec<Group>,
-  pub group_set_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum AssignmentType {
-  #[serde(rename = "class_wide")]
-  #[default]
-  ClassWide,
-  #[serde(rename = "selective")]
-  Selective,
+  pub group_set_id: String,
+  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,18 +57,8 @@ pub struct AssignmentMetadata {
   pub id: AssignmentId,
   pub name: String,
   pub description: Option<String>,
-  pub assignment_type: AssignmentType,
-  pub group_set_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CachedLmsGroup {
-  pub id: String,
-  pub name: String,
-  pub lms_member_ids: Vec<String>,
-  pub resolved_member_ids: Vec<StudentId>,
-  pub unresolved_count: i64,
-  pub needs_reresolution: bool,
+  pub group_set_id: String,
+  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +130,24 @@ pub enum DirectoryLayout {
   Flat,
   #[serde(rename = "by-task")]
   ByTask,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum EnrollmentType {
+  #[serde(rename = "student")]
+  #[default]
+  Student,
+  #[serde(rename = "teacher")]
+  Teacher,
+  #[serde(rename = "ta")]
+  Ta,
+  #[serde(rename = "designer")]
+  Designer,
+  #[serde(rename = "observer")]
+  Observer,
+  #[serde(rename = "other")]
+  Other,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -225,26 +224,17 @@ pub struct GitVerifyResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Group {
-  pub id: GroupId,
+  pub id: String,
   pub name: String,
-  pub member_ids: Vec<StudentId>,
+  pub member_ids: Vec<RosterMemberId>,
+  pub origin: String,
+  pub lms_group_id: Option<String>,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupFilter {
-  pub kind: String,
-  pub selected: Option<Vec<String>>,
-  pub pattern: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct GroupId(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupImportConfig {
   pub group_set_id: String,
-  pub filter: GroupFilter,
+  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -255,15 +245,57 @@ pub struct GroupImportSummary {
   pub filter_applied: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum GroupSetKind {
-  #[serde(rename = "unlinked")]
-  Unlinked,
-  #[serde(rename = "linked")]
-  #[default]
-  Linked,
-  #[serde(rename = "copied")]
-  Copied,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSelectionMode {
+  pub entries: std::collections::HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSelectionPreview {
+  pub valid: bool,
+  pub error: Option<String>,
+  pub group_ids: Vec<String>,
+  pub empty_group_ids: Vec<String>,
+  pub group_member_counts: Vec<Value>,
+  pub total_groups: i64,
+  pub matched_groups: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSet {
+  pub id: String,
+  pub name: String,
+  pub group_ids: Vec<String>,
+  pub connection: Option<GroupSetConnection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSetConnection {
+  pub entries: std::collections::HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSetImportPreview {
+  pub entries: std::collections::HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSetImportResult {
+  pub mode: String,
+  pub group_set: GroupSet,
+  pub groups_upserted: Vec<Group>,
+  pub deleted_group_ids: Vec<String>,
+  pub missing_members: Vec<Value>,
+  pub total_missing: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSetSyncResult {
+  pub group_set: GroupSet,
+  pub groups_upserted: Vec<Group>,
+  pub deleted_group_ids: Vec<String>,
+  pub missing_members: Vec<Value>,
+  pub total_missing: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -283,6 +315,13 @@ pub struct GroupFileImportSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportConflict {
+  pub match_key: String,
+  pub value: String,
+  pub matched_ids: Vec<RosterMemberId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportGitUsernamesResult {
   pub summary: GitUsernameImportSummary,
   pub roster: Roster,
@@ -292,6 +331,14 @@ pub struct ImportGitUsernamesResult {
 pub struct ImportGroupsResult {
   pub summary: GroupImportSummary,
   pub roster: Roster,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportRosterResult {
+  pub summary: ImportSummary,
+  pub roster: Roster,
+  pub conflicts: Vec<ImportConflict>,
+  pub total_conflicts: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -346,20 +393,6 @@ pub struct LmsGroupSet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LmsGroupSetCacheEntry {
-  pub id: String,
-  pub kind: GroupSetKind,
-  pub name: String,
-  pub groups: Vec<CachedLmsGroup>,
-  pub filter: Option<GroupFilter>,
-  pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
-  pub lms_group_set_id: Option<String>,
-  pub lms_type: Option<LmsType>,
-  pub base_url: Option<String>,
-  pub course_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LmsOperationContext {
   pub connection: LmsConnection,
   pub course_id: String,
@@ -392,6 +425,18 @@ pub enum MemberOption {
   Email,
   #[serde(rename = "git_id")]
   GitId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum MemberStatus {
+  #[serde(rename = "active")]
+  #[default]
+  Active,
+  #[serde(rename = "incomplete")]
+  Incomplete,
+  #[serde(rename = "dropped")]
+  Dropped,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -437,6 +482,14 @@ pub struct OutputLine {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PatternFilterResult {
+  pub valid: bool,
+  pub error: Option<String>,
+  pub matched_indexes: Vec<i64>,
+  pub matched_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformConnection {
   pub access_token: String,
   pub base_url: Option<String>,
@@ -454,7 +507,7 @@ pub struct ProfileSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepoCollision {
-  pub group_id: GroupId,
+  pub group_id: String,
   pub group_name: String,
   pub repo_name: String,
   pub kind: RepoCollisionKind,
@@ -484,22 +537,39 @@ pub struct RepoPreflightResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Roster {
-  pub source: Option<RosterSource>,
-  pub students: Vec<Student>,
+  pub connection: Option<RosterConnection>,
+  pub students: Vec<RosterMember>,
+  pub staff: Vec<RosterMember>,
+  pub groups: Vec<Group>,
+  pub group_sets: Vec<GroupSet>,
   pub assignments: Vec<Assignment>,
-  pub lms_group_sets: Option<Vec<LmsGroupSetCacheEntry>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RosterSource {
-  pub kind: String,
-  pub lms_type: Option<LmsType>,
-  pub base_url: Option<String>,
-  pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
-  pub file_name: Option<String>,
-  pub imported_at: Option<chrono::DateTime<chrono::Utc>>,
-  pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+pub struct RosterConnection {
+  pub entries: std::collections::HashMap<String, Value>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterMember {
+  pub id: RosterMemberId,
+  pub name: String,
+  pub email: String,
+  pub student_number: Option<String>,
+  pub git_username: Option<String>,
+  pub git_username_status: GitUsernameStatus,
+  pub status: MemberStatus,
+  pub lms_user_id: Option<String>,
+  pub enrollment_type: EnrollmentType,
+  pub enrollment_display: Option<String>,
+  pub department: Option<String>,
+  pub institution: Option<String>,
+  pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct RosterMemberId(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsLoadResult {
@@ -510,7 +580,7 @@ pub struct SettingsLoadResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkippedGroup {
   pub assignment_id: AssignmentId,
-  pub group_id: GroupId,
+  pub group_id: String,
   pub group_name: String,
   pub reason: SkippedGroupReason,
   pub context: Option<String>,
@@ -581,6 +651,13 @@ pub struct StudentRemovalResult {
 pub struct StudentSummary {
   pub id: StudentId,
   pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemGroupSetEnsureResult {
+  pub group_sets: Vec<GroupSet>,
+  pub groups_upserted: Vec<Group>,
+  pub deleted_group_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -675,8 +752,12 @@ pub enum ValidationKind {
   UnassignedStudent,
   #[serde(rename = "missing_email")]
   MissingEmail,
-  #[serde(rename = "cached_group_resolution_pending")]
-  CachedGroupResolutionPending,
+  #[serde(rename = "system_group_sets_missing")]
+  SystemGroupSetsMissing,
+  #[serde(rename = "invalid_enrollment_partition")]
+  InvalidEnrollmentPartition,
+  #[serde(rename = "invalid_group_origin")]
+  InvalidGroupOrigin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

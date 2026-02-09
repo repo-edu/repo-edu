@@ -6,9 +6,9 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "tauri:dev": "cargo tauri dev",
-        "tauri:build": "cargo tauri build --bundles app --debug",
-        "tauri:build:release": "cargo tauri build --release",
+        "tauri:dev": "CARGO_TARGET_DIR=\"$(cd ../.. && pwd)/target\" tauri dev",
+        "tauri:build": "CARGO_TARGET_DIR=\"$(cd ../.. && pwd)/target\" tauri build --bundles app --debug",
+        "tauri:build:release": "CARGO_TARGET_DIR=\"$(cd ../.. && pwd)/target\" tauri build --release",
         "cli:build": "cargo build -p repo-manage-cli",
         "cli:build:release": "cargo build -p repo-manage-cli --release",
         "gen:bindings": "pnpx tsx ../../scripts/gen-from-schema.ts",

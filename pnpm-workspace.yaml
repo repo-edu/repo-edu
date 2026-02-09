@@ -4,6 +4,7 @@ packages:
   - docs
 
 catalog:
+  '@tanstack/react-table': 8.21.3
   '@types/react': 19.2.7
   '@types/react-dom': 19.2.3
   ajv: 8.12.0

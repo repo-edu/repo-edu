@@ -2,7 +2,7 @@ name: Bindings Sync
 
 on:
   push:
-    branches: [ main, develop, "feature/**" ]
+    branches: [main, develop, "feature/**"]
   pull_request:
 
 jobs:
@@ -10,16 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+
+      - uses: jdx/mise-action@v2
+
       - name: Install Node dependencies
         working-directory: apps/repo-manage
         run: pnpm install --frozen-lockfile
+
       - name: Generate bindings
         run: pnpm --filter @repo-edu/repo-manage gen:bindings
+
       - name: Check for drift
         run: git diff --exit-code apps/repo-manage/src/bindings.ts

@@ -1,0 +1,16 @@
+[tools]
+# Node.js LTS
+node = "22"
+
+# pnpm - must match package.json packageManager field
+pnpm = "10.28.0"
+
+# Rust stable (Tauri 2 requires 1.77+)
+rust = "1.93"
+
+# Utilities
+biome = "latest"
+rumdl = "latest"
+
+[env]
+CARGO_TARGET_DIR = "target"
