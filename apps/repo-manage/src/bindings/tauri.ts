@@ -71,6 +71,12 @@ import {
   save as TAURI_SAVE,
 } from "@tauri-apps/plugin-dialog"
 
+function toAppError(e: unknown): AppError {
+  if (typeof e === "object" && e !== null && "message" in e)
+    return e as AppError
+  return { message: String(e) }
+}
+
 export class TauriBackend implements BackendAPI {
   /**
    * Get token generation instructions for an LMS type
@@ -85,8 +91,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -104,8 +109,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -122,8 +126,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -146,8 +149,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -164,8 +166,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -182,8 +183,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -200,8 +200,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -213,8 +212,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("fetch_lms_courses") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -231,8 +229,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -253,8 +250,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -277,8 +273,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -295,8 +290,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -317,8 +311,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -341,8 +334,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -360,8 +352,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -378,8 +369,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -394,8 +384,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -418,8 +407,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -437,8 +425,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -459,8 +446,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -478,8 +464,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -502,8 +487,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -526,8 +510,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -550,8 +533,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -574,8 +556,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -592,8 +573,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -610,8 +590,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -628,8 +607,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -641,8 +619,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("list_profiles") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -654,8 +631,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("get_active_profile") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -670,8 +646,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -688,8 +663,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -706,8 +680,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -725,8 +698,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -749,8 +721,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -765,8 +736,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -784,8 +754,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -803,8 +772,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -816,8 +784,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("load_settings") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -829,8 +796,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("load_app_settings") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -847,8 +813,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -860,8 +825,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("list_git_connections") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -878,8 +842,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -897,8 +860,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -913,8 +875,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -931,8 +892,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -944,8 +904,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("reset_settings") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -964,8 +923,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("get_settings_path") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -977,8 +935,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("settings_exist") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -995,8 +952,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1014,8 +970,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1027,8 +982,7 @@ export class TauriBackend implements BackendAPI {
       return { status: "ok", data: await TAURI_INVOKE("get_settings_schema") }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1043,8 +997,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1059,8 +1012,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1075,8 +1027,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1099,8 +1050,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1123,8 +1073,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1147,8 +1096,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1173,8 +1121,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1197,8 +1144,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1216,8 +1162,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1240,8 +1185,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1258,8 +1202,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1282,8 +1225,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1300,8 +1242,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1324,8 +1265,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1350,8 +1290,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1376,8 +1315,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1402,8 +1340,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1428,8 +1365,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1454,8 +1390,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1480,8 +1415,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 
@@ -1496,8 +1430,7 @@ export class TauriBackend implements BackendAPI {
       }
     } catch (e) {
       if (e instanceof Error) throw e
-      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke
-      return { status: "error", error: e as any }
+      return { status: "error", error: toAppError(e) }
     }
   }
 

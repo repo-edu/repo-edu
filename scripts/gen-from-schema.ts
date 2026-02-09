@@ -648,10 +648,7 @@ function generateTauriBackend(manifest: CommandManifestStub): {
       lines.push(`      return { status: "ok", data: await ${invokeCall} };`)
       lines.push("    } catch (e) {")
       lines.push("      if (e instanceof Error) throw e;")
-      lines.push(
-        "      // biome-ignore lint/suspicious/noExplicitAny: Error handling for Tauri invoke",
-      )
-      lines.push('      return { status: "error", error: e as any };')
+      lines.push('      return { status: "error", error: toAppError(e) };')
       lines.push("    }")
     } else {
       lines.push(`    return await ${invokeCall};`)
@@ -765,6 +762,13 @@ function generateTauriBackend(manifest: CommandManifestStub): {
       `import type { Result } from "@repo-edu/backend-interface/types";`,
     )
   }
+  importLines.push("")
+  importLines.push("function toAppError(e: unknown): AppError {")
+  importLines.push(
+    '  if (typeof e === "object" && e !== null && "message" in e) return e as AppError;',
+  )
+  importLines.push("  return { message: String(e) };")
+  importLines.push("}")
   importLines.push("")
   importLines.push("export class TauriBackend implements BackendAPI {")
   importLines.push(blocks.join("\n\n"))
