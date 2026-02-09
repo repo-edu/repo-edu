@@ -13,3 +13,12 @@ export const formatRelativeTime = (isoDate: string | null): string => {
   if (diffDays < 7) return `${diffDays}d ago`
   return date.toLocaleDateString()
 }
+
+export const formatExactTimestamp = (isoDate: string | null): string | null => {
+  if (!isoDate) return null
+  const date = new Date(isoDate)
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}

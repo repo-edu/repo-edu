@@ -8,21 +8,18 @@ import type {
   Assignment,
   AssignmentId,
   AssignmentMetadata,
-  CachedLmsGroup,
   CourseInfo,
   CoverageReport,
   ExportSettings,
   GitIdentityMode,
   Group,
-  GroupId,
-  GroupSetKind,
-  LmsContextKey,
-  LmsGroupSetCacheEntry,
+  GroupSet,
   OperationConfigs,
   ProfileSettings,
   Roster,
-  Student,
-  StudentId,
+  RosterMember,
+  RosterMemberId,
+  SystemGroupSetEnsureResult,
   ValidationResult,
 } from "@repo-edu/backend-interface/types"
 import {
@@ -34,7 +31,12 @@ import {
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { commands } from "../bindings/commands"
-import { generateGroupId, generateGroupSetId } from "../utils/nanoid"
+import { unwrapGroupSetConnection } from "../utils/groupSetConnection"
+import {
+  generateAssignmentId,
+  generateGroupId,
+  generateGroupSetId,
+} from "../utils/nanoid"
 import { useAppSettingsStore } from "./appSettingsStore"
 import { useConnectionsStore } from "./connectionsStore"
 import { useOutputStore } from "./outputStore"
@@ -55,7 +57,6 @@ function computeDefaultSelection(
   roster: Roster | null,
 ): AssignmentSelection | null {
   if (!roster) return null
-  // If assignments exist, select the first one
   if (roster.assignments.length > 0) {
     return { mode: "assignment", id: roster.assignments[0].id }
   }
@@ -64,10 +65,11 @@ function computeDefaultSelection(
 
 // Stable fallback objects to avoid infinite re-render loops in selectors
 const EMPTY_COURSE: CourseInfo = { id: "", name: "" }
-const EMPTY_STUDENTS: Student[] = []
+const EMPTY_MEMBERS: RosterMember[] = []
 const EMPTY_ASSIGNMENTS: Assignment[] = []
 const EMPTY_GROUPS: Group[] = []
-const EMPTY_LMS_GROUP_SETS: LmsGroupSetCacheEntry[] = []
+const EMPTY_GROUP_SETS: GroupSet[] = []
+const EMPTY_ROSTER_COUNTS = { students: 0, staff: 0 } as const
 const HISTORY_LIMIT = 100
 
 enablePatches()
@@ -86,6 +88,9 @@ interface ProfileState {
 
   // Profile-scoped selection (NOT part of undo/redo)
   assignmentSelection: AssignmentSelection | null
+
+  // System group sets readiness
+  systemSetsReady: boolean
 
   // Validation results (computed on changes, debounced)
   rosterValidation: ValidationResult | null
@@ -116,20 +121,35 @@ interface ProfileActions {
   updateExports: (exports: Partial<ExportSettings>) => void
   setExports: (exports: ExportSettings) => void
 
-  // Student CRUD
-  addStudent: (student: Student) => void
-  updateStudent: (id: StudentId, updates: Partial<Student>) => void
-  removeStudent: (id: StudentId) => void
+  // Member CRUD
+  addMember: (member: RosterMember) => void
+  updateMember: (id: RosterMemberId, updates: Partial<RosterMember>) => void
+  removeMember: (id: RosterMemberId) => void
+
+  // Backward-compat aliases
+  /** @deprecated Use addMember */
+  addStudent: (member: RosterMember) => void
+  /** @deprecated Use updateMember */
+  updateStudent: (id: RosterMemberId, updates: Partial<RosterMember>) => void
+  /** @deprecated Use removeMember */
+  removeStudent: (id: RosterMemberId) => void
 
   // Assignment CRUD
   addAssignment: (
     assignment: Assignment,
     options?: { select?: boolean },
   ) => void
+  createAssignment: (
+    assignment: Omit<Assignment, "id">,
+    options?: { select?: boolean },
+  ) => AssignmentId
   updateAssignment: (
     id: AssignmentId,
     updates: Partial<AssignmentMetadata>,
+    options?: { clearExclusionsOnGroupSetChange?: boolean },
   ) => void
+  deleteAssignment: (id: AssignmentId) => void
+  /** @deprecated Use deleteAssignment */
   removeAssignment: (id: AssignmentId) => void
 
   // Selection (not part of undo/redo)
@@ -137,32 +157,32 @@ interface ProfileActions {
   /** @deprecated Use setAssignmentSelection instead */
   selectAssignment: (id: AssignmentId | null) => void
 
-  // Group CRUD
-  addGroup: (assignmentId: AssignmentId, group: Group) => void
-  updateGroup: (
-    assignmentId: AssignmentId,
-    groupId: GroupId,
-    updates: Partial<Group>,
-  ) => void
-  removeGroup: (assignmentId: AssignmentId, groupId: GroupId) => void
-
-  // Cached group set CRUD (local only)
-  createLocalGroupSet: (name: string, context: LmsContextKey) => string | null
-  duplicateGroupSetAsLocal: (
-    sourceId: string,
-    context: LmsContextKey,
+  // Group CRUD (top-level)
+  createGroup: (
+    groupSetId: string,
+    name: string,
+    memberIds: RosterMemberId[],
   ) => string | null
-  renameLocalGroupSet: (setId: string, name: string) => void
-  addLocalGroup: (setId: string, group: CachedLmsGroup) => void
-  updateLocalGroup: (
-    setId: string,
-    groupId: string,
-    updates: Partial<CachedLmsGroup>,
-  ) => void
-  removeLocalGroup: (setId: string, groupId: string) => void
+  updateGroup: (groupId: string, updates: Partial<Group>) => void
+  deleteGroup: (groupId: string) => void
+  addGroupToSet: (groupSetId: string, groupId: string) => void
+  removeGroupFromSet: (groupSetId: string, groupId: string) => void
+
+  // Group set CRUD
+  createLocalGroupSet: (name: string) => string | null
+  copyGroupSet: (groupSetId: string) => string | null
+  renameGroupSet: (groupSetId: string, name: string) => void
+  deleteGroupSet: (groupSetId: string) => void
 
   // Roster replacement (for imports)
   setRoster: (roster: Roster, description?: string) => void
+
+  // Normalization and system groups
+  normalizeRoster: () => void
+  ensureSystemGroupSets: () => Promise<void>
+
+  // Internal helpers
+  cleanupOrphanedGroups: () => void
 
   // Validation (debounced, called after mutations)
   validateRoster: () => Promise<void>
@@ -231,12 +251,24 @@ const defaultExports: ExportSettings = {
   full_groups: true,
 }
 
+function emptyRoster(): Roster {
+  return {
+    connection: null,
+    students: [],
+    staff: [],
+    groups: [],
+    group_sets: [],
+    assignments: [],
+  }
+}
+
 const initialState: ProfileState = {
   document: null,
   status: "empty",
   error: null,
   warnings: [],
   assignmentSelection: null,
+  systemSetsReady: false,
   rosterValidation: null,
   assignmentValidation: null,
   assignmentValidations: {},
@@ -284,7 +316,6 @@ export const useProfileStore = create<ProfileStore>()(
     const applyUndoState = (nextState: UndoState, entry?: HistoryEntry) => {
       set((state) => {
         state.document = nextState.document
-        // Note: assignmentSelection is NOT part of undo/redo
         if (entry) {
           state.history.push(entry)
           if (state.history.length > HISTORY_LIMIT) {
@@ -301,7 +332,6 @@ export const useProfileStore = create<ProfileStore>()(
     ) => {
       const current: UndoState = {
         document: get().document,
-        // Note: assignmentSelection is NOT part of undo/redo
       }
       const [nextState, patches, inversePatches] = produceWithPatches(
         current,
@@ -314,7 +344,6 @@ export const useProfileStore = create<ProfileStore>()(
       scheduleAssignmentValidation()
     }
 
-    // Wrapper for roster mutations - triggers validation after mutation
     const mutateRoster = (
       description: string,
       fn: (state: UndoState) => void,
@@ -342,13 +371,11 @@ export const useProfileStore = create<ProfileStore>()(
         setActiveProfileForCourse(profileName)
 
         try {
-          // Load settings and roster in parallel
           const [settingsResult, rosterResult] = await Promise.all([
             commands.loadProfile(profileName),
             commands.getRoster(profileName),
           ])
 
-          // Check for stale load
           if (currentLoadId !== loadSequence) {
             return {
               ok: false,
@@ -359,7 +386,6 @@ export const useProfileStore = create<ProfileStore>()(
             }
           }
 
-          // Handle settings load errors
           if (settingsResult.status === "error") {
             const error = `settings: ${settingsResult.error.message}`
             try {
@@ -377,6 +403,7 @@ export const useProfileStore = create<ProfileStore>()(
                 state.error = null
                 state.warnings = []
                 state.assignmentSelection = null
+                state.systemSetsReady = false
                 state.rosterValidation = null
                 state.assignmentValidation = null
                 state.assignmentValidations = {}
@@ -404,7 +431,6 @@ export const useProfileStore = create<ProfileStore>()(
             }
           }
 
-          // Handle roster load errors (settings already loaded)
           if (rosterResult.status === "error") {
             const { settings, warnings } = settingsResult.data
             const rosterError = `roster: ${rosterResult.error.message}`
@@ -422,6 +448,7 @@ export const useProfileStore = create<ProfileStore>()(
               state.error = null
               state.warnings = warnings
               state.assignmentSelection = null
+              state.systemSetsReady = false
               state.rosterValidation = null
               state.assignmentValidation = null
               state.assignmentValidations = {}
@@ -450,7 +477,6 @@ export const useProfileStore = create<ProfileStore>()(
             }
           }
 
-          // Success - set document atomically
           const { settings, warnings } = settingsResult.data
           const roster = rosterResult.data
           const resolvedMode = resolveIdentityMode(
@@ -467,25 +493,23 @@ export const useProfileStore = create<ProfileStore>()(
             state.error = null
             state.warnings = warnings
             state.assignmentSelection = computeDefaultSelection(roster)
+            state.systemSetsReady = false
             state.assignmentValidation = null
             state.assignmentValidations = {}
             state.history = []
             state.future = []
           })
 
-          // Restore course verification status if previously verified
           if (settings.course_verified_at) {
             setCourseStatus(profileName, "verified")
           }
 
-          // Log warnings
           if (warnings.length > 0) {
             for (const warning of warnings) {
               appendText(`${warning}`, "warning")
             }
           }
 
-          // Trigger initial validation
           scheduleRosterValidation()
 
           return {
@@ -521,7 +545,6 @@ export const useProfileStore = create<ProfileStore>()(
         })
 
         try {
-          // Save settings and roster together atomically
           const result = await commands.saveProfileAndRoster(
             profileName,
             document.settings,
@@ -529,7 +552,7 @@ export const useProfileStore = create<ProfileStore>()(
           )
           if (result.status === "error") {
             set((state) => {
-              state.status = "error"
+              state.status = "loaded"
               state.error = result.error.message
             })
             return false
@@ -545,7 +568,7 @@ export const useProfileStore = create<ProfileStore>()(
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           set((state) => {
-            state.status = "error"
+            state.status = "loaded"
             state.error = message
           })
           return false
@@ -557,6 +580,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.document = document
           state.status = "loaded"
           state.assignmentSelection = computeDefaultSelection(document.roster)
+          state.systemSetsReady = false
           state.assignmentValidation = null
           state.assignmentValidations = {}
           state.history = []
@@ -570,6 +594,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.error = null
           state.warnings = []
           state.assignmentSelection = null
+          state.systemSetsReady = false
           state.rosterValidation = null
           state.assignmentValidation = null
           state.assignmentValidations = {}
@@ -629,10 +654,11 @@ export const useProfileStore = create<ProfileStore>()(
           }
         }),
 
-      // Student CRUD
-      addStudent: (student) => {
-        const description = `Add student ${student.name}`
+      // Member CRUD
+      addMember: (member) => {
+        const description = `Add member ${member.name}`
         const shouldSetLoaded = !get().document
+        const addToStudents = member.enrollment_type === "student"
         mutateRoster(description, (state) => {
           if (!state.document) {
             state.document = {
@@ -642,17 +668,25 @@ export const useProfileStore = create<ProfileStore>()(
                 operations: { ...defaultOperations },
                 exports: { ...defaultExports },
               },
-              roster: { source: null, students: [student], assignments: [] },
+              roster: {
+                ...emptyRoster(),
+                students: addToStudents ? [member] : [],
+                staff: addToStudents ? [] : [member],
+              },
               resolvedIdentityMode: "username",
             }
           } else if (!state.document.roster) {
             state.document.roster = {
-              source: null,
-              students: [student],
-              assignments: [],
+              ...emptyRoster(),
+              students: addToStudents ? [member] : [],
+              staff: addToStudents ? [] : [member],
             }
           } else {
-            state.document.roster.students.push(student)
+            if (addToStudents) {
+              state.document.roster.students.push(member)
+            } else {
+              state.document.roster.staff.push(member)
+            }
           }
         })
         if (shouldSetLoaded) {
@@ -662,37 +696,68 @@ export const useProfileStore = create<ProfileStore>()(
         }
       },
 
-      updateStudent: (id, updates) => {
-        const studentName =
-          get().document?.roster?.students.find((student) => student.id === id)
-            ?.name ?? "student"
-        mutateRoster(`Edit student ${studentName}`, (state) => {
-          const student = state.document?.roster?.students.find(
-            (s) => s.id === id,
-          )
-          if (student) {
-            Object.assign(student, updates)
+      updateMember: (id, updates) => {
+        const memberName =
+          get().document?.roster?.students.find((m) => m.id === id)?.name ??
+          get().document?.roster?.staff.find((m) => m.id === id)?.name ??
+          "member"
+        mutateRoster(`Edit member ${memberName}`, (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+
+          const studentIndex = roster.students.findIndex((m) => m.id === id)
+          const staffIndex = roster.staff.findIndex((m) => m.id === id)
+          const isInStudents = studentIndex >= 0
+          const isInStaff = staffIndex >= 0
+          if (!isInStudents && !isInStaff) return
+
+          const current = isInStudents
+            ? roster.students[studentIndex]
+            : roster.staff[staffIndex]
+          const updatedMember = { ...current, ...updates }
+          const shouldBeStudent = updatedMember.enrollment_type === "student"
+
+          if (isInStudents && !shouldBeStudent) {
+            roster.students.splice(studentIndex, 1)
+            roster.staff.push(updatedMember)
+            return
+          }
+          if (isInStaff && shouldBeStudent) {
+            roster.staff.splice(staffIndex, 1)
+            roster.students.push(updatedMember)
+            return
+          }
+          if (isInStudents) {
+            roster.students[studentIndex] = updatedMember
+          } else {
+            roster.staff[staffIndex] = updatedMember
           }
         })
       },
 
-      removeStudent: (id) => {
-        const studentName =
-          get().document?.roster?.students.find((student) => student.id === id)
-            ?.name ?? "student"
-        mutateRoster(`Remove student ${studentName}`, (state) => {
+      removeMember: (id) => {
+        const memberName =
+          get().document?.roster?.students.find((m) => m.id === id)?.name ??
+          get().document?.roster?.staff.find((m) => m.id === id)?.name ??
+          "member"
+        mutateRoster(`Remove member ${memberName}`, (state) => {
           if (!state.document?.roster) return
-          // Remove from students array
           state.document.roster.students =
-            state.document.roster.students.filter((s) => s.id !== id)
-          // Cascade: remove from all group member_ids
-          for (const assignment of state.document.roster.assignments) {
-            for (const group of assignment.groups) {
-              group.member_ids = group.member_ids.filter((m) => m !== id)
-            }
+            state.document.roster.students.filter((m) => m.id !== id)
+          state.document.roster.staff = state.document.roster.staff.filter(
+            (m) => m.id !== id,
+          )
+          // Cascade: remove from all top-level group member_ids
+          for (const group of state.document.roster.groups) {
+            group.member_ids = group.member_ids.filter((m) => m !== id)
           }
         })
       },
+
+      // Backward-compat aliases
+      addStudent: (member) => get().addMember(member),
+      updateStudent: (id, updates) => get().updateMember(id, updates),
+      removeStudent: (id) => get().removeMember(id),
 
       // Assignment CRUD
       addAssignment: (assignment, options) => {
@@ -700,15 +765,13 @@ export const useProfileStore = create<ProfileStore>()(
           if (!state.document) return
           if (!state.document.roster) {
             state.document.roster = {
-              source: null,
-              students: [],
+              ...emptyRoster(),
               assignments: [assignment],
             }
           } else {
             state.document.roster.assignments.push(assignment)
           }
         })
-        // Handle selection outside of undo/redo state
         if (options?.select) {
           set((s) => {
             s.assignmentSelection = { mode: "assignment", id: assignment.id }
@@ -716,34 +779,49 @@ export const useProfileStore = create<ProfileStore>()(
         }
       },
 
-      updateAssignment: (id, updates) => {
+      createAssignment: (assignmentData, options) => {
+        const id = generateAssignmentId()
+        const assignment: Assignment = { ...assignmentData, id }
+        get().addAssignment(assignment, options)
+        return id
+      },
+
+      updateAssignment: (id, updates, options) => {
         const assignmentName =
-          get().document?.roster?.assignments.find(
-            (assignment) => assignment.id === id,
-          )?.name ?? "assignment"
+          get().document?.roster?.assignments.find((a) => a.id === id)?.name ??
+          "assignment"
         mutateRoster(`Edit assignment ${assignmentName}`, (state) => {
           const assignment = state.document?.roster?.assignments.find(
             (a) => a.id === id,
           )
-          if (assignment) {
-            const { assignment_type: _, ...rest } = updates
-            Object.assign(assignment, rest)
+          if (!assignment) return
+
+          // If group_set_id changes and clearExclusionsOnGroupSetChange, reset exclusions
+          if (
+            options?.clearExclusionsOnGroupSetChange &&
+            updates.group_set_id &&
+            updates.group_set_id !== assignment.group_set_id
+          ) {
+            assignment.group_selection = {
+              kind: "all",
+              excluded_group_ids: [],
+            }
           }
+
+          Object.assign(assignment, updates)
         })
       },
 
-      removeAssignment: (id) => {
+      deleteAssignment: (id) => {
         const assignmentName =
-          get().document?.roster?.assignments.find(
-            (assignment) => assignment.id === id,
-          )?.name ?? "assignment"
+          get().document?.roster?.assignments.find((a) => a.id === id)?.name ??
+          "assignment"
         const currentSelection = get().assignmentSelection
         mutateRoster(`Delete assignment ${assignmentName}`, (state) => {
           if (!state.document?.roster) return
           state.document.roster.assignments =
             state.document.roster.assignments.filter((a) => a.id !== id)
         })
-        // Cleanup selection outside of undo/redo state
         if (
           currentSelection?.mode === "assignment" &&
           currentSelection.id === id
@@ -755,10 +833,11 @@ export const useProfileStore = create<ProfileStore>()(
         }
       },
 
+      removeAssignment: (id) => get().deleteAssignment(id),
+
       setAssignmentSelection: (selection) => {
         set((state) => {
           state.assignmentSelection = selection
-          // Update validation for assignment mode
           if (selection?.mode === "assignment") {
             state.assignmentValidation =
               state.assignmentValidations[selection.id] ?? null
@@ -780,161 +859,155 @@ export const useProfileStore = create<ProfileStore>()(
         scheduleAssignmentValidation()
       },
 
-      // Group CRUD
-      addGroup: (assignmentId, group) => {
-        mutateRoster(`Add group ${group.name}`, (state) => {
-          const assignment = state.document?.roster?.assignments.find(
-            (a) => a.id === assignmentId,
-          )
-          if (assignment) {
-            assignment.groups.push(group)
-          }
-        })
-      },
-
-      updateGroup: (assignmentId, groupId, updates) => {
-        const groupName =
-          get()
-            .document?.roster?.assignments.find(
-              (assignment) => assignment.id === assignmentId,
-            )
-            ?.groups.find((group) => group.id === groupId)?.name ?? "group"
-        mutateRoster(`Edit group ${groupName}`, (state) => {
-          const assignment = state.document?.roster?.assignments.find(
-            (a) => a.id === assignmentId,
-          )
-          const group = assignment?.groups.find((g) => g.id === groupId)
-          if (group) {
-            Object.assign(group, updates)
-          }
-        })
-      },
-
-      removeGroup: (assignmentId, groupId) => {
-        const groupName =
-          get()
-            .document?.roster?.assignments.find(
-              (assignment) => assignment.id === assignmentId,
-            )
-            ?.groups.find((group) => group.id === groupId)?.name ?? "group"
-        mutateRoster(`Delete group ${groupName}`, (state) => {
-          const assignment = state.document?.roster?.assignments.find(
-            (a) => a.id === assignmentId,
-          )
-          if (assignment) {
-            assignment.groups = assignment.groups.filter(
-              (g) => g.id !== groupId,
-            )
-          }
-        })
-      },
-
-      createLocalGroupSet: (name, context) => {
-        if (!name.trim()) return null
-        const setId = generateGroupSetId()
-        mutateRoster(`Create local group set ${name}`, (state) => {
+      // Group CRUD (top-level)
+      createGroup: (groupSetId, name, memberIds) => {
+        const groupId = generateGroupId()
+        mutateRoster(`Create group ${name}`, (state) => {
           const roster = state.document?.roster
           if (!roster) return
-          const entry: LmsGroupSetCacheEntry = {
-            id: setId,
-            kind: "copied" as GroupSetKind,
-            name: name.trim(),
-            groups: [],
-            filter: null,
-            fetched_at: null,
-            lms_group_set_id: null,
-            lms_type: context.lms_type,
-            base_url: context.base_url,
-            course_id: context.course_id,
+          const groupSet = roster.group_sets.find((gs) => gs.id === groupSetId)
+          if (!groupSet) return
+
+          const group: Group = {
+            id: groupId,
+            name,
+            member_ids: [...memberIds],
+            origin: "local",
+            lms_group_id: null,
           }
-          if (!roster.lms_group_sets) {
-            roster.lms_group_sets = [entry]
-          } else {
-            roster.lms_group_sets.push(entry)
-          }
+          roster.groups.push(group)
+          groupSet.group_ids.push(groupId)
         })
-        return setId
+        return groupId
       },
 
-      duplicateGroupSetAsLocal: (sourceId, context) => {
-        const source = get().document?.roster?.lms_group_sets?.find(
-          (entry) => entry.id === sourceId,
-        )
-        if (!source) return null
-        const setId = generateGroupSetId()
-        const duplicatedGroups = source.groups.map((group) => ({
-          id: generateGroupId(),
-          name: group.name,
-          lms_member_ids: [],
-          resolved_member_ids: [...group.resolved_member_ids],
-          unresolved_count: 0,
-          needs_reresolution: false,
-        }))
-        mutateRoster(`Duplicate group set ${source.name}`, (state) => {
-          const roster = state.document?.roster
-          if (!roster) return
-          const entry: LmsGroupSetCacheEntry = {
-            id: setId,
-            kind: "copied" as GroupSetKind,
-            name: `${source.name} (local)`,
-            groups: duplicatedGroups,
-            filter: source.filter ?? null,
-            fetched_at: source.fetched_at ?? null,
-            lms_group_set_id: source.lms_group_set_id ?? null,
-            lms_type: source.lms_type ?? context.lms_type,
-            base_url: source.base_url ?? context.base_url,
-            course_id: source.course_id ?? context.course_id,
-          }
-          if (!roster.lms_group_sets) {
-            roster.lms_group_sets = [entry]
-          } else {
-            roster.lms_group_sets.push(entry)
-          }
-        })
-        return setId
-      },
-
-      renameLocalGroupSet: (setId, name) => {
-        const trimmed = name.trim()
-        if (!trimmed) return
-        mutateRoster(`Rename group set ${trimmed}`, (state) => {
-          const entry = state.document?.roster?.lms_group_sets?.find(
-            (groupSet) => groupSet.id === setId,
-          )
-          if (!entry || entry.kind !== "copied") return
-          entry.name = trimmed
-        })
-      },
-
-      addLocalGroup: (setId, group) => {
-        mutateRoster(`Add group ${group.name}`, (state) => {
-          const entry = state.document?.roster?.lms_group_sets?.find(
-            (groupSet) => groupSet.id === setId,
-          )
-          if (!entry || entry.kind !== "copied") return
-          entry.groups.push(group)
-        })
-      },
-
-      updateLocalGroup: (setId, groupId, updates) => {
+      updateGroup: (groupId, updates) => {
         mutateRoster("Edit group", (state) => {
-          const entry = state.document?.roster?.lms_group_sets?.find(
-            (groupSet) => groupSet.id === setId,
+          const group = state.document?.roster?.groups.find(
+            (g) => g.id === groupId,
           )
-          if (!entry || entry.kind !== "copied") return
-          const group = entry.groups.find((g) => g.id === groupId)
           if (!group) return
+          // Only allow editing local groups
+          if (group.origin !== "local") return
           Object.assign(group, updates)
         })
       },
 
-      removeLocalGroup: (setId, groupId) => {
+      deleteGroup: (groupId) => {
         mutateRoster("Delete group", (state) => {
-          const entry = state.document?.roster?.lms_group_sets?.find(
-            (groupSet) => groupSet.id === setId,
+          const roster = state.document?.roster
+          if (!roster) return
+          // Remove the group entity
+          roster.groups = roster.groups.filter((g) => g.id !== groupId)
+          // Remove from all group sets
+          for (const gs of roster.group_sets) {
+            gs.group_ids = gs.group_ids.filter((id) => id !== groupId)
+          }
+        })
+      },
+
+      addGroupToSet: (groupSetId, groupId) => {
+        mutateRoster("Add group to set", (state) => {
+          const gs = state.document?.roster?.group_sets.find(
+            (s) => s.id === groupSetId,
           )
-          if (!entry || entry.kind !== "copied") return
-          entry.groups = entry.groups.filter((group) => group.id !== groupId)
+          if (!gs) return
+          if (!gs.group_ids.includes(groupId)) {
+            gs.group_ids.push(groupId)
+          }
+        })
+      },
+
+      removeGroupFromSet: (groupSetId, groupId) => {
+        mutateRoster("Remove group from set", (state) => {
+          const gs = state.document?.roster?.group_sets.find(
+            (s) => s.id === groupSetId,
+          )
+          if (!gs) return
+          gs.group_ids = gs.group_ids.filter((id) => id !== groupId)
+        })
+      },
+
+      // Group set CRUD
+      createLocalGroupSet: (name) => {
+        if (!name.trim()) return null
+        const setId = generateGroupSetId()
+        mutateRoster(`Create group set ${name}`, (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const gs: GroupSet = {
+            id: setId,
+            name: name.trim(),
+            group_ids: [],
+            connection: null,
+          }
+          roster.group_sets.push(gs)
+        })
+        return setId
+      },
+
+      copyGroupSet: (groupSetId) => {
+        const source = get().document?.roster?.group_sets.find(
+          (gs) => gs.id === groupSetId,
+        )
+        if (!source) return null
+        const newId = generateGroupSetId()
+        mutateRoster(`Copy group set ${source.name}`, (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const copy: GroupSet = {
+            id: newId,
+            name: `${source.name} (copy)`,
+            group_ids: [...source.group_ids],
+            connection: null,
+          }
+          roster.group_sets.push(copy)
+        })
+        return newId
+      },
+
+      renameGroupSet: (groupSetId, name) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        mutateRoster(`Rename group set ${trimmed}`, (state) => {
+          const gs = state.document?.roster?.group_sets.find(
+            (s) => s.id === groupSetId,
+          )
+          if (!gs) return
+          // Only allow renaming non-system group sets
+          if (unwrapGroupSetConnection(gs.connection)?.kind === "system") {
+            return
+          }
+          gs.name = trimmed
+        })
+      },
+
+      deleteGroupSet: (groupSetId) => {
+        mutateRoster("Delete group set", (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const gs = roster.group_sets.find((s) => s.id === groupSetId)
+          if (!gs) return
+          // Only allow deleting non-system group sets
+          if (unwrapGroupSetConnection(gs.connection)?.kind === "system") {
+            return
+          }
+          // Remove group set
+          roster.group_sets = roster.group_sets.filter(
+            (s) => s.id !== groupSetId,
+          )
+          // Collect group IDs that are only in this set
+          const remainingGroupIds = new Set(
+            roster.group_sets.flatMap((s) => s.group_ids),
+          )
+          const orphanedGroupIds = gs.group_ids.filter(
+            (gid) => !remainingGroupIds.has(gid),
+          )
+          // Remove orphaned groups
+          if (orphanedGroupIds.length > 0) {
+            const orphanSet = new Set(orphanedGroupIds)
+            roster.groups = roster.groups.filter((g) => !orphanSet.has(g.id))
+          }
         })
       },
 
@@ -945,10 +1018,10 @@ export const useProfileStore = create<ProfileStore>()(
             state.document.roster = roster
           }
         })
-        // Update selection outside of undo/redo, recompute default
         const currentSelection = get().assignmentSelection
         set((state) => {
-          // If current selection is invalid, reset to default
+          // Re-ensure system group sets for replaced rosters (sync/import paths).
+          state.systemSetsReady = false
           if (currentSelection?.mode === "assignment") {
             const stillExists = roster.assignments.some(
               (a) => a.id === currentSelection.id,
@@ -957,11 +1030,130 @@ export const useProfileStore = create<ProfileStore>()(
               state.assignmentSelection = computeDefaultSelection(roster)
             }
           } else {
-            // Keep aggregation views if valid, or reset
             state.assignmentSelection = computeDefaultSelection(roster)
           }
           state.assignmentValidation = null
           state.assignmentValidations = {}
+        })
+      },
+
+      normalizeRoster: () => {
+        // On load, ensure roster has all required fields
+        mutateDocument("Normalize roster", (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          if (!roster.staff) roster.staff = []
+          if (!roster.groups) roster.groups = []
+          if (!roster.group_sets) roster.group_sets = []
+        })
+      },
+
+      ensureSystemGroupSets: async () => {
+        const { document } = get()
+        if (!document?.roster) return
+
+        try {
+          const result = await commands.ensureSystemGroupSets(document.roster)
+          if (result.status !== "ok") return
+
+          const patch = result.data as SystemGroupSetEnsureResult
+
+          // Apply the system group set ensure result directly (no undo entry)
+          set((state) => {
+            const roster = state.document?.roster
+            if (!roster) return
+
+            // Upsert groups
+            const existingGroupIds = new Set(roster.groups.map((g) => g.id))
+            for (const group of patch.groups_upserted) {
+              if (existingGroupIds.has(group.id)) {
+                const idx = roster.groups.findIndex((g) => g.id === group.id)
+                if (idx >= 0) roster.groups[idx] = group
+              } else {
+                roster.groups.push(group)
+              }
+            }
+
+            // Delete groups
+            if (patch.deleted_group_ids.length > 0) {
+              const deleteSet = new Set(patch.deleted_group_ids)
+              roster.groups = roster.groups.filter((g) => !deleteSet.has(g.id))
+            }
+
+            // Upsert group sets
+            const existingSetIds = new Set(roster.group_sets.map((gs) => gs.id))
+            for (const gs of patch.group_sets) {
+              if (existingSetIds.has(gs.id)) {
+                const idx = roster.group_sets.findIndex((s) => s.id === gs.id)
+                if (idx >= 0) roster.group_sets[idx] = gs
+              } else {
+                roster.group_sets.push(gs)
+              }
+            }
+
+            // Deduplicate system sets by system_type.
+            // Prefer IDs returned by the latest ensure_system_group_sets patch.
+            const preferredSystemSetIdByType = new Map<
+              "individual_students" | "staff",
+              string
+            >()
+            for (const gs of patch.group_sets) {
+              const connection = unwrapGroupSetConnection(gs.connection)
+              if (connection?.kind === "system") {
+                preferredSystemSetIdByType.set(connection.system_type, gs.id)
+              }
+            }
+
+            for (const gs of roster.group_sets) {
+              const connection = unwrapGroupSetConnection(gs.connection)
+              if (
+                connection?.kind === "system" &&
+                !preferredSystemSetIdByType.has(connection.system_type)
+              ) {
+                preferredSystemSetIdByType.set(connection.system_type, gs.id)
+              }
+            }
+
+            if (preferredSystemSetIdByType.size > 0) {
+              const seenSystemTypes = new Set<"individual_students" | "staff">()
+              roster.group_sets = roster.group_sets.filter((gs) => {
+                const connection = unwrapGroupSetConnection(gs.connection)
+                if (connection?.kind !== "system") return true
+
+                const preferredId = preferredSystemSetIdByType.get(
+                  connection.system_type,
+                )
+                if (preferredId && gs.id !== preferredId) return false
+                if (seenSystemTypes.has(connection.system_type)) return false
+                seenSystemTypes.add(connection.system_type)
+                return true
+              })
+
+              const referencedGroupIds = new Set(
+                roster.group_sets.flatMap((groupSet) => groupSet.group_ids),
+              )
+              roster.groups = roster.groups.filter((group) =>
+                referencedGroupIds.has(group.id),
+              )
+            }
+
+            state.systemSetsReady = true
+          })
+        } catch (err) {
+          console.error("Failed to ensure system group sets:", err)
+        }
+      },
+
+      cleanupOrphanedGroups: () => {
+        mutateDocument("Cleanup orphaned groups", (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const referencedGroupIds = new Set(
+            roster.group_sets.flatMap((gs) => gs.group_ids),
+          )
+          roster.groups = roster.groups.filter((g) =>
+            referencedGroupIds.has(g.id),
+          )
         })
       },
 
@@ -1062,7 +1254,6 @@ export const useProfileStore = create<ProfileStore>()(
 
         set((state) => {
           state.document = nextState.document
-          // Note: assignmentSelection is NOT part of undo/redo
           state.history = history.slice(0, -1)
           state.future = [entry, ...future]
         })
@@ -1081,7 +1272,6 @@ export const useProfileStore = create<ProfileStore>()(
 
         set((state) => {
           state.document = nextState.document
-          // Note: assignmentSelection is NOT part of undo/redo
           state.history = [...history, entry].slice(-HISTORY_LIMIT)
           state.future = future.slice(1)
         })
@@ -1108,12 +1298,149 @@ export const selectSettings = (state: ProfileStore) =>
   state.document?.settings ?? null
 export const selectRoster = (state: ProfileStore) =>
   state.document?.roster ?? null
+
+// Member selectors
 export const selectStudents = (state: ProfileStore) =>
-  state.document?.roster?.students ?? EMPTY_STUDENTS
+  state.document?.roster?.students ?? EMPTY_MEMBERS
+export const selectRosterStudents = (state: ProfileStore) =>
+  state.document?.roster?.students ?? EMPTY_MEMBERS
+export const selectRosterStaff = (state: ProfileStore) =>
+  state.document?.roster?.staff ?? EMPTY_MEMBERS
+let lastRosterForCounts: Roster | null = null
+let lastRosterCounts: { students: number; staff: number } = EMPTY_ROSTER_COUNTS
+export const selectRosterCounts = (state: ProfileStore) => {
+  const roster = state.document?.roster ?? null
+  if (!roster) {
+    lastRosterForCounts = null
+    lastRosterCounts = EMPTY_ROSTER_COUNTS
+    return lastRosterCounts
+  }
+  if (roster === lastRosterForCounts) return lastRosterCounts
+  lastRosterForCounts = roster
+  lastRosterCounts = {
+    students: roster.students.length,
+    staff: roster.staff.length,
+  }
+  return lastRosterCounts
+}
+export const selectRosterMemberById =
+  (id: RosterMemberId) => (state: ProfileStore) => {
+    const roster = state.document?.roster
+    if (!roster) return null
+    return (
+      roster.students.find((m) => m.id === id) ??
+      roster.staff.find((m) => m.id === id) ??
+      null
+    )
+  }
+
+// Group selectors
+export const selectGroups = (state: ProfileStore) =>
+  state.document?.roster?.groups ?? EMPTY_GROUPS
+export const selectGroupById = (id: string) => (state: ProfileStore) =>
+  state.document?.roster?.groups.find((g) => g.id === id) ?? null
+export const selectGroupsForGroupSet = (gsId: string) => {
+  let lastRoster: Roster | null = null
+  let lastGroups: Group[] = EMPTY_GROUPS
+
+  return (state: ProfileStore) => {
+    const roster = state.document?.roster
+    if (!roster) return EMPTY_GROUPS
+    if (roster === lastRoster) return lastGroups
+
+    const gs = roster.group_sets.find((s) => s.id === gsId)
+    if (!gs) return EMPTY_GROUPS
+    const groupMap = new Map(roster.groups.map((g) => [g.id, g]))
+    lastGroups = gs.group_ids
+      .map((gid) => groupMap.get(gid))
+      .filter((g): g is Group => !!g)
+    lastRoster = roster
+    return lastGroups
+  }
+}
+export const selectIsGroupEditable =
+  (groupId: string) => (state: ProfileStore) => {
+    const group = state.document?.roster?.groups.find((g) => g.id === groupId)
+    return group?.origin === "local"
+  }
+export const selectGroupReferenceCount =
+  (groupId: string) => (state: ProfileStore) => {
+    const roster = state.document?.roster
+    if (!roster) return 0
+    return roster.group_sets.filter((gs) => gs.group_ids.includes(groupId))
+      .length
+  }
+
+// Group set selectors
+export const selectGroupSets = (state: ProfileStore) =>
+  state.document?.roster?.group_sets ?? EMPTY_GROUP_SETS
+export const selectGroupSetById = (id: string) => (state: ProfileStore) =>
+  state.document?.roster?.group_sets.find((gs) => gs.id === id) ?? null
+export const selectIsGroupSetEditable =
+  (gsId: string) => (state: ProfileStore) => {
+    const gs = state.document?.roster?.group_sets.find((s) => s.id === gsId)
+    if (!gs) return false
+    const connection = unwrapGroupSetConnection(gs.connection)
+    if (!connection) return true // local sets are editable
+    return connection.kind !== "system"
+  }
+export const selectSystemGroupSet =
+  (systemType: "individual_students" | "staff") => (state: ProfileStore) => {
+    const roster = state.document?.roster
+    if (!roster) return null
+    return (
+      roster.group_sets.find((gs) => {
+        const connection = unwrapGroupSetConnection(gs.connection)
+        return (
+          connection?.kind === "system" && connection.system_type === systemType
+        )
+      }) ?? null
+    )
+  }
+let lastRosterForConnected: Roster | null = null
+let lastConnectedGroupSets: GroupSet[] = EMPTY_GROUP_SETS
+export const selectConnectedGroupSets = (state: ProfileStore) => {
+  const roster = state.document?.roster
+  if (!roster) return EMPTY_GROUP_SETS
+  if (roster === lastRosterForConnected) return lastConnectedGroupSets
+  lastRosterForConnected = roster
+  lastConnectedGroupSets = roster.group_sets.filter((gs) => {
+    const connection = unwrapGroupSetConnection(gs.connection)
+    return connection?.kind === "canvas" || connection?.kind === "moodle"
+  })
+  return lastConnectedGroupSets
+}
+let lastRosterForLocal: Roster | null = null
+let lastLocalGroupSets: GroupSet[] = EMPTY_GROUP_SETS
+export const selectLocalGroupSets = (state: ProfileStore) => {
+  const roster = state.document?.roster
+  if (!roster) return EMPTY_GROUP_SETS
+  if (roster === lastRosterForLocal) return lastLocalGroupSets
+  lastRosterForLocal = roster
+  lastLocalGroupSets = roster.group_sets.filter((gs) => {
+    const connection = unwrapGroupSetConnection(gs.connection)
+    return connection === null || connection.kind === "import"
+  })
+  return lastLocalGroupSets
+}
+export const selectAssignmentsForGroupSet = (gsId: string) => {
+  let lastRoster: Roster | null = null
+  let lastAssignments: Assignment[] = EMPTY_ASSIGNMENTS
+  return (state: ProfileStore) => {
+    const roster = state.document?.roster
+    if (!roster) return EMPTY_ASSIGNMENTS
+    if (roster === lastRoster) return lastAssignments
+    lastRoster = roster
+    lastAssignments = roster.assignments.filter((a) => a.group_set_id === gsId)
+    return lastAssignments
+  }
+}
+export const selectSystemSetsReady = (state: ProfileStore) =>
+  state.systemSetsReady
+
+// Assignment selectors
 export const selectAssignments = (state: ProfileStore) =>
   state.document?.roster?.assignments ?? EMPTY_ASSIGNMENTS
-export const selectLmsGroupSets = (state: ProfileStore) =>
-  state.document?.roster?.lms_group_sets ?? EMPTY_LMS_GROUP_SETS
 export const selectAssignmentSelection = (state: ProfileStore) =>
   state.assignmentSelection
 /** @deprecated Use selectAssignmentSelection instead */
@@ -1129,8 +1456,8 @@ export const selectSelectedAssignment = (state: ProfileStore) => {
     null
   )
 }
-export const selectGroups = (state: ProfileStore) =>
-  selectSelectedAssignment(state)?.groups ?? EMPTY_GROUPS
+
+// Settings selectors
 export const selectCourse = (state: ProfileStore) =>
   state.document?.settings.course ?? EMPTY_COURSE
 export const selectGitConnectionRef = (state: ProfileStore) =>
@@ -1139,6 +1466,8 @@ export const selectOperations = (state: ProfileStore) =>
   state.document?.settings.operations ?? null
 export const selectExports = (state: ProfileStore) =>
   state.document?.settings.exports ?? null
+
+// Status selectors
 export const selectProfileStatus = (state: ProfileStore) => state.status
 export const selectProfileError = (state: ProfileStore) => state.error
 export const selectProfileWarnings = (state: ProfileStore) => state.warnings
@@ -1154,3 +1483,9 @@ export const selectCoverageReport = (state: ProfileStore) =>
   state.coverageReport
 export const selectCanUndo = (state: ProfileStore) => state.history.length > 0
 export const selectCanRedo = (state: ProfileStore) => state.future.length > 0
+export const selectNextUndoDescription = (state: ProfileStore) =>
+  state.history.length > 0
+    ? state.history[state.history.length - 1].description
+    : null
+export const selectNextRedoDescription = (state: ProfileStore) =>
+  state.future.length > 0 ? state.future[0].description : null

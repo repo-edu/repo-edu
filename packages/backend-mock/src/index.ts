@@ -24,32 +24,37 @@ import type {
   GitIdentityMode,
   GitUsernameStatus,
   GitVerifyResult,
+  Group,
   GroupCategory,
-  GroupFileImportResult,
-  GroupFilter,
-  GroupImportConfig,
+  GroupSelectionMode,
+  GroupSelectionPreview,
+  GroupSetImportPreview,
+  GroupSetImportResult,
+  GroupSetSyncResult,
   ImportGitUsernamesResult,
+  ImportRosterResult,
   ImportStudentsResult,
   ImportSummary,
   LmsConnection,
   LmsContextKey,
   LmsGroup,
   LmsGroupSet,
-  LmsGroupSetCacheEntry,
   LmsOperationContext,
   LmsType,
   LmsVerifyResult,
   OperationResult,
+  PatternFilterResult,
   ProfileSettings,
   RepoOperationContext,
   RepoPreflightResult,
   Result,
   Roster,
+  RosterMember,
+  RosterMemberId,
   SettingsLoadResult,
-  Student,
-  StudentId,
   StudentRemovalCheck,
   StudentSummary,
+  SystemGroupSetEnsureResult,
   UsernameVerificationResult,
   ValidationResult,
   VerifyCourseParams,
@@ -57,11 +62,11 @@ import type {
   VerifyGitUsernamesResult,
 } from "@repo-edu/backend-interface/types"
 import {
+  buildCs101Roster,
+  buildCs201Roster,
   type CourseType,
   createProfileSettings,
-  cs101Assignments,
   cs101GroupSets,
-  cs201Assignments,
   cs201GroupSets,
   cs201Students,
   demoCourses,
@@ -71,62 +76,42 @@ import {
 
 const nowIso = () => new Date().toISOString()
 
-const createRoster = (
-  sourceKind: "lms" | "file" | "manual",
-  courseType: CourseType,
-  fileName?: string,
-): Roster => {
-  const students = courseType === "cs101" ? demoStudents : cs201Students
-  const assignments =
-    courseType === "cs101" ? cs101Assignments : cs201Assignments
+/**
+ * Resolve groups for an assignment via its group_set_id and group_selection.
+ */
+function resolveAssignmentGroups(
+  roster: Roster,
+  assignmentId: AssignmentId,
+): { id: string; name: string; member_ids: string[] }[] {
+  const assignment = roster.assignments.find((a) => a.id === assignmentId)
+  if (!assignment) return []
 
-  const sourceBase = {
-    kind: sourceKind,
+  const groupSet = roster.group_sets.find(
+    (gs) => gs.id === assignment.group_set_id,
+  )
+  if (!groupSet) return []
+
+  const groupMap = new Map(roster.groups.map((g) => [g.id, g]))
+
+  let resolvedIds = groupSet.group_ids
+  const sel = assignment.group_selection
+
+  if (sel.kind === "pattern") {
+    const pattern = sel.pattern.toLowerCase()
+    resolvedIds = resolvedIds.filter((gid) => {
+      const g = groupMap.get(gid)
+      return g ? g.name.toLowerCase().includes(pattern) : false
+    })
   }
 
-  const copyStudents = () => students.map((student) => ({ ...student }))
-  const copyAssignments = () =>
-    assignments.map((assignment) => ({
-      ...assignment,
-      groups: assignment.groups.map((group) => ({
-        ...group,
-        member_ids: [...group.member_ids],
-      })),
-    }))
-
-  if (sourceKind === "lms") {
-    return {
-      source: {
-        ...sourceBase,
-        lms_type: "canvas",
-        base_url: "https://canvas.university.edu",
-        fetched_at: nowIso(),
-      },
-      students: copyStudents(),
-      assignments: copyAssignments(),
-    }
+  if (sel.excluded_group_ids.length > 0) {
+    const excluded = new Set(sel.excluded_group_ids)
+    resolvedIds = resolvedIds.filter((gid) => !excluded.has(gid))
   }
 
-  if (sourceKind === "file") {
-    return {
-      source: {
-        ...sourceBase,
-        file_name: fileName ?? "students.csv",
-        imported_at: nowIso(),
-      },
-      students: copyStudents(),
-      assignments: copyAssignments(),
-    }
-  }
-
-  return {
-    source: {
-      ...sourceBase,
-      created_at: nowIso(),
-    },
-    students: copyStudents(),
-    assignments: copyAssignments(),
-  }
+  return resolvedIds
+    .map((gid) => groupMap.get(gid))
+    .filter((g): g is Group => !!g)
 }
 
 const buildCoverageReport = (roster: Roster): CoverageReport => {
@@ -137,7 +122,8 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
   const studentAssignments = new Map<string, Set<string>>()
 
   for (const assignment of roster.assignments) {
-    for (const group of assignment.groups) {
+    const groups = resolveAssignmentGroups(roster, assignment.id)
+    for (const group of groups) {
       for (const memberId of group.member_ids) {
         if (!activeIds.has(memberId)) continue
         const assignments =
@@ -160,8 +146,9 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
     }))
 
   const assignments = roster.assignments.map((assignment) => {
+    const groups = resolveAssignmentGroups(roster, assignment.id)
     const memberIds = new Set<string>()
-    for (const group of assignment.groups) {
+    for (const group of groups) {
       for (const memberId of group.member_ids) {
         memberIds.add(memberId)
       }
@@ -190,7 +177,7 @@ const buildCoverageReport = (roster: Roster): CoverageReport => {
 
 const mergeStudents = (
   roster: Roster,
-  incoming: Student[],
+  incoming: RosterMember[],
 ): { roster: Roster; summary: ImportSummary } => {
   const byEmail = new Map(
     roster.students.map((student) => [student.email, student]),
@@ -231,29 +218,9 @@ const mergeStudents = (
   }
 }
 
-const applyGroupFilter = (
-  groups: LmsGroup[],
-  filter: GroupFilter,
-): LmsGroup[] => {
-  if (filter.kind === "selected") {
-    const selected = new Set(filter.selected ?? [])
-    return groups.filter((group) => selected.has(group.id))
-  }
-  if (filter.kind === "pattern") {
-    const pattern = filter.pattern?.trim() ?? ""
-    if (!pattern) {
-      return groups
-    }
-    return groups.filter((group) =>
-      group.name.toLowerCase().includes(pattern.toLowerCase()),
-    )
-  }
-  return groups
+function createRoster(courseType: CourseType): Roster {
+  return courseType === "cs101" ? buildCs101Roster() : buildCs201Roster()
 }
-
-const rosterAssignment = (roster: Roster, assignmentId: AssignmentId) =>
-  roster.assignments.find((assignment) => assignment.id === assignmentId) ??
-  null
 
 export class MockBackend implements BackendAPI {
   private profiles = new Map<string, ProfileSettings>()
@@ -274,15 +241,13 @@ export class MockBackend implements BackendAPI {
   }
 
   constructor() {
-    // Profile 1: CS 101 course
     const cs101Settings = createProfileSettings(demoCourses[0])
     this.profiles.set("CS101 2026", cs101Settings)
-    this.rosters.set("CS101 2026", createRoster("lms", "cs101"))
+    this.rosters.set("CS101 2026", createRoster("cs101"))
 
-    // Profile 2: CS 201 course
     const cs201Settings = createProfileSettings(demoCourses[1])
     this.profiles.set("CS201 2026", cs201Settings)
-    this.rosters.set("CS201 2026", createRoster("lms", "cs201"))
+    this.rosters.set("CS201 2026", createRoster("cs201"))
   }
 
   private ok<T>(data: T): Promise<Result<T, AppError>> {
@@ -296,12 +261,11 @@ export class MockBackend implements BackendAPI {
     }
     const fallback = createProfileSettings(demoCourses[0])
     this.profiles.set(name, fallback)
-    this.rosters.set(name, createRoster("manual", "cs101"))
+    this.rosters.set(name, createRoster("cs101"))
     return fallback
   }
 
   private getCourseType(): CourseType {
-    // Determine course type from active profile name
     if (this.activeProfile?.includes("201")) {
       return "cs201"
     }
@@ -312,7 +276,7 @@ export class MockBackend implements BackendAPI {
     return this.getCourseType() === "cs201" ? cs201GroupSets : cs101GroupSets
   }
 
-  private getStudents(): Student[] {
+  private getStudents(): RosterMember[] {
     return this.getCourseType() === "cs201" ? cs201Students : demoStudents
   }
 
@@ -416,12 +380,11 @@ export class MockBackend implements BackendAPI {
     roster: Roster | null,
   ): Promise<Result<ImportStudentsResult, AppError>> {
     const courseType = this.getCourseType()
-    const baseRoster = roster ? { ...roster } : createRoster("lms", courseType)
-    baseRoster.source = {
-      kind: "lms",
-      lms_type: "canvas",
-      base_url: "https://canvas.university.edu",
-      fetched_at: nowIso(),
+    const baseRoster = roster ? { ...roster } : createRoster(courseType)
+    baseRoster.connection = {
+      kind: "canvas",
+      course_id: courseType === "cs101" ? "48291" : "48350",
+      last_updated: nowIso(),
     }
 
     const merged = mergeStudents(baseRoster, this.getStudents())
@@ -437,13 +400,11 @@ export class MockBackend implements BackendAPI {
     filePath: string,
   ): Promise<Result<ImportStudentsResult, AppError>> {
     const courseType = this.getCourseType()
-    const baseRoster = roster
-      ? { ...roster }
-      : createRoster("file", courseType, filePath)
-    baseRoster.source = {
-      kind: "file",
-      file_name: filePath.split("/").pop() ?? filePath,
-      imported_at: nowIso(),
+    const baseRoster = roster ? { ...roster } : createRoster(courseType)
+    baseRoster.connection = {
+      kind: "import",
+      source_filename: filePath.split("/").pop() ?? filePath,
+      last_updated: nowIso(),
     }
 
     const merged = mergeStudents(baseRoster, this.getStudents())
@@ -467,246 +428,284 @@ export class MockBackend implements BackendAPI {
     return this.ok(groupSet?.groups ?? [])
   }
 
-  // Group set operations
-  async linkLmsGroupSet(
-    context: LmsOperationContext,
-    roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    const groupSet = this.getGroupSets().find(
-      (set) => set.id === config.group_set_id,
-    )
-    if (!groupSet) {
-      return this.ok(roster ?? { source: null, students: [], assignments: [] })
-    }
-
-    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
-    const baseRoster = roster ?? { source: null, students: [], assignments: [] }
-    const cacheEntry: LmsGroupSetCacheEntry = {
-      id: groupSet.id,
-      kind: "linked",
-      name: groupSet.name,
-      groups: filteredGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        lms_member_ids: [...group.member_ids],
-        resolved_member_ids: [...group.member_ids],
-        unresolved_count: 0,
-        needs_reresolution: false,
-      })),
-      filter: config.filter,
-      fetched_at: nowIso(),
-      lms_group_set_id: groupSet.id,
-      lms_type: context.connection.lms_type,
-      base_url: context.connection.base_url,
-      course_id: context.course_id,
-    }
-
-    const lmsGroupSets = baseRoster.lms_group_sets ?? []
-    const existingIdx = lmsGroupSets.findIndex((e) => e.id === groupSet.id)
-    if (existingIdx >= 0) {
-      lmsGroupSets[existingIdx] = cacheEntry
-    } else {
-      lmsGroupSets.push(cacheEntry)
-    }
-
-    const updatedRoster = { ...baseRoster, lms_group_sets: lmsGroupSets }
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, updatedRoster)
-    }
-    return this.ok(updatedRoster)
-  }
-
-  async copyLmsGroupSet(
-    context: LmsOperationContext,
-    roster: Roster | null,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    const groupSet = this.getGroupSets().find(
-      (set) => set.id === config.group_set_id,
-    )
-    if (!groupSet) {
-      return this.ok(roster ?? { source: null, students: [], assignments: [] })
-    }
-
-    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
-    const baseRoster = roster ?? { source: null, students: [], assignments: [] }
-    const copyId = `copy-${groupSet.id}-${Math.random().toString(36).slice(2, 8)}`
-    const cacheEntry: LmsGroupSetCacheEntry = {
-      id: copyId,
-      kind: "copied",
-      name: groupSet.name,
-      groups: filteredGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        lms_member_ids: [...group.member_ids],
-        resolved_member_ids: [...group.member_ids],
-        unresolved_count: 0,
-        needs_reresolution: false,
-      })),
-      filter: config.filter,
-      fetched_at: nowIso(),
-      lms_group_set_id: groupSet.id,
-      lms_type: context.connection.lms_type,
-      base_url: context.connection.base_url,
-      course_id: context.course_id,
-    }
-
-    const lmsGroupSets = baseRoster.lms_group_sets ?? []
-    lmsGroupSets.push(cacheEntry)
-
-    const updatedRoster = { ...baseRoster, lms_group_sets: lmsGroupSets }
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, updatedRoster)
-    }
-    return this.ok(updatedRoster)
-  }
-
-  async copyLmsGroupSetToAssignment(
+  async syncGroupSet(
     _context: LmsOperationContext,
     roster: Roster,
-    assignmentId: AssignmentId,
-    config: GroupImportConfig,
-  ): Promise<Result<Roster, AppError>> {
-    const groupSet = this.getGroupSets().find(
-      (set) => set.id === config.group_set_id,
-    )
-    if (!groupSet) {
-      return this.ok(roster)
-    }
-
-    const filteredGroups = applyGroupFilter(groupSet.groups, config.filter)
-    const assignment = rosterAssignment(roster, assignmentId)
-    if (!assignment) {
-      return this.ok(roster)
-    }
-
-    assignment.groups = filteredGroups.map((group) => ({
-      id: `asg-${assignmentId}-${group.id}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`,
-      name: group.name,
-      member_ids: [...group.member_ids],
-    }))
-    assignment.group_set_id = null
-
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, roster)
-    }
-    return this.ok(roster)
-  }
-
-  async refreshLinkedGroupSet(
-    context: LmsOperationContext,
-    roster: Roster,
     groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    const entry = (roster.lms_group_sets ?? []).find(
-      (set) => set.id === groupSetId,
-    )
-    if (!entry || entry.kind !== "linked") {
-      return this.ok(roster)
+  ): Promise<Result<GroupSetSyncResult, AppError>> {
+    const gs = roster.group_sets.find((s) => s.id === groupSetId)
+    if (!gs) {
+      return this.ok({
+        group_set: {
+          id: groupSetId,
+          name: "Unknown",
+          group_ids: [],
+          connection: null,
+        },
+        groups_upserted: [],
+        deleted_group_ids: [],
+        missing_members: [],
+        total_missing: 0,
+      })
     }
-
-    const filter = entry.filter ?? { kind: "all" }
-    return this.linkLmsGroupSet(context, roster, {
-      group_set_id: entry.lms_group_set_id ?? entry.id,
-      filter,
+    return this.ok({
+      group_set: { ...gs },
+      groups_upserted: roster.groups.filter((g) => gs.group_ids.includes(g.id)),
+      deleted_group_ids: [],
+      missing_members: [],
+      total_missing: 0,
     })
   }
 
-  async breakGroupSetLink(
-    roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    const lmsGroupSets = roster.lms_group_sets ?? []
-    const entry = lmsGroupSets.find((set) => set.id === groupSetId)
-    if (!entry || entry.kind !== "linked") {
-      return this.ok(roster)
+  async importRosterFromLms(
+    _context: LmsOperationContext,
+    roster: Roster | null,
+  ): Promise<Result<ImportRosterResult, AppError>> {
+    const courseType = this.getCourseType()
+    const baseRoster = roster ? { ...roster } : createRoster(courseType)
+    baseRoster.connection = {
+      kind: "canvas",
+      course_id: courseType === "cs101" ? "48291" : "48350",
+      last_updated: nowIso(),
     }
 
-    const updatedEntry: LmsGroupSetCacheEntry = {
-      ...entry,
-      kind: "copied",
-      groups: entry.groups.map((group) => ({
-        ...group,
-        lms_member_ids: [],
-        unresolved_count: 0,
-        needs_reresolution: false,
-      })),
-    }
-
-    const updatedRoster = {
-      ...roster,
-      lms_group_sets: lmsGroupSets.map((set) =>
-        set.id === groupSetId ? updatedEntry : set,
-      ),
-    }
+    const merged = mergeStudents(baseRoster, this.getStudents())
     if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, updatedRoster)
+      this.rosters.set(this.activeProfile, merged.roster)
     }
-    return this.ok(updatedRoster)
+    return this.ok({
+      summary: merged.summary,
+      roster: merged.roster,
+      conflicts: [],
+      total_conflicts: 0,
+    })
   }
 
-  async deleteGroupSet(
+  async ensureSystemGroupSets(
     roster: Roster,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    const lmsGroupSets = (roster.lms_group_sets ?? []).filter(
-      (e) => e.id !== groupSetId,
-    )
-    const updatedRoster = { ...roster, lms_group_sets: lmsGroupSets }
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, updatedRoster)
-    }
-    return this.ok(updatedRoster)
-  }
-
-  async listGroupSets(
-    roster: Roster,
-  ): Promise<Result<LmsGroupSetCacheEntry[], AppError>> {
-    return this.ok(roster.lms_group_sets ?? [])
-  }
-
-  async attachGroupSetToAssignment(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    groupSetId: string,
-  ): Promise<Result<Roster, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    const cacheEntry = (roster.lms_group_sets ?? []).find(
-      (e) => e.id === groupSetId,
-    )
-
-    if (!assignment || !cacheEntry) {
-      return this.ok(roster)
-    }
-
-    assignment.groups = cacheEntry.groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: [...group.resolved_member_ids],
+  ): Promise<Result<SystemGroupSetEnsureResult, AppError>> {
+    const individualGroups = roster.students.map((s) => ({
+      id: `sys-ind-${s.id}`,
+      name: s.name,
+      member_ids: [s.id],
+      origin: "system" as const,
+      lms_group_id: null,
     }))
-    assignment.group_set_id = cacheEntry.id
-
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, roster)
+    const staffGroup = {
+      id: "sys-staff",
+      name: "Staff",
+      member_ids: roster.staff.map((s) => s.id),
+      origin: "system" as const,
+      lms_group_id: null,
     }
-    return this.ok(roster)
+
+    const allGroups = [...individualGroups, staffGroup]
+    const indGroupSet = {
+      id: "sys-gs-individual",
+      name: "Individual Students",
+      group_ids: individualGroups.map((g) => g.id),
+      connection: {
+        kind: "system" as const,
+        system_type: "individual_students" as const,
+      },
+    }
+    const staffGroupSet = {
+      id: "sys-gs-staff",
+      name: "Staff",
+      group_ids: [staffGroup.id],
+      connection: { kind: "system" as const, system_type: "staff" as const },
+    }
+
+    return this.ok({
+      group_sets: [indGroupSet, staffGroupSet],
+      groups_upserted: allGroups,
+      deleted_group_ids: [],
+    })
   }
 
-  async clearAssignmentGroupSet(
+  async normalizeGroupName(name: string): Promise<Result<string, AppError>> {
+    return this.ok(
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, ""),
+    )
+  }
+
+  async previewGroupSelection(
     roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<Roster, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    if (assignment) {
-      assignment.group_set_id = null
+    groupSetId: string,
+    groupSelection: GroupSelectionMode,
+  ): Promise<Result<GroupSelectionPreview, AppError>> {
+    const gs = roster.group_sets.find((s) => s.id === groupSetId)
+    if (!gs) {
+      return this.ok({
+        valid: true,
+        error: null,
+        group_ids: [],
+        empty_group_ids: [],
+        group_member_counts: [],
+        total_groups: 0,
+        matched_groups: 0,
+      })
     }
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, roster)
+
+    const groupMap = new Map(roster.groups.map((g) => [g.id, g]))
+    let matchedIds = [...gs.group_ids]
+
+    if (groupSelection.kind === "pattern") {
+      const pattern = groupSelection.pattern.toLowerCase()
+      matchedIds = matchedIds.filter((gid) => {
+        const g = groupMap.get(gid)
+        return g ? g.name.toLowerCase().includes(pattern) : false
+      })
     }
-    return this.ok(roster)
+
+    const matchedCount = matchedIds.length
+    const excluded = new Set(groupSelection.excluded_group_ids)
+    const finalIds = matchedIds.filter((gid) => !excluded.has(gid))
+
+    const emptyIds = finalIds.filter((gid) => {
+      const g = groupMap.get(gid)
+      return !g || g.member_ids.length === 0
+    })
+
+    const counts = finalIds.map((gid) => ({
+      group_id: gid,
+      member_count: groupMap.get(gid)?.member_ids.length ?? 0,
+    }))
+
+    return this.ok({
+      valid: true,
+      error: null,
+      group_ids: finalIds,
+      empty_group_ids: emptyIds,
+      group_member_counts: counts,
+      total_groups: gs.group_ids.length,
+      matched_groups: matchedCount,
+    })
+  }
+
+  async filterByPattern(
+    pattern: string,
+    values: string[],
+  ): Promise<Result<PatternFilterResult, AppError>> {
+    if (!pattern.trim()) {
+      return this.ok({
+        valid: true,
+        error: null,
+        matched_indexes: values.map((_, i) => i),
+        matched_count: values.length,
+      })
+    }
+
+    const lowerPattern = pattern.toLowerCase()
+    const matched: number[] = []
+    for (let i = 0; i < values.length; i++) {
+      if (values[i].toLowerCase().includes(lowerPattern)) {
+        matched.push(i)
+      }
+    }
+
+    return this.ok({
+      valid: true,
+      error: null,
+      matched_indexes: matched,
+      matched_count: matched.length,
+    })
+  }
+
+  async previewImportGroupSet(
+    _roster: Roster,
+    _filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    return this.ok({
+      mode: "import",
+      groups: [
+        { name: "Group A", member_count: 3 },
+        { name: "Group B", member_count: 3 },
+      ],
+      missing_members: [],
+      total_missing: 0,
+    })
+  }
+
+  async importGroupSet(
+    _roster: Roster,
+    _filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
+    const gsId = `imported-${Date.now()}`
+    return this.ok({
+      mode: "import",
+      group_set: {
+        id: gsId,
+        name: "Imported Set",
+        group_ids: [],
+        connection: {
+          kind: "import",
+          source_filename: _filePath.split("/").pop() ?? _filePath,
+          last_updated: nowIso(),
+        },
+      },
+      groups_upserted: [],
+      deleted_group_ids: [],
+      missing_members: [],
+      total_missing: 0,
+    })
+  }
+
+  async previewReimportGroupSet(
+    _roster: Roster,
+    _groupSetId: string,
+    _filePath: string,
+  ): Promise<Result<GroupSetImportPreview, AppError>> {
+    return this.ok({
+      mode: "reimport",
+      groups: [
+        { name: "Group A", member_count: 3 },
+        { name: "Group B", member_count: 3 },
+      ],
+      missing_members: [],
+      total_missing: 0,
+      added_group_names: [],
+      removed_group_names: [],
+      updated_group_names: [],
+      renamed_groups: [],
+    })
+  }
+
+  async reimportGroupSet(
+    _roster: Roster,
+    groupSetId: string,
+    _filePath: string,
+  ): Promise<Result<GroupSetImportResult, AppError>> {
+    return this.ok({
+      mode: "reimport",
+      group_set: {
+        id: groupSetId,
+        name: "Reimported Set",
+        group_ids: [],
+        connection: {
+          kind: "import",
+          source_filename: _filePath.split("/").pop() ?? _filePath,
+          last_updated: nowIso(),
+        },
+      },
+      groups_upserted: [],
+      deleted_group_ids: [],
+      missing_members: [],
+      total_missing: 0,
+    })
+  }
+
+  async exportGroupSet(
+    _roster: Roster,
+    _groupSetId: string,
+    _filePath: string,
+  ): Promise<Result<null, AppError>> {
+    return this.ok(null)
   }
 
   async normalizeContext(
@@ -719,51 +718,6 @@ export class MockBackend implements BackendAPI {
       base_url: baseUrl.replace(/\/+$/, "").toLowerCase(),
       course_id: courseId.trim(),
     })
-  }
-
-  async importGroupsFromFile(
-    roster: Roster,
-    assignmentId: AssignmentId,
-    _: string,
-  ): Promise<Result<GroupFileImportResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    if (!assignment) {
-      return this.ok({
-        summary: {
-          groups_added: 0,
-          groups_removed: 0,
-          groups_renamed: 0,
-          members_added: 0,
-          members_removed: 0,
-          members_moved: 0,
-        },
-        roster,
-      })
-    }
-
-    if (this.activeProfile) {
-      this.rosters.set(this.activeProfile, roster)
-    }
-
-    return this.ok({
-      summary: {
-        groups_added: 0,
-        groups_removed: 0,
-        groups_renamed: 0,
-        members_added: 0,
-        members_removed: 0,
-        members_moved: 0,
-      },
-      roster,
-    })
-  }
-
-  async assignmentHasGroups(
-    roster: Roster,
-    assignmentId: AssignmentId,
-  ): Promise<Result<boolean, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
-    return this.ok(Boolean(assignment && assignment.groups.length > 0))
   }
 
   async verifyProfileCourse(
@@ -868,7 +822,7 @@ export class MockBackend implements BackendAPI {
   ): Promise<Result<ProfileSettings, AppError>> {
     const settings = createProfileSettings(course)
     this.profiles.set(name, settings)
-    this.rosters.set(name, createRoster("manual", "cs101"))
+    this.rosters.set(name, createRoster("cs101"))
     return this.ok(settings)
   }
 
@@ -964,20 +918,26 @@ export class MockBackend implements BackendAPI {
   async checkStudentRemoval(
     _: string,
     roster: Roster,
-    studentId: StudentId,
+    studentId: RosterMemberId,
   ): Promise<Result<StudentRemovalCheck, AppError>> {
     const student = roster.students.find((entry) => entry.id === studentId)
     const affected: AffectedGroup[] = []
 
-    for (const assignment of roster.assignments) {
-      for (const group of assignment.groups) {
-        if (group.member_ids.includes(studentId)) {
-          affected.push({
-            assignment_id: assignment.id,
-            assignment_name: assignment.name,
-            group_id: group.id,
-            group_name: group.name,
-          })
+    for (const group of roster.groups) {
+      if (group.member_ids.includes(studentId)) {
+        // Find assignments that reference this group
+        for (const assignment of roster.assignments) {
+          const gs = roster.group_sets.find(
+            (s) => s.id === assignment.group_set_id,
+          )
+          if (gs?.group_ids.includes(group.id)) {
+            affected.push({
+              assignment_id: assignment.id,
+              assignment_name: assignment.name,
+              group_id: group.id,
+              group_name: group.name,
+            })
+          }
         }
       }
     }
@@ -1099,10 +1059,10 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: CreateConfig,
   ): Promise<Result<RepoPreflightResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
       collisions: [],
-      ready_count: assignment?.groups.length ?? 0,
+      ready_count: groups.length,
     })
   }
 
@@ -1112,10 +1072,10 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: CloneConfig,
   ): Promise<Result<RepoPreflightResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
       collisions: [],
-      ready_count: assignment?.groups.length ?? 0,
+      ready_count: groups.length,
     })
   }
 
@@ -1125,10 +1085,10 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: DeleteConfig,
   ): Promise<Result<RepoPreflightResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
       collisions: [],
-      ready_count: assignment?.groups.length ?? 0,
+      ready_count: groups.length,
     })
   }
 
@@ -1138,9 +1098,9 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: CreateConfig,
   ): Promise<Result<OperationResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
-      succeeded: assignment?.groups.length ?? 0,
+      succeeded: groups.length,
       failed: 0,
       skipped_groups: [],
       errors: [],
@@ -1153,9 +1113,9 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: CloneConfig,
   ): Promise<Result<OperationResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
-      succeeded: assignment?.groups.length ?? 0,
+      succeeded: groups.length,
       failed: 0,
       skipped_groups: [],
       errors: [],
@@ -1168,9 +1128,9 @@ export class MockBackend implements BackendAPI {
     assignmentId: AssignmentId,
     __: DeleteConfig,
   ): Promise<Result<OperationResult, AppError>> {
-    const assignment = rosterAssignment(roster, assignmentId)
+    const groups = resolveAssignmentGroups(roster, assignmentId)
     return this.ok({
-      succeeded: assignment?.groups.length ?? 0,
+      succeeded: groups.length,
       failed: 0,
       skipped_groups: [],
       errors: [],

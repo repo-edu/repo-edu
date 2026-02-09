@@ -8,12 +8,13 @@ import type {
   OperationConfigs,
   ProfileSettings,
   Roster,
-  Student,
+  RosterMember,
 } from "@repo-edu/backend-interface/types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   generateAssignmentId,
   generateGroupId,
+  generateMemberId,
   generateStudentId,
 } from "../../utils/nanoid"
 import { useAppSettingsStore } from "../appSettingsStore"
@@ -54,6 +55,17 @@ function createTestSettings(
     operations: defaultOperations,
     exports: defaultExports,
     ...overrides,
+  }
+}
+
+function emptyRoster(): Roster {
+  return {
+    connection: null,
+    students: [],
+    staff: [],
+    groups: [],
+    group_sets: [],
+    assignments: [],
   }
 }
 
@@ -123,7 +135,6 @@ describe("Store Smoke Tests", () => {
     })
 
     it("smoke: setGitConnection updates git connection reference", () => {
-      // First set up a document
       useProfileStore.setState({
         document: {
           settings: createTestSettings(),
@@ -138,8 +149,7 @@ describe("Store Smoke Tests", () => {
       )
     })
 
-    it("smoke: addStudent creates roster and adds student", () => {
-      // First set up a document without roster
+    it("smoke: addMember creates roster and adds member", () => {
       useProfileStore.setState({
         document: {
           settings: createTestSettings(),
@@ -149,8 +159,8 @@ describe("Store Smoke Tests", () => {
         status: "loaded",
       })
 
-      const student: Student = {
-        id: generateStudentId(),
+      const member: RosterMember = {
+        id: generateMemberId(),
         name: "Test Student",
         email: "test@example.com",
         student_number: null,
@@ -158,29 +168,56 @@ describe("Store Smoke Tests", () => {
         git_username_status: "unknown",
         status: "active",
         lms_user_id: null,
-        custom_fields: {},
+        enrollment_type: "student",
+        source: "local",
       }
-      useProfileStore.getState().addStudent(student)
+      useProfileStore.getState().addMember(member)
 
       const state = useProfileStore.getState()
       expect(state.document?.roster?.students).toHaveLength(1)
-      expect(state.document?.roster?.students[0]).toEqual(student)
+      expect(state.document?.roster?.students[0]).toEqual(member)
     })
 
-    it("smoke: removeStudent removes student and cascades to groups", () => {
-      const studentId = generateStudentId()
-      const assignmentId = generateAssignmentId()
+    it("smoke: addStudent backward compat alias works", () => {
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: null,
+          resolvedIdentityMode: "email",
+        },
+        status: "loaded",
+      })
+
+      const member: RosterMember = {
+        id: generateMemberId(),
+        name: "Test Student",
+        email: "test@example.com",
+        student_number: null,
+        git_username: null,
+        git_username_status: "unknown",
+        status: "active",
+        lms_user_id: null,
+        enrollment_type: "student",
+        source: "local",
+      }
+      useProfileStore.getState().addStudent(member)
+
+      const state = useProfileStore.getState()
+      expect(state.document?.roster?.students).toHaveLength(1)
+    })
+
+    it("smoke: removeMember removes member and cascades to groups", () => {
+      const memberId = generateMemberId()
       const groupId = generateGroupId()
 
-      // Set up document with student in a group
       useProfileStore.setState({
         document: {
           settings: createTestSettings(),
           roster: {
-            source: null,
+            connection: null,
             students: [
               {
-                id: studentId,
+                id: memberId,
                 name: "Test",
                 email: "test@example.com",
                 student_number: null,
@@ -188,23 +225,35 @@ describe("Store Smoke Tests", () => {
                 git_username_status: "unknown",
                 status: "active",
                 lms_user_id: null,
-                custom_fields: {},
+                enrollment_type: "student",
+                source: "local",
+              },
+            ],
+            staff: [],
+            groups: [
+              {
+                id: groupId,
+                name: "Group 1",
+                member_ids: [memberId],
+                origin: "local",
+                lms_group_id: null,
+              },
+            ],
+            group_sets: [
+              {
+                id: "gs-1",
+                name: "Set 1",
+                group_ids: [groupId],
+                connection: null,
               },
             ],
             assignments: [
               {
-                id: assignmentId,
+                id: "a-1",
                 name: "Assignment 1",
                 description: null,
-                assignment_type: "class_wide",
-                groups: [
-                  {
-                    id: groupId,
-                    name: "Group 1",
-                    member_ids: [studentId],
-                  },
-                ],
-                group_set_id: null,
+                group_set_id: "gs-1",
+                group_selection: { kind: "all", excluded_group_ids: [] },
               },
             ],
           },
@@ -213,15 +262,11 @@ describe("Store Smoke Tests", () => {
         status: "loaded",
       })
 
-      // Remove student
-      useProfileStore.getState().removeStudent(studentId)
+      useProfileStore.getState().removeMember(memberId)
 
-      // Verify cascade
       const state = useProfileStore.getState()
       expect(state.document?.roster?.students).toHaveLength(0)
-      expect(
-        state.document?.roster?.assignments[0].groups[0].member_ids,
-      ).toHaveLength(0)
+      expect(state.document?.roster?.groups[0].member_ids).toHaveLength(0)
     })
 
     it("smoke: selectAssignment updates selection", () => {
@@ -240,33 +285,28 @@ describe("Store Smoke Tests", () => {
       expect(selection).toEqual({ mode: "assignment", id: assignmentId })
     })
 
-    it("smoke: default selection prefers assignments over cache", () => {
+    it("smoke: default selection prefers assignments", () => {
       const assignmentId = generateAssignmentId()
       const roster: Roster = {
-        source: null,
+        connection: null,
         students: [],
+        staff: [],
+        groups: [],
+        group_sets: [
+          {
+            id: "gs-1",
+            name: "Set 1",
+            group_ids: [],
+            connection: null,
+          },
+        ],
         assignments: [
           {
             id: assignmentId,
             name: "Assignment 1",
             description: null,
-            assignment_type: "class_wide",
-            groups: [],
-            group_set_id: null,
-          },
-        ],
-        lms_group_sets: [
-          {
-            id: "set-1",
-            kind: "linked",
-            name: "Set 1",
-            groups: [],
-            filter: null,
-            fetched_at: new Date().toISOString(),
-            lms_group_set_id: "set-1",
-            lms_type: "canvas",
-            base_url: "https://example.edu",
-            course_id: "course-1",
+            group_set_id: "gs-1",
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       }
@@ -283,23 +323,19 @@ describe("Store Smoke Tests", () => {
 
     it("smoke: default selection is null when no assignments", () => {
       const roster: Roster = {
-        source: null,
+        connection: null,
         students: [],
-        assignments: [],
-        lms_group_sets: [
+        staff: [],
+        groups: [],
+        group_sets: [
           {
-            id: "set-1",
-            kind: "linked",
+            id: "gs-1",
             name: "Set 1",
-            groups: [],
-            filter: null,
-            fetched_at: new Date().toISOString(),
-            lms_group_set_id: "set-1",
-            lms_type: "canvas",
-            base_url: "https://example.edu",
-            course_id: "course-1",
+            group_ids: [],
+            connection: null,
           },
         ],
+        assignments: [],
       }
 
       useProfileStore.getState().setDocument({
@@ -313,12 +349,7 @@ describe("Store Smoke Tests", () => {
     })
 
     it("smoke: default selection is null when roster is empty", () => {
-      const roster: Roster = {
-        source: null,
-        students: [],
-        assignments: [],
-        lms_group_sets: [],
-      }
+      const roster: Roster = emptyRoster()
 
       useProfileStore.getState().setDocument({
         settings: createTestSettings(),
@@ -328,6 +359,23 @@ describe("Store Smoke Tests", () => {
 
       const selection = useProfileStore.getState().assignmentSelection
       expect(selection).toBeNull()
+    })
+
+    it("smoke: save restores loaded status on failure", async () => {
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: emptyRoster(),
+          resolvedIdentityMode: "username",
+        },
+        status: "loaded",
+      })
+
+      // save will fail because commands.saveProfileAndRoster is not mocked
+      // but we can verify the status is restored to "loaded" not "error"
+      const result = await useProfileStore.getState().save("test-profile")
+      expect(result).toBe(false)
+      expect(useProfileStore.getState().status).toBe("loaded")
     })
   })
 
@@ -410,6 +458,16 @@ describe("Store Smoke Tests", () => {
       useUiStore.getState().setActiveProfile("my-profile")
       expect(useUiStore.getState().activeProfile).toBe("my-profile")
     })
+
+    it("smoke: setSidebarSelection updates sidebar selection", () => {
+      useUiStore
+        .getState()
+        .setSidebarSelection({ kind: "group-set", id: "gs-1" })
+      expect(useUiStore.getState().sidebarSelection).toEqual({
+        kind: "group-set",
+        id: "gs-1",
+      })
+    })
   })
 
   describe("ID generation", () => {
@@ -435,6 +493,12 @@ describe("Store Smoke Tests", () => {
         ids.add(generateStudentId())
       }
       expect(ids.size).toBe(100)
+    })
+
+    it("smoke: generateMemberId returns valid ID", () => {
+      const id = generateMemberId()
+      expect(id).toHaveLength(21)
+      expect(id).toMatch(/^[0-9A-Za-z_-]+$/)
     })
   })
 })

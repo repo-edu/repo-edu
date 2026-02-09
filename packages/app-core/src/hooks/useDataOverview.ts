@@ -1,7 +1,7 @@
 import type {
   Assignment,
   AssignmentId,
-  Student,
+  RosterMember,
   ValidationIssue,
   ValidationKind,
 } from "@repo-edu/backend-interface/types"
@@ -14,9 +14,10 @@ import {
   buildStudentMap,
   getActiveStudents,
   getAssignmentCoverageSummary,
+  resolveAssignmentGroups,
 } from "../utils/rosterMetrics"
 
-type StudentMap = Map<string, Student>
+type StudentMap = Map<string, RosterMember>
 
 export interface IssueSummaryItem {
   key: string
@@ -77,8 +78,9 @@ export function useDataOverview() {
     }
 
     const students = roster.students
+    const members = [...roster.students, ...roster.staff]
     const assignments = roster.assignments
-    const studentMap = buildStudentMap(students)
+    const studentMap = buildStudentMap(members)
     const activeStudents = getActiveStudents(students)
 
     const rosterInsights: RosterInsights = {
@@ -121,8 +123,9 @@ export function useDataOverview() {
     for (const assignment of assignments) {
       const unknownGroups: { groupName: string; unknownIds: string[] }[] = []
       const emptyGroups: string[] = []
+      const resolvedGroups = resolveAssignmentGroups(roster, assignment)
 
-      for (const group of assignment.groups) {
+      for (const group of resolvedGroups) {
         const unknownIds = group.member_ids.filter(
           (memberId) => !studentMap.has(memberId),
         )
@@ -171,22 +174,20 @@ export function useDataOverview() {
         })
       }
 
-      if (assignment.assignment_type === "class_wide") {
-        const coverage = getAssignmentCoverageSummary(assignment, students)
-        if (coverage.unassignedActiveStudents.length > 0) {
-          const names = coverage.unassignedActiveStudents.map((s) => s.name)
-          issueCards.push({
-            id: `unassigned-${assignment.id}`,
-            kind: "unassigned_students",
-            assignmentId: assignment.id,
-            title: `${coverage.unassignedActiveStudents.length} unassigned student${
-              coverage.unassignedActiveStudents.length === 1 ? "" : "s"
-            }`,
-            description: assignment.name,
-            count: coverage.unassignedActiveStudents.length,
-            details: [formatDetailsList(names, 3)],
-          })
-        }
+      const coverage = getAssignmentCoverageSummary(assignment, roster)
+      if (coverage.unassignedActiveStudents.length > 0) {
+        const names = coverage.unassignedActiveStudents.map((s) => s.name)
+        issueCards.push({
+          id: `unassigned-${assignment.id}`,
+          kind: "unassigned_students",
+          assignmentId: assignment.id,
+          title: `${coverage.unassignedActiveStudents.length} unassigned student${
+            coverage.unassignedActiveStudents.length === 1 ? "" : "s"
+          }`,
+          description: assignment.name,
+          count: coverage.unassignedActiveStudents.length,
+          details: [formatDetailsList(names, 3)],
+        })
       }
     }
 
@@ -290,28 +291,50 @@ const STUDENT_ID_ISSUE_KINDS: ValidationKind[] = [
   "missing_email",
 ]
 
+function validationKindLabel(kind: ValidationKind): string {
+  switch (kind) {
+    case "duplicate_student_id":
+      return "Duplicate student IDs"
+    case "duplicate_email":
+      return "Duplicate emails"
+    case "invalid_email":
+      return "Invalid emails"
+    case "duplicate_assignment_name":
+      return "Duplicate assignment names"
+    case "duplicate_group_id_in_assignment":
+      return "Duplicate group IDs"
+    case "duplicate_group_name_in_assignment":
+      return "Duplicate group names"
+    case "duplicate_repo_name_in_assignment":
+      return "Duplicate repo names"
+    case "student_in_multiple_groups_in_assignment":
+      return "Students in multiple groups"
+    case "orphan_group_member":
+      return "Unknown students"
+    case "missing_git_username":
+      return "Missing git usernames"
+    case "invalid_git_username":
+      return "Invalid git usernames"
+    case "empty_group":
+      return "Empty groups"
+    case "unassigned_student":
+      return "Unassigned students"
+    case "missing_email":
+      return "Missing emails"
+    case "system_group_sets_missing":
+      return "System group sets missing"
+    case "invalid_enrollment_partition":
+      return "Invalid enrollment partition"
+    case "invalid_group_origin":
+      return "Invalid group origin"
+  }
+}
+
 const buildRosterIssueCard = (
   issue: ValidationIssue,
   studentMap: StudentMap,
 ): IssueCard => {
   const count = issue.affected_ids.length
-  const titleMap: Record<ValidationKind, string> = {
-    duplicate_student_id: "Duplicate student IDs",
-    duplicate_email: "Duplicate emails",
-    invalid_email: "Invalid emails",
-    duplicate_assignment_name: "Duplicate assignment names",
-    duplicate_group_id_in_assignment: "Duplicate group IDs",
-    duplicate_group_name_in_assignment: "Duplicate group names",
-    duplicate_repo_name_in_assignment: "Duplicate repo names",
-    student_in_multiple_groups_in_assignment: "Students in multiple groups",
-    orphan_group_member: "Unknown students",
-    missing_git_username: "Missing git usernames",
-    invalid_git_username: "Invalid git usernames",
-    empty_group: "Empty groups",
-    unassigned_student: "Unassigned students",
-    missing_email: "Missing emails",
-    cached_group_resolution_pending: "Cached groups need re-resolution",
-  }
 
   // For student-related issues, show names instead of IDs
   const displayItems = STUDENT_ID_ISSUE_KINDS.includes(issue.kind)
@@ -321,7 +344,7 @@ const buildRosterIssueCard = (
   return {
     id: `roster-${issue.kind}`,
     kind: "roster_validation",
-    title: `${count} ${titleMap[issue.kind] ?? issue.kind}`,
+    title: `${count} ${validationKindLabel(issue.kind)}`,
     count,
     issueKind: issue.kind,
     details:
@@ -336,29 +359,12 @@ const buildAssignmentIssueCard = (
   issue: ValidationIssue,
 ): IssueCard => {
   const count = issue.affected_ids.length
-  const titleMap: Record<ValidationKind, string> = {
-    duplicate_student_id: "Duplicate student IDs",
-    duplicate_email: "Duplicate emails",
-    invalid_email: "Invalid emails",
-    duplicate_assignment_name: "Duplicate assignment names",
-    duplicate_group_id_in_assignment: "Duplicate group IDs",
-    duplicate_group_name_in_assignment: "Duplicate group names",
-    duplicate_repo_name_in_assignment: "Duplicate repo names",
-    student_in_multiple_groups_in_assignment: "Students in multiple groups",
-    orphan_group_member: "Unknown students",
-    missing_git_username: "Missing git usernames",
-    invalid_git_username: "Invalid git usernames",
-    empty_group: "Empty groups",
-    unassigned_student: "Unassigned students",
-    missing_email: "Missing emails",
-    cached_group_resolution_pending: "Cached groups need re-resolution",
-  }
 
   return {
     id: `assignment-${assignment.id}-${issue.kind}`,
     kind: "assignment_validation",
     assignmentId: assignment.id,
-    title: `${count} ${titleMap[issue.kind] ?? issue.kind}`,
+    title: `${count} ${validationKindLabel(issue.kind)}`,
     description: assignment.name,
     count,
     issueKind: issue.kind,

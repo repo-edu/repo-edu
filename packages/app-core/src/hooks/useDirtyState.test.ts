@@ -90,9 +90,9 @@ describe("useDirtyState", () => {
     // Initial state is clean
     expect(result.current.isDirty).toBe(false)
 
-    // Mutate roster via store action
+    // Mutate roster via store action (using addMember)
     act(() => {
-      useProfileStore.getState().addStudent({
+      useProfileStore.getState().addMember({
         id: "s1",
         name: "Test",
         email: "test@example.com",
@@ -101,7 +101,8 @@ describe("useDirtyState", () => {
         git_username_status: "unknown",
         status: "active",
         lms_user_id: null,
-        custom_fields: {},
+        enrollment_type: "student",
+        source: "local",
       })
     })
     rerender()

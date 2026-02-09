@@ -4,10 +4,13 @@ import type {
   ExportSettings,
   GitConnection,
   GitUsernameStatus,
+  Group,
+  GroupSet,
   LmsGroupSet,
   OperationConfigs,
   ProfileSettings,
-  Student,
+  Roster,
+  RosterMember,
 } from "@repo-edu/backend-interface/types"
 
 const VALID: GitUsernameStatus = "valid"
@@ -22,10 +25,10 @@ export const demoCourses: CourseInfo[] = [
 ]
 
 // ============================================================================
-// Students
+// Roster Members (students)
 // ============================================================================
 
-export const demoStudents: Student[] = [
+export const demoStudents: RosterMember[] = [
   {
     id: "s-emma",
     name: "Emma Chen",
@@ -35,7 +38,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-101",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-liam",
@@ -46,7 +50,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-102",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-sofia",
@@ -57,7 +62,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-103",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-noah",
@@ -68,7 +74,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-104",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-olivia",
@@ -79,7 +86,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-105",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-ethan",
@@ -90,7 +98,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-106",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-ava",
@@ -101,7 +110,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-107",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-mason",
@@ -112,7 +122,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-108",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-mia",
@@ -123,7 +134,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-109",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-lucas",
@@ -134,7 +146,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-110",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-isabella",
@@ -145,7 +158,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-111",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
   {
     id: "s-aiden",
@@ -156,7 +170,8 @@ export const demoStudents: Student[] = [
     git_username_status: VALID,
     status: "active",
     lms_user_id: "lms-112",
-    custom_fields: {},
+    enrollment_type: "student",
+    source: "lms",
   },
 ]
 
@@ -176,139 +191,255 @@ export const cs201Students = demoStudents.filter((s) =>
 )
 
 // ============================================================================
-// Assignments
+// Staff
 // ============================================================================
 
-// CS101 assignments - all 12 students in lab teams of 3
+export const demoStaff: RosterMember[] = [
+  {
+    id: "staff-instructor",
+    name: "Dr. Sarah Mitchell",
+    email: "smitchell@university.edu",
+    student_number: null,
+    git_username: "smitchell",
+    git_username_status: VALID,
+    status: "active",
+    lms_user_id: "lms-001",
+    enrollment_type: "teacher",
+    source: "lms",
+  },
+  {
+    id: "staff-ta",
+    name: "James Park",
+    email: "jpark@university.edu",
+    student_number: null,
+    git_username: "jpark-ta",
+    git_username_status: VALID,
+    status: "active",
+    lms_user_id: "lms-002",
+    enrollment_type: "ta",
+    source: "lms",
+  },
+]
+
+// ============================================================================
+// Top-Level Groups (CS101)
+// ============================================================================
+
+export const cs101Groups: Group[] = [
+  {
+    id: "g-basics-1",
+    name: "PyStarters",
+    member_ids: ["s-emma", "s-liam", "s-sofia"],
+    origin: "lms",
+    lms_group_id: "lms-g-basics-1",
+  },
+  {
+    id: "g-basics-2",
+    name: "CodeCrafters",
+    member_ids: ["s-noah", "s-olivia", "s-ethan"],
+    origin: "lms",
+    lms_group_id: "lms-g-basics-2",
+  },
+  {
+    id: "g-basics-3",
+    name: "ByteBuddies",
+    member_ids: ["s-ava", "s-mason", "s-mia"],
+    origin: "lms",
+    lms_group_id: "lms-g-basics-3",
+  },
+  {
+    id: "g-basics-4",
+    name: "ScriptSquad",
+    member_ids: ["s-lucas", "s-isabella", "s-aiden"],
+    origin: "lms",
+    lms_group_id: "lms-g-basics-4",
+  },
+]
+
+// ============================================================================
+// Top-Level Groups (CS201)
+// ============================================================================
+
+export const cs201Groups: Group[] = [
+  {
+    id: "g-proj-1",
+    name: "DataPioneers",
+    member_ids: ["s-emma", "s-noah", "s-ava", "s-lucas"],
+    origin: "lms",
+    lms_group_id: "lms-g-proj-1",
+  },
+  {
+    id: "g-proj-2",
+    name: "PlotMasters",
+    member_ids: ["s-liam", "s-olivia", "s-mason", "s-isabella"],
+    origin: "lms",
+    lms_group_id: "lms-g-proj-2",
+  },
+]
+
+// ============================================================================
+// System Groups — individual student groups + staff group
+// ============================================================================
+
+function makeIndividualGroups(students: RosterMember[]): Group[] {
+  return students.map((s) => ({
+    id: `sys-ind-${s.id}`,
+    name: s.name,
+    member_ids: [s.id],
+    origin: "system" as const,
+    lms_group_id: null,
+  }))
+}
+
+function makeStaffGroup(staff: RosterMember[]): Group {
+  return {
+    id: "sys-staff",
+    name: "Staff",
+    member_ids: staff.map((s) => s.id),
+    origin: "system" as const,
+    lms_group_id: null,
+  }
+}
+
+export const cs101SystemGroups: Group[] = [
+  ...makeIndividualGroups(demoStudents),
+  makeStaffGroup(demoStaff),
+]
+
+export const cs201SystemGroups: Group[] = [
+  ...makeIndividualGroups(cs201Students),
+  makeStaffGroup(demoStaff),
+]
+
+// ============================================================================
+// Group Sets (local roster group sets referencing group IDs)
+// ============================================================================
+
+export const cs101RosterGroupSets: GroupSet[] = [
+  {
+    id: "gs-lab-teams",
+    name: "Lab Teams",
+    group_ids: cs101Groups.map((g) => g.id),
+    connection: {
+      kind: "canvas",
+      course_id: "48291",
+      group_set_id: "gs-lab-teams",
+      last_updated: new Date().toISOString(),
+    },
+  },
+]
+
+export const cs201RosterGroupSets: GroupSet[] = [
+  {
+    id: "gs-project-teams",
+    name: "Project Teams",
+    group_ids: cs201Groups.map((g) => g.id),
+    connection: {
+      kind: "canvas",
+      course_id: "48350",
+      group_set_id: "gs-project-teams",
+      last_updated: new Date().toISOString(),
+    },
+  },
+]
+
+// System group sets
+export const cs101SystemGroupSets: GroupSet[] = [
+  {
+    id: "sys-gs-individual",
+    name: "Individual Students",
+    group_ids: cs101SystemGroups
+      .filter((g) => g.id.startsWith("sys-ind-"))
+      .map((g) => g.id),
+    connection: { kind: "system", system_type: "individual_students" },
+  },
+  {
+    id: "sys-gs-staff",
+    name: "Staff",
+    group_ids: [makeStaffGroup(demoStaff).id],
+    connection: { kind: "system", system_type: "staff" },
+  },
+]
+
+export const cs201SystemGroupSets: GroupSet[] = [
+  {
+    id: "sys-gs-individual",
+    name: "Individual Students",
+    group_ids: cs201SystemGroups
+      .filter((g) => g.id.startsWith("sys-ind-"))
+      .map((g) => g.id),
+    connection: { kind: "system", system_type: "individual_students" },
+  },
+  {
+    id: "sys-gs-staff",
+    name: "Staff",
+    group_ids: [makeStaffGroup(demoStaff).id],
+    connection: { kind: "system", system_type: "staff" },
+  },
+]
+
+// ============================================================================
+// Assignments (new shape: no embedded groups, no assignment_type)
+// ============================================================================
+
 export const cs101Assignments: Assignment[] = [
   {
     id: "lab-basics",
     name: "lab-1",
     description: "Lab 1: Python Basics",
-    assignment_type: "class_wide",
     group_set_id: "gs-lab-teams",
-    groups: [
-      {
-        id: "g-basics-1",
-        name: "PyStarters",
-        member_ids: ["s-emma", "s-liam", "s-sofia"],
-      },
-      {
-        id: "g-basics-2",
-        name: "CodeCrafters",
-        member_ids: ["s-noah", "s-olivia", "s-ethan"],
-      },
-      {
-        id: "g-basics-3",
-        name: "ByteBuddies",
-        member_ids: ["s-ava", "s-mason", "s-mia"],
-      },
-      {
-        id: "g-basics-4",
-        name: "ScriptSquad",
-        member_ids: ["s-lucas", "s-isabella", "s-aiden"],
-      },
-    ],
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "lab-functions",
     name: "lab-2",
     description: "Lab 2: Functions and Modules",
-    assignment_type: "class_wide",
     group_set_id: "gs-lab-teams",
-    groups: [
-      {
-        id: "g-func-1",
-        name: "PyStarters",
-        member_ids: ["s-emma", "s-liam", "s-sofia"],
-      },
-      {
-        id: "g-func-2",
-        name: "CodeCrafters",
-        member_ids: ["s-noah", "s-olivia", "s-ethan"],
-      },
-      {
-        id: "g-func-3",
-        name: "ByteBuddies",
-        member_ids: ["s-ava", "s-mason", "s-mia"],
-      },
-      {
-        id: "g-func-4",
-        name: "ScriptSquad",
-        member_ids: ["s-lucas", "s-isabella", "s-aiden"],
-      },
-    ],
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
-// CS201 assignments - project teams of 4
 export const cs201Assignments: Assignment[] = [
   {
     id: "project-datavis",
     name: "project-1",
     description: "Project: Data Visualization",
-    assignment_type: "class_wide",
     group_set_id: "gs-project-teams",
-    groups: [
-      {
-        id: "g-proj-1",
-        name: "DataPioneers",
-        member_ids: ["s-emma", "s-noah", "s-ava", "s-lucas"],
-      },
-      {
-        id: "g-proj-2",
-        name: "PlotMasters",
-        member_ids: ["s-liam", "s-olivia", "s-mason", "s-isabella"],
-      },
-    ],
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "project-api",
     name: "project-2",
     description: "Project: REST API Client",
-    assignment_type: "selective",
     group_set_id: "gs-project-teams",
-    groups: [
-      {
-        id: "g-api-1",
-        name: "DataPioneers",
-        member_ids: ["s-emma", "s-noah", "s-ava", "s-lucas"],
-      },
-      {
-        id: "g-api-2",
-        name: "PlotMasters",
-        member_ids: ["s-liam", "s-olivia", "s-mason", "s-isabella"],
-      },
-    ],
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
 // ============================================================================
-// LMS Group Sets
+// LMS Group Sets (for fetch simulation — stays as LmsGroupSet[])
 // ============================================================================
 
-// CS101 group sets
 export const cs101GroupSets: LmsGroupSet[] = [
   {
     id: "gs-lab-teams",
     name: "Lab Teams",
-    groups: cs101Assignments[0].groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: group.member_ids,
+    groups: cs101Groups.map((g) => ({
+      id: g.lms_group_id ?? g.id,
+      name: g.name,
+      member_ids: [...g.member_ids],
     })),
   },
 ]
 
-// CS201 group sets
 export const cs201GroupSets: LmsGroupSet[] = [
   {
     id: "gs-project-teams",
     name: "Project Teams",
-    groups: cs201Assignments[0].groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      member_ids: group.member_ids,
+    groups: cs201Groups.map((g) => ({
+      id: g.lms_group_id ?? g.id,
+      name: g.name,
+      member_ids: [...g.member_ids],
     })),
   },
 ]
@@ -365,6 +496,78 @@ export const createProfileSettings = (course: CourseInfo): ProfileSettings => ({
   operations: { ...defaultOperations },
   exports: { ...defaultExports },
 })
+
+// ============================================================================
+// Roster Builders
+// ============================================================================
+
+const nowIso = () => new Date().toISOString()
+
+export function buildCs101Roster(): Roster {
+  return {
+    connection: {
+      kind: "canvas",
+      course_id: "48291",
+      last_updated: nowIso(),
+    },
+    students: demoStudents.map((s) => ({ ...s })),
+    staff: demoStaff.map((s) => ({ ...s })),
+    groups: [
+      ...cs101Groups.map((g) => ({
+        ...g,
+        member_ids: [...g.member_ids],
+      })),
+      ...cs101SystemGroups.map((g) => ({
+        ...g,
+        member_ids: [...g.member_ids],
+      })),
+    ],
+    group_sets: [
+      ...cs101RosterGroupSets.map((gs) => ({
+        ...gs,
+        group_ids: [...gs.group_ids],
+      })),
+      ...cs101SystemGroupSets.map((gs) => ({
+        ...gs,
+        group_ids: [...gs.group_ids],
+      })),
+    ],
+    assignments: cs101Assignments.map((a) => ({ ...a })),
+  }
+}
+
+export function buildCs201Roster(): Roster {
+  return {
+    connection: {
+      kind: "canvas",
+      course_id: "48350",
+      last_updated: nowIso(),
+    },
+    students: cs201Students.map((s) => ({ ...s })),
+    staff: demoStaff.map((s) => ({ ...s })),
+    groups: [
+      ...cs201Groups.map((g) => ({
+        ...g,
+        member_ids: [...g.member_ids],
+      })),
+      ...cs201SystemGroups.map((g) => ({
+        ...g,
+        member_ids: [...g.member_ids],
+      })),
+    ],
+    group_sets: [
+      ...cs201RosterGroupSets.map((gs) => ({
+        ...gs,
+        group_ids: [...gs.group_ids],
+      })),
+      ...cs201SystemGroupSets.map((gs) => ({
+        ...gs,
+        group_ids: [...gs.group_ids],
+      })),
+    ],
+    assignments: cs201Assignments.map((a) => ({ ...a })),
+  }
+}
 
 // ============================================================================
 // Course Type

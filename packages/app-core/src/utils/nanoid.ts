@@ -16,14 +16,17 @@ const nanoid = customAlphabet(
 
 import type {
   AssignmentId,
-  GroupId,
+  RosterMemberId,
   StudentId,
 } from "@repo-edu/backend-interface/types"
 
 /**
- * Generate a new student ID
+ * Generate a new roster member ID
  */
-export const generateStudentId = (): StudentId => nanoid() as StudentId
+export const generateMemberId = (): RosterMemberId => nanoid() as RosterMemberId
+
+/** @deprecated Use generateMemberId instead */
+export const generateStudentId = (): StudentId => generateMemberId()
 
 /**
  * Generate a new assignment ID
@@ -33,9 +36,9 @@ export const generateAssignmentId = (): AssignmentId => nanoid() as AssignmentId
 /**
  * Generate a new group ID
  */
-export const generateGroupId = (): GroupId => nanoid() as GroupId
+export const generateGroupId = (): string => nanoid()
 
 /**
- * Generate a new cached group set ID
+ * Generate a new group set ID
  */
 export const generateGroupSetId = (): string => nanoid()

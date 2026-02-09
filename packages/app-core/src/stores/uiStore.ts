@@ -4,13 +4,20 @@
  */
 
 import type {
-  GroupId,
+  ImportConflict,
   ImportGitUsernamesResult,
-  LmsIdConflict,
   StudentRemovalCheck,
   UsernameVerificationResult,
 } from "@repo-edu/backend-interface/types"
 import { create } from "zustand"
+
+/**
+ * Sidebar selection state for the Groups & Assignments tab.
+ */
+export type SidebarSelection =
+  | { kind: "group-set"; id: string }
+  | { kind: "assignment"; id: string }
+  | null
 
 /**
  * Profile list item - cached in store to avoid repeated fetches.
@@ -24,9 +31,15 @@ export interface ProfileListItem {
  * Active tab in the main layout.
  * Frontend-only, not persisted.
  */
-type ActiveTab = "roster" | "group" | "assignment" | "operation"
+type ActiveTab = "roster" | "groups-assignments" | "operation"
 
 type AssignmentCoverageFocus = "unassigned"
+type GroupSetOperationKind = "sync" | "import" | "reimport"
+
+export interface GroupSetOperationState {
+  kind: GroupSetOperationKind
+  groupSetId: string | null
+}
 
 interface UiState {
   // Navigation
@@ -46,6 +59,8 @@ interface UiState {
   studentEditorOpen: boolean
   coverageReportOpen: boolean
   importFileDialogOpen: boolean
+  rosterSyncDialogOpen: boolean
+  rosterMemberColumnVisibility: Record<string, boolean>
   importGitUsernamesDialogOpen: boolean
   usernameVerificationDialogOpen: boolean
 
@@ -57,10 +72,28 @@ interface UiState {
   editGroupDialogOpen: boolean
   importGroupsDialogOpen: boolean
   importGroupsFromFileDialogOpen: boolean
-  editingGroupId: GroupId | null
+  editingGroupId: string | null
   dataOverviewOpen: boolean
   assignmentCoverageOpen: boolean
   assignmentCoverageFocus: AssignmentCoverageFocus | null
+  connectToGroupSetDialogOpen: boolean
+  connectToGroupSetAssignmentId: string | null
+  preSelectedGroupSetId: string | null
+
+  // Phase 10 dialogs (Groups & Assignments)
+  connectLmsGroupSetDialogOpen: boolean
+  newLocalGroupSetDialogOpen: boolean
+  importGroupSetDialogOpen: boolean
+  reimportGroupSetTargetId: string | null // non-null = dialog open with this group set
+  copyGroupSetSourceId: string | null // non-null = dialog open with this source
+  deleteGroupSetTargetId: string | null // non-null = dialog open for this group set
+  deleteGroupTargetId: string | null // non-null = dialog open for this group
+  changeGroupSetAssignmentId: string | null // non-null = dialog open for this assignment
+  addGroupDialogGroupSetId: string | null // context for AddGroupDialog
+
+  // Groups & Assignments sidebar selection
+  sidebarSelection: SidebarSelection
+  groupSetOperation: GroupSetOperationState | null
 
   // Profile dialogs
   newProfileDialogOpen: boolean
@@ -79,7 +112,7 @@ interface UiState {
   studentRemovalConfirmation: StudentRemovalCheck | null
   gitUsernameImportResult: ImportGitUsernamesResult | null
   usernameVerificationResult: UsernameVerificationResult | null
-  lmsImportConflicts: LmsIdConflict[] | null
+  lmsImportConflicts: ImportConflict[] | null
 }
 
 interface UiActions {
@@ -103,6 +136,8 @@ interface UiActions {
   setStudentEditorOpen: (open: boolean) => void
   setCoverageReportOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
+  setRosterSyncDialogOpen: (open: boolean) => void
+  setRosterMemberColumnVisibility: (visibility: Record<string, boolean>) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
   setUsernameVerificationDialogOpen: (open: boolean) => void
 
@@ -114,10 +149,28 @@ interface UiActions {
   setEditGroupDialogOpen: (open: boolean) => void
   setImportGroupsDialogOpen: (open: boolean) => void
   setImportGroupsFromFileDialogOpen: (open: boolean) => void
-  setEditingGroupId: (id: GroupId | null) => void
+  setEditingGroupId: (id: string | null) => void
   setDataOverviewOpen: (open: boolean) => void
   setAssignmentCoverageOpen: (open: boolean) => void
   setAssignmentCoverageFocus: (focus: AssignmentCoverageFocus | null) => void
+  setConnectToGroupSetDialogOpen: (
+    open: boolean,
+    assignmentId: string | null,
+  ) => void
+  setPreSelectedGroupSetId: (id: string | null) => void
+  setSidebarSelection: (selection: SidebarSelection) => void
+  setGroupSetOperation: (operation: GroupSetOperationState | null) => void
+
+  // Phase 10 dialog setters
+  setConnectLmsGroupSetDialogOpen: (open: boolean) => void
+  setNewLocalGroupSetDialogOpen: (open: boolean) => void
+  setImportGroupSetDialogOpen: (open: boolean) => void
+  setReimportGroupSetTargetId: (id: string | null) => void
+  setCopyGroupSetSourceId: (id: string | null) => void
+  setDeleteGroupSetTargetId: (id: string | null) => void
+  setDeleteGroupTargetId: (id: string | null) => void
+  setChangeGroupSetAssignmentId: (id: string | null) => void
+  setAddGroupDialogGroupSetId: (id: string | null) => void
 
   // Profile dialogs
   setNewProfileDialogOpen: (open: boolean) => void
@@ -139,7 +192,7 @@ interface UiActions {
   setUsernameVerificationResult: (
     result: UsernameVerificationResult | null,
   ) => void
-  setLmsImportConflicts: (conflicts: LmsIdConflict[] | null) => void
+  setLmsImportConflicts: (conflicts: ImportConflict[] | null) => void
 
   // Reset
   reset: () => void
@@ -165,6 +218,8 @@ const initialState: UiState = {
   studentEditorOpen: false,
   coverageReportOpen: false,
   importFileDialogOpen: false,
+  rosterSyncDialogOpen: false,
+  rosterMemberColumnVisibility: {},
   importGitUsernamesDialogOpen: false,
   usernameVerificationDialogOpen: false,
 
@@ -180,6 +235,24 @@ const initialState: UiState = {
   dataOverviewOpen: false,
   assignmentCoverageOpen: false,
   assignmentCoverageFocus: null,
+  connectToGroupSetDialogOpen: false,
+  connectToGroupSetAssignmentId: null,
+  preSelectedGroupSetId: null,
+
+  // Phase 10 dialogs
+  connectLmsGroupSetDialogOpen: false,
+  newLocalGroupSetDialogOpen: false,
+  importGroupSetDialogOpen: false,
+  reimportGroupSetTargetId: null,
+  copyGroupSetSourceId: null,
+  deleteGroupSetTargetId: null,
+  deleteGroupTargetId: null,
+  changeGroupSetAssignmentId: null,
+  addGroupDialogGroupSetId: null,
+
+  // Groups & Assignments sidebar selection
+  sidebarSelection: null,
+  groupSetOperation: null,
 
   // Profile dialogs
   newProfileDialogOpen: false,
@@ -224,6 +297,9 @@ export const useUiStore = create<UiStore>((set) => ({
   setStudentEditorOpen: (open) => set({ studentEditorOpen: open }),
   setCoverageReportOpen: (open) => set({ coverageReportOpen: open }),
   setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
+  setRosterSyncDialogOpen: (open) => set({ rosterSyncDialogOpen: open }),
+  setRosterMemberColumnVisibility: (visibility) =>
+    set({ rosterMemberColumnVisibility: visibility }),
   setImportGitUsernamesDialogOpen: (open) =>
     set({ importGitUsernamesDialogOpen: open }),
   setUsernameVerificationDialogOpen: (open) =>
@@ -244,6 +320,29 @@ export const useUiStore = create<UiStore>((set) => ({
   setAssignmentCoverageOpen: (open) => set({ assignmentCoverageOpen: open }),
   setAssignmentCoverageFocus: (focus) =>
     set({ assignmentCoverageFocus: focus }),
+  setConnectToGroupSetDialogOpen: (open, assignmentId) =>
+    set({
+      connectToGroupSetDialogOpen: open,
+      connectToGroupSetAssignmentId: assignmentId,
+    }),
+  setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
+  setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
+  setGroupSetOperation: (operation) => set({ groupSetOperation: operation }),
+
+  // Phase 10 dialog setters
+  setConnectLmsGroupSetDialogOpen: (open) =>
+    set({ connectLmsGroupSetDialogOpen: open }),
+  setNewLocalGroupSetDialogOpen: (open) =>
+    set({ newLocalGroupSetDialogOpen: open }),
+  setImportGroupSetDialogOpen: (open) =>
+    set({ importGroupSetDialogOpen: open }),
+  setReimportGroupSetTargetId: (id) => set({ reimportGroupSetTargetId: id }),
+  setCopyGroupSetSourceId: (id) => set({ copyGroupSetSourceId: id }),
+  setDeleteGroupSetTargetId: (id) => set({ deleteGroupSetTargetId: id }),
+  setDeleteGroupTargetId: (id) => set({ deleteGroupTargetId: id }),
+  setChangeGroupSetAssignmentId: (id) =>
+    set({ changeGroupSetAssignmentId: id }),
+  setAddGroupDialogGroupSetId: (id) => set({ addGroupDialogGroupSetId: id }),
 
   // Profile dialogs
   setNewProfileDialogOpen: (open) => set({ newProfileDialogOpen: open }),
