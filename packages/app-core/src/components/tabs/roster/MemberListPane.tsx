@@ -19,6 +19,7 @@ import {
 } from "@repo-edu/ui"
 import {
   ChevronDown,
+  ChevronsUpDown,
   ChevronUp,
   Loader2,
   Plus,
@@ -703,8 +704,13 @@ function SortHeaderButton({
       }
     >
       <span>{label}</span>
-      {sorted === "asc" && <ChevronUp className="size-3.5" />}
-      {sorted === "desc" && <ChevronDown className="size-3.5" />}
+      {sorted === "asc" ? (
+        <ChevronUp className="size-3.5" />
+      ) : sorted === "desc" ? (
+        <ChevronDown className="size-3.5" />
+      ) : (
+        <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+      )}
     </button>
   )
 }

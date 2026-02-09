@@ -21,6 +21,7 @@ import {
 import {
   AlertTriangle,
   ChevronDown,
+  ChevronsUpDown,
   ChevronUp,
 } from "@repo-edu/ui/components/icons"
 import {
@@ -447,8 +448,13 @@ function SortHeaderButton({
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
       <span className="truncate">{label}</span>
-      {sorted === "asc" && <ChevronUp className="size-3.5 shrink-0" />}
-      {sorted === "desc" && <ChevronDown className="size-3.5 shrink-0" />}
+      {sorted === "asc" ? (
+        <ChevronUp className="size-3.5 shrink-0" />
+      ) : sorted === "desc" ? (
+        <ChevronDown className="size-3.5 shrink-0" />
+      ) : (
+        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+      )}
     </button>
   )
 }

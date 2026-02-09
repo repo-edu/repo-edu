@@ -6,6 +6,7 @@ export {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   ChevronUp,
   Circle,
   Command,
