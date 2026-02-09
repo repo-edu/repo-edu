@@ -11,10 +11,10 @@ use repo_manage_core::{
     import::{normalize_email, parse_students_file},
     lms::create_lms_client,
     operations,
-    roster::{AssignmentId, GitUsernameStatus, Roster, RosterSource, Student, StudentDraft},
-    CourseInfo, GroupImportConfig, ImportStudentsResult, ImportSummary, LmsConnection,
-    LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry, LmsOperationContext, LmsType,
-    LmsVerifyResult, SettingsManager,
+    roster::{GitUsernameStatus, Roster, RosterMember, RosterMemberDraft},
+    CourseInfo, GroupSetSyncResult, ImportRosterResult, ImportStudentsResult, ImportSummary,
+    LmsConnection, LmsContextKey, LmsGroup, LmsGroupSet, LmsOperationContext, LmsType,
+    LmsVerifyResult, RosterConnection, SettingsManager,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -59,84 +59,24 @@ pub async fn normalize_context(
 }
 
 #[tauri::command]
-pub async fn link_lms_group_set(
+pub async fn sync_group_set(
+    context: LmsOperationContext,
+    roster: Roster,
+    group_set_id: String,
+) -> Result<GroupSetSyncResult, AppError> {
+    operations::sync_group_set(&context, &roster, &group_set_id)
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn import_roster_from_lms(
     context: LmsOperationContext,
     roster: Option<Roster>,
-    config: GroupImportConfig,
-) -> Result<Roster, AppError> {
-    operations::link_group_set(&context, roster, config)
+) -> Result<ImportRosterResult, AppError> {
+    operations::import_roster_from_lms(&context, roster)
         .await
         .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn copy_lms_group_set(
-    context: LmsOperationContext,
-    roster: Option<Roster>,
-    config: GroupImportConfig,
-) -> Result<Roster, AppError> {
-    operations::copy_group_set(&context, roster, config)
-        .await
-        .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn copy_lms_group_set_to_assignment(
-    context: LmsOperationContext,
-    roster: Roster,
-    assignment_id: AssignmentId,
-    config: GroupImportConfig,
-) -> Result<Roster, AppError> {
-    operations::copy_group_set_to_assignment(&context, roster, &assignment_id, config)
-        .await
-        .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn refresh_linked_group_set(
-    context: LmsOperationContext,
-    roster: Roster,
-    group_set_id: String,
-) -> Result<Roster, AppError> {
-    operations::refresh_linked_group_set(&context, roster, &group_set_id)
-        .await
-        .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn break_group_set_link(
-    roster: Roster,
-    group_set_id: String,
-) -> Result<Roster, AppError> {
-    operations::break_group_set_link(roster, &group_set_id).map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn delete_group_set(roster: Roster, group_set_id: String) -> Result<Roster, AppError> {
-    operations::delete_group_set(roster, &group_set_id).map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn list_group_sets(roster: Roster) -> Result<Vec<LmsGroupSetCacheEntry>, AppError> {
-    Ok(operations::list_group_sets(&roster))
-}
-
-#[tauri::command]
-pub async fn attach_group_set_to_assignment(
-    roster: Roster,
-    assignment_id: AssignmentId,
-    group_set_id: String,
-) -> Result<Roster, AppError> {
-    operations::attach_group_set_to_assignment(roster, &assignment_id, &group_set_id)
-        .map_err(Into::into)
-}
-
-#[tauri::command]
-pub async fn clear_assignment_group_set(
-    roster: Roster,
-    assignment_id: AssignmentId,
-) -> Result<Roster, AppError> {
-    operations::clear_assignment_group_set(roster, &assignment_id).map_err(Into::into)
 }
 
 #[tauri::command]
@@ -343,20 +283,7 @@ pub async fn import_students_from_file(
         return Err(AppError::new("Import file not found"));
     }
     let drafts = parse_students_file(&file_path)?;
-    merge_file_students(roster, drafts, &file_path)
-}
-
-#[tauri::command]
-pub async fn assignment_has_groups(
-    roster: Roster,
-    assignment_id: AssignmentId,
-) -> Result<bool, AppError> {
-    let assignment = roster
-        .assignments
-        .iter()
-        .find(|assignment| assignment.id == assignment_id)
-        .ok_or_else(|| AppError::new("Assignment not found"))?;
-    Ok(!assignment.groups.is_empty())
+    merge_file_members(roster, drafts, &file_path)
 }
 
 async fn fetch_lms_courses_with(connection: &LmsConnection) -> Result<Vec<CourseInfo>, AppError> {
@@ -371,17 +298,17 @@ async fn fetch_lms_courses_with(connection: &LmsConnection) -> Result<Vec<Course
         .collect())
 }
 
-fn merge_file_students(
+fn merge_file_members(
     roster: Option<Roster>,
-    drafts: Vec<StudentDraft>,
+    drafts: Vec<RosterMemberDraft>,
     file_path: &Path,
 ) -> Result<ImportStudentsResult, AppError> {
     let base_roster = roster.unwrap_or_else(Roster::empty);
     let mut updated_roster = base_roster.clone();
 
     let mut email_index: HashMap<String, usize> = HashMap::new();
-    for (idx, student) in updated_roster.students.iter().enumerate() {
-        email_index.insert(normalize_email(&student.email), idx);
+    for (idx, member) in updated_roster.students.iter().enumerate() {
+        email_index.insert(normalize_email(&member.email), idx);
     }
 
     let mut added = 0;
@@ -391,33 +318,28 @@ fn merge_file_students(
     for draft in drafts {
         let email = normalize_email(&draft.email);
         if let Some(&idx) = email_index.get(&email) {
-            let student = &mut updated_roster.students[idx];
-            let changed = update_student_from_file(student, draft);
+            let member = &mut updated_roster.students[idx];
+            let changed = update_member_from_file(member, draft);
             if changed {
                 updated += 1;
             } else {
                 unchanged += 1;
             }
         } else {
-            let student = Student::new(draft);
-            updated_roster.students.push(student);
+            let member = RosterMember::new(draft);
+            updated_roster.students.push(member);
             let idx = updated_roster.students.len() - 1;
             email_index.insert(email, idx);
             added += 1;
         }
     }
 
-    updated_roster.source = Some(RosterSource {
-        kind: "file".to_string(),
-        lms_type: None,
-        base_url: None,
-        fetched_at: None,
-        file_name: file_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| name.to_string()),
-        imported_at: Some(Utc::now()),
-        created_at: None,
+    updated_roster.connection = Some(RosterConnection {
+        value: serde_json::json!({
+            "kind": "file",
+            "file_name": file_path.file_name().and_then(|n| n.to_str()),
+            "imported_at": Utc::now().to_rfc3339(),
+        }),
     });
 
     Ok(ImportStudentsResult {
@@ -425,45 +347,38 @@ fn merge_file_students(
             students_added: added as i64,
             students_updated: updated as i64,
             students_unchanged: unchanged as i64,
-            students_missing_email: 0, // File imports don't track this
+            students_missing_email: 0,
         },
         roster: updated_roster,
     })
 }
 
-fn update_student_from_file(student: &mut Student, draft: StudentDraft) -> bool {
+fn update_member_from_file(member: &mut RosterMember, draft: RosterMemberDraft) -> bool {
     let mut changed = false;
-    if student.name != draft.name {
-        student.name = draft.name;
+    if member.name != draft.name {
+        member.name = draft.name;
         changed = true;
     }
-    if student.email != draft.email {
-        student.email = draft.email;
+    if member.email != draft.email {
+        member.email = draft.email;
         changed = true;
     }
-    if student.student_number != draft.student_number {
-        student.student_number = draft.student_number;
+    if member.student_number != draft.student_number {
+        member.student_number = draft.student_number;
         changed = true;
     }
     if let Some(status) = draft.status {
-        if student.status != status {
-            student.status = status;
+        if member.status != status {
+            member.status = status;
             changed = true;
         }
     }
 
-    for (key, value) in draft.custom_fields {
-        if student.custom_fields.get(&key) != Some(&value) {
-            student.custom_fields.insert(key, value);
-            changed = true;
-        }
-    }
-
-    if student.git_username.is_none() {
+    if member.git_username.is_none() {
         if let Some(username) = draft.git_username {
-            if student.git_username.as_ref() != Some(&username) {
-                student.git_username = Some(username);
-                student.git_username_status = GitUsernameStatus::Unknown;
+            if member.git_username.as_ref() != Some(&username) {
+                member.git_username = Some(username);
+                member.git_username_status = GitUsernameStatus::Unknown;
                 changed = true;
             }
         }

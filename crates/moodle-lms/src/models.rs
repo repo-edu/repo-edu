@@ -3,7 +3,9 @@
 //! These models map Moodle Web Services API responses to the common LMS types.
 
 use chrono::DateTime;
-use lms_common::types::{Assignment, Course, Group, GroupMembership, User};
+use lms_common::types::{
+    Assignment, Course, Enrollment, EnrollmentType, Group, GroupMembership, User,
+};
 use serde::{Deserialize, Serialize};
 
 /// Moodle course model
@@ -256,6 +258,9 @@ pub struct MoodleEnrolledUser {
     pub lastname: Option<String>,
     pub fullname: Option<String>,
     pub email: Option<String>,
+    pub idnumber: Option<String>,
+    pub department: Option<String>,
+    pub institution: Option<String>,
     pub roles: Option<Vec<MoodleRole>>,
     pub groups: Option<Vec<MoodleGroupInfo>>,
 }
@@ -279,8 +284,39 @@ pub struct MoodleGroupInfo {
 
 impl From<MoodleEnrolledUser> for User {
     fn from(moodle: MoodleEnrolledUser) -> Self {
+        let user_id = moodle.id.to_string();
+
+        // Map Moodle roles to common Enrollment type
+        let enrollments = moodle.roles.as_ref().map(|roles| {
+            roles
+                .iter()
+                .map(|role| {
+                    let shortname = role.shortname.as_deref().unwrap_or("student");
+                    let enrollment_type = EnrollmentType::from_moodle(shortname);
+                    // Map to Canvas-style enrollment_type string for compatibility
+                    let type_string = match enrollment_type {
+                        EnrollmentType::Student => "StudentEnrollment",
+                        EnrollmentType::Teacher => "TeacherEnrollment",
+                        EnrollmentType::Ta => "TaEnrollment",
+                        EnrollmentType::Designer => "DesignerEnrollment",
+                        EnrollmentType::Observer => "ObserverEnrollment",
+                        EnrollmentType::Other => "StudentEnrollment",
+                    };
+                    Enrollment {
+                        id: role.roleid.to_string(),
+                        user_id: user_id.clone(),
+                        course_id: String::new(),
+                        enrollment_type: type_string.to_string(),
+                        role: role.name.clone(),
+                        enrollment_state: Some("active".to_string()),
+                        limit_privileges_to_course_section: None,
+                    }
+                })
+                .collect()
+        });
+
         User {
-            id: moodle.id.to_string(),
+            id: user_id,
             name: moodle.fullname.unwrap_or_else(|| {
                 format!(
                     "{} {}",
@@ -299,7 +335,7 @@ impl From<MoodleEnrolledUser> for User {
             login_id: moodle.username,
             email: moodle.email,
             avatar_url: None,
-            enrollments: None,
+            enrollments,
         }
     }
 }

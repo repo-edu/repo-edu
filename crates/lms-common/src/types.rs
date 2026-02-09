@@ -3,6 +3,94 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Enrollment type classification for LMS users.
+///
+/// Maps Canvas enrollment types (e.g., "StudentEnrollment") and
+/// Moodle role shortnames (e.g., "student") to a common enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum EnrollmentType {
+    #[default]
+    Student,
+    Teacher,
+    Ta,
+    Designer,
+    Observer,
+    Other,
+}
+
+impl EnrollmentType {
+    /// Convert a Canvas enrollment type string to an EnrollmentType.
+    ///
+    /// Canvas uses strings like "StudentEnrollment", "TeacherEnrollment", etc.
+    pub fn from_canvas(enrollment_type: &str) -> Self {
+        match enrollment_type {
+            "StudentEnrollment" => Self::Student,
+            "TeacherEnrollment" => Self::Teacher,
+            "TaEnrollment" => Self::Ta,
+            "DesignerEnrollment" => Self::Designer,
+            "ObserverEnrollment" => Self::Observer,
+            _ => Self::Other,
+        }
+    }
+
+    /// Convert a Moodle role shortname to an EnrollmentType.
+    ///
+    /// Moodle uses shortnames like "student", "editingteacher", "teacher", etc.
+    pub fn from_moodle(role_shortname: &str) -> Self {
+        match role_shortname {
+            "student" => Self::Student,
+            "editingteacher" | "teacher" => Self::Teacher,
+            "manager" | "coursecreator" => Self::Designer,
+            _ => Self::Other,
+        }
+    }
+
+    /// Check if this enrollment type represents a student.
+    pub fn is_student(&self) -> bool {
+        matches!(self, Self::Student)
+    }
+
+    /// Return a display string for this enrollment type.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Student => "student",
+            Self::Teacher => "teacher",
+            Self::Ta => "ta",
+            Self::Designer => "designer",
+            Self::Observer => "observer",
+            Self::Other => "other",
+        }
+    }
+
+    /// Convert Canvas enrollment_state to a display string.
+    ///
+    /// Canvas states: "active", "invited", "creation_pending", "deleted",
+    /// "rejected", "completed", "inactive"
+    pub fn canvas_enrollment_display(
+        enrollment_type: &str,
+        enrollment_state: Option<&str>,
+    ) -> String {
+        let type_label = Self::from_canvas(enrollment_type).as_str();
+        match enrollment_state {
+            Some("active") | None => type_label.to_string(),
+            Some(state) => format!("{} ({})", type_label, state),
+        }
+    }
+
+    /// Convert a Moodle role to a display string.
+    pub fn moodle_enrollment_display(role_name: Option<&str>, role_shortname: &str) -> String {
+        role_name
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| Self::from_moodle(role_shortname).as_str().to_string())
+    }
+}
+
+impl std::fmt::Display for EnrollmentType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Represents a course in an LMS
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Course {
@@ -158,6 +246,68 @@ pub struct Enrollment {
 
     /// Whether the enrollment is associated with the user's account
     pub limit_privileges_to_course_section: Option<bool>,
+}
+
+impl Enrollment {
+    /// Convert the enrollment_type string to an EnrollmentType enum.
+    pub fn enrollment_type_enum(&self) -> EnrollmentType {
+        EnrollmentType::from_canvas(&self.enrollment_type)
+    }
+}
+
+impl User {
+    fn preferred_enrollment(&self) -> Option<&Enrollment> {
+        self.enrollments.as_ref().and_then(|enrollments| {
+            enrollments.iter().max_by_key(|enrollment| {
+                let enrollment_type = enrollment.enrollment_type_enum();
+                let type_priority = match enrollment_type {
+                    EnrollmentType::Teacher => 6,
+                    EnrollmentType::Ta => 5,
+                    EnrollmentType::Designer => 4,
+                    EnrollmentType::Observer => 3,
+                    EnrollmentType::Other => 2,
+                    EnrollmentType::Student => 1,
+                };
+                let state_priority = match enrollment.enrollment_state.as_deref() {
+                    Some("active") | None => 2,
+                    Some("invited") | Some("creation_pending") => 1,
+                    _ => 0,
+                };
+                (state_priority, type_priority)
+            })
+        })
+    }
+
+    /// Get the primary enrollment type for this user.
+    ///
+    /// Prefers active non-student enrollments over student enrollments.
+    pub fn primary_enrollment_type(&self) -> Option<EnrollmentType> {
+        self.preferred_enrollment()
+            .map(|enrollment| enrollment.enrollment_type_enum())
+    }
+
+    /// Get a display string for the primary enrollment.
+    pub fn primary_enrollment_display(&self) -> Option<String> {
+        self.preferred_enrollment().map(|e| {
+            EnrollmentType::canvas_enrollment_display(
+                &e.enrollment_type,
+                e.enrollment_state.as_deref(),
+            )
+        })
+    }
+
+    /// Determine enrollment status from enrollment state.
+    ///
+    /// Returns "active", "dropped", or "incomplete" based on enrollment state.
+    pub fn enrollment_status(&self) -> &'static str {
+        self.preferred_enrollment()
+            .map(|enrollment| match enrollment.enrollment_state.as_deref() {
+                Some("active") | None => "active",
+                Some("completed") | Some("deleted") | Some("inactive") => "dropped",
+                _ => "incomplete",
+            })
+            .unwrap_or("active")
+    }
 }
 
 /// Represents an assignment in a course

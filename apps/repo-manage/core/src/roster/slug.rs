@@ -44,7 +44,7 @@ pub fn expand_template(template: &str, assignment: &Assignment, group: &Group) -
     template
         .replace("{assignment}", &assignment.name)
         .replace("{group}", &group.name)
-        .replace("{group_id}", &group.id.to_string())
+        .replace("{group_id}", &group.id)
         .replace("{initials}", &initials)
         .replace("{surnames}", &surnames)
 }
@@ -79,5 +79,23 @@ mod tests {
         let input = "a".repeat(120);
         let slug = slugify(&input);
         assert_eq!(slug.len(), 100);
+    }
+
+    #[test]
+    fn slugify_apostrophe_removal() {
+        assert_eq!(slugify("O'Brien"), "obrien");
+        assert_eq!(slugify("it's"), "its");
+    }
+
+    #[test]
+    fn slugify_empty_input() {
+        assert_eq!(slugify(""), "");
+        assert_eq!(slugify("   "), "");
+    }
+
+    #[test]
+    fn slugify_leading_trailing_hyphens() {
+        assert_eq!(slugify("--hello--"), "hello");
+        assert_eq!(slugify("---"), "");
     }
 }

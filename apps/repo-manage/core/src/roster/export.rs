@@ -1,10 +1,10 @@
 use crate::error::{PlatformError, Result};
 use crate::generated::types::{
-    AssignmentCoverage, CoverageExportFormat, CoverageReport, GitIdentityMode,
+    AssignmentCoverage, CoverageExportFormat, CoverageReport, GitIdentityMode, StudentId,
     StudentMultipleAssignments, StudentSummary,
 };
-use crate::import::normalize_assignment_name;
-use crate::roster::{AssignmentId, Roster, StudentId, StudentStatus};
+use crate::roster::resolution::resolve_assignment_groups;
+use crate::roster::{AssignmentId, EnrollmentType, MemberStatus, Roster, RosterMemberId};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -12,33 +12,34 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
     let active_students = roster
         .students
         .iter()
-        .filter(|student| student.status == StudentStatus::Active)
+        .filter(|member| member.status == MemberStatus::Active)
         .collect::<Vec<_>>();
 
-    let mut student_summary: HashMap<StudentId, StudentSummary> = HashMap::new();
-    for student in &active_students {
+    let mut student_summary: HashMap<&str, StudentSummary> = HashMap::new();
+    for member in &active_students {
         student_summary.insert(
-            student.id.clone(),
+            member.id.as_str(),
             StudentSummary {
-                id: student.id.clone(),
-                name: student.name.clone(),
+                id: StudentId(member.id.0.clone()),
+                name: member.name.clone(),
             },
         );
     }
 
-    let mut student_assignments: HashMap<StudentId, Vec<String>> = HashMap::new();
+    let mut student_assignments: HashMap<&str, Vec<String>> = HashMap::new();
     let mut assignments = Vec::new();
-    let active_ids: HashSet<StudentId> = active_students
+    let active_ids: HashSet<&str> = active_students
         .iter()
-        .map(|student| student.id.clone())
+        .map(|member| member.id.as_str())
         .collect();
 
     for assignment in &roster.assignments {
-        let mut member_ids: HashSet<StudentId> = HashSet::new();
-        for group in &assignment.groups {
+        let groups = resolve_assignment_groups(roster, assignment);
+        let mut member_ids: HashSet<&str> = HashSet::new();
+        for group in &groups {
             for member_id in &group.member_ids {
-                if active_ids.contains(member_id) {
-                    member_ids.insert(member_id.clone());
+                if active_ids.contains(member_id.as_str()) {
+                    member_ids.insert(member_id.as_str());
                 }
             }
         }
@@ -46,15 +47,15 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
         let assignment_name = assignment.name.clone();
         for member_id in &member_ids {
             student_assignments
-                .entry(member_id.clone())
+                .entry(member_id)
                 .or_default()
                 .push(assignment_name.clone());
         }
 
         let missing_students = active_students
             .iter()
-            .filter(|student| !member_ids.contains(&student.id))
-            .filter_map(|student| student_summary.get(&student.id).cloned())
+            .filter(|member| !member_ids.contains(member.id.as_str()))
+            .filter_map(|member| student_summary.get(member.id.as_str()).cloned())
             .collect::<Vec<_>>();
 
         assignments.push(AssignmentCoverage {
@@ -68,10 +69,11 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
     let mut students_in_multiple = Vec::new();
     let mut students_in_none = Vec::new();
 
-    for student in &active_students {
-        match student_assignments.get(&student.id) {
+    for member in &active_students {
+        let key = member.id.as_str();
+        match student_assignments.get(key) {
             Some(assignments_list) if assignments_list.len() > 1 => {
-                if let Some(summary) = student_summary.get(&student.id) {
+                if let Some(summary) = student_summary.get(key) {
                     students_in_multiple.push(StudentMultipleAssignments {
                         student: summary.clone(),
                         assignment_names: assignments_list.clone(),
@@ -79,7 +81,7 @@ pub fn get_roster_coverage(roster: &Roster) -> CoverageReport {
                 }
             }
             None => {
-                if let Some(summary) = student_summary.get(&student.id) {
+                if let Some(summary) = student_summary.get(key) {
                     students_in_none.push(summary.clone());
                 }
             }
@@ -122,9 +124,7 @@ pub fn export_teams(
     path: &Path,
 ) -> Result<()> {
     let assignment = roster
-        .assignments
-        .iter()
-        .find(|assignment| assignment.id == *assignment_id)
+        .find_assignment(assignment_id)
         .ok_or_else(|| PlatformError::Other("Assignment not found".to_string()))?;
 
     #[derive(serde::Serialize)]
@@ -139,23 +139,25 @@ pub fn export_teams(
         teams: Vec<TeamEntry>,
     }
 
-    let student_map: HashMap<StudentId, &crate::generated::types::Student> = roster
+    let member_map: HashMap<&str, &crate::generated::types::RosterMember> = roster
         .students
         .iter()
-        .map(|student| (student.id.clone(), student))
+        .chain(roster.staff.iter())
+        .map(|member| (member.id.as_str(), member))
         .collect();
 
+    let groups = resolve_assignment_groups(roster, assignment);
     let mut teams = Vec::new();
-    for group in &assignment.groups {
+    for group in &groups {
         let mut members = Vec::new();
         for member_id in &group.member_ids {
-            if let Some(student) = student_map.get(member_id) {
+            if let Some(member) = member_map.get(member_id.as_str()) {
                 match identity_mode {
                     GitIdentityMode::Email => {
-                        members.push(student.email.clone());
+                        members.push(member.email.clone());
                     }
                     GitIdentityMode::Username => {
-                        if let Some(username) = student.git_username.as_ref() {
+                        if let Some(username) = member.git_username.as_ref() {
                             if !username.trim().is_empty() {
                                 members.push(username.clone());
                             }
@@ -183,29 +185,32 @@ pub fn export_teams(
 }
 
 pub fn export_students(roster: &Roster, path: &Path) -> Result<()> {
-    let custom_headers = collect_custom_headers(roster);
     let mut rows = Vec::new();
-    let mut header = vec![
+    let header = vec![
         "name".to_string(),
         "email".to_string(),
         "student_number".to_string(),
         "git_username".to_string(),
         "status".to_string(),
+        "enrollment_type".to_string(),
+        "department".to_string(),
+        "institution".to_string(),
+        "source".to_string(),
     ];
-    header.extend(custom_headers.iter().cloned());
     rows.push(header);
 
-    for student in &roster.students {
-        let mut row = vec![
-            student.name.clone(),
-            student.email.clone(),
-            student.student_number.clone().unwrap_or_default(),
-            student.git_username.clone().unwrap_or_default(),
-            format_student_status(student.status),
+    for member in &roster.students {
+        let row = vec![
+            member.name.clone(),
+            member.email.clone(),
+            member.student_number.clone().unwrap_or_default(),
+            member.git_username.clone().unwrap_or_default(),
+            format_member_status(member.status),
+            format_enrollment_type(member.enrollment_type),
+            member.department.clone().unwrap_or_default(),
+            member.institution.clone().unwrap_or_default(),
+            member.source.clone(),
         ];
-        for key in &custom_headers {
-            row.push(student.custom_fields.get(key).cloned().unwrap_or_default());
-        }
         rows.push(row);
     }
 
@@ -218,24 +223,22 @@ pub fn export_assignment_students(
     path: &Path,
 ) -> Result<()> {
     let assignment = roster
-        .assignments
-        .iter()
-        .find(|assignment| assignment.id == *assignment_id)
+        .find_assignment(assignment_id)
         .ok_or_else(|| PlatformError::Other("Assignment not found".to_string()))?;
 
-    let mut student_groups: HashMap<StudentId, Vec<String>> = HashMap::new();
-    for group in &assignment.groups {
+    let groups = resolve_assignment_groups(roster, assignment);
+    let mut member_groups: HashMap<RosterMemberId, Vec<String>> = HashMap::new();
+    for group in &groups {
         for member_id in &group.member_ids {
-            student_groups
+            member_groups
                 .entry(member_id.clone())
                 .or_default()
                 .push(group.name.clone());
         }
     }
 
-    let custom_headers = collect_custom_headers(roster);
     let mut rows = Vec::new();
-    let mut header = vec![
+    let header = vec![
         "name".to_string(),
         "email".to_string(),
         "student_number".to_string(),
@@ -243,26 +246,22 @@ pub fn export_assignment_students(
         "status".to_string(),
         "group_name".to_string(),
     ];
-    header.extend(custom_headers.iter().cloned());
     rows.push(header);
 
-    for student in &roster.students {
-        let groups = match student_groups.get(&student.id) {
+    for member in &roster.students {
+        let groups = match member_groups.get(&member.id) {
             Some(groups) => groups.clone(),
             None => continue,
         };
         let group_name = groups.join(", ");
-        let mut row = vec![
-            student.name.clone(),
-            student.email.clone(),
-            student.student_number.clone().unwrap_or_default(),
-            student.git_username.clone().unwrap_or_default(),
-            format_student_status(student.status),
+        let row = vec![
+            member.name.clone(),
+            member.email.clone(),
+            member.student_number.clone().unwrap_or_default(),
+            member.git_username.clone().unwrap_or_default(),
+            format_member_status(member.status),
             group_name,
         ];
-        for key in &custom_headers {
-            row.push(student.custom_fields.get(key).cloned().unwrap_or_default());
-        }
         rows.push(row);
     }
 
@@ -275,16 +274,17 @@ pub fn export_groups_for_edit(
     path: &Path,
 ) -> Result<()> {
     let assignment = roster
-        .assignments
-        .iter()
-        .find(|assignment| assignment.id == *assignment_id)
+        .find_assignment(assignment_id)
         .ok_or_else(|| PlatformError::Other("Assignment not found".to_string()))?;
 
-    let student_map: HashMap<StudentId, &crate::generated::types::Student> = roster
+    let member_map: HashMap<&str, &crate::generated::types::RosterMember> = roster
         .students
         .iter()
-        .map(|student| (student.id.clone(), student))
+        .chain(roster.staff.iter())
+        .map(|member| (member.id.as_str(), member))
         .collect();
+
+    let groups = resolve_assignment_groups(roster, assignment);
 
     let mut rows = Vec::new();
     rows.push(vec![
@@ -296,17 +296,17 @@ pub fn export_groups_for_edit(
         "notes".to_string(),
     ]);
 
-    for group in &assignment.groups {
+    for group in &groups {
         for member_id in &group.member_ids {
-            let student = student_map.get(member_id).ok_or_else(|| {
-                PlatformError::Other(format!("Unknown student ID in group: {}", member_id))
+            let member = member_map.get(member_id.as_str()).ok_or_else(|| {
+                PlatformError::Other(format!("Unknown member ID in group: {}", member_id))
             })?;
             rows.push(vec![
-                group.id.as_str().to_string(),
+                group.id.clone(),
                 group.name.clone(),
-                student.id.as_str().to_string(),
-                student.email.clone(),
-                student.name.clone(),
+                member.id.as_str().to_string(),
+                member.email.clone(),
+                member.name.clone(),
                 String::new(),
             ]);
         }
@@ -315,24 +315,23 @@ pub fn export_groups_for_edit(
     write_by_extension(path, "Assignment Groups", rows)
 }
 
-fn format_student_status(status: StudentStatus) -> String {
+fn format_member_status(status: MemberStatus) -> String {
     match status {
-        StudentStatus::Active => "active".to_string(),
-        StudentStatus::Dropped => "dropped".to_string(),
-        StudentStatus::Incomplete => "incomplete".to_string(),
+        MemberStatus::Active => "active".to_string(),
+        MemberStatus::Dropped => "dropped".to_string(),
+        MemberStatus::Incomplete => "incomplete".to_string(),
     }
 }
 
-fn collect_custom_headers(roster: &Roster) -> Vec<String> {
-    let mut keys: HashSet<String> = HashSet::new();
-    for student in &roster.students {
-        for key in student.custom_fields.keys() {
-            keys.insert(key.clone());
-        }
+fn format_enrollment_type(enrollment_type: EnrollmentType) -> String {
+    match enrollment_type {
+        EnrollmentType::Student => "student".to_string(),
+        EnrollmentType::Teacher => "teacher".to_string(),
+        EnrollmentType::Ta => "ta".to_string(),
+        EnrollmentType::Designer => "designer".to_string(),
+        EnrollmentType::Observer => "observer".to_string(),
+        EnrollmentType::Other => "other".to_string(),
     }
-    let mut headers = keys.into_iter().collect::<Vec<_>>();
-    headers.sort_by_key(|a| normalize_assignment_name(a));
-    headers
 }
 
 fn coverage_rows(report: &CoverageReport) -> Vec<Vec<String>> {

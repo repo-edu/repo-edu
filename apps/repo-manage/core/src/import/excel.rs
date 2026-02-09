@@ -1,10 +1,10 @@
 use crate::error::{PlatformError, Result};
 use crate::import::csv::{parse_group_edit_rows, parse_student_rows, GroupEditEntry, HeaderInfo};
-use crate::roster::StudentDraft;
+use crate::roster::RosterMemberDraft;
 use calamine::{open_workbook_auto, Data, Reader};
 use std::path::Path;
 
-pub fn parse_students_excel(path: &Path) -> Result<Vec<StudentDraft>> {
+pub fn parse_students_excel(path: &Path) -> Result<Vec<RosterMemberDraft>> {
     let mut workbook = open_workbook_auto(path)
         .map_err(|e| PlatformError::Other(format!("Failed to open Excel file: {}", e)))?;
 
@@ -26,7 +26,6 @@ pub fn parse_students_excel(path: &Path) -> Result<Vec<StudentDraft>> {
     let headers = header_row
         .iter()
         .map(|cell| HeaderInfo {
-            original: cell_to_string(cell).trim().to_string(),
             normalized: crate::import::normalize::normalize_header(&cell_to_string(cell)),
         })
         .collect::<Vec<_>>();
@@ -61,7 +60,6 @@ pub fn parse_group_edit_excel(path: &Path) -> Result<Vec<GroupEditEntry>> {
     let headers = header_row
         .iter()
         .map(|cell| HeaderInfo {
-            original: cell_to_string(cell).trim().to_string(),
             normalized: crate::import::normalize::normalize_header(&cell_to_string(cell)),
         })
         .collect::<Vec<_>>();

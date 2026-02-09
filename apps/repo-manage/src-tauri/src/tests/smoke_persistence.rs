@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod smoke_tests {
-    use repo_manage_core::roster::{Roster, Student, StudentDraft};
+    use repo_manage_core::roster::{Roster, RosterMember, RosterMemberDraft};
     use repo_manage_core::{CourseInfo, SettingsManager};
 
     #[tokio::test]
@@ -16,16 +16,18 @@ mod smoke_tests {
             .create_profile("test-profile", course.clone())
             .unwrap();
 
-        let student = Student::new(StudentDraft {
+        let member = RosterMember::new(RosterMemberDraft {
             name: "Test Student".to_string(),
             email: "test@example.com".to_string(),
             ..Default::default()
         });
         let roster = Roster {
-            students: vec![student.clone()],
+            connection: None,
+            students: vec![member],
+            staff: Vec::new(),
+            groups: Vec::new(),
+            group_sets: Vec::new(),
             assignments: vec![],
-            source: None,
-            lms_group_sets: Some(Vec::new()),
         };
 
         manager.save_roster("test-profile", &roster).unwrap();

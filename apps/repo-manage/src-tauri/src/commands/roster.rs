@@ -1,19 +1,26 @@
 use crate::error::AppError;
-use repo_manage_core::import::{normalize_email, parse_git_usernames_csv};
+use repo_manage_core::generated::types::StudentId;
+use repo_manage_core::import::{
+    normalize_email, normalize_group_name as core_normalize_group_name, parse_git_usernames_csv,
+};
+use repo_manage_core::operations;
 use repo_manage_core::platform::{PlatformParams, PlatformType, UsernameCheck};
 use repo_manage_core::roster::{
+    ensure_system_group_sets as core_ensure_system_group_sets,
     export_assignment_students as core_export_assignment_students,
     export_groups_for_edit as core_export_groups_for_edit,
     export_roster_coverage as core_export_roster_coverage, export_students as core_export_students,
-    export_teams as core_export_teams, get_roster_coverage as core_get_roster_coverage,
-    import_groups_from_file as core_import_groups_from_file, AffectedGroup, AssignmentId,
-    GitIdentityMode, GitUsernameStatus, Roster, StudentId, StudentRemovalCheck,
+    export_teams as core_export_teams, filter_by_pattern as core_filter_by_pattern,
+    get_roster_coverage as core_get_roster_coverage, preview_group_selection as core_preview,
+    resolve_assignment_groups, AffectedGroup, AssignmentId, GitIdentityMode, GitUsernameStatus,
+    Roster, RosterMemberId, StudentRemovalCheck,
 };
 use repo_manage_core::{
     create_platform, AppSettings, CoverageExportFormat, CoverageReport, GitConnection,
-    GitServerType, GroupFileImportResult, ImportGitUsernamesResult, InvalidUsername,
-    SettingsManager, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
-    UsernameVerificationScope, VerifyGitUsernamesResult,
+    GitServerType, GroupSelectionMode, GroupSelectionPreview, GroupSetImportPreview,
+    GroupSetImportResult, ImportGitUsernamesResult, InvalidUsername, PatternFilterResult,
+    SettingsManager, SystemGroupSetEnsureResult, UsernameInvalidReason, UsernameVerificationError,
+    UsernameVerificationResult, UsernameVerificationScope, VerifyGitUsernamesResult,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -33,23 +40,25 @@ pub async fn clear_roster(profile: String) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Check whether a student removal impacts any groups
+/// Check whether a member removal impacts any groups
 #[tauri::command]
 pub async fn check_student_removal(
     profile: String,
     roster: Roster,
-    student_id: StudentId,
+    student_id: RosterMemberId,
 ) -> Result<StudentRemovalCheck, AppError> {
     let _ = profile;
-    let student = roster
+    let member = roster
         .students
         .iter()
-        .find(|student| student.id == student_id)
-        .ok_or_else(|| AppError::new(format!("Student '{}' not found", student_id)))?;
+        .chain(roster.staff.iter())
+        .find(|m| m.id == student_id)
+        .ok_or_else(|| AppError::new(format!("Member '{}' not found", student_id)))?;
 
     let mut affected_groups = Vec::new();
     for assignment in &roster.assignments {
-        for group in &assignment.groups {
+        let groups = resolve_assignment_groups(&roster, assignment);
+        for group in &groups {
             if group.member_ids.iter().any(|id| id == &student_id) {
                 affected_groups.push(AffectedGroup {
                     assignment_id: assignment.id.clone(),
@@ -62,8 +71,8 @@ pub async fn check_student_removal(
     }
 
     Ok(StudentRemovalCheck {
-        student_id,
-        student_name: student.name.clone(),
+        student_id: StudentId(student_id.0),
+        student_name: member.name.clone(),
         affected_groups,
     })
 }
@@ -81,8 +90,8 @@ pub async fn import_git_usernames(
 
     let mut updated_roster = roster.clone();
     let mut email_index: HashMap<String, usize> = HashMap::new();
-    for (idx, student) in updated_roster.students.iter().enumerate() {
-        email_index.insert(normalize_email(&student.email), idx);
+    for (idx, member) in updated_roster.students.iter().enumerate() {
+        email_index.insert(normalize_email(&member.email), idx);
     }
 
     let mut matched = 0;
@@ -90,10 +99,10 @@ pub async fn import_git_usernames(
 
     for entry in entries {
         if let Some(&idx) = email_index.get(&entry.email) {
-            let student = &mut updated_roster.students[idx];
-            if student.git_username.as_deref() != Some(entry.git_username.as_str()) {
-                student.git_username = Some(entry.git_username);
-                student.git_username_status = GitUsernameStatus::Unknown;
+            let member = &mut updated_roster.students[idx];
+            if member.git_username.as_deref() != Some(entry.git_username.as_str()) {
+                member.git_username = Some(entry.git_username);
+                member.git_username_status = GitUsernameStatus::Unknown;
             }
             matched += 1;
         } else {
@@ -140,46 +149,46 @@ pub async fn verify_git_usernames(
     let mut invalid = Vec::new();
     let mut errors = Vec::new();
 
-    for student in &mut updated_roster.students {
-        let username = match student.git_username.as_ref().map(|u| u.trim()) {
+    for member in &mut updated_roster.students {
+        let username = match member.git_username.as_ref().map(|u| u.trim()) {
             Some(value) if !value.is_empty() => value,
             _ => continue,
         };
 
         if scope == UsernameVerificationScope::UnknownOnly
-            && student.git_username_status != GitUsernameStatus::Unknown
+            && member.git_username_status != GitUsernameStatus::Unknown
         {
             continue;
         }
 
         match platform.check_username(username).await {
             Ok(UsernameCheck::Found) => {
-                student.git_username_status = GitUsernameStatus::Valid;
+                member.git_username_status = GitUsernameStatus::Valid;
                 valid += 1;
             }
             Ok(UsernameCheck::NotFound) => {
-                student.git_username_status = GitUsernameStatus::Invalid;
+                member.git_username_status = GitUsernameStatus::Invalid;
                 invalid.push(InvalidUsername {
-                    student_email: student.email.clone(),
-                    student_name: student.name.clone(),
+                    student_email: member.email.clone(),
+                    student_name: member.name.clone(),
                     git_username: username.to_string(),
                     reason: UsernameInvalidReason::NotFound,
                 });
             }
             Ok(UsernameCheck::Blocked) => {
-                student.git_username_status = GitUsernameStatus::Invalid;
+                member.git_username_status = GitUsernameStatus::Invalid;
                 invalid.push(InvalidUsername {
-                    student_email: student.email.clone(),
-                    student_name: student.name.clone(),
+                    student_email: member.email.clone(),
+                    student_name: member.name.clone(),
                     git_username: username.to_string(),
                     reason: UsernameInvalidReason::Blocked,
                 });
             }
             Err(error) => {
-                student.git_username_status = GitUsernameStatus::Unknown;
+                member.git_username_status = GitUsernameStatus::Unknown;
                 errors.push(UsernameVerificationError {
-                    student_email: student.email.clone(),
-                    student_name: student.name.clone(),
+                    student_email: member.email.clone(),
+                    student_name: member.name.clone(),
                     git_username: username.to_string(),
                     message: error.to_string(),
                 });
@@ -195,22 +204,6 @@ pub async fn verify_git_usernames(
         },
         roster: updated_roster,
     })
-}
-
-#[tauri::command]
-pub async fn import_groups_from_file(
-    roster: Roster,
-    assignment_id: AssignmentId,
-    file_path: PathBuf,
-) -> Result<GroupFileImportResult, AppError> {
-    if !file_path.exists() {
-        return Err(AppError::new("Import file not found"));
-    }
-    Ok(core_import_groups_from_file(
-        roster,
-        &assignment_id,
-        &file_path,
-    )?)
 }
 
 #[tauri::command]
@@ -268,6 +261,89 @@ pub async fn export_roster_coverage(
     let report = core_get_roster_coverage(&roster);
     core_export_roster_coverage(&report, &path, format)?;
     Ok(())
+}
+
+/// Create/repair system group sets and normalize group memberships
+#[tauri::command]
+pub async fn ensure_system_group_sets(
+    roster: Roster,
+) -> Result<SystemGroupSetEnsureResult, AppError> {
+    let mut roster = roster;
+    Ok(core_ensure_system_group_sets(&mut roster))
+}
+
+/// Normalize a group name using backend slug rules
+#[tauri::command]
+pub async fn normalize_group_name(name: String) -> Result<String, AppError> {
+    Ok(core_normalize_group_name(&name))
+}
+
+/// Validate glob and resolve group IDs for assignment preview
+#[tauri::command]
+pub async fn preview_group_selection(
+    roster: Roster,
+    group_set_id: String,
+    group_selection: GroupSelectionMode,
+) -> Result<GroupSelectionPreview, AppError> {
+    Ok(core_preview(&roster, &group_set_id, &group_selection))
+}
+
+/// Validate glob and return matched value indexes for UI filtering
+#[tauri::command]
+pub async fn filter_by_pattern(
+    pattern: String,
+    values: Vec<String>,
+) -> Result<PatternFilterResult, AppError> {
+    let refs: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
+    Ok(core_filter_by_pattern(&pattern, &refs))
+}
+
+/// Parse CSV for import preview (no persistence)
+#[tauri::command]
+pub async fn preview_import_group_set(
+    roster: Roster,
+    file_path: PathBuf,
+) -> Result<GroupSetImportPreview, AppError> {
+    operations::preview_import_group_set(&roster, &file_path).map_err(Into::into)
+}
+
+/// Parse CSV and create new group set
+#[tauri::command]
+pub async fn import_group_set(
+    roster: Roster,
+    file_path: PathBuf,
+) -> Result<GroupSetImportResult, AppError> {
+    operations::import_group_set(&roster, &file_path).map_err(Into::into)
+}
+
+/// Re-parse CSV for reimport preview (no persistence)
+#[tauri::command]
+pub async fn preview_reimport_group_set(
+    roster: Roster,
+    group_set_id: String,
+    file_path: PathBuf,
+) -> Result<GroupSetImportPreview, AppError> {
+    operations::preview_reimport_group_set(&roster, &group_set_id, &file_path).map_err(Into::into)
+}
+
+/// Re-parse CSV and update existing group set
+#[tauri::command]
+pub async fn reimport_group_set(
+    roster: Roster,
+    group_set_id: String,
+    file_path: PathBuf,
+) -> Result<GroupSetImportResult, AppError> {
+    operations::reimport_group_set(&roster, &group_set_id, &file_path).map_err(Into::into)
+}
+
+/// Export group set to CSV file
+#[tauri::command]
+pub async fn export_group_set(
+    roster: Roster,
+    group_set_id: String,
+    file_path: PathBuf,
+) -> Result<(), AppError> {
+    operations::export_group_set(&roster, &group_set_id, &file_path).map_err(Into::into)
 }
 
 fn resolve_git_connection(

@@ -5,6 +5,7 @@
 //! obtain parameters and report progress.
 
 mod error;
+mod group_set;
 mod lms;
 mod platform;
 mod repo;
@@ -14,10 +15,8 @@ pub use crate::{LmsOperationContext, ProgressEvent, RepoOperationContext};
 pub use error::HandlerError;
 
 pub use lms::{
-    attach_group_set_to_assignment, break_group_set_link, clear_assignment_group_set,
-    copy_group_set, copy_group_set_to_assignment, delete_group_set, fetch_group_set_list,
-    fetch_groups_for_set, import_students, link_group_set, list_group_sets,
-    refresh_linked_group_set, verify_connection as verify_lms_connection,
+    fetch_group_set_list, fetch_groups_for_set, import_roster_from_lms, import_students,
+    sync_group_set, verify_connection as verify_lms_connection,
 };
 
 pub use platform::verify_connection;
@@ -28,3 +27,8 @@ pub use repo::{
 };
 
 pub use validation::{validate_assignment, validate_roster};
+
+pub use group_set::{
+    export_group_set, import_group_set, preview_import_group_set, preview_reimport_group_set,
+    reimport_group_set,
+};

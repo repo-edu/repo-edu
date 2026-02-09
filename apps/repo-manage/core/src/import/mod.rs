@@ -13,10 +13,10 @@ pub use normalize::{
 };
 
 use crate::error::{PlatformError, Result};
-use crate::roster::StudentDraft;
+use crate::roster::RosterMemberDraft;
 use std::path::Path;
 
-pub fn parse_students_file(path: &Path) -> Result<Vec<StudentDraft>> {
+pub fn parse_students_file(path: &Path) -> Result<Vec<RosterMemberDraft>> {
     let extension = path
         .extension()
         .and_then(|ext| ext.to_str())

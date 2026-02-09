@@ -1,5 +1,7 @@
 use crate::platform::{Platform, PlatformAPI};
-use crate::roster::{compute_repo_name, Assignment, AssignmentId, Group, Roster};
+use crate::roster::{
+    compute_repo_name, resolve_assignment_groups, Assignment, AssignmentId, Group, Roster,
+};
 use crate::{
     CloneConfig, CreateConfig, DeleteConfig, DirectoryLayout, GitConnection, GitServerType,
     OperationError, OperationResult, RepoCollision, RepoCollisionKind, RepoOperationContext,
@@ -49,12 +51,22 @@ fn find_assignment<'a>(
         .ok_or_else(|| HandlerError::not_found("Assignment not found"))
 }
 
-fn get_valid_groups(assignment: &Assignment) -> Vec<&Group> {
-    assignment
-        .groups
+fn get_resolved_groups<'a>(
+    roster: &'a Roster,
+    assignment: &Assignment,
+) -> (Vec<&'a Group>, Vec<&'a Group>) {
+    let all_groups = resolve_assignment_groups(roster, assignment);
+    let valid = all_groups
         .iter()
+        .copied()
         .filter(|g| !g.member_ids.is_empty())
-        .collect()
+        .collect();
+    let empty = all_groups
+        .iter()
+        .copied()
+        .filter(|g| g.member_ids.is_empty())
+        .collect();
+    (valid, empty)
 }
 
 pub struct CreateReposParams {
@@ -88,11 +100,11 @@ pub async fn preflight_create(
     let assignment = find_assignment(roster, assignment_id)?;
 
     let template = &context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, _) = get_resolved_groups(roster, assignment);
 
     let mut collisions = Vec::new();
 
-    for group in valid_groups.iter() {
+    for group in &valid_groups {
         let repo_name = compute_repo_name(template, assignment, group);
         match platform.get_repo(&repo_name, None).await {
             Ok(_) => collisions.push(RepoCollision {
@@ -124,11 +136,11 @@ pub async fn preflight_clone(
     let assignment = find_assignment(roster, assignment_id)?;
 
     let template = &context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, _) = get_resolved_groups(roster, assignment);
 
     let mut collisions = Vec::new();
 
-    for group in valid_groups.iter() {
+    for group in &valid_groups {
         let repo_name = compute_repo_name(template, assignment, group);
         match platform.get_repo(&repo_name, None).await {
             Ok(_) => {}
@@ -160,11 +172,11 @@ pub async fn preflight_delete(
     let assignment = find_assignment(roster, assignment_id)?;
 
     let template = &context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, _) = get_resolved_groups(roster, assignment);
 
     let mut collisions = Vec::new();
 
-    for group in valid_groups.iter() {
+    for group in &valid_groups {
         let repo_name = compute_repo_name(template, assignment, group);
         match platform.get_repo(&repo_name, None).await {
             Ok(_) => {}
@@ -199,23 +211,21 @@ where
     let assignment = find_assignment(&params.roster, &params.assignment_id)?;
 
     let template = &params.context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, empty_groups) = get_resolved_groups(&params.roster, assignment);
 
     let mut succeeded = 0i64;
     let mut failed = 0i64;
     let mut skipped_groups = Vec::new();
     let mut errors = Vec::new();
 
-    for group in assignment.groups.iter() {
-        if group.member_ids.is_empty() {
-            skipped_groups.push(SkippedGroup {
-                assignment_id: params.assignment_id.clone(),
-                group_id: group.id.clone(),
-                group_name: group.name.clone(),
-                reason: SkippedGroupReason::EmptyGroup,
-                context: None,
-            });
-        }
+    for group in &empty_groups {
+        skipped_groups.push(SkippedGroup {
+            assignment_id: params.assignment_id.clone(),
+            group_id: group.id.clone(),
+            group_name: group.name.clone(),
+            reason: SkippedGroupReason::EmptyGroup,
+            context: None,
+        });
     }
 
     let total = valid_groups.len().max(1);
@@ -277,7 +287,7 @@ where
     let assignment = find_assignment(&params.roster, &params.assignment_id)?;
 
     let template = &params.context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, empty_groups) = get_resolved_groups(&params.roster, assignment);
 
     let target_dir = PathBuf::from(&params.config.target_dir);
     if !target_dir.exists() {
@@ -289,16 +299,14 @@ where
     let mut skipped_groups = Vec::new();
     let mut errors = Vec::new();
 
-    for group in assignment.groups.iter() {
-        if group.member_ids.is_empty() {
-            skipped_groups.push(SkippedGroup {
-                assignment_id: params.assignment_id.clone(),
-                group_id: group.id.clone(),
-                group_name: group.name.clone(),
-                reason: SkippedGroupReason::EmptyGroup,
-                context: None,
-            });
-        }
+    for group in &empty_groups {
+        skipped_groups.push(SkippedGroup {
+            assignment_id: params.assignment_id.clone(),
+            group_id: group.id.clone(),
+            group_name: group.name.clone(),
+            reason: SkippedGroupReason::EmptyGroup,
+            context: None,
+        });
     }
 
     let total = valid_groups.len().max(1);
@@ -426,23 +434,21 @@ where
     let assignment = find_assignment(&params.roster, &params.assignment_id)?;
 
     let template = &params.context.repo_name_template;
-    let valid_groups = get_valid_groups(assignment);
+    let (valid_groups, empty_groups) = get_resolved_groups(&params.roster, assignment);
 
     let mut succeeded = 0i64;
     let mut failed = 0i64;
     let mut skipped_groups = Vec::new();
     let mut errors = Vec::new();
 
-    for group in assignment.groups.iter() {
-        if group.member_ids.is_empty() {
-            skipped_groups.push(SkippedGroup {
-                assignment_id: params.assignment_id.clone(),
-                group_id: group.id.clone(),
-                group_name: group.name.clone(),
-                reason: SkippedGroupReason::EmptyGroup,
-                context: None,
-            });
-        }
+    for group in &empty_groups {
+        skipped_groups.push(SkippedGroup {
+            assignment_id: params.assignment_id.clone(),
+            group_id: group.id.clone(),
+            group_name: group.name.clone(),
+            reason: SkippedGroupReason::EmptyGroup,
+            context: None,
+        });
     }
 
     let total = valid_groups.len().max(1);

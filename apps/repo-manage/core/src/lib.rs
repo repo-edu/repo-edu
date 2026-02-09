@@ -5,7 +5,7 @@
 
 pub mod context;
 pub mod error;
-mod generated;
+pub mod generated;
 pub mod import;
 pub mod lms;
 pub mod operations;
@@ -18,12 +18,12 @@ pub mod types;
 // Re-export commonly used items
 pub use error::{PlatformError, Result};
 pub use operations::{
-    attach_group_set_to_assignment, break_group_set_link, clear_assignment_group_set, clone_repos,
-    copy_group_set, copy_group_set_to_assignment, create_repos, delete_group_set, delete_repos,
-    fetch_group_set_list, fetch_groups_for_set, import_students, link_group_set, list_group_sets,
-    preflight_clone, preflight_create, preflight_delete, refresh_linked_group_set,
-    validate_assignment, validate_roster, verify_connection, verify_lms_connection,
-    CloneReposParams, CreateReposParams, DeleteReposParams, HandlerError,
+    clone_repos, create_repos, delete_repos, export_group_set, fetch_group_set_list,
+    fetch_groups_for_set, import_group_set, import_roster_from_lms, import_students,
+    preflight_clone, preflight_create, preflight_delete, preview_import_group_set,
+    preview_reimport_group_set, reimport_group_set, sync_group_set, validate_assignment,
+    validate_roster, verify_connection, verify_lms_connection, CloneReposParams, CreateReposParams,
+    DeleteReposParams, HandlerError,
 };
 pub use platform::{create_platform, Platform, PlatformAPI, PlatformParams, PlatformType};
 pub use progress::ProgressEvent;
@@ -65,16 +65,26 @@ pub use settings::{
 
 // Generated types used by Tauri commands
 pub use generated::types::{
-    AssignmentId, CachedLmsGroup, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport,
-    CreateConfig, DeleteConfig, DirectoryLayout, GitUsernameImportSummary, GitVerifyResult,
-    GroupFileImportResult, GroupFileImportSummary, GroupFilter, GroupId, GroupImportConfig,
-    GroupSetKind, ImportGitUsernamesResult, ImportStudentsResult, ImportSummary, InvalidUsername,
-    LmsContextKey, LmsGroup, LmsGroupSet, LmsGroupSetCacheEntry, LmsIdConflict,
-    LmsOperationContext, LmsVerifyResult, OperationError, OperationResult, RepoCollision,
-    RepoCollisionKind, RepoOperationContext, RepoPreflightResult, SkippedGroup, SkippedGroupReason,
-    StudentId, UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
-    UsernameVerificationScope, ValidationIssue, ValidationKind, ValidationResult,
-    VerifyGitUsernamesResult,
+    AssignmentId, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport, CreateConfig,
+    DeleteConfig, DirectoryLayout, EnrollmentType, GitUsernameImportSummary, GitVerifyResult,
+    GroupFileImportResult, GroupFileImportSummary, GroupImportConfig, GroupSelectionMode,
+    GroupSelectionPreview, GroupSet, GroupSetConnection, GroupSetImportPreview,
+    GroupSetImportResult, GroupSetSyncResult, ImportConflict, ImportGitUsernamesResult,
+    ImportRosterResult, ImportStudentsResult, ImportSummary, InvalidUsername, LmsContextKey,
+    LmsGroup, LmsGroupSet, LmsIdConflict, LmsOperationContext, LmsVerifyResult, MemberStatus,
+    OperationError, OperationResult, PatternFilterResult, RepoCollision, RepoCollisionKind,
+    RepoOperationContext, RepoPreflightResult, RosterConnection, RosterMember, RosterMemberId,
+    SkippedGroup, SkippedGroupReason, SystemGroupSetEnsureResult, UsernameInvalidReason,
+    UsernameVerificationError, UsernameVerificationResult, UsernameVerificationScope,
+    ValidationIssue, ValidationKind, ValidationResult, VerifyGitUsernamesResult,
+};
+
+// Roster module re-exports
+pub use roster::{
+    ensure_system_group_sets, filter_by_pattern, generate_group_name, generate_unique_group_name,
+    preview_group_selection, resolve_assignment_groups, selection_mode_all, selection_mode_pattern,
+    validate_glob_pattern as validate_simple_glob_pattern, SimpleGlob, ORIGIN_LMS, ORIGIN_LOCAL,
+    ORIGIN_SYSTEM, SYSTEM_TYPE_INDIVIDUAL_STUDENTS, SYSTEM_TYPE_STAFF,
 };
 
 // Test utilities (only available in test builds)

@@ -246,14 +246,50 @@ impl CanvasClient {
         Ok(canvas_groups.into_iter().map(|g| g.into()).collect())
     }
 
-    /// Get all users enrolled in a course with automatic pagination
+    /// Get all users enrolled in a course with automatic pagination.
+    ///
+    /// Includes enrollments in the response for enrollment type classification.
     ///
     /// # Arguments
     ///
     /// * `course_id` - The course ID
     pub async fn get_course_users(&self, course_id: &str) -> LmsResult<Vec<User>> {
+        // Request all core enrollment types explicitly to ensure staff
+        // (teacher/ta/designer/observer) are always included.
+        self.get_course_users_filtered(
+            course_id,
+            &[
+                "StudentEnrollment",
+                "TeacherEnrollment",
+                "TaEnrollment",
+                "DesignerEnrollment",
+                "ObserverEnrollment",
+            ],
+        )
+        .await
+    }
+
+    /// Get users enrolled in a course, filtered by enrollment types.
+    ///
+    /// Canvas supports filtering by enrollment type via `enrollment_type[]` parameter.
+    /// Values: "StudentEnrollment", "TeacherEnrollment", "TaEnrollment",
+    /// "DesignerEnrollment", "ObserverEnrollment".
+    ///
+    /// # Arguments
+    ///
+    /// * `course_id` - The course ID
+    /// * `enrollment_types` - Enrollment types to include (empty = all types)
+    pub async fn get_course_users_filtered(
+        &self,
+        course_id: &str,
+        enrollment_types: &[&str],
+    ) -> LmsResult<Vec<User>> {
         let path = format!("courses/{}/users", course_id);
-        let canvas_users: Vec<CanvasUser> = self.get_all_pages(&path, Vec::new()).await?;
+        let mut params = vec![("include[]".to_string(), "enrollments".to_string())];
+        for et in enrollment_types {
+            params.push(("enrollment_type[]".to_string(), et.to_string()));
+        }
+        let canvas_users: Vec<CanvasUser> = self.get_all_pages(&path, params).await?;
         Ok(canvas_users.into_iter().map(|u| u.into()).collect())
     }
 

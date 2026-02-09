@@ -1,4 +1,10 @@
-use super::types::{AssignmentId, GroupId, StudentId};
+//! ID generation utilities.
+//!
+//! Uses UUID v4 for new stable identifiers (RosterMemberId, Group.id, GroupSet.id)
+//! and nanoid for legacy compatibility (AssignmentId).
+
+use super::types::AssignmentId;
+use crate::generated::types::RosterMemberId;
 
 const ID_LENGTH: usize = 21;
 const ID_ALPHABET: [char; 64] = [
@@ -8,46 +14,57 @@ const ID_ALPHABET: [char; 64] = [
     'v', 'w', 'x', 'y', 'z', '_', '-',
 ];
 
-fn generate_id() -> String {
+fn generate_nanoid() -> String {
     nanoid::nanoid!(ID_LENGTH, &ID_ALPHABET)
 }
 
-pub fn generate_student_id() -> StudentId {
-    StudentId(generate_id())
+/// Generate a new UUID v4 string.
+pub fn generate_uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
-pub fn generate_assignment_id() -> AssignmentId {
-    AssignmentId(generate_id())
+/// Generate a new roster member ID (UUID).
+pub fn generate_roster_member_id() -> RosterMemberId {
+    RosterMemberId(generate_uuid())
 }
 
-pub fn generate_group_id() -> GroupId {
-    GroupId(generate_id())
+/// Generate a new group ID (UUID string).
+pub fn generate_group_id() -> String {
+    generate_uuid()
 }
 
+/// Generate a new group set ID (UUID string).
 pub fn generate_group_set_id() -> String {
-    generate_id()
+    generate_uuid()
+}
+
+/// Generate a new assignment ID (nanoid for backward compatibility).
+pub fn generate_assignment_id() -> AssignmentId {
+    AssignmentId(generate_nanoid())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        generate_assignment_id, generate_group_id, generate_group_set_id, generate_student_id,
-    };
+    use super::*;
 
     #[test]
-    fn ids_have_expected_length_and_charset() {
-        let ids = [
-            generate_student_id().to_string(),
-            generate_assignment_id().to_string(),
-            generate_group_id().to_string(),
-            generate_group_set_id(),
-        ];
+    fn uuid_ids_are_valid_uuid_format() {
+        let member_id = generate_roster_member_id();
+        assert!(uuid::Uuid::parse_str(&member_id.0).is_ok());
 
-        for id in ids {
-            assert_eq!(id.len(), 21);
-            assert!(id
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'));
-        }
+        let group_id = generate_group_id();
+        assert!(uuid::Uuid::parse_str(&group_id).is_ok());
+
+        let group_set_id = generate_group_set_id();
+        assert!(uuid::Uuid::parse_str(&group_set_id).is_ok());
+    }
+
+    #[test]
+    fn assignment_ids_have_expected_length_and_charset() {
+        let id = generate_assignment_id().0;
+        assert_eq!(id.len(), 21);
+        assert!(id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'));
     }
 }

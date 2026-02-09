@@ -1,13 +1,12 @@
 use crate::error::{PlatformError, Result};
 use crate::generated::types::GitUsernameEntry;
 use crate::import::normalize::{normalize_email, normalize_git_username, normalize_header};
-use crate::roster::{StudentDraft, StudentStatus};
+use crate::roster::{MemberStatus, RosterMemberDraft};
 use std::collections::HashMap;
 use std::io::Read;
 
 #[derive(Debug, Clone)]
 pub(crate) struct HeaderInfo {
-    pub(crate) original: String,
     pub(crate) normalized: String,
 }
 
@@ -20,7 +19,7 @@ pub struct GroupEditEntry {
     pub row_number: usize,
 }
 
-pub fn parse_students_csv<R: Read>(reader: R) -> Result<Vec<StudentDraft>> {
+pub fn parse_students_csv<R: Read>(reader: R) -> Result<Vec<RosterMemberDraft>> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .flexible(true)
         .has_headers(true)
@@ -31,7 +30,6 @@ pub fn parse_students_csv<R: Read>(reader: R) -> Result<Vec<StudentDraft>> {
         .map_err(|e| PlatformError::Other(format!("Failed to read CSV headers: {}", e)))?
         .iter()
         .map(|h| HeaderInfo {
-            original: h.trim().to_string(),
             normalized: normalize_header(h),
         })
         .collect::<Vec<_>>();
@@ -50,7 +48,6 @@ pub fn parse_git_usernames_csv<R: Read>(reader: R) -> Result<Vec<GitUsernameEntr
         .map_err(|e| PlatformError::Other(format!("Failed to read CSV headers: {}", e)))?
         .iter()
         .map(|h| HeaderInfo {
-            original: h.trim().to_string(),
             normalized: normalize_header(h),
         })
         .collect::<Vec<_>>();
@@ -69,7 +66,6 @@ pub fn parse_group_edit_csv<R: Read>(reader: R) -> Result<Vec<GroupEditEntry>> {
         .map_err(|e| PlatformError::Other(format!("Failed to read CSV headers: {}", e)))?
         .iter()
         .map(|h| HeaderInfo {
-            original: h.trim().to_string(),
             normalized: normalize_header(h),
         })
         .collect::<Vec<_>>();
@@ -77,7 +73,10 @@ pub fn parse_group_edit_csv<R: Read>(reader: R) -> Result<Vec<GroupEditEntry>> {
     parse_group_edit_rows(&headers, csv_reader.records())
 }
 
-pub(crate) fn parse_student_rows<I>(headers: &[HeaderInfo], records: I) -> Result<Vec<StudentDraft>>
+pub(crate) fn parse_student_rows<I>(
+    headers: &[HeaderInfo],
+    records: I,
+) -> Result<Vec<RosterMemberDraft>>
 where
     I: Iterator<Item = std::result::Result<csv::StringRecord, csv::Error>>,
 {
@@ -96,7 +95,7 @@ where
     }
 
     let mut email_to_index: HashMap<String, usize> = HashMap::new();
-    let mut drafts: Vec<StudentDraft> = Vec::new();
+    let mut drafts: Vec<RosterMemberDraft> = Vec::new();
     let mut missing_rows: Vec<usize> = Vec::new();
 
     for (row_index, record) in records.enumerate() {
@@ -111,8 +110,7 @@ where
         let mut email = String::new();
         let mut student_number: Option<String> = None;
         let mut git_username: Option<String> = None;
-        let mut status: Option<StudentStatus> = None;
-        let mut custom_fields: HashMap<String, String> = HashMap::new();
+        let mut status: Option<MemberStatus> = None;
 
         for (idx, header) in headers.iter().enumerate() {
             let value = record.get(idx).unwrap_or("").trim();
@@ -126,13 +124,11 @@ where
                 "student_number" => student_number = Some(value.to_string()),
                 "git_username" => git_username = Some(normalize_git_username(value)),
                 "status" | "student_status" => {
-                    status = Some(parse_student_status(value).map_err(|err| {
+                    status = Some(parse_member_status(value).map_err(|err| {
                         PlatformError::Other(format!("Row {}: {}", row_index + 2, err))
                     })?)
                 }
-                _ => {
-                    custom_fields.insert(header.original.clone(), value.to_string());
-                }
+                _ => {}
             }
         }
 
@@ -143,14 +139,14 @@ where
         }
 
         let normalized_email = normalize_email(&email);
-        let draft = StudentDraft {
+        let draft = RosterMemberDraft {
             name: name.trim().to_string(),
             email: normalized_email.clone(),
             student_number: student_number.filter(|v| !v.trim().is_empty()),
             git_username: git_username.filter(|v| !v.trim().is_empty()),
             lms_user_id: None,
             status,
-            custom_fields,
+            ..Default::default()
         };
 
         if let Some(existing) = email_to_index.get(&normalized_email).copied() {
@@ -175,11 +171,11 @@ where
     Ok(drafts)
 }
 
-fn parse_student_status(value: &str) -> Result<StudentStatus> {
+fn parse_member_status(value: &str) -> Result<MemberStatus> {
     match value.trim().to_lowercase().as_str() {
-        "active" => Ok(StudentStatus::Active),
-        "dropped" => Ok(StudentStatus::Dropped),
-        "incomplete" => Ok(StudentStatus::Incomplete),
+        "active" => Ok(MemberStatus::Active),
+        "dropped" => Ok(MemberStatus::Dropped),
+        "incomplete" => Ok(MemberStatus::Incomplete),
         _ => Err(PlatformError::Other(format!(
             "Invalid status '{}'. Expected active, dropped, or incomplete.",
             value

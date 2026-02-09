@@ -1,5 +1,5 @@
 use anyhow::Result;
-use repo_manage_core::roster::Roster;
+use repo_manage_core::roster::{resolve_assignment_groups, Roster};
 use repo_manage_core::{operations, AssignmentId, SettingsManager, ValidationIssue};
 
 use crate::output::{print_success, print_warning};
@@ -28,19 +28,12 @@ pub fn validate_assignment(profile: Option<String>, assignment: String) -> Resul
             .iter()
             .find(|candidate| candidate.id == assignment_id)
         {
-            let non_empty_groups = assignment
-                .groups
-                .iter()
-                .filter(|group| !group.member_ids.is_empty())
-                .count();
-            let total_members: usize = assignment
-                .groups
-                .iter()
-                .map(|group| group.member_ids.len())
-                .sum();
+            let groups = resolve_assignment_groups(&roster, assignment);
+            let non_empty_groups = groups.iter().filter(|g| !g.member_ids.is_empty()).count();
+            let total_members: usize = groups.iter().map(|g| g.member_ids.len()).sum();
             println!(
                 "  Groups: {} ({} non-empty)",
-                assignment.groups.len(),
+                groups.len(),
                 non_empty_groups
             );
             println!("  Students assigned: {}", total_members);
@@ -62,34 +55,27 @@ pub fn validate_assignment(profile: Option<String>, assignment: String) -> Resul
 
 fn format_validation_issue(
     roster: &Roster,
-    assignment_id: &AssignmentId,
+    _assignment_id: &AssignmentId,
     issue: &ValidationIssue,
 ) -> String {
     use repo_manage_core::ValidationKind;
 
-    let assignment = roster
-        .assignments
-        .iter()
-        .find(|assignment| &assignment.id == assignment_id);
-
-    let resolve_student = |id: &str| {
+    let resolve_member = |id: &str| {
         roster
             .students
             .iter()
-            .find(|student| student.id.to_string() == id)
-            .map(|student| format!("{} ({})", student.email, student.name))
+            .chain(roster.staff.iter())
+            .find(|m| m.id.to_string() == id)
+            .map(|m| format!("{} ({})", m.email, m.name))
             .unwrap_or_else(|| id.to_string())
     };
 
     let resolve_group = |id: &str| {
-        assignment
-            .and_then(|assignment| {
-                assignment
-                    .groups
-                    .iter()
-                    .find(|group| group.id.to_string() == id)
-            })
-            .map(|group| group.name.clone())
+        roster
+            .groups
+            .iter()
+            .find(|g| g.id == id)
+            .map(|g| g.name.clone())
             .unwrap_or_else(|| id.to_string())
     };
 
@@ -101,7 +87,7 @@ fn format_validation_issue(
             let names = issue
                 .affected_ids
                 .iter()
-                .map(|id| resolve_student(id))
+                .map(|id| resolve_member(id))
                 .collect::<Vec<_>>();
             format!("{:?}: {}", issue.kind, names.join(", "))
         }

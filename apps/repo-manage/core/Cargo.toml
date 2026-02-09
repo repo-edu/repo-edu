@@ -49,8 +49,10 @@ url.workspace = true
 
 # Roster utilities
 nanoid = "0.4"
+bs58.workspace = true
 unicode-normalization = "0.1"
 deunicode = "1.4"
+uuid.workspace = true
 
 # LMS client (unified)
 lms-client = { path = "../../../crates/lms-client" }

@@ -1,32 +1,61 @@
+//! Roster and assignment validation.
+
 use std::collections::{HashMap, HashSet};
 
+use super::resolution::resolve_assignment_groups;
 use super::slug::compute_repo_name;
+use super::system::{system_sets_missing, ORIGIN_LMS, ORIGIN_LOCAL, ORIGIN_SYSTEM};
 use super::types::{
-    AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, GroupId, GroupSetKind,
-    Roster, StudentStatus, ValidationIssue, ValidationKind, ValidationResult,
+    AssignmentId, EnrollmentType, GitIdentityMode, GitUsernameStatus, MemberStatus, Roster,
+    ValidationIssue, ValidationKind, ValidationResult,
 };
 
 const DEFAULT_REPO_TEMPLATE: &str = "{assignment}-{group}";
 
+/// Validate the entire roster.
+///
+/// Checks for:
+/// - Missing system group sets (must call ensure_system_group_sets first)
+/// - Duplicate member IDs
+/// - Missing/invalid emails
+/// - Duplicate emails
+/// - Duplicate assignment names
+/// - Group reference integrity
+/// - Enrollment type partitioning
 pub fn validate_roster(roster: &Roster) -> ValidationResult {
     let mut issues = Vec::new();
 
-    let duplicate_student_ids =
-        find_duplicate_strings(roster.students.iter().map(|student| student.id.to_string()));
-    if !duplicate_student_ids.is_empty() {
+    // Check system group sets exist
+    if system_sets_missing(roster) {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::SystemGroupSetsMissing,
+            affected_ids: Vec::new(),
+            context: Some("Call ensure_system_group_sets before validation".to_string()),
+        });
+    }
+
+    // Check for duplicate member IDs across students and staff
+    let all_member_ids: Vec<String> = roster
+        .students
+        .iter()
+        .chain(roster.staff.iter())
+        .map(|m| m.id.0.clone())
+        .collect();
+    let duplicate_member_ids = find_duplicate_strings(all_member_ids);
+    if !duplicate_member_ids.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::DuplicateStudentId,
-            affected_ids: duplicate_student_ids,
+            affected_ids: duplicate_member_ids,
             context: None,
         });
     }
 
-    // Check for missing emails
+    // Check for missing emails (students only)
     let missing_emails: Vec<String> = roster
         .students
         .iter()
-        .filter(|student| student.email.trim().is_empty())
-        .map(|student| student.id.to_string())
+        .filter(|m| m.email.trim().is_empty())
+        .map(|m| m.id.0.clone())
         .collect();
     if !missing_emails.is_empty() {
         issues.push(ValidationIssue {
@@ -36,13 +65,13 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         });
     }
 
-    // Check for invalid email formats (non-empty emails only)
+    // Check for invalid email formats (non-empty emails only, students only)
     let invalid_emails: Vec<String> = roster
         .students
         .iter()
-        .filter(|student| !student.email.trim().is_empty())
-        .filter(|student| !is_valid_email(&student.email))
-        .map(|student| student.id.to_string())
+        .filter(|m| !m.email.trim().is_empty())
+        .filter(|m| !is_valid_email(&m.email))
+        .map(|m| m.id.0.clone())
         .collect();
     if !invalid_emails.is_empty() {
         issues.push(ValidationIssue {
@@ -52,13 +81,13 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         });
     }
 
-    // Only check for duplicate emails among students that have emails
+    // Check for duplicate emails (students only, among non-empty emails)
     let duplicate_emails = find_duplicate_strings(
         roster
             .students
             .iter()
-            .filter(|student| !student.email.trim().is_empty())
-            .map(|student| normalize_email(&student.email)),
+            .filter(|m| !m.email.trim().is_empty())
+            .map(|m| normalize_email(&m.email)),
     );
     if !duplicate_emails.is_empty() {
         issues.push(ValidationIssue {
@@ -68,12 +97,9 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         });
     }
 
-    let duplicate_assignments = find_duplicate_strings(
-        roster
-            .assignments
-            .iter()
-            .map(|assignment| normalize_name(&assignment.name)),
-    );
+    // Check for duplicate assignment names
+    let duplicate_assignments =
+        find_duplicate_strings(roster.assignments.iter().map(|a| normalize_name(&a.name)));
     if !duplicate_assignments.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::DuplicateAssignmentName,
@@ -82,33 +108,139 @@ pub fn validate_roster(roster: &Roster) -> ValidationResult {
         });
     }
 
-    if let Some(group_sets) = roster.lms_group_sets.as_ref() {
-        for group_set in group_sets {
-            if matches!(
-                group_set.kind,
-                GroupSetKind::Copied | GroupSetKind::Unlinked
-            ) {
-                continue;
-            }
-            let mut affected = Vec::new();
-            for group in &group_set.groups {
-                if group.needs_reresolution || group.unresolved_count > 0 {
-                    affected.push(group.name.clone());
-                }
-            }
-            if !affected.is_empty() {
-                issues.push(ValidationIssue {
-                    kind: ValidationKind::CachedGroupResolutionPending,
-                    affected_ids: sorted_strings(affected),
-                    context: Some(group_set.name.clone()),
-                });
-            }
+    // Check for duplicate group IDs
+    let duplicate_group_ids = find_duplicate_strings(roster.groups.iter().map(|g| g.id.clone()));
+    if !duplicate_group_ids.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::DuplicateGroupIdInAssignment,
+            affected_ids: duplicate_group_ids,
+            context: Some("Duplicate group IDs in roster".to_string()),
+        });
+    }
+
+    // Check that all group_ids in group sets reference existing groups
+    let group_id_set: HashSet<&str> = roster.groups.iter().map(|g| g.id.as_str()).collect();
+    for group_set in &roster.group_sets {
+        let orphan_refs: Vec<String> = group_set
+            .group_ids
+            .iter()
+            .filter(|id| !group_id_set.contains(id.as_str()))
+            .cloned()
+            .collect();
+        if !orphan_refs.is_empty() {
+            issues.push(ValidationIssue {
+                kind: ValidationKind::OrphanGroupMember,
+                affected_ids: orphan_refs,
+                context: Some(format!(
+                    "Group set '{}' references non-existent groups",
+                    group_set.name
+                )),
+            });
         }
+    }
+
+    // Check enrollment type partitioning
+    let misplaced_students: Vec<String> = roster
+        .students
+        .iter()
+        .filter(|m| m.enrollment_type != EnrollmentType::Student)
+        .map(|m| m.id.0.clone())
+        .collect();
+    if !misplaced_students.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::InvalidEnrollmentPartition,
+            affected_ids: misplaced_students,
+            context: Some("Non-students in students array".to_string()),
+        });
+    }
+
+    let misplaced_staff: Vec<String> = roster
+        .staff
+        .iter()
+        .filter(|m| m.enrollment_type == EnrollmentType::Student)
+        .map(|m| m.id.0.clone())
+        .collect();
+    if !misplaced_staff.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::InvalidEnrollmentPartition,
+            affected_ids: misplaced_staff,
+            context: Some("Students in staff array".to_string()),
+        });
+    }
+
+    // Check that all member_ids in groups reference existing roster members
+    let member_id_set: HashSet<&str> = roster
+        .students
+        .iter()
+        .chain(roster.staff.iter())
+        .map(|m| m.id.0.as_str())
+        .collect();
+    for group in &roster.groups {
+        let orphan_members: Vec<String> = group
+            .member_ids
+            .iter()
+            .filter(|id| !member_id_set.contains(id.0.as_str()))
+            .map(|id| id.0.clone())
+            .collect();
+        if !orphan_members.is_empty() {
+            issues.push(ValidationIssue {
+                kind: ValidationKind::OrphanGroupMember,
+                affected_ids: orphan_members,
+                context: Some(format!(
+                    "Group '{}' references non-existent members",
+                    group.name
+                )),
+            });
+        }
+    }
+
+    // Validate group origin consistency in group sets
+    for group_set in &roster.group_sets {
+        validate_group_set_origin_consistency(roster, group_set, &mut issues);
     }
 
     ValidationResult { issues }
 }
 
+/// Validate origin consistency for a group set.
+fn validate_group_set_origin_consistency(
+    roster: &Roster,
+    group_set: &super::types::GroupSet,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    // Determine expected origins based on connection type
+    let connection_kind = group_set
+        .connection
+        .as_ref()
+        .and_then(|c| c.value.get("kind").and_then(|v| v.as_str()));
+
+    for group_id in &group_set.group_ids {
+        let Some(group) = roster.groups.iter().find(|g| &g.id == group_id) else {
+            continue; // Already caught by orphan check
+        };
+
+        let origin_ok = match connection_kind {
+            Some("system") => group.origin == ORIGIN_SYSTEM,
+            Some("canvas") | Some("moodle") => group.origin == ORIGIN_LMS,
+            Some("import") => group.origin == ORIGIN_LOCAL && group.lms_group_id.is_none(),
+            None => true, // Local sets can have mixed origins
+            _ => true,
+        };
+
+        if !origin_ok {
+            issues.push(ValidationIssue {
+                kind: ValidationKind::InvalidGroupOrigin,
+                affected_ids: vec![group.id.clone()],
+                context: Some(format!(
+                    "Group '{}' has origin '{}' but group set '{}' expects different origin",
+                    group.name, group.origin, group_set.name
+                )),
+            });
+        }
+    }
+}
+
+/// Validate a specific assignment.
 pub fn validate_assignment(
     roster: &Roster,
     assignment_id: &AssignmentId,
@@ -117,6 +249,7 @@ pub fn validate_assignment(
     validate_assignment_with_template(roster, assignment_id, identity_mode, DEFAULT_REPO_TEMPLATE)
 }
 
+/// Validate a specific assignment with a custom repo name template.
 pub fn validate_assignment_with_template(
     roster: &Roster,
     assignment_id: &AssignmentId,
@@ -124,36 +257,25 @@ pub fn validate_assignment_with_template(
     template: &str,
 ) -> ValidationResult {
     let mut issues = Vec::new();
-    let Some(assignment) = roster
-        .assignments
-        .iter()
-        .find(|assignment| &assignment.id == assignment_id)
-    else {
+
+    let Some(assignment) = roster.find_assignment(assignment_id) else {
         return ValidationResult { issues };
     };
 
-    let student_lookup = roster
+    // Resolve groups for this assignment
+    let groups = resolve_assignment_groups(roster, assignment);
+
+    // Build member lookup
+    let member_lookup: HashMap<&str, &super::types::RosterMember> = roster
         .students
         .iter()
-        .map(|student| (student.id.to_string(), student))
-        .collect::<HashMap<_, _>>();
+        .chain(roster.staff.iter())
+        .map(|m| (m.id.0.as_str(), m))
+        .collect();
 
-    let duplicate_group_ids =
-        find_duplicate_strings(assignment.groups.iter().map(|group| group.id.to_string()));
-    if !duplicate_group_ids.is_empty() {
-        issues.push(ValidationIssue {
-            kind: ValidationKind::DuplicateGroupIdInAssignment,
-            affected_ids: duplicate_group_ids,
-            context: None,
-        });
-    }
-
-    let duplicate_group_names = find_duplicate_strings(
-        assignment
-            .groups
-            .iter()
-            .map(|group| normalize_name(&group.name)),
-    );
+    // Check for duplicate group names
+    let duplicate_group_names =
+        find_duplicate_strings(groups.iter().map(|g| normalize_name(&g.name)));
     if !duplicate_group_names.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::DuplicateGroupNameInAssignment,
@@ -162,44 +284,50 @@ pub fn validate_assignment_with_template(
         });
     }
 
-    let mut student_group_counts: HashMap<String, usize> = HashMap::new();
-    let mut orphan_members: HashSet<String> = HashSet::new();
+    let mut member_group_counts: HashMap<String, usize> = HashMap::new();
     let mut empty_groups: HashSet<String> = HashSet::new();
     let mut missing_git_usernames: HashSet<String> = HashSet::new();
     let mut invalid_git_usernames: HashSet<String> = HashSet::new();
     let mut assigned_active_students: HashSet<String> = HashSet::new();
 
-    for group in &assignment.groups {
+    for group in &groups {
         if group.member_ids.is_empty() {
-            empty_groups.insert(group.id.to_string());
+            empty_groups.insert(group.id.clone());
         }
+
         for member_id in &group.member_ids {
-            let member_key = member_id.to_string();
-            let Some(student) = student_lookup.get(&member_key) else {
-                orphan_members.insert(member_key);
+            let member_key = member_id.0.as_str();
+            let Some(member) = member_lookup.get(member_key) else {
+                // Member not found - already caught by roster validation
                 continue;
             };
-            if student.status != StudentStatus::Active {
+
+            if member.status != MemberStatus::Active {
                 continue;
             }
-            assigned_active_students.insert(member_key.clone());
-            *student_group_counts.entry(member_key.clone()).or_insert(0) += 1;
+
+            assigned_active_students.insert(member_key.to_string());
+            *member_group_counts
+                .entry(member_key.to_string())
+                .or_insert(0) += 1;
+
             if identity_mode == GitIdentityMode::Username {
-                let username = student.git_username.as_deref().map(str::trim);
+                let username = member.git_username.as_deref().map(str::trim);
                 if username.is_none() || username == Some("") {
-                    missing_git_usernames.insert(student.id.to_string());
-                } else if matches!(student.git_username_status, GitUsernameStatus::Invalid) {
-                    invalid_git_usernames.insert(student.id.to_string());
+                    missing_git_usernames.insert(member_id.0.clone());
+                } else if matches!(member.git_username_status, GitUsernameStatus::Invalid) {
+                    invalid_git_usernames.insert(member_id.0.clone());
                 }
             }
         }
     }
 
-    let duplicate_members = student_group_counts
+    // Check for members in multiple groups
+    let duplicate_members: Vec<String> = member_group_counts
         .iter()
         .filter(|(_, count)| **count > 1)
         .map(|(id, _)| id.clone())
-        .collect::<Vec<_>>();
+        .collect();
     if !duplicate_members.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::StudentInMultipleGroupsInAssignment,
@@ -208,14 +336,7 @@ pub fn validate_assignment_with_template(
         });
     }
 
-    if !orphan_members.is_empty() {
-        issues.push(ValidationIssue {
-            kind: ValidationKind::OrphanGroupMember,
-            affected_ids: sorted_strings(orphan_members.into_iter().collect()),
-            context: None,
-        });
-    }
-
+    // Empty groups warning
     if !empty_groups.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::EmptyGroup,
@@ -224,6 +345,7 @@ pub fn validate_assignment_with_template(
         });
     }
 
+    // Git username issues
     if identity_mode == GitIdentityMode::Username && !missing_git_usernames.is_empty() {
         issues.push(ValidationIssue {
             kind: ValidationKind::MissingGitUsername,
@@ -240,25 +362,25 @@ pub fn validate_assignment_with_template(
         });
     }
 
-    if assignment.assignment_type == AssignmentType::ClassWide {
-        let unassigned_active = roster
-            .students
-            .iter()
-            .filter(|student| student.status == StudentStatus::Active)
-            .filter(|student| !assigned_active_students.contains(&student.id.to_string()))
-            .map(|student| student.id.to_string())
-            .collect::<Vec<_>>();
-        if !unassigned_active.is_empty() {
-            issues.push(ValidationIssue {
-                kind: ValidationKind::UnassignedStudent,
-                affected_ids: sorted_strings(unassigned_active),
-                context: None,
-            });
-        }
+    // Check for unassigned active students (warning)
+    let unassigned_active: Vec<String> = roster
+        .students
+        .iter()
+        .filter(|m| m.status == MemberStatus::Active)
+        .filter(|m| !assigned_active_students.contains(&m.id.0))
+        .map(|m| m.id.0.clone())
+        .collect();
+    if !unassigned_active.is_empty() {
+        issues.push(ValidationIssue {
+            kind: ValidationKind::UnassignedStudent,
+            affected_ids: sorted_strings(unassigned_active),
+            context: None,
+        });
     }
 
-    let mut repo_name_map: HashMap<String, Vec<GroupId>> = HashMap::new();
-    for group in &assignment.groups {
+    // Check for duplicate repo names
+    let mut repo_name_map: HashMap<String, Vec<String>> = HashMap::new();
+    for group in &groups {
         let repo_name = compute_repo_name(template, assignment, group);
         repo_name_map
             .entry(repo_name)
@@ -270,7 +392,7 @@ pub fn validate_assignment_with_template(
         if group_ids.len() > 1 {
             issues.push(ValidationIssue {
                 kind: ValidationKind::DuplicateRepoNameInAssignment,
-                affected_ids: sorted_strings(group_ids.iter().map(ToString::to_string).collect()),
+                affected_ids: sorted_strings(group_ids),
                 context: Some(repo_name),
             });
         }
@@ -312,9 +434,11 @@ impl ValidationKind {
                 | Self::DuplicateRepoNameInAssignment
                 | Self::OrphanGroupMember
                 | Self::EmptyGroup
-                | Self::UnassignedStudent
+                | Self::SystemGroupSetsMissing
+                | Self::InvalidEnrollmentPartition
+                | Self::InvalidGroupOrigin
         )
-        // Note: MissingEmail, MissingGitUsername, InvalidGitUsername are warnings (non-blocking)
+        // Note: MissingEmail, MissingGitUsername, InvalidGitUsername, UnassignedStudent are warnings
     }
 }
 
@@ -371,147 +495,101 @@ fn sorted_strings(mut values: Vec<String>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use super::*;
+    use crate::generated::types::RosterMemberId;
+    use crate::roster::system::ensure_system_group_sets;
+    use crate::roster::types::RosterMember;
 
-    use super::{validate_assignment, validate_roster};
-    use crate::generated::types::{
-        CachedLmsGroup, GroupFilter, GroupSetKind, LmsGroupSetCacheEntry,
-    };
-    use crate::roster::types::{
-        Assignment, AssignmentId, AssignmentType, GitIdentityMode, GitUsernameStatus, Group,
-        GroupId, Roster, Student, StudentId, StudentStatus,
-    };
-    use chrono::TimeZone;
-    use lms_common::LmsType;
-
-    fn build_student(id: &str, email: &str) -> Student {
-        Student {
-            id: StudentId(id.to_string()),
+    fn make_student(id: &str, email: &str) -> RosterMember {
+        RosterMember {
+            id: RosterMemberId(id.to_string()),
             name: format!("Student {id}"),
             email: email.to_string(),
             student_number: None,
             git_username: None,
             git_username_status: GitUsernameStatus::Unknown,
-            status: StudentStatus::Active,
+            status: MemberStatus::Active,
             lms_user_id: None,
-            custom_fields: HashMap::new(),
+            enrollment_type: EnrollmentType::Student,
+            enrollment_display: None,
+            department: None,
+            institution: None,
+            source: "local".to_string(),
+        }
+    }
+
+    fn empty_roster() -> Roster {
+        Roster {
+            connection: None,
+            students: Vec::new(),
+            staff: Vec::new(),
+            groups: Vec::new(),
+            group_sets: Vec::new(),
+            assignments: Vec::new(),
         }
     }
 
     #[test]
+    fn validate_roster_detects_missing_system_sets() {
+        let roster = empty_roster();
+        let result = validate_roster(&roster);
+
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.kind == ValidationKind::SystemGroupSetsMissing));
+    }
+
+    #[test]
+    fn validate_roster_passes_with_system_sets() {
+        let mut roster = empty_roster();
+        ensure_system_group_sets(&mut roster);
+
+        let result = validate_roster(&roster);
+        assert!(!result
+            .issues
+            .iter()
+            .any(|i| i.kind == ValidationKind::SystemGroupSetsMissing));
+    }
+
+    #[test]
     fn validate_roster_detects_duplicate_ids_and_emails() {
-        let roster = Roster {
-            source: None,
-            students: vec![
-                build_student("dup", "dup@example.com"),
-                build_student("dup", "dup@example.com"),
-            ],
-            assignments: vec![],
-            lms_group_sets: Some(Vec::new()),
-        };
+        let mut roster = empty_roster();
+        roster.students.push(make_student("dup", "dup@example.com"));
+        roster.students.push(make_student("dup", "dup@example.com"));
+        ensure_system_group_sets(&mut roster);
 
         let result = validate_roster(&roster);
         assert!(result
             .issues
             .iter()
-            .any(|issue| issue.kind == super::ValidationKind::DuplicateStudentId));
+            .any(|i| i.kind == ValidationKind::DuplicateStudentId));
         assert!(result
             .issues
             .iter()
-            .any(|issue| issue.kind == super::ValidationKind::DuplicateEmail));
+            .any(|i| i.kind == ValidationKind::DuplicateEmail));
     }
 
     #[test]
-    fn validate_assignment_detects_duplicate_group_names_and_orphans() {
-        let student = build_student("s1", "s1@example.com");
-        let roster = Roster {
-            source: None,
-            students: vec![student],
-            assignments: vec![Assignment {
-                id: AssignmentId("a1".to_string()),
-                name: "Assignment".to_string(),
-                description: None,
-                assignment_type: AssignmentType::ClassWide,
-                groups: vec![
-                    Group {
-                        id: GroupId("g1".to_string()),
-                        name: "Group".to_string(),
-                        member_ids: vec![StudentId("missing".to_string())],
-                    },
-                    Group {
-                        id: GroupId("g2".to_string()),
-                        name: "Group".to_string(),
-                        member_ids: vec![StudentId("s1".to_string())],
-                    },
-                ],
-                group_set_id: None,
-            }],
-            lms_group_sets: Some(Vec::new()),
-        };
+    fn validate_roster_detects_invalid_enrollment_partition() {
+        let mut roster = empty_roster();
+        let mut teacher_in_students = make_student("t1", "t1@example.com");
+        teacher_in_students.enrollment_type = EnrollmentType::Teacher;
+        roster.students.push(teacher_in_students);
+        ensure_system_group_sets(&mut roster);
 
-        let result = validate_assignment(
-            &roster,
-            &AssignmentId("a1".to_string()),
-            GitIdentityMode::Username,
-        );
+        let result = validate_roster(&roster);
         assert!(result
             .issues
             .iter()
-            .any(|issue| issue.kind == super::ValidationKind::DuplicateGroupNameInAssignment));
-        assert!(result
-            .issues
-            .iter()
-            .any(|issue| issue.kind == super::ValidationKind::OrphanGroupMember));
+            .any(|i| i.kind == ValidationKind::InvalidEnrollmentPartition));
     }
 
     #[test]
     fn validation_kind_is_blocking() {
-        assert!(super::ValidationKind::DuplicateEmail.is_blocking());
-        assert!(super::ValidationKind::EmptyGroup.is_blocking());
-    }
-
-    #[test]
-    fn validate_roster_flags_cached_group_resolution_pending() {
-        let group = CachedLmsGroup {
-            id: "g1".to_string(),
-            name: "Group One".to_string(),
-            lms_member_ids: vec!["u1".to_string()],
-            resolved_member_ids: Vec::new(),
-            unresolved_count: 1,
-            needs_reresolution: false,
-        };
-        let group_set = LmsGroupSetCacheEntry {
-            id: "set-1".to_string(),
-            kind: GroupSetKind::Linked,
-            name: "Set One".to_string(),
-            groups: vec![group],
-            filter: Some(GroupFilter {
-                kind: "all".to_string(),
-                selected: None,
-                pattern: None,
-            }),
-            fetched_at: Some(chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()),
-            lms_group_set_id: Some("set-1".to_string()),
-            lms_type: Some(LmsType::Canvas),
-            base_url: Some("https://example.edu".to_string()),
-            course_id: Some("course-1".to_string()),
-        };
-
-        let roster = Roster {
-            source: None,
-            students: vec![],
-            assignments: vec![],
-            lms_group_sets: Some(vec![group_set]),
-        };
-
-        let result = validate_roster(&roster);
-        let issue = result
-            .issues
-            .iter()
-            .find(|issue| issue.kind == super::ValidationKind::CachedGroupResolutionPending);
-        assert!(issue.is_some());
-        let issue = issue.unwrap();
-        assert_eq!(issue.context.as_deref(), Some("Set One"));
-        assert_eq!(issue.affected_ids, vec!["Group One".to_string()]);
+        assert!(ValidationKind::DuplicateEmail.is_blocking());
+        assert!(ValidationKind::EmptyGroup.is_blocking());
+        assert!(ValidationKind::SystemGroupSetsMissing.is_blocking());
+        assert!(!ValidationKind::UnassignedStudent.is_blocking());
     }
 }

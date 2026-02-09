@@ -50,6 +50,6 @@ pub use helpers::{
 pub use retry::{with_retry, RetryConfig};
 pub use traits::{LmsClient, OAuth, Token};
 pub use types::{
-    Assignment, Course, Enrollment, Group, GroupCategory, GroupMembership, PaginationInfo,
-    Submission, User,
+    Assignment, Course, Enrollment, EnrollmentType, Group, GroupCategory, GroupMembership,
+    PaginationInfo, Submission, User,
 };
