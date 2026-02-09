@@ -11,7 +11,7 @@ enabling automation and scripting for educational repository management.
 The CLI is built as part of the repo-manage workspace:
 
 ```bash
-cargo build -p repo-manage-cli --release
+pnpm cli:build:release
 ```
 
 The binary is available at `target/release/redu`.
@@ -21,9 +21,12 @@ The binary is available at `target/release/redu`.
 1. Create a profile in the GUI and configure git/LMS connections
    (the CLI uses saved settings for connections and course IDs)
 2. Set the active profile: `redu profile load <n>`
-3. Import students: `redu lms import-students`
-4. Create an assignment in the GUI and import groups: `redu lms import-groups --assignment <n>`
+3. Import roster: `redu lms import-students`
+4. Set up group sets and assignments in the GUI
 5. Create repositories: `redu repo create --assignment <n>`
+
+The CLI is a power-user scripting tool focused on I/O operations and automation. Interactive
+configuration (group set management, assignment editing) is done in the GUI.
 
 ## Command Groups
 

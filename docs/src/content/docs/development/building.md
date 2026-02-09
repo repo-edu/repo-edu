@@ -71,18 +71,19 @@ cd repo-edu
 pnpm install
 
 # Run in development mode
-pnpm tauri:dev
+pnpm dev
 ```
 
 ## Build Commands
 
-All commands are run from the repository root:
+All commands work from both the repository root and `apps/repo-manage` (bidirectional forwarding).
+Use pnpm scripts exclusively — never npm or npx commands.
 
 | Command | Description |
 |---------|-------------|
-| `pnpm tauri:dev` | Run desktop app in development mode |
-| `pnpm tauri:build` | Build debug Tauri app (`.app` only) |
-| `pnpm tauri:build:release` | Build release app (`.app` + `.dmg`) |
+| `pnpm dev` | Run desktop app in development mode |
+| `pnpm build` | Build debug Tauri app (`.app` only) |
+| `pnpm build:release` | Build release app (`.app` + `.dmg`) |
 | `pnpm cli:build` | Build debug CLI |
 | `pnpm cli:build:release` | Build release CLI |
 
@@ -112,14 +113,15 @@ The `redu` binary is at:
 
 ### Regenerating Type Bindings
 
-After modifying JSON Schemas used by Tauri commands:
+After modifying JSON Schemas:
 
 ```bash
 pnpm gen:bindings
 ```
 
-This updates `apps/repo-manage/src/bindings/types.ts` and
-`apps/repo-manage/src/bindings/commands.ts`.
+This regenerates five files from the schemas. See
+[Architecture](./architecture.md#type-safety-pipeline) for the full list. Never edit generated
+files directly.
 
 ### Testing
 
@@ -132,9 +134,9 @@ pnpm test:rs     # Rust tests only
 ### Linting and Formatting
 
 ```bash
-pnpm fmt         # Format all code
-pnpm check       # Check all linting
-pnpm fix         # Auto-fix issues
+pnpm fmt         # Format all code (TS + Rust + Markdown)
+pnpm check       # Check all (Biome + Clippy + Markdown + Schemas)
+pnpm fix         # Auto-fix all issues
 pnpm typecheck   # Type check TS and Rust
 pnpm validate    # Run check + typecheck + test
 ```

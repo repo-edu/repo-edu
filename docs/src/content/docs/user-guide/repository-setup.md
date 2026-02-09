@@ -19,8 +19,10 @@ Create and manage student repositories on Git hosting platforms using the **Oper
 Before setting up repositories:
 
 1. **Roster** — Import or create a student roster in the Roster tab
-2. **Assignments** — Define assignments in the Assignment tab
-3. **Git Connection** — Configure your Git platform in Settings
+2. **Group Sets** — Set up group sets (from LMS, CSV import, or manual creation) in the Groups &
+   Assignments tab
+3. **Assignments** — Define assignments with group set references in the Groups & Assignments tab
+4. **Git Connection** — Configure your Git platform in Settings
 
 ## Configuration
 
@@ -48,13 +50,13 @@ Configure in **Settings** (gear icon or `Cmd+,`) under the Git section:
 
 ## Workflow
 
-### Step 1: Prepare Roster and Assignments
+### Step 1: Prepare Roster, Group Sets, and Assignments
 
-1. **Roster tab**: Import students from LMS or file, or add manually
-2. **Assignment tab**: Create assignments with:
-   - Assignment name (becomes part of repo name)
-   - Template repository reference
-   - Group configuration (use original groups, subset, or custom)
+1. **Roster tab**: Import students and staff from LMS or file, or add manually
+2. **Groups & Assignments tab**: Set up group sets and create assignments:
+   - Create or sync group sets (from LMS, CSV import, or manually)
+   - Create assignments referencing a group set
+   - Configure group selection (all groups, or glob pattern to select a subset)
 
 ### Step 2: Configure Git Platform
 
@@ -84,18 +86,30 @@ In the **Operation** tab:
 2. Click **Setup** to begin creation
 3. Monitor progress in the output console
 
-## Assignment Groups
+## Group Sets and Group Selection
 
-Each assignment can have different group configurations:
+Each assignment references a **group set** and defines how to select groups from it:
 
-| Type | Description |
+### Group Set Sources
+
+| Source | Description |
+|--------|-------------|
+| **System** | Auto-managed Individual Students and Staff sets |
+| **LMS** | Synced from Canvas/Moodle group categories |
+| **CSV Import** | Imported from a CSV file |
+| **Local** | Manually created in the app |
+
+### Group Selection Modes
+
+| Mode | Description |
 |------|-------------|
-| **Use Original** | Use groups as imported from LMS |
-| **Subset** | Select specific groups to include |
-| **Custom** | Define new group compositions |
-| **Individual** | Create individual repos (one per student) |
+| **All** | Include all groups from the set (with optional exclusions) |
+| **Pattern** | Glob pattern on group names (e.g., `1D*` for all groups starting with "1D") |
 
-Configure in the **Assignment** tab when creating or editing assignments.
+For individual assignments, use the system "Individual Students" group set, which auto-creates one
+group per active student.
+
+Configure in the **Groups & Assignments** tab when creating or editing assignments.
 
 ## Repository Naming
 

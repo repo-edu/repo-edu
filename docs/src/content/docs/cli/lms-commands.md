@@ -23,11 +23,13 @@ redu lms verify
 
 ## redu lms import-students
 
-Import students from LMS into roster. Merges with existing students:
+Import the roster (students and staff) from LMS. Merges with existing members:
 
-- Adds new students
-- Updates existing students (by email)
+- Adds new members
+- Updates existing members (matched by email)
 - Preserves git usernames
+- Splits students and staff by enrollment type
+- Members absent from LMS are set to `dropped` status
 
 ```bash
 redu lms import-students [--profile <n>]
@@ -37,44 +39,43 @@ redu lms import-students [--profile <n>]
 
 ```bash
 redu lms import-students
-# Importing students from LMS...
-# ✓ Fetched 47 students
+# Importing roster from LMS...
+# ✓ Fetched 47 students, 3 staff
 #   Added: 5
 #   Updated: 42
-#   Unchanged: 0
+#   Unchanged: 3
 # Roster saved.
 ```
 
 ## redu lms import-groups
 
-Import groups from an LMS group-set into a specific assignment.
+Import groups from an LMS group category/grouping into the roster as a connected group set.
 
 ```bash
-redu lms import-groups --assignment <n> [--group-set <id>] [--profile <n>]
+redu lms import-groups [--group-set <id>] [--profile <n>]
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `--assignment <n>` | Target assignment name (required) |
-| `--group-set <id>` | LMS group-set ID (prompts interactively if omitted) |
+| `--group-set <id>` | LMS group set/grouping ID (prompts interactively if omitted) |
 | `--profile <n>` | Profile to use |
 
 ### Example
 
 ```bash
 # Interactive group-set selection
-redu lms import-groups --assignment task-1
-# Fetching group-sets from LMS...
-# Available group-sets:
+redu lms import-groups
+# Fetching group sets from LMS...
+# Available group sets:
 #   1. Project Teams (id: 12345)
 #   2. Lab Groups (id: 12346)
-# Select group-set number [1]:
-# Importing groups into 'task-1'...
-# ✓ Imported 12 groups (45 students)
+# Select group set number [1]:
+# Importing group set 'Project Teams'...
+# ✓ Imported 12 groups (45 members)
 # Roster saved.
 
 # Direct group-set specification
-redu lms import-groups --assignment task-1 --group-set 12345
+redu lms import-groups --group-set 12345
 ```

@@ -30,10 +30,12 @@ redu roster show
 # ==============
 # Profile: cs101-fall-2025
 # Students: 45
+# Staff: 3
+# Group Sets: 4
 # Assignments: 3
-#   - task-1 (12 groups)
-#   - task-2 (12 groups)
-#   - task-3 (15 groups)
+#   - task-1 (Project Teams, 12 groups)
+#   - task-2 (Project Teams, 12 groups)
+#   - task-3 (Individual Students, 45 groups)
 
 # Show with students
 redu roster show --students

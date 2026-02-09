@@ -32,22 +32,23 @@ In the Settings sheet:
 5. Set the template organization/group
 6. Click **Verify** to test the connection
 
-## Step 3: Import Students (Roster Tab)
+## Step 3: Import Roster (Roster Tab)
 
 1. Go to the **Roster** tab
 2. Click the import dropdown and select **Import from LMS**
-3. Choose whether to import students only or with groups
-4. Review the imported roster
+3. Review the sync dialog (shows student and staff counts)
+4. Confirm the import
 
-✓ Your student roster is now loaded.
+✓ Your student and staff roster is now loaded.
 
-## Step 4: Define Assignments (Assignment Tab)
+## Step 4: Set Up Groups & Assignments (Groups & Assignments Tab)
 
-1. Go to the **Assignment** tab
-2. Click **New Assignment**
-3. Enter the assignment name (e.g., `task-1`)
-4. Configure group settings (use original groups, subset, or custom)
-5. Click **Save**
+1. Go to the **Groups & Assignments** tab
+2. System group sets (Individual Students, Staff) are created automatically
+3. Optionally connect LMS group sets or create local group sets
+4. Click **New Assignment**
+5. Enter the assignment name (e.g., `task-1`)
+6. Select a group set and configure group selection (all groups or glob pattern)
 
 ## Step 5: Create Repositories (Operation Tab)
 
@@ -115,11 +116,6 @@ redu profile load cs101-fall-2025
 # View current profile settings
 redu profile show
 ```
-
-:::tip[CLI Status]
-LMS and Repo CLI commands are temporarily disabled during the roster refactor. Use the GUI
-application for LMS import and repository operations.
-:::
 
 See [CLI Overview](../cli/overview.md) for details.
 

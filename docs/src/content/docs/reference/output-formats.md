@@ -87,11 +87,46 @@ The output varies based on settings:
 
 ## XLSX (Excel)
 
-Excel format with the same structure as CSV, plus:
+Excel format with the same structure as roster CSV, plus:
 
 - Header row formatting
 - Column auto-width
-- Data validation (where applicable)
+- Additional columns: `student_number`, `enrollment_type`, `source`, `department`, `institution`
+
+## CSV Group Set Export
+
+Group sets can be exported to and imported from CSV for backup, transfer, or local editing.
+
+### Structure
+
+```csv
+group_set_id,group_id,group_name,name,email
+3vQB4fC,2xYA9dE,team-alpha,Alice Doe,alice@university.edu
+3vQB4fC,2xYA9dE,team-alpha,Bob Smith,bob@university.edu
+3vQB4fC,7kZP2mR,team-beta,Charlie Brown,charlie@university.edu
+```
+
+### Columns
+
+| Column | Description |
+|--------|-------------|
+| `group_set_id` | Base58-encoded UUID of the group set |
+| `group_id` | Base58-encoded UUID of the group |
+| `group_name` | Group name |
+| `name` | Member full name |
+| `email` | Member email address |
+
+### Import Behavior
+
+- **Member matching** — By email (case-insensitive). Members not in the roster are reported as
+  missing but do not block import.
+- **Group matching on reimport** — First by group ID, then falls back to group name (case-sensitive).
+- **Reimport change detection** — Shows added, removed, updated, and renamed groups before
+  confirming.
+
+### UUID Encoding
+
+UUIDs in the CSV are base58-encoded for compact transport (e.g., `3vQB4fC` instead of a full UUID).
 
 ## File Naming
 
@@ -100,5 +135,6 @@ Default filenames (configurable in settings):
 | Format | Default Filename |
 |--------|------------------|
 | YAML | `students.yaml` |
-| CSV | `student-info.csv` |
-| XLSX | `student-info.xlsx` |
+| CSV (roster) | `student-info.csv` |
+| XLSX (roster) | `student-info.xlsx` |
+| CSV (group set) | `{group-set-name}.csv` |

@@ -223,64 +223,167 @@ Per-profile settings for course-specific configuration.
 
 ## Roster Data (`rosters/*.json`)
 
-Roster data is stored separately from profile settings:
+Roster data is stored separately from profile settings. The roster uses a reference-based model
+where groups are top-level entities and group sets/assignments reference them by ID.
 
 ```json
 {
-  "source": {
-    "type": "lms",
-    "lms_id": "12345",
-    "imported_at": "2025-01-07T10:00:00Z"
+  "connection": {
+    "kind": "canvas",
+    "course_id": "12345",
+    "last_updated": "2025-01-07T10:00:00Z"
   },
   "students": [
     {
-      "id": "s1",
+      "id": "abc123",
       "name": "Alice Doe",
       "email": "alice@uni.edu",
       "student_number": "1234567",
       "git_username": "alicedoe",
-      "lms_id": "u123"
+      "git_username_status": "valid",
+      "status": "active",
+      "lms_user_id": "u123",
+      "enrollment_type": "student",
+      "source": "lms"
+    }
+  ],
+  "staff": [
+    {
+      "id": "def456",
+      "name": "Prof. Smith",
+      "email": "smith@uni.edu",
+      "enrollment_type": "teacher",
+      "source": "lms"
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "name": "team-alpha",
+      "member_ids": ["abc123", "abc456"],
+      "origin": "lms",
+      "lms_group_id": "1001"
+    }
+  ],
+  "group_sets": [
+    {
+      "id": "gs1",
+      "name": "Project Teams",
+      "group_ids": ["g1", "g2"],
+      "connection": {
+        "kind": "canvas",
+        "course_id": "12345",
+        "group_set_id": "500",
+        "last_updated": "2025-01-07T10:00:00Z"
+      }
     }
   ],
   "assignments": [
     {
       "id": "a1",
       "name": "task-1",
-      "groups": [
-        {
-          "id": "g1",
-          "name": "team-alpha",
-          "student_ids": ["s1", "s2"]
-        }
-      ]
+      "group_set_id": "gs1",
+      "group_selection": {
+        "kind": "all",
+        "excluded_group_ids": []
+      }
     }
   ]
 }
 ```
 
-### Student
+### RosterConnection
+
+| Kind | Fields | Description |
+|------|--------|-------------|
+| `canvas` | `course_id`, `last_updated` | Imported from Canvas LMS |
+| `moodle` | `course_id`, `last_updated` | Imported from Moodle LMS |
+| `import` | `source_filename`, `last_updated` | Imported from file |
+
+### RosterMember (Student or Staff)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | Internal student ID |
+| `id` | string | UUID |
 | `name` | string | Full name |
 | `email` | string | Email address |
 | `student_number` | string \| null | Institutional student ID |
 | `git_username` | string \| null | Git platform username |
-| `lms_id` | string \| null | LMS user ID |
+| `git_username_status` | `"unknown"` \| `"valid"` \| `"invalid"` | Verification status |
+| `status` | `"active"` \| `"incomplete"` \| `"dropped"` | Membership status |
+| `lms_user_id` | string \| null | LMS user ID |
+| `enrollment_type` | EnrollmentType | Role in the course |
+| `enrollment_display` | string \| null | LMS-native status label |
+| `department` | string \| null | Department (Moodle only) |
+| `institution` | string \| null | Institution (Moodle only) |
+| `source` | `"lms"` \| `"local"` | Origin of the member |
+
+#### EnrollmentType
+
+| Value | Description |
+|-------|-------------|
+| `"student"` | Enrolled student |
+| `"teacher"` | Instructor/teacher |
+| `"ta"` | Teaching assistant |
+| `"designer"` | Course designer |
+| `"observer"` | Observer/auditor |
+| `"other"` | Other role |
+
+Members in the `students` array always have `enrollment_type: "student"`. Members in the `staff`
+array have non-student enrollment types.
+
+### Group
+
+Groups are top-level entities. Their `origin` field determines editability.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | UUID |
+| `name` | string | Group name |
+| `member_ids` | string[] | UUIDs of roster members in this group |
+| `origin` | `"system"` \| `"lms"` \| `"local"` | Determines editability |
+| `lms_group_id` | string \| null | LMS group ID (required when `origin` is `lms`) |
+
+### GroupSet
+
+Group sets are named collections of group references with connection metadata.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | UUID |
+| `name` | string | Group set name |
+| `group_ids` | string[] | UUIDs of groups in this set |
+| `connection` | GroupSetConnection \| null | Source metadata |
+
+#### GroupSetConnection
+
+| Kind | Fields | Description |
+|------|--------|-------------|
+| `system` | `system_type` | Auto-managed (`individual_students` or `staff`) |
+| `canvas` | `course_id`, `group_set_id`, `last_updated` | Synced from Canvas |
+| `moodle` | `course_id`, `grouping_id`, `last_updated` | Synced from Moodle |
+| `import` | `source_filename`, `last_updated` | Imported from CSV |
+
+A `null` connection means the group set was created locally by the user.
 
 ### Assignment
+
+Assignments reference a group set and define which groups to include.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Internal assignment ID |
 | `name` | string | Assignment name (used in repo naming) |
-| `groups` | Group[] | Groups for this assignment |
+| `description` | string \| null | Optional description |
+| `group_set_id` | string | UUID of the group set this assignment uses |
+| `group_selection` | GroupSelectionMode | How to select groups from the set |
 
-### Group
+#### GroupSelectionMode
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Internal group ID |
-| `name` | string | Group name |
-| `student_ids` | string[] | IDs of students in group |
+| Kind | Fields | Description |
+|------|--------|-------------|
+| `all` | `excluded_group_ids` | All groups in the set, minus exclusions |
+| `pattern` | `pattern`, `excluded_group_ids` | Glob match on group names, minus exclusions |
+
+The `pattern` field supports simple glob syntax: `*` (any chars), `?` (single char),
+`[abc]` (character class), `[!abc]` (negated class), `\` (escape).

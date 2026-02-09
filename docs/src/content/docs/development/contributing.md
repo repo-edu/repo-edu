@@ -48,21 +48,26 @@ cd repo-edu
 pnpm install
 
 # Run in development mode
-pnpm tauri:dev
+pnpm dev
 ```
 
 ## Project Structure
 
 ```text
 repo-edu/
-├── apps/repo-manage/     # Main application
-│   ├── src/              # React frontend
-│   ├── src-tauri/        # Rust backend
-│   ├── core/             # Shared Rust library
-│   └── cli/              # CLI tool
-├── crates/               # LMS crates
-├── packages/ui/          # Shared UI components
-└── docs/                 # Starlight documentation
+├── apps/repo-manage/          # Main application
+│   ├── src/                   # Tauri React entrypoint (thin wrapper)
+│   ├── src-tauri/             # Rust backend
+│   ├── core/                  # Shared Rust library (CLI + GUI)
+│   ├── cli/                   # CLI tool (redu)
+│   └── schemas/               # JSON Schemas (source of truth for types)
+├── crates/                    # LMS crates
+├── packages/
+│   ├── ui/                    # Shared shadcn/ui components
+│   ├── app-core/              # Environment-agnostic core UI and state
+│   ├── backend-interface/     # TypeScript contract (BackendAPI interface)
+│   └── backend-mock/          # In-memory mock backend for tests/demos
+└── docs/                      # Starlight documentation
 ```
 
 ## Code Style
@@ -108,14 +113,14 @@ cargo clippy
 
 ### Type Bindings
 
-After changing JSON Schemas used in Tauri commands:
+After changing JSON Schemas:
 
 ```bash
 pnpm gen:bindings
 ```
 
-This regenerates `apps/repo-manage/src/bindings/types.ts` and
-`apps/repo-manage/src/bindings/commands.ts`.
+This regenerates five files from the schemas (see [Architecture](./architecture.md#type-safety-pipeline)
+for the full list). Never edit generated files directly.
 
 ## Testing
 

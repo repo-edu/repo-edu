@@ -16,7 +16,7 @@ Click the **gear icon** in the top-right corner (or press `Cmd+,`) to open the s
 |------|-------|----------|
 | **App Settings** | Global (all profiles) | Theme, LMS connection, Git connections |
 | **Profile Settings** | Per-profile | Course info, operation config, export settings |
-| **Roster Data** | Per-profile | Students, groups, assignments |
+| **Roster Data** | Per-profile | Students, staff, groups, group sets, assignments |
 
 ## Profiles
 
@@ -158,8 +158,12 @@ Each profile contains:
 
 Each roster contains:
 
-- `students` — Student records (name, email, git username)
-- `assignments` — Assignment definitions with group configurations
+- `connection` — Source metadata (Canvas, Moodle, or file import)
+- `students` — Student roster members (name, email, git username, enrollment info)
+- `staff` — Staff roster members (teachers, TAs, designers, observers)
+- `groups` — Top-level group entities with origin-based editability
+- `group_sets` — Named collections of group references with connection metadata
+- `assignments` — Assignment definitions referencing group sets with group selection modes
 
 See [Settings Reference](../reference/settings-reference.md) for complete field documentation.
 
@@ -195,8 +199,3 @@ redu profile show
 ```
 
 Changes made in the GUI are immediately available to the CLI, and vice versa.
-
-:::tip[CLI Status]
-LMS and Repo CLI commands are temporarily disabled during the roster refactor. Only Profile
-commands are currently functional.
-:::

@@ -43,11 +43,12 @@ Your access token may have expired or lack required permissions.
 - Your token may lack permission to view enrollments
 - Filter settings may be excluding students
 
-### Empty Groups
+### Empty Groups or Group Sets
 
-- No groups exist in the course
-- Students aren't assigned to groups
+- No group categories/groupings exist in the LMS course
+- Students aren't assigned to groups in the LMS
 - Your token lacks group viewing permissions
+- Group sets need to be synced separately from the roster (via the Groups & Assignments tab)
 
 ## Output Issues
 
@@ -120,11 +121,6 @@ GitHub and GitLab have API rate limits.
 - Reduce batch size for large operations
 
 ## CLI Issues
-
-:::caution[Commands Disabled]
-LMS and Repo CLI commands are temporarily disabled during the roster refactor. Only Profile
-commands (`redu profile list|active|show|load`) are currently functional.
-:::
 
 ### "Command not found: redu"
 

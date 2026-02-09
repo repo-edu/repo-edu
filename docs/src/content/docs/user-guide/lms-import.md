@@ -1,15 +1,14 @@
 ---
 title: LMS Import
-description: Import student rosters and group assignments from your Learning Management System
+description: Import student rosters and group sets from your Learning Management System
 ---
 
-Import student rosters and group assignments from your Learning Management System into the Roster
-tab.
+Import student rosters, staff, and group sets from your Learning Management System.
 
 ## Supported LMS Platforms
 
-- **Canvas** — Full support for courses, students, and groups
-- **Moodle** — Full support for courses, students, and groups
+- **Canvas** — Full support for courses, students, staff, and group categories
+- **Moodle** — Full support for courses, students, staff, and groupings
 
 ## Configuration
 
@@ -31,7 +30,7 @@ The course ID is typically in the URL when viewing your course:
 - Moodle: `https://moodle.example.com/course/view.php?id=67890` → ID is `67890`
 :::
 
-## Import Workflow
+## Roster Import Workflow
 
 ### Step 1: Configure Connection
 
@@ -48,7 +47,7 @@ Click **Verify** to test your configuration. A successful verification shows:
 
 - Course name and code
 - Confirmation of API access
-- Number of students enrolled
+- Number of enrolled students and staff
 
 :::caution[Common Issues]
 
@@ -57,40 +56,67 @@ Click **Verify** to test your configuration. A successful verification shows:
 - **Connection failed**: Check base URL format
 :::
 
-### Step 3: Import Students
+### Step 3: Import Roster
 
 From the **Roster** tab:
 
 1. Click the import dropdown in the utility bar
 2. Select **Import from LMS**
-3. Choose what to import:
-   - Students only
-   - Students with groups
-4. Review the imported roster in the student table
+3. Review the sync dialog showing student and staff counts
+4. Confirm the import
+
+The import always fetches all enrollment types (students, teachers, TAs, designers, observers).
+Students are placed in the `students` list and non-student roles in the `staff` list.
 
 ### Step 4: Review and Edit
 
 After import, the Roster tab displays:
 
-- **Student table** — All imported students with name, email, and git username
-- **Group assignments** — Which group each student belongs to
-- **Validation warnings** — Students missing git usernames, duplicate emails, etc.
+- **Member table** — All imported students with name, email, status, and git username
+- **Enrollment info** — Enrollment type and LMS-native status labels
+- **Validation warnings** — Members missing git usernames, duplicate emails, etc.
 
 You can:
 
-- Edit student details inline
-- Add or remove students
+- Edit member details (name, email, git username) inline
+- Add or remove members manually
 - Import git usernames from a file
-- Verify git usernames against the platform
+- Verify git usernames against the Git platform
 
-## Conflict Resolution
+### Roster Sync Behavior
 
-When importing into an existing roster:
+When syncing an existing roster from LMS:
 
-- **Merge** — Add new students, update existing by email match
-- **Replace** — Clear existing roster and import fresh
+- **Merge, not replace** — New members are added, existing members updated by email match
+- **Status tracking** — Members no longer in the LMS are set to `dropped` status
+- **Staff split** — Non-student enrollments are automatically placed in the staff list
+- **Group cleanup** — Dropped members are removed from all group memberships
 
-A dialog appears to help resolve conflicts when student data differs.
+## Group Set Import
+
+Group sets from the LMS are imported separately from the roster, via the **Groups & Assignments**
+tab.
+
+### Syncing LMS Group Sets
+
+1. In the **Groups & Assignments** tab sidebar, click **Connect LMS Group Set**
+2. Select a group category/grouping from the LMS
+3. The group set and its groups are created with LMS connection metadata
+4. Groups from the LMS have `origin: lms` and are read-only
+
+### Re-syncing
+
+Click the sync button on a connected group set to pull the latest group data from the LMS. Changes
+are merged (new groups added, removed groups deleted, membership updated).
+
+### Local Editing of LMS Groups
+
+LMS-synced groups are read-only to prevent accidental edits that would be lost on next sync. To
+create an editable copy:
+
+1. Export the group set to CSV
+2. Import the CSV as a new local group set
+3. The imported groups have `origin: local` and are fully editable
 
 ## Export Options
 
@@ -100,9 +126,9 @@ Export your roster for use with the CLI or external tools:
 |--------|----------|
 | YAML | Repository setup operations, CLI |
 | CSV | Spreadsheet analysis, external tools |
-| XLSX | Sharing with colleagues |
+| XLSX | Sharing with colleagues (includes enrollment type, department, etc.) |
 
-Export from the Roster tab toolbar or via **File → Export**.
+Export from the Roster tab toolbar.
 
 ## Getting an Access Token
 
