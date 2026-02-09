@@ -62,7 +62,7 @@ function asConnectedConnection(
     last_synced: now,
   }
 
-  return { value: shared } as unknown as GroupSetConnection
+  return { entries: shared } as unknown as GroupSetConnection
 }
 
 export function ConnectLmsGroupSetDialog() {
