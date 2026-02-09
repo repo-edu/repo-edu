@@ -56,7 +56,10 @@ async fn list_courses(client: &impl LmsClient) -> LmsResult<Vec<Course>> {
 trait via delegation, enabling LMS selection at runtime without generics.
 
 **Platform models → Common types**: Each platform crate has its own models (e.g., `CanvasCourse`,
-`MoodleCourse`) that convert to common types (`Course`, `User`, `Group`) defined in `lms-common`.
+`MoodleCourse`) that convert to common types (`Course`, `User`, `Group`, `GroupCategory`,
+`Enrollment`) defined in `lms-common`. Enrollment types map to the app's `EnrollmentType` enum
+(student/teacher/ta/designer/observer/other) and enrollment states map to `MemberStatus`
+(active/incomplete/dropped).
 
 ## Adding a New Endpoint
 

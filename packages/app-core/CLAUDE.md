@@ -37,19 +37,28 @@ via `getBackend()`.
 
 ### State Management (Zustand Stores)
 
-Five stores manage application state:
+Seven stores manage application state:
 
 | Store               | Responsibility                                                 |
 | ------------------- | -------------------------------------------------------------- |
 | `appSettingsStore`  | Theme, LMS connection, git connections (app-level)             |
-| `profileStore`      | Profile document (settings + roster) with Immer mutations      |
+| `profileStore`      | Profile document (settings + roster) with Immer mutations and undo/redo |
 | `connectionsStore`  | Draft connection state during editing + git status cleanup     |
 | `operationStore`    | Git operation progress, results, validation/preflight results  |
-| `uiStore`           | Active tab, dialogs, sheets                                    |
+| `uiStore`           | Active tab, dialogs, sheets, sidebar selection                 |
 | `outputStore`       | Console output lines                                           |
+| `toastStore`        | Toast notifications                                            |
 
 The `profileStore` uses Immer middleware for draft-based mutations. It combines profile settings
-and roster into a single atomic `ProfileDocument` to prevent synchronization issues.
+and roster into a single atomic `ProfileDocument` to prevent synchronization issues. Undo/redo
+is supported via Immer patches.
+
+### profileStore Key Operations
+
+Store actions cover CRUD for group sets, groups, assignments, and roster members. Selectors
+provide derived views (groups for a group set, assignments for a group set, system vs connected
+vs local group sets, coverage reports, undo/redo state). All group set and group CRUD is
+frontend-only; backend commands handle I/O and validation only.
 
 ### Data Flow
 
@@ -59,7 +68,29 @@ BackendAPI → commands.ts → stores → adapters → components
 
 - **adapters/** — Transform between backend snake_case and store camelCase formats
 - **services/** — Thin wrappers calling backend via commands
-- **hooks/** — React hooks like `useDirtyState` (hash-based change tracking)
+- **hooks/** — React hooks like `useDirtyState` (hash-based change tracking), `useDataOverview`
+- **utils/** — Helpers for group naming, group set patches, roster metrics, operation context
+
+### Groups & Assignments Tab
+
+Uses a master-detail layout with sidebar navigation and right panel:
+
+- `GroupsAssignmentsTab` — Main tab container
+- `GroupsAssignmentsSidebar` — Sidebar with sections for system/connected/local group sets
+- `GroupSetPanel` — Right panel for viewing/editing group sets and their groups
+- `AssignmentPanel` — Right panel for viewing/editing assignments (group selection modes)
+
+Dialogs in `components/dialogs/` cover group set creation, import, reimport, copy, delete,
+LMS connection, group management, and assignment creation/editing.
+
+### Command Architecture
+
+Group set and group CRUD are frontend-only store actions. Backend manifest commands handle:
+
+- I/O operations (LMS sync, CSV import/export)
+- Validation helpers (glob matching, group selection preview)
+- System group set maintenance (`ensure_system_group_sets`)
+- Group name normalization (`normalize_group_name`)
 
 ### Dirty State Tracking
 

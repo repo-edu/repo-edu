@@ -19,13 +19,53 @@ pnpm test:rs -- -p repo-manage-core <name>    # Run specific test by name
 
 ### Module Overview
 
-- **roster/** — Roster types, validation, export (YAML/CSV/XLSX), and slug generation
-- **operations/** — High-level operations shared between CLI and GUI (verify, setup, clone, lms)
+- **roster/** — Roster types, validation, export, group naming, system group sets, glob matching,
+  group selection resolution
+  - `types.rs` — Core roster and group types
+  - `validation.rs` — Roster validation
+  - `export.rs` — Export to YAML/CSV/XLSX
+  - `naming.rs` — Group name generation (slugified `firstname_lastname` / `smith-jones-lee`)
+  - `slug.rs` — Slug generation and repo naming
+  - `system.rs` — System group set management (`ensure_system_group_sets`)
+  - `glob.rs` — Glob pattern validation and matching
+  - `resolution.rs` — Group selection resolution (all/pattern + exclusions)
+  - `group_edit.rs` — Group editing utilities
+  - `nanoid.rs` — ID generation
+- **operations/** — High-level operations shared between CLI and GUI
+  - `platform.rs` — Git platform verification
+  - `lms.rs` — LMS operations (import students, sync group sets, fetch group set lists)
+  - `repo.rs` — Repository create/clone/delete with preflight checks
+  - `validation.rs` — Roster and assignment validation
+  - `group_set.rs` — Group set CSV import/export/preview/reimport
 - **platform/** — Git platform abstraction (GitHub, GitLab, Gitea, Local)
 - **settings/** — Configuration management with JSON Schema validation and profiles
 - **lms/** — LMS client integration (wraps `lms-client` crate)
-- **import/** — Import adapters for roster data from LMS and files
+- **import/** — Import adapters for roster data from LMS and files (CSV, Excel)
 - **progress.rs** — Progress event types for status updates
+
+### System Group Sets
+
+The `roster/system.rs` module manages auto-maintained system group sets:
+
+- **Individual Students** — One group per roster student (origin: system)
+- **Staff** — Single group with all non-student members (origin: system)
+
+`ensure_system_group_sets` is the single entrypoint that creates/repairs system sets and
+normalizes group memberships (removes non-active students from all groups). It must be called:
+
+- On app/profile load
+- After any roster mutation (before persistence)
+- Before any validation or group selection resolution
+
+Returns a patch result (`SystemGroupSetEnsureResult`) that the frontend merges into state.
+
+### Group Naming
+
+`roster/naming.rs` generates normalized slug names:
+
+- Individuals: `firstname_lastname` (underscore separator)
+- Multi-member groups: `smith-jones-lee` (dash separator, last names only)
+- Collision resolution: member ID suffix for individuals, incrementing `-2` for groups
 
 ### Platform Abstraction Pattern
 
@@ -90,10 +130,14 @@ All public functions return `Result<T>` using the crate's error types.
 
 The `test_utils` module (test-only) provides:
 
-- **Fixture builders**: `StudentTeamBuilder`, `TeamBuilder`, `RepoBuilder`, `PlatformParamsBuilder`
+- **Fixture builders**: `StudentTeamBuilder`, `TeamBuilder`, `RepoBuilder`,
+  `PlatformParamsBuilder`
 - **Mock responses**: `gitlab_responses::*`, `github_responses::*`, `gitea_responses::*`
 - **Git helpers**: `create_test_git_repo()`, `create_bare_repo()`
 - **Assertions**: `assert_setup_success()`, `assert_setup_counts()`
+
+Roster and group set tests can construct test fixtures with system group sets via
+`ensure_system_group_sets` on the test roster.
 
 ## Dependencies
 

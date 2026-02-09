@@ -96,9 +96,10 @@ repo-edu/
 High-level operations shared between CLI and GUI:
 
 - `platform.rs` - Git platform verification
-- `lms.rs` - LMS verification and roster imports
+- `lms.rs` - LMS verification, roster imports, and group set sync
 - `repo.rs` - Repository create/clone/delete operations
-- `validation.rs` - Assignment validation
+- `validation.rs` - Roster and assignment validation
+- `group_set.rs` - Group set CSV import/export/preview
 
 Both CLI and Tauri commands call these operations with a progress callback for status updates.
 
@@ -113,23 +114,26 @@ so the same UI can run in Tauri (desktop) or with a mock backend (tests/demos).
 
 **`packages/backend-interface/`** — TypeScript contract between frontend and backend
 
-- `index.ts` - `BackendAPI` interface with 70+ methods (LMS, Git, profiles, roster, settings)
+- `index.ts` - `BackendAPI` interface (LMS, Git, profiles, roster, groups, settings)
 - `types.ts` - Auto-generated domain types from JSON Schemas
 
 **`packages/app-core/`** — Environment-agnostic core UI and state management
 
 - `stores/` - Zustand stores:
   - `appSettingsStore` - App-level settings (theme, LMS, git connections)
-  - `profileStore` - Profile document (settings + roster) with Immer mutations
+  - `profileStore` - Profile document (settings + roster) with Immer mutations and undo/redo
   - `connectionsStore` - Draft connection state during editing
   - `operationStore` - Git operation progress and results
   - `outputStore` - Console output messages
-  - `uiStore` - Active tab, dialog visibility, sheet state
-- `components/tabs/` - Main tab views (`RosterTab`, `AssignmentTab`, `OperationTab`)
-- `components/dialogs/` - Modal dialogs for editing students, assignments, groups
-- `components/sheets/` - Slide-out panels (`StudentEditorSheet`, `GroupEditorSheet`,
-  `CoverageReportSheet`)
-- `hooks/` - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`)
+  - `uiStore` - Active tab, dialog visibility, sheet state, sidebar selection
+  - `toastStore` - Toast notifications
+- `components/tabs/` - Main tab views (`RosterTab`, `GroupsAssignmentsTab`, `OperationTab`)
+- `components/tabs/groups-assignments/` - Groups & Assignments tab (sidebar + panel layout)
+- `components/dialogs/` - Modal dialogs (group sets, assignments, imports, roster, git)
+- `components/sheets/` - Slide-out panels (`StudentEditorSheet`, `DataOverviewSheet`,
+  `CoverageReportSheet`, `FileImportExportSheet`)
+- `hooks/` - React hooks (`useDirtyState`, `useLoadProfile`, `useTheme`, `useCloseGuard`,
+  `useDataOverview`)
 - `services/` - Backend abstraction (`setBackend`, `getBackend`, `BackendProvider`)
 - `adapters/` - Data transformers between frontend state and backend types (`settingsAdapter`)
 - `bindings/commands.ts` - Auto-generated command delegation to injected backend
@@ -137,7 +141,8 @@ so the same UI can run in Tauri (desktop) or with a mock backend (tests/demos).
 **`packages/backend-mock/`** — In-memory mock backend for testing and demos
 
 - `index.ts` - `MockBackend` class implementing `BackendAPI`
-- Pre-populated demo data (6 students, 2 assignments, 2 LMS group sets)
+- `data.ts` - Demo data fixtures
+- Pre-populated demo data (students, staff, courses, system/LMS/local group sets, assignments)
 
 #### Shared UI Components
 
@@ -155,13 +160,13 @@ so the same UI can run in Tauri (desktop) or with a mock backend (tests/demos).
 `apps/repo-manage/src-tauri/`
 
 - `src/commands/` - Tauri command handlers (lms.rs, platform.rs, settings.rs, profiles.rs,
-  roster.rs)
+  roster.rs, validation.rs)
 - `core/src/` - Core business logic
-  - `roster/` - Roster types, validation, and export
+  - `roster/` - Roster types, validation, export, group naming, system group sets, glob matching
   - `lms/` - Canvas/Moodle LMS client integration
   - `platform/` - Git platform APIs (GitHub, GitLab, Gitea)
   - `settings/` - Configuration management with JSON Schema validation
-  - `operations/` - Shared operations called by both CLI and GUI
+  - `operations/` - Shared operations called by both CLI and GUI (including group set ops)
 
 ### CLI Structure
 
@@ -169,14 +174,44 @@ so the same UI can run in Tauri (desktop) or with a mock backend (tests/demos).
 
 The `redu` CLI uses clap with domain-based subcommands:
 
-- `redu lms verify|import-students|import-groups` - LMS operations
+- `redu lms verify|import-students|import-groups` - LMS operations (including group set sync)
 - `redu git verify` - Git platform operations
 - `redu repo create|clone|delete` - Repository operations
 - `redu roster show` - Roster inspection
 - `redu validate` - Assignment validation
 - `redu profile list|active|show|load` - Profile management
 
+CLI is I/O-only (sync/import/reimport/export) — all group set CRUD is frontend-only.
 CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
+
+### Data Model (Groups & Assignments)
+
+Groups are top-level profile entities with UUIDs. GroupSets reference groups by ID (not embedded).
+Assignments reference a group set and use a group selection mode.
+
+**Core entities:** `Group`, `GroupSet`, `Assignment`, `RosterMember`, `Roster` — defined in
+JSON Schemas and generated into both TypeScript and Rust types.
+
+**Group editability:** Determined by `origin` — mutable iff `origin === "local"`. No "break
+connection" mechanism.
+
+**System group sets:** "Individual Students" (one group per student) and "Staff" (single group
+with all non-students). Auto-maintained by `ensure_system_group_sets`.
+
+**Connection types:**
+
+| Type | Editable | Groups | Sync |
+|------|----------|--------|------|
+| system | No | origin: system | Auto-sync with roster |
+| canvas/moodle | No | origin: lms | LMS API sync |
+| import | Yes | origin: local | CSV re-import |
+| null (local) | Yes | Mixed origins | N/A |
+
+**Command architecture (3 tiers):**
+
+- Frontend-only: Store actions/selectors (group set CRUD, assignment CRUD)
+- Manifest commands: Cross frontend/backend boundary (sync, import, export, validation)
+- Backend-only: Shared Rust operations (CLI + Tauri handlers)
 
 ### Type Flow
 

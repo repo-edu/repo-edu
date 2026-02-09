@@ -27,15 +27,12 @@ setBackend(new MockBackend())
 `MockBackend` stores state in-memory using Maps:
 
 - `profiles`: Map<string, ProfileSettings> — named profile configurations
-- `rosters`: Map<string, Roster | null> — per-profile student/assignment data
+- `rosters`: Map<string, Roster | null> — per-profile roster data (students, staff, groups,
+  group sets, assignments)
 - `appSettings`: AppSettings — theme, LMS connection, git connections
 
-Pre-populated demo data includes:
-
-- 6 demo students (Ada Lovelace, Grace Hopper, etc.)
-- 2 demo assignments with group structures
-- 2 LMS group sets
-- A demo GitHub connection
+Demo data is defined in `data.ts` and includes students, staff, courses, system/LMS/local
+group sets with groups, and assignments with group selection modes.
 
 ### Key Behaviors
 
@@ -43,13 +40,9 @@ All methods return `Result<T, AppError>` matching the real backend. Operations t
 state update the in-memory Maps immediately and persist across method calls within the same
 instance.
 
-The mock simulates realistic behavior:
-
-- `importStudentsFromLms` merges incoming students by email
-- `linkLmsGroupSet` and `copyLmsGroupSet` apply group filters (all/selected/pattern)
-- `attachGroupSetToAssignment` links group sets to assignments
-- `getRosterCoverage` computes actual coverage from roster data
-- Dialog methods (`openDialog`, `saveDialog`) return sensible default paths
+The mock simulates realistic behavior for system group set management, group name normalization,
+glob-based group selection, CSV import/export, LMS sync, coverage computation, and dialog
+methods.
 
 ## Integration Points
 

@@ -10,12 +10,15 @@ commands and architecture.
 
 - **src/lib.rs** - App entry point, menu setup, and Tauri invoke handler
 - **src/commands/** - Tauri command handlers:
-  - `lms.rs` - LMS operations (verify, import students/groups)
+  - `lms.rs` - LMS operations (verify, import students, sync group sets, fetch group set lists)
   - `platform.rs` - Git platform operations (verify, setup, clone)
   - `settings.rs` - Settings loading/saving
   - `profiles.rs` - Profile management
-  - `roster.rs` - Roster operations (save, export, student/group/assignment management)
-  - `validation.rs` - Roster and connection validation
+  - `roster.rs` - Roster operations (save, export, group set import/export/preview, system
+    group sets, group name normalization, group selection preview)
+  - `validation.rs` - Roster and assignment validation
+  - `types.rs` - Command-specific types
+  - `utils.rs` - Shared command utilities
 - **src/error.rs** - `AppError` type implementing `serde::Serialize` for frontend
 - **src/generated/** - Auto-generated types from JSON schemas (do not edit)
 

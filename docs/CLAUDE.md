@@ -39,10 +39,11 @@ src/content/docs/
 ├── index.mdx              # Home page
 ├── demo.mdx               # Interactive demo page
 ├── getting-started/       # Installation & quick start
-├── user-guide/            # End-user documentation
-├── cli/                   # CLI command reference
-├── development/           # Architecture & contributing
-└── reference/             # Settings, formats, troubleshooting
+├── user-guide/            # End-user documentation (LMS import, repo setup, settings)
+├── cli/                   # CLI command reference (lms, git, repo, roster, validate, profile)
+├── development/           # Architecture, data model, command architecture, design decisions,
+│                          #   contributing, building, crates
+└── reference/             # Settings reference, output formats, troubleshooting
 ```
 
 Sidebar navigation is configured in `astro.config.mjs`.

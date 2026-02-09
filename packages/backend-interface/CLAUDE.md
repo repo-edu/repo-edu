@@ -8,8 +8,12 @@ This file provides guidance to AI coding assistants when working with code in th
 implementations. It exports:
 
 - `BackendAPI` — the interface that backends must implement
-- All domain types (Student, Roster, Assignment, etc.)
+- All domain types (`Group`, `GroupSet`, `Assignment`, `RosterMember`, `Roster`, etc.)
 - Dialog and window types for platform integration
+
+Key domain concepts: groups are top-level entities referenced by group sets; assignments
+reference a group set and use a group selection mode; roster members are split into students
+and staff by enrollment type. See root `CLAUDE.md` for the full data model overview.
 
 ## Generated Code
 
@@ -34,7 +38,7 @@ The package provides two entry points:
 
 ```typescript
 import { BackendAPI, ProgressCallback } from "@repo-edu/backend-interface"
-import type { Student, Roster } from "@repo-edu/backend-interface/types"
+import type { Group, GroupSet, Assignment, Roster } from "@repo-edu/backend-interface/types"
 ```
 
 ## Implementations
