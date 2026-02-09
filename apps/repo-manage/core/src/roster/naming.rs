@@ -1,6 +1,8 @@
 //! Group naming utilities.
 //!
 //! Generates group names from member names using consistent formatting rules.
+//! Uses the `human_name` crate for proper name parsing, handling international
+//! name particles (de, van, von, etc.) and various input formats.
 
 use super::slug::slugify;
 use crate::generated::types::RosterMember;
@@ -9,20 +11,64 @@ use std::collections::HashSet;
 /// Maximum number of surnames to include before truncating with "+N".
 const MAX_SURNAMES: usize = 5;
 
-/// Extract the first word from a name (typically first name).
-fn first_word(name: &str) -> &str {
-    name.split_whitespace().next().unwrap_or("")
+/// Parsed name components for group naming.
+struct ParsedName {
+    given: String,
+    surname: String,
 }
 
-/// Extract the last word from a name (typically last name/surname).
-fn last_word(name: &str) -> &str {
-    name.split_whitespace().last().unwrap_or("")
+/// Convert sortable name format ("Last, First") to display format ("First Last").
+///
+/// LMS systems use sortable format (e.g., "Jong, Stijn de" or "Smith, Alice").
+/// This converts to display format so `human_name` can parse it correctly.
+/// Names without a comma are returned unchanged.
+fn sortable_to_display(name: &str) -> String {
+    let Some(comma_pos) = name.find(',') else {
+        return name.to_string();
+    };
+
+    let before_comma = name[..comma_pos].trim();
+    let after_comma = name[comma_pos + 1..].trim();
+
+    if after_comma.is_empty() {
+        before_comma.to_string()
+    } else {
+        format!("{} {}", after_comma, before_comma)
+    }
+}
+
+/// Parse a name into given name and surname using `human_name`.
+///
+/// Handles international name particles (de, van, von, ter, etc.) and
+/// various input formats including "First Last" and "Last, First".
+/// Falls back to simple first/last word splitting for unparseable names.
+fn parse_name(name: &str) -> ParsedName {
+    // Convert sortable format to display format for consistent parsing
+    let display_name = sortable_to_display(name);
+    if let Some(parsed) = human_name::Name::parse(&display_name) {
+        ParsedName {
+            given: parsed.given_name().unwrap_or("").to_string(),
+            surname: parsed.surname().to_string(),
+        }
+    } else {
+        // Fallback for mononyms and other unparseable names
+        let first = display_name.split_whitespace().next().unwrap_or("");
+        let last = display_name.split_whitespace().last().unwrap_or("");
+        ParsedName {
+            given: first.to_string(),
+            surname: if last == first {
+                String::new()
+            } else {
+                last.to_string()
+            },
+        }
+    }
 }
 
 /// Generate a group name from member(s).
 ///
 /// # Naming Rules
-/// - 1 member: `firstname_lastname` (e.g., `alice_smith`)
+/// - 1 member: `firstname_lastname` (e.g., `alice_smith`, `stijn_de-jong`)
 /// - 2-5 members: all surnames with dashes (e.g., `smith-jones-lee`)
 /// - 6+ members: 5 surnames + remainder (e.g., `smith-jones-lee-patel-chen-+2`)
 ///
@@ -32,8 +78,9 @@ pub fn generate_group_name(members: &[&RosterMember]) -> String {
         0 => String::from("empty-group"),
         1 => {
             let member = members[0];
-            let first = slugify(first_word(&member.name));
-            let last = slugify(last_word(&member.name));
+            let parsed = parse_name(&member.name);
+            let first = slugify(&parsed.given);
+            let last = slugify(&parsed.surname);
             if first.is_empty() && last.is_empty() {
                 // Fallback for empty/unparseable names
                 format!("member-{}", short_id(&member.id.0))
@@ -49,7 +96,7 @@ pub fn generate_group_name(members: &[&RosterMember]) -> String {
             let surnames: Vec<String> = members
                 .iter()
                 .map(|m| {
-                    let surname = slugify(last_word(&m.name));
+                    let surname = slugify(&parse_name(&m.name).surname);
                     if surname.is_empty() {
                         short_id(&m.id.0)
                     } else {
@@ -64,7 +111,7 @@ pub fn generate_group_name(members: &[&RosterMember]) -> String {
                 .iter()
                 .take(MAX_SURNAMES)
                 .map(|m| {
-                    let surname = slugify(last_word(&m.name));
+                    let surname = slugify(&parse_name(&m.name).surname);
                     if surname.is_empty() {
                         short_id(&m.id.0)
                     } else {
@@ -190,11 +237,55 @@ mod tests {
     }
 
     #[test]
+    fn test_single_member_dutch_prefix() {
+        let stijn = make_member("Stijn de Jong");
+        let name = generate_group_name(&[&stijn]);
+        assert_eq!(name, "stijn_de-jong");
+    }
+
+    #[test]
+    fn test_single_member_sortable_format() {
+        // Canvas sortable_name format: "Last, First Prefix"
+        let stijn = make_member("Jong, Stijn de");
+        let name = generate_group_name(&[&stijn]);
+        assert_eq!(name, "stijn_de-jong");
+    }
+
+    #[test]
+    fn test_single_member_van_der() {
+        let anna = make_member("Anna van der Berg");
+        let name = generate_group_name(&[&anna]);
+        assert_eq!(name, "anna_van-der-berg");
+    }
+
+    #[test]
+    fn test_single_member_von() {
+        let karl = make_member("Karl von Müller");
+        let name = generate_group_name(&[&karl]);
+        assert_eq!(name, "karl_von-muller");
+    }
+
+    #[test]
+    fn test_single_member_mononym() {
+        let mono = make_member("Madonna");
+        let name = generate_group_name(&[&mono]);
+        assert_eq!(name, "madonna");
+    }
+
+    #[test]
     fn test_two_members() {
         let alice = make_member("Alice Smith");
         let bob = make_member("Bob Jones");
         let name = generate_group_name(&[&alice, &bob]);
         assert_eq!(name, "smith-jones");
+    }
+
+    #[test]
+    fn test_two_members_with_prefix() {
+        let stijn = make_member("Stijn de Jong");
+        let anna = make_member("Anna van der Berg");
+        let name = generate_group_name(&[&stijn, &anna]);
+        assert_eq!(name, "de-jong-van-der-berg");
     }
 
     #[test]
@@ -278,5 +369,22 @@ mod tests {
         let name = generate_unique_group_name(&[&alice], &existing);
         assert!(name.starts_with("alice_smith_"));
         assert!(!existing.contains(&name));
+    }
+
+    #[test]
+    fn test_sortable_to_display() {
+        assert_eq!(sortable_to_display("Jong, Stijn de"), "Stijn de Jong");
+        assert_eq!(
+            sortable_to_display("Berg, Anna van der"),
+            "Anna van der Berg"
+        );
+        assert_eq!(sortable_to_display("Smith, Alice"), "Alice Smith");
+        assert_eq!(sortable_to_display("Müller, Karl von"), "Karl von Müller");
+
+        // No comma — unchanged
+        assert_eq!(sortable_to_display("Alice Smith"), "Alice Smith");
+
+        // Trailing comma
+        assert_eq!(sortable_to_display("Smith,"), "Smith");
     }
 }

@@ -21,7 +21,7 @@ pub const SYSTEM_TYPE_INDIVIDUAL_STUDENTS: &str = "individual_students";
 pub const SYSTEM_TYPE_STAFF: &str = "staff";
 
 /// Fixed name for the Staff group.
-pub const STAFF_GROUP_NAME: &str = "Staff";
+pub const STAFF_GROUP_NAME: &str = "staff";
 
 /// Group origin values.
 pub const ORIGIN_SYSTEM: &str = "system";
@@ -232,14 +232,21 @@ fn ensure_staff_set(roster: &mut Roster) -> (GroupSet, Vec<Group>, Vec<String>) 
         .cloned()
         .collect();
 
-    // Find or create the Staff group
+    // Find or create the Staff group (case-insensitive match for migration from "Staff" to "staff")
     let existing_staff_group = roster.groups.iter_mut().find(|g| {
-        g.origin == ORIGIN_SYSTEM && g.name == STAFF_GROUP_NAME && set_group_ids.contains(&g.id)
+        g.origin == ORIGIN_SYSTEM
+            && g.name.eq_ignore_ascii_case(STAFF_GROUP_NAME)
+            && set_group_ids.contains(&g.id)
     });
 
     if let Some(group) = existing_staff_group {
+        // Migrate name if needed (e.g., "Staff" → "staff")
+        let name_changed = group.name != STAFF_GROUP_NAME;
+        if name_changed {
+            group.name = STAFF_GROUP_NAME.to_string();
+        }
         // Update membership
-        if group.member_ids != active_staff {
+        if name_changed || group.member_ids != active_staff {
             group.member_ids = active_staff;
             groups_upserted.push(group.clone());
         }

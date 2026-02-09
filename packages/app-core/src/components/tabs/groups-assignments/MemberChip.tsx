@@ -24,10 +24,7 @@ export function MemberChip({ member, isStaff, onRemove }: MemberChipProps) {
           : "bg-muted text-muted-foreground",
       )}
     >
-      <span className="truncate max-w-[120px]">{member.name}</span>
-      {isStaff && (
-        <span className="text-[10px] font-medium uppercase">Staff</span>
-      )}
+      <span>{member.name}</span>
       {onRemove && (
         <button
           type="button"

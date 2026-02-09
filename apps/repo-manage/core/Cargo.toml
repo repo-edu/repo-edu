@@ -53,6 +53,7 @@ bs58.workspace = true
 unicode-normalization = "0.1"
 deunicode = "1.4"
 uuid.workspace = true
+human_name = "2"
 
 # LMS client (unified)
 lms-client = { path = "../../../crates/lms-client" }
