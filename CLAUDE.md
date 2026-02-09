@@ -72,7 +72,7 @@ repo-edu/
 ├── pnpm-workspace.yaml     # TypeScript workspace config
 ├── apps/
 │   └── repo-manage/        # Main Tauri desktop app
-│       ├── src/            # React frontend
+│       ├── src/            # Tauri React entrypoint (thin wrapper around app-core)
 │       ├── src-tauri/      # Tauri Rust backend (workspace member)
 │       ├── core/           # Shared Rust library (workspace member)
 │       └── cli/            # CLI tool (workspace member)
@@ -82,7 +82,7 @@ repo-edu/
 │   ├── canvas-lms/         # Canvas LMS API client
 │   └── moodle-lms/         # Moodle LMS API client
 ├── docs/                   # Documentation site with Astro/Starlight
-└── packages/               # TypeScript packages for frontend
+└── packages/               # Frontend implementation + shared TypeScript packages
     ├── ui/                 # Shared shadcn/ui components
     ├── app-core/           # Environment-agnostic core UI and state management
     ├── backend-interface/  # TypeScript contract between frontend and backend
@@ -106,8 +106,10 @@ Both CLI and Tauri commands call these operations with a progress callback for s
 
 #### Backend Isolation
 
-The frontend is isolated from platform-specific backends through a `BackendAPI` interface.
-This enables the same UI to run in Tauri (desktop) or with a mock backend (tests/demos).
+The UI implementation lives in `packages/app-core` (with shared UI in `packages/ui`).
+`apps/repo-manage/src` is a thin Tauri entrypoint that wires a backend and renders `AppRoot`.
+This design isolates the frontend from platform-specific backends through a `BackendAPI` interface,
+so the same UI can run in Tauri (desktop) or with a mock backend (tests/demos).
 
 **`packages/backend-interface/`** — TypeScript contract between frontend and backend
 
@@ -143,7 +145,7 @@ This enables the same UI to run in Tauri (desktop) or with a mock backend (tests
 
 #### Tauri Desktop Entry Point
 
-**`apps/repo-manage/src/`**
+**`apps/repo-manage/src/`** (thin wrapper)
 
 - `main.tsx` - Injects `TauriBackend` and renders `AppRoot` from app-core
 - `bindings/tauri.ts` - Auto-generated `TauriBackend` wrapping Rust commands

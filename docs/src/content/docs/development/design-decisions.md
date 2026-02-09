@@ -2,6 +2,7 @@
 title: Design Decisions
 description: Key architectural decisions
 ---
+
 <!-- markdownlint-disable MD024 -->
 
 # Design Decisions

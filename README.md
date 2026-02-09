@@ -53,10 +53,9 @@ repo-edu/
 
 - **Repository Setup** is based on [RepoBee](https://github.com/repobee/repobee) by **Simon
   Larsén**.
-- **LMS Import** originated from a RepoBee extension by **Huub de Beer**.
 - **Jingjing Wang** developed the first Python GUI applications.
 - **Bert van Beek** redesigned and integrated both into the current Tauri application, adding Moodle
-  support, profile management, and native platform implementations.
+  support, profile management, native platform implementations.
 
 ## License
 

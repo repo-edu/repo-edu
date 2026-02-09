@@ -18,23 +18,23 @@ See [plan.md](./plan.md) for overview, [plan-0-data-model.md](./plan-0-data-mode
 
 **System set bootstrap:** On profile load, call `ensure_system_group_sets` before enabling the Groups & Assignments UI. This guarantees system sets exist. If the command fails, keep the tab disabled and show an error state.
 
-- [ ] Update `profileStore` to use new schema types:
+- [x] Update `profileStore` to use new schema types:
   - `roster.students: RosterMember[]`, `roster.staff: RosterMember[]`
   - `roster.groups: Group[]` (top-level groups array)
   - `roster.group_sets: GroupSet[]` (with `group_ids` references)
   - `Assignment` with `group_set_id` and `group_selection`
-- [ ] Add `systemSetsReady: boolean` (set after `ensure_system_group_sets` completes) to gate UI rendering
-- [ ] Remove old types (`LmsGroupSetCacheEntry`, etc.)
-- [ ] Ensure system group sets exist (identified by `connection.kind === "system"` + `system_type`; do not create new ones if already present)
-- [ ] Normalize roster on load/store init:
+- [x] Add `systemSetsReady: boolean` (set after `ensure_system_group_sets` completes) to gate UI rendering
+- [x] Remove old types (`LmsGroupSetCacheEntry`, etc.)
+- [x] Ensure system group sets exist (identified by `connection.kind === "system"` + `system_type`; do not create new ones if already present)
+- [x] Normalize roster on load/store init:
   - Ensure `roster.connection` is present (`null` if disconnected)
   - Validate system group sets exist; if missing, call `ensure_system_group_sets` and merge result before continuing
   - Clean up orphaned groups and dangling `group_ids`
 
 ## Mock/Test Data Updates
 
-- [ ] Update `packages/backend-mock` demo data to new roster/group/group_set schema and selectors
-- [ ] Update any app-core tests/fixtures that reference old group-set fields or selectors
+- [x] Update `packages/backend-mock` demo data to new roster/group/group_set schema and selectors
+- [x] Update any app-core tests/fixtures that reference old group-set fields or selectors
 
 ## Undo/Redo
 
@@ -87,32 +87,32 @@ All CRUD operations are frontend-only. Persistence happens via separate `save()`
 
 ### GroupSet Actions
 
-- [ ] `createLocalGroupSet(name: string)`
+- [x] `createLocalGroupSet(name: string)`
   - Generate UUID for new GroupSet
   - Add to `roster.group_sets` (after system sets if present; otherwise append)
   - `connection: null`, `group_ids: []`
 
-- [ ] `copyGroupSet(groupSetId: string)`
+- [x] `copyGroupSet(groupSetId: string)`
   - Shallow copy: new UUID for GroupSet, same group references
   - Copy `group_ids` array (references same Group entities)
   - Add new GroupSet with `connection: null`
   - Name: `"{original name} (copy)"`
   - Allowed for system sets (copy creates a local set referencing the same system groups)
 
-- [ ] `deleteGroupSet(groupSetId: string)`
+- [x] `deleteGroupSet(groupSetId: string)`
   - Remove GroupSet from `roster.group_sets`
   - Remove references from `group_ids`
   - Call `cleanupOrphanedGroups()` to remove unreferenced groups
   - Cascade delete assignments referencing this group set
   - Block if `connection.kind === "system"`
 
-- [ ] `renameGroupSet(groupSetId: string, name: string)`
+- [x] `renameGroupSet(groupSetId: string, name: string)`
   - Update GroupSet name
   - Only allowed if `connection === null` or `connection.kind === "import"`
 
 ### Group Actions
 
-- [ ] `createGroup(groupSetId: string, name: string, memberIds: string[])`
+- [x] `createGroup(groupSetId: string, name: string, memberIds: string[])`
   - Generate UUID for new Group with `origin: "local"` and `lms_group_id: null`
   - `name` must already be normalized by the caller (UI calls `normalize_group_name` before submitting)
   - Enforce name uniqueness within the target group set
@@ -123,7 +123,7 @@ All CRUD operations are frontend-only. Persistence happens via separate `save()`
   - Add Group ID to GroupSet's `group_ids` (append)
   - Only allowed if GroupSet is local (`connection === null` or `connection.kind === "import"`)
 
-- [ ] `updateGroup(groupId: string, updates: { name?: string, member_ids?: string[] })`
+- [x] `updateGroup(groupId: string, updates: { name?: string, member_ids?: string[] })`
   - Update Group entity in `roster.groups`
   - Only allowed if `selectIsGroupEditable(groupId)` is true (i.e., `origin === "local"`)
   - `name` must already be normalized by the caller (UI calls `normalize_group_name` before submitting)
@@ -134,47 +134,47 @@ All CRUD operations are frontend-only. Persistence happens via separate `save()`
   - If `name` changes, do not re-sort any `group_ids`; ordering is always preserved
   - UI must confirm before calling when `selectGroupReferenceCount(groupId) > 1`
 
-- [ ] `deleteGroup(groupId: string)`
+- [x] `deleteGroup(groupId: string)`
   - Remove Group ID from all GroupSets' `group_ids`
   - Remove Group from `roster.groups`
   - Only allowed if `selectIsGroupEditable(groupId)` is true
   - Use only for explicit "delete everywhere" actions (not for removing from a single set)
 
-- [ ] `addGroupToSet(groupSetId: string, groupId: string)`
+- [x] `addGroupToSet(groupSetId: string, groupId: string)`
   - Add existing Group ID to GroupSet's `group_ids`
   - Only allowed if GroupSet is local (`connection === null` or `connection.kind === "import"`)
   - De-dupe `group_ids` after insertion (defensive)
 
-- [ ] `removeGroupFromSet(groupSetId: string, groupId: string)`
+- [x] `removeGroupFromSet(groupSetId: string, groupId: string)`
   - Remove Group ID from GroupSet's `group_ids`
   - Call `cleanupOrphanedGroups()` if group is now unreferenced
   - Only allowed if GroupSet is local (`connection === null` or `connection.kind === "import"`)
 
 ### Assignment Actions
 
-- [ ] `createAssignment(assignment: Omit<Assignment, "id">)`
+- [x] `createAssignment(assignment: Omit<Assignment, "id">)`
   - Generate UUID for new Assignment
   - Add to `roster.assignments`
   - Default `group_selection: { kind: "all", excluded_group_ids: [] }`
 
-- [ ] `updateAssignment(id: string, updates: Partial<Assignment>, options?: { confirmClearExclusions?: boolean })`
+- [x] `updateAssignment(id: string, updates: Partial<Assignment>, options?: { confirmClearExclusions?: boolean })`
   - Update Assignment in `roster.assignments`
   - If `group_set_id` changes and `excluded_group_ids` is non-empty:
     - Refuse the update unless `options?.confirmClearExclusions === true`
     - On confirmed update, clear `excluded_group_ids`
 
-- [ ] `deleteAssignment(id: string)`
+- [x] `deleteAssignment(id: string)`
   - Remove Assignment from `roster.assignments`
 
 ### Utility Actions
 
-- [ ] `cleanupOrphanedGroups()`
+- [x] `cleanupOrphanedGroups()`
   - Collect all `group_ids` from all GroupSets
   - Remove any Group from `roster.groups` not in that set
   - Does not remove groups solely because they are empty
   - Called internally by delete/remove operations
 
-- [ ] `normalizeRoster()`
+- [x] `normalizeRoster()`
   - Ensures `roster.connection` exists (default `null`)
   - Validates system group sets exist; if missing, triggers `ensure_system_group_sets` and merges result
   - Removes dangling `group_ids` and cleans up orphaned groups
@@ -185,14 +185,14 @@ All CRUD operations are frontend-only. Persistence happens via separate `save()`
   - Called on profile load or store init
   - `validate_roster` (backend) must only be called after `ensure_system_group_sets` succeeds
 
-- [ ] `ensureSystemGroupSets()`
+- [x] `ensureSystemGroupSets()`
   - Calls manifest command `ensure_system_group_sets`
   - Merges returned system sets/groups into the roster
   - Deletes any system groups listed in `deleted_group_ids`
   - Removes any `deleted_group_ids` from all `group_sets[].group_ids`
   - Sets a `systemSetsReady` flag used to gate UI rendering
 
-- [ ] After any roster member mutation, call `ensureSystemGroupSets()` before persistence (backend removes missing member IDs from all groups)
+- [x] After any roster member mutation, call `ensureSystemGroupSets()` before persistence (backend removes missing member IDs from all groups)
 
 ### Group Selection Preview (Frontend)
 
@@ -231,43 +231,43 @@ New selectors to add:
 
 **Group selectors:**
 
-- [ ] `selectGroups` → Group[] (all top-level groups)
-- [ ] `selectGroupById(id: string)` → Group | null
-- [ ] `selectGroupsForGroupSet(groupSetId: string)` → Group[]
+- [x] `selectGroups` → Group[] (all top-level groups)
+- [x] `selectGroupById(id: string)` → Group | null
+- [x] `selectGroupsForGroupSet(groupSetId: string)` → Group[]
   - Looks up GroupSet's `group_ids`
   - Returns resolved Group entities from `roster.groups`
-- [ ] `selectRosterStudents` → RosterMember[]
-- [ ] `selectRosterStaff` → RosterMember[]
-- [ ] `selectRosterMemberById(id: string)` → RosterMember | null
+- [x] `selectRosterStudents` → RosterMember[]
+- [x] `selectRosterStaff` → RosterMember[]
+- [x] `selectRosterMemberById(id: string)` → RosterMember | null
   - Looks in both `roster.students` and `roster.staff`
-- [ ] `selectIsGroupEditable(groupId: string)` → boolean
+- [x] `selectIsGroupEditable(groupId: string)` → boolean
   - Returns `group.origin === "local"`
   - Simple origin-based check, no need to examine all group sets
-- [ ] `selectGroupReferenceCount(groupId: string)` → number
+- [x] `selectGroupReferenceCount(groupId: string)` → number
   - Returns the number of GroupSets that reference the group (for delete confirmations)
 
 **Note:** Group editability is determined by origin, not by which sets reference the group. A local group set can contain both mutable groups (`origin: "local"`) and immutable groups (`origin: "lms"` or `origin: "system"`).
 
 **GroupSet selectors:**
 
-- [ ] `selectGroupSets` → GroupSet[]
-- [ ] `selectGroupSetById(id: string)` → GroupSet | null
-- [ ] `selectIsGroupSetEditable(groupSetId: string)` → boolean
+- [x] `selectGroupSets` → GroupSet[]
+- [x] `selectGroupSetById(id: string)` → GroupSet | null
+- [x] `selectIsGroupSetEditable(groupSetId: string)` → boolean
   - Returns `true` if `connection === null` or `connection.kind === "import"`
   - Returns `false` if LMS-connected (canvas/moodle) or system
   - Use for set-level actions (rename set, add/remove group references)
-- [ ] `selectSystemGroupSet(systemType: "individual_students" | "staff")` → GroupSet | null
+- [x] `selectSystemGroupSet(systemType: "individual_students" | "staff")` → GroupSet | null
   - Finds by `connection.kind === "system"` + `system_type` (canonical accessor — never rely on array position)
-- [ ] `selectConnectedGroupSets` → GroupSet[] (canvas, moodle — excludes system and import)
-- [ ] `selectLocalGroupSets` → GroupSet[] (connection === null or kind === "import")
+- [x] `selectConnectedGroupSets` → GroupSet[] (canvas, moodle — excludes system and import)
+- [x] `selectLocalGroupSets` → GroupSet[] (connection === null or kind === "import")
 
 **Assignment selectors:**
 
-- [ ] `selectAssignmentsForGroupSet(groupSetId: string)` → Assignment[]
+- [x] `selectAssignmentsForGroupSet(groupSetId: string)` → Assignment[]
 
 ## UI Store Changes
 
-- [ ] Add selection state for Groups & Assignments tab sidebar:
+- [x] Add selection state for Groups & Assignments tab sidebar:
 
   ```ts
   type SidebarSelection =
@@ -278,22 +278,22 @@ New selectors to add:
 
 ## Dependencies
 
-- [ ] No frontend glob-matching dependency required (all pattern matching is backend-driven)
+- [x] No frontend glob-matching dependency required (all pattern matching is backend-driven)
 
 ## Mock Backend + Fixtures
 
-- [ ] Update `packages/backend-mock` demo data to the new roster/group set schema
-- [ ] Update `MockBackend` methods to return/accept `group_set_id` + `group_selection` and top-level `roster.groups`
-- [ ] Update app-core tests/fixtures that embed old group set shapes (LmsGroupSetCacheEntry, embedded groups)
+- [x] Update `packages/backend-mock` demo data to the new roster/group set schema
+- [x] Update `MockBackend` methods to return/accept `group_set_id` + `group_selection` and top-level `roster.groups`
+- [x] Update app-core tests/fixtures that embed old group set shapes (LmsGroupSetCacheEntry, embedded groups)
 
 ## Utility Functions (frontend)
 
-- [ ] `generateGroupName(members: RosterMember[]) → string`
+- [x] `generateGroupName(members: RosterMember[]) → string`
   - Implements naming rules from `plan-0-data-model.md`
   - Produces a raw name from student names (first word + last word extraction, multi-student dash format)
   - Does **not** perform slug normalization — callers pass the result through the backend `normalize_group_name` command
 
-- [ ] `cleanupOrphanedGroups(roster: Roster) → Roster`
+- [x] `cleanupOrphanedGroups(roster: Roster) → Roster`
   - Pure function for Immer integration
   - Returns roster with unreferenced groups removed
 
@@ -309,21 +309,21 @@ Slug normalization (NFD decomposition, diacritic stripping, apostrophe removal, 
 
 ### Selectors
 
-- [ ] `selectIsGroupEditable` — true only if `origin === "local"`
-- [ ] `selectIsGroupSetEditable` — true if `connection === null` or `kind === "import"`
-- [ ] `selectGroupsForGroupSet` — resolves group_ids to Group entities
-- [ ] `selectRosterStudents` / `selectRosterStaff` — return the correct roster partitions
-- [ ] `selectRosterMemberById` — resolves IDs across students and staff
-- [ ] `selectSystemGroupSet` — resolves system sets by `system_type`
-- [ ] `selectGroupReferenceCount` — counts number of sets referencing a group
+- [x] `selectIsGroupEditable` — true only if `origin === "local"`
+- [x] `selectIsGroupSetEditable` — true if `connection === null` or `kind === "import"`
+- [x] `selectGroupsForGroupSet` — resolves group_ids to Group entities
+- [x] `selectRosterStudents` / `selectRosterStaff` — return the correct roster partitions
+- [x] `selectRosterMemberById` — resolves IDs across students and staff
+- [x] `selectSystemGroupSet` — resolves system sets by `system_type`
+- [x] `selectGroupReferenceCount` — counts number of sets referencing a group
 
 ### Store Actions
 
-- [ ] `createLocalGroupSet` — generates UUID, adds to array
-- [ ] `copyGroupSet` — shallow copy with same group references
-- [ ] `deleteGroupSet` — cascades to assignments, cleans up orphans
-- [ ] `cleanupOrphanedGroups` — removes unreferenced groups
-- [ ] `normalizeRoster` — enforces connection presence and system set invariants on load
+- [x] `createLocalGroupSet` — generates UUID, adds to array
+- [x] `copyGroupSet` — shallow copy with same group references
+- [x] `deleteGroupSet` — cascades to assignments, cleans up orphans
+- [x] `cleanupOrphanedGroups` — removes unreferenced groups
+- [x] `normalizeRoster` — enforces connection presence and system set invariants on load
 
 ### Command Integration
 
@@ -332,7 +332,7 @@ Slug normalization (NFD decomposition, diacritic stripping, apostrophe removal, 
 
 ### Utility Functions
 
-- [ ] `generateGroupName` — all naming rules (raw name generation only, no slug normalization)
+- [x] `generateGroupName` — all naming rules (raw name generation only, no slug normalization)
 
 ## Files to Modify
 

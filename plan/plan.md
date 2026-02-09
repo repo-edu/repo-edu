@@ -19,21 +19,21 @@ Refactor the Groups & Assignments tab to use a unified data model where group se
 
 ## Implementation Phases
 
-| File | Phase | Description |
-|------|-------|-------------|
-| [plan-1-schemas.md](./plan-1-schemas.md) | Phase 1 | Schema changes and type definitions |
-| [plan-2-core-backend.md](./plan-2-core-backend.md) | Phase 2 | Core backend model (system sets, resolution, validation, utilities) |
-| [plan-3-lms-client.md](./plan-3-lms-client.md) | Phase 3 | LMS client mapping and enrollment types |
-| [plan-4-import-export.md](./plan-4-import-export.md) | Phase 4 | CSV group set import/export and roster XLSX export |
-| [plan-5-commands-cli.md](./plan-5-commands-cli.md) | Phase 5 | Manifest commands, Tauri handlers, CLI alignment |
-| [plan-6-stores.md](./plan-6-stores.md) | Phase 6 | Store updates and selectors |
-| [plan-7-mock-tests.md](./plan-7-mock-tests.md) | Phase 7 | Mock backend, fixtures, and tests |
-| [plan-8-sidebar.md](./plan-8-sidebar.md) | Phase 8 | Sidebar refactor |
-| [plan-9-panel.md](./plan-9-panel.md) | Phase 9 | Right panel (groups editor + assignment panel) |
-| [plan-10-dialogs.md](./plan-10-dialogs.md) | Phase 10 | Dialogs |
-| [plan-11-polish.md](./plan-11-polish.md) | Phase 11 | UX polish (tooltips, empty states, keyboard nav, error handling) |
-| [plan-12-membership-matrix.md](./plan-12-membership-matrix.md) | Phase 12 | Data Overview Membership Matrix |
-| [plan-13-roster.md](./plan-13-roster.md) | Phase 13 | Roster tab enhancements |
+| File | Phase | Description | Status |
+|------|-------|-------------|--------|
+| [plan-1-schemas.md](./plan-1-schemas.md) | Phase 1 | Schema changes and type definitions | **DONE** |
+| [plan-2-core-backend.md](./plan-2-core-backend.md) | Phase 2 | Core backend model (system sets, resolution, validation, utilities) | **DONE** |
+| [plan-3-lms-client.md](./plan-3-lms-client.md) | Phase 3 | LMS client mapping and enrollment types | **DONE** |
+| [plan-4-import-export.md](./plan-4-import-export.md) | Phase 4 | CSV group set import/export and roster XLSX export | **DONE** |
+| [plan-5-commands-cli.md](./plan-5-commands-cli.md) | Phase 5 | Manifest commands, Tauri handlers, CLI alignment | **DONE** |
+| [plan-6-stores.md](./plan-6-stores.md) | Phase 6 | Store updates and selectors | **DONE** |
+| [plan-7-mock-tests.md](./plan-7-mock-tests.md) | Phase 7 | Mock backend, fixtures, and tests | **DONE** |
+| [plan-8-sidebar.md](./plan-8-sidebar.md) | Phase 8 | Sidebar refactor | **DONE** |
+| [plan-9-panel.md](./plan-9-panel.md) | Phase 9 | Right panel (groups editor + assignment panel) | **DONE** |
+| [plan-10-dialogs.md](./plan-10-dialogs.md) | Phase 10 | Dialogs | **DONE** |
+| [plan-11-polish.md](./plan-11-polish.md) | Phase 11 | UX polish (tooltips, empty states, keyboard nav, error handling) | **DONE** |
+| [plan-12-membership-matrix.md](./plan-12-membership-matrix.md) | Phase 12 | Data Overview Membership Matrix | **DONE** |
+| [plan-13-roster.md](./plan-13-roster.md) | Phase 13 | Roster tab enhancements | **DONE** |
 
 ## Documentation Updates
 

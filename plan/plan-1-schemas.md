@@ -1,52 +1,54 @@
-# Phase 1: Schema & Types
+# Phase 1: Schema & Types — COMPLETED
 
 See [plan.md](./plan.md) for overview and [plan-0-data-model.md](./plan-0-data-model.md) for entity definitions.
+
+> **Status: DONE.** All schemas created, updated, deleted, and bindings generated. The schema definitions below remain as reference documentation for later phases.
 
 ## Checklist
 
 ### Create New Schemas
 
-- [ ] `GroupSet.schema.json` — replaces `LmsGroupSetCacheEntry`, references groups by ID
-- [ ] `GroupSetConnection.schema.json` — tagged union: system, canvas, moodle, import
-- [ ] `GroupSelectionMode.schema.json` — mode + glob pattern + per-group exclusions (UUIDs)
-- [ ] `GroupSelectionPreview.schema.json` — backend preview result for group selection validation/resolution
-- [ ] `PatternFilterResult.schema.json` — backend result for local pattern filtering (`filter_by_pattern`)
-- [ ] `RosterConnection.schema.json` — tagged union: canvas, moodle, import
-- [ ] `GroupSetSyncResult.schema.json` — sync result with missing member counts
-- [ ] `GroupSetImportResult.schema.json` — import result with missing member counts
-- [ ] `GroupSetImportPreview.schema.json` — preview payload for import/reimport dialogs
-- [ ] `SystemGroupSetEnsureResult.schema.json` — ensure result for system group sets (idempotent bootstrap/repair)
-- [ ] `EnrollmentType.schema.json` — enum for user enrollment/role types
-- [ ] `MemberStatus.schema.json` — enum for internal normalized member status
+- [x] `GroupSet.schema.json` — replaces `LmsGroupSetCacheEntry`, references groups by ID
+- [x] `GroupSetConnection.schema.json` — tagged union: system, canvas, moodle, import
+- [x] `GroupSelectionMode.schema.json` — mode + glob pattern + per-group exclusions (UUIDs)
+- [x] `GroupSelectionPreview.schema.json` — backend preview result for group selection validation/resolution
+- [x] `PatternFilterResult.schema.json` — backend result for local pattern filtering (`filter_by_pattern`)
+- [x] `RosterConnection.schema.json` — tagged union: canvas, moodle, import
+- [x] `GroupSetSyncResult.schema.json` — sync result with missing member counts
+- [x] `GroupSetImportResult.schema.json` — import result with missing member counts
+- [x] `GroupSetImportPreview.schema.json` — preview payload for import/reimport dialogs
+- [x] `SystemGroupSetEnsureResult.schema.json` — ensure result for system group sets (idempotent bootstrap/repair)
+- [x] `EnrollmentType.schema.json` — enum for user enrollment/role types
+- [x] `MemberStatus.schema.json` — enum for internal normalized member status
 
 ### Update Existing Schemas
 
-- [ ] `Group.schema.json` — UUID id, add `origin` (system/lms/local), keep `lms_group_id` for sync matching
-- [ ] `RosterMemberId.schema.json` — switch to UUID format (canonical internal roster-member ID)
-- [ ] `Assignment.schema.json` — remove `groups`, require `group_set_id`, add `group_selection`
-- [ ] `RosterMember.schema.json` — add `enrollment_type`, `source`, `department`, `institution`
-- [ ] `Roster.schema.json` — add top-level `groups` array, split `students` and `staff`, replace `lms_group_sets` with `group_sets`, `source` with `connection` (required but nullable)
-- [ ] `ImportRosterResult.schema.json` — add conflict reporting fields for roster sync
+- [x] `Group.schema.json` — UUID id, add `origin` (system/lms/local), keep `lms_group_id` for sync matching
+- [x] `RosterMemberId.schema.json` — switch to UUID format (canonical internal roster-member ID)
+- [x] `Assignment.schema.json` — remove `groups`, require `group_set_id`, add `group_selection`
+- [x] `RosterMember.schema.json` — add `enrollment_type`, `source`, `department`, `institution`
+- [x] `Roster.schema.json` — add top-level `groups` array, split `students` and `staff`, replace `lms_group_sets` with `group_sets`, `source` with `connection` (required but nullable)
+- [x] `ImportRosterResult.schema.json` — add conflict reporting fields for roster sync
 
 **Schema update checklist note:**
 
-- [ ] `roster.connection` must be **required** but **nullable**. Ensure all schema updates, fixtures, and default builders include `connection: null` when disconnected to avoid silent regressions.
+- [x] `roster.connection` must be **required** but **nullable**. Ensure all schema updates, fixtures, and default builders include `connection: null` when disconnected to avoid silent regressions.
 
 ### Delete Obsolete Schemas
 
-- [ ] `GroupId.schema.json` — Group.id is now UUID string directly
-- [ ] `LmsGroupSetCacheEntry.schema.json` — replaced by `GroupSet`
-- [ ] `GroupSetKind.schema.json` — no longer needed
-- [ ] `RosterSource.schema.json` — replaced by `RosterConnection`
-- [ ] `CachedLmsGroup.schema.json` — replaced by `Group`
-- [ ] `GroupFilter.schema.json` — replaced by `GroupSelectionMode`
-- [ ] `AssignmentType.schema.json` — obsolete (group structure determined by `group_set_id` + `group_selection`)
+- [x] `GroupId.schema.json` — Group.id is now UUID string directly
+- [x] `LmsGroupSetCacheEntry.schema.json` — replaced by `GroupSet`
+- [x] `GroupSetKind.schema.json` — no longer needed
+- [x] `RosterSource.schema.json` — replaced by `RosterConnection`
+- [x] `CachedLmsGroup.schema.json` — replaced by `Group`
+- [x] `GroupFilter.schema.json` — replaced by `GroupSelectionMode`
+- [x] `AssignmentType.schema.json` — obsolete (group structure determined by `group_set_id` + `group_selection`)
 
 ### Generate Bindings
 
-- [ ] Run `pnpm gen:bindings`
-- [ ] Verify TypeScript types compile
-- [ ] Verify Rust types compile
+- [x] Run `pnpm gen:bindings`
+- [x] Verify TypeScript types compile
+- [x] Verify Rust types compile
 
 ---
 

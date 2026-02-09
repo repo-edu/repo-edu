@@ -1,14 +1,21 @@
-# Phase 4: Import/Export I/O
+# Phase 4: Import/Export I/O — COMPLETED
 
 See [plan.md](./plan.md) for overview and [plan-0-data-model.md](./plan-0-data-model.md) for CSV format expectations.
 
-**Prerequisites:** Complete [Phase 3: LMS Client Mapping](./plan-3-lms-client.md)
+**Prerequisites:** Complete [Phase 3: LMS Client Mapping](./plan-3-lms-client.md) (**done**)
+
+> **Status: DONE.** All CSV import/export operations implemented in `core/src/operations/group_set.rs`. Base58 UUID transport via `bs58` crate. Roster XLSX export updated with new columns. Key implementation details:
+>
+> - `GroupSetImportPreview` uses `serde_json::Value` (oneOf schema → opaque type in Rust)
+> - `GroupSetConnection` also uses `serde_json::Value` wrapper
+> - Member matching is email-based, case-insensitive; ambiguous emails (multiple roster members sharing same email) are excluded and reported
+> - Group reimport matches by `group_id` (base58-decoded UUID) first, falls back to `group_name`
 
 ## Checklist
 
 ### Roster XLSX Export
 
-- [ ] Update roster export to include all student properties (students only; staff remain excluded from roster export):
+- [x] Update roster export to include all student properties (students only; staff remain excluded from roster export):
   - `student_number` (Canvas sis_user_id / Moodle idnumber)
   - `enrollment_type` (student, teacher, ta, etc.)
   - `department` (Moodle)
@@ -17,85 +24,85 @@ See [plan.md](./plan.md) for overview and [plan-0-data-model.md](./plan-0-data-m
 
 ### Group Set Import (CSV)
 
-- [ ] Parse file (CSV format)
-- [ ] Generate new UUID for GroupSet
-- [ ] Decode and validate base58 ID columns for `group_set_id` and `group_id` per the canonical rules in [CSV Import/Export Format § ID column handling](#csv-importexport-format)
-- [ ] For new import: discard decoded `group_set_id`/`group_id` values after validation
-- [ ] For each group in file:
+- [x] Parse file (CSV format)
+- [x] Generate new UUID for GroupSet
+- [x] Decode and validate base58 ID columns for `group_set_id` and `group_id` per the canonical rules in [CSV Import/Export Format § ID column handling](#csv-importexport-format)
+- [x] For new import: discard decoded `group_set_id`/`group_id` values after validation
+- [x] For each group in file:
   - Generate new UUID for Group with `origin: "local"` and `lms_group_id: null` (mutable)
   - Add Group to `roster.groups` (top-level)
   - Add Group ID to GroupSet's `group_ids`
-- [ ] Preserve group order based on first appearance in the CSV file
-- [ ] Set `connection: { kind: "import", source_filename, last_updated }`
-- [ ] Duplicate handling:
+- [x] Preserve group order based on first appearance in the CSV file
+- [x] Set `connection: { kind: "import", source_filename, last_updated }`
+- [x] Duplicate handling:
   - Treat duplicate `group_name` rows as the same group (merge members, dedupe `member_ids`)
   - Reject duplicate (`group_name`, `email`) membership rows as an error (email present)
   - Allow a single empty-email row per `group_name` to represent an empty group
-- [ ] Roster member matching rules (students + staff):
+- [x] Roster member matching rules (students + staff):
   - Match by email (case-insensitive, trimmed)
   - If multiple roster members share the same email, treat as ambiguous — omit from `member_ids` and report in `missing_members` with reason
   - If no email match found, report in `missing_members`
-- [ ] Return `GroupSetImportResult` with:
+- [x] Return `GroupSetImportResult` with:
   - `mode: "import"`
   - `group_set` (new)
   - `groups_upserted` (all created groups)
   - `deleted_group_ids: []`
   - `missing_members` + `total_missing` (no roster match)
-- [ ] Note: Imported groups are fully mutable because `origin: "local"`
+- [x] Note: Imported groups are fully mutable because `origin: "local"`
 
 ### Preview Import Group Set
 
-- [ ] Parse and validate file (same rules as import)
-- [ ] Build `GroupSetImportPreview` with:
+- [x] Parse and validate file (same rules as import)
+- [x] Build `GroupSetImportPreview` with:
   - `groups`: list of `{ name, member_count }`
   - `missing_members` + `total_missing` (no roster match)
   - `mode: "import"`
-- [ ] Do not generate UUIDs or mutate roster
+- [x] Do not generate UUIDs or mutate roster
 
 ### Re-import Group Set
 
-- [ ] Re-open file picker
-- [ ] Parse and validate file (reject duplicate `group_name` + `email` membership rows; allow a single empty-email row per group; reject `group_id` mapped to multiple `group_name` values)
-- [ ] Match existing groups by `group_id` **if present** (base58 decode -> UUID); fallback to `group_name` when `group_id` is missing
-- [ ] If `group_id` column exists but a row value is blank, treat it as missing and fallback to `group_name`
-- [ ] If CSV `group_set_id` is present, decode base58 -> UUID and compare with target set ID; mismatch is a validation error (no changes applied)
-- [ ] If matched: update Group in place (name, member_ids) (dedupe `member_ids`)
+- [x] Re-open file picker
+- [x] Parse and validate file (reject duplicate `group_name` + `email` membership rows; allow a single empty-email row per group; reject `group_id` mapped to multiple `group_name` values)
+- [x] Match existing groups by `group_id` **if present** (base58 decode -> UUID); fallback to `group_name` when `group_id` is missing
+- [x] If `group_id` column exists but a row value is blank, treat it as missing and fallback to `group_name`
+- [x] If CSV `group_set_id` is present, decode base58 -> UUID and compare with target set ID; mismatch is a validation error (no changes applied)
+- [x] If matched: update Group in place (name, member_ids) (dedupe `member_ids`)
   - If new: create Group entity with new UUID, `origin: "local"`, and `lms_group_id: null`
-- [ ] For groups no longer in file:
+- [x] For groups no longer in file:
   - Remove from GroupSet's `group_ids`
   - If orphaned: delete Group from `roster.groups`
-- [ ] Update `group_ids` order to match the CSV file order
-- [ ] Update `last_updated` timestamp
-- [ ] Return `GroupSetImportResult` with:
+- [x] Update `group_ids` order to match the CSV file order
+- [x] Update `last_updated` timestamp
+- [x] Return `GroupSetImportResult` with:
   - `mode: "reimport"`
   - `group_set` (updated)
   - `groups_upserted` (created + updated groups)
   - `deleted_group_ids` (orphans removed)
   - `missing_members` + `total_missing` (no roster match)
-- [ ] Disable edit controls during import operation
-- [ ] Note: All imported groups remain mutable (`origin: "local"`)
+- [x] Disable edit controls during import operation
+- [x] Note: All imported groups remain mutable (`origin: "local"`)
 
 ### Preview Re-import Group Set
 
-- [ ] Validate `group_set_id` exists and is `connection.kind: "import"`
-- [ ] Parse and validate file (same rules as re-import)
-- [ ] If CSV `group_set_id` is present, decode base58 -> UUID and compare with target set ID; mismatch fails preview
-- [ ] Compare groups using decoded `group_id` when present; fallback to `group_name` to compute:
+- [x] Validate `group_set_id` exists and is `connection.kind: "import"`
+- [x] Parse and validate file (same rules as re-import)
+- [x] If CSV `group_set_id` is present, decode base58 -> UUID and compare with target set ID; mismatch fails preview
+- [x] Compare groups using decoded `group_id` when present; fallback to `group_name` to compute:
   - `added_group_names`: present in file, not in existing set
   - `removed_group_names`: present in existing set, not in file
   - `updated_group_names`: present in both and membership set changes after dedupe + roster matching (added/removed members or empty/non-empty change)
   - `renamed_groups`: present in both by ID match, name differs (`from` -> `to`)
-- [ ] Build `GroupSetImportPreview` with `mode: "reimport"`, `groups` summary, name-diff lists, and missing counts
-- [ ] Do not generate UUIDs or mutate roster
+- [x] Build `GroupSetImportPreview` with `mode: "reimport"`, `groups` summary, name-diff lists, and missing counts
+- [x] Do not generate UUIDs or mutate roster
 
 ### Export Group Set
 
-- [ ] Export to CSV format
-- [ ] Columns: `group_set_id`, `group_id`, `group_name`, `name`, `email`
-- [ ] `group_set_id` and `group_id` exported as base58-encoded UUIDs for re-import matching
-- [ ] `name` and `email` are roster member fields (for human readability; email also used for member matching on import)
-- [ ] Write membership rows as stored in the group; staff are included where present
-- [ ] Group names are taken directly from `Group.name`
+- [x] Export to CSV format
+- [x] Columns: `group_set_id`, `group_id`, `group_name`, `name`, `email`
+- [x] `group_set_id` and `group_id` exported as base58-encoded UUIDs for re-import matching
+- [x] `name` and `email` are roster member fields (for human readability; email also used for member matching on import)
+- [x] Write membership rows as stored in the group; staff are included where present
+- [x] Group names are taken directly from `Group.name`
 
 ## CSV Import/Export Format
 

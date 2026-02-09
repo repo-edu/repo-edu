@@ -12,36 +12,36 @@ Migrate the roster table from plain HTML to TanStack Table (headless) for consis
 
 ### Core Migration
 
-- [ ] Define column definitions for existing columns:
-  - Name (editable)
-  - Email (editable)
-  - Git Username (editable, with status icon)
-  - Status (single column: read-only `StatusDisplayCell` for LMS-sourced members, editable `StatusSelectCell` dropdown for local members)
-  - Delete action column
-- [ ] Replace plain `<table>` with a TanStack-driven table using existing markup
-- [ ] Use `useReactTable` with:
-  - `getCoreRowModel`
-  - `getSortedRowModel`
-  - `getFilteredRowModel` (global quick filter only)
-- [ ] Migrate search filter to a global quick filter (no per-column filters)
-- [ ] Keep current styling system (no new theming provider)
+- [x] Define column definitions for existing columns:
+  - [x] Name (editable)
+  - [x] Email (editable)
+  - [x] Git Username (editable, with status icon)
+  - [x] Status (single column: read-only `StatusDisplayCell` for LMS-sourced members, editable `StatusSelectCell` dropdown for local members)
+  - [x] Delete action column
+- [x] Replace plain `<table>` with a TanStack-driven table using existing markup
+- [x] Use `useReactTable` with:
+  - [x] `getCoreRowModel`
+  - [x] `getSortedRowModel`
+  - [x] `getFilteredRowModel` (global quick filter only)
+- [x] Migrate search filter to a global quick filter (no per-column filters)
+- [x] Keep current styling system (no new theming provider)
 
 ### Editable Cell Components
 
-- [ ] Create `EditableTextCell` component for Name, Email, Git Username
-  - Click to edit, Enter/blur to save, Escape to cancel
-  - Reuses existing inline editing logic
-- [ ] Create `StatusSelectCell` component for Status dropdown
-- [ ] Create `StatusDisplayCell` component for read-only status display
-- [ ] Create `ActionCell` component for delete button
+- [x] Create `EditableTextCell` component for Name, Email, Git Username
+  - [x] Click to edit, Enter/blur to save, Escape to cancel
+  - [x] Reuses existing inline editing logic
+- [x] Create `StatusSelectCell` component for Status dropdown
+- [x] Create `StatusDisplayCell` component for read-only status display
+- [x] Create `ActionCell` component for delete button
 
 ### Table Features
 
-- [ ] Enable sorting on all columns
-- [ ] Enable column visibility controls
-- [ ] Add column visibility dropdown in toolbar
-- [ ] Filtering: quick search only (no per-column filters)
-- [ ] Ensure the Status column is included in column visibility and sorting
+- [x] Enable sorting on all columns
+- [x] Enable column visibility controls
+- [x] Add column visibility dropdown in toolbar
+- [x] Filtering: quick search only (no per-column filters)
+- [x] Ensure the Status column is included in column visibility and sorting
 
 **Implementation note:** TanStack is headless; keep sorting UI, column menu, and edit controls in your existing UI components.
 
@@ -49,19 +49,19 @@ Migrate the roster table from plain HTML to TanStack Table (headless) for consis
 
 ## Roster Sync Dialog Updates
 
-- [ ] No include/exclude options — roster sync always imports all enrollment types
-- [ ] Show preview count: "X students, Y staff"
-- [ ] After sync, show summary: "Imported X students, Y staff"
-- [ ] If conflicts exist (from `ImportRosterResult.conflicts`), show count and allow viewing details
-- [ ] Conflicts are warnings only: apply non-conflicting matches and leave conflicted entries untouched
+- [x] No include/exclude options — roster sync always imports all enrollment types
+- [x] Show preview count: "X students, Y staff"
+- [x] After sync, show summary: "Imported X students, Y staff"
+- [x] If conflicts exist (from `ImportRosterResult.conflicts`), show count and allow viewing details
+- [x] Conflicts are warnings only: apply non-conflicting matches and leave conflicted entries untouched
 
 ---
 
 ## New Selectors
 
-- [ ] `selectRosterStudents` → RosterMember[]
-- [ ] `selectRosterStaff` → RosterMember[]
-- [ ] `selectRosterCounts` → { students: number, staff: number }
+- [x] `selectRosterStudents` → RosterMember[]
+- [x] `selectRosterStaff` → RosterMember[]
+- [x] `selectRosterCounts` → { students: number, staff: number }
 
 ---
 
