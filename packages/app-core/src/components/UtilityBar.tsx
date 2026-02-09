@@ -1,6 +1,6 @@
 /**
  * UtilityBar - Bottom bar between tab content and output console.
- * Contains: Issues row (when issues exist), Clear button, Profile indicator, Save button, Profile menu.
+ * Contains: Clear button, Profile indicator, Save button, Profile menu.
  */
 
 import {
@@ -10,9 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo-edu/ui"
-import { AlertTriangle, FolderOpen, Menu } from "@repo-edu/ui/components/icons"
+import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { commands } from "../bindings/commands"
-import { useDataOverview } from "../hooks/useDataOverview"
 import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
@@ -28,7 +27,6 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
 
   return (
     <div className="group/utilitybar border-t bg-muted/30">
-      <IssuesRow />
       <div className="flex items-center gap-2 px-2 py-1.5">
         <Button variant="outline" size="sm" onClick={clearOutput}>
           Clear
@@ -38,43 +36,6 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
         <SaveButton isDirty={isDirty} onSaved={onSaved} />
         <ProfileMenu />
       </div>
-    </div>
-  )
-}
-
-/**
- * IssuesRow - Shows validation issues summary with animated show/hide.
- */
-function IssuesRow() {
-  const { issueSummary } = useDataOverview()
-  const setDataOverviewOpen = useUiStore((state) => state.setDataOverviewOpen)
-
-  const hasIssues = issueSummary.length > 0
-  const visibleIssues = issueSummary.slice(0, 3)
-  const extraCount = issueSummary.length - visibleIssues.length
-  const summaryText = visibleIssues
-    .map((item) => `${item.count} ${item.label}`)
-    .join(" · ")
-
-  return (
-    <div
-      className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
-        hasIssues ? "max-h-12 opacity-100" : "max-h-0 opacity-0"
-      }`}
-    >
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 bg-warning-muted px-3 py-2 text-sm text-warning border-b"
-        onClick={() => setDataOverviewOpen(true)}
-        aria-live="polite"
-      >
-        <AlertTriangle className="size-4" />
-        <span className="truncate">
-          {summaryText}
-          {extraCount > 0 ? ` · +${extraCount} more` : ""}
-        </span>
-        <span className="ml-auto text-muted-foreground">Details</span>
-      </button>
     </div>
   )
 }

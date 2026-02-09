@@ -19,12 +19,6 @@ import {
 
 type StudentMap = Map<string, RosterMember>
 
-export interface IssueSummaryItem {
-  key: string
-  label: string
-  count: number
-}
-
 export interface IssueCard {
   id: string
   kind:
@@ -71,7 +65,6 @@ export function useDataOverview() {
   return useMemo(() => {
     if (!roster) {
       return {
-        issueSummary: [] as IssueSummaryItem[],
         issueCards: [] as IssueCard[],
         rosterInsights: null as RosterInsights | null,
       }
@@ -191,92 +184,7 @@ export function useDataOverview() {
       }
     }
 
-    const issueCounts: IssueSummaryItem[] = []
-
-    const addSummary = (key: string, label: string, count: number) => {
-      if (count > 0) {
-        issueCounts.push({ key, label, count })
-      }
-    }
-
-    const totalUnknown = issueCards
-      .filter((issue) => issue.kind === "unknown_students")
-      .reduce((acc, issue) => acc + issue.count, 0)
-    const totalUnassigned = issueCards
-      .filter((issue) => issue.kind === "unassigned_students")
-      .reduce((acc, issue) => acc + issue.count, 0)
-    const totalEmpty = issueCards
-      .filter((issue) => issue.kind === "empty_groups")
-      .reduce((acc, issue) => acc + issue.count, 0)
-
-    addSummary("unknown", "unknown", totalUnknown)
-    addSummary("unassigned", "unassigned", totalUnassigned)
-    addSummary("empty", "empty", totalEmpty)
-
-    const rosterIssueCounts = countIssueKinds(
-      rosterIssues.filter((issue) => ROSTER_ISSUE_KINDS.includes(issue.kind)),
-    )
-    addSummary(
-      "duplicate_ids",
-      "duplicate IDs",
-      rosterIssueCounts.duplicate_student_id ?? 0,
-    )
-    addSummary(
-      "duplicate_emails",
-      "duplicate emails",
-      rosterIssueCounts.duplicate_email ?? 0,
-    )
-    addSummary(
-      "invalid_emails",
-      "invalid emails",
-      rosterIssueCounts.invalid_email ?? 0,
-    )
-    addSummary(
-      "missing_emails",
-      "missing emails",
-      rosterIssueCounts.missing_email ?? 0,
-    )
-    addSummary(
-      "duplicate_assignments",
-      "duplicate assignments",
-      rosterIssueCounts.duplicate_assignment_name ?? 0,
-    )
-
-    const assignmentIssueCounts = countIssueKinds(
-      Object.values(assignmentValidations)
-        .flatMap((validation) => validation.issues)
-        .filter((issue) => ASSIGNMENT_ISSUE_KINDS.includes(issue.kind)),
-    )
-    addSummary(
-      "duplicate_groups",
-      "duplicate groups",
-      (assignmentIssueCounts.duplicate_group_id_in_assignment ?? 0) +
-        (assignmentIssueCounts.duplicate_group_name_in_assignment ?? 0),
-    )
-    addSummary(
-      "duplicate_repos",
-      "duplicate repos",
-      assignmentIssueCounts.duplicate_repo_name_in_assignment ?? 0,
-    )
-
-    const issueSummary = issueCounts.sort((a, b) => {
-      const priorityOrder = [
-        "unknown",
-        "unassigned",
-        "empty",
-        "duplicate_ids",
-        "invalid_emails",
-        "missing_emails",
-        "duplicate_emails",
-        "duplicate_assignments",
-        "duplicate_groups",
-        "duplicate_repos",
-      ]
-      return priorityOrder.indexOf(a.key) - priorityOrder.indexOf(b.key)
-    })
-
     return {
-      issueSummary,
       issueCards: issueCards.sort((a, b) => b.count - a.count),
       rosterInsights,
     }
@@ -380,12 +288,4 @@ const formatDetailsList = (items: string[], limit: number): string => {
   const preview = items.slice(0, limit)
   const remainder = items.length - limit
   return preview.join("; ") + (remainder > 0 ? ` + ${remainder} more` : "")
-}
-
-const countIssueKinds = (issues: ValidationIssue[]) => {
-  const counts: Partial<Record<ValidationKind, number>> = {}
-  for (const issue of issues) {
-    counts[issue.kind] = (counts[issue.kind] ?? 0) + issue.affected_ids.length
-  }
-  return counts
 }

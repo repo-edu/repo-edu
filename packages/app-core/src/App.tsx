@@ -11,7 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@repo-edu/ui"
-import { Info, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
+import { Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -22,6 +22,7 @@ import {
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect } from "react"
 import { commands } from "./bindings/commands"
+import { DataOverviewButton } from "./components/DataOverviewButton"
 import {
   AddGroupDialog,
   ChangeGroupSetDialog,
@@ -89,7 +90,6 @@ function App() {
   // Stores
   const ui = useUiStore()
   const setActiveProfile = useUiStore((state) => state.setActiveProfile)
-  const setDataOverviewOpen = useUiStore((state) => state.setDataOverviewOpen)
   const output = useOutputStore()
   const addToast = useToastStore((state) => state.addToast)
   const theme = useAppSettingsStore((state) => state.theme)
@@ -255,10 +255,6 @@ function App() {
         e.preventDefault()
         ui.openSettings()
       }
-      if ((e.metaKey || e.ctrlKey) && key === "i") {
-        e.preventDefault()
-        setDataOverviewOpen(true)
-      }
       if (isEditable) return
       if ((e.metaKey || e.ctrlKey) && key === "z" && e.shiftKey) {
         e.preventDefault()
@@ -270,7 +266,7 @@ function App() {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [saveCurrentProfile, ui, handleUndo, handleRedo, setDataOverviewOpen])
+  }, [saveCurrentProfile, ui, handleUndo, handleRedo])
 
   // Handle menu events
   useEffect(() => {
@@ -355,16 +351,7 @@ function App() {
                         : "Redo (Ctrl+Shift+Z)"}
                     </TooltipContent>
                   </Tooltip>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setDataOverviewOpen(true)}
-                    title="Data Overview (Ctrl+I)"
-                  >
-                    <Info className="size-4" />
-                    <span className="sr-only">Data Overview</span>
-                  </Button>
+                  <DataOverviewButton />
                   <SettingsButton />
                 </div>
               </div>
