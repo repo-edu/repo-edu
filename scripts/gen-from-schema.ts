@@ -24,13 +24,20 @@ type RustField = {
   serde: string[]
 }
 
+type RustTaggedVariant = {
+  name: string
+  rename?: string
+  fields: RustField[]
+}
+
 type RustType = {
   name: string
-  kind: "struct" | "enum" | "alias" | "newtype"
+  kind: "struct" | "enum" | "alias" | "newtype" | "tagged_enum"
   serde: string[]
   deriveDefault?: boolean
   fields?: RustField[]
   variants?: { name: string; serde: string[]; isDefault?: boolean }[]
+  taggedVariants?: RustTaggedVariant[]
   aliasTarget?: string
   newtypeInner?: string
 }
@@ -1022,6 +1029,30 @@ function rustTypeForSchema(schema: JsonSchema | undefined): {
   return { rust: "Value", usesValue: true, usesHashMap: false }
 }
 
+/**
+ * Detect if all oneOf variants share a const-discriminated tag field.
+ * Returns the tag field name (e.g. "kind", "mode") or null.
+ */
+function detectTagField(variants: JsonSchema[]): string | null {
+  if (variants.length === 0) return null
+  // Collect all const properties per variant
+  const candidates = new Map<string, number>()
+  for (const variant of variants) {
+    if (variant.type !== "object" || !variant.properties) return null
+    for (const [propName, propSchema] of Object.entries(variant.properties)) {
+      const prop = propSchema as JsonSchema
+      if (prop.const !== undefined) {
+        candidates.set(propName, (candidates.get(propName) ?? 0) + 1)
+      }
+    }
+  }
+  // A valid tag field must appear in every variant
+  for (const [field, count] of candidates) {
+    if (count === variants.length) return field
+  }
+  return null
+}
+
 function buildRustTypes(
   typeSchemas: { name: string; schema: JsonSchema }[],
 ): string {
@@ -1147,6 +1178,72 @@ function buildRustTypes(
         fields.push({ name: fieldName, type: fieldType, serde })
       }
 
+      // Detect discriminated oneOf: all variants are objects with a shared
+      // const property (e.g. "kind" or "mode") used as the tag field.
+      const oneOfVariants = schema.oneOf ?? []
+      const tagField = detectTagField(oneOfVariants)
+      if (
+        tagField &&
+        oneOfVariants.length > 0 &&
+        Object.keys(properties).length === 0
+      ) {
+        const taggedVariants: RustTaggedVariant[] = []
+        for (const variant of oneOfVariants) {
+          const variantProps = variant.properties ?? {}
+          const variantRequired = new Set<string>(variant.required ?? [])
+          const tagValue = variantProps[tagField]?.const as string
+          const variantName = toPascalCase(tagValue)
+
+          const variantFields: RustField[] = []
+          for (const [propName, propSchema] of Object.entries(variantProps)) {
+            if (propName === tagField) continue // skip the tag field itself
+            const prop = propSchema as JsonSchema
+            const propMeta = prop["x-rust"] as RustMeta | undefined
+            const propNullable = isNullableSchema(prop)
+            const isReq = variantRequired.has(propName)
+            const typeSchema =
+              propMeta?.type !== undefined
+                ? prop
+                : propNullable.nullable
+                  ? propNullable.inner
+                  : prop
+            const rustType = rustTypeForSchema(typeSchema)
+            if (rustType.usesValue) usesValue = true
+            if (rustType.usesHashMap) usesHashMap = true
+            let fieldType = rustType.rust
+            if (propNullable.nullable || !isReq) {
+              if (!fieldType.startsWith("Option<")) {
+                fieldType = `Option<${fieldType}>`
+              }
+            }
+            const { name: fieldName, serdeRename } = rustFieldName(propName)
+            const serde: string[] = []
+            if (serdeRename) {
+              serde.push(`#[serde(rename = "${serdeRename}")]`)
+            }
+            if (!isReq) {
+              serde.push("#[serde(default)]")
+              serde.push(`#[serde(skip_serializing_if = "Option::is_none")]`)
+            }
+            variantFields.push({ name: fieldName, type: fieldType, serde })
+          }
+
+          taggedVariants.push({
+            name: variantName,
+            rename: tagValue !== variantName ? tagValue : undefined,
+            fields: variantFields,
+          })
+        }
+
+        rustTypes.push({
+          name,
+          kind: "tagged_enum",
+          serde: [`#[serde(tag = "${tagField}")]`],
+          taggedVariants,
+        })
+        continue
+      }
+
       if (
         schema.additionalProperties &&
         schema.additionalProperties !== false &&
@@ -1202,6 +1299,34 @@ function buildRustTypes(
   for (const type of rustTypes) {
     if (type.kind === "alias") {
       lines.push(`pub type ${type.name} = ${type.aliasTarget};`)
+      lines.push("")
+      continue
+    }
+
+    if (type.kind === "tagged_enum") {
+      lines.push("#[derive(Debug, Clone, Serialize, Deserialize)]")
+      for (const attr of type.serde) {
+        lines.push(attr)
+      }
+      lines.push(`pub enum ${type.name} {`)
+      for (const variant of type.taggedVariants ?? []) {
+        if (variant.rename) {
+          lines.push(`  #[serde(rename = "${variant.rename}")]`)
+        }
+        if (variant.fields.length === 0) {
+          lines.push(`  ${variant.name},`)
+        } else {
+          lines.push(`  ${variant.name} {`)
+          for (const field of variant.fields) {
+            for (const attr of field.serde) {
+              lines.push(`    ${attr}`)
+            }
+            lines.push(`    ${field.name}: ${field.type},`)
+          }
+          lines.push("  },")
+        }
+      }
+      lines.push("}")
       lines.push("")
       continue
     }

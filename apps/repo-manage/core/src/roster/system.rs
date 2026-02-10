@@ -312,22 +312,16 @@ fn cleanup_stale_memberships(roster: &mut Roster) -> Vec<Group> {
 
 /// Check if a group set is a system set with the specified type.
 fn is_system_set(group_set: &GroupSet, system_type: &str) -> bool {
-    if let Some(conn) = &group_set.connection {
-        if conn.entries.get("kind").and_then(|v| v.as_str()) == Some("system") {
-            return conn.entries.get("system_type").and_then(|v| v.as_str()) == Some(system_type);
-        }
-    }
-    false
+    matches!(
+        &group_set.connection,
+        Some(GroupSetConnection::System { system_type: st }) if st == system_type
+    )
 }
 
 /// Create a system connection value.
 fn make_system_connection(system_type: &str) -> GroupSetConnection {
-    GroupSetConnection {
-        entries: serde_json::from_value(serde_json::json!({
-            "kind": "system",
-            "system_type": system_type
-        }))
-        .unwrap_or_default(),
+    GroupSetConnection::System {
+        system_type: system_type.to_string(),
     }
 }
 

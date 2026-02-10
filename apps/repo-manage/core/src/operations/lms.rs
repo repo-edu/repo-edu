@@ -113,20 +113,15 @@ pub async fn sync_group_set(
         .connection
         .as_ref()
         .ok_or_else(|| HandlerError::Validation("Group set has no connection".into()))?;
-    let conn_entries = &connection.entries;
-    let kind = conn_entries
-        .get("kind")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if kind != "canvas" && kind != "moodle" {
-        return Err(HandlerError::Validation(
-            "Group set is not LMS-connected".into(),
-        ));
-    }
-    let lms_group_set_id = conn_entries
-        .get("lms_group_set_id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| HandlerError::Validation("Missing lms_group_set_id in connection".into()))?;
+    let lms_group_set_id = match connection {
+        GroupSetConnection::Canvas { group_set_id, .. } => group_set_id.as_str(),
+        GroupSetConnection::Moodle { grouping_id, .. } => grouping_id.as_str(),
+        _ => {
+            return Err(HandlerError::Validation(
+                "Group set is not LMS-connected".into(),
+            ));
+        }
+    };
 
     // Fetch current groups from LMS
     let client = create_lms_client(&context.connection)?;
@@ -210,12 +205,28 @@ pub async fn sync_group_set(
     updated_group_set.group_ids = new_group_ids;
 
     // Update connection metadata with sync timestamp
-    let mut conn_map = conn_entries.clone();
-    conn_map.insert(
-        "last_synced".to_string(),
-        serde_json::Value::String(Utc::now().to_rfc3339()),
-    );
-    updated_group_set.connection = Some(GroupSetConnection { entries: conn_map });
+    let now = Utc::now();
+    updated_group_set.connection = Some(match connection {
+        GroupSetConnection::Canvas {
+            course_id,
+            group_set_id,
+            ..
+        } => GroupSetConnection::Canvas {
+            course_id: course_id.clone(),
+            group_set_id: group_set_id.clone(),
+            last_updated: now,
+        },
+        GroupSetConnection::Moodle {
+            course_id,
+            grouping_id,
+            ..
+        } => GroupSetConnection::Moodle {
+            course_id: course_id.clone(),
+            grouping_id: grouping_id.clone(),
+            last_updated: now,
+        },
+        _ => unreachable!("Already validated as LMS-connected above"),
+    });
 
     Ok(GroupSetSyncResult {
         group_set: updated_group_set,
@@ -434,17 +445,20 @@ fn merge_lms_roster_with_conflicts(
     }
 
     // Build updated roster connection
-    let connection = serde_json::json!({
-        "kind": "lms",
-        "lms_type": format!("{:?}", context.connection.lms_type).to_lowercase(),
-        "base_url": context.connection.base_url,
-        "fetched_at": Utc::now().to_rfc3339(),
-    });
+    let now = Utc::now();
+    let roster_connection = match context.connection.lms_type {
+        lms_common::LmsType::Canvas => crate::RosterConnection::Canvas {
+            course_id: context.course_id.clone(),
+            last_updated: now,
+        },
+        lms_common::LmsType::Moodle => crate::RosterConnection::Moodle {
+            course_id: context.course_id.clone(),
+            last_updated: now,
+        },
+    };
 
     let updated_roster = Roster {
-        connection: Some(crate::RosterConnection {
-            entries: serde_json::from_value(connection).unwrap_or_default(),
-        }),
+        connection: Some(roster_connection),
         students: updated_students,
         staff: updated_staff,
         groups: base_roster.groups,

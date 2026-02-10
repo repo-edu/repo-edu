@@ -334,13 +334,13 @@ fn merge_file_members(
         }
     }
 
-    updated_roster.connection = Some(RosterConnection {
-        entries: serde_json::from_value(serde_json::json!({
-            "kind": "file",
-            "file_name": file_path.file_name().and_then(|n| n.to_str()),
-            "imported_at": Utc::now().to_rfc3339(),
-        }))
-        .unwrap_or_default(),
+    updated_roster.connection = Some(RosterConnection::Import {
+        source_filename: file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string(),
+        last_updated: Utc::now(),
     });
 
     Ok(ImportStudentsResult {

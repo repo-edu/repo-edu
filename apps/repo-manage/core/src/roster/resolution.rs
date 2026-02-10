@@ -213,52 +213,33 @@ pub fn filter_by_pattern(pattern: &str, values: &[&str]) -> PatternFilterResult 
 
 /// Parse a GroupSelectionMode into its components.
 fn parse_selection_mode(selection: &GroupSelectionMode) -> (String, Option<String>, Vec<String>) {
-    // GroupSelectionMode is a oneOf with kind=all or kind=pattern, stored as entries HashMap
-    let entries = &selection.entries;
-    let kind = entries
-        .get("kind")
-        .and_then(|v| v.as_str())
-        .unwrap_or("all")
-        .to_string();
-
-    let pattern = entries
-        .get("pattern")
-        .and_then(|v| v.as_str())
-        .map(String::from);
-
-    let excluded_ids = entries
-        .get("excluded_group_ids")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    (kind, pattern, excluded_ids)
+    match selection {
+        GroupSelectionMode::All { excluded_group_ids } => {
+            ("all".to_string(), None, excluded_group_ids.clone())
+        }
+        GroupSelectionMode::Pattern {
+            pattern,
+            excluded_group_ids,
+        } => (
+            "pattern".to_string(),
+            Some(pattern.clone()),
+            excluded_group_ids.clone(),
+        ),
+    }
 }
 
 /// Create a GroupSelectionMode for "all" groups.
 pub fn selection_mode_all() -> GroupSelectionMode {
-    GroupSelectionMode {
-        entries: serde_json::from_value(serde_json::json!({
-            "kind": "all",
-            "excluded_group_ids": []
-        }))
-        .unwrap_or_default(),
+    GroupSelectionMode::All {
+        excluded_group_ids: Vec::new(),
     }
 }
 
 /// Create a GroupSelectionMode for pattern matching.
 pub fn selection_mode_pattern(pattern: &str) -> GroupSelectionMode {
-    GroupSelectionMode {
-        entries: serde_json::from_value(serde_json::json!({
-            "kind": "pattern",
-            "pattern": pattern,
-            "excluded_group_ids": []
-        }))
-        .unwrap_or_default(),
+    GroupSelectionMode::Pattern {
+        pattern: pattern.to_string(),
+        excluded_group_ids: Vec::new(),
     }
 }
 
@@ -325,12 +306,8 @@ mod tests {
         let (roster, group_set) = make_roster_with_groups(&["1D1", "1D2", "1D3"]);
         let excluded_id = roster.groups[0].id.clone();
 
-        let selection = GroupSelectionMode {
-            entries: serde_json::from_value(serde_json::json!({
-                "kind": "all",
-                "excluded_group_ids": [excluded_id]
-            }))
-            .unwrap(),
+        let selection = GroupSelectionMode::All {
+            excluded_group_ids: vec![excluded_id.clone()],
         };
 
         let resolved = resolve_groups_from_selection(&roster, &group_set, &selection);

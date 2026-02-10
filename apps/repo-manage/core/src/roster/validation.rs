@@ -6,8 +6,8 @@ use super::resolution::resolve_assignment_groups;
 use super::slug::compute_repo_name;
 use super::system::{system_sets_missing, ORIGIN_LMS, ORIGIN_LOCAL, ORIGIN_SYSTEM};
 use super::types::{
-    AssignmentId, EnrollmentType, GitIdentityMode, GitUsernameStatus, MemberStatus, Roster,
-    ValidationIssue, ValidationKind, ValidationResult,
+    AssignmentId, EnrollmentType, GitIdentityMode, GitUsernameStatus, GroupSetConnection,
+    MemberStatus, Roster, ValidationIssue, ValidationKind, ValidationResult,
 };
 
 const DEFAULT_REPO_TEMPLATE: &str = "{assignment}-{group}";
@@ -208,23 +208,20 @@ fn validate_group_set_origin_consistency(
     group_set: &super::types::GroupSet,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    // Determine expected origins based on connection type
-    let connection_kind = group_set
-        .connection
-        .as_ref()
-        .and_then(|c| c.entries.get("kind").and_then(|v| v.as_str()));
-
     for group_id in &group_set.group_ids {
         let Some(group) = roster.groups.iter().find(|g| &g.id == group_id) else {
             continue; // Already caught by orphan check
         };
 
-        let origin_ok = match connection_kind {
-            Some("system") => group.origin == ORIGIN_SYSTEM,
-            Some("canvas") | Some("moodle") => group.origin == ORIGIN_LMS,
-            Some("import") => group.origin == ORIGIN_LOCAL && group.lms_group_id.is_none(),
+        let origin_ok = match &group_set.connection {
+            Some(GroupSetConnection::System { .. }) => group.origin == ORIGIN_SYSTEM,
+            Some(GroupSetConnection::Canvas { .. } | GroupSetConnection::Moodle { .. }) => {
+                group.origin == ORIGIN_LMS
+            }
+            Some(GroupSetConnection::Import { .. }) => {
+                group.origin == ORIGIN_LOCAL && group.lms_group_id.is_none()
+            }
             None => true, // Local sets can have mixed origins
-            _ => true,
         };
 
         if !origin_ok {

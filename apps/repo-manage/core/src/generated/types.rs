@@ -246,8 +246,17 @@ pub struct GroupImportSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupSelectionMode {
-  pub entries: HashMap<String, Value>,
+#[serde(tag = "kind")]
+pub enum GroupSelectionMode {
+  #[serde(rename = "all")]
+  All {
+    excluded_group_ids: Vec<String>,
+  },
+  #[serde(rename = "pattern")]
+  Pattern {
+    pattern: String,
+    excluded_group_ids: Vec<String>,
+  },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,13 +279,50 @@ pub struct GroupSet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupSetConnection {
-  pub entries: HashMap<String, Value>,
+#[serde(tag = "kind")]
+pub enum GroupSetConnection {
+  #[serde(rename = "system")]
+  System {
+    system_type: String,
+  },
+  #[serde(rename = "canvas")]
+  Canvas {
+    course_id: String,
+    group_set_id: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
+  #[serde(rename = "moodle")]
+  Moodle {
+    course_id: String,
+    grouping_id: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
+  #[serde(rename = "import")]
+  Import {
+    source_filename: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupSetImportPreview {
-  pub entries: HashMap<String, Value>,
+#[serde(tag = "mode")]
+pub enum GroupSetImportPreview {
+  #[serde(rename = "import")]
+  Import {
+    groups: Vec<Value>,
+    missing_members: Vec<Value>,
+    total_missing: i64,
+  },
+  #[serde(rename = "reimport")]
+  Reimport {
+    groups: Vec<Value>,
+    missing_members: Vec<Value>,
+    total_missing: i64,
+    added_group_names: Vec<String>,
+    removed_group_names: Vec<String>,
+    updated_group_names: Vec<String>,
+    renamed_groups: Vec<Value>,
+  },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -546,8 +592,23 @@ pub struct Roster {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RosterConnection {
-  pub entries: HashMap<String, Value>,
+#[serde(tag = "kind")]
+pub enum RosterConnection {
+  #[serde(rename = "canvas")]
+  Canvas {
+    course_id: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
+  #[serde(rename = "moodle")]
+  Moodle {
+    course_id: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
+  #[serde(rename = "import")]
+  Import {
+    source_filename: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+  },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
