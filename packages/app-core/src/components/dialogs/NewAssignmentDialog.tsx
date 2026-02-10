@@ -22,7 +22,6 @@ import { useUiStore } from "../../stores/uiStore"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
 
   const createAssignment = useProfileStore((state) => state.createAssignment)
   const open = useUiStore((state) => state.newAssignmentDialogOpen)
@@ -33,7 +32,6 @@ export function NewAssignmentDialog() {
   const setPreSelectedGroupSetId = useUiStore(
     (state) => state.setPreSelectedGroupSetId,
   )
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
 
   const trimmedName = name.trim()
   const canCreate = trimmedName.length > 0 && preSelectedGroupSetId !== null
@@ -41,23 +39,17 @@ export function NewAssignmentDialog() {
   const handleCreate = () => {
     if (!canCreate || !preSelectedGroupSetId) return
 
-    const id = createAssignment(
-      {
-        name: trimmedName,
-        description: description.trim() || null,
-        group_set_id: preSelectedGroupSetId,
-      },
-      { select: true },
-    )
+    createAssignment({
+      name: trimmedName,
+      group_set_id: preSelectedGroupSetId,
+    })
 
-    setSidebarSelection({ kind: "assignment", id })
     handleClose()
   }
 
   const handleClose = () => {
     setOpen(false)
     setName("")
-    setDescription("")
     setPreSelectedGroupSetId(null)
   }
 
@@ -67,7 +59,7 @@ export function NewAssignmentDialog() {
         <DialogHeader>
           <DialogTitle>New Assignment</DialogTitle>
         </DialogHeader>
-        <DialogBody className="space-y-4">
+        <DialogBody>
           <FormField
             label="Name"
             htmlFor="assignment-name"
@@ -82,19 +74,6 @@ export function NewAssignmentDialog() {
                 if (e.key === "Enter" && canCreate) handleCreate()
               }}
               autoFocus
-            />
-          </FormField>
-
-          <FormField
-            label="Description (optional)"
-            htmlFor="assignment-description"
-            title="Optional human-readable name shown in the UI"
-          >
-            <Input
-              id="assignment-description"
-              placeholder="e.g., Lab 1: Python Basics"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
             />
           </FormField>
         </DialogBody>

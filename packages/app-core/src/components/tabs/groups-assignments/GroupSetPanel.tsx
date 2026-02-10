@@ -1,4 +1,6 @@
 import type {
+  Assignment,
+  AssignmentMetadata,
   Group,
   GroupSet,
   GroupSetConnection,
@@ -19,6 +21,7 @@ import {
 } from "@repo-edu/ui"
 import {
   Copy,
+  File,
   Info,
   Loader2,
   Lock,
@@ -33,6 +36,7 @@ import { saveDialog } from "../../../services/platform"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useOutputStore } from "../../../stores/outputStore"
 import {
+  selectAssignmentsForGroupSet,
   selectCourse,
   selectGroupSetById,
   selectGroupsForGroupSet,
@@ -136,6 +140,9 @@ function systemTypeNote(connection: GroupSetConnection | null): string | null {
 export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const groupSet = useProfileStore(selectGroupSetById(groupSetId))
   const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
+  const assignments = useProfileStore(selectAssignmentsForGroupSet(groupSetId))
+  const updateAssignment = useProfileStore((state) => state.updateAssignment)
+  const deleteAssignment = useProfileStore((state) => state.deleteAssignment)
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
   const course = useProfileStore(selectCourse)
@@ -146,6 +153,12 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   // Dialog triggers from uiStore
   const groupSetOperation = useUiStore((state) => state.groupSetOperation)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
+  const setNewAssignmentDialogOpen = useUiStore(
+    (state) => state.setNewAssignmentDialogOpen,
+  )
+  const setPreSelectedGroupSetId = useUiStore(
+    (state) => state.setPreSelectedGroupSetId,
+  )
   const setCopyGroupSetSourceId = useUiStore(
     (state) => state.setCopyGroupSetSourceId,
   )
@@ -307,6 +320,17 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           <span>{operationLabel}</span>
         </div>
       )}
+      <Separator />
+      <AssignmentsSection
+        assignments={assignments}
+        disabled={isOperationActive}
+        onAdd={() => {
+          setPreSelectedGroupSetId(groupSetId)
+          setNewAssignmentDialogOpen(true)
+        }}
+        onUpdate={updateAssignment}
+        onDelete={deleteAssignment}
+      />
       <Separator />
       <GroupsList
         groupSet={groupSet}
@@ -597,6 +621,165 @@ function GroupSetToolbar({
         )}
       </div>
     </TooltipProvider>
+  )
+}
+
+// --- Assignments Section ---
+
+function AssignmentsSection({
+  assignments,
+  disabled,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  assignments: Assignment[]
+  disabled: boolean
+  onAdd: () => void
+  onUpdate: (id: string, updates: Partial<AssignmentMetadata>) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <div className="px-4 py-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Assignments
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-xs"
+          onClick={onAdd}
+          disabled={disabled}
+        >
+          <Plus className="size-3 mr-1" />
+          Add
+        </Button>
+      </div>
+      {assignments.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No assignments yet</p>
+      ) : (
+        <div className="space-y-1">
+          {assignments.map((assignment) => (
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              disabled={disabled}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AssignmentRow({
+  assignment,
+  disabled,
+  onUpdate,
+  onDelete,
+}: {
+  assignment: Assignment
+  disabled: boolean
+  onUpdate: (id: string, updates: Partial<AssignmentMetadata>) => void
+  onDelete: (id: string) => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(assignment.name)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  useEffect(() => {
+    if (!isEditing) setEditName(assignment.name)
+  }, [assignment.name, isEditing])
+
+  const handleSave = useCallback(() => {
+    const trimmed = editName.trim()
+    if (trimmed && trimmed !== assignment.name) {
+      onUpdate(assignment.id, { name: trimmed })
+    }
+    setIsEditing(false)
+  }, [editName, assignment.name, assignment.id, onUpdate])
+
+  return (
+    <div className="flex items-center gap-1.5 group rounded-md px-1.5 py-1 hover:bg-muted/50">
+      <File className="size-3 shrink-0 text-muted-foreground" />
+      {isEditing ? (
+        <Input
+          ref={inputRef}
+          value={editName}
+          disabled={disabled}
+          onChange={(e) => setEditName(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave()
+            if (e.key === "Escape") {
+              setIsEditing(false)
+              setEditName(assignment.name)
+            }
+          }}
+          className="h-6 text-xs font-medium px-1 flex-1 min-w-0"
+        />
+      ) : (
+        <button
+          type="button"
+          className="text-xs font-medium truncate hover:underline cursor-pointer text-left flex-1 min-w-0"
+          onClick={() => {
+            if (!disabled) {
+              setEditName(assignment.name)
+              setIsEditing(true)
+            }
+          }}
+          disabled={disabled}
+        >
+          {assignment.name}
+        </button>
+      )}
+      {confirmDelete ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-5 px-1.5 text-[10px]"
+            onClick={() => {
+              onDelete(assignment.id)
+              setConfirmDelete(false)
+            }}
+            disabled={disabled}
+          >
+            Delete
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-5 px-1.5 text-[10px]"
+            onClick={() => setConfirmDelete(false)}
+            disabled={disabled}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+          onClick={() => setConfirmDelete(true)}
+          disabled={disabled}
+        >
+          <Trash2 className="size-3" />
+        </Button>
+      )}
+    </div>
   )
 }
 

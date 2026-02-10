@@ -10,12 +10,6 @@
     "name": {
       "type": "string"
     },
-    "description": {
-      "anyOf": [
-        { "type": "string" },
-        { "type": "null" }
-      ]
-    },
     "group_set_id": {
       "type": "string",
       "format": "uuid",

@@ -1,5 +1,4 @@
 export { AddGroupDialog } from "./AddGroupDialog"
-export { ChangeGroupSetDialog } from "./ChangeGroupSetDialog"
 export { ConnectLmsGroupSetDialog } from "./ConnectLmsGroupSetDialog"
 export { CopyGroupSetDialog } from "./CopyGroupSetDialog"
 export { DeleteGroupDialog } from "./DeleteGroupDialog"

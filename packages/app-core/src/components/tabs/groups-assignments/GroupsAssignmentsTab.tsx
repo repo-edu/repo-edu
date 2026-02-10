@@ -12,7 +12,7 @@ import { GroupsAssignmentsSidebar } from "./GroupsAssignmentsSidebar"
  * GroupsAssignmentsTab - Master-detail layout for group sets and assignments.
  *
  * Left: GroupsAssignmentsSidebar (selection navigation)
- * Right: GroupsAssignmentsPanel (detail view for selected item)
+ * Right: GroupsAssignmentsPanel (detail view for selected group set)
  */
 export function GroupsAssignmentsTab() {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -23,12 +23,6 @@ export function GroupsAssignmentsTab() {
   )
   const selection = useUiStore((state) => state.sidebarSelection)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
-  const setNewAssignmentDialogOpen = useUiStore(
-    (state) => state.setNewAssignmentDialogOpen,
-  )
-  const setPreSelectedGroupSetId = useUiStore(
-    (state) => state.setPreSelectedGroupSetId,
-  )
   const setNewLocalGroupSetDialogOpen = useUiStore(
     (state) => state.setNewLocalGroupSetDialogOpen,
   )
@@ -50,14 +44,6 @@ export function GroupsAssignmentsTab() {
       ensureSystemGroupSets()
     }
   }, [roster, systemSetsReady, ensureSystemGroupSets])
-
-  const handleAddAssignment = useCallback(
-    (groupSetId: string) => {
-      setPreSelectedGroupSetId(groupSetId)
-      setNewAssignmentDialogOpen(true)
-    },
-    [setPreSelectedGroupSetId, setNewAssignmentDialogOpen],
-  )
 
   const handleCreateLocalGroupSet = useCallback(() => {
     setNewLocalGroupSetDialogOpen(true)
@@ -94,7 +80,6 @@ export function GroupsAssignmentsTab() {
       <GroupsAssignmentsSidebar
         selection={selection}
         onSelect={setSidebarSelection}
-        onAddAssignment={handleAddAssignment}
         onConnectGroupSet={handleConnectGroupSet}
         onCreateLocalGroupSet={handleCreateLocalGroupSet}
         onImportGroupSet={handleImportGroupSet}

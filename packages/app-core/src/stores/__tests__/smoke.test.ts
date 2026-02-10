@@ -252,7 +252,6 @@ describe("Store Smoke Tests", () => {
               {
                 id: "a-1",
                 name: "Assignment 1",
-                description: null,
                 group_set_id: "gs-1",
               },
             ],
@@ -305,7 +304,6 @@ describe("Store Smoke Tests", () => {
           {
             id: assignmentId,
             name: "Assignment 1",
-            description: null,
             group_set_id: "gs-1",
           },
         ],

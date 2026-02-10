@@ -25,7 +25,6 @@ import { commands } from "./bindings/commands"
 import { DataOverviewButton } from "./components/DataOverviewButton"
 import {
   AddGroupDialog,
-  ChangeGroupSetDialog,
   ConnectLmsGroupSetDialog,
   CopyGroupSetDialog,
   DeleteGroupDialog,
@@ -422,7 +421,6 @@ function App() {
 
       {/* Assignment Tab Dialogs */}
       <NewAssignmentDialog />
-      <ChangeGroupSetDialog />
 
       {/* Group Set Dialogs */}
       <ConnectLmsGroupSetDialog />

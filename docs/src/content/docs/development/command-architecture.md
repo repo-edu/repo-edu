@@ -65,7 +65,7 @@ and returns updated entities. Frontend merges returned data into the store, then
 | `removeGroupFromSet(groupSetId, groupId)` | Remove group from set (clean up if orphaned) |
 | `updateGroupSetSelection(groupSetId, selection)` | Update group selection on a group set |
 | `createAssignment(assignment)` | Create assignment |
-| `updateAssignment(id, updates)` | Update assignment (name, description, group_set_id) |
+| `updateAssignment(id, updates)` | Update assignment (name) |
 | `deleteAssignment(id)` | Delete assignment |
 
 ### Selectors
@@ -192,7 +192,6 @@ the frontend to merge and persist.
 | ReimportGroupSetDialog (preview) | `preview_reimport_group_set` | Manifest |
 | ReimportGroupSetDialog (confirm) | `reimport_group_set` | Manifest |
 | NewAssignmentDialog | `createAssignment()` | Frontend |
-| ChangeGroupSetDialog | `updateAssignment()` | Frontend |
 | DeleteGroupSetDialog | `deleteGroupSet()` | Frontend |
 
 ## CLI Impact

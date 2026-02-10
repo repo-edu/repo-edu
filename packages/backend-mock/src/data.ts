@@ -392,13 +392,11 @@ export const cs101Assignments: Assignment[] = [
   {
     id: "lab-basics",
     name: "lab-1",
-    description: "Lab 1: Python Basics",
     group_set_id: "gs-lab-teams",
   },
   {
     id: "lab-functions",
     name: "lab-2",
-    description: "Lab 2: Functions and Modules",
     group_set_id: "gs-lab-teams",
   },
 ]
@@ -407,13 +405,11 @@ export const cs201Assignments: Assignment[] = [
   {
     id: "project-datavis",
     name: "project-1",
-    description: "Project: Data Visualization",
     group_set_id: "gs-project-teams",
   },
   {
     id: "project-api",
     name: "project-2",
-    description: "Project: REST API Client",
     group_set_id: "gs-project-teams",
   },
 ]

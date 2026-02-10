@@ -285,32 +285,16 @@ export function OperationTab() {
             className="w-80"
             title="Select the assignment to operate on. The assignment name is used as part of the repository name."
           >
-            <span className="flex flex-col items-start truncate text-left">
-              {selectedAssignment ? (
-                <>
-                  <span className="truncate">{selectedAssignment.name}</span>
-                  {selectedAssignment.description && (
-                    <span className="text-[10px] text-muted-foreground font-normal truncate">
-                      {selectedAssignment.description}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span>Select an assignment</span>
-              )}
+            <span className="truncate text-left">
+              {selectedAssignment
+                ? selectedAssignment.name
+                : "Select an assignment"}
             </span>
           </SelectTrigger>
           <SelectContent>
             {assignments.map((a) => (
               <SelectItem key={a.id} value={a.id} className="py-1.5">
-                <span className="flex flex-col">
-                  <span>{a.name}</span>
-                  {a.description && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {a.description}
-                    </span>
-                  )}
-                </span>
+                {a.name}
               </SelectItem>
             ))}
           </SelectContent>

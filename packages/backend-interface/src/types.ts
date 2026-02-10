@@ -45,7 +45,6 @@ export interface AppSettings {
 export interface Assignment {
   id: AssignmentId
   name: string
-  description?: string | null
   /**
    * Reference to group set by ID (required)
    */
@@ -73,7 +72,6 @@ export type AssignmentId = string
 export interface AssignmentMetadata {
   id: AssignmentId
   name: string
-  description?: string | null
   /**
    * Reference to group set by ID (required)
    */

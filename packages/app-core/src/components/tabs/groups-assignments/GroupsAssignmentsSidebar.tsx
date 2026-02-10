@@ -1,8 +1,8 @@
-import type { Assignment, GroupSet } from "@repo-edu/backend-interface/types"
+import type { GroupSet } from "@repo-edu/backend-interface/types"
 import { cn } from "@repo-edu/ui"
 import { Plus, Upload } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef } from "react"
 import {
   selectConnectedGroupSets,
   selectGroupSets,
@@ -16,7 +16,6 @@ import { GroupSetItem } from "./GroupSetItem"
 interface GroupsAssignmentsSidebarProps {
   selection: SidebarSelection
   onSelect: (selection: SidebarSelection) => void
-  onAddAssignment: (groupSetId: string) => void
   onConnectGroupSet: () => void
   onCreateLocalGroupSet: () => void
   onImportGroupSet: () => void
@@ -42,7 +41,6 @@ function SectionHeader({
 
 interface GroupSetRowData {
   groupSet: GroupSet
-  assignments: Assignment[]
   groupCount: number
 }
 
@@ -59,52 +57,30 @@ function selectionToItemId(selection: SidebarSelection): string | null {
 function GroupSetList({
   rows,
   selection,
-  expandedGroupSets,
   activeItemId,
-  isOperationActive,
   busyGroupSetId,
   onSelect,
-  onToggleExpanded,
-  onAddAssignment,
-  onGroupSetKeyDown,
-  onAssignmentKeyDown,
+  onKeyDown,
 }: {
   rows: GroupSetRowData[]
   selection: SidebarSelection
-  expandedGroupSets: Record<string, boolean>
   activeItemId: string | null
-  isOperationActive: boolean
   busyGroupSetId: string | null
   onSelect: (selection: SidebarSelection) => void
-  onToggleExpanded: (groupSetId: string) => void
-  onAddAssignment: (groupSetId: string) => void
-  onGroupSetKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
-  onAssignmentKeyDown: (
-    event: KeyboardEvent<HTMLButtonElement>,
-    assignmentId: string,
-  ) => void
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
 }) {
   return (
     <div className="space-y-0.5">
-      {rows.map(({ groupSet, assignments, groupCount }) => (
+      {rows.map(({ groupSet, groupCount }) => (
         <GroupSetItem
           key={groupSet.id}
           groupSet={groupSet}
-          assignments={assignments}
           groupCount={groupCount}
           selection={selection}
-          expanded={!!expandedGroupSets[groupSet.id]}
           onSelect={onSelect}
-          onToggleExpanded={onToggleExpanded}
-          onAddAssignment={onAddAssignment}
-          disableActions={isOperationActive}
           isBusy={busyGroupSetId === groupSet.id}
           tabIndex={activeItemId === `group-set:${groupSet.id}` ? 0 : -1}
-          onGroupSetKeyDown={onGroupSetKeyDown}
-          onAssignmentKeyDown={onAssignmentKeyDown}
-          getAssignmentTabIndex={(assignmentId) =>
-            activeItemId === `assignment:${assignmentId}` ? 0 : -1
-          }
+          onKeyDown={onKeyDown}
         />
       ))}
     </div>
@@ -114,7 +90,6 @@ function GroupSetList({
 export function GroupsAssignmentsSidebar({
   selection,
   onSelect,
-  onAddAssignment,
   onConnectGroupSet,
   onCreateLocalGroupSet,
   onImportGroupSet,
@@ -152,32 +127,6 @@ export function GroupsAssignmentsSidebar({
 
   const hasAnyGroupSets = allGroupSets.length > 0
 
-  const assignmentsByGroupSetId = useMemo(() => {
-    const map = new Map<string, Assignment[]>()
-    if (!roster) return map
-
-    for (const assignment of roster.assignments) {
-      const existing = map.get(assignment.group_set_id)
-      if (existing) {
-        existing.push(assignment)
-      } else {
-        map.set(assignment.group_set_id, [assignment])
-      }
-    }
-
-    return map
-  }, [roster])
-
-  const assignmentGroupSetById = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const [groupSetId, assignments] of assignmentsByGroupSetId) {
-      for (const assignment of assignments) {
-        map.set(assignment.id, groupSetId)
-      }
-    }
-    return map
-  }, [assignmentsByGroupSetId])
-
   const groupCountByGroupSetId = useMemo(() => {
     const map = new Map<string, number>()
     const knownGroupIds = new Set(roster?.groups.map((group) => group.id) ?? [])
@@ -193,53 +142,14 @@ export function GroupsAssignmentsSidebar({
     return map
   }, [allGroupSets, roster])
 
-  const [expandedGroupSets, setExpandedGroupSets] = useState<
-    Record<string, boolean>
-  >({})
-
-  useEffect(() => {
-    setExpandedGroupSets((previous) => {
-      const next: Record<string, boolean> = {}
-      let changed = false
-
-      for (const groupSet of allGroupSets) {
-        if (groupSet.id in previous) {
-          next[groupSet.id] = previous[groupSet.id]
-        } else {
-          next[groupSet.id] =
-            (assignmentsByGroupSetId.get(groupSet.id)?.length ?? 0) > 0
-          changed = true
-        }
-      }
-
-      if (Object.keys(previous).length !== Object.keys(next).length) {
-        changed = true
-      }
-
-      return changed ? next : previous
-    })
-  }, [allGroupSets, assignmentsByGroupSetId])
-
-  useEffect(() => {
-    if (!selection || selection.kind !== "assignment") return
-    const parentGroupSetId = assignmentGroupSetById.get(selection.id)
-    if (!parentGroupSetId) return
-
-    setExpandedGroupSets((previous) => {
-      if (previous[parentGroupSetId]) return previous
-      return { ...previous, [parentGroupSetId]: true }
-    })
-  }, [selection, assignmentGroupSetById])
-
   const buildRows = useCallback(
     (groupSets: GroupSet[]): GroupSetRowData[] => {
       return groupSets.map((groupSet) => ({
         groupSet,
-        assignments: assignmentsByGroupSetId.get(groupSet.id) ?? [],
         groupCount: groupCountByGroupSetId.get(groupSet.id) ?? 0,
       }))
     },
-    [assignmentsByGroupSetId, groupCountByGroupSetId],
+    [groupCountByGroupSetId],
   )
 
   const systemRows = useMemo(
@@ -263,15 +173,6 @@ export function GroupsAssignmentsSidebar({
           itemId: `group-set:${row.groupSet.id}`,
           selection: { kind: "group-set", id: row.groupSet.id },
         })
-
-        if (!expandedGroupSets[row.groupSet.id]) continue
-
-        for (const assignment of row.assignments) {
-          items.push({
-            itemId: `assignment:${assignment.id}`,
-            selection: { kind: "assignment", id: assignment.id },
-          })
-        }
       }
     }
 
@@ -280,7 +181,7 @@ export function GroupsAssignmentsSidebar({
     appendRows(localRows)
 
     return items
-  }, [systemRows, connectedRows, localRows, expandedGroupSets])
+  }, [systemRows, connectedRows, localRows])
 
   const activeItemId = useMemo(() => {
     const selectedItemId = selectionToItemId(selection)
@@ -300,15 +201,11 @@ export function GroupsAssignmentsSidebar({
     element?.focus()
   }, [])
 
-  const handleToggleExpanded = useCallback((groupSetId: string) => {
-    setExpandedGroupSets((previous) => ({
-      ...previous,
-      [groupSetId]: !previous[groupSetId],
-    }))
-  }, [])
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      const itemId = event.currentTarget.dataset.sidebarItemId
+      if (!itemId) return
 
-  const handleItemKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>, itemId: string) => {
       const index = navigationItems.findIndex((item) => item.itemId === itemId)
       if (index < 0) return
 
@@ -346,22 +243,6 @@ export function GroupsAssignmentsSidebar({
     [focusSidebarItem, navigationItems, onRequestFocusPanel, onSelect],
   )
 
-  const handleGroupSetKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>) => {
-      const itemId = event.currentTarget.dataset.sidebarItemId
-      if (!itemId) return
-      handleItemKeyDown(event, itemId)
-    },
-    [handleItemKeyDown],
-  )
-
-  const handleAssignmentKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>, assignmentId: string) => {
-      handleItemKeyDown(event, `assignment:${assignmentId}`)
-    },
-    [handleItemKeyDown],
-  )
-
   return (
     <div
       ref={sidebarRef}
@@ -374,15 +255,10 @@ export function GroupsAssignmentsSidebar({
           <GroupSetList
             rows={systemRows}
             selection={selection}
-            expandedGroupSets={expandedGroupSets}
             activeItemId={activeItemId}
-            isOperationActive={isOperationActive}
             busyGroupSetId={busyGroupSetId}
             onSelect={onSelect}
-            onToggleExpanded={handleToggleExpanded}
-            onAddAssignment={onAddAssignment}
-            onGroupSetKeyDown={handleGroupSetKeyDown}
-            onAssignmentKeyDown={handleAssignmentKeyDown}
+            onKeyDown={handleKeyDown}
           />
         )}
       </div>
@@ -411,15 +287,10 @@ export function GroupsAssignmentsSidebar({
           <GroupSetList
             rows={connectedRows}
             selection={selection}
-            expandedGroupSets={expandedGroupSets}
             activeItemId={activeItemId}
-            isOperationActive={isOperationActive}
             busyGroupSetId={busyGroupSetId}
             onSelect={onSelect}
-            onToggleExpanded={handleToggleExpanded}
-            onAddAssignment={onAddAssignment}
-            onGroupSetKeyDown={handleGroupSetKeyDown}
-            onAssignmentKeyDown={handleAssignmentKeyDown}
+            onKeyDown={handleKeyDown}
           />
         )}
       </div>
@@ -448,15 +319,10 @@ export function GroupsAssignmentsSidebar({
           <GroupSetList
             rows={localRows}
             selection={selection}
-            expandedGroupSets={expandedGroupSets}
             activeItemId={activeItemId}
-            isOperationActive={isOperationActive}
             busyGroupSetId={busyGroupSetId}
             onSelect={onSelect}
-            onToggleExpanded={handleToggleExpanded}
-            onAddAssignment={onAddAssignment}
-            onGroupSetKeyDown={handleGroupSetKeyDown}
-            onAssignmentKeyDown={handleAssignmentKeyDown}
+            onKeyDown={handleKeyDown}
           />
         )}
         <button

@@ -109,7 +109,6 @@ impl Assignment {
         Self {
             id: generate_assignment_id(),
             name: name.into(),
-            description: None,
             group_set_id,
         }
     }
