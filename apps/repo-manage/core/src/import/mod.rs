@@ -36,24 +36,3 @@ pub fn parse_students_file(path: &Path) -> Result<Vec<RosterMemberDraft>> {
         ))),
     }
 }
-
-pub fn parse_group_edit_file(path: &Path) -> Result<Vec<GroupEditEntry>> {
-    let extension = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
-    match extension.as_str() {
-        "csv" => {
-            let file = std::fs::File::open(path)
-                .map_err(|e| PlatformError::Other(format!("Failed to read file: {}", e)))?;
-            parse_group_edit_csv(file)
-        }
-        "xlsx" | "xls" => parse_group_edit_excel(path),
-        _ => Err(PlatformError::Other(format!(
-            "Unsupported file extension: {}",
-            extension
-        ))),
-    }
-}

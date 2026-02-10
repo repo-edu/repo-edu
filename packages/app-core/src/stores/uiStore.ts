@@ -14,10 +14,7 @@ import { create } from "zustand"
 /**
  * Sidebar selection state for the Groups & Assignments tab.
  */
-export type SidebarSelection =
-  | { kind: "group-set"; id: string }
-  | { kind: "assignment"; id: string }
-  | null
+export type SidebarSelection = { kind: "group-set"; id: string } | null
 
 /**
  * Profile list item - cached in store to avoid repeated fetches.
@@ -66,7 +63,6 @@ interface UiState {
 
   // Assignment tab dialogs
   newAssignmentDialogOpen: boolean
-  editAssignmentDialogOpen: boolean
   fileImportExportOpen: boolean
   addGroupDialogOpen: boolean
   editGroupDialogOpen: boolean
@@ -76,8 +72,6 @@ interface UiState {
   dataOverviewOpen: boolean
   assignmentCoverageOpen: boolean
   assignmentCoverageFocus: AssignmentCoverageFocus | null
-  connectToGroupSetDialogOpen: boolean
-  connectToGroupSetAssignmentId: string | null
   preSelectedGroupSetId: string | null
 
   // Phase 10 dialogs (Groups & Assignments)
@@ -88,7 +82,6 @@ interface UiState {
   copyGroupSetSourceId: string | null // non-null = dialog open with this source
   deleteGroupSetTargetId: string | null // non-null = dialog open for this group set
   deleteGroupTargetId: string | null // non-null = dialog open for this group
-  changeGroupSetAssignmentId: string | null // non-null = dialog open for this assignment
   addGroupDialogGroupSetId: string | null // context for AddGroupDialog
 
   // Groups & Assignments sidebar selection
@@ -143,7 +136,6 @@ interface UiActions {
 
   // Assignment tab dialogs
   setNewAssignmentDialogOpen: (open: boolean) => void
-  setEditAssignmentDialogOpen: (open: boolean) => void
   setFileImportExportOpen: (open: boolean) => void
   setAddGroupDialogOpen: (open: boolean) => void
   setEditGroupDialogOpen: (open: boolean) => void
@@ -153,10 +145,6 @@ interface UiActions {
   setDataOverviewOpen: (open: boolean) => void
   setAssignmentCoverageOpen: (open: boolean) => void
   setAssignmentCoverageFocus: (focus: AssignmentCoverageFocus | null) => void
-  setConnectToGroupSetDialogOpen: (
-    open: boolean,
-    assignmentId: string | null,
-  ) => void
   setPreSelectedGroupSetId: (id: string | null) => void
   setSidebarSelection: (selection: SidebarSelection) => void
   setGroupSetOperation: (operation: GroupSetOperationState | null) => void
@@ -169,7 +157,6 @@ interface UiActions {
   setCopyGroupSetSourceId: (id: string | null) => void
   setDeleteGroupSetTargetId: (id: string | null) => void
   setDeleteGroupTargetId: (id: string | null) => void
-  setChangeGroupSetAssignmentId: (id: string | null) => void
   setAddGroupDialogGroupSetId: (id: string | null) => void
 
   // Profile dialogs
@@ -225,7 +212,6 @@ const initialState: UiState = {
 
   // Assignment tab dialogs
   newAssignmentDialogOpen: false,
-  editAssignmentDialogOpen: false,
   fileImportExportOpen: false,
   addGroupDialogOpen: false,
   editGroupDialogOpen: false,
@@ -235,8 +221,6 @@ const initialState: UiState = {
   dataOverviewOpen: false,
   assignmentCoverageOpen: false,
   assignmentCoverageFocus: null,
-  connectToGroupSetDialogOpen: false,
-  connectToGroupSetAssignmentId: null,
   preSelectedGroupSetId: null,
 
   // Phase 10 dialogs
@@ -247,7 +231,6 @@ const initialState: UiState = {
   copyGroupSetSourceId: null,
   deleteGroupSetTargetId: null,
   deleteGroupTargetId: null,
-  changeGroupSetAssignmentId: null,
   addGroupDialogGroupSetId: null,
 
   // Groups & Assignments sidebar selection
@@ -307,8 +290,6 @@ export const useUiStore = create<UiStore>((set) => ({
 
   // Assignment tab dialogs
   setNewAssignmentDialogOpen: (open) => set({ newAssignmentDialogOpen: open }),
-  setEditAssignmentDialogOpen: (open) =>
-    set({ editAssignmentDialogOpen: open }),
   setFileImportExportOpen: (open) => set({ fileImportExportOpen: open }),
   setAddGroupDialogOpen: (open) => set({ addGroupDialogOpen: open }),
   setEditGroupDialogOpen: (open) => set({ editGroupDialogOpen: open }),
@@ -320,11 +301,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setAssignmentCoverageOpen: (open) => set({ assignmentCoverageOpen: open }),
   setAssignmentCoverageFocus: (focus) =>
     set({ assignmentCoverageFocus: focus }),
-  setConnectToGroupSetDialogOpen: (open, assignmentId) =>
-    set({
-      connectToGroupSetDialogOpen: open,
-      connectToGroupSetAssignmentId: assignmentId,
-    }),
   setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
   setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
   setGroupSetOperation: (operation) => set({ groupSetOperation: operation }),
@@ -340,8 +316,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setCopyGroupSetSourceId: (id) => set({ copyGroupSetSourceId: id }),
   setDeleteGroupSetTargetId: (id) => set({ deleteGroupSetTargetId: id }),
   setDeleteGroupTargetId: (id) => set({ deleteGroupTargetId: id }),
-  setChangeGroupSetAssignmentId: (id) =>
-    set({ changeGroupSetAssignmentId: id }),
   setAddGroupDialogGroupSetId: (id) => set({ addGroupDialogGroupSetId: id }),
 
   // Profile dialogs

@@ -29,7 +29,6 @@ pnpm test:rs -- -p repo-manage-core <name>    # Run specific test by name
   - `system.rs` — System group set management (`ensure_system_group_sets`)
   - `glob.rs` — Glob pattern validation and matching
   - `resolution.rs` — Group selection resolution (all/pattern + exclusions)
-  - `group_edit.rs` — Group editing utilities
   - `nanoid.rs` — ID generation
 - **operations/** — High-level operations shared between CLI and GUI
   - `platform.rs` — Git platform verification

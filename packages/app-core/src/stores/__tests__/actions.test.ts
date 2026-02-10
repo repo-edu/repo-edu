@@ -363,7 +363,6 @@ describe("Profile Store Actions", () => {
 
       const id = useProfileStore.getState().createAssignment({
         name: "lab-1",
-        description: "Lab 1",
         group_set_id: "gs-1",
       })
 
@@ -425,24 +424,6 @@ describe("Profile Store Actions", () => {
       // Selection should reset to first remaining assignment
       const selection = useProfileStore.getState().assignmentSelection
       expect(selection).toEqual({ mode: "assignment", id: "a-2" })
-    })
-
-    it("removeAssignment backward compat alias works", () => {
-      setupStore({
-        ...emptyRoster(),
-        assignments: [
-          {
-            id: "a-1",
-            name: "A1",
-            group_set_id: "gs-1",
-          },
-        ],
-      })
-
-      useProfileStore.getState().removeAssignment("a-1")
-
-      const roster = useProfileStore.getState().document?.roster
-      expect(roster?.assignments).toHaveLength(0)
     })
   })
 

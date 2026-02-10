@@ -148,8 +148,6 @@ interface ProfileActions {
     updates: Partial<AssignmentMetadata>,
   ) => void
   deleteAssignment: (id: AssignmentId) => void
-  /** @deprecated Use deleteAssignment */
-  removeAssignment: (id: AssignmentId) => void
 
   // Selection (not part of undo/redo)
   setAssignmentSelection: (selection: AssignmentSelection | null) => void
@@ -823,8 +821,6 @@ export const useProfileStore = create<ProfileStore>()(
         }
       },
 
-      removeAssignment: (id) => get().deleteAssignment(id),
-
       setAssignmentSelection: (selection) => {
         set((state) => {
           state.assignmentSelection = selection
@@ -1445,19 +1441,6 @@ export const selectAssignments = (state: ProfileStore) =>
   state.document?.roster?.assignments ?? EMPTY_ASSIGNMENTS
 export const selectAssignmentSelection = (state: ProfileStore) =>
   state.assignmentSelection
-/** @deprecated Use selectAssignmentSelection instead */
-export const selectSelectedAssignmentId = (state: ProfileStore) =>
-  state.assignmentSelection?.mode === "assignment"
-    ? state.assignmentSelection.id
-    : null
-export const selectSelectedAssignment = (state: ProfileStore) => {
-  const selection = state.assignmentSelection
-  if (selection?.mode !== "assignment") return null
-  return (
-    state.document?.roster?.assignments.find((a) => a.id === selection.id) ??
-    null
-  )
-}
 
 // Settings selectors
 export const selectCourse = (state: ProfileStore) =>

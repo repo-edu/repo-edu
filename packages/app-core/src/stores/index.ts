@@ -38,8 +38,6 @@ export {
   selectRosterStaff,
   selectRosterStudents,
   selectRosterValidation,
-  selectSelectedAssignment,
-  selectSelectedAssignmentId,
   selectSettings,
   selectStudents,
   selectSystemGroupSet,
