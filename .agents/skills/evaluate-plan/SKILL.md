@@ -1,7 +1,7 @@
 ---
 name: evaluate-plan
 
-description: Guide for evaluating plans. This skill should be used when the user wants AI to read the planning files and evaluate the plan.
+description: empty description
 metadata:
   short-description: Evaluate and understand plans
 ---

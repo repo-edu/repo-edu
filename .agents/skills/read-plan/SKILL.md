@@ -1,7 +1,7 @@
 ---
 name: read-plan
 
-description: Guide for reading plans. This skill should be used when the user wants AI to read the planning files for code redesign.
+description: empty description
 metadata:
   short-description: Read and understand plans
 ---
