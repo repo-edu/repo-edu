@@ -79,9 +79,7 @@ export function SidebarNav<T extends SidebarNavItem>({
               <div
                 className={cn(
                   "flex items-center gap-2 rounded-md transition-colors",
-                  selectedId === item.id
-                    ? "bg-blue-100 dark:bg-blue-700/60"
-                    : "hover:bg-muted",
+                  selectedId === item.id ? "bg-selection" : "hover:bg-muted",
                 )}
               >
                 <button

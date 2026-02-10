@@ -66,7 +66,7 @@ export function SettingsSheet() {
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap",
                       activeCategory === cat.id
-                        ? "bg-blue-100 dark:bg-blue-700/60"
+                        ? "bg-selection"
                         : "hover:bg-muted",
                     )}
                   >

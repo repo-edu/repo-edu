@@ -171,7 +171,7 @@ export function ActionDropdown<T extends ActionDropdownItem>({
             className={cn(
               "flex items-center justify-between gap-2 px-2 py-1.5 text-xs rounded-sm cursor-pointer",
               "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-              index === activeIndex && "bg-blue-100 dark:bg-blue-700/60",
+              index === activeIndex && "bg-selection",
             )}
           >
             <span className="flex items-center gap-1.5 truncate min-w-0 text-left">

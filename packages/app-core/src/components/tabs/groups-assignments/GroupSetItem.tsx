@@ -94,7 +94,7 @@ export function GroupSetItem({
     <div
       className={cn(
         "flex items-center rounded-md",
-        isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
+        isSelected ? "bg-selection" : "hover:bg-muted/50",
       )}
     >
       <button

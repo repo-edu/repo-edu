@@ -51,6 +51,7 @@
   --tab-active: #1677ff;
   --checkbox-checked: #1677ff;
   --checkbox-checked-border: #1463d4;
+  --selection: #dbeafe;
 }
 
 /* Dark theme */
@@ -94,6 +95,7 @@
   --tab-active: #4096ff;
   --checkbox-checked: #4096ff;
   --checkbox-checked-border: #1463d4;
+  --selection: rgb(29 78 216 / 0.6);
 }
 
 /* System preference (when .theme-system is set) */
@@ -137,6 +139,7 @@
     --tab-active: #4096ff;
     --checkbox-checked: #4096ff;
     --checkbox-checked-border: #1463d4;
+    --selection: rgb(29 78 216 / 0.6);
   }
 }
 
@@ -171,6 +174,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-selection: var(--selection);
 }
 
 /* ===== Base Styles ===== */
@@ -432,11 +436,7 @@ input.password-input[type="password"][data-slot="input"] {
 
 [data-slot="tabs-trigger"][data-state="active"] {
   color: var(--foreground);
-  background-color: #dbeafe;
-}
-
-.theme-dark [data-slot="tabs-trigger"][data-state="active"] {
-  background-color: rgb(29 78 216 / 0.6);
+  background-color: var(--selection);
 }
 
 [data-slot="checkbox"] {

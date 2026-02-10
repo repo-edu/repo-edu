@@ -114,7 +114,7 @@ function SelectItem({
       data-slot="select-item"
       className={cn(
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        "data-[state=checked]:bg-blue-100 data-[state=checked]:dark:bg-blue-700/60",
+        "data-[state=checked]:bg-selection",
         size === "xs" ? "py-1 px-2 text-xs" : "py-1.5 px-2",
         className,
       )}
