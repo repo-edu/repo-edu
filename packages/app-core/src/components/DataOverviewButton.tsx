@@ -4,7 +4,6 @@
  */
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
-import { Info } from "@repo-edu/ui/components/icons"
 import { useDataOverview } from "../hooks/useDataOverview"
 import { useUiStore } from "../stores/uiStore"
 
@@ -22,8 +21,7 @@ export function DataOverviewButton() {
           className="h-8 gap-1.5 px-2 relative"
           onClick={() => setDataOverviewOpen(true)}
         >
-          <Info className="size-4" />
-          <span className="text-xs">Overview</span>
+          <span className="text-xs">Issues</span>
           {issueCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-medium leading-none">
               {issueCount}
