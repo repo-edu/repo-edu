@@ -162,8 +162,8 @@ Each roster contains:
 - `students` — Student roster members (name, email, git username, enrollment info)
 - `staff` — Staff roster members (teachers, TAs, designers, observers)
 - `groups` — Top-level group entities with origin-based editability
-- `group_sets` — Named collections of group references with connection metadata
-- `assignments` — Assignment definitions referencing group sets with group selection modes
+- `group_sets` — Named collections of group references with connection metadata and group selection
+- `assignments` — Assignment definitions referencing group sets
 
 See [Settings Reference](../reference/settings-reference.md) for complete field documentation.
 

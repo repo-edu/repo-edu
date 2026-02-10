@@ -125,6 +125,7 @@ const localGroupSet: GroupSet = {
   name: "Local Set",
   group_ids: ["g-local"],
   connection: null,
+  group_selection: { kind: "all", excluded_group_ids: [] },
 }
 
 const connectedGroupSet: GroupSet = {
@@ -137,6 +138,7 @@ const connectedGroupSet: GroupSet = {
     group_set_id: "gs-canvas",
     last_updated: new Date().toISOString(),
   },
+  group_selection: { kind: "all", excluded_group_ids: [] },
 }
 
 const systemGroupSet: GroupSet = {
@@ -144,6 +146,7 @@ const systemGroupSet: GroupSet = {
   name: "Individual Students",
   group_ids: ["sys-ind-m-1"],
   connection: { kind: "system", system_type: "individual_students" },
+  group_selection: { kind: "all", excluded_group_ids: [] },
 }
 
 function setupStore(roster: Roster) {
@@ -305,6 +308,7 @@ describe("Profile Store Selectors", () => {
         name: "Shared Set",
         group_ids: ["g-local"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
 
       setupStore({
@@ -415,19 +419,16 @@ describe("Profile Store Selectors", () => {
             id: "a-1",
             name: "A1",
             group_set_id: "gs-local",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
           {
             id: "a-2",
             name: "A2",
             group_set_id: "gs-canvas",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
           {
             id: "a-3",
             name: "A3",
             group_set_id: "gs-local",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })

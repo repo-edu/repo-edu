@@ -1,7 +1,5 @@
 /**
  * Dialog for changing an assignment's group set.
- *
- * Warns about exclusion clearing when switching group sets.
  */
 
 import {
@@ -20,7 +18,6 @@ import {
   SelectValue,
   Text,
 } from "@repo-edu/ui"
-import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { selectGroupSets, useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -68,19 +65,12 @@ export function ChangeGroupSetDialog() {
   const isChanging =
     selectedGroupSetId !== null &&
     selectedGroupSetId !== assignment?.group_set_id
-  const hasExclusions =
-    (assignment?.group_selection.excluded_group_ids.length ?? 0) > 0
-  const willClearExclusions = isChanging && hasExclusions
 
   const canConfirm = selectedGroupSetId !== null && isChanging
 
   const handleConfirm = () => {
     if (!canConfirm || !assignmentId || !selectedGroupSetId) return
-    updateAssignment(
-      assignmentId,
-      { group_set_id: selectedGroupSetId },
-      { clearExclusionsOnGroupSetChange: true },
-    )
+    updateAssignment(assignmentId, { group_set_id: selectedGroupSetId })
     handleClose()
   }
 
@@ -122,20 +112,6 @@ export function ChangeGroupSetDialog() {
               </SelectContent>
             </Select>
           </FormField>
-
-          {willClearExclusions && (
-            <div className="rounded-md border border-amber-500/50 px-3 py-2">
-              <div className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="size-3.5" />
-                {assignment?.group_selection.excluded_group_ids.length} excluded
-                group{" "}
-                {assignment?.group_selection.excluded_group_ids.length !== 1
-                  ? "s"
-                  : ""}{" "}
-                will be cleared (exclusions don't transfer across group sets).
-              </div>
-            </div>
-          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>

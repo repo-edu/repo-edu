@@ -2,8 +2,8 @@
 
 use crate::import::normalize_email;
 use crate::roster::{
-    generate_group_id, generate_group_set_id, Group, GroupSet, GroupSetConnection, Roster,
-    RosterMemberId,
+    generate_group_id, generate_group_set_id, selection_mode_all, Group, GroupSet,
+    GroupSetConnection, Roster, RosterMemberId,
 };
 use crate::{GroupSetImportPreview, GroupSetImportResult};
 use chrono::Utc;
@@ -376,6 +376,7 @@ pub fn import_group_set(
         name: filename.clone(),
         group_ids,
         connection: make_import_connection(&filename),
+        group_selection: selection_mode_all(),
     };
 
     Ok(GroupSetImportResult {
@@ -593,6 +594,7 @@ pub fn reimport_group_set(
         name: group_set.name.clone(),
         group_ids: new_group_ids,
         connection: make_import_connection(&filename),
+        group_selection: group_set.group_selection.clone(),
     };
 
     Ok(GroupSetImportResult {
@@ -943,6 +945,7 @@ mod tests {
             name: "Test Set".to_string(),
             group_ids: vec![group_id.clone()],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         let csv = write_csv(
@@ -982,6 +985,7 @@ mod tests {
             name: "Test Set".to_string(),
             group_ids: vec![group_id.clone()],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         // CSV without group_id column — falls back to name match
@@ -1020,6 +1024,7 @@ mod tests {
             name: "Test Set".to_string(),
             group_ids: vec![group_id.clone()],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         let csv = write_csv(
@@ -1075,6 +1080,7 @@ mod tests {
             name: "Export Set".to_string(),
             group_ids: vec![g1_id, g2_id],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         let export_path = dir.path().join("export.csv");
@@ -1112,6 +1118,7 @@ mod tests {
             name: "Set".to_string(),
             group_ids: vec![g_id],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         let export_path = dir.path().join("export.csv");

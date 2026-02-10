@@ -16,10 +16,10 @@ interface AssignmentItemProps {
 }
 
 /**
- * Computes a short summary for the group selection mode of an assignment.
+ * Computes a short summary for the group selection mode of a group set.
  * E.g. "all · 12 groups" or "1D* · 5 groups"
  */
-function useSelectionSummary(assignment: Assignment, groupSet: GroupSet) {
+function useSelectionSummary(groupSet: GroupSet) {
   const rosterGroups = useProfileStore(
     (state) => state.document?.roster?.groups,
   )
@@ -33,7 +33,7 @@ function useSelectionSummary(assignment: Assignment, groupSet: GroupSet) {
   }, [groupSet.group_ids, rosterGroups])
 
   return useMemo(() => {
-    const sel = assignment.group_selection
+    const sel = groupSet.group_selection
     const excluded = new Set(sel.excluded_group_ids ?? [])
 
     if (sel.kind === "all") {
@@ -46,7 +46,7 @@ function useSelectionSummary(assignment: Assignment, groupSet: GroupSet) {
       (g) => !excluded.has(g.id) && matchGlob(sel.pattern, g.name),
     )
     return `${sel.pattern} · ${matchingGroups.length} group${matchingGroups.length !== 1 ? "s" : ""}`
-  }, [assignment.group_selection, groups])
+  }, [groupSet.group_selection, groups])
 }
 
 /** Simple glob matcher supporting only trailing '*' for sidebar display. */
@@ -67,7 +67,7 @@ export function AssignmentItem({
 }: AssignmentItemProps) {
   const isSelected =
     selection?.kind === "assignment" && selection.id === assignment.id
-  const summary = useSelectionSummary(assignment, groupSet)
+  const summary = useSelectionSummary(groupSet)
 
   return (
     <button

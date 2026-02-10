@@ -245,6 +245,7 @@ describe("Store Smoke Tests", () => {
                 name: "Set 1",
                 group_ids: [groupId],
                 connection: null,
+                group_selection: { kind: "all", excluded_group_ids: [] },
               },
             ],
             assignments: [
@@ -253,7 +254,6 @@ describe("Store Smoke Tests", () => {
                 name: "Assignment 1",
                 description: null,
                 group_set_id: "gs-1",
-                group_selection: { kind: "all", excluded_group_ids: [] },
               },
             ],
           },
@@ -298,6 +298,7 @@ describe("Store Smoke Tests", () => {
             name: "Set 1",
             group_ids: [],
             connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
         assignments: [
@@ -306,7 +307,6 @@ describe("Store Smoke Tests", () => {
             name: "Assignment 1",
             description: null,
             group_set_id: "gs-1",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       }
@@ -333,6 +333,7 @@ describe("Store Smoke Tests", () => {
             name: "Set 1",
             group_ids: [],
             connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
         assignments: [],

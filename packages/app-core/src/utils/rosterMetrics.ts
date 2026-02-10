@@ -147,7 +147,7 @@ export function resolveAssignmentGroups(
     .map((groupId) => groupsById.get(groupId))
     .filter((group): group is Group => !!group)
 
-  return applyGroupSelection(groups, assignment.group_selection)
+  return applyGroupSelection(groups, groupSet.group_selection)
 }
 
 export const getAssignmentCoverageSummary = (

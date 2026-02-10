@@ -139,8 +139,23 @@ export function GroupItem({
           {members.length} member{members.length !== 1 ? "s" : ""}
         </span>
 
-        {/* Actions menu */}
-        {(isEditable || isSetEditable) && (
+        {/* Actions: inline remove button for read-only groups, full menu for editable */}
+        {!isEditable && isSetEditable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return
+              removeGroupFromSet(groupSetId, group.id)
+              onRemoveFromSet?.()
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
+        {isEditable && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -153,19 +168,17 @@ export function GroupItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {isEditable && (
-                <DropdownMenuItem
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return
-                    setEditName(group.name)
-                    setIsEditing(true)
-                  }}
-                >
-                  <Pencil className="size-3.5 mr-2" />
-                  Rename
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return
+                  setEditName(group.name)
+                  setIsEditing(true)
+                }}
+              >
+                <Pencil className="size-3.5 mr-2" />
+                Rename
+              </DropdownMenuItem>
               {isSetEditable && (
                 <DropdownMenuItem
                   disabled={disabled}
@@ -179,26 +192,22 @@ export function GroupItem({
                   Remove from set
                 </DropdownMenuItem>
               )}
-              {isEditable && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    disabled={disabled}
-                    onClick={() => onDeleteGroup?.()}
-                  >
-                    <Trash2 className="size-3.5 mr-2" />
-                    {isShared ? "Delete from all sets" : "Delete"}
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                disabled={disabled}
+                onClick={() => onDeleteGroup?.()}
+              >
+                <Trash2 className="size-3.5 mr-2" />
+                {isShared ? "Delete from all sets" : "Delete"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
 
-      {/* Shared-group banner */}
-      {isShared && (
+      {/* Shared-group banner — only relevant for editable groups */}
+      {isShared && isEditable && (
         <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
           <AlertTriangle className="size-3 shrink-0" />
           <span>

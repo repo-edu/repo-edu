@@ -110,10 +110,6 @@
       "path": "./Group.schema.json"
     },
     {
-      "name": "GroupImportConfig",
-      "path": "./GroupImportConfig.schema.json"
-    },
-    {
       "name": "GroupImportSummary",
       "path": "./GroupImportSummary.schema.json"
     },

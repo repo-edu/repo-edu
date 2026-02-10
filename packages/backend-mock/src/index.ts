@@ -94,7 +94,7 @@ function resolveAssignmentGroups(
   const groupMap = new Map(roster.groups.map((g) => [g.id, g]))
 
   let resolvedIds = groupSet.group_ids
-  const sel = assignment.group_selection
+  const sel = groupSet.group_selection
 
   if (sel.kind === "pattern") {
     const pattern = sel.pattern.toLowerCase()
@@ -441,6 +441,7 @@ export class MockBackend implements BackendAPI {
           name: "Unknown",
           group_ids: [],
           connection: null,
+          group_selection: { kind: "all", excluded_group_ids: [] },
         },
         groups_upserted: [],
         deleted_group_ids: [],
@@ -508,12 +509,20 @@ export class MockBackend implements BackendAPI {
         kind: "system" as const,
         system_type: "individual_students" as const,
       },
+      group_selection: {
+        kind: "all" as const,
+        excluded_group_ids: [] as string[],
+      },
     }
     const staffGroupSet = {
       id: "sys-gs-staff",
       name: "Staff",
       group_ids: [staffGroup.id],
       connection: { kind: "system" as const, system_type: "staff" as const },
+      group_selection: {
+        kind: "all" as const,
+        excluded_group_ids: [] as string[],
+      },
     }
 
     return this.ok({
@@ -648,6 +657,7 @@ export class MockBackend implements BackendAPI {
           source_filename: _filePath.split("/").pop() ?? _filePath,
           last_updated: nowIso(),
         },
+        group_selection: { kind: "all", excluded_group_ids: [] },
       },
       groups_upserted: [],
       deleted_group_ids: [],
@@ -692,6 +702,7 @@ export class MockBackend implements BackendAPI {
           source_filename: _filePath.split("/").pop() ?? _filePath,
           last_updated: nowIso(),
         },
+        group_selection: { kind: "all", excluded_group_ids: [] },
       },
       groups_upserted: [],
       deleted_group_ids: [],

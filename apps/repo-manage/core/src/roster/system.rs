@@ -15,6 +15,7 @@ use crate::generated::types::{
 
 use super::naming::generate_unique_group_name;
 use super::nanoid::{generate_group_id, generate_group_set_id};
+use super::resolution::selection_mode_all;
 
 /// System group set type identifiers.
 pub const SYSTEM_TYPE_INDIVIDUAL_STUDENTS: &str = "individual_students";
@@ -99,6 +100,7 @@ fn ensure_individual_students_set(roster: &mut Roster) -> (GroupSet, Vec<Group>,
                 name: "Individual Students".to_string(),
                 group_ids: Vec::new(),
                 connection: Some(make_system_connection(SYSTEM_TYPE_INDIVIDUAL_STUDENTS)),
+                group_selection: selection_mode_all(),
             };
             roster.group_sets.push(new_set);
             roster.group_sets.len() - 1
@@ -211,6 +213,7 @@ fn ensure_staff_set(roster: &mut Roster) -> (GroupSet, Vec<Group>, Vec<String>) 
                 name: "Staff".to_string(),
                 group_ids: Vec::new(),
                 connection: Some(make_system_connection(SYSTEM_TYPE_STAFF)),
+                group_selection: selection_mode_all(),
             };
             roster.group_sets.push(new_set);
             roster.group_sets.len() - 1
@@ -463,6 +466,7 @@ mod tests {
             name: "Test Set".to_string(),
             group_ids: vec![roster.groups[0].id.clone()],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         ensure_system_group_sets(&mut roster);
@@ -527,6 +531,7 @@ mod tests {
             name: "User Set".to_string(),
             group_ids: vec![lms_gid.clone(), local_gid.clone()],
             connection: None,
+            group_selection: selection_mode_all(),
         });
 
         ensure_system_group_sets(&mut roster);

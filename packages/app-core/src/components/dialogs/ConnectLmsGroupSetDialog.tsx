@@ -189,6 +189,7 @@ export function ConnectLmsGroupSetDialog() {
         lmsContext.course_id,
         selectedGroupSet.id,
       ),
+      group_selection: { kind: "all", excluded_group_ids: [] },
     }
     const rosterWithProvisional = {
       ...roster,

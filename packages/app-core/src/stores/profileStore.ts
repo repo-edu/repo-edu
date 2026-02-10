@@ -13,6 +13,7 @@ import type {
   ExportSettings,
   GitIdentityMode,
   Group,
+  GroupSelectionMode,
   GroupSet,
   OperationConfigs,
   ProfileSettings,
@@ -145,7 +146,6 @@ interface ProfileActions {
   updateAssignment: (
     id: AssignmentId,
     updates: Partial<AssignmentMetadata>,
-    options?: { clearExclusionsOnGroupSetChange?: boolean },
   ) => void
   deleteAssignment: (id: AssignmentId) => void
   /** @deprecated Use deleteAssignment */
@@ -168,10 +168,14 @@ interface ProfileActions {
   removeGroupFromSet: (groupSetId: string, groupId: string) => void
 
   // Group set CRUD
-  createLocalGroupSet: (name: string) => string | null
+  createLocalGroupSet: (name: string, groupIds?: string[]) => string | null
   copyGroupSet: (groupSetId: string) => string | null
   renameGroupSet: (groupSetId: string, name: string) => void
   deleteGroupSet: (groupSetId: string) => void
+  updateGroupSetSelection: (
+    groupSetId: string,
+    groupSelection: GroupSelectionMode,
+  ) => void
 
   // Roster replacement (for imports)
   setRoster: (roster: Roster, description?: string) => void
@@ -785,7 +789,7 @@ export const useProfileStore = create<ProfileStore>()(
         return id
       },
 
-      updateAssignment: (id, updates, options) => {
+      updateAssignment: (id, updates) => {
         const assignmentName =
           get().document?.roster?.assignments.find((a) => a.id === id)?.name ??
           "assignment"
@@ -794,19 +798,6 @@ export const useProfileStore = create<ProfileStore>()(
             (a) => a.id === id,
           )
           if (!assignment) return
-
-          // If group_set_id changes and clearExclusionsOnGroupSetChange, reset exclusions
-          if (
-            options?.clearExclusionsOnGroupSetChange &&
-            updates.group_set_id &&
-            updates.group_set_id !== assignment.group_set_id
-          ) {
-            assignment.group_selection = {
-              kind: "all",
-              excluded_group_ids: [],
-            }
-          }
-
           Object.assign(assignment, updates)
         })
       },
@@ -928,7 +919,7 @@ export const useProfileStore = create<ProfileStore>()(
       },
 
       // Group set CRUD
-      createLocalGroupSet: (name) => {
+      createLocalGroupSet: (name, groupIds) => {
         if (!name.trim()) return null
         const setId = generateGroupSetId()
         mutateRoster(`Create group set ${name}`, (state) => {
@@ -937,8 +928,9 @@ export const useProfileStore = create<ProfileStore>()(
           const gs: GroupSet = {
             id: setId,
             name: name.trim(),
-            group_ids: [],
+            group_ids: groupIds ?? [],
             connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
           }
           roster.group_sets.push(gs)
         })
@@ -959,6 +951,7 @@ export const useProfileStore = create<ProfileStore>()(
             name: `${source.name} (copy)`,
             group_ids: [...source.group_ids],
             connection: null,
+            group_selection: structuredClone(source.group_selection),
           }
           roster.group_sets.push(copy)
         })
@@ -1007,6 +1000,16 @@ export const useProfileStore = create<ProfileStore>()(
             const orphanSet = new Set(orphanedGroupIds)
             roster.groups = roster.groups.filter((g) => !orphanSet.has(g.id))
           }
+        })
+      },
+
+      updateGroupSetSelection: (groupSetId, groupSelection) => {
+        mutateRoster("Update group set selection", (state) => {
+          const gs = state.document?.roster?.group_sets.find(
+            (s) => s.id === groupSetId,
+          )
+          if (!gs) return
+          gs.group_selection = groupSelection
         })
       },
 

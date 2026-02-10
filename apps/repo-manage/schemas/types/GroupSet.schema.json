@@ -24,9 +24,13 @@
         { "type": "null" }
       ],
       "description": "Connection info, or null for local group sets"
+    },
+    "group_selection": {
+      "$ref": "./GroupSelectionMode.schema.json",
+      "description": "How to select groups from this group set"
     }
   },
   "additionalProperties": false,
-  "required": ["id", "name", "group_ids", "connection"],
+  "required": ["id", "name", "group_ids", "connection", "group_selection"],
   "description": "Group set containing references to groups by ID"
 }

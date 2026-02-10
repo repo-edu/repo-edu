@@ -13,7 +13,7 @@ use super::glob::{validate_glob_pattern, SimpleGlob};
 
 /// Resolve groups for an assignment.
 ///
-/// Returns the groups that match the assignment's group selection criteria,
+/// Returns the groups that match the group set's selection criteria,
 /// looked up from the roster's groups array.
 pub fn resolve_assignment_groups<'a>(
     roster: &'a Roster,
@@ -29,7 +29,7 @@ pub fn resolve_assignment_groups<'a>(
         None => return Vec::new(),
     };
 
-    resolve_groups_from_selection(roster, group_set, &assignment.group_selection)
+    resolve_groups_from_selection(roster, group_set, &group_set.group_selection)
 }
 
 /// Resolve groups from a group set using the given selection mode.
@@ -268,6 +268,7 @@ mod tests {
             name: "Test Set".to_string(),
             group_ids,
             connection: None,
+            group_selection: selection_mode_all(),
         };
 
         let roster = Roster {

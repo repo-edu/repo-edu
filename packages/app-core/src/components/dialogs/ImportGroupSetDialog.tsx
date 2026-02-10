@@ -4,7 +4,10 @@
  * Flow: Browse file -> Preview parsed groups -> Optionally edit name -> Import
  */
 
-import type { GroupSetImportPreview } from "@repo-edu/backend-interface/types"
+import type {
+  GroupSelectionMode,
+  GroupSetImportPreview,
+} from "@repo-edu/backend-interface/types"
 import {
   Alert,
   Button,
@@ -16,6 +19,9 @@ import {
   DialogTitle,
   FormField,
   Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
@@ -42,6 +48,8 @@ export function ImportGroupSetDialog() {
   const [preview, setPreview] = useState<
     (GroupSetImportPreview & { mode: "import" }) | null
   >(null)
+  const [selectionKind, setSelectionKind] = useState<"all" | "pattern">("all")
+  const [pattern, setPattern] = useState("")
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,9 +118,18 @@ export function ImportGroupSetDialog() {
       if (result.status === "ok") {
         const importResult = result.data
         const groupSetName = name.trim()
+        const groupSelection: GroupSelectionMode =
+          selectionKind === "pattern"
+            ? {
+                kind: "pattern",
+                pattern: pattern || "*",
+                excluded_group_ids: [],
+              }
+            : { kind: "all", excluded_group_ids: [] }
         const patchedGroupSet = {
           ...importResult.group_set,
           name: groupSetName,
+          group_selection: groupSelection,
         }
         const updatedRoster = applyGroupSetPatch(roster, {
           ...importResult,
@@ -145,6 +162,8 @@ export function ImportGroupSetDialog() {
     setGroupSetOperation(null)
     setFilePath("")
     setName("")
+    setSelectionKind("all")
+    setPattern("")
     setPreview(null)
     setLoading(false)
     setImporting(false)
@@ -237,6 +256,45 @@ export function ImportGroupSetDialog() {
                     {preview.total_missing} member
                     {preview.total_missing !== 1 ? "s" : ""} not found in roster
                   </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Group selection */}
+          {preview && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Group selection</Label>
+              <RadioGroup
+                value={selectionKind}
+                onValueChange={(v) => setSelectionKind(v as "all" | "pattern")}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="import-gs-sel-all" />
+                  <Label htmlFor="import-gs-sel-all" className="text-sm">
+                    All groups
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="pattern" id="import-gs-sel-pattern" />
+                  <Label htmlFor="import-gs-sel-pattern" className="text-sm">
+                    Pattern filter
+                  </Label>
+                </div>
+              </RadioGroup>
+              {selectionKind === "pattern" && (
+                <div className="pl-6 space-y-1.5">
+                  <Input
+                    value={pattern}
+                    onChange={(e) => setPattern(e.target.value)}
+                    placeholder="e.g., 1D* or Team-*"
+                    className="h-7 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Glob pattern matched against group names. Use * for
+                    wildcard.
+                  </p>
                 </div>
               )}
             </div>

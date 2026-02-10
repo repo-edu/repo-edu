@@ -12,7 +12,7 @@ backend I/O operations.
 
 | Tier | Description | Examples |
 |------|-------------|----------|
-| **Frontend-Only** | Store actions and selectors. Mutate in-memory state. No backend call. | `createLocalGroupSet()`, `updateAssignment()` |
+| **Frontend-Only** | Store actions and selectors. Mutate in-memory state. No backend call. | `createLocalGroupSet()`, `updateGroupSetSelection()` |
 | **Manifest Commands** | Defined in `manifest.json`. Cross the frontend-backend boundary. Used for I/O, network, or complex validation. | `sync_group_set`, `import_group_set` |
 | **Backend-Only** | Rust functions not exposed to frontend. Shared between CLI and Tauri handlers, or internal helpers. | `core/src/operations/*.rs` |
 
@@ -63,8 +63,9 @@ and returns updated entities. Frontend merges returned data into the store, then
 | `deleteGroup(groupId)` | Delete group from all sets (only if `origin === "local"`) |
 | `addGroupToSet(groupSetId, groupId)` | Add existing group to set |
 | `removeGroupFromSet(groupSetId, groupId)` | Remove group from set (clean up if orphaned) |
+| `updateGroupSetSelection(groupSetId, selection)` | Update group selection on a group set |
 | `createAssignment(assignment)` | Create assignment |
-| `updateAssignment(id, updates)` | Update assignment (group_set_id, group_selection) |
+| `updateAssignment(id, updates)` | Update assignment (name, description, group_set_id) |
 | `deleteAssignment(id)` | Delete assignment |
 
 ### Selectors
@@ -102,7 +103,7 @@ Commands that cross the frontend-backend boundary. Defined in `manifest.json`.
 | Command | Purpose | UI Caller |
 |---------|---------|-----------|
 | `normalize_group_name` | Normalize name using backend slug rules | Group name input preview |
-| `preview_group_selection` | Validate glob and resolve group IDs | Assignment panel |
+| `preview_group_selection` | Validate glob and resolve group IDs | Group set panel |
 | `filter_by_pattern` | Validate glob, return matched indexes | Import/filter dialogs |
 | `validate_roster` | Validate roster data | Roster tab |
 | `validate_assignment` | Validate assignment groups | Assignment panel |
@@ -173,16 +174,12 @@ the frontend to merge and persist.
 | UI Action | Command/Action | Type |
 |-----------|----------------|------|
 | Rename group set | `renameGroupSet()` | Frontend |
+| Update group selection | `updateGroupSetSelection()` | Frontend |
+| Preview group selection | `preview_group_selection` | Manifest |
 | Add group | Opens AddGroupDialog | — |
 | Rename group | `updateGroup()` | Frontend |
 | Delete group | `deleteGroup()` | Frontend |
 | Edit members | `updateGroup()` | Frontend |
-
-### Assignment Panel
-
-| UI Action | Command/Action | Type |
-|-----------|----------------|------|
-| Preview group selection | `preview_group_selection` | Manifest |
 
 ### Dialogs
 

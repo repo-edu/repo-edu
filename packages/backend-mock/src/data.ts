@@ -326,6 +326,7 @@ export const cs101RosterGroupSets: GroupSet[] = [
       group_set_id: "gs-lab-teams",
       last_updated: new Date().toISOString(),
     },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
@@ -340,6 +341,7 @@ export const cs201RosterGroupSets: GroupSet[] = [
       group_set_id: "gs-project-teams",
       last_updated: new Date().toISOString(),
     },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
@@ -352,12 +354,14 @@ export const cs101SystemGroupSets: GroupSet[] = [
       .filter((g) => g.id.startsWith("sys-ind-"))
       .map((g) => g.id),
     connection: { kind: "system", system_type: "individual_students" },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "sys-gs-staff",
     name: "Staff",
     group_ids: [makeStaffGroup(demoStaff).id],
     connection: { kind: "system", system_type: "staff" },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
@@ -369,12 +373,14 @@ export const cs201SystemGroupSets: GroupSet[] = [
       .filter((g) => g.id.startsWith("sys-ind-"))
       .map((g) => g.id),
     connection: { kind: "system", system_type: "individual_students" },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "sys-gs-staff",
     name: "Staff",
     group_ids: [makeStaffGroup(demoStaff).id],
     connection: { kind: "system", system_type: "staff" },
+    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
@@ -388,14 +394,12 @@ export const cs101Assignments: Assignment[] = [
     name: "lab-1",
     description: "Lab 1: Python Basics",
     group_set_id: "gs-lab-teams",
-    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "lab-functions",
     name: "lab-2",
     description: "Lab 2: Functions and Modules",
     group_set_id: "gs-lab-teams",
-    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 
@@ -405,14 +409,12 @@ export const cs201Assignments: Assignment[] = [
     name: "project-1",
     description: "Project: Data Visualization",
     group_set_id: "gs-project-teams",
-    group_selection: { kind: "all", excluded_group_ids: [] },
   },
   {
     id: "project-api",
     name: "project-2",
     description: "Project: REST API Client",
     group_set_id: "gs-project-teams",
-    group_selection: { kind: "all", excluded_group_ids: [] },
   },
 ]
 

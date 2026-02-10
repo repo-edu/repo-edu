@@ -37,5 +37,5 @@
       "required": ["kind", "pattern", "excluded_group_ids"]
     }
   ],
-  "description": "How to select groups from a group set for an assignment"
+  "description": "How to select groups from a group set"
 }

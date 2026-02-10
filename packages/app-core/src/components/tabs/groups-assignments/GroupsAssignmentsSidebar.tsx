@@ -425,7 +425,25 @@ export function GroupsAssignmentsSidebar({
       </div>
 
       <div className="px-1">
-        <SectionHeader>Local Group Sets</SectionHeader>
+        <SectionHeader
+          action={
+            <button
+              type="button"
+              className={cn(
+                "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
+                "text-muted-foreground hover:bg-muted/50 transition-colors",
+              )}
+              onClick={onCreateLocalGroupSet}
+              disabled={isOperationActive}
+              aria-label="New local group set"
+              title="New local group set"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          }
+        >
+          Local Group Sets
+        </SectionHeader>
         {sortedLocal.length > 0 && (
           <GroupSetList
             rows={localRows}
@@ -441,18 +459,6 @@ export function GroupsAssignmentsSidebar({
             onAssignmentKeyDown={handleAssignmentKeyDown}
           />
         )}
-        <button
-          type="button"
-          className={cn(
-            "w-full flex items-center gap-1.5 px-2 py-1.5 mt-0.5 rounded-md text-left text-sm",
-            "text-muted-foreground hover:bg-muted/50 transition-colors",
-          )}
-          onClick={onCreateLocalGroupSet}
-          disabled={isOperationActive}
-        >
-          <Plus className="size-3.5" />
-          <span>New Local Group Set</span>
-        </button>
         <button
           type="button"
           className={cn(

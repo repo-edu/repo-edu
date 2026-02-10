@@ -37,7 +37,6 @@ pub struct Assignment {
   pub name: String,
   pub description: Option<String>,
   pub group_set_id: String,
-  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +57,6 @@ pub struct AssignmentMetadata {
   pub name: String,
   pub description: Option<String>,
   pub group_set_id: String,
-  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,12 +230,6 @@ pub struct Group {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupImportConfig {
-  pub group_set_id: String,
-  pub group_selection: GroupSelectionMode,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupImportSummary {
   pub groups_imported: i64,
   pub groups_replaced: i64,
@@ -276,6 +268,7 @@ pub struct GroupSet {
   pub name: String,
   pub group_ids: Vec<String>,
   pub connection: Option<GroupSetConnection>,
+  pub group_selection: GroupSelectionMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

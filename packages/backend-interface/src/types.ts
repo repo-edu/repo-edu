@@ -50,7 +50,6 @@ export interface Assignment {
    * Reference to group set by ID (required)
    */
   group_set_id: string
-  group_selection: GroupSelectionMode
 }
 
 /**
@@ -79,7 +78,6 @@ export interface AssignmentMetadata {
    * Reference to group set by ID (required)
    */
   group_set_id: string
-  group_selection: GroupSelectionMode
 }
 
 /**
@@ -255,14 +253,6 @@ export type Group = {
 }
 
 /**
- * Group set selection and filter configuration
- */
-export interface GroupImportConfig {
-  group_set_id: string
-  group_selection: GroupSelectionMode
-}
-
-/**
  * Summary of group imports
  */
 export interface GroupImportSummary {
@@ -273,7 +263,7 @@ export interface GroupImportSummary {
 }
 
 /**
- * How to select groups from a group set for an assignment
+ * How to select groups from a group set
  */
 export type GroupSelectionMode =
   | {
@@ -349,6 +339,7 @@ export interface GroupSet {
    * Connection info, or null for local group sets
    */
   connection: GroupSetConnection | null
+  group_selection: GroupSelectionMode
 }
 
 /**

@@ -165,7 +165,7 @@ Roster
 ├── staff[]            # RosterMember[] (enrollment_type = teacher/ta/etc.)
 ├── groups[]           # Group[] (top-level, with origin field)
 ├── group_sets[]       # GroupSet[] (reference groups by ID)
-└── assignments[]      # Assignment[] (reference group sets, define group selection)
+└── assignments[]      # Assignment[] (reference group sets)
 ```
 
 ### Key Entities
@@ -184,7 +184,7 @@ Roster
 | `lms` | No | Synced from Canvas/Moodle |
 | `local` | Yes | User-created or imported from CSV |
 
-**GroupSet** — A named collection of group references with connection metadata:
+**GroupSet** — A named collection of group references with connection metadata and group selection:
 
 | Connection Kind | Description |
 |----------------|-------------|
@@ -194,10 +194,11 @@ Roster
 | `import` | Imported from CSV file |
 | `null` | Local (user-created) |
 
-**Assignment** — References a group set and defines which groups to include:
+- `group_selection` — Group selection mode: either `all` (with optional exclusions) or `pattern` (glob match on group names)
 
-- `group_set_id` — Which group set this assignment uses
-- `group_selection` — Either `all` (with optional exclusions) or `pattern` (glob match on names)
+**Assignment** — References a group set by ID:
+
+- `group_set_id` — Which group set this assignment uses (group selection is on the group set, not the assignment)
 
 ### System Group Sets
 

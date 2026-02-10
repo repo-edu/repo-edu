@@ -107,6 +107,22 @@ describe("Profile Store Actions", () => {
       expect(roster?.group_sets[0].group_ids).toEqual([])
     })
 
+    it("creates a group set with pre-populated group IDs", () => {
+      setupStore()
+      const id = useProfileStore
+        .getState()
+        .createLocalGroupSet("Filtered Set", ["g-1", "g-2"])
+      expect(id).toBeTruthy()
+
+      const roster = useProfileStore.getState().document?.roster
+      const gs = roster?.group_sets.find((s) => s.id === id)
+      expect(gs?.group_ids).toEqual(["g-1", "g-2"])
+      expect(gs?.group_selection).toEqual({
+        kind: "all",
+        excluded_group_ids: [],
+      })
+    })
+
     it("returns null for empty name", () => {
       setupStore()
       const id = useProfileStore.getState().createLocalGroupSet("   ")
@@ -128,6 +144,7 @@ describe("Profile Store Actions", () => {
         name: "Original",
         group_ids: ["g-1"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       setupStore({
         ...emptyRoster(),
@@ -175,12 +192,14 @@ describe("Profile Store Actions", () => {
         name: "Set 1",
         group_ids: ["g-1", "g-2"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       const gs2: GroupSet = {
         id: "gs-2",
         name: "Set 2",
         group_ids: ["g-2"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
 
       setupStore({
@@ -206,6 +225,7 @@ describe("Profile Store Actions", () => {
         name: "System",
         group_ids: [],
         connection: { kind: "system", system_type: "individual_students" },
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       setupStore({
         ...emptyRoster(),
@@ -226,6 +246,7 @@ describe("Profile Store Actions", () => {
         name: "Set 1",
         group_ids: [],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       setupStore({
         ...emptyRoster(),
@@ -261,12 +282,14 @@ describe("Profile Store Actions", () => {
         name: "Set 1",
         group_ids: ["g-1"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       const gs2: GroupSet = {
         id: "gs-2",
         name: "Set 2",
         group_ids: ["g-1"],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
 
       setupStore({
@@ -331,6 +354,7 @@ describe("Profile Store Actions", () => {
         name: "Set 1",
         group_ids: [],
         connection: null,
+        group_selection: { kind: "all", excluded_group_ids: [] },
       }
       setupStore({
         ...emptyRoster(),
@@ -341,7 +365,6 @@ describe("Profile Store Actions", () => {
         name: "lab-1",
         description: "Lab 1",
         group_set_id: "gs-1",
-        group_selection: { kind: "all", excluded_group_ids: [] },
       })
 
       expect(id).toBeTruthy()
@@ -360,98 +383,12 @@ describe("Profile Store Actions", () => {
         {
           name: "lab-1",
           group_set_id: "gs-1",
-          group_selection: { kind: "all", excluded_group_ids: [] },
         },
         { select: true },
       )
 
       const selection = useProfileStore.getState().assignmentSelection
       expect(selection).toEqual({ mode: "assignment", id })
-    })
-  })
-
-  describe("updateAssignment — exclusion clearing", () => {
-    it("clears exclusions when group_set_id changes with option", () => {
-      setupStore({
-        ...emptyRoster(),
-        group_sets: [
-          {
-            id: "gs-1",
-            name: "Set 1",
-            group_ids: [],
-            connection: null,
-          },
-          {
-            id: "gs-2",
-            name: "Set 2",
-            group_ids: [],
-            connection: null,
-          },
-        ],
-        assignments: [
-          {
-            id: "a-1",
-            name: "A1",
-            group_set_id: "gs-1",
-            group_selection: {
-              kind: "all",
-              excluded_group_ids: ["g-excluded"],
-            },
-          },
-        ],
-      })
-
-      useProfileStore
-        .getState()
-        .updateAssignment(
-          "a-1",
-          { group_set_id: "gs-2" },
-          { clearExclusionsOnGroupSetChange: true },
-        )
-
-      const a = useProfileStore.getState().document?.roster?.assignments[0]
-      expect(a?.group_set_id).toBe("gs-2")
-      expect(a?.group_selection).toEqual({
-        kind: "all",
-        excluded_group_ids: [],
-      })
-    })
-
-    it("does not clear exclusions when group_set_id stays the same", () => {
-      setupStore({
-        ...emptyRoster(),
-        group_sets: [
-          {
-            id: "gs-1",
-            name: "Set 1",
-            group_ids: [],
-            connection: null,
-          },
-        ],
-        assignments: [
-          {
-            id: "a-1",
-            name: "A1",
-            group_set_id: "gs-1",
-            group_selection: {
-              kind: "all",
-              excluded_group_ids: ["g-excluded"],
-            },
-          },
-        ],
-      })
-
-      useProfileStore
-        .getState()
-        .updateAssignment(
-          "a-1",
-          { name: "A1-updated" },
-          { clearExclusionsOnGroupSetChange: true },
-        )
-
-      const a = useProfileStore.getState().document?.roster?.assignments[0]
-      expect(a?.name).toBe("A1-updated")
-      expect(a?.group_selection.excluded_group_ids).toEqual(["g-excluded"])
     })
   })
 
@@ -464,13 +401,11 @@ describe("Profile Store Actions", () => {
             id: "a-1",
             name: "A1",
             group_set_id: "gs-1",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
           {
             id: "a-2",
             name: "A2",
             group_set_id: "gs-1",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })
@@ -500,7 +435,6 @@ describe("Profile Store Actions", () => {
             id: "a-1",
             name: "A1",
             group_set_id: "gs-1",
-            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })
@@ -522,6 +456,7 @@ describe("Profile Store Actions", () => {
             name: "Old Name",
             group_ids: [],
             connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })
@@ -544,6 +479,7 @@ describe("Profile Store Actions", () => {
               kind: "system",
               system_type: "individual_students",
             },
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })
@@ -573,6 +509,7 @@ describe("Profile Store Actions", () => {
             name: "Set 1",
             group_ids: [],
             connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
           },
         ],
       })

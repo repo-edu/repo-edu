@@ -187,7 +187,7 @@ CLI reads settings from `~/.config/repo-manage/settings.json` (same as GUI).
 ### Data Model (Groups & Assignments)
 
 Groups are top-level profile entities with UUIDs. GroupSets reference groups by ID (not embedded).
-Assignments reference a group set and use a group selection mode.
+Assignments reference a group set by ID. Group selection mode lives on the group set.
 
 **Core entities:** `Group`, `GroupSet`, `Assignment`, `RosterMember`, `Roster` — defined in
 JSON Schemas and generated into both TypeScript and Rust types.

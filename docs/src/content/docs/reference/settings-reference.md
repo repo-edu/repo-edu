@@ -275,6 +275,10 @@ where groups are top-level entities and group sets/assignments reference them by
         "course_id": "12345",
         "group_set_id": "500",
         "last_updated": "2025-01-07T10:00:00Z"
+      },
+      "group_selection": {
+        "kind": "all",
+        "excluded_group_ids": []
       }
     }
   ],
@@ -282,11 +286,7 @@ where groups are top-level entities and group sets/assignments reference them by
     {
       "id": "a1",
       "name": "task-1",
-      "group_set_id": "gs1",
-      "group_selection": {
-        "kind": "all",
-        "excluded_group_ids": []
-      }
+      "group_set_id": "gs1"
     }
   ]
 }
@@ -354,6 +354,7 @@ Group sets are named collections of group references with connection metadata.
 | `name` | string | Group set name |
 | `group_ids` | string[] | UUIDs of groups in this set |
 | `connection` | GroupSetConnection \| null | Source metadata |
+| `group_selection` | GroupSelectionMode | How to select groups from the set |
 
 #### GroupSetConnection
 
@@ -366,18 +367,6 @@ Group sets are named collections of group references with connection metadata.
 
 A `null` connection means the group set was created locally by the user.
 
-### Assignment
-
-Assignments reference a group set and define which groups to include.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Internal assignment ID |
-| `name` | string | Assignment name (used in repo naming) |
-| `description` | string \| null | Optional description |
-| `group_set_id` | string | UUID of the group set this assignment uses |
-| `group_selection` | GroupSelectionMode | How to select groups from the set |
-
 #### GroupSelectionMode
 
 | Kind | Fields | Description |
@@ -387,3 +376,14 @@ Assignments reference a group set and define which groups to include.
 
 The `pattern` field supports simple glob syntax: `*` (any chars), `?` (single char),
 `[abc]` (character class), `[!abc]` (negated class), `\` (escape).
+
+### Assignment
+
+Assignments reference a group set.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Internal assignment ID |
+| `name` | string | Assignment name (used in repo naming) |
+| `description` | string \| null | Optional description |
+| `group_set_id` | string | UUID of the group set this assignment uses |

@@ -246,8 +246,8 @@
           "type": "Option<Roster>"
         },
         {
-          "name": "config",
-          "type": "GroupImportConfig"
+          "name": "group_set_id",
+          "type": "String"
         }
       ],
       "output": "Roster",
@@ -265,8 +265,8 @@
           "type": "Option<Roster>"
         },
         {
-          "name": "config",
-          "type": "GroupImportConfig"
+          "name": "group_set_id",
+          "type": "String"
         }
       ],
       "output": "Roster",

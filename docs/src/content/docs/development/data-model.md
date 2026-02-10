@@ -106,7 +106,7 @@ mutating or resolving.
 
 ## Group Selection Modes
 
-Assignments define which groups from their group set to include:
+Group sets define which of their groups to include via a `group_selection` field:
 
 ```text
 GroupSelectionMode (discriminated union)
@@ -134,11 +134,10 @@ Not supported: `**`, `[^...]` negation, extglobs, brace expansion.
 Backend is the source of truth for all glob validation and matching. Frontend uses
 `previewGroupSelection()` and `filterByPattern()` manifest commands.
 
-### Changing Group Set
+### Changing Assignment Group Set
 
-When an assignment's `group_set_id` changes, existing `excluded_group_ids` become invalid
-(different group set = different group UUIDs). If exclusions exist, a confirmation dialog shows how
-many exclusions will be cleared.
+When an assignment's `group_set_id` changes, it simply references a different group set. Group
+selection (including exclusions) is configured on the group set itself, not on the assignment.
 
 ## Roster Model
 
@@ -348,6 +347,6 @@ matched by `lms_group_id` are referenced rather than duplicated if they already 
 | Invalid glob pattern | Inline validation error, prevents save |
 | Import file format mismatch | Validation on import with clear error message |
 | Copy LMS group set | Shallow copy; referenced groups remain immutable |
-| Change assignment group set with exclusions | Confirmation to clear exclusions |
+| Change assignment group set | Assignment references new group set (selection is on the set) |
 | Re-import with different groups | Complete overwrite with preview before confirming |
 | Local set with mixed origins | Per-group edit controls based on `origin` |

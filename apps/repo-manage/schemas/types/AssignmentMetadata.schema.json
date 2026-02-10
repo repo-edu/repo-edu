@@ -20,13 +20,9 @@
       "type": "string",
       "format": "uuid",
       "description": "Reference to group set by ID (required)"
-    },
-    "group_selection": {
-      "$ref": "./GroupSelectionMode.schema.json",
-      "description": "How to select groups from the group set"
     }
   },
   "additionalProperties": false,
-  "required": ["id", "name", "group_set_id", "group_selection"],
+  "required": ["id", "name", "group_set_id"],
   "description": "Assignment metadata without resolved groups"
 }

@@ -210,29 +210,27 @@ export function GroupSetItem({
         </button>
 
         {/* Add assignment button */}
-        {!isSystem && (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 shrink-0 mr-1"
-                  disabled={disableActions}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAddAssignment(groupSet.id)
-                  }}
-                >
-                  <Plus className="size-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                Add assignment
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 shrink-0 mr-1"
+                disabled={disableActions}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddAssignment(groupSet.id)
+                }}
+              >
+                <Plus className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              Add assignment
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Nested assignments */}
@@ -251,7 +249,7 @@ export function GroupSetItem({
           ))}
         </div>
       )}
-      {expanded && assignments.length === 0 && !isSystem && (
+      {expanded && assignments.length === 0 && (
         <p className="pl-8 py-1 text-[11px] text-muted-foreground">
           Add an assignment using the + button
         </p>

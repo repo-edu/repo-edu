@@ -368,8 +368,8 @@ Adopt a **reference-based data model** with three design principles:
    that determines editability.
 2. **GroupSets reference groups by ID** instead of embedding them. A group set has a `connection`
    field describing its source (system, Canvas, Moodle, CSV import, or local).
-3. **Assignments reference group sets** and specify group selection via `all` (with optional
-   exclusions) or `pattern` (glob matching on group names).
+3. **Assignments reference group sets** by ID. Group selection (via `all` with optional exclusions,
+   or `pattern` with glob matching on group names) is defined on the group set itself.
 
 ### Roster Structure (After)
 
@@ -379,8 +379,8 @@ Roster
 ├── students[]         # RosterMember[] with enrollment_type = student
 ├── staff[]            # RosterMember[] with non-student enrollment types
 ├── groups[]           # Group[] — top-level entities with origin
-├── group_sets[]       # GroupSet[] — reference groups by ID
-└── assignments[]      # Assignment[] — reference group sets with selection mode
+├── group_sets[]       # GroupSet[] — reference groups by ID, with group selection
+└── assignments[]      # Assignment[] — reference group sets by ID
 ```
 
 ### Origin-Based Editability
@@ -406,7 +406,7 @@ lifecycle; the frontend calls it on roster changes.
 
 ### Group Selection Modes
 
-Assignments use `GroupSelectionMode` to select groups from their group set:
+Group sets use `GroupSelectionMode` to define which of their groups are active:
 
 - **`all`** — All groups in the set, with optional `excluded_group_ids`.
 - **`pattern`** — Glob match on group names (supports `*`, `?`, `[...]`, `[!...]`), also with

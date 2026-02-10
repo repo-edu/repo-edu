@@ -12,8 +12,6 @@ pub use crate::generated::types::{
     ValidationResult,
 };
 
-use super::resolution::selection_mode_all;
-
 /// Draft for creating a new roster member.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RosterMemberDraft {
@@ -113,7 +111,6 @@ impl Assignment {
             name: name.into(),
             description: None,
             group_set_id,
-            group_selection: selection_mode_all(),
         }
     }
 }
