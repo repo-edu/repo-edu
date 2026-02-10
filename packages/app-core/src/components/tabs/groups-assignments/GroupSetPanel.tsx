@@ -39,7 +39,6 @@ import {
 } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
 import { useUiStore } from "../../../stores/uiStore"
-import { unwrapGroupSetConnection } from "../../../utils/groupSetConnection"
 import { applyGroupSetPatch } from "../../../utils/groupSetPatch"
 import { buildLmsOperationContext } from "../../../utils/operationContext"
 import {
@@ -172,7 +171,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     )
   }
 
-  const connection = unwrapGroupSetConnection(groupSet.connection)
+  const connection = groupSet.connection
   const kind = getConnectionKind(connection)
   const lmsContext = buildLmsOperationContext(lmsConnection, course.id)
   const isOperationActive = groupSetOperation !== null

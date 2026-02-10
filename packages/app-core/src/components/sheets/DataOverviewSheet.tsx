@@ -39,7 +39,6 @@ import { type IssueCard, useDataOverview } from "../../hooks/useDataOverview"
 import { useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
-import { unwrapGroupSetConnection } from "../../utils/groupSetConnection"
 
 interface MembershipMatrixRow {
   studentId: string
@@ -234,7 +233,7 @@ function MembershipMatrixSection({
     )
     const seenSystemTypes = new Set<"individual_students" | "staff">()
     const dedupedGroupSets = sortedGroupSets.filter((groupSet) => {
-      const connection = unwrapGroupSetConnection(groupSet.connection)
+      const connection = groupSet.connection
       if (connection?.kind !== "system") return true
       if (seenSystemTypes.has(connection.system_type)) return false
       seenSystemTypes.add(connection.system_type)

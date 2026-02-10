@@ -21,7 +21,6 @@ import {
 } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent } from "react"
 import type { SidebarSelection } from "../../../stores/uiStore"
-import { unwrapGroupSetConnection } from "../../../utils/groupSetConnection"
 import {
   formatExactTimestamp,
   formatRelativeTime,
@@ -109,7 +108,7 @@ export function GroupSetItem({
   onAssignmentKeyDown,
   getAssignmentTabIndex,
 }: GroupSetItemProps) {
-  const connection = unwrapGroupSetConnection(groupSet.connection)
+  const connection = groupSet.connection
   const isSelected =
     selection?.kind === "group-set" && selection.id === groupSet.id
   const isSystem = connection?.kind === "system"

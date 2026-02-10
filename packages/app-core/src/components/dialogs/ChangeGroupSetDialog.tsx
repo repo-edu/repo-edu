@@ -24,7 +24,6 @@ import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { selectGroupSets, useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
-import { unwrapGroupSetConnection } from "../../utils/groupSetConnection"
 
 export function ChangeGroupSetDialog() {
   const assignmentId = useUiStore((state) => state.changeGroupSetAssignmentId)
@@ -54,10 +53,8 @@ export function ChangeGroupSetDialog() {
 
   const sortedGroupSets = useMemo(() => {
     return [...groupSets].sort((a, b) => {
-      const aSystem =
-        unwrapGroupSetConnection(a.connection)?.kind === "system" ? 0 : 1
-      const bSystem =
-        unwrapGroupSetConnection(b.connection)?.kind === "system" ? 0 : 1
+      const aSystem = a.connection?.kind === "system" ? 0 : 1
+      const bSystem = b.connection?.kind === "system" ? 0 : 1
       if (aSystem !== bSystem) return aSystem - bSystem
       return a.name.localeCompare(b.name)
     })
@@ -119,9 +116,7 @@ export function ChangeGroupSetDialog() {
                 {sortedGroupSets.map((gs) => (
                   <SelectItem key={gs.id} value={gs.id}>
                     {gs.name}
-                    {unwrapGroupSetConnection(gs.connection)?.kind === "system"
-                      ? " (System)"
-                      : ""}
+                    {gs.connection?.kind === "system" ? " (System)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

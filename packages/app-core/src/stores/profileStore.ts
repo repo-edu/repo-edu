@@ -31,7 +31,6 @@ import {
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { commands } from "../bindings/commands"
-import { unwrapGroupSetConnection } from "../utils/groupSetConnection"
 import {
   generateAssignmentId,
   generateGroupId,
@@ -975,7 +974,7 @@ export const useProfileStore = create<ProfileStore>()(
           )
           if (!gs) return
           // Only allow renaming non-system group sets
-          if (unwrapGroupSetConnection(gs.connection)?.kind === "system") {
+          if (gs.connection?.kind === "system") {
             return
           }
           gs.name = trimmed
@@ -989,7 +988,7 @@ export const useProfileStore = create<ProfileStore>()(
           const gs = roster.group_sets.find((s) => s.id === groupSetId)
           if (!gs) return
           // Only allow deleting non-system group sets
-          if (unwrapGroupSetConnection(gs.connection)?.kind === "system") {
+          if (gs.connection?.kind === "system") {
             return
           }
           // Remove group set
@@ -1098,14 +1097,14 @@ export const useProfileStore = create<ProfileStore>()(
               string
             >()
             for (const gs of patch.group_sets) {
-              const connection = unwrapGroupSetConnection(gs.connection)
+              const connection = gs.connection
               if (connection?.kind === "system") {
                 preferredSystemSetIdByType.set(connection.system_type, gs.id)
               }
             }
 
             for (const gs of roster.group_sets) {
-              const connection = unwrapGroupSetConnection(gs.connection)
+              const connection = gs.connection
               if (
                 connection?.kind === "system" &&
                 !preferredSystemSetIdByType.has(connection.system_type)
@@ -1117,7 +1116,7 @@ export const useProfileStore = create<ProfileStore>()(
             if (preferredSystemSetIdByType.size > 0) {
               const seenSystemTypes = new Set<"individual_students" | "staff">()
               roster.group_sets = roster.group_sets.filter((gs) => {
-                const connection = unwrapGroupSetConnection(gs.connection)
+                const connection = gs.connection
                 if (connection?.kind !== "system") return true
 
                 const preferredId = preferredSystemSetIdByType.get(
@@ -1380,7 +1379,7 @@ export const selectIsGroupSetEditable =
   (gsId: string) => (state: ProfileStore) => {
     const gs = state.document?.roster?.group_sets.find((s) => s.id === gsId)
     if (!gs) return false
-    const connection = unwrapGroupSetConnection(gs.connection)
+    const connection = gs.connection
     if (!connection) return true // local sets are editable
     return connection.kind !== "system"
   }
@@ -1390,7 +1389,7 @@ export const selectSystemGroupSet =
     if (!roster) return null
     return (
       roster.group_sets.find((gs) => {
-        const connection = unwrapGroupSetConnection(gs.connection)
+        const connection = gs.connection
         return (
           connection?.kind === "system" && connection.system_type === systemType
         )
@@ -1405,7 +1404,7 @@ export const selectConnectedGroupSets = (state: ProfileStore) => {
   if (roster === lastRosterForConnected) return lastConnectedGroupSets
   lastRosterForConnected = roster
   lastConnectedGroupSets = roster.group_sets.filter((gs) => {
-    const connection = unwrapGroupSetConnection(gs.connection)
+    const connection = gs.connection
     return connection?.kind === "canvas" || connection?.kind === "moodle"
   })
   return lastConnectedGroupSets
@@ -1418,7 +1417,7 @@ export const selectLocalGroupSets = (state: ProfileStore) => {
   if (roster === lastRosterForLocal) return lastLocalGroupSets
   lastRosterForLocal = roster
   lastLocalGroupSets = roster.group_sets.filter((gs) => {
-    const connection = unwrapGroupSetConnection(gs.connection)
+    const connection = gs.connection
     return connection === null || connection.kind === "import"
   })
   return lastLocalGroupSets

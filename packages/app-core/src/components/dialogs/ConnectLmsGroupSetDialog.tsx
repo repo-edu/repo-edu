@@ -28,7 +28,6 @@ import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
-import { unwrapGroupSetConnection } from "../../utils/groupSetConnection"
 import { applyGroupSetPatch } from "../../utils/groupSetPatch"
 import { generateGroupSetId } from "../../utils/nanoid"
 import { buildLmsOperationContext } from "../../utils/operationContext"
@@ -37,12 +36,8 @@ function connectedExternalId(
   connection: GroupSetConnection | null,
 ): string | null {
   if (!connection) return null
-  if (connection.kind === "canvas" || connection.kind === "moodle") {
-    const raw = connection as Record<string, unknown>
-    if (typeof raw.group_set_id === "string") return raw.group_set_id
-    if (typeof raw.grouping_id === "string") return raw.grouping_id
-    if (typeof raw.lms_group_set_id === "string") return raw.lms_group_set_id
-  }
+  if (connection.kind === "canvas") return connection.group_set_id
+  if (connection.kind === "moodle") return connection.grouping_id
   return null
 }
 
@@ -52,17 +47,20 @@ function asConnectedConnection(
   groupSetId: string,
 ): GroupSetConnection {
   const now = new Date().toISOString()
-  const shared = {
-    kind: lmsType,
-    course_id: courseId,
-    group_set_id: groupSetId,
-    grouping_id: groupSetId,
-    lms_group_set_id: groupSetId,
-    last_updated: now,
-    last_synced: now,
+  if (lmsType === "canvas") {
+    return {
+      kind: "canvas",
+      course_id: courseId,
+      group_set_id: groupSetId,
+      last_updated: now,
+    }
   }
-
-  return { entries: shared } as unknown as GroupSetConnection
+  return {
+    kind: "moodle",
+    course_id: courseId,
+    grouping_id: groupSetId,
+    last_updated: now,
+  }
 }
 
 export function ConnectLmsGroupSetDialog() {
@@ -92,9 +90,7 @@ export function ConnectLmsGroupSetDialog() {
     if (!roster) return new Set<string>()
     return new Set(
       roster.group_sets
-        .map((groupSet) =>
-          connectedExternalId(unwrapGroupSetConnection(groupSet.connection)),
-        )
+        .map((groupSet) => connectedExternalId(groupSet.connection))
         .filter((id): id is string => Boolean(id)),
     )
   }, [roster])
