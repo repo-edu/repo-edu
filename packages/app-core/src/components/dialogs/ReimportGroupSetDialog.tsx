@@ -1,5 +1,5 @@
 /**
- * Dialog for re-importing an existing imported group set from CSV.
+ * Dialog for importing a CSV into an existing imported group set.
  *
  * Shows a diff preview (added/removed/updated groups) before confirming.
  */
@@ -55,6 +55,11 @@ export function ReimportGroupSetDialog() {
   const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
+  const sourcePath =
+    groupSet?.connection?.kind === "import"
+      ? groupSet.connection.source_path
+      : undefined
+
   const handleBrowse = async () => {
     if (!targetId || !roster) return
 
@@ -62,7 +67,8 @@ export function ReimportGroupSetDialog() {
       const selected = await openDialog({
         multiple: false,
         filters: [{ name: "CSV Files", extensions: ["csv"] }],
-        title: "Select CSV file for re-import",
+        title: "Select CSV file for import",
+        defaultPath: sourcePath,
       })
       if (!selected) return
 
@@ -107,21 +113,21 @@ export function ReimportGroupSetDialog() {
         const updatedRoster = applyGroupSetPatch(roster, importResult)
         const groupSetName = groupSet?.name ?? targetId
 
-        setRoster(updatedRoster, `Re-import group set "${groupSetName}"`)
-        appendOutput(`Re-imported group set "${groupSetName}"`, "success")
-        addToast(`Re-imported "${groupSetName}"`, { tone: "success" })
+        setRoster(updatedRoster, `Import group set "${groupSetName}"`)
+        appendOutput(`Imported group set "${groupSetName}"`, "success")
+        addToast(`Imported "${groupSetName}"`, { tone: "success" })
         handleClose()
       } else {
         const message = formatAppErrorMessage(result.error)
         setError(message)
-        appendOutput(`Re-import failed: ${result.error.message}`, "error")
-        addToast(`Re-import failed: ${result.error.message}`, { tone: "error" })
+        appendOutput(`Import failed: ${result.error.message}`, "error")
+        addToast(`Import failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setError(message)
-      appendOutput(`Re-import failed: ${message}`, "error")
-      addToast(`Re-import failed: ${message}`, { tone: "error" })
+      appendOutput(`Import failed: ${message}`, "error")
+      addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
       setImporting(false)
       setGroupSetOperation(null)
@@ -148,7 +154,7 @@ export function ReimportGroupSetDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Re-import: {groupSet?.name ?? "Group Set"}</DialogTitle>
+          <DialogTitle>Import: {groupSet?.name ?? "Group Set"}</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
           {error && (
@@ -273,7 +279,7 @@ export function ReimportGroupSetDialog() {
             Cancel
           </Button>
           <Button onClick={handleReimport} disabled={!canImport}>
-            {importing ? "Re-importing..." : "Confirm Re-import"}
+            {importing ? "Importing..." : "Confirm Import"}
           </Button>
         </DialogFooter>
       </DialogContent>

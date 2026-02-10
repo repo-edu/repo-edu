@@ -714,9 +714,9 @@ export class MockBackend implements BackendAPI {
   async exportGroupSet(
     _roster: Roster,
     _groupSetId: string,
-    _filePath: string,
-  ): Promise<Result<null, AppError>> {
-    return this.ok(null)
+    filePath: string,
+  ): Promise<Result<string, AppError>> {
+    return this.ok(filePath)
   }
 
   async normalizeContext(

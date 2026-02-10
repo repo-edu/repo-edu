@@ -337,7 +337,7 @@
           "type": "PathBuf"
         }
       ],
-      "output": "()",
+      "output": "String",
       "error": "AppError"
     },
     "normalize_context": {

@@ -521,7 +521,7 @@ export class TauriBackend implements BackendAPI {
     roster: Roster,
     groupSetId: string,
     filePath: string,
-  ): Promise<Result<null, AppError>> {
+  ): Promise<Result<string, AppError>> {
     try {
       return {
         status: "ok",

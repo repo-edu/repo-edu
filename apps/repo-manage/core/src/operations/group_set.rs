@@ -15,6 +15,7 @@ use super::error::HandlerError;
 // --- Base58 UUID transport ---
 
 /// Encode a UUID string as base58.
+#[cfg(test)]
 pub fn encode_uuid_base58(uuid_str: &str) -> Result<String, HandlerError> {
     let uuid = uuid::Uuid::parse_str(uuid_str)
         .map_err(|e| HandlerError::Validation(format!("Invalid UUID '{}': {}", uuid_str, e)))?;
@@ -22,6 +23,7 @@ pub fn encode_uuid_base58(uuid_str: &str) -> Result<String, HandlerError> {
 }
 
 /// Decode a base58-encoded UUID back to a UUID string.
+#[cfg(test)]
 pub fn decode_base58_uuid(encoded: &str) -> Result<String, HandlerError> {
     let bytes = bs58::decode(encoded)
         .into_vec()
@@ -42,8 +44,7 @@ pub fn decode_base58_uuid(encoded: &str) -> Result<String, HandlerError> {
 
 #[derive(Debug)]
 struct ParsedRow {
-    group_set_id: Option<String>, // decoded UUID or None
-    group_id: Option<String>,     // decoded UUID or None
+    group_id: Option<String>,
     group_name: String,
     _name: Option<String>,
     email: Option<String>, // normalized
@@ -59,7 +60,6 @@ struct ParsedGroup {
 #[derive(Debug)]
 struct ParsedCsv {
     groups: Vec<ParsedGroup>,
-    group_set_id: Option<String>, // first non-blank group_set_id seen
 }
 
 /// Parse a CSV file into validated groups.
@@ -78,7 +78,6 @@ fn parse_csv_file(file_path: &Path) -> Result<ParsedCsv, HandlerError> {
     let header_names: Vec<String> = headers.iter().map(|h| h.to_lowercase()).collect();
 
     // Detect column positions
-    let col_group_set_id = header_names.iter().position(|h| h == "group_set_id");
     let col_group_id = header_names.iter().position(|h| h == "group_id");
     let col_group_name = header_names
         .iter()
@@ -102,28 +101,10 @@ fn parse_csv_file(file_path: &Path) -> Result<ParsedCsv, HandlerError> {
             )));
         }
 
-        let raw_group_set_id = col_group_set_id
-            .and_then(|c| record.get(c))
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty());
         let raw_group_id = col_group_id
             .and_then(|c| record.get(c))
             .map(|s| s.trim())
             .filter(|s| !s.is_empty());
-
-        // Decode and validate base58 IDs (hard error on invalid)
-        let decoded_group_set_id = match raw_group_set_id {
-            Some(v) => Some(decode_base58_uuid(v).map_err(|_| {
-                HandlerError::Validation(format!("Line {}: invalid base58 group_set_id", line_num))
-            })?),
-            None => None,
-        };
-        let decoded_group_id = match raw_group_id {
-            Some(v) => Some(decode_base58_uuid(v).map_err(|_| {
-                HandlerError::Validation(format!("Line {}: invalid base58 group_id", line_num))
-            })?),
-            None => None,
-        };
 
         let raw_name = col_name
             .and_then(|c| record.get(c))
@@ -136,8 +117,7 @@ fn parse_csv_file(file_path: &Path) -> Result<ParsedCsv, HandlerError> {
             .map(|e| normalize_email(&e));
 
         rows.push(ParsedRow {
-            group_set_id: decoded_group_set_id,
-            group_id: decoded_group_id,
+            group_id: raw_group_id.map(|s| s.to_string()),
             group_name: raw_group_name,
             _name: raw_name,
             email: raw_email,
@@ -164,9 +144,6 @@ fn parse_csv_file(file_path: &Path) -> Result<ParsedCsv, HandlerError> {
             }
         }
     }
-
-    // Get first non-blank group_set_id
-    let csv_group_set_id = rows.iter().find_map(|r| r.group_set_id.clone());
 
     // Build groups preserving first-appearance order
     let mut group_order: Vec<String> = Vec::new(); // group_name order
@@ -206,10 +183,7 @@ fn parse_csv_file(file_path: &Path) -> Result<ParsedCsv, HandlerError> {
         .map(|name| group_map.remove(&name).unwrap())
         .collect();
 
-    Ok(ParsedCsv {
-        groups,
-        group_set_id: csv_group_set_id,
-    })
+    Ok(ParsedCsv { groups })
 }
 
 // --- Member matching ---
@@ -303,9 +277,14 @@ fn missing_members_json(missing: &[MissingMember]) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn make_import_connection(filename: &str) -> Option<GroupSetConnection> {
+fn make_import_connection(file_path: &Path) -> Option<GroupSetConnection> {
+    let filename = file_path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
     Some(GroupSetConnection::Import {
-        source_filename: filename.to_string(),
+        source_filename: filename,
+        source_path: Some(file_path.to_string_lossy().to_string()),
         last_updated: Utc::now(),
     })
 }
@@ -366,16 +345,16 @@ pub fn import_group_set(
         });
     }
 
-    let filename = file_path
+    let display_name = file_path
         .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_default();
 
     let group_set = GroupSet {
         id: group_set_id,
-        name: filename.clone(),
+        name: display_name,
         group_ids,
-        connection: make_import_connection(&filename),
+        connection: make_import_connection(file_path),
         group_selection: selection_mode_all(),
     };
 
@@ -400,16 +379,6 @@ pub fn preview_reimport_group_set(
         .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
 
     let parsed = parse_csv_file(file_path)?;
-
-    // Validate group_set_id match if present in CSV
-    if let Some(csv_gs_id) = &parsed.group_set_id {
-        if csv_gs_id != group_set_id {
-            return Err(HandlerError::Validation(format!(
-                "CSV group_set_id '{}' does not match target set '{}'",
-                csv_gs_id, group_set_id
-            )));
-        }
-    }
 
     let email_index = build_email_index(roster);
     let match_result = match_group_members(&parsed.groups, &email_index);
@@ -511,16 +480,6 @@ pub fn reimport_group_set(
 
     let parsed = parse_csv_file(file_path)?;
 
-    // Validate group_set_id match if present in CSV
-    if let Some(csv_gs_id) = &parsed.group_set_id {
-        if csv_gs_id != group_set_id {
-            return Err(HandlerError::Validation(format!(
-                "CSV group_set_id '{}' does not match target set '{}'",
-                csv_gs_id, group_set_id
-            )));
-        }
-    }
-
     let email_index = build_email_index(roster);
     let match_result = match_group_members(&parsed.groups, &email_index);
 
@@ -584,16 +543,11 @@ pub fn reimport_group_set(
         .collect();
 
     // Build updated group set
-    let filename = file_path
-        .file_name()
-        .map(|f| f.to_string_lossy().to_string())
-        .unwrap_or_default();
-
     let updated_group_set = GroupSet {
         id: group_set_id.to_string(),
         name: group_set.name.clone(),
         group_ids: new_group_ids,
-        connection: make_import_connection(&filename),
+        connection: make_import_connection(file_path),
         group_selection: group_set.group_selection.clone(),
     };
 
@@ -607,17 +561,15 @@ pub fn reimport_group_set(
     })
 }
 
-/// Export a group set to CSV.
+/// Export a group set to CSV. Returns the canonical file path.
 pub fn export_group_set(
     roster: &Roster,
     group_set_id: &str,
     file_path: &Path,
-) -> Result<(), HandlerError> {
+) -> Result<String, HandlerError> {
     let group_set = roster
         .find_group_set(group_set_id)
         .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
-
-    let encoded_set_id = encode_uuid_base58(&group_set.id)?;
 
     let mut wtr =
         csv::Writer::from_path(file_path).map_err(|e| HandlerError::Other(e.to_string()))?;
@@ -631,11 +583,9 @@ pub fn export_group_set(
             None => continue,
         };
 
-        let encoded_group_id = encode_uuid_base58(&group.id)?;
-
         if group.member_ids.is_empty() {
             // Empty group — single row with empty name/email
-            wtr.write_record([&encoded_set_id, &encoded_group_id, &group.name, "", ""])
+            wtr.write_record([&group_set.id, &group.id, &group.name, "", ""])
                 .map_err(|e| HandlerError::Other(e.to_string()))?;
         } else {
             for mid in &group.member_ids {
@@ -643,7 +593,7 @@ pub fn export_group_set(
                 let name = member.map(|m| m.name.as_str()).unwrap_or("");
                 let email = member.map(|m| m.email.as_str()).unwrap_or("");
 
-                wtr.write_record([&encoded_set_id, &encoded_group_id, &group.name, name, email])
+                wtr.write_record([&group_set.id, &group.id, &group.name, name, email])
                     .map_err(|e| HandlerError::Other(e.to_string()))?;
             }
         }
@@ -651,7 +601,7 @@ pub fn export_group_set(
 
     wtr.flush()
         .map_err(|e| HandlerError::Other(e.to_string()))?;
-    Ok(())
+    Ok(file_path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
@@ -803,21 +753,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_csv_invalid_base58_group_id() {
-        let dir = tempfile::tempdir().unwrap();
-        let csv = write_csv(
-            dir.path(),
-            "test.csv",
-            "group_name,group_id,email\nAlpha,NOT_BASE58!,a@x.com\n",
-        );
-
-        let result = parse_csv_file(&csv);
-        assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
-        assert!(err.contains("invalid base58"), "got: {err}");
-    }
-
-    #[test]
     fn parse_csv_case_sensitive_group_names() {
         let dir = tempfile::tempdir().unwrap();
         let csv = write_csv(
@@ -929,7 +864,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
 
         let group_id = uuid::Uuid::new_v4().to_string();
-        let encoded_gid = encode_uuid_base58(&group_id).unwrap();
 
         let mut roster = test_roster();
         let gs_id = generate_group_set_id();
@@ -953,7 +887,7 @@ mod tests {
             "test.csv",
             &format!(
                 "group_name,group_id,email\nRenamed Group,{},alice@example.com\n",
-                encoded_gid
+                group_id
             ),
         );
 
@@ -1008,7 +942,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
 
         let group_id = uuid::Uuid::new_v4().to_string();
-        let encoded_gid = encode_uuid_base58(&group_id).unwrap();
 
         let mut roster = test_roster();
         let gs_id = generate_group_set_id();
@@ -1032,7 +965,7 @@ mod tests {
             "test.csv",
             &format!(
                 "group_name,group_id,email\nNew Name,{},alice@example.com\n",
-                encoded_gid
+                group_id
             ),
         );
 
@@ -1093,9 +1026,6 @@ mod tests {
         assert_eq!(parsed.groups[0].member_emails.len(), 2);
         assert_eq!(parsed.groups[1].name, "Team B");
         assert_eq!(parsed.groups[1].member_emails.len(), 1);
-
-        // Verify group_set_id was exported
-        assert!(parsed.group_set_id.is_some());
     }
 
     #[test]

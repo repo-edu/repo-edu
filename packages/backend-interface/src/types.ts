@@ -368,6 +368,10 @@ export type GroupSetConnection =
        * Original filename for display
        */
       source_filename: string
+      /**
+       * Full filesystem path of the last imported or exported CSV
+       */
+      source_path?: string
       last_updated: string
     }
 

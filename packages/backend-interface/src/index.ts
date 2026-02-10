@@ -265,7 +265,7 @@ export interface BackendAPI {
     roster: Roster,
     groupSetId: string,
     filePath: string,
-  ): Promise<Result<null, AppError>>
+  ): Promise<Result<string, AppError>>
 
   /**
    * Normalize LMS context fields (type, base URL, course)

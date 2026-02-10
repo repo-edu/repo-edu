@@ -342,7 +342,7 @@ pub async fn export_group_set(
     roster: Roster,
     group_set_id: String,
     file_path: PathBuf,
-) -> Result<(), AppError> {
+) -> Result<String, AppError> {
     operations::export_group_set(&roster, &group_set_id, &file_path).map_err(Into::into)
 }
 

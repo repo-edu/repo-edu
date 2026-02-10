@@ -263,7 +263,7 @@ export const commands = {
     roster: Roster,
     groupSetId: string,
     filePath: string,
-  ): Promise<Result<null, AppError>> {
+  ): Promise<Result<string, AppError>> {
     return getBackend().exportGroupSet(roster, groupSetId, filePath)
   },
   /**

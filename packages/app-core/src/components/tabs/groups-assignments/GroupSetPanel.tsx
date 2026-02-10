@@ -1,7 +1,5 @@
 import type {
   Group,
-  GroupSelectionMode,
-  GroupSelectionPreview,
   GroupSet,
   GroupSetConnection,
   Roster,
@@ -9,15 +7,9 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   cn,
   EmptyState,
   Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
   Separator,
   Text,
   Tooltip,
@@ -26,27 +18,22 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
   Copy,
-  HelpCircle,
   Info,
   Loader2,
   Lock,
   Plus,
-  Redo2,
   RefreshCw,
   Trash2,
   Upload,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { commands } from "../../../bindings/commands"
+import { saveDialog } from "../../../services/platform"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useOutputStore } from "../../../stores/outputStore"
 import {
   selectCourse,
-  selectGroupById,
   selectGroupSetById,
   selectGroupsForGroupSet,
   useProfileStore,
@@ -151,9 +138,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
-  const updateGroupSetSelection = useProfileStore(
-    (state) => state.updateGroupSetSelection,
-  )
   const course = useProfileStore(selectCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const appendOutput = useOutputStore((state) => state.appendText)
@@ -190,7 +174,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
 
   const connection = groupSet.connection
   const kind = getConnectionKind(connection)
-  const isEditable = kind === "local" || kind === "import"
   const lmsContext = buildLmsOperationContext(lmsConnection, course.id)
   const isOperationActive = groupSetOperation !== null
   const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
@@ -198,7 +181,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     groupSetOperation?.kind === "sync" && isThisGroupSetBusy
       ? "Syncing group set..."
       : groupSetOperation?.kind === "reimport" && isThisGroupSetBusy
-        ? "Re-importing group set..."
+        ? "Importing group set..."
         : groupSetOperation?.kind === "import"
           ? "Importing group set..."
           : null
@@ -254,6 +237,51 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     setRoster,
   ])
 
+  const handleExport = useCallback(async () => {
+    if (!roster) return
+
+    const defaultPath =
+      (connection?.kind === "import" && connection.source_path) ||
+      `${groupSet.name}.csv`
+
+    const path = await saveDialog({
+      defaultPath,
+      filters: [{ name: "CSV files", extensions: ["csv"] }],
+    })
+    if (!path) return
+
+    try {
+      const result = await commands.exportGroupSet(roster, groupSetId, path)
+      if (result.status === "ok") {
+        const exportedPath = result.data
+        // Update connection source_path so the next export/import opens here
+        if (connection?.kind === "import") {
+          const updatedRoster = {
+            ...roster,
+            group_sets: roster.group_sets.map((gs) =>
+              gs.id === groupSetId
+                ? {
+                    ...gs,
+                    connection: { ...connection, source_path: exportedPath },
+                  }
+                : gs,
+            ),
+          }
+          setRoster(updatedRoster, `Export group set "${groupSet.name}"`)
+        }
+        appendOutput(
+          `Exported group set "${groupSet.name}" to ${path}`,
+          "success",
+        )
+      } else {
+        appendOutput(`Export failed: ${result.error.message}`, "error")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendOutput(`Export failed: ${message}`, "error")
+    }
+  }, [appendOutput, connection, groupSet.name, groupSetId, roster, setRoster])
+
   return (
     <div className="flex flex-col h-full">
       <GroupSetHeader
@@ -268,6 +296,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
         isOperationActive={isOperationActive}
         isSyncing={groupSetOperation?.kind === "sync" && isThisGroupSetBusy}
         onSync={handleSync}
+        onExport={handleExport}
         onCopy={() => setCopyGroupSetSourceId(groupSetId)}
         onDelete={() => setDeleteGroupSetTargetId(groupSetId)}
         onReimport={() => setReimportGroupSetTargetId(groupSetId)}
@@ -279,22 +308,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
         </div>
       )}
       <Separator />
-      {isEditable && kind !== "local" && (
-        <div className="px-4 py-3 space-y-4">
-          <GroupSelectionEditor
-            groupSetId={groupSetId}
-            groupSelection={groupSet.group_selection}
-            onUpdateSelection={updateGroupSetSelection}
-            disabled={isOperationActive}
-          />
-          <Separator />
-          <ResolvedGroupsPreview
-            groupSetId={groupSetId}
-            groupSelection={groupSet.group_selection}
-          />
-          <Separator />
-        </div>
-      )}
       <GroupsList
         groupSet={groupSet}
         groups={groups}
@@ -472,6 +485,7 @@ function GroupSetToolbar({
   isOperationActive,
   isSyncing,
   onSync,
+  onExport,
   onCopy,
   onDelete,
   onReimport,
@@ -480,6 +494,7 @@ function GroupSetToolbar({
   isOperationActive: boolean
   isSyncing: boolean
   onSync: () => void
+  onExport: () => void
   onCopy: () => void
   onDelete: () => void
   onReimport: () => void
@@ -512,7 +527,7 @@ function GroupSetToolbar({
           </Tooltip>
         )}
 
-        {/* Re-import (imported only) */}
+        {/* Import (imported only) */}
         {isImported && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -524,10 +539,10 @@ function GroupSetToolbar({
                 disabled={isOperationActive}
               >
                 <Upload className="size-3 mr-1.5" />
-                Re-import
+                Import
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Replace groups from a new CSV file</TooltipContent>
+            <TooltipContent>Replace groups from a CSV file</TooltipContent>
           </Tooltip>
         )}
 
@@ -538,6 +553,7 @@ function GroupSetToolbar({
               variant="outline"
               size="sm"
               className="h-7 text-xs"
+              onClick={onExport}
               disabled={isOperationActive}
             >
               <Upload className="size-3 mr-1.5 rotate-180" />
@@ -581,495 +597,6 @@ function GroupSetToolbar({
         )}
       </div>
     </TooltipProvider>
-  )
-}
-
-// --- Group Selection Editor ---
-
-function GroupSelectionEditor({
-  groupSetId,
-  groupSelection,
-  onUpdateSelection,
-  disabled,
-}: {
-  groupSetId: string
-  groupSelection: GroupSelectionMode
-  onUpdateSelection: (groupSetId: string, selection: GroupSelectionMode) => void
-  disabled: boolean
-}) {
-  const mode = groupSelection.kind
-  const pattern =
-    groupSelection.kind === "pattern" ? groupSelection.pattern : ""
-  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
-
-  const [localPattern, setLocalPattern] = useState(pattern)
-  const [patternError, setPatternError] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const validationRequestIdRef = useRef(0)
-
-  // Sync local pattern when group selection changes
-  useEffect(() => {
-    if (groupSelection.kind === "pattern") {
-      setLocalPattern(groupSelection.pattern)
-      setPatternError(null)
-    } else {
-      setPatternError(null)
-    }
-  }, [groupSelection])
-
-  const handleModeChange = useCallback(
-    async (newMode: string) => {
-      if (disabled) return
-      if (newMode === mode) return
-
-      if (newMode === "all") {
-        onUpdateSelection(groupSetId, {
-          kind: "all",
-          excluded_group_ids: groupSelection.excluded_group_ids,
-        })
-        setPatternError(null)
-      } else {
-        try {
-          const candidate = localPattern || "*"
-          const groupNames = groups.map((group) => group.name)
-          const validation = await commands.filterByPattern(
-            candidate,
-            groupNames,
-          )
-          if (validation.status !== "ok" || !validation.data.valid) {
-            setPatternError(
-              validation.status === "ok"
-                ? (validation.data.error ?? "Invalid pattern")
-                : validation.error.message,
-            )
-            return
-          }
-
-          onUpdateSelection(groupSetId, {
-            kind: "pattern",
-            pattern: candidate,
-            excluded_group_ids: groupSelection.excluded_group_ids,
-          })
-          setPatternError(null)
-        } catch (error) {
-          setPatternError(
-            error instanceof Error
-              ? error.message
-              : "Failed to validate pattern",
-          )
-        }
-      }
-    },
-    [
-      groupSetId,
-      disabled,
-      groups,
-      mode,
-      localPattern,
-      groupSelection.excluded_group_ids,
-      onUpdateSelection,
-    ],
-  )
-
-  const commitPattern = useCallback(
-    (value: string) => {
-      onUpdateSelection(groupSetId, {
-        kind: "pattern",
-        pattern: value,
-        excluded_group_ids: groupSelection.excluded_group_ids,
-      })
-    },
-    [groupSetId, groupSelection.excluded_group_ids, onUpdateSelection],
-  )
-
-  const handlePatternChange = useCallback(
-    (value: string) => {
-      setLocalPattern(value)
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(async () => {
-        try {
-          const requestId = ++validationRequestIdRef.current
-          const groupNames = groups.map((group) => group.name)
-          const result = await commands.filterByPattern(value, groupNames)
-          if (validationRequestIdRef.current !== requestId) return
-
-          if (result.status === "ok" && result.data.valid) {
-            setPatternError(null)
-            commitPattern(value)
-            return
-          }
-
-          const message =
-            result.status === "ok"
-              ? (result.data.error ?? "Invalid pattern")
-              : result.error.message
-          setPatternError(message)
-        } catch (error) {
-          setPatternError(
-            error instanceof Error
-              ? error.message
-              : "Failed to validate pattern",
-          )
-        }
-      }, 400)
-    },
-    [commitPattern, groups],
-  )
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [])
-
-  const handleRestoreExcluded = useCallback(
-    (groupId: string) => {
-      if (disabled) return
-      const newExcluded = groupSelection.excluded_group_ids.filter(
-        (id) => id !== groupId,
-      )
-      onUpdateSelection(groupSetId, {
-        ...groupSelection,
-        excluded_group_ids: newExcluded,
-      } as GroupSelectionMode)
-    },
-    [groupSetId, disabled, groupSelection, onUpdateSelection],
-  )
-
-  return (
-    <div className="space-y-3">
-      <Label className="text-sm font-medium">Group selection</Label>
-      <RadioGroup
-        value={mode}
-        onValueChange={handleModeChange}
-        className="flex flex-col gap-2"
-      >
-        <div className="flex items-center gap-2">
-          <RadioGroupItem
-            value="all"
-            id={`sel-all-${groupSetId}`}
-            disabled={disabled}
-          />
-          <Label htmlFor={`sel-all-${groupSetId}`} className="text-sm">
-            All groups
-          </Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem
-            value="pattern"
-            id={`sel-pattern-${groupSetId}`}
-            disabled={disabled}
-          />
-          <Label htmlFor={`sel-pattern-${groupSetId}`} className="text-sm">
-            Pattern filter
-          </Label>
-        </div>
-      </RadioGroup>
-
-      {mode === "pattern" && (
-        <div className="space-y-1.5 pl-6">
-          <Input
-            value={localPattern}
-            disabled={disabled}
-            onChange={(e) => handlePatternChange(e.target.value)}
-            placeholder="e.g., 1D* or Team-*"
-            className={cn("h-7 text-sm", patternError && "border-destructive")}
-          />
-          {patternError && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="size-3" />
-              {patternError}
-            </p>
-          )}
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <span>Glob pattern matched against group names.</span>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="size-3 shrink-0 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  align="start"
-                  className="text-xs max-w-72 space-y-1"
-                >
-                  <p className="font-medium">Pattern syntax</p>
-                  <p>
-                    <code className="bg-muted px-0.5 rounded">*</code> matches
-                    any characters,{" "}
-                    <code className="bg-muted px-0.5 rounded">?</code> matches
-                    one character
-                  </p>
-                  <p>
-                    <code className="bg-muted px-0.5 rounded">[abc]</code>{" "}
-                    matches a, b, or c;{" "}
-                    <code className="bg-muted px-0.5 rounded">[!abc]</code>{" "}
-                    matches anything else
-                  </p>
-                  <p>
-                    Use <code className="bg-muted px-0.5 rounded">\</code> to
-                    escape special characters
-                  </p>
-                  <p>
-                    Not supported:{" "}
-                    <code className="bg-muted px-0.5 rounded">**</code>,{" "}
-                    <code className="bg-muted px-0.5 rounded">[^...]</code>, or
-                    regular expressions
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-      )}
-
-      {/* Excluded groups */}
-      <ExcludedGroupsList
-        excludedIds={groupSelection.excluded_group_ids}
-        disabled={disabled}
-        onRestore={handleRestoreExcluded}
-      />
-    </div>
-  )
-}
-
-// --- Excluded Groups List ---
-
-function ExcludedGroupsList({
-  excludedIds,
-  disabled,
-  onRestore,
-}: {
-  excludedIds: string[]
-  disabled: boolean
-  onRestore: (groupId: string) => void
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  if (excludedIds.length === 0) return null
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        {isOpen ? (
-          <ChevronDown className="size-3" />
-        ) : (
-          <ChevronRight className="size-3" />
-        )}
-        Excluded ({excludedIds.length})
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-1.5 space-y-1 pl-4">
-        {excludedIds.map((id) => (
-          <ExcludedGroupRow
-            key={id}
-            groupId={id}
-            disabled={disabled}
-            onRestore={onRestore}
-          />
-        ))}
-      </CollapsibleContent>
-    </Collapsible>
-  )
-}
-
-function ExcludedGroupRow({
-  groupId,
-  disabled,
-  onRestore,
-}: {
-  groupId: string
-  disabled: boolean
-  onRestore: (id: string) => void
-}) {
-  const group = useProfileStore(selectGroupById(groupId))
-
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="line-through text-muted-foreground truncate">
-        {group?.name ?? groupId}
-      </span>
-      <button
-        type="button"
-        className="text-xs text-primary hover:underline shrink-0 flex items-center gap-0.5"
-        disabled={disabled}
-        onClick={() => onRestore(groupId)}
-      >
-        <Redo2 className="size-3" />
-        Restore
-      </button>
-    </div>
-  )
-}
-
-// --- Resolved Groups Preview ---
-
-function ResolvedGroupsPreview({
-  groupSetId,
-  groupSelection,
-}: {
-  groupSetId: string
-  groupSelection: GroupSelectionMode
-}) {
-  const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
-  const [preview, setPreview] = useState<GroupSelectionPreview | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-
-  // Fetch preview when group selection changes
-  useEffect(() => {
-    if (!roster) {
-      setPreview(null)
-      setPreviewError(null)
-      return
-    }
-
-    let cancelled = false
-    setLoading(true)
-
-    commands
-      .previewGroupSelection(roster, groupSetId, groupSelection)
-      .then((result) => {
-        if (cancelled) return
-        if (result.status === "ok") {
-          setPreview(result.data)
-          setPreviewError(null)
-        } else {
-          setPreviewError(result.error.message)
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setPreviewError(error instanceof Error ? error.message : String(error))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [roster, groupSetId, groupSelection])
-
-  // Build a group lookup for display
-  const groupMap = useMemo(
-    () => new Map(groups.map((g) => [g.id, g])),
-    [groups],
-  )
-
-  if (loading && !preview) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Resolved groups</Label>
-        <Text className="text-xs text-muted-foreground">
-          Loading preview...
-        </Text>
-      </div>
-    )
-  }
-
-  if (!preview) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Resolved groups</Label>
-        {previewError ? (
-          <div className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertTriangle className="size-3" />
-            <span>Preview failed: {previewError}</span>
-          </div>
-        ) : (
-          <Text className="text-xs text-muted-foreground">
-            No preview available
-          </Text>
-        )}
-      </div>
-    )
-  }
-
-  if (!preview.valid) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Resolved groups</Label>
-        <div className="flex items-center gap-1.5 text-xs text-destructive">
-          <AlertTriangle className="size-3" />
-          <span>Invalid pattern: {preview.error}</span>
-        </div>
-      </div>
-    )
-  }
-
-  const emptyCount = preview.empty_group_ids.length
-  const emptySet = new Set(preview.empty_group_ids)
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">Resolved groups</Label>
-        <span className="text-xs text-muted-foreground">
-          {preview.matched_groups} of {preview.total_groups} groups
-          {emptyCount > 0 && ` (${emptyCount} empty)`}
-        </span>
-      </div>
-      {loading && (
-        <Text className="text-xs text-muted-foreground">
-          Loading preview...
-        </Text>
-      )}
-      {previewError && (
-        <div className="flex items-center gap-1.5 text-xs text-destructive">
-          <AlertTriangle className="size-3" />
-          <span>Preview failed: {previewError}</span>
-        </div>
-      )}
-
-      {preview.group_ids.length === 0 && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="size-3" />
-          <span>
-            {groupSelection.kind === "pattern"
-              ? "No groups match this pattern"
-              : "No groups match the current selection"}
-          </span>
-        </div>
-      )}
-
-      {preview.group_ids.length > 0 && (
-        <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
-          {preview.group_ids.map((gid) => {
-            const group = groupMap.get(gid)
-            const memberCount =
-              preview.group_member_counts.find((c) => c.group_id === gid)
-                ?.member_count ?? 0
-            const isEmpty = emptySet.has(gid)
-
-            return (
-              <div
-                key={gid}
-                className="flex items-center justify-between px-3 py-1.5 text-sm"
-              >
-                <span
-                  className={cn("truncate", isEmpty && "text-muted-foreground")}
-                >
-                  {group?.name ?? gid}
-                </span>
-                <span
-                  className={cn(
-                    "text-xs shrink-0 ml-2",
-                    isEmpty
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {memberCount} member{memberCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
   )
 }
 

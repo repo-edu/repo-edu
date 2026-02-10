@@ -50,6 +50,7 @@
       "properties": {
         "kind": { "const": "import" },
         "source_filename": { "type": "string", "description": "Original filename for display" },
+        "source_path": { "type": "string", "description": "Full filesystem path of the last imported or exported CSV" },
         "last_updated": {
           "type": "string",
           "format": "date-time",

@@ -293,6 +293,9 @@ pub enum GroupSetConnection {
   #[serde(rename = "import")]
   Import {
     source_filename: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_path: Option<String>,
     last_updated: chrono::DateTime<chrono::Utc>,
   },
 }
