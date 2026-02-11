@@ -110,13 +110,13 @@ export function ImportStudentsFromFileDialog() {
 
           <div className="text-sm">
             <p className="font-medium">Required columns:</p>
-            <p className="text-muted-foreground">name, email</p>
+            <p className="text-muted-foreground">name</p>
           </div>
 
           <div className="text-sm">
             <p className="font-medium">Optional columns:</p>
             <p className="text-muted-foreground">
-              student_number, git_username
+              id, email, student_number, git_username, status
             </p>
           </div>
 
@@ -134,8 +134,8 @@ export function ImportStudentsFromFileDialog() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Existing students matched by email will be updated. New students
-            will be added.
+            Existing students matched by id, email, or student number will be
+            updated. New students will be added.
           </p>
           <p className="text-sm text-muted-foreground">
             Next: link or copy group sets in the Group tab if needed.

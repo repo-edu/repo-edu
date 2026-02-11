@@ -15,6 +15,7 @@ pub use crate::generated::types::{
 /// Draft for creating a new roster member.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RosterMemberDraft {
+    pub member_id: Option<String>,
     pub name: String,
     pub email: String,
     pub student_number: Option<String>,
@@ -75,8 +76,15 @@ impl Roster {
 impl RosterMember {
     /// Create a new roster member from a draft.
     pub fn new(draft: RosterMemberDraft) -> Self {
+        let id = draft
+            .member_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| RosterMemberId(value.to_string()))
+            .unwrap_or_else(generate_roster_member_id);
         Self {
-            id: generate_roster_member_id(),
+            id,
             name: draft.name,
             email: draft.email,
             student_number: draft.student_number,

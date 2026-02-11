@@ -306,7 +306,52 @@ impl User {
                 Some("completed") | Some("deleted") | Some("inactive") => "dropped",
                 _ => "incomplete",
             })
-            .unwrap_or("active")
+            .unwrap_or("incomplete")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Enrollment, User};
+
+    #[test]
+    fn enrollment_status_without_enrollments_is_incomplete() {
+        let user = User {
+            id: "u1".to_string(),
+            name: "No Enrollment".to_string(),
+            sortable_name: None,
+            short_name: None,
+            login_id: None,
+            email: None,
+            avatar_url: None,
+            enrollments: None,
+        };
+
+        assert_eq!(user.enrollment_status(), "incomplete");
+    }
+
+    #[test]
+    fn enrollment_status_active_state_is_active() {
+        let user = User {
+            id: "u2".to_string(),
+            name: "Active".to_string(),
+            sortable_name: None,
+            short_name: None,
+            login_id: None,
+            email: None,
+            avatar_url: None,
+            enrollments: Some(vec![Enrollment {
+                id: "e1".to_string(),
+                user_id: "u2".to_string(),
+                course_id: "c1".to_string(),
+                enrollment_type: "StudentEnrollment".to_string(),
+                role: None,
+                enrollment_state: Some("active".to_string()),
+                limit_privileges_to_course_section: None,
+            }]),
+        };
+
+        assert_eq!(user.enrollment_status(), "active");
     }
 }
 

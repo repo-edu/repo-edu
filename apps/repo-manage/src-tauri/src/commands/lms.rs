@@ -305,32 +305,38 @@ fn merge_file_members(
 ) -> Result<ImportStudentsResult, AppError> {
     let base_roster = roster.unwrap_or_else(Roster::empty);
     let mut updated_roster = base_roster.clone();
-
-    let mut email_index: HashMap<String, usize> = HashMap::new();
-    for (idx, member) in updated_roster.students.iter().enumerate() {
-        email_index.insert(normalize_email(&member.email), idx);
-    }
+    let mut indexes = build_member_indexes(&updated_roster.students);
 
     let mut added = 0;
     let mut updated = 0;
     let mut unchanged = 0;
+    let mut missing_email = 0i64;
 
     for draft in drafts {
-        let email = normalize_email(&draft.email);
-        if let Some(&idx) = email_index.get(&email) {
+        if draft.email.trim().is_empty() {
+            missing_email += 1;
+        }
+
+        if let Some(idx) = resolve_file_match(&indexes, &draft) {
             let member = &mut updated_roster.students[idx];
             let changed = update_member_from_file(member, draft);
             if changed {
                 updated += 1;
+                indexes = build_member_indexes(&updated_roster.students);
             } else {
                 unchanged += 1;
             }
         } else {
+            let mut draft = draft;
+            if let Some(member_id) = draft.member_id.as_deref().map(str::trim) {
+                if indexes.id.contains_key(member_id) {
+                    draft.member_id = None;
+                }
+            }
             let member = RosterMember::new(draft);
             updated_roster.students.push(member);
-            let idx = updated_roster.students.len() - 1;
-            email_index.insert(email, idx);
             added += 1;
+            indexes = build_member_indexes(&updated_roster.students);
         }
     }
 
@@ -348,7 +354,7 @@ fn merge_file_members(
             students_added: added as i64,
             students_updated: updated as i64,
             students_unchanged: unchanged as i64,
-            students_missing_email: 0,
+            students_missing_email: missing_email,
         },
         roster: updated_roster,
     })
@@ -360,13 +366,15 @@ fn update_member_from_file(member: &mut RosterMember, draft: RosterMemberDraft) 
         member.name = draft.name;
         changed = true;
     }
-    if member.email != draft.email {
+    if !draft.email.trim().is_empty() && member.email != draft.email {
         member.email = draft.email;
         changed = true;
     }
-    if member.student_number != draft.student_number {
-        member.student_number = draft.student_number;
-        changed = true;
+    if let Some(student_number) = draft.student_number {
+        if member.student_number.as_deref() != Some(student_number.as_str()) {
+            member.student_number = Some(student_number);
+            changed = true;
+        }
     }
     if let Some(status) = draft.status {
         if member.status != status {
@@ -386,6 +394,86 @@ fn update_member_from_file(member: &mut RosterMember, draft: RosterMemberDraft) 
     }
 
     changed
+}
+
+const AMBIGUOUS_INDEX: usize = usize::MAX;
+
+struct MemberIndexes {
+    id: HashMap<String, usize>,
+    email: HashMap<String, usize>,
+    student_number: HashMap<String, usize>,
+}
+
+fn build_member_indexes(students: &[RosterMember]) -> MemberIndexes {
+    let mut id = HashMap::new();
+    let mut email = HashMap::new();
+    let mut student_number = HashMap::new();
+
+    for (idx, member) in students.iter().enumerate() {
+        let member_id = member.id.as_str().trim();
+        if !member_id.is_empty() {
+            insert_or_mark_ambiguous(&mut id, member_id.to_string(), idx);
+        }
+
+        let normalized_email = normalize_email(&member.email);
+        if !normalized_email.is_empty() {
+            insert_or_mark_ambiguous(&mut email, normalized_email, idx);
+        }
+
+        if let Some(sn) = member.student_number.as_deref() {
+            let normalized = normalize_student_number(sn);
+            if !normalized.is_empty() {
+                insert_or_mark_ambiguous(&mut student_number, normalized, idx);
+            }
+        }
+    }
+
+    MemberIndexes {
+        id,
+        email,
+        student_number,
+    }
+}
+
+fn resolve_file_match(indexes: &MemberIndexes, draft: &RosterMemberDraft) -> Option<usize> {
+    if let Some(member_id) = draft.member_id.as_deref().map(str::trim) {
+        if !member_id.is_empty() {
+            return unique_index(&indexes.id, member_id);
+        }
+    }
+
+    let email = normalize_email(&draft.email);
+    if !email.is_empty() {
+        return unique_index(&indexes.email, &email);
+    }
+
+    if let Some(sn) = draft.student_number.as_deref() {
+        let normalized = normalize_student_number(sn);
+        if !normalized.is_empty() {
+            return unique_index(&indexes.student_number, &normalized);
+        }
+    }
+    None
+}
+
+fn normalize_student_number(value: &str) -> String {
+    value.trim().to_string()
+}
+
+fn insert_or_mark_ambiguous(index: &mut HashMap<String, usize>, key: String, value: usize) {
+    match index.get_mut(&key) {
+        Some(existing) => *existing = AMBIGUOUS_INDEX,
+        None => {
+            index.insert(key, value);
+        }
+    }
+}
+
+fn unique_index(index: &HashMap<String, usize>, key: &str) -> Option<usize> {
+    match index.get(key) {
+        Some(idx) if *idx != AMBIGUOUS_INDEX => Some(*idx),
+        _ => None,
+    }
 }
 
 /// Result of verifying a profile's course against the LMS
@@ -434,5 +522,111 @@ pub async fn verify_profile_course(profile: String) -> Result<CourseVerifyResult
             message: format!("Course '{}' not found in LMS", course_id),
             updated_name: None,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use repo_manage_core::roster::MemberStatus;
+    use std::path::Path;
+
+    fn roster_with_students(students: Vec<RosterMember>) -> Roster {
+        Roster {
+            connection: None,
+            students,
+            staff: Vec::new(),
+            groups: Vec::new(),
+            group_sets: Vec::new(),
+            assignments: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn merge_file_members_matches_by_member_id_without_email() {
+        let existing = RosterMember::new(RosterMemberDraft {
+            name: "Alice".to_string(),
+            email: "".to_string(),
+            status: Some(MemberStatus::Active),
+            ..Default::default()
+        });
+        let member_id = existing.id.as_str().to_string();
+
+        let result = merge_file_members(
+            Some(roster_with_students(vec![existing])),
+            vec![RosterMemberDraft {
+                member_id: Some(member_id),
+                name: "Alice Updated".to_string(),
+                email: "".to_string(),
+                status: Some(MemberStatus::Dropped),
+                ..Default::default()
+            }],
+            Path::new("students.csv"),
+        )
+        .unwrap();
+
+        assert_eq!(result.summary.students_added, 0);
+        assert_eq!(result.summary.students_updated, 1);
+        assert_eq!(result.summary.students_missing_email, 1);
+        assert_eq!(result.roster.students.len(), 1);
+        assert_eq!(result.roster.students[0].name, "Alice Updated");
+        assert_eq!(result.roster.students[0].status, MemberStatus::Dropped);
+    }
+
+    #[test]
+    fn merge_file_members_does_not_clear_existing_email_on_blank_file_email() {
+        let existing = RosterMember::new(RosterMemberDraft {
+            name: "Bob".to_string(),
+            email: "bob@example.com".to_string(),
+            status: Some(MemberStatus::Active),
+            ..Default::default()
+        });
+        let member_id = existing.id.as_str().to_string();
+
+        let result = merge_file_members(
+            Some(roster_with_students(vec![existing])),
+            vec![RosterMemberDraft {
+                member_id: Some(member_id),
+                name: "Bob".to_string(),
+                email: "".to_string(),
+                status: Some(MemberStatus::Dropped),
+                ..Default::default()
+            }],
+            Path::new("students.csv"),
+        )
+        .unwrap();
+
+        assert_eq!(result.roster.students.len(), 1);
+        assert_eq!(result.roster.students[0].email, "bob@example.com");
+        assert_eq!(result.roster.students[0].status, MemberStatus::Dropped);
+    }
+
+    #[test]
+    fn merge_file_members_with_ambiguous_email_adds_new_student() {
+        let first = RosterMember::new(RosterMemberDraft {
+            name: "One".to_string(),
+            email: "dup@example.com".to_string(),
+            ..Default::default()
+        });
+        let second = RosterMember::new(RosterMemberDraft {
+            name: "Two".to_string(),
+            email: "dup@example.com".to_string(),
+            ..Default::default()
+        });
+
+        let result = merge_file_members(
+            Some(roster_with_students(vec![first, second])),
+            vec![RosterMemberDraft {
+                name: "Imported".to_string(),
+                email: "dup@example.com".to_string(),
+                ..Default::default()
+            }],
+            Path::new("students.csv"),
+        )
+        .unwrap();
+
+        assert_eq!(result.summary.students_added, 1);
+        assert_eq!(result.summary.students_updated, 0);
+        assert_eq!(result.roster.students.len(), 3);
     }
 }

@@ -75,6 +75,7 @@ pub fn export_teams(
 pub fn export_students(roster: &Roster, path: &Path) -> Result<()> {
     let mut rows = Vec::new();
     let header = vec![
+        "id".to_string(),
         "name".to_string(),
         "email".to_string(),
         "student_number".to_string(),
@@ -89,6 +90,7 @@ pub fn export_students(roster: &Roster, path: &Path) -> Result<()> {
 
     for member in &roster.students {
         let row = vec![
+            member.id.as_str().to_string(),
             member.name.clone(),
             member.email.clone(),
             member.student_number.clone().unwrap_or_default(),

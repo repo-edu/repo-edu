@@ -36,4 +36,15 @@ mod smoke_tests {
         let id = generate_roster_member_id();
         assert!(uuid::Uuid::parse_str(id.as_str()).is_ok());
     }
+
+    #[test]
+    fn smoke_member_new_uses_provided_member_id() {
+        let member = RosterMember::new(RosterMemberDraft {
+            member_id: Some("member-123".to_string()),
+            name: "Test".to_string(),
+            email: "test@example.com".to_string(),
+            ..Default::default()
+        });
+        assert_eq!(member.id.as_str(), "member-123");
+    }
 }

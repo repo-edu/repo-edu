@@ -26,4 +26,24 @@ mod smoke_tests {
         assert_eq!(entries[0].email, "john@example.com");
         assert_eq!(entries[0].git_username, "johndoe");
     }
+
+    #[test]
+    fn parse_students_csv_accepts_missing_email() {
+        let csv_content = "id,name,email,status\nmember-1,No Email,,dropped\n";
+        let result = parse_students_csv(csv_content.as_bytes()).unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].member_id.as_deref(), Some("member-1"));
+        assert_eq!(result[0].name, "No Email");
+        assert_eq!(result[0].email, "");
+    }
+
+    #[test]
+    fn parse_students_csv_still_requires_name() {
+        let csv_content = "id,name,email\nmember-1,,x@example.com\n";
+        let result = parse_students_csv(csv_content.as_bytes());
+        assert!(result.is_err());
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("Missing required fields in rows"));
+    }
 }

@@ -84,9 +84,6 @@ where
     if !headers.iter().any(|h| h.normalized == "name") {
         missing_headers.push("name");
     }
-    if !headers.iter().any(|h| h.normalized == "email") {
-        missing_headers.push("email");
-    }
     if !missing_headers.is_empty() {
         return Err(PlatformError::Other(format!(
             "Missing required headers: {}",
@@ -94,7 +91,6 @@ where
         )));
     }
 
-    let mut email_to_index: HashMap<String, usize> = HashMap::new();
     let mut drafts: Vec<RosterMemberDraft> = Vec::new();
     let mut missing_rows: Vec<usize> = Vec::new();
 
@@ -106,6 +102,7 @@ where
             continue;
         }
 
+        let mut member_id: Option<String> = None;
         let mut name = String::new();
         let mut email = String::new();
         let mut student_number: Option<String> = None;
@@ -119,6 +116,7 @@ where
             }
 
             match header.normalized.as_str() {
+                "id" | "member_id" | "student_id" => member_id = Some(value.to_string()),
                 "name" => name = value.to_string(),
                 "email" => email = value.to_string(),
                 "student_number" => student_number = Some(value.to_string()),
@@ -133,13 +131,14 @@ where
         }
 
         let row_number = row_index + 2;
-        if name.trim().is_empty() || email.trim().is_empty() {
+        if name.trim().is_empty() {
             missing_rows.push(row_number);
             continue;
         }
 
         let normalized_email = normalize_email(&email);
         let draft = RosterMemberDraft {
+            member_id: member_id.filter(|v| !v.trim().is_empty()),
             name: name.trim().to_string(),
             email: normalized_email.clone(),
             student_number: student_number.filter(|v| !v.trim().is_empty()),
@@ -148,13 +147,7 @@ where
             status,
             ..Default::default()
         };
-
-        if let Some(existing) = email_to_index.get(&normalized_email).copied() {
-            drafts[existing] = draft;
-        } else {
-            email_to_index.insert(normalized_email, drafts.len());
-            drafts.push(draft);
-        }
+        drafts.push(draft);
     }
 
     if !missing_rows.is_empty() {

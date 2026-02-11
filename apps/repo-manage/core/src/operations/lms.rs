@@ -322,6 +322,11 @@ fn merge_lms_roster_with_conflicts(
             "dropped" => MemberStatus::Dropped,
             _ => MemberStatus::Incomplete,
         };
+        let member_status = if email.is_empty() && member_status == MemberStatus::Active {
+            MemberStatus::Incomplete
+        } else {
+            member_status
+        };
 
         let is_student = lms_enrollment_type == EnrollmentType::Student;
 
@@ -549,6 +554,18 @@ mod tests {
         })
     }
 
+    fn test_context() -> LmsOperationContext {
+        LmsOperationContext {
+            connection: crate::generated::types::LmsConnection {
+                lms_type: crate::generated::types::LmsType::Canvas,
+                base_url: "https://canvas.example.edu".to_string(),
+                access_token: "token".to_string(),
+                user_agent: None,
+            },
+            course_id: "42".to_string(),
+        }
+    }
+
     #[test]
     fn build_lms_member_map_indexes_all_members() {
         let student = member_with_lms("Alice", "alice@example.com", "u1");
@@ -606,5 +623,34 @@ mod tests {
         let (resolved, unresolved) = resolve_lms_member_ids(&map, &ids);
         assert!(resolved.is_empty());
         assert_eq!(unresolved, 3);
+    }
+
+    #[test]
+    fn merge_lms_roster_marks_missing_email_active_as_incomplete() {
+        let context = test_context();
+        let users = vec![crate::User {
+            id: "user-1".to_string(),
+            name: "Missing Email".to_string(),
+            sortable_name: None,
+            short_name: None,
+            login_id: Some("s123".to_string()),
+            email: None,
+            avatar_url: None,
+            enrollments: Some(vec![lms_common::Enrollment {
+                id: "enr-1".to_string(),
+                user_id: "user-1".to_string(),
+                course_id: "42".to_string(),
+                enrollment_type: "StudentEnrollment".to_string(),
+                role: None,
+                enrollment_state: None,
+                limit_privileges_to_course_section: None,
+            }]),
+        }];
+
+        let result = merge_lms_roster_with_conflicts(None, users, &context).unwrap();
+
+        assert_eq!(result.summary.students_missing_email, 1);
+        assert_eq!(result.roster.students.len(), 1);
+        assert_eq!(result.roster.students[0].status, MemberStatus::Incomplete);
     }
 }
