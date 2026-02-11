@@ -30,7 +30,6 @@ export interface ProfileListItem {
  */
 type ActiveTab = "roster" | "groups-assignments" | "operation"
 
-type AssignmentCoverageFocus = "unassigned"
 type GroupSetOperationKind = "sync" | "import" | "reimport"
 
 export interface GroupSetOperationState {
@@ -53,8 +52,6 @@ interface UiState {
   profileListLoading: boolean
 
   // Roster tab dialogs
-  studentEditorOpen: boolean
-  coverageReportOpen: boolean
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
   rosterMemberColumnVisibility: Record<string, boolean>
@@ -69,9 +66,7 @@ interface UiState {
   importGroupsDialogOpen: boolean
   importGroupsFromFileDialogOpen: boolean
   editingGroupId: string | null
-  dataOverviewOpen: boolean
-  assignmentCoverageOpen: boolean
-  assignmentCoverageFocus: AssignmentCoverageFocus | null
+  issuesPanelOpen: boolean
   preSelectedGroupSetId: string | null
 
   // Phase 10 dialogs (Groups & Assignments)
@@ -131,8 +126,6 @@ interface UiActions {
   setProfileListLoading: (loading: boolean) => void
 
   // Roster tab dialogs
-  setStudentEditorOpen: (open: boolean) => void
-  setCoverageReportOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
   setRosterMemberColumnVisibility: (visibility: Record<string, boolean>) => void
@@ -147,9 +140,7 @@ interface UiActions {
   setImportGroupsDialogOpen: (open: boolean) => void
   setImportGroupsFromFileDialogOpen: (open: boolean) => void
   setEditingGroupId: (id: string | null) => void
-  setDataOverviewOpen: (open: boolean) => void
-  setAssignmentCoverageOpen: (open: boolean) => void
-  setAssignmentCoverageFocus: (focus: AssignmentCoverageFocus | null) => void
+  setIssuesPanelOpen: (open: boolean) => void
   setPreSelectedGroupSetId: (id: string | null) => void
   setSidebarSelection: (selection: SidebarSelection) => void
   setGroupSetOperation: (operation: GroupSetOperationState | null) => void
@@ -212,8 +203,6 @@ const initialState: UiState = {
   profileListLoading: false,
 
   // Roster tab dialogs
-  studentEditorOpen: false,
-  coverageReportOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
   rosterMemberColumnVisibility: {},
@@ -228,9 +217,7 @@ const initialState: UiState = {
   importGroupsDialogOpen: false,
   importGroupsFromFileDialogOpen: false,
   editingGroupId: null,
-  dataOverviewOpen: false,
-  assignmentCoverageOpen: false,
-  assignmentCoverageFocus: null,
+  issuesPanelOpen: false,
   preSelectedGroupSetId: null,
 
   // Phase 10 dialogs
@@ -292,8 +279,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setProfileListLoading: (loading) => set({ profileListLoading: loading }),
 
   // Roster tab dialogs
-  setStudentEditorOpen: (open) => set({ studentEditorOpen: open }),
-  setCoverageReportOpen: (open) => set({ coverageReportOpen: open }),
   setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
   setRosterSyncDialogOpen: (open) => set({ rosterSyncDialogOpen: open }),
   setRosterMemberColumnVisibility: (visibility) =>
@@ -312,10 +297,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setImportGroupsFromFileDialogOpen: (open) =>
     set({ importGroupsFromFileDialogOpen: open }),
   setEditingGroupId: (id) => set({ editingGroupId: id }),
-  setDataOverviewOpen: (open) => set({ dataOverviewOpen: open }),
-  setAssignmentCoverageOpen: (open) => set({ assignmentCoverageOpen: open }),
-  setAssignmentCoverageFocus: (focus) =>
-    set({ assignmentCoverageFocus: focus }),
+  setIssuesPanelOpen: (open) => set({ issuesPanelOpen: open }),
   setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
   setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
   setGroupSetOperation: (operation) => set({ groupSetOperation: operation }),
@@ -366,7 +348,7 @@ export const useUiStore = create<UiStore>((set) => ({
   reset: () => set(initialState),
 }))
 
-export type { ActiveTab, AssignmentCoverageFocus }
+export type { ActiveTab }
 
 // Selector helpers
 export const selectActiveTab = (state: UiStore) => state.activeTab

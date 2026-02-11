@@ -36,9 +36,6 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   const setNewProfileDialogOpen = useUiStore(
     (state) => state.setNewProfileDialogOpen,
   )
-  const setCoverageReportOpen = useUiStore(
-    (state) => state.setCoverageReportOpen,
-  )
   const setImportFileDialogOpen = useUiStore(
     (state) => state.setImportFileDialogOpen,
   )
@@ -147,7 +144,6 @@ export function RosterTab({ isDirty }: RosterTabProps) {
         hasLmsConnection={hasLmsConnection}
         onImportFromLms={() => setRosterSyncDialogOpen(true)}
         onImportFromFile={() => setImportFileDialogOpen(true)}
-        onCoverage={() => setCoverageReportOpen(true)}
         onClear={handleClear}
         onExport={handleExportStudents}
       />

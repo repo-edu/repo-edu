@@ -1,15 +1,15 @@
 /**
- * DataOverviewButton - Opens the Data Overview sheet.
+ * IssuesButton - Opens the Issues sheet.
  * Shows a warning-colored issue count badge when issues exist.
  */
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
-import { useDataOverview } from "../hooks/useDataOverview"
+import { useIssues } from "../hooks/useIssues"
 import { useUiStore } from "../stores/uiStore"
 
-export function DataOverviewButton() {
-  const setDataOverviewOpen = useUiStore((state) => state.setDataOverviewOpen)
-  const { issueCards } = useDataOverview()
+export function IssuesButton() {
+  const setIssuesPanelOpen = useUiStore((state) => state.setIssuesPanelOpen)
+  const { issueCards } = useIssues()
   const issueCount = issueCards.length
 
   return (
@@ -19,7 +19,7 @@ export function DataOverviewButton() {
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 px-2 relative"
-          onClick={() => setDataOverviewOpen(true)}
+          onClick={() => setIssuesPanelOpen(true)}
         >
           <span className="text-xs">Issues</span>
           {issueCount > 0 && (
@@ -29,7 +29,7 @@ export function DataOverviewButton() {
           )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Data Overview</TooltipContent>
+      <TooltipContent>Issues</TooltipContent>
     </Tooltip>
   )
 }

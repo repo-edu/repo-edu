@@ -10,27 +10,20 @@ import {
 } from "@repo-edu/ui"
 import { AlertTriangle, ChevronDown } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
-import { type IssueCard, useDataOverview } from "../../hooks/useDataOverview"
+import { type IssueCard, useIssues } from "../../hooks/useIssues"
 import { useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 
-export function DataOverviewSheet() {
-  const open = useUiStore((state) => state.dataOverviewOpen)
-  const setOpen = useUiStore((state) => state.setDataOverviewOpen)
+export function IssuesSheet() {
+  const open = useUiStore((state) => state.issuesPanelOpen)
+  const setOpen = useUiStore((state) => state.setIssuesPanelOpen)
   const setActiveTab = useUiStore((state) => state.setActiveTab)
-  const setAssignmentCoverageOpen = useUiStore(
-    (state) => state.setAssignmentCoverageOpen,
-  )
-  const setAssignmentCoverageFocus = useUiStore(
-    (state) => state.setAssignmentCoverageFocus,
-  )
-  const setStudentEditorOpen = useUiStore((state) => state.setStudentEditorOpen)
   const selectAssignment = useProfileStore((state) => state.selectAssignment)
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const addToast = useToastStore((state) => state.addToast)
 
-  const { issueCards, rosterInsights } = useDataOverview()
+  const { issueCards, rosterInsights } = useIssues()
   const [rosterOpen, setRosterOpen] = useState(true)
 
   const totalIssues = issueCards.length
@@ -46,7 +39,6 @@ export function DataOverviewSheet() {
     if (issue.kind === "unknown_students" && issue.assignmentId) {
       setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
-      setAssignmentCoverageFocus(null)
       showToast(
         `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (search for unknown students)`,
       )
@@ -57,21 +49,8 @@ export function DataOverviewSheet() {
     if (issue.kind === "empty_groups" && issue.assignmentId) {
       setActiveTab("groups-assignments")
       selectAssignment(issue.assignmentId)
-      setAssignmentCoverageFocus(null)
       showToast(
         `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (look for empty groups)`,
-      )
-      setOpen(false)
-      return
-    }
-
-    if (issue.kind === "unassigned_students" && issue.assignmentId) {
-      setActiveTab("groups-assignments")
-      selectAssignment(issue.assignmentId)
-      setAssignmentCoverageFocus("unassigned")
-      setAssignmentCoverageOpen(true)
-      showToast(
-        `Showing unassigned students${assignmentName ? ` in ${assignmentName}` : ""}`,
       )
       setOpen(false)
       return
@@ -83,7 +62,6 @@ export function DataOverviewSheet() {
         showToast("Showing assignments")
       } else {
         setActiveTab("roster")
-        setStudentEditorOpen(true)
         showToast("Showing roster issues")
       }
       setOpen(false)
@@ -104,7 +82,7 @@ export function DataOverviewSheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent className="w-full sm:max-w-2xl bg-background">
         <SheetHeader>
-          <SheetTitle>Data Overview</SheetTitle>
+          <SheetTitle>Issues</SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 flex flex-col gap-5">
@@ -205,8 +183,6 @@ const getIssueActionLabel = (issue: IssueCard) => {
   switch (issue.kind) {
     case "unknown_students":
       return "View unknown"
-    case "unassigned_students":
-      return "View unassigned"
     case "empty_groups":
       return "View empty"
     case "roster_validation":

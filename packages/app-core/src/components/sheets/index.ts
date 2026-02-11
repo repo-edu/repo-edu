@@ -1,5 +1,2 @@
-export { AssignmentCoverageSheet } from "./AssignmentCoverageSheet"
-export { CoverageReportSheet } from "./CoverageReportSheet"
-export { DataOverviewSheet } from "./DataOverviewSheet"
 export { FileImportExportSheet } from "./FileImportExportSheet"
-export { StudentEditorSheet } from "./StudentEditorSheet"
+export { IssuesSheet } from "./IssuesSheet"

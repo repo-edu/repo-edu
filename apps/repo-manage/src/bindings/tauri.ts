@@ -18,8 +18,6 @@ import type {
   CommandResult,
   CourseInfo,
   CourseVerifyResult,
-  CoverageExportFormat,
-  CoverageReport,
   CreateConfig,
   DeleteConfig,
   GenerateFilesParams,
@@ -1181,46 +1179,6 @@ export class TauriBackend implements BackendAPI {
           roster,
           assignmentId,
           path,
-        }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      return { status: "error", error: toAppError(e) }
-    }
-  }
-
-  /**
-   * Get coverage report (student distribution)
-   */
-  async getRosterCoverage(
-    roster: Roster,
-  ): Promise<Result<CoverageReport, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("get_roster_coverage", { roster }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      return { status: "error", error: toAppError(e) }
-    }
-  }
-
-  /**
-   * Export coverage report
-   */
-  async exportRosterCoverage(
-    roster: Roster,
-    path: string,
-    format: CoverageExportFormat,
-  ): Promise<Result<null, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("export_roster_coverage", {
-          roster,
-          path,
-          format,
         }),
       }
     } catch (e) {

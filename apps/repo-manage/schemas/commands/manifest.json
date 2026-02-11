@@ -806,36 +806,6 @@
       "output": "()",
       "error": "AppError"
     },
-    "get_roster_coverage": {
-      "description": "Get coverage report (student distribution)",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
-        }
-      ],
-      "output": "CoverageReport",
-      "error": "AppError"
-    },
-    "export_roster_coverage": {
-      "description": "Export coverage report",
-      "input": [
-        {
-          "name": "roster",
-          "type": "Roster"
-        },
-        {
-          "name": "path",
-          "type": "PathBuf"
-        },
-        {
-          "name": "format",
-          "type": "CoverageExportFormat"
-        }
-      ],
-      "output": "()",
-      "error": "AppError"
-    },
     "validate_roster": {
       "description": "Validate roster (students)",
       "input": [

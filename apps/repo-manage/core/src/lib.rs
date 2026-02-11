@@ -65,10 +65,10 @@ pub use settings::{
 
 // Generated types used by Tauri commands
 pub use generated::types::{
-    AssignmentId, CloneConfig, CommandResult, CoverageExportFormat, CoverageReport, CreateConfig,
-    DeleteConfig, DirectoryLayout, EnrollmentType, GitUsernameImportSummary, GitVerifyResult,
-    GroupFileImportResult, GroupFileImportSummary, GroupSelectionMode, GroupSelectionPreview,
-    GroupSet, GroupSetConnection, GroupSetImportPreview, GroupSetImportResult, GroupSetSyncResult,
+    AssignmentId, CloneConfig, CommandResult, CreateConfig, DeleteConfig, DirectoryLayout,
+    EnrollmentType, GitUsernameImportSummary, GitVerifyResult, GroupFileImportResult,
+    GroupFileImportSummary, GroupSelectionMode, GroupSelectionPreview, GroupSet,
+    GroupSetConnection, GroupSetImportPreview, GroupSetImportResult, GroupSetSyncResult,
     ImportConflict, ImportGitUsernamesResult, ImportRosterResult, ImportStudentsResult,
     ImportSummary, InvalidUsername, LmsContextKey, LmsGroup, LmsGroupSet, LmsIdConflict,
     LmsOperationContext, LmsVerifyResult, MemberStatus, OperationError, OperationResult,

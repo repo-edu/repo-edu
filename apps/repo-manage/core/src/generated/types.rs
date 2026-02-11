@@ -38,14 +38,6 @@ pub struct Assignment {
   pub group_set_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssignmentCoverage {
-  pub assignment_id: AssignmentId,
-  pub assignment_name: String,
-  pub student_count: i64,
-  pub missing_students: Vec<StudentSummary>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AssignmentId(pub String);
@@ -81,23 +73,6 @@ pub struct CourseVerifyResult {
   pub success: bool,
   pub message: String,
   pub updated_name: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CoverageExportFormat {
-  #[serde(rename = "csv")]
-  Csv,
-  #[serde(rename = "xlsx")]
-  Xlsx,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CoverageReport {
-  pub total_students: i64,
-  pub assignments: Vec<AssignmentCoverage>,
-  pub students_in_multiple: Vec<StudentMultipleAssignments>,
-  pub students_in_none: Vec<StudentSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -684,12 +659,6 @@ pub enum StudentStatus {
 pub struct StudentId(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudentMultipleAssignments {
-  pub student: StudentSummary,
-  pub assignment_names: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StudentRemovalCheck {
   pub student_id: StudentId,
   pub student_name: String,
@@ -700,12 +669,6 @@ pub struct StudentRemovalCheck {
 pub struct StudentRemovalResult {
   pub removed_from_roster: bool,
   pub removed_from_groups: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudentSummary {
-  pub id: StudentId,
-  pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

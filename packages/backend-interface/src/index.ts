@@ -12,8 +12,6 @@ import type {
   CommandResult,
   CourseInfo,
   CourseVerifyResult,
-  CoverageExportFormat,
-  CoverageReport,
   CreateConfig,
   DeleteConfig,
   GenerateFilesParams,
@@ -516,20 +514,6 @@ export interface BackendAPI {
     roster: Roster,
     assignmentId: AssignmentId,
     path: string,
-  ): Promise<Result<null, AppError>>
-
-  /**
-   * Get coverage report (student distribution)
-   */
-  getRosterCoverage(roster: Roster): Promise<Result<CoverageReport, AppError>>
-
-  /**
-   * Export coverage report
-   */
-  exportRosterCoverage(
-    roster: Roster,
-    path: string,
-    format: CoverageExportFormat,
   ): Promise<Result<null, AppError>>
 
   /**

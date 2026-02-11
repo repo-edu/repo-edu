@@ -7,14 +7,6 @@ import type {
   RosterMemberId,
 } from "@repo-edu/backend-interface/types"
 
-export interface AssignmentCoverageSummary {
-  assignmentId: string
-  activeCount: number
-  assignedActiveCount: number
-  unassignedActiveStudents: RosterMember[]
-  resolvedGroups: Group[]
-}
-
 export const isActiveStudent = (student: RosterMember) =>
   student.status === "active"
 
@@ -148,35 +140,4 @@ export function resolveAssignmentGroups(
     .filter((group): group is Group => !!group)
 
   return applyGroupSelection(groups, groupSet.group_selection)
-}
-
-export const getAssignmentCoverageSummary = (
-  assignment: Assignment,
-  roster: Roster,
-): AssignmentCoverageSummary => {
-  const students = roster.students
-  const activeStudents = getActiveStudents(students)
-  const studentMap = buildStudentMap(activeStudents)
-  const assignedActiveIds = new Set<RosterMemberId>()
-  const resolvedGroups = resolveAssignmentGroups(roster, assignment)
-
-  for (const group of resolvedGroups) {
-    for (const memberId of group.member_ids) {
-      if (studentMap.has(memberId)) {
-        assignedActiveIds.add(memberId)
-      }
-    }
-  }
-
-  const unassignedActiveStudents = activeStudents.filter(
-    (student) => !assignedActiveIds.has(student.id),
-  )
-
-  return {
-    assignmentId: assignment.id,
-    activeCount: activeStudents.length,
-    assignedActiveCount: assignedActiveIds.size,
-    unassignedActiveStudents,
-    resolvedGroups,
-  }
 }

@@ -22,7 +22,6 @@ import {
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useCallback, useEffect } from "react"
 import { commands } from "./bindings/commands"
-import { DataOverviewButton } from "./components/DataOverviewButton"
 import {
   AddGroupDialog,
   ConnectLmsGroupSetDialog,
@@ -43,16 +42,11 @@ import {
   UsernameVerificationDialog,
   ValidationDialog,
 } from "./components/dialogs"
+import { IssuesButton } from "./components/IssuesButton"
 import { OutputConsole } from "./components/OutputConsole"
 import { SettingsButton } from "./components/SettingsButton"
 import { SettingsSheet } from "./components/settings"
-import {
-  AssignmentCoverageSheet,
-  CoverageReportSheet,
-  DataOverviewSheet,
-  FileImportExportSheet,
-  StudentEditorSheet,
-} from "./components/sheets"
+import { FileImportExportSheet, IssuesSheet } from "./components/sheets"
 import { ToastStack } from "./components/ToastStack"
 import {
   GroupsAssignmentsTab,
@@ -350,7 +344,7 @@ function App() {
                         : "Redo (Ctrl+Shift+Z)"}
                     </TooltipContent>
                   </Tooltip>
-                  <DataOverviewButton />
+                  <IssuesButton />
                   <SettingsButton />
                 </div>
               </div>
@@ -445,9 +439,6 @@ function App() {
       <NewProfileDialog />
 
       {/* Roster Tab Dialogs and Sheets */}
-      <StudentEditorSheet />
-      <CoverageReportSheet />
-      <AssignmentCoverageSheet />
       <RosterSyncDialog />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />
@@ -456,7 +447,7 @@ function App() {
       <UsernameVerificationDialog />
 
       {/* Global Sheets */}
-      <DataOverviewSheet />
+      <IssuesSheet />
       <SettingsSheet />
 
       <ToastStack />

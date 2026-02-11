@@ -13,7 +13,6 @@ import {
 import {
   buildStudentMap,
   getActiveStudents,
-  getAssignmentCoverageSummary,
   resolveAssignmentGroups,
 } from "../utils/rosterMetrics"
 
@@ -23,7 +22,6 @@ export interface IssueCard {
   id: string
   kind:
     | "unknown_students"
-    | "unassigned_students"
     | "empty_groups"
     | "roster_validation"
     | "assignment_validation"
@@ -57,7 +55,7 @@ const ASSIGNMENT_ISSUE_KINDS: ValidationKind[] = [
   "duplicate_repo_name_in_assignment",
 ]
 
-export function useDataOverview() {
+export function useIssues() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const rosterValidation = useProfileStore((state) => state.rosterValidation)
   const assignmentValidations = useProfileStore(selectAssignmentValidations)
@@ -164,22 +162,6 @@ export function useDataOverview() {
           description: assignment.name,
           count: emptyGroups.length,
           details: [formatDetailsList(emptyGroups, 3)],
-        })
-      }
-
-      const coverage = getAssignmentCoverageSummary(assignment, roster)
-      if (coverage.unassignedActiveStudents.length > 0) {
-        const names = coverage.unassignedActiveStudents.map((s) => s.name)
-        issueCards.push({
-          id: `unassigned-${assignment.id}`,
-          kind: "unassigned_students",
-          assignmentId: assignment.id,
-          title: `${coverage.unassignedActiveStudents.length} unassigned student${
-            coverage.unassignedActiveStudents.length === 1 ? "" : "s"
-          }`,
-          description: assignment.name,
-          count: coverage.unassignedActiveStudents.length,
-          details: [formatDetailsList(names, 3)],
         })
       }
     }

@@ -8,19 +8,17 @@ use repo_manage_core::platform::{PlatformParams, PlatformType, UsernameCheck};
 use repo_manage_core::roster::{
     ensure_system_group_sets as core_ensure_system_group_sets,
     export_assignment_students as core_export_assignment_students,
-    export_groups_for_edit as core_export_groups_for_edit,
-    export_roster_coverage as core_export_roster_coverage, export_students as core_export_students,
+    export_groups_for_edit as core_export_groups_for_edit, export_students as core_export_students,
     export_teams as core_export_teams, filter_by_pattern as core_filter_by_pattern,
-    get_roster_coverage as core_get_roster_coverage, preview_group_selection as core_preview,
-    resolve_assignment_groups, AffectedGroup, AssignmentId, GitIdentityMode, GitUsernameStatus,
-    Roster, RosterMemberId, StudentRemovalCheck,
+    preview_group_selection as core_preview, resolve_assignment_groups, AffectedGroup,
+    AssignmentId, GitIdentityMode, GitUsernameStatus, Roster, RosterMemberId, StudentRemovalCheck,
 };
 use repo_manage_core::{
-    create_platform, AppSettings, CoverageExportFormat, CoverageReport, GitConnection,
-    GitServerType, GroupSelectionMode, GroupSelectionPreview, GroupSetImportPreview,
-    GroupSetImportResult, ImportGitUsernamesResult, InvalidUsername, PatternFilterResult,
-    SettingsManager, SystemGroupSetEnsureResult, UsernameInvalidReason, UsernameVerificationError,
-    UsernameVerificationResult, UsernameVerificationScope, VerifyGitUsernamesResult,
+    create_platform, AppSettings, GitConnection, GitServerType, GroupSelectionMode,
+    GroupSelectionPreview, GroupSetImportPreview, GroupSetImportResult, ImportGitUsernamesResult,
+    InvalidUsername, PatternFilterResult, SettingsManager, SystemGroupSetEnsureResult,
+    UsernameInvalidReason, UsernameVerificationError, UsernameVerificationResult,
+    UsernameVerificationScope, VerifyGitUsernamesResult,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -244,22 +242,6 @@ pub async fn export_assignment_students(
     path: PathBuf,
 ) -> Result<(), AppError> {
     core_export_assignment_students(&roster, &assignment_id, &path)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_roster_coverage(roster: Roster) -> Result<CoverageReport, AppError> {
-    Ok(core_get_roster_coverage(&roster))
-}
-
-#[tauri::command]
-pub async fn export_roster_coverage(
-    roster: Roster,
-    path: PathBuf,
-    format: CoverageExportFormat,
-) -> Result<(), AppError> {
-    let report = core_get_roster_coverage(&roster);
-    core_export_roster_coverage(&report, &path, format)?;
     Ok(())
 }
 

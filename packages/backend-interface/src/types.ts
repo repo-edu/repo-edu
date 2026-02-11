@@ -52,16 +52,6 @@ export interface Assignment {
 }
 
 /**
- * Coverage summary for an assignment
- */
-export interface AssignmentCoverage {
-  assignment_id: AssignmentId
-  assignment_name: string
-  student_count: number
-  missing_students: StudentSummary[]
-}
-
-/**
  * Strongly-typed assignment ID
  */
 export type AssignmentId = string
@@ -107,21 +97,6 @@ export interface CourseVerifyResult {
   success: boolean
   message: string
   updated_name?: string | null
-}
-
-/**
- * Export format for coverage reports
- */
-export type CoverageExportFormat = "csv" | "xlsx"
-
-/**
- * Coverage report of students across assignments
- */
-export interface CoverageReport {
-  total_students: number
-  assignments: AssignmentCoverage[]
-  students_in_multiple: StudentMultipleAssignments[]
-  students_in_none: StudentSummary[]
 }
 
 /**
@@ -869,14 +844,6 @@ export type StudentStatus = "active" | "dropped" | "incomplete"
 export type StudentId = string
 
 /**
- * Student appearing in multiple assignments
- */
-export interface StudentMultipleAssignments {
-  student: StudentSummary
-  assignment_names: string[]
-}
-
-/**
  * Check result for removing a student
  */
 export interface StudentRemovalCheck {
@@ -891,14 +858,6 @@ export interface StudentRemovalCheck {
 export interface StudentRemovalResult {
   removed_from_roster: boolean
   removed_from_groups: number
-}
-
-/**
- * Summary of a student
- */
-export interface StudentSummary {
-  id: StudentId
-  name: string
 }
 
 /**

@@ -15,7 +15,6 @@ export {
   selectCanUndo,
   selectConnectedGroupSets,
   selectCourse,
-  selectCoverageReport,
   selectDocument,
   selectExports,
   selectGitConnectionRef,

@@ -11,8 +11,6 @@ import type {
   CommandResult,
   CourseInfo,
   CourseVerifyResult,
-  CoverageExportFormat,
-  CoverageReport,
   CreateConfig,
   DeleteConfig,
   GenerateFilesParams,
@@ -560,22 +558,6 @@ export const commands = {
     path: string,
   ): Promise<Result<null, AppError>> {
     return getBackend().exportAssignmentStudents(roster, assignmentId, path)
-  },
-  /**
-   * Get coverage report (student distribution)
-   */
-  getRosterCoverage(roster: Roster): Promise<Result<CoverageReport, AppError>> {
-    return getBackend().getRosterCoverage(roster)
-  },
-  /**
-   * Export coverage report
-   */
-  exportRosterCoverage(
-    roster: Roster,
-    path: string,
-    format: CoverageExportFormat,
-  ): Promise<Result<null, AppError>> {
-    return getBackend().exportRosterCoverage(roster, path, format)
   },
   /**
    * Validate roster (students)

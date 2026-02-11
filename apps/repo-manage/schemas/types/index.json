@@ -18,10 +18,6 @@
       "path": "./Assignment.schema.json"
     },
     {
-      "name": "AssignmentCoverage",
-      "path": "./AssignmentCoverage.schema.json"
-    },
-    {
       "name": "AssignmentId",
       "path": "./AssignmentId.schema.json"
     },
@@ -44,14 +40,6 @@
     {
       "name": "CourseVerifyResult",
       "path": "./CourseVerifyResult.schema.json"
-    },
-    {
-      "name": "CoverageExportFormat",
-      "path": "./CoverageExportFormat.schema.json"
-    },
-    {
-      "name": "CoverageReport",
-      "path": "./CoverageReport.schema.json"
     },
     {
       "name": "CreateConfig",
@@ -306,20 +294,12 @@
       "path": "./StudentId.schema.json"
     },
     {
-      "name": "StudentMultipleAssignments",
-      "path": "./StudentMultipleAssignments.schema.json"
-    },
-    {
       "name": "StudentRemovalCheck",
       "path": "./StudentRemovalCheck.schema.json"
     },
     {
       "name": "StudentRemovalResult",
       "path": "./StudentRemovalResult.schema.json"
-    },
-    {
-      "name": "StudentSummary",
-      "path": "./StudentSummary.schema.json"
     },
     {
       "name": "SystemGroupSetEnsureResult",

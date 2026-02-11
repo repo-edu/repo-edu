@@ -16,8 +16,7 @@ pub mod validation;
 // Re-export commonly used items from submodules
 pub use crate::generated::types::{AffectedGroup, StudentRemovalCheck, StudentRemovalResult};
 pub use export::{
-    export_assignment_students, export_groups_for_edit, export_roster_coverage, export_students,
-    export_teams, get_roster_coverage,
+    export_assignment_students, export_groups_for_edit, export_students, export_teams,
 };
 pub use glob::{validate_glob_pattern, SimpleGlob};
 pub use naming::{generate_group_name, generate_unique_group_name, resolve_collision};

@@ -160,8 +160,6 @@ pub fn run() {
             commands::roster::export_groups_for_edit,
             commands::roster::export_students,
             commands::roster::export_assignment_students,
-            commands::roster::get_roster_coverage,
-            commands::roster::export_roster_coverage,
             commands::roster::ensure_system_group_sets,
             commands::roster::normalize_group_name,
             commands::roster::preview_group_selection,

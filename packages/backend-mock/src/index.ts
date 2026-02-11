@@ -14,8 +14,6 @@ import type {
   CommandResult,
   CourseInfo,
   CourseVerifyResult,
-  CoverageExportFormat,
-  CoverageReport,
   CreateConfig,
   DeleteConfig,
   GenerateFilesParams,
@@ -53,7 +51,6 @@ import type {
   RosterMemberId,
   SettingsLoadResult,
   StudentRemovalCheck,
-  StudentSummary,
   SystemGroupSetEnsureResult,
   UsernameVerificationResult,
   ValidationResult,
@@ -112,67 +109,6 @@ function resolveAssignmentGroups(
   return resolvedIds
     .map((gid) => groupMap.get(gid))
     .filter((g): g is Group => !!g)
-}
-
-const buildCoverageReport = (roster: Roster): CoverageReport => {
-  const activeStudents = roster.students.filter(
-    (student) => student.status === "active",
-  )
-  const activeIds = new Set(activeStudents.map((student) => student.id))
-  const studentAssignments = new Map<string, Set<string>>()
-
-  for (const assignment of roster.assignments) {
-    const groups = resolveAssignmentGroups(roster, assignment.id)
-    for (const group of groups) {
-      for (const memberId of group.member_ids) {
-        if (!activeIds.has(memberId)) continue
-        const assignments =
-          studentAssignments.get(memberId) ?? new Set<string>()
-        assignments.add(assignment.name)
-        studentAssignments.set(memberId, assignments)
-      }
-    }
-  }
-
-  const studentsInNone: StudentSummary[] = activeStudents
-    .filter((student) => !studentAssignments.has(student.id))
-    .map((student) => ({ id: student.id, name: student.name }))
-
-  const studentsInMultiple = activeStudents
-    .filter((student) => (studentAssignments.get(student.id)?.size ?? 0) > 1)
-    .map((student) => ({
-      student: { id: student.id, name: student.name },
-      assignment_names: Array.from(studentAssignments.get(student.id) ?? []),
-    }))
-
-  const assignments = roster.assignments.map((assignment) => {
-    const groups = resolveAssignmentGroups(roster, assignment.id)
-    const memberIds = new Set<string>()
-    for (const group of groups) {
-      for (const memberId of group.member_ids) {
-        memberIds.add(memberId)
-      }
-    }
-
-    const missingStudents = roster.students
-      .filter((student) => student.status === "active")
-      .filter((student) => !memberIds.has(student.id))
-      .map((student) => ({ id: student.id, name: student.name }))
-
-    return {
-      assignment_id: assignment.id,
-      assignment_name: assignment.name,
-      student_count: memberIds.size,
-      missing_students: missingStudents,
-    }
-  })
-
-  return {
-    total_students: activeStudents.length,
-    assignments,
-    students_in_multiple: studentsInMultiple,
-    students_in_none: studentsInNone,
-  }
 }
 
 const mergeStudents = (
@@ -1034,20 +970,6 @@ export class MockBackend implements BackendAPI {
     _: Roster,
     __: AssignmentId,
     ___: string,
-  ): Promise<Result<null, AppError>> {
-    return this.ok(null)
-  }
-
-  async getRosterCoverage(
-    roster: Roster,
-  ): Promise<Result<CoverageReport, AppError>> {
-    return this.ok(buildCoverageReport(roster))
-  }
-
-  async exportRosterCoverage(
-    _: Roster,
-    __: string,
-    ___: CoverageExportFormat,
   ): Promise<Result<null, AppError>> {
     return this.ok(null)
   }
