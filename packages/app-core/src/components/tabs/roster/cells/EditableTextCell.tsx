@@ -1,4 +1,5 @@
 import { Input } from "@repo-edu/ui"
+import { Pencil } from "@repo-edu/ui/components/icons"
 import type { ReactNode } from "react"
 import { useEffect, useState } from "react"
 
@@ -7,6 +8,8 @@ interface EditableTextCellProps {
   onSave: (value: string) => void
   placeholder?: string
   trailing?: ReactNode
+  editable?: boolean
+  truncate?: boolean
 }
 
 export function EditableTextCell({
@@ -14,6 +17,8 @@ export function EditableTextCell({
   onSave,
   placeholder = "—",
   trailing,
+  editable = true,
+  truncate = false,
 }: EditableTextCellProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -27,6 +32,22 @@ export function EditableTextCell({
   const commit = () => {
     onSave(draft)
     setIsEditing(false)
+  }
+
+  if (!editable) {
+    return (
+      <span className="inline-flex max-w-full items-center gap-1">
+        <span
+          className={truncate ? "block max-w-full truncate" : undefined}
+          title={truncate && value ? value : undefined}
+        >
+          {value || (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
+        </span>
+        {trailing}
+      </span>
+    )
   }
 
   if (isEditing) {
@@ -44,7 +65,7 @@ export function EditableTextCell({
           }
         }}
         autoFocus
-        className="h-7"
+        className="h-7 max-w-full"
       />
     )
   }
@@ -52,12 +73,16 @@ export function EditableTextCell({
   return (
     <button
       type="button"
-      className="bg-transparent border-none p-0 font-normal cursor-pointer hover:underline text-left inline-flex items-center gap-1"
+      className="inline-flex max-w-full cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left font-normal hover:underline"
       onClick={() => setIsEditing(true)}
     >
-      <span>
+      <span
+        className={truncate ? "block max-w-full truncate" : undefined}
+        title={truncate && value ? value : undefined}
+      >
         {value || <span className="text-muted-foreground">{placeholder}</span>}
       </span>
+      <Pencil className="size-3 text-muted-foreground" />
       {trailing}
     </button>
   )

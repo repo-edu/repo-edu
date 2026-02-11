@@ -61,7 +61,6 @@ interface MemberListPaneProps {
   hasLmsConnection: boolean
   onImportFromLms: () => void
   onImportFromFile: () => void
-  onCoverage: () => void
   onClear: () => void
   onExport: (format: "csv" | "xlsx") => void
 }
@@ -74,7 +73,6 @@ export function MemberListPane({
   hasLmsConnection,
   onImportFromLms,
   onImportFromFile,
-  onCoverage,
   onClear,
   onExport,
 }: MemberListPaneProps) {
@@ -208,6 +206,7 @@ export function MemberListPane({
           <EditableTextCell
             value={row.original.name}
             onSave={(value) => handleUpdateName(row.original.id, value)}
+            editable={row.original.source !== "lms"}
           />
         ),
       },
@@ -218,10 +217,14 @@ export function MemberListPane({
           <SortHeaderButton label="Email" column={column} />
         ),
         cell: ({ row }) => (
-          <EditableTextCell
-            value={row.original.email}
-            onSave={(value) => handleUpdateEmail(row.original.id, value)}
-          />
+          <div className="min-w-0">
+            <EditableTextCell
+              value={row.original.email}
+              onSave={(value) => handleUpdateEmail(row.original.id, value)}
+              editable={row.original.source !== "lms"}
+              truncate
+            />
+          </div>
         ),
       },
       {
@@ -326,13 +329,13 @@ export function MemberListPane({
     .filter((column) => column.getCanHide())
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {/* Header - same height as ProfileSidebar header */}
-      <div className="flex items-center justify-between px-3 h-11 pb-3 border-b">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div className="flex-1 min-w-0 flex flex-col min-h-0">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 min-h-11 pb-3 border-b">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
           Roster
         </span>
-        <div className="flex gap-2">
+        <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -357,16 +360,17 @@ export function MemberListPane({
           >
             Import from File
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAddingStudent(true)}
+            title="Add a member manually"
+          >
+            <Plus className="size-4 mr-1" />
+            Add
+          </Button>
           {hasMembers && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onCoverage}
-                title="Shows if each student has a valid git account."
-              >
-                Coverage
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -487,14 +491,6 @@ export function MemberListPane({
                 </div>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddingStudent(true)}
-            >
-              <Plus className="size-4 mr-1" />
-              Add
-            </Button>
           </div>
 
           {/* Add student form */}
@@ -532,14 +528,14 @@ export function MemberListPane({
           {/* Student table */}
           <div className="flex-1 min-h-0 px-3 pb-2">
             <div className="border rounded h-full overflow-y-auto">
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
                 <thead className="bg-muted sticky top-0">
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
-                          className="text-left p-2 font-medium"
+                          className={getHeaderCellClass(header.column.id)}
                         >
                           {header.isPlaceholder
                             ? null
@@ -563,7 +559,10 @@ export function MemberListPane({
                       }`}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="p-2">
+                        <td
+                          key={cell.id}
+                          className={getBodyCellClass(cell.column.id)}
+                        >
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -733,4 +732,21 @@ function getStatusIcon(status: RosterMember["git_username_status"]) {
     default:
       return null
   }
+}
+
+function getHeaderCellClass(columnId: string): string {
+  const base = "p-2 text-left font-medium"
+  if (columnId === "name") return `${base} w-[22%]`
+  if (columnId === "email") return `${base} w-[30%] min-w-0`
+  if (columnId === "git_username") return `${base} w-[18%]`
+  if (columnId === "status") return `${base} w-[12%]`
+  if (columnId === "member_type") return `${base} w-[14%]`
+  if (columnId === "actions") return `${base} w-10`
+  return base
+}
+
+function getBodyCellClass(columnId: string): string {
+  const base = "p-2 align-top"
+  if (columnId === "email") return `${base} min-w-0`
+  return base
 }
