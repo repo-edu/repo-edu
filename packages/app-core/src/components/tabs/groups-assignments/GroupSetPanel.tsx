@@ -9,10 +9,10 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
-  cn,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  cn,
   EmptyState,
   Input,
   Separator,
@@ -414,8 +414,8 @@ function GroupSetHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="px-3 space-y-1">
-        <div className="flex items-center gap-2 h-11 pb-3 border-b">
+      <div className="px-3 pb-2 border-b space-y-1">
+        <div className="flex items-center gap-2 h-11">
           {isEditing ? (
             <Input
               ref={inputRef}
@@ -620,7 +620,7 @@ function AssignmentsSection({
   const [open, setOpen] = useState(true)
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="px-4 py-1">
+    <Collapsible open={open} onOpenChange={setOpen} className="px-4 py-2">
       <div className="flex items-center justify-between">
         <CollapsibleTrigger className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <ChevronRight
@@ -819,8 +819,8 @@ function GroupsList({
   const hasEditableGroups = groups.some((g) => g.origin === "local")
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-1 space-y-1.5">
-      <div className="flex items-center justify-between">
+    <div className="flex-1 overflow-y-auto px-4 py-2">
+      <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Groups
         </span>
@@ -850,18 +850,20 @@ function GroupsList({
             </p>
           )}
 
-          {groups.map((group) => (
-            <GroupItem
-              key={group.id}
-              group={group}
-              groupSetId={groupSet.id}
-              members={resolveMembers(group)}
-              staffIds={staffIds}
-              isSetEditable={isSetEditable}
-              disabled={disabled}
-              onDeleteGroup={() => onDeleteGroup(group.id)}
-            />
-          ))}
+          <div className="divide-y">
+            {groups.map((group) => (
+              <GroupItem
+                key={group.id}
+                group={group}
+                groupSetId={groupSet.id}
+                members={resolveMembers(group)}
+                staffIds={staffIds}
+                isSetEditable={isSetEditable}
+                disabled={disabled}
+                onDeleteGroup={() => onDeleteGroup(group.id)}
+              />
+            ))}
+          </div>
         </>
       )}
     </div>

@@ -1,6 +1,5 @@
 import type { RosterMember } from "@repo-edu/backend-interface/types"
 import {
-  cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,14 +15,7 @@ interface MemberChipProps {
 
 export function MemberChip({ member, isStaff, onRemove }: MemberChipProps) {
   const chip = (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
-        isStaff
-          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-muted text-muted-foreground">
       <span>{member.name}</span>
       {onRemove && (
         <button
