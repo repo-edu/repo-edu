@@ -10,6 +10,9 @@ import type {
 import {
   Button,
   cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   EmptyState,
   Input,
   Separator,
@@ -20,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
+  ChevronRight,
   Copy,
   File,
   Info,
@@ -410,8 +414,8 @@ function GroupSetHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="px-4 py-3 space-y-1">
-        <div className="flex items-center gap-2">
+      <div className="px-3 space-y-1">
+        <div className="flex items-center gap-2 h-11 pb-3 border-b">
           {isEditing ? (
             <Input
               ref={inputRef}
@@ -613,12 +617,17 @@ function AssignmentsSection({
   onUpdate: (id: string, updates: Partial<AssignmentMetadata>) => void
   onDelete: (id: string) => void
 }) {
+  const [open, setOpen] = useState(true)
+
   return (
-    <div className="px-4 py-2 space-y-1">
+    <Collapsible open={open} onOpenChange={setOpen} className="px-4 py-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <CollapsibleTrigger className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <ChevronRight
+            className={cn("size-3 transition-transform", open && "rotate-90")}
+          />
           Assignments
-        </span>
+        </CollapsibleTrigger>
         <Button
           variant="ghost"
           size="sm"
@@ -630,22 +639,26 @@ function AssignmentsSection({
           Add
         </Button>
       </div>
-      {assignments.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No assignments yet</p>
-      ) : (
-        <div className="space-y-1">
-          {assignments.map((assignment) => (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
-              disabled={disabled}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+      <CollapsibleContent>
+        {assignments.length === 0 ? (
+          <p className="text-xs text-muted-foreground mt-1">
+            No assignments yet
+          </p>
+        ) : (
+          <div>
+            {assignments.map((assignment) => (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                disabled={disabled}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -685,7 +698,7 @@ function AssignmentRow({
   }, [editName, assignment.name, assignment.id, onUpdate])
 
   return (
-    <div className="flex items-center gap-1.5 group rounded-md px-1.5 py-1 hover:bg-muted/50">
+    <div className="flex items-center gap-1.5 group rounded-md px-1.5 py-0.5 hover:bg-muted/50">
       <File className="size-3 shrink-0 text-muted-foreground" />
       {isEditing ? (
         <Input
@@ -746,7 +759,7 @@ function AssignmentRow({
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+          className="h-5 w-5 p-0 shrink-0 text-muted-foreground hover:text-destructive"
           onClick={() => setConfirmDelete(true)}
           disabled={disabled}
         >
@@ -806,7 +819,7 @@ function GroupsList({
   const hasEditableGroups = groups.some((g) => g.origin === "local")
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
+    <div className="flex-1 overflow-y-auto px-4 py-1 space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Groups

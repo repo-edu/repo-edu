@@ -457,7 +457,7 @@ export function MemberListPane({
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 size-4" />
               <Input
-                placeholder="Search students..."
+                placeholder="Search members..."
                 value={globalFilter}
                 onChange={(event) => setGlobalFilter(event.target.value)}
                 className="pl-8"
@@ -530,7 +530,7 @@ export function MemberListPane({
           )}
 
           {/* Student table */}
-          <div className="flex-1 min-h-0 px-3 py-2">
+          <div className="flex-1 min-h-0 px-3 pb-2">
             <div className="border rounded h-full overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted sticky top-0">

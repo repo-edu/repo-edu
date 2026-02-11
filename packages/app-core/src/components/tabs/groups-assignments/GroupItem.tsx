@@ -90,7 +90,7 @@ export function GroupItem({
   )
 
   return (
-    <div className="rounded-md border px-3 py-2 space-y-1.5">
+    <div className="rounded-md border px-2.5 py-1.5 space-y-1">
       {/* Group header */}
       <div className="flex items-center gap-2">
         {isLocked && (
