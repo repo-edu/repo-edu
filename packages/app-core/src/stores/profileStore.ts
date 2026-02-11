@@ -9,7 +9,6 @@ import type {
   AssignmentId,
   AssignmentMetadata,
   CourseInfo,
-  CoverageReport,
   ExportSettings,
   GitIdentityMode,
   Group,
@@ -96,9 +95,6 @@ interface ProfileState {
   rosterValidation: ValidationResult | null
   assignmentValidation: ValidationResult | null
   assignmentValidations: Record<AssignmentId, ValidationResult>
-
-  // Coverage report
-  coverageReport: CoverageReport | null
 
   // Undo/Redo
   history: HistoryEntry[]
@@ -210,9 +206,6 @@ interface ProfileActions {
   _triggerRosterValidation: () => void
   _triggerAssignmentValidation: () => void
 
-  // Coverage report
-  setCoverageReport: (report: CoverageReport | null) => void
-
   // Resolved identity mode (recompute on git connection change)
   updateResolvedIdentityMode: () => void
 
@@ -292,7 +285,6 @@ const initialState: ProfileState = {
   rosterValidation: null,
   assignmentValidation: null,
   assignmentValidations: {},
-  coverageReport: null,
   history: [],
   future: [],
 }
@@ -427,7 +419,6 @@ export const useProfileStore = create<ProfileStore>()(
                 state.rosterValidation = null
                 state.assignmentValidation = null
                 state.assignmentValidations = {}
-                state.coverageReport = null
                 state.history = []
                 state.future = []
               })
@@ -472,7 +463,6 @@ export const useProfileStore = create<ProfileStore>()(
               state.rosterValidation = null
               state.assignmentValidation = null
               state.assignmentValidations = {}
-              state.coverageReport = null
               state.history = []
               state.future = []
             })
@@ -618,7 +608,6 @@ export const useProfileStore = create<ProfileStore>()(
           state.rosterValidation = null
           state.assignmentValidation = null
           state.assignmentValidations = {}
-          state.coverageReport = null
           state.history = []
           state.future = []
         }),
@@ -1387,11 +1376,6 @@ export const useProfileStore = create<ProfileStore>()(
         scheduleAssignmentValidation()
       },
 
-      setCoverageReport: (report) =>
-        set((state) => {
-          state.coverageReport = report
-        }),
-
       updateResolvedIdentityMode: () =>
         set((state) => {
           if (state.document) {
@@ -1622,8 +1606,6 @@ export const selectAssignmentValidations = (state: ProfileStore) =>
   state.assignmentValidations
 export const selectResolvedIdentityMode = (state: ProfileStore) =>
   state.document?.resolvedIdentityMode ?? "username"
-export const selectCoverageReport = (state: ProfileStore) =>
-  state.coverageReport
 export const selectCanUndo = (state: ProfileStore) => state.history.length > 0
 export const selectCanRedo = (state: ProfileStore) => state.future.length > 0
 export const selectNextUndoDescription = (state: ProfileStore) =>
@@ -1656,12 +1638,12 @@ export const selectEditableGroupsByGroupSet = (state: ProfileStore) => {
   lastEditableTargets = roster.group_sets
     .filter((gs) => gs.connection?.kind !== "system")
     .map((gs) => {
-      const editableGroups = gs.group_ids
-        .filter((gid) => editableGroupIds.has(gid))
-        .map((gid) => {
-          const g = groupMap.get(gid)!
-          return { id: g.id, name: g.name }
-        })
+      const editableGroups = gs.group_ids.flatMap((gid) => {
+        if (!editableGroupIds.has(gid)) return []
+        const g = groupMap.get(gid)
+        if (!g) return []
+        return [{ id: g.id, name: g.name }]
+      })
       return {
         groupSetId: gs.id,
         groupSetName: gs.name,
