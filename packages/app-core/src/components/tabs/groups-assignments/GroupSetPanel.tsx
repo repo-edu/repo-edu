@@ -42,6 +42,7 @@ import { useOutputStore } from "../../../stores/outputStore"
 import {
   selectAssignmentsForGroupSet,
   selectCourse,
+  selectEditableGroupsByGroupSet,
   selectGroupSetById,
   selectGroupsForGroupSet,
   useProfileStore,
@@ -790,6 +791,7 @@ function GroupsList({
   onCreateGroup: () => void
 }) {
   const isSetEditable = kind === "local" || kind === "import"
+  const editableTargets = useProfileStore(selectEditableGroupsByGroupSet)
 
   // Build member lookup map
   const memberMap = useMemo(() => {
@@ -815,6 +817,23 @@ function GroupsList({
     },
     [memberMap],
   )
+
+  // Build member → group IDs index for dedup filtering
+  const memberGroupIndex = useMemo(() => {
+    if (!roster) return new Map<string, Set<string>>()
+    const index = new Map<string, Set<string>>()
+    for (const group of roster.groups) {
+      for (const memberId of group.member_ids) {
+        let groupIds = index.get(memberId)
+        if (!groupIds) {
+          groupIds = new Set<string>()
+          index.set(memberId, groupIds)
+        }
+        groupIds.add(group.id)
+      }
+    }
+    return index
+  }, [roster])
 
   const hasEditableGroups = groups.some((g) => g.origin === "local")
 
@@ -860,6 +879,8 @@ function GroupsList({
                 staffIds={staffIds}
                 isSetEditable={isSetEditable}
                 disabled={disabled}
+                editableTargets={editableTargets}
+                memberGroupIndex={memberGroupIndex}
                 onDeleteGroup={() => onDeleteGroup(group.id)}
               />
             ))}

@@ -19,6 +19,7 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
+  type EditableGroupTarget,
   selectGroupReferenceCount,
   useProfileStore,
 } from "../../../stores/profileStore"
@@ -32,6 +33,8 @@ interface GroupItemProps {
   staffIds: Set<string>
   isSetEditable: boolean
   disabled?: boolean
+  editableTargets: EditableGroupTarget[]
+  memberGroupIndex: Map<string, Set<string>>
   onRemoveFromSet?: () => void
   onDeleteGroup?: () => void
 }
@@ -43,6 +46,8 @@ export function GroupItem({
   staffIds,
   isSetEditable,
   disabled = false,
+  editableTargets,
+  memberGroupIndex,
   onRemoveFromSet,
   onDeleteGroup,
 }: GroupItemProps) {
@@ -53,6 +58,14 @@ export function GroupItem({
   const updateGroup = useProfileStore((state) => state.updateGroup)
   const removeGroupFromSet = useProfileStore(
     (state) => state.removeGroupFromSet,
+  )
+  const moveMemberToGroup = useProfileStore((state) => state.moveMemberToGroup)
+  const copyMemberToGroup = useProfileStore((state) => state.copyMemberToGroup)
+  const createGroupSetWithMember = useProfileStore(
+    (state) => state.createGroupSetWithMember,
+  )
+  const createGroupInSetWithMember = useProfileStore(
+    (state) => state.createGroupInSetWithMember,
   )
 
   const [isEditing, setIsEditing] = useState(false)
@@ -224,9 +237,62 @@ export function GroupItem({
               key={member.id}
               member={member}
               isStaff={staffIds.has(member.id)}
+              sourceGroupId={group.id}
+              sourceGroupEditable={isEditable}
+              editableTargets={editableTargets}
+              memberGroupIds={memberGroupIndex.get(member.id) ?? EMPTY_SET}
               onRemove={
                 isEditable && !disabled
                   ? () => handleRemoveMember(member.id)
+                  : undefined
+              }
+              onMove={
+                isEditable && !disabled
+                  ? (targetGroupId) =>
+                      moveMemberToGroup(member.id, group.id, targetGroupId)
+                  : undefined
+              }
+              onCopy={
+                !disabled
+                  ? (targetGroupId) =>
+                      copyMemberToGroup(member.id, targetGroupId)
+                  : undefined
+              }
+              onMoveToNewGroupSet={
+                isEditable && !disabled
+                  ? () => createGroupSetWithMember(member.id, group.id, "move")
+                  : undefined
+              }
+              onCopyToNewGroupSet={
+                !disabled
+                  ? () =>
+                      createGroupSetWithMember(
+                        member.id,
+                        isEditable ? group.id : null,
+                        "copy",
+                      )
+                  : undefined
+              }
+              onMoveToNewGroup={
+                isEditable && !disabled
+                  ? (groupSetId) =>
+                      createGroupInSetWithMember(
+                        member.id,
+                        groupSetId,
+                        group.id,
+                        "move",
+                      )
+                  : undefined
+              }
+              onCopyToNewGroup={
+                !disabled
+                  ? (groupSetId) =>
+                      createGroupInSetWithMember(
+                        member.id,
+                        groupSetId,
+                        isEditable ? group.id : null,
+                        "copy",
+                      )
                   : undefined
               }
             />
@@ -243,3 +309,5 @@ export function GroupItem({
     </div>
   )
 }
+
+const EMPTY_SET = new Set<string>()

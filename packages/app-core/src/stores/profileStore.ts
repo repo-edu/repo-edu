@@ -165,6 +165,25 @@ interface ProfileActions {
   addGroupToSet: (groupSetId: string, groupId: string) => void
   removeGroupFromSet: (groupSetId: string, groupId: string) => void
 
+  // Member move/copy between groups
+  moveMemberToGroup: (
+    memberId: RosterMemberId,
+    sourceGroupId: string,
+    targetGroupId: string,
+  ) => void
+  copyMemberToGroup: (memberId: RosterMemberId, targetGroupId: string) => void
+  createGroupSetWithMember: (
+    memberId: RosterMemberId,
+    sourceGroupId: string | null,
+    mode: "move" | "copy",
+  ) => string | null
+  createGroupInSetWithMember: (
+    memberId: RosterMemberId,
+    groupSetId: string,
+    sourceGroupId: string | null,
+    mode: "move" | "copy",
+  ) => string | null
+
   // Group set CRUD
   createLocalGroupSet: (name: string, groupIds?: string[]) => string | null
   copyGroupSet: (groupSetId: string) => string | null
@@ -914,6 +933,145 @@ export const useProfileStore = create<ProfileStore>()(
         })
       },
 
+      // Member move/copy between groups
+      moveMemberToGroup: (memberId, sourceGroupId, targetGroupId) => {
+        mutateRoster("Move member to group", (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const source = roster.groups.find((g) => g.id === sourceGroupId)
+          const target = roster.groups.find((g) => g.id === targetGroupId)
+          if (!source || !target) return
+          if (source.origin !== "local" || target.origin !== "local") return
+          source.member_ids = source.member_ids.filter((id) => id !== memberId)
+          if (!target.member_ids.includes(memberId)) {
+            target.member_ids.push(memberId)
+          }
+        })
+      },
+
+      copyMemberToGroup: (memberId, targetGroupId) => {
+        mutateRoster("Copy member to group", (state) => {
+          const roster = state.document?.roster
+          if (!roster) return
+          const target = roster.groups.find((g) => g.id === targetGroupId)
+          if (!target) return
+          if (target.origin !== "local") return
+          if (!target.member_ids.includes(memberId)) {
+            target.member_ids.push(memberId)
+          }
+        })
+      },
+
+      createGroupSetWithMember: (memberId, sourceGroupId, mode) => {
+        const roster = get().document?.roster
+        if (!roster) return null
+        const member =
+          roster.students.find((m) => m.id === memberId) ??
+          roster.staff.find((m) => m.id === memberId)
+        if (!member) return null
+
+        // Generate unique name with collision avoidance
+        const baseName = "New Group Set"
+        const existingNames = new Set(roster.group_sets.map((gs) => gs.name))
+        let name = baseName
+        let counter = 2
+        while (existingNames.has(name)) {
+          name = `${baseName} (${counter})`
+          counter++
+        }
+
+        const setId = generateGroupSetId()
+        const groupId = generateGroupId()
+        const groupName = member.name
+        const description =
+          mode === "move"
+            ? `Move member to new group set "${name}"`
+            : `Copy member to new group set "${name}"`
+
+        mutateRoster(description, (state) => {
+          const r = state.document?.roster
+          if (!r) return
+
+          const group: Group = {
+            id: groupId,
+            name: groupName,
+            member_ids: [memberId],
+            origin: "local",
+            lms_group_id: null,
+          }
+          r.groups.push(group)
+
+          const gs: GroupSet = {
+            id: setId,
+            name,
+            group_ids: [groupId],
+            connection: null,
+            group_selection: { kind: "all", excluded_group_ids: [] },
+          }
+          r.group_sets.push(gs)
+
+          if (mode === "move" && sourceGroupId) {
+            const source = r.groups.find((g) => g.id === sourceGroupId)
+            if (source && source.origin === "local") {
+              source.member_ids = source.member_ids.filter(
+                (id) => id !== memberId,
+              )
+            }
+          }
+        })
+
+        return setId
+      },
+
+      createGroupInSetWithMember: (
+        memberId,
+        groupSetId,
+        sourceGroupId,
+        mode,
+      ) => {
+        const roster = get().document?.roster
+        if (!roster) return null
+        const member =
+          roster.students.find((m) => m.id === memberId) ??
+          roster.staff.find((m) => m.id === memberId)
+        if (!member) return null
+
+        const groupId = generateGroupId()
+        const groupName = member.name
+        const description =
+          mode === "move"
+            ? `Move member to new group "${groupName}"`
+            : `Copy member to new group "${groupName}"`
+
+        mutateRoster(description, (state) => {
+          const r = state.document?.roster
+          if (!r) return
+          const gs = r.group_sets.find((s) => s.id === groupSetId)
+          if (!gs) return
+
+          const group: Group = {
+            id: groupId,
+            name: groupName,
+            member_ids: [memberId],
+            origin: "local",
+            lms_group_id: null,
+          }
+          r.groups.push(group)
+          gs.group_ids.push(groupId)
+
+          if (mode === "move" && sourceGroupId) {
+            const source = r.groups.find((g) => g.id === sourceGroupId)
+            if (source && source.origin === "local") {
+              source.member_ids = source.member_ids.filter(
+                (id) => id !== memberId,
+              )
+            }
+          }
+        })
+
+        return groupId
+      },
+
       // Group set CRUD
       createLocalGroupSet: (name, groupIds) => {
         if (!name.trim()) return null
@@ -1474,3 +1632,43 @@ export const selectNextUndoDescription = (state: ProfileStore) =>
     : null
 export const selectNextRedoDescription = (state: ProfileStore) =>
   state.future.length > 0 ? state.future[0].description : null
+
+// Move/copy target selector
+export interface EditableGroupTarget {
+  groupSetId: string
+  groupSetName: string
+  groups: Array<{ id: string; name: string }>
+}
+const EMPTY_EDITABLE_TARGETS: EditableGroupTarget[] = []
+let lastRosterForEditable: Roster | null = null
+let lastEditableTargets: EditableGroupTarget[] = EMPTY_EDITABLE_TARGETS
+export const selectEditableGroupsByGroupSet = (state: ProfileStore) => {
+  const roster = state.document?.roster
+  if (!roster) return EMPTY_EDITABLE_TARGETS
+  if (roster === lastRosterForEditable) return lastEditableTargets
+  lastRosterForEditable = roster
+
+  const editableGroupIds = new Set(
+    roster.groups.filter((g) => g.origin === "local").map((g) => g.id),
+  )
+  const groupMap = new Map(roster.groups.map((g) => [g.id, g]))
+
+  lastEditableTargets = roster.group_sets
+    .filter((gs) => gs.connection?.kind !== "system")
+    .map((gs) => {
+      const editableGroups = gs.group_ids
+        .filter((gid) => editableGroupIds.has(gid))
+        .map((gid) => {
+          const g = groupMap.get(gid)!
+          return { id: g.id, name: g.name }
+        })
+      return {
+        groupSetId: gs.id,
+        groupSetName: gs.name,
+        groups: editableGroups,
+      }
+    })
+    .filter((entry) => entry.groups.length > 0)
+
+  return lastEditableTargets
+}
