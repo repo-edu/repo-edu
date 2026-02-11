@@ -25,6 +25,7 @@ import {
 import {
   ChevronRight,
   Copy,
+  Download,
   File,
   Info,
   Loader2,
@@ -300,6 +301,39 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     }
   }, [appendOutput, connection, groupSet.name, groupSetId, roster, setRoster])
 
+  // Consume sidebar export trigger
+  const exportGroupSetTriggerId = useUiStore(
+    (state) => state.exportGroupSetTriggerId,
+  )
+  const setExportGroupSetTriggerId = useUiStore(
+    (state) => state.setExportGroupSetTriggerId,
+  )
+  useEffect(() => {
+    if (exportGroupSetTriggerId === groupSetId) {
+      setExportGroupSetTriggerId(null)
+      handleExport()
+    }
+  }, [
+    exportGroupSetTriggerId,
+    groupSetId,
+    setExportGroupSetTriggerId,
+    handleExport,
+  ])
+
+  // Consume sidebar sync trigger
+  const syncGroupSetTriggerId = useUiStore(
+    (state) => state.syncGroupSetTriggerId,
+  )
+  const setSyncGroupSetTriggerId = useUiStore(
+    (state) => state.setSyncGroupSetTriggerId,
+  )
+  useEffect(() => {
+    if (syncGroupSetTriggerId === groupSetId) {
+      setSyncGroupSetTriggerId(null)
+      handleSync()
+    }
+  }, [syncGroupSetTriggerId, groupSetId, setSyncGroupSetTriggerId, handleSync])
+
   return (
     <div className="flex flex-col h-full">
       <GroupSetHeader
@@ -375,6 +409,27 @@ function GroupSetHeader({
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(groupSet.name)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Consume sidebar rename trigger
+  const renameGroupSetTriggerId = useUiStore(
+    (state) => state.renameGroupSetTriggerId,
+  )
+  const setRenameGroupSetTriggerId = useUiStore(
+    (state) => state.setRenameGroupSetTriggerId,
+  )
+  useEffect(() => {
+    if (renameGroupSetTriggerId === groupSet.id && isNameEditable) {
+      setRenameGroupSetTriggerId(null)
+      setEditName(groupSet.name)
+      setIsEditing(true)
+    }
+  }, [
+    renameGroupSetTriggerId,
+    groupSet.id,
+    groupSet.name,
+    isNameEditable,
+    setRenameGroupSetTriggerId,
+  ])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -501,7 +556,7 @@ function GroupSetHeader({
                     onClick={onReimport}
                     disabled={isOperationActive}
                   >
-                    <Upload className="size-3 mr-1.5" />
+                    <Download className="size-3 mr-1.5" />
                     Import
                   </Button>
                 </TooltipTrigger>
@@ -517,7 +572,7 @@ function GroupSetHeader({
                   onClick={onExport}
                   disabled={isOperationActive}
                 >
-                  <Upload className="size-3 mr-1.5 rotate-180" />
+                  <Upload className="size-3 mr-1.5" />
                   Export
                 </Button>
               </TooltipTrigger>

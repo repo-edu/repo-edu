@@ -11,6 +11,7 @@ export {
   Circle,
   Command,
   Copy,
+  Download,
   EllipsisVertical,
   Eye,
   EyeOff,

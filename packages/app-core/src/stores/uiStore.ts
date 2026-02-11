@@ -88,6 +88,11 @@ interface UiState {
   sidebarSelection: SidebarSelection
   groupSetOperation: GroupSetOperationState | null
 
+  // Sidebar action triggers (consumed by GroupSetPanel, then cleared)
+  renameGroupSetTriggerId: string | null
+  exportGroupSetTriggerId: string | null
+  syncGroupSetTriggerId: string | null
+
   // Profile dialogs
   newProfileDialogOpen: boolean
   courseSelectionDialogOpen: boolean
@@ -148,6 +153,11 @@ interface UiActions {
   setPreSelectedGroupSetId: (id: string | null) => void
   setSidebarSelection: (selection: SidebarSelection) => void
   setGroupSetOperation: (operation: GroupSetOperationState | null) => void
+
+  // Sidebar action triggers
+  setRenameGroupSetTriggerId: (id: string | null) => void
+  setExportGroupSetTriggerId: (id: string | null) => void
+  setSyncGroupSetTriggerId: (id: string | null) => void
 
   // Phase 10 dialog setters
   setConnectLmsGroupSetDialogOpen: (open: boolean) => void
@@ -237,6 +247,11 @@ const initialState: UiState = {
   sidebarSelection: null,
   groupSetOperation: null,
 
+  // Sidebar action triggers
+  renameGroupSetTriggerId: null,
+  exportGroupSetTriggerId: null,
+  syncGroupSetTriggerId: null,
+
   // Profile dialogs
   newProfileDialogOpen: false,
   courseSelectionDialogOpen: false,
@@ -304,6 +319,11 @@ export const useUiStore = create<UiStore>((set) => ({
   setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
   setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
   setGroupSetOperation: (operation) => set({ groupSetOperation: operation }),
+
+  // Sidebar action triggers
+  setRenameGroupSetTriggerId: (id) => set({ renameGroupSetTriggerId: id }),
+  setExportGroupSetTriggerId: (id) => set({ exportGroupSetTriggerId: id }),
+  setSyncGroupSetTriggerId: (id) => set({ syncGroupSetTriggerId: id }),
 
   // Phase 10 dialog setters
   setConnectLmsGroupSetDialogOpen: (open) =>

@@ -1,4 +1,7 @@
-import type { GroupSet } from "@repo-edu/backend-interface/types"
+import type {
+  GroupSet,
+  GroupSetConnection,
+} from "@repo-edu/backend-interface/types"
 import { cn } from "@repo-edu/ui"
 import { Plus, Upload } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
@@ -54,20 +57,73 @@ function selectionToItemId(selection: SidebarSelection): string | null {
   return `${selection.kind}:${selection.id}`
 }
 
+function buildGroupSetActions(
+  groupSetId: string,
+  connection: GroupSetConnection | null,
+  selectGroupSet: () => void,
+  setters: {
+    setRenameGroupSetTriggerId: (id: string | null) => void
+    setSyncGroupSetTriggerId: (id: string | null) => void
+    setReimportGroupSetTargetId: (id: string | null) => void
+    setExportGroupSetTriggerId: (id: string | null) => void
+    setCopyGroupSetSourceId: (id: string | null) => void
+    setDeleteGroupSetTargetId: (id: string | null) => void
+  },
+) {
+  const kind = connection ? connection.kind : "local"
+  const isNameEditable = kind === "local" || kind === "import"
+  const isLms = kind === "canvas" || kind === "moodle"
+  const isImported = kind === "import"
+  const isSystem = kind === "system"
+
+  const withSelect = (fn: () => void) => () => {
+    selectGroupSet()
+    fn()
+  }
+
+  return {
+    onRename: isNameEditable
+      ? withSelect(() => setters.setRenameGroupSetTriggerId(groupSetId))
+      : undefined,
+    onSync: isLms
+      ? withSelect(() => setters.setSyncGroupSetTriggerId(groupSetId))
+      : undefined,
+    onReimport: isImported
+      ? withSelect(() => setters.setReimportGroupSetTargetId(groupSetId))
+      : undefined,
+    onExport: withSelect(() => setters.setExportGroupSetTriggerId(groupSetId)),
+    onCopy: withSelect(() => setters.setCopyGroupSetSourceId(groupSetId)),
+    onDelete: !isSystem
+      ? withSelect(() => setters.setDeleteGroupSetTargetId(groupSetId))
+      : undefined,
+  }
+}
+
 function GroupSetList({
   rows,
   selection,
   activeItemId,
   busyGroupSetId,
+  disabled,
   onSelect,
   onKeyDown,
+  actionSetters,
 }: {
   rows: GroupSetRowData[]
   selection: SidebarSelection
   activeItemId: string | null
   busyGroupSetId: string | null
+  disabled: boolean
   onSelect: (selection: SidebarSelection) => void
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
+  actionSetters: {
+    setRenameGroupSetTriggerId: (id: string | null) => void
+    setSyncGroupSetTriggerId: (id: string | null) => void
+    setReimportGroupSetTargetId: (id: string | null) => void
+    setExportGroupSetTriggerId: (id: string | null) => void
+    setCopyGroupSetSourceId: (id: string | null) => void
+    setDeleteGroupSetTargetId: (id: string | null) => void
+  }
 }) {
   return (
     <div className="space-y-0.5">
@@ -78,6 +134,13 @@ function GroupSetList({
           groupCount={groupCount}
           selection={selection}
           onSelect={onSelect}
+          actions={buildGroupSetActions(
+            groupSet.id,
+            groupSet.connection,
+            () => onSelect({ kind: "group-set", id: groupSet.id }),
+            actionSetters,
+          )}
+          disabled={disabled}
           isBusy={busyGroupSetId === groupSet.id}
           tabIndex={activeItemId === `group-set:${groupSet.id}` ? 0 : -1}
           onKeyDown={onKeyDown}
@@ -108,6 +171,44 @@ export function GroupsAssignmentsSidebar({
   const groupSetOperation = useUiStore((state) => state.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
   const busyGroupSetId = groupSetOperation?.groupSetId ?? null
+
+  const setRenameGroupSetTriggerId = useUiStore(
+    (state) => state.setRenameGroupSetTriggerId,
+  )
+  const setSyncGroupSetTriggerId = useUiStore(
+    (state) => state.setSyncGroupSetTriggerId,
+  )
+  const setReimportGroupSetTargetId = useUiStore(
+    (state) => state.setReimportGroupSetTargetId,
+  )
+  const setExportGroupSetTriggerId = useUiStore(
+    (state) => state.setExportGroupSetTriggerId,
+  )
+  const setCopyGroupSetSourceId = useUiStore(
+    (state) => state.setCopyGroupSetSourceId,
+  )
+  const setDeleteGroupSetTargetId = useUiStore(
+    (state) => state.setDeleteGroupSetTargetId,
+  )
+
+  const actionSetters = useMemo(
+    () => ({
+      setRenameGroupSetTriggerId,
+      setSyncGroupSetTriggerId,
+      setReimportGroupSetTargetId,
+      setExportGroupSetTriggerId,
+      setCopyGroupSetSourceId,
+      setDeleteGroupSetTargetId,
+    }),
+    [
+      setRenameGroupSetTriggerId,
+      setSyncGroupSetTriggerId,
+      setReimportGroupSetTargetId,
+      setExportGroupSetTriggerId,
+      setCopyGroupSetSourceId,
+      setDeleteGroupSetTargetId,
+    ],
+  )
 
   const sortedConnected = useMemo(
     () => [...connectedSets].sort((a, b) => a.name.localeCompare(b.name)),
@@ -257,8 +358,10 @@ export function GroupsAssignmentsSidebar({
             selection={selection}
             activeItemId={activeItemId}
             busyGroupSetId={busyGroupSetId}
+            disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            actionSetters={actionSetters}
           />
         )}
       </div>
@@ -289,8 +392,10 @@ export function GroupsAssignmentsSidebar({
             selection={selection}
             activeItemId={activeItemId}
             busyGroupSetId={busyGroupSetId}
+            disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            actionSetters={actionSetters}
           />
         )}
       </div>
@@ -321,8 +426,10 @@ export function GroupsAssignmentsSidebar({
             selection={selection}
             activeItemId={activeItemId}
             busyGroupSetId={busyGroupSetId}
+            disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            actionSetters={actionSetters}
           />
         )}
         <button
