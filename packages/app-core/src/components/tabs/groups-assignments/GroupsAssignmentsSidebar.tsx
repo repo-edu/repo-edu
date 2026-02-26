@@ -403,7 +403,7 @@ export function GroupsAssignmentsSidebar({
       data-sidebar-root
     >
       <div className="px-1">
-        <SectionHeader>System</SectionHeader>
+        <SectionHeader>System Group Sets</SectionHeader>
         {systemRows.length > 0 && (
           <GroupSetList
             rows={systemRows}
@@ -432,14 +432,14 @@ export function GroupsAssignmentsSidebar({
               )}
               onClick={onConnectGroupSet}
               disabled={isOperationActive}
-              aria-label="Add connected group set"
-              title="Add connected group set"
+              aria-label="Add LMS group set"
+              title="Add LMS group set"
             >
               <Plus className="size-3.5" />
             </button>
           }
         >
-          Connected Group Sets
+          LMS Group Sets
         </SectionHeader>
         {connectedRows.length > 0 && (
           <GroupSetList
