@@ -2,6 +2,7 @@ import type {
   Assignment,
   Group,
   GroupSelectionMode,
+  GroupSet,
   Roster,
   RosterMember,
   RosterMemberId,
@@ -125,6 +126,18 @@ function applyGroupSelection(groups: Group[], selection: GroupSelectionMode) {
   )
 }
 
+export function resolveGroupSetGroups(
+  roster: Roster,
+  groupSet: GroupSet,
+): Group[] {
+  const groupsById = new Map(roster.groups.map((group) => [group.id, group]))
+  const groups = groupSet.group_ids
+    .map((groupId) => groupsById.get(groupId))
+    .filter((group): group is Group => !!group)
+
+  return applyGroupSelection(groups, groupSet.group_selection)
+}
+
 export function resolveAssignmentGroups(
   roster: Roster,
   assignment: Assignment,
@@ -134,10 +147,5 @@ export function resolveAssignmentGroups(
   )
   if (!groupSet) return []
 
-  const groupsById = new Map(roster.groups.map((group) => [group.id, group]))
-  const groups = groupSet.group_ids
-    .map((groupId) => groupsById.get(groupId))
-    .filter((group): group is Group => !!group)
-
-  return applyGroupSelection(groups, groupSet.group_selection)
+  return resolveGroupSetGroups(roster, groupSet)
 }

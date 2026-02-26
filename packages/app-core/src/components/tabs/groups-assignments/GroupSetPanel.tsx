@@ -35,6 +35,14 @@ import {
   Trash2,
   Upload,
 } from "@repo-edu/ui/components/icons"
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { commands } from "../../../bindings/commands"
 import { saveDialog } from "../../../services/platform"
@@ -56,6 +64,7 @@ import {
   formatExactTimestamp,
   formatRelativeTime,
 } from "../../../utils/relativeTime"
+import { SortHeaderButton } from "../../common/SortHeaderButton"
 import { GroupItem } from "./GroupItem"
 
 interface GroupSetPanelProps {
@@ -828,6 +837,12 @@ function AssignmentRow({
 
 // --- Groups List ---
 
+interface GroupRow {
+  group: Group
+  memberCount: number
+  members: RosterMember[]
+}
+
 function GroupsList({
   groupSet,
   groups,
@@ -847,6 +862,7 @@ function GroupsList({
 }) {
   const isSetEditable = kind === "local" || kind === "import"
   const editableTargets = useProfileStore(selectEditableGroupsByGroupSet)
+  const [sorting, setSorting] = useState<SortingState>([])
 
   // Build member lookup map
   const memberMap = useMemo(() => {
@@ -863,7 +879,7 @@ function GroupsList({
     return new Set(roster.staff.map((m) => m.id))
   }, [roster])
 
-  // Resolve members for each group
+  // Resolve members for a group
   const resolveMembers = useCallback(
     (group: Group): RosterMember[] => {
       return group.member_ids
@@ -889,6 +905,46 @@ function GroupsList({
     }
     return index
   }, [roster])
+
+  // Build table data
+  const data = useMemo<GroupRow[]>(
+    () =>
+      groups.map((group) => {
+        const members = resolveMembers(group)
+        return { group, memberCount: members.length, members }
+      }),
+    [groups, resolveMembers],
+  )
+
+  // Column definitions (sorting metadata only — cells are not rendered via the table)
+  const columns = useMemo<ColumnDef<GroupRow>[]>(
+    () => [
+      {
+        id: "name",
+        accessorFn: (row) => row.group.name,
+        header: ({ column }) => (
+          <SortHeaderButton label="Group" column={column} />
+        ),
+      },
+      {
+        id: "members",
+        accessorFn: (row) => row.memberCount,
+        header: ({ column }) => (
+          <SortHeaderButton label="Members" column={column} />
+        ),
+      },
+    ],
+    [],
+  )
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
 
   const hasEditableGroups = groups.some((g) => g.origin === "local")
 
@@ -924,19 +980,41 @@ function GroupsList({
             </p>
           )}
 
+          {/* Sortable column headers */}
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground border-b pb-1 mb-1">
+            {table.getHeaderGroups().map((headerGroup) =>
+              headerGroup.headers.map((header) => (
+                <div
+                  key={header.id}
+                  className={
+                    header.id === "name" ? "flex-1" : "shrink-0 ml-auto"
+                  }
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                </div>
+              )),
+            )}
+          </div>
+
+          {/* Sorted groups */}
           <div className="divide-y">
-            {groups.map((group) => (
+            {table.getRowModel().rows.map((row) => (
               <GroupItem
-                key={group.id}
-                group={group}
+                key={row.original.group.id}
+                group={row.original.group}
                 groupSetId={groupSet.id}
-                members={resolveMembers(group)}
+                members={row.original.members}
                 staffIds={staffIds}
                 isSetEditable={isSetEditable}
                 disabled={disabled}
                 editableTargets={editableTargets}
                 memberGroupIndex={memberGroupIndex}
-                onDeleteGroup={() => onDeleteGroup(group.id)}
+                onDeleteGroup={() => onDeleteGroup(row.original.group.id)}
               />
             ))}
           </div>

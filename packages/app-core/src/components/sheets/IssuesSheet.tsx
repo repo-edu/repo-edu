@@ -12,69 +12,54 @@ import { AlertTriangle, ChevronDown } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { type IssueCard, useIssues } from "../../hooks/useIssues"
 import { useProfileStore } from "../../stores/profileStore"
-import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function IssuesSheet() {
   const open = useUiStore((state) => state.issuesPanelOpen)
   const setOpen = useUiStore((state) => state.setIssuesPanelOpen)
   const setActiveTab = useUiStore((state) => state.setActiveTab)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const selectAssignment = useProfileStore((state) => state.selectAssignment)
-  const roster = useProfileStore((state) => state.document?.roster ?? null)
-  const addToast = useToastStore((state) => state.addToast)
 
   const { issueCards, rosterInsights } = useIssues()
   const [rosterOpen, setRosterOpen] = useState(true)
 
   const totalIssues = issueCards.length
 
-  const handleIssueAction = (issue: IssueCard) => {
-    const assignmentName = issue.assignmentId
-      ? roster?.assignments.find((a) => a.id === issue.assignmentId)?.name
-      : null
-
-    const showToast = (message: string) =>
-      addToast(message, { tone: "info", durationMs: 3000 })
-
-    if (issue.kind === "unknown_students" && issue.assignmentId) {
-      setActiveTab("groups-assignments")
+  const navigateToGroupSet = (issue: IssueCard) => {
+    setActiveTab("groups-assignments")
+    if (issue.groupSetId) {
+      setSidebarSelection({ kind: "group-set", id: issue.groupSetId })
+    }
+    if (issue.assignmentId) {
       selectAssignment(issue.assignmentId)
-      showToast(
-        `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (search for unknown students)`,
-      )
-      setOpen(false)
+    }
+    setOpen(false)
+  }
+
+  const handleIssueAction = (issue: IssueCard) => {
+    if (issue.kind === "unknown_students" && issue.groupSetId) {
+      navigateToGroupSet(issue)
       return
     }
 
-    if (issue.kind === "empty_groups" && issue.assignmentId) {
-      setActiveTab("groups-assignments")
-      selectAssignment(issue.assignmentId)
-      showToast(
-        `Showing groups${assignmentName ? ` in ${assignmentName}` : ""} (look for empty groups)`,
-      )
-      setOpen(false)
+    if (issue.kind === "empty_groups" && issue.groupSetId) {
+      navigateToGroupSet(issue)
       return
     }
 
     if (issue.kind === "roster_validation") {
       if (issue.issueKind === "duplicate_assignment_name") {
         setActiveTab("groups-assignments")
-        showToast("Showing assignments")
       } else {
         setActiveTab("roster")
-        showToast("Showing roster issues")
       }
       setOpen(false)
       return
     }
 
     if (issue.kind === "assignment_validation" && issue.assignmentId) {
-      setActiveTab("groups-assignments")
-      selectAssignment(issue.assignmentId)
-      showToast(
-        `Showing groups${assignmentName ? ` in ${assignmentName}` : ""}`,
-      )
-      setOpen(false)
+      navigateToGroupSet(issue)
     }
   }
 
@@ -182,15 +167,13 @@ function IssueCardRow({
 const getIssueActionLabel = (issue: IssueCard) => {
   switch (issue.kind) {
     case "unknown_students":
-      return "View unknown"
     case "empty_groups":
-      return "View empty"
+    case "assignment_validation":
+      return "View groups"
     case "roster_validation":
       return issue.issueKind === "duplicate_assignment_name"
         ? "View assignments"
         : "View roster"
-    case "assignment_validation":
-      return "View groups"
     default:
       return "View"
   }

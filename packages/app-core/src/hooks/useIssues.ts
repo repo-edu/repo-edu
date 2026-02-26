@@ -1,6 +1,7 @@
 import type {
   Assignment,
   AssignmentId,
+  GroupSet,
   RosterMember,
   ValidationIssue,
   ValidationKind,
@@ -13,7 +14,7 @@ import {
 import {
   buildStudentMap,
   getActiveStudents,
-  resolveAssignmentGroups,
+  resolveGroupSetGroups,
 } from "../utils/rosterMetrics"
 
 type StudentMap = Map<string, RosterMember>
@@ -26,6 +27,7 @@ export interface IssueCard {
     | "roster_validation"
     | "assignment_validation"
   assignmentId?: AssignmentId
+  groupSetId?: string
   title: string
   description?: string
   count: number
@@ -96,6 +98,10 @@ export function useIssues() {
       issueCards.push(buildRosterIssueCard(issue, studentMap))
     }
 
+    const groupSetById = new Map<string, GroupSet>(
+      roster.group_sets.map((gs) => [gs.id, gs]),
+    )
+
     const assignmentById = new Map<string, Assignment>(
       assignments.map((assignment) => [assignment.id, assignment]),
     )
@@ -105,16 +111,30 @@ export function useIssues() {
     )) {
       const assignment = assignmentById.get(assignmentId)
       if (!assignment) continue
+      const gsName = groupSetById.get(assignment.group_set_id)?.name
+      const description = gsName
+        ? `${assignment.name} \u00b7 ${gsName}`
+        : assignment.name
       for (const issue of validation.issues) {
         if (!ASSIGNMENT_ISSUE_KINDS.includes(issue.kind)) continue
-        issueCards.push(buildAssignmentIssueCard(assignment, issue))
+        issueCards.push(
+          buildAssignmentIssueCard(assignment, issue, description),
+        )
       }
     }
 
-    for (const assignment of assignments) {
+    // Collect unique group set IDs referenced by assignments
+    const referencedGroupSetIds = new Set(
+      assignments.map((a) => a.group_set_id),
+    )
+
+    for (const groupSetId of referencedGroupSetIds) {
+      const groupSet = groupSetById.get(groupSetId)
+      if (!groupSet) continue
+
+      const resolvedGroups = resolveGroupSetGroups(roster, groupSet)
       const unknownGroups: { groupName: string; unknownIds: string[] }[] = []
       const emptyGroups: string[] = []
-      const resolvedGroups = resolveAssignmentGroups(roster, assignment)
 
       for (const group of resolvedGroups) {
         const unknownIds = group.member_ids.filter(
@@ -137,13 +157,13 @@ export function useIssues() {
 
       if (uniqueUnknownIds.size > 0) {
         issueCards.push({
-          id: `unknown-${assignment.id}`,
+          id: `unknown-${groupSetId}`,
           kind: "unknown_students",
-          assignmentId: assignment.id,
+          groupSetId,
           title: `${uniqueUnknownIds.size} unknown student${
             uniqueUnknownIds.size === 1 ? "" : "s"
           }`,
-          description: assignment.name,
+          description: groupSet.name,
           count: uniqueUnknownIds.size,
           details: unknownGroups.map((group) => {
             return `${group.groupName}: ${formatDetailsList(group.unknownIds, 3)}`
@@ -153,13 +173,13 @@ export function useIssues() {
 
       if (emptyGroups.length > 0) {
         issueCards.push({
-          id: `empty-${assignment.id}`,
+          id: `empty-${groupSetId}`,
           kind: "empty_groups",
-          assignmentId: assignment.id,
+          groupSetId,
           title: `${emptyGroups.length} empty group${
             emptyGroups.length === 1 ? "" : "s"
           }`,
-          description: assignment.name,
+          description: groupSet.name,
           count: emptyGroups.length,
           details: [formatDetailsList(emptyGroups, 3)],
         })
@@ -247,6 +267,7 @@ const buildRosterIssueCard = (
 const buildAssignmentIssueCard = (
   assignment: Assignment,
   issue: ValidationIssue,
+  description: string,
 ): IssueCard => {
   const count = issue.affected_ids.length
 
@@ -254,8 +275,9 @@ const buildAssignmentIssueCard = (
     id: `assignment-${assignment.id}-${issue.kind}`,
     kind: "assignment_validation",
     assignmentId: assignment.id,
+    groupSetId: assignment.group_set_id,
     title: `${count} ${validationKindLabel(issue.kind)}`,
-    description: assignment.name,
+    description,
     count,
     issueKind: issue.kind,
     details:
