@@ -3,7 +3,7 @@ import type {
   GroupSetConnection,
 } from "@repo-edu/backend-interface/types"
 import { cn } from "@repo-edu/ui"
-import { Plus, Upload } from "@repo-edu/ui/components/icons"
+import { Download, Plus } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
 import { useCallback, useMemo, useRef } from "react"
 import {
@@ -502,7 +502,7 @@ export function GroupsAssignmentsSidebar({
           onClick={onImportGroupSet}
           disabled={isOperationActive}
         >
-          <Upload className="size-3.5" />
+          <Download className="size-3.5" />
           <span>Import from CSV</span>
         </button>
       </div>
