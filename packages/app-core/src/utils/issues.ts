@@ -25,6 +25,8 @@ export interface IssueCard {
     | "assignment_validation"
   assignmentId?: AssignmentId
   groupSetId?: string
+  groupSetName?: string
+  emptyGroupNames?: string[]
   title: string
   description?: string
   count: number
@@ -172,9 +174,9 @@ export function buildIssueCards(
         title: `${emptyGroups.length} empty group${
           emptyGroups.length === 1 ? "" : "s"
         }`,
-        description: groupSet.name,
         count: emptyGroups.length,
-        details: [formatDetailsList(emptyGroups, 3)],
+        groupSetName: groupSet.name,
+        emptyGroupNames: emptyGroups,
       })
     }
   }

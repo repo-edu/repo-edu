@@ -8,7 +8,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo-edu/ui"
-import { AlertTriangle, ChevronDown } from "@repo-edu/ui/components/icons"
+import {
+  AlertTriangle,
+  ChevronDown,
+  Layers,
+  Users,
+} from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { type IssueCard, useIssues } from "../../hooks/useIssues"
 import { useProfileStore } from "../../stores/profileStore"
@@ -175,6 +180,22 @@ function IssueCardRow({
           {issue.description && (
             <div className="text-xs text-muted-foreground">
               {issue.description}
+            </div>
+          )}
+          {issue.emptyGroupNames && issue.groupSetName && (
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-muted-foreground">
+              {issue.emptyGroupNames.map((name, i, arr) => (
+                <span key={name} className="inline-flex items-center gap-0.5">
+                  <Users className="size-2.5" />
+                  {name}
+                  {i < arr.length - 1 && ","}
+                </span>
+              ))}
+              <span>in</span>
+              <span className="inline-flex items-center gap-0.5">
+                <Layers className="size-2.5" />
+                {issue.groupSetName}
+              </span>
             </div>
           )}
           {issue.details && (
