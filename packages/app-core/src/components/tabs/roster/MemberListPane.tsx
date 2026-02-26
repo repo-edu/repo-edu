@@ -19,8 +19,6 @@ import {
 } from "@repo-edu/ui"
 import {
   ChevronDown,
-  ChevronsUpDown,
-  ChevronUp,
   Loader2,
   Plus,
   Search,
@@ -48,6 +46,7 @@ import { formatDate, formatDateTime } from "../../../utils/formatDate"
 import { formatStudentStatus } from "../../../utils/labels"
 import { generateStudentId } from "../../../utils/nanoid"
 import { CourseDisplay } from "../../CourseDisplay"
+import { SortHeaderButton } from "../../common/SortHeaderButton"
 import { ActionCell } from "./cells/ActionCell"
 import { EditableTextCell } from "./cells/EditableTextCell"
 import { StatusDisplayCell } from "./cells/StatusDisplayCell"
@@ -678,39 +677,6 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
         </span>
       )}
     </div>
-  )
-}
-
-function SortHeaderButton({
-  label,
-  column,
-}: {
-  label: string
-  column: {
-    getCanSort: () => boolean
-    getIsSorted: () => false | "asc" | "desc"
-    toggleSorting: (desc?: boolean) => void
-  }
-}) {
-  const sorted = column.getIsSorted()
-
-  return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-1 hover:underline"
-      onClick={() =>
-        column.getCanSort() && column.toggleSorting(sorted === "asc")
-      }
-    >
-      <span>{label}</span>
-      {sorted === "asc" ? (
-        <ChevronUp className="size-3.5" />
-      ) : sorted === "desc" ? (
-        <ChevronDown className="size-3.5" />
-      ) : (
-        <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-      )}
-    </button>
   )
 }
 
