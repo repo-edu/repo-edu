@@ -12,15 +12,17 @@ import {
 import {
   AlertTriangle,
   EllipsisVertical,
+  Layers,
   Pencil,
   Trash2,
   Users,
   X,
 } from "@repo-edu/ui/components/icons"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useShallow } from "zustand/react/shallow"
 import {
   type EditableGroupTarget,
-  selectGroupReferenceCount,
+  selectOtherGroupSetNames,
   useProfileStore,
 } from "../../../stores/profileStore"
 import { GroupLockIcon } from "./GroupLockIcon"
@@ -53,8 +55,15 @@ export function GroupItem({
 }: GroupItemProps) {
   const isEditable = group.origin === "local"
   const isLocked = group.origin !== "local"
-  const referenceCount = useProfileStore(selectGroupReferenceCount(group.id))
-  const isShared = referenceCount > 1
+  const otherSetNames = useProfileStore(
+    useShallow(
+      useMemo(
+        () => selectOtherGroupSetNames(group.id, groupSetId),
+        [group.id, groupSetId],
+      ),
+    ),
+  )
+  const isShared = otherSetNames.length > 0
   const updateGroup = useProfileStore((state) => state.updateGroup)
   const removeGroupFromSet = useProfileStore(
     (state) => state.removeGroupFromSet,
@@ -106,12 +115,7 @@ export function GroupItem({
     <div className="py-1.5 space-y-1">
       {/* Group header */}
       <div className="flex items-center gap-2">
-        {isLocked && (
-          <GroupLockIcon
-            origin={group.origin as "lms" | "system"}
-            inLocalSet={isSetEditable}
-          />
-        )}
+        <Users className="size-3 shrink-0 text-muted-foreground" />
 
         {isEditing ? (
           <Input
@@ -146,6 +150,13 @@ export function GroupItem({
           >
             {group.name}
           </button>
+        )}
+
+        {isLocked && (
+          <GroupLockIcon
+            origin={group.origin as "lms" | "system"}
+            inLocalSet={isSetEditable}
+          />
         )}
 
         <span className="text-xs text-muted-foreground ml-auto shrink-0">
@@ -223,8 +234,16 @@ export function GroupItem({
       {isShared && isEditable && (
         <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
           <AlertTriangle className="size-3 shrink-0" />
-          <span>
-            Shared by {referenceCount} group sets. Changes apply everywhere.
+          <span className="inline-flex items-center gap-1 flex-wrap">
+            Also in:
+            {otherSetNames.map((name, i) => (
+              <span key={name} className="inline-flex items-center gap-0.5">
+                <Layers className="size-2.5" />
+                {name}
+                {i < otherSetNames.length - 1 && ","}
+              </span>
+            ))}
+            — edits apply to all.
           </span>
         </div>
       )}

@@ -28,7 +28,6 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-  Users,
 } from "@repo-edu/ui/components/icons"
 import {
   type KeyboardEvent,
@@ -174,24 +173,7 @@ export function GroupSetItem({
     onRenameCancel?.()
   }, [groupSet.name, onRenameCancel])
 
-  const nameIcon = isSystem ? (
-    staffTooltip ? (
-      <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Users className="size-3.5 shrink-0 text-muted-foreground" />
-          </TooltipTrigger>
-          <TooltipContent side="right" className="text-xs">
-            {staffTooltip}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    ) : (
-      <Users className="size-3.5 shrink-0 text-muted-foreground" />
-    )
-  ) : isReadOnly ? (
-    <Lock className="size-3.5 shrink-0 text-muted-foreground" />
-  ) : (
+  const nameIcon = (
     <Layers className="size-3.5 shrink-0 text-muted-foreground" />
   )
 
@@ -233,12 +215,39 @@ export function GroupSetItem({
             <span className="truncate text-sm font-medium">
               {groupSet.name}
             </span>
+            {isReadOnly && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Lock className="size-3 shrink-0 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {isSystem
+                      ? "System group sets are auto-managed"
+                      : "Synced from LMS"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {isBusy && (
               <Loader2 className="size-3.5 shrink-0 text-muted-foreground animate-spin" />
             )}
           </div>
           <div className="flex items-center gap-1 pl-5 text-[11px] text-muted-foreground">
-            <span>{badge}</span>
+            {staffTooltip ? (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-default">{badge}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {staffTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span>{badge}</span>
+            )}
             <span>·</span>
             <span>
               {groupCount} group{groupCount !== 1 ? "s" : ""}

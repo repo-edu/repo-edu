@@ -21,6 +21,7 @@ export {
   selectGroupById,
   selectGroupReferenceCount,
   selectGroupSetById,
+  selectOtherGroupSetNames,
   selectGroupSets,
   selectGroups,
   selectGroupsForGroupSet,

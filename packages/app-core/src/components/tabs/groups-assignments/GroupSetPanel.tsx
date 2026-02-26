@@ -314,7 +314,10 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
             Assignments ({assignments.length})
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="groups" className="min-h-0 overflow-hidden">
+        <TabsContent
+          value="groups"
+          className="flex flex-col min-h-0 overflow-hidden"
+        >
           <GroupsList
             groupSet={groupSet}
             groups={groups}
@@ -326,7 +329,10 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
             onCreateGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
           />
         </TabsContent>
-        <TabsContent value="assignments" className="min-h-0 overflow-hidden">
+        <TabsContent
+          value="assignments"
+          className="flex flex-col min-h-0 overflow-hidden"
+        >
           <AssignmentsPanel
             assignments={assignments}
             disabled={isOperationActive}

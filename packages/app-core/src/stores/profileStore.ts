@@ -1510,6 +1510,20 @@ export const selectGroupReferenceCount =
       .length
   }
 
+export const selectOtherGroupSetNames =
+  (groupId: string, currentGroupSetId: string) =>
+  (state: ProfileStore): string[] => {
+    const roster = state.document?.roster
+    if (!roster) return EMPTY_STRINGS
+    return roster.group_sets
+      .filter(
+        (gs) => gs.id !== currentGroupSetId && gs.group_ids.includes(groupId),
+      )
+      .map((gs) => gs.name)
+  }
+
+const EMPTY_STRINGS: string[] = []
+
 // Group set selectors
 export const selectGroupSets = (state: ProfileStore) =>
   state.document?.roster?.group_sets ?? EMPTY_GROUP_SETS
