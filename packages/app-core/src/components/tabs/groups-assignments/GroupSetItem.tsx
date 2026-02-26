@@ -41,6 +41,7 @@ import {
   formatExactTimestamp,
   formatRelativeTime,
 } from "../../../utils/relativeTime"
+import { ConnectionBadge, connectionLabel } from "./ConnectionBadge"
 
 interface GroupSetItemActions {
   onAddAssignment?: () => void
@@ -65,20 +66,6 @@ interface GroupSetItemProps {
   isBusy?: boolean
   tabIndex?: number
   onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
-}
-
-function connectionBadge(connection: GroupSetConnection | null): string {
-  if (!connection) return "Local"
-  switch (connection.kind) {
-    case "system":
-      return "System"
-    case "canvas":
-      return "Canvas"
-    case "moodle":
-      return "Moodle"
-    case "import":
-      return "Import"
-  }
 }
 
 function connectionTimestamp(
@@ -130,7 +117,7 @@ export function GroupSetItem({
   const isSelected =
     selection?.kind === "group-set" && selection.id === groupSet.id
   const isSystem = connection?.kind === "system"
-  const badge = connectionBadge(connection)
+  const badge = connectionLabel(connection)
   const timestamp = connectionTimestamp(connection)
   const isReadOnly = connection !== null && connection.kind !== "import"
   const staffTooltip = systemSetDescription(connection)
@@ -212,8 +199,11 @@ export function GroupSetItem({
         >
           <div className="flex items-center gap-1.5">
             {nameIcon}
-            <span className="truncate text-sm font-medium">
-              {groupSet.name}
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="truncate text-sm font-medium">
+                {groupSet.name}
+              </span>
+              <ConnectionBadge label={badge} />
             </span>
             {isReadOnly && (
               <TooltipProvider delayDuration={300}>
@@ -238,7 +228,9 @@ export function GroupSetItem({
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-default">{badge}</span>
+                    <span className="cursor-default">
+                      {groupCount} group{groupCount !== 1 ? "s" : ""}
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
                     {staffTooltip}
@@ -246,12 +238,10 @@ export function GroupSetItem({
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <span>{badge}</span>
+              <span>
+                {groupCount} group{groupCount !== 1 ? "s" : ""}
+              </span>
             )}
-            <span>·</span>
-            <span>
-              {groupCount} group{groupCount !== 1 ? "s" : ""}
-            </span>
             {timestamp && (
               <>
                 <span>·</span>

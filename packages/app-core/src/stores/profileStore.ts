@@ -1639,6 +1639,7 @@ export const selectNextRedoDescription = (state: ProfileStore) =>
 export interface EditableGroupTarget {
   groupSetId: string
   groupSetName: string
+  connectionKind: string
   groups: Array<{ id: string; name: string }>
 }
 const EMPTY_EDITABLE_TARGETS: EditableGroupTarget[] = []
@@ -1664,9 +1665,11 @@ export const selectEditableGroupsByGroupSet = (state: ProfileStore) => {
         if (!g) return []
         return [{ id: g.id, name: g.name }]
       })
+      const kind = gs.connection ? gs.connection.kind : "local"
       return {
         groupSetId: gs.id,
         groupSetName: gs.name,
+        connectionKind: kind,
         groups: editableGroups,
       }
     })
