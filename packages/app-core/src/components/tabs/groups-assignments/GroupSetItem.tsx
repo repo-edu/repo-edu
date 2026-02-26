@@ -23,6 +23,7 @@ import {
   Loader2,
   Lock,
   Pencil,
+  Plus,
   RefreshCw,
   Trash2,
   Upload,
@@ -36,6 +37,7 @@ import {
 } from "../../../utils/relativeTime"
 
 interface GroupSetItemActions {
+  onAddAssignment?: () => void
   onRename?: () => void
   onSync?: () => void
   onReimport?: () => void
@@ -122,7 +124,8 @@ export function GroupSetItem({
   const staffTooltip = systemSetDescription(connection)
   const hasActions =
     actions &&
-    (actions.onRename ||
+    (actions.onAddAssignment ||
+      actions.onRename ||
       actions.onSync ||
       actions.onReimport ||
       actions.onExport ||
@@ -244,6 +247,15 @@ export function GroupSetItem({
               <DropdownMenuItem disabled={disabled} onClick={actions.onCopy}>
                 <Copy className="size-3.5 mr-2" />
                 Copy
+              </DropdownMenuItem>
+            )}
+            {actions.onAddAssignment && (
+              <DropdownMenuItem
+                disabled={disabled}
+                onClick={actions.onAddAssignment}
+              >
+                <Plus className="size-3.5 mr-2" />
+                Add Assignment
               </DropdownMenuItem>
             )}
             {actions.onDelete && (

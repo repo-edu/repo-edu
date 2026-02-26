@@ -68,6 +68,8 @@ function buildGroupSetActions(
     setExportGroupSetTriggerId: (id: string | null) => void
     setCopyGroupSetSourceId: (id: string | null) => void
     setDeleteGroupSetTargetId: (id: string | null) => void
+    setPreSelectedGroupSetId: (id: string | null) => void
+    setNewAssignmentDialogOpen: (open: boolean) => void
   },
 ) {
   const kind = connection ? connection.kind : "local"
@@ -82,6 +84,10 @@ function buildGroupSetActions(
   }
 
   return {
+    onAddAssignment: withSelect(() => {
+      setters.setPreSelectedGroupSetId(groupSetId)
+      setters.setNewAssignmentDialogOpen(true)
+    }),
     onRename: isNameEditable
       ? withSelect(() => setters.setRenameGroupSetTriggerId(groupSetId))
       : undefined,
@@ -123,6 +129,8 @@ function GroupSetList({
     setExportGroupSetTriggerId: (id: string | null) => void
     setCopyGroupSetSourceId: (id: string | null) => void
     setDeleteGroupSetTargetId: (id: string | null) => void
+    setPreSelectedGroupSetId: (id: string | null) => void
+    setNewAssignmentDialogOpen: (open: boolean) => void
   }
 }) {
   return (
@@ -190,6 +198,12 @@ export function GroupsAssignmentsSidebar({
   const setDeleteGroupSetTargetId = useUiStore(
     (state) => state.setDeleteGroupSetTargetId,
   )
+  const setPreSelectedGroupSetId = useUiStore(
+    (state) => state.setPreSelectedGroupSetId,
+  )
+  const setNewAssignmentDialogOpen = useUiStore(
+    (state) => state.setNewAssignmentDialogOpen,
+  )
 
   const actionSetters = useMemo(
     () => ({
@@ -199,6 +213,8 @@ export function GroupsAssignmentsSidebar({
       setExportGroupSetTriggerId,
       setCopyGroupSetSourceId,
       setDeleteGroupSetTargetId,
+      setPreSelectedGroupSetId,
+      setNewAssignmentDialogOpen,
     }),
     [
       setRenameGroupSetTriggerId,
@@ -207,6 +223,8 @@ export function GroupsAssignmentsSidebar({
       setExportGroupSetTriggerId,
       setCopyGroupSetSourceId,
       setDeleteGroupSetTargetId,
+      setPreSelectedGroupSetId,
+      setNewAssignmentDialogOpen,
     ],
   )
 
