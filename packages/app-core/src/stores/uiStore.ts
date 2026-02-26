@@ -17,6 +17,11 @@ import { create } from "zustand"
 export type SidebarSelection = { kind: "group-set"; id: string } | null
 
 /**
+ * Active tab in the group set detail panel (right side).
+ */
+export type GroupSetPanelTab = "groups" | "assignments"
+
+/**
  * Profile list item - cached in store to avoid repeated fetches.
  */
 export interface ProfileListItem {
@@ -81,6 +86,7 @@ interface UiState {
 
   // Groups & Assignments sidebar selection
   sidebarSelection: SidebarSelection
+  groupSetPanelTab: GroupSetPanelTab
   groupSetOperation: GroupSetOperationState | null
 
   // Sidebar action triggers (consumed by GroupSetPanel, then cleared)
@@ -143,6 +149,7 @@ interface UiActions {
   setIssuesPanelOpen: (open: boolean) => void
   setPreSelectedGroupSetId: (id: string | null) => void
   setSidebarSelection: (selection: SidebarSelection) => void
+  setGroupSetPanelTab: (tab: GroupSetPanelTab) => void
   setGroupSetOperation: (operation: GroupSetOperationState | null) => void
 
   // Sidebar action triggers
@@ -232,6 +239,7 @@ const initialState: UiState = {
 
   // Groups & Assignments sidebar selection
   sidebarSelection: null,
+  groupSetPanelTab: "groups",
   groupSetOperation: null,
 
   // Sidebar action triggers
@@ -300,6 +308,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setIssuesPanelOpen: (open) => set({ issuesPanelOpen: open }),
   setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
   setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
+  setGroupSetPanelTab: (tab) => set({ groupSetPanelTab: tab }),
   setGroupSetOperation: (operation) => set({ groupSetOperation: operation }),
 
   // Sidebar action triggers

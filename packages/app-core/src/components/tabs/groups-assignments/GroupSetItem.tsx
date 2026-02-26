@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -29,7 +30,13 @@ import {
   Upload,
   Users,
 } from "@repo-edu/ui/components/icons"
-import type { KeyboardEvent } from "react"
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 import type { SidebarSelection } from "../../../stores/uiStore"
 import {
   formatExactTimestamp,
@@ -38,7 +45,7 @@ import {
 
 interface GroupSetItemActions {
   onAddAssignment?: () => void
-  onRename?: () => void
+  onStartRename?: () => void
   onSync?: () => void
   onReimport?: () => void
   onExport?: () => void
@@ -52,6 +59,9 @@ interface GroupSetItemProps {
   selection: SidebarSelection
   onSelect: (selection: SidebarSelection) => void
   actions?: GroupSetItemActions
+  isEditing?: boolean
+  onRenameSubmit?: (newName: string) => void
+  onRenameCancel?: () => void
   disabled?: boolean
   isBusy?: boolean
   tabIndex?: number
@@ -109,6 +119,9 @@ export function GroupSetItem({
   selection,
   onSelect,
   actions,
+  isEditing = false,
+  onRenameSubmit,
+  onRenameCancel,
   disabled = false,
   isBusy = false,
   tabIndex,
@@ -125,12 +138,62 @@ export function GroupSetItem({
   const hasActions =
     actions &&
     (actions.onAddAssignment ||
-      actions.onRename ||
+      actions.onStartRename ||
       actions.onSync ||
       actions.onReimport ||
       actions.onExport ||
       actions.onCopy ||
       actions.onDelete)
+
+  // Inline rename state
+  const [editName, setEditName] = useState(groupSet.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing) {
+      setEditName(groupSet.name)
+      // Defer focus to next frame so the Input is mounted
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [isEditing, groupSet.name])
+
+  const handleSave = useCallback(() => {
+    const trimmed = editName.trim()
+    if (trimmed && trimmed !== groupSet.name) {
+      onRenameSubmit?.(trimmed)
+    } else {
+      onRenameCancel?.()
+    }
+  }, [editName, groupSet.name, onRenameSubmit, onRenameCancel])
+
+  const handleCancel = useCallback(() => {
+    setEditName(groupSet.name)
+    onRenameCancel?.()
+  }, [groupSet.name, onRenameCancel])
+
+  const nameIcon = isSystem ? (
+    staffTooltip ? (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Users className="size-3.5 shrink-0 text-muted-foreground" />
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            {staffTooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    ) : (
+      <Users className="size-3.5 shrink-0 text-muted-foreground" />
+    )
+  ) : isReadOnly ? (
+    <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+  ) : (
+    <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+  )
 
   return (
     <div
@@ -139,69 +202,71 @@ export function GroupSetItem({
         isSelected ? "bg-selection" : "hover:bg-muted/50",
       )}
     >
-      <button
-        type="button"
-        className="flex-1 text-left py-1.5 px-2 min-w-0"
-        onClick={() => onSelect({ kind: "group-set", id: groupSet.id })}
-        onKeyDown={onKeyDown}
-        tabIndex={tabIndex}
-        data-sidebar-item-id={`group-set:${groupSet.id}`}
-      >
-        <div className="flex items-center gap-1.5">
-          {isSystem ? (
-            staffTooltip ? (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Users className="size-3.5 shrink-0 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    {staffTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Users className="size-3.5 shrink-0 text-muted-foreground" />
-            )
-          ) : isReadOnly ? (
-            <Lock className="size-3.5 shrink-0 text-muted-foreground" />
-          ) : (
-            <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-          )}
-          <span className="truncate text-sm font-medium">{groupSet.name}</span>
-          {isBusy && (
-            <Loader2 className="size-3.5 shrink-0 text-muted-foreground animate-spin" />
-          )}
+      {isEditing ? (
+        <div className="flex-1 py-1 px-2 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {nameIcon}
+            <Input
+              ref={inputRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave()
+                if (e.key === "Escape") handleCancel()
+              }}
+              className="h-6 text-sm font-medium px-1 flex-1 min-w-0"
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1 pl-5 text-[11px] text-muted-foreground">
-          <span>{badge}</span>
-          <span>·</span>
-          <span>
-            {groupCount} group{groupCount !== 1 ? "s" : ""}
-          </span>
-          {timestamp && (
-            <>
-              <span>·</span>
-              {timestamp.exact ? (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-default">
-                        {timestamp.relative}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-xs">
-                      {timestamp.exact}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <span>{timestamp.relative}</span>
-              )}
-            </>
-          )}
-        </div>
-      </button>
+      ) : (
+        <button
+          type="button"
+          className="flex-1 text-left py-1.5 px-2 min-w-0"
+          onClick={() => onSelect({ kind: "group-set", id: groupSet.id })}
+          onKeyDown={onKeyDown}
+          tabIndex={tabIndex}
+          data-sidebar-item-id={`group-set:${groupSet.id}`}
+        >
+          <div className="flex items-center gap-1.5">
+            {nameIcon}
+            <span className="truncate text-sm font-medium">
+              {groupSet.name}
+            </span>
+            {isBusy && (
+              <Loader2 className="size-3.5 shrink-0 text-muted-foreground animate-spin" />
+            )}
+          </div>
+          <div className="flex items-center gap-1 pl-5 text-[11px] text-muted-foreground">
+            <span>{badge}</span>
+            <span>·</span>
+            <span>
+              {groupCount} group{groupCount !== 1 ? "s" : ""}
+            </span>
+            {timestamp && (
+              <>
+                <span>·</span>
+                {timestamp.exact ? (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-default">
+                          {timestamp.relative}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-xs">
+                        {timestamp.exact}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span>{timestamp.relative}</span>
+                )}
+              </>
+            )}
+          </div>
+        </button>
+      )}
       {hasActions && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -216,8 +281,11 @@ export function GroupSetItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            {actions.onRename && (
-              <DropdownMenuItem disabled={disabled} onClick={actions.onRename}>
+            {actions.onStartRename && (
+              <DropdownMenuItem
+                disabled={disabled}
+                onClick={actions.onStartRename}
+              >
                 <Pencil className="size-3.5 mr-2" />
                 Rename
               </DropdownMenuItem>

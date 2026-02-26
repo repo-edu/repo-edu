@@ -9,13 +9,12 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  cn,
   EmptyState,
   Input,
-  Separator,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Text,
   Tooltip,
   TooltipContent,
@@ -23,17 +22,12 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
-  ChevronRight,
-  Copy,
-  Download,
   File,
   Info,
   Loader2,
   Lock,
   Plus,
-  RefreshCw,
   Trash2,
-  Upload,
 } from "@repo-edu/ui/components/icons"
 import {
   type ColumnDef,
@@ -57,7 +51,7 @@ import {
   useProfileStore,
 } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
-import { useUiStore } from "../../../stores/uiStore"
+import { type GroupSetPanelTab, useUiStore } from "../../../stores/uiStore"
 import { applyGroupSetPatch } from "../../../utils/groupSetPatch"
 import { buildLmsOperationContext } from "../../../utils/operationContext"
 import {
@@ -77,51 +71,6 @@ function getConnectionKind(
 ): "local" | "system" | "canvas" | "moodle" | "import" {
   if (!connection) return "local"
   return connection.kind
-}
-
-function connectionBadgeLabel(kind: ReturnType<typeof getConnectionKind>) {
-  switch (kind) {
-    case "system":
-      return "System"
-    case "canvas":
-      return "Canvas"
-    case "moodle":
-      return "Moodle"
-    case "import":
-      return "Import"
-    case "local":
-      return "Local"
-  }
-}
-
-function connectionBadgeTooltip(kind: ReturnType<typeof getConnectionKind>) {
-  switch (kind) {
-    case "system":
-      return "Auto-managed group set. Cannot be edited or deleted."
-    case "canvas":
-      return "Synced from Canvas LMS. Groups are read-only."
-    case "moodle":
-      return "Synced from Moodle LMS. Groups are read-only."
-    case "import":
-      return "Imported from CSV. Groups are editable."
-    case "local":
-      return "Locally created. Groups are fully editable."
-  }
-}
-
-function badgeColorClass(kind: ReturnType<typeof getConnectionKind>) {
-  switch (kind) {
-    case "system":
-      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-    case "canvas":
-      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
-    case "moodle":
-      return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-    case "import":
-      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-    case "local":
-      return "bg-muted text-muted-foreground"
-  }
 }
 
 /** Helper to get sync/import timestamp from connection. */
@@ -168,20 +117,13 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   // Dialog triggers from uiStore
   const groupSetOperation = useUiStore((state) => state.groupSetOperation)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
+  const panelTab = useUiStore((state) => state.groupSetPanelTab)
+  const setPanelTab = useUiStore((state) => state.setGroupSetPanelTab)
   const setNewAssignmentDialogOpen = useUiStore(
     (state) => state.setNewAssignmentDialogOpen,
   )
   const setPreSelectedGroupSetId = useUiStore(
     (state) => state.setPreSelectedGroupSetId,
-  )
-  const setCopyGroupSetSourceId = useUiStore(
-    (state) => state.setCopyGroupSetSourceId,
-  )
-  const setDeleteGroupSetTargetId = useUiStore(
-    (state) => state.setDeleteGroupSetTargetId,
-  )
-  const setReimportGroupSetTargetId = useUiStore(
-    (state) => state.setReimportGroupSetTargetId,
   )
   const setAddGroupDialogGroupSetId = useUiStore(
     (state) => state.setAddGroupDialogGroupSetId,
@@ -345,286 +287,86 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <GroupSetHeader
-        groupSet={groupSet}
-        connection={connection}
-        kind={kind}
-        isOperationActive={isOperationActive}
-        isSyncing={groupSetOperation?.kind === "sync" && isThisGroupSetBusy}
-        onSync={handleSync}
-        onExport={handleExport}
-        onCopy={() => setCopyGroupSetSourceId(groupSetId)}
-        onDelete={() => setDeleteGroupSetTargetId(groupSetId)}
-        onReimport={() => setReimportGroupSetTargetId(groupSetId)}
-      />
       {operationLabel && (
-        <div className="px-4 pb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="px-4 py-2 flex items-center gap-1.5 text-xs text-muted-foreground border-b">
           <Loader2 className="size-3 animate-spin" />
           <span>{operationLabel}</span>
         </div>
       )}
-      <Separator />
-      <AssignmentsSection
-        assignments={assignments}
-        disabled={isOperationActive}
-        onAdd={() => {
-          setPreSelectedGroupSetId(groupSetId)
-          setNewAssignmentDialogOpen(true)
-        }}
-        onUpdate={updateAssignment}
-        onDelete={deleteAssignment}
-      />
-      <Separator />
-      <GroupsList
-        groupSet={groupSet}
-        groups={groups}
-        kind={kind}
-        roster={roster}
-        disabled={isOperationActive}
-        onDeleteGroup={(gid) => setDeleteGroupTargetId(gid)}
-        onCreateGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
-      />
+      <Tabs
+        value={panelTab}
+        onValueChange={(v) => setPanelTab(v as GroupSetPanelTab)}
+        className="flex-1 min-h-0 gap-0"
+      >
+        <TabsList size="compact" className="w-full border-b px-3 shrink-0">
+          <TabsTrigger
+            value="groups"
+            size="compact"
+            className="border-b-2 border-transparent data-[state=active]:border-foreground rounded-none"
+          >
+            Groups ({groups.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="assignments"
+            size="compact"
+            className="border-b-2 border-transparent data-[state=active]:border-foreground rounded-none"
+          >
+            Assignments ({assignments.length})
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="groups" className="min-h-0 overflow-hidden">
+          <GroupsList
+            groupSet={groupSet}
+            groups={groups}
+            connection={connection}
+            kind={kind}
+            roster={roster}
+            disabled={isOperationActive}
+            onDeleteGroup={(gid) => setDeleteGroupTargetId(gid)}
+            onCreateGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
+          />
+        </TabsContent>
+        <TabsContent value="assignments" className="min-h-0 overflow-hidden">
+          <AssignmentsPanel
+            assignments={assignments}
+            disabled={isOperationActive}
+            onAdd={() => {
+              setPreSelectedGroupSetId(groupSetId)
+              setNewAssignmentDialogOpen(true)
+            }}
+            onUpdate={updateAssignment}
+            onDelete={deleteAssignment}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-// --- Header ---
+// --- Connection metadata (shown inside Groups tab) ---
 
-function GroupSetHeader({
-  groupSet,
-  connection,
-  kind,
-  isOperationActive,
-  isSyncing,
-  onSync,
-  onExport,
-  onCopy,
-  onDelete,
-  onReimport,
+function GroupSetConnectionInfo({
+  timestamp,
+  importFilename,
+  isLms,
+  note,
 }: {
-  groupSet: GroupSet
-  connection: GroupSetConnection | null
-  kind: ReturnType<typeof getConnectionKind>
-  isOperationActive: boolean
-  isSyncing: boolean
-  onSync: () => void
-  onExport: () => void
-  onCopy: () => void
-  onDelete: () => void
-  onReimport: () => void
+  timestamp: { relative: string; exact: string | null } | null
+  importFilename: string | null
+  isLms: boolean
+  note: string | null
 }) {
-  const renameGroupSet = useProfileStore((state) => state.renameGroupSet)
-  const isNameEditable = kind === "local" || kind === "import"
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(groupSet.name)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const hasContent = timestamp || importFilename || isLms || note
 
-  // Consume sidebar rename trigger
-  const renameGroupSetTriggerId = useUiStore(
-    (state) => state.renameGroupSetTriggerId,
-  )
-  const setRenameGroupSetTriggerId = useUiStore(
-    (state) => state.setRenameGroupSetTriggerId,
-  )
-  useEffect(() => {
-    if (renameGroupSetTriggerId === groupSet.id && isNameEditable) {
-      setRenameGroupSetTriggerId(null)
-      setEditName(groupSet.name)
-      setIsEditing(true)
-    }
-  }, [
-    renameGroupSetTriggerId,
-    groupSet.id,
-    groupSet.name,
-    isNameEditable,
-    setRenameGroupSetTriggerId,
-  ])
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [isEditing])
-
-  const handleSave = useCallback(() => {
-    const trimmed = editName.trim()
-    if (trimmed && trimmed !== groupSet.name) {
-      renameGroupSet(groupSet.id, trimmed)
-    }
-    setIsEditing(false)
-  }, [editName, groupSet.name, groupSet.id, renameGroupSet])
-
-  // Sync local name with store when group set name changes externally
-  useEffect(() => {
-    if (!isEditing) {
-      setEditName(groupSet.name)
-    }
-  }, [groupSet.name, isEditing])
-
-  useEffect(() => {
-    if (isOperationActive) {
-      setIsEditing(false)
-    }
-  }, [isOperationActive])
-
-  const timestamp = connectionTimestamp(connection)
-  const note = systemTypeNote(connection)
-  const importFilename =
-    connection?.kind === "import" ? connection.source_filename : null
-
-  const isSystem = kind === "system"
-  const isLms = kind === "canvas" || kind === "moodle"
-  const isImported = kind === "import"
+  if (!hasContent) return null
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="px-3 pb-2 border-b space-y-1">
-        <div className="flex items-center gap-2 h-11">
-          {isEditing ? (
-            <Input
-              ref={inputRef}
-              value={editName}
-              disabled={isOperationActive}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleSave}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave()
-                if (e.key === "Escape") {
-                  setIsEditing(false)
-                  setEditName(groupSet.name)
-                }
-              }}
-              className="h-7 text-base font-semibold px-1.5"
-            />
-          ) : isNameEditable ? (
-            <button
-              type="button"
-              className="text-base font-semibold truncate hover:underline cursor-pointer text-left"
-              onClick={() => {
-                if (!isOperationActive) {
-                  setIsEditing(true)
-                }
-              }}
-              disabled={isOperationActive}
-            >
-              {groupSet.name}
-            </button>
-          ) : (
-            <span className="text-base font-semibold truncate">
-              {groupSet.name}
-            </span>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default",
-                  badgeColorClass(kind),
-                )}
-              >
-                {connectionBadgeLabel(kind)}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs max-w-64">
-              {connectionBadgeTooltip(kind)}
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Toolbar actions */}
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            {isLms && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={onSync}
-                    disabled={isOperationActive}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "size-3 mr-1.5",
-                        isSyncing && "animate-spin",
-                      )}
-                    />
-                    {isSyncing ? "Syncing..." : "Sync"}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Fetch latest groups from LMS</TooltipContent>
-              </Tooltip>
-            )}
-            {isImported && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={onReimport}
-                    disabled={isOperationActive}
-                  >
-                    <Download className="size-3 mr-1.5" />
-                    Import
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Replace groups from a CSV file</TooltipContent>
-              </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={onExport}
-                  disabled={isOperationActive}
-                >
-                  <Upload className="size-3 mr-1.5" />
-                  Export
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Export groups to CSV</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={onCopy}
-                  disabled={isOperationActive}
-                >
-                  <Copy className="size-3 mr-1.5" />
-                  Copy
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-64">
-                {copyTooltipText(kind)}
-              </TooltipContent>
-            </Tooltip>
-            {!isSystem && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs text-destructive hover:text-destructive"
-                onClick={onDelete}
-                disabled={isOperationActive}
-              >
-                <Trash2 className="size-3 mr-1.5" />
-                Delete
-              </Button>
-            )}
-          </div>
-        </div>
-
+      <div className="space-y-0.5 mb-2 text-xs text-muted-foreground">
         {timestamp && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="text-xs text-muted-foreground cursor-default w-fit">
-                {timestamp.relative}
-              </p>
+              <p className="cursor-default w-fit">{timestamp.relative}</p>
             </TooltipTrigger>
             {timestamp.exact && (
               <TooltipContent side="bottom" className="text-xs">
@@ -633,15 +375,10 @@ function GroupSetHeader({
             )}
           </Tooltip>
         )}
-        {importFilename && (
-          <p className="text-xs text-muted-foreground">
-            Source: {importFilename}
-          </p>
-        )}
+        {importFilename && <p>Source: {importFilename}</p>}
 
-        {/* LMS header tooltip */}
-        {(kind === "canvas" || kind === "moodle") && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {isLms && (
+          <div className="flex items-center gap-1.5">
             <Lock className="size-3 shrink-0" />
             <span>
               Sync from LMS to update groups. Copy to create a local set.
@@ -650,7 +387,7 @@ function GroupSetHeader({
         )}
 
         {note && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
             <Info className="size-3 shrink-0" />
             <span>{note}</span>
           </div>
@@ -660,16 +397,9 @@ function GroupSetHeader({
   )
 }
 
-function copyTooltipText(kind: ReturnType<typeof getConnectionKind>): string {
-  if (kind === "canvas" || kind === "moodle" || kind === "system") {
-    return "Create a local copy referencing the same groups. Shared groups will reflect future sync updates."
-  }
-  return "Create a local copy referencing the same groups"
-}
+// --- Assignments Panel (tab content) ---
 
-// --- Assignments Section ---
-
-function AssignmentsSection({
+function AssignmentsPanel({
   assignments,
   disabled,
   onAdd,
@@ -682,17 +412,9 @@ function AssignmentsSection({
   onUpdate: (id: string, updates: Partial<AssignmentMetadata>) => void
   onDelete: (id: string) => void
 }) {
-  const [open, setOpen] = useState(true)
-
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="px-4 py-2">
-      <div className="flex items-center justify-between">
-        <CollapsibleTrigger className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <ChevronRight
-            className={cn("size-3 transition-transform", open && "rotate-90")}
-          />
-          Assignments
-        </CollapsibleTrigger>
+    <div className="flex-1 overflow-y-auto h-full px-4 py-2">
+      <div className="flex justify-end">
         <Button
           variant="ghost"
           size="sm"
@@ -701,29 +423,25 @@ function AssignmentsSection({
           disabled={disabled}
         >
           <Plus className="size-3 mr-1" />
-          Add
+          Add Assignment
         </Button>
       </div>
-      <CollapsibleContent>
-        {assignments.length === 0 ? (
-          <p className="text-xs text-muted-foreground mt-1">
-            No assignments yet
-          </p>
-        ) : (
-          <div>
-            {assignments.map((assignment) => (
-              <AssignmentRow
-                key={assignment.id}
-                assignment={assignment}
-                disabled={disabled}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        )}
-      </CollapsibleContent>
-    </Collapsible>
+      {assignments.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No assignments yet</p>
+      ) : (
+        <div>
+          {assignments.map((assignment) => (
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              disabled={disabled}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -846,6 +564,7 @@ interface GroupRow {
 function GroupsList({
   groupSet,
   groups,
+  connection,
   kind,
   roster,
   disabled,
@@ -854,6 +573,7 @@ function GroupsList({
 }: {
   groupSet: GroupSet
   groups: Group[]
+  connection: GroupSetConnection | null
   kind: ReturnType<typeof getConnectionKind>
   roster: Roster | null
   disabled: boolean
@@ -948,38 +668,46 @@ function GroupsList({
 
   const hasEditableGroups = groups.some((g) => g.origin === "local")
 
+  const timestamp = connectionTimestamp(connection)
+  const note = systemTypeNote(connection)
+  const importFilename =
+    connection?.kind === "import" ? connection.source_filename : null
+  const isLms = kind === "canvas" || kind === "moodle"
+
   return (
     <div className="flex-1 overflow-y-auto px-4 py-2">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Groups
-        </span>
-        {isSetEditable && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-1.5 text-xs"
-            onClick={onCreateGroup}
-            disabled={disabled}
-          >
-            <Plus className="size-3 mr-1" />
-            Add
-          </Button>
-        )}
-      </div>
-
-      {groups.length === 0 ? (
-        <GroupsEmptyState kind={kind} />
-      ) : (
-        <>
-          {/* All non-local origins notice */}
-          {isSetEditable && !hasEditableGroups && (
-            <p className="text-xs text-muted-foreground">
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <GroupSetConnectionInfo
+            timestamp={timestamp}
+            importFilename={importFilename}
+            isLms={isLms}
+            note={note}
+          />
+          {isSetEditable && !hasEditableGroups && groups.length > 0 && (
+            <p className="mb-2 text-xs text-muted-foreground">
               All groups in this set are read-only (LMS or system). Add new
               groups or import from CSV for editable groups.
             </p>
           )}
-
+        </div>
+        {isSetEditable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-xs shrink-0"
+            onClick={onCreateGroup}
+            disabled={disabled}
+          >
+            <Plus className="size-3 mr-1" />
+            Add Group
+          </Button>
+        )}
+      </div>
+      {groups.length === 0 ? (
+        <GroupsEmptyState kind={kind} />
+      ) : (
+        <>
           {/* Sortable column headers */}
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground border-b pb-1 mb-1">
             {table.getHeaderGroups().map((headerGroup) =>

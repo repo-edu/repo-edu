@@ -13,7 +13,11 @@ import {
   selectSystemGroupSet,
   useProfileStore,
 } from "../../../stores/profileStore"
-import { type SidebarSelection, useUiStore } from "../../../stores/uiStore"
+import {
+  type GroupSetPanelTab,
+  type SidebarSelection,
+  useUiStore,
+} from "../../../stores/uiStore"
 import { GroupSetItem } from "./GroupSetItem"
 
 interface GroupsAssignmentsSidebarProps {
@@ -70,6 +74,7 @@ function buildGroupSetActions(
     setDeleteGroupSetTargetId: (id: string | null) => void
     setPreSelectedGroupSetId: (id: string | null) => void
     setNewAssignmentDialogOpen: (open: boolean) => void
+    setGroupSetPanelTab: (tab: GroupSetPanelTab) => void
   },
 ) {
   const kind = connection ? connection.kind : "local"
@@ -85,11 +90,12 @@ function buildGroupSetActions(
 
   return {
     onAddAssignment: withSelect(() => {
+      setters.setGroupSetPanelTab("assignments")
       setters.setPreSelectedGroupSetId(groupSetId)
       setters.setNewAssignmentDialogOpen(true)
     }),
-    onRename: isNameEditable
-      ? withSelect(() => setters.setRenameGroupSetTriggerId(groupSetId))
+    onStartRename: isNameEditable
+      ? () => setters.setRenameGroupSetTriggerId(groupSetId)
       : undefined,
     onSync: isLms
       ? withSelect(() => setters.setSyncGroupSetTriggerId(groupSetId))
@@ -109,19 +115,25 @@ function GroupSetList({
   rows,
   selection,
   activeItemId,
+  editingGroupSetId,
   busyGroupSetId,
   disabled,
   onSelect,
   onKeyDown,
+  onRenameSubmit,
+  onRenameCancel,
   actionSetters,
 }: {
   rows: GroupSetRowData[]
   selection: SidebarSelection
   activeItemId: string | null
+  editingGroupSetId: string | null
   busyGroupSetId: string | null
   disabled: boolean
   onSelect: (selection: SidebarSelection) => void
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
+  onRenameSubmit: (groupSetId: string, newName: string) => void
+  onRenameCancel: () => void
   actionSetters: {
     setRenameGroupSetTriggerId: (id: string | null) => void
     setSyncGroupSetTriggerId: (id: string | null) => void
@@ -131,6 +143,7 @@ function GroupSetList({
     setDeleteGroupSetTargetId: (id: string | null) => void
     setPreSelectedGroupSetId: (id: string | null) => void
     setNewAssignmentDialogOpen: (open: boolean) => void
+    setGroupSetPanelTab: (tab: GroupSetPanelTab) => void
   }
 }) {
   return (
@@ -148,6 +161,9 @@ function GroupSetList({
             () => onSelect({ kind: "group-set", id: groupSet.id }),
             actionSetters,
           )}
+          isEditing={editingGroupSetId === groupSet.id}
+          onRenameSubmit={(newName) => onRenameSubmit(groupSet.id, newName)}
+          onRenameCancel={onRenameCancel}
           disabled={disabled}
           isBusy={busyGroupSetId === groupSet.id}
           tabIndex={activeItemId === `group-set:${groupSet.id}` ? 0 : -1}
@@ -176,6 +192,7 @@ export function GroupsAssignmentsSidebar({
   const localSets = useProfileStore(selectLocalGroupSets)
   const allGroupSets = useProfileStore(selectGroupSets)
   const roster = useProfileStore((state) => state.document?.roster ?? null)
+  const renameGroupSet = useProfileStore((state) => state.renameGroupSet)
   const groupSetOperation = useUiStore((state) => state.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
   const busyGroupSetId = groupSetOperation?.groupSetId ?? null
@@ -204,6 +221,7 @@ export function GroupsAssignmentsSidebar({
   const setNewAssignmentDialogOpen = useUiStore(
     (state) => state.setNewAssignmentDialogOpen,
   )
+  const setGroupSetPanelTab = useUiStore((state) => state.setGroupSetPanelTab)
 
   const actionSetters = useMemo(
     () => ({
@@ -215,6 +233,7 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setPreSelectedGroupSetId,
       setNewAssignmentDialogOpen,
+      setGroupSetPanelTab,
     }),
     [
       setRenameGroupSetTriggerId,
@@ -225,8 +244,23 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setPreSelectedGroupSetId,
       setNewAssignmentDialogOpen,
+      setGroupSetPanelTab,
     ],
   )
+
+  const editingGroupSetId = useUiStore((state) => state.renameGroupSetTriggerId)
+
+  const handleRenameSubmit = useCallback(
+    (groupSetId: string, newName: string) => {
+      renameGroupSet(groupSetId, newName)
+      setRenameGroupSetTriggerId(null)
+    },
+    [renameGroupSet, setRenameGroupSetTriggerId],
+  )
+
+  const handleRenameCancel = useCallback(() => {
+    setRenameGroupSetTriggerId(null)
+  }, [setRenameGroupSetTriggerId])
 
   const sortedConnected = useMemo(
     () => [...connectedSets].sort((a, b) => a.name.localeCompare(b.name)),
@@ -375,10 +409,13 @@ export function GroupsAssignmentsSidebar({
             rows={systemRows}
             selection={selection}
             activeItemId={activeItemId}
+            editingGroupSetId={editingGroupSetId}
             busyGroupSetId={busyGroupSetId}
             disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            onRenameSubmit={handleRenameSubmit}
+            onRenameCancel={handleRenameCancel}
             actionSetters={actionSetters}
           />
         )}
@@ -409,10 +446,13 @@ export function GroupsAssignmentsSidebar({
             rows={connectedRows}
             selection={selection}
             activeItemId={activeItemId}
+            editingGroupSetId={editingGroupSetId}
             busyGroupSetId={busyGroupSetId}
             disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            onRenameSubmit={handleRenameSubmit}
+            onRenameCancel={handleRenameCancel}
             actionSetters={actionSetters}
           />
         )}
@@ -443,10 +483,13 @@ export function GroupsAssignmentsSidebar({
             rows={localRows}
             selection={selection}
             activeItemId={activeItemId}
+            editingGroupSetId={editingGroupSetId}
             busyGroupSetId={busyGroupSetId}
             disabled={isOperationActive}
             onSelect={onSelect}
             onKeyDown={handleKeyDown}
+            onRenameSubmit={handleRenameSubmit}
+            onRenameCancel={handleRenameCancel}
             actionSetters={actionSetters}
           />
         )}
