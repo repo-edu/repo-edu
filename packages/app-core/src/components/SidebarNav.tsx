@@ -66,10 +66,21 @@ export function SidebarNav<T extends SidebarNavItem>({
 }: SidebarNavProps<T>) {
   return (
     <div className={cn("flex flex-col h-full border-r", className)}>
-      <div className="flex items-center px-3 h-11 pb-3 border-b">
+      <div className="flex items-center justify-between px-3 h-11 pb-3 border-b">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {title}
         </span>
+        {addNew && (
+          <button
+            type="button"
+            onClick={addNew.onClick}
+            className="h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0 text-muted-foreground hover:bg-muted/50 transition-colors"
+            aria-label={addNew.label}
+            title={addNew.label}
+          >
+            <Plus className="size-3.5" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
@@ -144,22 +155,6 @@ export function SidebarNav<T extends SidebarNavItem>({
               </div>
             </li>
           ))}
-
-          {addNew && (
-            <li>
-              <button
-                type="button"
-                onClick={addNew.onClick}
-                className={cn(
-                  "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm",
-                  "hover:bg-muted transition-colors",
-                )}
-              >
-                <Plus className="size-4" />
-                <span>{addNew.label}</span>
-              </button>
-            </li>
-          )}
         </ul>
       </nav>
     </div>
