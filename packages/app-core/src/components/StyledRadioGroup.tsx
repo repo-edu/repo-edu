@@ -37,7 +37,6 @@ export function StyledRadioGroup({
           <RadioGroupItem
             value={option.value}
             id={`${name ?? "radio"}-${option.value}`}
-            className="border-muted-foreground/50"
           />
           <Label
             htmlFor={`${name ?? "radio"}-${option.value}`}

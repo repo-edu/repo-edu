@@ -439,12 +439,14 @@ input.password-input[type="password"][data-slot="input"] {
   background-color: var(--selection);
 }
 
-[data-slot="checkbox"] {
+[data-slot="checkbox"],
+[data-slot="radio-group-item"] {
   border-color: var(--border);
   background-color: var(--card);
 }
 
-[data-slot="checkbox"]:hover {
+[data-slot="checkbox"]:hover,
+[data-slot="radio-group-item"]:hover {
   border-color: var(--primary);
 }
 
@@ -452,6 +454,10 @@ input.password-input[type="password"][data-slot="input"] {
   background-color: var(--checkbox-checked);
   border-color: var(--checkbox-checked-border);
   color: var(--primary-foreground);
+}
+
+[data-slot="radio-group-item"][data-state="checked"] {
+  border-color: var(--primary);
 }
 
 [data-slot="card-content"] > * + * {
