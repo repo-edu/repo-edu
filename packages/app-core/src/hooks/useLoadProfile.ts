@@ -2,7 +2,7 @@
  * Load profile hook - loads profile document when profile changes.
  *
  * Uses the unified profileStore.load() which atomically loads both
- * settings and roster, resolves identity mode, and triggers validation.
+ * settings and roster and resolves identity mode.
  */
 
 import { useEffect, useRef } from "react"

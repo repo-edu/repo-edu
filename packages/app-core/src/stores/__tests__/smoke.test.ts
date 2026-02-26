@@ -149,6 +149,57 @@ describe("Store Smoke Tests", () => {
       )
     })
 
+    it("smoke: runChecks without roster clears issues and marks checks clean", async () => {
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: null,
+          resolvedIdentityMode: "username",
+        },
+        status: "loaded",
+      })
+
+      await useProfileStore.getState().runChecks()
+
+      const state = useProfileStore.getState()
+      expect(state.issueCards).toEqual([])
+      expect(state.checksStatus).toBe("ready")
+      expect(state.checksDirty).toBe(false)
+    })
+
+    it("smoke: roster mutation marks checks dirty", () => {
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: emptyRoster(),
+          resolvedIdentityMode: "username",
+        },
+        status: "loaded",
+        checksDirty: false,
+        checksStatus: "ready",
+      })
+
+      const member: RosterMember = {
+        id: generateMemberId(),
+        name: "Dirty Check Student",
+        email: "dirty@example.com",
+        student_number: null,
+        git_username: null,
+        git_username_status: "unknown",
+        status: "active",
+        lms_user_id: null,
+        enrollment_type: "student",
+        source: "local",
+      }
+
+      useProfileStore.getState().addMember(member)
+
+      const state = useProfileStore.getState()
+      expect(state.checksDirty).toBe(true)
+      expect(state.checksStatus).toBe("idle")
+      expect(state.issueCards).toEqual([])
+    })
+
     it("smoke: addMember creates roster and adds member", () => {
       useProfileStore.setState({
         document: {

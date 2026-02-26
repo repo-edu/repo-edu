@@ -20,11 +20,20 @@ export function IssuesSheet() {
   const setActiveTab = useUiStore((state) => state.setActiveTab)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const selectAssignment = useProfileStore((state) => state.selectAssignment)
+  const hasRoster = useProfileStore((state) => !!state.document?.roster)
 
-  const { issueCards, rosterInsights } = useIssues()
+  const {
+    issueCards,
+    rosterInsights,
+    checksStatus,
+    checksError,
+    checksDirty,
+    runChecks,
+  } = useIssues()
   const [rosterOpen, setRosterOpen] = useState(true)
 
   const totalIssues = issueCards.length
+  const isRunningChecks = checksStatus === "running"
 
   const navigateToGroupSet = (issue: IssueCard) => {
     setActiveTab("groups-assignments")
@@ -72,9 +81,29 @@ export function IssuesSheet() {
 
         <div className="mt-4 flex flex-col gap-5">
           <section className="space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Issues ({totalIssues})
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Issues ({totalIssues})
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!hasRoster || isRunningChecks}
+                onClick={() => void runChecks()}
+              >
+                {isRunningChecks ? "Running..." : "Run checks"}
+              </Button>
             </div>
+            {checksDirty && checksStatus !== "running" && (
+              <div className="text-xs text-muted-foreground">
+                Checks are out of date. Run checks to refresh issues.
+              </div>
+            )}
+            {checksStatus === "error" && checksError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {checksError}
+              </div>
+            )}
             {issueCards.length === 0 ? (
               <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
                 No issues detected.

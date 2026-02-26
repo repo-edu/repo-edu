@@ -31,6 +31,7 @@ import {
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { commands } from "../bindings/commands"
+import { buildIssueCards, type IssueCard } from "../utils/issues"
 import {
   generateAssignmentId,
   generateGroupId,
@@ -41,6 +42,7 @@ import { useConnectionsStore } from "./connectionsStore"
 import { useOutputStore } from "./outputStore"
 
 type DocumentStatus = "empty" | "loading" | "loaded" | "error"
+type ChecksStatus = "idle" | "running" | "ready" | "error"
 
 /**
  * Selection state for the assignment tab sidebar.
@@ -91,10 +93,13 @@ interface ProfileState {
   // System group sets readiness
   systemSetsReady: boolean
 
-  // Validation results (computed on changes, debounced)
+  // Diagnostics snapshot (updated only when runChecks is invoked)
   rosterValidation: ValidationResult | null
-  assignmentValidation: ValidationResult | null
   assignmentValidations: Record<AssignmentId, ValidationResult>
+  issueCards: IssueCard[]
+  checksStatus: ChecksStatus
+  checksError: string | null
+  checksDirty: boolean
 
   // Undo/Redo
   history: HistoryEntry[]
@@ -200,11 +205,8 @@ interface ProfileActions {
   // Internal helpers
   cleanupOrphanedGroups: () => void
 
-  // Validation (debounced, called after mutations)
-  validateRoster: () => Promise<void>
-  validateAssignment: () => Promise<void>
-  _triggerRosterValidation: () => void
-  _triggerAssignmentValidation: () => void
+  // Checks (manual, on-demand)
+  runChecks: () => Promise<void>
 
   // Resolved identity mode (recompute on git connection change)
   updateResolvedIdentityMode: () => void
@@ -283,15 +285,15 @@ const initialState: ProfileState = {
   assignmentSelection: null,
   systemSetsReady: false,
   rosterValidation: null,
-  assignmentValidation: null,
   assignmentValidations: {},
+  issueCards: [],
+  checksStatus: "idle",
+  checksError: null,
+  checksDirty: true,
   history: [],
   future: [],
 }
 
-// Debounce state (module-level to persist across renders)
-let rosterValidationTimeout: ReturnType<typeof setTimeout> | null = null
-let assignmentValidationTimeout: ReturnType<typeof setTimeout> | null = null
 let loadSequence = 0
 
 // Helper to resolve identity mode from current app settings
@@ -310,24 +312,19 @@ function resolveIdentityMode(
 
 export const useProfileStore = create<ProfileStore>()(
   immer((set, get) => {
-    // Debounced validation helpers
-    const scheduleRosterValidation = () => {
-      if (rosterValidationTimeout) clearTimeout(rosterValidationTimeout)
-      rosterValidationTimeout = setTimeout(() => {
-        get().validateRoster()
-      }, 200)
-    }
-
-    const scheduleAssignmentValidation = () => {
-      if (assignmentValidationTimeout) clearTimeout(assignmentValidationTimeout)
-      assignmentValidationTimeout = setTimeout(() => {
-        get().validateAssignment()
-      }, 200)
+    const markChecksDirty = (state: ProfileState) => {
+      state.rosterValidation = null
+      state.assignmentValidations = {}
+      state.issueCards = []
+      state.checksStatus = "idle"
+      state.checksError = null
+      state.checksDirty = true
     }
 
     const applyUndoState = (nextState: UndoState, entry?: HistoryEntry) => {
       set((state) => {
         state.document = nextState.document
+        markChecksDirty(state)
         if (entry) {
           state.history.push(entry)
           if (state.history.length > HISTORY_LIMIT) {
@@ -352,8 +349,6 @@ export const useProfileStore = create<ProfileStore>()(
       if (patches.length === 0) return
 
       applyUndoState(nextState, { patches, inversePatches, description })
-      scheduleRosterValidation()
-      scheduleAssignmentValidation()
     }
 
     const mutateRoster = (
@@ -371,6 +366,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.status = "loading"
           state.error = null
           state.warnings = []
+          markChecksDirty(state)
         })
 
         loadSequence += 1
@@ -416,9 +412,7 @@ export const useProfileStore = create<ProfileStore>()(
                 state.warnings = []
                 state.assignmentSelection = null
                 state.systemSetsReady = false
-                state.rosterValidation = null
-                state.assignmentValidation = null
-                state.assignmentValidations = {}
+                markChecksDirty(state)
                 state.history = []
                 state.future = []
               })
@@ -460,9 +454,7 @@ export const useProfileStore = create<ProfileStore>()(
               state.warnings = warnings
               state.assignmentSelection = null
               state.systemSetsReady = false
-              state.rosterValidation = null
-              state.assignmentValidation = null
-              state.assignmentValidations = {}
+              markChecksDirty(state)
               state.history = []
               state.future = []
             })
@@ -504,8 +496,7 @@ export const useProfileStore = create<ProfileStore>()(
             state.warnings = warnings
             state.assignmentSelection = computeDefaultSelection(roster)
             state.systemSetsReady = false
-            state.assignmentValidation = null
-            state.assignmentValidations = {}
+            markChecksDirty(state)
             state.history = []
             state.future = []
           })
@@ -520,7 +511,9 @@ export const useProfileStore = create<ProfileStore>()(
             }
           }
 
-          scheduleRosterValidation()
+          // Canonicalize system group sets at load time so issue counts do not
+          // depend on whether the Groups & Assignments tab was opened.
+          await get().ensureSystemGroupSets()
 
           return {
             ok: true,
@@ -591,8 +584,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.status = "loaded"
           state.assignmentSelection = computeDefaultSelection(document.roster)
           state.systemSetsReady = false
-          state.assignmentValidation = null
-          state.assignmentValidations = {}
+          markChecksDirty(state)
           state.history = []
           state.future = []
         }),
@@ -605,9 +597,7 @@ export const useProfileStore = create<ProfileStore>()(
           state.warnings = []
           state.assignmentSelection = null
           state.systemSetsReady = false
-          state.rosterValidation = null
-          state.assignmentValidation = null
-          state.assignmentValidations = {}
+          markChecksDirty(state)
           state.history = []
           state.future = []
         }),
@@ -632,6 +622,7 @@ export const useProfileStore = create<ProfileStore>()(
           if (state.document) {
             state.document.settings.git_connection = name
             state.document.resolvedIdentityMode = resolveIdentityMode(name)
+            markChecksDirty(state)
           }
         }),
 
@@ -832,25 +823,14 @@ export const useProfileStore = create<ProfileStore>()(
       setAssignmentSelection: (selection) => {
         set((state) => {
           state.assignmentSelection = selection
-          if (selection?.mode === "assignment") {
-            state.assignmentValidation =
-              state.assignmentValidations[selection.id] ?? null
-          } else {
-            state.assignmentValidation = null
-          }
         })
-        scheduleAssignmentValidation()
       },
 
       /** @deprecated Use setAssignmentSelection instead */
       selectAssignment: (id) => {
         set((state) => {
           state.assignmentSelection = id ? { mode: "assignment", id } : null
-          state.assignmentValidation = id
-            ? (state.assignmentValidations[id] ?? null)
-            : null
         })
-        scheduleAssignmentValidation()
       },
 
       // Group CRUD (top-level)
@@ -1177,9 +1157,9 @@ export const useProfileStore = create<ProfileStore>()(
           } else {
             state.assignmentSelection = computeDefaultSelection(roster)
           }
-          state.assignmentValidation = null
-          state.assignmentValidations = {}
+          markChecksDirty(state)
         })
+        void get().ensureSystemGroupSets()
       },
 
       normalizeRoster: () => {
@@ -1195,44 +1175,58 @@ export const useProfileStore = create<ProfileStore>()(
 
       ensureSystemGroupSets: async () => {
         const { document } = get()
-        if (!document?.roster) return
+        const roster = document?.roster
+        if (!roster) return
 
         try {
-          const result = await commands.ensureSystemGroupSets(document.roster)
+          const result = await commands.ensureSystemGroupSets(roster)
           if (result.status !== "ok") return
 
           const patch = result.data as SystemGroupSetEnsureResult
+          let applied = false
+          const latestRoster = get().document?.roster
+          if (!latestRoster || latestRoster !== roster) return
 
           // Apply the system group set ensure result directly (no undo entry)
           set((state) => {
-            const roster = state.document?.roster
-            if (!roster) return
+            const currentRoster = state.document?.roster
+            if (!currentRoster) return
 
             // Upsert groups
-            const existingGroupIds = new Set(roster.groups.map((g) => g.id))
+            const existingGroupIds = new Set(
+              currentRoster.groups.map((g) => g.id),
+            )
             for (const group of patch.groups_upserted) {
               if (existingGroupIds.has(group.id)) {
-                const idx = roster.groups.findIndex((g) => g.id === group.id)
-                if (idx >= 0) roster.groups[idx] = group
+                const idx = currentRoster.groups.findIndex(
+                  (g) => g.id === group.id,
+                )
+                if (idx >= 0) currentRoster.groups[idx] = group
               } else {
-                roster.groups.push(group)
+                currentRoster.groups.push(group)
               }
             }
 
             // Delete groups
             if (patch.deleted_group_ids.length > 0) {
               const deleteSet = new Set(patch.deleted_group_ids)
-              roster.groups = roster.groups.filter((g) => !deleteSet.has(g.id))
+              currentRoster.groups = currentRoster.groups.filter(
+                (g) => !deleteSet.has(g.id),
+              )
             }
 
             // Upsert group sets
-            const existingSetIds = new Set(roster.group_sets.map((gs) => gs.id))
+            const existingSetIds = new Set(
+              currentRoster.group_sets.map((gs) => gs.id),
+            )
             for (const gs of patch.group_sets) {
               if (existingSetIds.has(gs.id)) {
-                const idx = roster.group_sets.findIndex((s) => s.id === gs.id)
-                if (idx >= 0) roster.group_sets[idx] = gs
+                const idx = currentRoster.group_sets.findIndex(
+                  (s) => s.id === gs.id,
+                )
+                if (idx >= 0) currentRoster.group_sets[idx] = gs
               } else {
-                roster.group_sets.push(gs)
+                currentRoster.group_sets.push(gs)
               }
             }
 
@@ -1249,7 +1243,7 @@ export const useProfileStore = create<ProfileStore>()(
               }
             }
 
-            for (const gs of roster.group_sets) {
+            for (const gs of currentRoster.group_sets) {
               const connection = gs.connection
               if (
                 connection?.kind === "system" &&
@@ -1261,29 +1255,36 @@ export const useProfileStore = create<ProfileStore>()(
 
             if (preferredSystemSetIdByType.size > 0) {
               const seenSystemTypes = new Set<"individual_students" | "staff">()
-              roster.group_sets = roster.group_sets.filter((gs) => {
-                const connection = gs.connection
-                if (connection?.kind !== "system") return true
+              currentRoster.group_sets = currentRoster.group_sets.filter(
+                (gs) => {
+                  const connection = gs.connection
+                  if (connection?.kind !== "system") return true
 
-                const preferredId = preferredSystemSetIdByType.get(
-                  connection.system_type,
-                )
-                if (preferredId && gs.id !== preferredId) return false
-                if (seenSystemTypes.has(connection.system_type)) return false
-                seenSystemTypes.add(connection.system_type)
-                return true
-              })
+                  const preferredId = preferredSystemSetIdByType.get(
+                    connection.system_type,
+                  )
+                  if (preferredId && gs.id !== preferredId) return false
+                  if (seenSystemTypes.has(connection.system_type)) return false
+                  seenSystemTypes.add(connection.system_type)
+                  return true
+                },
+              )
 
               const referencedGroupIds = new Set(
-                roster.group_sets.flatMap((groupSet) => groupSet.group_ids),
+                currentRoster.group_sets.flatMap(
+                  (groupSet) => groupSet.group_ids,
+                ),
               )
-              roster.groups = roster.groups.filter((group) =>
+              currentRoster.groups = currentRoster.groups.filter((group) =>
                 referencedGroupIds.has(group.id),
               )
             }
 
             state.systemSetsReady = true
+            markChecksDirty(state)
+            applied = true
           })
+          if (!applied) return
         } catch (err) {
           console.error("Failed to ensure system group sets:", err)
         }
@@ -1302,78 +1303,77 @@ export const useProfileStore = create<ProfileStore>()(
         })
       },
 
-      // Validation
-      validateRoster: async () => {
-        const { document } = get()
-        if (!document?.roster) {
+      runChecks: async () => {
+        const documentSnapshot = get().document
+        const roster = documentSnapshot?.roster
+
+        set((state) => {
+          state.checksStatus = "running"
+          state.checksError = null
+        })
+
+        if (!documentSnapshot || !roster) {
+          if (get().document !== documentSnapshot) return
           set((state) => {
             state.rosterValidation = null
-          })
-          return
-        }
-        try {
-          const result = await commands.validateRoster(document.roster)
-          if (result.status === "ok") {
-            set((state) => {
-              state.rosterValidation = result.data
-            })
-          }
-        } catch (err) {
-          console.error("Roster validation error:", err)
-        }
-      },
-
-      validateAssignment: async () => {
-        const { document, assignmentSelection } = get()
-        const roster = document?.roster
-        if (!roster) {
-          set((state) => {
-            state.assignmentValidation = null
             state.assignmentValidations = {}
+            state.issueCards = []
+            state.checksStatus = "ready"
+            state.checksError = null
+            state.checksDirty = false
           })
           return
         }
+
         try {
-          const validations = await Promise.all(
+          const rosterValidationResult = await commands.validateRoster(roster)
+          if (rosterValidationResult.status !== "ok") {
+            throw new Error(rosterValidationResult.error.message)
+          }
+
+          const assignmentEntries = await Promise.all(
             roster.assignments.map(async (assignment) => {
               const result = await commands.validateAssignment(
-                document.resolvedIdentityMode,
+                documentSnapshot.resolvedIdentityMode,
                 roster,
                 assignment.id,
               )
-              if (result.status === "ok") {
-                return [assignment.id, result.data] as const
+              if (result.status !== "ok") {
+                throw new Error(result.error.message)
               }
-              return null
+              return [assignment.id, result.data] as const
             }),
           )
-          const map: Record<AssignmentId, ValidationResult> = {}
-          for (const entry of validations) {
-            if (entry) {
-              map[entry[0]] = entry[1]
-            }
+
+          const assignmentValidations: Record<AssignmentId, ValidationResult> =
+            {}
+          for (const [assignmentId, validation] of assignmentEntries) {
+            assignmentValidations[assignmentId] = validation
           }
-          const selectedAssignmentId =
-            assignmentSelection?.mode === "assignment"
-              ? assignmentSelection.id
-              : null
+          const issueCards = buildIssueCards(
+            roster,
+            rosterValidationResult.data,
+            assignmentValidations,
+          )
+
+          if (get().document !== documentSnapshot) return
           set((state) => {
-            state.assignmentValidations = map
-            state.assignmentValidation = selectedAssignmentId
-              ? (map[selectedAssignmentId] ?? null)
-              : null
+            state.rosterValidation = rosterValidationResult.data
+            state.assignmentValidations = assignmentValidations
+            state.issueCards = issueCards
+            state.checksStatus = "ready"
+            state.checksError = null
+            state.checksDirty = false
           })
         } catch (err) {
-          console.error("Assignment validation error:", err)
+          const message = err instanceof Error ? err.message : String(err)
+          if (get().document !== documentSnapshot) return
+          set((state) => {
+            state.checksStatus = "error"
+            state.checksError = message
+            state.checksDirty = true
+          })
         }
-      },
-
-      _triggerRosterValidation: () => {
-        scheduleRosterValidation()
-      },
-
-      _triggerAssignmentValidation: () => {
-        scheduleAssignmentValidation()
       },
 
       updateResolvedIdentityMode: () =>
@@ -1382,6 +1382,7 @@ export const useProfileStore = create<ProfileStore>()(
             state.document.resolvedIdentityMode = resolveIdentityMode(
               state.document.settings.git_connection ?? null,
             )
+            markChecksDirty(state)
           }
         }),
 
@@ -1396,10 +1397,9 @@ export const useProfileStore = create<ProfileStore>()(
           state.document = nextState.document
           state.history = history.slice(0, -1)
           state.future = [entry, ...future]
+          markChecksDirty(state)
         })
 
-        scheduleRosterValidation()
-        scheduleAssignmentValidation()
         return entry
       },
 
@@ -1414,10 +1414,9 @@ export const useProfileStore = create<ProfileStore>()(
           state.document = nextState.document
           state.history = [...history, entry].slice(-HISTORY_LIMIT)
           state.future = future.slice(1)
+          markChecksDirty(state)
         })
 
-        scheduleRosterValidation()
-        scheduleAssignmentValidation()
         return entry
       },
 
@@ -1600,10 +1599,17 @@ export const selectProfileError = (state: ProfileStore) => state.error
 export const selectProfileWarnings = (state: ProfileStore) => state.warnings
 export const selectRosterValidation = (state: ProfileStore) =>
   state.rosterValidation
-export const selectAssignmentValidation = (state: ProfileStore) =>
-  state.assignmentValidation
+export const selectAssignmentValidation = (state: ProfileStore) => {
+  const selection = state.assignmentSelection
+  if (selection?.mode !== "assignment") return null
+  return state.assignmentValidations[selection.id] ?? null
+}
 export const selectAssignmentValidations = (state: ProfileStore) =>
   state.assignmentValidations
+export const selectIssueCards = (state: ProfileStore) => state.issueCards
+export const selectChecksStatus = (state: ProfileStore) => state.checksStatus
+export const selectChecksError = (state: ProfileStore) => state.checksError
+export const selectChecksDirty = (state: ProfileStore) => state.checksDirty
 export const selectResolvedIdentityMode = (state: ProfileStore) =>
   state.document?.resolvedIdentityMode ?? "username"
 export const selectCanUndo = (state: ProfileStore) => state.history.length > 0

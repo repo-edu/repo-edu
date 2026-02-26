@@ -1,9 +1,5 @@
 import { Button, EmptyState } from "@repo-edu/ui"
-import { useCallback, useEffect, useRef } from "react"
-import {
-  selectSystemSetsReady,
-  useProfileStore,
-} from "../../../stores/profileStore"
+import { useCallback, useRef } from "react"
 import { useUiStore } from "../../../stores/uiStore"
 import { GroupsAssignmentsPanel } from "./GroupsAssignmentsPanel"
 import { GroupsAssignmentsSidebar } from "./GroupsAssignmentsSidebar"
@@ -32,18 +28,6 @@ export function GroupsAssignmentsTab() {
   const setImportGroupSetDialogOpen = useUiStore(
     (state) => state.setImportGroupSetDialogOpen,
   )
-  const systemSetsReady = useProfileStore(selectSystemSetsReady)
-  const ensureSystemGroupSets = useProfileStore(
-    (state) => state.ensureSystemGroupSets,
-  )
-  const roster = useProfileStore((state) => state.document?.roster ?? null)
-
-  // Ensure system group sets on mount / roster change
-  useEffect(() => {
-    if (roster && !systemSetsReady) {
-      ensureSystemGroupSets()
-    }
-  }, [roster, systemSetsReady, ensureSystemGroupSets])
 
   const handleCreateLocalGroupSet = useCallback(() => {
     setNewLocalGroupSetDialogOpen(true)

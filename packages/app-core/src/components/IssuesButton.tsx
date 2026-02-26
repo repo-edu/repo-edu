@@ -9,7 +9,7 @@ import { useUiStore } from "../stores/uiStore"
 
 export function IssuesButton() {
   const setIssuesPanelOpen = useUiStore((state) => state.setIssuesPanelOpen)
-  const { issueCards } = useIssues()
+  const { issueCards, checksDirty } = useIssues()
   const issueCount = issueCards.length
 
   return (
@@ -27,9 +27,14 @@ export function IssuesButton() {
               {issueCount}
             </span>
           )}
+          {checksDirty && issueCount === 0 && (
+            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-muted-foreground" />
+          )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Issues</TooltipContent>
+      <TooltipContent>
+        {checksDirty ? "Issues (checks out of date)" : "Issues"}
+      </TooltipContent>
     </Tooltip>
   )
 }
