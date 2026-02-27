@@ -3,16 +3,6 @@
 // To modify types, edit the schema files and run `pnpm gen:bindings`
 
 /**
- * Group that references a student
- */
-export interface AffectedGroup {
-  assignment_id: AssignmentId
-  assignment_name: string
-  group_id: string
-  group_name: string
-}
-
-/**
  * Unified error type for all Tauri commands
  */
 export interface AppError {
@@ -752,6 +742,10 @@ export interface RosterMember {
   git_username?: string | null
   git_username_status: GitUsernameStatus
   status: MemberStatus
+  /**
+   * Last-imported LMS enrollment status, used as revert target
+   */
+  lms_status?: MemberStatus | null
   lms_user_id?: string | null
   enrollment_type: EnrollmentType
   /**
@@ -835,23 +829,6 @@ export type StudentStatus = "active" | "dropped" | "incomplete"
  * Strongly-typed student ID
  */
 export type StudentId = string
-
-/**
- * Check result for removing a student
- */
-export interface StudentRemovalCheck {
-  student_id: StudentId
-  student_name: string
-  affected_groups: AffectedGroup[]
-}
-
-/**
- * Result of removing a student
- */
-export interface StudentRemovalResult {
-  removed_from_roster: boolean
-  removed_from_groups: number
-}
 
 /**
  * Bootstrap payload for ensure_system_group_sets

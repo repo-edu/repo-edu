@@ -41,9 +41,7 @@ import type {
   RepoPreflightResult,
   Result,
   Roster,
-  RosterMemberId,
   SettingsLoadResult,
-  StudentRemovalCheck,
   SystemGroupSetEnsureResult,
   UsernameVerificationScope,
   ValidationResult,
@@ -488,16 +486,6 @@ export const commands = {
    */
   clearRoster(profile: string): Promise<Result<null, AppError>> {
     return getBackend().clearRoster(profile)
-  },
-  /**
-   * Check whether a student removal impacts any groups
-   */
-  checkStudentRemoval(
-    profile: string,
-    roster: Roster,
-    studentId: RosterMemberId,
-  ): Promise<Result<StudentRemovalCheck, AppError>> {
-    return getBackend().checkStudentRemoval(profile, roster, studentId)
   },
   /**
    * Import git usernames from CSV

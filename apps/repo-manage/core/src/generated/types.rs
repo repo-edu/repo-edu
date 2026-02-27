@@ -8,14 +8,6 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AffectedGroup {
-  pub assignment_id: AssignmentId,
-  pub assignment_name: String,
-  pub group_id: String,
-  pub group_name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppError {
   pub message: String,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -572,6 +564,7 @@ pub struct RosterMember {
   pub git_username: Option<String>,
   pub git_username_status: GitUsernameStatus,
   pub status: MemberStatus,
+  pub lms_status: Option<MemberStatus>,
   pub lms_user_id: Option<String>,
   pub enrollment_type: EnrollmentType,
   pub enrollment_display: Option<String>,
@@ -640,19 +633,6 @@ pub enum StudentStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct StudentId(pub String);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudentRemovalCheck {
-  pub student_id: StudentId,
-  pub student_name: String,
-  pub affected_groups: Vec<AffectedGroup>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudentRemovalResult {
-  pub removed_from_roster: bool,
-  pub removed_from_groups: i64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemGroupSetEnsureResult {

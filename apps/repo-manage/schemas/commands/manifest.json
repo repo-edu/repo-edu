@@ -673,25 +673,6 @@
       "output": "()",
       "error": "AppError"
     },
-    "check_student_removal": {
-      "description": "Check whether a student removal impacts any groups",
-      "input": [
-        {
-          "name": "profile",
-          "type": "String"
-        },
-        {
-          "name": "roster",
-          "type": "Roster"
-        },
-        {
-          "name": "student_id",
-          "type": "RosterMemberId"
-        }
-      ],
-      "output": "StudentRemovalCheck",
-      "error": "AppError"
-    },
     "import_git_usernames": {
       "description": "Import git usernames from CSV",
       "input": [

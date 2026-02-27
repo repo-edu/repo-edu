@@ -42,9 +42,7 @@ import type {
   RepoPreflightResult,
   Result,
   Roster,
-  RosterMemberId,
   SettingsLoadResult,
-  StudentRemovalCheck,
   SystemGroupSetEnsureResult,
   UsernameVerificationScope,
   ValidationResult,
@@ -455,15 +453,6 @@ export interface BackendAPI {
    * Clear roster data for a profile
    */
   clearRoster(profile: string): Promise<Result<null, AppError>>
-
-  /**
-   * Check whether a student removal impacts any groups
-   */
-  checkStudentRemoval(
-    profile: string,
-    roster: Roster,
-    studentId: RosterMemberId,
-  ): Promise<Result<StudentRemovalCheck, AppError>>
 
   /**
    * Import git usernames from CSV

@@ -27,6 +27,12 @@
       "$ref": "./MemberStatus.schema.json",
       "default": "active"
     },
+    "lms_status": {
+      "anyOf": [{ "$ref": "./MemberStatus.schema.json" }, { "type": "null" }],
+      "tsType": "MemberStatus | null",
+      "x-rust": { "type": "MemberStatus" },
+      "description": "Last-imported LMS enrollment status, used as revert target"
+    },
     "lms_user_id": {
       "anyOf": [{ "type": "string" }, { "type": "null" }]
     },

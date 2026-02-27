@@ -48,9 +48,7 @@ import type {
   RepoPreflightResult,
   Result,
   Roster,
-  RosterMemberId,
   SettingsLoadResult,
-  StudentRemovalCheck,
   SystemGroupSetEnsureResult,
   UsernameVerificationScope,
   ValidationResult,
@@ -1022,29 +1020,6 @@ export class TauriBackend implements BackendAPI {
       return {
         status: "ok",
         data: await TAURI_INVOKE("clear_roster", { profile }),
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e
-      return { status: "error", error: toAppError(e) }
-    }
-  }
-
-  /**
-   * Check whether a student removal impacts any groups
-   */
-  async checkStudentRemoval(
-    profile: string,
-    roster: Roster,
-    studentId: RosterMemberId,
-  ): Promise<Result<StudentRemovalCheck, AppError>> {
-    try {
-      return {
-        status: "ok",
-        data: await TAURI_INVOKE("check_student_removal", {
-          profile,
-          roster,
-          studentId,
-        }),
       }
     } catch (e) {
       if (e instanceof Error) throw e

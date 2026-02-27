@@ -2,10 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "types": [
     {
-      "name": "AffectedGroup",
-      "path": "./AffectedGroup.schema.json"
-    },
-    {
       "name": "AppError",
       "path": "./AppError.schema.json"
     },
@@ -284,14 +280,6 @@
     {
       "name": "StudentId",
       "path": "./StudentId.schema.json"
-    },
-    {
-      "name": "StudentRemovalCheck",
-      "path": "./StudentRemovalCheck.schema.json"
-    },
-    {
-      "name": "StudentRemovalResult",
-      "path": "./StudentRemovalResult.schema.json"
     },
     {
       "name": "SystemGroupSetEnsureResult",
