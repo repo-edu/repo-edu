@@ -113,15 +113,17 @@ The `redu` binary is at:
 
 ### Regenerating Type Bindings
 
-After modifying JSON Schemas:
+After modifying JSON Schemas or the command manifest:
 
 ```bash
 pnpm gen:bindings
+pnpm check
 ```
 
 This regenerates five files from the schemas. See
 [Architecture](./architecture.md#type-safety-pipeline) for the full list. Never edit generated
-files directly.
+files directly. For schema authoring rules, TypeScript overrides, and Rust-specific generation
+details, see [Bindings Generation](./bindings-generation.md).
 
 ### Testing
 

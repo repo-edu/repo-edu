@@ -194,6 +194,9 @@ compile.
   - `apps/repo-manage/src/bindings/tauri.ts` (TauriBackend)
   - `apps/repo-manage/core/src/generated/types.rs` (Rust DTOs)
 
+See [Bindings Generation](./bindings-generation.md) for the operational contract, schema authoring
+rules, and generator-specific edge cases.
+
 ---
 
 ## Unified Profile Store with Immer

@@ -232,6 +232,9 @@ After changing schemas:
 pnpm gen:bindings
 ```
 
+For the schema authoring rules, generator-specific extensions, and known edge cases, see
+[Bindings Generation](./bindings-generation.md).
+
 ### State Management
 
 - **Zustand stores** — UI state, form values, loading flags

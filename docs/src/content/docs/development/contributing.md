@@ -113,14 +113,17 @@ cargo clippy
 
 ### Type Bindings
 
-After changing JSON Schemas:
+After changing JSON Schemas or the command manifest:
 
 ```bash
 pnpm gen:bindings
+pnpm check
 ```
 
 This regenerates five files from the schemas (see [Architecture](./architecture.md#type-safety-pipeline)
-for the full list). Never edit generated files directly.
+for the full list). Never edit generated files directly. Review
+[Bindings Generation](./bindings-generation.md) before changing composed or generator-specific
+schema shapes.
 
 ## Testing
 
@@ -195,7 +198,7 @@ refactor: extract platform verification logic
 
 - [ ] Tests pass (`pnpm validate`)
 - [ ] Code is formatted (`pnpm fmt`)
-- [ ] Bindings regenerated if needed (`pnpm gen:bindings`)
+- [ ] Bindings regenerated and validated if schemas or command manifest changed (`pnpm gen:bindings`, `pnpm check`)
 - [ ] Documentation updated if needed
 
 ### PR Description

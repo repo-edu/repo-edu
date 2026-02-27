@@ -50,6 +50,7 @@ export default defineConfig({
             label: "Development",
             items: [
             { label: "Architecture", slug: "development/architecture" },
+            { label: "Bindings Generation", slug: "development/bindings-generation" },
             { label: "Data Model", slug: "development/data-model" },
             { label: "Command Architecture", slug: "development/command-architecture" },
             { label: "Building", slug: "development/building" },
