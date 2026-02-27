@@ -34,29 +34,13 @@ pub const ORIGIN_LOCAL: &str = "local";
 /// This is the single public entrypoint for system set management. It:
 /// 1. Creates/repairs system group sets (Individual Students + Staff)
 /// 2. Syncs system groups with roster membership
-/// 3. Cleans up stale member IDs from all groups
+///
+/// Non-system groups preserve all member IDs (including non-active members).
+/// Consumers filter to active members at display/operation time.
 ///
 /// Safe to call on every profile load and after roster sync/import.
 pub fn ensure_system_group_sets(roster: &mut Roster) -> SystemGroupSetEnsureResult {
-    let mut result = SystemGroupSetEnsureResult {
-        group_sets: Vec::new(),
-        groups_upserted: Vec::new(),
-        deleted_group_ids: Vec::new(),
-    };
-
-    // Phase 1: Ensure system sets exist and sync system groups
-    let phase1_result = ensure_system_sets_internal(roster);
-    result.group_sets = phase1_result.group_sets;
-    result.groups_upserted.extend(phase1_result.groups_upserted);
-    result
-        .deleted_group_ids
-        .extend(phase1_result.deleted_group_ids);
-
-    // Phase 2: Clean up stale memberships in all groups
-    let phase2_modified = cleanup_stale_memberships(roster);
-    result.groups_upserted.extend(phase2_modified);
-
-    result
+    ensure_system_sets_internal(roster)
 }
 
 /// Internal Phase 1: Create and repair system group sets.
@@ -276,43 +260,6 @@ fn ensure_staff_set(roster: &mut Roster) -> (GroupSet, Vec<Group>, Vec<String>) 
     )
 }
 
-/// Internal Phase 2: Remove stale member IDs from all groups.
-///
-/// Removes member IDs from all groups when:
-/// - The member no longer exists in the roster (deleted)
-/// - The member has status != "active" (dropped or incomplete)
-fn cleanup_stale_memberships(roster: &mut Roster) -> Vec<Group> {
-    let mut modified = Vec::new();
-
-    // Build set of valid (active) member IDs
-    let valid_member_ids: HashSet<String> = roster
-        .students
-        .iter()
-        .chain(roster.staff.iter())
-        .filter(|m| m.status == MemberStatus::Active)
-        .map(|m| m.id.0.clone())
-        .collect();
-
-    // Clean up each non-system group
-    for group in &mut roster.groups {
-        // Skip system groups - they're already handled by Phase 1
-        if group.origin == ORIGIN_SYSTEM {
-            continue;
-        }
-
-        let original_len = group.member_ids.len();
-        group
-            .member_ids
-            .retain(|id| valid_member_ids.contains(&id.0));
-
-        if group.member_ids.len() != original_len {
-            modified.push(group.clone());
-        }
-    }
-
-    modified
-}
-
 /// Check if a group set is a system set with the specified type.
 fn is_system_set(group_set: &GroupSet, system_type: &str) -> bool {
     matches!(
@@ -356,6 +303,7 @@ mod tests {
             git_username: None,
             git_username_status: GitUsernameStatus::Unknown,
             status: MemberStatus::Active,
+            lms_status: None,
             lms_user_id: None,
             enrollment_type: EnrollmentType::Student,
             enrollment_display: None,
@@ -444,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_stale_memberships() {
+    fn test_preserves_dropped_members_in_non_system_groups() {
         let mut roster = empty_roster();
         let alice = make_student("Alice Smith");
         let mut bob = make_student("Bob Jones");
@@ -471,14 +419,15 @@ mod tests {
 
         ensure_system_group_sets(&mut roster);
 
-        // The local group should now only have Alice
+        // The local group should still have both members (dropped members are preserved)
         let test_group = roster
             .groups
             .iter()
             .find(|g| g.name == "test-group")
             .unwrap();
-        assert_eq!(test_group.member_ids.len(), 1);
-        assert_eq!(test_group.member_ids[0].0, alice.id.0);
+        assert_eq!(test_group.member_ids.len(), 2);
+        assert!(test_group.member_ids.contains(&alice.id));
+        assert!(test_group.member_ids.contains(&bob.id));
     }
 
     #[test]
@@ -498,10 +447,10 @@ mod tests {
     }
 
     #[test]
-    fn test_removes_dropped_member_from_all_group_origins() {
+    fn test_preserves_dropped_member_in_all_group_origins() {
         let mut roster = empty_roster();
         let alice = make_student("Alice Smith");
-        let mut bob = make_student("Bob Jones");
+        let bob = make_student("Bob Jones");
         let staff = make_staff("Prof Smith");
 
         // First ensure creates system sets with all active members
@@ -542,30 +491,39 @@ mod tests {
                 s.status = MemberStatus::Dropped;
             }
         });
-        bob.status = MemberStatus::Dropped;
 
         ensure_system_group_sets(&mut roster);
 
-        // Bob should be removed from LMS-origin group
+        // Bob should be preserved in LMS-origin group (non-system groups keep all member_ids)
         let lms_group = roster.groups.iter().find(|g| g.id == lms_gid).unwrap();
         assert!(
-            !lms_group.member_ids.contains(&bob.id),
-            "dropped member removed from LMS group"
+            lms_group.member_ids.contains(&bob.id),
+            "dropped member preserved in LMS group"
         );
         assert!(
             lms_group.member_ids.contains(&alice.id),
             "active member retained in LMS group"
         );
 
-        // Bob should be removed from local-origin group
+        // Bob should be preserved in local-origin group
         let local_group = roster.groups.iter().find(|g| g.id == local_gid).unwrap();
         assert!(
-            !local_group.member_ids.contains(&bob.id),
-            "dropped member removed from local group"
+            local_group.member_ids.contains(&bob.id),
+            "dropped member preserved in local group"
         );
         assert!(
             local_group.member_ids.contains(&staff.id),
             "active staff retained in local group"
         );
+
+        // But Bob's individual student group should be removed (system groups DO filter)
+        let indiv_set = find_system_set(&roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS).unwrap();
+        for group_id in &indiv_set.group_ids {
+            let group = roster.groups.iter().find(|g| &g.id == group_id).unwrap();
+            assert!(
+                !group.member_ids.contains(&bob.id),
+                "dropped member not in system individual student groups"
+            );
+        }
     }
 }

@@ -506,6 +506,7 @@ mod tests {
             git_username: None,
             git_username_status: GitUsernameStatus::Unknown,
             status: MemberStatus::Active,
+            lms_status: None,
             lms_user_id: None,
             enrollment_type: EnrollmentType::Student,
             enrollment_display: None,

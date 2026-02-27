@@ -1,7 +1,9 @@
 use crate::error::{PlatformError, Result};
 use crate::generated::types::GitIdentityMode;
 use crate::roster::resolution::resolve_assignment_groups;
-use crate::roster::{AssignmentId, EnrollmentType, MemberStatus, Roster, RosterMemberId};
+use crate::roster::{
+    active_member_ids, AssignmentId, EnrollmentType, MemberStatus, Roster, RosterMemberId,
+};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -38,7 +40,7 @@ pub fn export_teams(
     let mut teams = Vec::new();
     for group in &groups {
         let mut members = Vec::new();
-        for member_id in &group.member_ids {
+        for member_id in &active_member_ids(roster, group) {
             if let Some(member) = member_map.get(member_id.as_str()) {
                 match identity_mode {
                     GitIdentityMode::Email => {
@@ -119,7 +121,7 @@ pub fn export_assignment_students(
     let groups = resolve_assignment_groups(roster, assignment);
     let mut member_groups: HashMap<RosterMemberId, Vec<String>> = HashMap::new();
     for group in &groups {
-        for member_id in &group.member_ids {
+        for member_id in &active_member_ids(roster, group) {
             member_groups
                 .entry(member_id.clone())
                 .or_default()
@@ -187,7 +189,7 @@ pub fn export_groups_for_edit(
     ]);
 
     for group in &groups {
-        for member_id in &group.member_ids {
+        for member_id in &active_member_ids(roster, group) {
             let member = member_map.get(member_id.as_str()).ok_or_else(|| {
                 PlatformError::Other(format!("Unknown member ID in group: {}", member_id))
             })?;

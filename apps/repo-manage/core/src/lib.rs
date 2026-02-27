@@ -81,8 +81,9 @@ pub use generated::types::{
 
 // Roster module re-exports
 pub use roster::{
-    ensure_system_group_sets, filter_by_pattern, generate_group_name, generate_unique_group_name,
-    preview_group_selection, resolve_assignment_groups, selection_mode_all, selection_mode_pattern,
+    active_member_ids, ensure_system_group_sets, filter_by_pattern, generate_group_name,
+    generate_unique_group_name, preview_group_selection, resolve_assignment_groups,
+    selection_mode_all, selection_mode_pattern,
     validate_glob_pattern as validate_simple_glob_pattern, SimpleGlob, ORIGIN_LMS, ORIGIN_LOCAL,
     ORIGIN_SYSTEM, SYSTEM_TYPE_INDIVIDUAL_STUDENTS, SYSTEM_TYPE_STAFF,
 };

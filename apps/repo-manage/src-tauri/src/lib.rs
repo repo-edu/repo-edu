@@ -153,7 +153,6 @@ pub fn run() {
             // Roster commands
             commands::roster::get_roster,
             commands::roster::clear_roster,
-            commands::roster::check_student_removal,
             commands::roster::import_git_usernames,
             commands::roster::verify_git_usernames,
             commands::roster::export_teams,

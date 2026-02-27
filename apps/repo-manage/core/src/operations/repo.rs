@@ -1,6 +1,7 @@
 use crate::platform::{Platform, PlatformAPI};
 use crate::roster::{
-    compute_repo_name, resolve_assignment_groups, Assignment, AssignmentId, Group, Roster,
+    active_member_ids, compute_repo_name, resolve_assignment_groups, Assignment, AssignmentId,
+    Group, Roster,
 };
 use crate::{
     CloneConfig, CreateConfig, DeleteConfig, DirectoryLayout, GitConnection, GitServerType,
@@ -59,12 +60,12 @@ fn get_resolved_groups<'a>(
     let valid = all_groups
         .iter()
         .copied()
-        .filter(|g| !g.member_ids.is_empty())
+        .filter(|g| !active_member_ids(roster, g).is_empty())
         .collect();
     let empty = all_groups
         .iter()
         .copied()
-        .filter(|g| g.member_ids.is_empty())
+        .filter(|g| active_member_ids(roster, g).is_empty())
         .collect();
     (valid, empty)
 }

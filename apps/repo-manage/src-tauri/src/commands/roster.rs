@@ -1,5 +1,4 @@
 use crate::error::AppError;
-use repo_manage_core::generated::types::StudentId;
 use repo_manage_core::import::{
     normalize_email, normalize_group_name as core_normalize_group_name, parse_git_usernames_csv,
 };
@@ -10,8 +9,8 @@ use repo_manage_core::roster::{
     export_assignment_students as core_export_assignment_students,
     export_groups_for_edit as core_export_groups_for_edit, export_students as core_export_students,
     export_teams as core_export_teams, filter_by_pattern as core_filter_by_pattern,
-    preview_group_selection as core_preview, resolve_assignment_groups, AffectedGroup,
-    AssignmentId, GitIdentityMode, GitUsernameStatus, Roster, RosterMemberId, StudentRemovalCheck,
+    preview_group_selection as core_preview, AssignmentId, GitIdentityMode, GitUsernameStatus,
+    Roster,
 };
 use repo_manage_core::{
     create_platform, AppSettings, GitConnection, GitServerType, GroupSelectionMode,
@@ -36,43 +35,6 @@ pub async fn clear_roster(profile: String) -> Result<(), AppError> {
     let manager = SettingsManager::new()?;
     manager.clear_roster(&profile)?;
     Ok(())
-}
-
-/// Check whether a member removal impacts any groups
-#[tauri::command]
-pub async fn check_student_removal(
-    profile: String,
-    roster: Roster,
-    student_id: RosterMemberId,
-) -> Result<StudentRemovalCheck, AppError> {
-    let _ = profile;
-    let member = roster
-        .students
-        .iter()
-        .chain(roster.staff.iter())
-        .find(|m| m.id == student_id)
-        .ok_or_else(|| AppError::new(format!("Member '{}' not found", student_id)))?;
-
-    let mut affected_groups = Vec::new();
-    for assignment in &roster.assignments {
-        let groups = resolve_assignment_groups(&roster, assignment);
-        for group in &groups {
-            if group.member_ids.iter().any(|id| id == &student_id) {
-                affected_groups.push(AffectedGroup {
-                    assignment_id: assignment.id.clone(),
-                    assignment_name: assignment.name.clone(),
-                    group_id: group.id.clone(),
-                    group_name: group.name.clone(),
-                });
-            }
-        }
-    }
-
-    Ok(StudentRemovalCheck {
-        student_id: StudentId(student_id.0),
-        student_name: member.name.clone(),
-        affected_groups,
-    })
 }
 
 #[tauri::command]

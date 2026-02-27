@@ -14,7 +14,6 @@ pub mod types;
 pub mod validation;
 
 // Re-export commonly used items from submodules
-pub use crate::generated::types::{AffectedGroup, StudentRemovalCheck, StudentRemovalResult};
 pub use export::{
     export_assignment_students, export_groups_for_edit, export_students, export_teams,
 };
@@ -40,6 +39,28 @@ pub use types::{
     ValidationResult,
 };
 pub use validation::{validate_assignment, validate_assignment_with_template, validate_roster};
+
+use std::collections::HashSet;
+
+/// Returns only the member IDs from a group that correspond to active roster members.
+///
+/// Non-system groups preserve all member IDs (including non-active members) in the data model.
+/// This helper filters to active members at consumption time (display, operations, exports).
+pub fn active_member_ids(roster: &Roster, group: &Group) -> Vec<RosterMemberId> {
+    let active_ids: HashSet<&RosterMemberId> = roster
+        .students
+        .iter()
+        .chain(roster.staff.iter())
+        .filter(|m| m.status == MemberStatus::Active)
+        .map(|m| &m.id)
+        .collect();
+    group
+        .member_ids
+        .iter()
+        .filter(|id| active_ids.contains(id))
+        .cloned()
+        .collect()
+}
 
 #[cfg(test)]
 mod tests;
