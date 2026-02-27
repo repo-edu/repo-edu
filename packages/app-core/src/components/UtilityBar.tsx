@@ -1,6 +1,6 @@
 /**
- * UtilityBar - Bottom bar between tab content and output console.
- * Contains: Clear button, Profile indicator, Save button, Profile menu.
+ * UtilityBar - Bottom status bar.
+ * Contains: Profile indicator, Save button, Profile menu.
  */
 
 import {
@@ -12,8 +12,8 @@ import {
 } from "@repo-edu/ui"
 import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { commands } from "../bindings/commands"
-import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
+import { useToastStore } from "../stores/toastStore"
 import { useUiStore } from "../stores/uiStore"
 import { SaveButton } from "./SaveButton"
 
@@ -23,18 +23,16 @@ interface UtilityBarProps {
 }
 
 export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
-  const clearOutput = useOutputStore((state) => state.clear)
-
   return (
     <div className="group/utilitybar border-t bg-muted/30">
-      <div className="flex items-center gap-2 px-2 py-1.5">
-        <Button variant="outline" size="sm" onClick={clearOutput}>
-          Clear
-        </Button>
-        <div className="flex-1" />
-        <ProfileIndicator />
-        <SaveButton isDirty={isDirty} onSaved={onSaved} />
-        <ProfileMenu />
+      <div className="flex items-center gap-2 px-2 py-1.5 min-w-0">
+        <div className="flex-1 min-w-0">
+          <ProfileIndicator />
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          <SaveButton isDirty={isDirty} onSaved={onSaved} />
+          <ProfileMenu />
+        </div>
       </div>
     </div>
   )
@@ -56,9 +54,9 @@ function ProfileIndicator() {
       size="sm"
       onClick={() => setActiveTab("roster")}
       title="Click to manage profiles in Roster tab"
-      className="max-w-[200px]"
+      className="w-full justify-start min-w-0 overflow-hidden"
     >
-      <span className="truncate">
+      <span className="block truncate">
         <span className="text-muted-foreground">Profile:</span>{" "}
         {activeProfile ?? "None"}
         {course?.name && (
@@ -74,20 +72,21 @@ function ProfileIndicator() {
  */
 function ProfileMenu() {
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const handleShowProfileLocation = async () => {
     try {
       const result = await commands.revealProfilesDirectory()
       if (result.status === "error") {
-        appendOutput(
-          `Failed to open profiles directory: ${result.error.message}`,
-          "error",
-        )
+        addToast(`Failed to open profiles directory: ${result.error.message}`, {
+          tone: "error",
+        })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to open profiles directory: ${message}`, "error")
+      addToast(`Failed to open profiles directory: ${message}`, {
+        tone: "error",
+      })
     }
   }
 

@@ -1,5 +1,6 @@
 import { cn } from "@repo-edu/ui"
 import { useEffect } from "react"
+import type { ToastAction } from "../stores/toastStore"
 import { useToastStore } from "../stores/toastStore"
 
 const toneClasses = {
@@ -29,10 +30,18 @@ interface ToastItemProps {
   message: string
   tone: keyof typeof toneClasses
   durationMs: number
+  action?: ToastAction
   onClose: (id: string) => void
 }
 
-function ToastItem({ id, message, tone, durationMs, onClose }: ToastItemProps) {
+function ToastItem({
+  id,
+  message,
+  tone,
+  durationMs,
+  action,
+  onClose,
+}: ToastItemProps) {
   useEffect(() => {
     const timeout = setTimeout(() => onClose(id), durationMs)
     return () => clearTimeout(timeout)
@@ -42,11 +51,24 @@ function ToastItem({ id, message, tone, durationMs, onClose }: ToastItemProps) {
     <output
       className={cn(
         "rounded-md border px-3 py-2 text-sm shadow-md backdrop-blur",
+        action && "flex items-center gap-3",
         toneClasses[tone],
       )}
       aria-live="polite"
     >
       {message}
+      {action && (
+        <button
+          type="button"
+          className="shrink-0 underline underline-offset-2 font-medium hover:opacity-80"
+          onClick={() => {
+            action.onClick()
+            onClose(id)
+          }}
+        >
+          {action.label}
+        </button>
+      )}
     </output>
   )
 }

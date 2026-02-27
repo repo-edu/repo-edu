@@ -18,8 +18,8 @@ import {
   selectCourseStatus,
   useConnectionsStore,
 } from "../stores/connectionsStore"
-import { useOutputStore } from "../stores/outputStore"
 import { selectCourse, useProfileStore } from "../stores/profileStore"
+import { useToastStore } from "../stores/toastStore"
 import { useUiStore } from "../stores/uiStore"
 import { formatDate, formatDateTime } from "../utils/formatDate"
 
@@ -39,7 +39,7 @@ export function CourseDisplay() {
   const courseError = useConnectionsStore(selectCourseError)
   const setCourseStatus = useConnectionsStore((state) => state.setCourseStatus)
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const hasLmsConnection = lmsConnection !== null
   const hasCourseId = course.id.trim() !== ""
@@ -56,10 +56,6 @@ export function CourseDisplay() {
 
       if (result.status === "error") {
         setCourseStatus(activeProfile, "failed", result.error.message)
-        appendOutput(
-          `Course verification failed: ${result.error.message}`,
-          "error",
-        )
         return
       }
 
@@ -67,23 +63,20 @@ export function CourseDisplay() {
 
       if (!success) {
         setCourseStatus(activeProfile, "failed", message)
-        appendOutput(`Course verification failed: ${message}`, "error")
         return
       }
 
       // Update course name if changed (marks profile dirty)
       if (updated_name && updated_name !== course.name) {
         setCourse({ id: course.id, name: updated_name })
-        appendOutput(`Course name updated: ${updated_name}`, "info")
+        addToast(`Course name updated: ${updated_name}`, { tone: "info" })
       }
 
       setCourseStatus(activeProfile, "verified")
       setCourseVerifiedAt(new Date().toISOString())
-      appendOutput("Course verified", "success")
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setCourseStatus(activeProfile, "failed", message)
-      appendOutput(`Course verification failed: ${message}`, "error")
     }
   }
 

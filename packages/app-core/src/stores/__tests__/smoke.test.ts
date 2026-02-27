@@ -20,7 +20,6 @@ import {
 import { useAppSettingsStore } from "../appSettingsStore"
 import { useConnectionsStore } from "../connectionsStore"
 import { useOperationStore } from "../operationStore"
-import { useOutputStore } from "../outputStore"
 import { useProfileStore } from "../profileStore"
 import { useUiStore } from "../uiStore"
 
@@ -77,7 +76,6 @@ describe("Store Smoke Tests", () => {
     useProfileStore.getState().reset()
     useConnectionsStore.getState().resetAllStatuses()
     useOperationStore.getState().reset()
-    useOutputStore.getState().clear()
     useUiStore.getState().reset()
   })
 
@@ -453,42 +451,6 @@ describe("Store Smoke Tests", () => {
     it("smoke: setSelected changes operation", () => {
       useOperationStore.getState().setSelected("clone")
       expect(useOperationStore.getState().selected).toBe("clone")
-    })
-  })
-
-  describe("outputStore", () => {
-    it("smoke: initializes with empty lines", () => {
-      const state = useOutputStore.getState()
-      expect(state.lines).toEqual([])
-    })
-
-    it("smoke: append adds a line", () => {
-      useOutputStore.getState().append({ message: "Test", level: "info" })
-      expect(useOutputStore.getState().lines).toHaveLength(1)
-      expect(useOutputStore.getState().lines[0].message).toBe("Test")
-    })
-
-    it("smoke: clear removes all lines", () => {
-      useOutputStore.getState().append({ message: "Test", level: "info" })
-      useOutputStore.getState().clear()
-      expect(useOutputStore.getState().lines).toHaveLength(0)
-    })
-
-    it("smoke: updateLastLine replaces info line", () => {
-      useOutputStore.getState().append({ message: "Progress 1", level: "info" })
-      useOutputStore
-        .getState()
-        .updateLastLine({ message: "Progress 2", level: "info" })
-      expect(useOutputStore.getState().lines).toHaveLength(1)
-      expect(useOutputStore.getState().lines[0].message).toBe("Progress 2")
-    })
-
-    it("smoke: updateLastLine appends after success line", () => {
-      useOutputStore.getState().append({ message: "Done", level: "success" })
-      useOutputStore
-        .getState()
-        .updateLastLine({ message: "Progress", level: "info" })
-      expect(useOutputStore.getState().lines).toHaveLength(2)
     })
   })
 

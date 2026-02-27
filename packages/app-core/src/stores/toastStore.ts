@@ -2,11 +2,17 @@ import { create } from "zustand"
 
 export type ToastTone = "info" | "success" | "warning" | "error"
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export interface ToastItem {
   id: string
   message: string
   tone: ToastTone
   durationMs: number
+  action?: ToastAction
 }
 
 interface ToastState {
@@ -30,6 +36,7 @@ export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   addToast: (message, options) => {
     const id = createId()
+    const hasAction = options?.action !== undefined
     set((state) => ({
       toasts: [
         ...state.toasts,
@@ -37,7 +44,8 @@ export const useToastStore = create<ToastStore>((set) => ({
           id,
           message,
           tone: options?.tone ?? "info",
-          durationMs: options?.durationMs ?? 3000,
+          durationMs: options?.durationMs ?? (hasAction ? 6000 : 3000),
+          action: options?.action,
         },
       ],
     }))

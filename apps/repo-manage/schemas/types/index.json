@@ -218,14 +218,6 @@
       "path": "./OperationResult.schema.json"
     },
     {
-      "name": "OutputLevel",
-      "path": "./OutputLevel.schema.json"
-    },
-    {
-      "name": "OutputLine",
-      "path": "./OutputLine.schema.json"
-    },
-    {
       "name": "PatternFilterResult",
       "path": "./PatternFilterResult.schema.json"
     },

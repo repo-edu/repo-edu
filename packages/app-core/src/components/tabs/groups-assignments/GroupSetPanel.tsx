@@ -41,7 +41,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { commands } from "../../../bindings/commands"
 import { saveDialog } from "../../../services/platform"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
-import { useOutputStore } from "../../../stores/outputStore"
 import {
   selectAssignmentsForGroupSet,
   selectCourse,
@@ -111,7 +110,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const setRoster = useProfileStore((state) => state.setRoster)
   const course = useProfileStore(selectCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   // Dialog triggers from uiStore
@@ -162,33 +160,23 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
       addToast("Sync failed: LMS connection or course is not configured", {
         tone: "error",
       })
-      appendOutput(
-        `Sync failed for "${groupSet.name}": LMS connection or course is not configured`,
-        "error",
-      )
       return
     }
 
     setGroupSetOperation({ kind: "sync", groupSetId })
-    appendOutput(`Syncing group set "${groupSet.name}"...`, "info")
 
     try {
       const result = await commands.syncGroupSet(lmsContext, roster, groupSetId)
       if (result.status === "ok") {
         const updatedRoster = applyGroupSetPatch(roster, result.data)
         setRoster(updatedRoster, `Sync group set "${groupSet.name}"`)
-        appendOutput(`Synced group set "${groupSet.name}"`, "success")
+        addToast(`Synced "${groupSet.name}"`, { tone: "success" })
       } else {
         addToast(`Sync failed: ${result.error.message}`, { tone: "error" })
-        appendOutput(
-          `Sync failed for "${groupSet.name}": ${result.error.message}`,
-          "error",
-        )
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       addToast(`Sync failed: ${message}`, { tone: "error" })
-      appendOutput(`Sync failed for "${groupSet.name}": ${message}`, "error")
     } finally {
       const currentOp = useUiStore.getState().groupSetOperation
       if (currentOp?.kind === "sync" && currentOp.groupSetId === groupSetId) {
@@ -197,7 +185,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     }
   }, [
     addToast,
-    appendOutput,
     groupSet.name,
     groupSetId,
     kind,
@@ -239,18 +226,15 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           }
           setRoster(updatedRoster, `Export group set "${groupSet.name}"`)
         }
-        appendOutput(
-          `Exported group set "${groupSet.name}" to ${path}`,
-          "success",
-        )
+        addToast(`Exported "${groupSet.name}" to ${path}`, { tone: "success" })
       } else {
-        appendOutput(`Export failed: ${result.error.message}`, "error")
+        addToast(`Export failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Export failed: ${message}`, "error")
+      addToast(`Export failed: ${message}`, { tone: "error" })
     }
-  }, [appendOutput, connection, groupSet.name, groupSetId, roster, setRoster])
+  }, [addToast, connection, groupSet.name, groupSetId, roster, setRoster])
 
   // Consume sidebar export trigger
   const exportGroupSetTriggerId = useUiStore(

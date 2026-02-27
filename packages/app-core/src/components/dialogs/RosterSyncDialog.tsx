@@ -12,7 +12,6 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
-import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -30,7 +29,6 @@ export function RosterSyncDialog() {
   const course = useProfileStore(selectCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
 
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -57,38 +55,27 @@ export function RosterSyncDialog() {
       const message =
         "Roster sync failed: LMS connection or course is not configured"
       setError(message)
-      appendOutput(message, "error")
       return
     }
 
     setLoadingPreview(true)
     setError(null)
     setPreview(null)
-    appendOutput("Previewing LMS roster sync...", "info")
 
     try {
       const result = await commands.importRosterFromLms(context, roster ?? null)
       if (result.status === "error") {
         setError(result.error.message)
-        appendOutput(
-          `Roster sync preview failed: ${result.error.message}`,
-          "error",
-        )
         return
       }
 
       setPreview(result.data)
-      appendOutput(
-        `Roster sync preview ready: ${result.data.roster.students.length} students, ${result.data.roster.staff.length} staff`,
-        "info",
-      )
     } catch (previewError) {
       const message =
         previewError instanceof Error
           ? previewError.message
           : String(previewError)
       setError(message)
-      appendOutput(`Roster sync preview failed: ${message}`, "error")
     } finally {
       setLoadingPreview(false)
     }
@@ -106,14 +93,6 @@ export function RosterSyncDialog() {
     addToast(message, {
       tone: preview.total_conflicts > 0 ? "warning" : "success",
     })
-    appendOutput(message, preview.total_conflicts > 0 ? "warning" : "success")
-
-    if (preview.summary.students_missing_email > 0) {
-      appendOutput(
-        `Warning: ${preview.summary.students_missing_email} roster entries are missing email`,
-        "warning",
-      )
-    }
 
     setOpen(false)
     resetState()

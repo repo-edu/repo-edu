@@ -18,8 +18,8 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog } from "../../services/platform"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function ImportGitUsernamesDialog() {
@@ -37,10 +37,11 @@ export function ImportGitUsernamesDialog() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
 
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const [filePath, setFilePath] = useState("")
   const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleBrowse = async () => {
     try {
@@ -65,7 +66,7 @@ export function ImportGitUsernamesDialog() {
     if (!activeProfile || !roster || !filePath) return
 
     setImporting(true)
-    appendOutput("Importing git usernames...", "info")
+    setError(null)
 
     try {
       const result = await commands.importGitUsernames(
@@ -75,7 +76,7 @@ export function ImportGitUsernamesDialog() {
       )
 
       if (result.status === "error") {
-        appendOutput(`Import failed: ${result.error.message}`, "error")
+        setError(result.error.message)
         return
       }
 
@@ -87,17 +88,16 @@ export function ImportGitUsernamesDialog() {
       if (summary.unmatched_emails.length > 0) {
         message += ` (${summary.unmatched_emails.length} emails not found in roster)`
       }
-      appendOutput(
-        message,
-        summary.unmatched_emails.length > 0 ? "warning" : "success",
-      )
+      addToast(message, {
+        tone: summary.unmatched_emails.length > 0 ? "warning" : "success",
+      })
 
       // Close dialog on success
       setImportGitUsernamesDialogOpen(false)
       setFilePath("")
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Import failed: ${message}`, "error")
+      setError(message)
     } finally {
       setImporting(false)
     }
@@ -106,6 +106,7 @@ export function ImportGitUsernamesDialog() {
   const handleClose = () => {
     setImportGitUsernamesDialogOpen(false)
     setFilePath("")
+    setError(null)
   }
 
   const hasStudents = roster && roster.students.length > 0
@@ -136,6 +137,8 @@ export function ImportGitUsernamesDialog() {
                 <p className="font-medium">Required columns:</p>
                 <p className="text-muted-foreground">email, git_username</p>
               </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <div className="flex gap-2">
                 <Input

@@ -15,8 +15,8 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog } from "../../services/platform"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function ImportStudentsFromFileDialog() {
@@ -29,10 +29,11 @@ export function ImportStudentsFromFileDialog() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
 
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const [filePath, setFilePath] = useState<string>("")
   const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleBrowse = async () => {
     try {
@@ -57,7 +58,7 @@ export function ImportStudentsFromFileDialog() {
     if (!activeProfile || !filePath) return
 
     setImporting(true)
-    appendOutput("Importing students from file...", "info")
+    setError(null)
 
     try {
       const result = await commands.importStudentsFromFile(
@@ -67,7 +68,7 @@ export function ImportStudentsFromFileDialog() {
       )
 
       if (result.status === "error") {
-        appendOutput(`Import failed: ${result.error.message}`, "error")
+        setError(result.error.message)
         return
       }
 
@@ -77,15 +78,17 @@ export function ImportStudentsFromFileDialog() {
       let message = `Imported ${summary.students_added} students (${summary.students_updated} updated, ${summary.students_unchanged} unchanged)`
       if (summary.students_missing_email > 0) {
         message += `. Warning: ${summary.students_missing_email} students missing email`
+        addToast(message, { tone: "warning" })
+      } else {
+        addToast(message, { tone: "success" })
       }
-      appendOutput(message, "success")
 
       // Close dialog on success
       setImportFileDialogOpen(false)
       setFilePath("")
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Import failed: ${message}`, "error")
+      setError(message)
     } finally {
       setImporting(false)
     }
@@ -94,6 +97,7 @@ export function ImportStudentsFromFileDialog() {
   const handleClose = () => {
     setImportFileDialogOpen(false)
     setFilePath("")
+    setError(null)
   }
 
   return (
@@ -119,6 +123,8 @@ export function ImportStudentsFromFileDialog() {
               id, email, student_number, git_username, status
             </p>
           </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex gap-2">
             <Input

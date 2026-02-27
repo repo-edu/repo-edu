@@ -22,7 +22,6 @@ import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog } from "../../services/platform"
-import { useOutputStore } from "../../stores/outputStore"
 import { selectGroupSetById, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -52,7 +51,6 @@ export function ReimportGroupSetDialog() {
   const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""))
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   const sourcePath =
@@ -114,19 +112,16 @@ export function ReimportGroupSetDialog() {
         const groupSetName = groupSet?.name ?? targetId
 
         setRoster(updatedRoster, `Import group set "${groupSetName}"`)
-        appendOutput(`Imported group set "${groupSetName}"`, "success")
         addToast(`Imported "${groupSetName}"`, { tone: "success" })
         handleClose()
       } else {
         const message = formatAppErrorMessage(result.error)
         setError(message)
-        appendOutput(`Import failed: ${result.error.message}`, "error")
         addToast(`Import failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setError(message)
-      appendOutput(`Import failed: ${message}`, "error")
       addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
       setImporting(false)

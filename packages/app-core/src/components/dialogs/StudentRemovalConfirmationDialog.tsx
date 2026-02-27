@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo-edu/ui"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 
 export function StudentRemovalConfirmationDialog() {
@@ -23,7 +23,7 @@ export function StudentRemovalConfirmationDialog() {
   )
 
   const removeStudent = useProfileStore((state) => state.removeStudent)
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   if (!studentRemovalConfirmation) return null
 
@@ -32,9 +32,9 @@ export function StudentRemovalConfirmationDialog() {
 
   const handleConfirm = () => {
     removeStudent(student_id)
-    appendOutput(
+    addToast(
       `Removed "${student_name}" from roster and ${affected_groups.length} group(s)`,
-      "info",
+      { tone: "info" },
     )
     setStudentRemovalConfirmation(null)
   }

@@ -6,7 +6,6 @@
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
-import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
 import { useToastStore } from "../stores/toastStore"
 import { useUiStore } from "../stores/uiStore"
@@ -21,7 +20,6 @@ interface SaveButtonProps {
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const [status, setStatus] = useState<SaveStatus>("idle")
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   // Get save function from profileStore
@@ -39,7 +37,6 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
         const error = useProfileStore.getState().error
         const message = error ?? "Save failed"
         setStatus("error")
-        appendOutput(`Failed to save settings: ${message}`, "error")
         addToast(`Save failed: ${message}`, { tone: "error" })
         setTimeout(() => setStatus("idle"), 1500)
         return
@@ -54,11 +51,10 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus("error")
-      appendOutput(`Failed to save settings: ${message}`, "error")
       addToast(`Save failed: ${message}`, { tone: "error" })
       setTimeout(() => setStatus("idle"), 1500)
     }
-  }, [activeProfile, addToast, appendOutput, save, onSaved])
+  }, [activeProfile, addToast, save, onSaved])
 
   const isDisabled = !activeProfile || !isDirty || status === "saving"
 

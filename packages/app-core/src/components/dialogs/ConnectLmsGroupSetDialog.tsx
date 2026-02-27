@@ -24,7 +24,6 @@ import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
-import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -72,7 +71,6 @@ export function ConnectLmsGroupSetDialog() {
   const setRoster = useProfileStore((state) => state.setRoster)
   const course = useProfileStore(selectCourse)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   const [groupSets, setGroupSets] = useState<LmsGroupSet[]>([])
@@ -199,8 +197,6 @@ export function ConnectLmsGroupSetDialog() {
     setConnecting(true)
     setError(null)
     setGroupSetOperation({ kind: "sync", groupSetId: provisionalId })
-    appendOutput(`Connecting group set "${selectedGroupSet.name}"...`, "info")
-
     try {
       const result = await commands.syncGroupSet(
         lmsContext,
@@ -211,22 +207,16 @@ export function ConnectLmsGroupSetDialog() {
         const updatedRoster = applyGroupSetPatch(roster, result.data)
         setRoster(updatedRoster, `Connect group set "${selectedGroupSet.name}"`)
         setSidebarSelection({ kind: "group-set", id: provisionalId })
-        appendOutput(
-          `Connected group set "${selectedGroupSet.name}"`,
-          "success",
-        )
         addToast(`Connected "${selectedGroupSet.name}"`, { tone: "success" })
         handleClose()
         return
       }
 
       setError(result.error.message)
-      appendOutput(`Connect failed: ${result.error.message}`, "error")
       addToast(`Connect failed: ${result.error.message}`, { tone: "error" })
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
-      appendOutput(`Connect failed: ${message}`, "error")
       addToast(`Connect failed: ${message}`, { tone: "error" })
     } finally {
       setConnecting(false)

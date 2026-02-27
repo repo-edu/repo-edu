@@ -32,7 +32,7 @@ import { Check, Loader2, Search } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
-import { useOutputStore } from "../../stores/outputStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildLmsOperationContext } from "../../utils/operationContext"
 
@@ -52,7 +52,7 @@ export function NewProfileDialog() {
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   // App settings for LMS connection
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
@@ -92,6 +92,7 @@ export function NewProfileDialog() {
 
   // Creating state
   const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -108,6 +109,7 @@ export function NewProfileDialog() {
       setLmsSetupStatus("idle")
       setLmsSetupError(null)
       setIsCreating(false)
+      setCreateError(null)
       setCourseFetchingManual(false)
     }
   }, [open, lmsConnection])
@@ -120,7 +122,9 @@ export function NewProfileDialog() {
     try {
       const result = await commands.fetchLmsCourses()
       if (result.status === "error") {
-        appendOutput(`Failed to fetch course: ${result.error.message}`, "error")
+        addToast(`Failed to fetch course: ${result.error.message}`, {
+          tone: "error",
+        })
         setCourseFetchingManual(false)
         return
       }
@@ -128,15 +132,15 @@ export function NewProfileDialog() {
       if (found) {
         setCourseName(found.name)
       } else {
-        appendOutput(`Course with ID "${courseId}" not found in LMS`, "warning")
+        addToast(`Course "${courseId}" not found in LMS`, { tone: "warning" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to fetch course: ${message}`, "error")
+      addToast(`Failed to fetch course: ${message}`, { tone: "error" })
     } finally {
       setCourseFetchingManual(false)
     }
-  }, [courseId, lmsConnection, appendOutput])
+  }, [courseId, lmsConnection, addToast])
 
   // Fetch courses when LMS mode selected and connection exists
   useEffect(() => {
@@ -156,20 +160,14 @@ export function NewProfileDialog() {
       const result = await commands.fetchLmsCourses()
       if (result.status === "error") {
         setCourseFetchStatus("error")
-        appendOutput(
-          `Failed to fetch courses: ${result.error.message}`,
-          "error",
-        )
         return
       }
       setCourses(result.data)
       setCourseFetchStatus("loaded")
-    } catch (error) {
+    } catch {
       setCourseFetchStatus("error")
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to fetch courses: ${message}`, "error")
     }
-  }, [appendOutput])
+  }, [])
 
   const handleVerifyLms = async () => {
     setLmsSetupStatus("verifying")
@@ -225,29 +223,24 @@ export function NewProfileDialog() {
     }
 
     setIsCreating(true)
+    setCreateError(null)
     try {
       const result = await commands.createProfile(profileName.trim(), course)
       if (result.status === "error") {
-        appendOutput(
-          `Failed to create profile: ${result.error.message}`,
-          "error",
-        )
+        setCreateError(result.error.message)
         setIsCreating(false)
         return
       }
       await commands.setActiveProfile(profileName.trim())
       setActiveProfile(profileName.trim())
-      appendOutput(
-        `Created and activated profile: ${profileName.trim()}`,
-        "success",
-      )
+      addToast(`Created profile: ${profileName.trim()}`, { tone: "success" })
       setOpen(false)
       if (courseMode === "lms") {
         setRosterSyncDialogOpen(true)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to create profile: ${message}`, "error")
+      setCreateError(message)
       setIsCreating(false)
     }
   }
@@ -552,6 +545,9 @@ export function NewProfileDialog() {
                 )}
               </FormField>
             </>
+          )}
+          {createError && (
+            <p className="text-sm text-destructive">{createError}</p>
           )}
         </DialogBody>
 

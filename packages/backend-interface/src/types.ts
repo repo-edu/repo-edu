@@ -615,19 +615,6 @@ export interface OperationResult {
 }
 
 /**
- * Severity level for output lines
- */
-export type OutputLevel = "info" | "success" | "warning" | "error"
-
-/**
- * Structured output line
- */
-export interface OutputLine {
-  message: string
-  level: OutputLevel
-}
-
-/**
  * Backend result for filter_by_pattern, used by debounced frontend local filters
  */
 export interface PatternFilterResult {

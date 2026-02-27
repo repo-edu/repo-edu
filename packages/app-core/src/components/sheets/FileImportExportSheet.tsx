@@ -17,8 +17,8 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog, saveDialog } from "../../services/platform"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
+import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
 import { applyGroupSetPatch } from "../../utils/groupSetPatch"
 
@@ -36,7 +36,7 @@ export function FileImportExportSheet() {
   const setRoster = useProfileStore((state) => state.setRoster)
   const hasStudents = Boolean(roster?.students.length)
 
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const [importFilePath, setImportFilePath] = useState("")
   const [importing, setImporting] = useState(false)
@@ -64,20 +64,20 @@ export function FileImportExportSheet() {
         path,
       )
       if (result.status === "ok") {
-        appendOutput(`Groups exported to ${path}`, "success")
+        addToast("Groups exported", { tone: "success" })
       } else {
-        appendOutput(`Export failed: ${result.error.message}`, "error")
+        addToast(`Export failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Export failed: ${message}`, "error")
+      addToast(`Export failed: ${message}`, { tone: "error" })
     }
   }
 
   const handleExportTeams = async () => {
     if (!roster || !selectedAssignmentId) return
     if (!activeProfile) {
-      appendOutput("No active profile selected.", "warning")
+      addToast("No active profile selected", { tone: "warning" })
       return
     }
 
@@ -101,13 +101,13 @@ export function FileImportExportSheet() {
         path,
       )
       if (result.status === "ok") {
-        appendOutput(`Teams exported to ${path}`, "success")
+        addToast("Teams exported", { tone: "success" })
       } else {
-        appendOutput(`Export failed: ${result.error.message}`, "error")
+        addToast(`Export failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Export failed: ${message}`, "error")
+      addToast(`Export failed: ${message}`, { tone: "error" })
     }
   }
 
@@ -133,13 +133,13 @@ export function FileImportExportSheet() {
         path,
       )
       if (result.status === "ok") {
-        appendOutput(`Assignment students exported to ${path}`, "success")
+        addToast("Students exported", { tone: "success" })
       } else {
-        appendOutput(`Export failed: ${result.error.message}`, "error")
+        addToast(`Export failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Export failed: ${message}`, "error")
+      addToast(`Export failed: ${message}`, { tone: "error" })
     }
   }
 
@@ -167,14 +167,12 @@ export function FileImportExportSheet() {
 
     setImporting(true)
     setImportError(null)
-    appendOutput("Importing group set from file...", "info")
 
     try {
       const result = await commands.importGroupSet(roster, importFilePath)
 
       if (result.status === "error") {
         setImportError(result.error.message)
-        appendOutput(`Import failed: ${result.error.message}`, "error")
         return
       }
 
@@ -189,13 +187,12 @@ export function FileImportExportSheet() {
           ? `, ${result.data.total_missing} members missing from roster`
           : "")
 
-      appendOutput(message, "success")
+      addToast(message, { tone: "success" })
       setImportFilePath("")
     } catch (importErr) {
       const message =
         importErr instanceof Error ? importErr.message : String(importErr)
       setImportError(message)
-      appendOutput(`Import failed: ${message}`, "error")
     } finally {
       setImporting(false)
     }

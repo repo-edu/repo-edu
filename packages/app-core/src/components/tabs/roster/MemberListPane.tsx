@@ -38,7 +38,6 @@ import {
 import { useMemo, useState } from "react"
 import { commands } from "../../../bindings/commands"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
-import { useOutputStore } from "../../../stores/outputStore"
 import { useProfileStore } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
 import { useUiStore } from "../../../stores/uiStore"
@@ -90,7 +89,6 @@ export function MemberListPane({
   const setStudentRemovalConfirmation = useUiStore(
     (state) => state.setStudentRemovalConfirmation,
   )
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   const [globalFilter, setGlobalFilter] = useState("")
@@ -171,10 +169,9 @@ export function MemberListPane({
         id,
       )
       if (result.status === "error") {
-        appendOutput(
-          `Failed to check student removal: ${result.error.message}`,
-          "error",
-        )
+        addToast(`Failed to check student removal: ${result.error.message}`, {
+          tone: "error",
+        })
         return
       }
 
@@ -186,7 +183,9 @@ export function MemberListPane({
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Failed to check student removal: ${message}`, "error")
+      addToast(`Failed to check student removal: ${message}`, {
+        tone: "error",
+      })
     }
   }
 

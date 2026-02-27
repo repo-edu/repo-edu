@@ -33,7 +33,7 @@ import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useConnectionsStore } from "../../stores/connectionsStore"
-import { useOutputStore } from "../../stores/outputStore"
+import { useToastStore } from "../../stores/toastStore"
 import { buildLmsOperationContext } from "../../utils/operationContext"
 
 type ConnectionStatus = "disconnected" | "verifying" | "connected" | "error"
@@ -71,7 +71,7 @@ const IDENTITY_MODES: { value: GitIdentityMode; label: string }[] = [
 ]
 
 export function ConnectionsPane() {
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
 
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const gitConnections = useAppSettingsStore((state) => state.gitConnections)
@@ -150,21 +150,14 @@ export function ConnectionsPane() {
       const result = await commands.verifyLmsConnectionDraft(context)
       if (result.status === "error") {
         setLmsStatus("error", result.error.message)
-        appendOutput(
-          `LMS verification failed: ${result.error.message}`,
-          "error",
-        )
       } else if (result.data.success) {
         setLmsStatus("connected", null)
-        appendOutput("LMS connection verified", "success")
       } else {
         setLmsStatus("error", result.data.message)
-        appendOutput(`LMS verification failed: ${result.data.message}`, "error")
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setLmsStatus("error", message)
-      appendOutput(`LMS verification failed: ${message}`, "error")
     }
   }
 
@@ -210,13 +203,13 @@ export function ConnectionsPane() {
 
     const { status, error } = useAppSettingsStore.getState()
     if (status === "error") {
-      appendOutput(`Failed to save LMS connection: ${error}`, "error")
+      addToast(`Failed to save LMS connection: ${error}`, { tone: "error" })
       return
     }
 
     setEditingLms(false)
     setLmsStatus(draftLmsStatus, draftLmsError)
-    appendOutput("LMS connection saved", "success")
+    addToast("LMS connection saved", { tone: "success" })
   }
 
   const handleRemoveLms = async () => {
@@ -265,30 +258,14 @@ export function ConnectionsPane() {
       const result = await commands.verifyGitConnectionDraft(conn)
       if (result.status === "error") {
         setGitStatus(name, "error", result.error.message)
-        appendOutput(
-          `Git connection "${name}" verification failed: ${result.error.message}`,
-          "error",
-        )
       } else if (result.data.success) {
         setGitStatus(name, "connected", null)
-        appendOutput(
-          `Git connection "${name}" verified as ${result.data.username}`,
-          "success",
-        )
       } else {
         setGitStatus(name, "error", result.data.message)
-        appendOutput(
-          `Git connection "${name}" verification failed: ${result.data.message}`,
-          "error",
-        )
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setGitStatus(name, "error", message)
-      appendOutput(
-        `Git connection "${name}" verification failed: ${message}`,
-        "error",
-      )
     }
   }
 
@@ -343,9 +320,17 @@ export function ConnectionsPane() {
       }
     }
     await saveAppSettings()
+
+    const { status, error } = useAppSettingsStore.getState()
+    if (status === "error") {
+      addToast(`Failed to save git connection: ${error}`, { tone: "error" })
+      return
+    }
+
     setAddingGit(false)
     setEditingGit(null)
     setGitStatus(savedName, draftGitStatus, draftGitError)
+    addToast("Git connection saved", { tone: "success" })
   }
 
   const handleRemoveGit = async (name: string) => {

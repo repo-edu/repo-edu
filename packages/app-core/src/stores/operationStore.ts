@@ -4,6 +4,7 @@
  */
 
 import type {
+  OperationResult,
   RepoPreflightResult,
   ValidationResult,
 } from "@repo-edu/backend-interface/types"
@@ -16,6 +17,7 @@ interface OperationState {
   selected: OperationType
   status: OperationStatus
   error: string | null
+  lastResult: OperationResult | null
   // Operation result state (moved from uiStore)
   validationResult: ValidationResult | null
   preflightResult: RepoPreflightResult | null
@@ -25,6 +27,7 @@ interface OperationActions {
   setSelected: (operation: OperationType) => void
   setStatus: (status: OperationStatus) => void
   setError: (error: string | null) => void
+  setLastResult: (result: OperationResult | null) => void
   setValidationResult: (result: ValidationResult | null) => void
   setPreflightResult: (result: RepoPreflightResult | null) => void
   reset: () => void
@@ -36,6 +39,7 @@ const initialState: OperationState = {
   selected: "create",
   status: "idle",
   error: null,
+  lastResult: null,
   validationResult: null,
   preflightResult: null,
 }
@@ -48,6 +52,8 @@ export const useOperationStore = create<OperationStore>((set) => ({
   setStatus: (status) => set({ status }),
 
   setError: (error) => set({ error }),
+
+  setLastResult: (result) => set({ lastResult: result }),
 
   setValidationResult: (result) => set({ validationResult: result }),
 

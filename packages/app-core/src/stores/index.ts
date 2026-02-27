@@ -2,7 +2,6 @@
 export { useAppSettingsStore } from "./appSettingsStore"
 export { useConnectionsStore } from "./connectionsStore"
 export { useOperationStore } from "./operationStore"
-export { selectOutputLines, useOutputStore } from "./outputStore"
 export {
   type AssignmentSelection,
   type ProfileLoadResult,

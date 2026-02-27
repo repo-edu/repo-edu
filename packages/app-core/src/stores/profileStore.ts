@@ -39,7 +39,7 @@ import {
 } from "../utils/nanoid"
 import { useAppSettingsStore } from "./appSettingsStore"
 import { useConnectionsStore } from "./connectionsStore"
-import { useOutputStore } from "./outputStore"
+import { useToastStore } from "./toastStore"
 
 type DocumentStatus = "empty" | "loading" | "loaded" | "error"
 type ChecksStatus = "idle" | "running" | "ready" | "error"
@@ -374,7 +374,7 @@ export const useProfileStore = create<ProfileStore>()(
 
         const { setActiveProfileForCourse, setCourseStatus } =
           useConnectionsStore.getState()
-        const { appendText } = useOutputStore.getState()
+        const { addToast } = useToastStore.getState()
 
         setActiveProfileForCourse(profileName)
 
@@ -423,9 +423,9 @@ export const useProfileStore = create<ProfileStore>()(
               })
             }
 
-            appendText(
+            addToast(
               `Failed to load profile '${profileName}': ${error}. Loaded default settings.`,
-              "warning",
+              { tone: "warning", durationMs: 6000 },
             )
             return {
               ok: false,
@@ -461,13 +461,13 @@ export const useProfileStore = create<ProfileStore>()(
 
             if (warnings.length > 0) {
               for (const warning of warnings) {
-                appendText(`${warning}`, "warning")
+                addToast(`${warning}`, { tone: "warning", durationMs: 6000 })
               }
             }
 
-            appendText(
+            addToast(
               `Failed to load roster for profile '${profileName}': ${rosterError}. Loaded profile settings without roster.`,
-              "warning",
+              { tone: "warning", durationMs: 6000 },
             )
 
             return {
@@ -507,7 +507,7 @@ export const useProfileStore = create<ProfileStore>()(
 
           if (warnings.length > 0) {
             for (const warning of warnings) {
-              appendText(`${warning}`, "warning")
+              addToast(`${warning}`, { tone: "warning", durationMs: 6000 })
             }
           }
 

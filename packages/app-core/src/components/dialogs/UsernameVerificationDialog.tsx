@@ -16,7 +16,6 @@ import {
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { commands } from "../../bindings/commands"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 
@@ -38,8 +37,6 @@ export function UsernameVerificationDialog() {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
 
-  const appendOutput = useOutputStore((state) => state.appendText)
-
   const [verifying, setVerifying] = useState(false)
   const [scope, setScope] = useState<UsernameVerificationScope>("unknown_only")
 
@@ -47,7 +44,6 @@ export function UsernameVerificationDialog() {
     if (!activeProfile || !roster) return
 
     setVerifying(true)
-    appendOutput(`Verifying git usernames (${scope})...`, "info")
 
     try {
       const result = await commands.verifyGitUsernames(
@@ -56,30 +52,11 @@ export function UsernameVerificationDialog() {
         scope,
       )
 
-      if (result.status === "error") {
-        appendOutput(`Verification failed: ${result.error.message}`, "error")
-        return
-      }
+      if (result.status === "error") return
 
       const { roster: newRoster, verification } = result.data
       setRoster(newRoster, "Verify git usernames")
       setUsernameVerificationResult(verification)
-
-      const { valid, invalid, errors } = verification
-      let message = `Verified: ${valid} valid`
-      if (invalid.length > 0) {
-        message += `, ${invalid.length} invalid`
-      }
-      if (errors.length > 0) {
-        message += `, ${errors.length} errors`
-      }
-      appendOutput(
-        message,
-        invalid.length > 0 || errors.length > 0 ? "warning" : "success",
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Verification failed: ${message}`, "error")
     } finally {
       setVerifying(false)
     }

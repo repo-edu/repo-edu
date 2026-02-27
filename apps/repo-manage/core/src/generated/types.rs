@@ -477,25 +477,6 @@ pub struct OperationResult {
   pub errors: Vec<OperationError>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum OutputLevel {
-  #[serde(rename = "info")]
-  Info,
-  #[serde(rename = "success")]
-  Success,
-  #[serde(rename = "warning")]
-  Warning,
-  #[serde(rename = "error")]
-  Error,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutputLine {
-  pub message: String,
-  pub level: OutputLevel,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatternFilterResult {
   pub valid: bool,

@@ -25,12 +25,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { AlertCircle, FolderOpen, Loader2 } from "@repo-edu/ui/components/icons"
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  FolderOpen,
+  Loader2,
+} from "@repo-edu/ui/components/icons"
+import { useState } from "react"
 import { commands } from "../../bindings/commands"
 import { openDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { useOperationStore } from "../../stores/operationStore"
-import { useOutputStore } from "../../stores/outputStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { useUiStore } from "../../stores/uiStore"
 import { buildRepoOperationContext } from "../../utils/operationContext"
@@ -65,8 +71,8 @@ export function OperationTab() {
   const operationStatus = useOperationStore((state) => state.status)
   const setOperationStatus = useOperationStore((state) => state.setStatus)
   const setOperationError = useOperationStore((state) => state.setError)
-
-  const append = useOutputStore((state) => state.append)
+  const lastResult = useOperationStore((state) => state.lastResult)
+  const setLastResult = useOperationStore((state) => state.setLastResult)
 
   // Use shared assignment selection from profileStore
   const assignmentSelection = useProfileStore(
@@ -128,15 +134,14 @@ export function OperationTab() {
     if (!activeProfile || !roster || !selectedAssignmentId || !repoContext) {
       if (!repoContext) {
         setOperationStatus("error")
-        const message = "No git connection configured for this profile"
-        setOperationError(message)
-        append({ message, level: "error" })
+        setOperationError("No git connection configured for this profile")
       }
       return
     }
 
     setOperationStatus("running")
     setOperationError(null)
+    setLastResult(null)
 
     try {
       let result: Result<OperationResult, AppError>
@@ -144,10 +149,6 @@ export function OperationTab() {
       switch (operationSelected) {
         case "create": {
           const config: CreateConfig = { template_org: templateOrg }
-          append({
-            message: `Creating ${validGroupCount} repositories...`,
-            level: "info",
-          })
           result = await commands.createRepos(
             repoContext,
             roster,
@@ -161,10 +162,6 @@ export function OperationTab() {
             target_dir: targetDir,
             directory_layout: directoryLayout,
           }
-          append({
-            message: `Cloning ${validGroupCount} repositories...`,
-            level: "info",
-          })
           result = await commands.cloneReposFromRoster(
             repoContext,
             roster,
@@ -175,10 +172,6 @@ export function OperationTab() {
         }
         case "delete": {
           const config: DeleteConfig = {}
-          append({
-            message: `Deleting ${validGroupCount} repositories...`,
-            level: "warning",
-          })
           result = await commands.deleteRepos(
             repoContext,
             roster,
@@ -192,43 +185,15 @@ export function OperationTab() {
       if (result.status === "error") {
         setOperationStatus("error")
         setOperationError(result.error.message)
-        append({ message: `Error: ${result.error.message}`, level: "error" })
         return
       }
 
-      const data = result.data
       setOperationStatus("success")
-
-      // Report results
-      if (data.succeeded > 0) {
-        append({
-          message: `✓ ${data.succeeded} repositories ${operationSelected}d successfully`,
-          level: "success",
-        })
-      }
-      if (data.failed > 0) {
-        append({
-          message: `✗ ${data.failed} repositories failed`,
-          level: "error",
-        })
-      }
-      if (data.skipped_groups.length > 0) {
-        append({
-          message: `⚠ ${data.skipped_groups.length} groups skipped`,
-          level: "warning",
-        })
-      }
-      for (const error of data.errors) {
-        append({
-          message: `  ${error.repo_name}: ${error.message}`,
-          level: "error",
-        })
-      }
+      setLastResult(result.data)
     } catch (error) {
       setOperationStatus("error")
       const message = error instanceof Error ? error.message : String(error)
       setOperationError(message)
-      append({ message: `Error: ${message}`, level: "error" })
     }
   }
 
@@ -445,6 +410,142 @@ export function OperationTab() {
           )}
         </Button>
       </div>
+
+      {/* Operation error */}
+      {operationStatus === "error" && (
+        <div className="text-sm text-destructive">
+          {useOperationStore.getState().error}
+        </div>
+      )}
+
+      {/* Inline Result Display */}
+      {lastResult && (
+        <OperationResultDisplay
+          result={lastResult}
+          operationType={operationSelected}
+        />
+      )}
     </div>
   )
+}
+
+function OperationResultDisplay({
+  result,
+  operationType,
+}: {
+  result: OperationResult
+  operationType: OperationType
+}) {
+  const [errorsExpanded, setErrorsExpanded] = useState(false)
+  const [skippedExpanded, setSkippedExpanded] = useState(false)
+
+  const verb =
+    operationType === "create"
+      ? "created"
+      : operationType === "clone"
+        ? "cloned"
+        : "deleted"
+
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      {/* Summary line */}
+      <div className="flex items-center gap-4 text-sm">
+        {result.succeeded > 0 && (
+          <span className="text-success font-medium">
+            {result.succeeded} {verb}
+          </span>
+        )}
+        {result.failed > 0 && (
+          <span className="text-destructive font-medium">
+            {result.failed} failed
+          </span>
+        )}
+        {result.skipped_groups.length > 0 && (
+          <span className="text-warning font-medium">
+            {result.skipped_groups.length} skipped
+          </span>
+        )}
+        {result.succeeded > 0 &&
+          result.failed === 0 &&
+          result.skipped_groups.length === 0 && (
+            <span className="text-muted-foreground">All succeeded</span>
+          )}
+      </div>
+
+      {/* Error details (collapsible) */}
+      {result.errors.length > 0 && (
+        <div>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm text-destructive hover:opacity-80"
+            onClick={() => setErrorsExpanded(!errorsExpanded)}
+          >
+            {errorsExpanded ? (
+              <ChevronDown className="size-3.5" />
+            ) : (
+              <ChevronRight className="size-3.5" />
+            )}
+            {result.errors.length} error(s)
+          </button>
+          {errorsExpanded && (
+            <ul className="mt-1 ml-5 space-y-0.5 max-h-48 overflow-y-auto">
+              {result.errors.map((err) => (
+                <li key={err.repo_name} className="text-sm text-destructive">
+                  <span className="font-medium">{err.repo_name}:</span>{" "}
+                  {err.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Skipped details (collapsible) */}
+      {result.skipped_groups.length > 0 && (
+        <div>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm text-warning hover:opacity-80"
+            onClick={() => setSkippedExpanded(!skippedExpanded)}
+          >
+            {skippedExpanded ? (
+              <ChevronDown className="size-3.5" />
+            ) : (
+              <ChevronRight className="size-3.5" />
+            )}
+            {result.skipped_groups.length} skipped group(s)
+          </button>
+          {skippedExpanded && (
+            <ul className="mt-1 ml-5 space-y-0.5 max-h-48 overflow-y-auto">
+              {result.skipped_groups.map((skip) => (
+                <li
+                  key={skip.group_id}
+                  className="text-sm text-muted-foreground"
+                >
+                  <span className="font-medium">{skip.group_name}:</span>{" "}
+                  {formatSkipReason(skip.reason)}
+                  {skip.context && ` (${skip.context})`}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatSkipReason(reason: string): string {
+  switch (reason) {
+    case "empty_group":
+      return "empty group"
+    case "all_members_skipped":
+      return "all members skipped"
+    case "repo_exists":
+      return "repository already exists"
+    case "repo_not_found":
+      return "repository not found"
+    default:
+      return reason
+  }
 }

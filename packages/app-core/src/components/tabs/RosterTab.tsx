@@ -12,7 +12,6 @@ import {
   selectCourseStatus,
   useConnectionsStore,
 } from "../../stores/connectionsStore"
-import { useOutputStore } from "../../stores/outputStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
@@ -29,7 +28,6 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const lmsConnection = useAppSettingsStore((state) => state.lmsConnection)
   const courseStatus = useConnectionsStore(selectCourseStatus)
-  const appendOutput = useOutputStore((state) => state.appendText)
   const addToast = useToastStore((state) => state.addToast)
 
   // Dialog/sheet openers
@@ -100,13 +98,13 @@ export function RosterTab({ isDirty }: RosterTabProps) {
 
       const result = await commands.exportStudents(roster, path)
       if (result.status === "ok") {
-        appendOutput(`Students exported to ${path}`, "success")
+        addToast("Students exported", { tone: "success" })
       } else {
-        appendOutput(`Export failed: ${result.error.message}`, "error")
+        addToast(`Export failed: ${result.error.message}`, { tone: "error" })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      appendOutput(`Export failed: ${message}`, "error")
+      addToast(`Export failed: ${message}`, { tone: "error" })
     }
   }
 

@@ -297,27 +297,6 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ring) 35%, transparent);
 }
 
-/* Console styling */
-.console-panel {
-  background: #0d1015;
-  color: #d8dee9;
-  border: 1px solid var(--border);
-  padding: 6px;
-}
-
-.console-wrapper {
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-/* Ensure console styling overrides default textarea styles */
-.console-output.console-panel[data-slot="textarea"][readonly] {
-  background: #0d1015;
-  color: #d8dee9;
-  border: 1px solid var(--border);
-}
-
-
 .password-input[data-slot="input"][type="password"],
 input.password-input[type="password"][data-slot="input"] {
   font-size: 9px !important;
@@ -370,12 +349,6 @@ input.password-input[type="password"][data-slot="input"] {
 [data-slot="radio-group-item"][aria-disabled="true"] + [data-slot="label"] {
   color: var(--disabled-text);
   opacity: 0.75;
-}
-
-.console-output[data-slot="textarea"][readonly] {
-  color: var(--foreground);
-  background: var(--card);
-  opacity: 1;
 }
 
 [data-slot="input"]:focus,

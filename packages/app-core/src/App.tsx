@@ -1,8 +1,5 @@
 import {
   Button,
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
   Tabs,
   TabsContent,
   TabsList,
@@ -43,7 +40,6 @@ import {
   ValidationDialog,
 } from "./components/dialogs"
 import { IssuesButton } from "./components/IssuesButton"
-import { OutputConsole } from "./components/OutputConsole"
 import { SettingsButton } from "./components/SettingsButton"
 import { SettingsSheet } from "./components/settings"
 import { FileImportExportSheet, IssuesSheet } from "./components/sheets"
@@ -62,7 +58,6 @@ import { useTheme } from "./hooks/useTheme"
 import { listenEvent } from "./services/platform"
 import * as settingsService from "./services/settingsService"
 import { useAppSettingsStore } from "./stores/appSettingsStore"
-import { useOutputStore } from "./stores/outputStore"
 import {
   type ProfileLoadResult,
   selectCanRedo,
@@ -83,7 +78,6 @@ function App() {
   // Stores
   const ui = useUiStore()
   const setActiveProfile = useUiStore((state) => state.setActiveProfile)
-  const output = useOutputStore()
   const addToast = useToastStore((state) => state.addToast)
   const theme = useAppSettingsStore((state) => state.theme)
   const appSettingsStatus = useAppSettingsStore((state) => state.status)
@@ -184,29 +178,25 @@ function App() {
     setNewProfileDialogOpen,
   ])
 
-  // Save handler
+  // Save handler (Ctrl+S path)
   const saveCurrentProfile = useCallback(async () => {
     if (!ui.activeProfile) {
-      output.appendText("No active profile selected.", "warning")
+      addToast("No active profile selected", { tone: "warning" })
       return
     }
     try {
       const success = await save(ui.activeProfile)
-      if (success) {
-        markClean()
-        output.appendText(
-          `Settings saved to profile: ${ui.activeProfile}`,
-          "success",
-        )
-      } else {
+      if (!success) {
         const error = useProfileStore.getState().error
-        output.appendText(`Failed to save settings: ${error}`, "error")
+        addToast(`Failed to save: ${error}`, { tone: "error" })
+      } else {
+        markClean()
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      output.appendText(`Failed to save settings: ${message}`, "error")
+      addToast(`Failed to save: ${message}`, { tone: "error" })
     }
-  }, [ui.activeProfile, save, markClean, output])
+  }, [ui.activeProfile, save, markClean, addToast])
 
   const handleUndo = useCallback(() => {
     const entry = undo()
@@ -288,107 +278,97 @@ function App() {
 
   return (
     <div className="repobee-container">
-      <ResizablePanelGroup direction="vertical">
-        <ResizablePanel defaultSize={75} minSize={20}>
-          <div className="flex h-full flex-col overflow-hidden">
-            <Tabs
-              value={ui.activeTab}
-              onValueChange={(v) => ui.setActiveTab(v as ActiveTab)}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden"
-            >
-              <div className="flex items-center border-b">
-                <TabsList>
-                  <TabsTrigger value="roster">Roster</TabsTrigger>
-                  <TabsTrigger value="groups-assignments">
-                    Groups & Assignments
-                  </TabsTrigger>
-                  <TabsTrigger value="operation">Operation</TabsTrigger>
-                </TabsList>
-                <div className="flex-1" />
-                <div className="flex items-center gap-1 pr-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={handleUndo}
-                        disabled={!canUndo}
-                      >
-                        <Undo2 className="size-4" />
-                        <span className="sr-only">Undo</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {nextUndoDescription
-                        ? `Undo: ${nextUndoDescription} (Ctrl+Z)`
-                        : "Undo (Ctrl+Z)"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={handleRedo}
-                        disabled={!canRedo}
-                      >
-                        <Redo2 className="size-4" />
-                        <span className="sr-only">Redo</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {nextRedoDescription
-                        ? `Redo: ${nextRedoDescription} (Ctrl+Shift+Z)`
-                        : "Redo (Ctrl+Shift+Z)"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <IssuesButton />
-                  <SettingsButton />
-                </div>
-              </div>
-
-              {/* Tab Content */}
-              <TabsContent
-                value="roster"
-                className="flex-1 flex flex-col min-h-0 p-1"
-              >
-                <div className="flex-1 overflow-auto">
-                  <RosterTab isDirty={isDirty} />
-                </div>
-              </TabsContent>
-
-              <TabsContent
-                value="groups-assignments"
-                className="flex-1 flex flex-col min-h-0 p-1"
-              >
-                <div className="flex-1 overflow-auto">
-                  <GroupsAssignmentsTab />
-                </div>
-              </TabsContent>
-
-              <TabsContent
-                value="operation"
-                className="flex-1 flex flex-col min-h-0 p-1"
-              >
-                <div className="flex-1 overflow-auto">
-                  <OperationTab />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Utility Bar */}
-            <UtilityBar isDirty={isDirty} onSaved={markClean} />
+      <div className="flex h-full flex-col overflow-hidden">
+        <Tabs
+          value={ui.activeTab}
+          onValueChange={(v) => ui.setActiveTab(v as ActiveTab)}
+          className="flex-1 flex flex-col min-h-0 overflow-hidden"
+        >
+          <div className="flex items-center border-b">
+            <TabsList>
+              <TabsTrigger value="roster">Roster</TabsTrigger>
+              <TabsTrigger value="groups-assignments">
+                Groups & Assignments
+              </TabsTrigger>
+              <TabsTrigger value="operation">Operation</TabsTrigger>
+            </TabsList>
+            <div className="flex-1" />
+            <div className="flex items-center gap-1 pr-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                  >
+                    <Undo2 className="size-4" />
+                    <span className="sr-only">Undo</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {nextUndoDescription
+                    ? `Undo: ${nextUndoDescription} (Ctrl+Z)`
+                    : "Undo (Ctrl+Z)"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                  >
+                    <Redo2 className="size-4" />
+                    <span className="sr-only">Redo</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {nextRedoDescription
+                    ? `Redo: ${nextRedoDescription} (Ctrl+Shift+Z)`
+                    : "Redo (Ctrl+Shift+Z)"}
+                </TooltipContent>
+              </Tooltip>
+              <IssuesButton />
+              <SettingsButton />
+            </div>
           </div>
-        </ResizablePanel>
 
-        <ResizableHandle withHandle />
+          {/* Tab Content */}
+          <TabsContent
+            value="roster"
+            className="flex-1 flex flex-col min-h-0 p-1"
+          >
+            <div className="flex-1 overflow-auto">
+              <RosterTab isDirty={isDirty} />
+            </div>
+          </TabsContent>
 
-        <ResizablePanel defaultSize={25} minSize={10}>
-          <OutputConsole className="h-full" />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          <TabsContent
+            value="groups-assignments"
+            className="flex-1 flex flex-col min-h-0 p-1"
+          >
+            <div className="flex-1 overflow-auto">
+              <GroupsAssignmentsTab />
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="operation"
+            className="flex-1 flex flex-col min-h-0 p-1"
+          >
+            <div className="flex-1 overflow-auto">
+              <OperationTab />
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Utility Bar */}
+        <UtilityBar isDirty={isDirty} onSaved={markClean} />
+      </div>
 
       {/* Close Confirmation Dialog */}
       <AlertDialog

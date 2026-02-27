@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 import { UtilityBar } from "./UtilityBar"
@@ -25,7 +24,6 @@ describe("UtilityBar", () => {
   beforeEach(() => {
     useUiStore.getState().reset()
     useProfileStore.getState().reset()
-    useOutputStore.getState().clear()
     vi.clearAllMocks()
   })
 
@@ -53,15 +51,5 @@ describe("UtilityBar", () => {
     fireEvent.click(profileButton)
 
     expect(useUiStore.getState().activeTab).toBe("roster")
-  })
-
-  it("has Clear button that clears output", () => {
-    useOutputStore.getState().appendText("Test message", "info")
-    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
-
-    const clearButton = screen.getByText("Clear")
-    fireEvent.click(clearButton)
-
-    expect(useOutputStore.getState().lines).toHaveLength(0)
   })
 })

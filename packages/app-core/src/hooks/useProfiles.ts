@@ -6,8 +6,8 @@
 import type { ProfileSettings } from "@repo-edu/backend-interface/types"
 import { useCallback, useEffect } from "react"
 import { commands } from "../bindings/commands"
-import { useOutputStore } from "../stores/outputStore"
 import { useProfileStore } from "../stores/profileStore"
+import { useToastStore } from "../stores/toastStore"
 import { type ProfileListItem, useUiStore } from "../stores/uiStore"
 
 export type { ProfileListItem as ProfileItem }
@@ -31,7 +31,7 @@ export function useProfiles(): UseProfilesReturn {
   const activeProfile = useUiStore((state) => state.activeProfile)
   const setActiveProfile = useUiStore((state) => state.setActiveProfile)
   const profileStatus = useProfileStore((state) => state.status)
-  const appendOutput = useOutputStore((state) => state.appendText)
+  const addToast = useToastStore((state) => state.addToast)
   const course = useProfileStore(
     (state) => state.document?.settings.course ?? null,
   )
@@ -118,17 +118,16 @@ export function useProfiles(): UseProfilesReturn {
         if (result.status === "ok") {
           setActiveProfile(name)
         } else {
-          appendOutput(
-            `Failed to switch profile: ${result.error.message}`,
-            "error",
-          )
+          addToast(`Failed to switch profile: ${result.error.message}`, {
+            tone: "error",
+          })
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        appendOutput(`Failed to switch profile: ${message}`, "error")
+        addToast(`Failed to switch profile: ${message}`, { tone: "error" })
       }
     },
-    [setActiveProfile, appendOutput],
+    [setActiveProfile, addToast],
   )
 
   const duplicateProfile = useCallback(
@@ -142,9 +141,9 @@ export function useProfiles(): UseProfilesReturn {
         // Load source profile settings
         const loadResult = await commands.loadProfileSettings(sourceName)
         if (loadResult.status === "error") {
-          appendOutput(
+          addToast(
             `Failed to load source profile: ${loadResult.error.message}`,
-            "error",
+            { tone: "error" },
           )
           return false
         }
@@ -164,26 +163,24 @@ export function useProfiles(): UseProfilesReturn {
           newSettings,
         )
         if (saveResult.status === "error") {
-          appendOutput(
-            `Failed to create profile: ${saveResult.error.message}`,
-            "error",
-          )
+          addToast(`Failed to create profile: ${saveResult.error.message}`, {
+            tone: "error",
+          })
           return false
         }
 
         await refresh()
-        appendOutput(
-          `Duplicated "${sourceName}" to "${newName.trim()}" with course ${courseId.trim()}`,
-          "success",
-        )
+        addToast(`Duplicated "${sourceName}" to "${newName.trim()}"`, {
+          tone: "success",
+        })
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        appendOutput(`Failed to duplicate profile: ${message}`, "error")
+        addToast(`Failed to duplicate profile: ${message}`, { tone: "error" })
         return false
       }
     },
-    [appendOutput, refresh],
+    [addToast, refresh],
   )
 
   const renameProfile = useCallback(
@@ -195,10 +192,9 @@ export function useProfiles(): UseProfilesReturn {
       try {
         const result = await commands.renameProfile(oldName, newName.trim())
         if (result.status === "ok") {
-          appendOutput(
-            `Renamed profile: ${oldName} → ${newName.trim()}`,
-            "success",
-          )
+          addToast(`Renamed profile: ${oldName} → ${newName.trim()}`, {
+            tone: "success",
+          })
           // If we renamed the active profile, update it
           if (oldName === activeProfile) {
             setActiveProfile(newName.trim())
@@ -206,18 +202,17 @@ export function useProfiles(): UseProfilesReturn {
           await refresh()
           return true
         }
-        appendOutput(
-          `Failed to rename profile: ${result.error.message}`,
-          "error",
-        )
+        addToast(`Failed to rename profile: ${result.error.message}`, {
+          tone: "error",
+        })
         return false
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        appendOutput(`Failed to rename profile: ${message}`, "error")
+        addToast(`Failed to rename profile: ${message}`, { tone: "error" })
         return false
       }
     },
-    [activeProfile, setActiveProfile, appendOutput, refresh],
+    [activeProfile, setActiveProfile, addToast, refresh],
   )
 
   const deleteProfile = useCallback(
@@ -228,7 +223,7 @@ export function useProfiles(): UseProfilesReturn {
       try {
         const result = await commands.deleteProfile(profileName)
         if (result.status === "ok") {
-          appendOutput(`Deleted profile: ${profileName}`, "success")
+          addToast(`Deleted profile: ${profileName}`, { tone: "success" })
 
           if (isActive) {
             if (otherProfiles.length > 0) {
@@ -244,18 +239,17 @@ export function useProfiles(): UseProfilesReturn {
           await refresh()
           return true
         }
-        appendOutput(
-          `Failed to delete profile: ${result.error.message}`,
-          "error",
-        )
+        addToast(`Failed to delete profile: ${result.error.message}`, {
+          tone: "error",
+        })
         return false
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        appendOutput(`Failed to delete profile: ${message}`, "error")
+        addToast(`Failed to delete profile: ${message}`, { tone: "error" })
         return false
       }
     },
-    [activeProfile, profiles, setActiveProfile, appendOutput, refresh],
+    [activeProfile, profiles, setActiveProfile, addToast, refresh],
   )
 
   return {
