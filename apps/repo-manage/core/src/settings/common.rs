@@ -182,6 +182,8 @@ impl Default for AppSettings {
             time_format: TimeFormat::default(),
             lms_connection: None,
             git_connections: HashMap::new(),
+            roster_column_visibility: HashMap::new(),
+            roster_column_sizing: HashMap::new(),
         }
     }
 }

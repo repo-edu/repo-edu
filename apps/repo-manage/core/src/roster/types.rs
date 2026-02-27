@@ -49,6 +49,16 @@ impl Roster {
         }
     }
 
+    /// Sort students and staff by name (case-insensitive).
+    ///
+    /// This is the default sort order applied at roster creation and after imports.
+    pub fn sort_members_by_name(&mut self) {
+        self.students
+            .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        self.staff
+            .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    }
+
     /// Find a roster member by ID across students and staff.
     pub fn find_member(&self, id: &RosterMemberId) -> Option<&RosterMember> {
         self.students

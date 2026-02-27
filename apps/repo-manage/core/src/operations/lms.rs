@@ -462,7 +462,7 @@ fn merge_lms_roster_with_conflicts(
         },
     };
 
-    let updated_roster = Roster {
+    let mut updated_roster = Roster {
         connection: Some(roster_connection),
         students: updated_students,
         staff: updated_staff,
@@ -470,6 +470,7 @@ fn merge_lms_roster_with_conflicts(
         group_sets: base_roster.group_sets,
         assignments: base_roster.assignments,
     };
+    updated_roster.sort_members_by_name();
 
     let total_conflicts = conflicts.len() as i64;
 
@@ -623,6 +624,95 @@ mod tests {
         let (resolved, unresolved) = resolve_lms_member_ids(&map, &ids);
         assert!(resolved.is_empty());
         assert_eq!(unresolved, 3);
+    }
+
+    fn make_lms_user(id: &str, name: &str, email: &str) -> crate::User {
+        crate::User {
+            id: id.to_string(),
+            name: name.to_string(),
+            sortable_name: None,
+            short_name: None,
+            login_id: None,
+            email: Some(email.to_string()),
+            avatar_url: None,
+            enrollments: Some(vec![lms_common::Enrollment {
+                id: format!("enr-{id}"),
+                user_id: id.to_string(),
+                course_id: "42".to_string(),
+                enrollment_type: "StudentEnrollment".to_string(),
+                role: None,
+                enrollment_state: None,
+                limit_privileges_to_course_section: None,
+            }]),
+        }
+    }
+
+    #[test]
+    fn merge_lms_roster_sorts_students_by_name() {
+        let context = test_context();
+        let users = vec![
+            make_lms_user("u3", "Charlie Brown", "charlie@example.com"),
+            make_lms_user("u1", "Alice Smith", "alice@example.com"),
+            make_lms_user("u2", "Bob Jones", "bob@example.com"),
+        ];
+
+        let result = merge_lms_roster_with_conflicts(None, users, &context).unwrap();
+
+        let names: Vec<&str> = result
+            .roster
+            .students
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["Alice Smith", "Bob Jones", "Charlie Brown"]);
+    }
+
+    #[test]
+    fn merge_lms_roster_sorts_case_insensitively() {
+        let context = test_context();
+        let users = vec![
+            make_lms_user("u1", "bob Jones", "bob@example.com"),
+            make_lms_user("u2", "Alice Smith", "alice@example.com"),
+        ];
+
+        let result = merge_lms_roster_with_conflicts(None, users, &context).unwrap();
+
+        let names: Vec<&str> = result
+            .roster
+            .students
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["Alice Smith", "bob Jones"]);
+    }
+
+    #[test]
+    fn merge_lms_roster_sorts_after_reimport() {
+        let context = test_context();
+
+        // First import: Alice, Bob
+        let initial_users = vec![
+            make_lms_user("u1", "Alice Smith", "alice@example.com"),
+            make_lms_user("u2", "Bob Jones", "bob@example.com"),
+        ];
+        let first = merge_lms_roster_with_conflicts(None, initial_users, &context).unwrap();
+
+        // Reimport adds Charlie (who sorts between Alice and Bob)
+        let reimport_users = vec![
+            make_lms_user("u1", "Alice Smith", "alice@example.com"),
+            make_lms_user("u2", "Bob Jones", "bob@example.com"),
+            make_lms_user("u3", "Ben Adams", "ben@example.com"),
+        ];
+        let result =
+            merge_lms_roster_with_conflicts(Some(first.roster), reimport_users, &context).unwrap();
+
+        let names: Vec<&str> = result
+            .roster
+            .students
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["Alice Smith", "Ben Adams", "Bob Jones"]);
     }
 
     #[test]

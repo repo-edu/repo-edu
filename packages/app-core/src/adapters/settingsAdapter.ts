@@ -34,6 +34,8 @@ export interface AppSettingsStoreState {
   timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
+  rosterColumnVisibility: Record<string, boolean>
+  rosterColumnSizing: Record<string, number>
 }
 
 // ============================================================================
@@ -68,6 +70,8 @@ export function appSettingsToStore(
     timeFormat: settings.time_format,
     lmsConnection: settings.lms_connection ?? null,
     gitConnections: settings.git_connections ?? {},
+    rosterColumnVisibility: settings.roster_column_visibility ?? {},
+    rosterColumnSizing: settings.roster_column_sizing ?? {},
   }
 }
 
@@ -81,6 +85,8 @@ export function storeToAppSettings(state: AppSettingsStoreState): AppSettings {
     time_format: state.timeFormat,
     lms_connection: state.lmsConnection,
     git_connections: state.gitConnections,
+    roster_column_visibility: state.rosterColumnVisibility,
+    roster_column_sizing: state.rosterColumnSizing,
   }
 }
 
@@ -150,6 +156,8 @@ export const defaultAppSettingsState: AppSettingsStoreState = {
   timeFormat: "12h",
   lmsConnection: null,
   gitConnections: {},
+  rosterColumnVisibility: {},
+  rosterColumnSizing: {},
 }
 
 /**

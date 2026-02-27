@@ -174,6 +174,8 @@ export class MockBackend implements BackendAPI {
     git_connections: {
       "demo-github": demoGitConnection,
     },
+    roster_column_visibility: {},
+    roster_column_sizing: {},
   }
 
   constructor() {

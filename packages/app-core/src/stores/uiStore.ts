@@ -59,7 +59,6 @@ interface UiState {
   // Roster tab dialogs
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
-  rosterMemberColumnVisibility: Record<string, boolean>
   importGitUsernamesDialogOpen: boolean
   usernameVerificationDialogOpen: boolean
 
@@ -134,7 +133,6 @@ interface UiActions {
   // Roster tab dialogs
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
-  setRosterMemberColumnVisibility: (visibility: Record<string, boolean>) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
   setUsernameVerificationDialogOpen: (open: boolean) => void
 
@@ -212,7 +210,6 @@ const initialState: UiState = {
   // Roster tab dialogs
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
-  rosterMemberColumnVisibility: {},
   importGitUsernamesDialogOpen: false,
   usernameVerificationDialogOpen: false,
 
@@ -289,8 +286,6 @@ export const useUiStore = create<UiStore>((set) => ({
   // Roster tab dialogs
   setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
   setRosterSyncDialogOpen: (open) => set({ rosterSyncDialogOpen: open }),
-  setRosterMemberColumnVisibility: (visibility) =>
-    set({ rosterMemberColumnVisibility: visibility }),
   setImportGitUsernamesDialogOpen: (open) =>
     set({ importGitUsernamesDialogOpen: open }),
   setUsernameVerificationDialogOpen: (open) =>

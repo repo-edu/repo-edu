@@ -29,6 +29,8 @@ pub struct AppSettings {
   pub time_format: TimeFormat,
   pub lms_connection: Option<LmsConnection>,
   pub git_connections: HashMap<String, GitConnection>,
+  pub roster_column_visibility: HashMap<String, bool>,
+  pub roster_column_sizing: HashMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

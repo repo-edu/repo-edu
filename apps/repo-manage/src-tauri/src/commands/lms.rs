@@ -348,6 +348,7 @@ fn merge_file_members(
             .to_string(),
         last_updated: Utc::now(),
     });
+    updated_roster.sort_members_by_name();
 
     Ok(ImportStudentsResult {
         summary: ImportSummary {

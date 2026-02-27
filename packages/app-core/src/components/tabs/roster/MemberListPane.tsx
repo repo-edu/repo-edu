@@ -35,7 +35,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { commands } from "../../../bindings/commands"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useProfileStore } from "../../../stores/profileStore"
@@ -76,12 +76,19 @@ export function MemberListPane({
 }: MemberListPaneProps) {
   const openSettings = useUiStore((state) => state.openSettings)
   const activeProfile = useUiStore((state) => state.activeProfile)
-  const rosterMemberColumnVisibility = useUiStore(
-    (state) => state.rosterMemberColumnVisibility,
+  const rosterColumnVisibility = useAppSettingsStore(
+    (state) => state.rosterColumnVisibility,
   )
-  const setRosterMemberColumnVisibility = useUiStore(
-    (state) => state.setRosterMemberColumnVisibility,
+  const setRosterColumnVisibility = useAppSettingsStore(
+    (state) => state.setRosterColumnVisibility,
   )
+  const rosterColumnSizing = useAppSettingsStore(
+    (state) => state.rosterColumnSizing,
+  )
+  const setRosterColumnSizing = useAppSettingsStore(
+    (state) => state.setRosterColumnSizing,
+  )
+  const saveAppSettings = useAppSettingsStore((state) => state.save)
 
   const addMember = useProfileStore((state) => state.addMember)
   const updateMember = useProfileStore((state) => state.updateMember)
@@ -104,6 +111,35 @@ export function MemberListPane({
   const studentCount = students.length
   const staffCount = staff.length
   const hasMembers = members.length > 0
+
+  const memberGroupNames = useMemo(() => {
+    const index = new Map<RosterMemberId, string[]>()
+    if (!roster) return index
+
+    const systemGroupIds = new Set(
+      roster.group_sets
+        .filter((gs) => gs.connection?.kind === "system")
+        .flatMap((gs) => gs.group_ids),
+    )
+
+    for (const group of roster.groups) {
+      if (systemGroupIds.has(group.id)) continue
+      for (const memberId of group.member_ids) {
+        let names = index.get(memberId)
+        if (!names) {
+          names = []
+          index.set(memberId, names)
+        }
+        names.push(group.name)
+      }
+    }
+
+    for (const names of index.values()) {
+      names.sort((a, b) => a.localeCompare(b))
+    }
+
+    return index
+  }, [roster])
 
   const handleAddStudent = () => {
     if (!newStudentName.trim() || !newStudentEmail.trim()) return
@@ -196,6 +232,8 @@ export function MemberListPane({
     () => [
       {
         id: "name",
+        size: 200,
+        minSize: 100,
         accessorFn: (row) => row.name,
         header: ({ column }) => (
           <SortHeaderButton label="Name" column={column} />
@@ -210,6 +248,8 @@ export function MemberListPane({
       },
       {
         id: "email",
+        size: 260,
+        minSize: 120,
         accessorFn: (row) => row.email,
         header: ({ column }) => (
           <SortHeaderButton label="Email" column={column} />
@@ -226,21 +266,9 @@ export function MemberListPane({
         ),
       },
       {
-        id: "git_username",
-        accessorFn: (row) => row.git_username ?? "",
-        header: ({ column }) => (
-          <SortHeaderButton label="Git Username" column={column} />
-        ),
-        cell: ({ row }) => (
-          <EditableTextCell
-            value={row.original.git_username ?? ""}
-            onSave={(value) => handleUpdateGitUsername(row.original.id, value)}
-            trailing={getStatusIcon(row.original.git_username_status)}
-          />
-        ),
-      },
-      {
         id: "status",
+        size: 110,
+        minSize: 80,
         accessorFn: (row) => row.status,
         header: ({ column }) => (
           <SortHeaderButton label="Status" column={column} />
@@ -257,18 +285,58 @@ export function MemberListPane({
       },
       {
         id: "member_type",
+        size: 90,
+        minSize: 60,
         accessorFn: (row) => memberTypeLabel(row),
         header: ({ column }) => (
-          <SortHeaderButton label="Student/Staff" column={column} />
+          <SortHeaderButton label="Role" column={column} />
         ),
         cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground">
             {memberTypeLabel(row.original)}
           </span>
         ),
       },
       {
+        id: "groups",
+        size: 150,
+        minSize: 80,
+        accessorFn: (row) => memberGroupNames.get(row.id)?.join(", ") ?? "",
+        header: ({ column }) => (
+          <SortHeaderButton label="Groups" column={column} />
+        ),
+        cell: ({ row }) => {
+          const names = memberGroupNames.get(row.original.id)
+          if (!names || names.length === 0) return null
+          const text = names.join(", ")
+          return (
+            <span className="text-muted-foreground truncate block" title={text}>
+              {text}
+            </span>
+          )
+        },
+      },
+      {
+        id: "git_username",
+        size: 180,
+        minSize: 100,
+        accessorFn: (row) => row.git_username ?? "",
+        header: ({ column }) => (
+          <SortHeaderButton label="Git Username" column={column} />
+        ),
+        cell: ({ row }) => (
+          <EditableTextCell
+            value={row.original.git_username ?? ""}
+            onSave={(value) => handleUpdateGitUsername(row.original.id, value)}
+            trailing={getStatusIcon(row.original.git_username_status)}
+          />
+        ),
+      },
+      {
         id: "actions",
+        size: 40,
+        minSize: 40,
+        enableResizing: false,
         enableSorting: false,
         enableHiding: false,
         header: () => null,
@@ -283,25 +351,34 @@ export function MemberListPane({
       handleUpdateGitUsername,
       handleUpdateName,
       handleUpdateStatus,
+      memberGroupNames,
     ],
   )
 
   const table = useReactTable({
     data: members,
     columns,
+    columnResizeMode: "onChange",
     state: {
       sorting,
       globalFilter,
-      columnVisibility: rosterMemberColumnVisibility,
+      columnVisibility: rosterColumnVisibility,
+      columnSizing: rosterColumnSizing,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnSizingChange: (updater) => {
+      const next =
+        typeof updater === "function" ? updater(rosterColumnSizing) : updater
+      setRosterColumnSizing(next)
+    },
     onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
       const next =
         typeof updater === "function"
-          ? updater(rosterMemberColumnVisibility)
+          ? updater(rosterColumnVisibility)
           : updater
-      setRosterMemberColumnVisibility(next)
+      setRosterColumnVisibility(next)
+      saveAppSettings()
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -317,10 +394,26 @@ export function MemberListPane({
         member.email.toLowerCase().includes(query) ||
         (member.git_username?.toLowerCase().includes(query) ?? false) ||
         formatStudentStatus(member.status).toLowerCase().includes(query) ||
-        memberTypeLabel(member).toLowerCase().includes(query)
+        memberTypeLabel(member).toLowerCase().includes(query) ||
+        (memberGroupNames
+          .get(member.id)
+          ?.some((name) => name.toLowerCase().includes(query)) ??
+          false)
       )
     },
   })
+
+  // Save column sizing to app settings when a resize operation ends
+  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
+  const prevIsResizingRef = useRef<string | false>(false)
+
+  useEffect(() => {
+    const wasResizing = prevIsResizingRef.current
+    prevIsResizingRef.current = isResizingColumn
+    if (wasResizing && !isResizingColumn) {
+      saveAppSettings()
+    }
+  }, [isResizingColumn, saveAppSettings])
 
   const hideableColumns = table
     .getAllLeafColumns()
@@ -476,15 +569,27 @@ export function MemberListPane({
               {showColumnControls && hideableColumns.length > 0 && (
                 <div className="absolute right-0 top-9 z-10 bg-popover border rounded-md p-2 shadow-md min-w-44 space-y-1">
                   {hideableColumns.map((column) => (
-                    <button
+                    <div
                       key={column.id}
-                      type="button"
-                      className="w-full inline-flex items-center gap-2 text-left text-xs px-1 py-1 rounded hover:bg-muted/50"
+                      role="option"
+                      aria-selected={column.getIsVisible()}
+                      className="w-full inline-flex items-center gap-2 text-left text-xs px-1 py-1 rounded hover:bg-muted/50 cursor-pointer"
                       onClick={() => column.toggleVisibility()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          column.toggleVisibility()
+                        }
+                      }}
+                      tabIndex={0}
                     >
-                      <Checkbox size="sm" checked={column.getIsVisible()} />
+                      <Checkbox
+                        size="sm"
+                        checked={column.getIsVisible()}
+                        tabIndex={-1}
+                      />
                       <span>{columnLabel(column.id)}</span>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -526,14 +631,18 @@ export function MemberListPane({
           {/* Student table */}
           <div className="flex-1 min-h-0 px-3 pb-2">
             <div className="border rounded h-full overflow-y-auto">
-              <table className="w-full table-fixed text-sm">
+              <table
+                className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
+                style={{ tableLayout: "fixed" }}
+              >
                 <thead className="bg-muted sticky top-0">
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
-                          className={getHeaderCellClass(header.column.id)}
+                          className="p-2 text-left font-medium relative min-w-0"
+                          style={{ width: header.getSize() }}
                         >
                           {header.isPlaceholder
                             ? null
@@ -541,6 +650,18 @@ export function MemberListPane({
                                 header.column.columnDef.header,
                                 header.getContext(),
                               )}
+                          {header.column.getCanResize() && (
+                            // biome-ignore lint/a11y/noStaticElementInteractions: column resize drag handle
+                            <div
+                              onMouseDown={header.getResizeHandler()}
+                              onTouchStart={header.getResizeHandler()}
+                              className={`absolute right-0 top-0 h-full w-px cursor-col-resize select-none touch-none bg-border after:absolute after:inset-y-0 after:-left-1 after:-right-1 ${
+                                header.column.getIsResizing()
+                                  ? "bg-primary"
+                                  : ""
+                              }`}
+                            />
+                          )}
                         </th>
                       ))}
                     </tr>
@@ -559,7 +680,8 @@ export function MemberListPane({
                       {row.getVisibleCells().map((cell) => (
                         <td
                           key={cell.id}
-                          className={getBodyCellClass(cell.column.id)}
+                          className="p-2 align-top min-w-0"
+                          style={{ width: cell.column.getSize() }}
                         >
                           {flexRender(
                             cell.column.columnDef.cell,
@@ -682,9 +804,10 @@ function RosterSourceDisplay({ roster }: RosterSourceDisplayProps) {
 function columnLabel(id: string): string {
   if (id === "name") return "Name"
   if (id === "email") return "Email"
-  if (id === "git_username") return "Git Username"
   if (id === "status") return "Status"
-  if (id === "member_type") return "Student/Staff"
+  if (id === "member_type") return "Role"
+  if (id === "groups") return "Groups"
+  if (id === "git_username") return "Git Username"
   return id
 }
 
@@ -697,21 +820,4 @@ function getStatusIcon(status: RosterMember["git_username_status"]) {
     default:
       return null
   }
-}
-
-function getHeaderCellClass(columnId: string): string {
-  const base = "p-2 text-left font-medium"
-  if (columnId === "name") return `${base} w-[22%]`
-  if (columnId === "email") return `${base} w-[30%] min-w-0`
-  if (columnId === "git_username") return `${base} w-[18%]`
-  if (columnId === "status") return `${base} w-[12%]`
-  if (columnId === "member_type") return `${base} w-[14%]`
-  if (columnId === "actions") return `${base} w-10`
-  return base
-}
-
-function getBodyCellClass(columnId: string): string {
-  const base = "p-2 align-top"
-  if (columnId === "email") return `${base} min-w-0`
-  return base
 }

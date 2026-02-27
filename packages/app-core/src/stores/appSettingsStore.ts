@@ -24,6 +24,8 @@ interface AppSettingsState {
   timeFormat: TimeFormat
   lmsConnection: LmsConnection | null
   gitConnections: Record<string, GitConnection>
+  rosterColumnVisibility: Record<string, boolean>
+  rosterColumnSizing: Record<string, number>
   status: StoreStatus
   error: string | null
 }
@@ -51,6 +53,10 @@ interface AppSettingsActions {
   ) => void
   removeGitConnection: (name: string) => void
 
+  // Roster column preferences
+  setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
+  setRosterColumnSizing: (sizing: Record<string, number>) => void
+
   // Reset
   reset: () => void
 }
@@ -63,6 +69,8 @@ const initialState: AppSettingsState = {
   timeFormat: "24h",
   lmsConnection: null,
   gitConnections: {},
+  rosterColumnVisibility: {},
+  rosterColumnSizing: {},
   status: "loading",
   error: null,
 }
@@ -85,6 +93,8 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
         timeFormat: settings.time_format,
         lmsConnection: settings.lms_connection ?? null,
         gitConnections: settings.git_connections ?? {},
+        rosterColumnVisibility: settings.roster_column_visibility ?? {},
+        rosterColumnSizing: settings.roster_column_sizing ?? {},
         status: "loaded",
         error: null,
       })
@@ -104,6 +114,8 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
         time_format: state.timeFormat,
         lms_connection: state.lmsConnection,
         git_connections: state.gitConnections,
+        roster_column_visibility: state.rosterColumnVisibility,
+        roster_column_sizing: state.rosterColumnSizing,
       }
       const result = await commands.saveAppSettings(settings)
       if (result.status === "error") {
@@ -122,6 +134,10 @@ export const useAppSettingsStore = create<AppSettingsStore>((set, get) => ({
   setTimeFormat: (timeFormat) => set({ timeFormat }),
 
   setLmsConnection: (connection) => set({ lmsConnection: connection }),
+
+  setRosterColumnVisibility: (visibility) =>
+    set({ rosterColumnVisibility: visibility }),
+  setRosterColumnSizing: (sizing) => set({ rosterColumnSizing: sizing }),
 
   addGitConnection: (name, connection) =>
     set((state) => ({
@@ -161,5 +177,9 @@ export const selectGitConnections = (state: AppSettingsStore) =>
 export const selectGitConnection =
   (name: string) => (state: AppSettingsStore) =>
     state.gitConnections[name] ?? null
+export const selectRosterColumnVisibility = (state: AppSettingsStore) =>
+  state.rosterColumnVisibility
+export const selectRosterColumnSizing = (state: AppSettingsStore) =>
+  state.rosterColumnSizing
 export const selectAppSettingsStatus = (state: AppSettingsStore) => state.status
 export const selectAppSettingsError = (state: AppSettingsStore) => state.error

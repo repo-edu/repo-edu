@@ -36,17 +36,22 @@ where
 fn merge_values_warned(target: &mut Value, src: &Value, path: String, warnings: &mut Vec<String>) {
     match (target, src) {
         (Value::Object(t), Value::Object(s)) => {
-            for (k, v) in s {
-                let field_path = if path.is_empty() {
-                    k.clone()
-                } else {
-                    format!("{}.{}", path, k)
-                };
-                match t.get_mut(k) {
-                    Some(tv) => merge_values_warned(tv, v, field_path, warnings),
-                    None => {
-                        // Unknown field - warn and skip (don't insert)
-                        warnings.push(format!("Unknown field '{}' (removed)", field_path));
+            if t.is_empty() {
+                // Empty default means a map type (HashMap) — accept all source keys
+                *t = s.clone();
+            } else {
+                for (k, v) in s {
+                    let field_path = if path.is_empty() {
+                        k.clone()
+                    } else {
+                        format!("{}.{}", path, k)
+                    };
+                    match t.get_mut(k) {
+                        Some(tv) => merge_values_warned(tv, v, field_path, warnings),
+                        None => {
+                            // Unknown field - warn and skip (don't insert)
+                            warnings.push(format!("Unknown field '{}' (removed)", field_path));
+                        }
                     }
                 }
             }
@@ -110,6 +115,7 @@ mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
     use serde_json::json;
+    use std::collections::HashMap;
 
     #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
     struct TestSettings {
@@ -261,6 +267,43 @@ mod tests {
     struct SettingsWithOptional {
         name: String,
         optional_obj: Option<NestedSettings>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    struct SettingsWithMap {
+        name: String,
+        tags: HashMap<String, bool>,
+        sizes: HashMap<String, f64>,
+    }
+
+    impl Default for SettingsWithMap {
+        fn default() -> Self {
+            Self {
+                name: String::new(),
+                tags: HashMap::new(),
+                sizes: HashMap::new(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_merge_map_fields_preserve_dynamic_keys() {
+        let raw = json!({
+            "name": "test",
+            "tags": { "email": false, "status": true },
+            "sizes": { "name": 250.0, "email": 300.0 }
+        });
+
+        let result: MergeResult<SettingsWithMap> = merge_with_defaults_warned(&raw).unwrap();
+
+        assert_eq!(result.value.name, "test");
+        assert_eq!(result.value.tags.len(), 2);
+        assert_eq!(result.value.tags["email"], false);
+        assert_eq!(result.value.tags["status"], true);
+        assert_eq!(result.value.sizes.len(), 2);
+        assert!((result.value.sizes["name"] - 250.0).abs() < f64::EPSILON);
+        assert!((result.value.sizes["email"] - 300.0).abs() < f64::EPSILON);
+        assert!(result.warnings.is_empty());
     }
 
     #[test]

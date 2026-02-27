@@ -37,6 +37,12 @@ export interface AppSettings {
   git_connections: {
     [k: string]: GitConnection
   }
+  roster_column_visibility: {
+    [k: string]: boolean
+  }
+  roster_column_sizing: {
+    [k: string]: number
+  }
 }
 
 /**

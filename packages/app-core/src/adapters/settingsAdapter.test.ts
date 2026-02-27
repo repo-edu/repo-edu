@@ -32,6 +32,8 @@ const sampleAppSettings: AppSettings = {
       identity_mode: "username",
     },
   },
+  roster_column_visibility: {},
+  roster_column_sizing: {},
 }
 
 const sampleProfileSettings: ProfileSettings = {
