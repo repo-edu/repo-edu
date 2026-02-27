@@ -6,7 +6,6 @@ import type {
   WindowTheme,
 } from "@repo-edu/backend-interface"
 import type {
-  AffectedGroup,
   AppError,
   AppSettings,
   AssignmentId,
@@ -48,9 +47,7 @@ import type {
   Result,
   Roster,
   RosterMember,
-  RosterMemberId,
   SettingsLoadResult,
-  StudentRemovalCheck,
   SystemGroupSetEnsureResult,
   UsernameVerificationResult,
   ValidationResult,
@@ -862,40 +859,6 @@ export class MockBackend implements BackendAPI {
   async clearRoster(profile: string): Promise<Result<null, AppError>> {
     this.rosters.set(profile, null)
     return this.ok(null)
-  }
-
-  async checkStudentRemoval(
-    _: string,
-    roster: Roster,
-    studentId: RosterMemberId,
-  ): Promise<Result<StudentRemovalCheck, AppError>> {
-    const student = roster.students.find((entry) => entry.id === studentId)
-    const affected: AffectedGroup[] = []
-
-    for (const group of roster.groups) {
-      if (group.member_ids.includes(studentId)) {
-        // Find assignments that reference this group
-        for (const assignment of roster.assignments) {
-          const gs = roster.group_sets.find(
-            (s) => s.id === assignment.group_set_id,
-          )
-          if (gs?.group_ids.includes(group.id)) {
-            affected.push({
-              assignment_id: assignment.id,
-              assignment_name: assignment.name,
-              group_id: group.id,
-              group_name: group.name,
-            })
-          }
-        }
-      }
-    }
-
-    return this.ok({
-      student_id: studentId,
-      student_name: student?.name ?? "Unknown",
-      affected_groups: affected,
-    })
   }
 
   async importGitUsernames(

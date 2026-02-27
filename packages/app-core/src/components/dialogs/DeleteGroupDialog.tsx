@@ -67,9 +67,8 @@ export function DeleteGroupDialog() {
 
           {group && group.member_ids.length > 0 && (
             <Text className="text-xs text-muted-foreground">
-              {group.member_ids.length} member
-              {group.member_ids.length !== 1 ? "s" : ""} will lose this group
-              membership.
+              This group has {group.member_ids.length} member
+              {group.member_ids.length !== 1 ? "s" : ""}.
             </Text>
           )}
         </DialogBody>

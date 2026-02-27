@@ -255,7 +255,7 @@ describe("Store Smoke Tests", () => {
       expect(state.document?.roster?.students).toHaveLength(1)
     })
 
-    it("smoke: removeMember removes member and cascades to groups", () => {
+    it("smoke: removeMember marks member as dropped", () => {
       const memberId = generateMemberId()
       const groupId = generateGroupId()
 
@@ -311,6 +311,69 @@ describe("Store Smoke Tests", () => {
       })
 
       useProfileStore.getState().removeMember(memberId)
+
+      const state = useProfileStore.getState()
+      expect(state.document?.roster?.students).toHaveLength(1)
+      expect(state.document?.roster?.students[0].status).toBe("dropped")
+      expect(state.document?.roster?.groups[0].member_ids).toEqual([memberId])
+    })
+
+    it("smoke: deleteMemberPermanently removes local member and cascades", () => {
+      const memberId = generateMemberId()
+      const groupId = generateGroupId()
+
+      useProfileStore.setState({
+        document: {
+          settings: createTestSettings(),
+          roster: {
+            connection: null,
+            students: [
+              {
+                id: memberId,
+                name: "Test",
+                email: "test@example.com",
+                student_number: null,
+                git_username: null,
+                git_username_status: "unknown",
+                status: "active",
+                lms_user_id: null,
+                enrollment_type: "student",
+                source: "local",
+              },
+            ],
+            staff: [],
+            groups: [
+              {
+                id: groupId,
+                name: "Group 1",
+                member_ids: [memberId],
+                origin: "local",
+                lms_group_id: null,
+              },
+            ],
+            group_sets: [
+              {
+                id: "gs-1",
+                name: "Set 1",
+                group_ids: [groupId],
+                connection: null,
+                group_selection: { kind: "all", excluded_group_ids: [] },
+              },
+            ],
+            assignments: [
+              {
+                id: "a-1",
+                name: "Assignment 1",
+                group_set_id: "gs-1",
+              },
+            ],
+          },
+          resolvedIdentityMode: "email",
+        },
+        status: "loaded",
+      })
+
+      useProfileStore.getState().deleteMemberPermanently(memberId)
 
       const state = useProfileStore.getState()
       expect(state.document?.roster?.students).toHaveLength(0)

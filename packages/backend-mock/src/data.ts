@@ -39,6 +39,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-101",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -51,6 +52,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-102",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -63,6 +65,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-103",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -75,6 +78,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-104",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -87,6 +91,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-105",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -99,6 +104,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-106",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -111,6 +117,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-107",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -123,6 +130,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-108",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -135,6 +143,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-109",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -147,6 +156,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-110",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -159,6 +169,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-111",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -171,6 +182,7 @@ export const demoStudents: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-112",
     enrollment_type: "student",
+    lms_status: "active",
     source: "lms",
   },
 ]
@@ -205,6 +217,7 @@ export const demoStaff: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-001",
     enrollment_type: "teacher",
+    lms_status: "active",
     source: "lms",
   },
   {
@@ -217,6 +230,7 @@ export const demoStaff: RosterMember[] = [
     status: "active",
     lms_user_id: "lms-002",
     enrollment_type: "ta",
+    lms_status: "active",
     source: "lms",
   },
 ]

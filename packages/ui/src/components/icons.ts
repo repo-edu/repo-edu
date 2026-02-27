@@ -37,6 +37,7 @@ export {
   Plus,
   Redo2,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   Trash2,

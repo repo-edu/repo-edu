@@ -126,6 +126,7 @@ interface ProfileActions {
   addMember: (member: RosterMember) => void
   updateMember: (id: RosterMemberId, updates: Partial<RosterMember>) => void
   removeMember: (id: RosterMemberId) => void
+  deleteMemberPermanently: (id: RosterMemberId) => void
 
   // Backward-compat aliases
   /** @deprecated Use addMember */
@@ -740,16 +741,43 @@ export const useProfileStore = create<ProfileStore>()(
           get().document?.roster?.students.find((m) => m.id === id)?.name ??
           get().document?.roster?.staff.find((m) => m.id === id)?.name ??
           "member"
-        mutateRoster(`Remove member ${memberName}`, (state) => {
+        mutateRoster(`Drop member ${memberName}`, (state) => {
           if (!state.document?.roster) return
-          state.document.roster.students =
-            state.document.roster.students.filter((m) => m.id !== id)
-          state.document.roster.staff = state.document.roster.staff.filter(
-            (m) => m.id !== id,
+          const student = state.document.roster.students.find(
+            (m) => m.id === id,
           )
-          // Cascade: remove from all top-level group member_ids
+          const staffMember = state.document.roster.staff.find(
+            (m) => m.id === id,
+          )
+          const member = student ?? staffMember
+          if (member) {
+            member.status = "dropped"
+          }
+        })
+      },
+
+      deleteMemberPermanently: (id) => {
+        const roster = get().document?.roster
+        const student = roster?.students.find((m) => m.id === id)
+        const staffMember = roster?.staff.find((m) => m.id === id)
+        const member = student ?? staffMember
+        if (!member || member.source !== "local") return
+
+        mutateRoster(`Delete member ${member.name}`, (state) => {
+          if (!state.document?.roster) return
+
+          state.document.roster.students =
+            state.document.roster.students.filter(
+              (rosterMember) => rosterMember.id !== id,
+            )
+          state.document.roster.staff = state.document.roster.staff.filter(
+            (rosterMember) => rosterMember.id !== id,
+          )
+
           for (const group of state.document.roster.groups) {
-            group.member_ids = group.member_ids.filter((m) => m !== id)
+            group.member_ids = group.member_ids.filter(
+              (memberId) => memberId !== id,
+            )
           }
         })
       },

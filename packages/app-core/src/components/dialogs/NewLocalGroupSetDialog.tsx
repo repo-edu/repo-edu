@@ -71,8 +71,12 @@ export function NewLocalGroupSetDialog() {
   const memberNameById = useMemo(() => {
     if (!roster) return new Map<string, string>()
     const map = new Map<string, string>()
-    for (const m of roster.students) map.set(m.id, m.name)
-    for (const m of roster.staff) map.set(m.id, m.name)
+    for (const m of roster.students) {
+      if (m.status === "active") map.set(m.id, m.name)
+    }
+    for (const m of roster.staff) {
+      if (m.status === "active") map.set(m.id, m.name)
+    }
     return map
   }, [roster])
 

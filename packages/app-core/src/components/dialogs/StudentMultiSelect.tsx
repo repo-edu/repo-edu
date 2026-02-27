@@ -49,6 +49,12 @@ export function StudentMultiSelect({
     )
   }, [students, search])
 
+  const activeStudentIds = useMemo(
+    () =>
+      new Set(students.filter((s) => s.status === "active").map((s) => s.id)),
+    [students],
+  )
+
   const membershipMap = useMemo(() => {
     const map = new Map<
       RosterMemberId,
@@ -57,13 +63,14 @@ export function StudentMultiSelect({
     if (!groups) return map
     for (const group of groups) {
       for (const memberId of group.member_ids) {
+        if (!activeStudentIds.has(memberId)) continue
         const existing = map.get(memberId) ?? []
         existing.push({ groupId: group.id, groupName: group.name })
         map.set(memberId, existing)
       }
     }
     return map
-  }, [groups])
+  }, [groups, activeStudentIds])
 
   const toggleStudent = (id: RosterMemberId) => {
     if (selected.includes(id)) {

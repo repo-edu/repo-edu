@@ -7,6 +7,19 @@ export {
   AlertTitle,
   alertVariants,
 } from "./components/ui/alert"
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./components/ui/alert-dialog"
 export { Button, buttonVariants } from "./components/ui/button"
 // Layout components
 export {

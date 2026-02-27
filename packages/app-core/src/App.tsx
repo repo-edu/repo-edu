@@ -35,7 +35,6 @@ import {
   PreflightDialog,
   ReimportGroupSetDialog,
   RosterSyncDialog,
-  StudentRemovalConfirmationDialog,
   UsernameVerificationDialog,
   ValidationDialog,
 } from "./components/dialogs"
@@ -422,7 +421,7 @@ function App() {
       <RosterSyncDialog />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />
-      <StudentRemovalConfirmationDialog />
+
       <LmsImportConflictDialog />
       <UsernameVerificationDialog />
 

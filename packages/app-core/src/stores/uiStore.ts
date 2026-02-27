@@ -6,7 +6,6 @@
 import type {
   ImportConflict,
   ImportGitUsernamesResult,
-  StudentRemovalCheck,
   UsernameVerificationResult,
 } from "@repo-edu/backend-interface/types"
 import { create } from "zustand"
@@ -107,7 +106,6 @@ interface UiState {
   closePromptVisible: boolean
 
   // Confirmation/result state (null = dialog closed)
-  studentRemovalConfirmation: StudentRemovalCheck | null
   gitUsernameImportResult: ImportGitUsernamesResult | null
   usernameVerificationResult: UsernameVerificationResult | null
   lmsImportConflicts: ImportConflict[] | null
@@ -180,7 +178,6 @@ interface UiActions {
   hideClosePrompt: () => void
 
   // Confirmation/result state
-  setStudentRemovalConfirmation: (check: StudentRemovalCheck | null) => void
   setGitUsernameImportResult: (result: ImportGitUsernamesResult | null) => void
   setUsernameVerificationResult: (
     result: UsernameVerificationResult | null,
@@ -258,7 +255,6 @@ const initialState: UiState = {
   closePromptVisible: false,
 
   // Confirmation/result state
-  studentRemovalConfirmation: null,
   gitUsernameImportResult: null,
   usernameVerificationResult: null,
   lmsImportConflicts: null,
@@ -340,8 +336,6 @@ export const useUiStore = create<UiStore>((set) => ({
   hideClosePrompt: () => set({ closePromptVisible: false }),
 
   // Confirmation/result state
-  setStudentRemovalConfirmation: (check) =>
-    set({ studentRemovalConfirmation: check }),
   setGitUsernameImportResult: (result) =>
     set({ gitUsernameImportResult: result }),
   setUsernameVerificationResult: (result) =>

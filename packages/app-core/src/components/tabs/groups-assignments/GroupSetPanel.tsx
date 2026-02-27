@@ -589,22 +589,28 @@ function GroupsList({
     return new Set(roster.staff.map((m) => m.id))
   }, [roster])
 
-  // Resolve members for a group
+  // Resolve active members for a group (non-active members are preserved in
+  // member_ids but filtered out at display time)
   const resolveMembers = useCallback(
     (group: Group): RosterMember[] => {
       return group.member_ids
         .map((id) => memberMap.get(id))
-        .filter((m): m is RosterMember => !!m)
+        .filter((m): m is RosterMember => !!m && m.status === "active")
     },
     [memberMap],
   )
 
-  // Build member → group IDs index for dedup filtering
+  // Build member → group IDs index for dedup filtering (active members only)
   const memberGroupIndex = useMemo(() => {
     if (!roster) return new Map<string, Set<string>>()
+    const allMembers = [...roster.students, ...roster.staff]
+    const activeIds = new Set(
+      allMembers.filter((m) => m.status === "active").map((m) => m.id),
+    )
     const index = new Map<string, Set<string>>()
     for (const group of roster.groups) {
       for (const memberId of group.member_ids) {
+        if (!activeIds.has(memberId)) continue
         let groupIds = index.get(memberId)
         if (!groupIds) {
           groupIds = new Set<string>()

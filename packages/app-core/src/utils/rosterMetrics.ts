@@ -19,10 +19,14 @@ export const buildStudentMap = (students: RosterMember[]) =>
     students.map((student) => [student.id, student]),
   )
 
-export const buildGroupMembershipMap = (groups: Group[]) => {
+export const buildGroupMembershipMap = (
+  groups: Group[],
+  activeMemberIds?: Set<RosterMemberId>,
+) => {
   const map = new Map<RosterMemberId, string[]>()
   for (const group of groups) {
     for (const memberId of group.member_ids) {
+      if (activeMemberIds && !activeMemberIds.has(memberId)) continue
       const existing = map.get(memberId) ?? []
       existing.push(group.name)
       map.set(memberId, existing)

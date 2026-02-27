@@ -119,8 +119,12 @@ export function OperationTab() {
       ? resolveAssignmentGroups(roster, selectedAssignment)
       : []
   const groupCount = resolvedGroups.length
-  const validGroupCount = resolvedGroups.filter(
-    (group) => group.member_ids.length > 0,
+  const allMembers = roster ? [...roster.students, ...roster.staff] : []
+  const activeIds = new Set(
+    allMembers.filter((m) => m.status === "active").map((m) => m.id),
+  )
+  const validGroupCount = resolvedGroups.filter((group) =>
+    group.member_ids.some((id) => activeIds.has(id)),
   ).length
 
   const handleBrowseFolder = async () => {

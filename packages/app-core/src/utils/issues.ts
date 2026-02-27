@@ -131,14 +131,22 @@ export function buildIssueCards(
     const unknownGroups: { groupName: string; unknownIds: string[] }[] = []
     const emptyGroups: string[] = []
 
+    const allMembers = [...roster.students, ...roster.staff]
+    const activeIds = new Set(
+      allMembers.filter((m) => m.status === "active").map((m) => m.id),
+    )
+
     for (const group of resolvedGroups) {
-      const unknownIds = group.member_ids.filter(
+      const activeMemberIdsForGroup = group.member_ids.filter((id) =>
+        activeIds.has(id),
+      )
+      const unknownIds = activeMemberIdsForGroup.filter(
         (memberId) => !studentMap.has(memberId),
       )
       if (unknownIds.length > 0) {
         unknownGroups.push({ groupName: group.name, unknownIds })
       }
-      if (group.member_ids.length === 0) {
+      if (activeMemberIdsForGroup.length === 0) {
         emptyGroups.push(group.name)
       }
     }

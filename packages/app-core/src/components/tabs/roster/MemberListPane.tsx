@@ -9,6 +9,14 @@ import type {
   RosterMemberId,
 } from "@repo-edu/backend-interface/types"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Checkbox,
   DropdownMenu,
@@ -36,7 +44,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { commands } from "../../../bindings/commands"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useProfileStore } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
@@ -46,10 +53,8 @@ import { formatStudentStatus } from "../../../utils/labels"
 import { generateStudentId } from "../../../utils/nanoid"
 import { CourseDisplay } from "../../CourseDisplay"
 import { SortHeaderButton } from "../../common/SortHeaderButton"
-import { ActionCell } from "./cells/ActionCell"
 import { EditableTextCell } from "./cells/EditableTextCell"
-import { StatusDisplayCell } from "./cells/StatusDisplayCell"
-import { StatusSelectCell } from "./cells/StatusSelectCell"
+import { StatusCell } from "./cells/StatusSelectCell"
 
 interface MemberListPaneProps {
   roster: Roster | null
@@ -75,7 +80,6 @@ export function MemberListPane({
   onExport,
 }: MemberListPaneProps) {
   const openSettings = useUiStore((state) => state.openSettings)
-  const activeProfile = useUiStore((state) => state.activeProfile)
   const rosterColumnVisibility = useAppSettingsStore(
     (state) => state.rosterColumnVisibility,
   )
@@ -91,17 +95,18 @@ export function MemberListPane({
   const saveAppSettings = useAppSettingsStore((state) => state.save)
 
   const addMember = useProfileStore((state) => state.addMember)
-  const updateMember = useProfileStore((state) => state.updateMember)
-  const removeMember = useProfileStore((state) => state.removeMember)
-  const setStudentRemovalConfirmation = useUiStore(
-    (state) => state.setStudentRemovalConfirmation,
+  const deleteMemberPermanently = useProfileStore(
+    (state) => state.deleteMemberPermanently,
   )
+  const updateMember = useProfileStore((state) => state.updateMember)
   const addToast = useToastStore((state) => state.addToast)
 
   const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>([])
   const [showColumnControls, setShowColumnControls] = useState(false)
   const [addingStudent, setAddingStudent] = useState(false)
+  const [memberPendingDeletion, setMemberPendingDeletion] =
+    useState<RosterMember | null>(null)
   const [newStudentName, setNewStudentName] = useState("")
   const [newStudentEmail, setNewStudentEmail] = useState("")
 
@@ -116,6 +121,11 @@ export function MemberListPane({
     const index = new Map<RosterMemberId, string[]>()
     if (!roster) return index
 
+    const allMembers = [...roster.students, ...roster.staff]
+    const activeIds = new Set(
+      allMembers.filter((m) => m.status === "active").map((m) => m.id),
+    )
+
     const systemGroupIds = new Set(
       roster.group_sets
         .filter((gs) => gs.connection?.kind === "system")
@@ -125,6 +135,7 @@ export function MemberListPane({
     for (const group of roster.groups) {
       if (systemGroupIds.has(group.id)) continue
       for (const memberId of group.member_ids) {
+        if (!activeIds.has(memberId)) continue
         let names = index.get(memberId)
         if (!names) {
           names = []
@@ -195,34 +206,18 @@ export function MemberListPane({
     }
   }
 
-  const handleRemoveMember = async (id: RosterMemberId) => {
-    if (!activeProfile || !roster) return
+  const handleRequestPermanentDelete = (id: RosterMemberId) => {
+    const member = members.find((entry) => entry.id === id)
+    if (!member || member.source !== "local") return
+    setMemberPendingDeletion(member)
+  }
 
-    try {
-      const result = await commands.checkStudentRemoval(
-        activeProfile,
-        roster,
-        id,
-      )
-      if (result.status === "error") {
-        addToast(`Failed to check student removal: ${result.error.message}`, {
-          tone: "error",
-        })
-        return
-      }
-
-      const check = result.data
-      if (check.affected_groups.length > 0) {
-        setStudentRemovalConfirmation(check)
-      } else {
-        removeMember(id)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      addToast(`Failed to check student removal: ${message}`, {
-        tone: "error",
-      })
-    }
+  const handleConfirmPermanentDelete = () => {
+    if (!memberPendingDeletion) return
+    const { id, name } = memberPendingDeletion
+    deleteMemberPermanently(id)
+    addToast(`${name} deleted from roster`, { tone: "info" })
+    setMemberPendingDeletion(null)
   }
 
   const memberTypeLabel = (member: RosterMember): string =>
@@ -273,15 +268,17 @@ export function MemberListPane({
         header: ({ column }) => (
           <SortHeaderButton label="Status" column={column} />
         ),
-        cell: ({ row }) =>
-          row.original.source === "lms" ? (
-            <StatusDisplayCell status={row.original.status} />
-          ) : (
-            <StatusSelectCell
-              status={row.original.status}
-              onChange={(status) => handleUpdateStatus(row.original.id, status)}
-            />
-          ),
+        cell: ({ row }) => (
+          <StatusCell
+            status={row.original.status}
+            lmsStatus={row.original.lms_status ?? null}
+            source={row.original.source}
+            onChange={(status) => handleUpdateStatus(row.original.id, status)}
+            onDeletePermanent={() =>
+              handleRequestPermanentDelete(row.original.id)
+            }
+          />
+        ),
       },
       {
         id: "member_type",
@@ -332,21 +329,9 @@ export function MemberListPane({
           />
         ),
       },
-      {
-        id: "actions",
-        size: 40,
-        minSize: 40,
-        enableResizing: false,
-        enableSorting: false,
-        enableHiding: false,
-        header: () => null,
-        cell: ({ row }) => (
-          <ActionCell onDelete={() => handleRemoveMember(row.original.id)} />
-        ),
-      },
     ],
     [
-      handleRemoveMember,
+      handleRequestPermanentDelete,
       handleUpdateEmail,
       handleUpdateGitUsername,
       handleUpdateName,
@@ -747,6 +732,36 @@ export function MemberListPane({
           </Button>
         </div>
       )}
+
+      <AlertDialog
+        open={memberPendingDeletion != null}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            setMemberPendingDeletion(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {memberPendingDeletion?.name ?? "member"} permanently?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the member from the roster and from all groups that
+              reference them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmPermanentDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
