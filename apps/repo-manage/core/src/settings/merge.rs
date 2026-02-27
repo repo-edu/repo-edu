@@ -269,21 +269,11 @@ mod tests {
         optional_obj: Option<NestedSettings>,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
     struct SettingsWithMap {
         name: String,
         tags: HashMap<String, bool>,
         sizes: HashMap<String, f64>,
-    }
-
-    impl Default for SettingsWithMap {
-        fn default() -> Self {
-            Self {
-                name: String::new(),
-                tags: HashMap::new(),
-                sizes: HashMap::new(),
-            }
-        }
     }
 
     #[test]
@@ -298,8 +288,8 @@ mod tests {
 
         assert_eq!(result.value.name, "test");
         assert_eq!(result.value.tags.len(), 2);
-        assert_eq!(result.value.tags["email"], false);
-        assert_eq!(result.value.tags["status"], true);
+        assert!(!result.value.tags["email"]);
+        assert!(result.value.tags["status"]);
         assert_eq!(result.value.sizes.len(), 2);
         assert!((result.value.sizes["name"] - 250.0).abs() < f64::EPSILON);
         assert!((result.value.sizes["email"] - 300.0).abs() < f64::EPSILON);
