@@ -5,12 +5,22 @@
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import { useIssues } from "../hooks/useIssues"
+import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
 
 export function IssuesButton() {
   const setIssuesPanelOpen = useUiStore((state) => state.setIssuesPanelOpen)
-  const { issueCards, checksDirty } = useIssues()
+  const hasRoster = useProfileStore((state) => !!state.document?.roster)
+  const { issueCards, checksDirty, checksStatus, runChecks } = useIssues()
   const issueCount = issueCards.length
+  const isRunningChecks = checksStatus === "running"
+
+  const handleClick = () => {
+    setIssuesPanelOpen(true)
+    if (hasRoster && !isRunningChecks) {
+      void runChecks()
+    }
+  }
 
   return (
     <Tooltip>
@@ -19,7 +29,7 @@ export function IssuesButton() {
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 px-2 relative"
-          onClick={() => setIssuesPanelOpen(true)}
+          onClick={handleClick}
         >
           <span className="text-xs">Issues</span>
           {issueCount > 0 && (
