@@ -79,6 +79,7 @@ export function GroupItem({
 
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)
+  const [confirmRemoveFromSet, setConfirmRemoveFromSet] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -87,6 +88,10 @@ export function GroupItem({
       inputRef.current.select()
     }
   }, [isEditing])
+
+  useEffect(() => {
+    setConfirmRemoveFromSet(false)
+  }, [group.id, groupSetId])
 
   const handleSaveName = useCallback(() => {
     if (disabled) {
@@ -110,6 +115,13 @@ export function GroupItem({
     },
     [disabled, group.id, group.member_ids, isEditable, updateGroup],
   )
+
+  const handleRemoveFromSet = useCallback(() => {
+    if (disabled) return
+    removeGroupFromSet(groupSetId, group.id)
+    setConfirmRemoveFromSet(false)
+    onRemoveFromSet?.()
+  }, [disabled, group.id, groupSetId, onRemoveFromSet, removeGroupFromSet])
 
   return (
     <div className="py-1.5 space-y-1">
@@ -165,19 +177,38 @@ export function GroupItem({
 
         {/* Actions: inline remove button for read-only groups, full menu for editable */}
         {!isEditable && isSetEditable && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-            disabled={disabled}
-            onClick={() => {
-              if (disabled) return
-              removeGroupFromSet(groupSetId, group.id)
-              onRemoveFromSet?.()
+          <div
+            className="shrink-0"
+            onPointerLeave={() => {
+              if (confirmRemoveFromSet) {
+                setConfirmRemoveFromSet(false)
+              }
             }}
           >
-            <Trash2 className="size-3.5" />
-          </Button>
+            {confirmRemoveFromSet ? (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-7 rounded-full bg-muted px-0 text-[11px] font-medium text-destructive hover:bg-muted hover:text-destructive"
+                onClick={handleRemoveFromSet}
+                disabled={disabled}
+              >
+                Confirm
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                disabled={disabled}
+                onClick={() => setConfirmRemoveFromSet(true)}
+                aria-label="Remove from set"
+                title="Remove from set"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
         )}
         {isEditable && (
           <DropdownMenu>
@@ -206,11 +237,7 @@ export function GroupItem({
               {isSetEditable && (
                 <DropdownMenuItem
                   disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return
-                    removeGroupFromSet(groupSetId, group.id)
-                    onRemoveFromSet?.()
-                  }}
+                  onClick={handleRemoveFromSet}
                 >
                   <X className="size-3.5 mr-2" />
                   Remove from set
