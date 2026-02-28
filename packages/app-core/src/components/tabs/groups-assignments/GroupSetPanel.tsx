@@ -35,6 +35,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   type SortingState,
+  type Updater,
   useReactTable,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -57,6 +58,13 @@ import {
   formatExactTimestamp,
   formatRelativeTime,
 } from "../../../utils/relativeTime"
+import {
+  chainComparisons,
+  compareNumber,
+  compareText,
+  getNextProgressiveSorting,
+  normalizeProgressiveSorting,
+} from "../../../utils/sorting"
 import { SortHeaderButton } from "../../common/SortHeaderButton"
 import { GroupItem } from "./GroupItem"
 
@@ -551,6 +559,32 @@ interface GroupRow {
   members: RosterMember[]
 }
 
+function compareGroupRowsByName(left: GroupRow, right: GroupRow): number {
+  return chainComparisons(
+    compareText(left.group.name, right.group.name),
+    compareText(left.group.id, right.group.id),
+  )
+}
+
+function compareGroupRowNames(
+  rowA: { original: GroupRow },
+  rowB: {
+    original: GroupRow
+  },
+): number {
+  return compareGroupRowsByName(rowA.original, rowB.original)
+}
+
+function compareGroupRowMemberCounts(
+  rowA: { original: GroupRow },
+  rowB: { original: GroupRow },
+): number {
+  return chainComparisons(
+    compareNumber(rowA.original.memberCount, rowB.original.memberCount),
+    compareGroupRowsByName(rowA.original, rowB.original),
+  )
+}
+
 function GroupsList({
   groupSet,
   groups,
@@ -573,6 +607,18 @@ function GroupsList({
   const isSetEditable = kind === "local" || kind === "import"
   const editableTargets = useProfileStore(selectEditableGroupsByGroupSet)
   const [sorting, setSorting] = useState<SortingState>([])
+
+  const handleSort = useCallback((columnId: string) => {
+    setSorting((current) => getNextProgressiveSorting(current, columnId))
+  }, [])
+
+  const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
+    setSorting((current) =>
+      normalizeProgressiveSorting(
+        typeof updater === "function" ? updater(current) : updater,
+      ),
+    )
+  }, [])
 
   // Build member lookup map
   const memberMap = useMemo(() => {
@@ -639,25 +685,37 @@ function GroupsList({
         id: "name",
         accessorFn: (row) => row.group.name,
         header: ({ column }) => (
-          <SortHeaderButton label="Group" column={column} />
+          <SortHeaderButton
+            label="Group"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareGroupRowNames,
       },
       {
         id: "members",
         accessorFn: (row) => row.memberCount,
         header: ({ column }) => (
-          <SortHeaderButton label="Members" column={column} />
+          <SortHeaderButton
+            label="Members"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareGroupRowMemberCounts,
       },
     ],
-    [],
+    [handleSort],
   )
 
   const table = useReactTable({
     data,
     columns,
     state: { sorting },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   })
@@ -705,24 +763,28 @@ function GroupsList({
       ) : (
         <>
           {/* Sortable column headers */}
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground border-b pb-1 mb-1">
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header) => (
-                <div
-                  key={header.id}
-                  className={
-                    header.id === "name" ? "flex-1" : "shrink-0 ml-auto"
-                  }
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                </div>
-              )),
-            )}
+          <div className="sticky top-0 z-10 bg-muted border-b mb-1">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <div key={headerGroup.id} className="flex items-center">
+                {headerGroup.headers.map((header) => (
+                  <div
+                    key={header.id}
+                    className={
+                      header.id === "name"
+                        ? "p-2 text-left font-medium relative min-w-0 flex-1"
+                        : "p-2 text-right font-medium relative min-w-0 shrink-0 w-24 ml-auto"
+                    }
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
 
           {/* Sorted groups */}

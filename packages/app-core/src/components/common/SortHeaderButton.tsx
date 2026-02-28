@@ -4,28 +4,25 @@ import {
   ChevronUp,
 } from "@repo-edu/ui/components/icons"
 
-interface SortableColumn {
-  getCanSort: () => boolean
-  getIsSorted: () => false | "asc" | "desc"
-  toggleSorting: (desc?: boolean) => void
+interface SortHeaderButtonProps {
+  label: string
+  canSort: boolean
+  sorted: false | "asc" | "desc"
+  onToggle: () => void
 }
 
 export function SortHeaderButton({
   label,
-  column,
-}: {
-  label: string
-  column: SortableColumn
-}) {
-  const sorted = column.getIsSorted()
-
+  canSort,
+  sorted,
+  onToggle,
+}: SortHeaderButtonProps) {
   return (
     <button
       type="button"
       className="inline-flex items-center gap-1 hover:underline"
-      onClick={() =>
-        column.getCanSort() && column.toggleSorting(sorted === "asc")
-      }
+      aria-disabled={!canSort}
+      onClick={() => canSort && onToggle()}
     >
       <span>{label}</span>
       {sorted === "asc" ? (

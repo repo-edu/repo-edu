@@ -43,7 +43,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppSettingsStore } from "../../../stores/appSettingsStore"
 import { useProfileStore } from "../../../stores/profileStore"
 import { useToastStore } from "../../../stores/toastStore"
@@ -51,6 +51,14 @@ import { useUiStore } from "../../../stores/uiStore"
 import { formatDate, formatDateTime } from "../../../utils/formatDate"
 import { formatStudentStatus } from "../../../utils/labels"
 import { generateStudentId } from "../../../utils/nanoid"
+import {
+  chainComparisons,
+  compareNullableText,
+  compareNumber,
+  compareText,
+  getNextProgressiveSorting,
+  normalizeProgressiveSorting,
+} from "../../../utils/sorting"
 import { CourseDisplay } from "../../CourseDisplay"
 import { SortHeaderButton } from "../../common/SortHeaderButton"
 import { EditableTextCell } from "./cells/EditableTextCell"
@@ -223,6 +231,18 @@ export function MemberListPane({
   const memberTypeLabel = (member: RosterMember): string =>
     member.enrollment_type === "student" ? "Student" : "Staff"
 
+  const handleSort = useCallback((columnId: string) => {
+    setSorting((current) => getNextProgressiveSorting(current, columnId))
+  }, [])
+
+  const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
+    setSorting((current) =>
+      normalizeProgressiveSorting(
+        typeof updater === "function" ? updater(current) : updater,
+      ),
+    )
+  }, [])
+
   const columns = useMemo<ColumnDef<RosterMember>[]>(
     () => [
       {
@@ -231,8 +251,14 @@ export function MemberListPane({
         minSize: 100,
         accessorFn: (row) => row.name,
         header: ({ column }) => (
-          <SortHeaderButton label="Name" column={column} />
+          <SortHeaderButton
+            label="Name"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareRosterMemberNames,
         cell: ({ row }) => (
           <EditableTextCell
             value={row.original.name}
@@ -247,8 +273,14 @@ export function MemberListPane({
         minSize: 120,
         accessorFn: (row) => row.email,
         header: ({ column }) => (
-          <SortHeaderButton label="Email" column={column} />
+          <SortHeaderButton
+            label="Email"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareRosterMemberEmails,
         cell: ({ row }) => (
           <div className="min-w-0">
             <EditableTextCell
@@ -266,8 +298,14 @@ export function MemberListPane({
         minSize: 80,
         accessorFn: (row) => row.status,
         header: ({ column }) => (
-          <SortHeaderButton label="Status" column={column} />
+          <SortHeaderButton
+            label="Status"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareRosterMemberStatuses,
         cell: ({ row }) => (
           <StatusCell
             status={row.original.status}
@@ -286,8 +324,14 @@ export function MemberListPane({
         minSize: 60,
         accessorFn: (row) => memberTypeLabel(row),
         header: ({ column }) => (
-          <SortHeaderButton label="Role" column={column} />
+          <SortHeaderButton
+            label="Role"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareRosterMemberRoles,
         cell: ({ row }) => (
           <span className="text-muted-foreground">
             {memberTypeLabel(row.original)}
@@ -300,8 +344,21 @@ export function MemberListPane({
         minSize: 80,
         accessorFn: (row) => memberGroupNames.get(row.id)?.join(", ") ?? "",
         header: ({ column }) => (
-          <SortHeaderButton label="Groups" column={column} />
+          <SortHeaderButton
+            label="Groups"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: (rowA, rowB) =>
+          chainComparisons(
+            compareText(
+              memberGroupNames.get(rowA.original.id)?.join(", ") ?? "",
+              memberGroupNames.get(rowB.original.id)?.join(", ") ?? "",
+            ),
+            compareRosterMembersByName(rowA.original, rowB.original),
+          ),
         cell: ({ row }) => {
           const names = memberGroupNames.get(row.original.id)
           if (!names || names.length === 0) return null
@@ -319,8 +376,14 @@ export function MemberListPane({
         minSize: 100,
         accessorFn: (row) => row.git_username ?? "",
         header: ({ column }) => (
-          <SortHeaderButton label="Git Username" column={column} />
+          <SortHeaderButton
+            label="Git Username"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
         ),
+        sortingFn: compareRosterMemberGitUsernames,
         cell: ({ row }) => (
           <EditableTextCell
             value={row.original.git_username ?? ""}
@@ -336,6 +399,7 @@ export function MemberListPane({
       handleUpdateGitUsername,
       handleUpdateName,
       handleUpdateStatus,
+      handleSort,
       memberGroupNames,
     ],
   )
@@ -350,7 +414,7 @@ export function MemberListPane({
       columnVisibility: rosterColumnVisibility,
       columnSizing: rosterColumnSizing,
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
     onColumnSizingChange: (updater) => {
       const next =
@@ -657,7 +721,7 @@ export function MemberListPane({
                     <tr
                       key={row.id}
                       className={`border-t hover:bg-muted/50 ${
-                        row.original.status !== "active" ? "opacity-50" : ""
+                        row.original.status !== "active" ? "opacity-40" : ""
                       }`}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -822,6 +886,82 @@ function columnLabel(id: string): string {
   if (id === "groups") return "Groups"
   if (id === "git_username") return "Git Username"
   return id
+}
+
+const memberStatusRank: Record<RosterMember["status"], number> = {
+  active: 0,
+  dropped: 1,
+  incomplete: 2,
+}
+
+function compareRosterMembersByName(
+  left: RosterMember,
+  right: RosterMember,
+): number {
+  return chainComparisons(
+    compareText(left.name, right.name),
+    compareText(left.email, right.email),
+    compareText(left.id, right.id),
+  )
+}
+
+function compareRosterMemberNames(
+  rowA: { original: RosterMember },
+  rowB: {
+    original: RosterMember
+  },
+): number {
+  return compareRosterMembersByName(rowA.original, rowB.original)
+}
+
+function compareRosterMemberEmails(
+  rowA: { original: RosterMember },
+  rowB: {
+    original: RosterMember
+  },
+): number {
+  return chainComparisons(
+    compareText(rowA.original.email, rowB.original.email),
+    compareRosterMembersByName(rowA.original, rowB.original),
+  )
+}
+
+function compareRosterMemberStatuses(
+  rowA: { original: RosterMember },
+  rowB: { original: RosterMember },
+): number {
+  return chainComparisons(
+    compareNumber(
+      memberStatusRank[rowA.original.status],
+      memberStatusRank[rowB.original.status],
+    ),
+    compareRosterMembersByName(rowA.original, rowB.original),
+  )
+}
+
+function compareRosterMemberRoles(
+  rowA: { original: RosterMember },
+  rowB: {
+    original: RosterMember
+  },
+): number {
+  return chainComparisons(
+    compareNumber(
+      rowA.original.enrollment_type === "student" ? 0 : 1,
+      rowB.original.enrollment_type === "student" ? 0 : 1,
+    ),
+    compareRosterMembersByName(rowA.original, rowB.original),
+  )
+}
+
+function compareRosterMemberGitUsernames(
+  rowA: { original: RosterMember },
+  rowB: { original: RosterMember },
+): number {
+  return chainComparisons(
+    compareNullableText(rowA.original.git_username, rowB.original.git_username),
+    compareRosterMembersByName(rowA.original, rowB.original),
+  )
 }
 
 function getStatusIcon(status: RosterMember["git_username_status"]) {
