@@ -2,8 +2,14 @@ import type {
   GroupSet,
   GroupSetConnection,
 } from "@repo-edu/backend-interface/types"
-import { cn } from "@repo-edu/ui"
-import { Download, Plus } from "@repo-edu/ui/components/icons"
+import {
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo-edu/ui"
+import { Copy, Download, Plus } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
 import { useCallback, useMemo, useRef } from "react"
 import {
@@ -461,19 +467,38 @@ export function GroupsAssignmentsSidebar({
       <div className="px-1">
         <SectionHeader
           action={
-            <button
-              type="button"
-              className={cn(
-                "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
-                "text-muted-foreground hover:bg-muted/50 transition-colors",
-              )}
-              onClick={onCreateLocalGroupSet}
-              disabled={isOperationActive}
-              aria-label="New local group set"
-              title="New local group set"
-            >
-              <Plus className="size-3.5" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
+                    "text-muted-foreground hover:bg-muted/50 transition-colors",
+                  )}
+                  disabled={isOperationActive}
+                  aria-label="Add local group set"
+                  title="Add local group set"
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  disabled={isOperationActive}
+                  onClick={onCreateLocalGroupSet}
+                >
+                  <Copy className="size-3.5 mr-2" />
+                  Copy from group set
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isOperationActive}
+                  onClick={onImportGroupSet}
+                >
+                  <Download className="size-3.5 mr-2" />
+                  Import from CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           }
         >
           Local Group Sets
@@ -493,18 +518,6 @@ export function GroupsAssignmentsSidebar({
             actionSetters={actionSetters}
           />
         )}
-        <button
-          type="button"
-          className={cn(
-            "w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm",
-            "text-muted-foreground hover:bg-muted/50 transition-colors",
-          )}
-          onClick={onImportGroupSet}
-          disabled={isOperationActive}
-        >
-          <Download className="size-3.5" />
-          <span>Import from CSV</span>
-        </button>
       </div>
 
       {!hasAnyGroupSets && (

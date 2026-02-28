@@ -116,6 +116,24 @@ GroupSelectionMode (discriminated union)
 
 Resolution: (matches mode) AND (not in `excluded_group_ids`).
 
+### Current UI Status
+
+The data model and backend support persisted `group_selection`, but the current Groups &
+Assignments UI does not expose a first-class "subset" concept.
+
+- `updateGroupSetSelection()` and `preview_group_selection` exist as supporting infrastructure.
+- The current `Copy from group set` flow uses its filter box only as a temporary selection aid.
+- When that dialog creates a new local group set, it copies only the selected `group_ids` and
+  stores `group_selection: { kind: "all", excluded_group_ids: [] }`.
+- A copied local group set is therefore a snapshot of group references, not a live child subset of
+  its source group set.
+- Syncing an LMS source set can update shared Group entities already referenced by the copy, but it
+  does not automatically add newly matching groups to the copy.
+
+As a result, do not read the presence of `GroupSelectionMode::Pattern` as evidence that the product
+already supports teacher-facing "Create subset..." or "Edit subset rule..." UX. That concept is
+not currently implemented.
+
 ### Pattern Semantics (Simple Glob)
 
 Glob patterns use a restricted, string-based matcher (not path-based). Matching is full-string and
@@ -221,6 +239,9 @@ Staff system group always mirrors `roster.staff`.
 - Copies the `group_ids` reference list (same Group entity references, no duplication)
 - Connection set to `null` (local set)
 - The copy's group reference list is independent of the source
+- The `Copy from group set` dialog may filter which groups are copied, but that filter is not
+  persisted as `group_selection`
+- The result is a snapshot copy, not a derived subset that keeps following the source
 - Referenced LMS/system groups remain immutable
 - Shared groups receive updates when the source syncs (membership, name)
 - When a source group is deleted, it's removed from all sets including copies

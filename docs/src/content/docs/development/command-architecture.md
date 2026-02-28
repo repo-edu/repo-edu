@@ -103,8 +103,8 @@ Commands that cross the frontend-backend boundary. Defined in `manifest.json`.
 | Command | Purpose | UI Caller |
 |---------|---------|-----------|
 | `normalize_group_name` | Normalize name using backend slug rules | Group name input preview |
-| `preview_group_selection` | Validate glob and resolve group IDs | Group set panel |
-| `filter_by_pattern` | Validate glob, return matched indexes | Import/filter dialogs |
+| `preview_group_selection` | Validate glob and resolve group IDs | Not currently wired in the UI (latent subset/filter infrastructure) |
+| `filter_by_pattern` | Validate glob, return matched indexes | Import dialogs and `Copy from group set` filtering |
 | `validate_roster` | Validate roster data | Roster tab |
 | `validate_assignment` | Validate assignment groups | Assignment panel |
 
@@ -174,12 +174,17 @@ the frontend to merge and persist.
 | UI Action | Command/Action | Type |
 |-----------|----------------|------|
 | Rename group set | `renameGroupSet()` | Frontend |
-| Update group selection | `updateGroupSetSelection()` | Frontend |
-| Preview group selection | `preview_group_selection` | Manifest |
+| Update group selection (not currently exposed) | `updateGroupSetSelection()` | Frontend |
+| Preview group selection (not currently exposed) | `preview_group_selection` | Manifest |
 | Add group | Opens AddGroupDialog | — |
 | Rename group | `updateGroup()` | Frontend |
 | Delete group | `deleteGroup()` | Frontend |
 | Edit members | `updateGroup()` | Frontend |
+
+`updateGroupSetSelection()` and `preview_group_selection` are intentionally documented here because
+they exist in the store/backend contract, but the current Groups & Assignments UI does not yet ship
+a teacher-facing subset/filter workflow. Today, `Copy from group set` produces snapshot local
+copies rather than persisted derived subsets.
 
 ### Dialogs
 

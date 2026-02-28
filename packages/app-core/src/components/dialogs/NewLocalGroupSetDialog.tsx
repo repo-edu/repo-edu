@@ -1,8 +1,8 @@
 /**
- * Dialog for creating a new local group set from an existing group set's groups.
+ * Dialog for creating a new local group set by copying groups from an existing set.
  *
- * The user selects a source group set and optionally filters by pattern.
- * A preview shows matched groups with member names and checkboxes for selection.
+ * The user selects a source group set and sees all groups with checkboxes.
+ * An optional pattern filter narrows the visible list and auto-checks matches.
  * Only checked groups are copied (by reference) into the new set at creation time.
  */
 
@@ -17,9 +17,6 @@ import {
   DialogTitle,
   FormField,
   Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
   Select,
   SelectContent,
   SelectGroup,
@@ -44,7 +41,6 @@ import { useUiStore } from "../../stores/uiStore"
 export function NewLocalGroupSetDialog() {
   const [name, setName] = useState("")
   const [sourceGroupSetId, setSourceGroupSetId] = useState<string | null>(null)
-  const [selectionKind, setSelectionKind] = useState<"all" | "pattern">("all")
   const [pattern, setPattern] = useState("")
   const [patternError, setPatternError] = useState<string | null>(null)
   const [matchedIndexes, setMatchedIndexes] = useState<number[] | null>(null)
@@ -98,11 +94,11 @@ export function NewLocalGroupSetDialog() {
 
   // Compute which group indexes are visible in the preview
   const visibleIndexes = useMemo(() => {
-    if (selectionKind === "all") {
+    if (!pattern || matchedIndexes === null) {
       return sourceGroups.map((_, i) => i)
     }
-    return matchedIndexes ?? []
-  }, [selectionKind, matchedIndexes, sourceGroups])
+    return matchedIndexes
+  }, [pattern, matchedIndexes, sourceGroups])
 
   const visibleGroups = useMemo(
     () => visibleIndexes.map((i) => sourceGroups[i]),
@@ -122,64 +118,61 @@ export function NewLocalGroupSetDialog() {
     checkedCount > 0 &&
     !creating
 
-  // Debounced pattern validation
+  // Debounced pattern validation — uses a ref for sourceGroups to keep the
+  // callback reference stable and prevent re-validate effects from firing on
+  // unrelated re-renders (e.g. checkbox toggles).
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const validationIdRef = useRef(0)
+  const sourceGroupsRef = useRef(sourceGroups)
+  sourceGroupsRef.current = sourceGroups
 
-  const validatePattern = useCallback(
-    (value: string) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(async () => {
-        const requestId = ++validationIdRef.current
-        const groupNames = sourceGroups.map((g) => g.name)
-        try {
-          const result = await commands.filterByPattern(value, groupNames)
-          if (validationIdRef.current !== requestId) return
-          if (result.status === "ok" && result.data.valid) {
-            setPatternError(null)
-            setMatchedIndexes(result.data.matched_indexes)
-          } else {
-            setPatternError(
-              result.status === "ok"
-                ? (result.data.error ?? "Invalid pattern")
-                : result.error.message,
-            )
-            setMatchedIndexes(null)
-          }
-        } catch {
-          if (validationIdRef.current !== requestId) return
-          setPatternError("Failed to validate pattern")
+  const validatePattern = useCallback((value: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      const requestId = ++validationIdRef.current
+      const groups = sourceGroupsRef.current
+      const groupNames = groups.map((g) => g.name)
+      try {
+        const result = await commands.filterByPattern(value, groupNames)
+        if (validationIdRef.current !== requestId) return
+        if (result.status === "ok" && result.data.valid) {
+          setPatternError(null)
+          setMatchedIndexes(result.data.matched_indexes)
+          setCheckedGroupIds(
+            new Set(result.data.matched_indexes.map((i) => groups[i].id)),
+          )
+        } else {
+          setPatternError(
+            result.status === "ok"
+              ? (result.data.error ?? "Invalid pattern")
+              : result.error.message,
+          )
+          setMatchedIndexes(null)
         }
-      }, 400)
-    },
-    [sourceGroups],
-  )
+      } catch {
+        if (validationIdRef.current !== requestId) return
+        setPatternError("Failed to validate pattern")
+      }
+    }, 400)
+  }, [])
 
-  // Re-validate when source changes while in pattern mode
+  // Re-validate when pattern changes
   useEffect(() => {
-    if (selectionKind === "pattern" && pattern) {
+    if (pattern) {
       validatePattern(pattern)
     }
-  }, [sourceGroupSetId, selectionKind, pattern, validatePattern])
+  }, [pattern, validatePattern])
 
-  // Check all groups when source group set changes or dialog reopens
-  const prevSourceGroupSetIdRef = useRef<string | null>(null)
+  // Check all groups and reset filter when source group set changes.
+  // Reads sourceGroups via ref to avoid unstable array references in deps.
   useEffect(() => {
-    if (!sourceGroupSetId || sourceGroups.length === 0) return
-    if (sourceGroupSetId !== prevSourceGroupSetIdRef.current) {
-      prevSourceGroupSetIdRef.current = sourceGroupSetId
-      setCheckedGroupIds(new Set(sourceGroups.map((g) => g.id)))
-    }
-  })
-
-  // Check all matched groups when pattern match results change
-  useEffect(() => {
-    if (selectionKind === "pattern" && matchedIndexes !== null) {
-      setCheckedGroupIds(new Set(matchedIndexes.map((i) => sourceGroups[i].id)))
-    }
-    // Only react to matchedIndexes changes, not sourceGroups reference
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchedIndexes])
+    if (!sourceGroupSetId) return
+    const groups = sourceGroupsRef.current
+    setPattern("")
+    setPatternError(null)
+    setMatchedIndexes(null)
+    setCheckedGroupIds(new Set(groups.map((g) => g.id)))
+  }, [sourceGroupSetId])
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -193,6 +186,7 @@ export function NewLocalGroupSetDialog() {
     if (!value) {
       setPatternError(null)
       setMatchedIndexes(null)
+      setCheckedGroupIds(new Set(sourceGroups.map((g) => g.id)))
       return
     }
     validatePattern(value)
@@ -249,22 +243,15 @@ export function NewLocalGroupSetDialog() {
     setOpen(false)
     setName("")
     setSourceGroupSetId(null)
-    setSelectionKind("all")
     setPattern("")
     setPatternError(null)
     setMatchedIndexes(null)
-    prevSourceGroupSetIdRef.current = null
     setCheckedGroupIds(new Set())
     setCreating(false)
   }
 
   const renderGroupPreview = () => {
     if (!sourceGroupSetId || sourceGroups.length === 0) return null
-    if (
-      selectionKind === "pattern" &&
-      (patternError || matchedIndexes === null)
-    )
-      return null
 
     return (
       <div className="flex flex-col gap-1 min-h-0 flex-1">
@@ -315,6 +302,7 @@ export function NewLocalGroupSetDialog() {
                     size="xs"
                     checked={checkedGroupIds.has(group.id)}
                     onCheckedChange={() => handleToggleGroup(group.id)}
+                    onClick={(e) => e.stopPropagation()}
                     tabIndex={-1}
                     className="mt-0.5"
                   />
@@ -340,7 +328,7 @@ export function NewLocalGroupSetDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="flex flex-col sm:max-w-xl h-[80vh]">
         <DialogHeader>
-          <DialogTitle>New Local Group Set</DialogTitle>
+          <DialogTitle>Copy from Group Set</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 min-h-0 flex-1">
           <div className="grid grid-cols-2 gap-3">
@@ -401,50 +389,23 @@ export function NewLocalGroupSetDialog() {
           </div>
 
           {sourceGroupSetId && (
-            <div className="flex flex-col gap-2 min-h-0 flex-1 pt-3">
-              <div className="flex items-center gap-4">
-                <Label className="text-sm font-medium shrink-0">
-                  Group selection
-                </Label>
-                <RadioGroup
-                  value={selectionKind}
-                  onValueChange={(v) =>
-                    setSelectionKind(v as "all" | "pattern")
-                  }
-                  className="flex flex-row gap-3"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <RadioGroupItem value="all" id="new-gs-sel-all" />
-                    <Label htmlFor="new-gs-sel-all" className="text-sm">
-                      All ({sourceGroups.length})
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <RadioGroupItem value="pattern" id="new-gs-sel-pattern" />
-                    <Label htmlFor="new-gs-sel-pattern" className="text-sm">
-                      Pattern
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-              {selectionKind === "pattern" && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={pattern}
-                    onChange={(e) => handlePatternChange(e.target.value)}
-                    placeholder="e.g., 1D* or Team-*"
-                    className={cn(
-                      "h-7 text-sm",
-                      patternError && "border-destructive",
-                    )}
-                  />
-                  {patternError && (
-                    <p className="text-[11px] text-destructive shrink-0">
-                      {patternError}
-                    </p>
+            <div className="flex flex-col gap-2 min-h-0 flex-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={pattern}
+                  onChange={(e) => handlePatternChange(e.target.value)}
+                  placeholder="Filter by pattern, e.g., 1D* or Team-*"
+                  className={cn(
+                    "h-7 text-sm",
+                    patternError && "border-destructive",
                   )}
-                </div>
-              )}
+                />
+                {patternError && (
+                  <p className="text-[11px] text-destructive shrink-0">
+                    {patternError}
+                  </p>
+                )}
+              </div>
               {renderGroupPreview()}
             </div>
           )}
