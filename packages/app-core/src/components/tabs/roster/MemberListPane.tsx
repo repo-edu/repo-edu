@@ -657,9 +657,7 @@ export function MemberListPane({
                     <tr
                       key={row.id}
                       className={`border-t hover:bg-muted/50 ${
-                        row.original.status !== "active"
-                          ? "text-muted-foreground"
-                          : ""
+                        row.original.status !== "active" ? "opacity-50" : ""
                       }`}
                     >
                       {row.getVisibleCells().map((cell) => (
