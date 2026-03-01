@@ -59,28 +59,26 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
   const isDisabled = !activeProfile || !isDirty || status === "saving"
 
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        onClick={handleSave}
-        disabled={isDisabled}
-        variant={isDirty ? "default" : "outline"}
-        size="sm"
-        className="min-w-20"
-      >
-        {status === "saving" ? (
-          <>
-            <Loader2 className="size-4 mr-1 animate-spin" />
-            Saving
-          </>
-        ) : status === "success" ? (
-          <>
-            <Check className="size-4 mr-1" />
-            Saved
-          </>
-        ) : (
-          "Save"
-        )}
-      </Button>
-    </div>
+    <Button
+      onClick={handleSave}
+      disabled={isDisabled}
+      variant={isDirty ? "default" : "outline"}
+      size="sm"
+      className="min-w-20"
+    >
+      {status === "saving" ? (
+        <>
+          <Loader2 className="size-4 mr-1 animate-spin" />
+          Saving
+        </>
+      ) : status === "success" ? (
+        <>
+          <Check className="size-4 mr-1" />
+          Saved
+        </>
+      ) : (
+        "Save"
+      )}
+    </Button>
   )
 }

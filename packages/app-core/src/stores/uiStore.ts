@@ -48,7 +48,6 @@ interface UiState {
   // App-level dialogs/sheets
   settingsDialogOpen: boolean
   settingsDialogCategory: "connections" | "display" | "shortcuts"
-  profileMenuOpen: boolean
   activeProfile: string | null
 
   // Profile list cache (to avoid fetching on every tab switch)
@@ -121,7 +120,6 @@ interface UiActions {
     category: "connections" | "display" | "shortcuts",
   ) => void
   openSettings: (category?: "connections" | "display" | "shortcuts") => void
-  setProfileMenuOpen: (open: boolean) => void
   setActiveProfile: (profile: string | null) => void
 
   // Profile list cache
@@ -197,7 +195,6 @@ const initialState: UiState = {
   // App-level dialogs/sheets
   settingsDialogOpen: false,
   settingsDialogCategory: "connections",
-  profileMenuOpen: false,
   activeProfile: null,
 
   // Profile list cache
@@ -272,7 +269,6 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ settingsDialogCategory: category }),
   openSettings: (category = "connections") =>
     set({ settingsDialogOpen: true, settingsDialogCategory: category }),
-  setProfileMenuOpen: (open) => set({ profileMenuOpen: open }),
   setActiveProfile: (profile) => set({ activeProfile: profile }),
 
   // Profile list cache

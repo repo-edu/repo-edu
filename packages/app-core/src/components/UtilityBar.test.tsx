@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { useProfileStore } from "../stores/profileStore"
 import { useUiStore } from "../stores/uiStore"
@@ -27,6 +27,7 @@ describe("UtilityBar", () => {
   beforeEach(() => {
     useUiStore.getState().reset()
     useProfileStore.getState().reset()
+    useUiStore.getState().setProfileListLoading(true)
     vi.clearAllMocks()
   })
 
@@ -42,5 +43,22 @@ describe("UtilityBar", () => {
     render(<UtilityBar isDirty={false} onSaved={() => {}} />)
 
     expect(screen.getByText("CS101 2026")).toBeInTheDocument()
+  })
+
+  it("shows per-profile action buttons in the profile dropdown", () => {
+    useUiStore.getState().setActiveProfile("CS101 2026")
+    useUiStore
+      .getState()
+      .setProfileList([{ name: "CS101 2026", courseName: "Course" }])
+
+    render(<UtilityBar isDirty={false} onSaved={() => {}} />)
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Profile:/i }), {
+      button: 0,
+    })
+
+    expect(screen.getByLabelText("Duplicate CS101 2026")).toBeInTheDocument()
+    expect(screen.getByLabelText("Rename CS101 2026")).toBeInTheDocument()
+    expect(screen.getByLabelText("Delete CS101 2026")).toBeInTheDocument()
   })
 })
