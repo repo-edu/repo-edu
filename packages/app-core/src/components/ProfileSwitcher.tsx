@@ -1,20 +1,38 @@
 /**
- * ProfileSidebar - Left sidebar showing all profiles with dropdown actions.
- * Similar to AssignmentSidebar but for profile management.
+ * ProfileSwitcher - Dropdown-based profile selector in the status bar.
+ * Shows all profiles with switch-on-click and per-item kebab menu for
+ * Duplicate / Rename / Delete. Active profile highlighted with bg-selection.
  */
 
 import {
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
   Input,
   Label,
 } from "@repo-edu/ui"
-import { Copy, Loader2, Pencil, Trash2 } from "@repo-edu/ui/components/icons"
+import {
+  ChevronUp,
+  Copy,
+  EllipsisVertical,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "@repo-edu/ui/components/icons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,54 +44,39 @@ import {
   AlertDialogTitle,
 } from "@repo-edu/ui/components/ui/alert-dialog"
 import { useState } from "react"
-import type { ProfileItem } from "../../../hooks/useProfiles"
-import { SidebarNav, type SidebarNavItem } from "../../SidebarNav"
+import { useProfiles } from "../hooks/useProfiles"
+import { useUiStore } from "../stores/uiStore"
 
-interface ProfileNavItem extends SidebarNavItem {
-  name: string
-  courseName: string
-}
-
-interface ProfileSidebarProps {
-  profiles: ProfileItem[]
-  activeProfile: string | null
+interface ProfileSwitcherProps {
   isDirty: boolean
-  onSelect: (name: string) => void
-  onNew: () => void
-  onDuplicate: (
-    sourceName: string,
-    newName: string,
-    courseId: string,
-    courseName: string,
-  ) => Promise<boolean>
-  onRename: (oldName: string, newName: string) => Promise<boolean>
-  onDelete: (name: string) => Promise<boolean>
 }
 
-export function ProfileSidebar({
-  profiles,
-  activeProfile,
-  isDirty,
-  onSelect,
-  onNew,
-  onDuplicate,
-  onRename,
-  onDelete,
-}: ProfileSidebarProps) {
-  // Unsaved changes dialog
+export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
+  const activeProfile = useUiStore((state) => state.activeProfile)
+  const setNewProfileDialogOpen = useUiStore(
+    (state) => state.setNewProfileDialogOpen,
+  )
+  const {
+    profiles,
+    switchProfile,
+    duplicateProfile,
+    renameProfile,
+    deleteProfile,
+  } = useProfiles()
+
+  // --- Dialog state (moved from ProfileSidebar) ---
+
   const [unsavedDialog, setUnsavedDialog] = useState<{
     open: boolean
     targetProfile: string
   }>({ open: false, targetProfile: "" })
 
-  // Rename dialog state
   const [renameDialog, setRenameDialog] = useState<{
     open: boolean
     profileName: string
     newName: string
   }>({ open: false, profileName: "", newName: "" })
 
-  // Duplicate dialog state
   const [duplicateDialog, setDuplicateDialog] = useState<{
     open: boolean
     sourceProfile: string
@@ -90,26 +93,20 @@ export function ProfileSidebar({
     isProcessing: false,
   })
 
-  // Delete confirmation dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     profileName: string
   }>({ open: false, profileName: "" })
 
-  const items: ProfileNavItem[] = profiles.map((profile) => ({
-    id: profile.name,
-    label: profile.name,
-    name: profile.name,
-    courseName: profile.courseName,
-  }))
+  // --- Handlers ---
 
-  const handleProfileSelect = (id: string) => {
-    if (id === activeProfile) return
+  const handleProfileSelect = (name: string) => {
+    if (name === activeProfile) return
 
     if (isDirty) {
-      setUnsavedDialog({ open: true, targetProfile: id })
+      setUnsavedDialog({ open: true, targetProfile: name })
     } else {
-      onSelect(id)
+      switchProfile(name)
     }
   }
 
@@ -133,7 +130,7 @@ export function ProfileSidebar({
 
     setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
 
-    const success = await onDuplicate(
+    const success = await duplicateProfile(
       sourceProfile,
       newProfileName.trim(),
       courseId.trim(),
@@ -164,7 +161,7 @@ export function ProfileSidebar({
 
   const handleRenameConfirm = async () => {
     const { profileName, newName } = renameDialog
-    await onRename(profileName, newName)
+    await renameProfile(profileName, newName)
     setRenameDialog({ open: false, profileName: "", newName: "" })
   }
 
@@ -174,16 +171,17 @@ export function ProfileSidebar({
 
   const handleDeleteConfirm = async () => {
     const { profileName } = deleteDialog
-    await onDelete(profileName)
+    await deleteProfile(profileName)
     setDeleteDialog({ open: false, profileName: "" })
   }
+
+  // --- Derived state for delete dialog ---
 
   const canDuplicate =
     duplicateDialog.newProfileName.trim() &&
     duplicateDialog.courseId.trim() &&
     duplicateDialog.courseName.trim()
 
-  // Calculate what happens on delete for the dialog message
   const profileToDelete = deleteDialog.profileName
   const remainingProfiles = profiles.filter((p) => p.name !== profileToDelete)
   const isLastProfile = remainingProfiles.length === 0
@@ -191,35 +189,70 @@ export function ProfileSidebar({
 
   return (
     <>
-      <SidebarNav
-        title="Profiles"
-        items={items}
-        selectedId={activeProfile}
-        onSelect={handleProfileSelect}
-        className="w-52"
-        actionMode="dropdown"
-        actions={[
-          {
-            icon: <Copy className="size-3" />,
-            onClick: handleDuplicateClick,
-            label: "Duplicate",
-          },
-          {
-            icon: <Pencil className="size-3" />,
-            onClick: handleRenameClick,
-            label: "Rename",
-          },
-          {
-            icon: <Trash2 className="size-3" />,
-            onClick: handleDeleteClick,
-            label: "Delete",
-          },
-        ]}
-        addNew={{
-          label: "New Profile",
-          onClick: onNew,
-        }}
-      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="max-w-full min-w-0 overflow-hidden"
+          >
+            <span className="truncate">
+              <span className="text-muted-foreground">Profile:</span>{" "}
+              {activeProfile ?? "None"}
+            </span>
+            <ChevronUp className="size-3.5 shrink-0 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="start" side="top">
+          {profiles.map((profile) => {
+            const isActive = profile.name === activeProfile
+            return (
+              <DropdownMenuSub key={profile.name}>
+                <DropdownMenuSubTrigger
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleProfileSelect(profile.name)
+                  }}
+                  className={cn(
+                    "gap-2",
+                    isActive && "bg-selection data-[state=open]:bg-selection",
+                  )}
+                >
+                  <span className="flex-1 truncate">{profile.name}</span>
+                  <EllipsisVertical className="size-3 shrink-0 text-muted-foreground" />
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateClick(profile.name)}
+                  >
+                    <Copy className="size-3 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleRenameClick(profile.name)}
+                  >
+                    <Pencil className="size-3 mr-2" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteClick(profile.name)}
+                  >
+                    <Trash2 className="size-3 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )
+          })}
+
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setNewProfileDialogOpen(true)}>
+            <Plus className="size-3.5 mr-2" />
+            New Profile
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Unsaved Changes Confirmation Dialog */}
       <AlertDialog
@@ -237,7 +270,7 @@ export function ProfileSidebar({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                onSelect(unsavedDialog.targetProfile)
+                switchProfile(unsavedDialog.targetProfile)
                 setUnsavedDialog({ open: false, targetProfile: "" })
               }}
             >

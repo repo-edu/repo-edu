@@ -1,6 +1,6 @@
 /**
  * UtilityBar - Bottom status bar.
- * Contains: Profile indicator, Save button, Profile menu.
+ * Contains: Profile switcher + menu (left), Save button (right).
  */
 
 import {
@@ -12,9 +12,9 @@ import {
 } from "@repo-edu/ui"
 import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { commands } from "../bindings/commands"
-import { useProfileStore } from "../stores/profileStore"
 import { useToastStore } from "../stores/toastStore"
 import { useUiStore } from "../stores/uiStore"
+import { ProfileSwitcher } from "./ProfileSwitcher"
 import { SaveButton } from "./SaveButton"
 
 interface UtilityBarProps {
@@ -26,44 +26,16 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
   return (
     <div className="group/utilitybar border-t bg-muted/30">
       <div className="flex items-center gap-2 px-2 py-1.5 min-w-0">
-        <div className="flex-1 min-w-0">
-          <ProfileIndicator />
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <SaveButton isDirty={isDirty} onSaved={onSaved} />
+        <div className="flex items-center min-w-0">
+          <ProfileSwitcher isDirty={isDirty} />
           <ProfileMenu />
+        </div>
+        <div className="flex-1" />
+        <div className="shrink-0">
+          <SaveButton isDirty={isDirty} onSaved={onSaved} />
         </div>
       </div>
     </div>
-  )
-}
-
-/**
- * ProfileIndicator - Shows active profile name, click to navigate to Roster tab.
- */
-function ProfileIndicator() {
-  const activeProfile = useUiStore((state) => state.activeProfile)
-  const setActiveTab = useUiStore((state) => state.setActiveTab)
-  const course = useProfileStore(
-    (state) => state.document?.settings.course ?? null,
-  )
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => setActiveTab("roster")}
-      title="Click to manage profiles in Roster tab"
-      className="w-full justify-start min-w-0 overflow-hidden"
-    >
-      <span className="block truncate">
-        <span className="text-muted-foreground">Profile:</span>{" "}
-        {activeProfile ?? "None"}
-        {course?.name && (
-          <span className="text-muted-foreground ml-1">({course.name})</span>
-        )}
-      </span>
-    </Button>
   )
 }
 
@@ -103,7 +75,7 @@ function ProfileMenu() {
           <span className="sr-only">Profile menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start">
         <DropdownMenuItem onClick={handleShowProfileLocation}>
           <FolderOpen className="size-4 mr-2" />
           Show Profile Location

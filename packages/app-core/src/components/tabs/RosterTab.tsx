@@ -1,11 +1,10 @@
 /**
- * RosterTab - roster management with master-detail layout.
- * Left sidebar shows profiles, main body shows students for active profile.
+ * RosterTab - roster management showing students for the active profile.
+ * Profile switching is handled by ProfileSwitcher in the status bar.
  */
 
 import { Button, EmptyState } from "@repo-edu/ui"
 import { commands } from "../../bindings/commands"
-import { useProfiles } from "../../hooks/useProfiles"
 import { saveDialog } from "../../services/platform"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import {
@@ -15,13 +14,13 @@ import {
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
 import { useToastStore } from "../../stores/toastStore"
 import { useUiStore } from "../../stores/uiStore"
-import { MemberListPane, ProfileSidebar } from "./roster"
+import { MemberListPane } from "./roster"
 
 interface RosterTabProps {
   isDirty: boolean
 }
 
-export function RosterTab({ isDirty }: RosterTabProps) {
+export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
   const roster = useProfileStore((state) => state.document?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
   const course = useProfileStore(selectCourse)
@@ -40,15 +39,6 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
-
-  // Profile management hook
-  const {
-    profiles,
-    switchProfile,
-    duplicateProfile,
-    renameProfile,
-    deleteProfile,
-  } = useProfiles()
 
   // LMS import state
   const hasLmsConnection = lmsConnection !== null
@@ -120,31 +110,16 @@ export function RosterTab({ isDirty }: RosterTabProps) {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Left sidebar - Profile list */}
-      <ProfileSidebar
-        profiles={profiles}
-        activeProfile={activeProfile}
-        isDirty={isDirty}
-        onSelect={switchProfile}
-        onNew={() => setNewProfileDialogOpen(true)}
-        onDuplicate={duplicateProfile}
-        onRename={renameProfile}
-        onDelete={deleteProfile}
-      />
-
-      {/* Main body - Student list */}
-      <MemberListPane
-        roster={roster}
-        importing={false}
-        canImportFromLms={canImportFromLms}
-        lmsImportTooltip={lmsImportTooltip}
-        hasLmsConnection={hasLmsConnection}
-        onImportFromLms={() => setRosterSyncDialogOpen(true)}
-        onImportFromFile={() => setImportFileDialogOpen(true)}
-        onClear={handleClear}
-        onExport={handleExportStudents}
-      />
-    </div>
+    <MemberListPane
+      roster={roster}
+      importing={false}
+      canImportFromLms={canImportFromLms}
+      lmsImportTooltip={lmsImportTooltip}
+      hasLmsConnection={hasLmsConnection}
+      onImportFromLms={() => setRosterSyncDialogOpen(true)}
+      onImportFromFile={() => setImportFileDialogOpen(true)}
+      onClear={handleClear}
+      onExport={handleExportStudents}
+    />
   )
 }
