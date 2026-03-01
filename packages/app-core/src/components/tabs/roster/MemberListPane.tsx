@@ -684,13 +684,13 @@ export function MemberListPane({
                 className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
                 style={{ tableLayout: "fixed" }}
               >
-                <thead className="bg-muted sticky top-0">
+                <thead className="bg-muted sticky top-0 z-10">
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
-                          className="p-2 text-left font-medium relative min-w-0"
+                          className="bg-muted p-2 text-left font-medium relative min-w-0"
                           style={{ width: header.getSize() }}
                         >
                           {header.isPlaceholder
