@@ -9,6 +9,10 @@ import type {
 } from "@repo-edu/backend-interface/types"
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   EmptyState,
   Input,
   Tabs,
@@ -22,17 +26,21 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
+  ChevronDown,
+  Download,
   File,
-  Info,
   Loader2,
   Lock,
   Plus,
+  RefreshCw,
+  Search,
   Trash2,
 } from "@repo-edu/ui/components/icons"
 import {
   type ColumnDef,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getSortedRowModel,
   type SortingState,
   type Updater,
@@ -55,10 +63,6 @@ import { type GroupSetPanelTab, useUiStore } from "../../../stores/uiStore"
 import { applyGroupSetPatch } from "../../../utils/groupSetPatch"
 import { buildLmsOperationContext } from "../../../utils/operationContext"
 import {
-  formatExactTimestamp,
-  formatRelativeTime,
-} from "../../../utils/relativeTime"
-import {
   chainComparisons,
   compareNumber,
   compareText,
@@ -78,34 +82,6 @@ function getConnectionKind(
 ): "local" | "system" | "canvas" | "moodle" | "import" {
   if (!connection) return "local"
   return connection.kind
-}
-
-/** Helper to get sync/import timestamp from connection. */
-function connectionTimestamp(
-  connection: GroupSetConnection | null,
-): { relative: string; exact: string | null } | null {
-  if (!connection) return null
-  if (connection.kind === "canvas" || connection.kind === "moodle") {
-    return {
-      relative: `Last synced ${formatRelativeTime(connection.last_updated)}`,
-      exact: formatExactTimestamp(connection.last_updated),
-    }
-  }
-  if (connection.kind === "import") {
-    return {
-      relative: `Imported ${formatRelativeTime(connection.last_updated)}`,
-      exact: formatExactTimestamp(connection.last_updated),
-    }
-  }
-  return null
-}
-
-function systemTypeNote(connection: GroupSetConnection | null): string | null {
-  if (!connection || connection.kind !== "system") return null
-  if (connection.system_type === "individual_students") {
-    return "Auto-maintained: one group per active student. Syncs with roster changes."
-  }
-  return "Auto-maintained: contains all non-student roles."
 }
 
 export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
@@ -137,6 +113,9 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const setDeleteGroupTargetId = useUiStore(
     (state) => state.setDeleteGroupTargetId,
   )
+  const setReimportGroupSetTargetId = useUiStore(
+    (state) => state.setReimportGroupSetTargetId,
+  )
 
   if (!groupSet) {
     return (
@@ -162,6 +141,9 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           ? "Importing group set..."
           : null
 
+  const isLms = kind === "canvas" || kind === "moodle"
+  const isImport = kind === "import"
+  const isReadOnly = kind === "system" || isLms
   const handleSync = useCallback(async () => {
     if (!roster || (kind !== "canvas" && kind !== "moodle")) return
     if (!lmsContext) {
@@ -279,28 +261,110 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Title bar */}
+      <div className="flex items-center gap-2 px-3 min-h-11 pb-3 border-b">
+        <span className="text-sm font-medium truncate">{groupSet.name}</span>
+        {isReadOnly && (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Lock className="size-3 shrink-0 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isLms
+                  ? "Synced from LMS — read-only"
+                  : "System group set — auto-managed"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
+          {isLms && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSync}
+              disabled={isOperationActive || !lmsContext}
+              title="Sync groups from LMS"
+            >
+              {isThisGroupSetBusy && groupSetOperation?.kind === "sync" ? (
+                <>
+                  <Loader2 className="size-4 mr-1 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-4 mr-1" />
+                  Sync
+                </>
+              )}
+            </Button>
+          )}
+          {isImport && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setReimportGroupSetTargetId(groupSetId)}
+              disabled={isOperationActive}
+              title="Reimport groups from CSV file"
+            >
+              {isThisGroupSetBusy && groupSetOperation?.kind === "reimport" ? (
+                <>
+                  <Loader2 className="size-4 mr-1 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Download className="size-4 mr-1" />
+                  Reimport
+                </>
+              )}
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={groups.length === 0}
+                title="Export group set to CSV"
+              >
+                Export
+                <ChevronDown className="size-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExport}>
+                Group Set (CSV)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Operation banner */}
       {operationLabel && (
-        <div className="px-4 py-2 flex items-center gap-1.5 text-xs text-muted-foreground border-b">
+        <div className="px-3 py-2 flex items-center gap-1.5 text-xs text-muted-foreground border-b">
           <Loader2 className="size-3 animate-spin" />
           <span>{operationLabel}</span>
         </div>
       )}
+
+      {/* Sub-tabs */}
       <Tabs
         value={panelTab}
         onValueChange={(v) => setPanelTab(v as GroupSetPanelTab)}
         className="flex-1 min-h-0 gap-0"
       >
-        <TabsList size="compact" className="w-full border-b px-3 shrink-0">
+        <TabsList className="w-full border-b px-3 shrink-0">
           <TabsTrigger
             value="groups"
-            size="compact"
             className="border-b-2 border-transparent data-[state=active]:border-foreground rounded-none"
           >
             Groups ({groups.length})
           </TabsTrigger>
           <TabsTrigger
             value="assignments"
-            size="compact"
             className="border-b-2 border-transparent data-[state=active]:border-foreground rounded-none"
           >
             Assignments ({assignments.length})
@@ -313,7 +377,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           <GroupsList
             groupSet={groupSet}
             groups={groups}
-            connection={connection}
             kind={kind}
             roster={roster}
             disabled={isOperationActive}
@@ -341,60 +404,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   )
 }
 
-// --- Connection metadata (shown inside Groups tab) ---
-
-function GroupSetConnectionInfo({
-  timestamp,
-  importFilename,
-  isLms,
-  note,
-}: {
-  timestamp: { relative: string; exact: string | null } | null
-  importFilename: string | null
-  isLms: boolean
-  note: string | null
-}) {
-  const hasContent = timestamp || importFilename || isLms || note
-
-  if (!hasContent) return null
-
-  return (
-    <TooltipProvider delayDuration={300}>
-      <div className="space-y-0.5 mb-2 text-xs text-muted-foreground">
-        {timestamp && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="cursor-default w-fit">{timestamp.relative}</p>
-            </TooltipTrigger>
-            {timestamp.exact && (
-              <TooltipContent side="bottom" className="text-xs">
-                {timestamp.exact}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        )}
-        {importFilename && <p>Source: {importFilename}</p>}
-
-        {isLms && (
-          <div className="flex items-center gap-1.5">
-            <Lock className="size-3 shrink-0" />
-            <span>
-              Sync from LMS to update groups. Copy to create a local set.
-            </span>
-          </div>
-        )}
-
-        {note && (
-          <div className="flex items-center gap-1.5">
-            <Info className="size-3 shrink-0" />
-            <span>{note}</span>
-          </div>
-        )}
-      </div>
-    </TooltipProvider>
-  )
-}
-
 // --- Assignments Panel (tab content) ---
 
 function AssignmentsPanel({
@@ -411,34 +420,34 @@ function AssignmentsPanel({
   onDelete: (id: string) => void
 }) {
   return (
-    <div className="flex-1 overflow-y-auto h-full px-4 py-2">
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-1.5 text-xs"
-          onClick={onAdd}
-          disabled={disabled}
-        >
-          <Plus className="size-3 mr-1" />
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex-1" />
+        <Button size="sm" variant="outline" onClick={onAdd} disabled={disabled}>
+          <Plus className="size-4 mr-1" />
           Add Assignment
         </Button>
       </div>
-      {assignments.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No assignments yet</p>
-      ) : (
-        <div>
-          {assignments.map((assignment) => (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
-              disabled={disabled}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex-1 overflow-y-auto px-4">
+        {assignments.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No assignments yet</p>
+        ) : (
+          <div>
+            {assignments.map((assignment) => (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                disabled={disabled}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="px-3 py-2 border-t text-sm text-muted-foreground">
+        {assignments.length} assignment{assignments.length !== 1 ? "s" : ""}
+      </div>
     </div>
   )
 }
@@ -588,7 +597,6 @@ function compareGroupRowMemberCounts(
 function GroupsList({
   groupSet,
   groups,
-  connection,
   kind,
   roster,
   disabled,
@@ -597,7 +605,6 @@ function GroupsList({
 }: {
   groupSet: GroupSet
   groups: Group[]
-  connection: GroupSetConnection | null
   kind: ReturnType<typeof getConnectionKind>
   roster: Roster | null
   disabled: boolean
@@ -607,6 +614,7 @@ function GroupsList({
   const isSetEditable = kind === "local" || kind === "import"
   const editableTargets = useProfileStore(selectEditableGroupsByGroupSet)
   const [sorting, setSorting] = useState<SortingState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -714,98 +722,120 @@ function GroupsList({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, globalFilter },
     onSortingChange: handleSortingChange,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue: string) => {
+      if (!filterValue) return true
+      return row.original.group.name
+        .toLowerCase()
+        .includes(filterValue.toLowerCase())
+    },
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
   })
 
-  const hasEditableGroups = groups.some((g) => g.origin === "local")
-
-  const timestamp = connectionTimestamp(connection)
-  const note = systemTypeNote(connection)
-  const importFilename =
-    connection?.kind === "import" ? connection.source_filename : null
-  const isLms = kind === "canvas" || kind === "moodle"
+  // Unique active member count across all groups in this set
+  const totalMembers = useMemo(() => {
+    const uniqueIds = new Set<string>()
+    for (const row of data) {
+      for (const member of row.members) {
+        uniqueIds.add(member.id)
+      }
+    }
+    return uniqueIds.size
+  }, [data])
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-2">
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <GroupSetConnectionInfo
-            timestamp={timestamp}
-            importFilename={importFilename}
-            isLms={isLms}
-            note={note}
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Search + Add Group */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 size-4" />
+          <Input
+            placeholder="Search groups..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="pl-8"
           />
-          {isSetEditable && !hasEditableGroups && groups.length > 0 && (
-            <p className="mb-2 text-xs text-muted-foreground">
-              All groups in this set are read-only (LMS or system). Add new
-              groups or import from CSV for editable groups.
-            </p>
-          )}
         </div>
         {isSetEditable && (
           <Button
-            variant="ghost"
             size="sm"
-            className="h-6 px-1.5 text-xs shrink-0"
+            variant="outline"
             onClick={onCreateGroup}
             disabled={disabled}
           >
-            <Plus className="size-3 mr-1" />
+            <Plus className="size-4 mr-1" />
             Add Group
           </Button>
         )}
       </div>
-      {groups.length === 0 ? (
-        <GroupsEmptyState kind={kind} />
-      ) : (
-        <>
-          {/* Sortable column headers */}
-          <div className="sticky top-0 z-10 bg-muted border-b mb-1">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <div key={headerGroup.id} className="flex items-center">
-                {headerGroup.headers.map((header) => (
-                  <div
-                    key={header.id}
-                    className={
-                      header.id === "name"
-                        ? "p-2 text-left font-medium relative min-w-0 flex-1"
-                        : "p-2 text-right font-medium relative min-w-0 shrink-0 w-24 ml-auto"
-                    }
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
 
-          {/* Sorted groups */}
-          <div className="divide-y">
-            {table.getRowModel().rows.map((row) => (
-              <GroupItem
-                key={row.original.group.id}
-                group={row.original.group}
-                groupSetId={groupSet.id}
-                members={row.original.members}
-                staffIds={staffIds}
-                isSetEditable={isSetEditable}
-                disabled={disabled}
-                editableTargets={editableTargets}
-                memberGroupIndex={memberGroupIndex}
-                onDeleteGroup={() => onDeleteGroup(row.original.group.id)}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Groups content */}
+      <div className="flex-1 overflow-y-auto px-4">
+        {groups.length === 0 ? (
+          <GroupsEmptyState kind={kind} />
+        ) : (
+          <>
+            {/* Sortable column headers */}
+            <div className="sticky top-0 z-10 bg-muted border-b mb-1">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <div key={headerGroup.id} className="flex items-center">
+                  {headerGroup.headers.map((header) => (
+                    <div
+                      key={header.id}
+                      className={
+                        header.id === "name"
+                          ? "p-2 text-left font-medium relative min-w-0 flex-1"
+                          : "p-2 text-right font-medium relative min-w-0 shrink-0 w-24 ml-auto"
+                      }
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Sorted + filtered groups */}
+            <div className="divide-y">
+              {table.getRowModel().rows.map((row) => (
+                <GroupItem
+                  key={row.original.group.id}
+                  group={row.original.group}
+                  groupSetId={groupSet.id}
+                  members={row.original.members}
+                  staffIds={staffIds}
+                  isSetEditable={isSetEditable}
+                  disabled={disabled}
+                  editableTargets={editableTargets}
+                  memberGroupIndex={memberGroupIndex}
+                  onDeleteGroup={() => onDeleteGroup(row.original.group.id)}
+                />
+              ))}
+            </div>
+
+            {table.getRowModel().rows.length === 0 && globalFilter && (
+              <p className="p-4 text-center text-muted-foreground text-sm">
+                No groups match search
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Footer summary */}
+      <div className="px-3 py-2 border-t text-sm text-muted-foreground">
+        {groups.length} group{groups.length !== 1 ? "s" : ""} · {totalMembers}{" "}
+        member{totalMembers !== 1 ? "s" : ""}
+      </div>
     </div>
   )
 }

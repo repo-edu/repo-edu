@@ -7,8 +7,9 @@ export function connectionLabel(connection: GroupSetConnection | null): string {
     case "system":
       return "sys"
     case "canvas":
+      return "canvas"
     case "moodle":
-      return "lms"
+      return "moodle"
     case "import":
       return "import"
   }
@@ -20,8 +21,9 @@ export function connectionKindLabel(kind: string): string {
     case "system":
       return "sys"
     case "canvas":
+      return "canvas"
     case "moodle":
-      return "lms"
+      return "moodle"
     case "import":
       return "import"
     default:

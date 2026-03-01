@@ -500,15 +500,6 @@ export function MemberListPane({
           >
             Import from File
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAddingStudent(true)}
-            title="Add a member manually"
-          >
-            <Plus className="size-4 mr-1" />
-            Add
-          </Button>
           {hasMembers && (
             <>
               <DropdownMenu>
@@ -607,6 +598,15 @@ export function MemberListPane({
                 className="pl-8"
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddingStudent(true)}
+              title="Add a member manually"
+            >
+              <Plus className="size-4 mr-1" />
+              Add Member
+            </Button>
             <div className="relative">
               <Button
                 variant="outline"
