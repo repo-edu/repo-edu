@@ -116,6 +116,9 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const setReimportGroupSetTargetId = useUiStore(
     (state) => state.setReimportGroupSetTargetId,
   )
+  const [syncProgressMessage, setSyncProgressMessage] = useState<string | null>(
+    null,
+  )
 
   if (!groupSet) {
     return (
@@ -134,12 +137,18 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
   const operationLabel =
     groupSetOperation?.kind === "sync" && isThisGroupSetBusy
-      ? "Syncing group set..."
+      ? (syncProgressMessage ?? "Syncing group set...")
       : groupSetOperation?.kind === "reimport" && isThisGroupSetBusy
         ? "Importing group set..."
         : groupSetOperation?.kind === "import"
           ? "Importing group set..."
           : null
+
+  useEffect(() => {
+    if (!(groupSetOperation?.kind === "sync" && isThisGroupSetBusy)) {
+      setSyncProgressMessage(null)
+    }
+  }, [groupSetOperation?.kind, isThisGroupSetBusy])
 
   const isLms = kind === "canvas" || kind === "moodle"
   const isImport = kind === "import"
@@ -154,13 +163,14 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     }
 
     setGroupSetOperation({ kind: "sync", groupSetId })
+    setSyncProgressMessage("Connecting to LMS...")
 
     try {
       const result = await commands.syncGroupSet(
         lmsContext,
         roster,
         groupSetId,
-        () => {},
+        setSyncProgressMessage,
       )
       if (result.status === "ok") {
         const updatedRoster = applyGroupSetPatch(roster, result.data)
