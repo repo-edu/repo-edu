@@ -154,6 +154,29 @@ impl LmsClient {
             }
         }
     }
+
+    /// Get users enrolled in a course while reporting page-level progress.
+    pub async fn get_users_with_progress<F>(
+        &self,
+        course_id: &str,
+        mut progress_callback: F,
+    ) -> LmsResult<Vec<User>>
+    where
+        F: FnMut(usize, usize),
+    {
+        match &self.kind {
+            ClientKind::Canvas(client) => {
+                client
+                    .get_course_users_with_progress(course_id, &mut progress_callback)
+                    .await
+            }
+            ClientKind::Moodle(client) => {
+                client
+                    .get_enrolled_users_with_progress(course_id, &mut progress_callback)
+                    .await
+            }
+        }
+    }
 }
 
 // Implement the LmsClient trait for the unified client

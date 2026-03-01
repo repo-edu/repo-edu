@@ -189,6 +189,7 @@ export interface BackendAPI {
   importRosterFromLms(
     context: LmsOperationContext,
     roster: Roster | null,
+    progress: ProgressCallback<string>,
   ): Promise<Result<ImportRosterResult, AppError>>
 
   /**

@@ -26,7 +26,8 @@ use super::types::{
     VerifyCourseParams, VerifyCourseResult,
 };
 use super::utils::{
-    canonicalize_dir, emit_inline_message, emit_standard_message, parse_lms_type, InlineCliState,
+    canonicalize_dir, emit_gui_message, emit_inline_message, emit_standard_message, parse_lms_type,
+    InlineCliState,
 };
 
 /// Fetch LMS group set list (metadata only)
@@ -73,10 +74,13 @@ pub async fn sync_group_set(
 pub async fn import_roster_from_lms(
     context: LmsOperationContext,
     roster: Option<Roster>,
+    progress: Channel<String>,
 ) -> Result<ImportRosterResult, AppError> {
-    operations::import_roster_from_lms(&context, roster)
-        .await
-        .map_err(Into::into)
+    operations::import_roster_from_lms_with_progress(&context, roster, move |message| {
+        emit_gui_message(&progress, message);
+    })
+    .await
+    .map_err(Into::into)
 }
 
 #[tauri::command]

@@ -174,8 +174,9 @@ export const commands = {
   importRosterFromLms(
     context: LmsOperationContext,
     roster: Roster | null,
+    progress: ProgressCallback<string>,
   ): Promise<Result<ImportRosterResult, AppError>> {
-    return getBackend().importRosterFromLms(context, roster)
+    return getBackend().importRosterFromLms(context, roster, progress)
   },
   /**
    * Create/repair system group sets and normalize group memberships (idempotent)

@@ -340,11 +340,18 @@ export class TauriBackend implements BackendAPI {
   async importRosterFromLms(
     context: LmsOperationContext,
     roster: Roster | null,
+    progress: ProgressCallback<string>,
   ): Promise<Result<ImportRosterResult, AppError>> {
+    const progressChannel = new TAURI_CHANNEL<string>()
+    progressChannel.onmessage = progress
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("import_roster_from_lms", { context, roster }),
+        data: await TAURI_INVOKE("import_roster_from_lms", {
+          context,
+          roster,
+          progress: progressChannel,
+        }),
       }
     } catch (e) {
       if (e instanceof Error) throw e

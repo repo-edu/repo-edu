@@ -15,8 +15,9 @@ pub use crate::{LmsOperationContext, ProgressEvent, RepoOperationContext};
 pub use error::HandlerError;
 
 pub use lms::{
-    fetch_group_set_list, fetch_groups_for_set, import_roster_from_lms, import_students,
-    sync_group_set, verify_connection as verify_lms_connection,
+    fetch_group_set_list, fetch_groups_for_set, import_roster_from_lms,
+    import_roster_from_lms_with_progress, import_students, sync_group_set,
+    verify_connection as verify_lms_connection,
 };
 
 pub use platform::verify_connection;

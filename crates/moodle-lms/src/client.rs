@@ -201,9 +201,22 @@ impl MoodleClient {
 
     /// Get enrolled users for a specific course
     pub async fn get_enrolled_users(&self, course_id: &str) -> LmsResult<Vec<User>> {
+        self.get_enrolled_users_with_progress(course_id, &mut |_, _| {})
+            .await
+    }
+
+    pub async fn get_enrolled_users_with_progress<F>(
+        &self,
+        course_id: &str,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<User>>
+    where
+        F: FnMut(usize, usize),
+    {
         let moodle_users: Vec<MoodleEnrolledUser> = self
             .call_function("core_enrol_get_enrolled_users", &[("courseid", course_id)])
             .await?;
+        progress_callback(1, moodle_users.len());
         Ok(moodle_users.into_iter().map(|u| u.into()).collect())
     }
 

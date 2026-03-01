@@ -48,8 +48,33 @@ pub async fn import_roster_from_lms(
     context: &LmsOperationContext,
     existing_roster: Option<Roster>,
 ) -> Result<ImportRosterResult, HandlerError> {
+    import_roster_from_lms_with_progress(context, existing_roster, |_| {}).await
+}
+
+/// Import roster members from LMS with full conflict reporting and progress updates.
+pub async fn import_roster_from_lms_with_progress<F>(
+    context: &LmsOperationContext,
+    existing_roster: Option<Roster>,
+    mut on_progress: F,
+) -> Result<ImportRosterResult, HandlerError>
+where
+    F: FnMut(String),
+{
+    on_progress("Connecting to LMS...".to_string());
     let client = create_lms_client(&context.connection)?;
-    let users = client.get_users(&context.course_id).await?;
+    on_progress("Fetching roster pages from LMS...".to_string());
+    let users = client
+        .get_users_with_progress(&context.course_id, |page, loaded_users| {
+            on_progress(format!(
+                "Fetched roster page {} ({} users loaded)",
+                page, loaded_users
+            ));
+        })
+        .await?;
+    on_progress(format!(
+        "Building roster preview for {} users...",
+        users.len()
+    ));
     merge_lms_roster_with_conflicts(existing_roster, users, context)
 }
 

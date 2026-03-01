@@ -2,6 +2,7 @@ import type {
   BackendAPI,
   CloseRequestedHandler,
   OpenDialogOptions,
+  ProgressCallback,
   SaveDialogOptions,
   WindowTheme,
 } from "@repo-edu/backend-interface"
@@ -396,6 +397,7 @@ export class MockBackend implements BackendAPI {
   async importRosterFromLms(
     _context: LmsOperationContext,
     roster: Roster | null,
+    progress: ProgressCallback<string>,
   ): Promise<Result<ImportRosterResult, AppError>> {
     const courseType = this.getCourseType()
     const baseRoster = roster ? { ...roster } : createRoster(courseType)
@@ -405,7 +407,19 @@ export class MockBackend implements BackendAPI {
       last_updated: nowIso(),
     }
 
-    const merged = mergeStudents(baseRoster, this.getStudents())
+    const lmsMembers = this.getStudents()
+    const pageSize = 100
+
+    progress("Connecting to LMS...")
+    progress("Fetching roster pages from LMS...")
+    for (let index = 0; index < lmsMembers.length; index += pageSize) {
+      const loadedUsers = Math.min(index + pageSize, lmsMembers.length)
+      const page = Math.floor(index / pageSize) + 1
+      progress(`Fetched roster page ${page} (${loadedUsers} users loaded)`)
+    }
+    progress(`Building roster preview for ${lmsMembers.length} users...`)
+
+    const merged = mergeStudents(baseRoster, lmsMembers)
     if (this.activeProfile) {
       this.rosters.set(this.activeProfile, merged.roster)
     }

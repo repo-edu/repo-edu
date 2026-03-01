@@ -192,6 +192,10 @@
         {
           "name": "roster",
           "type": "Option<Roster>"
+        },
+        {
+          "name": "progress",
+          "type": "Channel<String>"
         }
       ],
       "output": "ImportRosterResult",

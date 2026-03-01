@@ -173,8 +173,23 @@ impl CanvasClient {
         path: &str,
         params: Vec<(String, String)>,
     ) -> LmsResult<Vec<T>> {
+        self.get_all_pages_with_progress(path, params, &mut |_, _| {})
+            .await
+    }
+
+    async fn get_all_pages_with_progress<T, F>(
+        &self,
+        path: &str,
+        params: Vec<(String, String)>,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<T>>
+    where
+        T: DeserializeOwned,
+        F: FnMut(usize, usize),
+    {
         let mut all_items = Vec::new();
         let mut current_params = params;
+        let mut page = 0usize;
 
         // Add per_page if not already present
         if !current_params.iter().any(|(k, _)| k == "per_page") {
@@ -186,8 +201,10 @@ impl CanvasClient {
             let headers = response.headers().clone();
             let response_text = response.text().await?;
             let items: Vec<T> = Self::decode_response(&response_text)?;
+            page += 1;
 
             all_items.extend(items);
+            progress_callback(page, all_items.len());
 
             // Check for next page
             if let Some(next_url) = get_next_page_url(&headers) {
@@ -269,6 +286,28 @@ impl CanvasClient {
         .await
     }
 
+    pub async fn get_course_users_with_progress<F>(
+        &self,
+        course_id: &str,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<User>>
+    where
+        F: FnMut(usize, usize),
+    {
+        self.get_course_users_filtered_with_progress(
+            course_id,
+            &[
+                "StudentEnrollment",
+                "TeacherEnrollment",
+                "TaEnrollment",
+                "DesignerEnrollment",
+                "ObserverEnrollment",
+            ],
+            progress_callback,
+        )
+        .await
+    }
+
     /// Get users enrolled in a course, filtered by enrollment types.
     ///
     /// Canvas supports filtering by enrollment type via `enrollment_type[]` parameter.
@@ -284,12 +323,27 @@ impl CanvasClient {
         course_id: &str,
         enrollment_types: &[&str],
     ) -> LmsResult<Vec<User>> {
+        self.get_course_users_filtered_with_progress(course_id, enrollment_types, &mut |_, _| {})
+            .await
+    }
+
+    pub async fn get_course_users_filtered_with_progress<F>(
+        &self,
+        course_id: &str,
+        enrollment_types: &[&str],
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<User>>
+    where
+        F: FnMut(usize, usize),
+    {
         let path = format!("courses/{}/users", course_id);
         let mut params = vec![("include[]".to_string(), "enrollments".to_string())];
         for et in enrollment_types {
             params.push(("enrollment_type[]".to_string(), et.to_string()));
         }
-        let canvas_users: Vec<CanvasUser> = self.get_all_pages(&path, params).await?;
+        let canvas_users: Vec<CanvasUser> = self
+            .get_all_pages_with_progress(&path, params, progress_callback)
+            .await?;
         Ok(canvas_users.into_iter().map(|u| u.into()).collect())
     }
 
