@@ -187,6 +187,22 @@ describe("GroupSetPanel sorting", () => {
     ])
   })
 
+  it("matches groups by member names in the groups search", () => {
+    const { container } = render(<GroupSetPanel groupSetId="gs-1" />)
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Search groups and members..."),
+      {
+        target: { value: "Alice" },
+      },
+    )
+
+    expect(getRenderedGroupNames(container)).toEqual([
+      "Charlie Group",
+      "Alpha Group",
+    ])
+  })
+
   it("requires a second click to confirm inline group removal", () => {
     useProfileStore.setState({
       document: {

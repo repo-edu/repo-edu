@@ -40,7 +40,7 @@ export function GroupList({
   onAddGroup,
   addDisabled = false,
   addTitle,
-  searchPlaceholder = "Search groups or members...",
+  searchPlaceholder = "Search groups and members...",
   emptyMessage = "No groups available.",
   noResultsMessage = "No groups match your search.",
   showSearch = true,

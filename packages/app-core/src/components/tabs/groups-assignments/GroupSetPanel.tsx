@@ -727,9 +727,15 @@ function GroupsList({
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: (row, _columnId, filterValue: string) => {
       if (!filterValue) return true
-      return row.original.group.name
-        .toLowerCase()
-        .includes(filterValue.toLowerCase())
+      const normalizedFilter = filterValue.toLowerCase()
+
+      if (row.original.group.name.toLowerCase().includes(normalizedFilter)) {
+        return true
+      }
+
+      return row.original.members.some((member) =>
+        member.name.toLowerCase().includes(normalizedFilter),
+      )
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -754,7 +760,7 @@ function GroupsList({
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 size-4" />
           <Input
-            placeholder="Search groups..."
+            placeholder="Search groups and members..."
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-8"
