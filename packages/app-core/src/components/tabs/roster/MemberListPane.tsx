@@ -727,7 +727,7 @@ export function MemberListPane({
                       {row.getVisibleCells().map((cell) => (
                         <td
                           key={cell.id}
-                          className="p-2 align-top min-w-0"
+                          className="p-2 align-middle min-w-0"
                           style={{ width: cell.column.getSize() }}
                         >
                           {flexRender(
