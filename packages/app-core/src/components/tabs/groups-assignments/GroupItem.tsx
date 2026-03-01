@@ -171,9 +171,7 @@ export function GroupItem({
           />
         )}
 
-        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-          {members.length}
-        </span>
+        <span className="text-sm ml-auto mr-4 shrink-0">{members.length}</span>
 
         {/* Actions: inline remove button for read-only groups, full menu for editable */}
         {!isEditable && isSetEditable && (

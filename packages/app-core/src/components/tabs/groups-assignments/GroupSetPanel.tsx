@@ -795,7 +795,7 @@ function GroupsList({
                       className={
                         header.id === "name"
                           ? "p-2 text-left font-medium relative min-w-0 flex-1"
-                          : "p-2 text-right font-medium relative min-w-0 shrink-0 w-24 ml-auto"
+                          : "py-2 pl-2 pr-4 text-right font-medium relative min-w-0 shrink-0 w-24 ml-auto"
                       }
                     >
                       {header.isPlaceholder
