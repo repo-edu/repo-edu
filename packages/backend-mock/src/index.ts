@@ -368,6 +368,7 @@ export class MockBackend implements BackendAPI {
     _context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
+    progress: ProgressCallback<string>,
   ): Promise<Result<GroupSetSyncResult, AppError>> {
     const gs = roster.group_sets.find((s) => s.id === groupSetId)
     if (!gs) {
@@ -385,6 +386,27 @@ export class MockBackend implements BackendAPI {
         total_missing: 0,
       })
     }
+
+    const externalGroupSetId =
+      gs.connection?.kind === "canvas"
+        ? gs.connection.group_set_id
+        : gs.connection?.kind === "moodle"
+          ? gs.connection.grouping_id
+          : null
+    const lmsGroups =
+      this.getGroupSets().find((set) => set.id === externalGroupSetId)
+        ?.groups ?? []
+
+    progress("Connecting to LMS...")
+    progress("Fetching groups from LMS...")
+    progress(`Fetched group page 1 (${lmsGroups.length} groups loaded)`)
+    for (const group of lmsGroups) {
+      progress(
+        `Loading members for ${group.name} (${group.member_ids.length} loaded)`,
+      )
+    }
+    progress(`Building group set patch for ${lmsGroups.length} groups...`)
+
     return this.ok({
       group_set: { ...gs },
       groups_upserted: roster.groups.filter((g) => gs.group_ids.includes(g.id)),

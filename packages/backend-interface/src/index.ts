@@ -181,6 +181,7 @@ export interface BackendAPI {
     context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
+    progress: ProgressCallback<string>,
   ): Promise<Result<GroupSetSyncResult, AppError>>
 
   /**

@@ -230,8 +230,22 @@ impl CanvasClient {
     ///
     /// * `course_id` - The course ID
     pub async fn get_course_groups(&self, course_id: &str) -> LmsResult<Vec<Group>> {
+        self.get_course_groups_with_progress(course_id, &mut |_, _| {})
+            .await
+    }
+
+    pub async fn get_course_groups_with_progress<F>(
+        &self,
+        course_id: &str,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<Group>>
+    where
+        F: FnMut(usize, usize),
+    {
         let path = format!("courses/{}/groups", course_id);
-        let canvas_groups: Vec<CanvasGroup> = self.get_all_pages(&path, Vec::new()).await?;
+        let canvas_groups: Vec<CanvasGroup> = self
+            .get_all_pages_with_progress(&path, Vec::new(), progress_callback)
+            .await?;
         Ok(canvas_groups.into_iter().map(|g| g.into()).collect())
     }
 
@@ -258,8 +272,22 @@ impl CanvasClient {
         &self,
         group_category_id: &str,
     ) -> LmsResult<Vec<Group>> {
+        self.get_group_category_groups_with_progress(group_category_id, &mut |_, _| {})
+            .await
+    }
+
+    pub async fn get_group_category_groups_with_progress<F>(
+        &self,
+        group_category_id: &str,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<Group>>
+    where
+        F: FnMut(usize, usize),
+    {
         let path = format!("group_categories/{}/groups", group_category_id);
-        let canvas_groups: Vec<CanvasGroup> = self.get_all_pages(&path, Vec::new()).await?;
+        let canvas_groups: Vec<CanvasGroup> = self
+            .get_all_pages_with_progress(&path, Vec::new(), progress_callback)
+            .await?;
         Ok(canvas_groups.into_iter().map(|g| g.into()).collect())
     }
 
@@ -389,9 +417,22 @@ impl CanvasClient {
     ///
     /// * `group_id` - The group ID
     pub async fn get_group_memberships(&self, group_id: &str) -> LmsResult<Vec<GroupMembership>> {
+        self.get_group_memberships_with_progress(group_id, &mut |_, _| {})
+            .await
+    }
+
+    pub async fn get_group_memberships_with_progress<F>(
+        &self,
+        group_id: &str,
+        progress_callback: &mut F,
+    ) -> LmsResult<Vec<GroupMembership>>
+    where
+        F: FnMut(usize, usize),
+    {
         let path = format!("groups/{}/memberships", group_id);
-        let canvas_memberships: Vec<CanvasGroupMembership> =
-            self.get_all_pages(&path, Vec::new()).await?;
+        let canvas_memberships: Vec<CanvasGroupMembership> = self
+            .get_all_pages_with_progress(&path, Vec::new(), progress_callback)
+            .await?;
         Ok(canvas_memberships.into_iter().map(|m| m.into()).collect())
     }
 

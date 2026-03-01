@@ -22,8 +22,9 @@ pub use operations::{
     fetch_groups_for_set, import_group_set, import_roster_from_lms,
     import_roster_from_lms_with_progress, import_students, preflight_clone, preflight_create,
     preflight_delete, preview_import_group_set, preview_reimport_group_set, reimport_group_set,
-    sync_group_set, validate_assignment, validate_roster, verify_connection, verify_lms_connection,
-    CloneReposParams, CreateReposParams, DeleteReposParams, HandlerError,
+    sync_group_set, sync_group_set_with_progress, validate_assignment, validate_roster,
+    verify_connection, verify_lms_connection, CloneReposParams, CreateReposParams,
+    DeleteReposParams, HandlerError,
 };
 pub use platform::{create_platform, Platform, PlatformAPI, PlatformParams, PlatformType};
 pub use progress::ProgressEvent;

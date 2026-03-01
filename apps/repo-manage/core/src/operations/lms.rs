@@ -99,25 +99,7 @@ pub async fn fetch_groups_for_set(
     group_set_id: &str,
 ) -> Result<Vec<LmsGroup>, HandlerError> {
     let client = create_lms_client(&context.connection)?;
-    let groups = client
-        .get_groups_for_category(&context.course_id, Some(group_set_id))
-        .await?;
-
-    let mut lms_groups = Vec::new();
-    for group in groups {
-        let memberships = client.get_group_members(&group.id).await?;
-        let member_ids = memberships
-            .into_iter()
-            .map(|membership| membership.user_id)
-            .collect::<Vec<_>>();
-        lms_groups.push(LmsGroup {
-            id: group.id,
-            name: group.name,
-            member_ids,
-        });
-    }
-
-    Ok(lms_groups)
+    fetch_groups_for_set_with_members(&client, &context.course_id, group_set_id).await
 }
 
 /// Sync an LMS-connected group set from the LMS.
@@ -129,6 +111,19 @@ pub async fn sync_group_set(
     roster: &Roster,
     group_set_id: &str,
 ) -> Result<GroupSetSyncResult, HandlerError> {
+    sync_group_set_with_progress(context, roster, group_set_id, |_| {}).await
+}
+
+/// Sync an LMS-connected group set from the LMS and report fetch progress.
+pub async fn sync_group_set_with_progress<F>(
+    context: &LmsOperationContext,
+    roster: &Roster,
+    group_set_id: &str,
+    mut on_progress: F,
+) -> Result<GroupSetSyncResult, HandlerError>
+where
+    F: FnMut(String),
+{
     let group_set = roster
         .find_group_set(group_set_id)
         .ok_or_else(|| HandlerError::not_found("Group set not found"))?;
@@ -149,9 +144,20 @@ pub async fn sync_group_set(
     };
 
     // Fetch current groups from LMS
+    on_progress("Connecting to LMS...".to_string());
     let client = create_lms_client(&context.connection)?;
-    let lms_groups =
-        fetch_groups_for_set_with_members(&client, &context.course_id, lms_group_set_id).await?;
+    on_progress("Fetching groups from LMS...".to_string());
+    let lms_groups = fetch_groups_for_set_with_members_with_progress(
+        &client,
+        &context.course_id,
+        lms_group_set_id,
+        &mut on_progress,
+    )
+    .await?;
+    on_progress(format!(
+        "Building group set patch for {} groups...",
+        lms_groups.len()
+    ));
 
     // Build lms_user_id -> RosterMemberId map for member resolution
     let lms_to_member = build_lms_member_map(roster);
@@ -519,13 +525,38 @@ async fn fetch_groups_for_set_with_members(
     course_id: &str,
     group_set_id: &str,
 ) -> Result<Vec<LmsGroup>, HandlerError> {
+    fetch_groups_for_set_with_members_with_progress(client, course_id, group_set_id, |_| {}).await
+}
+
+async fn fetch_groups_for_set_with_members_with_progress<F>(
+    client: &lms_client::LmsClient,
+    course_id: &str,
+    group_set_id: &str,
+    mut on_progress: F,
+) -> Result<Vec<LmsGroup>, HandlerError>
+where
+    F: FnMut(String),
+{
     let groups = client
-        .get_groups_for_category(course_id, Some(group_set_id))
+        .get_groups_for_category_with_progress(course_id, Some(group_set_id), |page, loaded| {
+            on_progress(format!(
+                "Fetched group page {} ({} groups loaded)",
+                page, loaded
+            ));
+        })
         .await?;
 
     let mut lms_groups = Vec::new();
     for group in groups {
-        let memberships = client.get_group_members(&group.id).await?;
+        let group_name = group.name.clone();
+        let memberships = client
+            .get_group_members_with_progress(&group.id, |_page, loaded| {
+                on_progress(format!(
+                    "Loading members for group {} ({} loaded)",
+                    group_name, loaded
+                ));
+            })
+            .await?;
         let member_ids = memberships
             .into_iter()
             .map(|membership| membership.user_id)

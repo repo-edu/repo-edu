@@ -20,8 +20,8 @@ import {
   SelectValue,
   Text,
 } from "@repo-edu/ui"
-import { AlertTriangle } from "@repo-edu/ui/components/icons"
-import { useEffect, useMemo, useState } from "react"
+import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { commands } from "../../bindings/commands"
 import { useAppSettingsStore } from "../../stores/appSettingsStore"
 import { selectCourse, useProfileStore } from "../../stores/profileStore"
@@ -78,6 +78,8 @@ export function ConnectLmsGroupSetDialog() {
   const [loading, setLoading] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [progressMessage, setProgressMessage] = useState<string | null>(null)
+  const connectRequestIdRef = useRef(0)
 
   const lmsContext = useMemo(
     () => buildLmsOperationContext(lmsConnection, course.id),
@@ -166,16 +168,21 @@ export function ConnectLmsGroupSetDialog() {
     !connecting
 
   const handleClose = () => {
+    connectRequestIdRef.current += 1
+    setGroupSetOperation(null)
     setOpen(false)
     setSelectedId("")
     setError(null)
     setLoading(false)
     setConnecting(false)
     setGroupSets([])
+    setProgressMessage(null)
   }
 
   const handleConnect = async () => {
     if (!canConnect || !roster || !lmsContext || !selectedGroupSet) return
+    const requestId = connectRequestIdRef.current + 1
+    connectRequestIdRef.current = requestId
 
     const provisionalId = generateGroupSetId()
     const provisionalGroupSet: GroupSet = {
@@ -196,13 +203,24 @@ export function ConnectLmsGroupSetDialog() {
 
     setConnecting(true)
     setError(null)
+    setProgressMessage("Connecting to LMS...")
     setGroupSetOperation({ kind: "sync", groupSetId: provisionalId })
     try {
       const result = await commands.syncGroupSet(
         lmsContext,
         rosterWithProvisional,
         provisionalId,
+        (message) => {
+          if (connectRequestIdRef.current !== requestId) {
+            return
+          }
+          setProgressMessage(message)
+        },
       )
+      if (connectRequestIdRef.current !== requestId) {
+        return
+      }
+
       if (result.status === "ok") {
         const updatedRoster = applyGroupSetPatch(roster, result.data)
         setRoster(updatedRoster, `Connect group set "${selectedGroupSet.name}"`)
@@ -213,14 +231,21 @@ export function ConnectLmsGroupSetDialog() {
       }
 
       setError(result.error.message)
+      setProgressMessage(null)
       addToast(`Connect failed: ${result.error.message}`, { tone: "error" })
     } catch (cause) {
+      if (connectRequestIdRef.current !== requestId) {
+        return
+      }
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
+      setProgressMessage(null)
       addToast(`Connect failed: ${message}`, { tone: "error" })
     } finally {
-      setConnecting(false)
-      setGroupSetOperation(null)
+      if (connectRequestIdRef.current === requestId) {
+        setConnecting(false)
+        setGroupSetOperation(null)
+      }
     }
   }
 
@@ -270,6 +295,13 @@ export function ConnectLmsGroupSetDialog() {
               </SelectContent>
             </Select>
           </FormField>
+
+          {connecting && (
+            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              <span>{progressMessage ?? "Connecting group set..."}</span>
+            </div>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>

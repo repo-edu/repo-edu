@@ -177,6 +177,10 @@
         {
           "name": "group_set_id",
           "type": "String"
+        },
+        {
+          "name": "progress",
+          "type": "Channel<String>"
         }
       ],
       "output": "GroupSetSyncResult",

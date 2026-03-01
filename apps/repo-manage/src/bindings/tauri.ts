@@ -318,7 +318,10 @@ export class TauriBackend implements BackendAPI {
     context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
+    progress: ProgressCallback<string>,
   ): Promise<Result<GroupSetSyncResult, AppError>> {
+    const progressChannel = new TAURI_CHANNEL<string>()
+    progressChannel.onmessage = progress
     try {
       return {
         status: "ok",
@@ -326,6 +329,7 @@ export class TauriBackend implements BackendAPI {
           context,
           roster,
           groupSetId,
+          progress: progressChannel,
         }),
       }
     } catch (e) {

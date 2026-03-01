@@ -122,15 +122,36 @@ impl LmsClient {
         course_id: &str,
         group_category_id: Option<&str>,
     ) -> LmsResult<Vec<Group>> {
+        self.get_groups_for_category_with_progress(course_id, group_category_id, |_, _| {})
+            .await
+    }
+
+    pub async fn get_groups_for_category_with_progress<F>(
+        &self,
+        course_id: &str,
+        group_category_id: Option<&str>,
+        mut progress_callback: F,
+    ) -> LmsResult<Vec<Group>>
+    where
+        F: FnMut(usize, usize),
+    {
         match &self.kind {
             ClientKind::Canvas(client) => match group_category_id {
                 Some(category_id) => {
                     // Try direct endpoint first, fall back to filtering from all groups
-                    match client.get_group_category_groups(category_id).await {
+                    match client
+                        .get_group_category_groups_with_progress(
+                            category_id,
+                            &mut progress_callback,
+                        )
+                        .await
+                    {
                         Ok(groups) => Ok(groups),
                         Err(LmsError::AuthError(_)) => {
                             // Fallback: filter from course groups
-                            let all_groups = client.get_course_groups(course_id).await?;
+                            let all_groups = client
+                                .get_course_groups_with_progress(course_id, &mut progress_callback)
+                                .await?;
                             Ok(all_groups
                                 .into_iter()
                                 .filter(|g| g.group_category_id.as_deref() == Some(category_id))
@@ -139,10 +160,16 @@ impl LmsClient {
                         Err(e) => Err(e),
                     }
                 }
-                None => client.get_course_groups(course_id).await,
+                None => {
+                    client
+                        .get_course_groups_with_progress(course_id, &mut progress_callback)
+                        .await
+                }
             },
             ClientKind::Moodle(client) => {
-                let groups = client.get_course_groups(course_id).await?;
+                let groups = client
+                    .get_course_groups_with_progress(course_id, &mut progress_callback)
+                    .await?;
                 if let Some(category_id) = group_category_id {
                     Ok(groups
                         .into_iter()
@@ -151,6 +178,29 @@ impl LmsClient {
                 } else {
                     Ok(groups)
                 }
+            }
+        }
+    }
+
+    /// Get group members while reporting page-level progress.
+    pub async fn get_group_members_with_progress<F>(
+        &self,
+        group_id: &str,
+        mut progress_callback: F,
+    ) -> LmsResult<Vec<GroupMembership>>
+    where
+        F: FnMut(usize, usize),
+    {
+        match &self.kind {
+            ClientKind::Canvas(client) => {
+                client
+                    .get_group_memberships_with_progress(group_id, &mut progress_callback)
+                    .await
+            }
+            ClientKind::Moodle(client) => {
+                client
+                    .get_group_users_with_progress(group_id, &mut progress_callback)
+                    .await
             }
         }
     }

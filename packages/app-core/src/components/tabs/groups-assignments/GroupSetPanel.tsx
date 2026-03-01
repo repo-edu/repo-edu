@@ -156,7 +156,12 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     setGroupSetOperation({ kind: "sync", groupSetId })
 
     try {
-      const result = await commands.syncGroupSet(lmsContext, roster, groupSetId)
+      const result = await commands.syncGroupSet(
+        lmsContext,
+        roster,
+        groupSetId,
+        () => {},
+      )
       if (result.status === "ok") {
         const updatedRoster = applyGroupSetPatch(roster, result.data)
         setRoster(updatedRoster, `Sync group set "${groupSet.name}"`)

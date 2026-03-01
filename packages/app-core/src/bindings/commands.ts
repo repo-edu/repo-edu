@@ -165,8 +165,9 @@ export const commands = {
     context: LmsOperationContext,
     roster: Roster,
     groupSetId: string,
+    progress: ProgressCallback<string>,
   ): Promise<Result<GroupSetSyncResult, AppError>> {
-    return getBackend().syncGroupSet(context, roster, groupSetId)
+    return getBackend().syncGroupSet(context, roster, groupSetId, progress)
   },
   /**
    * Import full roster from LMS (students + staff), merge into existing roster

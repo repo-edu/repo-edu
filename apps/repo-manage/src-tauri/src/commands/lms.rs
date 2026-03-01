@@ -64,10 +64,13 @@ pub async fn sync_group_set(
     context: LmsOperationContext,
     roster: Roster,
     group_set_id: String,
+    progress: Channel<String>,
 ) -> Result<GroupSetSyncResult, AppError> {
-    operations::sync_group_set(&context, &roster, &group_set_id)
-        .await
-        .map_err(Into::into)
+    operations::sync_group_set_with_progress(&context, &roster, &group_set_id, move |message| {
+        emit_gui_message(&progress, message);
+    })
+    .await
+    .map_err(Into::into)
 }
 
 #[tauri::command]
