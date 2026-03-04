@@ -2,80 +2,85 @@ import type {
   FileFormat,
   GitProviderKind,
   GroupSet,
+  GroupSetImportPreview,
   LmsProviderKind,
   PersistedAppSettings,
   PersistedProfile,
   ProfileSummary,
   RepositoryTemplate,
   Roster,
+  RosterValidationIssue,
+  RosterValidationResult,
   ValidationIssue,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain";
 
-export const packageId = "@repo-edu/application-contract"
+export const packageId = "@repo-edu/application-contract";
 
-export type DeliverySurface = "desktop" | "docs" | "cli"
-export type WorkflowProgressGranularity = "none" | "milestone" | "granular"
+export type DeliverySurface = "desktop" | "docs" | "cli";
+export type WorkflowProgressGranularity = "none" | "milestone" | "granular";
 export type WorkflowCancellationGuarantee =
   | "non-cancellable"
   | "best-effort"
-  | "cooperative"
+  | "cooperative";
+
+export type AppValidationIssue = ValidationIssue | RosterValidationIssue;
 
 export type WorkflowExecutionProfile = {
-  progress: WorkflowProgressGranularity
-  cancellation: WorkflowCancellationGuarantee
-}
+  progress: WorkflowProgressGranularity;
+  cancellation: WorkflowCancellationGuarantee;
+};
 
 export type DiagnosticOutput = {
-  channel: "info" | "warn" | "stdout" | "stderr"
-  message: string
-}
+  channel: "info" | "warn" | "stdout" | "stderr";
+  message: string;
+};
 
 export type MilestoneProgress = {
-  step: number
-  totalSteps: number
-  label: string
-}
+  step: number;
+  totalSteps: number;
+  label: string;
+};
 
 export type UserFileRef = {
-  kind: "user-file-ref"
-  referenceId: string
-  displayName: string
-  mediaType: string | null
-  byteLength: number | null
-}
+  kind: "user-file-ref";
+  referenceId: string;
+  displayName: string;
+  mediaType: string | null;
+  byteLength: number | null;
+};
 
 export type UserSaveTargetRef = {
-  kind: "user-save-target-ref"
-  referenceId: string
-  displayName: string
-  suggestedFormat: FileFormat | null
-}
+  kind: "user-save-target-ref";
+  referenceId: string;
+  displayName: string;
+  suggestedFormat: FileFormat | null;
+};
 
 export type TransportErrorReason =
   | "ipc-disconnected"
   | "serialization"
   | "host-crash"
-  | "timeout"
+  | "timeout";
 
 export type AppError =
   | {
-      type: "transport"
-      message: string
-      reason: TransportErrorReason
-      retryable: boolean
+      type: "transport";
+      message: string;
+      reason: TransportErrorReason;
+      retryable: boolean;
     }
   | {
-      type: "cancelled"
-      message: string
+      type: "cancelled";
+      message: string;
     }
   | {
-      type: "validation"
-      message: string
-      issues: ValidationIssue[]
+      type: "validation";
+      message: string;
+      issues: AppValidationIssue[];
     }
   | {
-      type: "not-found"
-      message: string
+      type: "not-found";
+      message: string;
       resource:
         | "profile"
         | "connection"
@@ -83,32 +88,38 @@ export type AppError =
         | "group-set"
         | "assignment"
         | "repository"
-        | "file"
+        | "file";
     }
   | {
-      type: "conflict"
-      message: string
-      resource: "profile" | "connection" | "group-set" | "assignment" | "repository" | "file"
-      reason: string
+      type: "conflict";
+      message: string;
+      resource:
+        | "profile"
+        | "connection"
+        | "group-set"
+        | "assignment"
+        | "repository"
+        | "file";
+      reason: string;
     }
   | {
-      type: "provider"
-      message: string
-      provider: LmsProviderKind | GitProviderKind | "git"
-      operation: string
-      retryable: boolean
+      type: "provider";
+      message: string;
+      provider: LmsProviderKind | GitProviderKind | "git";
+      operation: string;
+      retryable: boolean;
     }
   | {
-      type: "persistence"
-      message: string
-      operation: "read" | "write" | "decode" | "encode"
-      pathHint?: string
+      type: "persistence";
+      message: string;
+      operation: "read" | "write" | "decode" | "encode";
+      pathHint?: string;
     }
   | {
-      type: "unexpected"
-      message: string
-      retryable: boolean
-    }
+      type: "unexpected";
+      message: string;
+      retryable: boolean;
+    };
 
 export const appErrorOwnership = {
   transport:
@@ -127,7 +138,7 @@ export const appErrorOwnership = {
     "Only packages/application may normalize settings, profile, and user-file boundary failures into persistence errors.",
   unexpected:
     "Only packages/application may expose unexpected as the final catch-all for unknown failures.",
-} as const
+} as const;
 
 export function createTransportAppError(
   reason: TransportErrorReason,
@@ -139,7 +150,7 @@ export function createTransportAppError(
     message,
     reason,
     retryable,
-  }
+  };
 }
 
 export function createCancelledAppError(
@@ -148,7 +159,7 @@ export function createCancelledAppError(
   return {
     type: "cancelled",
     message,
-  }
+  };
 }
 
 export function isAppError(value: unknown): value is AppError {
@@ -157,258 +168,310 @@ export function isAppError(value: unknown): value is AppError {
     value !== null &&
     "type" in value &&
     typeof value.type === "string"
-  )
+  );
 }
 
 export type WorkflowEvent<TProgress, TOutput, TResult> =
   | { type: "progress"; data: TProgress }
   | { type: "output"; data: TOutput }
   | { type: "completed"; data: TResult }
-  | { type: "failed"; error: AppError }
+  | { type: "failed"; error: AppError };
 
 export type WorkflowCallOptions<TProgress, TOutput> = {
-  onProgress?: (event: TProgress) => void
-  onOutput?: (event: TOutput) => void
-  signal?: AbortSignal
-}
+  onProgress?: (event: TProgress) => void;
+  onOutput?: (event: TOutput) => void;
+  signal?: AbortSignal;
+};
 
 export type VerifyLmsDraftInput = {
-  provider: LmsProviderKind
-  baseUrl: string
-  token: string
-}
+  provider: LmsProviderKind;
+  baseUrl: string;
+  token: string;
+};
 
 export type VerifyGitDraftInput = {
-  provider: GitProviderKind
-  baseUrl: string | null
-  token: string
-  organization: string | null
-}
+  provider: GitProviderKind;
+  baseUrl: string | null;
+  token: string;
+  organization: string | null;
+};
 
 export type ConnectionVerificationResult = {
-  verified: boolean
-  checkedAt: string
-}
+  verified: boolean;
+  checkedAt: string;
+};
 
 export type RosterImportFromFileInput = {
-  file: UserFileRef
-}
+  file: UserFileRef;
+};
 
 export type RosterExportStudentsInput = {
-  profileId: string
-  target: UserSaveTargetRef
-  format: Extract<FileFormat, "csv" | "xlsx">
-}
+  profileId: string;
+  target: UserSaveTargetRef;
+  format: Extract<FileFormat, "csv" | "xlsx">;
+};
 
 export type RosterImportFromLmsInput = {
-  profileId: string
-  courseId: string
-}
+  profileId: string;
+  courseId: string;
+};
 
 export type GroupSetSyncFromLmsInput = {
-  profileId: string
-  groupSetId: string
-}
+  profileId: string;
+  groupSetId: string;
+};
+
+export type GroupSetFetchAvailableFromLmsInput = {
+  profileId: string;
+};
+
+export type GroupSetLmsSummary = {
+  id: string;
+  name: string;
+  groupCount: number;
+};
+
+export type GroupSetPreviewImportFromFileInput = {
+  profileId: string;
+  file: UserFileRef;
+};
+
+export type GroupSetPreviewReimportFromFileInput = {
+  profileId: string;
+  groupSetId: string;
+  file: UserFileRef;
+};
 
 export type GroupSetExportInput = {
-  profileId: string
-  groupSetId: string
-  target: UserSaveTargetRef
-  format: Extract<FileFormat, "csv" | "xlsx" | "yaml">
-}
+  profileId: string;
+  groupSetId: string;
+  target: UserSaveTargetRef;
+  format: Extract<FileFormat, "csv" | "xlsx" | "yaml">;
+};
 
 export type GitUsernameImportInput = {
-  file: UserFileRef
-}
+  file: UserFileRef;
+};
 
 export type AssignmentValidationInput = {
-  profileId: string
-  assignmentId: string
-}
+  profileId: string;
+  assignmentId: string;
+};
+
+export type RosterValidationInput = {
+  profileId: string;
+};
 
 export type RepositoryBatchInput = {
-  profileId: string
-  assignmentId: string | null
-  template: RepositoryTemplate | null
-}
+  profileId: string;
+  assignmentId: string | null;
+  template: RepositoryTemplate | null;
+  targetDirectory?: string;
+  directoryLayout?: "flat" | "by-team" | "by-task";
+  confirmDelete?: boolean;
+};
 
 export type RepositoryBatchResult = {
-  repositoriesPlanned: number
-  completedAt: string
-}
+  repositoriesPlanned: number;
+  completedAt: string;
+};
 
 export type UserFileInspectResult = {
-  workflowId: "userFile.inspectSelection"
-  displayName: string
-  byteLength: number
-  lineCount: number
-  firstLine: string | null
-}
+  workflowId: "userFile.inspectSelection";
+  displayName: string;
+  byteLength: number;
+  lineCount: number;
+  firstLine: string | null;
+};
 
 export type UserFileExportPreviewResult = {
-  workflowId: "userFile.exportPreview"
-  displayName: string
-  preview: string
-  savedAt: string
-}
+  workflowId: "userFile.exportPreview";
+  displayName: string;
+  preview: string;
+  savedAt: string;
+};
 
-export type SpikeWorkflowProgress = MilestoneProgress
+export type SpikeWorkflowProgress = MilestoneProgress;
 export type SpikeWorkflowOutput = {
-  line: string
-}
+  line: string;
+};
 export type SpikeWorkflowResult = {
-  workflowId: "spike.e2e-trpc"
-  message: string
-  packageLine: string
-  executedAt: string
-}
+  workflowId: "spike.e2e-trpc";
+  message: string;
+  packageLine: string;
+  executedAt: string;
+};
 
-export type SpikeCorsWorkflowProgress = MilestoneProgress
+export type SpikeCorsWorkflowProgress = MilestoneProgress;
 export type SpikeCorsWorkflowOutput = {
-  line: string
-}
+  line: string;
+};
 export type SpikeCorsWorkflowResult = {
-  workflowId: "spike.cors-http"
-  executedIn: "node"
-  httpStatus: number
-  bodySnippet: string
-  executedAt: string
-}
+  workflowId: "spike.cors-http";
+  executedIn: "node";
+  httpStatus: number;
+  bodySnippet: string;
+  executedAt: string;
+};
 
 export type WorkflowPayloads = {
   "profile.list": {
-    input: undefined
-    progress: never
-    output: never
-    result: ProfileSummary[]
-  }
+    input: undefined;
+    progress: never;
+    output: never;
+    result: ProfileSummary[];
+  };
   "profile.load": {
-    input: { profileId: string }
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: PersistedProfile
-  }
+    input: { profileId: string };
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: PersistedProfile;
+  };
   "profile.save": {
-    input: PersistedProfile
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: PersistedProfile
-  }
+    input: PersistedProfile;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: PersistedProfile;
+  };
   "settings.loadApp": {
-    input: undefined
-    progress: never
-    output: never
-    result: PersistedAppSettings
-  }
+    input: undefined;
+    progress: never;
+    output: never;
+    result: PersistedAppSettings;
+  };
   "settings.saveApp": {
-    input: PersistedAppSettings
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: PersistedAppSettings
-  }
+    input: PersistedAppSettings;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: PersistedAppSettings;
+  };
   "connection.verifyLmsDraft": {
-    input: VerifyLmsDraftInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: ConnectionVerificationResult
-  }
+    input: VerifyLmsDraftInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: ConnectionVerificationResult;
+  };
   "connection.verifyGitDraft": {
-    input: VerifyGitDraftInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: ConnectionVerificationResult
-  }
+    input: VerifyGitDraftInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: ConnectionVerificationResult;
+  };
   "roster.importFromFile": {
-    input: RosterImportFromFileInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: Roster
-  }
+    input: RosterImportFromFileInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: Roster;
+  };
   "roster.importFromLms": {
-    input: RosterImportFromLmsInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: Roster
-  }
+    input: RosterImportFromLmsInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: Roster;
+  };
   "roster.exportStudents": {
-    input: RosterExportStudentsInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: { file: UserSaveTargetRef }
-  }
+    input: RosterExportStudentsInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: { file: UserSaveTargetRef };
+  };
+  "groupSet.fetchAvailableFromLms": {
+    input: GroupSetFetchAvailableFromLmsInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: GroupSetLmsSummary[];
+  };
   "groupSet.syncFromLms": {
-    input: GroupSetSyncFromLmsInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: GroupSet
-  }
+    input: GroupSetSyncFromLmsInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: GroupSet;
+  };
+  "groupSet.previewImportFromFile": {
+    input: GroupSetPreviewImportFromFileInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: GroupSetImportPreview;
+  };
+  "groupSet.previewReimportFromFile": {
+    input: GroupSetPreviewReimportFromFileInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: GroupSetImportPreview;
+  };
   "groupSet.export": {
-    input: GroupSetExportInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: { file: UserSaveTargetRef }
-  }
+    input: GroupSetExportInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: { file: UserSaveTargetRef };
+  };
   "gitUsernames.import": {
-    input: GitUsernameImportInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: Roster
-  }
+    input: GitUsernameImportInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: Roster;
+  };
+  "validation.roster": {
+    input: RosterValidationInput;
+    progress: never;
+    output: never;
+    result: RosterValidationResult;
+  };
   "validation.assignment": {
-    input: AssignmentValidationInput
-    progress: never
-    output: never
-    result: { issues: ValidationIssue[] }
-  }
+    input: AssignmentValidationInput;
+    progress: never;
+    output: never;
+    result: RosterValidationResult;
+  };
   "repo.create": {
-    input: RepositoryBatchInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: RepositoryBatchResult
-  }
+    input: RepositoryBatchInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: RepositoryBatchResult;
+  };
   "repo.clone": {
-    input: RepositoryBatchInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: RepositoryBatchResult
-  }
+    input: RepositoryBatchInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: RepositoryBatchResult;
+  };
   "repo.delete": {
-    input: RepositoryBatchInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: RepositoryBatchResult
-  }
+    input: RepositoryBatchInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: RepositoryBatchResult;
+  };
   "userFile.inspectSelection": {
-    input: UserFileRef
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: UserFileInspectResult
-  }
+    input: UserFileRef;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: UserFileInspectResult;
+  };
   "userFile.exportPreview": {
-    input: UserSaveTargetRef
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: UserFileExportPreviewResult
-  }
+    input: UserSaveTargetRef;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: UserFileExportPreviewResult;
+  };
   "spike.e2e-trpc": {
-    input: undefined
-    progress: SpikeWorkflowProgress
-    output: SpikeWorkflowOutput
-    result: SpikeWorkflowResult
-  }
+    input: undefined;
+    progress: SpikeWorkflowProgress;
+    output: SpikeWorkflowOutput;
+    result: SpikeWorkflowResult;
+  };
   "spike.cors-http": {
-    input: undefined
-    progress: SpikeCorsWorkflowProgress
-    output: SpikeCorsWorkflowOutput
-    result: SpikeCorsWorkflowResult
-  }
-}
+    input: undefined;
+    progress: SpikeCorsWorkflowProgress;
+    output: SpikeCorsWorkflowOutput;
+    result: SpikeCorsWorkflowResult;
+  };
+};
 
-export type WorkflowId = keyof WorkflowPayloads
+export type WorkflowId = keyof WorkflowPayloads;
 
 type WorkflowMetadata = WorkflowExecutionProfile & {
-  delivery: readonly DeliverySurface[]
-}
+  delivery: readonly DeliverySurface[];
+};
 
 export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   "profile.list": {
@@ -461,10 +524,25 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
+  "groupSet.fetchAvailableFromLms": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
   "groupSet.syncFromLms": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",
+  },
+  "groupSet.previewImportFromFile": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "groupSet.previewReimportFromFile": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
   },
   "groupSet.export": {
     delivery: ["desktop", "docs"],
@@ -475,6 +553,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",
+  },
+  "validation.roster": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "none",
+    cancellation: "non-cancellable",
   },
   "validation.assignment": {
     delivery: ["desktop", "docs", "cli"],
@@ -516,25 +599,25 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
-}
+};
 
 export type WorkflowInput<TWorkflowId extends WorkflowId> =
-  WorkflowPayloads[TWorkflowId]["input"]
+  WorkflowPayloads[TWorkflowId]["input"];
 
 export type WorkflowProgress<TWorkflowId extends WorkflowId> =
-  WorkflowPayloads[TWorkflowId]["progress"]
+  WorkflowPayloads[TWorkflowId]["progress"];
 
 export type WorkflowOutput<TWorkflowId extends WorkflowId> =
-  WorkflowPayloads[TWorkflowId]["output"]
+  WorkflowPayloads[TWorkflowId]["output"];
 
 export type WorkflowResult<TWorkflowId extends WorkflowId> =
-  WorkflowPayloads[TWorkflowId]["result"]
+  WorkflowPayloads[TWorkflowId]["result"];
 
 export type WorkflowEventFor<TWorkflowId extends WorkflowId> = WorkflowEvent<
   WorkflowProgress<TWorkflowId>,
   WorkflowOutput<TWorkflowId>,
   WorkflowResult<TWorkflowId>
->
+>;
 
 export type WorkflowHandler<TWorkflowId extends WorkflowId> = (
   input: WorkflowInput<TWorkflowId>,
@@ -542,19 +625,19 @@ export type WorkflowHandler<TWorkflowId extends WorkflowId> = (
     WorkflowProgress<TWorkflowId>,
     WorkflowOutput<TWorkflowId>
   >,
-) => Promise<WorkflowResult<TWorkflowId>>
+) => Promise<WorkflowResult<TWorkflowId>>;
 
 export type WorkflowHandlerMap<TWorkflowId extends WorkflowId = WorkflowId> = {
-  [TId in TWorkflowId]: WorkflowHandler<TId>
-}
+  [TId in TWorkflowId]: WorkflowHandler<TId>;
+};
 
 export type WorkflowClient<TWorkflowId extends WorkflowId = WorkflowId> = {
   run<TId extends TWorkflowId>(
     workflowId: TId,
     input: WorkflowInput<TId>,
     options?: WorkflowCallOptions<WorkflowProgress<TId>, WorkflowOutput<TId>>,
-  ): Promise<WorkflowResult<TId>>
-}
+  ): Promise<WorkflowResult<TId>>;
+};
 
 export function createWorkflowClient<TWorkflowId extends WorkflowId>(
   handlers: WorkflowHandlerMap<TWorkflowId>,
@@ -565,12 +648,12 @@ export function createWorkflowClient<TWorkflowId extends WorkflowId>(
       input: WorkflowInput<TId>,
       options?: WorkflowCallOptions<WorkflowProgress<TId>, WorkflowOutput<TId>>,
     ): Promise<WorkflowResult<TId>> {
-      const handler = handlers[workflowId] as WorkflowHandler<TId>
+      const handler = handlers[workflowId] as WorkflowHandler<TId>;
 
-      return handler(input, options)
+      return handler(input, options);
     },
-  }
+  };
 }
 
-export type SpikeWorkflowEvent = WorkflowEventFor<"spike.e2e-trpc">
-export type SpikeCorsWorkflowEvent = WorkflowEventFor<"spike.cors-http">
+export type SpikeWorkflowEvent = WorkflowEventFor<"spike.e2e-trpc">;
+export type SpikeCorsWorkflowEvent = WorkflowEventFor<"spike.cors-http">;

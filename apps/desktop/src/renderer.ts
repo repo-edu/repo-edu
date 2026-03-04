@@ -1,33 +1,34 @@
+import { packageId as appPackageId } from "@repo-edu/app";
 import type {
   AppError,
   SpikeCorsWorkflowOutput,
   SpikeCorsWorkflowProgress,
   SpikeCorsWorkflowResult,
-} from "@repo-edu/application-contract"
-import { packageId as appPackageId } from "@repo-edu/app"
-import { createDesktopWorkflowClient } from "./workflow-client"
+} from "@repo-edu/application-contract";
+import { desktopSeedProfileId } from "./profile-ids";
+import { createDesktopWorkflowClient } from "./workflow-client";
 
-const mountNode = document.querySelector<HTMLDivElement>("#app")
+const mountNode = document.querySelector<HTMLDivElement>("#app");
 
 if (!mountNode) {
-  throw new Error("Renderer mount node #app was not found")
+  throw new Error("Renderer mount node #app was not found");
 }
 
-const appRoot = mountNode
+const appRoot = mountNode;
 
-const trpcMarker = "repo-edu-desktop-trpc"
-const searchParams = new URLSearchParams(window.location.search)
-const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
+const trpcMarker = "repo-edu-desktop-trpc";
+const searchParams = new URLSearchParams(window.location.search);
+const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc";
 
-const workflowClient = createDesktopWorkflowClient()
+const workflowClient = createDesktopWorkflowClient();
 
 type SpikeState = {
-  progress: SpikeCorsWorkflowProgress[]
-  output: SpikeCorsWorkflowOutput[]
-  result: SpikeCorsWorkflowResult | null
-  error: string | null
-  status: string
-}
+  progress: SpikeCorsWorkflowProgress[];
+  output: SpikeCorsWorkflowOutput[];
+  result: SpikeCorsWorkflowResult | null;
+  error: string | null;
+  status: string;
+};
 
 function render(state: SpikeState) {
   const progressMarkup = state.progress
@@ -38,7 +39,7 @@ function render(state: SpikeState) {
         </li>
       `,
     )
-    .join("")
+    .join("");
 
   const outputMarkup = state.output
     .map(
@@ -48,7 +49,7 @@ function render(state: SpikeState) {
         </li>
       `,
     )
-    .join("")
+    .join("");
 
   const resultMarkup = state.result
     ? `
@@ -57,7 +58,7 @@ function render(state: SpikeState) {
         <p style="margin: 0; font-size: 14px; color: #e5e7eb;">HTTP ${state.result.httpStatus}: ${state.result.bodySnippet}</p>
       </div>
     `
-    : ""
+    : "";
 
   appRoot.innerHTML = `
     <section
@@ -106,20 +107,49 @@ function render(state: SpikeState) {
         <output id="repo-edu-trpc-marker" hidden></output>
       </article>
     </section>
-  `
+  `;
 }
 
 function emitValidationMarker(payload: Record<string, unknown>) {
   const markerNode = document.querySelector<HTMLOutputElement>(
     "#repo-edu-trpc-marker",
-  )
+  );
 
   if (!markerNode) {
-    return
+    return;
   }
 
-  markerNode.value = JSON.stringify(payload)
-  markerNode.textContent = markerNode.value
+  markerNode.value = JSON.stringify(payload);
+  markerNode.textContent = markerNode.value;
+}
+
+async function collectValidationSnapshot() {
+  const roster = await workflowClient.run("validation.roster", {
+    profileId: desktopSeedProfileId,
+  });
+  const assignment = await workflowClient.run("validation.assignment", {
+    profileId: desktopSeedProfileId,
+    assignmentId: "a-seed-project-1",
+  });
+
+  return { roster, assignment };
+}
+
+async function collectProfileWorkflowSnapshot() {
+  const profiles = await workflowClient.run("profile.list", undefined);
+  const loaded = await workflowClient.run("profile.load", {
+    profileId: desktopSeedProfileId,
+  });
+  const saved = await workflowClient.run("profile.save", loaded);
+
+  return { profiles, loaded, saved };
+}
+
+async function collectSettingsWorkflowSnapshot() {
+  const loaded = await workflowClient.run("settings.loadApp", undefined);
+  const saved = await workflowClient.run("settings.saveApp", loaded);
+
+  return { loaded, saved };
 }
 
 async function runCorsWorkflowSubscription() {
@@ -129,28 +159,32 @@ async function runCorsWorkflowSubscription() {
     result: null,
     error: null,
     status: "Starting CORS workflow subscription...",
-  }
+  };
 
-  render(state)
+  render(state);
 
   try {
     const result = await workflowClient.run("spike.cors-http", undefined, {
       onProgress(event) {
-        state.progress.push(event)
-        state.status = `Progress ${event.step}/${event.totalSteps}`
-        render(state)
+        state.progress.push(event);
+        state.status = `Progress ${event.step}/${event.totalSteps}`;
+        render(state);
       },
       onOutput(event) {
-        state.output.push(event)
-        render(state)
+        state.output.push(event);
+        render(state);
       },
-    })
+    });
 
-    state.result = result
-    state.status = "Workflow completed."
-    render(state)
+    state.result = result;
+    state.status = "Workflow completed.";
+    render(state);
 
     if (isTRPCValidationMode) {
+      const validation = await collectValidationSnapshot();
+      const profile = await collectProfileWorkflowSnapshot();
+      const settings = await collectSettingsWorkflowSnapshot();
+
       emitValidationMarker({
         marker: trpcMarker,
         workflowId: result.workflowId,
@@ -158,24 +192,38 @@ async function runCorsWorkflowSubscription() {
         httpStatus: result.httpStatus,
         progressCount: state.progress.length,
         outputCount: state.output.length,
-      })
+        validationProfileId: desktopSeedProfileId,
+        profileCount: profile.profiles.length,
+        listedProfileIds: profile.profiles.map((entry) => entry.id),
+        loadedProfileId: profile.loaded.id,
+        savedProfileId: profile.saved.id,
+        savedProfileUpdatedAt: profile.saved.updatedAt,
+        settingsKind: settings.loaded.kind,
+        settingsSchemaVersion: settings.saved.schemaVersion,
+        rosterIssueCount: validation.roster.issues.length,
+        assignmentIssueCount: validation.assignment.issues.length,
+        rosterIssueKinds: validation.roster.issues.map((issue) => issue.kind),
+        assignmentIssueKinds: validation.assignment.issues.map(
+          (issue) => issue.kind,
+        ),
+      });
     }
   } catch (error) {
-    const appError = normalizeAppError(error)
+    const appError = normalizeAppError(error);
 
-    state.error = appError.message
-    state.status = `${appError.type === "transport" ? "Transport" : "Workflow"} error: ${appError.message}`
-    render(state)
+    state.error = appError.message;
+    state.status = `${appError.type === "transport" ? "Transport" : "Workflow"} error: ${appError.message}`;
+    render(state);
 
     if (isTRPCValidationMode) {
       emitValidationMarker({
         marker: trpcMarker,
         error: appError.message,
         errorType: appError.type,
-      })
+      });
     }
 
-    throw new Error(appError.message)
+    throw new Error(appError.message);
   }
 }
 
@@ -188,18 +236,18 @@ function normalizeAppError(error: unknown): AppError {
     typeof error.type === "string" &&
     typeof error.message === "string"
   ) {
-    return error as AppError
+    return error as AppError;
   }
 
   return {
     type: "unexpected",
     message: error instanceof Error ? error.message : String(error),
     retryable: false,
-  }
+  };
 }
 
 void runCorsWorkflowSubscription().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = error instanceof Error ? error.message : String(error);
 
   render({
     progress: [],
@@ -207,12 +255,12 @@ void runCorsWorkflowSubscription().catch((error) => {
     result: null,
     error: message,
     status: `Subscription failed: ${message}`,
-  })
+  });
 
   if (isTRPCValidationMode) {
     emitValidationMarker({
       marker: trpcMarker,
       error: message,
-    })
+    });
   }
-})
+});

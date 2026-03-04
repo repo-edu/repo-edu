@@ -9,5 +9,9 @@
     "tsBuildInfoFile": "/tmp/repo-edu-packages-integrations-git.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../integrations-git-contract" }]
+  "references": [
+    { "path": "../domain" },
+    { "path": "../host-runtime-contract" },
+    { "path": "../integrations-git-contract" }
+  ]
 }

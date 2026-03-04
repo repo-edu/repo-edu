@@ -1,26 +1,26 @@
-import { mountSmokeApp } from "@repo-edu/app"
+import { mountSmokeApp } from "@repo-edu/app";
 import {
   runInspectUserFileWorkflow,
   runSmokeWorkflow,
   runUserFileExportPreviewWorkflow,
-} from "@repo-edu/application"
+} from "@repo-edu/application";
+import { workflowCatalog } from "@repo-edu/application-contract";
 import {
   createBrowserMockHostEnvironment,
   packageId as hostBrowserMockPackageId,
-} from "@repo-edu/host-browser-mock"
+} from "@repo-edu/host-browser-mock";
 
-const appPackageId = "@repo-edu/app"
-const applicationPackageId = "@repo-edu/application"
-const applicationContractPackageId = "@repo-edu/application-contract"
-const domainPackageId = "@repo-edu/domain"
-const integrationsLmsContractPackageId = "@repo-edu/integrations-lms-contract"
-const integrationsGitContractPackageId = "@repo-edu/integrations-git-contract"
-const settingsKind = "repo-edu.app-settings.v1"
-const workflowCount = 20
-const providerSummary =
-  "LMS: canvas, moodle | Git: github, gitlab, gitea"
+const appPackageId = "@repo-edu/app";
+const applicationPackageId = "@repo-edu/application";
+const applicationContractPackageId = "@repo-edu/application-contract";
+const domainPackageId = "@repo-edu/domain";
+const integrationsLmsContractPackageId = "@repo-edu/integrations-lms-contract";
+const integrationsGitContractPackageId = "@repo-edu/integrations-git-contract";
+const settingsKind = "repo-edu.app-settings.v1";
+const workflowCount = Object.keys(workflowCatalog).length;
+const providerSummary = "LMS: canvas, moodle | Git: github, gitlab, gitea";
 
-export const appId = "@repo-edu/docs"
+export const appId = "@repo-edu/docs";
 export const workspaceDependencies = [
   appPackageId,
   hostBrowserMockPackageId,
@@ -29,15 +29,15 @@ export const workspaceDependencies = [
   domainPackageId,
   integrationsLmsContractPackageId,
   integrationsGitContractPackageId,
-] as const
+] as const;
 
-const mountNode = document.querySelector<HTMLElement>("#app")
+const mountNode = document.querySelector<HTMLElement>("#app");
 
 if (!mountNode) {
-  throw new Error("Docs smoke harness mount node #app was not found")
+  throw new Error("Docs smoke harness mount node #app was not found");
 }
 
-const browserMockHost = createBrowserMockHostEnvironment()
+const browserMockHost = createBrowserMockHostEnvironment();
 
 void mountSmokeApp({
   target: mountNode,
@@ -62,4 +62,4 @@ void mountSmokeApp({
   providerSummary,
   workflowCount,
   settingsKind,
-})
+});

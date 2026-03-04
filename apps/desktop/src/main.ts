@@ -2,8 +2,11 @@ import { dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createNodeHttpPort } from "@repo-edu/host-node";
-import { createIPCHandler } from "trpc-electron/main";
 import { app, BrowserWindow } from "electron";
+import { createIPCHandler } from "trpc-electron/main";
+import { createDesktopProfileStore } from "./profile-store";
+import { createDesktopAppSettingsStore } from "./settings-store";
+import type { DesktopRouter } from "./trpc";
 import { createDesktopRouter } from "./trpc";
 
 const startupMarker = "repo-edu-desktop-cold-start";
@@ -13,8 +16,8 @@ const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1";
 const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const desktopRouter = createDesktopRouter({ http: createNodeHttpPort() });
-let ipcHandler: ReturnType<typeof createIPCHandler<typeof desktopRouter>> | null =
+let desktopRouter: DesktopRouter | null = null;
+let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null =
   null;
 
 function resolvePreloadPath() {
@@ -29,7 +32,9 @@ function resolveRendererUrl() {
     return `${baseUrl}${validationSuffix}`;
   }
 
-  const fileUrl = pathToFileURL(join(currentDir, "../renderer/index.html")).toString();
+  const fileUrl = pathToFileURL(
+    join(currentDir, "../renderer/index.html"),
+  ).toString();
 
   return `${fileUrl}${validationSuffix}`;
 }
@@ -69,6 +74,14 @@ async function createWindow() {
     },
   });
 
+  if (!desktopRouter) {
+    desktopRouter = createDesktopRouter({
+      http: createNodeHttpPort(),
+      profileStore: createDesktopProfileStore(app.getPath("userData")),
+      appSettingsStore: createDesktopAppSettingsStore(app.getPath("userData")),
+    });
+  }
+
   if (!ipcHandler) {
     ipcHandler = createIPCHandler({
       router: desktopRouter,
@@ -88,7 +101,11 @@ async function createWindow() {
           true,
         )
         .then((markerText) => {
-          if (typeof markerText === "string" && markerText && !validationSettled) {
+          if (
+            typeof markerText === "string" &&
+            markerText &&
+            !validationSettled
+          ) {
             validationSettled = true;
             handleValidationMarker(markerText);
           }
@@ -106,7 +123,10 @@ async function createWindow() {
       validationSettled = true;
 
       void mainWindow.webContents
-        .executeJavaScript("document.querySelector('#app')?.textContent ?? ''", true)
+        .executeJavaScript(
+          "document.querySelector('#app')?.textContent ?? ''",
+          true,
+        )
         .then((textContent) => {
           process.stdout.write(
             `${JSON.stringify({

@@ -7,6 +7,7 @@
     "@repo-edu/app": "workspace:*",
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
+    "@repo-edu/domain": "workspace:*",
     "@repo-edu/host-node": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@trpc/client": "^11.11.0",

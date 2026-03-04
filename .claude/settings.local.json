@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install)",
+      "Bash(pnpm --filter @repo-edu/domain add zod)",
+      "Bash(pnpm --filter @repo-edu/domain run typecheck)",
+      "Bash(node --import tsx --test packages/domain/src/__tests__/schemas.test.ts)",
+      "Bash(node --experimental-strip-types --test packages/domain/src/__tests__/schemas.test.ts)",
+      "Bash(node --experimental-strip-types --experimental-transform-types --test packages/domain/src/__tests__/schemas.test.ts)",
+      "Bash(pnpm add -wD tsx)",
+      "Bash(pnpm --filter @repo-edu/domain test)",
+      "Bash(pnpm --filter @repo-edu/application add papaparse xlsx)",
+      "Bash(pnpm --filter @repo-edu/application add -D @types/papaparse)",
+      "Bash(pnpm --filter @repo-edu/application run typecheck)",
+      "Bash(node --import tsx --test packages/application/src/adapters/tabular/__tests__/tabular.test.ts)",
+      "Bash(pnpm --filter @repo-edu/integrations-git add @octokit/rest @gitbeaker/rest zod @repo-edu/host-runtime-contract @repo-edu/domain)",
+      "Bash(pnpm --filter @repo-edu/integrations-git add @octokit/rest @gitbeaker/rest zod)",
+      "Bash(pnpm --filter @repo-edu/integrations-git run typecheck)",
+      "Bash(pnpm --filter @repo-edu/integrations-git test)",
+      "Bash(pnpm --filter @repo-edu/cli add commander)",
+      "Bash(pnpm --filter @repo-edu/cli run typecheck)",
+      "Bash(pnpm --filter @repo-edu/cli test)",
+      "Bash(node --import tsx --test apps/cli/src/__tests__/cli.test.ts)",
+      "Bash(node --import tsx -e \":*)",
+      "Bash(node -e \"const { Command } = require\\(''commander''\\); const c = new Command\\(\\); c.exitOverride\\(\\); c.configureOutput\\({ writeOut: \\(\\) => {}, writeErr: \\(\\) => {} }\\); console.log\\(typeof c.configureOutput\\)\")"
+    ]
+  }
+}

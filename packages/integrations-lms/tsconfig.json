@@ -9,5 +9,9 @@
     "tsBuildInfoFile": "/tmp/repo-edu-packages-integrations-lms.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../integrations-lms-contract" }]
+  "references": [
+    { "path": "../domain" },
+    { "path": "../host-runtime-contract" },
+    { "path": "../integrations-lms-contract" }
+  ]
 }

@@ -3,61 +3,61 @@ import type {
   UserFileInspectResult,
   UserFileRef,
   UserSaveTargetRef,
-} from "@repo-edu/application-contract"
+} from "@repo-edu/application-contract";
 import type {
   RendererEnvironmentSnapshot,
   RendererHost,
-} from "@repo-edu/renderer-host-contract"
-import { packageId as uiPackageId } from "@repo-edu/ui"
+} from "@repo-edu/renderer-host-contract";
+import { packageId as uiPackageId } from "@repo-edu/ui";
 
-export const packageId = "@repo-edu/app"
+export const packageId = "@repo-edu/app";
 export const workspaceDependencies = [
   uiPackageId,
   "@repo-edu/domain",
   "@repo-edu/application-contract",
   "@repo-edu/renderer-host-contract",
-] as const
+] as const;
 
-const contractPackageId = "@repo-edu/application-contract"
-const rendererHostContractPackageId = "@repo-edu/renderer-host-contract"
+const contractPackageId = "@repo-edu/application-contract";
+const rendererHostContractPackageId = "@repo-edu/renderer-host-contract";
 
 export type SmokeWorkflowResult = {
-  workflowId: string
-  message: string
-  packageLine: string
-  executedAt: string
-  adapterPackageId?: string
-}
+  workflowId: string;
+  message: string;
+  packageLine: string;
+  executedAt: string;
+  adapterPackageId?: string;
+};
 
-type SmokeWorkflowRunner = () => Promise<SmokeWorkflowResult>
+type SmokeWorkflowRunner = () => Promise<SmokeWorkflowResult>;
 type InspectUserFileRunner = (
   file: UserFileRef,
-) => Promise<UserFileInspectResult>
+) => Promise<UserFileInspectResult>;
 type ExportPreviewRunner = (
   target: UserSaveTargetRef,
-) => Promise<UserFileExportPreviewResult>
+) => Promise<UserFileExportPreviewResult>;
 
 type MountSmokeAppOptions = {
-  target: HTMLElement
-  runSmokeWorkflow: SmokeWorkflowRunner
-  inspectUserFile: InspectUserFileRunner
-  exportPreviewFile: ExportPreviewRunner
-  rendererHost: RendererHost
-  shellPackageId: string
-  browserSafePackages: readonly string[]
-  providerSummary: string
-  workflowCount: number
-  settingsKind: string
-}
+  target: HTMLElement;
+  runSmokeWorkflow: SmokeWorkflowRunner;
+  inspectUserFile: InspectUserFileRunner;
+  exportPreviewFile: ExportPreviewRunner;
+  rendererHost: RendererHost;
+  shellPackageId: string;
+  browserSafePackages: readonly string[];
+  providerSummary: string;
+  workflowCount: number;
+  settingsKind: string;
+};
 
 type AppState = {
-  status: string
-  smokeResult: SmokeWorkflowResult | null
-  fileSummary: UserFileInspectResult | null
-  exportSummary: UserFileExportPreviewResult | null
-  hostSnapshot: RendererEnvironmentSnapshot | null
-  error: string | null
-}
+  status: string;
+  smokeResult: SmokeWorkflowResult | null;
+  fileSummary: UserFileInspectResult | null;
+  exportSummary: UserFileExportPreviewResult | null;
+  hostSnapshot: RendererEnvironmentSnapshot | null;
+  error: string | null;
+};
 
 export async function mountSmokeApp({
   target,
@@ -78,86 +78,88 @@ export async function mountSmokeApp({
     exportSummary: null,
     hostSnapshot: null,
     error: null,
-  }
+  };
 
   const setState = (next: Partial<AppState>) => {
-    Object.assign(state, next)
-    render()
-  }
+    Object.assign(state, next);
+    render();
+  };
 
   const onInspectClick = async () => {
     try {
       setState({
         error: null,
         status: "Selecting a browser-safe user file...",
-      })
+      });
       const file = await rendererHost.pickUserFile({
         acceptFormats: ["csv", "json"],
-      })
+      });
 
       if (!file) {
-        setState({ status: "File selection was cancelled." })
-        return
+        setState({ status: "File selection was cancelled." });
+        return;
       }
 
-      setState({ status: `Inspecting ${file.displayName} through UserFilePort...` })
-      const result = await inspectUserFile(file)
+      setState({
+        status: `Inspecting ${file.displayName} through UserFilePort...`,
+      });
+      const result = await inspectUserFile(file);
       setState({
         fileSummary: result,
         status: `Inspected ${result.displayName}.`,
-      })
+      });
     } catch (error) {
       setState({
         error: error instanceof Error ? error.message : String(error),
         status: "User-file inspection failed.",
-      })
+      });
     }
-  }
+  };
 
   const onExportClick = async () => {
     try {
       setState({
         error: null,
         status: "Picking an opaque save target...",
-      })
+      });
       const targetRef = await rendererHost.pickSaveTarget({
         suggestedName: "repo-edu-phase-2-preview.csv",
         defaultFormat: "csv",
-      })
+      });
 
       if (!targetRef) {
-        setState({ status: "Save target selection was cancelled." })
-        return
+        setState({ status: "Save target selection was cancelled." });
+        return;
       }
 
       setState({
         status: `Writing export preview to ${targetRef.displayName}...`,
-      })
-      const result = await exportPreviewFile(targetRef)
+      });
+      const result = await exportPreviewFile(targetRef);
       setState({
         exportSummary: result,
         status: `Export preview written to ${result.displayName}.`,
-      })
+      });
     } catch (error) {
       setState({
         error: error instanceof Error ? error.message : String(error),
         status: "Export preview failed.",
-      })
+      });
     }
-  }
+  };
 
   const onOpenDocsClick = async () => {
-    await rendererHost.openExternalUrl("https://repo-edu.github.io/repo-edu/")
+    await rendererHost.openExternalUrl("https://repo-edu.github.io/repo-edu/");
     setState({
       hostSnapshot: await rendererHost.getEnvironmentSnapshot(),
       status: "Renderer host handled the external-open capability.",
-    })
-  }
+    });
+  };
 
   const render = () => {
     const hostSummary = state.hostSnapshot
       ? `${state.hostSnapshot.shell} | theme ${state.hostSnapshot.theme} | chrome ${state.hostSnapshot.windowChrome}`
-      : "Loading host snapshot..."
+      : "Loading host snapshot...";
 
     target.innerHTML = `
     <section
@@ -270,42 +272,42 @@ export async function mountSmokeApp({
         )}</pre>
       </article>
     </section>
-  `
+  `;
 
     target
       .querySelector<HTMLButtonElement>("#repo-edu-open-file")
       ?.addEventListener("click", () => {
-        void onInspectClick()
-      })
+        void onInspectClick();
+      });
     target
       .querySelector<HTMLButtonElement>("#repo-edu-save-file")
       ?.addEventListener("click", () => {
-        void onExportClick()
-      })
+        void onExportClick();
+      });
     target
       .querySelector<HTMLButtonElement>("#repo-edu-open-docs")
       ?.addEventListener("click", () => {
-        void onOpenDocsClick()
-      })
-  }
+        void onOpenDocsClick();
+      });
+  };
 
-  render()
+  render();
 
   try {
     const [hostSnapshot, smokeResult] = await Promise.all([
       rendererHost.getEnvironmentSnapshot(),
       runSmokeWorkflow(),
-    ])
+    ]);
 
     setState({
       hostSnapshot,
       smokeResult,
       status: "Shared workflows completed in a browser-safe path.",
-    })
+    });
   } catch (error) {
     setState({
       error: error instanceof Error ? error.message : String(error),
       status: "Shared workflow bootstrap failed.",
-    })
+    });
   }
 }
