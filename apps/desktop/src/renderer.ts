@@ -1,13 +1,11 @@
 import type {
-  SpikeCorsWorkflowEvent,
+  AppError,
   SpikeCorsWorkflowOutput,
   SpikeCorsWorkflowProgress,
   SpikeCorsWorkflowResult,
 } from "@repo-edu/application-contract"
 import { packageId as appPackageId } from "@repo-edu/app"
-import { createTRPCProxyClient } from "@trpc/client"
-import { ipcLink } from "trpc-electron/renderer"
-import type { DesktopRouter } from "./trpc"
+import { createDesktopWorkflowClient } from "./workflow-client"
 
 const mountNode = document.querySelector<HTMLDivElement>("#app")
 
@@ -21,9 +19,7 @@ const trpcMarker = "repo-edu-desktop-trpc"
 const searchParams = new URLSearchParams(window.location.search)
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
 
-const client = createTRPCProxyClient<DesktopRouter>({
-  links: [ipcLink<DesktopRouter>()],
-})
+const workflowClient = createDesktopWorkflowClient()
 
 type SpikeState = {
   progress: SpikeCorsWorkflowProgress[]
@@ -137,84 +133,69 @@ async function runCorsWorkflowSubscription() {
 
   render(state)
 
-  await new Promise<void>((resolve, reject) => {
-    let settled = false
-
-    const subscription = client.spikeCorsWorkflow.subscribe(undefined, {
-      onData(event: SpikeCorsWorkflowEvent) {
-        switch (event.type) {
-          case "progress":
-            state.progress.push(event.data)
-            state.status = `Progress ${event.data.step}/${event.data.totalSteps}`
-            render(state)
-            break
-          case "output":
-            state.output.push(event.data)
-            render(state)
-            break
-          case "completed":
-            state.result = event.data
-            state.status = "Workflow completed."
-            render(state)
-
-            if (isTRPCValidationMode) {
-              emitValidationMarker({
-                marker: trpcMarker,
-                workflowId: event.data.workflowId,
-                executedIn: event.data.executedIn,
-                httpStatus: event.data.httpStatus,
-                progressCount: state.progress.length,
-                outputCount: state.output.length,
-              })
-            }
-
-            settled = true
-            resolve()
-            break
-          case "failed":
-            state.error = event.error.message
-            state.status = `Workflow failed: ${event.error.message}`
-            render(state)
-
-            if (isTRPCValidationMode) {
-              emitValidationMarker({
-                marker: trpcMarker,
-                error: event.error.message,
-                errorType: event.error.type,
-              })
-            }
-
-            settled = true
-            reject(new Error(event.error.message))
-            break
-        }
-      },
-      onError(error) {
-        state.status = `Transport error: ${error.message}`
+  try {
+    const result = await workflowClient.run("spike.cors-http", undefined, {
+      onProgress(event) {
+        state.progress.push(event)
+        state.status = `Progress ${event.step}/${event.totalSteps}`
         render(state)
-        reject(error)
       },
-      onComplete() {
-        if (!settled) {
-          state.status = "Subscription completed without terminal event."
-          render(state)
-          resolve()
-        }
+      onOutput(event) {
+        state.output.push(event)
+        render(state)
       },
     })
 
+    state.result = result
+    state.status = "Workflow completed."
+    render(state)
+
     if (isTRPCValidationMode) {
-      window.addEventListener(
-        "beforeunload",
-        () => {
-          if (!settled) {
-            subscription.unsubscribe()
-          }
-        },
-        { once: true },
-      )
+      emitValidationMarker({
+        marker: trpcMarker,
+        workflowId: result.workflowId,
+        executedIn: result.executedIn,
+        httpStatus: result.httpStatus,
+        progressCount: state.progress.length,
+        outputCount: state.output.length,
+      })
     }
-  })
+  } catch (error) {
+    const appError = normalizeAppError(error)
+
+    state.error = appError.message
+    state.status = `${appError.type === "transport" ? "Transport" : "Workflow"} error: ${appError.message}`
+    render(state)
+
+    if (isTRPCValidationMode) {
+      emitValidationMarker({
+        marker: trpcMarker,
+        error: appError.message,
+        errorType: appError.type,
+      })
+    }
+
+    throw new Error(appError.message)
+  }
+}
+
+function normalizeAppError(error: unknown): AppError {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    "message" in error &&
+    typeof error.type === "string" &&
+    typeof error.message === "string"
+  ) {
+    return error as AppError
+  }
+
+  return {
+    type: "unexpected",
+    message: error instanceof Error ? error.message : String(error),
+    retryable: false,
+  }
 }
 
 void runCorsWorkflowSubscription().catch((error) => {

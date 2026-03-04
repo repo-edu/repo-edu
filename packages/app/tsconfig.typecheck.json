@@ -3,5 +3,11 @@
   "compilerOptions": {
     "rootDir": "../.."
   },
-  "include": ["src/**/*.ts", "../ui/src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../ui/src/**/*.ts",
+    "../domain/src/**/*.ts",
+    "../application-contract/src/**/*.ts",
+    "../renderer-host-contract/src/**/*.ts"
+  ]
 }

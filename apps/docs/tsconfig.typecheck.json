@@ -11,6 +11,9 @@
     "../../packages/application/src/**/*.ts",
     "../../packages/application-contract/src/**/*.ts",
     "../../packages/domain/src/**/*.ts",
-    "../../packages/host-runtime-contract/src/**/*.ts"
+    "../../packages/host-runtime-contract/src/**/*.ts",
+    "../../packages/renderer-host-contract/src/**/*.ts",
+    "../../packages/integrations-lms-contract/src/**/*.ts",
+    "../../packages/integrations-git-contract/src/**/*.ts"
   ]
 }

@@ -1,3 +1,7 @@
+import {
+  createCancelledAppError,
+  isAppError,
+} from "@repo-edu/application-contract"
 import type {
   AppError,
   SpikeCorsWorkflowEvent,
@@ -128,14 +132,20 @@ function emitFailure(
   if (signal.aborted) {
     emit.next({
       type: "failed",
-      error: { type: "cancelled", message: "Workflow was cancelled." },
+      error: createCancelledAppError(),
+    })
+  } else if (isAppError(error)) {
+    emit.next({
+      type: "failed",
+      error,
     })
   } else {
     emit.next({
       type: "failed",
       error: {
-        type: "internal",
+        type: "unexpected",
         message: error instanceof Error ? error.message : String(error),
+        retryable: false,
       },
     })
   }

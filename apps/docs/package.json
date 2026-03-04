@@ -4,7 +4,12 @@
   "type": "module",
   "dependencies": {
     "@repo-edu/app": "workspace:*",
-    "@repo-edu/host-browser-mock": "workspace:*"
+    "@repo-edu/application": "workspace:*",
+    "@repo-edu/application-contract": "workspace:*",
+    "@repo-edu/domain": "workspace:*",
+    "@repo-edu/host-browser-mock": "workspace:*",
+    "@repo-edu/integrations-git-contract": "workspace:*",
+    "@repo-edu/integrations-lms-contract": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

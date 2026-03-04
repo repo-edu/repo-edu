@@ -3,5 +3,9 @@
   "compilerOptions": {
     "rootDir": "../.."
   },
-  "include": ["src/**/*.ts", "../integrations-git-contract/src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../integrations-git-contract/src/**/*.ts",
+    "../domain/src/**/*.ts"
+  ]
 }

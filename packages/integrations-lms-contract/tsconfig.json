@@ -8,5 +8,6 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "/tmp/repo-edu-packages-integrations-lms-contract.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../domain" }]
 }

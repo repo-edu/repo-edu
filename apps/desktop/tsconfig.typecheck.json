@@ -11,6 +11,7 @@
     "../../packages/application/src/**/*.ts",
     "../../packages/domain/src/**/*.ts",
     "../../packages/host-runtime-contract/src/**/*.ts",
+    "../../packages/renderer-host-contract/src/**/*.ts",
     "../../packages/host-node/src/**/*.ts"
   ]
 }

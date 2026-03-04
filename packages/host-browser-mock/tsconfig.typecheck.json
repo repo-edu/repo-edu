@@ -5,9 +5,9 @@
   },
   "include": [
     "src/**/*.ts",
-    "../application/src/**/*.ts",
-    "../application-contract/src/**/*.ts",
     "../domain/src/**/*.ts",
-    "../host-runtime-contract/src/**/*.ts"
+    "../host-runtime-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts",
+    "../integrations-git-contract/src/**/*.ts"
   ]
 }
