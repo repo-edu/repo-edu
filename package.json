@@ -1,0 +1,19 @@
+{
+  "name": "repo-edu",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "build:types": "tsc -b tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r run typecheck",
+    "check": "pnpm lint && pnpm typecheck",
+    "test": "pnpm -r --if-present run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.14",
+    "@types/node": "22.18.11",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../.."
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../packages/application/src/**/*.ts",
+    "../../packages/application-contract/src/**/*.ts",
+    "../../packages/domain/src/**/*.ts",
+    "../../packages/host-node/src/**/*.ts",
+    "../../packages/host-runtime-contract/src/**/*.ts"
+  ]
+}

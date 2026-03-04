@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@repo-edu/ui": ["./packages/ui/src/index.ts"],
+      "@repo-edu/app": ["./packages/app/src/index.ts"],
+      "@repo-edu/domain": ["./packages/domain/src/index.ts"],
+      "@repo-edu/application-contract": [
+        "./packages/application-contract/src/index.ts"
+      ],
+      "@repo-edu/application": ["./packages/application/src/index.ts"],
+      "@repo-edu/renderer-host-contract": [
+        "./packages/renderer-host-contract/src/index.ts"
+      ],
+      "@repo-edu/host-runtime-contract": [
+        "./packages/host-runtime-contract/src/index.ts"
+      ],
+      "@repo-edu/integrations-lms-contract": [
+        "./packages/integrations-lms-contract/src/index.ts"
+      ],
+      "@repo-edu/integrations-git-contract": [
+        "./packages/integrations-git-contract/src/index.ts"
+      ],
+      "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
+      "@repo-edu/host-browser-mock": [
+        "./packages/host-browser-mock/src/index.ts"
+      ],
+      "@repo-edu/integrations-lms": [
+        "./packages/integrations-lms/src/index.ts"
+      ],
+      "@repo-edu/integrations-git": ["./packages/integrations-git/src/index.ts"]
+    }
+  }
+}

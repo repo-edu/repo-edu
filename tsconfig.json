@@ -1,0 +1,21 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/ui" },
+    { "path": "./packages/app" },
+    { "path": "./packages/domain" },
+    { "path": "./packages/application-contract" },
+    { "path": "./packages/application" },
+    { "path": "./packages/renderer-host-contract" },
+    { "path": "./packages/host-runtime-contract" },
+    { "path": "./packages/integrations-lms-contract" },
+    { "path": "./packages/integrations-git-contract" },
+    { "path": "./packages/host-node" },
+    { "path": "./packages/host-browser-mock" },
+    { "path": "./packages/integrations-lms" },
+    { "path": "./packages/integrations-git" },
+    { "path": "./apps/desktop" },
+    { "path": "./apps/cli" },
+    { "path": "./apps/docs" }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@repo-edu/desktop",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/main.js",
+  "dependencies": {
+    "@repo-edu/app": "workspace:*",
+    "@repo-edu/application": "workspace:*",
+    "@repo-edu/application-contract": "workspace:*",
+    "@repo-edu/host-node": "workspace:*",
+    "@repo-edu/host-runtime-contract": "workspace:*",
+    "@trpc/client": "^11.11.0",
+    "@trpc/server": "^11.11.0",
+    "electron": "^35.7.5",
+    "trpc-electron": "^0.1.2"
+  },
+  "devDependencies": {
+    "electron-vite": "^3.1.0"
+  },
+  "scripts": {
+    "build": "electron-vite build",
+    "build:types": "tsc -b tsconfig.json",
+    "dev": "electron-vite dev",
+    "preview": "electron-vite preview",
+    "validate:trpc": "node ./scripts/validate-trpc-spike.mjs",
+    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
+    "check": "pnpm run typecheck",
+    "test": "node --test"
+  }
+}
