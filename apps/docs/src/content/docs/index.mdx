@@ -1,0 +1,84 @@
+---
+title: repo-edu
+description: Electron desktop app, TypeScript CLI, and browser-safe docs demo
+template: splash
+hero:
+  title: repo-edu
+  tagline: Manage course rosters and repository operations across Electron, CLI, and browser-safe docs workflows.
+  actions:
+    - text: Installation
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: Interactive Demo
+      link: /demo/
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/repo-edu/repo-edu
+      icon: external
+      variant: minimal
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+import TerminalPreview from "../../components/TerminalPreview.astro"
+import RoleCard from "../../components/RoleCard.astro"
+
+:::caution[Pre-alpha]
+This project is under active development. Contracts and command output may change.
+:::
+
+## What repo-edu provides
+
+- Electron desktop shell (`apps/desktop`) for interactive workflows.
+- TypeScript CLI (`apps/cli`) with command name `redu`.
+- Browser-safe docs/demo app (`apps/docs`) that mounts the real shared React app with mock host adapters.
+- Shared domain and workflow packages used by all delivery surfaces.
+
+## Typical CLI flow
+
+<TerminalPreview title="redu">
+<span class="line"><span class="prompt">$</span> redu profile list</span>
+<span class="line muted">* seed-profile  Seed Profile  2026-03-04T10:00:00Z</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu lms verify --profile seed-profile</span>
+<span class="line muted">LMS connection 'Canvas Demo' verified=true checkedAt=2026-03-05T12:00:00Z</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu roster show --assignments</span>
+<span class="line">Profile: seed-profile (Seed Profile)</span>
+<span class="line">Assignments: 1</span>
+<span class="line"></span>
+<span class="line"><span class="prompt">$</span> redu validate --assignment Project\ 1</span>
+<span class="line success">Validation passed for assignment 'Project 1' in profile 'seed-profile'.</span>
+</TerminalPreview>
+
+## Choose your entry point
+
+<div class="role-grid not-content">
+  <RoleCard
+    title="Desktop"
+    description="Use the Electron shell for end-to-end interactive workflows."
+    href="/getting-started/quick-start/"
+    icon="&#128187;"
+  />
+  <RoleCard
+    title="CLI"
+    description="Use 'redu' for scripted and repeatable operations."
+    href="/cli/overview/"
+    icon="&#9000;"
+  />
+  <RoleCard
+    title="Development"
+    description="Understand the shared workflow architecture and contribution model."
+    href="/development/architecture/"
+    icon="&#128295;"
+  />
+</div>
+
+## Quick links
+
+<CardGrid>
+  <LinkCard title="Installation" href="/getting-started/installation/" description="Set up Node, pnpm, and workspace scripts." />
+  <LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Run desktop, CLI, and docs demo targets." />
+  <LinkCard title="Settings Reference" href="/reference/settings-reference/" description="Persisted settings and profile fields." />
+  <LinkCard title="Troubleshooting" href="/reference/troubleshooting/" description="Common setup and runtime failures." />
+</CardGrid>

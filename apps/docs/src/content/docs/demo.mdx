@@ -1,0 +1,34 @@
+---
+title: Interactive Demo
+description: Run the shared React app in a browser-safe docs runtime
+template: splash
+---
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+
+<style>{`
+  .sl-container:has(h1#_top) { display: none; }
+  h1#_top { display: none; }
+  main { padding-top: 0 !important; }
+  .content-panel { padding-top: 0 !important; border-top: none !important; }
+  .main-frame { border-top: none !important; }
+`}</style>
+
+<div className="not-content mt-0 mb-12 border border-gray-700 bg-zinc-900 rounded-lg overflow-hidden min-h-[600px] shadow-2xl relative left-1/2 -translate-x-1/2 w-[95vw] max-w-[1600px]" style={{ height: "calc((100vh - var(--sl-nav-height, 3.5rem)) * 0.90)" }}>
+  <iframe src="/demo-standalone" className="w-full h-full border-none" title="repo-edu interactive demo" />
+</div>
+
+## What this page proves
+
+- The real `@repo-edu/app` mounts in a plain browser context.
+- Workflows are wired through `@repo-edu/application-contract` without Electron APIs.
+- Host capabilities come from `@repo-edu/host-browser-mock`.
+
+## Validation expectations
+
+The docs demo should keep parity with the app workflow surface marked as `delivery: ["docs"]` in the workflow catalog.
+
+<CardGrid>
+  <LinkCard title="Architecture" href="/development/architecture/" description="See how docs, desktop, and CLI share contracts." />
+  <LinkCard title="Workflow Commands" href="/cli/overview/" description="Inspect command coverage over shared workflows." />
+</CardGrid>

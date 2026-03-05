@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["*.ts"]
+}

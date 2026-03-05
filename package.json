@@ -5,15 +5,30 @@
   "scripts": {
     "build": "pnpm -r run build",
     "build:types": "tsc -b tsconfig.json",
-    "lint": "biome check .",
-    "format": "biome format --write .",
+    "dev": "pnpm --filter @repo-edu/desktop run dev",
+    "lint": "biome check . && rumdl check",
+    "lint:fix": "biome check --write .",
+    "lint:md": "rumdl check",
+    "fmt:md": "rumdl fmt",
+    "format": "biome format --write . && rumdl fmt",
     "typecheck": "pnpm -r run typecheck",
     "check": "pnpm lint && pnpm typecheck",
-    "test": "pnpm -r --if-present run test"
+    "test": "pnpm -r --if-present run test",
+    "validate": "pnpm check && pnpm test",
+    "fix": "pnpm lint:fix && pnpm format",
+    "desktop:validate": "pnpm --filter @repo-edu/desktop run validate:phase5",
+    "cli:build": "pnpm --filter @repo-edu/cli run build",
+    "docs:dev": "pnpm --filter @repo-edu/docs run dev",
+    "docs:build": "pnpm --filter @repo-edu/docs run build",
+    "docs:preview": "pnpm --filter @repo-edu/docs run build && pnpm --filter @repo-edu/docs run preview",
+    "docs:test": "pnpm --filter @repo-edu/docs run test",
+    "claude2assistants": "node scripts/claude2assistants.mjs",
+    "fixture:constraints": "pnpx tsx scripts/create-fixture-constraints.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.14",
     "@types/node": "22.18.11",
+    "globby": "^16.1.1",
     "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }

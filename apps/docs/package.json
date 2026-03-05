@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@astrojs/react": "^4.4.2",
+    "@astrojs/starlight": "^0.32.0",
     "@repo-edu/app": "workspace:*",
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
@@ -10,16 +12,23 @@
     "@repo-edu/host-browser-mock": "workspace:*",
     "@repo-edu/integrations-git-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
+    "astro": "^5.2.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "sharp": "^0.33.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@tailwindcss/vite": "^4.1.17",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.17"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
+    "dev": "astro dev --host --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --host --port 4321",
+    "typecheck": "astro check && tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
     "test": "node --import tsx --test src/**/*.test.ts"
   }
