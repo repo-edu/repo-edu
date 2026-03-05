@@ -15,6 +15,13 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@repo-edu/ui": ["./packages/ui/src/index.ts"],
+      "@repo-edu/ui/components/icons": [
+        "./packages/ui/src/components/icons.ts"
+      ],
+      "@repo-edu/ui/components/ui/*": [
+        "./packages/ui/src/components/ui/*"
+      ],
+      "@repo-edu/ui/lib/*": ["./packages/ui/src/lib/*"],
       "@repo-edu/app": ["./packages/app/src/index.ts"],
       "@repo-edu/domain": ["./packages/domain/src/index.ts"],
       "@repo-edu/application-contract": [

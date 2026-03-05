@@ -1,0 +1,118 @@
+import { Button, EmptyState } from "@repo-edu/ui";
+import type { Roster } from "@repo-edu/domain";
+import {
+  useProfileStore,
+  selectRoster,
+  selectLmsConnectionName,
+  selectCourseId,
+} from "../../stores/profile-store.js";
+import { useUiStore } from "../../stores/ui-store.js";
+import { useToastStore } from "../../stores/toast-store.js";
+import { getWorkflowClient } from "../../contexts/workflow-client.js";
+import { getRendererHost } from "../../contexts/renderer-host.js";
+import { MemberListPane } from "./roster/MemberListPane.js";
+
+type RosterTabProps = {
+  isDirty: boolean;
+};
+
+export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
+  const roster = useProfileStore(selectRoster);
+  const profile = useProfileStore((s) => s.profile);
+  const setRoster = useProfileStore((s) => s.setRoster);
+  const activeProfileId = useUiStore((s) => s.activeProfileId);
+  const lmsConnectionName = useProfileStore(selectLmsConnectionName);
+  const courseId = useProfileStore(selectCourseId);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const setNewProfileDialogOpen = useUiStore(
+    (s) => s.setNewProfileDialogOpen,
+  );
+  const setImportFileDialogOpen = useUiStore(
+    (s) => s.setImportFileDialogOpen,
+  );
+  const setRosterSyncDialogOpen = useUiStore(
+    (s) => s.setRosterSyncDialogOpen,
+  );
+  const setImportGitUsernamesDialogOpen = useUiStore(
+    (s) => s.setImportGitUsernamesDialogOpen,
+  );
+  const setUsernameVerificationDialogOpen = useUiStore(
+    (s) => s.setUsernameVerificationDialogOpen,
+  );
+
+  const hasLmsConnection = lmsConnectionName !== null;
+  const hasCourseId = (courseId ?? "").trim() !== "";
+  const canImportFromLms = hasLmsConnection && hasCourseId;
+
+  const lmsImportTooltip = !hasLmsConnection
+    ? "Configure an LMS connection in Settings first"
+    : !hasCourseId
+      ? "No course configured for this profile"
+      : "Sync roster from LMS";
+
+  const handleClear = () => {
+    if (!roster?.students.length && !roster?.staff.length) return;
+    const emptyRoster: Roster = {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    };
+    setRoster(emptyRoster, "Clear roster");
+    addToast("Roster cleared. Ctrl+Z to undo", { tone: "warning" });
+  };
+
+  const handleExport = async (format: "csv" | "xlsx") => {
+    if (!activeProfileId || !roster) return;
+
+    try {
+      const host = getRendererHost();
+      const target = await host.pickSaveTarget({
+        suggestedName: `students.${format}`,
+      });
+      if (!target) return;
+
+      const client = getWorkflowClient();
+      await client.run("roster.exportStudents", {
+        profileId: activeProfileId,
+        target,
+        format,
+      });
+      addToast("Students exported", { tone: "success" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addToast(`Export failed: ${message}`, { tone: "error" });
+    }
+  };
+
+  if (!activeProfileId || !profile) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <EmptyState message="Select a profile to view the roster.">
+          <Button onClick={() => setNewProfileDialogOpen(true)}>
+            Create Profile
+          </Button>
+        </EmptyState>
+      </div>
+    );
+  }
+
+  return (
+    <MemberListPane
+      roster={roster}
+      importing={false}
+      canImportFromLms={canImportFromLms}
+      lmsImportTooltip={lmsImportTooltip}
+      hasLmsConnection={hasLmsConnection}
+      onImportFromLms={() => setRosterSyncDialogOpen(true)}
+      onImportFromFile={() => setImportFileDialogOpen(true)}
+      onImportGitUsernames={() => setImportGitUsernamesDialogOpen(true)}
+      onVerifyGitUsernames={() => setUsernameVerificationDialogOpen(true)}
+      onClear={handleClear}
+      onExport={(format) => void handleExport(format)}
+    />
+  );
+}

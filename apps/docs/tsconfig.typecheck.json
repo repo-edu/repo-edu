@@ -6,7 +6,9 @@
   "include": [
     "src/**/*.ts",
     "../../packages/app/src/**/*.ts",
+    "../../packages/app/src/**/*.tsx",
     "../../packages/ui/src/**/*.ts",
+    "../../packages/ui/src/**/*.tsx",
     "../../packages/host-browser-mock/src/**/*.ts",
     "../../packages/application/src/**/*.ts",
     "../../packages/application-contract/src/**/*.ts",

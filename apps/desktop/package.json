@@ -16,6 +16,8 @@
     "trpc-electron": "^0.1.2"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "electron-vite": "^3.1.0"
   },
   "scripts": {

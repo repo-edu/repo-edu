@@ -6,9 +6,10 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "/tmp/repo-edu-packages-app.tsbuildinfo"
+    "jsx": "react-jsx",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     { "path": "../ui" },
     { "path": "../domain" },

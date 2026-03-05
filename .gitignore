@@ -1,5 +1,45 @@
-.DS_Store
+.pnpm-store/
 node_modules/
 dist/
 out/
 *.tsbuildinfo
+
+# Git, useful for VSCode and other tools
+.git/
+
+# IDE
+.idea/
+*.swp
+.DS_Store
+
+# Test artifacts
+.test-config/
+
+# AI assistants
+.claude/settings.local.json
+.gemini-clipboard/
+
+# Planning files and notes
+.local/
+
+# Binding generation cache
+.bindings-hash
+
+# Tools
+.rumdl_cache/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+target/
+dist/
+site/
+docs/.astro/
+
+# Logs
+*.log
+
+# Generated via pnpm claude2assistants
+AGENTS.md
+GEMINI.md
