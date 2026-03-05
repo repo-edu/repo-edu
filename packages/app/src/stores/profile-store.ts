@@ -714,6 +714,29 @@ const EMPTY_ASSIGNMENTS: Assignment[] = [];
 const EMPTY_EDITABLE_GROUP_TARGETS: EditableGroupTarget[] = [];
 const EMPTY_NAMES: string[] = [];
 
+function makeRosterDerivedSelector<T>(
+  derive: (roster: Roster) => T,
+  emptyValue: T,
+) {
+  let cachedRoster: Roster | null = null;
+  let cachedValue = emptyValue;
+
+  return (state: ProfileState): T => {
+    const roster = state.profile?.roster ?? null;
+    if (!roster) {
+      cachedRoster = null;
+      cachedValue = emptyValue;
+      return emptyValue;
+    }
+    if (cachedRoster === roster) {
+      return cachedValue;
+    }
+    cachedRoster = roster;
+    cachedValue = derive(roster);
+    return cachedValue;
+  };
+}
+
 export const selectStudents = (state: ProfileState) =>
   state.profile?.roster.students ?? EMPTY_MEMBERS;
 export const selectStaff = (state: ProfileState) =>
@@ -761,25 +784,13 @@ export const selectChecksDirty = (state: ProfileState) => state.checksDirty;
 
 // Group set category selectors
 
-let cachedSystemGroupSetsRoster: Roster | null = null;
-let cachedSystemGroupSets: GroupSet[] = EMPTY_GROUP_SETS;
-
-export const selectSystemGroupSets = (state: ProfileState) => {
-  const roster = state.profile?.roster ?? null;
-  if (!roster) {
-    cachedSystemGroupSetsRoster = null;
-    cachedSystemGroupSets = EMPTY_GROUP_SETS;
-    return EMPTY_GROUP_SETS;
-  }
-  if (cachedSystemGroupSetsRoster === roster) {
-    return cachedSystemGroupSets;
-  }
-  cachedSystemGroupSetsRoster = roster;
-  cachedSystemGroupSets = roster.groupSets.filter(
-    (gs) => gs.connection?.kind === "system",
-  );
-  return cachedSystemGroupSets;
-};
+export const selectSystemGroupSets = makeRosterDerivedSelector(
+  (roster) => {
+    const next = roster.groupSets.filter((gs) => gs.connection?.kind === "system");
+    return next.length > 0 ? next : EMPTY_GROUP_SETS;
+  },
+  EMPTY_GROUP_SETS,
+);
 
 export const selectSystemGroupSet =
   (systemType: string) => (state: ProfileState) =>
@@ -789,97 +800,53 @@ export const selectSystemGroupSet =
         gs.connection.systemType === systemType,
     ) ?? null;
 
-let cachedConnectedGroupSetsRoster: Roster | null = null;
-let cachedConnectedGroupSets: GroupSet[] = EMPTY_GROUP_SETS;
+export const selectConnectedGroupSets = makeRosterDerivedSelector(
+  (roster) => {
+    const next = roster.groupSets.filter(
+      (gs) =>
+        gs.connection?.kind === "canvas" || gs.connection?.kind === "moodle",
+    );
+    return next.length > 0 ? next : EMPTY_GROUP_SETS;
+  },
+  EMPTY_GROUP_SETS,
+);
 
-export const selectConnectedGroupSets = (state: ProfileState) => {
-  const roster = state.profile?.roster ?? null;
-  if (!roster) {
-    cachedConnectedGroupSetsRoster = null;
-    cachedConnectedGroupSets = EMPTY_GROUP_SETS;
-    return EMPTY_GROUP_SETS;
-  }
-  if (cachedConnectedGroupSetsRoster === roster) {
-    return cachedConnectedGroupSets;
-  }
-  cachedConnectedGroupSetsRoster = roster;
-  cachedConnectedGroupSets = roster.groupSets.filter(
-    (gs) =>
-      gs.connection?.kind === "canvas" || gs.connection?.kind === "moodle",
-  );
-  return cachedConnectedGroupSets;
-};
-
-let cachedLocalGroupSetsRoster: Roster | null = null;
-let cachedLocalGroupSets: GroupSet[] = EMPTY_GROUP_SETS;
-
-export const selectLocalGroupSets = (state: ProfileState) => {
-  const roster = state.profile?.roster ?? null;
-  if (!roster) {
-    cachedLocalGroupSetsRoster = null;
-    cachedLocalGroupSets = EMPTY_GROUP_SETS;
-    return EMPTY_GROUP_SETS;
-  }
-  if (cachedLocalGroupSetsRoster === roster) {
-    return cachedLocalGroupSets;
-  }
-  cachedLocalGroupSetsRoster = roster;
-  cachedLocalGroupSets = roster.groupSets.filter(
-    (gs) => gs.connection === null || gs.connection.kind === "import",
-  );
-  return cachedLocalGroupSets;
-};
+export const selectLocalGroupSets = makeRosterDerivedSelector(
+  (roster) => {
+    const next = roster.groupSets.filter(
+      (gs) => gs.connection === null || gs.connection.kind === "import",
+    );
+    return next.length > 0 ? next : EMPTY_GROUP_SETS;
+  },
+  EMPTY_GROUP_SETS,
+);
 
 export const selectGroupsForGroupSet = (groupSetId: string) => {
-  let cachedRoster: Roster | null = null;
-  let cachedValue: Group[] = EMPTY_GROUPS;
+  return makeRosterDerivedSelector(
+    (roster) => {
+      const groupSet = roster.groupSets.find((candidate) => candidate.id === groupSetId);
+      if (!groupSet) {
+        return EMPTY_GROUPS;
+      }
 
-  return (state: ProfileState) => {
-    const roster = state.profile?.roster ?? null;
-    if (!roster) {
-      cachedRoster = null;
-      cachedValue = EMPTY_GROUPS;
-      return EMPTY_GROUPS;
-    }
-    if (cachedRoster === roster) {
-      return cachedValue;
-    }
-
-    const groupSet = roster.groupSets.find((candidate) => candidate.id === groupSetId);
-    if (!groupSet) {
-      cachedRoster = roster;
-      cachedValue = EMPTY_GROUPS;
-      return EMPTY_GROUPS;
-    }
-
-    const groupIds = new Set(groupSet.groupIds);
-    cachedRoster = roster;
-    cachedValue = roster.groups.filter((group) => groupIds.has(group.id));
-    return cachedValue;
-  };
+      const groupIds = new Set(groupSet.groupIds);
+      const next = roster.groups.filter((group) => groupIds.has(group.id));
+      return next.length > 0 ? next : EMPTY_GROUPS;
+    },
+    EMPTY_GROUPS,
+  );
 };
 
 export const selectAssignmentsForGroupSet = (groupSetId: string) => {
-  let cachedRoster: Roster | null = null;
-  let cachedValue: Assignment[] = EMPTY_ASSIGNMENTS;
-
-  return (state: ProfileState) => {
-    const roster = state.profile?.roster ?? null;
-    if (!roster) {
-      cachedRoster = null;
-      cachedValue = EMPTY_ASSIGNMENTS;
-      return EMPTY_ASSIGNMENTS;
-    }
-    if (cachedRoster === roster) {
-      return cachedValue;
-    }
-
-    cachedRoster = roster;
-    cachedValue = roster.assignments.filter(
-      (assignment) => assignment.groupSetId === groupSetId,
-    );
-    return cachedValue;
-  };
+  return makeRosterDerivedSelector(
+    (roster) => {
+      const next = roster.assignments.filter(
+        (assignment) => assignment.groupSetId === groupSetId,
+      );
+      return next.length > 0 ? next : EMPTY_ASSIGNMENTS;
+    },
+    EMPTY_ASSIGNMENTS,
+  );
 };
 
 /** All (groupSetId, group[]) pairs for editable (local) group sets. */
@@ -889,60 +856,38 @@ export type EditableGroupTarget = {
   groups: { id: string; name: string }[];
 };
 
-let cachedEditableTargetsRoster: Roster | null = null;
-let cachedEditableTargets: EditableGroupTarget[] = EMPTY_EDITABLE_GROUP_TARGETS;
-
-export const selectEditableGroupTargets = (state: ProfileState): EditableGroupTarget[] => {
-  const roster = state.profile?.roster;
-  if (!roster) {
-    cachedEditableTargetsRoster = null;
-    cachedEditableTargets = EMPTY_EDITABLE_GROUP_TARGETS;
-    return EMPTY_EDITABLE_GROUP_TARGETS;
-  }
-  if (cachedEditableTargetsRoster === roster) {
-    return cachedEditableTargets;
-  }
-
-  cachedEditableTargetsRoster = roster;
-  cachedEditableTargets = roster.groupSets
-    .filter((gs) => gs.connection === null || gs.connection.kind === "import")
-    .map((gs) => ({
-      groupSetId: gs.id,
-      groupSetName: gs.name,
-      groups: gs.groupIds
-        .map((gid) => roster.groups.find((g) => g.id === gid))
-        .filter((g): g is Group => g !== undefined && g.origin === "local")
-        .map((g) => ({ id: g.id, name: g.name })),
-    }));
-  return cachedEditableTargets;
-};
+export const selectEditableGroupTargets = makeRosterDerivedSelector(
+  (roster) => {
+    const next = roster.groupSets
+      .filter((gs) => gs.connection === null || gs.connection.kind === "import")
+      .map((gs) => ({
+        groupSetId: gs.id,
+        groupSetName: gs.name,
+        groups: gs.groupIds
+          .map((gid) => roster.groups.find((g) => g.id === gid))
+          .filter((g): g is Group => g !== undefined && g.origin === "local")
+          .map((g) => ({ id: g.id, name: g.name })),
+      }));
+    return next.length > 0 ? next : EMPTY_EDITABLE_GROUP_TARGETS;
+  },
+  EMPTY_EDITABLE_GROUP_TARGETS,
+);
 
 export const selectOtherGroupSetNames =
   (groupId: string, currentGroupSetId: string) => {
-    let cachedRoster: Roster | null = null;
-    let cachedValue: string[] = EMPTY_NAMES;
-
-    return (state: ProfileState): string[] => {
-      const roster = state.profile?.roster ?? null;
-      if (!roster) {
-        cachedRoster = null;
-        cachedValue = EMPTY_NAMES;
-        return EMPTY_NAMES;
-      }
-      if (cachedRoster === roster) {
-        return cachedValue;
-      }
-
-      cachedRoster = roster;
-      cachedValue = roster.groupSets
-        .filter(
-          (groupSet) =>
-            groupSet.id !== currentGroupSetId &&
-            groupSet.groupIds.includes(groupId),
-        )
-        .map((groupSet) => groupSet.name);
-      return cachedValue;
-    };
+    return makeRosterDerivedSelector(
+      (roster): string[] => {
+        const next = roster.groupSets
+          .filter(
+            (groupSet) =>
+              groupSet.id !== currentGroupSetId &&
+              groupSet.groupIds.includes(groupId),
+          )
+          .map((groupSet) => groupSet.name);
+        return next.length > 0 ? next : EMPTY_NAMES;
+      },
+      EMPTY_NAMES,
+    );
   };
 
 export const selectGroupReferenceCount =

@@ -162,61 +162,125 @@ const initialState: UiState = {
   closePromptVisible: false,
 };
 
+function setIfChanged<K extends keyof UiState>(
+  state: UiState,
+  key: K,
+  value: UiState[K],
+) {
+  return Object.is(state[key], value) ? state : ({ [key]: value } as Pick<
+    UiState,
+    K
+  >);
+}
+
 export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setActiveProfileId: (id) => set({ activeProfileId: id }),
+  setActiveTab: (tab) => set((state) => setIfChanged(state, "activeTab", tab)),
+  setActiveProfileId: (id) =>
+    set((state) => setIfChanged(state, "activeProfileId", id)),
 
-  setSettingsDialogOpen: (open) => set({ settingsDialogOpen: open }),
+  setSettingsDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "settingsDialogOpen", open)),
   openSettings: (category) =>
-    set({
-      settingsDialogOpen: true,
-      settingsCategory: category ?? "connections",
+    set((state) => {
+      const nextCategory = category ?? "connections";
+      if (
+        state.settingsDialogOpen &&
+        state.settingsCategory === nextCategory
+      ) {
+        return state;
+      }
+      return {
+        settingsDialogOpen: true,
+        settingsCategory: nextCategory,
+      };
     }),
-  setNewProfileDialogOpen: (open) => set({ newProfileDialogOpen: open }),
-  setImportFileDialogOpen: (open) => set({ importFileDialogOpen: open }),
-  setRosterSyncDialogOpen: (open) => set({ rosterSyncDialogOpen: open }),
+  setNewProfileDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "newProfileDialogOpen", open)),
+  setImportFileDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "importFileDialogOpen", open)),
+  setRosterSyncDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "rosterSyncDialogOpen", open)),
   setImportGitUsernamesDialogOpen: (open) =>
-    set({ importGitUsernamesDialogOpen: open }),
+    set((state) => setIfChanged(state, "importGitUsernamesDialogOpen", open)),
   setUsernameVerificationDialogOpen: (open) =>
-    set({ usernameVerificationDialogOpen: open }),
+    set((state) =>
+      setIfChanged(state, "usernameVerificationDialogOpen", open)
+    ),
   setNewAssignmentDialogOpen: (open) =>
-    set({ newAssignmentDialogOpen: open }),
-  setFileImportExportOpen: (open) => set({ fileImportExportOpen: open }),
-  setIssuesSheetOpen: (open) => set({ issuesSheetOpen: open }),
-  setValidationDialogOpen: (open) => set({ validationDialogOpen: open }),
-  setPreflightDialogOpen: (open) => set({ preflightDialogOpen: open }),
+    set((state) => setIfChanged(state, "newAssignmentDialogOpen", open)),
+  setFileImportExportOpen: (open) =>
+    set((state) => setIfChanged(state, "fileImportExportOpen", open)),
+  setIssuesSheetOpen: (open) =>
+    set((state) => setIfChanged(state, "issuesSheetOpen", open)),
+  setValidationDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "validationDialogOpen", open)),
+  setPreflightDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "preflightDialogOpen", open)),
 
   setConnectLmsGroupSetDialogOpen: (open) =>
-    set({ connectLmsGroupSetDialogOpen: open }),
+    set((state) => setIfChanged(state, "connectLmsGroupSetDialogOpen", open)),
   setNewLocalGroupSetDialogOpen: (open) =>
-    set({ newLocalGroupSetDialogOpen: open }),
+    set((state) => setIfChanged(state, "newLocalGroupSetDialogOpen", open)),
   setImportGroupSetDialogOpen: (open) =>
-    set({ importGroupSetDialogOpen: open }),
-  setReimportGroupSetTargetId: (id) => set({ reimportGroupSetTargetId: id }),
-  setCopyGroupSetSourceId: (id) => set({ copyGroupSetSourceId: id }),
-  setDeleteGroupSetTargetId: (id) => set({ deleteGroupSetTargetId: id }),
-  setDeleteGroupTargetId: (id) => set({ deleteGroupTargetId: id }),
-  setAddGroupDialogGroupSetId: (id) => set({ addGroupDialogGroupSetId: id }),
+    set((state) => setIfChanged(state, "importGroupSetDialogOpen", open)),
+  setReimportGroupSetTargetId: (id) =>
+    set((state) => setIfChanged(state, "reimportGroupSetTargetId", id)),
+  setCopyGroupSetSourceId: (id) =>
+    set((state) => setIfChanged(state, "copyGroupSetSourceId", id)),
+  setDeleteGroupSetTargetId: (id) =>
+    set((state) => setIfChanged(state, "deleteGroupSetTargetId", id)),
+  setDeleteGroupTargetId: (id) =>
+    set((state) => setIfChanged(state, "deleteGroupTargetId", id)),
+  setAddGroupDialogGroupSetId: (id) =>
+    set((state) => setIfChanged(state, "addGroupDialogGroupSetId", id)),
 
-  setPreSelectedGroupSetId: (id) => set({ preSelectedGroupSetId: id }),
+  setPreSelectedGroupSetId: (id) =>
+    set((state) => setIfChanged(state, "preSelectedGroupSetId", id)),
   setLmsImportConflicts: (conflicts) =>
-    set({ lmsImportConflicts: conflicts }),
+    set((state) => setIfChanged(state, "lmsImportConflicts", conflicts)),
 
-  setSidebarSelection: (selection) => set({ sidebarSelection: selection }),
-  setGroupSetPanelTab: (tab) => set({ groupSetPanelTab: tab }),
-  setGroupSetOperation: (op) => set({ groupSetOperation: op }),
+  setSidebarSelection: (selection) =>
+    set((state) => {
+      const current = state.sidebarSelection;
+      if (
+        current === selection ||
+        (current?.kind === selection?.kind && current?.id === selection?.id)
+      ) {
+        return state;
+      }
+      return { sidebarSelection: selection };
+    }),
+  setGroupSetPanelTab: (tab) =>
+    set((state) => setIfChanged(state, "groupSetPanelTab", tab)),
+  setGroupSetOperation: (op) =>
+    set((state) => {
+      const current = state.groupSetOperation;
+      if (
+        current === op ||
+        (current?.kind === op?.kind && current?.groupSetId === op?.groupSetId)
+      ) {
+        return state;
+      }
+      return { groupSetOperation: op };
+    }),
 
-  setRenameGroupSetTriggerId: (id) => set({ renameGroupSetTriggerId: id }),
-  setExportGroupSetTriggerId: (id) => set({ exportGroupSetTriggerId: id }),
-  setSyncGroupSetTriggerId: (id) => set({ syncGroupSetTriggerId: id }),
+  setRenameGroupSetTriggerId: (id) =>
+    set((state) => setIfChanged(state, "renameGroupSetTriggerId", id)),
+  setExportGroupSetTriggerId: (id) =>
+    set((state) => setIfChanged(state, "exportGroupSetTriggerId", id)),
+  setSyncGroupSetTriggerId: (id) =>
+    set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 
-  setProfileList: (list) => set({ profileList: list }),
-  setProfileListLoading: (loading) => set({ profileListLoading: loading }),
+  setProfileList: (list) => set((state) => setIfChanged(state, "profileList", list)),
+  setProfileListLoading: (loading) =>
+    set((state) => setIfChanged(state, "profileListLoading", loading)),
 
-  showClosePrompt: () => set({ closePromptVisible: true }),
-  hideClosePrompt: () => set({ closePromptVisible: false }),
+  showClosePrompt: () =>
+    set((state) => setIfChanged(state, "closePromptVisible", true)),
+  hideClosePrompt: () =>
+    set((state) => setIfChanged(state, "closePromptVisible", false)),
 
   reset: () => set(initialState),
 }));

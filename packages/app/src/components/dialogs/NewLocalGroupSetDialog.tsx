@@ -207,14 +207,13 @@ export function NewLocalGroupSetDialog() {
       if (id) {
         setSidebarSelection({ kind: "group-set", id });
       }
-      handleClose();
+      setOpen(false);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const resetDialogState = useCallback(() => {
     setName("");
     setSourceGroupSetId(null);
     setPattern("");
@@ -222,7 +221,17 @@ export function NewLocalGroupSetDialog() {
     setMatchedIndexes(null);
     setCheckedGroupIds(new Set());
     setCreating(false);
+  }, []);
+
+  const handleClose = () => {
+    setOpen(false);
   };
+
+  useEffect(() => {
+    if (!open) {
+      resetDialogState();
+    }
+  }, [open, resetDialogState]);
 
   const renderGroupPreview = () => {
     if (!sourceGroupSetId || sourceGroups.length === 0) return null;
@@ -298,7 +307,7 @@ export function NewLocalGroupSetDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="flex flex-col sm:max-w-xl h-[80vh]">
         <DialogHeader>
           <DialogTitle>Copy from Group Set</DialogTitle>
