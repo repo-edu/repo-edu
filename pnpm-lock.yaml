@@ -56,6 +56,15 @@ importers:
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../../packages/host-runtime-contract
+      '@repo-edu/integrations-git':
+        specifier: workspace:*
+        version: link:../../packages/integrations-git
+      '@repo-edu/integrations-lms':
+        specifier: workspace:*
+        version: link:../../packages/integrations-lms
+      '@repo-edu/renderer-host-contract':
+        specifier: workspace:*
+        version: link:../../packages/renderer-host-contract
       '@trpc/client':
         specifier: ^11.11.0
         version: 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
@@ -65,6 +74,12 @@ importers:
       electron:
         specifier: ^35.7.5
         version: 35.7.5
+      react:
+        specifier: ^19.1.1
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.2.4(react@19.2.4)
       trpc-electron:
         specifier: ^0.1.2
         version: 0.1.2(@trpc/client@11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.11.0(typescript@5.9.3))(electron@35.7.5)
@@ -102,6 +117,12 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
+      react:
+        specifier: ^19.1.1
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.1
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@types/react':
         specifier: ^19.0.0

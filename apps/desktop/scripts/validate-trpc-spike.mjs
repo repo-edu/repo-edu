@@ -57,30 +57,28 @@ if (!marker) {
   throw new Error(`electron-trpc marker was not emitted.\n${stderr}`.trim());
 }
 
-if (marker.workflowId !== "spike.cors-http") {
-  throw new Error(`unexpected workflowId: ${String(marker.workflowId)}`);
-}
-
-if (marker.executedIn !== "node") {
-  throw new Error(`unexpected executedIn: ${String(marker.executedIn)}`);
-}
-
-if (typeof marker.httpStatus !== "number") {
-  throw new Error("httpStatus was not a number.");
-}
-
 if (marker.validationProfileId !== "seed-profile") {
   throw new Error(
     `unexpected validation profile id: ${String(marker.validationProfileId)}`,
   );
 }
 
-if (!Array.isArray(marker.rosterIssueKinds)) {
-  throw new Error("rosterIssueKinds was not an array.");
+if (marker.environmentShell !== "electron-renderer") {
+  throw new Error(
+    `unexpected environmentShell: ${String(marker.environmentShell)}`,
+  );
 }
 
-if (!Array.isArray(marker.assignmentIssueKinds)) {
-  throw new Error("assignmentIssueKinds was not an array.");
+if (marker.environmentCanPromptForFiles !== true) {
+  throw new Error(
+    `unexpected environmentCanPromptForFiles: ${String(marker.environmentCanPromptForFiles)}`,
+  );
+}
+
+if (marker.environmentWindowChrome !== "hiddenInset") {
+  throw new Error(
+    `unexpected environmentWindowChrome: ${String(marker.environmentWindowChrome)}`,
+  );
 }
 
 if (!Array.isArray(marker.listedProfileIds)) {
@@ -118,6 +116,33 @@ if (marker.settingsKind !== "repo-edu.app-settings.v1") {
 if (marker.settingsSchemaVersion !== 1) {
   throw new Error(
     `unexpected settingsSchemaVersion: ${String(marker.settingsSchemaVersion)}`,
+  );
+}
+
+if (!Array.isArray(marker.rosterIssueKinds)) {
+  throw new Error("rosterIssueKinds was not an array.");
+}
+
+if (!Array.isArray(marker.assignmentIssueKinds)) {
+  throw new Error("assignmentIssueKinds was not an array.");
+}
+
+if (marker.spikeWorkflowId !== "spike.e2e-trpc") {
+  throw new Error(
+    `unexpected spikeWorkflowId: ${String(marker.spikeWorkflowId)}`,
+  );
+}
+
+if (
+  typeof marker.spikeProgressCount !== "number" ||
+  marker.spikeProgressCount < 1
+) {
+  throw new Error("spikeProgressCount was not a positive number.");
+}
+
+if (marker.repoDeleteErrorType !== "validation") {
+  throw new Error(
+    `unexpected repoDeleteErrorType: ${String(marker.repoDeleteErrorType)}`,
   );
 }
 

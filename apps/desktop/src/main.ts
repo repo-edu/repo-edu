@@ -1,10 +1,19 @@
 import { dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createNodeHttpPort } from "@repo-edu/host-node";
-import { app, BrowserWindow } from "electron";
+import {
+  createNodeFileSystemPort,
+  createNodeGitCommandPort,
+  createNodeHttpPort,
+} from "@repo-edu/host-node";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { createIPCHandler } from "trpc-electron/main";
+import { createDesktopHostEnvironment } from "./desktop-host";
 import { createDesktopProfileStore } from "./profile-store";
+import {
+  desktopRendererHostChannels,
+  type DesktopRendererHostBridge,
+} from "./renderer-host-bridge";
 import { createDesktopAppSettingsStore } from "./settings-store";
 import type { DesktopRouter } from "./trpc";
 import { createDesktopRouter } from "./trpc";
@@ -16,9 +25,14 @@ const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1";
 const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
+const desktopHost = createDesktopHostEnvironment();
+const nodeHttpPort = createNodeHttpPort();
+const nodeGitCommandPort = createNodeGitCommandPort();
+const nodeFileSystemPort = createNodeFileSystemPort();
 let desktopRouter: DesktopRouter | null = null;
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null =
   null;
+let hostIpcRegistered = false;
 
 function resolvePreloadPath() {
   return join(currentDir, "../preload/preload.cjs");
@@ -37,6 +51,47 @@ function resolveRendererUrl() {
   ).toString();
 
   return `${fileUrl}${validationSuffix}`;
+}
+
+function registerRendererHostIpcHandlers() {
+  if (hostIpcRegistered) {
+    return;
+  }
+
+  hostIpcRegistered = true;
+
+  ipcMain.handle(
+    desktopRendererHostChannels.pickUserFile,
+    async (event, options: Parameters<DesktopRendererHostBridge["pickUserFile"]>[0]) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender);
+      return await desktopHost.pickUserFile(parentWindow, options);
+    },
+  );
+
+  ipcMain.handle(
+    desktopRendererHostChannels.pickSaveTarget,
+    async (
+      event,
+      options: Parameters<DesktopRendererHostBridge["pickSaveTarget"]>[0],
+    ) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender);
+      return await desktopHost.pickSaveTarget(parentWindow, options);
+    },
+  );
+
+  ipcMain.handle(
+    desktopRendererHostChannels.openExternalUrl,
+    async (_event, url: Parameters<DesktopRendererHostBridge["openExternalUrl"]>[0]) => {
+      await desktopHost.openExternalUrl(url);
+    },
+  );
+
+  ipcMain.handle(
+    desktopRendererHostChannels.getEnvironmentSnapshot,
+    async () => {
+      return await desktopHost.getEnvironmentSnapshot();
+    },
+  );
 }
 
 function handleValidationMarker(message: string) {
@@ -76,9 +131,12 @@ async function createWindow() {
 
   if (!desktopRouter) {
     desktopRouter = createDesktopRouter({
-      http: createNodeHttpPort(),
+      http: nodeHttpPort,
       profileStore: createDesktopProfileStore(app.getPath("userData")),
       appSettingsStore: createDesktopAppSettingsStore(app.getPath("userData")),
+      userFile: desktopHost.userFilePort,
+      gitCommand: nodeGitCommandPort,
+      fileSystem: nodeFileSystemPort,
     });
   }
 
@@ -172,6 +230,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  registerRendererHostIpcHandlers();
   await createWindow();
 
   app.on("activate", () => {

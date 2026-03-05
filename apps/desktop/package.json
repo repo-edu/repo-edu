@@ -8,11 +8,16 @@
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
+    "@repo-edu/integrations-git": "workspace:*",
+    "@repo-edu/integrations-lms": "workspace:*",
     "@repo-edu/host-node": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
+    "@repo-edu/renderer-host-contract": "workspace:*",
     "@trpc/client": "^11.11.0",
     "@trpc/server": "^11.11.0",
     "electron": "^35.7.5",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "trpc-electron": "^0.1.2"
   },
   "devDependencies": {
@@ -26,6 +31,8 @@
     "dev": "electron-vite dev",
     "preview": "electron-vite preview",
     "validate:trpc": "node ./scripts/validate-trpc-spike.mjs",
+    "validate:shell-boundary": "node ./scripts/validate-shell-boundary.mjs",
+    "validate:phase5": "pnpm run validate:trpc && pnpm run validate:shell-boundary",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
     "test": "node --test"

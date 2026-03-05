@@ -1,230 +1,47 @@
-import { packageId as appPackageId } from "@repo-edu/app";
-import type {
-  AppError,
-  SpikeCorsWorkflowOutput,
-  SpikeCorsWorkflowProgress,
-  SpikeCorsWorkflowResult,
-} from "@repo-edu/application-contract";
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { AppRoot } from "@repo-edu/app";
+import type { AppError } from "@repo-edu/application-contract";
 import { desktopSeedProfileId } from "./profile-ids";
+import { createRendererHostFromBridge } from "./renderer-host-bridge";
 import { createDesktopWorkflowClient } from "./workflow-client";
-
-const mountNode = document.querySelector<HTMLDivElement>("#app");
-
-if (!mountNode) {
-  throw new Error("Renderer mount node #app was not found");
-}
-
-const appRoot = mountNode;
 
 const trpcMarker = "repo-edu-desktop-trpc";
 const searchParams = new URLSearchParams(window.location.search);
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc";
 
-const workflowClient = createDesktopWorkflowClient();
-
-type SpikeState = {
-  progress: SpikeCorsWorkflowProgress[];
-  output: SpikeCorsWorkflowOutput[];
-  result: SpikeCorsWorkflowResult | null;
-  error: string | null;
-  status: string;
-};
-
-function render(state: SpikeState) {
-  const progressMarkup = state.progress
-    .map(
-      (p) => `
-        <li style="margin-top: 12px;">
-          <strong>Step ${p.step}/${p.totalSteps}</strong>: ${p.label}
-        </li>
-      `,
-    )
-    .join("");
-
-  const outputMarkup = state.output
-    .map(
-      (o) => `
-        <li style="margin-top: 6px; color: #94a3b8; font-family: monospace; font-size: 13px;">
-          ${o.line}
-        </li>
-      `,
-    )
-    .join("");
-
-  const resultMarkup = state.result
-    ? `
-      <div style="margin-top: 20px; padding: 16px; border-radius: 12px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3);">
-        <p style="margin: 0 0 8px; font-size: 13px; color: #86efac;">Workflow completed (executed in: ${state.result.executedIn})</p>
-        <p style="margin: 0; font-size: 14px; color: #e5e7eb;">HTTP ${state.result.httpStatus}: ${state.result.bodySnippet}</p>
-      </div>
-    `
-    : "";
-
-  appRoot.innerHTML = `
-    <section
-      style="
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        margin: 0;
-        background:
-          radial-gradient(circle at top, rgba(14, 165, 233, 0.22), transparent 40%),
-          linear-gradient(135deg, #0f172a, #111827 45%, #1f2937);
-        color: #e5e7eb;
-        font-family: Georgia, 'Times New Roman', serif;
-        padding: 32px;
-      "
-    >
-      <article
-        style="
-          width: min(760px, 100%);
-          border: 1px solid rgba(148, 163, 184, 0.25);
-          border-radius: 20px;
-          padding: 28px;
-          background: rgba(15, 23, 42, 0.7);
-          box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
-        "
-      >
-        <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #93c5fd;">
-          Phase 1.3 CORS-Constrained Provider Spike
-        </p>
-        <h1 style="margin: 0; font-size: clamp(32px, 7vw, 56px); line-height: 1.05;">
-          Node-side HTTP via HttpPort.
-        </h1>
-        <p style="margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #cbd5e1;">
-          The renderer subscribes to a <strong>typed tRPC workflow</strong> that calls
-          a CORS-constrained API through a <strong>Node-side HttpPort</strong>
-          while importing the shared app package: <strong>${appPackageId}</strong>.
-        </p>
-        <p style="margin: 20px 0 0; font-size: 14px; color: #bae6fd;">
-          Status: ${state.status}
-        </p>
-        <ol style="margin: 20px 0 0; padding-left: 20px; color: #dbeafe; line-height: 1.7;">
-          ${progressMarkup || "<li>Waiting for workflow progress events...</li>"}
-        </ol>
-        ${outputMarkup ? `<ul style="margin: 12px 0 0; padding-left: 20px; list-style: none;">${outputMarkup}</ul>` : ""}
-        ${resultMarkup}
-        <output id="repo-edu-trpc-marker" hidden></output>
-      </article>
-    </section>
-  `;
+const mountNode = document.querySelector<HTMLDivElement>("#app");
+if (!mountNode) {
+  throw new Error("Renderer mount node #app was not found");
 }
 
-function emitValidationMarker(payload: Record<string, unknown>) {
-  const markerNode = document.querySelector<HTMLOutputElement>(
+if (!window.repoEduDesktopHost) {
+  throw new Error("Desktop renderer host bridge was not exposed from preload.");
+}
+
+const workflowClient = createDesktopWorkflowClient();
+const rendererHost = createRendererHostFromBridge(window.repoEduDesktopHost);
+
+function ensureValidationOutputNode(): HTMLOutputElement {
+  let markerNode = document.querySelector<HTMLOutputElement>(
     "#repo-edu-trpc-marker",
   );
 
-  if (!markerNode) {
-    return;
+  if (markerNode) {
+    return markerNode;
   }
 
+  markerNode = document.createElement("output");
+  markerNode.id = "repo-edu-trpc-marker";
+  markerNode.hidden = true;
+  document.body.append(markerNode);
+  return markerNode;
+}
+
+function emitValidationMarker(payload: Record<string, unknown>) {
+  const markerNode = ensureValidationOutputNode();
   markerNode.value = JSON.stringify(payload);
   markerNode.textContent = markerNode.value;
-}
-
-async function collectValidationSnapshot() {
-  const roster = await workflowClient.run("validation.roster", {
-    profileId: desktopSeedProfileId,
-  });
-  const assignment = await workflowClient.run("validation.assignment", {
-    profileId: desktopSeedProfileId,
-    assignmentId: "a-seed-project-1",
-  });
-
-  return { roster, assignment };
-}
-
-async function collectProfileWorkflowSnapshot() {
-  const profiles = await workflowClient.run("profile.list", undefined);
-  const loaded = await workflowClient.run("profile.load", {
-    profileId: desktopSeedProfileId,
-  });
-  const saved = await workflowClient.run("profile.save", loaded);
-
-  return { profiles, loaded, saved };
-}
-
-async function collectSettingsWorkflowSnapshot() {
-  const loaded = await workflowClient.run("settings.loadApp", undefined);
-  const saved = await workflowClient.run("settings.saveApp", loaded);
-
-  return { loaded, saved };
-}
-
-async function runCorsWorkflowSubscription() {
-  const state: SpikeState = {
-    progress: [],
-    output: [],
-    result: null,
-    error: null,
-    status: "Starting CORS workflow subscription...",
-  };
-
-  render(state);
-
-  try {
-    const result = await workflowClient.run("spike.cors-http", undefined, {
-      onProgress(event) {
-        state.progress.push(event);
-        state.status = `Progress ${event.step}/${event.totalSteps}`;
-        render(state);
-      },
-      onOutput(event) {
-        state.output.push(event);
-        render(state);
-      },
-    });
-
-    state.result = result;
-    state.status = "Workflow completed.";
-    render(state);
-
-    if (isTRPCValidationMode) {
-      const validation = await collectValidationSnapshot();
-      const profile = await collectProfileWorkflowSnapshot();
-      const settings = await collectSettingsWorkflowSnapshot();
-
-      emitValidationMarker({
-        marker: trpcMarker,
-        workflowId: result.workflowId,
-        executedIn: result.executedIn,
-        httpStatus: result.httpStatus,
-        progressCount: state.progress.length,
-        outputCount: state.output.length,
-        validationProfileId: desktopSeedProfileId,
-        profileCount: profile.profiles.length,
-        listedProfileIds: profile.profiles.map((entry) => entry.id),
-        loadedProfileId: profile.loaded.id,
-        savedProfileId: profile.saved.id,
-        savedProfileUpdatedAt: profile.saved.updatedAt,
-        settingsKind: settings.loaded.kind,
-        settingsSchemaVersion: settings.saved.schemaVersion,
-        rosterIssueCount: validation.roster.issues.length,
-        assignmentIssueCount: validation.assignment.issues.length,
-        rosterIssueKinds: validation.roster.issues.map((issue) => issue.kind),
-        assignmentIssueKinds: validation.assignment.issues.map(
-          (issue) => issue.kind,
-        ),
-      });
-    }
-  } catch (error) {
-    const appError = normalizeAppError(error);
-
-    state.error = appError.message;
-    state.status = `${appError.type === "transport" ? "Transport" : "Workflow"} error: ${appError.message}`;
-    render(state);
-
-    if (isTRPCValidationMode) {
-      emitValidationMarker({
-        marker: trpcMarker,
-        error: appError.message,
-        errorType: appError.type,
-      });
-    }
-
-    throw new Error(appError.message);
-  }
 }
 
 function normalizeAppError(error: unknown): AppError {
@@ -246,21 +63,100 @@ function normalizeAppError(error: unknown): AppError {
   };
 }
 
-void runCorsWorkflowSubscription().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
+async function collectValidationSnapshot() {
+  const spikeProgressLabels: string[] = [];
+  const environmentSnapshot = await rendererHost.getEnvironmentSnapshot();
 
-  render({
-    progress: [],
-    output: [],
-    result: null,
-    error: message,
-    status: `Subscription failed: ${message}`,
+  const profileList = await workflowClient.run("profile.list", undefined);
+  const loadedProfile = await workflowClient.run("profile.load", {
+    profileId: desktopSeedProfileId,
+  });
+  const savedProfile = await workflowClient.run("profile.save", loadedProfile);
+
+  const loadedSettings = await workflowClient.run("settings.loadApp", undefined);
+  const savedSettings = await workflowClient.run(
+    "settings.saveApp",
+    loadedSettings,
+  );
+
+  const rosterValidation = await workflowClient.run("validation.roster", {
+    profileId: desktopSeedProfileId,
+  });
+  const assignmentValidation = await workflowClient.run(
+    "validation.assignment",
+    {
+      profileId: desktopSeedProfileId,
+      assignmentId: "a-seed-project-1",
+    },
+  );
+
+  const spike = await workflowClient.run("spike.e2e-trpc", undefined, {
+    onProgress(event) {
+      spikeProgressLabels.push(event.label);
+    },
   });
 
-  if (isTRPCValidationMode) {
+  let repoDeleteErrorType: AppError["type"] | null = null;
+  try {
+    await workflowClient.run("repo.delete", {
+      profileId: desktopSeedProfileId,
+      assignmentId: null,
+      template: null,
+      confirmDelete: false,
+    });
+  } catch (error) {
+    repoDeleteErrorType = normalizeAppError(error).type;
+  }
+
+  return {
+    environmentShell: environmentSnapshot.shell,
+    environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
+    environmentWindowChrome: environmentSnapshot.windowChrome,
+    profileCount: profileList.length,
+    listedProfileIds: profileList.map((entry) => entry.id),
+    loadedProfileId: loadedProfile.id,
+    savedProfileId: savedProfile.id,
+    savedProfileUpdatedAt: savedProfile.updatedAt,
+    settingsKind: loadedSettings.kind,
+    settingsSchemaVersion: savedSettings.schemaVersion,
+    rosterIssueKinds: rosterValidation.issues.map((issue) => issue.kind),
+    assignmentIssueKinds: assignmentValidation.issues.map((issue) => issue.kind),
+    spikeWorkflowId: spike.workflowId,
+    spikeProgressCount: spikeProgressLabels.length,
+    repoDeleteErrorType,
+  };
+}
+
+async function runValidationMode() {
+  try {
+    const snapshot = await collectValidationSnapshot();
+
     emitValidationMarker({
       marker: trpcMarker,
-      error: message,
+      validationProfileId: desktopSeedProfileId,
+      ...snapshot,
     });
+  } catch (error) {
+    const appError = normalizeAppError(error);
+
+    emitValidationMarker({
+      marker: trpcMarker,
+      error: appError.message,
+      errorType: appError.type,
+    });
+
+    throw error;
   }
-});
+}
+
+if (isTRPCValidationMode) {
+  void runValidationMode();
+} else {
+  document.title = "Repo Edu Desktop";
+  createRoot(mountNode).render(
+    React.createElement(AppRoot, {
+      workflowClient,
+      rendererHost,
+    }),
+  );
+}

@@ -11,5 +11,9 @@
     "tsBuildInfoFile": "/tmp/repo-edu-apps-desktop.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../../packages/app" }]
+  "references": [
+    { "path": "../../packages/app" },
+    { "path": "../../packages/integrations-git" },
+    { "path": "../../packages/integrations-lms" }
+  ]
 }

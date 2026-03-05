@@ -1,307 +1,243 @@
 import {
   type AppSettingsStore,
+  createConnectionWorkflowHandlers,
+  createGitUsernameWorkflowHandlers,
+  createGroupSetWorkflowHandlers,
   createProfileWorkflowHandlers,
+  createRepositoryWorkflowHandlers,
+  createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
   type ProfileStore,
+  runInspectUserFileWorkflow,
   runSpikeCorsWorkflow,
   runSpikeWorkflow,
+  runUserFileExportPreviewWorkflow,
 } from "@repo-edu/application";
 import type {
   AppError,
-  AssignmentValidationInput,
-  DiagnosticOutput,
-  MilestoneProgress,
-  RosterValidationInput,
-  SpikeCorsWorkflowEvent,
-  SpikeWorkflowEvent,
   WorkflowEventFor,
+  WorkflowHandler,
+  WorkflowHandlerMap,
+  WorkflowId,
+  WorkflowInput,
 } from "@repo-edu/application-contract";
 import {
   createCancelledAppError,
   isAppError,
+  workflowCatalog,
 } from "@repo-edu/application-contract";
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain";
-import type { HttpPort } from "@repo-edu/host-runtime-contract";
+import type { GitProviderKind, LmsProviderKind } from "@repo-edu/domain";
+import type {
+  FileSystemPort,
+  GitCommandPort,
+  HttpPort,
+  UserFilePort,
+} from "@repo-edu/host-runtime-contract";
+import { createGitProviderClient } from "@repo-edu/integrations-git";
+import type {
+  CreateRepositoriesRequest,
+  DeleteRepositoriesRequest,
+  GitConnectionDraft,
+  ResolveRepositoryCloneUrlsRequest,
+} from "@repo-edu/integrations-git-contract";
+import { createLmsClient } from "@repo-edu/integrations-lms";
+import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract";
 import { initTRPC } from "@trpc/server";
 import { observable } from "@trpc/server/observable";
 
 const t = initTRPC.create();
 
-export type DesktopProgressEvent = {
-  index: number;
-  label: string;
-};
+type DesktopWorkflowId = keyof typeof workflowCatalog;
 
-const phaseOneEvents: readonly DesktopProgressEvent[] = [
-  {
-    index: 1,
-    label: "IPC request reached the Electron main process.",
-  },
-  {
-    index: 2,
-    label: "Typed subscription payload streamed back to the renderer.",
-  },
-  {
-    index: 3,
-    label: "Subscription completed cleanly after multiple progress events.",
-  },
-] as const;
-
-function parseRosterValidationInput(value: unknown): RosterValidationInput {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("Roster validation input must be an object.");
-  }
-
-  const record = value as { profileId?: unknown };
-  if (typeof record.profileId !== "string" || record.profileId.length === 0) {
-    throw new Error("profileId is required.");
-  }
-
-  return {
-    profileId: record.profileId,
-  };
-}
-
-function parseAssignmentValidationInput(
-  value: unknown,
-): AssignmentValidationInput {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("Assignment validation input must be an object.");
-  }
-
-  const record = value as { profileId?: unknown; assignmentId?: unknown };
-  if (typeof record.profileId !== "string" || record.profileId.length === 0) {
-    throw new Error("profileId is required.");
-  }
-  if (
-    typeof record.assignmentId !== "string" ||
-    record.assignmentId.length === 0
-  ) {
-    throw new Error("assignmentId is required.");
-  }
-
-  return {
-    profileId: record.profileId,
-    assignmentId: record.assignmentId,
-  };
-}
-
-function parseProfileLoadInput(value: unknown): { profileId: string } {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("Profile load input must be an object.");
-  }
-
-  const record = value as { profileId?: unknown };
-  if (typeof record.profileId !== "string" || record.profileId.length === 0) {
-    throw new Error("profileId is required.");
-  }
-
-  return {
-    profileId: record.profileId,
-  };
-}
-
-function parsePersistedProfileInput(value: unknown): PersistedProfile {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("Profile save input must be an object.");
-  }
-
-  return value as PersistedProfile;
-}
-
-function parsePersistedAppSettingsInput(value: unknown): PersistedAppSettings {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("App settings input must be an object.");
-  }
-
-  return value as PersistedAppSettings;
-}
-
-/**
- * Creates the desktop tRPC router with injected host ports.
- *
- * Ports are injected at construction so use-cases run Node-side with real
- * adapters while the router definition remains declarative.
- */
-export function createDesktopRouter(ports: {
+export type DesktopRouterPorts = {
   http: HttpPort;
   profileStore: ProfileStore;
   appSettingsStore: AppSettingsStore;
-}) {
-  const profileHandlers = createProfileWorkflowHandlers(ports.profileStore);
-  const settingsHandlers = createSettingsWorkflowHandlers(
-    ports.appSettingsStore,
-  );
-  const validationHandlers = createValidationWorkflowHandlers(
-    ports.profileStore,
-  );
+  userFile: UserFilePort;
+  gitCommand: GitCommandPort;
+  fileSystem: FileSystemPort;
+};
 
-  return t.router({
-    phaseOneProgress: t.procedure.subscription(() =>
-      observable<DesktopProgressEvent>((emit) => {
-        let nextIndex = 0;
+function createLmsProviderDispatch(http: HttpPort) {
+  const clients = new Map<LmsProviderKind, ReturnType<typeof createLmsClient>>();
 
-        const interval = setInterval(() => {
-          const nextEvent = phaseOneEvents[nextIndex];
+  const resolveClient = (provider: LmsProviderKind) => {
+    const existing = clients.get(provider);
+    if (existing) {
+      return existing;
+    }
 
-          if (!nextEvent) {
-            clearInterval(interval);
-            emit.complete();
-            return;
-          }
+    const next = createLmsClient(provider, http);
+    clients.set(provider, next);
+    return next;
+  };
 
-          emit.next(nextEvent);
-          nextIndex += 1;
-        }, 60);
+  return {
+    verifyConnection(draft: LmsConnectionDraft, signal?: AbortSignal) {
+      return resolveClient(draft.provider).verifyConnection(draft, signal);
+    },
+    fetchRoster(
+      draft: LmsConnectionDraft,
+      courseId: string,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).fetchRoster(draft, courseId, signal);
+    },
+    listGroupSets(
+      draft: LmsConnectionDraft,
+      courseId: string,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).listGroupSets(draft, courseId, signal);
+    },
+    fetchGroupSet(
+      draft: LmsConnectionDraft,
+      courseId: string,
+      groupSetId: string,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).fetchGroupSet(
+        draft,
+        courseId,
+        groupSetId,
+        signal,
+      );
+    },
+  };
+}
 
-        return () => {
-          clearInterval(interval);
-        };
-      }),
+function createGitProviderDispatch(http: HttpPort) {
+  const clients = new Map<GitProviderKind, ReturnType<typeof createGitProviderClient>>();
+
+  const resolveClient = (provider: GitProviderKind) => {
+    const existing = clients.get(provider);
+    if (existing) {
+      return existing;
+    }
+
+    const next = createGitProviderClient(provider, http);
+    clients.set(provider, next);
+    return next;
+  };
+
+  return {
+    verifyConnection(
+      draft: GitConnectionDraft,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).verifyConnection(draft, signal);
+    },
+    verifyGitUsernames(
+      draft: GitConnectionDraft,
+      usernames: string[],
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).verifyGitUsernames(
+        draft,
+        usernames,
+        signal,
+      );
+    },
+    createRepositories(
+      draft: GitConnectionDraft,
+      request: CreateRepositoriesRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).createRepositories(draft, request, signal);
+    },
+    resolveRepositoryCloneUrls(
+      draft: GitConnectionDraft,
+      request: ResolveRepositoryCloneUrlsRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).resolveRepositoryCloneUrls(
+        draft,
+        request,
+        signal,
+      );
+    },
+    deleteRepositories(
+      draft: GitConnectionDraft,
+      request: DeleteRepositoriesRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).deleteRepositories(draft, request, signal);
+    },
+  };
+}
+
+function createDesktopWorkflowRegistry(
+  ports: DesktopRouterPorts,
+): WorkflowHandlerMap<DesktopWorkflowId> {
+  const lms = createLmsProviderDispatch(ports.http);
+  const git = createGitProviderDispatch(ports.http);
+
+  return {
+    ...createProfileWorkflowHandlers(ports.profileStore),
+    ...createSettingsWorkflowHandlers(ports.appSettingsStore),
+    ...createConnectionWorkflowHandlers({ lms, git }),
+    ...createRosterWorkflowHandlers(ports.profileStore, ports.appSettingsStore, {
+      lms,
+      userFile: ports.userFile,
+    }),
+    ...createGroupSetWorkflowHandlers(
+      ports.profileStore,
+      ports.appSettingsStore,
+      {
+        lms,
+        userFile: ports.userFile,
+      },
     ),
+    ...createGitUsernameWorkflowHandlers(
+      ports.profileStore,
+      ports.appSettingsStore,
+      {
+        userFile: ports.userFile,
+        git,
+      },
+    ),
+    ...createValidationWorkflowHandlers(ports.profileStore),
+    ...createRepositoryWorkflowHandlers(
+      ports.profileStore,
+      ports.appSettingsStore,
+      {
+        git,
+        gitCommand: ports.gitCommand,
+        fileSystem: ports.fileSystem,
+      },
+    ),
+    "userFile.inspectSelection": (input, options) =>
+      runInspectUserFileWorkflow(ports.userFile, input, options),
+    "userFile.exportPreview": (input, options) =>
+      runUserFileExportPreviewWorkflow(ports.userFile, input, options),
+    "spike.e2e-trpc": (_input, options) => runSpikeWorkflow(options),
+    "spike.cors-http": (_input, options) =>
+      runSpikeCorsWorkflow({ http: ports.http }, options),
+  };
+}
 
-    profileListWorkflow: t.procedure.subscription(() =>
-      observable<WorkflowEventFor<"profile.list">>((emit) => {
+function createWorkflowSubscriptionProcedure<TWorkflowId extends DesktopWorkflowId>(
+  handler: WorkflowHandler<TWorkflowId>,
+) {
+  return t.procedure
+    .input({
+      parse(value: unknown): WorkflowInput<TWorkflowId> {
+        return value as WorkflowInput<TWorkflowId>;
+      },
+    })
+    .subscription(({ input }) =>
+      observable<WorkflowEventFor<TWorkflowId>>((emit) => {
         const abortController = new AbortController();
 
-        profileHandlers["profile.list"](undefined, {
+        handler(input, {
           signal: abortController.signal,
-        })
-          .then((result) => {
-            emit.next({ type: "completed", data: result });
-            emit.complete();
-          })
-          .catch((error) => {
-            emitFailure(emit, abortController.signal, error);
-          });
-
-        return () => {
-          abortController.abort();
-        };
-      }),
-    ),
-
-    profileLoadWorkflow: t.procedure
-      .input({ parse: parseProfileLoadInput })
-      .subscription(({ input }) =>
-        observable<WorkflowEventFor<"profile.load">>((emit) => {
-          const abortController = new AbortController();
-
-          profileHandlers["profile.load"](input, {
-            signal: abortController.signal,
-            onProgress(data: MilestoneProgress) {
-              emit.next({ type: "progress", data });
-            },
-            onOutput(data: DiagnosticOutput) {
-              emit.next({ type: "output", data });
-            },
-          })
-            .then((result) => {
-              emit.next({ type: "completed", data: result });
-              emit.complete();
-            })
-            .catch((error) => {
-              emitFailure(emit, abortController.signal, error);
-            });
-
-          return () => {
-            abortController.abort();
-          };
-        }),
-      ),
-
-    profileSaveWorkflow: t.procedure
-      .input({ parse: parsePersistedProfileInput })
-      .subscription(({ input }) =>
-        observable<WorkflowEventFor<"profile.save">>((emit) => {
-          const abortController = new AbortController();
-
-          profileHandlers["profile.save"](input, {
-            signal: abortController.signal,
-            onProgress(data: MilestoneProgress) {
-              emit.next({ type: "progress", data });
-            },
-            onOutput(data: DiagnosticOutput) {
-              emit.next({ type: "output", data });
-            },
-          })
-            .then((result) => {
-              emit.next({ type: "completed", data: result });
-              emit.complete();
-            })
-            .catch((error) => {
-              emitFailure(emit, abortController.signal, error);
-            });
-
-          return () => {
-            abortController.abort();
-          };
-        }),
-      ),
-
-    settingsLoadWorkflow: t.procedure.subscription(() =>
-      observable<WorkflowEventFor<"settings.loadApp">>((emit) => {
-        const abortController = new AbortController();
-
-        settingsHandlers["settings.loadApp"](undefined, {
-          signal: abortController.signal,
-        })
-          .then((result) => {
-            emit.next({ type: "completed", data: result });
-            emit.complete();
-          })
-          .catch((error) => {
-            emitFailure(emit, abortController.signal, error);
-          });
-
-        return () => {
-          abortController.abort();
-        };
-      }),
-    ),
-
-    settingsSaveWorkflow: t.procedure
-      .input({ parse: parsePersistedAppSettingsInput })
-      .subscription(({ input }) =>
-        observable<WorkflowEventFor<"settings.saveApp">>((emit) => {
-          const abortController = new AbortController();
-
-          settingsHandlers["settings.saveApp"](input, {
-            signal: abortController.signal,
-            onProgress(data: MilestoneProgress) {
-              emit.next({ type: "progress", data });
-            },
-            onOutput(data: DiagnosticOutput) {
-              emit.next({ type: "output", data });
-            },
-          })
-            .then((result) => {
-              emit.next({ type: "completed", data: result });
-              emit.complete();
-            })
-            .catch((error) => {
-              emitFailure(emit, abortController.signal, error);
-            });
-
-          return () => {
-            abortController.abort();
-          };
-        }),
-      ),
-
-    spikeWorkflow: t.procedure.subscription(() =>
-      observable<SpikeWorkflowEvent>((emit) => {
-        const abortController = new AbortController();
-
-        runSpikeWorkflow({
           onProgress(data) {
             emit.next({ type: "progress", data });
           },
           onOutput(data) {
             emit.next({ type: "output", data });
           },
-          signal: abortController.signal,
         })
           .then((result) => {
             emit.next({ type: "completed", data: result });
@@ -315,83 +251,93 @@ export function createDesktopRouter(ports: {
           abortController.abort();
         };
       }),
+    );
+}
+
+/**
+ * Creates the Electron main-side tRPC router for all shared workflow ids.
+ *
+ * Workflow registration is compile-time exhaustive through WorkflowHandlerMap.
+ */
+export function createDesktopRouter(ports: DesktopRouterPorts) {
+  const workflowRegistry = createDesktopWorkflowRegistry(ports);
+
+  return t.router({
+    "profile.list": createWorkflowSubscriptionProcedure(
+      workflowRegistry["profile.list"],
     ),
-
-    spikeCorsWorkflow: t.procedure.subscription(() =>
-      observable<SpikeCorsWorkflowEvent>((emit) => {
-        const abortController = new AbortController();
-
-        runSpikeCorsWorkflow(
-          { http: ports.http },
-          {
-            onProgress(data) {
-              emit.next({ type: "progress", data });
-            },
-            onOutput(data) {
-              emit.next({ type: "output", data });
-            },
-            signal: abortController.signal,
-          },
-        )
-          .then((result) => {
-            emit.next({ type: "completed", data: result });
-            emit.complete();
-          })
-          .catch((error) => {
-            emitFailure(emit, abortController.signal, error);
-          });
-
-        return () => {
-          abortController.abort();
-        };
-      }),
+    "profile.load": createWorkflowSubscriptionProcedure(
+      workflowRegistry["profile.load"],
     ),
-
-    validationRosterWorkflow: t.procedure
-      .input({ parse: parseRosterValidationInput })
-      .subscription(({ input }) =>
-        observable<WorkflowEventFor<"validation.roster">>((emit) => {
-          const abortController = new AbortController();
-
-          validationHandlers["validation.roster"](input, {
-            signal: abortController.signal,
-          })
-            .then((result) => {
-              emit.next({ type: "completed", data: result });
-              emit.complete();
-            })
-            .catch((error) => {
-              emitFailure(emit, abortController.signal, error);
-            });
-
-          return () => {
-            abortController.abort();
-          };
-        }),
-      ),
-
-    validationAssignmentWorkflow: t.procedure
-      .input({ parse: parseAssignmentValidationInput })
-      .subscription(({ input }) =>
-        observable<WorkflowEventFor<"validation.assignment">>((emit) => {
-          const abortController = new AbortController();
-
-          validationHandlers["validation.assignment"](input, {
-            signal: abortController.signal,
-          })
-            .then((result) => {
-              emit.next({ type: "completed", data: result });
-              emit.complete();
-            })
-            .catch((error) => {
-              emitFailure(emit, abortController.signal, error);
-            });
-
-          return () => {
-            abortController.abort();
-          };
-        }),
-      ),
+    "profile.save": createWorkflowSubscriptionProcedure(
+      workflowRegistry["profile.save"],
+    ),
+    "settings.loadApp": createWorkflowSubscriptionProcedure(
+      workflowRegistry["settings.loadApp"],
+    ),
+    "settings.saveApp": createWorkflowSubscriptionProcedure(
+      workflowRegistry["settings.saveApp"],
+    ),
+    "connection.verifyLmsDraft": createWorkflowSubscriptionProcedure(
+      workflowRegistry["connection.verifyLmsDraft"],
+    ),
+    "connection.verifyGitDraft": createWorkflowSubscriptionProcedure(
+      workflowRegistry["connection.verifyGitDraft"],
+    ),
+    "roster.importFromFile": createWorkflowSubscriptionProcedure(
+      workflowRegistry["roster.importFromFile"],
+    ),
+    "roster.importFromLms": createWorkflowSubscriptionProcedure(
+      workflowRegistry["roster.importFromLms"],
+    ),
+    "roster.exportStudents": createWorkflowSubscriptionProcedure(
+      workflowRegistry["roster.exportStudents"],
+    ),
+    "groupSet.fetchAvailableFromLms": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.fetchAvailableFromLms"],
+    ),
+    "groupSet.syncFromLms": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.syncFromLms"],
+    ),
+    "groupSet.previewImportFromFile": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.previewImportFromFile"],
+    ),
+    "groupSet.previewReimportFromFile": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.previewReimportFromFile"],
+    ),
+    "groupSet.export": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.export"],
+    ),
+    "gitUsernames.import": createWorkflowSubscriptionProcedure(
+      workflowRegistry["gitUsernames.import"],
+    ),
+    "validation.roster": createWorkflowSubscriptionProcedure(
+      workflowRegistry["validation.roster"],
+    ),
+    "validation.assignment": createWorkflowSubscriptionProcedure(
+      workflowRegistry["validation.assignment"],
+    ),
+    "repo.create": createWorkflowSubscriptionProcedure(
+      workflowRegistry["repo.create"],
+    ),
+    "repo.clone": createWorkflowSubscriptionProcedure(
+      workflowRegistry["repo.clone"],
+    ),
+    "repo.delete": createWorkflowSubscriptionProcedure(
+      workflowRegistry["repo.delete"],
+    ),
+    "userFile.inspectSelection": createWorkflowSubscriptionProcedure(
+      workflowRegistry["userFile.inspectSelection"],
+    ),
+    "userFile.exportPreview": createWorkflowSubscriptionProcedure(
+      workflowRegistry["userFile.exportPreview"],
+    ),
+    "spike.e2e-trpc": createWorkflowSubscriptionProcedure(
+      workflowRegistry["spike.e2e-trpc"],
+    ),
+    "spike.cors-http": createWorkflowSubscriptionProcedure(
+      workflowRegistry["spike.cors-http"],
+    ),
   });
 }
 
@@ -423,7 +369,9 @@ function emitFailure(
       },
     });
   }
+
   emit.complete();
 }
 
 export type DesktopRouter = ReturnType<typeof createDesktopRouter>;
+export type { DesktopWorkflowId as DesktopWorkflowKey, WorkflowId };
