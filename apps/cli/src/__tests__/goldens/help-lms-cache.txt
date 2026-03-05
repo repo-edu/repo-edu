@@ -1,0 +1,13 @@
+Usage: redu lms cache [options] [command]
+
+Manage cached LMS group sets
+
+Options:
+  -h, --help              display help for command
+
+Commands:
+  list                    List cached LMS group sets in selected profile
+  fetch [options]         Fetch available LMS group sets for selected profile
+  refresh <group-set-id>  Refresh a cached group set
+  delete <group-set-id>   Delete a cached group set
+  help [command]          display help for command

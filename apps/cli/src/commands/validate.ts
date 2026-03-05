@@ -1,86 +1,26 @@
-import {
-  createProfileWorkflowHandlers,
-  createSettingsWorkflowHandlers,
-  createValidationWorkflowHandlers,
-} from "@repo-edu/application";
 import type { Command } from "commander";
 import {
-  createCliAppSettingsStore,
-  createCliProfileStore,
-} from "../state-store.js";
-
-function emitCommandError(message: string): void {
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 1;
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-  ) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
-function resolveRequestedProfileId(
-  command: Command,
-  fallbackActiveProfileId: string | null,
-): string | null {
-  const options = command.optsWithGlobals() as { profile?: unknown };
-  if (typeof options.profile === "string" && options.profile.length > 0) {
-    return options.profile;
-  }
-
-  return fallbackActiveProfileId;
-}
+  emitCommandError,
+  loadSelectedProfile,
+  resolveAssignmentFromProfile,
+  toErrorMessage,
+} from "../command-utils.js";
+import { createCliWorkflowClient } from "../workflow-runtime.js";
 
 export function registerValidateCommand(parent: Command): void {
   parent
     .command("validate")
     .description("Validate assignment readiness")
-    .requiredOption("--assignment <name>", "Assignment name")
+    .requiredOption("--assignment <name>", "Assignment name or id")
     .action(async function (this: Command, options: { assignment: string }) {
-      const profileHandlers = createProfileWorkflowHandlers(
-        createCliProfileStore(),
-      );
-      const settingsHandlers = createSettingsWorkflowHandlers(
-        createCliAppSettingsStore(),
-      );
-      const validationHandlers = createValidationWorkflowHandlers(
-        createCliProfileStore(),
-      );
+      const workflowClient = createCliWorkflowClient();
 
       try {
-        const settings = await settingsHandlers["settings.loadApp"](undefined);
-        const selectedProfileId = resolveRequestedProfileId(
+        const { profile, selectedProfileId } = await loadSelectedProfile(
           this,
-          settings.activeProfileId,
+          workflowClient,
         );
-
-        if (selectedProfileId === null) {
-          emitCommandError(
-            "No active profile. Use --profile <id> or `redu profile load <id>`.",
-          );
-          return;
-        }
-
-        const profile = await profileHandlers["profile.load"]({
-          profileId: selectedProfileId,
-        });
-        const assignment = profile.roster.assignments.find(
-          (entry) =>
-            entry.name.toLowerCase() === options.assignment.toLowerCase() ||
-            entry.id === options.assignment,
-        );
+        const assignment = resolveAssignmentFromProfile(profile, options.assignment);
 
         if (!assignment) {
           emitCommandError(
@@ -89,15 +29,17 @@ export function registerValidateCommand(parent: Command): void {
           return;
         }
 
-        const rosterValidation = await validationHandlers["validation.roster"]({
+        const rosterValidation = await workflowClient.run("validation.roster", {
           profileId: selectedProfileId,
         });
-        const assignmentValidation = await validationHandlers[
-          "validation.assignment"
-        ]({
-          profileId: selectedProfileId,
-          assignmentId: assignment.id,
-        });
+        const assignmentValidation = await workflowClient.run(
+          "validation.assignment",
+          {
+            profileId: selectedProfileId,
+            assignmentId: assignment.id,
+          },
+        );
+
         const allIssues = [
           ...rosterValidation.issues,
           ...assignmentValidation.issues,
@@ -118,6 +60,7 @@ export function registerValidateCommand(parent: Command): void {
             `- ${issue.kind} [${issue.affectedIds.join(", ")}]${issue.context ? `: ${issue.context}` : ""}\n`,
           );
         }
+
         process.exitCode = 1;
       } catch (error) {
         emitCommandError(toErrorMessage(error));

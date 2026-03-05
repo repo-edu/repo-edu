@@ -1,0 +1,17 @@
+Usage: redu [options] [command]
+
+Repository management for education
+
+Options:
+  -V, --version       output the version number
+  --profile <name>    Profile to use (default: active profile)
+  -h, --help          display help for command
+
+Commands:
+  profile             Profile management
+  roster              Roster operations
+  lms                 LMS operations
+  git                 Git platform operations
+  repo                Repository operations
+  validate [options]  Validate assignment readiness
+  help [command]      display help for command
