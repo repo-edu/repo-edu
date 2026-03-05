@@ -1,6 +1,9 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { AppRoot } from "@repo-edu/app";
+import "../../../packages/app/src/App.css";
+import {
+  AppRoot,
+} from "@repo-edu/app";
 import type { AppError } from "@repo-edu/application-contract";
 import { desktopSeedProfileId } from "./profile-ids";
 import { createRendererHostFromBridge } from "./renderer-host-bridge";

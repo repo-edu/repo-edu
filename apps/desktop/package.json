@@ -8,10 +8,10 @@
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
-    "@repo-edu/integrations-git": "workspace:*",
-    "@repo-edu/integrations-lms": "workspace:*",
     "@repo-edu/host-node": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
+    "@repo-edu/integrations-git": "workspace:*",
+    "@repo-edu/integrations-lms": "workspace:*",
     "@repo-edu/renderer-host-contract": "workspace:*",
     "@trpc/client": "^11.11.0",
     "@trpc/server": "^11.11.0",
@@ -21,9 +21,11 @@
     "trpc-electron": "^0.1.2"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "electron-vite": "^3.1.0"
+    "electron-vite": "^3.1.0",
+    "tailwindcss": "^4.2.1"
   },
   "scripts": {
     "build": "electron-vite build",
