@@ -240,6 +240,16 @@ app.whenReady().then(async () => {
   });
 });
 
+process.on("uncaughtException", (error) => {
+  process.stderr.write(`[desktop] uncaught-exception ${error.stack ?? error.message}\n`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  const text =
+    reason instanceof Error ? reason.stack ?? reason.message : String(reason);
+  process.stderr.write(`[desktop] unhandled-rejection ${text}\n`);
+});
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
