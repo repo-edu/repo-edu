@@ -22,6 +22,7 @@ import { getRendererHost } from "../../contexts/renderer-host.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 export function ImportGroupSetDialog() {
   const [fileName, setFileName] = useState("");
@@ -73,7 +74,7 @@ export function ImportGroupSetDialog() {
         setPreview(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -98,7 +99,7 @@ export function ImportGroupSetDialog() {
       addToast(`Imported "${groupSetName}"`, { tone: "success" });
       handleClose();
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = getErrorMessage(e);
       setError(message);
       addToast(`Import failed: ${message}`, { tone: "error" });
     } finally {

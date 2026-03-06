@@ -82,9 +82,24 @@ export function SettingsSheet() {
           </nav>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {activeCategory === "connections" && <ConnectionsPane />}
-            {activeCategory === "display" && <DisplayPane />}
-            {activeCategory === "shortcuts" && <KeyboardShortcutsPane />}
+            <div
+              className={cn(activeCategory === "connections" ? "block" : "hidden")}
+              aria-hidden={activeCategory !== "connections"}
+            >
+              <ConnectionsPane />
+            </div>
+            <div
+              className={cn(activeCategory === "display" ? "block" : "hidden")}
+              aria-hidden={activeCategory !== "display"}
+            >
+              <DisplayPane />
+            </div>
+            <div
+              className={cn(activeCategory === "shortcuts" ? "block" : "hidden")}
+              aria-hidden={activeCategory !== "shortcuts"}
+            >
+              <KeyboardShortcutsPane />
+            </div>
           </div>
         </div>
       </SheetContent>

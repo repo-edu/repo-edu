@@ -6,7 +6,7 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
 } from "@repo-edu/host-node";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { createIPCHandler } from "trpc-electron/main";
 import { createDesktopHostEnvironment } from "./desktop-host";
 import { createDesktopProfileStore } from "./profile-store";
@@ -53,6 +53,10 @@ function resolveRendererUrl() {
   return `${fileUrl}${validationSuffix}`;
 }
 
+function resolveStorageRootPath() {
+  return join(app.getPath("appData"), "repo-edu");
+}
+
 function registerRendererHostIpcHandlers() {
   if (hostIpcRegistered) {
     return;
@@ -92,6 +96,21 @@ function registerRendererHostIpcHandlers() {
       return await desktopHost.getEnvironmentSnapshot();
     },
   );
+
+  ipcMain.handle(
+    desktopRendererHostChannels.setNativeTheme,
+    (_event, theme: "light" | "dark" | "system") => {
+      nativeTheme.themeSource = theme;
+    },
+  );
+
+  ipcMain.handle(
+    desktopRendererHostChannels.revealProfilesDirectory,
+    async () => {
+      const profilesDir = join(resolveStorageRootPath(), "profiles");
+      await shell.openPath(profilesDir);
+    },
+  );
 }
 
 function handleValidationMarker(message: string) {
@@ -120,8 +139,8 @@ async function createWindow() {
     width: 1180,
     height: 760,
     show: !(isMeasureMode || isTRPCValidationMode),
-    backgroundColor: "#111827",
-    titleBarStyle: "hiddenInset",
+    title: "Repo Edu Desktop",
+    backgroundColor: "#f5f5f5",
     webPreferences: {
       contextIsolation: true,
       preload: resolvePreloadPath(),
@@ -130,10 +149,11 @@ async function createWindow() {
   });
 
   if (!desktopRouter) {
+    const storageRoot = resolveStorageRootPath();
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
-      profileStore: createDesktopProfileStore(app.getPath("userData")),
-      appSettingsStore: createDesktopAppSettingsStore(app.getPath("userData")),
+      profileStore: createDesktopProfileStore(storageRoot),
+      appSettingsStore: createDesktopAppSettingsStore(storageRoot),
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,

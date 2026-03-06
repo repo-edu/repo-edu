@@ -189,6 +189,12 @@ export type VerifyLmsDraftInput = {
   token: string;
 };
 
+export type ListLmsCoursesDraftInput = {
+  provider: LmsProviderKind;
+  baseUrl: string;
+  token: string;
+};
+
 export type VerifyGitDraftInput = {
   provider: GitProviderKind;
   baseUrl: string | null;
@@ -199,6 +205,12 @@ export type VerifyGitDraftInput = {
 export type ConnectionVerificationResult = {
   verified: boolean;
   checkedAt: string;
+};
+
+export type LmsCourseSummary = {
+  id: string;
+  name: string;
+  code: string | null;
 };
 
 export type RosterImportFromFileInput = {
@@ -333,6 +345,12 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput;
     result: PersistedProfile;
   };
+  "profile.delete": {
+    input: { profileId: string };
+    progress: never;
+    output: never;
+    result: void;
+  };
   "settings.loadApp": {
     input: undefined;
     progress: never;
@@ -350,6 +368,12 @@ export type WorkflowPayloads = {
     progress: MilestoneProgress;
     output: DiagnosticOutput;
     result: ConnectionVerificationResult;
+  };
+  "connection.listLmsCoursesDraft": {
+    input: ListLmsCoursesDraftInput;
+    progress: MilestoneProgress;
+    output: DiagnosticOutput;
+    result: LmsCourseSummary[];
   };
   "connection.verifyGitDraft": {
     input: VerifyGitDraftInput;
@@ -489,6 +513,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
+  "profile.delete": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "none",
+    cancellation: "non-cancellable",
+  },
   "settings.loadApp": {
     delivery: ["desktop", "docs"],
     progress: "none",
@@ -500,6 +529,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "cooperative",
   },
   "connection.verifyLmsDraft": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "connection.listLmsCoursesDraft": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",

@@ -1,4 +1,8 @@
-import type { ThemePreference, WindowChromeMode } from "@repo-edu/domain";
+import type {
+  DateFormatPreference,
+  ThemePreference,
+  TimeFormatPreference,
+} from "@repo-edu/domain";
 import {
   FormField,
   Select,
@@ -10,6 +14,7 @@ import {
 } from "@repo-edu/ui";
 import { useState } from "react";
 import { useAppSettingsStore } from "../../stores/app-settings-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 const THEMES: Array<{ value: ThemePreference; label: string }> = [
   { value: "light", label: "Light" },
@@ -17,18 +22,35 @@ const THEMES: Array<{ value: ThemePreference; label: string }> = [
   { value: "system", label: "System" },
 ];
 
-const WINDOW_CHROME_MODES: Array<{ value: WindowChromeMode; label: string }> = [
-  { value: "system", label: "System Default" },
-  { value: "hiddenInset", label: "Hidden Inset" },
+const DATE_FORMATS: Array<{
+  value: DateFormatPreference;
+  label: string;
+  example: string;
+}> = [
+  { value: "MDY", label: "MM/DD/YYYY", example: "01/31/2025" },
+  { value: "DMY", label: "DD/MM/YYYY", example: "31/01/2025" },
+];
+
+const TIME_FORMATS: Array<{
+  value: TimeFormatPreference;
+  label: string;
+  example: string;
+}> = [
+  { value: "12h", label: "12-hour", example: "2:30 PM" },
+  { value: "24h", label: "24-hour", example: "14:30" },
 ];
 
 export function DisplayPane() {
   const theme = useAppSettingsStore((state) => state.settings.appearance.theme);
-  const windowChrome = useAppSettingsStore(
-    (state) => state.settings.appearance.windowChrome,
+  const dateFormat = useAppSettingsStore(
+    (state) => state.settings.appearance.dateFormat,
+  );
+  const timeFormat = useAppSettingsStore(
+    (state) => state.settings.appearance.timeFormat,
   );
   const setTheme = useAppSettingsStore((state) => state.setTheme);
-  const setWindowChrome = useAppSettingsStore((state) => state.setWindowChrome);
+  const setDateFormat = useAppSettingsStore((state) => state.setDateFormat);
+  const setTimeFormat = useAppSettingsStore((state) => state.setTimeFormat);
   const saveAppSettings = useAppSettingsStore((state) => state.save);
 
   const [saving, setSaving] = useState(false);
@@ -40,7 +62,7 @@ export function DisplayPane() {
     try {
       await saveAppSettings();
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
+      const message = getErrorMessage(cause);
       setError(message);
     } finally {
       setSaving(false);
@@ -52,8 +74,13 @@ export function DisplayPane() {
     void persist();
   };
 
-  const handleWindowChromeChange = (value: WindowChromeMode) => {
-    setWindowChrome(value);
+  const handleDateFormatChange = (value: DateFormatPreference) => {
+    setDateFormat(value);
+    void persist();
+  };
+
+  const handleTimeFormatChange = (value: TimeFormatPreference) => {
+    setTimeFormat(value);
     void persist();
   };
 
@@ -79,18 +106,43 @@ export function DisplayPane() {
       </FormField>
 
       <FormField
-        label="Window Chrome"
-        htmlFor="display-window-chrome"
-        description="Desktop shell window frame behavior."
+        label="Date Format"
+        htmlFor="display-date-format"
+        description="Format used for displaying dates throughout the application."
       >
-        <Select value={windowChrome} onValueChange={handleWindowChromeChange}>
-          <SelectTrigger id="display-window-chrome" className="w-52">
+        <Select value={dateFormat} onValueChange={handleDateFormatChange}>
+          <SelectTrigger id="display-date-format" className="w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {WINDOW_CHROME_MODES.map((option) => (
+            {DATE_FORMATS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({option.example})
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField
+        label="Time Format"
+        htmlFor="display-time-format"
+        description="Format used for displaying times throughout the application."
+      >
+        <Select value={timeFormat} onValueChange={handleTimeFormatChange}>
+          <SelectTrigger id="display-time-format" className="w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TIME_FORMATS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({option.example})
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

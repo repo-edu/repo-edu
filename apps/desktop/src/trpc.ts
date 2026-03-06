@@ -77,6 +77,9 @@ function createLmsProviderDispatch(http: HttpPort) {
     verifyConnection(draft: LmsConnectionDraft, signal?: AbortSignal) {
       return resolveClient(draft.provider).verifyConnection(draft, signal);
     },
+    listCourses(draft: LmsConnectionDraft, signal?: AbortSignal) {
+      return resolveClient(draft.provider).listCourses(draft, signal);
+    },
     fetchRoster(
       draft: LmsConnectionDraft,
       courseId: string,
@@ -272,6 +275,9 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
     "profile.save": createWorkflowSubscriptionProcedure(
       workflowRegistry["profile.save"],
     ),
+    "profile.delete": createWorkflowSubscriptionProcedure(
+      workflowRegistry["profile.delete"],
+    ),
     "settings.loadApp": createWorkflowSubscriptionProcedure(
       workflowRegistry["settings.loadApp"],
     ),
@@ -280,6 +286,9 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
     ),
     "connection.verifyLmsDraft": createWorkflowSubscriptionProcedure(
       workflowRegistry["connection.verifyLmsDraft"],
+    ),
+    "connection.listLmsCoursesDraft": createWorkflowSubscriptionProcedure(
+      workflowRegistry["connection.listLmsCoursesDraft"],
     ),
     "connection.verifyGitDraft": createWorkflowSubscriptionProcedure(
       workflowRegistry["connection.verifyGitDraft"],

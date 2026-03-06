@@ -1,4 +1,5 @@
-import { Button, EmptyState } from "@repo-edu/ui";
+import { Button } from "@repo-edu/ui";
+import { NoProfileEmptyState } from "../NoProfileEmptyState.js";
 import type { Roster } from "@repo-edu/domain";
 import {
   useProfileStore,
@@ -10,6 +11,7 @@ import { useUiStore } from "../../stores/ui-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { getWorkflowClient } from "../../contexts/workflow-client.js";
 import { getRendererHost } from "../../contexts/renderer-host.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 import { MemberListPane } from "./roster/MemberListPane.js";
 
 type RosterTabProps = {
@@ -25,9 +27,6 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
   const courseId = useProfileStore(selectCourseId);
   const addToast = useToastStore((s) => s.addToast);
 
-  const setNewProfileDialogOpen = useUiStore(
-    (s) => s.setNewProfileDialogOpen,
-  );
   const setImportFileDialogOpen = useUiStore(
     (s) => s.setImportFileDialogOpen,
   );
@@ -83,21 +82,13 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
       });
       addToast("Students exported", { tone: "success" });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       addToast(`Export failed: ${message}`, { tone: "error" });
     }
   };
 
   if (!activeProfileId || !profile) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message="Select a profile to view the roster.">
-          <Button onClick={() => setNewProfileDialogOpen(true)}>
-            Create Profile
-          </Button>
-        </EmptyState>
-      </div>
-    );
+    return <NoProfileEmptyState tabLabel="the roster" />;
   }
 
   return (

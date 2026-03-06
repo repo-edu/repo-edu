@@ -1,15 +1,17 @@
 import { create } from "zustand";
 import type {
+  DateFormatPreference,
   PersistedAppSettings,
   PersistedGitConnection,
   PersistedLmsConnection,
   ThemePreference,
-  WindowChromeMode,
+  TimeFormatPreference,
 } from "@repo-edu/domain";
 import { defaultAppSettings, persistedAppSettingsKind } from "@repo-edu/domain";
 import { getWorkflowClient } from "../contexts/workflow-client.js";
 import { useConnectionsStore } from "./connections-store.js";
 import type { StoreStatus } from "../types/index.js";
+import { getErrorMessage } from "../utils/error-message.js";
 
 type AppSettingsState = {
   settings: PersistedAppSettings;
@@ -26,7 +28,8 @@ type AppSettingsActions = {
   setActiveProfileId: (profileId: string | null) => void;
 
   setTheme: (theme: ThemePreference) => void;
-  setWindowChrome: (mode: WindowChromeMode) => void;
+  setDateFormat: (dateFormat: DateFormatPreference) => void;
+  setTimeFormat: (timeFormat: TimeFormatPreference) => void;
 
   setLmsConnection: (
     index: number,
@@ -75,7 +78,7 @@ export const useAppSettingsStore = create<
     } catch (err) {
       set({
         status: "error",
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
       });
     }
   },
@@ -89,7 +92,7 @@ export const useAppSettingsStore = create<
     } catch (err) {
       set({
         status: "error",
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
       });
     }
   },
@@ -110,18 +113,35 @@ export const useAppSettingsStore = create<
       },
     })),
 
-  setWindowChrome: (mode) =>
+  setDateFormat: (dateFormat) =>
     set((state) => ({
       settings: {
         ...state.settings,
-        appearance: { ...state.settings.appearance, windowChrome: mode },
+        appearance: { ...state.settings.appearance, dateFormat },
+      },
+    })),
+
+  setTimeFormat: (timeFormat) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        appearance: { ...state.settings.appearance, timeFormat },
       },
     })),
 
   setLmsConnection: (index, connection) =>
     set((state) => {
       const connections = [...state.settings.lmsConnections];
+      const previousName = connections[index]?.name ?? null;
       connections[index] = connection;
+      if (
+        previousName !== null &&
+        previousName !== connection.name
+      ) {
+        useConnectionsStore
+          .getState()
+          .renameLmsConnectionStatus(previousName, connection.name);
+      }
       return {
         settings: { ...state.settings, lmsConnections: connections },
       };
@@ -136,14 +156,20 @@ export const useAppSettingsStore = create<
     })),
 
   removeLmsConnection: (index) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        lmsConnections: state.settings.lmsConnections.filter(
-          (_, i) => i !== index,
-        ),
-      },
-    })),
+    set((state) => {
+      const removedName = state.settings.lmsConnections[index]?.name ?? null;
+      if (removedName !== null) {
+        useConnectionsStore.getState().removeLmsConnectionStatus(removedName);
+      }
+      return {
+        settings: {
+          ...state.settings,
+          lmsConnections: state.settings.lmsConnections.filter(
+            (_, i) => i !== index,
+          ),
+        },
+      };
+    }),
 
   addGitConnection: (connection) =>
     set((state) => ({
@@ -199,8 +225,6 @@ export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme;
 export const selectAppSettingsActiveProfileId = (state: AppSettingsState) =>
   state.settings.activeProfileId;
-export const selectWindowChrome = (state: AppSettingsState) =>
-  state.settings.appearance.windowChrome;
 export const selectLmsConnections = (state: AppSettingsState) =>
   state.settings.lmsConnections;
 export const selectGitConnections = (state: AppSettingsState) =>

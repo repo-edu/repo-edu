@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AppSettingsStore, ProfileStore } from "@repo-edu/application";
@@ -123,6 +123,12 @@ export function createCliProfileStore(
         "utf8",
       );
       return validation.value;
+    },
+
+    async deleteProfile(profileId: string, signal?: AbortSignal) {
+      throwIfAborted(signal);
+      const profilePath = resolveProfilePath(storageRoot, profileId);
+      await rm(profilePath, { force: true });
     },
   };
 }

@@ -1,5 +1,5 @@
-import { Button, EmptyState } from "@repo-edu/ui";
 import { useCallback, useRef } from "react";
+import { NoProfileEmptyState } from "../NoProfileEmptyState.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js";
@@ -10,9 +10,6 @@ export function GroupsAssignmentsTab() {
 
   const activeProfileId = useUiStore((s) => s.activeProfileId);
   const profile = useProfileStore((s) => s.profile);
-  const setNewProfileDialogOpen = useUiStore(
-    (s) => s.setNewProfileDialogOpen,
-  );
   const selection = useUiStore((s) => s.sidebarSelection);
   const setSidebarSelection = useUiStore((s) => s.setSidebarSelection);
   const setNewLocalGroupSetDialogOpen = useUiStore(
@@ -46,15 +43,7 @@ export function GroupsAssignmentsTab() {
   }, []);
 
   if (!activeProfileId || !profile) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message="Select a profile to manage groups and assignments.">
-          <Button onClick={() => setNewProfileDialogOpen(true)}>
-            Create Profile
-          </Button>
-        </EmptyState>
-      </div>
-    );
+    return <NoProfileEmptyState tabLabel="groups and assignments" />;
   }
 
   return (

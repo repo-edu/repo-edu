@@ -11,15 +11,24 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons";
 import { useEffect, useRef, useState } from "react";
 import type { Roster } from "@repo-edu/domain";
 import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { useProfileStore } from "../../stores/profile-store.js";
+import {
+  selectProfileStatus,
+  useProfileStore,
+} from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 export function RosterSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen);
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen);
   const activeProfileId = useUiStore((state) => state.activeProfileId);
-  const courseId = useProfileStore((state) => state.profile?.courseId ?? null);
+  const profile = useProfileStore((state) => state.profile);
+  const profileStatus = useProfileStore(selectProfileStatus);
+  const loadedProfile =
+    profile && profile.id === activeProfileId ? profile : null;
+  const courseId = loadedProfile?.courseId ?? null;
+  const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null;
 
   const setRoster = useProfileStore((state) => state.setRoster);
   const addToast = useToastStore((state) => state.addToast);
@@ -50,7 +59,19 @@ export function RosterSyncDialog() {
     const requestId = previewRequestIdRef.current + 1;
     previewRequestIdRef.current = requestId;
 
-    if (!activeProfileId || !courseId) {
+    if (!activeProfileId) {
+      setError("No profile is selected");
+      setProgressMessage(null);
+      return;
+    }
+
+    if (!loadedProfile || profileStatus === "loading") {
+      setError(null);
+      setProgressMessage("Loading profile configuration...");
+      return;
+    }
+
+    if (!lmsConnectionName || !courseId) {
       setError("LMS connection or course is not configured");
       setProgressMessage(null);
       return;
@@ -78,10 +99,7 @@ export function RosterSyncDialog() {
       setProgressMessage(null);
     } catch (previewError) {
       if (previewRequestIdRef.current !== requestId) return;
-      const message =
-        previewError instanceof Error
-          ? previewError.message
-          : String(previewError);
+      const message = getErrorMessage(previewError);
       setError(message);
       setProgressMessage(null);
     } finally {
@@ -97,9 +115,12 @@ export function RosterSyncDialog() {
       return;
     }
     if (hasAutoPreviewedRef.current) return;
+    if (!activeProfileId) return;
+    if (!loadedProfile || profileStatus === "loading") return;
+
     hasAutoPreviewedRef.current = true;
     void handlePreview();
-  }, [open]);
+  }, [open, activeProfileId, loadedProfile, profileStatus]);
 
   const handleApply = () => {
     if (!preview) return;

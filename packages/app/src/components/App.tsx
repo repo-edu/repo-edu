@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,8 +13,12 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
   TooltipProvider,
+  TooltipTrigger,
 } from "@repo-edu/ui";
+import { Redo2, Undo2 } from "@repo-edu/ui/components/icons";
 import type { WorkflowClient } from "@repo-edu/application-contract";
 import type { RendererHost } from "@repo-edu/renderer-host-contract";
 import {
@@ -34,7 +38,6 @@ import { useTheme } from "../hooks/use-theme.js";
 import { useDirtyState } from "../hooks/use-dirty-state.js";
 import { useCloseGuard } from "../hooks/use-close-guard.js";
 import { useLoadProfile } from "../hooks/use-load-profile.js";
-import { ProfileSwitcher } from "./ProfileSwitcher.js";
 import { UtilityBar } from "./UtilityBar.js";
 import { IssuesButton } from "./IssuesButton.js";
 import { SettingsButton } from "./SettingsButton.js";
@@ -71,7 +74,7 @@ export type AppRootProps = {
 };
 
 export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     return configureApp({ workflowClient, rendererHost });
   }, [workflowClient, rendererHost]);
 
@@ -189,8 +192,7 @@ function AppShell() {
         className="flex flex-1 flex-col overflow-hidden"
       >
         {/* Header bar */}
-        <div className="flex items-center gap-2 border-b px-4 py-2">
-          <ProfileSwitcher />
+        <div className="flex items-center border-b">
           <TabsList>
             <TabsTrigger value="roster">Roster</TabsTrigger>
             <TabsTrigger value="groups-assignments">
@@ -199,26 +201,48 @@ function AppShell() {
             <TabsTrigger value="operation">Operation</TabsTrigger>
           </TabsList>
           <div className="flex-1" />
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canUndo}
-            onClick={() => undo()}
-            title={undoDescription ? `Undo: ${undoDescription}` : "Undo"}
-          >
-            Undo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canRedo}
-            onClick={() => redo()}
-            title={redoDescription ? `Redo: ${redoDescription}` : "Redo"}
-          >
-            Redo
-          </Button>
-          <IssuesButton />
-          <SettingsButton />
+          <div className="flex items-center gap-1 pr-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={!canUndo}
+                  onClick={() => undo()}
+                >
+                  <Undo2 className="size-4" />
+                  <span className="sr-only">Undo</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {undoDescription
+                  ? `Undo: ${undoDescription} (Ctrl+Z)`
+                  : "Undo (Ctrl+Z)"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={!canRedo}
+                  onClick={() => redo()}
+                >
+                  <Redo2 className="size-4" />
+                  <span className="sr-only">Redo</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {redoDescription
+                  ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
+                  : "Redo (Ctrl+Shift+Z)"}
+              </TooltipContent>
+            </Tooltip>
+            <IssuesButton />
+            <SettingsButton />
+          </div>
         </div>
 
         {/* Tab content */}
@@ -236,7 +260,7 @@ function AppShell() {
         </TabsContent>
       </Tabs>
 
-      <UtilityBar isDirty={isDirty} onSave={() => void handleSave()} />
+      <UtilityBar isDirty={isDirty} onSaved={markClean} />
 
       {/* Unsaved changes prompt */}
       <AlertDialog

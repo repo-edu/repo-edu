@@ -14,6 +14,7 @@ import { getRendererHost } from "../../contexts/renderer-host.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 export function ImportStudentsFromFileDialog() {
   const importFileDialogOpen = useUiStore((state) => state.importFileDialogOpen);
@@ -60,7 +61,7 @@ export function ImportStudentsFromFileDialog() {
       setFileName("");
       setFileRef(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       setError(message);
     } finally {
       setImporting(false);

@@ -153,12 +153,16 @@ function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> 
       runDesktopWorkflow("profile.load", input, options),
     "profile.save": (input, options) =>
       runDesktopWorkflow("profile.save", input, options),
+    "profile.delete": (input, options) =>
+      runDesktopWorkflow("profile.delete", input, options),
     "settings.loadApp": (input, options) =>
       runDesktopWorkflow("settings.loadApp", input, options),
     "settings.saveApp": (input, options) =>
       runDesktopWorkflow("settings.saveApp", input, options),
     "connection.verifyLmsDraft": (input, options) =>
       runDesktopWorkflow("connection.verifyLmsDraft", input, options),
+    "connection.listLmsCoursesDraft": (input, options) =>
+      runDesktopWorkflow("connection.listLmsCoursesDraft", input, options),
     "connection.verifyGitDraft": (input, options) =>
       runDesktopWorkflow("connection.verifyGitDraft", input, options),
     "roster.importFromFile": (input, options) =>

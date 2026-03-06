@@ -23,6 +23,7 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 import { generateGroupSetId } from "../../utils/nanoid.js";
 
 function connectedExternalId(
@@ -94,7 +95,7 @@ export function ConnectLmsGroupSetDialog() {
         if (cancelled) return;
         setGroupSets([]);
         setSelectedId("");
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(getErrorMessage(cause));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -167,7 +168,7 @@ export function ConnectLmsGroupSetDialog() {
       handleClose();
     } catch (cause) {
       if (connectRequestIdRef.current !== requestId) return;
-      const message = cause instanceof Error ? cause.message : String(cause);
+      const message = getErrorMessage(cause);
       setError(message);
       setProgressMessage(null);
       addToast(`Connect failed: ${message}`, { tone: "error" });

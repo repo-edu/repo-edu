@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ProfileStore } from "@repo-edu/application";
 import {
@@ -152,33 +152,135 @@ function resolveProfilesDirectory(storageRoot: string): string {
   return join(storageRoot, "profiles");
 }
 
-function resolveProfilePath(storageRoot: string, profileId: string): string {
-  return join(
-    resolveProfilesDirectory(storageRoot),
-    `${encodeURIComponent(profileId)}.json`,
+function sanitizeProfileFileBaseName(displayName: string): string {
+  const normalized = displayName.trim().replace(/\s+/g, " ");
+  const withoutIllegal = normalized.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-");
+  const withoutTrailingDots = withoutIllegal.replace(/[. ]+$/g, "");
+  return withoutTrailingDots.length > 0 ? withoutTrailingDots : "profile";
+}
+
+function resolveProfilePathFromDisplayName(
+  storageRoot: string,
+  displayName: string,
+  duplicateIndex = 0,
+): string {
+  const baseName = sanitizeProfileFileBaseName(displayName);
+  const fileName =
+    duplicateIndex === 0
+      ? `${baseName}.json`
+      : `${baseName} (${duplicateIndex + 1}).json`;
+  return join(resolveProfilesDirectory(storageRoot), fileName);
+}
+
+type ProfileFileInspection =
+  | { kind: "missing" }
+  | { kind: "invalid" }
+  | { kind: "profile"; profile: PersistedProfile };
+
+async function inspectProfileFile(
+  profilePath: string,
+): Promise<ProfileFileInspection> {
+  let raw: string;
+  try {
+    raw = await readFile(profilePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { kind: "missing" };
+    }
+    throw error;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as PersistedProfile;
+    const validation = validatePersistedProfile(parsed);
+    if (!validation.ok) {
+      return { kind: "invalid" };
+    }
+    return { kind: "profile", profile: validation.value };
+  } catch {
+    return { kind: "invalid" };
+  }
+}
+
+async function findProfilePathById(
+  storageRoot: string,
+  profileId: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const directory = resolveProfilesDirectory(storageRoot);
+  const entries = await readdir(directory, { withFileTypes: true }).catch(
+    (error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return [];
+      }
+      throw error;
+    },
   );
+
+  for (const entry of entries) {
+    throwIfAborted(signal);
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue;
+    }
+
+    const path = join(directory, entry.name);
+    const inspected = await inspectProfileFile(path);
+    if (
+      inspected.kind === "profile" &&
+      inspected.profile.id === profileId
+    ) {
+      return path;
+    }
+  }
+
+  return null;
+}
+
+async function resolveProfilePathForWrite(
+  storageRoot: string,
+  profileId: string,
+  displayName: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  for (let duplicateIndex = 0; ; duplicateIndex += 1) {
+    throwIfAborted(signal);
+    const candidatePath = resolveProfilePathFromDisplayName(
+      storageRoot,
+      displayName,
+      duplicateIndex,
+    );
+
+    const inspected = await inspectProfileFile(candidatePath);
+    if (inspected.kind === "missing") {
+      return candidatePath;
+    }
+    if (
+      inspected.kind === "profile" &&
+      inspected.profile.id === profileId
+    ) {
+      return candidatePath;
+    }
+  }
 }
 
 async function ensureSeedProfile(storageRoot: string): Promise<void> {
   const directory = resolveProfilesDirectory(storageRoot);
-  const seedPath = resolveProfilePath(storageRoot, desktopSeedProfileId);
-
   await mkdir(directory, { recursive: true });
-
-  try {
-    await readFile(seedPath, "utf8");
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT") {
-      throw error;
-    }
-
-    await writeFile(
-      seedPath,
-      JSON.stringify(createSeedProfile(), null, 2),
-      "utf8",
-    );
+  const existingSeedPath = await findProfilePathById(
+    storageRoot,
+    desktopSeedProfileId,
+  );
+  if (existingSeedPath !== null) {
+    return;
   }
+
+  const seed = createSeedProfile();
+  const seedPath = await resolveProfilePathForWrite(
+    storageRoot,
+    seed.id,
+    seed.displayName,
+  );
+  await writeFile(seedPath, JSON.stringify(seed, null, 2), "utf8");
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -224,32 +326,25 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
         profiles.push(await readPersistedProfile(join(directory, entry.name)));
       }
 
-      return profiles;
+      return profiles.filter((profile) => profile.id !== desktopSeedProfileId);
     },
     async loadProfile(profileId: string, signal?: AbortSignal) {
       throwIfAborted(signal);
       await ensureSeedProfile(storageRoot);
       throwIfAborted(signal);
 
-      const profilePath = resolveProfilePath(storageRoot, profileId);
+      const profilePath = await findProfilePathById(
+        storageRoot,
+        profileId,
+        signal,
+      );
+      if (profilePath === null) {
+        return null;
+      }
 
       try {
         return await readPersistedProfile(profilePath);
       } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code === "ENOENT") {
-          return null;
-        }
-
-        if (
-          profileId === desktopSeedProfileId &&
-          error instanceof SyntaxError
-        ) {
-          const seed = createSeedProfile();
-          await writeFile(profilePath, JSON.stringify(seed, null, 2), "utf8");
-          return seed;
-        }
-
         throw error;
       }
     },
@@ -267,13 +362,37 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
       await ensureSeedProfile(storageRoot);
       throwIfAborted(signal);
 
-      const profilePath = resolveProfilePath(storageRoot, profile.id);
+      const profilePath = await resolveProfilePathForWrite(
+        storageRoot,
+        validation.value.id,
+        validation.value.displayName,
+        signal,
+      );
+      const previousPath = await findProfilePathById(
+        storageRoot,
+        validation.value.id,
+        signal,
+      );
       await writeFile(
         profilePath,
         JSON.stringify(validation.value, null, 2),
         "utf8",
       );
+      if (previousPath !== null && previousPath !== profilePath) {
+        await rm(previousPath, { force: true });
+      }
       return validation.value;
+    },
+    async deleteProfile(profileId: string, signal?: AbortSignal) {
+      throwIfAborted(signal);
+      const profilePath = await findProfilePathById(
+        storageRoot,
+        profileId,
+        signal,
+      );
+      if (profilePath !== null) {
+        await rm(profilePath, { force: true });
+      }
     },
   };
 }

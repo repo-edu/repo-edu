@@ -25,6 +25,7 @@ import {
 import { getWorkflowClient } from "../contexts/workflow-client.js";
 import { useToastStore } from "./toast-store.js";
 import { buildIssueCards } from "../utils/issues.js";
+import { getErrorMessage } from "../utils/error-message.js";
 import type { IssueCard, ChecksStatus, DocumentStatus } from "../types/index.js";
 import { generateGroupId, generateGroupSetId } from "../utils/nanoid.js";
 
@@ -194,7 +195,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           set((draft) => {
             draft.status = "error";
             draft.error =
-              err instanceof Error ? err.message : String(err);
+              getErrorMessage(err);
           });
         }
       },
@@ -211,7 +212,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           return true;
         } catch (err) {
           useToastStore.getState().addToast(
-            err instanceof Error ? err.message : "Save failed",
+            getErrorMessage(err, "Save failed"),
             { tone: "error" },
           );
           return false;
@@ -639,7 +640,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           set((draft) => {
             draft.checksStatus = "error";
             draft.checksError =
-              err instanceof Error ? err.message : String(err);
+              getErrorMessage(err);
           });
         }
       },

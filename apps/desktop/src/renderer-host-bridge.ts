@@ -12,6 +12,8 @@ export const desktopRendererHostChannels = {
   pickSaveTarget: "repo-edu/renderer-host/pick-save-target",
   openExternalUrl: "repo-edu/renderer-host/open-external-url",
   getEnvironmentSnapshot: "repo-edu/renderer-host/get-environment-snapshot",
+  setNativeTheme: "repo-edu/renderer-host/set-native-theme",
+  revealProfilesDirectory: "repo-edu/renderer-host/reveal-profiles-directory",
 } as const;
 
 export type DesktopRendererHostBridge = {
@@ -23,6 +25,8 @@ export type DesktopRendererHostBridge = {
   ): Promise<RendererSaveTargetRef | null>;
   openExternalUrl(url: string): Promise<void>;
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>;
+  setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>;
+  revealProfilesDirectory(): Promise<void>;
 };
 
 export function createRendererHostFromBridge(

@@ -29,6 +29,19 @@ const desktopHostBridge: DesktopRendererHostBridge = {
       desktopRendererHostChannels.getEnvironmentSnapshot,
     );
   },
+
+  async setNativeTheme(theme) {
+    await ipcRenderer.invoke(
+      desktopRendererHostChannels.setNativeTheme,
+      theme,
+    );
+  },
+
+  async revealProfilesDirectory() {
+    await ipcRenderer.invoke(
+      desktopRendererHostChannels.revealProfilesDirectory,
+    );
+  },
 };
 
 process.once("loaded", () => {

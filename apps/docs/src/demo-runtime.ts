@@ -168,6 +168,12 @@ export function createDocsDemoRuntime() {
     async verifyConnection() {
       return { verified: true };
     },
+    async listCourses() {
+      return [
+        { id: seedCourseId, name: "Docs Demo Course", code: "DOCS-101" },
+        { id: "course-advanced", name: "Advanced Docs Course", code: null },
+      ];
+    },
     async fetchRoster() {
       return {
         ...seedProfile.roster,

@@ -31,6 +31,8 @@ export type GitIdentityMode = "email" | "username";
 export type FileFormat = "csv" | "xlsx" | "yaml" | "json";
 export type ThemePreference = "system" | "light" | "dark";
 export type WindowChromeMode = "system" | "hiddenInset";
+export type DateFormatPreference = "MDY" | "DMY";
+export type TimeFormatPreference = "12h" | "24h";
 export type ExportFormat = Extract<FileFormat, "csv" | "xlsx" | "yaml">;
 
 export type PersistedLmsConnection = {
@@ -51,6 +53,8 @@ export type PersistedGitConnection = {
 export type AppAppearance = {
   theme: ThemePreference;
   windowChrome: WindowChromeMode;
+  dateFormat: DateFormatPreference;
+  timeFormat: TimeFormatPreference;
 };
 
 export type PersistedAppSettings = {
@@ -393,6 +397,8 @@ export const defaultAppSettings: PersistedAppSettings = {
   appearance: {
     theme: "system",
     windowChrome: "system",
+    dateFormat: "DMY",
+    timeFormat: "24h",
   },
   lmsConnections: [],
   gitConnections: [],
@@ -2374,6 +2380,8 @@ const persistedGitConnectionSchema = z.object({
 const appAppearanceSchema = z.object({
   theme: z.enum(["system", "light", "dark"]),
   windowChrome: z.enum(["system", "hiddenInset"]),
+  dateFormat: z.enum(["MDY", "DMY"]),
+  timeFormat: z.enum(["12h", "24h"]),
 });
 
 export const persistedAppSettingsSchema = z.object({

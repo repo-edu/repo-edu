@@ -10,7 +10,12 @@ description: Persisted app settings and profile fields
   kind: "repo-edu.app-settings.v1";
   schemaVersion: 1;
   activeProfileId: string | null;
-  appearance: { theme: "system" | "light" | "dark"; windowChrome: "system" | "hiddenInset" };
+  appearance: {
+    theme: "system" | "light" | "dark";
+    windowChrome: "system" | "hiddenInset";
+    dateFormat: "MDY" | "DMY";
+    timeFormat: "12h" | "24h";
+  };
   lmsConnections: Array<{ name: string; provider: "canvas" | "moodle"; baseUrl: string; token: string }>;
   gitConnections: Array<{ name: string; provider: "github" | "gitlab" | "gitea"; baseUrl: string | null; token: string; organization: string | null }>;
   lastOpenedAt: string | null;

@@ -21,9 +21,19 @@ function resolveTheme(
     : "light";
 }
 
+function syncNativeTheme(theme: ThemePreference): void {
+  // Desktop-only: sync Electron's nativeTheme so the macOS title bar
+  // matches the app theme. The bridge is only present in the desktop shell.
+  const host = (window as unknown as Record<string, unknown>).repoEduDesktopHost as
+    | { setNativeTheme?: (theme: string) => Promise<void> }
+    | undefined;
+  void host?.setNativeTheme?.(theme);
+}
+
 export function useTheme(theme: ThemePreference): void {
   useEffect(() => {
     applyThemeClass(resolveTheme(theme));
+    syncNativeTheme(theme);
 
     if (theme !== "system") return;
 

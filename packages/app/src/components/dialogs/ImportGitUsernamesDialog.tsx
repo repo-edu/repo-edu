@@ -15,6 +15,7 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 function countUsernameChanges(previous: ReturnType<typeof toUsernameMap>, next: ReturnType<typeof toUsernameMap>): number {
   let changed = 0;
@@ -62,7 +63,7 @@ export function ImportGitUsernamesDialog() {
       setFileName(file.displayName);
       setError(null);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
+      const message = getErrorMessage(cause);
       setError(message);
     }
   };
@@ -93,7 +94,7 @@ export function ImportGitUsernamesDialog() {
       );
       handleClose();
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
+      const message = getErrorMessage(cause);
       setError(message);
       addToast(`Git username import failed: ${message}`, { tone: "error" });
     } finally {

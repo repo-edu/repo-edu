@@ -19,6 +19,7 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js";
 import { useProfileStore } from "../../stores/profile-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 
 const NONE_VALUE = "__none__";
 
@@ -113,7 +114,7 @@ export function FileImportExportSheet() {
         { tone: "success" },
       );
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
+      const message = getErrorMessage(cause);
       addToast(`Export failed: ${message}`, { tone: "error" });
     } finally {
       setExportingFormat(null);

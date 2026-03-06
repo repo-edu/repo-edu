@@ -67,6 +67,9 @@ function createLmsProviderDispatch() {
     verifyConnection(draft: LmsConnectionDraft, signal?: AbortSignal) {
       return resolveClient(draft.provider).verifyConnection(draft, signal);
     },
+    listCourses(draft: LmsConnectionDraft, signal?: AbortSignal) {
+      return resolveClient(draft.provider).listCourses(draft, signal);
+    },
     fetchRoster(draft: LmsConnectionDraft, courseId: string, signal?: AbortSignal) {
       return resolveClient(draft.provider).fetchRoster(draft, courseId, signal);
     },

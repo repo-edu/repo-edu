@@ -7,6 +7,8 @@ import type {
   GitUsernameImportInput,
   GroupSetFetchAvailableFromLmsInput,
   GroupSetExportInput,
+  ListLmsCoursesDraftInput,
+  LmsCourseSummary as AppLmsCourseSummary,
   GroupSetPreviewImportFromFileInput,
   GroupSetPreviewReimportFromFileInput,
   GroupSetSyncFromLmsInput,
@@ -120,6 +122,10 @@ export type ProfileStore = {
     profile: PersistedProfile,
     signal?: AbortSignal,
   ): Promise<PersistedProfile> | PersistedProfile;
+  deleteProfile(
+    profileId: string,
+    signal?: AbortSignal,
+  ): Promise<void> | void;
 };
 
 export type AppSettingsStore = {
@@ -201,6 +207,9 @@ export function createInMemoryProfileStore(
     saveProfile(profile: PersistedProfile) {
       profilesById.set(profile.id, profile);
       return profile;
+    },
+    deleteProfile(profileId: string) {
+      profilesById.delete(profileId);
     },
   };
 }
@@ -295,8 +304,10 @@ async function loadSettingsOrDefault(
 export function createProfileWorkflowHandlers(
   profileStore: ProfileStore,
 ): Pick<
-  WorkflowHandlerMap<"profile.list" | "profile.load" | "profile.save">,
-  "profile.list" | "profile.load" | "profile.save"
+  WorkflowHandlerMap<
+    "profile.list" | "profile.load" | "profile.save" | "profile.delete"
+  >,
+  "profile.list" | "profile.load" | "profile.save" | "profile.delete"
 > {
   return {
     "profile.list": async (_input, options) => {
@@ -372,6 +383,10 @@ export function createProfileWorkflowHandlers(
         label: "Profile saved.",
       });
       return savedProfile;
+    },
+    "profile.delete": async (input: { profileId: string }, options) => {
+      throwIfAborted(options?.signal);
+      await profileStore.deleteProfile(input.profileId, options?.signal);
     },
   };
 }
@@ -463,7 +478,7 @@ export function createSettingsWorkflowHandlers(
 }
 
 export type ConnectionVerificationPorts = {
-  lms: Pick<LmsClient, "verifyConnection">;
+  lms: Pick<LmsClient, "verifyConnection" | "listCourses">;
   git: Pick<GitProviderClient, "verifyConnection">;
 };
 
@@ -495,8 +510,14 @@ function normalizeProviderError(
 export function createConnectionWorkflowHandlers(
   ports: ConnectionVerificationPorts,
 ): Pick<
-  WorkflowHandlerMap<"connection.verifyLmsDraft" | "connection.verifyGitDraft">,
-  "connection.verifyLmsDraft" | "connection.verifyGitDraft"
+  WorkflowHandlerMap<
+    | "connection.verifyLmsDraft"
+    | "connection.listLmsCoursesDraft"
+    | "connection.verifyGitDraft"
+  >,
+  | "connection.verifyLmsDraft"
+  | "connection.listLmsCoursesDraft"
+  | "connection.verifyGitDraft"
 > {
   return {
     "connection.verifyLmsDraft": async (
@@ -543,6 +564,49 @@ export function createConnectionWorkflowHandlers(
         };
       } catch (error) {
         throw normalizeProviderError(error, input.provider, "verifyConnection");
+      }
+    },
+    "connection.listLmsCoursesDraft": async (
+      input: ListLmsCoursesDraftInput,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ): Promise<AppLmsCourseSummary[]> => {
+      const totalSteps = 3;
+      try {
+        throwIfAborted(options?.signal);
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Preparing LMS course list request.",
+        });
+
+        const draft: LmsConnectionDraft = {
+          provider: input.provider,
+          baseUrl: input.baseUrl,
+          token: input.token,
+        };
+
+        options?.onOutput?.({
+          channel: "info",
+          message: `Fetching available courses from ${input.provider}.`,
+        });
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Fetching courses from LMS provider.",
+        });
+
+        const courses = await ports.lms.listCourses(draft, options?.signal);
+
+        throwIfAborted(options?.signal);
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "LMS course list loaded.",
+        });
+
+        return courses;
+      } catch (error) {
+        throw normalizeProviderError(error, input.provider, "listCourses");
       }
     },
     "connection.verifyGitDraft": async (

@@ -85,12 +85,16 @@ if (!Array.isArray(marker.listedProfileIds)) {
   throw new Error("listedProfileIds was not an array.");
 }
 
-if (typeof marker.profileCount !== "number" || marker.profileCount < 1) {
-  throw new Error("profileCount was not a positive number.");
+if (typeof marker.profileCount !== "number" || marker.profileCount < 0) {
+  throw new Error("profileCount was not a non-negative number.");
 }
 
-if (!marker.listedProfileIds.includes("seed-profile")) {
-  throw new Error("seed-profile was not listed by profile.list.");
+if (marker.profileCount !== marker.listedProfileIds.length) {
+  throw new Error("profileCount did not match listedProfileIds length.");
+}
+
+if (marker.listedProfileIds.includes("seed-profile")) {
+  throw new Error("seed-profile should not be listed by profile.list.");
 }
 
 if (marker.loadedProfileId !== "seed-profile") {

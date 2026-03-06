@@ -6,10 +6,9 @@ import {
   resolveAssignmentGroups,
   activeMemberIds,
 } from "@repo-edu/domain";
-import type { RepositoryBatchInput, RepositoryBatchResult } from "@repo-edu/application-contract";
+import type { RepositoryBatchResult } from "@repo-edu/application-contract";
 import {
   Button,
-  EmptyState,
   Input,
   Label,
   Select,
@@ -26,11 +25,13 @@ import {
   AlertCircle,
   Loader2,
 } from "@repo-edu/ui/components/icons";
+import { NoProfileEmptyState } from "../NoProfileEmptyState.js";
 import { useProfileStore, selectAssignments, selectRoster, selectRepositoryTemplate, selectGitConnectionName } from "../../stores/profile-store.js";
 import { useOperationStore } from "../../stores/operation-store.js";
 import { useUiStore } from "../../stores/ui-store.js";
 import { useToastStore } from "../../stores/toast-store.js";
 import { getWorkflowClient } from "../../contexts/workflow-client.js";
+import { getErrorMessage } from "../../utils/error-message.js";
 import {
   buildRepositoryWorkflowRequest,
   type CloneDirectoryLayout,
@@ -40,9 +41,6 @@ const LABEL_WIDTH = 100;
 
 export function OperationTab() {
   const activeProfileId = useUiStore((s) => s.activeProfileId);
-  const setNewProfileDialogOpen = useUiStore(
-    (s) => s.setNewProfileDialogOpen,
-  );
   const profile = useProfileStore((s) => s.profile);
   const roster = useProfileStore(selectRoster);
   const assignments = useProfileStore(selectAssignments);
@@ -124,7 +122,7 @@ export function OperationTab() {
       setLastResult(result);
     } catch (err) {
       setOperationStatus("error");
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       setOperationError(message);
       addToast(message, { tone: "error" });
     }
@@ -142,15 +140,7 @@ export function OperationTab() {
   ]);
 
   if (!activeProfileId || !profile) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message="Select a profile to run repository operations.">
-          <Button onClick={() => setNewProfileDialogOpen(true)}>
-            Create Profile
-          </Button>
-        </EmptyState>
-      </div>
-    );
+    return <NoProfileEmptyState tabLabel="repository operations" />;
   }
 
   const isExecuteDisabled =

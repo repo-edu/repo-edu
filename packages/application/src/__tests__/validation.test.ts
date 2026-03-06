@@ -100,6 +100,8 @@ function makeSettings(): PersistedAppSettings {
     appearance: {
       theme: "system",
       windowChrome: "system",
+      dateFormat: "DMY",
+      timeFormat: "24h",
     },
     lmsConnections: [],
     gitConnections: [],
@@ -366,6 +368,7 @@ describe("application git username workflow helpers", () => {
 describe("application connection verification workflow helpers", () => {
   it("verifies LMS and Git drafts through adapter ports", async () => {
     let lmsDraft: unknown = null;
+    let lmsCourseDraft: unknown = null;
     let gitDraft: unknown = null;
 
     const handlers = createConnectionWorkflowHandlers({
@@ -373,6 +376,13 @@ describe("application connection verification workflow helpers", () => {
         verifyConnection: async (draft) => {
           lmsDraft = draft;
           return { verified: true };
+        },
+        listCourses: async (draft) => {
+          lmsCourseDraft = draft;
+          return [
+            { id: "course-1", name: "Course One", code: "C1" },
+            { id: "course-2", name: "Course Two", code: null },
+          ];
         },
       },
       git: {
@@ -391,6 +401,21 @@ describe("application connection verification workflow helpers", () => {
     assert.equal(lmsResult.verified, true);
     assert.equal(Number.isNaN(Date.parse(lmsResult.checkedAt)), false);
     assert.deepStrictEqual(lmsDraft, {
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "token-1",
+    });
+
+    const courseResult = await handlers["connection.listLmsCoursesDraft"]({
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "token-1",
+    });
+    assert.deepStrictEqual(courseResult, [
+      { id: "course-1", name: "Course One", code: "C1" },
+      { id: "course-2", name: "Course Two", code: null },
+    ]);
+    assert.deepStrictEqual(lmsCourseDraft, {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
@@ -418,6 +443,7 @@ describe("application connection verification workflow helpers", () => {
         verifyConnection: async () => {
           throw new Error("invalid token");
         },
+        listCourses: async () => [],
       },
       git: {
         verifyConnection: async () => ({ verified: true }),
@@ -518,6 +544,7 @@ describe("application profile workflow helpers", () => {
           kind: "wrong-kind",
         }) as unknown as PersistedProfile,
       saveProfile: (profile: PersistedProfile) => profile,
+      deleteProfile: () => {},
     });
 
     await assert.rejects(
@@ -541,6 +568,7 @@ describe("application profile workflow helpers", () => {
         ] as unknown as PersistedProfile[],
       loadProfile: () => makeProfile(),
       saveProfile: (profile: PersistedProfile) => profile,
+      deleteProfile: () => {},
     });
 
     await assert.rejects(

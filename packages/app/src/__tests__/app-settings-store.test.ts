@@ -93,6 +93,8 @@ describe("app settings store", () => {
         appearance: {
           theme: "dark",
           windowChrome: "system",
+          dateFormat: "DMY",
+          timeFormat: "24h",
         },
       }),
     );

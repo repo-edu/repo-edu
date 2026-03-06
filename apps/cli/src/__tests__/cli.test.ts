@@ -187,6 +187,8 @@ function makeSettings(activeProfileId: string | null): PersistedAppSettings {
     appearance: {
       theme: "system",
       windowChrome: "system",
+      dateFormat: "DMY",
+      timeFormat: "24h",
     },
     lmsConnections: [],
     gitConnections: [],

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useProfileStore } from "../stores/profile-store.js";
+import {
+  selectProfileStatus,
+  useProfileStore,
+} from "../stores/profile-store.js";
 import { hashSnapshot } from "../utils/snapshot.js";
 
 /**
@@ -9,6 +12,8 @@ import { hashSnapshot } from "../utils/snapshot.js";
 export function useDirtyState(activeProfileId: string | null) {
   const [isDirty, setIsDirty] = useState(false);
   const baselineRef = useRef<number>(0);
+  const profileStatus = useProfileStore(selectProfileStatus);
+  const loadedProfileId = useProfileStore((state) => state.profile?.id ?? null);
 
   const computeHash = useCallback(() => {
     const profile = useProfileStore.getState().profile;
@@ -31,11 +36,21 @@ export function useDirtyState(activeProfileId: string | null) {
     setIsDirty(true);
   }, []);
 
-  // Reset baseline when active profile changes.
+  // Reset baseline only when the active profile is actually loaded.
   useEffect(() => {
+    if (activeProfileId === null) {
+      baselineRef.current = 0;
+      setIsDirty(false);
+      return;
+    }
+
+    if (profileStatus !== "loaded" || loadedProfileId !== activeProfileId) {
+      return;
+    }
+
     baselineRef.current = computeHash();
     setIsDirty(false);
-  }, [activeProfileId, computeHash]);
+  }, [activeProfileId, profileStatus, loadedProfileId, computeHash]);
 
   // Subscribe to profile store changes.
   useEffect(() => {
