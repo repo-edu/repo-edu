@@ -7,110 +7,115 @@ import {
   DialogTitle,
   Input,
   Text,
-} from "@repo-edu/ui";
-import { Folder, Loader2 } from "@repo-edu/ui/components/icons";
-import { useMemo, useState } from "react";
-import { getRendererHost } from "../../contexts/renderer-host.js";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui"
+import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
+import { useMemo, useState } from "react"
+import { getRendererHost } from "../../contexts/renderer-host.js"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
-function countUsernameChanges(previous: ReturnType<typeof toUsernameMap>, next: ReturnType<typeof toUsernameMap>): number {
-  let changed = 0;
+function countUsernameChanges(
+  previous: ReturnType<typeof toUsernameMap>,
+  next: ReturnType<typeof toUsernameMap>,
+): number {
+  let changed = 0
   for (const [id, username] of next.entries()) {
     if ((previous.get(id) ?? null) !== username) {
-      changed += 1;
+      changed += 1
     }
   }
-  return changed;
+  return changed
 }
 
-function toUsernameMap(students: Array<{ id: string; gitUsername: string | null }>) {
-  return new Map(students.map((student) => [student.id, student.gitUsername]));
+function toUsernameMap(
+  students: Array<{ id: string; gitUsername: string | null }>,
+) {
+  return new Map(students.map((student) => [student.id, student.gitUsername]))
 }
 
 export function ImportGitUsernamesDialog() {
-  const open = useUiStore((state) => state.importGitUsernamesDialogOpen);
-  const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen);
-  const profile = useProfileStore((state) => state.profile);
-  const setRoster = useProfileStore((state) => state.setRoster);
-  const addToast = useToastStore((state) => state.addToast);
+  const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
+  const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
+  const profile = useProfileStore((state) => state.profile)
+  const setRoster = useProfileStore((state) => state.setRoster)
+  const addToast = useToastStore((state) => state.addToast)
 
-  const [fileName, setFileName] = useState("");
+  const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
-    kind: "user-file-ref";
-    referenceId: string;
-    displayName: string;
-    mediaType: string | null;
-    byteLength: number | null;
-  } | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    kind: "user-file-ref"
+    referenceId: string
+    displayName: string
+    mediaType: string | null
+    byteLength: number | null
+  } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const hasStudents = (profile?.roster.students.length ?? 0) > 0;
+  const hasStudents = (profile?.roster.students.length ?? 0) > 0
 
   const handleBrowse = async () => {
     try {
-      const host = getRendererHost();
+      const host = getRendererHost()
       const file = await host.pickUserFile({
         title: "Select Git username CSV",
         acceptFormats: ["csv"],
-      });
-      if (!file) return;
-      setFileRef(file);
-      setFileName(file.displayName);
-      setError(null);
+      })
+      if (!file) return
+      setFileRef(file)
+      setFileName(file.displayName)
+      setError(null)
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setError(message);
+      const message = getErrorMessage(cause)
+      setError(message)
     }
-  };
+  }
 
   const handleImport = async () => {
-    if (!fileRef || !profile) return;
+    if (!fileRef || !profile) return
 
-    setImporting(true);
-    setError(null);
+    setImporting(true)
+    setError(null)
 
-    const previous = toUsernameMap(profile.roster.students);
+    const previous = toUsernameMap(profile.roster.students)
 
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const importedRoster = await client.run("gitUsernames.import", {
         file: fileRef,
-      });
-      setRoster(importedRoster, "Import git usernames");
+      })
+      setRoster(importedRoster, "Import git usernames")
       const changed = countUsernameChanges(
         previous,
         toUsernameMap(importedRoster.students),
-      );
+      )
       addToast(
         changed > 0
           ? `Imported ${changed} Git username${changed === 1 ? "" : "s"}`
           : "Git username import applied",
         { tone: "success" },
-      );
-      handleClose();
+      )
+      handleClose()
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setError(message);
-      addToast(`Git username import failed: ${message}`, { tone: "error" });
+      const message = getErrorMessage(cause)
+      setError(message)
+      addToast(`Git username import failed: ${message}`, { tone: "error" })
     } finally {
-      setImporting(false);
+      setImporting(false)
     }
-  };
+  }
 
   const handleClose = () => {
-    setOpen(false);
-    setFileName("");
-    setFileRef(null);
-    setError(null);
-    setImporting(false);
-  };
+    setOpen(false)
+    setFileName("")
+    setFileRef(null)
+    setError(null)
+    setImporting(false)
+  }
 
-  const canImport = fileRef !== null && !importing && hasStudents;
+  const canImport = fileRef !== null && !importing && hasStudents
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -163,5 +168,5 @@ export function ImportGitUsernamesDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

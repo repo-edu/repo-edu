@@ -1,4 +1,4 @@
-import type { Roster, RosterMember, MemberStatus } from "@repo-edu/domain";
+import type { MemberStatus, Roster, RosterMember } from "@repo-edu/domain"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,14 +15,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
 import {
   ChevronDown,
   Loader2,
   Plus,
   Search,
   X,
-} from "@repo-edu/ui/components/icons";
+} from "@repo-edu/ui/components/icons"
 import {
   type ColumnDef,
   flexRender,
@@ -33,14 +33,14 @@ import {
   type Updater,
   useReactTable,
   type VisibilityState,
-} from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js";
-import { useProfileStore } from "../../../stores/profile-store.js";
-import { useToastStore } from "../../../stores/toast-store.js";
-import { useUiStore } from "../../../stores/ui-store.js";
-import { formatMemberStatus } from "../../../utils/labels.js";
-import { generateMemberId } from "../../../utils/nanoid.js";
+} from "@tanstack/react-table"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import { useProfileStore } from "../../../stores/profile-store.js"
+import { useToastStore } from "../../../stores/toast-store.js"
+import { useUiStore } from "../../../stores/ui-store.js"
+import { formatMemberStatus } from "../../../utils/labels.js"
+import { generateMemberId } from "../../../utils/nanoid.js"
 import {
   chainComparisons,
   compareNullableText,
@@ -48,24 +48,24 @@ import {
   compareText,
   getNextProgressiveSorting,
   normalizeProgressiveSorting,
-} from "../../../utils/sorting.js";
-import { SortHeaderButton } from "../../common/SortHeaderButton.js";
-import { EditableTextCell } from "./cells/EditableTextCell.js";
-import { StatusCell } from "./cells/StatusSelectCell.js";
+} from "../../../utils/sorting.js"
+import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import { EditableTextCell } from "./cells/EditableTextCell.js"
+import { StatusCell } from "./cells/StatusSelectCell.js"
 
 type MemberListPaneProps = {
-  roster: Roster | null;
-  importing: boolean;
-  canImportFromLms: boolean;
-  lmsImportTooltip: string;
-  hasLmsConnection: boolean;
-  onImportFromLms: () => void;
-  onImportFromFile: () => void;
-  onImportGitUsernames: () => void;
-  onVerifyGitUsernames: () => void;
-  onClear: () => void;
-  onExport: (format: "csv" | "xlsx") => void;
-};
+  roster: Roster | null
+  importing: boolean
+  canImportFromLms: boolean
+  lmsImportTooltip: string
+  hasLmsConnection: boolean
+  onImportFromLms: () => void
+  onImportFromFile: () => void
+  onImportGitUsernames: () => void
+  onVerifyGitUsernames: () => void
+  onClear: () => void
+  onExport: (format: "csv" | "xlsx") => void
+}
 
 export function MemberListPane({
   roster,
@@ -80,82 +80,80 @@ export function MemberListPane({
   onClear,
   onExport,
 }: MemberListPaneProps) {
-  const openSettings = useUiStore((s) => s.openSettings);
+  const openSettings = useUiStore((s) => s.openSettings)
   const rosterColumnVisibility = useAppSettingsStore(
     (s) => s.rosterColumnVisibility,
-  );
+  )
   const setRosterColumnVisibility = useAppSettingsStore(
     (s) => s.setRosterColumnVisibility,
-  );
-  const rosterColumnSizing = useAppSettingsStore(
-    (s) => s.rosterColumnSizing,
-  );
+  )
+  const rosterColumnSizing = useAppSettingsStore((s) => s.rosterColumnSizing)
   const setRosterColumnSizing = useAppSettingsStore(
     (s) => s.setRosterColumnSizing,
-  );
-  const saveAppSettings = useAppSettingsStore((s) => s.save);
+  )
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
 
-  const addMember = useProfileStore((s) => s.addMember);
+  const addMember = useProfileStore((s) => s.addMember)
   const deleteMemberPermanently = useProfileStore(
     (s) => s.deleteMemberPermanently,
-  );
-  const updateMember = useProfileStore((s) => s.updateMember);
-  const addToast = useToastStore((s) => s.addToast);
+  )
+  const updateMember = useProfileStore((s) => s.updateMember)
+  const addToast = useToastStore((s) => s.addToast)
 
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [showColumnControls, setShowColumnControls] = useState(false);
-  const [addingMember, setAddingMember] = useState(false);
+  const [globalFilter, setGlobalFilter] = useState("")
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [showColumnControls, setShowColumnControls] = useState(false)
+  const [addingMember, setAddingMember] = useState(false)
   const [memberPendingDeletion, setMemberPendingDeletion] =
-    useState<RosterMember | null>(null);
-  const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberEmail, setNewMemberEmail] = useState("");
+    useState<RosterMember | null>(null)
+  const [newMemberName, setNewMemberName] = useState("")
+  const [newMemberEmail, setNewMemberEmail] = useState("")
 
-  const students = roster?.students ?? [];
-  const staff = roster?.staff ?? [];
-  const members = useMemo(() => [...students, ...staff], [students, staff]);
-  const studentCount = students.length;
-  const staffCount = staff.length;
-  const hasMembers = members.length > 0;
+  const students = roster?.students ?? []
+  const staff = roster?.staff ?? []
+  const members = useMemo(() => [...students, ...staff], [students, staff])
+  const studentCount = students.length
+  const staffCount = staff.length
+  const hasMembers = members.length > 0
 
   // Build a map of memberId → group names (excluding system groups).
   const memberGroupNames = useMemo(() => {
-    const index = new Map<string, string[]>();
-    if (!roster) return index;
+    const index = new Map<string, string[]>()
+    if (!roster) return index
 
-    const allMembers = [...roster.students, ...roster.staff];
+    const allMembers = [...roster.students, ...roster.staff]
     const activeIds = new Set(
       allMembers.filter((m) => m.status === "active").map((m) => m.id),
-    );
+    )
 
     const systemGroupIds = new Set(
       roster.groupSets
         .filter((gs) => gs.connection?.kind === "system")
         .flatMap((gs) => gs.groupIds),
-    );
+    )
 
     for (const group of roster.groups) {
-      if (systemGroupIds.has(group.id)) continue;
+      if (systemGroupIds.has(group.id)) continue
       for (const memberId of group.memberIds) {
-        if (!activeIds.has(memberId)) continue;
-        let names = index.get(memberId);
+        if (!activeIds.has(memberId)) continue
+        let names = index.get(memberId)
         if (!names) {
-          names = [];
-          index.set(memberId, names);
+          names = []
+          index.set(memberId, names)
         }
-        names.push(group.name);
+        names.push(group.name)
       }
     }
 
     for (const names of index.values()) {
-      names.sort((a, b) => a.localeCompare(b));
+      names.sort((a, b) => a.localeCompare(b))
     }
 
-    return index;
-  }, [roster]);
+    return index
+  }, [roster])
 
   const handleAddMember = () => {
-    if (!newMemberName.trim() || !newMemberEmail.trim()) return;
+    if (!newMemberName.trim() || !newMemberEmail.trim()) return
 
     const member: RosterMember = {
       id: generateMemberId(),
@@ -172,69 +170,66 @@ export function MemberListPane({
       department: null,
       institution: null,
       source: "local",
-    };
+    }
 
-    addMember(member);
-    setNewMemberName("");
-    setNewMemberEmail("");
-    setAddingMember(false);
-  };
+    addMember(member)
+    setNewMemberName("")
+    setNewMemberEmail("")
+    setAddingMember(false)
+  }
 
   const handleUpdateName = (id: string, name: string) => {
-    updateMember(id, { name });
-  };
+    updateMember(id, { name })
+  }
 
   const handleUpdateEmail = (id: string, email: string) => {
-    updateMember(id, { email });
-  };
+    updateMember(id, { email })
+  }
 
   const handleUpdateGitUsername = (id: string, gitUsername: string) => {
     updateMember(id, {
       gitUsername: gitUsername || null,
       gitUsernameStatus: "unknown",
-    });
-  };
+    })
+  }
 
   const handleUpdateStatus = (id: string, status: MemberStatus) => {
-    updateMember(id, { status });
-    const member = members.find((entry) => entry.id === id);
-    if (!member) return;
+    updateMember(id, { status })
+    const member = members.find((entry) => entry.id === id)
+    if (!member) return
     if (status === "dropped" || status === "incomplete") {
-      addToast(`${member.name} excluded from coverage`, { tone: "info" });
+      addToast(`${member.name} excluded from coverage`, { tone: "info" })
     }
-  };
+  }
 
   const handleRequestPermanentDelete = (id: string) => {
-    const member = members.find((entry) => entry.id === id);
-    if (!member || member.source !== "local") return;
-    setMemberPendingDeletion(member);
-  };
+    const member = members.find((entry) => entry.id === id)
+    if (!member || member.source !== "local") return
+    setMemberPendingDeletion(member)
+  }
 
   const handleConfirmPermanentDelete = () => {
-    if (!memberPendingDeletion) return;
-    const { id, name } = memberPendingDeletion;
-    deleteMemberPermanently(id);
-    addToast(`${name} deleted from roster`, { tone: "info" });
-    setMemberPendingDeletion(null);
-  };
+    if (!memberPendingDeletion) return
+    const { id, name } = memberPendingDeletion
+    deleteMemberPermanently(id)
+    addToast(`${name} deleted from roster`, { tone: "info" })
+    setMemberPendingDeletion(null)
+  }
 
   const memberTypeLabel = (member: RosterMember): string =>
-    member.enrollmentType === "student" ? "Student" : "Staff";
+    member.enrollmentType === "student" ? "Student" : "Staff"
 
   const handleSort = useCallback((columnId: string) => {
-    setSorting((current) => getNextProgressiveSorting(current, columnId));
-  }, []);
+    setSorting((current) => getNextProgressiveSorting(current, columnId))
+  }, [])
 
-  const handleSortingChange = useCallback(
-    (updater: Updater<SortingState>) => {
-      setSorting((current) =>
-        normalizeProgressiveSorting(
-          typeof updater === "function" ? updater(current) : updater,
-        ),
-      );
-    },
-    [],
-  );
+  const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
+    setSorting((current) =>
+      normalizeProgressiveSorting(
+        typeof updater === "function" ? updater(current) : updater,
+      ),
+    )
+  }, [])
 
   const columns = useMemo<ColumnDef<RosterMember>[]>(
     () => [
@@ -304,9 +299,7 @@ export function MemberListPane({
             status={row.original.status}
             lmsStatus={row.original.lmsStatus ?? null}
             source={row.original.source}
-            onChange={(status) =>
-              handleUpdateStatus(row.original.id, status)
-            }
+            onChange={(status) => handleUpdateStatus(row.original.id, status)}
             onDeletePermanent={() =>
               handleRequestPermanentDelete(row.original.id)
             }
@@ -355,17 +348,14 @@ export function MemberListPane({
             compareRosterMembersByName(rowA.original, rowB.original),
           ),
         cell: ({ row }) => {
-          const names = memberGroupNames.get(row.original.id);
-          if (!names || names.length === 0) return null;
-          const text = names.join(", ");
+          const names = memberGroupNames.get(row.original.id)
+          if (!names || names.length === 0) return null
+          const text = names.join(", ")
           return (
-            <span
-              className="text-muted-foreground truncate block"
-              title={text}
-            >
+            <span className="text-muted-foreground truncate block" title={text}>
               {text}
             </span>
-          );
+          )
         },
       },
       {
@@ -385,16 +375,14 @@ export function MemberListPane({
         cell: ({ row }) => (
           <EditableTextCell
             value={row.original.gitUsername ?? ""}
-            onSave={(value) =>
-              handleUpdateGitUsername(row.original.id, value)
-            }
+            onSave={(value) => handleUpdateGitUsername(row.original.id, value)}
             trailing={getStatusIcon(row.original.gitUsernameStatus)}
           />
         ),
       },
     ],
     [handleSort, memberGroupNames],
-  );
+  )
 
   const table = useReactTable({
     data: members,
@@ -410,16 +398,16 @@ export function MemberListPane({
     onGlobalFilterChange: setGlobalFilter,
     onColumnSizingChange: (updater) => {
       const next =
-        typeof updater === "function" ? updater(rosterColumnSizing) : updater;
-      setRosterColumnSizing(next);
+        typeof updater === "function" ? updater(rosterColumnSizing) : updater
+      setRosterColumnSizing(next)
     },
     onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
       const next =
         typeof updater === "function"
           ? updater(rosterColumnVisibility)
-          : updater;
-      setRosterColumnVisibility(next);
-      void saveAppSettings();
+          : updater
+      setRosterColumnVisibility(next)
+      void saveAppSettings()
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -427,9 +415,9 @@ export function MemberListPane({
     globalFilterFn: (row, _columnId, filterValue) => {
       const query = String(filterValue ?? "")
         .trim()
-        .toLowerCase();
-      if (!query) return true;
-      const member = row.original;
+        .toLowerCase()
+      if (!query) return true
+      const member = row.original
       return (
         member.name.toLowerCase().includes(query) ||
         member.email.toLowerCase().includes(query) ||
@@ -440,25 +428,25 @@ export function MemberListPane({
           .get(member.id)
           ?.some((name) => name.toLowerCase().includes(query)) ??
           false)
-      );
+      )
     },
-  });
+  })
 
   // Save column sizing to app settings when a resize operation ends.
-  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn;
-  const prevIsResizingRef = useRef<string | false>(false);
+  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
+  const prevIsResizingRef = useRef<string | false>(false)
 
   useEffect(() => {
-    const wasResizing = prevIsResizingRef.current;
-    prevIsResizingRef.current = isResizingColumn;
+    const wasResizing = prevIsResizingRef.current
+    prevIsResizingRef.current = isResizingColumn
     if (wasResizing && !isResizingColumn) {
-      void saveAppSettings();
+      void saveAppSettings()
     }
-  }, [isResizingColumn, saveAppSettings]);
+  }, [isResizingColumn, saveAppSettings])
 
   const hideableColumns = table
     .getAllLeafColumns()
-    .filter((column) => column.getCanHide());
+    .filter((column) => column.getCanHide())
 
   const addMemberForm = (
     <div className="flex gap-2 items-center px-3 py-2 bg-muted/50">
@@ -468,7 +456,7 @@ export function MemberListPane({
         onChange={(e) => setNewMemberName(e.target.value)}
         className="flex-1"
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleAddMember();
+          if (e.key === "Enter") handleAddMember()
         }}
       />
       <Input
@@ -477,7 +465,7 @@ export function MemberListPane({
         onChange={(e) => setNewMemberEmail(e.target.value)}
         className="flex-1"
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleAddMember();
+          if (e.key === "Enter") handleAddMember()
         }}
       />
       <Button
@@ -487,15 +475,11 @@ export function MemberListPane({
       >
         Add
       </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => setAddingMember(false)}
-      >
+      <Button size="sm" variant="ghost" onClick={() => setAddingMember(false)}>
         <X className="size-4" />
       </Button>
     </div>
-  );
+  )
 
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -551,7 +535,11 @@ export function MemberListPane({
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" title="Export the roster.">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Export the roster."
+                  >
                     Export
                     <ChevronDown className="size-4 ml-1" />
                   </Button>
@@ -601,18 +589,10 @@ export function MemberListPane({
             >
               Import from LMS
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onImportFromFile}
-            >
+            <Button size="sm" variant="outline" onClick={onImportFromFile}>
               Import from File
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onImportGitUsernames}
-            >
+            <Button size="sm" variant="outline" onClick={onImportGitUsernames}>
               Git Usernames
             </Button>
             <Button
@@ -675,8 +655,8 @@ export function MemberListPane({
                       onClick={() => column.toggleVisibility()}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          column.toggleVisibility();
+                          e.preventDefault()
+                          column.toggleVisibility()
                         }
                       }}
                       tabIndex={0}
@@ -786,7 +766,7 @@ export function MemberListPane({
       <AlertDialog
         open={memberPendingDeletion != null}
         onOpenChange={(open) => {
-          if (!open) setMemberPendingDeletion(null);
+          if (!open) setMemberPendingDeletion(null)
         }}
       >
         <AlertDialogContent>
@@ -811,7 +791,7 @@ export function MemberListPane({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
+  )
 }
 
 function RosterSourceDisplay({ roster }: { roster: Roster | null }) {
@@ -821,21 +801,21 @@ function RosterSourceDisplay({ roster }: { roster: Roster | null }) {
         <span className="text-muted-foreground w-14 shrink-0">Source:</span>
         <span>None (local only)</span>
       </div>
-    );
+    )
   }
 
-  const { connection } = roster;
-  let sourceLabel: string;
+  const { connection } = roster
+  let sourceLabel: string
   switch (connection.kind) {
     case "canvas":
-      sourceLabel = "LMS (Canvas)";
-      break;
+      sourceLabel = "LMS (Canvas)"
+      break
     case "moodle":
-      sourceLabel = "LMS (Moodle)";
-      break;
+      sourceLabel = "LMS (Moodle)"
+      break
     case "import":
-      sourceLabel = connection.sourceFilename;
-      break;
+      sourceLabel = connection.sourceFilename
+      break
   }
 
   return (
@@ -848,25 +828,25 @@ function RosterSourceDisplay({ roster }: { roster: Roster | null }) {
         </span>
       )}
     </div>
-  );
+  )
 }
 
 function columnLabel(id: string): string {
   switch (id) {
     case "name":
-      return "Name";
+      return "Name"
     case "email":
-      return "Email";
+      return "Email"
     case "status":
-      return "Status";
+      return "Status"
     case "memberType":
-      return "Role";
+      return "Role"
     case "groups":
-      return "Groups";
+      return "Groups"
     case "gitUsername":
-      return "Git Username";
+      return "Git Username"
     default:
-      return id;
+      return id
   }
 }
 
@@ -874,7 +854,7 @@ const memberStatusRank: Record<MemberStatus, number> = {
   active: 0,
   dropped: 1,
   incomplete: 2,
-};
+}
 
 function compareRosterMembersByName(
   left: RosterMember,
@@ -884,14 +864,14 @@ function compareRosterMembersByName(
     compareText(left.name, right.name),
     compareText(left.email, right.email),
     compareText(left.id, right.id),
-  );
+  )
 }
 
 function compareRosterMemberNames(
   rowA: { original: RosterMember },
   rowB: { original: RosterMember },
 ): number {
-  return compareRosterMembersByName(rowA.original, rowB.original);
+  return compareRosterMembersByName(rowA.original, rowB.original)
 }
 
 function compareRosterMemberEmails(
@@ -901,7 +881,7 @@ function compareRosterMemberEmails(
   return chainComparisons(
     compareText(rowA.original.email, rowB.original.email),
     compareRosterMembersByName(rowA.original, rowB.original),
-  );
+  )
 }
 
 function compareRosterMemberStatuses(
@@ -914,7 +894,7 @@ function compareRosterMemberStatuses(
       memberStatusRank[rowB.original.status],
     ),
     compareRosterMembersByName(rowA.original, rowB.original),
-  );
+  )
 }
 
 function compareRosterMemberRoles(
@@ -927,7 +907,7 @@ function compareRosterMemberRoles(
       rowB.original.enrollmentType === "student" ? 0 : 1,
     ),
     compareRosterMembersByName(rowA.original, rowB.original),
-  );
+  )
 }
 
 function compareRosterMemberGitUsernames(
@@ -935,21 +915,18 @@ function compareRosterMemberGitUsernames(
   rowB: { original: RosterMember },
 ): number {
   return chainComparisons(
-    compareNullableText(
-      rowA.original.gitUsername,
-      rowB.original.gitUsername,
-    ),
+    compareNullableText(rowA.original.gitUsername, rowB.original.gitUsername),
     compareRosterMembersByName(rowA.original, rowB.original),
-  );
+  )
 }
 
 function getStatusIcon(status: RosterMember["gitUsernameStatus"]) {
   switch (status) {
     case "valid":
-      return <span className="text-success">&check;</span>;
+      return <span className="text-success">&check;</span>
     case "invalid":
-      return <span className="text-destructive">&cross;</span>;
+      return <span className="text-destructive">&cross;</span>
     default:
-      return null;
+      return null
   }
 }

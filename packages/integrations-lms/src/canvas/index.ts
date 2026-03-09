@@ -1,1 +1,1 @@
-export { createCanvasClient } from "./canvas-client.js";
+export { createCanvasClient } from "./canvas-client.js"

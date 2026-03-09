@@ -7,35 +7,35 @@ import {
   DialogHeader,
   DialogTitle,
   Text,
-} from "@repo-edu/ui";
-import { AlertTriangle } from "@repo-edu/ui/components/icons";
+} from "@repo-edu/ui"
+import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import {
   selectGroupById,
   selectGroupReferenceCount,
   useProfileStore,
-} from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
 export function DeleteGroupDialog() {
-  const targetId = useUiStore((state) => state.deleteGroupTargetId);
-  const setTargetId = useUiStore((state) => state.setDeleteGroupTargetId);
-  const open = targetId !== null;
+  const targetId = useUiStore((state) => state.deleteGroupTargetId)
+  const setTargetId = useUiStore((state) => state.setDeleteGroupTargetId)
+  const open = targetId !== null
 
-  const group = useProfileStore(selectGroupById(targetId ?? ""));
-  const refCount = useProfileStore(selectGroupReferenceCount(targetId ?? ""));
-  const deleteGroup = useProfileStore((state) => state.deleteGroup);
+  const group = useProfileStore(selectGroupById(targetId ?? ""))
+  const refCount = useProfileStore(selectGroupReferenceCount(targetId ?? ""))
+  const deleteGroup = useProfileStore((state) => state.deleteGroup)
 
-  const isShared = refCount > 1;
+  const isShared = refCount > 1
 
   const handleDelete = () => {
-    if (!targetId) return;
-    deleteGroup(targetId);
-    handleClose();
-  };
+    if (!targetId) return
+    deleteGroup(targetId)
+    handleClose()
+  }
 
   const handleClose = () => {
-    setTargetId(null);
-  };
+    setTargetId(null)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -75,5 +75,5 @@ export function DeleteGroupDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

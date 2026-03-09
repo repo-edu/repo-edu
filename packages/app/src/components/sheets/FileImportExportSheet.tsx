@@ -11,47 +11,47 @@ import {
   SheetHeader,
   SheetTitle,
   Text,
-} from "@repo-edu/ui";
-import { Upload } from "@repo-edu/ui/components/icons";
-import { useEffect, useMemo, useState } from "react";
-import { getRendererHost } from "../../contexts/renderer-host.js";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui"
+import { Upload } from "@repo-edu/ui/components/icons"
+import { useEffect, useMemo, useState } from "react"
+import { getRendererHost } from "../../contexts/renderer-host.js"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
-const NONE_VALUE = "__none__";
+const NONE_VALUE = "__none__"
 
 export function FileImportExportSheet() {
-  const fileImportExportOpen = useUiStore((state) => state.fileImportExportOpen);
+  const fileImportExportOpen = useUiStore((state) => state.fileImportExportOpen)
   const setFileImportExportOpen = useUiStore(
     (state) => state.setFileImportExportOpen,
-  );
+  )
   const exportGroupSetTriggerId = useUiStore(
     (state) => state.exportGroupSetTriggerId,
-  );
+  )
   const setExportGroupSetTriggerId = useUiStore(
     (state) => state.setExportGroupSetTriggerId,
-  );
+  )
   const setImportGroupSetDialogOpen = useUiStore(
     (state) => state.setImportGroupSetDialogOpen,
-  );
+  )
   const setReimportGroupSetTargetId = useUiStore(
     (state) => state.setReimportGroupSetTargetId,
-  );
-  const selection = useUiStore((state) => state.sidebarSelection);
-  const activeProfileId = useUiStore((state) => state.activeProfileId);
+  )
+  const selection = useUiStore((state) => state.sidebarSelection)
+  const activeProfileId = useUiStore((state) => state.activeProfileId)
 
-  const roster = useProfileStore((state) => state.profile?.roster ?? null);
-  const addToast = useToastStore((state) => state.addToast);
+  const roster = useProfileStore((state) => state.profile?.roster ?? null)
+  const addToast = useToastStore((state) => state.addToast)
 
-  const [selectedGroupSetId, setSelectedGroupSetId] = useState<string>("");
+  const [selectedGroupSetId, setSelectedGroupSetId] = useState<string>("")
   const [exportingFormat, setExportingFormat] = useState<
     "csv" | "xlsx" | "yaml" | null
-  >(null);
+  >(null)
 
-  const open = fileImportExportOpen || exportGroupSetTriggerId !== null;
+  const open = fileImportExportOpen || exportGroupSetTriggerId !== null
 
   const groupSets = useMemo(
     () =>
@@ -59,89 +59,89 @@ export function FileImportExportSheet() {
         (groupSet) => groupSet.connection?.kind !== "system",
       ),
     [roster],
-  );
+  )
 
   const selectedGroupSet = useMemo(
     () =>
       groupSets.find((groupSet) => groupSet.id === selectedGroupSetId) ?? null,
     [groupSets, selectedGroupSetId],
-  );
+  )
 
   useEffect(() => {
     if (!open) {
-      setSelectedGroupSetId("");
-      return;
+      setSelectedGroupSetId("")
+      return
     }
 
     const preferredId =
       exportGroupSetTriggerId ??
       (selection?.kind === "group-set" ? selection.id : null) ??
       groupSets[0]?.id ??
-      "";
-    setSelectedGroupSetId(preferredId);
-  }, [open, exportGroupSetTriggerId, selection, groupSets]);
+      ""
+    setSelectedGroupSetId(preferredId)
+  }, [open, exportGroupSetTriggerId, selection, groupSets])
 
   const handleClose = () => {
-    setFileImportExportOpen(false);
-    setExportGroupSetTriggerId(null);
-    setExportingFormat(null);
-  };
+    setFileImportExportOpen(false)
+    setExportGroupSetTriggerId(null)
+    setExportingFormat(null)
+  }
 
   const handleExport = async (format: "csv" | "xlsx" | "yaml") => {
-    if (!activeProfileId || !selectedGroupSetId) return;
+    if (!activeProfileId || !selectedGroupSetId) return
 
-    setExportingFormat(format);
+    setExportingFormat(format)
     try {
-      const host = getRendererHost();
-      const suggestedName = `${selectedGroupSet?.name ?? "group-set"}.${format}`;
+      const host = getRendererHost()
+      const suggestedName = `${selectedGroupSet?.name ?? "group-set"}.${format}`
       const target = await host.pickSaveTarget({
         title: `Export group set as ${format.toUpperCase()}`,
         suggestedName,
         defaultFormat: format,
-      });
-      if (!target) return;
+      })
+      if (!target) return
 
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       await client.run("groupSet.export", {
         profileId: activeProfileId,
         groupSetId: selectedGroupSetId,
         target,
         format,
-      });
+      })
 
       addToast(
         `Exported "${selectedGroupSet?.name ?? "group set"}" as ${format.toUpperCase()}`,
         { tone: "success" },
-      );
+      )
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      addToast(`Export failed: ${message}`, { tone: "error" });
+      const message = getErrorMessage(cause)
+      addToast(`Export failed: ${message}`, { tone: "error" })
     } finally {
-      setExportingFormat(null);
+      setExportingFormat(null)
     }
-  };
+  }
 
   const handleImportNew = () => {
-    setImportGroupSetDialogOpen(true);
-    handleClose();
-  };
+    setImportGroupSetDialogOpen(true)
+    handleClose()
+  }
 
   const handleReimport = () => {
-    if (!selectedGroupSetId) return;
-    setReimportGroupSetTargetId(selectedGroupSetId);
-    handleClose();
-  };
+    if (!selectedGroupSetId) return
+    setReimportGroupSetTargetId(selectedGroupSetId)
+    handleClose()
+  }
 
-  const canReimport = selectedGroupSet?.connection?.kind === "import";
+  const canReimport = selectedGroupSet?.connection?.kind === "import"
 
   return (
     <Sheet
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
-          handleClose();
+          handleClose()
         } else {
-          setFileImportExportOpen(true);
+          setFileImportExportOpen(true)
         }
       }}
     >
@@ -246,5 +246,5 @@ export function FileImportExportSheet() {
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  );
+  )
 }

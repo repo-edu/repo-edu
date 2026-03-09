@@ -9,57 +9,57 @@ import {
   FormField,
   Input,
   Text,
-} from "@repo-edu/ui";
-import { useState } from "react";
+} from "@repo-edu/ui"
+import { useState } from "react"
 import {
   selectGroupSetById,
   useProfileStore,
-} from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
 export function CopyGroupSetDialog() {
-  const sourceId = useUiStore((state) => state.copyGroupSetSourceId);
-  const setSourceId = useUiStore((state) => state.setCopyGroupSetSourceId);
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection);
-  const open = sourceId !== null;
+  const sourceId = useUiStore((state) => state.copyGroupSetSourceId)
+  const setSourceId = useUiStore((state) => state.setCopyGroupSetSourceId)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const open = sourceId !== null
 
-  const groupSet = useProfileStore(selectGroupSetById(sourceId ?? ""));
-  const copyGroupSet = useProfileStore((state) => state.copyGroupSet);
+  const groupSet = useProfileStore(selectGroupSetById(sourceId ?? ""))
+  const copyGroupSet = useProfileStore((state) => state.copyGroupSet)
 
-  const defaultName = groupSet ? `${groupSet.name} (copy)` : "";
-  const [name, setName] = useState("");
+  const defaultName = groupSet ? `${groupSet.name} (copy)` : ""
+  const [name, setName] = useState("")
 
-  const [lastSourceId, setLastSourceId] = useState<string | null>(null);
+  const [lastSourceId, setLastSourceId] = useState<string | null>(null)
   if (sourceId !== lastSourceId) {
-    setLastSourceId(sourceId);
+    setLastSourceId(sourceId)
     if (sourceId && groupSet) {
-      setName(`${groupSet.name} (copy)`);
+      setName(`${groupSet.name} (copy)`)
     }
   }
 
   const isLmsOrSystem =
     groupSet?.connection?.kind === "canvas" ||
     groupSet?.connection?.kind === "moodle" ||
-    groupSet?.connection?.kind === "system";
+    groupSet?.connection?.kind === "system"
 
-  const trimmedName = name.trim();
-  const canCopy = trimmedName.length > 0;
+  const trimmedName = name.trim()
+  const canCopy = trimmedName.length > 0
 
   const handleCopy = () => {
-    if (!canCopy || !sourceId) return;
-    const newId = copyGroupSet(sourceId);
+    if (!canCopy || !sourceId) return
+    const newId = copyGroupSet(sourceId)
     if (newId) {
-      useProfileStore.getState().renameGroupSet(newId, trimmedName);
-      setSidebarSelection({ kind: "group-set", id: newId });
+      useProfileStore.getState().renameGroupSet(newId, trimmedName)
+      setSidebarSelection({ kind: "group-set", id: newId })
     }
-    handleClose();
-  };
+    handleClose()
+  }
 
   const handleClose = () => {
-    setSourceId(null);
-    setName("");
-    setLastSourceId(null);
-  };
+    setSourceId(null)
+    setName("")
+    setLastSourceId(null)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -93,7 +93,7 @@ export function CopyGroupSetDialog() {
               onChange={(e) => setName(e.target.value)}
               placeholder={defaultName}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && canCopy) handleCopy();
+                if (e.key === "Enter" && canCopy) handleCopy()
               }}
               autoFocus
             />
@@ -109,5 +109,5 @@ export function CopyGroupSetDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

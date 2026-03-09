@@ -1,4 +1,4 @@
-import type { HttpPort } from "@repo-edu/host-runtime-contract";
+import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   CreateRepositoriesRequest,
   CreateRepositoriesResult,
@@ -9,20 +9,20 @@ import type {
   GitUsernameStatus,
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
-} from "@repo-edu/integrations-git-contract";
+} from "@repo-edu/integrations-git-contract"
 
 function resolveApiBase(draft: GitConnectionDraft): string | null {
-  const baseUrl = draft.baseUrl?.trim();
+  const baseUrl = draft.baseUrl?.trim()
   if (!baseUrl) {
-    return null;
+    return null
   }
 
-  const base = baseUrl.replace(/\/+$/, "");
+  const base = baseUrl.replace(/\/+$/, "")
   if (base.endsWith("/api/v1")) {
-    return base;
+    return base
   }
 
-  return `${base}/api/v1`;
+  return `${base}/api/v1`
 }
 
 function createHeaders(draft: GitConnectionDraft): Record<string, string> {
@@ -30,7 +30,7 @@ function createHeaders(draft: GitConnectionDraft): Record<string, string> {
     Authorization: `token ${draft.token}`,
     Accept: "application/json",
     "Content-Type": "application/json",
-  };
+  }
 }
 
 async function giteaRequest(
@@ -41,9 +41,9 @@ async function giteaRequest(
   body?: string,
   signal?: AbortSignal,
 ): Promise<{ status: number; data: unknown }> {
-  const apiBase = resolveApiBase(draft);
+  const apiBase = resolveApiBase(draft)
   if (!apiBase) {
-    throw new Error("Gitea baseUrl is required.");
+    throw new Error("Gitea baseUrl is required.")
   }
 
   const response = await http.fetch({
@@ -52,76 +52,76 @@ async function giteaRequest(
     headers: createHeaders(draft),
     body,
     signal,
-  });
+  })
 
-  let data: unknown = null;
+  let data: unknown = null
   if (response.body) {
     try {
-      data = JSON.parse(response.body);
+      data = JSON.parse(response.body)
     } catch {
-      data = response.body;
+      data = response.body
     }
   }
 
-  return { status: response.status, data };
+  return { status: response.status, data }
 }
 
 function isActiveUser(data: unknown, username: string): boolean {
   if (typeof data !== "object" || data === null) {
-    return false;
+    return false
   }
 
   const user = data as {
-    username?: unknown;
-    active?: unknown;
-    is_active?: unknown;
-  };
+    username?: unknown
+    active?: unknown
+    is_active?: unknown
+  }
 
-  const matches = user.username === username;
+  const matches = user.username === username
   if (!matches) {
-    return false;
+    return false
   }
 
   if (user.active === false || user.is_active === false) {
-    return false;
+    return false
   }
 
-  return true;
+  return true
 }
 
 function resolvePrivateFlag(request: CreateRepositoriesRequest): boolean {
-  return request.template?.visibility !== "public";
+  return request.template?.visibility !== "public"
 }
 
 function withGiteaToken(cloneUrl: string, token: string): string {
-  const url = new URL(cloneUrl);
-  url.username = "token";
-  url.password = token;
-  return url.toString();
+  const url = new URL(cloneUrl)
+  url.username = "token"
+  url.password = token
+  return url.toString()
 }
 
 function extractRepositoryUrl(data: unknown): string {
   if (typeof data !== "object" || data === null) {
-    return "";
+    return ""
   }
 
   const repository = data as {
-    html_url?: unknown;
-    clone_url?: unknown;
-    website?: unknown;
-  };
+    html_url?: unknown
+    clone_url?: unknown
+    website?: unknown
+  }
 
   if (typeof repository.html_url === "string") {
-    return repository.html_url;
+    return repository.html_url
   }
   if (typeof repository.clone_url === "string") {
-    return repository.clone_url;
+    return repository.clone_url
   }
   if (typeof repository.website === "string") {
-    return repository.website;
+    return repository.website
   }
 
-  return "";
+  return ""
 }
 
 async function createRepository(
@@ -134,7 +134,7 @@ async function createRepository(
   const body = JSON.stringify({
     name: repoName,
     private: resolvePrivateFlag(request),
-  });
+  })
 
   if (request.template) {
     const { status, data } = await giteaRequest(
@@ -150,13 +150,13 @@ async function createRepository(
         private: resolvePrivateFlag(request),
       }),
       signal,
-    );
+    )
 
     if (status >= 200 && status < 300) {
-      return extractRepositoryUrl(data);
+      return extractRepositoryUrl(data)
     }
 
-    return "";
+    return ""
   }
 
   const { status, data } = await giteaRequest(
@@ -166,13 +166,13 @@ async function createRepository(
     `/orgs/${encodeURIComponent(request.organization)}/repos`,
     body,
     signal,
-  );
+  )
 
   if (status >= 200 && status < 300) {
-    return extractRepositoryUrl(data);
+    return extractRepositoryUrl(data)
   }
 
-  return "";
+  return ""
 }
 
 export function createGiteaClient(http: HttpPort): GitProviderClient {
@@ -181,9 +181,9 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       draft: GitConnectionDraft,
       signal?: AbortSignal,
     ): Promise<{ verified: boolean }> {
-      const org = draft.organization;
+      const org = draft.organization
       if (!org || !resolveApiBase(draft)) {
-        return { verified: false };
+        return { verified: false }
       }
 
       try {
@@ -194,10 +194,10 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
           `/orgs/${encodeURIComponent(org)}`,
           undefined,
           signal,
-        );
-        return { verified: status >= 200 && status < 300 };
+        )
+        return { verified: status >= 200 && status < 300 }
       } catch {
-        return { verified: false };
+        return { verified: false }
       }
     },
 
@@ -206,14 +206,14 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       usernames: string[],
       signal?: AbortSignal,
     ): Promise<GitUsernameStatus[]> {
-      const results: GitUsernameStatus[] = [];
+      const results: GitUsernameStatus[] = []
       if (!resolveApiBase(draft)) {
-        return usernames.map((username) => ({ username, exists: false }));
+        return usernames.map((username) => ({ username, exists: false }))
       }
 
       for (const username of usernames) {
         if (signal?.aborted) {
-          break;
+          break
         }
 
         try {
@@ -224,19 +224,19 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
             `/users/${encodeURIComponent(username)}`,
             undefined,
             signal,
-          );
+          )
 
           results.push({
             username,
             exists:
               status >= 200 && status < 300 && isActiveUser(data, username),
-          });
+          })
         } catch {
-          results.push({ username, exists: false });
+          results.push({ username, exists: false })
         }
       }
 
-      return results;
+      return results
     },
 
     async createRepositories(
@@ -245,14 +245,14 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       signal?: AbortSignal,
     ): Promise<CreateRepositoriesResult> {
       if (!request.organization || !resolveApiBase(draft)) {
-        return { createdCount: 0, repositoryUrls: [] };
+        return { createdCount: 0, repositoryUrls: [] }
       }
 
-      const repositoryUrls: string[] = [];
+      const repositoryUrls: string[] = []
 
       for (const repoName of request.repositoryNames) {
         if (signal?.aborted) {
-          break;
+          break
         }
 
         try {
@@ -262,9 +262,9 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
             request,
             repoName,
             signal,
-          );
+          )
           if (url !== "") {
-            repositoryUrls.push(url);
+            repositoryUrls.push(url)
           }
         } catch {
           // Individual repository creation failure is non-fatal.
@@ -274,7 +274,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       return {
         createdCount: repositoryUrls.length,
         repositoryUrls,
-      };
+      }
     },
     async resolveRepositoryCloneUrls(
       draft: GitConnectionDraft,
@@ -285,15 +285,15 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
         return {
           resolved: [],
           missing: [...request.repositoryNames],
-        };
+        }
       }
 
-      const resolved: ResolveRepositoryCloneUrlsResult["resolved"] = [];
-      const missing: string[] = [];
+      const resolved: ResolveRepositoryCloneUrlsResult["resolved"] = []
+      const missing: string[] = []
 
       for (const repositoryName of request.repositoryNames) {
         if (signal?.aborted) {
-          break;
+          break
         }
 
         const response = await giteaRequest(
@@ -303,34 +303,34 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
           `/repos/${encodeURIComponent(request.organization)}/${encodeURIComponent(repositoryName)}`,
           undefined,
           signal,
-        );
+        )
 
         if (response.status === 404) {
-          missing.push(repositoryName);
-          continue;
+          missing.push(repositoryName)
+          continue
         }
 
         if (response.status < 200 || response.status >= 300) {
           throw new Error(
             `Failed to resolve repository '${repositoryName}' (${response.status}).`,
-          );
+          )
         }
 
-        const cloneUrl = extractRepositoryUrl(response.data);
+        const cloneUrl = extractRepositoryUrl(response.data)
         if (cloneUrl === "") {
-          missing.push(repositoryName);
-          continue;
+          missing.push(repositoryName)
+          continue
         }
         resolved.push({
           repositoryName,
           cloneUrl: withGiteaToken(cloneUrl, draft.token),
-        });
+        })
       }
 
       return {
         resolved,
         missing,
-      };
+      }
     },
     async deleteRepositories(
       draft: GitConnectionDraft,
@@ -341,15 +341,15 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
         return {
           deletedCount: 0,
           missing: [...request.repositoryNames],
-        };
+        }
       }
 
-      let deletedCount = 0;
-      const missing: string[] = [];
+      let deletedCount = 0
+      const missing: string[] = []
 
       for (const repositoryName of request.repositoryNames) {
         if (signal?.aborted) {
-          break;
+          break
         }
 
         const response = await giteaRequest(
@@ -359,27 +359,27 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
           `/repos/${encodeURIComponent(request.organization)}/${encodeURIComponent(repositoryName)}`,
           undefined,
           signal,
-        );
+        )
 
         if (response.status === 404) {
-          missing.push(repositoryName);
-          continue;
+          missing.push(repositoryName)
+          continue
         }
 
         if (response.status >= 200 && response.status < 300) {
-          deletedCount += 1;
-          continue;
+          deletedCount += 1
+          continue
         }
 
         throw new Error(
           `Failed to delete repository '${repositoryName}' (${response.status}).`,
-        );
+        )
       }
 
       return {
         deletedCount,
         missing,
-      };
+      }
     },
-  };
+  }
 }

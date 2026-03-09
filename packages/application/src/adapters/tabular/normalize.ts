@@ -12,5 +12,5 @@ export function normalizeHeader(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_")
     .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
+    .replace(/^_|_$/g, "")
 }

@@ -1,13 +1,13 @@
-import type { RosterMember } from "@repo-edu/domain";
-import { Checkbox, Input } from "@repo-edu/ui";
-import { useMemo, useState } from "react";
+import type { RosterMember } from "@repo-edu/domain"
+import { Checkbox, Input } from "@repo-edu/ui"
+import { useMemo, useState } from "react"
 
 interface StudentMultiSelectProps {
-  students: RosterMember[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  groups?: { id: string; name: string; memberIds: string[] }[];
-  currentGroupId?: string | null;
+  students: RosterMember[]
+  selected: string[]
+  onChange: (selected: string[]) => void
+  groups?: { id: string; name: string; memberIds: string[] }[]
+  currentGroupId?: string | null
 }
 
 export function StudentMultiSelect({
@@ -17,69 +17,69 @@ export function StudentMultiSelect({
   groups,
   currentGroupId,
 }: StudentMultiSelectProps) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("")
 
   const filteredStudents = useMemo(() => {
     const statusOrder: Record<RosterMember["status"], number> = {
       active: 0,
       dropped: 1,
       incomplete: 2,
-    };
+    }
     const sorted = [...students].sort((a, b) => {
-      const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-      if (statusDiff !== 0) return statusDiff;
-      return a.name.localeCompare(b.name);
-    });
+      const statusDiff = statusOrder[a.status] - statusOrder[b.status]
+      if (statusDiff !== 0) return statusDiff
+      return a.name.localeCompare(b.name)
+    })
 
-    if (!search.trim()) return sorted;
-    const query = search.toLowerCase();
+    if (!search.trim()) return sorted
+    const query = search.toLowerCase()
     return sorted.filter(
       (s) =>
         s.name.toLowerCase().includes(query) ||
         s.email.toLowerCase().includes(query) ||
         s.id.toLowerCase().includes(query) ||
         s.studentNumber?.toLowerCase().includes(query),
-    );
-  }, [students, search]);
+    )
+  }, [students, search])
 
   const activeStudentIds = useMemo(
     () =>
       new Set(students.filter((s) => s.status === "active").map((s) => s.id)),
     [students],
-  );
+  )
 
   const membershipMap = useMemo(() => {
-    const map = new Map<string, { groupId: string; groupName: string }[]>();
-    if (!groups) return map;
+    const map = new Map<string, { groupId: string; groupName: string }[]>()
+    if (!groups) return map
     for (const group of groups) {
       for (const memberId of group.memberIds) {
-        if (!activeStudentIds.has(memberId)) continue;
-        const existing = map.get(memberId) ?? [];
-        existing.push({ groupId: group.id, groupName: group.name });
-        map.set(memberId, existing);
+        if (!activeStudentIds.has(memberId)) continue
+        const existing = map.get(memberId) ?? []
+        existing.push({ groupId: group.id, groupName: group.name })
+        map.set(memberId, existing)
       }
     }
-    return map;
-  }, [groups, activeStudentIds]);
+    return map
+  }, [groups, activeStudentIds])
 
   const toggleStudent = (id: string) => {
     if (selected.includes(id)) {
-      onChange(selected.filter((s) => s !== id));
+      onChange(selected.filter((s) => s !== id))
     } else {
-      onChange([...selected, id]);
+      onChange([...selected, id])
     }
-  };
+  }
 
   const selectAll = () => {
-    const allIds = filteredStudents.map((s) => s.id);
-    const newSelected = new Set([...selected, ...allIds]);
-    onChange(Array.from(newSelected));
-  };
+    const allIds = filteredStudents.map((s) => s.id)
+    const newSelected = new Set([...selected, ...allIds])
+    onChange(Array.from(newSelected))
+  }
 
   const deselectAll = () => {
-    const filteredIds = new Set(filteredStudents.map((s) => s.id));
-    onChange(selected.filter((id) => !filteredIds.has(id)));
-  };
+    const filteredIds = new Set(filteredStudents.map((s) => s.id))
+    onChange(selected.filter((id) => !filteredIds.has(id)))
+  }
 
   return (
     <div className="border rounded-md">
@@ -121,9 +121,9 @@ export function StudentMultiSelect({
               membershipMap,
               student.id,
               currentGroupId,
-            );
+            )
             const highlightMultiGroup =
-              otherGroups.length > 0 && !selected.includes(student.id);
+              otherGroups.length > 0 && !selected.includes(student.id)
             return (
               <div
                 key={student.id}
@@ -139,8 +139,8 @@ export function StudentMultiSelect({
                 onClick={() => toggleStudent(student.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleStudent(student.id);
+                    e.preventDefault()
+                    toggleStudent(student.id)
                   }
                 }}
                 tabIndex={0}
@@ -165,12 +165,12 @@ export function StudentMultiSelect({
                   currentGroupId={currentGroupId}
                 />
               </div>
-            );
+            )
           })
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function MultiGroupIndicator({
@@ -178,15 +178,15 @@ function MultiGroupIndicator({
   studentId,
   currentGroupId,
 }: {
-  membershipMap: Map<string, { groupId: string; groupName: string }[]>;
-  studentId: string;
-  currentGroupId?: string | null;
+  membershipMap: Map<string, { groupId: string; groupName: string }[]>
+  studentId: string
+  currentGroupId?: string | null
 }) {
-  const otherGroups = getOtherGroups(membershipMap, studentId, currentGroupId);
-  if (otherGroups.length === 0) return null;
+  const otherGroups = getOtherGroups(membershipMap, studentId, currentGroupId)
+  if (otherGroups.length === 0) return null
 
-  const preview = otherGroups.slice(0, 2).map((group) => group.groupName);
-  const remainder = otherGroups.length - preview.length;
+  const preview = otherGroups.slice(0, 2).map((group) => group.groupName)
+  const remainder = otherGroups.length - preview.length
 
   return (
     <span
@@ -196,7 +196,7 @@ function MultiGroupIndicator({
       (also in {preview.join(", ")}
       {remainder > 0 ? ` and ${remainder} other` : ""})
     </span>
-  );
+  )
 }
 
 function getOtherGroups(
@@ -204,6 +204,6 @@ function getOtherGroups(
   studentId: string,
   currentGroupId?: string | null,
 ) {
-  const groups = membershipMap.get(studentId) ?? [];
-  return groups.filter((group) => group.groupId !== currentGroupId);
+  const groups = membershipMap.get(studentId) ?? []
+  return groups.filter((group) => group.groupId !== currentGroupId)
 }

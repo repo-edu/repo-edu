@@ -9,72 +9,72 @@ import {
   FormField,
   Input,
   Text,
-} from "@repo-edu/ui";
-import { useEffect, useMemo, useState } from "react";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { generateAssignmentId } from "../../utils/nanoid.js";
+} from "@repo-edu/ui"
+import { useEffect, useMemo, useState } from "react"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { generateAssignmentId } from "../../utils/nanoid.js"
 
 export function NewAssignmentDialog() {
-  const [name, setName] = useState("");
+  const [name, setName] = useState("")
 
-  const open = useUiStore((state) => state.newAssignmentDialogOpen);
-  const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen);
+  const open = useUiStore((state) => state.newAssignmentDialogOpen)
+  const setOpen = useUiStore((state) => state.setNewAssignmentDialogOpen)
   const preSelectedGroupSetId = useUiStore(
     (state) => state.preSelectedGroupSetId,
-  );
+  )
   const setPreSelectedGroupSetId = useUiStore(
     (state) => state.setPreSelectedGroupSetId,
-  );
-  const selection = useUiStore((state) => state.sidebarSelection);
+  )
+  const selection = useUiStore((state) => state.sidebarSelection)
 
-  const addAssignment = useProfileStore((state) => state.addAssignment);
-  const roster = useProfileStore((state) => state.profile?.roster ?? null);
+  const addAssignment = useProfileStore((state) => state.addAssignment)
+  const roster = useProfileStore((state) => state.profile?.roster ?? null)
 
   const resolvedGroupSetId =
     preSelectedGroupSetId ??
-    (selection?.kind === "group-set" ? selection.id : null);
+    (selection?.kind === "group-set" ? selection.id : null)
 
   const duplicateName = useMemo(() => {
-    const trimmed = name.trim().toLowerCase();
-    if (!trimmed || !roster || !resolvedGroupSetId) return false;
+    const trimmed = name.trim().toLowerCase()
+    if (!trimmed || !roster || !resolvedGroupSetId) return false
     return roster.assignments.some(
       (assignment) =>
         assignment.groupSetId === resolvedGroupSetId &&
         assignment.name.trim().toLowerCase() === trimmed,
-    );
-  }, [name, roster, resolvedGroupSetId]);
+    )
+  }, [name, roster, resolvedGroupSetId])
 
   useEffect(() => {
     if (!open) {
-      setName("");
-      return;
+      setName("")
+      return
     }
 
     if (!preSelectedGroupSetId && selection?.kind === "group-set") {
-      setPreSelectedGroupSetId(selection.id);
+      setPreSelectedGroupSetId(selection.id)
     }
-  }, [open, preSelectedGroupSetId, selection, setPreSelectedGroupSetId]);
+  }, [open, preSelectedGroupSetId, selection, setPreSelectedGroupSetId])
 
   const canCreate =
-    name.trim().length > 0 && resolvedGroupSetId !== null && !duplicateName;
+    name.trim().length > 0 && resolvedGroupSetId !== null && !duplicateName
 
   const handleClose = () => {
-    setOpen(false);
-    setName("");
-    setPreSelectedGroupSetId(null);
-  };
+    setOpen(false)
+    setName("")
+    setPreSelectedGroupSetId(null)
+  }
 
   const handleCreate = () => {
-    if (!canCreate || !resolvedGroupSetId) return;
+    if (!canCreate || !resolvedGroupSetId) return
 
     addAssignment({
       id: generateAssignmentId(),
       name: name.trim(),
       groupSetId: resolvedGroupSetId,
-    });
-    handleClose();
-  };
+    })
+    handleClose()
+  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -95,7 +95,7 @@ export function NewAssignmentDialog() {
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && canCreate) {
-                  handleCreate();
+                  handleCreate()
                 }
               }}
               autoFocus
@@ -123,5 +123,5 @@ export function NewAssignmentDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -1,4 +1,4 @@
-import type { MemberStatus, RosterMember } from "@repo-edu/domain";
+import type { MemberStatus, RosterMember } from "@repo-edu/domain"
 import {
   Button,
   DropdownMenu,
@@ -9,24 +9,24 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
 import {
   Check,
   EllipsisVertical,
   RotateCcw,
   Trash2,
-} from "@repo-edu/ui/components/icons";
-import { formatMemberStatus } from "../../../../utils/labels.js";
+} from "@repo-edu/ui/components/icons"
+import { formatMemberStatus } from "../../../../utils/labels.js"
 
-const statuses: MemberStatus[] = ["active", "dropped", "incomplete"];
+const statuses: MemberStatus[] = ["active", "dropped", "incomplete"]
 
 type StatusCellProps = {
-  status: MemberStatus;
-  lmsStatus: MemberStatus | null;
-  source: RosterMember["source"];
-  onChange: (status: MemberStatus) => void;
-  onDeletePermanent: () => void;
-};
+  status: MemberStatus
+  lmsStatus: MemberStatus | null
+  source: RosterMember["source"]
+  onChange: (status: MemberStatus) => void
+  onDeletePermanent: () => void
+}
 
 export function StatusCell({
   status,
@@ -35,8 +35,8 @@ export function StatusCell({
   onChange,
   onDeletePermanent,
 }: StatusCellProps) {
-  const isOverridden = lmsStatus != null && status !== lmsStatus;
-  const canDeletePermanently = source === "local";
+  const isOverridden = lmsStatus != null && status !== lmsStatus
+  const canDeletePermanently = source === "local"
 
   return (
     <span className="inline-flex items-center gap-0.5">
@@ -81,7 +81,7 @@ export function StatusCell({
                   disabled={!canDeletePermanently}
                   onSelect={() => {
                     if (canDeletePermanently) {
-                      onDeletePermanent();
+                      onDeletePermanent()
                     }
                   }}
                   className="gap-1 text-destructive focus:text-destructive"
@@ -101,5 +101,5 @@ export function StatusCell({
         </DropdownMenuContent>
       </DropdownMenu>
     </span>
-  );
+  )
 }

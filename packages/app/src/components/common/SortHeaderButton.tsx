@@ -1,12 +1,16 @@
-import type { SortDirection } from "@tanstack/react-table";
-import { ChevronDown, ChevronUp, ChevronsUpDown } from "@repo-edu/ui/components/icons";
+import {
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+} from "@repo-edu/ui/components/icons"
+import type { SortDirection } from "@tanstack/react-table"
 
 type SortHeaderButtonProps = {
-  label: string;
-  canSort: boolean;
-  sorted: false | SortDirection;
-  onToggle: () => void;
-};
+  label: string
+  canSort: boolean
+  sorted: false | SortDirection
+  onToggle: () => void
+}
 
 export function SortHeaderButton({
   label,
@@ -15,7 +19,7 @@ export function SortHeaderButton({
   onToggle,
 }: SortHeaderButtonProps) {
   if (!canSort) {
-    return <span>{label}</span>;
+    return <span>{label}</span>
   }
 
   return (
@@ -33,5 +37,5 @@ export function SortHeaderButton({
         <ChevronsUpDown className="size-3 text-muted-foreground" />
       )}
     </button>
-  );
+  )
 }

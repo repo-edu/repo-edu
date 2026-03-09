@@ -3,22 +3,22 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@repo-edu/ui";
-import { Lock } from "@repo-edu/ui/components/icons";
+} from "@repo-edu/ui"
+import { Lock } from "@repo-edu/ui/components/icons"
 
 type GroupLockIconProps = {
-  origin: "lms" | "system";
-  inLocalSet?: boolean;
-};
+  origin: "lms" | "system"
+  inLocalSet?: boolean
+}
 
 function getTooltipText(origin: "lms" | "system", inLocalSet: boolean): string {
   if (origin === "system") {
-    return "System groups are auto-managed and cannot be edited";
+    return "System groups are auto-managed and cannot be edited"
   }
   if (inLocalSet) {
-    return "This group originated from an LMS sync and cannot be edited";
+    return "This group originated from an LMS sync and cannot be edited"
   }
-  return "This group is synced from LMS and cannot be edited";
+  return "This group is synced from LMS and cannot be edited"
 }
 
 export function GroupLockIcon({
@@ -36,5 +36,5 @@ export function GroupLockIcon({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  );
+  )
 }

@@ -1,1 +1,1 @@
-export { createGitLabClient } from "./gitlab-client.js";
+export { createGitLabClient } from "./gitlab-client.js"

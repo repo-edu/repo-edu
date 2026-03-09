@@ -1,32 +1,32 @@
-import { EmptyState, Text } from "@repo-edu/ui";
-import { useEffect } from "react";
+import { EmptyState, Text } from "@repo-edu/ui"
+import { useEffect } from "react"
 import {
   selectGroupSetById,
   useProfileStore,
-} from "../../../stores/profile-store.js";
-import { useUiStore } from "../../../stores/ui-store.js";
-import { GroupSetPanel } from "./GroupSetPanel.js";
+} from "../../../stores/profile-store.js"
+import { useUiStore } from "../../../stores/ui-store.js"
+import { GroupSetPanel } from "./GroupSetPanel.js"
 
-type SidebarSelection = { kind: "group-set"; id: string } | null;
+type SidebarSelection = { kind: "group-set"; id: string } | null
 
 type GroupsAssignmentsPanelProps = {
-  selection: SidebarSelection;
-};
+  selection: SidebarSelection
+}
 
 export function GroupsAssignmentsPanel({
   selection,
 }: GroupsAssignmentsPanelProps) {
   const selectedGroupSet = useProfileStore(
     selectGroupSetById(selection?.id ?? ""),
-  );
-  const setSidebarSelection = useUiStore((s) => s.setSidebarSelection);
+  )
+  const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)
 
   // Clear stale selection if the group set was deleted.
   useEffect(() => {
     if (selection && !selectedGroupSet) {
-      setSidebarSelection(null);
+      setSidebarSelection(null)
     }
-  }, [selection, selectedGroupSet, setSidebarSelection]);
+  }, [selection, selectedGroupSet, setSidebarSelection])
 
   if (!selection) {
     return (
@@ -35,7 +35,7 @@ export function GroupsAssignmentsPanel({
           Choose a group set to view details.
         </Text>
       </EmptyState>
-    );
+    )
   }
 
   if (!selectedGroupSet) {
@@ -45,8 +45,8 @@ export function GroupsAssignmentsPanel({
           The selected group set no longer exists.
         </Text>
       </EmptyState>
-    );
+    )
   }
 
-  return <GroupSetPanel key={selection.id} groupSetId={selection.id} />;
+  return <GroupSetPanel key={selection.id} groupSetId={selection.id} />
 }

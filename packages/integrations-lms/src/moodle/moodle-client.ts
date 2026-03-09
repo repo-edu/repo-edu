@@ -1,26 +1,26 @@
-import type { Group, Roster } from "@repo-edu/domain";
-import { normalizeRoster } from "@repo-edu/domain";
-import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract";
+import type { Group, Roster } from "@repo-edu/domain"
+import { normalizeRoster } from "@repo-edu/domain"
+import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
   LmsClient,
   LmsConnectionDraft,
   LmsCourseSummary,
   LmsFetchedGroupSet,
   LmsGroupSetSummary,
-} from "@repo-edu/integrations-lms-contract";
+} from "@repo-edu/integrations-lms-contract"
 
 type MoodleFunction =
   | "core_webservice_get_site_info"
   | "core_course_get_courses"
   | "core_enrol_get_enrolled_users"
   | "core_group_get_course_groupings"
-  | "core_group_get_course_groups";
+  | "core_group_get_course_groups"
 
 function resolveEndpoint(draft: LmsConnectionDraft): string {
-  const base = draft.baseUrl.replace(/\/+$/, "");
+  const base = draft.baseUrl.replace(/\/+$/, "")
   return base.endsWith("/webservice/rest/server.php")
     ? base
-    : `${base}/webservice/rest/server.php`;
+    : `${base}/webservice/rest/server.php`
 }
 
 function buildMoodleUrl(
@@ -33,29 +33,29 @@ function buildMoodleUrl(
     moodlewsrestformat: "json",
     wsfunction: fn,
     ...params,
-  });
+  })
 
-  return `${resolveEndpoint(draft)}?${search.toString()}`;
+  return `${resolveEndpoint(draft)}?${search.toString()}`
 }
 
 function parseResponseBody(response: HttpResponse): unknown {
   if (response.body === "") {
-    return null;
+    return null
   }
 
   try {
-    return JSON.parse(response.body);
+    return JSON.parse(response.body)
   } catch {
-    return response.body;
+    return response.body
   }
 }
 
 function isMoodleException(data: unknown): boolean {
   if (typeof data !== "object" || data === null) {
-    return false;
+    return false
   }
 
-  return typeof (data as { exception?: unknown }).exception === "string";
+  return typeof (data as { exception?: unknown }).exception === "string"
 }
 
 async function moodleRequest(
@@ -72,52 +72,52 @@ async function moodleRequest(
       Accept: "application/json",
     },
     signal,
-  });
+  })
 
-  const data = parseResponseBody(response);
+  const data = parseResponseBody(response)
   if (
     response.status < 200 ||
     response.status >= 300 ||
     isMoodleException(data)
   ) {
-    throw new Error(`Moodle request failed for ${fn}.`);
+    throw new Error(`Moodle request failed for ${fn}.`)
   }
 
-  return data;
+  return data
 }
 
 function toCourseSummary(course: unknown): LmsCourseSummary {
   const record = (course ?? {}) as {
-    id?: unknown;
-    fullname?: unknown;
-    shortname?: unknown;
-  };
+    id?: unknown
+    fullname?: unknown
+    shortname?: unknown
+  }
 
   return {
     id: String(record.id ?? ""),
     name:
       typeof record.fullname === "string" ? record.fullname : "Untitled Course",
     code: typeof record.shortname === "string" ? record.shortname : null,
-  };
+  }
 }
 
 function toRosterStudentInput(user: unknown) {
   const record = (user ?? {}) as {
-    id?: unknown;
-    idnumber?: unknown;
-    fullname?: unknown;
-    firstname?: unknown;
-    lastname?: unknown;
-    email?: unknown;
-    username?: unknown;
-  };
+    id?: unknown
+    idnumber?: unknown
+    fullname?: unknown
+    firstname?: unknown
+    lastname?: unknown
+    email?: unknown
+    username?: unknown
+  }
 
   const fullName =
     typeof record.fullname === "string"
       ? record.fullname
       : [record.firstname, record.lastname]
           .filter((value) => typeof value === "string" && value.length > 0)
-          .join(" ");
+          .join(" ")
 
   return {
     id: record.id,
@@ -125,64 +125,64 @@ function toRosterStudentInput(user: unknown) {
     displayNameCandidates: [record.fullname, fullName],
     emailCandidates: [record.email],
     gitUsername: null,
-  };
+  }
 }
 
 function toGroupSetSummary(grouping: unknown): LmsGroupSetSummary {
   const record = (grouping ?? {}) as {
-    id?: unknown;
-    name?: unknown;
-    groupcount?: unknown;
-  };
+    id?: unknown
+    name?: unknown
+    groupcount?: unknown
+  }
 
   return {
     id: String(record.id ?? ""),
     name: typeof record.name === "string" ? record.name : "Untitled Group Set",
     groupCount: typeof record.groupcount === "number" ? record.groupcount : 0,
-  };
+  }
 }
 
 function isGroupInGrouping(group: unknown, groupSetId: string): boolean {
   const record = (group ?? {}) as {
-    groupingid?: unknown;
-    groupingids?: unknown;
-  };
+    groupingid?: unknown
+    groupingids?: unknown
+  }
 
   if (String(record.groupingid ?? "") === groupSetId) {
-    return true;
+    return true
   }
 
   if (Array.isArray(record.groupingids)) {
-    return record.groupingids.some((value) => String(value) === groupSetId);
+    return record.groupingids.some((value) => String(value) === groupSetId)
   }
 
-  return false;
+  return false
 }
 
 function toGroupMemberIds(members: unknown): string[] {
   if (!Array.isArray(members)) {
-    return [];
+    return []
   }
 
   return members.flatMap((member) => {
-    const record = member as { userid?: unknown; id?: unknown };
-    const studentId = record.userid ?? record.id;
+    const record = member as { userid?: unknown; id?: unknown }
+    const studentId = record.userid ?? record.id
     if (studentId === undefined || studentId === null) {
-      return [];
+      return []
     }
 
-    return [String(studentId)];
-  });
+    return [String(studentId)]
+  })
 }
 
 function toGroup(group: unknown): Group {
   const record = (group ?? {}) as {
-    id?: unknown;
-    name?: unknown;
-    members?: unknown;
-  };
+    id?: unknown
+    name?: unknown
+    members?: unknown
+  }
 
-  const lmsGroupId = String(record.id ?? "");
+  const lmsGroupId = String(record.id ?? "")
 
   return {
     id: lmsGroupId,
@@ -190,7 +190,7 @@ function toGroup(group: unknown): Group {
     memberIds: toGroupMemberIds(record.members),
     origin: "lms",
     lmsGroupId,
-  };
+  }
 }
 
 export function createMoodleClient(http: HttpPort): LmsClient {
@@ -206,10 +206,10 @@ export function createMoodleClient(http: HttpPort): LmsClient {
           "core_webservice_get_site_info",
           {},
           signal,
-        );
-        return { verified: true };
+        )
+        return { verified: true }
       } catch {
-        return { verified: false };
+        return { verified: false }
       }
     },
 
@@ -223,13 +223,13 @@ export function createMoodleClient(http: HttpPort): LmsClient {
         "core_course_get_courses",
         {},
         signal,
-      );
+      )
 
       if (!Array.isArray(data)) {
-        return [];
+        return []
       }
 
-      return data.map(toCourseSummary);
+      return data.map(toCourseSummary)
     },
 
     async fetchRoster(
@@ -243,7 +243,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
         "core_enrol_get_enrolled_users",
         { courseid: courseId },
         signal,
-      );
+      )
 
       if (!Array.isArray(data)) {
         return {
@@ -253,7 +253,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
             courseId,
             lastUpdated: new Date().toISOString(),
           },
-        };
+        }
       }
 
       return {
@@ -263,7 +263,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
           courseId,
           lastUpdated: new Date().toISOString(),
         },
-      };
+      }
     },
 
     async listGroupSets(
@@ -277,13 +277,13 @@ export function createMoodleClient(http: HttpPort): LmsClient {
         "core_group_get_course_groupings",
         { courseid: courseId },
         signal,
-      );
+      )
 
       if (!Array.isArray(data)) {
-        return [];
+        return []
       }
 
-      return data.map(toGroupSetSummary);
+      return data.map(toGroupSetSummary)
     },
 
     async fetchGroupSet(
@@ -307,16 +307,16 @@ export function createMoodleClient(http: HttpPort): LmsClient {
           { courseid: courseId },
           signal,
         ),
-      ]);
+      ])
 
-      const groupingList = Array.isArray(groupings) ? groupings : [];
-      const groupList = Array.isArray(groups) ? groups : [];
+      const groupingList = Array.isArray(groupings) ? groupings : []
+      const groupList = Array.isArray(groups) ? groups : []
       const matchedGroups = groupList
         .filter((group) => isGroupInGrouping(group, groupSetId))
-        .map(toGroup);
+        .map(toGroup)
       const grouping = groupingList.find(
         (item) => String((item as { id?: unknown }).id ?? "") === groupSetId,
-      ) as { name?: unknown } | undefined;
+      ) as { name?: unknown } | undefined
 
       return {
         groupSet: {
@@ -338,7 +338,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
           },
         },
         groups: matchedGroups,
-      };
+      }
     },
-  };
+  }
 }

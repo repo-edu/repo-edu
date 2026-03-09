@@ -1,4 +1,4 @@
-import type { Assignment, Group, GroupSet } from "@repo-edu/domain";
+import type { Assignment, Group, GroupSet } from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -8,72 +8,72 @@ import {
   DialogHeader,
   DialogTitle,
   Text,
-} from "@repo-edu/ui";
-import { AlertTriangle } from "@repo-edu/ui/components/icons";
-import { useMemo } from "react";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "@repo-edu/ui"
+import { AlertTriangle } from "@repo-edu/ui/components/icons"
+import { useMemo } from "react"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
-const EMPTY_ASSIGNMENTS: Assignment[] = [];
-const EMPTY_GROUPS: Group[] = [];
-const EMPTY_GROUP_SETS: GroupSet[] = [];
+const EMPTY_ASSIGNMENTS: Assignment[] = []
+const EMPTY_GROUPS: Group[] = []
+const EMPTY_GROUP_SETS: GroupSet[] = []
 
 export function DeleteGroupSetDialog() {
-  const targetId = useUiStore((state) => state.deleteGroupSetTargetId);
-  const setTargetId = useUiStore((state) => state.setDeleteGroupSetTargetId);
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection);
-  const open = targetId !== null;
+  const targetId = useUiStore((state) => state.deleteGroupSetTargetId)
+  const setTargetId = useUiStore((state) => state.setDeleteGroupSetTargetId)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const open = targetId !== null
 
-  const roster = useProfileStore((state) => state.profile?.roster ?? null);
-  const deleteGroupSet = useProfileStore((state) => state.deleteGroupSet);
+  const roster = useProfileStore((state) => state.profile?.roster ?? null)
+  const deleteGroupSet = useProfileStore((state) => state.deleteGroupSet)
 
-  const allGroupSets = roster?.groupSets ?? EMPTY_GROUP_SETS;
+  const allGroupSets = roster?.groupSets ?? EMPTY_GROUP_SETS
   const groupSet = useMemo(() => {
-    if (!roster || !targetId) return null;
-    return roster.groupSets.find((entry) => entry.id === targetId) ?? null;
-  }, [roster, targetId]);
+    if (!roster || !targetId) return null
+    return roster.groupSets.find((entry) => entry.id === targetId) ?? null
+  }, [roster, targetId])
 
   const assignments = useMemo(() => {
-    if (!roster || !targetId) return EMPTY_ASSIGNMENTS;
-    return roster.assignments.filter((entry) => entry.groupSetId === targetId);
-  }, [roster, targetId]);
+    if (!roster || !targetId) return EMPTY_ASSIGNMENTS
+    return roster.assignments.filter((entry) => entry.groupSetId === targetId)
+  }, [roster, targetId])
 
   const groups = useMemo(() => {
-    if (!roster || !targetId) return EMPTY_GROUPS;
+    if (!roster || !targetId) return EMPTY_GROUPS
     const groupSetEntry = roster.groupSets.find(
       (entry) => entry.id === targetId,
-    );
-    if (!groupSetEntry) return EMPTY_GROUPS;
-    const groupMap = new Map(roster.groups.map((group) => [group.id, group]));
+    )
+    if (!groupSetEntry) return EMPTY_GROUPS
+    const groupMap = new Map(roster.groups.map((group) => [group.id, group]))
     return groupSetEntry.groupIds
       .map((groupId) => groupMap.get(groupId))
-      .filter((group): group is Group => Boolean(group));
-  }, [roster, targetId]);
+      .filter((group): group is Group => Boolean(group))
+  }, [roster, targetId])
 
   const orphanedCount = useMemo(() => {
-    if (!targetId) return 0;
-    let count = 0;
+    if (!targetId) return 0
+    let count = 0
     for (const group of groups) {
       const refCount = allGroupSets.filter((gs) =>
         gs.groupIds.includes(group.id),
-      ).length;
-      if (refCount <= 1) count++;
+      ).length
+      if (refCount <= 1) count++
     }
-    return count;
-  }, [groups, allGroupSets, targetId]);
+    return count
+  }, [groups, allGroupSets, targetId])
 
-  const survivingCount = groups.length - orphanedCount;
+  const survivingCount = groups.length - orphanedCount
 
   const handleDelete = () => {
-    if (!targetId) return;
-    deleteGroupSet(targetId);
-    setSidebarSelection(null);
-    handleClose();
-  };
+    if (!targetId) return
+    deleteGroupSet(targetId)
+    setSidebarSelection(null)
+    handleClose()
+  }
 
   const handleClose = () => {
-    setTargetId(null);
-  };
+    setTargetId(null)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -126,5 +126,5 @@ export function DeleteGroupSetDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

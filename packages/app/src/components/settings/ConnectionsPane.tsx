@@ -3,7 +3,7 @@ import type {
   LmsProviderKind,
   PersistedGitConnection,
   PersistedLmsConnection,
-} from "@repo-edu/domain";
+} from "@repo-edu/domain"
 import {
   Button,
   FormField,
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
   Text,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
 import {
   Check,
   Loader2,
@@ -24,94 +24,94 @@ import {
   RefreshCw,
   Trash2,
   X,
-} from "@repo-edu/ui/components/icons";
-import { useMemo, useState } from "react";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { useAppSettingsStore } from "../../stores/app-settings-store.js";
-import { useConnectionsStore } from "../../stores/connections-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import type { ConnectionStatus } from "../../types/index.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui/components/icons"
+import { useMemo, useState } from "react"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { useConnectionsStore } from "../../stores/connections-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import type { ConnectionStatus } from "../../types/index.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
-type VerificationStatus = ConnectionStatus;
+type VerificationStatus = ConnectionStatus
 
-type LmsDraft = PersistedLmsConnection;
-type GitDraft = PersistedGitConnection;
+type LmsDraft = PersistedLmsConnection
+type GitDraft = PersistedGitConnection
 
 const LMS_PROVIDER_LABELS: Record<LmsProviderKind, string> = {
   canvas: "Canvas",
   moodle: "Moodle",
-};
+}
 
 const GIT_PROVIDER_LABELS: Record<GitProviderKind, string> = {
   github: "GitHub",
   gitlab: "GitLab",
   gitea: "Gitea",
-};
+}
 
-const INVALID_REQUIRED_URL_MESSAGE = "Base URL must be a valid http(s) URL.";
+const INVALID_REQUIRED_URL_MESSAGE = "Base URL must be a valid http(s) URL."
 const INVALID_OPTIONAL_URL_MESSAGE =
-  "Base URL must be a valid http(s) URL when provided.";
-const VERIFY_FAILED_MESSAGE = "Verification failed. Check URL and credentials.";
+  "Base URL must be a valid http(s) URL when provided."
+const VERIFY_FAILED_MESSAGE = "Verification failed. Check URL and credentials."
 
 function normalizeHttpUrl(
   value: string,
   options?: { allowImplicitHttps?: boolean },
 ): string | null {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   if (trimmed.length === 0) {
-    return "";
+    return ""
   }
 
   const candidate =
     options?.allowImplicitHttps && !trimmed.includes("://")
       ? `https://${trimmed}`
-      : trimmed;
+      : trimmed
 
   try {
-    const url = new URL(candidate);
+    const url = new URL(candidate)
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
+      return null
     }
 
-    return url.toString().replace(/\/+$/, "");
+    return url.toString().replace(/\/+$/, "")
   } catch {
-    return null;
+    return null
   }
 }
 
 function validateRequiredBaseUrl(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   if (trimmed.length === 0) {
-    return null;
+    return null
   }
 
   return normalizeHttpUrl(trimmed, { allowImplicitHttps: true }) === null
     ? INVALID_REQUIRED_URL_MESSAGE
-    : null;
+    : null
 }
 
 function validateOptionalBaseUrl(value: string | null): string | null {
-  const normalized = value?.trim() ?? "";
+  const normalized = value?.trim() ?? ""
   if (normalized.length === 0) {
-    return null;
+    return null
   }
 
   return normalizeHttpUrl(normalized) === null
     ? INVALID_OPTIONAL_URL_MESSAGE
-    : null;
+    : null
 }
 
 function VerificationStatusIcon({ status }: { status: VerificationStatus }) {
   switch (status) {
     case "connected":
-      return <Check className="size-4 text-success" />;
+      return <Check className="size-4 text-success" />
     case "verifying":
-      return <Loader2 className="size-4 animate-spin" />;
+      return <Loader2 className="size-4 animate-spin" />
     case "error":
-      return <X className="size-4 text-destructive" />;
+      return <X className="size-4 text-destructive" />
     default:
-      return null;
+      return null
   }
 }
 
@@ -121,7 +121,7 @@ function emptyLmsDraft(): LmsDraft {
     provider: "canvas",
     baseUrl: "",
     token: "",
-  };
+  }
 }
 
 function emptyGitDraft(): GitDraft {
@@ -131,203 +131,209 @@ function emptyGitDraft(): GitDraft {
     baseUrl: null,
     token: "",
     organization: null,
-  };
+  }
 }
 
 export function ConnectionsPane() {
-  const settings = useAppSettingsStore((state) => state.settings);
-  const setLmsConnection = useAppSettingsStore((state) => state.setLmsConnection);
-  const addLmsConnection = useAppSettingsStore((state) => state.addLmsConnection);
+  const settings = useAppSettingsStore((state) => state.settings)
+  const setLmsConnection = useAppSettingsStore(
+    (state) => state.setLmsConnection,
+  )
+  const addLmsConnection = useAppSettingsStore(
+    (state) => state.addLmsConnection,
+  )
   const removeLmsConnection = useAppSettingsStore(
     (state) => state.removeLmsConnection,
-  );
-  const addGitConnection = useAppSettingsStore((state) => state.addGitConnection);
+  )
+  const addGitConnection = useAppSettingsStore(
+    (state) => state.addGitConnection,
+  )
   const updateGitConnection = useAppSettingsStore(
     (state) => state.updateGitConnection,
-  );
+  )
   const renameGitConnection = useAppSettingsStore(
     (state) => state.renameGitConnection,
-  );
+  )
   const removeGitConnection = useAppSettingsStore(
     (state) => state.removeGitConnection,
-  );
-  const saveAppSettings = useAppSettingsStore((state) => state.save);
-  const addToast = useToastStore((state) => state.addToast);
-  const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses);
-  const lmsSavedErrors = useConnectionsStore((state) => state.lmsErrors);
-  const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses);
-  const gitSavedErrors = useConnectionsStore((state) => state.gitErrors);
+  )
+  const saveAppSettings = useAppSettingsStore((state) => state.save)
+  const addToast = useToastStore((state) => state.addToast)
+  const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
+  const lmsSavedErrors = useConnectionsStore((state) => state.lmsErrors)
+  const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
+  const gitSavedErrors = useConnectionsStore((state) => state.gitErrors)
   const setLmsConnectionStatus = useConnectionsStore(
     (state) => state.setLmsConnectionStatus,
-  );
-  const setGitStatus = useConnectionsStore((state) => state.setGitStatus);
+  )
+  const setGitStatus = useConnectionsStore((state) => state.setGitStatus)
 
-  const lmsConnections = settings.lmsConnections;
-  const gitConnections = settings.gitConnections;
+  const lmsConnections = settings.lmsConnections
+  const gitConnections = settings.gitConnections
 
-  const [showLmsEditor, setShowLmsEditor] = useState(false);
-  const [lmsEditorIndex, setLmsEditorIndex] = useState<number | null>(null);
-  const [lmsDraft, setLmsDraft] = useState<LmsDraft>(emptyLmsDraft());
+  const [showLmsEditor, setShowLmsEditor] = useState(false)
+  const [lmsEditorIndex, setLmsEditorIndex] = useState<number | null>(null)
+  const [lmsDraft, setLmsDraft] = useState<LmsDraft>(emptyLmsDraft())
   const [lmsEditorStatus, setLmsEditorStatus] =
-    useState<VerificationStatus>("disconnected");
-  const [lmsEditorError, setLmsEditorError] = useState<string | null>(null);
+    useState<VerificationStatus>("disconnected")
+  const [lmsEditorError, setLmsEditorError] = useState<string | null>(null)
 
-  const [showGitEditor, setShowGitEditor] = useState(false);
+  const [showGitEditor, setShowGitEditor] = useState(false)
   const [gitEditorOriginalName, setGitEditorOriginalName] = useState<
     string | null
-  >(null);
-  const [gitDraft, setGitDraft] = useState<GitDraft>(emptyGitDraft());
+  >(null)
+  const [gitDraft, setGitDraft] = useState<GitDraft>(emptyGitDraft())
   const [gitEditorStatus, setGitEditorStatus] =
-    useState<VerificationStatus>("disconnected");
-  const [gitEditorError, setGitEditorError] = useState<string | null>(null);
+    useState<VerificationStatus>("disconnected")
+  const [gitEditorError, setGitEditorError] = useState<string | null>(null)
 
-  const editingLms = showLmsEditor && lmsEditorIndex !== null;
-  const editingGit = showGitEditor && gitEditorOriginalName !== null;
+  const editingLms = showLmsEditor && lmsEditorIndex !== null
+  const editingGit = showGitEditor && gitEditorOriginalName !== null
 
   const lmsNameTaken = useMemo(() => {
-    const normalized = lmsDraft.name.trim().toLowerCase();
-    if (!normalized) return false;
+    const normalized = lmsDraft.name.trim().toLowerCase()
+    if (!normalized) return false
     return lmsConnections.some(
       (connection, index) =>
         index !== lmsEditorIndex &&
         connection.name.trim().toLowerCase() === normalized,
-    );
-  }, [lmsConnections, lmsDraft.name, lmsEditorIndex]);
+    )
+  }, [lmsConnections, lmsDraft.name, lmsEditorIndex])
 
   const gitNameTaken = useMemo(() => {
-    const normalized = gitDraft.name.trim().toLowerCase();
-    if (!normalized) return false;
+    const normalized = gitDraft.name.trim().toLowerCase()
+    if (!normalized) return false
     return gitConnections.some(
       (connection) =>
         connection.name.trim().toLowerCase() === normalized &&
         connection.name !== gitEditorOriginalName,
-    );
-  }, [gitConnections, gitDraft.name, gitEditorOriginalName]);
+    )
+  }, [gitConnections, gitDraft.name, gitEditorOriginalName])
 
-  const lmsBaseUrlError = validateRequiredBaseUrl(lmsDraft.baseUrl);
-  const gitBaseUrlError = validateOptionalBaseUrl(gitDraft.baseUrl);
+  const lmsBaseUrlError = validateRequiredBaseUrl(lmsDraft.baseUrl)
+  const gitBaseUrlError = validateOptionalBaseUrl(gitDraft.baseUrl)
 
   const canSaveLms =
     lmsDraft.name.trim().length > 0 &&
     lmsDraft.baseUrl.trim().length > 0 &&
     lmsDraft.token.trim().length > 0 &&
     lmsBaseUrlError === null &&
-    !lmsNameTaken;
+    !lmsNameTaken
 
   const canSaveGit =
     gitDraft.name.trim().length > 0 &&
     gitDraft.token.trim().length > 0 &&
     gitBaseUrlError === null &&
-    !gitNameTaken;
+    !gitNameTaken
 
   const resetLmsEditor = () => {
-    setShowLmsEditor(false);
-    setLmsEditorIndex(null);
-    setLmsDraft(emptyLmsDraft());
-    setLmsEditorStatus("disconnected");
-    setLmsEditorError(null);
-  };
+    setShowLmsEditor(false)
+    setLmsEditorIndex(null)
+    setLmsDraft(emptyLmsDraft())
+    setLmsEditorStatus("disconnected")
+    setLmsEditorError(null)
+  }
 
   const resetGitEditor = () => {
-    setShowGitEditor(false);
-    setGitEditorOriginalName(null);
-    setGitDraft(emptyGitDraft());
-    setGitEditorStatus("disconnected");
-    setGitEditorError(null);
-  };
+    setShowGitEditor(false)
+    setGitEditorOriginalName(null)
+    setGitDraft(emptyGitDraft())
+    setGitEditorStatus("disconnected")
+    setGitEditorError(null)
+  }
 
   const verifyLms = async (draft: LmsDraft) => {
     const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
       allowImplicitHttps: true,
-    });
-    const baseUrl = normalizedBaseUrl ?? draft.baseUrl.trim();
-    const token = draft.token.trim();
+    })
+    const baseUrl = normalizedBaseUrl ?? draft.baseUrl.trim()
+    const token = draft.token.trim()
     const urlError =
-      normalizedBaseUrl === null ? INVALID_REQUIRED_URL_MESSAGE : null;
+      normalizedBaseUrl === null ? INVALID_REQUIRED_URL_MESSAGE : null
     if (urlError) {
-      setLmsEditorStatus("error");
-      setLmsEditorError(urlError);
-      addToast("LMS verification failed", { tone: "error" });
-      return { status: "error" as const, error: urlError };
+      setLmsEditorStatus("error")
+      setLmsEditorError(urlError)
+      addToast("LMS verification failed", { tone: "error" })
+      return { status: "error" as const, error: urlError }
     }
 
-    setLmsEditorStatus("verifying");
-    setLmsEditorError(null);
+    setLmsEditorStatus("verifying")
+    setLmsEditorError(null)
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run("connection.verifyLmsDraft", {
         provider: draft.provider,
         baseUrl,
         token,
-      });
+      })
       if (result.verified) {
-        setLmsEditorStatus("connected");
-        addToast("LMS connection verified", { tone: "success" });
-        return { status: "connected" as const, error: null };
+        setLmsEditorStatus("connected")
+        addToast("LMS connection verified", { tone: "success" })
+        return { status: "connected" as const, error: null }
       }
 
-      setLmsEditorStatus("error");
-      setLmsEditorError(VERIFY_FAILED_MESSAGE);
-      addToast("LMS verification failed", { tone: "error" });
-      return { status: "error" as const, error: VERIFY_FAILED_MESSAGE };
+      setLmsEditorStatus("error")
+      setLmsEditorError(VERIFY_FAILED_MESSAGE)
+      addToast("LMS verification failed", { tone: "error" })
+      return { status: "error" as const, error: VERIFY_FAILED_MESSAGE }
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setLmsEditorStatus("error");
-      setLmsEditorError(message);
-      addToast("LMS verification failed", { tone: "error" });
-      return { status: "error" as const, error: message };
+      const message = getErrorMessage(cause)
+      setLmsEditorStatus("error")
+      setLmsEditorError(message)
+      addToast("LMS verification failed", { tone: "error" })
+      return { status: "error" as const, error: message }
     }
-  };
+  }
 
   const verifyGit = async (draft: GitDraft) => {
-    const baseUrl = draft.baseUrl?.trim() || null;
-    const token = draft.token.trim();
-    const organization = draft.organization?.trim() || null;
-    const urlError = validateOptionalBaseUrl(baseUrl);
+    const baseUrl = draft.baseUrl?.trim() || null
+    const token = draft.token.trim()
+    const organization = draft.organization?.trim() || null
+    const urlError = validateOptionalBaseUrl(baseUrl)
     if (urlError) {
-      setGitEditorStatus("error");
-      setGitEditorError(urlError);
-      addToast("Git verification failed", { tone: "error" });
-      return { status: "error" as const, error: urlError };
+      setGitEditorStatus("error")
+      setGitEditorError(urlError)
+      addToast("Git verification failed", { tone: "error" })
+      return { status: "error" as const, error: urlError }
     }
 
-    setGitEditorStatus("verifying");
-    setGitEditorError(null);
+    setGitEditorStatus("verifying")
+    setGitEditorError(null)
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run("connection.verifyGitDraft", {
         provider: draft.provider,
         baseUrl,
         token,
         organization,
-      });
+      })
       if (result.verified) {
-        setGitEditorStatus("connected");
-        addToast("Git connection verified", { tone: "success" });
-        return { status: "connected" as const, error: null };
+        setGitEditorStatus("connected")
+        addToast("Git connection verified", { tone: "success" })
+        return { status: "connected" as const, error: null }
       }
 
-      setGitEditorStatus("error");
-      setGitEditorError(VERIFY_FAILED_MESSAGE);
-      addToast("Git verification failed", { tone: "error" });
-      return { status: "error" as const, error: VERIFY_FAILED_MESSAGE };
+      setGitEditorStatus("error")
+      setGitEditorError(VERIFY_FAILED_MESSAGE)
+      addToast("Git verification failed", { tone: "error" })
+      return { status: "error" as const, error: VERIFY_FAILED_MESSAGE }
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setGitEditorStatus("error");
-      setGitEditorError(message);
-      addToast("Git verification failed", { tone: "error" });
-      return { status: "error" as const, error: message };
+      const message = getErrorMessage(cause)
+      setGitEditorStatus("error")
+      setGitEditorError(message)
+      addToast("Git verification failed", { tone: "error" })
+      return { status: "error" as const, error: message }
     }
-  };
+  }
 
   const handleSaveLms = async () => {
-    if (!canSaveLms) return;
+    if (!canSaveLms) return
     const normalizedBaseUrl = normalizeHttpUrl(lmsDraft.baseUrl, {
       allowImplicitHttps: true,
-    });
+    })
     if (normalizedBaseUrl === null) {
-      setLmsEditorError(INVALID_REQUIRED_URL_MESSAGE);
-      return;
+      setLmsEditorError(INVALID_REQUIRED_URL_MESSAGE)
+      return
     }
 
     const nextConnection: PersistedLmsConnection = {
@@ -335,25 +341,25 @@ export function ConnectionsPane() {
       provider: lmsDraft.provider,
       baseUrl: normalizedBaseUrl,
       token: lmsDraft.token.trim(),
-    };
-
-    if (lmsEditorIndex === null) {
-      addLmsConnection(nextConnection);
-    } else {
-      setLmsConnection(lmsEditorIndex, nextConnection);
     }
 
-    await saveAppSettings();
-    addToast("LMS connection saved", { tone: "success" });
-    resetLmsEditor();
-  };
+    if (lmsEditorIndex === null) {
+      addLmsConnection(nextConnection)
+    } else {
+      setLmsConnection(lmsEditorIndex, nextConnection)
+    }
+
+    await saveAppSettings()
+    addToast("LMS connection saved", { tone: "success" })
+    resetLmsEditor()
+  }
 
   const handleSaveGit = async () => {
-    if (!canSaveGit) return;
-    const urlError = validateOptionalBaseUrl(gitDraft.baseUrl);
+    if (!canSaveGit) return
+    const urlError = validateOptionalBaseUrl(gitDraft.baseUrl)
     if (urlError) {
-      setGitEditorError(urlError);
-      return;
+      setGitEditorError(urlError)
+      return
     }
 
     const nextConnection: PersistedGitConnection = {
@@ -362,91 +368,95 @@ export function ConnectionsPane() {
       baseUrl: gitDraft.baseUrl?.trim() || null,
       token: gitDraft.token.trim(),
       organization: gitDraft.organization?.trim() || null,
-    };
+    }
 
     if (gitEditorOriginalName === null) {
-      addGitConnection(nextConnection);
+      addGitConnection(nextConnection)
     } else if (gitEditorOriginalName !== nextConnection.name) {
       renameGitConnection(
         gitEditorOriginalName,
         nextConnection.name,
         nextConnection,
-      );
+      )
     } else {
-      updateGitConnection(gitEditorOriginalName, nextConnection);
+      updateGitConnection(gitEditorOriginalName, nextConnection)
     }
 
-    await saveAppSettings();
-    addToast("Git connection saved", { tone: "success" });
-    resetGitEditor();
-  };
+    await saveAppSettings()
+    addToast("Git connection saved", { tone: "success" })
+    resetGitEditor()
+  }
 
   const handleRemoveLms = async (index: number) => {
-    removeLmsConnection(index);
-    await saveAppSettings();
-    addToast("LMS connection removed", { tone: "info" });
-  };
+    removeLmsConnection(index)
+    await saveAppSettings()
+    addToast("LMS connection removed", { tone: "info" })
+  }
 
   const handleRemoveGit = async (name: string) => {
-    removeGitConnection(name);
-    await saveAppSettings();
-    addToast("Git connection removed", { tone: "info" });
-  };
+    removeGitConnection(name)
+    await saveAppSettings()
+    addToast("Git connection removed", { tone: "info" })
+  }
 
   const handleVerifySavedLms = async (connection: PersistedLmsConnection) => {
     const normalizedBaseUrl = normalizeHttpUrl(connection.baseUrl, {
       allowImplicitHttps: true,
-    });
+    })
     if (normalizedBaseUrl === null) {
-      setLmsConnectionStatus(connection.name, "error", INVALID_REQUIRED_URL_MESSAGE);
-      return;
+      setLmsConnectionStatus(
+        connection.name,
+        "error",
+        INVALID_REQUIRED_URL_MESSAGE,
+      )
+      return
     }
 
-    setLmsConnectionStatus(connection.name, "verifying", null);
+    setLmsConnectionStatus(connection.name, "verifying", null)
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run("connection.verifyLmsDraft", {
         provider: connection.provider,
         baseUrl: normalizedBaseUrl,
         token: connection.token,
-      });
+      })
       setLmsConnectionStatus(
         connection.name,
         result.verified ? "connected" : "error",
         result.verified ? null : VERIFY_FAILED_MESSAGE,
-      );
+      )
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setLmsConnectionStatus(connection.name, "error", message);
+      const message = getErrorMessage(cause)
+      setLmsConnectionStatus(connection.name, "error", message)
     }
-  };
+  }
 
   const handleVerifySavedGit = async (connection: PersistedGitConnection) => {
-    const urlError = validateOptionalBaseUrl(connection.baseUrl);
+    const urlError = validateOptionalBaseUrl(connection.baseUrl)
     if (urlError) {
-      setGitStatus(connection.name, "error", urlError);
-      return;
+      setGitStatus(connection.name, "error", urlError)
+      return
     }
 
-    setGitStatus(connection.name, "verifying", null);
+    setGitStatus(connection.name, "verifying", null)
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run("connection.verifyGitDraft", {
         provider: connection.provider,
         baseUrl: connection.baseUrl,
         token: connection.token,
         organization: connection.organization,
-      });
+      })
       setGitStatus(
         connection.name,
         result.verified ? "connected" : "error",
         result.verified ? null : VERIFY_FAILED_MESSAGE,
-      );
+      )
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setGitStatus(connection.name, "error", message);
+      const message = getErrorMessage(cause)
+      setGitStatus(connection.name, "error", message)
     }
-  };
+  }
 
   return (
     <div className="space-y-8">
@@ -457,11 +467,11 @@ export function ConnectionsPane() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setShowLmsEditor(true);
-              setLmsEditorIndex(null);
-              setLmsDraft(emptyLmsDraft());
-              setLmsEditorStatus("disconnected");
-              setLmsEditorError(null);
+              setShowLmsEditor(true)
+              setLmsEditorIndex(null)
+              setLmsDraft(emptyLmsDraft())
+              setLmsEditorStatus("disconnected")
+              setLmsEditorError(null)
             }}
             disabled={showLmsEditor}
           >
@@ -478,14 +488,19 @@ export function ConnectionsPane() {
 
         <div className="space-y-2">
           {lmsConnections.map((connection, index) => {
-            const status = lmsSavedStatuses[connection.name] ?? "disconnected";
-            const error = lmsSavedErrors[connection.name] ?? null;
+            const status = lmsSavedStatuses[connection.name] ?? "disconnected"
+            const error = lmsSavedErrors[connection.name] ?? null
             return (
-              <div key={connection.name} className="rounded-md border p-3 space-y-2">
+              <div
+                key={connection.name}
+                className="rounded-md border p-3 space-y-2"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <div className="font-medium text-sm">{connection.name}</div>
+                      <div className="font-medium text-sm">
+                        {connection.name}
+                      </div>
                       <VerificationStatusIcon status={status} />
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -511,11 +526,11 @@ export function ConnectionsPane() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setShowLmsEditor(true);
-                        setLmsEditorIndex(index);
-                        setLmsDraft(connection);
-                        setLmsEditorStatus("disconnected");
-                        setLmsEditorError(null);
+                        setShowLmsEditor(true)
+                        setLmsEditorIndex(index)
+                        setLmsDraft(connection)
+                        setLmsEditorStatus("disconnected")
+                        setLmsEditorError(null)
                       }}
                     >
                       <Pencil className="size-3.5 mr-1" />
@@ -532,7 +547,7 @@ export function ConnectionsPane() {
                   </div>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
 
@@ -605,7 +620,9 @@ export function ConnectionsPane() {
               </Text>
             )}
             {lmsBaseUrlError && (
-              <Text className="text-xs text-destructive">{lmsBaseUrlError}</Text>
+              <Text className="text-xs text-destructive">
+                {lmsBaseUrlError}
+              </Text>
             )}
             {lmsEditorError && (
               <Text className="text-xs text-destructive">{lmsEditorError}</Text>
@@ -662,11 +679,11 @@ export function ConnectionsPane() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setShowGitEditor(true);
-              setGitEditorOriginalName(null);
-              setGitDraft(emptyGitDraft());
-              setGitEditorStatus("disconnected");
-              setGitEditorError(null);
+              setShowGitEditor(true)
+              setGitEditorOriginalName(null)
+              setGitDraft(emptyGitDraft())
+              setGitEditorStatus("disconnected")
+              setGitEditorError(null)
             }}
             disabled={showGitEditor}
           >
@@ -683,14 +700,19 @@ export function ConnectionsPane() {
 
         <div className="space-y-2">
           {gitConnections.map((connection) => {
-            const status = gitSavedStatuses[connection.name] ?? "disconnected";
-            const error = gitSavedErrors[connection.name] ?? null;
+            const status = gitSavedStatuses[connection.name] ?? "disconnected"
+            const error = gitSavedErrors[connection.name] ?? null
             return (
-              <div key={connection.name} className="rounded-md border p-3 space-y-2">
+              <div
+                key={connection.name}
+                className="rounded-md border p-3 space-y-2"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <div className="font-medium text-sm">{connection.name}</div>
+                      <div className="font-medium text-sm">
+                        {connection.name}
+                      </div>
                       <VerificationStatusIcon status={status} />
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -719,11 +741,11 @@ export function ConnectionsPane() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setShowGitEditor(true);
-                        setGitEditorOriginalName(connection.name);
-                        setGitDraft(connection);
-                        setGitEditorStatus("disconnected");
-                        setGitEditorError(null);
+                        setShowGitEditor(true)
+                        setGitEditorOriginalName(connection.name)
+                        setGitDraft(connection)
+                        setGitEditorStatus("disconnected")
+                        setGitEditorError(null)
                       }}
                     >
                       <Pencil className="size-3.5 mr-1" />
@@ -740,7 +762,7 @@ export function ConnectionsPane() {
                   </div>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
 
@@ -782,7 +804,10 @@ export function ConnectionsPane() {
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="Base URL (optional)" htmlFor="settings-git-base-url">
+            <FormField
+              label="Base URL (optional)"
+              htmlFor="settings-git-base-url"
+            >
               <Input
                 id="settings-git-base-url"
                 value={gitDraft.baseUrl ?? ""}
@@ -830,7 +855,9 @@ export function ConnectionsPane() {
               </Text>
             )}
             {gitBaseUrlError && (
-              <Text className="text-xs text-destructive">{gitBaseUrlError}</Text>
+              <Text className="text-xs text-destructive">
+                {gitBaseUrlError}
+              </Text>
             )}
             {gitEditorError && (
               <Text className="text-xs text-destructive">{gitEditorError}</Text>
@@ -880,5 +907,5 @@ export function ConnectionsPane() {
         )}
       </section>
     </div>
-  );
+  )
 }

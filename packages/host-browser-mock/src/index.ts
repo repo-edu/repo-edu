@@ -1,62 +1,62 @@
-import type { FileFormat } from "@repo-edu/domain";
+import type { FileFormat } from "@repo-edu/domain"
 import type {
   UserFilePort,
   UserFileReadRef,
   UserFileText,
   UserFileWriteReceipt,
   UserSaveTargetWriteRef,
-} from "@repo-edu/host-runtime-contract";
+} from "@repo-edu/host-runtime-contract"
 
-export const packageId = "@repo-edu/host-browser-mock";
+export const packageId = "@repo-edu/host-browser-mock"
 export const workspaceDependencies = [
   "@repo-edu/domain",
   "@repo-edu/host-runtime-contract",
   "@repo-edu/integrations-lms-contract",
   "@repo-edu/integrations-git-contract",
-] as const;
+] as const
 
 type MockReadableFile = {
-  referenceId: string;
-  displayName: string;
-  mediaType: string | null;
-  text: string;
-};
+  referenceId: string
+  displayName: string
+  mediaType: string | null
+  text: string
+}
 
 type MockWritableFile = {
-  displayName: string;
-  mediaType: string | null;
-  text: string;
-  savedAt: string;
-};
+  displayName: string
+  mediaType: string | null
+  text: string
+  savedAt: string
+}
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.");
+    throw new Error("Operation cancelled.")
   }
 }
 
 function inferMediaType(format: FileFormat | null): string | null {
   switch (format) {
     case "csv":
-      return "text/csv";
+      return "text/csv"
     case "json":
-      return "application/json";
+      return "application/json"
     case "xlsx":
-      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     case "yaml":
-      return "application/yaml";
+      return "application/yaml"
     default:
-      return "text/plain";
+      return "text/plain"
   }
 }
 
 function byteLengthFor(text: string) {
-  return new TextEncoder().encode(text).byteLength;
+  return new TextEncoder().encode(text).byteLength
 }
 
 export function createBrowserMockHostEnvironment() {
-  let selectionCounter = 0;
-  let lastOpenedExternalUrl: string | null = null;
+  let selectionCounter = 0
+  let lastOpenedExternalUrl: string | null = null
 
   const readableFiles = new Map<string, MockReadableFile>([
     [
@@ -90,20 +90,20 @@ export function createBrowserMockHostEnvironment() {
         ),
       },
     ],
-  ]);
+  ])
 
-  const writableFiles = new Map<string, MockWritableFile>();
+  const writableFiles = new Map<string, MockWritableFile>()
 
   const userFilePort: UserFilePort = {
     async readText(
       reference: UserFileReadRef,
       signal?: AbortSignal,
     ): Promise<UserFileText> {
-      throwIfAborted(signal);
-      const file = readableFiles.get(reference.referenceId);
+      throwIfAborted(signal)
+      const file = readableFiles.get(reference.referenceId)
 
       if (!file) {
-        throw new Error(`User file not found: ${reference.displayName}`);
+        throw new Error(`User file not found: ${reference.displayName}`)
       }
 
       return {
@@ -111,7 +111,7 @@ export function createBrowserMockHostEnvironment() {
         mediaType: file.mediaType,
         text: file.text,
         byteLength: byteLengthFor(file.text),
-      };
+      }
     },
 
     async writeText(
@@ -119,41 +119,41 @@ export function createBrowserMockHostEnvironment() {
       text: string,
       signal?: AbortSignal,
     ): Promise<UserFileWriteReceipt> {
-      throwIfAborted(signal);
-      const savedAt = new Date().toISOString();
-      const mediaType = inferMediaType(reference.suggestedFormat);
+      throwIfAborted(signal)
+      const savedAt = new Date().toISOString()
+      const mediaType = inferMediaType(reference.suggestedFormat)
 
       writableFiles.set(reference.referenceId, {
         displayName: reference.displayName,
         mediaType,
         text,
         savedAt,
-      });
+      })
 
       return {
         displayName: reference.displayName,
         mediaType,
         byteLength: byteLengthFor(text),
         savedAt,
-      };
+      }
     },
-  };
+  }
 
   return {
     rendererHost: {
       async pickUserFile(options?: { acceptFormats?: readonly FileFormat[] }) {
         const nextFile = [...readableFiles.values()].find((file) => {
           if (!options?.acceptFormats || options.acceptFormats.length === 0) {
-            return true;
+            return true
           }
 
           return options.acceptFormats.some((format) =>
             file.displayName.endsWith(`.${format}`),
-          );
-        });
+          )
+        })
 
         if (!nextFile) {
-          return null;
+          return null
         }
 
         return {
@@ -162,30 +162,30 @@ export function createBrowserMockHostEnvironment() {
           displayName: nextFile.displayName,
           mediaType: nextFile.mediaType,
           byteLength: byteLengthFor(nextFile.text),
-        };
+        }
       },
 
       async pickSaveTarget(options?: {
-        suggestedName?: string;
-        defaultFormat?: FileFormat;
+        suggestedName?: string
+        defaultFormat?: FileFormat
       }) {
-        selectionCounter += 1;
+        selectionCounter += 1
 
-        const format = options?.defaultFormat ?? "csv";
+        const format = options?.defaultFormat ?? "csv"
         const displayName =
           options?.suggestedName ??
-          `repo-edu-export-${selectionCounter}.${format}`;
+          `repo-edu-export-${selectionCounter}.${format}`
 
         return {
           kind: "user-save-target-ref" as const,
           referenceId: `save-target-${selectionCounter}`,
           displayName,
           suggestedFormat: format,
-        };
+        }
       },
 
       async openExternalUrl(url: string) {
-        lastOpenedExternalUrl = url;
+        lastOpenedExternalUrl = url
       },
 
       async getEnvironmentSnapshot() {
@@ -195,7 +195,7 @@ export function createBrowserMockHostEnvironment() {
           windowChrome: "system" as const,
           canPromptForFiles: true,
           lastOpenedExternalUrl,
-        };
+        }
       },
     },
     userFilePort,
@@ -203,7 +203,7 @@ export function createBrowserMockHostEnvironment() {
       return [...writableFiles.entries()].map(([referenceId, file]) => ({
         referenceId,
         ...file,
-      }));
+      }))
     },
-  };
+  }
 }

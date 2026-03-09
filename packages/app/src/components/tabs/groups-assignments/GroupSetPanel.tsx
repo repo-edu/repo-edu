@@ -1,4 +1,9 @@
-import type { Assignment, Group, GroupSetConnection, RosterMember } from "@repo-edu/domain";
+import type {
+  Assignment,
+  Group,
+  GroupSetConnection,
+  RosterMember,
+} from "@repo-edu/domain"
 import {
   Button,
   EmptyState,
@@ -8,13 +13,8 @@ import {
   TabsList,
   TabsTrigger,
   Text,
-} from "@repo-edu/ui";
-import {
-  Loader2,
-  Plus,
-  Search,
-  Trash2,
-} from "@repo-edu/ui/components/icons";
+} from "@repo-edu/ui"
+import { Loader2, Plus, Search, Trash2 } from "@repo-edu/ui/components/icons"
 import {
   type ColumnDef,
   flexRender,
@@ -24,65 +24,59 @@ import {
   type SortingState,
   type Updater,
   useReactTable,
-} from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+} from "@tanstack/react-table"
+import { useCallback, useMemo, useState } from "react"
 import {
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
   selectGroupSetById,
   selectGroupsForGroupSet,
   useProfileStore,
-} from "../../../stores/profile-store.js";
-import { useUiStore } from "../../../stores/ui-store.js";
-import { useToastStore } from "../../../stores/toast-store.js";
+} from "../../../stores/profile-store.js"
+import { useToastStore } from "../../../stores/toast-store.js"
+import { useUiStore } from "../../../stores/ui-store.js"
 import {
   chainComparisons,
   compareNumber,
   compareText,
   getNextProgressiveSorting,
   normalizeProgressiveSorting,
-} from "../../../utils/sorting.js";
-import { SortHeaderButton } from "../../common/SortHeaderButton.js";
-import { GroupItem } from "./GroupItem.js";
+} from "../../../utils/sorting.js"
+import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+import { GroupItem } from "./GroupItem.js"
 
 type GroupSetPanelProps = {
-  groupSetId: string;
-};
+  groupSetId: string
+}
 
 function getConnectionKind(
   connection: GroupSetConnection | null,
 ): "local" | "system" | "canvas" | "moodle" | "import" {
-  if (!connection) return "local";
-  return connection.kind;
+  if (!connection) return "local"
+  return connection.kind
 }
 
 export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
-  const groupSet = useProfileStore(selectGroupSetById(groupSetId));
-  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId));
-  const assignments = useProfileStore(
-    selectAssignmentsForGroupSet(groupSetId),
-  );
-  const editableTargets = useProfileStore(selectEditableGroupTargets);
-  const updateAssignment = useProfileStore((s) => s.updateAssignment);
-  const deleteAssignment = useProfileStore((s) => s.deleteAssignment);
-  const roster = useProfileStore((s) => s.profile?.roster ?? null);
-  const addToast = useToastStore((s) => s.addToast);
+  const groupSet = useProfileStore(selectGroupSetById(groupSetId))
+  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
+  const assignments = useProfileStore(selectAssignmentsForGroupSet(groupSetId))
+  const editableTargets = useProfileStore(selectEditableGroupTargets)
+  const updateAssignment = useProfileStore((s) => s.updateAssignment)
+  const deleteAssignment = useProfileStore((s) => s.deleteAssignment)
+  const roster = useProfileStore((s) => s.profile?.roster ?? null)
+  const addToast = useToastStore((s) => s.addToast)
 
-  const groupSetOperation = useUiStore((s) => s.groupSetOperation);
-  const panelTab = useUiStore((s) => s.groupSetPanelTab);
-  const setPanelTab = useUiStore((s) => s.setGroupSetPanelTab);
+  const groupSetOperation = useUiStore((s) => s.groupSetOperation)
+  const panelTab = useUiStore((s) => s.groupSetPanelTab)
+  const setPanelTab = useUiStore((s) => s.setGroupSetPanelTab)
   const setNewAssignmentDialogOpen = useUiStore(
     (s) => s.setNewAssignmentDialogOpen,
-  );
-  const setPreSelectedGroupSetId = useUiStore(
-    (s) => s.setPreSelectedGroupSetId,
-  );
+  )
+  const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
   const setAddGroupDialogGroupSetId = useUiStore(
     (s) => s.setAddGroupDialogGroupSetId,
-  );
-  const setDeleteGroupTargetId = useUiStore(
-    (s) => s.setDeleteGroupTargetId,
-  );
+  )
+  const setDeleteGroupTargetId = useUiStore((s) => s.setDeleteGroupTargetId)
 
   if (!groupSet) {
     return (
@@ -91,56 +85,53 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           The selected group set no longer exists.
         </Text>
       </EmptyState>
-    );
+    )
   }
 
-  const connection = groupSet.connection;
-  const kind = getConnectionKind(connection);
-  const isOperationActive = groupSetOperation !== null;
-  const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId;
-  const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle";
-  const isSetEditable = !isReadOnly;
+  const connection = groupSet.connection
+  const kind = getConnectionKind(connection)
+  const isOperationActive = groupSetOperation !== null
+  const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
+  const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
+  const isSetEditable = !isReadOnly
 
   // Build a memberGroupIndex for MemberChip dedup.
   const memberGroupIndex = useMemo(() => {
-    const index = new Map<string, Set<string>>();
-    if (!roster) return index;
+    const index = new Map<string, Set<string>>()
+    if (!roster) return index
     for (const group of roster.groups) {
       for (const memberId of group.memberIds) {
-        let s = index.get(memberId);
+        let s = index.get(memberId)
         if (!s) {
-          s = new Set();
-          index.set(memberId, s);
+          s = new Set()
+          index.set(memberId, s)
         }
-        s.add(group.id);
+        s.add(group.id)
       }
     }
-    return index;
-  }, [roster]);
+    return index
+  }, [roster])
 
   // Resolve members for each group.
   const allMembers = useMemo(
-    () =>
-      roster ? [...roster.students, ...roster.staff] : [],
+    () => (roster ? [...roster.students, ...roster.staff] : []),
     [roster],
-  );
+  )
   const memberById = useMemo(() => {
-    const map = new Map<string, RosterMember>();
-    for (const m of allMembers) map.set(m.id, m);
-    return map;
-  }, [allMembers]);
+    const map = new Map<string, RosterMember>()
+    for (const m of allMembers) map.set(m.id, m)
+    return map
+  }, [allMembers])
   const staffIds = useMemo(
     () => new Set((roster?.staff ?? []).map((s) => s.id)),
     [roster],
-  );
+  )
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b">
-        <h3 className="text-sm font-semibold truncate">
-          {groupSet.name}
-        </h3>
+        <h3 className="text-sm font-semibold truncate">{groupSet.name}</h3>
         {isThisGroupSetBusy && (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
         )}
@@ -153,9 +144,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
         className="flex-1 flex flex-col min-h-0"
       >
         <TabsList className="px-4 pt-2">
-          <TabsTrigger value="groups">
-            Groups ({groups.length})
-          </TabsTrigger>
+          <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
           <TabsTrigger value="assignments">
             Assignments ({assignments.length})
           </TabsTrigger>
@@ -186,15 +175,15 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
             updateAssignment={updateAssignment}
             deleteAssignment={deleteAssignment}
             onAddAssignment={() => {
-              setPreSelectedGroupSetId(groupSetId);
-              setNewAssignmentDialogOpen(true);
+              setPreSelectedGroupSetId(groupSetId)
+              setNewAssignmentDialogOpen(true)
             }}
             disabled={isOperationActive}
           />
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -213,24 +202,24 @@ function GroupsTab({
   onAddGroup,
   onDeleteGroup,
 }: {
-  groups: Group[];
-  groupSetId: string;
-  memberById: Map<string, RosterMember>;
-  staffIds: Set<string>;
-  isSetEditable: boolean;
-  editableTargets: ReturnType<typeof selectEditableGroupTargets>;
-  memberGroupIndex: Map<string, Set<string>>;
-  disabled: boolean;
-  onAddGroup: () => void;
-  onDeleteGroup: (groupId: string) => void;
+  groups: Group[]
+  groupSetId: string
+  memberById: Map<string, RosterMember>
+  staffIds: Set<string>
+  isSetEditable: boolean
+  editableTargets: ReturnType<typeof selectEditableGroupTargets>
+  memberGroupIndex: Map<string, Set<string>>
+  disabled: boolean
+  onAddGroup: () => void
+  onDeleteGroup: (groupId: string) => void
 }) {
-  const [search, setSearch] = useState("");
-  const query = search.trim().toLowerCase();
+  const [search, setSearch] = useState("")
+  const query = search.trim().toLowerCase()
 
   const filteredGroups = useMemo(() => {
-    if (!query) return groups;
-    return groups.filter((g) => g.name.toLowerCase().includes(query));
-  }, [groups, query]);
+    if (!query) return groups
+    return groups.filter((g) => g.name.toLowerCase().includes(query))
+  }, [groups, query])
 
   if (groups.length === 0) {
     return (
@@ -243,7 +232,7 @@ function GroupsTab({
           </Button>
         )}
       </div>
-    );
+    )
   }
 
   return (
@@ -275,7 +264,7 @@ function GroupsTab({
         {filteredGroups.map((group) => {
           const members = group.memberIds
             .map((id) => memberById.get(id))
-            .filter((m): m is RosterMember => m !== undefined);
+            .filter((m): m is RosterMember => m !== undefined)
           return (
             <GroupItem
               key={group.id}
@@ -289,7 +278,7 @@ function GroupsTab({
               memberGroupIndex={memberGroupIndex}
               onDeleteGroup={() => onDeleteGroup(group.id)}
             />
-          );
+          )
         })}
       </div>
 
@@ -299,7 +288,7 @@ function GroupsTab({
         </p>
       )}
     </div>
-  );
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -314,12 +303,12 @@ function AssignmentsTab({
   onAddAssignment,
   disabled,
 }: {
-  assignments: Assignment[];
-  groupSetId: string;
-  updateAssignment: (id: string, updates: Partial<Assignment>) => void;
-  deleteAssignment: (id: string) => void;
-  onAddAssignment: () => void;
-  disabled: boolean;
+  assignments: Assignment[]
+  groupSetId: string
+  updateAssignment: (id: string, updates: Partial<Assignment>) => void
+  deleteAssignment: (id: string) => void
+  onAddAssignment: () => void
+  disabled: boolean
 }) {
   if (assignments.length === 0) {
     return (
@@ -332,7 +321,7 @@ function AssignmentsTab({
           Add Assignment
         </Button>
       </div>
-    );
+    )
   }
 
   return (
@@ -360,7 +349,7 @@ function AssignmentsTab({
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 function AssignmentRow({
@@ -369,22 +358,22 @@ function AssignmentRow({
   onDelete,
   disabled,
 }: {
-  assignment: Assignment;
-  onUpdate: (updates: Partial<Assignment>) => void;
-  onDelete: () => void;
-  disabled: boolean;
+  assignment: Assignment
+  onUpdate: (updates: Partial<Assignment>) => void
+  onDelete: () => void
+  disabled: boolean
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(assignment.name);
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(assignment.name)
 
   const handleSave = () => {
-    const trimmed = editName.trim();
+    const trimmed = editName.trim()
     if (trimmed && trimmed !== assignment.name) {
-      onUpdate({ name: trimmed });
+      onUpdate({ name: trimmed })
     }
-    setIsEditing(false);
-    setEditName(assignment.name);
-  };
+    setIsEditing(false)
+    setEditName(assignment.name)
+  }
 
   return (
     <div className="flex items-center gap-2 py-2">
@@ -394,10 +383,10 @@ function AssignmentRow({
           onChange={(e) => setEditName(e.target.value)}
           onBlur={handleSave}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
+            if (e.key === "Enter") handleSave()
             if (e.key === "Escape") {
-              setIsEditing(false);
-              setEditName(assignment.name);
+              setIsEditing(false)
+              setEditName(assignment.name)
             }
           }}
           autoFocus
@@ -409,8 +398,8 @@ function AssignmentRow({
           className="text-sm font-medium hover:underline text-left flex-1 truncate"
           onClick={() => {
             if (!disabled) {
-              setEditName(assignment.name);
-              setIsEditing(true);
+              setEditName(assignment.name)
+              setIsEditing(true)
             }
           }}
           disabled={disabled}
@@ -429,5 +418,5 @@ function AssignmentRow({
         <Trash2 className="size-3.5" />
       </Button>
     </div>
-  );
+  )
 }

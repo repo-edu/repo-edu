@@ -1,4 +1,4 @@
-import type { HttpPort, HttpRequest } from "@repo-edu/host-runtime-contract";
+import type { HttpPort, HttpRequest } from "@repo-edu/host-runtime-contract"
 
 /**
  * Creates a Fetch API-compatible function that delegates to HttpPort.
@@ -16,20 +16,20 @@ export function createHttpPortFetch(
         ? url
         : url instanceof URL
           ? url.toString()
-          : url.url;
+          : url.url
 
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {}
     if (init?.headers) {
       if (init.headers instanceof Headers) {
         init.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
+          headers[key] = value
+        })
       } else if (Array.isArray(init.headers)) {
         for (const [key, value] of init.headers) {
-          headers[key] = value;
+          headers[key] = value
         }
       } else {
-        Object.assign(headers, init.headers);
+        Object.assign(headers, init.headers)
       }
     }
 
@@ -42,14 +42,14 @@ export function createHttpPortFetch(
           ? String(init.body)
           : undefined,
       signal: init?.signal ?? undefined,
-    };
+    }
 
-    const httpResponse = await http.fetch(request);
+    const httpResponse = await http.fetch(request)
 
     return new Response(httpResponse.body, {
       status: httpResponse.status,
       statusText: httpResponse.statusText,
       headers: httpResponse.headers,
-    });
-  };
+    })
+  }
 }

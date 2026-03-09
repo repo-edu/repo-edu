@@ -1,51 +1,51 @@
-import type { SortingState } from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table"
 
 const textCollator = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
-});
+})
 
 function normalizeSortingEntries(sorting: SortingState): SortingState {
-  const next: SortingState = [];
-  const seen = new Set<string>();
+  const next: SortingState = []
+  const seen = new Set<string>()
 
   for (const entry of sorting) {
-    if (!entry?.id || seen.has(entry.id)) continue;
-    seen.add(entry.id);
-    next.push({ id: entry.id, desc: Boolean(entry.desc) });
-    if (next.length === 2) break;
+    if (!entry?.id || seen.has(entry.id)) continue
+    seen.add(entry.id)
+    next.push({ id: entry.id, desc: Boolean(entry.desc) })
+    if (next.length === 2) break
   }
 
-  return next;
+  return next
 }
 
 export function normalizeProgressiveSorting(
   sorting: SortingState,
 ): SortingState {
-  return normalizeSortingEntries(sorting);
+  return normalizeSortingEntries(sorting)
 }
 
 export function getNextProgressiveSorting(
   sorting: SortingState,
   columnId: string,
 ): SortingState {
-  const [primary, secondary] = normalizeSortingEntries(sorting);
+  const [primary, secondary] = normalizeSortingEntries(sorting)
 
   if (primary?.id === columnId) {
     return [
       { id: columnId, desc: !primary.desc },
       ...(secondary ? [secondary] : []),
-    ];
+    ]
   }
 
   return [
     { id: columnId, desc: false },
     ...(primary && primary.id !== columnId ? [primary] : []),
-  ];
+  ]
 }
 
 function normalizeTextValue(value: string | null | undefined): string {
-  return (value ?? "").trim();
+  return (value ?? "").trim()
 }
 
 export function compareText(
@@ -55,33 +55,33 @@ export function compareText(
   return textCollator.compare(
     normalizeTextValue(left),
     normalizeTextValue(right),
-  );
+  )
 }
 
 export function compareNumber(left: number, right: number): number {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
+  if (left === right) return 0
+  return left < right ? -1 : 1
 }
 
 export function compareBoolean(left: boolean, right: boolean): number {
-  return compareNumber(Number(left), Number(right));
+  return compareNumber(Number(left), Number(right))
 }
 
 export function compareNullableText(
   left: string | null | undefined,
   right: string | null | undefined,
 ): number {
-  const a = left ?? "";
-  const b = right ?? "";
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  return textCollator.compare(a, b);
+  const a = left ?? ""
+  const b = right ?? ""
+  if (!a && !b) return 0
+  if (!a) return 1
+  if (!b) return -1
+  return textCollator.compare(a, b)
 }
 
 export function chainComparisons(...comparisons: number[]): number {
   for (const comparison of comparisons) {
-    if (comparison !== 0) return comparison;
+    if (comparison !== 0) return comparison
   }
-  return 0;
+  return 0
 }

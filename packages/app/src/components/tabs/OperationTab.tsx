@@ -1,76 +1,72 @@
-import { useState, useCallback } from "react";
-import type {
-  RepoOperationMode,
-} from "@repo-edu/domain";
-import {
-  resolveAssignmentGroups,
-  activeMemberIds,
-} from "@repo-edu/domain";
-import type { RepositoryBatchResult } from "@repo-edu/application-contract";
+import type { RepositoryBatchResult } from "@repo-edu/application-contract"
+import type { RepoOperationMode } from "@repo-edu/domain"
+import { activeMemberIds, resolveAssignmentGroups } from "@repo-edu/domain"
 import {
   Button,
   Input,
   Label,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  RadioGroup,
-  RadioGroupItem,
   Tabs,
   TabsList,
   TabsTrigger,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
+import { AlertCircle, Loader2 } from "@repo-edu/ui/components/icons"
+import { useCallback, useState } from "react"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useOperationStore } from "../../stores/operation-store.js"
 import {
-  AlertCircle,
-  Loader2,
-} from "@repo-edu/ui/components/icons";
-import { NoProfileEmptyState } from "../NoProfileEmptyState.js";
-import { useProfileStore, selectAssignments, selectRoster, selectRepositoryTemplate, selectGitConnectionName } from "../../stores/profile-store.js";
-import { useOperationStore } from "../../stores/operation-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+  selectAssignments,
+  selectGitConnectionName,
+  selectRepositoryTemplate,
+  selectRoster,
+  useProfileStore,
+} from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 import {
   buildRepositoryWorkflowRequest,
   type CloneDirectoryLayout,
-} from "../../utils/repository-workflow.js";
+} from "../../utils/repository-workflow.js"
+import { NoProfileEmptyState } from "../NoProfileEmptyState.js"
 
-const LABEL_WIDTH = 100;
+const LABEL_WIDTH = 100
 
 export function OperationTab() {
-  const activeProfileId = useUiStore((s) => s.activeProfileId);
-  const profile = useProfileStore((s) => s.profile);
-  const roster = useProfileStore(selectRoster);
-  const assignments = useProfileStore(selectAssignments);
-  const repositoryTemplate = useProfileStore(selectRepositoryTemplate);
-  const gitConnectionName = useProfileStore(selectGitConnectionName);
-  const setRepositoryTemplate = useProfileStore(
-    (s) => s.setRepositoryTemplate,
-  );
+  const activeProfileId = useUiStore((s) => s.activeProfileId)
+  const profile = useProfileStore((s) => s.profile)
+  const roster = useProfileStore(selectRoster)
+  const assignments = useProfileStore(selectAssignments)
+  const repositoryTemplate = useProfileStore(selectRepositoryTemplate)
+  const gitConnectionName = useProfileStore(selectGitConnectionName)
+  const setRepositoryTemplate = useProfileStore((s) => s.setRepositoryTemplate)
 
-  const assignmentSelection = useProfileStore((s) => s.assignmentSelection);
-  const selectAssignment = useProfileStore((s) => s.setAssignmentSelection);
+  const assignmentSelection = useProfileStore((s) => s.assignmentSelection)
+  const selectAssignment = useProfileStore((s) => s.setAssignmentSelection)
 
-  const operationSelected = useOperationStore((s) => s.selected);
-  const setOperationSelected = useOperationStore((s) => s.setSelected);
-  const operationStatus = useOperationStore((s) => s.status);
-  const setOperationStatus = useOperationStore((s) => s.setStatus);
-  const setOperationError = useOperationStore((s) => s.setError);
-  const lastResult = useOperationStore((s) => s.lastResult);
-  const setLastResult = useOperationStore((s) => s.setLastResult);
+  const operationSelected = useOperationStore((s) => s.selected)
+  const setOperationSelected = useOperationStore((s) => s.setSelected)
+  const operationStatus = useOperationStore((s) => s.status)
+  const setOperationStatus = useOperationStore((s) => s.setStatus)
+  const setOperationError = useOperationStore((s) => s.setError)
+  const lastResult = useOperationStore((s) => s.lastResult)
+  const setLastResult = useOperationStore((s) => s.setLastResult)
 
-  const addToast = useToastStore((s) => s.addToast);
+  const addToast = useToastStore((s) => s.addToast)
 
   // Local form state for fields not persisted on profile.
-  const [targetDirectory, setTargetDirectory] = useState("");
+  const [targetDirectory, setTargetDirectory] = useState("")
   const [directoryLayout, setDirectoryLayout] =
-    useState<CloneDirectoryLayout>("flat");
+    useState<CloneDirectoryLayout>("flat")
 
   // Template fields derive from the profile's repositoryTemplate.
-  const templateOwner = repositoryTemplate?.owner ?? "";
-  const templateVisibility = repositoryTemplate?.visibility ?? "private";
+  const templateOwner = repositoryTemplate?.owner ?? ""
+  const templateVisibility = repositoryTemplate?.visibility ?? "private"
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
@@ -78,33 +74,33 @@ export function OperationTab() {
         owner,
         name: repositoryTemplate?.name ?? "",
         visibility: templateVisibility,
-      });
+      })
     },
     [repositoryTemplate, templateVisibility, setRepositoryTemplate],
-  );
+  )
 
   const selectedAssignment = assignments.find(
     (a) => a.id === assignmentSelection,
-  );
+  )
   const resolvedGroups =
     selectedAssignment && roster
       ? resolveAssignmentGroups(roster, selectedAssignment)
-      : [];
-  const groupCount = resolvedGroups.length;
+      : []
+  const groupCount = resolvedGroups.length
   const validGroupCount = roster
     ? resolvedGroups.filter(
         (group) => activeMemberIds(roster, group).length > 0,
       ).length
-    : 0;
+    : 0
 
   const handleExecute = useCallback(async () => {
     if (!activeProfileId || !assignmentSelection) {
-      return;
+      return
     }
 
-    setOperationStatus("running");
-    setOperationError(null);
-    setLastResult(null);
+    setOperationStatus("running")
+    setOperationError(null)
+    setLastResult(null)
 
     const { workflowId, input } = buildRepositoryWorkflowRequest({
       activeProfileId,
@@ -113,18 +109,18 @@ export function OperationTab() {
       repositoryTemplate,
       targetDirectory,
       directoryLayout,
-    });
+    })
 
     try {
-      const client = getWorkflowClient();
-      const result = await client.run(workflowId, input);
-      setOperationStatus("success");
-      setLastResult(result);
+      const client = getWorkflowClient()
+      const result = await client.run(workflowId, input)
+      setOperationStatus("success")
+      setLastResult(result)
     } catch (err) {
-      setOperationStatus("error");
-      const message = getErrorMessage(err);
-      setOperationError(message);
-      addToast(message, { tone: "error" });
+      setOperationStatus("error")
+      const message = getErrorMessage(err)
+      setOperationError(message)
+      addToast(message, { tone: "error" })
     }
   }, [
     activeProfileId,
@@ -137,10 +133,10 @@ export function OperationTab() {
     setOperationError,
     setLastResult,
     addToast,
-  ]);
+  ])
 
   if (!activeProfileId || !profile) {
-    return <NoProfileEmptyState tabLabel="repository operations" />;
+    return <NoProfileEmptyState tabLabel="repository operations" />
   }
 
   const isExecuteDisabled =
@@ -148,7 +144,7 @@ export function OperationTab() {
     validGroupCount === 0 ||
     operationStatus === "running" ||
     !gitConnectionName ||
-    (operationSelected === "clone" && !targetDirectory);
+    (operationSelected === "clone" && !targetDirectory)
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -336,22 +332,22 @@ export function OperationTab() {
         />
       )}
     </div>
-  );
+  )
 }
 
 function OperationResultDisplay({
   result,
   operationType,
 }: {
-  result: RepositoryBatchResult;
-  operationType: RepoOperationMode;
+  result: RepositoryBatchResult
+  operationType: RepoOperationMode
 }) {
   const verb =
     operationType === "create"
       ? "created"
       : operationType === "clone"
         ? "cloned"
-        : "deleted";
+        : "deleted"
 
   return (
     <div className="rounded-md border p-3 text-sm">
@@ -363,5 +359,5 @@ function OperationResultDisplay({
         at {new Date(result.completedAt).toLocaleTimeString()}
       </span>
     </div>
-  );
+  )
 }

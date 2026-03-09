@@ -1,18 +1,18 @@
-import { Button } from "@repo-edu/ui";
-import { Settings } from "@repo-edu/ui/components/icons";
-import { useConnectionsStore } from "../stores/connections-store.js";
-import { useUiStore } from "../stores/ui-store.js";
+import { Button } from "@repo-edu/ui"
+import { Settings } from "@repo-edu/ui/components/icons"
+import { useConnectionsStore } from "../stores/connections-store.js"
+import { useUiStore } from "../stores/ui-store.js"
 
 export function SettingsButton() {
-  const openSettings = useUiStore((s) => s.openSettings);
-  const lmsStatus = useConnectionsStore((s) => s.lmsStatus);
-  const lmsStatuses = useConnectionsStore((s) => s.lmsStatuses);
-  const gitStatuses = useConnectionsStore((s) => s.gitStatuses);
+  const openSettings = useUiStore((s) => s.openSettings)
+  const lmsStatus = useConnectionsStore((s) => s.lmsStatus)
+  const lmsStatuses = useConnectionsStore((s) => s.lmsStatuses)
+  const gitStatuses = useConnectionsStore((s) => s.gitStatuses)
 
   const hasConnected =
     lmsStatus === "connected" ||
     Object.values(lmsStatuses).some((status) => status === "connected") ||
-    Object.values(gitStatuses).some((status) => status === "connected");
+    Object.values(gitStatuses).some((status) => status === "connected")
 
   return (
     <Button
@@ -27,5 +27,5 @@ export function SettingsButton() {
       )}
       <span className="sr-only">Settings</span>
     </Button>
-  );
+  )
 }

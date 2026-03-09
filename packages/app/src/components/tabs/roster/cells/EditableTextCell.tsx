@@ -1,16 +1,16 @@
-import { Input } from "@repo-edu/ui";
-import { Pencil } from "@repo-edu/ui/components/icons";
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { Input } from "@repo-edu/ui"
+import { Pencil } from "@repo-edu/ui/components/icons"
+import type { ReactNode } from "react"
+import { useEffect, useState } from "react"
 
 type EditableTextCellProps = {
-  value: string;
-  onSave: (value: string) => void;
-  placeholder?: string;
-  trailing?: ReactNode;
-  editable?: boolean;
-  truncate?: boolean;
-};
+  value: string
+  onSave: (value: string) => void
+  placeholder?: string
+  trailing?: ReactNode
+  editable?: boolean
+  truncate?: boolean
+}
 
 export function EditableTextCell({
   value,
@@ -20,19 +20,19 @@ export function EditableTextCell({
   editable = true,
   truncate = false,
 }: EditableTextCellProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
 
   useEffect(() => {
     if (!isEditing) {
-      setDraft(value);
+      setDraft(value)
     }
-  }, [isEditing, value]);
+  }, [isEditing, value])
 
   const commit = () => {
-    onSave(draft);
-    setIsEditing(false);
-  };
+    onSave(draft)
+    setIsEditing(false)
+  }
 
   if (!editable) {
     return (
@@ -47,7 +47,7 @@ export function EditableTextCell({
         </span>
         {trailing}
       </span>
-    );
+    )
   }
 
   if (isEditing) {
@@ -58,16 +58,16 @@ export function EditableTextCell({
         onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
-            commit();
+            commit()
           } else if (event.key === "Escape") {
-            setIsEditing(false);
-            setDraft(value);
+            setIsEditing(false)
+            setDraft(value)
           }
         }}
         autoFocus
         className="h-7 max-w-full"
       />
-    );
+    )
   }
 
   return (
@@ -85,5 +85,5 @@ export function EditableTextCell({
       <Pencil className="size-3 text-muted-foreground" />
       {trailing}
     </button>
-  );
+  )
 }

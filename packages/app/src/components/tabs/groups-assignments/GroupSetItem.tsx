@@ -1,4 +1,4 @@
-import type { GroupSet, GroupSetConnection } from "@repo-edu/domain";
+import type { GroupSet, GroupSetConnection } from "@repo-edu/domain"
 import {
   Button,
   cn,
@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
 import {
   Copy,
   Download,
@@ -25,57 +25,60 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-} from "@repo-edu/ui/components/icons";
-import type { KeyboardEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { formatRelativeTime, formatExactTimestamp } from "../../../utils/relative-time.js";
-import { ConnectionBadge, connectionLabel } from "./ConnectionBadge.js";
+} from "@repo-edu/ui/components/icons"
+import type { KeyboardEvent } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  formatExactTimestamp,
+  formatRelativeTime,
+} from "../../../utils/relative-time.js"
+import { ConnectionBadge, connectionLabel } from "./ConnectionBadge.js"
 
-type SidebarSelection = { kind: "group-set"; id: string } | null;
+type SidebarSelection = { kind: "group-set"; id: string } | null
 
 type GroupSetItemActions = {
-  onAddAssignment?: () => void;
-  onStartRename?: () => void;
-  onSync?: () => void;
-  onReimport?: () => void;
-  onExport?: () => void;
-  onCopy?: () => void;
-  onDelete?: () => void;
-};
+  onAddAssignment?: () => void
+  onStartRename?: () => void
+  onSync?: () => void
+  onReimport?: () => void
+  onExport?: () => void
+  onCopy?: () => void
+  onDelete?: () => void
+}
 
 type GroupSetItemProps = {
-  groupSet: GroupSet;
-  groupCount: number;
-  selection: SidebarSelection;
-  onSelect: (selection: SidebarSelection) => void;
-  actions?: GroupSetItemActions;
-  isEditing?: boolean;
-  onRenameSubmit?: (newName: string) => void;
-  onRenameCancel?: () => void;
-  disabled?: boolean;
-  isBusy?: boolean;
-  tabIndex?: number;
-  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
-};
+  groupSet: GroupSet
+  groupCount: number
+  selection: SidebarSelection
+  onSelect: (selection: SidebarSelection) => void
+  actions?: GroupSetItemActions
+  isEditing?: boolean
+  onRenameSubmit?: (newName: string) => void
+  onRenameCancel?: () => void
+  disabled?: boolean
+  isBusy?: boolean
+  tabIndex?: number
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
+}
 
 function connectionTimestamp(
   connection: GroupSetConnection | null,
 ): { relative: string; exact: string | null } | null {
-  if (!connection) return null;
+  if (!connection) return null
   switch (connection.kind) {
     case "canvas":
     case "moodle":
       return {
         relative: `synced ${formatRelativeTime(connection.lastUpdated)}`,
         exact: formatExactTimestamp(connection.lastUpdated),
-      };
+      }
     case "import":
       return {
         relative: `imported ${formatRelativeTime(connection.lastUpdated)}`,
         exact: formatExactTimestamp(connection.lastUpdated),
-      };
+      }
     default:
-      return null;
+      return null
   }
 }
 
@@ -93,13 +96,13 @@ export function GroupSetItem({
   tabIndex,
   onKeyDown,
 }: GroupSetItemProps) {
-  const connection = groupSet.connection;
+  const connection = groupSet.connection
   const isSelected =
-    selection?.kind === "group-set" && selection.id === groupSet.id;
-  const isSystem = connection?.kind === "system";
-  const badge = connectionLabel(connection);
-  const timestamp = connectionTimestamp(connection);
-  const isReadOnly = connection !== null && connection.kind !== "import";
+    selection?.kind === "group-set" && selection.id === groupSet.id
+  const isSystem = connection?.kind === "system"
+  const badge = connectionLabel(connection)
+  const timestamp = connectionTimestamp(connection)
+  const isReadOnly = connection !== null && connection.kind !== "import"
   const hasActions =
     actions &&
     (actions.onAddAssignment ||
@@ -108,38 +111,38 @@ export function GroupSetItem({
       actions.onReimport ||
       actions.onExport ||
       actions.onCopy ||
-      actions.onDelete);
+      actions.onDelete)
 
-  const [editName, setEditName] = useState(groupSet.name);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [editName, setEditName] = useState(groupSet.name)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isEditing) {
-      setEditName(groupSet.name);
+      setEditName(groupSet.name)
       requestAnimationFrame(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      });
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
     }
-  }, [isEditing, groupSet.name]);
+  }, [isEditing, groupSet.name])
 
   const handleSave = useCallback(() => {
-    const trimmed = editName.trim();
+    const trimmed = editName.trim()
     if (trimmed && trimmed !== groupSet.name) {
-      onRenameSubmit?.(trimmed);
+      onRenameSubmit?.(trimmed)
     } else {
-      onRenameCancel?.();
+      onRenameCancel?.()
     }
-  }, [editName, groupSet.name, onRenameSubmit, onRenameCancel]);
+  }, [editName, groupSet.name, onRenameSubmit, onRenameCancel])
 
   const handleCancel = useCallback(() => {
-    setEditName(groupSet.name);
-    onRenameCancel?.();
-  }, [groupSet.name, onRenameCancel]);
+    setEditName(groupSet.name)
+    onRenameCancel?.()
+  }, [groupSet.name, onRenameCancel])
 
   const nameIcon = (
     <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-  );
+  )
 
   return (
     <div
@@ -158,8 +161,8 @@ export function GroupSetItem({
               onChange={(e) => setEditName(e.target.value)}
               onBlur={handleSave}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") handleCancel();
+                if (e.key === "Enter") handleSave()
+                if (e.key === "Escape") handleCancel()
               }}
               className="h-6 text-sm font-medium px-1 flex-1 min-w-0"
             />
@@ -304,5 +307,5 @@ export function GroupSetItem({
         </DropdownMenu>
       )}
     </div>
-  );
+  )
 }

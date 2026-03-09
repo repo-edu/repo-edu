@@ -1,18 +1,18 @@
-import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui";
-import { Command, Link, Monitor, X } from "@repo-edu/ui/components/icons";
-import type { ReactNode } from "react";
-import { useUiStore } from "../../stores/ui-store.js";
-import { ConnectionsPane } from "./ConnectionsPane.js";
-import { DisplayPane } from "./DisplayPane.js";
-import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js";
+import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
+import { Command, Link, Monitor, X } from "@repo-edu/ui/components/icons"
+import type { ReactNode } from "react"
+import { useUiStore } from "../../stores/ui-store.js"
+import { ConnectionsPane } from "./ConnectionsPane.js"
+import { DisplayPane } from "./DisplayPane.js"
+import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
 
-type SettingsCategory = "connections" | "display" | "shortcuts";
+type SettingsCategory = "connections" | "display" | "shortcuts"
 
 type CategoryItem = {
-  id: SettingsCategory;
-  label: string;
-  icon: ReactNode;
-};
+  id: SettingsCategory
+  label: string
+  icon: ReactNode
+}
 
 const categories: CategoryItem[] = [
   {
@@ -30,12 +30,12 @@ const categories: CategoryItem[] = [
     label: "Keyboard Shortcuts",
     icon: <Command className="size-4" />,
   },
-];
+]
 
 export function SettingsSheet() {
-  const open = useUiStore((state) => state.settingsDialogOpen);
-  const setOpen = useUiStore((state) => state.setSettingsDialogOpen);
-  const activeCategory = useUiStore((state) => state.settingsCategory);
+  const open = useUiStore((state) => state.settingsDialogOpen)
+  const setOpen = useUiStore((state) => state.setSettingsDialogOpen)
+  const activeCategory = useUiStore((state) => state.settingsCategory)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -83,7 +83,9 @@ export function SettingsSheet() {
 
           <div className="flex-1 overflow-y-auto p-6">
             <div
-              className={cn(activeCategory === "connections" ? "block" : "hidden")}
+              className={cn(
+                activeCategory === "connections" ? "block" : "hidden",
+              )}
               aria-hidden={activeCategory !== "connections"}
             >
               <ConnectionsPane />
@@ -95,7 +97,9 @@ export function SettingsSheet() {
               <DisplayPane />
             </div>
             <div
-              className={cn(activeCategory === "shortcuts" ? "block" : "hidden")}
+              className={cn(
+                activeCategory === "shortcuts" ? "block" : "hidden",
+              )}
               aria-hidden={activeCategory !== "shortcuts"}
             >
               <KeyboardShortcutsPane />
@@ -104,5 +108,5 @@ export function SettingsSheet() {
         </div>
       </SheetContent>
     </Sheet>
-  );
+  )
 }

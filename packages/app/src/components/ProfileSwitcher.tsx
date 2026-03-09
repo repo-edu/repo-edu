@@ -26,7 +26,7 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
-} from "@repo-edu/ui";
+} from "@repo-edu/ui"
 import {
   ChevronUp,
   Copy,
@@ -34,20 +34,18 @@ import {
   Pencil,
   Plus,
   Trash2,
-} from "@repo-edu/ui/components/icons";
-import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react";
-import { useProfiles } from "../hooks/use-profiles.js";
-import { useUiStore } from "../stores/ui-store.js";
+} from "@repo-edu/ui/components/icons"
+import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
+import { useProfiles } from "../hooks/use-profiles.js"
+import { useUiStore } from "../stores/ui-store.js"
 
 type ProfileSwitcherProps = {
-  isDirty: boolean;
-};
+  isDirty: boolean
+}
 
 export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
-  const activeProfileId = useUiStore((s) => s.activeProfileId);
-  const setNewProfileDialogOpen = useUiStore(
-    (s) => s.setNewProfileDialogOpen,
-  );
+  const activeProfileId = useUiStore((s) => s.activeProfileId)
+  const setNewProfileDialogOpen = useUiStore((s) => s.setNewProfileDialogOpen)
   const {
     profiles,
     loading,
@@ -56,103 +54,103 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
     duplicateProfile,
     renameProfile,
     deleteProfile,
-  } = useProfiles();
-  const [open, setOpen] = useState(false);
+  } = useProfiles()
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void refresh()
+  }, [refresh])
 
   const activeDisplayName =
-    profiles.find((p) => p.id === activeProfileId)?.displayName ?? null;
+    profiles.find((p) => p.id === activeProfileId)?.displayName ?? null
 
   // --- Unsaved changes dialog ---
   const [unsavedDialog, setUnsavedDialog] = useState<{
-    open: boolean;
-    targetProfileId: string;
-  }>({ open: false, targetProfileId: "" });
+    open: boolean
+    targetProfileId: string
+  }>({ open: false, targetProfileId: "" })
 
   // --- Rename dialog ---
   const [renameDialog, setRenameDialog] = useState<{
-    open: boolean;
-    profileId: string;
-    currentName: string;
-    newName: string;
-  }>({ open: false, profileId: "", currentName: "", newName: "" });
+    open: boolean
+    profileId: string
+    currentName: string
+    newName: string
+  }>({ open: false, profileId: "", currentName: "", newName: "" })
 
   // --- Duplicate dialog ---
   const [duplicateDialog, setDuplicateDialog] = useState<{
-    open: boolean;
-    sourceProfileId: string;
-    sourceName: string;
-    newProfileName: string;
-    isProcessing: boolean;
+    open: boolean
+    sourceProfileId: string
+    sourceName: string
+    newProfileName: string
+    isProcessing: boolean
   }>({
     open: false,
     sourceProfileId: "",
     sourceName: "",
     newProfileName: "",
     isProcessing: false,
-  });
+  })
 
   // --- Delete dialog ---
   const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean;
-    profileId: string;
-    profileName: string;
-  }>({ open: false, profileId: "", profileName: "" });
+    open: boolean
+    profileId: string
+    profileName: string
+  }>({ open: false, profileId: "", profileName: "" })
 
   const handleProfileSelect = (id: string) => {
-    if (id === activeProfileId) return;
-    setOpen(false);
+    if (id === activeProfileId) return
+    setOpen(false)
 
     if (isDirty) {
-      setUnsavedDialog({ open: true, targetProfileId: id });
+      setUnsavedDialog({ open: true, targetProfileId: id })
     } else {
-      void switchProfile(id);
+      void switchProfile(id)
     }
-  };
+  }
 
   const handleProfileKeyDown = (
     id: string,
     event: KeyboardEvent<HTMLDivElement>,
   ) => {
-    if (event.target !== event.currentTarget) return;
+    if (event.target !== event.currentTarget) return
     if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleProfileSelect(id);
+      event.preventDefault()
+      handleProfileSelect(id)
     }
-  };
+  }
 
   const handleActionClick = (
     event: MouseEvent<HTMLButtonElement>,
     action: () => void,
   ) => {
-    event.stopPropagation();
-    action();
-  };
+    event.stopPropagation()
+    action()
+  }
 
   // --- Duplicate ---
   const handleDuplicateClick = (profileId: string, profileName: string) => {
-    setOpen(false);
+    setOpen(false)
     setDuplicateDialog({
       open: true,
       sourceProfileId: profileId,
       sourceName: profileName,
       newProfileName: `${profileName} copy`,
       isProcessing: false,
-    });
-  };
+    })
+  }
 
   const handleDuplicateConfirm = async () => {
-    const { sourceProfileId, newProfileName } = duplicateDialog;
-    if (!newProfileName.trim()) return;
+    const { sourceProfileId, newProfileName } = duplicateDialog
+    if (!newProfileName.trim()) return
 
-    setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }));
+    setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
     const success = await duplicateProfile(
       sourceProfileId,
       newProfileName.trim(),
-    );
+    )
 
     if (success) {
       setDuplicateDialog({
@@ -161,52 +159,57 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
         sourceName: "",
         newProfileName: "",
         isProcessing: false,
-      });
+      })
     } else {
-      setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }));
+      setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
     }
-  };
+  }
 
   // --- Rename ---
   const handleRenameClick = (profileId: string, profileName: string) => {
-    setOpen(false);
+    setOpen(false)
     setRenameDialog({
       open: true,
       profileId,
       currentName: profileName,
       newName: profileName,
-    });
-  };
+    })
+  }
 
   const handleRenameConfirm = async () => {
-    const { profileId, newName } = renameDialog;
-    await renameProfile(profileId, newName);
-    setRenameDialog({ open: false, profileId: "", currentName: "", newName: "" });
-  };
+    const { profileId, newName } = renameDialog
+    await renameProfile(profileId, newName)
+    setRenameDialog({
+      open: false,
+      profileId: "",
+      currentName: "",
+      newName: "",
+    })
+  }
 
   // --- Delete ---
   const handleDeleteClick = (profileId: string, profileName: string) => {
-    setOpen(false);
-    setDeleteDialog({ open: true, profileId, profileName });
-  };
+    setOpen(false)
+    setDeleteDialog({ open: true, profileId, profileName })
+  }
 
   const handleDeleteConfirm = async () => {
-    await deleteProfile(deleteDialog.profileId);
-    setDeleteDialog({ open: false, profileId: "", profileName: "" });
-  };
+    await deleteProfile(deleteDialog.profileId)
+    setDeleteDialog({ open: false, profileId: "", profileName: "" })
+  }
 
   // --- New profile ---
   const handleNewProfile = () => {
-    setOpen(false);
-    setNewProfileDialogOpen(true);
-  };
+    setOpen(false)
+    setNewProfileDialogOpen(true)
+  }
 
-  const canDuplicate = duplicateDialog.newProfileName.trim().length > 0;
+  const canDuplicate = duplicateDialog.newProfileName.trim().length > 0
 
-  const profileToDelete = deleteDialog.profileId;
-  const remainingProfiles = profiles.filter((p) => p.id !== profileToDelete);
-  const isLastProfile = remainingProfiles.length === 0;
-  const nextProfile = remainingProfiles[0]?.displayName;
+  const profileToDelete = deleteDialog.profileId
+  const remainingProfiles = profiles.filter((p) => p.id !== profileToDelete)
+  const isLastProfile = remainingProfiles.length === 0
+  const nextProfile = remainingProfiles[0]?.displayName
 
   return (
     <>
@@ -227,7 +230,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
 
         <DropdownMenuContent align="start" side="top">
           {profiles.map((profile) => {
-            const isActive = profile.id === activeProfileId;
+            const isActive = profile.id === activeProfileId
             return (
               <div
                 key={profile.id}
@@ -235,9 +238,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
                 tabIndex={0}
                 aria-selected={isActive}
                 onClick={() => handleProfileSelect(profile.id)}
-                onKeyDown={(event) =>
-                  handleProfileKeyDown(profile.id, event)
-                }
+                onKeyDown={(event) => handleProfileKeyDown(profile.id, event)}
                 className={cn(
                   "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
                   "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
@@ -290,12 +291,10 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
                   </Button>
                 </div>
               </div>
-            );
+            )
           })}
 
-          {profiles.length > 0 && (
-            <DropdownMenuSeparator className="my-0.5" />
-          )}
+          {profiles.length > 0 && <DropdownMenuSeparator className="my-0.5" />}
 
           <div
             role="option"
@@ -304,8 +303,8 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
             onClick={handleNewProfile}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                handleNewProfile();
+                event.preventDefault()
+                handleNewProfile()
               }
             }}
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
@@ -334,8 +333,8 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                void switchProfile(unsavedDialog.targetProfileId);
-                setUnsavedDialog({ open: false, targetProfileId: "" });
+                void switchProfile(unsavedDialog.targetProfileId)
+                setUnsavedDialog({ open: false, targetProfileId: "" })
               }}
             >
               Discard &amp; Switch
@@ -349,7 +348,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
         open={duplicateDialog.open}
         onOpenChange={(nextOpen) => {
           if (!duplicateDialog.isProcessing) {
-            setDuplicateDialog((prev) => ({ ...prev, open: nextOpen }));
+            setDuplicateDialog((prev) => ({ ...prev, open: nextOpen }))
           }
         }}
       >
@@ -372,7 +371,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
                 }
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && canDuplicate) {
-                    void handleDuplicateConfirm();
+                    void handleDuplicateConfirm()
                   }
                 }}
                 disabled={duplicateDialog.isProcessing}
@@ -431,7 +430,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
             }
             onKeyDown={(event) => {
               if (event.key === "Enter" && renameDialog.newName.trim()) {
-                void handleRenameConfirm();
+                void handleRenameConfirm()
               }
             }}
             autoFocus
@@ -474,10 +473,14 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
             <AlertDialogTitle>Delete Profile</AlertDialogTitle>
             <AlertDialogDescription>
               {isLastProfile ? (
-                <>Delete &quot;{deleteDialog.profileName}&quot;? This is your last profile.</>
+                <>
+                  Delete &quot;{deleteDialog.profileName}&quot;? This is your
+                  last profile.
+                </>
               ) : deleteDialog.profileId === activeProfileId ? (
                 <>
-                  Delete &quot;{deleteDialog.profileName}&quot;? You will be switched to &quot;
+                  Delete &quot;{deleteDialog.profileName}&quot;? You will be
+                  switched to &quot;
                   {nextProfile}&quot;.
                 </>
               ) : (
@@ -501,5 +504,5 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
+  )
 }

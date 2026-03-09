@@ -6,18 +6,18 @@ import {
   DialogHeader,
   DialogTitle,
   Text,
-} from "@repo-edu/ui";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "@repo-edu/ui"
+import { useUiStore } from "../../stores/ui-store.js"
 
 export function LmsImportConflictDialog() {
-  const conflicts = useUiStore((state) => state.lmsImportConflicts);
-  const setConflicts = useUiStore((state) => state.setLmsImportConflicts);
+  const conflicts = useUiStore((state) => state.lmsImportConflicts)
+  const setConflicts = useUiStore((state) => state.setLmsImportConflicts)
 
-  const open = (conflicts?.length ?? 0) > 0;
+  const open = (conflicts?.length ?? 0) > 0
 
   const handleClose = () => {
-    setConflicts(null);
-  };
+    setConflicts(null)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -55,5 +55,5 @@ export function LmsImportConflictDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

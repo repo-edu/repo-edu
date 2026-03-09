@@ -1,1 +1,1 @@
-export const desktopSeedProfileId = "seed-profile" as const;
+export const desktopSeedProfileId = "seed-profile" as const

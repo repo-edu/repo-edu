@@ -6,74 +6,82 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-} from "@repo-edu/ui";
-import { Folder } from "@repo-edu/ui/components/icons";
-import { useState } from "react";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { getRendererHost } from "../../contexts/renderer-host.js";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui"
+import { Folder } from "@repo-edu/ui/components/icons"
+import { useState } from "react"
+import { getRendererHost } from "../../contexts/renderer-host.js"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ImportStudentsFromFileDialog() {
-  const importFileDialogOpen = useUiStore((state) => state.importFileDialogOpen);
+  const importFileDialogOpen = useUiStore((state) => state.importFileDialogOpen)
   const setImportFileDialogOpen = useUiStore(
     (state) => state.setImportFileDialogOpen,
-  );
+  )
 
-  const setRoster = useProfileStore((state) => state.setRoster);
-  const addToast = useToastStore((state) => state.addToast);
+  const setRoster = useProfileStore((state) => state.setRoster)
+  const addToast = useToastStore((state) => state.addToast)
 
-  const [fileName, setFileName] = useState("");
-  const [fileRef, setFileRef] = useState<{ kind: "user-file-ref"; referenceId: string; displayName: string; mediaType: string | null; byteLength: number | null } | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("")
+  const [fileRef, setFileRef] = useState<{
+    kind: "user-file-ref"
+    referenceId: string
+    displayName: string
+    mediaType: string | null
+    byteLength: number | null
+  } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleBrowse = async () => {
     try {
-      const host = getRendererHost();
+      const host = getRendererHost()
       const ref = await host.pickUserFile({
         title: "Select file to import",
         acceptFormats: ["csv", "xlsx"],
-      });
+      })
       if (ref) {
-        setFileRef(ref);
-        setFileName(ref.displayName);
+        setFileRef(ref)
+        setFileName(ref.displayName)
       }
     } catch (err) {
-      console.error("Failed to open file dialog:", err);
+      console.error("Failed to open file dialog:", err)
     }
-  };
+  }
 
   const handleImport = async () => {
-    if (!fileRef) return;
+    if (!fileRef) return
 
-    setImporting(true);
-    setError(null);
+    setImporting(true)
+    setError(null)
 
     try {
-      const client = getWorkflowClient();
-      const newRoster = await client.run("roster.importFromFile", { file: fileRef });
-      setRoster(newRoster, "Import students from file");
-      addToast("Students imported", { tone: "success" });
-      setImportFileDialogOpen(false);
-      setFileName("");
-      setFileRef(null);
+      const client = getWorkflowClient()
+      const newRoster = await client.run("roster.importFromFile", {
+        file: fileRef,
+      })
+      setRoster(newRoster, "Import students from file")
+      addToast("Students imported", { tone: "success" })
+      setImportFileDialogOpen(false)
+      setFileName("")
+      setFileRef(null)
     } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
+      const message = getErrorMessage(err)
+      setError(message)
     } finally {
-      setImporting(false);
+      setImporting(false)
     }
-  };
+  }
 
   const handleClose = () => {
-    setImportFileDialogOpen(false);
-    setFileName("");
-    setFileRef(null);
-    setError(null);
-  };
+    setImportFileDialogOpen(false)
+    setFileName("")
+    setFileRef(null)
+    setError(null)
+  }
 
   return (
     <Dialog open={importFileDialogOpen} onOpenChange={setImportFileDialogOpen}>
@@ -130,5 +138,5 @@ export function ImportStudentsFromFileDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

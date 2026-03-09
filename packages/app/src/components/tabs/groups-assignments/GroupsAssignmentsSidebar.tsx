@@ -1,41 +1,41 @@
-import type { GroupSet } from "@repo-edu/domain";
+import type { GroupSet } from "@repo-edu/domain"
 import {
   cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@repo-edu/ui";
-import { Copy, Download, Plus } from "@repo-edu/ui/components/icons";
-import type { KeyboardEvent, ReactNode } from "react";
-import { useCallback, useMemo, useRef } from "react";
+} from "@repo-edu/ui"
+import { Copy, Download, Plus } from "@repo-edu/ui/components/icons"
+import type { KeyboardEvent, ReactNode } from "react"
+import { useCallback, useMemo, useRef } from "react"
 import {
   selectConnectedGroupSets,
   selectGroupSets,
   selectLocalGroupSets,
   selectSystemGroupSet,
   useProfileStore,
-} from "../../../stores/profile-store.js";
-import { useUiStore } from "../../../stores/ui-store.js";
-import { GroupSetItem } from "./GroupSetItem.js";
+} from "../../../stores/profile-store.js"
+import { useUiStore } from "../../../stores/ui-store.js"
+import { GroupSetItem } from "./GroupSetItem.js"
 
-type SidebarSelection = { kind: "group-set"; id: string } | null;
+type SidebarSelection = { kind: "group-set"; id: string } | null
 
 type GroupsAssignmentsSidebarProps = {
-  selection: SidebarSelection;
-  onSelect: (selection: SidebarSelection) => void;
-  onConnectGroupSet: () => void;
-  onCreateLocalGroupSet: () => void;
-  onImportGroupSet: () => void;
-  onRequestFocusPanel?: () => void;
-};
+  selection: SidebarSelection
+  onSelect: (selection: SidebarSelection) => void
+  onConnectGroupSet: () => void
+  onCreateLocalGroupSet: () => void
+  onImportGroupSet: () => void
+  onRequestFocusPanel?: () => void
+}
 
 function SectionHeader({
   children,
   action,
 }: {
-  children: ReactNode;
-  action?: ReactNode;
+  children: ReactNode
+  action?: ReactNode
 }) {
   return (
     <div className="px-2 pt-3 pb-1 flex items-center justify-between gap-2">
@@ -44,22 +44,22 @@ function SectionHeader({
       </span>
       {action}
     </div>
-  );
+  )
 }
 
 type GroupSetRowData = {
-  groupSet: GroupSet;
-  groupCount: number;
-};
+  groupSet: GroupSet
+  groupCount: number
+}
 
 type NavigationItem = {
-  itemId: string;
-  selection: Exclude<SidebarSelection, null>;
-};
+  itemId: string
+  selection: Exclude<SidebarSelection, null>
+}
 
 function selectionToItemId(selection: SidebarSelection): string | null {
-  if (!selection) return null;
-  return `${selection.kind}:${selection.id}`;
+  if (!selection) return null
+  return `${selection.kind}:${selection.id}`
 }
 
 function buildGroupSetActions(
@@ -67,33 +67,33 @@ function buildGroupSetActions(
   connection: GroupSet["connection"],
   selectGroupSet: () => void,
   setters: {
-    setRenameGroupSetTriggerId: (id: string | null) => void;
-    setSyncGroupSetTriggerId: (id: string | null) => void;
-    setReimportGroupSetTargetId: (id: string | null) => void;
-    setExportGroupSetTriggerId: (id: string | null) => void;
-    setCopyGroupSetSourceId: (id: string | null) => void;
-    setDeleteGroupSetTargetId: (id: string | null) => void;
-    setNewAssignmentDialogOpen: (open: boolean) => void;
-    setPreSelectedGroupSetId: (id: string | null) => void;
-    setGroupSetPanelTab: (tab: "groups" | "assignments") => void;
+    setRenameGroupSetTriggerId: (id: string | null) => void
+    setSyncGroupSetTriggerId: (id: string | null) => void
+    setReimportGroupSetTargetId: (id: string | null) => void
+    setExportGroupSetTriggerId: (id: string | null) => void
+    setCopyGroupSetSourceId: (id: string | null) => void
+    setDeleteGroupSetTargetId: (id: string | null) => void
+    setNewAssignmentDialogOpen: (open: boolean) => void
+    setPreSelectedGroupSetId: (id: string | null) => void
+    setGroupSetPanelTab: (tab: "groups" | "assignments") => void
   },
 ) {
-  const kind = connection ? connection.kind : "local";
-  const isNameEditable = kind === "local" || kind === "import";
-  const isLms = kind === "canvas" || kind === "moodle";
-  const isImported = kind === "import";
-  const isSystem = kind === "system";
+  const kind = connection ? connection.kind : "local"
+  const isNameEditable = kind === "local" || kind === "import"
+  const isLms = kind === "canvas" || kind === "moodle"
+  const isImported = kind === "import"
+  const isSystem = kind === "system"
 
   const withSelect = (fn: () => void) => () => {
-    selectGroupSet();
-    fn();
-  };
+    selectGroupSet()
+    fn()
+  }
 
   return {
     onAddAssignment: withSelect(() => {
-      setters.setPreSelectedGroupSetId(groupSetId);
-      setters.setGroupSetPanelTab("assignments");
-      setters.setNewAssignmentDialogOpen(true);
+      setters.setPreSelectedGroupSetId(groupSetId)
+      setters.setGroupSetPanelTab("assignments")
+      setters.setNewAssignmentDialogOpen(true)
     }),
     onStartRename: isNameEditable
       ? () => setters.setRenameGroupSetTriggerId(groupSetId)
@@ -104,14 +104,12 @@ function buildGroupSetActions(
     onReimport: isImported
       ? withSelect(() => setters.setReimportGroupSetTargetId(groupSetId))
       : undefined,
-    onExport: withSelect(() =>
-      setters.setExportGroupSetTriggerId(groupSetId),
-    ),
+    onExport: withSelect(() => setters.setExportGroupSetTriggerId(groupSetId)),
     onCopy: withSelect(() => setters.setCopyGroupSetSourceId(groupSetId)),
     onDelete: !isSystem
       ? withSelect(() => setters.setDeleteGroupSetTargetId(groupSetId))
       : undefined,
-  };
+  }
 }
 
 function GroupSetList({
@@ -127,17 +125,17 @@ function GroupSetList({
   onRenameCancel,
   actionSetters,
 }: {
-  rows: GroupSetRowData[];
-  selection: SidebarSelection;
-  activeItemId: string | null;
-  editingGroupSetId: string | null;
-  busyGroupSetId: string | null;
-  disabled: boolean;
-  onSelect: (selection: SidebarSelection) => void;
-  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
-  onRenameSubmit: (groupSetId: string, newName: string) => void;
-  onRenameCancel: () => void;
-  actionSetters: Parameters<typeof buildGroupSetActions>[3];
+  rows: GroupSetRowData[]
+  selection: SidebarSelection
+  activeItemId: string | null
+  editingGroupSetId: string | null
+  busyGroupSetId: string | null
+  disabled: boolean
+  onSelect: (selection: SidebarSelection) => void
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
+  onRenameSubmit: (groupSetId: string, newName: string) => void
+  onRenameCancel: () => void
+  actionSetters: Parameters<typeof buildGroupSetActions>[3]
 }) {
   return (
     <div className="space-y-0.5">
@@ -159,14 +157,12 @@ function GroupSetList({
           onRenameCancel={onRenameCancel}
           disabled={disabled}
           isBusy={busyGroupSetId === groupSet.id}
-          tabIndex={
-            activeItemId === `group-set:${groupSet.id}` ? 0 : -1
-          }
+          tabIndex={activeItemId === `group-set:${groupSet.id}` ? 0 : -1}
           onKeyDown={onKeyDown}
         />
       ))}
     </div>
-  );
+  )
 }
 
 export function GroupsAssignmentsSidebar({
@@ -177,46 +173,40 @@ export function GroupsAssignmentsSidebar({
   onImportGroupSet,
   onRequestFocusPanel,
 }: GroupsAssignmentsSidebarProps) {
-  const sidebarRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
   const individualStudentsSet = useProfileStore(
     selectSystemGroupSet("individual_students"),
-  );
-  const staffSet = useProfileStore(selectSystemGroupSet("staff"));
-  const connectedSets = useProfileStore(selectConnectedGroupSets);
-  const localSets = useProfileStore(selectLocalGroupSets);
-  const allGroupSets = useProfileStore(selectGroupSets);
-  const roster = useProfileStore((s) => s.profile?.roster ?? null);
-  const renameGroupSet = useProfileStore((s) => s.renameGroupSet);
-  const groupSetOperation = useUiStore((s) => s.groupSetOperation);
-  const isOperationActive = groupSetOperation !== null;
-  const busyGroupSetId = groupSetOperation?.groupSetId ?? null;
+  )
+  const staffSet = useProfileStore(selectSystemGroupSet("staff"))
+  const connectedSets = useProfileStore(selectConnectedGroupSets)
+  const localSets = useProfileStore(selectLocalGroupSets)
+  const allGroupSets = useProfileStore(selectGroupSets)
+  const roster = useProfileStore((s) => s.profile?.roster ?? null)
+  const renameGroupSet = useProfileStore((s) => s.renameGroupSet)
+  const groupSetOperation = useUiStore((s) => s.groupSetOperation)
+  const isOperationActive = groupSetOperation !== null
+  const busyGroupSetId = groupSetOperation?.groupSetId ?? null
 
   const setRenameGroupSetTriggerId = useUiStore(
     (s) => s.setRenameGroupSetTriggerId,
-  );
-  const setSyncGroupSetTriggerId = useUiStore(
-    (s) => s.setSyncGroupSetTriggerId,
-  );
+  )
+  const setSyncGroupSetTriggerId = useUiStore((s) => s.setSyncGroupSetTriggerId)
   const setReimportGroupSetTargetId = useUiStore(
     (s) => s.setReimportGroupSetTargetId,
-  );
+  )
   const setExportGroupSetTriggerId = useUiStore(
     (s) => s.setExportGroupSetTriggerId,
-  );
-  const setCopyGroupSetSourceId = useUiStore(
-    (s) => s.setCopyGroupSetSourceId,
-  );
+  )
+  const setCopyGroupSetSourceId = useUiStore((s) => s.setCopyGroupSetSourceId)
   const setDeleteGroupSetTargetId = useUiStore(
     (s) => s.setDeleteGroupSetTargetId,
-  );
+  )
   const setNewAssignmentDialogOpen = useUiStore(
     (s) => s.setNewAssignmentDialogOpen,
-  );
-  const setPreSelectedGroupSetId = useUiStore(
-    (s) => s.setPreSelectedGroupSetId,
-  );
-  const setGroupSetPanelTab = useUiStore((s) => s.setGroupSetPanelTab);
+  )
+  const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
+  const setGroupSetPanelTab = useUiStore((s) => s.setGroupSetPanelTab)
 
   const actionSetters = useMemo(
     () => ({
@@ -241,159 +231,154 @@ export function GroupsAssignmentsSidebar({
       setPreSelectedGroupSetId,
       setGroupSetPanelTab,
     ],
-  );
+  )
 
-  const editingGroupSetId = useUiStore((s) => s.renameGroupSetTriggerId);
+  const editingGroupSetId = useUiStore((s) => s.renameGroupSetTriggerId)
 
   const handleRenameSubmit = useCallback(
     (groupSetId: string, newName: string) => {
-      renameGroupSet(groupSetId, newName);
-      setRenameGroupSetTriggerId(null);
+      renameGroupSet(groupSetId, newName)
+      setRenameGroupSetTriggerId(null)
     },
     [renameGroupSet, setRenameGroupSetTriggerId],
-  );
+  )
 
   const handleRenameCancel = useCallback(() => {
-    setRenameGroupSetTriggerId(null);
-  }, [setRenameGroupSetTriggerId]);
+    setRenameGroupSetTriggerId(null)
+  }, [setRenameGroupSetTriggerId])
 
   const sortedConnected = useMemo(
     () => [...connectedSets].sort((a, b) => a.name.localeCompare(b.name)),
     [connectedSets],
-  );
+  )
   const sortedLocal = useMemo(
     () => [...localSets].sort((a, b) => a.name.localeCompare(b.name)),
     [localSets],
-  );
+  )
 
   const systemSets = useMemo(() => {
-    const sets: GroupSet[] = [];
-    if (individualStudentsSet) sets.push(individualStudentsSet);
-    if (staffSet) sets.push(staffSet);
-    return sets;
-  }, [individualStudentsSet, staffSet]);
+    const sets: GroupSet[] = []
+    if (individualStudentsSet) sets.push(individualStudentsSet)
+    if (staffSet) sets.push(staffSet)
+    return sets
+  }, [individualStudentsSet, staffSet])
 
-  const hasAnyGroupSets = allGroupSets.length > 0;
+  const hasAnyGroupSets = allGroupSets.length > 0
 
   const groupCountByGroupSetId = useMemo(() => {
-    const map = new Map<string, number>();
-    const knownGroupIds = new Set(
-      roster?.groups.map((group) => group.id) ?? [],
-    );
+    const map = new Map<string, number>()
+    const knownGroupIds = new Set(roster?.groups.map((group) => group.id) ?? [])
 
     for (const groupSet of allGroupSets) {
       const count = groupSet.groupIds.reduce(
         (total, groupId) => total + (knownGroupIds.has(groupId) ? 1 : 0),
         0,
-      );
-      map.set(groupSet.id, count);
+      )
+      map.set(groupSet.id, count)
     }
 
-    return map;
-  }, [allGroupSets, roster]);
+    return map
+  }, [allGroupSets, roster])
 
   const buildRows = useCallback(
     (groupSets: GroupSet[]): GroupSetRowData[] => {
       return groupSets.map((groupSet) => ({
         groupSet,
         groupCount: groupCountByGroupSetId.get(groupSet.id) ?? 0,
-      }));
+      }))
     },
     [groupCountByGroupSetId],
-  );
+  )
 
   const systemRows = useMemo(
     () => buildRows(systemSets),
     [buildRows, systemSets],
-  );
+  )
   const connectedRows = useMemo(
     () => buildRows(sortedConnected),
     [buildRows, sortedConnected],
-  );
+  )
   const localRows = useMemo(
     () => buildRows(sortedLocal),
     [buildRows, sortedLocal],
-  );
+  )
 
   const navigationItems = useMemo(() => {
-    const items: NavigationItem[] = [];
+    const items: NavigationItem[] = []
     const appendRows = (rows: GroupSetRowData[]) => {
       for (const row of rows) {
         items.push({
           itemId: `group-set:${row.groupSet.id}`,
           selection: { kind: "group-set", id: row.groupSet.id },
-        });
+        })
       }
-    };
+    }
 
-    appendRows(systemRows);
-    appendRows(connectedRows);
-    appendRows(localRows);
-    return items;
-  }, [systemRows, connectedRows, localRows]);
+    appendRows(systemRows)
+    appendRows(connectedRows)
+    appendRows(localRows)
+    return items
+  }, [systemRows, connectedRows, localRows])
 
   const activeItemId = useMemo(() => {
-    const selectedItemId = selectionToItemId(selection);
+    const selectedItemId = selectionToItemId(selection)
     if (
       selectedItemId &&
       navigationItems.some((item) => item.itemId === selectedItemId)
     ) {
-      return selectedItemId;
+      return selectedItemId
     }
-    return navigationItems[0]?.itemId ?? null;
-  }, [selection, navigationItems]);
+    return navigationItems[0]?.itemId ?? null
+  }, [selection, navigationItems])
 
   const focusSidebarItem = useCallback((itemId: string) => {
     const element = sidebarRef.current?.querySelector<HTMLButtonElement>(
       `[data-sidebar-item-id="${itemId}"]`,
-    );
-    element?.focus();
-  }, []);
+    )
+    element?.focus()
+  }, [])
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
-      const itemId = event.currentTarget.dataset.sidebarItemId;
-      if (!itemId) return;
+      const itemId = event.currentTarget.dataset.sidebarItemId
+      if (!itemId) return
 
-      const index = navigationItems.findIndex(
-        (item) => item.itemId === itemId,
-      );
-      if (index < 0) return;
+      const index = navigationItems.findIndex((item) => item.itemId === itemId)
+      if (index < 0) return
 
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        if (navigationItems.length === 0) return;
+        event.preventDefault()
+        if (navigationItems.length === 0) return
 
-        const direction = event.key === "ArrowDown" ? 1 : -1;
+        const direction = event.key === "ArrowDown" ? 1 : -1
         const nextIndex =
-          (index + direction + navigationItems.length) %
-          navigationItems.length;
-        const nextItem = navigationItems[nextIndex];
+          (index + direction + navigationItems.length) % navigationItems.length
+        const nextItem = navigationItems[nextIndex]
 
-        onSelect(nextItem.selection);
-        requestAnimationFrame(() => focusSidebarItem(nextItem.itemId));
-        return;
+        onSelect(nextItem.selection)
+        requestAnimationFrame(() => focusSidebarItem(nextItem.itemId))
+        return
       }
 
       if (event.key === "Enter") {
-        event.preventDefault();
-        onSelect(navigationItems[index].selection);
-        return;
+        event.preventDefault()
+        onSelect(navigationItems[index].selection)
+        return
       }
 
       if (event.key === "Escape") {
-        event.preventDefault();
-        onSelect(null);
-        return;
+        event.preventDefault()
+        onSelect(null)
+        return
       }
 
       if (event.key === "Tab" && !event.shiftKey) {
-        event.preventDefault();
-        onRequestFocusPanel?.();
+        event.preventDefault()
+        onRequestFocusPanel?.()
       }
     },
     [focusSidebarItem, navigationItems, onRequestFocusPanel, onSelect],
-  );
+  )
 
   return (
     <div
@@ -518,5 +503,5 @@ export function GroupsAssignmentsSidebar({
         </div>
       )}
     </div>
-  );
+  )
 }

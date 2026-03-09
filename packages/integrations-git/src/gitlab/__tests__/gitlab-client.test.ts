@@ -1,26 +1,26 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import type {
   HttpPort,
   HttpRequest,
   HttpResponse,
-} from "@repo-edu/host-runtime-contract";
-import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract";
-import { createGitLabClient } from "../gitlab-client.js";
+} from "@repo-edu/host-runtime-contract"
+import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import { createGitLabClient } from "../gitlab-client.js"
 
 const baseDraft: GitConnectionDraft = {
   provider: "gitlab",
   baseUrl: "https://gitlab.example.com",
   token: "glpat-test-token",
   organization: "my-group",
-};
+}
 
 type MockRoute = {
-  method: string;
-  urlPattern: string | RegExp;
-  status: number;
-  body: unknown;
-};
+  method: string
+  urlPattern: string | RegExp
+  status: number
+  body: unknown
+}
 
 function createMockHttpPort(routes: MockRoute[]): HttpPort {
   return {
@@ -28,11 +28,11 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
       for (const route of routes) {
         const methodMatch =
           request.method === route.method ||
-          (!request.method && route.method === "GET");
+          (!request.method && route.method === "GET")
         const urlMatch =
           typeof route.urlPattern === "string"
             ? request.url.includes(route.urlPattern)
-            : route.urlPattern.test(request.url);
+            : route.urlPattern.test(request.url)
 
         if (methodMatch && urlMatch) {
           return {
@@ -40,7 +40,7 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
             statusText: route.status < 300 ? "OK" : "Error",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(route.body),
-          };
+          }
         }
       }
 
@@ -49,9 +49,9 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
         statusText: "Not Found",
         headers: {},
         body: JSON.stringify({ message: "Not Found" }),
-      };
+      }
     },
-  };
+  }
 }
 
 describe("createGitLabClient", () => {
@@ -64,12 +64,12 @@ describe("createGitLabClient", () => {
           status: 200,
           body: { id: 1, path: "my-group", full_path: "my-group" },
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
-      const result = await client.verifyConnection(baseDraft);
-      assert.deepStrictEqual(result, { verified: true });
-    });
+      const client = createGitLabClient(http)
+      const result = await client.verifyConnection(baseDraft)
+      assert.deepStrictEqual(result, { verified: true })
+    })
 
     it("returns verified false when group does not exist", async () => {
       const http = createMockHttpPort([
@@ -79,64 +79,64 @@ describe("createGitLabClient", () => {
           status: 404,
           body: { message: "404 Group Not Found" },
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
-      const result = await client.verifyConnection(baseDraft);
-      assert.deepStrictEqual(result, { verified: false });
-    });
+      const client = createGitLabClient(http)
+      const result = await client.verifyConnection(baseDraft)
+      assert.deepStrictEqual(result, { verified: false })
+    })
 
     it("returns verified false when no organization provided", async () => {
-      const http = createMockHttpPort([]);
-      const client = createGitLabClient(http);
+      const http = createMockHttpPort([])
+      const client = createGitLabClient(http)
       const result = await client.verifyConnection({
         ...baseDraft,
         organization: null,
-      });
-      assert.deepStrictEqual(result, { verified: false });
-    });
+      })
+      assert.deepStrictEqual(result, { verified: false })
+    })
 
     it("sends private-token header", async () => {
-      let capturedHeaders: Record<string, string> | undefined;
+      let capturedHeaders: Record<string, string> | undefined
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
-          capturedHeaders = request.headers;
+          capturedHeaders = request.headers
           return {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ id: 1, path: "my-group" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGitLabClient(http);
-      await client.verifyConnection(baseDraft);
+      const client = createGitLabClient(http)
+      await client.verifyConnection(baseDraft)
 
-      assert.ok(capturedHeaders);
-      assert.equal(capturedHeaders["private-token"], "glpat-test-token");
-    });
+      assert.ok(capturedHeaders)
+      assert.equal(capturedHeaders["private-token"], "glpat-test-token")
+    })
 
     it("uses default gitlab.com when baseUrl is null", async () => {
-      let capturedUrl = "";
+      let capturedUrl = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
-          capturedUrl = request.url;
+          capturedUrl = request.url
           return {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ id: 1, path: "my-group" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGitLabClient(http);
-      await client.verifyConnection({ ...baseDraft, baseUrl: null });
+      const client = createGitLabClient(http)
+      await client.verifyConnection({ ...baseDraft, baseUrl: null })
 
-      assert.ok(capturedUrl.startsWith("https://gitlab.com/api/v4"));
-    });
-  });
+      assert.ok(capturedUrl.startsWith("https://gitlab.com/api/v4"))
+    })
+  })
 
   describe("verifyGitUsernames", () => {
     it("returns mixed results", async () => {
@@ -153,18 +153,18 @@ describe("createGitLabClient", () => {
           status: 200,
           body: [],
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.verifyGitUsernames(baseDraft, [
         "alice",
         "nobody",
-      ]);
+      ])
 
-      assert.equal(result.length, 2);
-      assert.deepStrictEqual(result[0], { username: "alice", exists: true });
-      assert.deepStrictEqual(result[1], { username: "nobody", exists: false });
-    });
+      assert.equal(result.length, 2)
+      assert.deepStrictEqual(result[0], { username: "alice", exists: true })
+      assert.deepStrictEqual(result[1], { username: "nobody", exists: false })
+    })
 
     it("treats blocked users as not existing", async () => {
       const http = createMockHttpPort([
@@ -174,14 +174,14 @@ describe("createGitLabClient", () => {
           status: 200,
           body: [{ username: "blocked", state: "blocked" }],
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
-      const result = await client.verifyGitUsernames(baseDraft, ["blocked"]);
+      const client = createGitLabClient(http)
+      const result = await client.verifyGitUsernames(baseDraft, ["blocked"])
 
-      assert.deepStrictEqual(result[0], { username: "blocked", exists: false });
-    });
-  });
+      assert.deepStrictEqual(result[0], { username: "blocked", exists: false })
+    })
+  })
 
   describe("createRepositories", () => {
     it("creates repositories in the requested group namespace", async () => {
@@ -201,21 +201,21 @@ describe("createGitLabClient", () => {
             web_url: "https://gitlab.example.com/target-group/repo-1",
           },
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.createRepositories(baseDraft, {
         organization: "target-group",
         repositoryNames: ["repo-1"],
         template: null,
-      });
+      })
 
-      assert.equal(result.createdCount, 1);
-      assert.ok(result.repositoryUrls[0].includes("repo-1"));
-    });
+      assert.equal(result.createdCount, 1)
+      assert.ok(result.repositoryUrls[0].includes("repo-1"))
+    })
 
     it("uses template owner and name for custom templates", async () => {
-      let capturedBody = "";
+      let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (request.url.includes("/groups/template-owner")) {
@@ -224,7 +224,7 @@ describe("createGitLabClient", () => {
               statusText: "OK",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ id: 7, path: "template-owner" }),
-            };
+            }
           }
 
           if (request.url.includes("/groups/my-group")) {
@@ -233,11 +233,11 @@ describe("createGitLabClient", () => {
               statusText: "OK",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ id: 42, path: "my-group" }),
-            };
+            }
           }
 
           if (request.url.includes("/projects")) {
-            capturedBody = request.body ?? "";
+            capturedBody = request.body ?? ""
             return {
               status: 201,
               statusText: "Created",
@@ -246,7 +246,7 @@ describe("createGitLabClient", () => {
                 id: 101,
                 web_url: "https://gitlab.example.com/my-group/hw1-team-alpha",
               }),
-            };
+            }
           }
 
           return {
@@ -254,11 +254,11 @@ describe("createGitLabClient", () => {
             statusText: "Not Found",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ message: "Not Found" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.createRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["hw1-team-alpha"],
@@ -267,13 +267,13 @@ describe("createGitLabClient", () => {
           name: "course-template",
           visibility: "internal",
         },
-      });
+      })
 
-      assert.equal(result.createdCount, 1);
-      assert.ok(capturedBody.includes('"use_custom_template":true'));
-      assert.ok(capturedBody.includes('"template_name":"course-template"'));
-      assert.ok(capturedBody.includes('"group_with_project_templates_id":7'));
-    });
+      assert.equal(result.createdCount, 1)
+      assert.ok(capturedBody.includes('"use_custom_template":true'))
+      assert.ok(capturedBody.includes('"template_name":"course-template"'))
+      assert.ok(capturedBody.includes('"group_with_project_templates_id":7'))
+    })
 
     it("returns empty result when org has no namespace id", async () => {
       const http = createMockHttpPort([
@@ -283,46 +283,46 @@ describe("createGitLabClient", () => {
           status: 200,
           body: { path: "my-group" }, // no id
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.createRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["repo-1"],
         template: null,
-      });
+      })
 
-      assert.equal(result.createdCount, 0);
-    });
+      assert.equal(result.createdCount, 0)
+    })
 
     it("URL-encodes group paths with slashes", async () => {
-      let capturedUrl = "";
+      let capturedUrl = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (request.url.includes("/groups/")) {
-            capturedUrl = request.url;
+            capturedUrl = request.url
           }
           return {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ id: 42, path: "nested" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       await client.verifyConnection({
         ...baseDraft,
         organization: "parent/nested",
-      });
+      })
 
       assert.ok(
         capturedUrl.includes("parent%2Fnested"),
         `Expected URL-encoded path, got: ${capturedUrl}`,
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe("resolveRepositoryCloneUrls", () => {
     it("resolves clone URLs and reports missing repositories", async () => {
@@ -341,22 +341,22 @@ describe("createGitLabClient", () => {
           status: 404,
           body: { message: "404 Project Not Found" },
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.resolveRepositoryCloneUrls(baseDraft, {
         organization: "my-group",
         repositoryNames: ["repo-1", "repo-missing"],
-      });
+      })
 
-      assert.deepStrictEqual(result.missing, ["repo-missing"]);
-      assert.equal(result.resolved.length, 1);
-      assert.equal(result.resolved[0]?.repositoryName, "repo-1");
+      assert.deepStrictEqual(result.missing, ["repo-missing"])
+      assert.equal(result.resolved.length, 1)
+      assert.equal(result.resolved[0]?.repositoryName, "repo-1")
       assert.ok(
         result.resolved[0]?.cloneUrl.includes("oauth2:glpat-test-token"),
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe("deleteRepositories", () => {
     it("deletes repositories and reports missing", async () => {
@@ -373,18 +373,18 @@ describe("createGitLabClient", () => {
           status: 404,
           body: { message: "404 Project Not Found" },
         },
-      ]);
+      ])
 
-      const client = createGitLabClient(http);
+      const client = createGitLabClient(http)
       const result = await client.deleteRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["repo-1", "repo-missing"],
-      });
+      })
 
       assert.deepStrictEqual(result, {
         deletedCount: 1,
         missing: ["repo-missing"],
-      });
-    });
-  });
-});
+      })
+    })
+  })
+})

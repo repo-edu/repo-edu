@@ -1,76 +1,78 @@
-import { dirname, join } from "node:path";
-import { performance } from "node:perf_hooks";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join } from "node:path"
+import { performance } from "node:perf_hooks"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
-} from "@repo-edu/host-node";
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
-import { createIPCHandler } from "trpc-electron/main";
-import { createDesktopHostEnvironment } from "./desktop-host";
-import { createDesktopProfileStore } from "./profile-store";
+} from "@repo-edu/host-node"
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
+import { createIPCHandler } from "trpc-electron/main"
+import { createDesktopHostEnvironment } from "./desktop-host"
+import { createDesktopProfileStore } from "./profile-store"
 import {
-  desktopRendererHostChannels,
   type DesktopRendererHostBridge,
-} from "./renderer-host-bridge";
-import { createDesktopAppSettingsStore } from "./settings-store";
-import type { DesktopRouter } from "./trpc";
-import { createDesktopRouter } from "./trpc";
+  desktopRendererHostChannels,
+} from "./renderer-host-bridge"
+import { createDesktopAppSettingsStore } from "./settings-store"
+import type { DesktopRouter } from "./trpc"
+import { createDesktopRouter } from "./trpc"
 
-const startupMarker = "repo-edu-desktop-cold-start";
-const trpcMarker = "repo-edu-desktop-trpc";
-const startupStartedAt = performance.now();
-const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1";
-const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1";
+const startupMarker = "repo-edu-desktop-cold-start"
+const trpcMarker = "repo-edu-desktop-trpc"
+const startupStartedAt = performance.now()
+const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1"
+const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1"
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const desktopHost = createDesktopHostEnvironment();
-const nodeHttpPort = createNodeHttpPort();
-const nodeGitCommandPort = createNodeGitCommandPort();
-const nodeFileSystemPort = createNodeFileSystemPort();
-let desktopRouter: DesktopRouter | null = null;
-let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null =
-  null;
-let hostIpcRegistered = false;
+const currentDir = dirname(fileURLToPath(import.meta.url))
+const desktopHost = createDesktopHostEnvironment()
+const nodeHttpPort = createNodeHttpPort()
+const nodeGitCommandPort = createNodeGitCommandPort()
+const nodeFileSystemPort = createNodeFileSystemPort()
+let desktopRouter: DesktopRouter | null = null
+let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
+let hostIpcRegistered = false
 
 function resolvePreloadPath() {
-  return join(currentDir, "../preload/preload.cjs");
+  return join(currentDir, "../preload/preload.cjs")
 }
 
 function resolveRendererUrl() {
-  const baseUrl = process.env.ELECTRON_RENDERER_URL;
-  const validationSuffix = isTRPCValidationMode ? "?mode=validate-trpc" : "";
+  const baseUrl = process.env.ELECTRON_RENDERER_URL
+  const validationSuffix = isTRPCValidationMode ? "?mode=validate-trpc" : ""
 
   if (baseUrl) {
-    return `${baseUrl}${validationSuffix}`;
+    return `${baseUrl}${validationSuffix}`
   }
 
   const fileUrl = pathToFileURL(
     join(currentDir, "../renderer/index.html"),
-  ).toString();
+  ).toString()
 
-  return `${fileUrl}${validationSuffix}`;
+  return `${fileUrl}${validationSuffix}`
 }
 
 function resolveStorageRootPath() {
-  return join(app.getPath("appData"), "repo-edu");
+  return join(app.getPath("appData"), "repo-edu")
 }
 
 function registerRendererHostIpcHandlers() {
   if (hostIpcRegistered) {
-    return;
+    return
   }
 
-  hostIpcRegistered = true;
+  hostIpcRegistered = true
 
   ipcMain.handle(
     desktopRendererHostChannels.pickUserFile,
-    async (event, options: Parameters<DesktopRendererHostBridge["pickUserFile"]>[0]) => {
-      const parentWindow = BrowserWindow.fromWebContents(event.sender);
-      return await desktopHost.pickUserFile(parentWindow, options);
+    async (
+      event,
+      options: Parameters<DesktopRendererHostBridge["pickUserFile"]>[0],
+    ) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      return await desktopHost.pickUserFile(parentWindow, options)
     },
-  );
+  )
 
   ipcMain.handle(
     desktopRendererHostChannels.pickSaveTarget,
@@ -78,57 +80,60 @@ function registerRendererHostIpcHandlers() {
       event,
       options: Parameters<DesktopRendererHostBridge["pickSaveTarget"]>[0],
     ) => {
-      const parentWindow = BrowserWindow.fromWebContents(event.sender);
-      return await desktopHost.pickSaveTarget(parentWindow, options);
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      return await desktopHost.pickSaveTarget(parentWindow, options)
     },
-  );
+  )
 
   ipcMain.handle(
     desktopRendererHostChannels.openExternalUrl,
-    async (_event, url: Parameters<DesktopRendererHostBridge["openExternalUrl"]>[0]) => {
-      await desktopHost.openExternalUrl(url);
+    async (
+      _event,
+      url: Parameters<DesktopRendererHostBridge["openExternalUrl"]>[0],
+    ) => {
+      await desktopHost.openExternalUrl(url)
     },
-  );
+  )
 
   ipcMain.handle(
     desktopRendererHostChannels.getEnvironmentSnapshot,
     async () => {
-      return await desktopHost.getEnvironmentSnapshot();
+      return await desktopHost.getEnvironmentSnapshot()
     },
-  );
+  )
 
   ipcMain.handle(
     desktopRendererHostChannels.setNativeTheme,
     (_event, theme: "light" | "dark" | "system") => {
-      nativeTheme.themeSource = theme;
+      nativeTheme.themeSource = theme
     },
-  );
+  )
 
   ipcMain.handle(
     desktopRendererHostChannels.revealProfilesDirectory,
     async () => {
-      const profilesDir = join(resolveStorageRootPath(), "profiles");
-      await shell.openPath(profilesDir);
+      const profilesDir = join(resolveStorageRootPath(), "profiles")
+      await shell.openPath(profilesDir)
     },
-  );
+  )
 }
 
 function handleValidationMarker(message: string) {
   if (!isTRPCValidationMode) {
-    return;
+    return
   }
 
   try {
-    const parsed = JSON.parse(message);
+    const parsed = JSON.parse(message)
 
     if (parsed.marker !== trpcMarker) {
-      return;
+      return
     }
 
-    process.stdout.write(`${JSON.stringify(parsed)}\n`);
+    process.stdout.write(`${JSON.stringify(parsed)}\n`)
     setTimeout(() => {
-      app.quit();
-    }, 50);
+      app.quit()
+    }, 50)
   } catch {
     // Ignore unrelated renderer markers.
   }
@@ -146,10 +151,10 @@ async function createWindow() {
       preload: resolvePreloadPath(),
       sandbox: true,
     },
-  });
+  })
 
   if (!desktopRouter) {
-    const storageRoot = resolveStorageRootPath();
+    const storageRoot = resolveStorageRootPath()
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       profileStore: createDesktopProfileStore(storageRoot),
@@ -157,20 +162,20 @@ async function createWindow() {
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,
-    });
+    })
   }
 
   if (!ipcHandler) {
     ipcHandler = createIPCHandler({
       router: desktopRouter,
       windows: [mainWindow],
-    });
+    })
   } else {
-    ipcHandler.attachWindow(mainWindow);
+    ipcHandler.attachWindow(mainWindow)
   }
 
   if (isTRPCValidationMode) {
-    let validationSettled = false;
+    let validationSettled = false
 
     const validationPoll = setInterval(() => {
       void mainWindow.webContents
@@ -184,21 +189,21 @@ async function createWindow() {
             markerText &&
             !validationSettled
           ) {
-            validationSettled = true;
-            handleValidationMarker(markerText);
+            validationSettled = true
+            handleValidationMarker(markerText)
           }
         })
         .catch(() => {
           // Ignore validation polling errors during early page startup.
-        });
-    }, 50);
+        })
+    }, 50)
 
     const validationTimeout = setTimeout(() => {
       if (validationSettled) {
-        return;
+        return
       }
 
-      validationSettled = true;
+      validationSettled = true
 
       void mainWindow.webContents
         .executeJavaScript(
@@ -212,66 +217,68 @@ async function createWindow() {
               timeout: true,
               textContent,
             })}\n`,
-          );
+          )
         })
         .finally(() => {
-          app.quit();
-        });
-    }, 2000);
+          app.quit()
+        })
+    }, 2000)
 
     mainWindow.on("closed", () => {
-      clearInterval(validationPoll);
-      clearTimeout(validationTimeout);
-    });
+      clearInterval(validationPoll)
+      clearTimeout(validationTimeout)
+    })
   }
 
-  const rendererUrl = resolveRendererUrl();
+  const rendererUrl = resolveRendererUrl()
 
   if (isMeasureMode) {
     mainWindow.webContents.once("did-finish-load", () => {
       const didFinishLoadMs = Number(
         (performance.now() - startupStartedAt).toFixed(2),
-      );
+      )
 
       process.stdout.write(
         `${JSON.stringify({
           marker: startupMarker,
           didFinishLoadMs,
         })}\n`,
-      );
+      )
 
       setTimeout(() => {
-        app.quit();
-      }, 50);
-    });
+        app.quit()
+      }, 50)
+    })
   }
 
-  await mainWindow.loadURL(rendererUrl);
+  await mainWindow.loadURL(rendererUrl)
 }
 
 app.whenReady().then(async () => {
-  registerRendererHostIpcHandlers();
-  await createWindow();
+  registerRendererHostIpcHandlers()
+  await createWindow()
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow();
+      void createWindow()
     }
-  });
-});
+  })
+})
 
 process.on("uncaughtException", (error) => {
-  process.stderr.write(`[desktop] uncaught-exception ${error.stack ?? error.message}\n`);
-});
+  process.stderr.write(
+    `[desktop] uncaught-exception ${error.stack ?? error.message}\n`,
+  )
+})
 
 process.on("unhandledRejection", (reason) => {
   const text =
-    reason instanceof Error ? reason.stack ?? reason.message : String(reason);
-  process.stderr.write(`[desktop] unhandled-rejection ${text}\n`);
-});
+    reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)
+  process.stderr.write(`[desktop] unhandled-rejection ${text}\n`)
+})
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    app.quit();
+    app.quit()
   }
-});
+})

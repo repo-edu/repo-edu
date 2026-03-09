@@ -1,37 +1,41 @@
-import { planRepositoryOperation } from "@repo-edu/domain";
-import type { Command } from "commander";
+import { planRepositoryOperation } from "@repo-edu/domain"
+import type { Command } from "commander"
 import {
   emitCommandError,
   loadSelectedProfile,
   resolveAssignmentFromProfile,
   toErrorMessage,
-} from "../command-utils.js";
-import { createCliWorkflowClient } from "../workflow-runtime.js";
+} from "../command-utils.js"
+import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 type RepoCreateOptions = {
-  assignment: string;
-  dryRun?: boolean;
-};
+  assignment: string
+  dryRun?: boolean
+}
 
 type RepoCloneOptions = {
-  assignment: string;
-  target?: string;
-  layout?: "flat" | "by-team" | "by-task";
-};
+  assignment: string
+  target?: string
+  layout?: "flat" | "by-team" | "by-task"
+}
 
 type RepoDeleteOptions = {
-  assignment: string;
-  force?: boolean;
-};
+  assignment: string
+  force?: boolean
+}
 
-function printRepositoryPlan(assignmentName: string, assignmentId: string, profileId: string) {
+function printRepositoryPlan(
+  assignmentName: string,
+  assignmentId: string,
+  profileId: string,
+) {
   process.stdout.write(
     `Planned repository operation for assignment '${assignmentName}' (${assignmentId}) in profile '${profileId}':\n`,
-  );
+  )
 }
 
 export function registerRepoCommands(parent: Command): void {
-  const repo = parent.command("repo").description("Repository operations");
+  const repo = parent.command("repo").description("Repository operations")
 
   repo
     .command("create")
@@ -39,54 +43,57 @@ export function registerRepoCommands(parent: Command): void {
     .requiredOption("--assignment <name>", "Assignment name or id")
     .option("--dry-run", "Show what would be created")
     .action(async function (this: Command, options: RepoCreateOptions) {
-      const workflowClient = createCliWorkflowClient();
+      const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient);
-        const assignment = resolveAssignmentFromProfile(profile, options.assignment);
+        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const assignment = resolveAssignmentFromProfile(
+          profile,
+          options.assignment,
+        )
 
         if (!assignment) {
           throw new Error(
             `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
-          );
+          )
         }
 
         if (options.dryRun) {
-          const planned = planRepositoryOperation(profile.roster, assignment.id);
+          const planned = planRepositoryOperation(profile.roster, assignment.id)
           if (!planned.ok) {
-            process.stdout.write("Repository plan is invalid:\n");
+            process.stdout.write("Repository plan is invalid:\n")
             for (const issue of planned.issues) {
-              process.stdout.write(`- ${issue.path}: ${issue.message}\n`);
+              process.stdout.write(`- ${issue.path}: ${issue.message}\n`)
             }
-            process.exitCode = 1;
-            return;
+            process.exitCode = 1
+            return
           }
 
-          printRepositoryPlan(assignment.name, assignment.id, profile.id);
+          printRepositoryPlan(assignment.name, assignment.id, profile.id)
           if (planned.value.groups.length === 0) {
-            process.stdout.write("- No repositories planned.\n");
+            process.stdout.write("- No repositories planned.\n")
           }
           for (const group of planned.value.groups) {
             process.stdout.write(
               `- ${group.repoName}\tgroup=${group.groupName}\tassignment=${group.assignmentName}\n`,
-            );
+            )
           }
-          return;
+          return
         }
 
         const result = await workflowClient.run("repo.create", {
           profileId: profile.id,
           assignmentId: assignment.id,
           template: profile.repositoryTemplate,
-        });
+        })
 
         process.stdout.write(
           `Repository create complete: planned=${result.repositoriesPlanned} completedAt=${result.completedAt}\n`,
-        );
+        )
       } catch (error) {
-        emitCommandError(toErrorMessage(error));
+        emitCommandError(toErrorMessage(error))
       }
-    });
+    })
 
   repo
     .command("clone")
@@ -95,16 +102,19 @@ export function registerRepoCommands(parent: Command): void {
     .option("--target <dir>", "Target directory")
     .option("--layout <layout>", "Directory layout: flat, by-team, by-task")
     .action(async function (this: Command, options: RepoCloneOptions) {
-      const workflowClient = createCliWorkflowClient();
+      const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient);
-        const assignment = resolveAssignmentFromProfile(profile, options.assignment);
+        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const assignment = resolveAssignmentFromProfile(
+          profile,
+          options.assignment,
+        )
 
         if (!assignment) {
           throw new Error(
             `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
-          );
+          )
         }
 
         if (
@@ -115,7 +125,7 @@ export function registerRepoCommands(parent: Command): void {
         ) {
           throw new Error(
             "Invalid --layout value. Expected one of: flat, by-team, by-task.",
-          );
+          )
         }
 
         const result = await workflowClient.run("repo.clone", {
@@ -124,15 +134,15 @@ export function registerRepoCommands(parent: Command): void {
           template: profile.repositoryTemplate,
           targetDirectory: options.target,
           directoryLayout: options.layout,
-        });
+        })
 
         process.stdout.write(
           `Repository clone complete: planned=${result.repositoriesPlanned} completedAt=${result.completedAt}\n`,
-        );
+        )
       } catch (error) {
-        emitCommandError(toErrorMessage(error));
+        emitCommandError(toErrorMessage(error))
       }
-    });
+    })
 
   repo
     .command("delete")
@@ -140,16 +150,19 @@ export function registerRepoCommands(parent: Command): void {
     .requiredOption("--assignment <name>", "Assignment name or id")
     .option("--force", "Execute delete without interactive confirmation")
     .action(async function (this: Command, options: RepoDeleteOptions) {
-      const workflowClient = createCliWorkflowClient();
+      const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient);
-        const assignment = resolveAssignmentFromProfile(profile, options.assignment);
+        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const assignment = resolveAssignmentFromProfile(
+          profile,
+          options.assignment,
+        )
 
         if (!assignment) {
           throw new Error(
             `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
-          );
+          )
         }
 
         const result = await workflowClient.run("repo.delete", {
@@ -157,13 +170,13 @@ export function registerRepoCommands(parent: Command): void {
           assignmentId: assignment.id,
           template: profile.repositoryTemplate,
           confirmDelete: options.force === true,
-        });
+        })
 
         process.stdout.write(
           `Repository delete complete: planned=${result.repositoriesPlanned} completedAt=${result.completedAt}\n`,
-        );
+        )
       } catch (error) {
-        emitCommandError(toErrorMessage(error));
+        emitCommandError(toErrorMessage(error))
       }
-    });
+    })
 }

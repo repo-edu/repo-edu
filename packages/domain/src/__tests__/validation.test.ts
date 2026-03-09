@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import {
   type Assignment,
   blockingIssues,
@@ -15,7 +15,7 @@ import {
   validateAssignmentWithTemplate,
   validateRoster,
   warningIssues,
-} from "../index.js";
+} from "../index.js"
 
 function makeMember(
   id: string,
@@ -37,7 +37,7 @@ function makeMember(
     institution: null,
     source: "local",
     ...overrides,
-  };
+  }
 }
 
 function makeRoster(overrides: Partial<Roster> = {}): Roster {
@@ -49,30 +49,30 @@ function makeRoster(overrides: Partial<Roster> = {}): Roster {
     groupSets: [],
     assignments: [],
     ...overrides,
-  };
+  }
 }
 
 describe("validateRoster", () => {
   it("detects missing system group sets", () => {
-    const result = validateRoster(makeRoster());
+    const result = validateRoster(makeRoster())
 
     assert.equal(
       result.issues.some((issue) => issue.kind === "system_group_sets_missing"),
       true,
-    );
-  });
+    )
+  })
 
   it("passes the system-set check after ensureSystemGroupSets", () => {
-    const roster = makeRoster();
-    ensureSystemGroupSets(roster);
+    const roster = makeRoster()
+    ensureSystemGroupSets(roster)
 
-    const result = validateRoster(roster);
+    const result = validateRoster(roster)
 
     assert.equal(
       result.issues.some((issue) => issue.kind === "system_group_sets_missing"),
       false,
-    );
-  });
+    )
+  })
 
   it("detects duplicate ids, duplicate emails, and invalid enrollment partition", () => {
     const roster = makeRoster({
@@ -83,16 +83,16 @@ describe("validateRoster", () => {
           enrollmentType: "teacher",
         }),
       ],
-    });
-    ensureSystemGroupSets(roster);
+    })
+    ensureSystemGroupSets(roster)
 
-    const result = validateRoster(roster);
-    const kinds = result.issues.map((issue) => issue.kind);
+    const result = validateRoster(roster)
+    const kinds = result.issues.map((issue) => issue.kind)
 
-    assert.equal(kinds.includes("duplicate_student_id"), true);
-    assert.equal(kinds.includes("duplicate_email"), true);
-    assert.equal(kinds.includes("invalid_enrollment_partition"), true);
-  });
+    assert.equal(kinds.includes("duplicate_student_id"), true)
+    assert.equal(kinds.includes("duplicate_email"), true)
+    assert.equal(kinds.includes("invalid_enrollment_partition"), true)
+  })
 
   it("detects orphan references and invalid group origin", () => {
     const group: Group = {
@@ -101,7 +101,7 @@ describe("validateRoster", () => {
       memberIds: ["missing-member"],
       origin: "local",
       lmsGroupId: null,
-    };
+    }
     const groupSet: GroupSet = {
       id: "gs1",
       name: "Canvas Set",
@@ -113,15 +113,15 @@ describe("validateRoster", () => {
         lastUpdated: "2026-03-04T10:00:00Z",
       },
       groupSelection: selectionModeAll(),
-    };
+    }
     const roster = makeRoster({
       students: [makeMember("s1")],
       groups: [group],
       groupSets: [groupSet],
-    });
-    ensureSystemGroupSets(roster);
+    })
+    ensureSystemGroupSets(roster)
 
-    const result = validateRoster(roster);
+    const result = validateRoster(roster)
 
     assert.equal(
       result.issues.some(
@@ -130,7 +130,7 @@ describe("validateRoster", () => {
           issue.context?.includes("non-existent groups") === true,
       ),
       true,
-    );
+    )
     assert.equal(
       result.issues.some(
         (issue) =>
@@ -138,27 +138,27 @@ describe("validateRoster", () => {
           issue.context?.includes("non-existent members") === true,
       ),
       true,
-    );
+    )
     assert.equal(
       result.issues.some((issue) => issue.kind === "invalid_group_origin"),
       true,
-    );
-  });
-});
+    )
+  })
+})
 
 describe("validateAssignment", () => {
   function makeAssignmentFixture(): {
-    roster: Roster;
-    assignment: Assignment;
+    roster: Roster
+    assignment: Assignment
   } {
     const studentA = makeMember("s1", {
       gitUsername: "",
-    });
+    })
     const studentB = makeMember("s2", {
       gitUsername: "broken",
       gitUsernameStatus: "invalid",
-    });
-    const studentC = makeMember("s3");
+    })
+    const studentC = makeMember("s3")
 
     const groups: Group[] = [
       {
@@ -182,13 +182,13 @@ describe("validateAssignment", () => {
         origin: "local",
         lmsGroupId: null,
       },
-    ];
+    ]
 
     const assignment: Assignment = {
       id: "a1",
       name: "Project 1",
       groupSetId: "gs1",
-    };
+    }
 
     const roster = makeRoster({
       students: [studentA, studentB, studentC],
@@ -203,41 +203,41 @@ describe("validateAssignment", () => {
         },
       ],
       assignments: [assignment],
-    });
+    })
 
-    return { roster, assignment };
+    return { roster, assignment }
   }
 
   it("surfaces assignment-specific warnings and collisions", () => {
-    const { roster, assignment } = makeAssignmentFixture();
+    const { roster, assignment } = makeAssignmentFixture()
 
-    const result = validateAssignment(roster, assignment.id, "username");
-    const kinds = result.issues.map((issue) => issue.kind);
+    const result = validateAssignment(roster, assignment.id, "username")
+    const kinds = result.issues.map((issue) => issue.kind)
 
-    assert.equal(kinds.includes("duplicate_group_name_in_assignment"), true);
-    assert.equal(kinds.includes("empty_group"), true);
-    assert.equal(kinds.includes("missing_git_username"), true);
-    assert.equal(kinds.includes("invalid_git_username"), true);
+    assert.equal(kinds.includes("duplicate_group_name_in_assignment"), true)
+    assert.equal(kinds.includes("empty_group"), true)
+    assert.equal(kinds.includes("missing_git_username"), true)
+    assert.equal(kinds.includes("invalid_git_username"), true)
     assert.equal(
       result.issues.some(
         (issue) => issue.kind === "student_in_multiple_groups_in_assignment",
       ),
       true,
-    );
-    assert.equal(kinds.includes("unassigned_student"), true);
-  });
+    )
+    assert.equal(kinds.includes("unassigned_student"), true)
+  })
 
   it("detects duplicate repo names from the template", () => {
-    const { roster, assignment } = makeAssignmentFixture();
+    const { roster, assignment } = makeAssignmentFixture()
 
     const result = validateAssignmentWithTemplate(
       roster,
       assignment.id,
       "email",
       "{assignment}",
-    );
-    const firstGroup = roster.groups[0];
-    assert.ok(firstGroup);
+    )
+    const firstGroup = roster.groups[0]
+    assert.ok(firstGroup)
 
     assert.equal(
       result.issues.some(
@@ -247,9 +247,9 @@ describe("validateAssignment", () => {
             computeRepoName("{assignment}", assignment, firstGroup),
       ),
       true,
-    );
-    assert.equal(hasBlockingIssues(result), true);
-    assert.ok(blockingIssues(result).length > 0);
-    assert.ok(warningIssues(result).length > 0);
-  });
-});
+    )
+    assert.equal(hasBlockingIssues(result), true)
+    assert.ok(blockingIssues(result).length > 0)
+    assert.ok(warningIssues(result).length > 0)
+  })
+})

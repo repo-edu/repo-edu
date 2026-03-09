@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { spawn } from "node:child_process"
+import { mkdir, rm, stat } from "node:fs/promises"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -15,15 +15,15 @@ import type {
   ProcessPort,
   ProcessRequest,
   ProcessResult,
-} from "@repo-edu/host-runtime-contract";
-import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract";
+} from "@repo-edu/host-runtime-contract"
+import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract"
 
-export const packageId = "@repo-edu/host-node";
-export const workspaceDependencies = [hostRuntimePackageId] as const;
+export const packageId = "@repo-edu/host-node"
+export const workspaceDependencies = [hostRuntimePackageId] as const
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.");
+    throw new Error("Operation cancelled.")
   }
 }
 
@@ -39,21 +39,21 @@ export function createNodeHttpPort(): HttpPort {
         headers: request.headers,
         body: request.body,
         signal: request.signal,
-      });
+      })
 
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {}
       response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
+        headers[key] = value
+      })
 
       return {
         status: response.status,
         statusText: response.statusText,
         headers,
         body: await response.text(),
-      };
+      }
     },
-  };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -65,59 +65,59 @@ export function createNodeProcessPort(): ProcessPort {
     cancellation: "best-effort",
 
     async run(request: ProcessRequest): Promise<ProcessResult> {
-      throwIfAborted(request.signal);
+      throwIfAborted(request.signal)
 
       return await new Promise((resolve, reject) => {
         const child = spawn(request.command, request.args ?? [], {
           cwd: request.cwd,
           env: request.env ? { ...process.env, ...request.env } : process.env,
           stdio: "pipe",
-        });
+        })
 
-        let settled = false;
-        let stdout = "";
-        let stderr = "";
+        let settled = false
+        let stdout = ""
+        let stderr = ""
 
         const onAbort = () => {
           if (settled) {
-            return;
+            return
           }
 
-          child.stdin?.destroy();
-          child.kill("SIGTERM");
-        };
+          child.stdin?.destroy()
+          child.kill("SIGTERM")
+        }
 
         const cleanup = () => {
-          request.signal?.removeEventListener("abort", onAbort);
-        };
+          request.signal?.removeEventListener("abort", onAbort)
+        }
 
         const settle = (callback: () => void) => {
           if (settled) {
-            return;
+            return
           }
 
-          settled = true;
-          cleanup();
-          callback();
-        };
+          settled = true
+          cleanup()
+          callback()
+        }
 
-        request.signal?.addEventListener("abort", onAbort, { once: true });
+        request.signal?.addEventListener("abort", onAbort, { once: true })
 
-        child.stdout?.setEncoding("utf8");
+        child.stdout?.setEncoding("utf8")
         child.stdout?.on("data", (chunk: string) => {
-          stdout += chunk;
-        });
+          stdout += chunk
+        })
 
-        child.stderr?.setEncoding("utf8");
+        child.stderr?.setEncoding("utf8")
         child.stderr?.on("data", (chunk: string) => {
-          stderr += chunk;
-        });
+          stderr += chunk
+        })
 
         child.on("error", (error) => {
           settle(() => {
-            reject(error);
-          });
-        });
+            reject(error)
+          })
+        })
 
         child.on("close", (exitCode, signal) => {
           settle(() => {
@@ -126,14 +126,14 @@ export function createNodeProcessPort(): ProcessPort {
               signal,
               stdout,
               stderr,
-            });
-          });
-        });
+            })
+          })
+        })
 
-        child.stdin?.end(request.stdinText);
-      });
+        child.stdin?.end(request.stdinText)
+      })
     },
-  };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -154,39 +154,39 @@ export function createNodeGitCommandPort(
         env: request.env,
         stdinText: request.stdinText,
         signal: request.signal,
-      });
+      })
     },
-  };
+  }
 }
 
 async function inspectPath(path: string): Promise<FileSystemEntryStatus> {
   try {
-    const entry = await stat(path);
+    const entry = await stat(path)
 
     if (entry.isDirectory()) {
-      return { path, kind: "directory" };
+      return { path, kind: "directory" }
     }
 
-    return { path, kind: "file" };
+    return { path, kind: "file" }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { path, kind: "missing" };
+      return { path, kind: "missing" }
     }
 
-    throw error;
+    throw error
   }
 }
 
 async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
   if (operation.kind === "ensure-directory") {
-    await mkdir(operation.path, { recursive: true });
-    return;
+    await mkdir(operation.path, { recursive: true })
+    return
   }
 
   await rm(operation.path, {
     force: true,
     recursive: true,
-  });
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -198,32 +198,32 @@ export function createNodeFileSystemPort(): FileSystemPort {
     async inspect(
       request: FileSystemInspectRequest,
     ): Promise<FileSystemEntryStatus[]> {
-      throwIfAborted(request.signal);
+      throwIfAborted(request.signal)
 
-      const statuses: FileSystemEntryStatus[] = [];
+      const statuses: FileSystemEntryStatus[] = []
 
       for (const path of request.paths) {
-        throwIfAborted(request.signal);
-        statuses.push(await inspectPath(path));
+        throwIfAborted(request.signal)
+        statuses.push(await inspectPath(path))
       }
 
-      return statuses;
+      return statuses
     },
 
     async applyBatch(
       request: FileSystemBatchRequest,
     ): Promise<FileSystemBatchResult> {
-      throwIfAborted(request.signal);
+      throwIfAborted(request.signal)
 
-      const completed: FileSystemBatchOperation[] = [];
+      const completed: FileSystemBatchOperation[] = []
 
       for (const operation of request.operations) {
-        throwIfAborted(request.signal);
-        await applyFileSystemOperation(operation);
-        completed.push(operation);
+        throwIfAborted(request.signal)
+        await applyFileSystemOperation(operation)
+        completed.push(operation)
       }
 
-      return { completed };
+      return { completed }
     },
-  };
+  }
 }

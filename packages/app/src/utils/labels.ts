@@ -1,12 +1,12 @@
-import type { MemberStatus } from "@repo-edu/domain";
+import type { MemberStatus } from "@repo-edu/domain"
 
 export function formatMemberStatus(status: MemberStatus): string {
   switch (status) {
     case "active":
-      return "Active";
+      return "Active"
     case "dropped":
-      return "Dropped";
+      return "Dropped"
     case "incomplete":
-      return "Incomplete";
+      return "Incomplete"
   }
 }

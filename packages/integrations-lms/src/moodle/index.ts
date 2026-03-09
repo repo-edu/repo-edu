@@ -1,1 +1,1 @@
-export { createMoodleClient } from "./moodle-client.js";
+export { createMoodleClient } from "./moodle-client.js"

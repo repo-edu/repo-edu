@@ -1,22 +1,22 @@
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui";
-import { useIssues } from "../hooks/use-issues.js";
-import { useProfileStore } from "../stores/profile-store.js";
-import { useUiStore } from "../stores/ui-store.js";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
+import { useIssues } from "../hooks/use-issues.js"
+import { useProfileStore } from "../stores/profile-store.js"
+import { useUiStore } from "../stores/ui-store.js"
 
 export function IssuesButton() {
-  const { issueCards, checksDirty, checksStatus } = useIssues();
-  const hasRoster = useProfileStore((state) => !!state.profile?.roster);
-  const runChecks = useProfileStore((state) => state.runChecks);
-  const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen);
+  const { issueCards, checksDirty, checksStatus } = useIssues()
+  const hasRoster = useProfileStore((state) => !!state.profile?.roster)
+  const runChecks = useProfileStore((state) => state.runChecks)
+  const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen)
 
-  const issueCount = issueCards.length;
-  const isRunningChecks = checksStatus === "running";
+  const issueCount = issueCards.length
+  const isRunningChecks = checksStatus === "running"
   const handleClick = () => {
-    setIssuesSheetOpen(true);
+    setIssuesSheetOpen(true)
     if (hasRoster && !isRunningChecks) {
-      runChecks("username");
+      runChecks("username")
     }
-  };
+  }
 
   return (
     <Tooltip>
@@ -42,5 +42,5 @@ export function IssuesButton() {
         {checksDirty ? "Issues (checks out of date)" : "Issues"}
       </TooltipContent>
     </Tooltip>
-  );
+  )
 }

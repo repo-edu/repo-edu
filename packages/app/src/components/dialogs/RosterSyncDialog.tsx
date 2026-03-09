@@ -1,3 +1,4 @@
+import type { Roster } from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -6,132 +7,131 @@ import {
   DialogHeader,
   DialogTitle,
   Text,
-} from "@repo-edu/ui";
-import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons";
-import { useEffect, useRef, useState } from "react";
-import type { Roster } from "@repo-edu/domain";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
+} from "@repo-edu/ui"
+import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
+import { useEffect, useRef, useState } from "react"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectProfileStatus,
   useProfileStore,
-} from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
 export function RosterSyncDialog() {
-  const open = useUiStore((state) => state.rosterSyncDialogOpen);
-  const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen);
-  const activeProfileId = useUiStore((state) => state.activeProfileId);
-  const profile = useProfileStore((state) => state.profile);
-  const profileStatus = useProfileStore(selectProfileStatus);
+  const open = useUiStore((state) => state.rosterSyncDialogOpen)
+  const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
+  const activeProfileId = useUiStore((state) => state.activeProfileId)
+  const profile = useProfileStore((state) => state.profile)
+  const profileStatus = useProfileStore(selectProfileStatus)
   const loadedProfile =
-    profile && profile.id === activeProfileId ? profile : null;
-  const courseId = loadedProfile?.courseId ?? null;
-  const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null;
+    profile && profile.id === activeProfileId ? profile : null
+  const courseId = loadedProfile?.courseId ?? null
+  const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null
 
-  const setRoster = useProfileStore((state) => state.setRoster);
-  const addToast = useToastStore((state) => state.addToast);
+  const setRoster = useProfileStore((state) => state.setRoster)
+  const addToast = useToastStore((state) => state.addToast)
 
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const [preview, setPreview] = useState<Roster | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [progressMessage, setProgressMessage] = useState<string | null>(null);
-  const hasAutoPreviewedRef = useRef(false);
-  const previewRequestIdRef = useRef(0);
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [preview, setPreview] = useState<Roster | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [progressMessage, setProgressMessage] = useState<string | null>(null)
+  const hasAutoPreviewedRef = useRef(false)
+  const previewRequestIdRef = useRef(0)
 
   const resetState = () => {
-    previewRequestIdRef.current += 1;
-    setLoadingPreview(false);
-    setPreview(null);
-    setError(null);
-    setProgressMessage(null);
-  };
+    previewRequestIdRef.current += 1
+    setLoadingPreview(false)
+    setPreview(null)
+    setError(null)
+    setProgressMessage(null)
+  }
 
   const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen);
+    setOpen(nextOpen)
     if (!nextOpen) {
-      resetState();
+      resetState()
     }
-  };
+  }
 
   const handlePreview = async () => {
-    const requestId = previewRequestIdRef.current + 1;
-    previewRequestIdRef.current = requestId;
+    const requestId = previewRequestIdRef.current + 1
+    previewRequestIdRef.current = requestId
 
     if (!activeProfileId) {
-      setError("No profile is selected");
-      setProgressMessage(null);
-      return;
+      setError("No profile is selected")
+      setProgressMessage(null)
+      return
     }
 
     if (!loadedProfile || profileStatus === "loading") {
-      setError(null);
-      setProgressMessage("Loading profile configuration...");
-      return;
+      setError(null)
+      setProgressMessage("Loading profile configuration...")
+      return
     }
 
     if (!lmsConnectionName || !courseId) {
-      setError("LMS connection or course is not configured");
-      setProgressMessage(null);
-      return;
+      setError("LMS connection or course is not configured")
+      setProgressMessage(null)
+      return
     }
 
-    setLoadingPreview(true);
-    setError(null);
-    setPreview(null);
-    setProgressMessage("Connecting to LMS...");
+    setLoadingPreview(true)
+    setError(null)
+    setPreview(null)
+    setProgressMessage("Connecting to LMS...")
 
     try {
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run(
         "roster.importFromLms",
         { profileId: activeProfileId, courseId },
         {
           onProgress: (p) => {
-            if (previewRequestIdRef.current !== requestId) return;
-            setProgressMessage(p.label);
+            if (previewRequestIdRef.current !== requestId) return
+            setProgressMessage(p.label)
           },
         },
-      );
-      if (previewRequestIdRef.current !== requestId) return;
-      setPreview(result);
-      setProgressMessage(null);
+      )
+      if (previewRequestIdRef.current !== requestId) return
+      setPreview(result)
+      setProgressMessage(null)
     } catch (previewError) {
-      if (previewRequestIdRef.current !== requestId) return;
-      const message = getErrorMessage(previewError);
-      setError(message);
-      setProgressMessage(null);
+      if (previewRequestIdRef.current !== requestId) return
+      const message = getErrorMessage(previewError)
+      setError(message)
+      setProgressMessage(null)
     } finally {
       if (previewRequestIdRef.current === requestId) {
-        setLoadingPreview(false);
+        setLoadingPreview(false)
       }
     }
-  };
+  }
 
   useEffect(() => {
     if (!open) {
-      hasAutoPreviewedRef.current = false;
-      return;
+      hasAutoPreviewedRef.current = false
+      return
     }
-    if (hasAutoPreviewedRef.current) return;
-    if (!activeProfileId) return;
-    if (!loadedProfile || profileStatus === "loading") return;
+    if (hasAutoPreviewedRef.current) return
+    if (!activeProfileId) return
+    if (!loadedProfile || profileStatus === "loading") return
 
-    hasAutoPreviewedRef.current = true;
-    void handlePreview();
-  }, [open, activeProfileId, loadedProfile, profileStatus]);
+    hasAutoPreviewedRef.current = true
+    void handlePreview()
+  }, [open, activeProfileId, loadedProfile, profileStatus])
 
   const handleApply = () => {
-    if (!preview) return;
-    setRoster(preview, "Sync roster from LMS");
+    if (!preview) return
+    setRoster(preview, "Sync roster from LMS")
     addToast(
       `Imported ${preview.students.length} students, ${preview.staff.length} staff`,
       { tone: "success" },
-    );
-    setOpen(false);
-    resetState();
-  };
+    )
+    setOpen(false)
+    resetState()
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -187,5 +187,5 @@ export function RosterSyncDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

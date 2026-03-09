@@ -1,26 +1,26 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import type {
   HttpPort,
   HttpRequest,
   HttpResponse,
-} from "@repo-edu/host-runtime-contract";
-import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract";
-import { createGiteaClient } from "../gitea-client.js";
+} from "@repo-edu/host-runtime-contract"
+import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import { createGiteaClient } from "../gitea-client.js"
 
 const baseDraft: GitConnectionDraft = {
   provider: "gitea",
   baseUrl: "https://gitea.example.com",
   token: "gitea-test-token",
   organization: "course-org",
-};
+}
 
 type MockRoute = {
-  method: string;
-  urlPattern: string | RegExp;
-  status: number;
-  body: unknown;
-};
+  method: string
+  urlPattern: string | RegExp
+  status: number
+  body: unknown
+}
 
 function createMockHttpPort(routes: MockRoute[]): HttpPort {
   return {
@@ -28,11 +28,11 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
       for (const route of routes) {
         const methodMatch =
           request.method === route.method ||
-          (!request.method && route.method === "GET");
+          (!request.method && route.method === "GET")
         const urlMatch =
           typeof route.urlPattern === "string"
             ? request.url.includes(route.urlPattern)
-            : route.urlPattern.test(request.url);
+            : route.urlPattern.test(request.url)
 
         if (methodMatch && urlMatch) {
           return {
@@ -40,7 +40,7 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
             statusText: route.status < 300 ? "OK" : "Error",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(route.body),
-          };
+          }
         }
       }
 
@@ -49,9 +49,9 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
         statusText: "Not Found",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ message: "Not Found" }),
-      };
+      }
     },
-  };
+  }
 }
 
 describe("createGiteaClient", () => {
@@ -64,24 +64,24 @@ describe("createGiteaClient", () => {
           status: 200,
           body: { username: "course-org" },
         },
-      ]);
+      ])
 
-      const client = createGiteaClient(http);
-      const result = await client.verifyConnection(baseDraft);
+      const client = createGiteaClient(http)
+      const result = await client.verifyConnection(baseDraft)
 
-      assert.deepStrictEqual(result, { verified: true });
-    });
+      assert.deepStrictEqual(result, { verified: true })
+    })
 
     it("returns verified false when baseUrl is missing", async () => {
-      const client = createGiteaClient(createMockHttpPort([]));
+      const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.verifyConnection({
         ...baseDraft,
         baseUrl: null,
-      });
+      })
 
-      assert.deepStrictEqual(result, { verified: false });
-    });
-  });
+      assert.deepStrictEqual(result, { verified: false })
+    })
+  })
 
   describe("verifyGitUsernames", () => {
     it("returns mixed results", async () => {
@@ -98,40 +98,40 @@ describe("createGiteaClient", () => {
           status: 200,
           body: { username: "blocked", active: false },
         },
-      ]);
+      ])
 
-      const client = createGiteaClient(http);
+      const client = createGiteaClient(http)
       const result = await client.verifyGitUsernames(baseDraft, [
         "alice",
         "blocked",
         "missing",
-      ]);
+      ])
 
       assert.deepStrictEqual(result, [
         { username: "alice", exists: true },
         { username: "blocked", exists: false },
         { username: "missing", exists: false },
-      ]);
-    });
+      ])
+    })
 
     it("returns false results when baseUrl is missing", async () => {
-      const client = createGiteaClient(createMockHttpPort([]));
+      const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.verifyGitUsernames(
         { ...baseDraft, baseUrl: null },
         ["alice"],
-      );
+      )
 
-      assert.deepStrictEqual(result, [{ username: "alice", exists: false }]);
-    });
-  });
+      assert.deepStrictEqual(result, [{ username: "alice", exists: false }])
+    })
+  })
 
   describe("createRepositories", () => {
     it("creates repositories for an organization", async () => {
-      let capturedBody = "";
+      let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (request.url.includes("/api/v1/orgs/course-org/repos")) {
-            capturedBody = request.body ?? "";
+            capturedBody = request.body ?? ""
             return {
               status: 201,
               statusText: "Created",
@@ -139,7 +139,7 @@ describe("createGiteaClient", () => {
               body: JSON.stringify({
                 html_url: "https://gitea.example.com/course-org/repo-1",
               }),
-            };
+            }
           }
 
           return {
@@ -147,24 +147,24 @@ describe("createGiteaClient", () => {
             statusText: "Not Found",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ message: "Not Found" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGiteaClient(http);
+      const client = createGiteaClient(http)
       const result = await client.createRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["repo-1"],
         template: null,
-      });
+      })
 
-      assert.equal(result.createdCount, 1);
-      assert.ok(result.repositoryUrls[0].includes("repo-1"));
-      assert.ok(capturedBody.includes('"private":true'));
-    });
+      assert.equal(result.createdCount, 1)
+      assert.ok(result.repositoryUrls[0].includes("repo-1"))
+      assert.ok(capturedBody.includes('"private":true'))
+    })
 
     it("uses the template generate endpoint when a template is provided", async () => {
-      let capturedBody = "";
+      let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (
@@ -172,7 +172,7 @@ describe("createGiteaClient", () => {
               "/api/v1/repos/templates/course-template/generate",
             )
           ) {
-            capturedBody = request.body ?? "";
+            capturedBody = request.body ?? ""
             return {
               status: 201,
               statusText: "Created",
@@ -180,7 +180,7 @@ describe("createGiteaClient", () => {
               body: JSON.stringify({
                 html_url: "https://gitea.example.com/course-org/hw1-team-alpha",
               }),
-            };
+            }
           }
 
           return {
@@ -188,11 +188,11 @@ describe("createGiteaClient", () => {
             statusText: "Not Found",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ message: "Not Found" }),
-          };
+          }
         },
-      };
+      }
 
-      const client = createGiteaClient(http);
+      const client = createGiteaClient(http)
       const result = await client.createRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["hw1-team-alpha"],
@@ -201,16 +201,16 @@ describe("createGiteaClient", () => {
           name: "course-template",
           visibility: "public",
         },
-      });
+      })
 
-      assert.equal(result.createdCount, 1);
-      assert.ok(capturedBody.includes('"owner":"course-org"'));
-      assert.ok(capturedBody.includes('"name":"hw1-team-alpha"'));
-      assert.ok(capturedBody.includes('"private":false'));
-    });
+      assert.equal(result.createdCount, 1)
+      assert.ok(capturedBody.includes('"owner":"course-org"'))
+      assert.ok(capturedBody.includes('"name":"hw1-team-alpha"'))
+      assert.ok(capturedBody.includes('"private":false'))
+    })
 
     it("returns empty result when baseUrl is missing", async () => {
-      const client = createGiteaClient(createMockHttpPort([]));
+      const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.createRepositories(
         { ...baseDraft, baseUrl: null },
         {
@@ -218,14 +218,14 @@ describe("createGiteaClient", () => {
           repositoryNames: ["repo-1"],
           template: null,
         },
-      );
+      )
 
       assert.deepStrictEqual(result, {
         createdCount: 0,
         repositoryUrls: [],
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe("resolveRepositoryCloneUrls", () => {
     it("returns authenticated clone URLs and missing repositories", async () => {
@@ -244,22 +244,20 @@ describe("createGiteaClient", () => {
           status: 404,
           body: { message: "Not Found" },
         },
-      ]);
+      ])
 
-      const client = createGiteaClient(http);
+      const client = createGiteaClient(http)
       const result = await client.resolveRepositoryCloneUrls(baseDraft, {
         organization: "course-org",
         repositoryNames: ["repo-1", "repo-missing"],
-      });
+      })
 
-      assert.deepStrictEqual(result.missing, ["repo-missing"]);
-      assert.equal(result.resolved.length, 1);
-      assert.equal(result.resolved[0]?.repositoryName, "repo-1");
-      assert.ok(
-        result.resolved[0]?.cloneUrl.includes("token:gitea-test-token"),
-      );
-    });
-  });
+      assert.deepStrictEqual(result.missing, ["repo-missing"])
+      assert.equal(result.resolved.length, 1)
+      assert.equal(result.resolved[0]?.repositoryName, "repo-1")
+      assert.ok(result.resolved[0]?.cloneUrl.includes("token:gitea-test-token"))
+    })
+  })
 
   describe("deleteRepositories", () => {
     it("deletes repositories and reports missing", async () => {
@@ -276,18 +274,18 @@ describe("createGiteaClient", () => {
           status: 404,
           body: { message: "Not Found" },
         },
-      ]);
+      ])
 
-      const client = createGiteaClient(http);
+      const client = createGiteaClient(http)
       const result = await client.deleteRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["repo-1", "repo-missing"],
-      });
+      })
 
       assert.deepStrictEqual(result, {
         deletedCount: 1,
         missing: ["repo-missing"],
-      });
-    });
-  });
-});
+      })
+    })
+  })
+})

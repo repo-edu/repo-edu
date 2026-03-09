@@ -1,8 +1,8 @@
-export { parseCsv, serializeCsv } from "./csv-adapter.js";
-export { normalizeHeader } from "./normalize.js";
+export { parseCsv, serializeCsv } from "./csv-adapter.js"
+export { normalizeHeader } from "./normalize.js"
 export type {
   TabularParseResult,
   TabularRow,
   TabularSerializeOptions,
-} from "./types.js";
-export { parseXlsx, serializeXlsx } from "./xlsx-adapter.js";
+} from "./types.js"
+export { parseXlsx, serializeXlsx } from "./xlsx-adapter.js"

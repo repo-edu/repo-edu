@@ -1,6 +1,6 @@
-import type { LmsCourseSummary } from "@repo-edu/application-contract";
-import type { PersistedProfile, Roster } from "@repo-edu/domain";
-import { persistedProfileKind } from "@repo-edu/domain";
+import type { LmsCourseSummary } from "@repo-edu/application-contract"
+import type { PersistedProfile, Roster } from "@repo-edu/domain"
+import { persistedProfileKind } from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -20,15 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
   Text,
-} from "@repo-edu/ui";
-import { Loader2, Search } from "@repo-edu/ui/components/icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { useAppSettingsStore } from "../../stores/app-settings-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
-import { generateProfileId } from "../../utils/nanoid.js";
+} from "@repo-edu/ui"
+import { Loader2, Search } from "@repo-edu/ui/components/icons"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
+import { generateProfileId } from "../../utils/nanoid.js"
 
 const EMPTY_ROSTER: Roster = {
   connection: null,
@@ -37,58 +37,57 @@ const EMPTY_ROSTER: Roster = {
   groups: [],
   groupSets: [],
   assignments: [],
-};
-const NONE_VALUE = "__none__";
-type CourseMode = "lms" | "manual";
-type CourseFetchStatus = "idle" | "loading" | "loaded" | "error";
+}
+const NONE_VALUE = "__none__"
+type CourseMode = "lms" | "manual"
+type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
 
 export function NewProfileDialog() {
-  const open = useUiStore((state) => state.newProfileDialogOpen);
-  const setOpen = useUiStore((state) => state.setNewProfileDialogOpen);
-  const setActiveProfileId = useUiStore((state) => state.setActiveProfileId);
-  const setProfileList = useUiStore((state) => state.setProfileList);
-  const existingProfiles = useUiStore((state) => state.profileList);
+  const open = useUiStore((state) => state.newProfileDialogOpen)
+  const setOpen = useUiStore((state) => state.setNewProfileDialogOpen)
+  const setActiveProfileId = useUiStore((state) => state.setActiveProfileId)
+  const setProfileList = useUiStore((state) => state.setProfileList)
+  const existingProfiles = useUiStore((state) => state.profileList)
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
-  );
-  const addToast = useToastStore((state) => state.addToast);
+  )
+  const addToast = useToastStore((state) => state.addToast)
 
-  const settings = useAppSettingsStore((state) => state.settings);
-  const saveAppSettings = useAppSettingsStore((state) => state.save);
+  const settings = useAppSettingsStore((state) => state.settings)
+  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const setSettingsActiveProfileId = useAppSettingsStore(
     (state) => state.setActiveProfileId,
-  );
+  )
 
-  const [profileName, setProfileName] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [courseMode, setCourseMode] = useState<CourseMode>("manual");
-  const [courseSearch, setCourseSearch] = useState("");
-  const [courses, setCourses] = useState<LmsCourseSummary[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [profileName, setProfileName] = useState("")
+  const [courseId, setCourseId] = useState("")
+  const [courseMode, setCourseMode] = useState<CourseMode>("manual")
+  const [courseSearch, setCourseSearch] = useState("")
+  const [courses, setCourses] = useState<LmsCourseSummary[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState("")
   const [courseFetchStatus, setCourseFetchStatus] =
-    useState<CourseFetchStatus>("idle");
-  const [courseFetchError, setCourseFetchError] = useState<string | null>(null);
-  const [selectedLmsConnection, setSelectedLmsConnection] =
-    useState<string>("");
-  const [selectedGitConnection, setSelectedGitConnection] =
-    useState<string>("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    useState<CourseFetchStatus>("idle")
+  const [courseFetchError, setCourseFetchError] = useState<string | null>(null)
+  const [selectedLmsConnection, setSelectedLmsConnection] = useState<string>("")
+  const [selectedGitConnection, setSelectedGitConnection] = useState<string>("")
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const lmsConnections = settings.lmsConnections;
-  const gitConnections = settings.gitConnections;
+  const lmsConnections = settings.lmsConnections
+  const gitConnections = settings.gitConnections
 
   const selectedLmsDraft = useMemo(
     () =>
-      lmsConnections.find((connection) => connection.name === selectedLmsConnection) ??
-      null,
+      lmsConnections.find(
+        (connection) => connection.name === selectedLmsConnection,
+      ) ?? null,
     [lmsConnections, selectedLmsConnection],
-  );
+  )
 
   const filteredCourses = useMemo(() => {
-    const query = courseSearch.trim().toLowerCase();
+    const query = courseSearch.trim().toLowerCase()
     if (query.length === 0) {
-      return courses;
+      return courses
     }
 
     return courses.filter(
@@ -96,35 +95,35 @@ export function NewProfileDialog() {
         course.name.toLowerCase().includes(query) ||
         course.id.toLowerCase().includes(query) ||
         (course.code ?? "").toLowerCase().includes(query),
-    );
-  }, [courseSearch, courses]);
+    )
+  }, [courseSearch, courses])
 
   const isProfileNameTaken = useMemo(() => {
-    const normalized = profileName.trim().toLowerCase();
+    const normalized = profileName.trim().toLowerCase()
     if (normalized.length === 0) {
-      return false;
+      return false
     }
 
     return existingProfiles.some(
       (profile) => profile.displayName.trim().toLowerCase() === normalized,
-    );
-  }, [existingProfiles, profileName]);
+    )
+  }, [existingProfiles, profileName])
 
   const loadLmsCourses = useCallback(() => {
     if (!selectedLmsDraft) {
-      setCourses([]);
-      setSelectedCourseId("");
-      setCourseSearch("");
-      setCourseFetchStatus("idle");
-      setCourseFetchError(null);
-      return () => undefined;
+      setCourses([])
+      setSelectedCourseId("")
+      setCourseSearch("")
+      setCourseFetchStatus("idle")
+      setCourseFetchError(null)
+      return () => undefined
     }
 
-    let cancelled = false;
-    setCourseFetchStatus("loading");
-    setCourseFetchError(null);
+    let cancelled = false
+    setCourseFetchStatus("loading")
+    setCourseFetchError(null)
 
-    const client = getWorkflowClient();
+    const client = getWorkflowClient()
     client
       .run("connection.listLmsCoursesDraft", {
         provider: selectedLmsDraft.provider,
@@ -133,46 +132,46 @@ export function NewProfileDialog() {
       })
       .then((fetchedCourses) => {
         if (cancelled) {
-          return;
+          return
         }
 
-        setCourses(fetchedCourses);
-        setCourseSearch("");
-        setCourseFetchStatus("loaded");
+        setCourses(fetchedCourses)
+        setCourseSearch("")
+        setCourseFetchStatus("loaded")
         setSelectedCourseId((current) =>
           fetchedCourses.some((course) => course.id === current) ? current : "",
-        );
+        )
       })
       .catch((cause) => {
         if (cancelled) {
-          return;
+          return
         }
 
-        const message = getErrorMessage(cause);
-        setCourses([]);
-        setSelectedCourseId("");
-        setCourseFetchStatus("error");
-        setCourseFetchError(message);
-      });
+        const message = getErrorMessage(cause)
+        setCourses([])
+        setSelectedCourseId("")
+        setCourseFetchStatus("error")
+        setCourseFetchError(message)
+      })
 
     return () => {
-      cancelled = true;
-    };
-  }, [selectedLmsDraft]);
+      cancelled = true
+    }
+  }, [selectedLmsDraft])
 
   const canCreate = useMemo(() => {
     if (profileName.trim().length === 0 || creating || isProfileNameTaken) {
-      return false;
+      return false
     }
 
     if (courseMode === "lms") {
       return (
         selectedLmsConnection.trim().length > 0 &&
         selectedCourseId.trim().length > 0
-      );
+      )
     }
 
-    return true;
+    return true
   }, [
     profileName,
     creating,
@@ -180,59 +179,59 @@ export function NewProfileDialog() {
     courseMode,
     selectedLmsConnection,
     selectedCourseId,
-  ]);
+  ])
 
   const reset = () => {
-    setProfileName("");
-    setCourseId("");
-    setCourseMode(lmsConnections.length > 0 ? "lms" : "manual");
-    setCourseSearch("");
-    setCourses([]);
-    setSelectedCourseId("");
-    setCourseFetchStatus("idle");
-    setCourseFetchError(null);
-    setSelectedLmsConnection(lmsConnections[0]?.name ?? "");
-    setSelectedGitConnection("");
-    setCreating(false);
-    setError(null);
-  };
+    setProfileName("")
+    setCourseId("")
+    setCourseMode(lmsConnections.length > 0 ? "lms" : "manual")
+    setCourseSearch("")
+    setCourses([])
+    setSelectedCourseId("")
+    setCourseFetchStatus("idle")
+    setCourseFetchError(null)
+    setSelectedLmsConnection(lmsConnections[0]?.name ?? "")
+    setSelectedGitConnection("")
+    setCreating(false)
+    setError(null)
+  }
 
   useEffect(() => {
     if (open) {
-      reset();
+      reset()
     }
-  }, [open]);
+  }, [open])
 
   useEffect(() => {
     if (!open || courseMode !== "lms") {
-      return;
+      return
     }
 
-    return loadLmsCourses();
-  }, [open, courseMode, loadLmsCourses]);
+    return loadLmsCourses()
+  }, [open, courseMode, loadLmsCourses])
 
   const handleClose = () => {
-    setOpen(false);
-    reset();
-  };
+    setOpen(false)
+    reset()
+  }
 
   const handleCreate = async () => {
-    if (!canCreate) return;
+    if (!canCreate) return
 
     if (isProfileNameTaken) {
-      setError("A profile with this name already exists.");
-      return;
+      setError("A profile with this name already exists.")
+      return
     }
 
-    setCreating(true);
-    setError(null);
+    setCreating(true)
+    setError(null)
 
     try {
-      const now = new Date().toISOString();
+      const now = new Date().toISOString()
       const nextCourseId =
         courseMode === "lms"
           ? selectedCourseId.trim() || null
-          : courseId.trim() || null;
+          : courseId.trim() || null
       const profile: PersistedProfile = {
         kind: persistedProfileKind,
         schemaVersion: 2,
@@ -244,36 +243,36 @@ export function NewProfileDialog() {
         roster: EMPTY_ROSTER,
         repositoryTemplate: null,
         updatedAt: now,
-      };
+      }
 
-      const client = getWorkflowClient();
-      const saved = await client.run("profile.save", profile);
-      const profiles = await client.run("profile.list", undefined);
-      setProfileList(profiles);
-      setActiveProfileId(saved.id);
+      const client = getWorkflowClient()
+      const saved = await client.run("profile.save", profile)
+      const profiles = await client.run("profile.list", undefined)
+      setProfileList(profiles)
+      setActiveProfileId(saved.id)
 
-      setSettingsActiveProfileId(saved.id);
-      await saveAppSettings();
+      setSettingsActiveProfileId(saved.id)
+      await saveAppSettings()
 
       addToast(`Created profile "${saved.displayName}"`, {
         tone: "success",
-      });
-      handleClose();
+      })
+      handleClose()
 
       if (
         saved.lmsConnectionName !== null &&
         (saved.courseId ?? "").trim().length > 0
       ) {
-        setRosterSyncDialogOpen(true);
+        setRosterSyncDialogOpen(true)
       }
     } catch (cause) {
-      const message = getErrorMessage(cause);
-      setError(message);
-      addToast(`Create profile failed: ${message}`, { tone: "error" });
+      const message = getErrorMessage(cause)
+      setError(message)
+      addToast(`Create profile failed: ${message}`, { tone: "error" })
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
@@ -290,7 +289,7 @@ export function NewProfileDialog() {
               onChange={(event) => setProfileName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && canCreate) {
-                  void handleCreate();
+                  void handleCreate()
                 }
               }}
               autoFocus
@@ -332,7 +331,10 @@ export function NewProfileDialog() {
             </RadioGroup>
           </FormField>
 
-          <FormField label="LMS connection (optional)" htmlFor="new-profile-lms-connection">
+          <FormField
+            label="LMS connection (optional)"
+            htmlFor="new-profile-lms-connection"
+          >
             <Select
               value={selectedLmsConnection || NONE_VALUE}
               onValueChange={(value) =>
@@ -405,12 +407,15 @@ export function NewProfileDialog() {
                             tabIndex={0}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                setSelectedCourseId(course.id);
+                                event.preventDefault()
+                                setSelectedCourseId(course.id)
                               }
                             }}
                           >
-                            <RadioGroupItem value={course.id} id={`course-${course.id}`} />
+                            <RadioGroupItem
+                              value={course.id}
+                              id={`course-${course.id}`}
+                            />
                             <Label
                               htmlFor={`course-${course.id}`}
                               className="font-normal cursor-pointer text-sm"
@@ -430,13 +435,14 @@ export function NewProfileDialog() {
               {courseFetchStatus === "error" && (
                 <div className="space-y-1">
                   <Text className="text-sm text-destructive">
-                    Failed to load courses{courseFetchError ? `: ${courseFetchError}` : "."}
+                    Failed to load courses
+                    {courseFetchError ? `: ${courseFetchError}` : "."}
                   </Text>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      loadLmsCourses();
+                      loadLmsCourses()
                     }}
                   >
                     Retry
@@ -445,7 +451,10 @@ export function NewProfileDialog() {
               )}
             </div>
           ) : (
-            <FormField label="Course ID (optional)" htmlFor="new-profile-course-id">
+            <FormField
+              label="Course ID (optional)"
+              htmlFor="new-profile-course-id"
+            >
               <Input
                 id="new-profile-course-id"
                 placeholder="e.g., SE-2026-A"
@@ -491,5 +500,5 @@ export function NewProfileDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

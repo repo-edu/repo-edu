@@ -1,10 +1,10 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { createNodeProcessPort } from "../index.js";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
+import { createNodeProcessPort } from "../index.js"
 
 describe("createNodeProcessPort", () => {
   it("captures stdout, stderr, and non-zero exit codes", async () => {
-    const processPort = createNodeProcessPort();
+    const processPort = createNodeProcessPort()
 
     const result = await processPort.run({
       command: process.execPath,
@@ -12,19 +12,19 @@ describe("createNodeProcessPort", () => {
         "-e",
         "process.stdout.write('hello'); process.stderr.write('warn'); process.exit(7)",
       ],
-    });
+    })
 
-    assert.equal(processPort.cancellation, "best-effort");
+    assert.equal(processPort.cancellation, "best-effort")
     assert.deepStrictEqual(result, {
       exitCode: 7,
       signal: null,
       stdout: "hello",
       stderr: "warn",
-    });
-  });
+    })
+  })
 
   it("writes stdin text and closes stdin for the child process", async () => {
-    const processPort = createNodeProcessPort();
+    const processPort = createNodeProcessPort()
 
     const result = await processPort.run({
       command: process.execPath,
@@ -38,17 +38,17 @@ describe("createNodeProcessPort", () => {
         ].join("; "),
       ],
       stdinText: "repo-edu",
-    });
+    })
 
-    assert.equal(result.exitCode, 0);
-    assert.equal(result.signal, null);
-    assert.equal(result.stdout, "REPO-EDU");
-    assert.equal(result.stderr, "");
-  });
+    assert.equal(result.exitCode, 0)
+    assert.equal(result.signal, null)
+    assert.equal(result.stdout, "REPO-EDU")
+    assert.equal(result.stderr, "")
+  })
 
   it("honors abort requests with best-effort termination", async () => {
-    const processPort = createNodeProcessPort();
-    const controller = new AbortController();
+    const processPort = createNodeProcessPort()
+    const controller = new AbortController()
 
     const runPromise = processPort.run({
       command: process.execPath,
@@ -60,19 +60,19 @@ describe("createNodeProcessPort", () => {
         ].join("; "),
       ],
       signal: controller.signal,
-    });
+    })
 
     setTimeout(() => {
-      controller.abort();
-    }, 50);
+      controller.abort()
+    }, 50)
 
-    const startedAt = Date.now();
-    const result = await runPromise;
-    const elapsedMs = Date.now() - startedAt;
+    const startedAt = Date.now()
+    const result = await runPromise
+    const elapsedMs = Date.now() - startedAt
 
-    assert.equal(processPort.cancellation, "best-effort");
-    assert.equal(result.exitCode, 0);
-    assert.equal(result.signal, null);
-    assert.ok(elapsedMs < 1_000);
-  });
-});
+    assert.equal(processPort.cancellation, "best-effort")
+    assert.equal(result.exitCode, 0)
+    assert.equal(result.signal, null)
+    assert.ok(elapsedMs < 1_000)
+  })
+})

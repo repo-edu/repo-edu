@@ -1,1 +1,1 @@
-export { createGiteaClient } from "./gitea-client.js";
+export { createGiteaClient } from "./gitea-client.js"

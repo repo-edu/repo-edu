@@ -1,4 +1,7 @@
-import type { RosterValidationIssue, RosterValidationKind } from "@repo-edu/domain";
+import type {
+  RosterValidationIssue,
+  RosterValidationKind,
+} from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -7,10 +10,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@repo-edu/ui";
-import { AlertCircle } from "@repo-edu/ui/components/icons";
-import { useOperationStore } from "../../stores/operation-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "@repo-edu/ui"
+import { AlertCircle } from "@repo-edu/ui/components/icons"
+import { useOperationStore } from "../../stores/operation-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
 const BLOCKING_KINDS: Set<RosterValidationKind> = new Set([
   "duplicate_student_id",
@@ -23,32 +26,32 @@ const BLOCKING_KINDS: Set<RosterValidationKind> = new Set([
   "orphan_group_member",
   "empty_group",
   "unassigned_student",
-]);
+])
 
 function isBlockingIssue(kind: RosterValidationKind): boolean {
-  return BLOCKING_KINDS.has(kind);
+  return BLOCKING_KINDS.has(kind)
 }
 
 type ValidationDialogProps = {
-  onProceed?: () => void;
-};
+  onProceed?: () => void
+}
 
 export function ValidationDialog({ onProceed }: ValidationDialogProps) {
-  const open = useUiStore((state) => state.validationDialogOpen);
-  const setOpen = useUiStore((state) => state.setValidationDialogOpen);
-  const validationResult = useOperationStore((state) => state.validationResult);
+  const open = useUiStore((state) => state.validationDialogOpen)
+  const setOpen = useUiStore((state) => state.setValidationDialogOpen)
+  const validationResult = useOperationStore((state) => state.validationResult)
 
-  if (!validationResult) return null;
+  if (!validationResult) return null
 
-  const issues = validationResult.issues;
-  const blockingIssues = issues.filter((issue) => isBlockingIssue(issue.kind));
-  const warningIssues = issues.filter((issue) => !isBlockingIssue(issue.kind));
-  const hasBlocking = blockingIssues.length > 0;
+  const issues = validationResult.issues
+  const blockingIssues = issues.filter((issue) => isBlockingIssue(issue.kind))
+  const warningIssues = issues.filter((issue) => !isBlockingIssue(issue.kind))
+  const hasBlocking = blockingIssues.length > 0
 
   const handleProceed = () => {
-    setOpen(false);
-    onProceed?.();
-  };
+    setOpen(false)
+    onProceed?.()
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -100,72 +103,75 @@ export function ValidationDialog({ onProceed }: ValidationDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 function IssueList({
   issues,
   variant,
 }: {
-  issues: RosterValidationIssue[];
-  variant: "error" | "warning";
+  issues: RosterValidationIssue[]
+  variant: "error" | "warning"
 }) {
-  const iconClass = variant === "error" ? "text-destructive" : "text-warning";
+  const iconClass = variant === "error" ? "text-destructive" : "text-warning"
 
   return (
     <ul className="space-y-1.5 text-sm">
       {issues.map((issue, index) => (
-        <li key={`${issue.kind}:${issue.context ?? "none"}:${index}`} className="flex gap-2">
+        <li
+          key={`${issue.kind}:${issue.context ?? "none"}:${index}`}
+          className="flex gap-2"
+        >
           <span className={iconClass}>{variant === "error" ? "✗" : "⚠"}</span>
           <span>{formatIssue(issue)}</span>
         </li>
       ))}
     </ul>
-  );
+  )
 }
 
 function formatIssue(issue: RosterValidationIssue): string {
-  const count = issue.affectedIds.length;
-  const context = issue.context;
+  const count = issue.affectedIds.length
+  const context = issue.context
 
   switch (issue.kind) {
     case "duplicate_student_id":
-      return `Duplicate student ID: ${context ?? "unknown"} (${count} students)`;
+      return `Duplicate student ID: ${context ?? "unknown"} (${count} students)`
     case "duplicate_email":
-      return `Duplicate email: ${context ?? "unknown"} (${count} students)`;
+      return `Duplicate email: ${context ?? "unknown"} (${count} students)`
     case "duplicate_assignment_name":
-      return `Duplicate assignment name: ${context ?? "unknown"}`;
+      return `Duplicate assignment name: ${context ?? "unknown"}`
     case "invalid_email":
-      return `${count} invalid email${count === 1 ? "" : "s"}`;
+      return `${count} invalid email${count === 1 ? "" : "s"}`
     case "missing_email":
-      return `${count} missing email${count === 1 ? "" : "s"}`;
+      return `${count} missing email${count === 1 ? "" : "s"}`
     case "duplicate_group_id_in_assignment":
-      return `Duplicate group ID in assignment (${count} groups)`;
+      return `Duplicate group ID in assignment (${count} groups)`
     case "duplicate_group_name_in_assignment":
-      return `Duplicate group name: ${context ?? "unknown"} (${count} groups)`;
+      return `Duplicate group name: ${context ?? "unknown"} (${count} groups)`
     case "duplicate_repo_name_in_assignment":
-      return `Duplicate repo name: ${context ?? "unknown"} (${count} groups)`;
+      return `Duplicate repo name: ${context ?? "unknown"} (${count} groups)`
     case "student_in_multiple_groups_in_assignment":
-      return `${count} student${count === 1 ? "" : "s"} in multiple groups`;
+      return `${count} student${count === 1 ? "" : "s"} in multiple groups`
     case "orphan_group_member":
-      return `${count} group member reference${count === 1 ? "" : "s"} unknown student${count === 1 ? "" : "s"}`;
+      return `${count} group member reference${count === 1 ? "" : "s"} unknown student${count === 1 ? "" : "s"}`
     case "missing_git_username":
-      return `${count} student${count === 1 ? "" : "s"} missing Git username`;
+      return `${count} student${count === 1 ? "" : "s"} missing Git username`
     case "invalid_git_username":
-      return `${count} student${count === 1 ? "" : "s"} with invalid Git username`;
+      return `${count} student${count === 1 ? "" : "s"} with invalid Git username`
     case "empty_group":
-      return `${count} empty group${count === 1 ? "" : "s"}`;
+      return `${count} empty group${count === 1 ? "" : "s"}`
     case "unassigned_student":
-      return `${count} unassigned student${count === 1 ? "" : "s"}`;
+      return `${count} unassigned student${count === 1 ? "" : "s"}`
     case "system_group_sets_missing":
-      return "System group sets are missing.";
+      return "System group sets are missing."
     case "invalid_enrollment_partition":
-      return "Roster enrollment partition is invalid.";
+      return "Roster enrollment partition is invalid."
     case "invalid_group_origin":
-      return "One or more groups have an invalid origin.";
+      return "One or more groups have an invalid origin."
     default:
-      return `Unknown issue: ${issue.kind}`;
+      return `Unknown issue: ${issue.kind}`
   }
 }
 
-export { isBlockingIssue };
+export { isBlockingIssue }

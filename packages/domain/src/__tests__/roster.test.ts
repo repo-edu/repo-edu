@@ -1,6 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { normalizeRoster, normalizeRosterMember } from "../index.js";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
+import { normalizeRoster, normalizeRosterMember } from "../index.js"
 
 describe("normalizeRosterMember", () => {
   it("uses the first non-empty name candidate and normalizes optional fields", () => {
@@ -11,7 +11,7 @@ describe("normalizeRosterMember", () => {
       emailCandidates: [" ", " ada@example.com "],
       gitUsername: " adal ",
       source: " lms ",
-    });
+    })
 
     assert.deepStrictEqual(member, {
       id: "42",
@@ -28,8 +28,8 @@ describe("normalizeRosterMember", () => {
       department: null,
       institution: null,
       source: "lms",
-    });
-  });
+    })
+  })
 
   it("falls back to the normalized id when no name is available", () => {
     const member = normalizeRosterMember({
@@ -40,7 +40,7 @@ describe("normalizeRosterMember", () => {
       gitUsername: "",
       status: "dropped",
       enrollmentType: "ta",
-    });
+    })
 
     assert.deepStrictEqual(member, {
       id: "77",
@@ -57,9 +57,9 @@ describe("normalizeRosterMember", () => {
       department: null,
       institution: null,
       source: "local",
-    });
-  });
-});
+    })
+  })
+})
 
 describe("normalizeRoster", () => {
   it("normalizes separate student and staff arrays", () => {
@@ -82,7 +82,7 @@ describe("normalizeRoster", () => {
           emailCandidates: ["turing@example.com"],
         },
       ],
-    );
+    )
 
     assert.deepStrictEqual(roster, {
       connection: null,
@@ -141,6 +141,6 @@ describe("normalizeRoster", () => {
       groups: [],
       groupSets: [],
       assignments: [],
-    });
-  });
-});
+    })
+  })
+})

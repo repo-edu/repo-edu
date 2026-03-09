@@ -1,5 +1,3 @@
-import React from "react";
-import { createRoot as createReactRoot } from "react-dom/client";
 import {
   createConnectionWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
@@ -13,48 +11,53 @@ import {
   createValidationWorkflowHandlers,
   runInspectUserFileWorkflow,
   runUserFileExportPreviewWorkflow,
-} from "@repo-edu/application";
-import { createWorkflowClient } from "@repo-edu/application-contract";
-import type { UserFileRef, UserSaveTargetRef } from "@repo-edu/application-contract";
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain";
+} from "@repo-edu/application"
+import type {
+  UserFileRef,
+  UserSaveTargetRef,
+} from "@repo-edu/application-contract"
+import { createWorkflowClient } from "@repo-edu/application-contract"
+import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
 import {
   defaultAppSettings,
   ORIGIN_LMS,
   persistedProfileKind,
-} from "@repo-edu/domain";
-import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock";
+} from "@repo-edu/domain"
+import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
+import React from "react"
+import { createRoot as createReactRoot } from "react-dom/client"
 
-const seedProfileId = "docs-profile";
-const seedCourseId = "course-seed";
+const seedProfileId = "docs-profile"
+const seedCourseId = "course-seed"
 
 export type DocsMountRoot = {
-  render(element: ReturnType<typeof React.createElement>): void;
-};
+  render(element: ReturnType<typeof React.createElement>): void
+}
 
 export type DocsMountOptions = {
-  queryMountNode?: () => unknown;
-  createRoot?: (mountNode: unknown) => DocsMountRoot;
+  queryMountNode?: () => unknown
+  createRoot?: (mountNode: unknown) => DocsMountRoot
   appRootComponent?: React.ComponentType<{
-    workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"];
-    rendererHost: ReturnType<typeof createDocsDemoRuntime>["rendererHost"];
-  }>;
-};
+    workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
+    rendererHost: ReturnType<typeof createDocsDemoRuntime>["rendererHost"]
+  }>
+}
 
 function resolveMountNode(queryMountNode?: () => unknown): unknown {
   if (queryMountNode) {
-    return queryMountNode();
+    return queryMountNode()
   }
 
   if (typeof document === "undefined") {
-    return null;
+    return null
   }
 
-  return document.querySelector("#app");
+  return document.querySelector("#app")
 }
 
 export function createDocsDemoRuntime() {
-  const browserMockHost = createBrowserMockHostEnvironment();
-  const now = new Date().toISOString();
+  const browserMockHost = createBrowserMockHostEnvironment()
+  const now = new Date().toISOString()
 
   const seedProfile: PersistedProfile = {
     kind: persistedProfileKind,
@@ -136,7 +139,7 @@ export function createDocsDemoRuntime() {
       visibility: "private",
     },
     updatedAt: now,
-  };
+  }
 
   const seedSettings: PersistedAppSettings = {
     ...defaultAppSettings,
@@ -159,20 +162,20 @@ export function createDocsDemoRuntime() {
       },
     ],
     lastOpenedAt: now,
-  };
+  }
 
-  const profileStore = createInMemoryProfileStore([seedProfile]);
-  const appSettingsStore = createInMemoryAppSettingsStore(seedSettings);
+  const profileStore = createInMemoryProfileStore([seedProfile])
+  const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
 
   const lmsPorts = {
     async verifyConnection() {
-      return { verified: true };
+      return { verified: true }
     },
     async listCourses() {
       return [
         { id: seedCourseId, name: "Docs Demo Course", code: "DOCS-101" },
         { id: "course-advanced", name: "Advanced Docs Course", code: null },
-      ];
+      ]
     },
     async fetchRoster() {
       return {
@@ -182,7 +185,7 @@ export function createDocsDemoRuntime() {
           courseId: seedCourseId,
           lastUpdated: new Date().toISOString(),
         },
-      };
+      }
     },
     async listGroupSets() {
       return [
@@ -191,7 +194,7 @@ export function createDocsDemoRuntime() {
           name: "LMS Teams",
           groupCount: 1,
         },
-      ];
+      ]
     },
     async fetchGroupSet(_draft: unknown, courseId: string, groupSetId: string) {
       return {
@@ -219,19 +222,19 @@ export function createDocsDemoRuntime() {
             lmsGroupId: "lms-group-1",
           },
         ],
-      };
+      }
     },
-  };
+  }
 
   const gitPorts = {
     async verifyConnection() {
-      return { verified: true };
+      return { verified: true }
     },
     async verifyGitUsernames(_draft: unknown, usernames: string[]) {
       return usernames.map((username) => ({
         username,
         exists: !username.toLowerCase().includes("invalid"),
-      }));
+      }))
     },
     async createRepositories(
       _draft: unknown,
@@ -242,7 +245,7 @@ export function createDocsDemoRuntime() {
         repositoryUrls: request.repositoryNames.map(
           (name) => `https://github.com/${request.organization}/${name}`,
         ),
-      };
+      }
     },
     async resolveRepositoryCloneUrls(
       _draft: unknown,
@@ -254,7 +257,7 @@ export function createDocsDemoRuntime() {
           cloneUrl: `https://github.com/${request.organization}/${repositoryName}.git`,
         })),
         missing: [],
-      };
+      }
     },
     async deleteRepositories(
       _draft: unknown,
@@ -263,9 +266,9 @@ export function createDocsDemoRuntime() {
       return {
         deletedCount: request.repositoryNames.length,
         missing: [],
-      };
+      }
     },
-  };
+  }
 
   const gitCommandPort = {
     cancellation: "best-effort" as const,
@@ -275,25 +278,28 @@ export function createDocsDemoRuntime() {
         signal: null,
         stdout: "",
         stderr: "",
-      };
+      }
     },
-  };
+  }
 
   const fileSystemPort = {
     async inspect(request: { paths: string[] }) {
       return request.paths.map((path) => ({
         path,
         kind: "missing" as const,
-      }));
+      }))
     },
     async applyBatch(request: {
-      operations: Array<{ kind: "ensure-directory" | "delete-path"; path: string }>;
+      operations: Array<{
+        kind: "ensure-directory" | "delete-path"
+        path: string
+      }>
     }) {
       return {
         completed: request.operations,
-      };
+      }
     },
-  };
+  }
 
   const workflowHandlers = {
     ...createProfileWorkflowHandlers(profileStore),
@@ -329,10 +335,14 @@ export function createDocsDemoRuntime() {
       input: UserSaveTargetRef,
       options: Parameters<typeof runUserFileExportPreviewWorkflow>[2],
     ) =>
-      runUserFileExportPreviewWorkflow(browserMockHost.userFilePort, input, options),
-  };
+      runUserFileExportPreviewWorkflow(
+        browserMockHost.userFilePort,
+        input,
+        options,
+      ),
+  }
 
-  const workflowClient = createWorkflowClient(workflowHandlers);
+  const workflowClient = createWorkflowClient(workflowHandlers)
 
   return {
     workflowClient,
@@ -340,30 +350,31 @@ export function createDocsDemoRuntime() {
     rendererHost: browserMockHost.rendererHost,
     seedProfileId,
     seedCourseId,
-  };
+  }
 }
 
 export function mountDocsDemoApp(options: DocsMountOptions = {}) {
-  const mountNode = resolveMountNode(options.queryMountNode);
+  const mountNode = resolveMountNode(options.queryMountNode)
   if (mountNode === null || mountNode === undefined) {
-    throw new Error("Docs app mount node #app was not found");
+    throw new Error("Docs app mount node #app was not found")
   }
 
-  const runtime = createDocsDemoRuntime();
-  const appRootComponent = options.appRootComponent;
+  const runtime = createDocsDemoRuntime()
+  const appRootComponent = options.appRootComponent
   if (!appRootComponent) {
-    throw new Error("Docs app root component was not provided.");
+    throw new Error("Docs app root component was not provided.")
   }
   const createRoot =
     options.createRoot ??
-    ((node: unknown) => createReactRoot(node as Parameters<typeof createReactRoot>[0]));
+    ((node: unknown) =>
+      createReactRoot(node as Parameters<typeof createReactRoot>[0]))
 
   createRoot(mountNode).render(
     React.createElement(appRootComponent, {
       workflowClient: runtime.workflowClient,
       rendererHost: runtime.rendererHost,
     }),
-  );
+  )
 
-  return runtime;
+  return runtime
 }

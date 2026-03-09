@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react"
 
 type CloseGuardOptions = {
-  isDirty: boolean;
-  onShowPrompt: () => void;
-  onHidePrompt: () => void;
-  onSave: () => Promise<void>;
-  onBeforeClose?: () => Promise<void> | void;
-};
+  isDirty: boolean
+  onShowPrompt: () => void
+  onHidePrompt: () => void
+  onSave: () => Promise<void>
+  onBeforeClose?: () => Promise<void> | void
+}
 
 /**
  * Handles the unsaved-changes confirmation flow when the user attempts to
@@ -22,34 +22,34 @@ export function useCloseGuard({
   onSave,
   onBeforeClose,
 }: CloseGuardOptions) {
-  const dirtyRef = useRef(isDirty);
-  dirtyRef.current = isDirty;
+  const dirtyRef = useRef(isDirty)
+  dirtyRef.current = isDirty
 
   // Browser `beforeunload` guard.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirtyRef.current) {
-        e.preventDefault();
+        e.preventDefault()
       }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [])
 
   const handlePromptSave = useCallback(async () => {
-    await onSave();
-    onHidePrompt();
-    if (onBeforeClose) await onBeforeClose();
-  }, [onSave, onHidePrompt, onBeforeClose]);
+    await onSave()
+    onHidePrompt()
+    if (onBeforeClose) await onBeforeClose()
+  }, [onSave, onHidePrompt, onBeforeClose])
 
   const handlePromptDiscard = useCallback(async () => {
-    onHidePrompt();
-    if (onBeforeClose) await onBeforeClose();
-  }, [onHidePrompt, onBeforeClose]);
+    onHidePrompt()
+    if (onBeforeClose) await onBeforeClose()
+  }, [onHidePrompt, onBeforeClose])
 
   const handlePromptCancel = useCallback(() => {
-    onHidePrompt();
-  }, [onHidePrompt]);
+    onHidePrompt()
+  }, [onHidePrompt])
 
-  return { handlePromptSave, handlePromptDiscard, handlePromptCancel };
+  return { handlePromptSave, handlePromptDiscard, handlePromptCancel }
 }

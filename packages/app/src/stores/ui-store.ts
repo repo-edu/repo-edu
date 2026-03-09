@@ -1,123 +1,123 @@
-import { create } from "zustand";
-import type { ProfileSummary } from "@repo-edu/domain";
-import type { ActiveTab } from "../types/index.js";
+import type { ProfileSummary } from "@repo-edu/domain"
+import { create } from "zustand"
+import type { ActiveTab } from "../types/index.js"
 
 type GroupSetOperationState = {
-  kind: "sync" | "import" | "reimport";
-  groupSetId: string;
-};
+  kind: "sync" | "import" | "reimport"
+  groupSetId: string
+}
 
 type SidebarSelection = {
-  kind: "group-set";
-  id: string;
-} | null;
+  kind: "group-set"
+  id: string
+} | null
 
-type SettingsCategory = "connections" | "display" | "shortcuts";
+type SettingsCategory = "connections" | "display" | "shortcuts"
 
 export type LmsImportConflict = {
-  matchKey: string;
-  value: string;
-  matchedIds: string[];
-};
+  matchKey: string
+  value: string
+  matchedIds: string[]
+}
 
 type UiState = {
   // Navigation
-  activeTab: ActiveTab;
-  activeProfileId: string | null;
+  activeTab: ActiveTab
+  activeProfileId: string | null
 
   // Dialog visibility
-  settingsDialogOpen: boolean;
-  settingsCategory: SettingsCategory;
-  newProfileDialogOpen: boolean;
-  importFileDialogOpen: boolean;
-  rosterSyncDialogOpen: boolean;
-  importGitUsernamesDialogOpen: boolean;
-  usernameVerificationDialogOpen: boolean;
-  newAssignmentDialogOpen: boolean;
-  fileImportExportOpen: boolean;
-  issuesSheetOpen: boolean;
-  validationDialogOpen: boolean;
-  preflightDialogOpen: boolean;
+  settingsDialogOpen: boolean
+  settingsCategory: SettingsCategory
+  newProfileDialogOpen: boolean
+  importFileDialogOpen: boolean
+  rosterSyncDialogOpen: boolean
+  importGitUsernamesDialogOpen: boolean
+  usernameVerificationDialogOpen: boolean
+  newAssignmentDialogOpen: boolean
+  fileImportExportOpen: boolean
+  issuesSheetOpen: boolean
+  validationDialogOpen: boolean
+  preflightDialogOpen: boolean
 
   // Group set dialogs
-  connectLmsGroupSetDialogOpen: boolean;
-  newLocalGroupSetDialogOpen: boolean;
-  importGroupSetDialogOpen: boolean;
-  reimportGroupSetTargetId: string | null;
-  copyGroupSetSourceId: string | null;
-  deleteGroupSetTargetId: string | null;
-  deleteGroupTargetId: string | null;
-  addGroupDialogGroupSetId: string | null;
+  connectLmsGroupSetDialogOpen: boolean
+  newLocalGroupSetDialogOpen: boolean
+  importGroupSetDialogOpen: boolean
+  reimportGroupSetTargetId: string | null
+  copyGroupSetSourceId: string | null
+  deleteGroupSetTargetId: string | null
+  deleteGroupTargetId: string | null
+  addGroupDialogGroupSetId: string | null
 
   // Assignment dialog context
-  preSelectedGroupSetId: string | null;
+  preSelectedGroupSetId: string | null
 
   // LMS import conflicts
-  lmsImportConflicts: LmsImportConflict[] | null;
+  lmsImportConflicts: LmsImportConflict[] | null
 
   // Sidebar
-  sidebarSelection: SidebarSelection;
-  groupSetPanelTab: "groups" | "assignments";
-  groupSetOperation: GroupSetOperationState | null;
+  sidebarSelection: SidebarSelection
+  groupSetPanelTab: "groups" | "assignments"
+  groupSetOperation: GroupSetOperationState | null
 
   // Sidebar action triggers
-  renameGroupSetTriggerId: string | null;
-  exportGroupSetTriggerId: string | null;
-  syncGroupSetTriggerId: string | null;
+  renameGroupSetTriggerId: string | null
+  exportGroupSetTriggerId: string | null
+  syncGroupSetTriggerId: string | null
 
   // Profile list cache
-  profileList: ProfileSummary[];
-  profileListLoading: boolean;
+  profileList: ProfileSummary[]
+  profileListLoading: boolean
 
   // Close prompt
-  closePromptVisible: boolean;
-};
+  closePromptVisible: boolean
+}
 
 type UiActions = {
-  setActiveTab: (tab: ActiveTab) => void;
-  setActiveProfileId: (id: string | null) => void;
+  setActiveTab: (tab: ActiveTab) => void
+  setActiveProfileId: (id: string | null) => void
 
-  setSettingsDialogOpen: (open: boolean) => void;
-  openSettings: (category?: SettingsCategory) => void;
-  setNewProfileDialogOpen: (open: boolean) => void;
-  setImportFileDialogOpen: (open: boolean) => void;
-  setRosterSyncDialogOpen: (open: boolean) => void;
-  setImportGitUsernamesDialogOpen: (open: boolean) => void;
-  setUsernameVerificationDialogOpen: (open: boolean) => void;
-  setNewAssignmentDialogOpen: (open: boolean) => void;
-  setFileImportExportOpen: (open: boolean) => void;
-  setIssuesSheetOpen: (open: boolean) => void;
-  setValidationDialogOpen: (open: boolean) => void;
-  setPreflightDialogOpen: (open: boolean) => void;
+  setSettingsDialogOpen: (open: boolean) => void
+  openSettings: (category?: SettingsCategory) => void
+  setNewProfileDialogOpen: (open: boolean) => void
+  setImportFileDialogOpen: (open: boolean) => void
+  setRosterSyncDialogOpen: (open: boolean) => void
+  setImportGitUsernamesDialogOpen: (open: boolean) => void
+  setUsernameVerificationDialogOpen: (open: boolean) => void
+  setNewAssignmentDialogOpen: (open: boolean) => void
+  setFileImportExportOpen: (open: boolean) => void
+  setIssuesSheetOpen: (open: boolean) => void
+  setValidationDialogOpen: (open: boolean) => void
+  setPreflightDialogOpen: (open: boolean) => void
 
-  setConnectLmsGroupSetDialogOpen: (open: boolean) => void;
-  setNewLocalGroupSetDialogOpen: (open: boolean) => void;
-  setImportGroupSetDialogOpen: (open: boolean) => void;
-  setReimportGroupSetTargetId: (id: string | null) => void;
-  setCopyGroupSetSourceId: (id: string | null) => void;
-  setDeleteGroupSetTargetId: (id: string | null) => void;
-  setDeleteGroupTargetId: (id: string | null) => void;
-  setAddGroupDialogGroupSetId: (id: string | null) => void;
+  setConnectLmsGroupSetDialogOpen: (open: boolean) => void
+  setNewLocalGroupSetDialogOpen: (open: boolean) => void
+  setImportGroupSetDialogOpen: (open: boolean) => void
+  setReimportGroupSetTargetId: (id: string | null) => void
+  setCopyGroupSetSourceId: (id: string | null) => void
+  setDeleteGroupSetTargetId: (id: string | null) => void
+  setDeleteGroupTargetId: (id: string | null) => void
+  setAddGroupDialogGroupSetId: (id: string | null) => void
 
-  setPreSelectedGroupSetId: (id: string | null) => void;
-  setLmsImportConflicts: (conflicts: LmsImportConflict[] | null) => void;
+  setPreSelectedGroupSetId: (id: string | null) => void
+  setLmsImportConflicts: (conflicts: LmsImportConflict[] | null) => void
 
-  setSidebarSelection: (selection: SidebarSelection) => void;
-  setGroupSetPanelTab: (tab: "groups" | "assignments") => void;
-  setGroupSetOperation: (op: GroupSetOperationState | null) => void;
+  setSidebarSelection: (selection: SidebarSelection) => void
+  setGroupSetPanelTab: (tab: "groups" | "assignments") => void
+  setGroupSetOperation: (op: GroupSetOperationState | null) => void
 
-  setRenameGroupSetTriggerId: (id: string | null) => void;
-  setExportGroupSetTriggerId: (id: string | null) => void;
-  setSyncGroupSetTriggerId: (id: string | null) => void;
+  setRenameGroupSetTriggerId: (id: string | null) => void
+  setExportGroupSetTriggerId: (id: string | null) => void
+  setSyncGroupSetTriggerId: (id: string | null) => void
 
-  setProfileList: (list: ProfileSummary[]) => void;
-  setProfileListLoading: (loading: boolean) => void;
+  setProfileList: (list: ProfileSummary[]) => void
+  setProfileListLoading: (loading: boolean) => void
 
-  showClosePrompt: () => void;
-  hideClosePrompt: () => void;
+  showClosePrompt: () => void
+  hideClosePrompt: () => void
 
-  reset: () => void;
-};
+  reset: () => void
+}
 
 const initialState: UiState = {
   activeTab: "roster",
@@ -160,17 +160,16 @@ const initialState: UiState = {
   profileListLoading: false,
 
   closePromptVisible: false,
-};
+}
 
 function setIfChanged<K extends keyof UiState>(
   state: UiState,
   key: K,
   value: UiState[K],
 ) {
-  return Object.is(state[key], value) ? state : ({ [key]: value } as Pick<
-    UiState,
-    K
-  >);
+  return Object.is(state[key], value)
+    ? state
+    : ({ [key]: value } as Pick<UiState, K>)
 }
 
 export const useUiStore = create<UiState & UiActions>((set) => ({
@@ -184,17 +183,14 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
   openSettings: (category) =>
     set((state) => {
-      const nextCategory = category ?? "connections";
-      if (
-        state.settingsDialogOpen &&
-        state.settingsCategory === nextCategory
-      ) {
-        return state;
+      const nextCategory = category ?? "connections"
+      if (state.settingsDialogOpen && state.settingsCategory === nextCategory) {
+        return state
       }
       return {
         settingsDialogOpen: true,
         settingsCategory: nextCategory,
-      };
+      }
     }),
   setNewProfileDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newProfileDialogOpen", open)),
@@ -205,9 +201,7 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   setImportGitUsernamesDialogOpen: (open) =>
     set((state) => setIfChanged(state, "importGitUsernamesDialogOpen", open)),
   setUsernameVerificationDialogOpen: (open) =>
-    set((state) =>
-      setIfChanged(state, "usernameVerificationDialogOpen", open)
-    ),
+    set((state) => setIfChanged(state, "usernameVerificationDialogOpen", open)),
   setNewAssignmentDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newAssignmentDialogOpen", open)),
   setFileImportExportOpen: (open) =>
@@ -243,27 +237,27 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 
   setSidebarSelection: (selection) =>
     set((state) => {
-      const current = state.sidebarSelection;
+      const current = state.sidebarSelection
       if (
         current === selection ||
         (current?.kind === selection?.kind && current?.id === selection?.id)
       ) {
-        return state;
+        return state
       }
-      return { sidebarSelection: selection };
+      return { sidebarSelection: selection }
     }),
   setGroupSetPanelTab: (tab) =>
     set((state) => setIfChanged(state, "groupSetPanelTab", tab)),
   setGroupSetOperation: (op) =>
     set((state) => {
-      const current = state.groupSetOperation;
+      const current = state.groupSetOperation
       if (
         current === op ||
         (current?.kind === op?.kind && current?.groupSetId === op?.groupSetId)
       ) {
-        return state;
+        return state
       }
-      return { groupSetOperation: op };
+      return { groupSetOperation: op }
     }),
 
   setRenameGroupSetTriggerId: (id) =>
@@ -273,7 +267,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   setSyncGroupSetTriggerId: (id) =>
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 
-  setProfileList: (list) => set((state) => setIfChanged(state, "profileList", list)),
+  setProfileList: (list) =>
+    set((state) => setIfChanged(state, "profileList", list)),
   setProfileListLoading: (loading) =>
     set((state) => setIfChanged(state, "profileListLoading", loading)),
 
@@ -283,9 +278,9 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "closePromptVisible", false)),
 
   reset: () => set(initialState),
-}));
+}))
 
-export const selectActiveTab = (state: UiState) => state.activeTab;
-export const selectActiveProfileId = (state: UiState) => state.activeProfileId;
+export const selectActiveTab = (state: UiState) => state.activeTab
+export const selectActiveProfileId = (state: UiState) => state.activeProfileId
 export const selectClosePromptVisible = (state: UiState) =>
-  state.closePromptVisible;
+  state.closePromptVisible

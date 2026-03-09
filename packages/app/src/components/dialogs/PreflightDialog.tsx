@@ -6,39 +6,39 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@repo-edu/ui";
-import { AlertCircle, Info } from "@repo-edu/ui/components/icons";
-import { useOperationStore } from "../../stores/operation-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "@repo-edu/ui"
+import { AlertCircle, Info } from "@repo-edu/ui/components/icons"
+import { useOperationStore } from "../../stores/operation-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
 type PreflightDialogProps = {
-  onContinue?: () => void;
-};
+  onContinue?: () => void
+}
 
 export function PreflightDialog({ onContinue }: PreflightDialogProps) {
-  const open = useUiStore((state) => state.preflightDialogOpen);
-  const setOpen = useUiStore((state) => state.setPreflightDialogOpen);
-  const preflightResult = useOperationStore((state) => state.preflightResult);
-  const operationSelected = useOperationStore((state) => state.selected);
+  const open = useUiStore((state) => state.preflightDialogOpen)
+  const setOpen = useUiStore((state) => state.setPreflightDialogOpen)
+  const preflightResult = useOperationStore((state) => state.preflightResult)
+  const operationSelected = useOperationStore((state) => state.selected)
 
-  if (!preflightResult) return null;
+  if (!preflightResult) return null
 
-  const { collisions, readyCount } = preflightResult;
-  const hasCollisions = collisions.length > 0;
-  const isCreate = operationSelected === "create";
+  const { collisions, readyCount } = preflightResult
+  const hasCollisions = collisions.length > 0
+  const isCreate = operationSelected === "create"
 
   const title = isCreate
     ? "Repositories Already Exist"
-    : "Repositories Not Found";
+    : "Repositories Not Found"
 
   const description = isCreate
     ? "The following repositories already exist and will be skipped:"
-    : "The following repositories were not found and will be skipped:";
+    : "The following repositories were not found and will be skipped:"
 
   const handleContinue = () => {
-    setOpen(false);
-    onContinue?.();
-  };
+    setOpen(false)
+    onContinue?.()
+  }
 
   if (!hasCollisions && readyCount === 0) {
     return (
@@ -60,10 +60,10 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    );
+    )
   }
 
-  if (!hasCollisions) return null;
+  if (!hasCollisions) return null
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -79,7 +79,10 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         <div className="max-h-72 overflow-y-auto py-2">
           <ul className="space-y-1.5 text-sm">
             {collisions.map((collision) => (
-              <li key={`${collision.groupId}:${collision.repoName}`} className="flex gap-2">
+              <li
+                key={`${collision.groupId}:${collision.repoName}`}
+                className="flex gap-2"
+              >
                 <span className="text-warning">⚠</span>
                 <span>
                   {collision.repoName}{" "}
@@ -118,5 +121,5 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

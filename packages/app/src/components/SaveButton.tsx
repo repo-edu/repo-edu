@@ -3,48 +3,48 @@
  * States: idle → saving (spinner) → success (checkmark) → idle.
  */
 
-import { Button } from "@repo-edu/ui";
-import { Check, Loader2 } from "@repo-edu/ui/components/icons";
-import { useCallback, useState } from "react";
-import { useProfileStore } from "../stores/profile-store.js";
-import { useUiStore } from "../stores/ui-store.js";
+import { Button } from "@repo-edu/ui"
+import { Check, Loader2 } from "@repo-edu/ui/components/icons"
+import { useCallback, useState } from "react"
+import { useProfileStore } from "../stores/profile-store.js"
+import { useUiStore } from "../stores/ui-store.js"
 
-type SaveStatus = "idle" | "saving" | "success" | "error";
+type SaveStatus = "idle" | "saving" | "success" | "error"
 
 type SaveButtonProps = {
-  isDirty: boolean;
-  onSaved: () => void;
-};
+  isDirty: boolean
+  onSaved: () => void
+}
 
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
-  const activeProfileId = useUiStore((s) => s.activeProfileId);
-  const save = useProfileStore((s) => s.save);
-  const [status, setStatus] = useState<SaveStatus>("idle");
+  const activeProfileId = useUiStore((s) => s.activeProfileId)
+  const save = useProfileStore((s) => s.save)
+  const [status, setStatus] = useState<SaveStatus>("idle")
 
   const handleSave = useCallback(async () => {
-    if (!activeProfileId) return;
+    if (!activeProfileId) return
 
-    setStatus("saving");
+    setStatus("saving")
 
     try {
-      const success = await save();
+      const success = await save()
 
       if (!success) {
-        setStatus("error");
-        setTimeout(() => setStatus("idle"), 1500);
-        return;
+        setStatus("error")
+        setTimeout(() => setStatus("idle"), 1500)
+        return
       }
 
-      onSaved();
-      setStatus("success");
-      setTimeout(() => setStatus("idle"), 1500);
+      onSaved()
+      setStatus("success")
+      setTimeout(() => setStatus("idle"), 1500)
     } catch {
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 1500);
+      setStatus("error")
+      setTimeout(() => setStatus("idle"), 1500)
     }
-  }, [activeProfileId, save, onSaved]);
+  }, [activeProfileId, save, onSaved])
 
-  const isDisabled = !activeProfileId || !isDirty || status === "saving";
+  const isDisabled = !activeProfileId || !isDirty || status === "saving"
 
   return (
     <Button
@@ -68,5 +68,5 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
         "Save"
       )}
     </Button>
-  );
+  )
 }

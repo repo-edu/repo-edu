@@ -1,23 +1,23 @@
-type DateFormatKind = "DMY" | "MDY";
-type TimeFormatKind = "12h" | "24h";
+type DateFormatKind = "DMY" | "MDY"
+type TimeFormatKind = "12h" | "24h"
 
 export function formatDate(
   value: string | Date,
   dateFormat: DateFormatKind,
 ): string {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const date = typeof value === "string" ? new Date(value) : value
 
   if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
+    return "Invalid date"
   }
 
-  const day = date.getDate().toString().padStart(2, "0");
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const year = date.getFullYear();
+  const day = date.getDate().toString().padStart(2, "0")
+  const month = (date.getMonth() + 1).toString().padStart(2, "0")
+  const year = date.getFullYear()
 
   return dateFormat === "DMY"
     ? `${day}/${month}/${year}`
-    : `${month}/${day}/${year}`;
+    : `${month}/${day}/${year}`
 }
 
 export function formatDateTime(
@@ -25,25 +25,25 @@ export function formatDateTime(
   dateFormat: DateFormatKind,
   timeFormat: TimeFormatKind,
 ): string {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const date = typeof value === "string" ? new Date(value) : value
 
   if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
+    return "Invalid date"
   }
 
-  const datePart = formatDate(date, dateFormat);
+  const datePart = formatDate(date, dateFormat)
 
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const hours24 = date.getHours()
+  const minutes = date.getMinutes().toString().padStart(2, "0")
 
-  let timePart: string;
+  let timePart: string
   if (timeFormat === "24h") {
-    timePart = `${hours24.toString().padStart(2, "0")}:${minutes}`;
+    timePart = `${hours24.toString().padStart(2, "0")}:${minutes}`
   } else {
-    const hours12 = hours24 % 12 || 12;
-    const ampm = hours24 < 12 ? "AM" : "PM";
-    timePart = `${hours12}:${minutes} ${ampm}`;
+    const hours12 = hours24 % 12 || 12
+    const ampm = hours24 < 12 ? "AM" : "PM"
+    timePart = `${hours12}:${minutes} ${ampm}`
   }
 
-  return `${datePart}  ${timePart}`;
+  return `${datePart}  ${timePart}`
 }

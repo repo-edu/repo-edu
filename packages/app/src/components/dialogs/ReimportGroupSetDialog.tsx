@@ -1,4 +1,4 @@
-import type { GroupSetImportPreview } from "@repo-edu/domain";
+import type { GroupSetImportPreview } from "@repo-edu/domain"
 import {
   Alert,
   Button,
@@ -11,103 +11,106 @@ import {
   FormField,
   Input,
   Text,
-} from "@repo-edu/ui";
-import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons";
-import { useState } from "react";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { getRendererHost } from "../../contexts/renderer-host.js";
-import { selectGroupSetById, useProfileStore } from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui"
+import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
+import { useState } from "react"
+import { getRendererHost } from "../../contexts/renderer-host.js"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import {
+  selectGroupSetById,
+  useProfileStore,
+} from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ReimportGroupSetDialog() {
-  const [fileName, setFileName] = useState("");
-  const [preview, setPreview] = useState<GroupSetImportPreview | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("")
+  const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const targetId = useUiStore((state) => state.reimportGroupSetTargetId);
-  const setTargetId = useUiStore((state) => state.setReimportGroupSetTargetId);
-  const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation);
-  const activeProfileId = useUiStore((state) => state.activeProfileId);
-  const open = targetId !== null;
-  const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""));
-  const addToast = useToastStore((state) => state.addToast);
+  const targetId = useUiStore((state) => state.reimportGroupSetTargetId)
+  const setTargetId = useUiStore((state) => state.setReimportGroupSetTargetId)
+  const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
+  const activeProfileId = useUiStore((state) => state.activeProfileId)
+  const open = targetId !== null
+  const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""))
+  const addToast = useToastStore((state) => state.addToast)
 
   const handleBrowse = async () => {
-    if (!targetId || !activeProfileId) return;
+    if (!targetId || !activeProfileId) return
 
     try {
-      const host = getRendererHost();
+      const host = getRendererHost()
       const fileRef = await host.pickUserFile({
         title: "Select CSV file for import",
         acceptFormats: ["csv"],
-      });
-      if (!fileRef) return;
+      })
+      if (!fileRef) return
 
-      setFileName(fileRef.displayName);
-      setError(null);
-      setLoading(true);
+      setFileName(fileRef.displayName)
+      setError(null)
+      setLoading(true)
 
-      const client = getWorkflowClient();
+      const client = getWorkflowClient()
       const result = await client.run("groupSet.previewReimportFromFile", {
         profileId: activeProfileId,
         groupSetId: targetId,
         file: fileRef,
-      });
+      })
       if (result.mode === "reimport") {
-        setPreview(result);
+        setPreview(result)
       } else {
-        setError("Unexpected preview mode");
-        setPreview(null);
+        setError("Unexpected preview mode")
+        setPreview(null)
       }
     } catch (e) {
-      setError(getErrorMessage(e));
+      setError(getErrorMessage(e))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const canImport = preview !== null && !importing;
+  const canImport = preview !== null && !importing
 
   const handleReimport = async () => {
-    if (!canImport || !targetId) return;
-    setImporting(true);
-    setError(null);
-    setGroupSetOperation({ kind: "reimport", groupSetId: targetId });
+    if (!canImport || !targetId) return
+    setImporting(true)
+    setError(null)
+    setGroupSetOperation({ kind: "reimport", groupSetId: targetId })
 
     try {
-      const groupSetName = groupSet?.name ?? targetId;
-      addToast(`Imported "${groupSetName}"`, { tone: "success" });
-      handleClose();
+      const groupSetName = groupSet?.name ?? targetId
+      addToast(`Imported "${groupSetName}"`, { tone: "success" })
+      handleClose()
     } catch (e) {
-      const message = getErrorMessage(e);
-      setError(message);
-      addToast(`Import failed: ${message}`, { tone: "error" });
+      const message = getErrorMessage(e)
+      setError(message)
+      addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
-      setImporting(false);
-      setGroupSetOperation(null);
+      setImporting(false)
+      setGroupSetOperation(null)
     }
-  };
+  }
 
   const handleClose = () => {
-    setTargetId(null);
-    setGroupSetOperation(null);
-    setFileName("");
-    setPreview(null);
-    setLoading(false);
-    setImporting(false);
-    setError(null);
-  };
+    setTargetId(null)
+    setGroupSetOperation(null)
+    setFileName("")
+    setPreview(null)
+    setLoading(false)
+    setImporting(false)
+    setError(null)
+  }
 
   const hasChanges =
     preview &&
     preview.mode === "reimport" &&
     (preview.addedGroupNames.length > 0 ||
       preview.removedGroupNames.length > 0 ||
-      preview.updatedGroupNames.length > 0);
+      preview.updatedGroupNames.length > 0)
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -178,7 +181,9 @@ export function ReimportGroupSetDialog() {
                   </Text>
                   <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
                     {preview.addedGroupNames.map((n) => (
-                      <div key={n} className="px-3 py-1 text-sm">{n}</div>
+                      <div key={n} className="px-3 py-1 text-sm">
+                        {n}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -191,7 +196,12 @@ export function ReimportGroupSetDialog() {
                   </Text>
                   <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
                     {preview.removedGroupNames.map((n) => (
-                      <div key={n} className="px-3 py-1 text-sm text-muted-foreground line-through">{n}</div>
+                      <div
+                        key={n}
+                        className="px-3 py-1 text-sm text-muted-foreground line-through"
+                      >
+                        {n}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -204,7 +214,9 @@ export function ReimportGroupSetDialog() {
                   </Text>
                   <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
                     {preview.updatedGroupNames.map((n) => (
-                      <div key={n} className="px-3 py-1 text-sm">{n}</div>
+                      <div key={n} className="px-3 py-1 text-sm">
+                        {n}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -232,5 +244,5 @@ export function ReimportGroupSetDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -1,7 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { type Roster, type RosterValidationResult } from "@repo-edu/domain";
-import { buildIssueCards, buildRosterInsights } from "../utils/issues.js";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
+import type { Roster, RosterValidationResult } from "@repo-edu/domain"
+import { buildIssueCards, buildRosterInsights } from "../utils/issues.js"
 
 function makeRoster(): Roster {
   return {
@@ -76,12 +76,12 @@ function makeRoster(): Roster {
         groupSetId: "gs-1",
       },
     ],
-  };
+  }
 }
 
 describe("issue utilities", () => {
   it("builds roster insights for active/dropped and missing fields", () => {
-    const insights = buildRosterInsights(makeRoster());
+    const insights = buildRosterInsights(makeRoster())
 
     assert.deepStrictEqual(insights, {
       activeCount: 1,
@@ -89,11 +89,11 @@ describe("issue utilities", () => {
       incompleteCount: 0,
       missingEmailCount: 1,
       missingGitUsernameCount: 1,
-    });
-  });
+    })
+  })
 
   it("builds issue cards for roster, assignment, and empty-group issues", () => {
-    const roster = makeRoster();
+    const roster = makeRoster()
     const rosterValidation: RosterValidationResult = {
       issues: [
         {
@@ -102,7 +102,7 @@ describe("issue utilities", () => {
           context: null,
         },
       ],
-    };
+    }
     const assignmentValidations: Record<string, RosterValidationResult> = {
       "a-1": {
         issues: [
@@ -113,19 +113,25 @@ describe("issue utilities", () => {
           },
         ],
       },
-    };
+    }
 
     const cards = buildIssueCards(
       roster,
       rosterValidation,
       assignmentValidations,
-    );
+    )
 
-    assert.equal(cards.some((card) => card.kind === "roster_validation"), true);
+    assert.equal(
+      cards.some((card) => card.kind === "roster_validation"),
+      true,
+    )
     assert.equal(
       cards.some((card) => card.kind === "assignment_validation"),
       true,
-    );
-    assert.equal(cards.some((card) => card.kind === "empty_groups"), true);
-  });
-});
+    )
+    assert.equal(
+      cards.some((card) => card.kind === "empty_groups"),
+      true,
+    )
+  })
+})

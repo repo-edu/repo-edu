@@ -8,104 +8,104 @@ import type {
   WorkflowOutput,
   WorkflowProgress,
   WorkflowResult,
-} from "@repo-edu/application-contract";
+} from "@repo-edu/application-contract"
 import {
   createCancelledAppError,
   createTransportAppError,
   createWorkflowClient,
-  workflowCatalog,
-} from "@repo-edu/application-contract";
-import { createTRPCProxyClient } from "@trpc/client";
-import { ipcLink } from "trpc-electron/renderer";
-import type { DesktopRouter } from "./trpc";
+  type workflowCatalog,
+} from "@repo-edu/application-contract"
+import { createTRPCProxyClient } from "@trpc/client"
+import { ipcLink } from "trpc-electron/renderer"
+import type { DesktopRouter } from "./trpc"
 
-type DesktopWorkflowId = keyof typeof workflowCatalog;
+type DesktopWorkflowId = keyof typeof workflowCatalog
 
 type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
-  onData(event: WorkflowEventFor<TWorkflowId>): void;
-  onError(error: Error): void;
-  onComplete(): void;
-};
+  onData(event: WorkflowEventFor<TWorkflowId>): void
+  onError(error: Error): void
+  onComplete(): void
+}
 
 const trpcClient = createTRPCProxyClient<DesktopRouter>({
   links: [ipcLink<DesktopRouter>()],
-});
+})
 
 function runSubscriptionFromFactory<TWorkflowId extends DesktopWorkflowId>(
-  subscribe: (
-    handlers: SubscriptionHandlers<TWorkflowId>,
-  ) => { unsubscribe(): void },
+  subscribe: (handlers: SubscriptionHandlers<TWorkflowId>) => {
+    unsubscribe(): void
+  },
   options?: WorkflowCallOptions<
     WorkflowProgress<TWorkflowId>,
     WorkflowOutput<TWorkflowId>
   >,
 ): Promise<WorkflowResult<TWorkflowId>> {
   if (options?.signal?.aborted) {
-    return Promise.reject(createCancelledAppError());
+    return Promise.reject(createCancelledAppError())
   }
 
   return new Promise((resolve, reject) => {
-    let settled = false;
+    let settled = false
 
     const abort = () => {
       if (settled) {
-        return;
+        return
       }
 
-      settled = true;
-      subscription.unsubscribe();
-      cleanup();
-      reject(createCancelledAppError());
-    };
+      settled = true
+      subscription.unsubscribe()
+      cleanup()
+      reject(createCancelledAppError())
+    }
 
     const cleanup = () => {
-      options?.signal?.removeEventListener("abort", abort);
-    };
+      options?.signal?.removeEventListener("abort", abort)
+    }
 
     const subscription = subscribe({
       onData(event) {
         switch (event.type) {
           case "progress":
-            options?.onProgress?.(event.data);
-            return;
+            options?.onProgress?.(event.data)
+            return
           case "output":
-            options?.onOutput?.(event.data);
-            return;
+            options?.onOutput?.(event.data)
+            return
           case "completed":
-            settled = true;
-            cleanup();
-            resolve(event.data);
-            return;
+            settled = true
+            cleanup()
+            resolve(event.data)
+            return
           case "failed":
-            settled = true;
-            cleanup();
-            reject(event.error);
+            settled = true
+            cleanup()
+            reject(event.error)
         }
       },
       onError(error) {
-        settled = true;
-        cleanup();
-        reject(normalizeTransportError(error));
+        settled = true
+        cleanup()
+        reject(normalizeTransportError(error))
       },
       onComplete() {
         if (settled) {
-          return;
+          return
         }
 
-        settled = true;
-        cleanup();
+        settled = true
+        cleanup()
         reject(
           createTransportAppError(
             "host-crash",
             "Subscription completed without a terminal workflow event.",
             false,
           ),
-        );
+        )
       },
-    });
+    })
 
-    options?.signal?.addEventListener("abort", abort, { once: true });
-  });
+    options?.signal?.addEventListener("abort", abort, { once: true })
+  })
 }
 
 function subscribeWorkflow<TWorkflowId extends DesktopWorkflowId>(
@@ -117,10 +117,10 @@ function subscribeWorkflow<TWorkflowId extends DesktopWorkflowId>(
     subscribe(
       value: WorkflowInput<TWorkflowId>,
       subscriptionHandlers: SubscriptionHandlers<TWorkflowId>,
-    ): { unsubscribe(): void };
-  };
+    ): { unsubscribe(): void }
+  }
 
-  return procedure.subscribe(input, handlers);
+  return procedure.subscribe(input, handlers)
 }
 
 function runDesktopWorkflow<TWorkflowId extends DesktopWorkflowId>(
@@ -134,15 +134,13 @@ function runDesktopWorkflow<TWorkflowId extends DesktopWorkflowId>(
   return runSubscriptionFromFactory(
     (handlers) => subscribeWorkflow(workflowId, input, handlers),
     options,
-  );
+  )
 }
 
 function normalizeTransportError(error: Error): AppError {
-  const reason = /timeout/i.test(error.message)
-    ? "timeout"
-    : "ipc-disconnected";
+  const reason = /timeout/i.test(error.message) ? "timeout" : "ipc-disconnected"
 
-  return createTransportAppError(reason, error.message);
+  return createTransportAppError(reason, error.message)
 }
 
 function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> {
@@ -201,9 +199,9 @@ function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> 
       runDesktopWorkflow("spike.e2e-trpc", input, options),
     "spike.cors-http": (input, options) =>
       runDesktopWorkflow("spike.cors-http", input, options),
-  };
+  }
 }
 
 export function createDesktopWorkflowClient(): WorkflowClient<DesktopWorkflowId> {
-  return createWorkflowClient(createDesktopWorkflowHandlers());
+  return createWorkflowClient(createDesktopWorkflowHandlers())
 }

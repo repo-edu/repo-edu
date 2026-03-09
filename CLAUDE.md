@@ -69,4 +69,3 @@ Prefer tests at package boundaries:
 - desktop bridge checks in `apps/desktop/scripts` + tests
 - CLI golden/behavior tests in `apps/cli/src/__tests__`
 - docs smoke and guardrail tests in `apps/docs/src/__tests__`
-

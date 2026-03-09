@@ -1,17 +1,17 @@
-import type { ThemePreference } from "@repo-edu/domain";
+import type { ThemePreference } from "@repo-edu/domain"
 
 export const THEME_CLASSES = [
   "theme-light",
   "theme-dark",
   "theme-system",
-] as const;
+] as const
 
-export const LIGHT_BG = "#f5f5f5";
-export const DARK_BG = "#141414";
-export const THEME_STORAGE_KEY = "theme";
+export const LIGHT_BG = "#f5f5f5"
+export const DARK_BG = "#141414"
+export const THEME_STORAGE_KEY = "theme"
 
 export const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "System (Auto)" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-];
+]

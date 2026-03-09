@@ -1,11 +1,11 @@
-import type { Command } from "commander";
+import type { Command } from "commander"
 import {
   emitCommandError,
   loadSelectedProfile,
   resolveAssignmentFromProfile,
   toErrorMessage,
-} from "../command-utils.js";
-import { createCliWorkflowClient } from "../workflow-runtime.js";
+} from "../command-utils.js"
+import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 export function registerValidateCommand(parent: Command): void {
   parent
@@ -13,57 +13,60 @@ export function registerValidateCommand(parent: Command): void {
     .description("Validate assignment readiness")
     .requiredOption("--assignment <name>", "Assignment name or id")
     .action(async function (this: Command, options: { assignment: string }) {
-      const workflowClient = createCliWorkflowClient();
+      const workflowClient = createCliWorkflowClient()
 
       try {
         const { profile, selectedProfileId } = await loadSelectedProfile(
           this,
           workflowClient,
-        );
-        const assignment = resolveAssignmentFromProfile(profile, options.assignment);
+        )
+        const assignment = resolveAssignmentFromProfile(
+          profile,
+          options.assignment,
+        )
 
         if (!assignment) {
           emitCommandError(
             `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
-          );
-          return;
+          )
+          return
         }
 
         const rosterValidation = await workflowClient.run("validation.roster", {
           profileId: selectedProfileId,
-        });
+        })
         const assignmentValidation = await workflowClient.run(
           "validation.assignment",
           {
             profileId: selectedProfileId,
             assignmentId: assignment.id,
           },
-        );
+        )
 
         const allIssues = [
           ...rosterValidation.issues,
           ...assignmentValidation.issues,
-        ];
+        ]
 
         if (allIssues.length === 0) {
           process.stdout.write(
             `Validation passed for assignment '${assignment.name}' in profile '${profile.id}'.\n`,
-          );
-          return;
+          )
+          return
         }
 
         process.stdout.write(
           `Validation found ${allIssues.length} issue(s) for assignment '${assignment.name}' in profile '${profile.id}':\n`,
-        );
+        )
         for (const issue of allIssues) {
           process.stdout.write(
             `- ${issue.kind} [${issue.affectedIds.join(", ")}]${issue.context ? `: ${issue.context}` : ""}\n`,
-          );
+          )
         }
 
-        process.exitCode = 1;
+        process.exitCode = 1
       } catch (error) {
-        emitCommandError(toErrorMessage(error));
+        emitCommandError(toErrorMessage(error))
       }
-    });
+    })
 }

@@ -9,17 +9,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@repo-edu/ui";
-import { FolderOpen, Menu } from "@repo-edu/ui/components/icons";
-import { useToastStore } from "../stores/toast-store.js";
-import { getErrorMessage } from "../utils/error-message.js";
-import { ProfileSwitcher } from "./ProfileSwitcher.js";
-import { SaveButton } from "./SaveButton.js";
+} from "@repo-edu/ui"
+import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
+import { useToastStore } from "../stores/toast-store.js"
+import { getErrorMessage } from "../utils/error-message.js"
+import { ProfileSwitcher } from "./ProfileSwitcher.js"
+import { SaveButton } from "./SaveButton.js"
 
 type UtilityBarProps = {
-  isDirty: boolean;
-  onSaved: () => void;
-};
+  isDirty: boolean
+  onSaved: () => void
+}
 
 export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
   return (
@@ -33,35 +33,36 @@ export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
         <SaveButton isDirty={isDirty} onSaved={onSaved} />
       </div>
     </div>
-  );
+  )
 }
 
 /**
  * UtilityMenu — Generic overflow menu for profile-adjacent utility actions.
  */
 type DesktopBridge = {
-  revealProfilesDirectory?: () => Promise<void>;
-};
+  revealProfilesDirectory?: () => Promise<void>
+}
 
 function getDesktopBridge(): DesktopBridge | undefined {
-  return (window as unknown as Record<string, unknown>)
-    .repoEduDesktopHost as DesktopBridge | undefined;
+  return (window as unknown as Record<string, unknown>).repoEduDesktopHost as
+    | DesktopBridge
+    | undefined
 }
 
 function UtilityMenu() {
-  const addToast = useToastStore((s) => s.addToast);
-  const bridge = getDesktopBridge();
+  const addToast = useToastStore((s) => s.addToast)
+  const bridge = getDesktopBridge()
 
   const handleShowProfileLocation = async () => {
     try {
-      await bridge?.revealProfilesDirectory?.();
+      await bridge?.revealProfilesDirectory?.()
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage(error)
       addToast(`Failed to open profiles directory: ${message}`, {
         tone: "error",
-      });
+      })
     }
-  };
+  }
 
   return (
     <DropdownMenu>
@@ -78,5 +79,5 @@ function UtilityMenu() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
+  )
 }

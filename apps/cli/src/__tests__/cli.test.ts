@@ -1,74 +1,74 @@
-import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { describe, it } from "node:test";
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain";
-import { createProgram } from "../cli.js";
+import assert from "node:assert/strict"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { describe, it } from "node:test"
+import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import { createProgram } from "../cli.js"
 
 function toText(chunk: unknown): string {
   if (typeof chunk === "string") {
-    return chunk;
+    return chunk
   }
 
   if (chunk instanceof Uint8Array) {
-    return Buffer.from(chunk).toString("utf8");
+    return Buffer.from(chunk).toString("utf8")
   }
 
-  return String(chunk);
+  return String(chunk)
 }
 
 function normalize(text: string): string {
-  return text.replace(/\r\n/g, "\n").trimEnd();
+  return text.replace(/\r\n/g, "\n").trimEnd()
 }
 
 async function runCli(args: string[]): Promise<{
-  exitCode: number;
-  stdout: string;
-  stderr: string;
+  exitCode: number
+  stdout: string
+  stderr: string
 }> {
-  const program = createProgram();
-  program.exitOverride();
+  const program = createProgram()
+  program.exitOverride()
 
-  let stdout = "";
-  let stderr = "";
+  let stdout = ""
+  let stderr = ""
 
-  const previousStdoutWrite = process.stdout.write.bind(process.stdout);
-  const previousStderrWrite = process.stderr.write.bind(process.stderr);
-  const previousExitCode = process.exitCode;
+  const previousStdoutWrite = process.stdout.write.bind(process.stdout)
+  const previousStderrWrite = process.stderr.write.bind(process.stderr)
+  const previousExitCode = process.exitCode
 
   process.stdout.write = ((chunk: unknown) => {
-    stdout += toText(chunk);
-    return true;
-  }) as typeof process.stdout.write;
+    stdout += toText(chunk)
+    return true
+  }) as typeof process.stdout.write
 
   process.stderr.write = ((chunk: unknown) => {
-    stderr += toText(chunk);
-    return true;
-  }) as typeof process.stderr.write;
+    stderr += toText(chunk)
+    return true
+  }) as typeof process.stderr.write
 
-  process.exitCode = 0;
+  process.exitCode = 0
 
   try {
-    await program.parseAsync(["node", "redu", ...args]);
+    await program.parseAsync(["node", "redu", ...args])
   } catch (error) {
-    const code = (error as { code?: unknown }).code;
+    const code = (error as { code?: unknown }).code
     if (typeof code !== "string" || !code.startsWith("commander.")) {
-      throw error;
+      throw error
     }
   } finally {
-    process.stdout.write = previousStdoutWrite;
-    process.stderr.write = previousStderrWrite;
+    process.stdout.write = previousStdoutWrite
+    process.stderr.write = previousStderrWrite
   }
 
-  const exitCode = process.exitCode ?? 0;
-  process.exitCode = previousExitCode;
+  const exitCode = process.exitCode ?? 0
+  process.exitCode = previousExitCode
 
   return {
     exitCode,
     stdout,
     stderr,
-  };
+  }
 }
 
 function makeProfile(): PersistedProfile {
@@ -139,7 +139,7 @@ function makeProfile(): PersistedProfile {
     },
     repositoryTemplate: null,
     updatedAt: "2026-03-04T10:00:00Z",
-  };
+  }
 }
 
 function withCachedGroupSet(profile: PersistedProfile): PersistedProfile {
@@ -176,7 +176,7 @@ function withCachedGroupSet(profile: PersistedProfile): PersistedProfile {
         },
       ],
     },
-  };
+  }
 }
 
 function makeSettings(activeProfileId: string | null): PersistedAppSettings {
@@ -193,54 +193,54 @@ function makeSettings(activeProfileId: string | null): PersistedAppSettings {
     lmsConnections: [],
     gitConnections: [],
     lastOpenedAt: null,
-  };
+  }
 }
 
 async function seedCliDataDirectory(
   rootDirectory: string,
   options?: {
-    profile?: PersistedProfile;
-    settings?: PersistedAppSettings;
+    profile?: PersistedProfile
+    settings?: PersistedAppSettings
   },
 ): Promise<void> {
   if (options?.profile) {
-    const profilesDirectory = join(rootDirectory, "profiles");
-    await mkdir(profilesDirectory, { recursive: true });
+    const profilesDirectory = join(rootDirectory, "profiles")
+    await mkdir(profilesDirectory, { recursive: true })
     await writeFile(
       join(profilesDirectory, `${encodeURIComponent(options.profile.id)}.json`),
       JSON.stringify(options.profile, null, 2),
       "utf8",
-    );
+    )
   }
 
   if (options?.settings) {
-    const settingsDirectory = join(rootDirectory, "settings");
-    await mkdir(settingsDirectory, { recursive: true });
+    const settingsDirectory = join(rootDirectory, "settings")
+    await mkdir(settingsDirectory, { recursive: true })
     await writeFile(
       join(settingsDirectory, "app-settings.json"),
       JSON.stringify(options.settings, null, 2),
       "utf8",
-    );
+    )
   }
 }
 
 async function withTempCliDataDirectory(
   run: (rootDirectory: string) => Promise<void>,
 ): Promise<void> {
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"));
-  const previous = process.env.REPO_EDU_CLI_DATA_DIR;
-  process.env.REPO_EDU_CLI_DATA_DIR = temporaryRoot;
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"))
+  const previous = process.env.REPO_EDU_CLI_DATA_DIR
+  process.env.REPO_EDU_CLI_DATA_DIR = temporaryRoot
 
   try {
-    await run(temporaryRoot);
+    await run(temporaryRoot)
   } finally {
     if (previous === undefined) {
-      delete process.env.REPO_EDU_CLI_DATA_DIR;
+      delete process.env.REPO_EDU_CLI_DATA_DIR
     } else {
-      process.env.REPO_EDU_CLI_DATA_DIR = previous;
+      process.env.REPO_EDU_CLI_DATA_DIR = previous
     }
 
-    await rm(temporaryRoot, { recursive: true, force: true });
+    await rm(temporaryRoot, { recursive: true, force: true })
   }
 }
 
@@ -249,148 +249,162 @@ describe("CLI command tree", () => {
     const golden = await readFile(
       join(import.meta.dirname, "goldens", "help-top.txt"),
       "utf8",
-    );
+    )
 
-    const help = createProgram().helpInformation();
-    assert.equal(normalize(help), normalize(golden));
-  });
+    const help = createProgram().helpInformation()
+    assert.equal(normalize(help), normalize(golden))
+  })
 
   it("lms cache help matches golden", async () => {
     const golden = await readFile(
       join(import.meta.dirname, "goldens", "help-lms-cache.txt"),
       "utf8",
-    );
+    )
 
-    const lms = createProgram().commands.find((command) => command.name() === "lms");
-    assert.ok(lms);
+    const lms = createProgram().commands.find(
+      (command) => command.name() === "lms",
+    )
+    assert.ok(lms)
 
-    const cache = lms.commands.find((command) => command.name() === "cache");
-    assert.ok(cache);
+    const cache = lms.commands.find((command) => command.name() === "cache")
+    assert.ok(cache)
 
-    const help = cache.helpInformation();
-    assert.equal(normalize(help), normalize(golden));
-  });
-});
+    const help = cache.helpInformation()
+    assert.equal(normalize(help), normalize(golden))
+  })
+})
 
 describe("CLI workflow-backed behaviors", () => {
   it("profile list shows seeded profile and active marker", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["profile", "list"]);
-      assert.equal(result.exitCode, 0);
-      assert.match(result.stdout, /^\* seed-profile\tSeed Profile\t/m);
-    });
-  });
+      const result = await runCli(["profile", "list"])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /^\* seed-profile\tSeed Profile\t/m)
+    })
+  })
 
   it("roster show renders summary, students, and assignments", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
       const result = await runCli([
         "roster",
         "show",
         "--students",
         "--assignments",
-      ]);
-      assert.equal(result.exitCode, 0);
-      assert.match(result.stdout, /Profile: seed-profile/);
-      assert.match(result.stdout, /Students:\n- s1\tAda Lovelace/);
-      assert.match(result.stdout, /Assignments:\n- a1\tProject 1/);
-    });
-  });
+      ])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /Profile: seed-profile/)
+      assert.match(result.stdout, /Students:\n- s1\tAda Lovelace/)
+      assert.match(result.stdout, /Assignments:\n- a1\tProject 1/)
+    })
+  })
 
   it("lms cache list reports empty cache", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["lms", "cache", "list"]);
-      assert.equal(result.exitCode, 0);
-      assert.match(result.stdout, /No LMS cached group sets\./);
-    });
-  });
+      const result = await runCli(["lms", "cache", "list"])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /No LMS cached group sets\./)
+    })
+  })
 
   it("lms cache delete removes cached group set from saved profile", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = withCachedGroupSet(makeProfile());
+      const profile = withCachedGroupSet(makeProfile())
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["lms", "cache", "delete", "gs-cache"]);
-      assert.equal(result.exitCode, 0);
-      assert.match(result.stdout, /Deleted cached group set 'gs-cache'\./);
+      const result = await runCli(["lms", "cache", "delete", "gs-cache"])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /Deleted cached group set 'gs-cache'\./)
 
       const rawProfile = await readFile(
         join(rootDirectory, "profiles", "seed-profile.json"),
         "utf8",
-      );
-      const savedProfile = JSON.parse(rawProfile) as PersistedProfile;
+      )
+      const savedProfile = JSON.parse(rawProfile) as PersistedProfile
 
       assert.equal(
-        savedProfile.roster.groupSets.some((groupSet) => groupSet.id === "gs-cache"),
+        savedProfile.roster.groupSets.some(
+          (groupSet) => groupSet.id === "gs-cache",
+        ),
         false,
-      );
+      )
       assert.equal(
         savedProfile.roster.groups.some((group) => group.id === "g-cache"),
         false,
-      );
-    });
-  });
+      )
+    })
+  })
 
   it("validate reports domain issues with non-zero exit", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["validate", "--assignment", "Project 1"]);
-      assert.equal(result.exitCode, 1);
-      assert.match(result.stdout, /Validation found/);
-      assert.match(result.stdout, /missing_email/);
-    });
-  });
+      const result = await runCli(["validate", "--assignment", "Project 1"])
+      assert.equal(result.exitCode, 1)
+      assert.match(result.stdout, /Validation found/)
+      assert.match(result.stdout, /missing_email/)
+    })
+  })
 
   it("repo delete enforces explicit confirmation via workflow", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["repo", "delete", "--assignment", "Project 1"]);
-      assert.equal(result.exitCode, 1);
-      assert.match(result.stderr, /explicit confirmation/);
-    });
-  });
+      const result = await runCli([
+        "repo",
+        "delete",
+        "--assignment",
+        "Project 1",
+      ])
+      assert.equal(result.exitCode, 1)
+      assert.match(result.stderr, /explicit confirmation/)
+    })
+  })
 
   it("repo create fails when selected profile has no git connection", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile();
+      const profile = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
         profile,
         settings: makeSettings(profile.id),
-      });
+      })
 
-      const result = await runCli(["repo", "create", "--assignment", "Project 1"]);
-      assert.equal(result.exitCode, 1);
-      assert.match(result.stderr, /does not reference a Git connection/);
-    });
-  });
-});
+      const result = await runCli([
+        "repo",
+        "create",
+        "--assignment",
+        "Project 1",
+      ])
+      assert.equal(result.exitCode, 1)
+      assert.match(result.stderr, /does not reference a Git connection/)
+    })
+  })
+})

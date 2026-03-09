@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import {
   defaultAppSettings,
   gitUsernameImportRowSchema,
@@ -7,16 +7,16 @@ import {
   studentImportRowSchema,
   validatePersistedAppSettings,
   validatePersistedProfile,
-} from "../index.js";
+} from "../index.js"
 
 describe("validatePersistedAppSettings", () => {
   it("accepts valid default settings", () => {
-    const result = validatePersistedAppSettings(defaultAppSettings);
-    assert.equal(result.ok, true);
+    const result = validatePersistedAppSettings(defaultAppSettings)
+    assert.equal(result.ok, true)
     if (result.ok) {
-      assert.deepStrictEqual(result.value, defaultAppSettings);
+      assert.deepStrictEqual(result.value, defaultAppSettings)
     }
-  });
+  })
 
   it("accepts settings with populated connections", () => {
     const settings = {
@@ -40,42 +40,42 @@ describe("validatePersistedAppSettings", () => {
           organization: "my-org",
         },
       ],
-    };
-    const result = validatePersistedAppSettings(settings);
-    assert.equal(result.ok, true);
-  });
+    }
+    const result = validatePersistedAppSettings(settings)
+    assert.equal(result.ok, true)
+  })
 
   it("rejects non-object input", () => {
-    const result = validatePersistedAppSettings("not an object");
-    assert.equal(result.ok, false);
+    const result = validatePersistedAppSettings("not an object")
+    assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(result.issues.length > 0);
+      assert.ok(result.issues.length > 0)
     }
-  });
+  })
 
   it("rejects wrong kind", () => {
     const result = validatePersistedAppSettings({
       ...defaultAppSettings,
       kind: "wrong-kind",
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
-      const kindIssue = result.issues.find((i) => i.path === "kind");
-      assert.ok(kindIssue, "Expected an issue at path 'kind'");
+      const kindIssue = result.issues.find((i) => i.path === "kind")
+      assert.ok(kindIssue, "Expected an issue at path 'kind'")
     }
-  });
+  })
 
   it("rejects wrong schemaVersion", () => {
     const result = validatePersistedAppSettings({
       ...defaultAppSettings,
       schemaVersion: 2,
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
-      const issue = result.issues.find((i) => i.path === "schemaVersion");
-      assert.ok(issue, "Expected an issue at path 'schemaVersion'");
+      const issue = result.issues.find((i) => i.path === "schemaVersion")
+      assert.ok(issue, "Expected an issue at path 'schemaVersion'")
     }
-  });
+  })
 
   it("rejects invalid LMS connection provider", () => {
     const result = validatePersistedAppSettings({
@@ -88,15 +88,15 @@ describe("validatePersistedAppSettings", () => {
           token: "tok",
         },
       ],
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
       const issue = result.issues.find((i) =>
         i.path.startsWith("lmsConnections"),
-      );
-      assert.ok(issue, "Expected an issue inside lmsConnections");
+      )
+      assert.ok(issue, "Expected an issue inside lmsConnections")
     }
-  });
+  })
 
   it("rejects invalid Git connection provider", () => {
     const result = validatePersistedAppSettings({
@@ -110,22 +110,22 @@ describe("validatePersistedAppSettings", () => {
           organization: null,
         },
       ],
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
       const issue = result.issues.find((i) =>
         i.path.startsWith("gitConnections"),
-      );
-      assert.ok(issue, "Expected an issue inside gitConnections");
+      )
+      assert.ok(issue, "Expected an issue inside gitConnections")
     }
-  });
+  })
 
   it("rejects missing appearance", () => {
-    const { appearance: _, ...withoutAppearance } = defaultAppSettings;
-    const result = validatePersistedAppSettings(withoutAppearance);
-    assert.equal(result.ok, false);
-  });
-});
+    const { appearance: _, ...withoutAppearance } = defaultAppSettings
+    const result = validatePersistedAppSettings(withoutAppearance)
+    assert.equal(result.ok, false)
+  })
+})
 
 describe("validatePersistedProfile", () => {
   const validProfile = {
@@ -146,16 +146,16 @@ describe("validatePersistedProfile", () => {
     },
     repositoryTemplate: null,
     updatedAt: "2026-03-04T10:00:00Z",
-  };
+  }
 
   it("accepts a valid empty profile", () => {
-    const result = validatePersistedProfile(validProfile);
-    assert.equal(result.ok, true);
+    const result = validatePersistedProfile(validProfile)
+    assert.equal(result.ok, true)
     if (result.ok) {
-      assert.equal(result.value.id, "prof-1");
-      assert.equal(result.value.displayName, "Test Profile");
+      assert.equal(result.value.id, "prof-1")
+      assert.equal(result.value.displayName, "Test Profile")
     }
-  });
+  })
 
   it("accepts a profile with populated roster and groups", () => {
     const profile = {
@@ -235,10 +235,10 @@ describe("validatePersistedProfile", () => {
         name: "template",
         visibility: "private",
       },
-    };
-    const result = validatePersistedProfile(profile);
-    assert.equal(result.ok, true);
-  });
+    }
+    const result = validatePersistedProfile(profile)
+    assert.equal(result.ok, true)
+  })
 
   it("accepts pattern-based group selection", () => {
     const profile = {
@@ -259,23 +259,23 @@ describe("validatePersistedProfile", () => {
           },
         ],
       },
-    };
-    const result = validatePersistedProfile(profile);
-    assert.equal(result.ok, true);
-  });
+    }
+    const result = validatePersistedProfile(profile)
+    assert.equal(result.ok, true)
+  })
 
   it("rejects non-object input", () => {
-    const result = validatePersistedProfile(42);
-    assert.equal(result.ok, false);
-  });
+    const result = validatePersistedProfile(42)
+    assert.equal(result.ok, false)
+  })
 
   it("rejects wrong kind", () => {
-    const result = validatePersistedProfile({ ...validProfile, kind: "wrong" });
-    assert.equal(result.ok, false);
+    const result = validatePersistedProfile({ ...validProfile, kind: "wrong" })
+    assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(result.issues.some((i) => i.path === "kind"));
+      assert.ok(result.issues.some((i) => i.path === "kind"))
     }
-  });
+  })
 
   it("rejects invalid member in roster", () => {
     const result = validatePersistedProfile({
@@ -301,12 +301,12 @@ describe("validatePersistedProfile", () => {
           },
         ],
       },
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(result.issues.some((i) => i.path.startsWith("roster")));
+      assert.ok(result.issues.some((i) => i.path.startsWith("roster")))
     }
-  });
+  })
 
   it("rejects invalid group selection mode", () => {
     const result = validatePersistedProfile({
@@ -325,14 +325,14 @@ describe("validatePersistedProfile", () => {
           },
         ],
       },
-    });
-    assert.equal(result.ok, false);
+    })
+    assert.equal(result.ok, false)
     if (!result.ok) {
       assert.ok(
         result.issues.some((i) => i.path.startsWith("roster.groupSets")),
-      );
+      )
     }
-  });
+  })
 
   it("rejects invalid repository template visibility", () => {
     const result = validatePersistedProfile({
@@ -342,10 +342,10 @@ describe("validatePersistedProfile", () => {
         name: "tmpl",
         visibility: "secret",
       },
-    });
-    assert.equal(result.ok, false);
-  });
-});
+    })
+    assert.equal(result.ok, false)
+  })
+})
 
 describe("studentImportRowSchema", () => {
   it("accepts a row with all fields", () => {
@@ -356,69 +356,69 @@ describe("studentImportRowSchema", () => {
       student_number: "12345",
       git_username: "alice",
       status: "active",
-    });
-    assert.equal(result.success, true);
-  });
+    })
+    assert.equal(result.success, true)
+  })
 
   it("accepts a row with only name", () => {
-    const result = studentImportRowSchema.safeParse({ name: "Bob" });
-    assert.equal(result.success, true);
-  });
+    const result = studentImportRowSchema.safeParse({ name: "Bob" })
+    assert.equal(result.success, true)
+  })
 
   it("rejects a row without name", () => {
     const result = studentImportRowSchema.safeParse({
       email: "bob@example.com",
-    });
-    assert.equal(result.success, false);
-  });
+    })
+    assert.equal(result.success, false)
+  })
 
   it("rejects empty name", () => {
-    const result = studentImportRowSchema.safeParse({ name: "" });
-    assert.equal(result.success, false);
-  });
-});
+    const result = studentImportRowSchema.safeParse({ name: "" })
+    assert.equal(result.success, false)
+  })
+})
 
 describe("gitUsernameImportRowSchema", () => {
   it("accepts valid email + git_username", () => {
     const result = gitUsernameImportRowSchema.safeParse({
       email: "alice@example.com",
       git_username: "alice",
-    });
-    assert.equal(result.success, true);
-  });
+    })
+    assert.equal(result.success, true)
+  })
 
   it("rejects missing git_username", () => {
     const result = gitUsernameImportRowSchema.safeParse({
       email: "alice@example.com",
-    });
-    assert.equal(result.success, false);
-  });
+    })
+    assert.equal(result.success, false)
+  })
 
   it("rejects empty email", () => {
     const result = gitUsernameImportRowSchema.safeParse({
       email: "",
       git_username: "alice",
-    });
-    assert.equal(result.success, false);
-  });
-});
+    })
+    assert.equal(result.success, false)
+  })
+})
 
 describe("groupEditImportRowSchema", () => {
   it("accepts row with student_id", () => {
     const result = groupEditImportRowSchema.safeParse({
       group_name: "Alpha",
       student_id: "s1",
-    });
-    assert.equal(result.success, true);
-  });
+    })
+    assert.equal(result.success, true)
+  })
 
   it("accepts row with student_email", () => {
     const result = groupEditImportRowSchema.safeParse({
       group_name: "Alpha",
       student_email: "alice@example.com",
-    });
-    assert.equal(result.success, true);
-  });
+    })
+    assert.equal(result.success, true)
+  })
 
   it("accepts row with both identifiers", () => {
     const result = groupEditImportRowSchema.safeParse({
@@ -426,30 +426,30 @@ describe("groupEditImportRowSchema", () => {
       student_id: "s1",
       student_email: "alice@example.com",
       group_id: "g1",
-    });
-    assert.equal(result.success, true);
-  });
+    })
+    assert.equal(result.success, true)
+  })
 
   it("rejects row with neither identifier", () => {
     const result = groupEditImportRowSchema.safeParse({
       group_name: "Alpha",
-    });
-    assert.equal(result.success, false);
-  });
+    })
+    assert.equal(result.success, false)
+  })
 
   it("rejects empty group_name", () => {
     const result = groupEditImportRowSchema.safeParse({
       group_name: "",
       student_id: "s1",
-    });
-    assert.equal(result.success, false);
-  });
+    })
+    assert.equal(result.success, false)
+  })
 
   it("rejects empty student_id when no email", () => {
     const result = groupEditImportRowSchema.safeParse({
       group_name: "Alpha",
       student_id: "",
-    });
-    assert.equal(result.success, false);
-  });
-});
+    })
+    assert.equal(result.success, false)
+  })
+})

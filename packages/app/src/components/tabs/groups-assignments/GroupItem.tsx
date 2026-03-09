@@ -1,40 +1,42 @@
-import type { Group, RosterMember } from "@repo-edu/domain";
-import { Button, cn, Input } from "@repo-edu/ui";
+import type { Group, RosterMember } from "@repo-edu/domain"
+import {
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+} from "@repo-edu/ui"
 import {
   EllipsisVertical,
   Pencil,
   Trash2,
   Users,
   X,
-} from "@repo-edu/ui/components/icons";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@repo-edu/ui";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+} from "@repo-edu/ui/components/icons"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   type EditableGroupTarget,
   selectEditableGroupTargets,
   selectOtherGroupSetNames,
   useProfileStore,
-} from "../../../stores/profile-store.js";
-import { GroupLockIcon } from "./GroupLockIcon.js";
-import { MemberChip } from "./MemberChip.js";
+} from "../../../stores/profile-store.js"
+import { GroupLockIcon } from "./GroupLockIcon.js"
+import { MemberChip } from "./MemberChip.js"
 
 type GroupItemProps = {
-  group: Group;
-  groupSetId: string;
-  members: RosterMember[];
-  staffIds: Set<string>;
-  isSetEditable: boolean;
-  disabled?: boolean;
-  editableTargets: EditableGroupTarget[];
-  memberGroupIndex: Map<string, Set<string>>;
-  onDeleteGroup?: () => void;
-};
+  group: Group
+  groupSetId: string
+  members: RosterMember[]
+  staffIds: Set<string>
+  isSetEditable: boolean
+  disabled?: boolean
+  editableTargets: EditableGroupTarget[]
+  memberGroupIndex: Map<string, Set<string>>
+  onDeleteGroup?: () => void
+}
 
 export function GroupItem({
   group,
@@ -47,55 +49,55 @@ export function GroupItem({
   memberGroupIndex,
   onDeleteGroup,
 }: GroupItemProps) {
-  const isEditable = group.origin === "local";
-  const isLocked = group.origin !== "local";
+  const isEditable = group.origin === "local"
+  const isLocked = group.origin !== "local"
 
   const otherSetNames = useMemo(
     () => selectOtherGroupSetNames(group.id, groupSetId),
     [group.id, groupSetId],
-  );
-  const otherNames = useProfileStore(otherSetNames);
-  const isShared = otherNames.length > 0;
+  )
+  const otherNames = useProfileStore(otherSetNames)
+  const isShared = otherNames.length > 0
 
-  const updateGroup = useProfileStore((s) => s.updateGroup);
-  const removeGroupFromSet = useProfileStore((s) => s.removeGroupFromSet);
-  const moveMemberToGroup = useProfileStore((s) => s.moveMemberToGroup);
-  const copyMemberToGroup = useProfileStore((s) => s.copyMemberToGroup);
+  const updateGroup = useProfileStore((s) => s.updateGroup)
+  const removeGroupFromSet = useProfileStore((s) => s.removeGroupFromSet)
+  const moveMemberToGroup = useProfileStore((s) => s.moveMemberToGroup)
+  const copyMemberToGroup = useProfileStore((s) => s.copyMemberToGroup)
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(group.name);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(group.name)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+      inputRef.current.focus()
+      inputRef.current.select()
     }
-  }, [isEditing]);
+  }, [isEditing])
 
   const handleSaveName = useCallback(() => {
     if (disabled) {
-      setIsEditing(false);
-      setEditName(group.name);
-      return;
+      setIsEditing(false)
+      setEditName(group.name)
+      return
     }
-    const trimmed = editName.trim();
+    const trimmed = editName.trim()
     if (trimmed && trimmed !== group.name) {
-      updateGroup(group.id, { name: trimmed });
+      updateGroup(group.id, { name: trimmed })
     }
-    setIsEditing(false);
-    setEditName(group.name);
-  }, [editName, group.name, group.id, updateGroup, disabled]);
+    setIsEditing(false)
+    setEditName(group.name)
+  }, [editName, group.name, group.id, updateGroup, disabled])
 
   const handleRemoveMember = useCallback(
     (memberId: string) => {
-      if (!isEditable || disabled) return;
+      if (!isEditable || disabled) return
       updateGroup(group.id, {
         memberIds: group.memberIds.filter((id) => id !== memberId),
-      });
+      })
     },
     [disabled, group.id, group.memberIds, isEditable, updateGroup],
-  );
+  )
 
   return (
     <div className="py-1.5 space-y-1">
@@ -111,10 +113,10 @@ export function GroupItem({
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleSaveName}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSaveName();
+              if (e.key === "Enter") handleSaveName()
               if (e.key === "Escape") {
-                setIsEditing(false);
-                setEditName(group.name);
+                setIsEditing(false)
+                setEditName(group.name)
               }
             }}
             className="h-6 text-sm px-1.5 py-0"
@@ -128,8 +130,8 @@ export function GroupItem({
             )}
             onClick={() => {
               if (isEditable && !disabled) {
-                setEditName(group.name);
-                setIsEditing(true);
+                setEditName(group.name)
+                setIsEditing(true)
               }
             }}
             disabled={!isEditable || disabled}
@@ -145,9 +147,7 @@ export function GroupItem({
           />
         )}
 
-        <span className="text-sm ml-auto mr-4 shrink-0">
-          {members.length}
-        </span>
+        <span className="text-sm ml-auto mr-4 shrink-0">{members.length}</span>
 
         {/* Actions menu for editable groups */}
         {isEditable && (
@@ -166,8 +166,8 @@ export function GroupItem({
               <DropdownMenuItem
                 disabled={disabled}
                 onClick={() => {
-                  setEditName(group.name);
-                  setIsEditing(true);
+                  setEditName(group.name)
+                  setIsEditing(true)
                 }}
               >
                 <Pencil className="size-3.5 mr-2" />
@@ -250,5 +250,5 @@ export function GroupItem({
         </div>
       )}
     </div>
-  );
+  )
 }

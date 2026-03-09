@@ -1,4 +1,4 @@
-import type { RosterMember } from "@repo-edu/domain";
+import type { RosterMember } from "@repo-edu/domain"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,21 +13,21 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@repo-edu/ui";
-import { EllipsisVertical, Trash2 } from "@repo-edu/ui/components/icons";
-import type { EditableGroupTarget } from "../../../stores/profile-store.js";
+} from "@repo-edu/ui"
+import { EllipsisVertical, Trash2 } from "@repo-edu/ui/components/icons"
+import type { EditableGroupTarget } from "../../../stores/profile-store.js"
 
 type MemberChipProps = {
-  member: RosterMember;
-  isStaff: boolean;
-  sourceGroupId: string;
-  sourceGroupEditable: boolean;
-  editableTargets: EditableGroupTarget[];
-  memberGroupIds: Set<string>;
-  onRemove?: () => void;
-  onMove?: (targetGroupId: string) => void;
-  onCopy?: (targetGroupId: string) => void;
-};
+  member: RosterMember
+  isStaff: boolean
+  sourceGroupId: string
+  sourceGroupEditable: boolean
+  editableTargets: EditableGroupTarget[]
+  memberGroupIds: Set<string>
+  onRemove?: () => void
+  onMove?: (targetGroupId: string) => void
+  onCopy?: (targetGroupId: string) => void
+}
 
 function buildTargets(
   editableTargets: EditableGroupTarget[],
@@ -41,7 +41,7 @@ function buildTargets(
         (g) => g.id !== sourceGroupId && !memberGroupIds.has(g.id),
       ),
     }))
-    .filter((gs) => gs.groups.length > 0);
+    .filter((gs) => gs.groups.length > 0)
 }
 
 export function MemberChip({
@@ -55,11 +55,11 @@ export function MemberChip({
   onMove,
   onCopy,
 }: MemberChipProps) {
-  const targets = buildTargets(editableTargets, sourceGroupId, memberGroupIds);
-  const hasMove = sourceGroupEditable && targets.length > 0;
-  const hasCopy = targets.length > 0;
-  const hasRemove = !!onRemove;
-  const hasActions = hasCopy || hasMove || hasRemove;
+  const targets = buildTargets(editableTargets, sourceGroupId, memberGroupIds)
+  const hasMove = sourceGroupEditable && targets.length > 0
+  const hasCopy = targets.length > 0
+  const hasRemove = !!onRemove
+  const hasActions = hasCopy || hasMove || hasRemove
 
   const chip = (
     <span className="inline-flex items-center rounded-full pl-2 pr-1 py-0.5 text-xs bg-muted text-muted-foreground">
@@ -144,9 +144,9 @@ export function MemberChip({
         </DropdownMenu>
       )}
     </span>
-  );
+  )
 
-  if (!isStaff) return chip;
+  if (!isStaff) return chip
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -157,5 +157,5 @@ export function MemberChip({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  );
+  )
 }

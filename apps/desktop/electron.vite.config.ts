@@ -1,32 +1,29 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import tailwindcss from "@tailwindcss/vite"
+import { defineConfig } from "electron-vite"
 
-import { defineConfig } from "electron-vite";
-import tailwindcss from "@tailwindcss/vite";
-
-type TsConfigPaths = Record<string, string[]>;
+type TsConfigPaths = Record<string, string[]>
 
 function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function buildWorkspaceAliases() {
-  const repoRoot = resolve(__dirname, "../..");
-  const tsconfigPath = resolve(repoRoot, "tsconfig.base.json");
+  const repoRoot = resolve(__dirname, "../..")
+  const tsconfigPath = resolve(repoRoot, "tsconfig.base.json")
   const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8")) as {
-    compilerOptions?: { paths?: TsConfigPaths };
-  };
-  const paths = tsconfig.compilerOptions?.paths ?? {};
+    compilerOptions?: { paths?: TsConfigPaths }
+  }
+  const paths = tsconfig.compilerOptions?.paths ?? {}
 
   return Object.entries(paths).flatMap(([find, targets]) => {
-    const target = targets[0];
+    const target = targets[0]
     if (!target) {
-      return [];
+      return []
     }
 
-    const normalizedTarget = target.startsWith("./")
-      ? target.slice(2)
-      : target;
+    const normalizedTarget = target.startsWith("./") ? target.slice(2) : target
 
     if (find.includes("*")) {
       return [
@@ -34,7 +31,7 @@ function buildWorkspaceAliases() {
           find: new RegExp(`^${escapeRegex(find).replace("\\*", "(.+)")}$`),
           replacement: resolve(repoRoot, normalizedTarget.replace("*", "$1")),
         },
-      ];
+      ]
     }
 
     return [
@@ -42,11 +39,11 @@ function buildWorkspaceAliases() {
         find: new RegExp(`^${escapeRegex(find)}$`),
         replacement: resolve(repoRoot, normalizedTarget),
       },
-    ];
-  });
+    ]
+  })
 }
 
-const workspaceAliases = buildWorkspaceAliases();
+const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
   main: {
@@ -88,4 +85,4 @@ export default defineConfig({
       },
     },
   },
-});
+})

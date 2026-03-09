@@ -3,6 +3,7 @@
 > Pre-alpha: active development, breaking changes expected.
 
 `repo-edu` is a TypeScript monorepo for educational repository management. It combines:
+
 - an Electron desktop app
 - a TypeScript CLI (`redu`)
 - a browser-safe docs/demo runtime
@@ -19,6 +20,7 @@ The project streamlines workflows around LMS rosters/group sets and Git reposito
 ## Migration Context
 
 This repository is the greenfield TypeScript rewrite of `repo-edu-tauri`:
+
 - no Rust
 - no Tauri runtime
 - no generated backend bindings

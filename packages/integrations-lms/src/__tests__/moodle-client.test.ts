@@ -1,24 +1,24 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
 import type {
   HttpPort,
   HttpRequest,
   HttpResponse,
-} from "@repo-edu/host-runtime-contract";
-import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract";
-import { createMoodleClient } from "../moodle/index.js";
+} from "@repo-edu/host-runtime-contract"
+import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
+import { createMoodleClient } from "../moodle/index.js"
 
 const baseDraft: LmsConnectionDraft = {
   provider: "moodle",
   baseUrl: "https://moodle.example.com",
   token: "moodle-token",
-};
+}
 
 type MockRoute = {
-  urlPattern: string | RegExp;
-  status: number;
-  body: unknown;
-};
+  urlPattern: string | RegExp
+  status: number
+  body: unknown
+}
 
 function createMockHttpPort(routes: MockRoute[]): HttpPort {
   return {
@@ -27,7 +27,7 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
         const urlMatch =
           typeof route.urlPattern === "string"
             ? request.url.includes(route.urlPattern)
-            : route.urlPattern.test(request.url);
+            : route.urlPattern.test(request.url)
 
         if (urlMatch) {
           return {
@@ -35,7 +35,7 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
             statusText: route.status < 300 ? "OK" : "Error",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(route.body),
-          };
+          }
         }
       }
 
@@ -44,33 +44,33 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
         statusText: "Not Found",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ exception: "not_found" }),
-      };
+      }
     },
-  };
+  }
 }
 
 describe("createMoodleClient", () => {
   it("verifies connection through core_webservice_get_site_info", async () => {
-    let capturedUrl = "";
+    let capturedUrl = ""
     const http: HttpPort = {
       async fetch(request: HttpRequest): Promise<HttpResponse> {
-        capturedUrl = request.url;
+        capturedUrl = request.url
         return {
           status: 200,
           statusText: "OK",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sitename: "Example Moodle" }),
-        };
+        }
       },
-    };
+    }
 
-    const client = createMoodleClient(http);
-    const result = await client.verifyConnection(baseDraft);
+    const client = createMoodleClient(http)
+    const result = await client.verifyConnection(baseDraft)
 
-    assert.deepStrictEqual(result, { verified: true });
-    assert.ok(capturedUrl.includes("wsfunction=core_webservice_get_site_info"));
-    assert.ok(capturedUrl.includes("wstoken=moodle-token"));
-  });
+    assert.deepStrictEqual(result, { verified: true })
+    assert.ok(capturedUrl.includes("wsfunction=core_webservice_get_site_info"))
+    assert.ok(capturedUrl.includes("wstoken=moodle-token"))
+  })
 
   it("lists courses", async () => {
     const http = createMockHttpPort([
@@ -82,16 +82,16 @@ describe("createMoodleClient", () => {
           { id: 8, fullname: "Distributed Systems", shortname: null },
         ],
       },
-    ]);
+    ])
 
-    const client = createMoodleClient(http);
-    const result = await client.listCourses(baseDraft);
+    const client = createMoodleClient(http)
+    const result = await client.listCourses(baseDraft)
 
     assert.deepStrictEqual(result, [
       { id: "7", name: "Software Testing", code: "TEST101" },
       { id: "8", name: "Distributed Systems", code: null },
-    ]);
-  });
+    ])
+  })
 
   it("fetches and normalizes a roster", async () => {
     const http = createMockHttpPort([
@@ -107,10 +107,10 @@ describe("createMoodleClient", () => {
           },
         ],
       },
-    ]);
+    ])
 
-    const client = createMoodleClient(http);
-    const result = await client.fetchRoster(baseDraft, "course-1");
+    const client = createMoodleClient(http)
+    const result = await client.fetchRoster(baseDraft, "course-1")
 
     assert.deepStrictEqual(result, {
       connection: {
@@ -143,11 +143,11 @@ describe("createMoodleClient", () => {
       groups: [],
       groupSets: [],
       assignments: [],
-    });
-    assert.equal(result.connection?.kind, "moodle");
-    assert.equal(result.connection?.courseId, "course-1");
-    assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/);
-  });
+    })
+    assert.equal(result.connection?.kind, "moodle")
+    assert.equal(result.connection?.courseId, "course-1")
+    assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
+  })
 
   it("lists group sets", async () => {
     const http = createMockHttpPort([
@@ -156,15 +156,15 @@ describe("createMoodleClient", () => {
         status: 200,
         body: [{ id: 30, name: "Lab Sections", groupcount: 2 }],
       },
-    ]);
+    ])
 
-    const client = createMoodleClient(http);
-    const result = await client.listGroupSets(baseDraft, "course-1");
+    const client = createMoodleClient(http)
+    const result = await client.listGroupSets(baseDraft, "course-1")
 
     assert.deepStrictEqual(result, [
       { id: "30", name: "Lab Sections", groupCount: 2 },
-    ]);
-  });
+    ])
+  })
 
   it("fetches a full group set", async () => {
     const http = createMockHttpPort([
@@ -197,10 +197,10 @@ describe("createMoodleClient", () => {
           },
         ],
       },
-    ]);
+    ])
 
-    const client = createMoodleClient(http);
-    const result = await client.fetchGroupSet(baseDraft, "course-1", "30");
+    const client = createMoodleClient(http)
+    const result = await client.fetchGroupSet(baseDraft, "course-1", "30")
 
     assert.deepStrictEqual(result.groups, [
       {
@@ -217,7 +217,7 @@ describe("createMoodleClient", () => {
         origin: "lms",
         lmsGroupId: "102",
       },
-    ]);
+    ])
     assert.deepStrictEqual(result.groupSet, {
       id: "30",
       name: "Lab Sections",
@@ -235,13 +235,13 @@ describe("createMoodleClient", () => {
         kind: "all",
         excludedGroupIds: [],
       },
-    });
-    assert.equal(result.groupSet.connection?.kind, "moodle");
-    assert.equal(result.groupSet.connection?.courseId, "course-1");
-    assert.equal(result.groupSet.connection?.groupingId, "30");
+    })
+    assert.equal(result.groupSet.connection?.kind, "moodle")
+    assert.equal(result.groupSet.connection?.courseId, "course-1")
+    assert.equal(result.groupSet.connection?.groupingId, "30")
     assert.match(
       result.groupSet.connection?.lastUpdated ?? "",
       /^\d{4}-\d{2}-\d{2}T/,
-    );
-  });
-});
+    )
+  })
+})

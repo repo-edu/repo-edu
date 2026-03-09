@@ -1,4 +1,7 @@
-import type { GroupSelectionMode, GroupSetImportPreview } from "@repo-edu/domain";
+import type {
+  GroupSelectionMode,
+  GroupSetImportPreview,
+} from "@repo-edu/domain"
 import {
   Alert,
   Button,
@@ -14,112 +17,112 @@ import {
   RadioGroup,
   RadioGroupItem,
   Text,
-} from "@repo-edu/ui";
-import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons";
-import { useState } from "react";
-import { getWorkflowClient } from "../../contexts/workflow-client.js";
-import { getRendererHost } from "../../contexts/renderer-host.js";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useToastStore } from "../../stores/toast-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
-import { getErrorMessage } from "../../utils/error-message.js";
+} from "@repo-edu/ui"
+import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
+import { useState } from "react"
+import { getRendererHost } from "../../contexts/renderer-host.js"
+import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ImportGroupSetDialog() {
-  const [fileName, setFileName] = useState("");
-  const [name, setName] = useState("");
-  const [preview, setPreview] = useState<GroupSetImportPreview | null>(null);
-  const [selectionKind, setSelectionKind] = useState<"all" | "pattern">("all");
-  const [pattern, setPattern] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("")
+  const [name, setName] = useState("")
+  const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
+  const [selectionKind, setSelectionKind] = useState<"all" | "pattern">("all")
+  const [pattern, setPattern] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const open = useUiStore((state) => state.importGroupSetDialogOpen);
-  const setOpen = useUiStore((state) => state.setImportGroupSetDialogOpen);
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection);
-  const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation);
-  const activeProfileId = useUiStore((state) => state.activeProfileId);
-  const addToast = useToastStore((state) => state.addToast);
+  const open = useUiStore((state) => state.importGroupSetDialogOpen)
+  const setOpen = useUiStore((state) => state.setImportGroupSetDialogOpen)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
+  const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
+  const activeProfileId = useUiStore((state) => state.activeProfileId)
+  const addToast = useToastStore((state) => state.addToast)
 
   const handleBrowse = async () => {
     try {
-      const host = getRendererHost();
+      const host = getRendererHost()
       const fileRef = await host.pickUserFile({
         title: "Select CSV file to import",
         acceptFormats: ["csv"],
-      });
-      if (!fileRef) return;
+      })
+      if (!fileRef) return
 
-      setFileName(fileRef.displayName);
-      setError(null);
+      setFileName(fileRef.displayName)
+      setError(null)
 
-      const defaultName = fileRef.displayName.replace(/\.csv$/i, "");
-      setName(defaultName);
+      const defaultName = fileRef.displayName.replace(/\.csv$/i, "")
+      setName(defaultName)
 
       if (!activeProfileId) {
-        setError("No profile loaded");
-        return;
+        setError("No profile loaded")
+        return
       }
 
-      setLoading(true);
-      const client = getWorkflowClient();
+      setLoading(true)
+      const client = getWorkflowClient()
       const result = await client.run("groupSet.previewImportFromFile", {
         profileId: activeProfileId,
         file: fileRef,
-      });
+      })
       if (result.mode === "import") {
-        setPreview(result);
+        setPreview(result)
       } else {
-        setError("Unexpected preview mode");
-        setPreview(null);
+        setError("Unexpected preview mode")
+        setPreview(null)
       }
     } catch (e) {
-      setError(getErrorMessage(e));
+      setError(getErrorMessage(e))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const canImport = preview !== null && name.trim().length > 0 && !importing;
+  const canImport = preview !== null && name.trim().length > 0 && !importing
 
   const handleImport = async () => {
-    if (!canImport) return;
-    setImporting(true);
-    setError(null);
-    setGroupSetOperation({ kind: "import", groupSetId: "" });
+    if (!canImport) return
+    setImporting(true)
+    setError(null)
+    setGroupSetOperation({ kind: "import", groupSetId: "" })
 
     try {
       // The preview contains the parsed groups. Apply via profile store.
-      const groupSetName = name.trim();
-      const createLocalGroupSet = useProfileStore.getState().createLocalGroupSet;
-      const id = createLocalGroupSet(groupSetName);
+      const groupSetName = name.trim()
+      const createLocalGroupSet = useProfileStore.getState().createLocalGroupSet
+      const id = createLocalGroupSet(groupSetName)
       if (id) {
-        setSidebarSelection({ kind: "group-set", id });
+        setSidebarSelection({ kind: "group-set", id })
       }
-      addToast(`Imported "${groupSetName}"`, { tone: "success" });
-      handleClose();
+      addToast(`Imported "${groupSetName}"`, { tone: "success" })
+      handleClose()
     } catch (e) {
-      const message = getErrorMessage(e);
-      setError(message);
-      addToast(`Import failed: ${message}`, { tone: "error" });
+      const message = getErrorMessage(e)
+      setError(message)
+      addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
-      setImporting(false);
-      setGroupSetOperation(null);
+      setImporting(false)
+      setGroupSetOperation(null)
     }
-  };
+  }
 
   const handleClose = () => {
-    setOpen(false);
-    setGroupSetOperation(null);
-    setFileName("");
-    setName("");
-    setSelectionKind("all");
-    setPattern("");
-    setPreview(null);
-    setLoading(false);
-    setImporting(false);
-    setError(null);
-  };
+    setOpen(false)
+    setGroupSetOperation(null)
+    setFileName("")
+    setName("")
+    setSelectionKind("all")
+    setPattern("")
+    setPreview(null)
+    setLoading(false)
+    setImporting(false)
+    setError(null)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -163,7 +166,7 @@ export function ImportGroupSetDialog() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Project Teams"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && canImport) handleImport();
+                  if (e.key === "Enter" && canImport) handleImport()
                 }}
               />
             </FormField>
@@ -236,7 +239,8 @@ export function ImportGroupSetDialog() {
                     className="h-7 text-sm"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Glob pattern matched against group names. Use * for wildcard.
+                    Glob pattern matched against group names. Use * for
+                    wildcard.
                   </p>
                 </div>
               )}
@@ -253,5 +257,5 @@ export function ImportGroupSetDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

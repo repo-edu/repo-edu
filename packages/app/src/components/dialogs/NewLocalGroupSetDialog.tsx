@@ -1,4 +1,4 @@
-import { filterByPattern } from "@repo-edu/domain";
+import { filterByPattern } from "@repo-edu/domain"
 import {
   Button,
   Checkbox,
@@ -17,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
   Text,
-} from "@repo-edu/ui";
-import { cn } from "@repo-edu/ui/lib/utils";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+} from "@repo-edu/ui"
+import { cn } from "@repo-edu/ui/lib/utils"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   selectConnectedGroupSets,
   selectGroupsForGroupSet,
@@ -27,214 +27,214 @@ import {
   selectRoster,
   selectSystemGroupSet,
   useProfileStore,
-} from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 
 export function NewLocalGroupSetDialog() {
-  const [name, setName] = useState("");
-  const [sourceGroupSetId, setSourceGroupSetId] = useState<string | null>(null);
-  const [pattern, setPattern] = useState("");
-  const [patternError, setPatternError] = useState<string | null>(null);
-  const [matchedIndexes, setMatchedIndexes] = useState<number[] | null>(null);
-  const [checkedGroupIds, setCheckedGroupIds] = useState<Set<string>>(new Set());
-  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("")
+  const [sourceGroupSetId, setSourceGroupSetId] = useState<string | null>(null)
+  const [pattern, setPattern] = useState("")
+  const [patternError, setPatternError] = useState<string | null>(null)
+  const [matchedIndexes, setMatchedIndexes] = useState<number[] | null>(null)
+  const [checkedGroupIds, setCheckedGroupIds] = useState<Set<string>>(new Set())
+  const [creating, setCreating] = useState(false)
 
-  const open = useUiStore((state) => state.newLocalGroupSetDialogOpen);
-  const setOpen = useUiStore((state) => state.setNewLocalGroupSetDialogOpen);
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection);
+  const open = useUiStore((state) => state.newLocalGroupSetDialogOpen)
+  const setOpen = useUiStore((state) => state.setNewLocalGroupSetDialogOpen)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const createLocalGroupSet = useProfileStore(
     (state) => state.createLocalGroupSet,
-  );
-  const connectedSets = useProfileStore(selectConnectedGroupSets);
-  const localSets = useProfileStore(selectLocalGroupSets);
+  )
+  const connectedSets = useProfileStore(selectConnectedGroupSets)
+  const localSets = useProfileStore(selectLocalGroupSets)
   const individualStudentsSet = useProfileStore(
     selectSystemGroupSet("individual_students"),
-  );
-  const staffSet = useProfileStore(selectSystemGroupSet("staff"));
+  )
+  const staffSet = useProfileStore(selectSystemGroupSet("staff"))
   const sourceGroups = useProfileStore(
     selectGroupsForGroupSet(sourceGroupSetId ?? ""),
-  );
-  const roster = useProfileStore(selectRoster);
+  )
+  const roster = useProfileStore(selectRoster)
 
   const memberNameById = useMemo(() => {
-    if (!roster) return new Map<string, string>();
-    const map = new Map<string, string>();
+    if (!roster) return new Map<string, string>()
+    const map = new Map<string, string>()
     for (const m of roster.students) {
-      if (m.status === "active") map.set(m.id, m.name);
+      if (m.status === "active") map.set(m.id, m.name)
     }
     for (const m of roster.staff) {
-      if (m.status === "active") map.set(m.id, m.name);
+      if (m.status === "active") map.set(m.id, m.name)
     }
-    return map;
-  }, [roster]);
+    return map
+  }, [roster])
 
   const sortedConnected = useMemo(
     () => [...connectedSets].sort((a, b) => a.name.localeCompare(b.name)),
     [connectedSets],
-  );
+  )
   const sortedLocal = useMemo(
     () => [...localSets].sort((a, b) => a.name.localeCompare(b.name)),
     [localSets],
-  );
+  )
   const systemSets = useMemo(() => {
-    const sets: typeof connectedSets = [];
-    if (individualStudentsSet) sets.push(individualStudentsSet);
-    if (staffSet) sets.push(staffSet);
-    return sets;
-  }, [individualStudentsSet, staffSet]);
+    const sets: typeof connectedSets = []
+    if (individualStudentsSet) sets.push(individualStudentsSet)
+    if (staffSet) sets.push(staffSet)
+    return sets
+  }, [individualStudentsSet, staffSet])
 
   const visibleIndexes = useMemo(() => {
     if (!pattern || matchedIndexes === null) {
-      return sourceGroups.map((_, i) => i);
+      return sourceGroups.map((_, i) => i)
     }
-    return matchedIndexes;
-  }, [pattern, matchedIndexes, sourceGroups]);
+    return matchedIndexes
+  }, [pattern, matchedIndexes, sourceGroups])
 
   const visibleGroups = useMemo(
     () => visibleIndexes.map((i) => sourceGroups[i]),
     [visibleIndexes, sourceGroups],
-  );
+  )
 
   const checkedCount = useMemo(
     () => visibleGroups.filter((g) => checkedGroupIds.has(g.id)).length,
     [visibleGroups, checkedGroupIds],
-  );
+  )
 
-  const trimmedName = name.trim();
+  const trimmedName = name.trim()
   const canCreate =
     trimmedName.length > 0 &&
     sourceGroupSetId !== null &&
     !patternError &&
     checkedCount > 0 &&
-    !creating;
+    !creating
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const validationIdRef = useRef(0);
-  const sourceGroupsRef = useRef(sourceGroups);
-  sourceGroupsRef.current = sourceGroups;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const validationIdRef = useRef(0)
+  const sourceGroupsRef = useRef(sourceGroups)
+  sourceGroupsRef.current = sourceGroups
 
   const validatePattern = useCallback((value: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      const requestId = ++validationIdRef.current;
-      const groups = sourceGroupsRef.current;
-      const groupNames = groups.map((g) => g.name);
-      const result = filterByPattern(value, groupNames);
-      if (validationIdRef.current !== requestId) return;
+      const requestId = ++validationIdRef.current
+      const groups = sourceGroupsRef.current
+      const groupNames = groups.map((g) => g.name)
+      const result = filterByPattern(value, groupNames)
+      if (validationIdRef.current !== requestId) return
       if (result.valid) {
-        setPatternError(null);
-        setMatchedIndexes(result.matchedIndexes);
+        setPatternError(null)
+        setMatchedIndexes(result.matchedIndexes)
         setCheckedGroupIds(
           new Set(result.matchedIndexes.map((index) => groups[index].id)),
-        );
+        )
       } else {
-        setPatternError(result.error ?? "Invalid pattern");
-        setMatchedIndexes(null);
+        setPatternError(result.error ?? "Invalid pattern")
+        setMatchedIndexes(null)
       }
-    }, 400);
-  }, []);
+    }, 400)
+  }, [])
 
   useEffect(() => {
     if (pattern) {
-      validatePattern(pattern);
+      validatePattern(pattern)
     }
-  }, [pattern, validatePattern]);
+  }, [pattern, validatePattern])
 
   useEffect(() => {
-    if (!sourceGroupSetId) return;
-    const groups = sourceGroupsRef.current;
-    setPattern("");
-    setPatternError(null);
-    setMatchedIndexes(null);
-    setCheckedGroupIds(new Set(groups.map((g) => g.id)));
-  }, [sourceGroupSetId]);
+    if (!sourceGroupSetId) return
+    const groups = sourceGroupsRef.current
+    setPattern("")
+    setPatternError(null)
+    setMatchedIndexes(null)
+    setCheckedGroupIds(new Set(groups.map((g) => g.id)))
+  }, [sourceGroupSetId])
 
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   const handlePatternChange = (value: string) => {
-    setPattern(value);
+    setPattern(value)
     if (!value) {
-      setPatternError(null);
-      setMatchedIndexes(null);
-      setCheckedGroupIds(new Set(sourceGroups.map((g) => g.id)));
-      return;
+      setPatternError(null)
+      setMatchedIndexes(null)
+      setCheckedGroupIds(new Set(sourceGroups.map((g) => g.id)))
+      return
     }
-    validatePattern(value);
-  };
+    validatePattern(value)
+  }
 
   const handleToggleGroup = (groupId: string) => {
     setCheckedGroupIds((prev) => {
-      const next = new Set(prev);
+      const next = new Set(prev)
       if (next.has(groupId)) {
-        next.delete(groupId);
+        next.delete(groupId)
       } else {
-        next.add(groupId);
+        next.add(groupId)
       }
-      return next;
-    });
-  };
+      return next
+    })
+  }
 
   const handleSelectAll = () => {
     setCheckedGroupIds((prev) => {
-      const next = new Set(prev);
-      for (const g of visibleGroups) next.add(g.id);
-      return next;
-    });
-  };
+      const next = new Set(prev)
+      for (const g of visibleGroups) next.add(g.id)
+      return next
+    })
+  }
 
   const handleDeselectAll = () => {
     setCheckedGroupIds((prev) => {
-      const next = new Set(prev);
-      for (const g of visibleGroups) next.delete(g.id);
-      return next;
-    });
-  };
+      const next = new Set(prev)
+      for (const g of visibleGroups) next.delete(g.id)
+      return next
+    })
+  }
 
   const handleCreate = async () => {
-    if (!canCreate || !sourceGroupSetId) return;
+    if (!canCreate || !sourceGroupSetId) return
 
-    setCreating(true);
+    setCreating(true)
     try {
       const groupIds = visibleGroups
         .filter((g) => checkedGroupIds.has(g.id))
-        .map((g) => g.id);
+        .map((g) => g.id)
 
-      const id = createLocalGroupSet(trimmedName, groupIds);
+      const id = createLocalGroupSet(trimmedName, groupIds)
       if (id) {
-        setSidebarSelection({ kind: "group-set", id });
+        setSidebarSelection({ kind: "group-set", id })
       }
-      setOpen(false);
+      setOpen(false)
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
-  };
+  }
 
   const resetDialogState = useCallback(() => {
-    setName("");
-    setSourceGroupSetId(null);
-    setPattern("");
-    setPatternError(null);
-    setMatchedIndexes(null);
-    setCheckedGroupIds(new Set());
-    setCreating(false);
-  }, []);
+    setName("")
+    setSourceGroupSetId(null)
+    setPattern("")
+    setPatternError(null)
+    setMatchedIndexes(null)
+    setCheckedGroupIds(new Set())
+    setCreating(false)
+  }, [])
 
   const handleClose = () => {
-    setOpen(false);
-  };
+    setOpen(false)
+  }
 
   useEffect(() => {
     if (!open) {
-      resetDialogState();
+      resetDialogState()
     }
-  }, [open, resetDialogState]);
+  }, [open, resetDialogState])
 
   const renderGroupPreview = () => {
-    if (!sourceGroupSetId || sourceGroups.length === 0) return null;
+    if (!sourceGroupSetId || sourceGroups.length === 0) return null
 
     return (
       <div className="flex flex-col gap-1 min-h-0 flex-1">
@@ -265,7 +265,7 @@ export function NewLocalGroupSetDialog() {
               const memberNames = group.memberIds
                 .map((id) => memberNameById.get(id))
                 .filter(Boolean)
-                .join(", ");
+                .join(", ")
               return (
                 <div
                   key={group.id}
@@ -275,8 +275,8 @@ export function NewLocalGroupSetDialog() {
                   onClick={() => handleToggleGroup(group.id)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleToggleGroup(group.id);
+                      e.preventDefault()
+                      handleToggleGroup(group.id)
                     }
                   }}
                   tabIndex={0}
@@ -298,13 +298,13 @@ export function NewLocalGroupSetDialog() {
                     )}
                   </span>
                 </div>
-              );
+              )
             })}
           </div>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -321,7 +321,7 @@ export function NewLocalGroupSetDialog() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && canCreate) handleCreate();
+                  if (e.key === "Enter" && canCreate) handleCreate()
                 }}
                 autoFocus
               />
@@ -402,5 +402,5 @@ export function NewLocalGroupSetDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

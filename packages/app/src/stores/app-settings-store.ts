@@ -1,4 +1,3 @@
-import { create } from "zustand";
 import type {
   DateFormatPreference,
   PersistedAppSettings,
@@ -6,55 +5,53 @@ import type {
   PersistedLmsConnection,
   ThemePreference,
   TimeFormatPreference,
-} from "@repo-edu/domain";
-import { defaultAppSettings, persistedAppSettingsKind } from "@repo-edu/domain";
-import { getWorkflowClient } from "../contexts/workflow-client.js";
-import { useConnectionsStore } from "./connections-store.js";
-import type { StoreStatus } from "../types/index.js";
-import { getErrorMessage } from "../utils/error-message.js";
+} from "@repo-edu/domain"
+import { defaultAppSettings, persistedAppSettingsKind } from "@repo-edu/domain"
+import { create } from "zustand"
+import { getWorkflowClient } from "../contexts/workflow-client.js"
+import type { StoreStatus } from "../types/index.js"
+import { getErrorMessage } from "../utils/error-message.js"
+import { useConnectionsStore } from "./connections-store.js"
 
 type AppSettingsState = {
-  settings: PersistedAppSettings;
-  rosterColumnVisibility: Record<string, boolean>;
-  rosterColumnSizing: Record<string, number>;
-  status: StoreStatus;
-  error: string | null;
-};
+  settings: PersistedAppSettings
+  rosterColumnVisibility: Record<string, boolean>
+  rosterColumnSizing: Record<string, number>
+  status: StoreStatus
+  error: string | null
+}
 
 type AppSettingsActions = {
-  load: () => Promise<void>;
-  save: () => Promise<void>;
+  load: () => Promise<void>
+  save: () => Promise<void>
 
-  setActiveProfileId: (profileId: string | null) => void;
+  setActiveProfileId: (profileId: string | null) => void
 
-  setTheme: (theme: ThemePreference) => void;
-  setDateFormat: (dateFormat: DateFormatPreference) => void;
-  setTimeFormat: (timeFormat: TimeFormatPreference) => void;
+  setTheme: (theme: ThemePreference) => void
+  setDateFormat: (dateFormat: DateFormatPreference) => void
+  setTimeFormat: (timeFormat: TimeFormatPreference) => void
 
-  setLmsConnection: (
-    index: number,
-    connection: PersistedLmsConnection,
-  ) => void;
-  addLmsConnection: (connection: PersistedLmsConnection) => void;
-  removeLmsConnection: (index: number) => void;
+  setLmsConnection: (index: number, connection: PersistedLmsConnection) => void
+  addLmsConnection: (connection: PersistedLmsConnection) => void
+  removeLmsConnection: (index: number) => void
 
-  addGitConnection: (connection: PersistedGitConnection) => void;
+  addGitConnection: (connection: PersistedGitConnection) => void
   updateGitConnection: (
     name: string,
     connection: PersistedGitConnection,
-  ) => void;
+  ) => void
   renameGitConnection: (
     oldName: string,
     newName: string,
     connection: PersistedGitConnection,
-  ) => void;
-  removeGitConnection: (name: string) => void;
+  ) => void
+  removeGitConnection: (name: string) => void
 
-  setRosterColumnVisibility: (visibility: Record<string, boolean>) => void;
-  setRosterColumnSizing: (sizing: Record<string, number>) => void;
+  setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
+  setRosterColumnSizing: (sizing: Record<string, number>) => void
 
-  reset: () => void;
-};
+  reset: () => void
+}
 
 const initialState: AppSettingsState = {
   settings: defaultAppSettings,
@@ -62,7 +59,7 @@ const initialState: AppSettingsState = {
   rosterColumnSizing: {},
   status: "loading",
   error: null,
-};
+}
 
 export const useAppSettingsStore = create<
   AppSettingsState & AppSettingsActions
@@ -71,29 +68,29 @@ export const useAppSettingsStore = create<
 
   load: async () => {
     try {
-      set({ status: "loading", error: null });
-      const client = getWorkflowClient();
-      const loaded = await client.run("settings.loadApp", undefined);
-      set({ settings: loaded, status: "loaded" });
+      set({ status: "loading", error: null })
+      const client = getWorkflowClient()
+      const loaded = await client.run("settings.loadApp", undefined)
+      set({ settings: loaded, status: "loaded" })
     } catch (err) {
       set({
         status: "error",
         error: getErrorMessage(err),
-      });
+      })
     }
   },
 
   save: async () => {
     try {
-      set({ status: "saving", error: null });
-      const client = getWorkflowClient();
-      const saved = await client.run("settings.saveApp", get().settings);
-      set({ settings: saved, status: "loaded" });
+      set({ status: "saving", error: null })
+      const client = getWorkflowClient()
+      const saved = await client.run("settings.saveApp", get().settings)
+      set({ settings: saved, status: "loaded" })
     } catch (err) {
       set({
         status: "error",
         error: getErrorMessage(err),
-      });
+      })
     }
   },
 
@@ -131,20 +128,17 @@ export const useAppSettingsStore = create<
 
   setLmsConnection: (index, connection) =>
     set((state) => {
-      const connections = [...state.settings.lmsConnections];
-      const previousName = connections[index]?.name ?? null;
-      connections[index] = connection;
-      if (
-        previousName !== null &&
-        previousName !== connection.name
-      ) {
+      const connections = [...state.settings.lmsConnections]
+      const previousName = connections[index]?.name ?? null
+      connections[index] = connection
+      if (previousName !== null && previousName !== connection.name) {
         useConnectionsStore
           .getState()
-          .renameLmsConnectionStatus(previousName, connection.name);
+          .renameLmsConnectionStatus(previousName, connection.name)
       }
       return {
         settings: { ...state.settings, lmsConnections: connections },
-      };
+      }
     }),
 
   addLmsConnection: (connection) =>
@@ -157,9 +151,9 @@ export const useAppSettingsStore = create<
 
   removeLmsConnection: (index) =>
     set((state) => {
-      const removedName = state.settings.lmsConnections[index]?.name ?? null;
+      const removedName = state.settings.lmsConnections[index]?.name ?? null
       if (removedName !== null) {
-        useConnectionsStore.getState().removeLmsConnectionStatus(removedName);
+        useConnectionsStore.getState().removeLmsConnectionStatus(removedName)
       }
       return {
         settings: {
@@ -168,7 +162,7 @@ export const useAppSettingsStore = create<
             (_, i) => i !== index,
           ),
         },
-      };
+      }
     }),
 
   addGitConnection: (connection) =>
@@ -197,8 +191,8 @@ export const useAppSettingsStore = create<
           gc.name === oldName ? { ...connection, name: newName } : gc,
         ),
       },
-    }));
-    useConnectionsStore.getState().renameGitStatus(oldName, newName);
+    }))
+    useConnectionsStore.getState().renameGitStatus(oldName, newName)
   },
 
   removeGitConnection: (name) => {
@@ -209,8 +203,8 @@ export const useAppSettingsStore = create<
           (gc) => gc.name !== name,
         ),
       },
-    }));
-    useConnectionsStore.getState().removeGitStatus(name);
+    }))
+    useConnectionsStore.getState().removeGitStatus(name)
   },
 
   setRosterColumnVisibility: (visibility) =>
@@ -219,23 +213,22 @@ export const useAppSettingsStore = create<
   setRosterColumnSizing: (sizing) => set({ rosterColumnSizing: sizing }),
 
   reset: () => set(initialState),
-}));
+}))
 
 export const selectTheme = (state: AppSettingsState) =>
-  state.settings.appearance.theme;
+  state.settings.appearance.theme
 export const selectAppSettingsActiveProfileId = (state: AppSettingsState) =>
-  state.settings.activeProfileId;
+  state.settings.activeProfileId
 export const selectLmsConnections = (state: AppSettingsState) =>
-  state.settings.lmsConnections;
+  state.settings.lmsConnections
 export const selectGitConnections = (state: AppSettingsState) =>
-  state.settings.gitConnections;
+  state.settings.gitConnections
 export const selectGitConnection =
   (name: string) => (state: AppSettingsState) =>
-    state.settings.gitConnections.find((gc) => gc.name === name) ?? null;
+    state.settings.gitConnections.find((gc) => gc.name === name) ?? null
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>
-  state.rosterColumnVisibility;
+  state.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
-  state.rosterColumnSizing;
-export const selectAppSettingsStatus = (state: AppSettingsState) =>
-  state.status;
-export const selectAppSettingsError = (state: AppSettingsState) => state.error;
+  state.rosterColumnSizing
+export const selectAppSettingsStatus = (state: AppSettingsState) => state.status
+export const selectAppSettingsError = (state: AppSettingsState) => state.error

@@ -1,29 +1,29 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import assert from "node:assert/strict"
+import { beforeEach, describe, it } from "node:test"
 import {
   createWorkflowClient,
   type WorkflowClient,
-} from "@repo-edu/application-contract";
+} from "@repo-edu/application-contract"
 import {
-  persistedProfileKind,
   type PersistedProfile,
+  persistedProfileKind,
   type RosterMember,
-} from "@repo-edu/domain";
+} from "@repo-edu/domain"
 import {
   clearWorkflowClient,
   setWorkflowClient,
-} from "../contexts/workflow-client.js";
-import { useProfileStore } from "../stores/profile-store.js";
-import { useToastStore } from "../stores/toast-store.js";
+} from "../contexts/workflow-client.js"
+import { useProfileStore } from "../stores/profile-store.js"
+import { useToastStore } from "../stores/toast-store.js"
 
 function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
   const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
 function makeProfile(profileId = "profile-1"): PersistedProfile {
@@ -66,7 +66,7 @@ function makeProfile(profileId = "profile-1"): PersistedProfile {
       visibility: "private",
     },
     updatedAt: "2026-03-05T00:00:00.000Z",
-  };
+  }
 }
 
 function makeStudent(id: string, name: string): RosterMember {
@@ -85,102 +85,105 @@ function makeStudent(id: string, name: string): RosterMember {
     department: null,
     institution: null,
     source: "test",
-  };
+  }
 }
 
 beforeEach(() => {
-  clearWorkflowClient();
-  useProfileStore.getState().clear();
-  useToastStore.getState().clearToasts();
-});
+  clearWorkflowClient()
+  useProfileStore.getState().clear()
+  useToastStore.getState().clearToasts()
+})
 
 describe("profile store", () => {
   it("tracks async load checkpoints and stores the loaded profile", async () => {
-    const gate = deferred<PersistedProfile>();
+    const gate = deferred<PersistedProfile>()
     const client = createWorkflowClient({
       "profile.load": async ({ profileId }) => {
-        const profile = await gate.promise;
-        return { ...profile, id: profileId };
+        const profile = await gate.promise
+        return { ...profile, id: profileId }
       },
       "profile.save": async (profile) => profile,
-    });
-    setWorkflowClient(client as unknown as WorkflowClient);
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
 
-    const loadPromise = useProfileStore.getState().load("profile-a");
-    assert.equal(useProfileStore.getState().status, "loading");
+    const loadPromise = useProfileStore.getState().load("profile-a")
+    assert.equal(useProfileStore.getState().status, "loading")
 
-    gate.resolve(makeProfile());
-    await loadPromise;
+    gate.resolve(makeProfile())
+    await loadPromise
 
-    const state = useProfileStore.getState();
-    assert.equal(state.status, "loaded");
-    assert.equal(state.profile?.id, "profile-a");
-    assert.equal(state.history.length, 0);
-    assert.equal(state.future.length, 0);
-  });
+    const state = useProfileStore.getState()
+    assert.equal(state.status, "loaded")
+    assert.equal(state.profile?.id, "profile-a")
+    assert.equal(state.history.length, 0)
+    assert.equal(state.future.length, 0)
+  })
 
   it("supports undo and redo for roster mutations", async () => {
-    const profile = makeProfile();
+    const profile = makeProfile()
     const client = createWorkflowClient({
       "profile.load": async () => profile,
       "profile.save": async (current) => current,
-    });
-    setWorkflowClient(client as unknown as WorkflowClient);
-    await useProfileStore.getState().load(profile.id);
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useProfileStore.getState().load(profile.id)
 
-    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"));
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2);
-    assert.equal(useProfileStore.getState().history.length, 1);
+    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
+    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2)
+    assert.equal(useProfileStore.getState().history.length, 1)
 
-    const undone = useProfileStore.getState().undo();
-    assert.equal(undone?.description, "Add Grace Hopper");
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 1);
-    assert.equal(useProfileStore.getState().future.length, 1);
+    const undone = useProfileStore.getState().undo()
+    assert.equal(undone?.description, "Add Grace Hopper")
+    assert.equal(useProfileStore.getState().profile?.roster.students.length, 1)
+    assert.equal(useProfileStore.getState().future.length, 1)
 
-    const redone = useProfileStore.getState().redo();
-    assert.equal(redone?.description, "Add Grace Hopper");
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2);
-    assert.equal(useProfileStore.getState().history.length, 1);
-  });
+    const redone = useProfileStore.getState().redo()
+    assert.equal(redone?.description, "Add Grace Hopper")
+    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2)
+    assert.equal(useProfileStore.getState().history.length, 1)
+  })
 
   it("clears redo history after a new mutation following undo", async () => {
-    const profile = makeProfile();
+    const profile = makeProfile()
     const client = createWorkflowClient({
       "profile.load": async () => profile,
       "profile.save": async (current) => current,
-    });
-    setWorkflowClient(client as unknown as WorkflowClient);
-    await useProfileStore.getState().load(profile.id);
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useProfileStore.getState().load(profile.id)
 
-    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"));
-    useProfileStore.getState().addMember(makeStudent("s-3", "Linus Torvalds"));
-    assert.equal(useProfileStore.getState().history.length, 2);
+    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
+    useProfileStore.getState().addMember(makeStudent("s-3", "Linus Torvalds"))
+    assert.equal(useProfileStore.getState().history.length, 2)
 
-    useProfileStore.getState().undo();
-    assert.equal(useProfileStore.getState().future.length, 1);
+    useProfileStore.getState().undo()
+    assert.equal(useProfileStore.getState().future.length, 1)
 
-    useProfileStore.getState().addMember(makeStudent("s-4", "Alan Turing"));
-    assert.equal(useProfileStore.getState().future.length, 0);
-    assert.equal(useProfileStore.getState().history.length, 2);
-  });
+    useProfileStore.getState().addMember(makeStudent("s-4", "Alan Turing"))
+    assert.equal(useProfileStore.getState().future.length, 0)
+    assert.equal(useProfileStore.getState().history.length, 2)
+  })
 
   it("keeps local updates and reports save errors via toast", async () => {
-    const profile = makeProfile();
+    const profile = makeProfile()
     const client = createWorkflowClient({
       "profile.load": async () => profile,
       "profile.save": async () => {
-        throw new Error("save failed");
+        throw new Error("save failed")
       },
-    });
-    setWorkflowClient(client as unknown as WorkflowClient);
-    await useProfileStore.getState().load(profile.id);
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useProfileStore.getState().load(profile.id)
 
-    useProfileStore.getState().setDisplayName("Renamed Profile");
-    assert.equal(useProfileStore.getState().profile?.displayName, "Renamed Profile");
+    useProfileStore.getState().setDisplayName("Renamed Profile")
+    assert.equal(
+      useProfileStore.getState().profile?.displayName,
+      "Renamed Profile",
+    )
 
-    const result = await useProfileStore.getState().save();
-    assert.equal(result, false);
-    assert.equal(useToastStore.getState().toasts.length, 1);
-    assert.equal(useToastStore.getState().toasts[0]?.message, "save failed");
-  });
-});
+    const result = await useProfileStore.getState().save()
+    assert.equal(result, false)
+    assert.equal(useToastStore.getState().toasts.length, 1)
+    assert.equal(useToastStore.getState().toasts[0]?.message, "save failed")
+  })
+})

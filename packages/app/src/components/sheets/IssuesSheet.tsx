@@ -7,61 +7,66 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@repo-edu/ui";
-import { AlertTriangle, ChevronDown, Layers, Users } from "@repo-edu/ui/components/icons";
-import { useState } from "react";
-import { useIssues } from "../../hooks/use-issues.js";
-import type { IssueCard } from "../../types/index.js";
-import { useProfileStore } from "../../stores/profile-store.js";
-import { useUiStore } from "../../stores/ui-store.js";
+} from "@repo-edu/ui"
+import {
+  AlertTriangle,
+  ChevronDown,
+  Layers,
+  Users,
+} from "@repo-edu/ui/components/icons"
+import { useState } from "react"
+import { useIssues } from "../../hooks/use-issues.js"
+import { useProfileStore } from "../../stores/profile-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
+import type { IssueCard } from "../../types/index.js"
 
 export function IssuesSheet() {
-  const open = useUiStore((state) => state.issuesSheetOpen);
-  const setOpen = useUiStore((state) => state.setIssuesSheetOpen);
-  const setActiveTab = useUiStore((state) => state.setActiveTab);
-  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection);
+  const open = useUiStore((state) => state.issuesSheetOpen)
+  const setOpen = useUiStore((state) => state.setIssuesSheetOpen)
+  const setActiveTab = useUiStore((state) => state.setActiveTab)
+  const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setAssignmentSelection = useProfileStore(
     (state) => state.setAssignmentSelection,
-  );
+  )
 
   const { issueCards, rosterInsights, checksStatus, checksError, checksDirty } =
-    useIssues();
-  const [rosterOpen, setRosterOpen] = useState(true);
+    useIssues()
+  const [rosterOpen, setRosterOpen] = useState(true)
 
   const navigateToGroupSet = (issue: IssueCard) => {
-    setActiveTab("groups-assignments");
+    setActiveTab("groups-assignments")
     if (issue.groupSetId) {
-      setSidebarSelection({ kind: "group-set", id: issue.groupSetId });
+      setSidebarSelection({ kind: "group-set", id: issue.groupSetId })
     }
     if (issue.assignmentId) {
-      setAssignmentSelection(issue.assignmentId);
+      setAssignmentSelection(issue.assignmentId)
     }
-    setOpen(false);
-  };
+    setOpen(false)
+  }
 
   const handleIssueAction = (issue: IssueCard) => {
     if (
       (issue.kind === "unknown_students" || issue.kind === "empty_groups") &&
       issue.groupSetId
     ) {
-      navigateToGroupSet(issue);
-      return;
+      navigateToGroupSet(issue)
+      return
     }
 
     if (issue.kind === "roster_validation") {
       if (issue.issueKind === "duplicate_assignment_name") {
-        setActiveTab("groups-assignments");
+        setActiveTab("groups-assignments")
       } else {
-        setActiveTab("roster");
+        setActiveTab("roster")
       }
-      setOpen(false);
-      return;
+      setOpen(false)
+      return
     }
 
     if (issue.kind === "assignment_validation" && issue.assignmentId) {
-      navigateToGroupSet(issue);
+      navigateToGroupSet(issue)
     }
-  };
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -137,17 +142,17 @@ export function IssuesSheet() {
         </div>
       </SheetContent>
     </Sheet>
-  );
+  )
 }
 
 function IssueCardRow({
   issue,
   onAction,
 }: {
-  issue: IssueCard;
-  onAction: () => void;
+  issue: IssueCard
+  onAction: () => void
 }) {
-  const actionLabel = getIssueActionLabel(issue);
+  const actionLabel = getIssueActionLabel(issue)
   return (
     <div className="rounded-md border px-3 py-2">
       <div className="flex items-start gap-2">
@@ -188,7 +193,7 @@ function IssueCardRow({
         </Button>
       </div>
     </div>
-  );
+  )
 }
 
 function getIssueActionLabel(issue: IssueCard) {
@@ -196,12 +201,12 @@ function getIssueActionLabel(issue: IssueCard) {
     case "unknown_students":
     case "empty_groups":
     case "assignment_validation":
-      return "View groups";
+      return "View groups"
     case "roster_validation":
       return issue.issueKind === "duplicate_assignment_name"
         ? "View assignments"
-        : "View roster";
+        : "View roster"
     default:
-      return "View";
+      return "View"
   }
 }

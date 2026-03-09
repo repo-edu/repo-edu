@@ -1,18 +1,18 @@
 type Shortcut = {
-  keys: string[];
-  description: string;
-};
+  keys: string[]
+  description: string
+}
 
 type ShortcutGroup = {
-  title: string;
-  shortcuts: Shortcut[];
-};
+  title: string
+  shortcuts: Shortcut[]
+}
 
 const isMac =
   typeof navigator !== "undefined" &&
-  navigator.platform.toUpperCase().includes("MAC");
+  navigator.platform.toUpperCase().includes("MAC")
 
-const modKey = isMac ? "⌘" : "Ctrl";
+const modKey = isMac ? "⌘" : "Ctrl"
 
 const shortcutGroups: ShortcutGroup[] = [
   {
@@ -24,7 +24,7 @@ const shortcutGroups: ShortcutGroup[] = [
       { keys: [modKey, "Shift", "Z"], description: "Redo" },
     ],
   },
-];
+]
 
 export function KeyboardShortcutsPane() {
   return (
@@ -57,5 +57,5 @@ export function KeyboardShortcutsPane() {
         </div>
       ))}
     </div>
-  );
+  )
 }
