@@ -10,6 +10,7 @@
     "lint:fix": "biome check --write .",
     "lint:md": "rumdl check",
     "fmt:md": "rumdl fmt",
+    "fmt": "pnpm fmt:ts && pnpm fmt:rs && pnpm fmt:md",
     "format": "biome format --write . && rumdl fmt",
     "typecheck": "pnpm -r run typecheck",
     "check": "pnpm lint && pnpm typecheck",

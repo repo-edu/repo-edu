@@ -218,6 +218,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.14)
+      tailwindcss:
+        specifier: ^4.2.1
+        version: 4.2.1
 
   packages/application:
     dependencies:

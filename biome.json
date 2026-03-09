@@ -1,13 +1,60 @@
 {
-  "files": {
-    "includes": ["**", "!!**/dist", "!!**/out", "!!**/node_modules"]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2
-  },
-  "linter": {
-    "enabled": true
-  }
+    "$schema": "https://biomejs.dev/schemas/2.3.9/schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "ignoreUnknown": true,
+        "includes": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.js",
+            "**/*.jsx",
+            "!apps/repo-manage/src/bindings/commands.ts",
+            "!apps/repo-manage/src/bindings/types.ts",
+            "!**/dist",
+            "!**/build",
+            "!**/target",
+            "!**/node_modules",
+            "!**/.vitepress/cache"
+        ]
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 2
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "double",
+            "semicolons": "asNeeded"
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "json": {
+        "formatter": {
+            "enabled": false
+        },
+        "linter": {
+            "enabled": false
+        },
+        "assist": {
+            "enabled": false
+        }
+    }
 }
