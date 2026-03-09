@@ -1,9 +1,3 @@
-.pnpm-store/
-node_modules/
-dist/
-out/
-*.tsbuildinfo
-
 # Git, useful for VSCode and other tools
 .git/
 
@@ -29,13 +23,22 @@ out/
 .rumdl_cache/
 
 # Dependencies
+.pnpm-store/
 node_modules/
 
 # Build outputs
 target/
 dist/
+out/
 site/
-docs/.astro/
+*.tsbuildinfo
+apps/docs/.astro/
+
+# Inline TypeScript compilation outputs (*.js / *.d.ts / *.d.ts.map emitted next to source)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+apps/docs/src/**/*.js
 
 # Logs
 *.log
@@ -43,3 +46,6 @@ docs/.astro/
 # Generated via pnpm claude2assistants
 AGENTS.md
 GEMINI.md
+
+# Link to /Users/Shared
+shared
