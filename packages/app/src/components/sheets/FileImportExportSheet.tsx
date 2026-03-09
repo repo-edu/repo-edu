@@ -108,11 +108,6 @@ export function FileImportExportSheet() {
         target,
         format,
       })
-
-      addToast(
-        `Exported "${selectedGroupSet?.name ?? "group set"}" as ${format.toUpperCase()}`,
-        { tone: "success" },
-      )
     } catch (cause) {
       const message = getErrorMessage(cause)
       addToast(`Export failed: ${message}`, { tone: "error" })

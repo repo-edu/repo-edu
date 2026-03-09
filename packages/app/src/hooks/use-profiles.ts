@@ -82,9 +82,6 @@ export function useProfiles() {
 
         await wfClient.run("profile.save", duplicate)
         await refresh()
-        addToast(`Duplicated "${source.displayName}" to "${displayName}"`, {
-          tone: "success",
-        })
         return true
       } catch (error) {
         const message = getErrorMessage(error)
@@ -113,10 +110,6 @@ export function useProfiles() {
 
         await wfClient.run("profile.save", updated)
         await refresh()
-        addToast(
-          `Renamed profile: ${profile.displayName} \u2192 ${newDisplayName.trim()}`,
-          { tone: "success" },
-        )
         return true
       } catch (error) {
         const message = getErrorMessage(error)
@@ -154,7 +147,6 @@ export function useProfiles() {
         }
 
         await refresh()
-        addToast("Deleted profile", { tone: "success" })
         return true
       } catch (error) {
         const message = getErrorMessage(error)

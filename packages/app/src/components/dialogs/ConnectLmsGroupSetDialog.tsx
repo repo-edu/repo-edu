@@ -21,7 +21,6 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { generateGroupSetId } from "../../utils/nanoid.js"
@@ -43,7 +42,6 @@ export function ConnectLmsGroupSetDialog() {
   const activeProfileId = useUiStore((state) => state.activeProfileId)
   const roster = useProfileStore((state) => state.profile?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
-  const addToast = useToastStore((state) => state.addToast)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
   const [selectedId, setSelectedId] = useState("")
@@ -172,14 +170,12 @@ export function ConnectLmsGroupSetDialog() {
       }
       setRoster(updatedRoster, `Connect group set "${selectedGroupSet.name}"`)
       setSidebarSelection({ kind: "group-set", id: provisionalId })
-      addToast(`Connected "${selectedGroupSet.name}"`, { tone: "success" })
       handleClose()
     } catch (cause) {
       if (connectRequestIdRef.current !== requestId) return
       const message = getErrorMessage(cause)
       setError(message)
       setProgressMessage(null)
-      addToast(`Connect failed: ${message}`, { tone: "error" })
     } finally {
       if (connectRequestIdRef.current === requestId) {
         setConnecting(false)

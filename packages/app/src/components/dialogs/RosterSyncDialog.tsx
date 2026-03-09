@@ -15,7 +15,6 @@ import {
   selectProfileStatus,
   useProfileStore,
 } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -31,7 +30,6 @@ export function RosterSyncDialog() {
   const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null
 
   const setRoster = useProfileStore((state) => state.setRoster)
-  const addToast = useToastStore((state) => state.addToast)
 
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [preview, setPreview] = useState<Roster | null>(null)
@@ -131,10 +129,6 @@ export function RosterSyncDialog() {
   const handleApply = () => {
     if (!preview) return
     setRoster(preview, "Sync roster from LMS")
-    addToast(
-      `Imported ${preview.students.length} students, ${preview.staff.length} staff`,
-      { tone: "success" },
-    )
     setOpen(false)
     resetState()
   }

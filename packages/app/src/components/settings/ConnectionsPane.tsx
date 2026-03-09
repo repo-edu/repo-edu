@@ -29,7 +29,6 @@ import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import type { ConnectionStatus } from "../../types/index.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -158,7 +157,6 @@ export function ConnectionsPane() {
     (state) => state.removeGitConnection,
   )
   const saveAppSettings = useAppSettingsStore((state) => state.save)
-  const addToast = useToastStore((state) => state.addToast)
   const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
   const lmsSavedErrors = useConnectionsStore((state) => state.lmsErrors)
   const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
@@ -253,7 +251,6 @@ export function ConnectionsPane() {
     if (urlError) {
       setLmsEditorStatus("error")
       setLmsEditorError(urlError)
-      addToast("LMS verification failed", { tone: "error" })
       return { status: "error" as const, error: urlError }
     }
 
@@ -268,19 +265,16 @@ export function ConnectionsPane() {
       })
       if (result.verified) {
         setLmsEditorStatus("connected")
-        addToast("LMS connection verified", { tone: "success" })
         return { status: "connected" as const, error: null }
       }
 
       setLmsEditorStatus("error")
       setLmsEditorError(VERIFY_FAILED_MESSAGE)
-      addToast("LMS verification failed", { tone: "error" })
       return { status: "error" as const, error: VERIFY_FAILED_MESSAGE }
     } catch (cause) {
       const message = getErrorMessage(cause)
       setLmsEditorStatus("error")
       setLmsEditorError(message)
-      addToast("LMS verification failed", { tone: "error" })
       return { status: "error" as const, error: message }
     }
   }
@@ -293,7 +287,6 @@ export function ConnectionsPane() {
     if (urlError) {
       setGitEditorStatus("error")
       setGitEditorError(urlError)
-      addToast("Git verification failed", { tone: "error" })
       return { status: "error" as const, error: urlError }
     }
 
@@ -309,19 +302,16 @@ export function ConnectionsPane() {
       })
       if (result.verified) {
         setGitEditorStatus("connected")
-        addToast("Git connection verified", { tone: "success" })
         return { status: "connected" as const, error: null }
       }
 
       setGitEditorStatus("error")
       setGitEditorError(VERIFY_FAILED_MESSAGE)
-      addToast("Git verification failed", { tone: "error" })
       return { status: "error" as const, error: VERIFY_FAILED_MESSAGE }
     } catch (cause) {
       const message = getErrorMessage(cause)
       setGitEditorStatus("error")
       setGitEditorError(message)
-      addToast("Git verification failed", { tone: "error" })
       return { status: "error" as const, error: message }
     }
   }
@@ -350,7 +340,6 @@ export function ConnectionsPane() {
     }
 
     await saveAppSettings()
-    addToast("LMS connection saved", { tone: "success" })
     resetLmsEditor()
   }
 
@@ -383,20 +372,17 @@ export function ConnectionsPane() {
     }
 
     await saveAppSettings()
-    addToast("Git connection saved", { tone: "success" })
     resetGitEditor()
   }
 
   const handleRemoveLms = async (index: number) => {
     removeLmsConnection(index)
     await saveAppSettings()
-    addToast("LMS connection removed", { tone: "info" })
   }
 
   const handleRemoveGit = async (name: string) => {
     removeGitConnection(name)
     await saveAppSettings()
-    addToast("Git connection removed", { tone: "info" })
   }
 
   const handleVerifySavedLms = async (connection: PersistedLmsConnection) => {

@@ -20,7 +20,6 @@ import {
   selectGroupSetById,
   useProfileStore,
 } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -37,7 +36,6 @@ export function ReimportGroupSetDialog() {
   const activeProfileId = useUiStore((state) => state.activeProfileId)
   const open = targetId !== null
   const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""))
-  const addToast = useToastStore((state) => state.addToast)
 
   const handleBrowse = async () => {
     if (!targetId || !activeProfileId) return
@@ -82,13 +80,10 @@ export function ReimportGroupSetDialog() {
     setGroupSetOperation({ kind: "reimport", groupSetId: targetId })
 
     try {
-      const groupSetName = groupSet?.name ?? targetId
-      addToast(`Imported "${groupSetName}"`, { tone: "success" })
       handleClose()
     } catch (e) {
       const message = getErrorMessage(e)
       setError(message)
-      addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
       setImporting(false)
       setGroupSetOperation(null)

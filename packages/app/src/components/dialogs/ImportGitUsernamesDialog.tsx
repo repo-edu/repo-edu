@@ -13,35 +13,14 @@ import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
-
-function countUsernameChanges(
-  previous: ReturnType<typeof toUsernameMap>,
-  next: ReturnType<typeof toUsernameMap>,
-): number {
-  let changed = 0
-  for (const [id, username] of next.entries()) {
-    if ((previous.get(id) ?? null) !== username) {
-      changed += 1
-    }
-  }
-  return changed
-}
-
-function toUsernameMap(
-  students: Array<{ id: string; gitUsername: string | null }>,
-) {
-  return new Map(students.map((student) => [student.id, student.gitUsername]))
-}
 
 export function ImportGitUsernamesDialog() {
   const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
   const profile = useProfileStore((state) => state.profile)
   const setRoster = useProfileStore((state) => state.setRoster)
-  const addToast = useToastStore((state) => state.addToast)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -79,29 +58,16 @@ export function ImportGitUsernamesDialog() {
     setImporting(true)
     setError(null)
 
-    const previous = toUsernameMap(profile.roster.students)
-
     try {
       const client = getWorkflowClient()
       const importedRoster = await client.run("gitUsernames.import", {
         file: fileRef,
       })
       setRoster(importedRoster, "Import git usernames")
-      const changed = countUsernameChanges(
-        previous,
-        toUsernameMap(importedRoster.students),
-      )
-      addToast(
-        changed > 0
-          ? `Imported ${changed} Git username${changed === 1 ? "" : "s"}`
-          : "Git username import applied",
-        { tone: "success" },
-      )
       handleClose()
     } catch (cause) {
       const message = getErrorMessage(cause)
       setError(message)
-      addToast(`Git username import failed: ${message}`, { tone: "error" })
     } finally {
       setImporting(false)
     }

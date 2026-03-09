@@ -12,7 +12,6 @@ import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -23,7 +22,6 @@ export function ImportStudentsFromFileDialog() {
   )
 
   const setRoster = useProfileStore((state) => state.setRoster)
-  const addToast = useToastStore((state) => state.addToast)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -64,7 +62,6 @@ export function ImportStudentsFromFileDialog() {
         file: fileRef,
       })
       setRoster(newRoster, "Import students from file")
-      addToast("Students imported", { tone: "success" })
       setImportFileDialogOpen(false)
       setFileName("")
       setFileRef(null)

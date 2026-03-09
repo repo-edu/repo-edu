@@ -56,7 +56,15 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
       assignments: [],
     }
     setRoster(emptyRoster, "Clear roster")
-    addToast("Roster cleared. Ctrl+Z to undo", { tone: "warning" })
+    addToast("Roster cleared", {
+      tone: "warning",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          useProfileStore.getState().undo()
+        },
+      },
+    })
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {
@@ -75,7 +83,6 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
         target,
         format,
       })
-      addToast("Students exported", { tone: "success" })
     } catch (err) {
       const message = getErrorMessage(err)
       addToast(`Export failed: ${message}`, { tone: "error" })

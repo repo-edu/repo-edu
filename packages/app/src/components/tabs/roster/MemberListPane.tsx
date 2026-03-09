@@ -37,7 +37,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useProfileStore } from "../../../stores/profile-store.js"
-import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
 import { generateMemberId } from "../../../utils/nanoid.js"
@@ -98,7 +97,6 @@ export function MemberListPane({
     (s) => s.deleteMemberPermanently,
   )
   const updateMember = useProfileStore((s) => s.updateMember)
-  const addToast = useToastStore((s) => s.addToast)
 
   const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>([])
@@ -205,13 +203,8 @@ export function MemberListPane({
   const handleUpdateStatus = useCallback(
     (id: string, status: MemberStatus) => {
       updateMember(id, { status })
-      const member = members.find((entry) => entry.id === id)
-      if (!member) return
-      if (status === "dropped" || status === "incomplete") {
-        addToast(`${member.name} excluded from coverage`, { tone: "info" })
-      }
     },
-    [updateMember, members, addToast],
+    [updateMember],
   )
 
   const handleRequestPermanentDelete = useCallback(
@@ -225,9 +218,8 @@ export function MemberListPane({
 
   const handleConfirmPermanentDelete = () => {
     if (!memberPendingDeletion) return
-    const { id, name } = memberPendingDeletion
+    const { id } = memberPendingDeletion
     deleteMemberPermanently(id)
-    addToast(`${name} deleted from roster`, { tone: "info" })
     setMemberPendingDeletion(null)
   }
 

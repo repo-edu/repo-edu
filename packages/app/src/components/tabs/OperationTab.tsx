@@ -26,7 +26,6 @@ import {
   selectRoster,
   useProfileStore,
 } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
@@ -56,8 +55,6 @@ export function OperationTab() {
   const setOperationError = useOperationStore((s) => s.setError)
   const lastResult = useOperationStore((s) => s.lastResult)
   const setLastResult = useOperationStore((s) => s.setLastResult)
-
-  const addToast = useToastStore((s) => s.addToast)
 
   // Local form state for fields not persisted on profile.
   const [targetDirectory, setTargetDirectory] = useState("")
@@ -120,7 +117,6 @@ export function OperationTab() {
       setOperationStatus("error")
       const message = getErrorMessage(err)
       setOperationError(message)
-      addToast(message, { tone: "error" })
     }
   }, [
     activeProfileId,
@@ -132,7 +128,6 @@ export function OperationTab() {
     setOperationStatus,
     setOperationError,
     setLastResult,
-    addToast,
   ])
 
   if (!activeProfileId || !profile) {

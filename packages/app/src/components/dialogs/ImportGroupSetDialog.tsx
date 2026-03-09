@@ -20,7 +20,6 @@ import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -39,7 +38,6 @@ export function ImportGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const activeProfileId = useUiStore((state) => state.activeProfileId)
-  const addToast = useToastStore((state) => state.addToast)
 
   const handleBrowse = async () => {
     try {
@@ -96,12 +94,10 @@ export function ImportGroupSetDialog() {
       if (id) {
         setSidebarSelection({ kind: "group-set", id })
       }
-      addToast(`Imported "${groupSetName}"`, { tone: "success" })
       handleClose()
     } catch (e) {
       const message = getErrorMessage(e)
       setError(message)
-      addToast(`Import failed: ${message}`, { tone: "error" })
     } finally {
       setImporting(false)
       setGroupSetOperation(null)

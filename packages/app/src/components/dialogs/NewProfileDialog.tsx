@@ -25,7 +25,6 @@ import { Loader2, Search } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { generateProfileId } from "../../utils/nanoid.js"
@@ -51,7 +50,6 @@ export function NewProfileDialog() {
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
-  const addToast = useToastStore((state) => state.addToast)
 
   const settings = useAppSettingsStore((state) => state.settings)
   const saveAppSettings = useAppSettingsStore((state) => state.save)
@@ -254,9 +252,6 @@ export function NewProfileDialog() {
       setSettingsActiveProfileId(saved.id)
       await saveAppSettings()
 
-      addToast(`Created profile "${saved.displayName}"`, {
-        tone: "success",
-      })
       handleClose()
 
       if (
@@ -268,7 +263,6 @@ export function NewProfileDialog() {
     } catch (cause) {
       const message = getErrorMessage(cause)
       setError(message)
-      addToast(`Create profile failed: ${message}`, { tone: "error" })
     } finally {
       setCreating(false)
     }
