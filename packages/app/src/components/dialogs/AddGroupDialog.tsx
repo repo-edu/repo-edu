@@ -106,7 +106,7 @@ export function AddGroupDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add Group</DialogTitle>
         </DialogHeader>

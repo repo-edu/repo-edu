@@ -123,7 +123,7 @@ export function ImportGroupSetDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Import Group Set from CSV</DialogTitle>
         </DialogHeader>
