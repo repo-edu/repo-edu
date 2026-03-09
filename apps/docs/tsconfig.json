@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["node"],
+    "types": ["node", "astro/client"],
     "tsBuildInfoFile": "/tmp/repo-edu-apps-docs.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
