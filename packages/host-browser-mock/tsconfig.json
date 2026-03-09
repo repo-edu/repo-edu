@@ -6,7 +6,7 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "/tmp/repo-edu-packages-host-browser-mock.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
   "references": [{ "path": "../application" }]

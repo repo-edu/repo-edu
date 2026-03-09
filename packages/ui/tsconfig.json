@@ -7,7 +7,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "jsx": "react-jsx",
-    "tsBuildInfoFile": "/tmp/repo-edu-packages-ui.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

@@ -6,7 +6,7 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "/tmp/repo-edu-packages-domain.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
 }

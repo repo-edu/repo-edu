@@ -3,7 +3,7 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "types": ["node", "astro/client"],
-    "tsBuildInfoFile": "/tmp/repo-edu-apps-docs.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
