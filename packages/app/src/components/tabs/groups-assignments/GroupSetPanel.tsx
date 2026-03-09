@@ -102,7 +102,10 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const connection = groupSet.connection
   const kind = getConnectionKind(connection)
   const isOperationActive = groupSetOperation !== null
-  const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
+  const isThisGroupSetBusy =
+    !!groupSetOperation &&
+    "groupSetId" in groupSetOperation &&
+    groupSetOperation.groupSetId === groupSetId
   const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
   const isSetEditable = !isReadOnly
 

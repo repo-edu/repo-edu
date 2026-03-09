@@ -2,10 +2,14 @@ import type { ProfileSummary } from "@repo-edu/domain"
 import { create } from "zustand"
 import type { ActiveTab } from "../types/index.js"
 
-type GroupSetOperationState = {
-  kind: "sync" | "import" | "reimport"
-  groupSetId: string
-}
+type GroupSetOperationState =
+  | {
+      kind: "connect" | "import"
+    }
+  | {
+      kind: "sync" | "reimport"
+      groupSetId: string
+    }
 
 type SidebarSelection = {
   kind: "group-set"
@@ -172,6 +176,15 @@ function setIfChanged<K extends keyof UiState>(
     : ({ [key]: value } as Pick<UiState, K>)
 }
 
+function operationGroupSetId(
+  operation: GroupSetOperationState | null,
+): string | null {
+  if (!operation || !("groupSetId" in operation)) {
+    return null
+  }
+  return operation.groupSetId
+}
+
 export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
 
@@ -253,7 +266,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
       const current = state.groupSetOperation
       if (
         current === op ||
-        (current?.kind === op?.kind && current?.groupSetId === op?.groupSetId)
+        (current?.kind === op?.kind &&
+          operationGroupSetId(current) === operationGroupSetId(op))
       ) {
         return state
       }

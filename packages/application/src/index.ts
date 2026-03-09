@@ -6,6 +6,7 @@ import type {
   ConnectionVerificationResult,
   DiagnosticOutput,
   GitUsernameImportInput,
+  GroupSetConnectFromLmsInput,
   GroupSetExportInput,
   GroupSetFetchAvailableFromLmsInput,
   GroupSetPreviewImportFromFileInput,
@@ -91,6 +92,7 @@ import { packageId as gitContractPackageId } from "@repo-edu/integrations-git-co
 import type {
   LmsClient,
   LmsConnectionDraft,
+  LmsFetchedGroupSet,
 } from "@repo-edu/integrations-lms-contract"
 import { packageId as lmsContractPackageId } from "@repo-edu/integrations-lms-contract"
 import { parseCsv, serializeCsv } from "./adapters/tabular/index.js"
@@ -1112,6 +1114,160 @@ function lmsGroupSetRemoteId(
   ])
 }
 
+function generateLocalGroupSetId(profile: PersistedProfile): string {
+  const existingIds = new Set(
+    profile.roster.groupSets.map((groupSet) => groupSet.id),
+  )
+  while (true) {
+    const randomPart =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+    const candidate = `group_set_${randomPart}`
+    if (!existingIds.has(candidate)) {
+      return candidate
+    }
+  }
+}
+
+function createConnectedGroupSet(
+  provider: VerifyLmsDraftInput["provider"],
+  courseId: string,
+  remoteGroupSetId: string,
+  localGroupSetId: string,
+): PersistedProfile["roster"]["groupSets"][number] {
+  const connection =
+    provider === "canvas"
+      ? ({
+          kind: "canvas",
+          courseId,
+          groupSetId: remoteGroupSetId,
+          lastUpdated: new Date().toISOString(),
+        } as const)
+      : ({
+          kind: "moodle",
+          courseId,
+          groupingId: remoteGroupSetId,
+          lastUpdated: new Date().toISOString(),
+        } as const)
+
+  return {
+    id: localGroupSetId,
+    name: `Group Set ${remoteGroupSetId}`,
+    groupIds: [],
+    connection,
+    groupSelection: {
+      kind: "all",
+      excludedGroupIds: [],
+    },
+  }
+}
+
+function connectedRemoteId(
+  connection: PersistedProfile["roster"]["groupSets"][number]["connection"],
+): string | null {
+  if (connection?.kind === "canvas") {
+    return connection.groupSetId
+  }
+  if (connection?.kind === "moodle") {
+    return connection.groupingId
+  }
+  return null
+}
+
+function applyFetchedGroupSetToProfile(
+  profile: PersistedProfile,
+  localGroupSetId: string,
+  fetched: LmsFetchedGroupSet,
+): {
+  nextProfile: PersistedProfile
+  nextGroupSet: PersistedProfile["roster"]["groupSets"][number]
+} {
+  const currentGroupSet = profile.roster.groupSets.find(
+    (candidate) => candidate.id === localGroupSetId,
+  )
+  if (currentGroupSet === undefined) {
+    throw {
+      type: "not-found",
+      message: `Group set '${localGroupSetId}' was not found.`,
+      resource: "group-set",
+    } satisfies AppError
+  }
+
+  const currentSetGroupIds = new Set(currentGroupSet.groupIds)
+  const existingByLmsGroupId = new Map<
+    string,
+    (typeof profile.roster.groups)[number]
+  >()
+  for (const group of profile.roster.groups) {
+    if (!currentSetGroupIds.has(group.id) || group.lmsGroupId === null) {
+      continue
+    }
+    existingByLmsGroupId.set(group.lmsGroupId, group)
+  }
+
+  const memberMap = buildLmsMemberMap(profile)
+  const syncedGroups = fetched.groups.map((group) => {
+    const lmsGroupId = group.lmsGroupId ?? group.id
+    const existing = existingByLmsGroupId.get(lmsGroupId)
+    return {
+      id: existing?.id ?? group.id,
+      name: group.name,
+      memberIds: resolveLmsGroupMembers(memberMap, group.memberIds),
+      origin: ORIGIN_LMS,
+      lmsGroupId,
+    }
+  })
+  const syncedIds = new Set(syncedGroups.map((group) => group.id))
+  const removedGroupIds = currentGroupSet.groupIds.filter(
+    (groupId) => !syncedIds.has(groupId),
+  )
+
+  const groupsById = new Map(
+    profile.roster.groups.map((group) => [group.id, group]),
+  )
+  for (const removedId of removedGroupIds) {
+    groupsById.delete(removedId)
+  }
+  for (const group of syncedGroups) {
+    groupsById.set(group.id, group)
+  }
+
+  const nextGroupSet = {
+    ...currentGroupSet,
+    name: fetched.groupSet.name,
+    groupIds: syncedGroups.map((group) => group.id),
+    connection: fetched.groupSet.connection ?? currentGroupSet.connection,
+    groupSelection: currentGroupSet.groupSelection,
+  }
+
+  const removedIdSet = new Set(removedGroupIds)
+  const nextGroupSets = profile.roster.groupSets.map((groupSet) => {
+    if (groupSet.id === currentGroupSet.id) {
+      return nextGroupSet
+    }
+    return {
+      ...groupSet,
+      groupIds: groupSet.groupIds.filter(
+        (groupId) => !removedIdSet.has(groupId),
+      ),
+    }
+  })
+
+  return {
+    nextGroupSet,
+    nextProfile: {
+      ...profile,
+      roster: {
+        ...profile.roster,
+        groups: [...groupsById.values()],
+        groupSets: nextGroupSets,
+      },
+      updatedAt: new Date().toISOString(),
+    },
+  }
+}
+
 function buildLmsMemberMap(profile: PersistedProfile): Map<string, string> {
   const map = new Map<string, string>()
   for (const member of profile.roster.students.concat(profile.roster.staff)) {
@@ -1170,12 +1326,14 @@ export function createGroupSetWorkflowHandlers(
 ): Pick<
   WorkflowHandlerMap<
     | "groupSet.fetchAvailableFromLms"
+    | "groupSet.connectFromLms"
     | "groupSet.syncFromLms"
     | "groupSet.previewImportFromFile"
     | "groupSet.previewReimportFromFile"
     | "groupSet.export"
   >,
   | "groupSet.fetchAvailableFromLms"
+  | "groupSet.connectFromLms"
   | "groupSet.syncFromLms"
   | "groupSet.previewImportFromFile"
   | "groupSet.previewReimportFromFile"
@@ -1241,6 +1399,130 @@ export function createGroupSetWorkflowHandlers(
         throw normalizeProviderError(error, providerForError, "listGroupSets")
       }
     },
+    "groupSet.connectFromLms": async (
+      input: GroupSetConnectFromLmsInput,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ) => {
+      const totalSteps = 6
+      let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
+
+      try {
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Loading profile and app settings.",
+        })
+        const profile = await loadRequiredProfile(
+          profileStore,
+          input.profileId,
+          options?.signal,
+        )
+        const settings = await loadSettingsOrDefault(
+          appSettingsStore,
+          options?.signal,
+        )
+        const draft = resolveLmsDraft(profile, settings)
+        providerForError = draft.provider
+
+        if (profile.courseId === null) {
+          throw {
+            type: "not-found",
+            message: "Profile does not have a selected course.",
+            resource: "course",
+          } satisfies AppError
+        }
+
+        const alreadyConnected = profile.roster.groupSets.find(
+          (groupSet) =>
+            connectedRemoteId(groupSet.connection) === input.remoteGroupSetId,
+        )
+        if (alreadyConnected !== undefined) {
+          throw createValidationAppError(
+            "LMS group set is already connected.",
+            [
+              {
+                path: "remoteGroupSetId",
+                message: `LMS group set '${input.remoteGroupSetId}' is already connected as '${alreadyConnected.name}'.`,
+              },
+            ],
+          )
+        }
+
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Creating connected local group set.",
+        })
+        const localGroupSetId = generateLocalGroupSetId(profile)
+        const profileWithConnectedSet: PersistedProfile = {
+          ...profile,
+          roster: {
+            ...profile.roster,
+            groupSets: [
+              ...profile.roster.groupSets,
+              createConnectedGroupSet(
+                draft.provider,
+                profile.courseId,
+                input.remoteGroupSetId,
+                localGroupSetId,
+              ),
+            ],
+          },
+          updatedAt: new Date().toISOString(),
+        }
+
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "Fetching LMS group set data.",
+        })
+        const fetched = await ports.lms.fetchGroupSet(
+          draft,
+          profile.courseId,
+          input.remoteGroupSetId,
+          options?.signal,
+          (message) => {
+            options?.onProgress?.({
+              step: 3,
+              totalSteps,
+              label: message,
+            })
+          },
+        )
+
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "Applying LMS group-set patch to roster.",
+        })
+        const { nextProfile, nextGroupSet } = applyFetchedGroupSetToProfile(
+          profileWithConnectedSet,
+          localGroupSetId,
+          fetched,
+        )
+
+        options?.onProgress?.({
+          step: 5,
+          totalSteps,
+          label: "Saving connected group-set state to profile store.",
+        })
+        await profileStore.saveProfile(nextProfile, options?.signal)
+
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 6,
+          totalSteps,
+          label: "LMS group-set connection complete.",
+        })
+        return nextGroupSet
+      } catch (error) {
+        if (isSharedAppError(error)) {
+          throw error
+        }
+        throw normalizeProviderError(error, providerForError, "fetchGroupSet")
+      }
+    },
     "groupSet.syncFromLms": async (
       input: GroupSetSyncFromLmsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
@@ -1287,6 +1569,13 @@ export function createGroupSetWorkflowHandlers(
           profile.courseId,
           remoteGroupSetId,
           options?.signal,
+          (message) => {
+            options?.onProgress?.({
+              step: 2,
+              totalSteps,
+              label: message,
+            })
+          },
         )
 
         options?.onProgress?.({
@@ -1294,93 +1583,18 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "Applying LMS group-set patch to roster.",
         })
-        const currentGroupSet = profile.roster.groupSets.find(
-          (candidate) => candidate.id === input.groupSetId,
+        const { nextProfile, nextGroupSet } = applyFetchedGroupSetToProfile(
+          profile,
+          input.groupSetId,
+          fetched,
         )
-        if (currentGroupSet === undefined) {
-          throw {
-            type: "not-found",
-            message: `Group set '${input.groupSetId}' was not found.`,
-            resource: "group-set",
-          } satisfies AppError
-        }
-
-        const currentSetGroupIds = new Set(currentGroupSet.groupIds)
-        const existingByLmsGroupId = new Map<
-          string,
-          (typeof profile.roster.groups)[number]
-        >()
-        for (const group of profile.roster.groups) {
-          if (!currentSetGroupIds.has(group.id) || group.lmsGroupId === null) {
-            continue
-          }
-          existingByLmsGroupId.set(group.lmsGroupId, group)
-        }
-
-        const memberMap = buildLmsMemberMap(profile)
-        const syncedGroups = fetched.groups.map((group) => {
-          const lmsGroupId = group.lmsGroupId ?? group.id
-          const existing = existingByLmsGroupId.get(lmsGroupId)
-          return {
-            id: existing?.id ?? group.id,
-            name: group.name,
-            memberIds: resolveLmsGroupMembers(memberMap, group.memberIds),
-            origin: ORIGIN_LMS,
-            lmsGroupId,
-          }
-        })
-        const syncedIds = new Set(syncedGroups.map((group) => group.id))
-        const removedGroupIds = currentGroupSet.groupIds.filter(
-          (groupId) => !syncedIds.has(groupId),
-        )
-
-        const groupsById = new Map(
-          profile.roster.groups.map((group) => [group.id, group]),
-        )
-        for (const removedId of removedGroupIds) {
-          groupsById.delete(removedId)
-        }
-        for (const group of syncedGroups) {
-          groupsById.set(group.id, group)
-        }
-
-        const nextGroupSet = {
-          ...currentGroupSet,
-          name: fetched.groupSet.name,
-          groupIds: syncedGroups.map((group) => group.id),
-          connection: fetched.groupSet.connection ?? currentGroupSet.connection,
-          groupSelection: currentGroupSet.groupSelection,
-        }
-        const removedIdSet = new Set(removedGroupIds)
-        const nextGroupSets = profile.roster.groupSets.map((groupSet) => {
-          if (groupSet.id === currentGroupSet.id) {
-            return nextGroupSet
-          }
-          return {
-            ...groupSet,
-            groupIds: groupSet.groupIds.filter(
-              (groupId) => !removedIdSet.has(groupId),
-            ),
-          }
-        })
 
         options?.onProgress?.({
           step: 4,
           totalSteps,
           label: "Saving synced group-set state to profile store.",
         })
-        await profileStore.saveProfile(
-          {
-            ...profile,
-            roster: {
-              ...profile.roster,
-              groups: [...groupsById.values()],
-              groupSets: nextGroupSets,
-            },
-            updatedAt: new Date().toISOString(),
-          },
-          options?.signal,
-        )
+        await profileStore.saveProfile(nextProfile, options?.signal)
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({

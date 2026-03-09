@@ -233,6 +233,11 @@ export type GroupSetSyncFromLmsInput = {
   groupSetId: string
 }
 
+export type GroupSetConnectFromLmsInput = {
+  profileId: string
+  remoteGroupSetId: string
+}
+
 export type GroupSetFetchAvailableFromLmsInput = {
   profileId: string
 }
@@ -405,6 +410,12 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: GroupSetLmsSummary[]
   }
+  "groupSet.connectFromLms": {
+    input: GroupSetConnectFromLmsInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: GroupSet
+  }
   "groupSet.syncFromLms": {
     input: GroupSetSyncFromLmsInput
     progress: MilestoneProgress
@@ -560,6 +571,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   },
   "groupSet.fetchAvailableFromLms": {
     delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "groupSet.connectFromLms": {
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },

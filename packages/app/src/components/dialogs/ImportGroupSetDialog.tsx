@@ -84,7 +84,7 @@ export function ImportGroupSetDialog() {
     if (!canImport) return
     setImporting(true)
     setError(null)
-    setGroupSetOperation({ kind: "import", groupSetId: "" })
+    setGroupSetOperation({ kind: "import" })
 
     try {
       // The preview contains the parsed groups. Apply via profile store.

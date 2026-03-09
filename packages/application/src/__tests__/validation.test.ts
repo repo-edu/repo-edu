@@ -874,6 +874,194 @@ describe("application group-set workflow helpers", () => {
     ])
   })
 
+  it("connects an LMS group set using a local id and persists remote linkage", async () => {
+    const profile = makeProfile()
+    profile.lmsConnectionName = "main-lms"
+    profile.courseId = "course-42"
+    profile.roster.students = [
+      {
+        ...profile.roster.students[0],
+        id: "s-local-1",
+        lmsUserId: "u-1",
+      },
+    ]
+    profile.roster.groups = []
+    profile.roster.groupSets = []
+
+    const settings = {
+      ...makeSettings(),
+      lmsConnections: [
+        {
+          name: "main-lms",
+          provider: "canvas" as const,
+          baseUrl: "https://canvas.example.edu",
+          token: "token-1",
+        },
+      ],
+    }
+
+    let fetchDraft: unknown = null
+    let fetchCourseId = ""
+    let fetchGroupSetId = ""
+
+    const store = createInMemoryProfileStore([profile])
+    const handlers = createGroupSetWorkflowHandlers(
+      store,
+      createInMemoryAppSettingsStore(settings),
+      {
+        lms: {
+          listGroupSets: async () => {
+            throw new Error("not used")
+          },
+          fetchGroupSet: async (draft, courseId, groupSetId) => {
+            fetchDraft = draft
+            fetchCourseId = courseId
+            fetchGroupSetId = groupSetId
+            return {
+              groupSet: {
+                id: "remote-set-1",
+                name: "Project Groups",
+                groupIds: ["10"],
+                connection: {
+                  kind: "canvas",
+                  courseId: "course-42",
+                  groupSetId: "remote-set-1",
+                  lastUpdated: "2026-03-04T10:00:00.000Z",
+                },
+                groupSelection: { kind: "all", excludedGroupIds: [] },
+              },
+              groups: [
+                {
+                  id: "10",
+                  name: "Team 10",
+                  memberIds: ["u-1"],
+                  origin: "lms",
+                  lmsGroupId: "10",
+                },
+              ],
+            }
+          },
+        },
+        userFile: {
+          readText: async () => {
+            throw new Error("not used")
+          },
+          writeText: async (reference) => ({
+            displayName: reference.displayName,
+            mediaType: "text/csv",
+            byteLength: 0,
+            savedAt: "2026-03-04T10:00:00.000Z",
+          }),
+        },
+      },
+    )
+
+    const connected = await handlers["groupSet.connectFromLms"]({
+      profileId: profile.id,
+      remoteGroupSetId: "remote-set-1",
+    })
+
+    assert.deepStrictEqual(fetchDraft, {
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "token-1",
+    })
+    assert.equal(fetchCourseId, "course-42")
+    assert.equal(fetchGroupSetId, "remote-set-1")
+    assert.equal(connected.id.startsWith("group_set_"), true)
+    assert.notEqual(connected.id, "remote-set-1")
+    assert.equal(connected.name, "Project Groups")
+    assert.equal(connected.connection?.kind, "canvas")
+    if (connected.connection?.kind === "canvas") {
+      assert.equal(connected.connection.groupSetId, "remote-set-1")
+    }
+
+    const reloaded = await store.loadProfile(profile.id)
+    assert.ok(reloaded)
+    assert.equal(reloaded?.roster.groupSets.length, 1)
+    assert.equal(reloaded?.roster.groups.length, 1)
+    assert.deepStrictEqual(reloaded?.roster.groups[0], {
+      id: "10",
+      name: "Team 10",
+      memberIds: ["s-local-1"],
+      origin: "lms",
+      lmsGroupId: "10",
+    })
+  })
+
+  it("rejects connecting an LMS group set that is already connected", async () => {
+    const profile = makeProfile()
+    profile.lmsConnectionName = "main-lms"
+    profile.courseId = "course-42"
+    profile.roster.groupSets = [
+      {
+        id: "gs-remote-1",
+        name: "Existing LMS Set",
+        groupIds: [],
+        connection: {
+          kind: "canvas",
+          courseId: "course-42",
+          groupSetId: "remote-set-1",
+          lastUpdated: "2026-03-04T10:00:00.000Z",
+        },
+        groupSelection: {
+          kind: "all",
+          excludedGroupIds: [],
+        },
+      },
+    ]
+
+    const settings = {
+      ...makeSettings(),
+      lmsConnections: [
+        {
+          name: "main-lms",
+          provider: "canvas" as const,
+          baseUrl: "https://canvas.example.edu",
+          token: "token-1",
+        },
+      ],
+    }
+
+    const handlers = createGroupSetWorkflowHandlers(
+      createInMemoryProfileStore([profile]),
+      createInMemoryAppSettingsStore(settings),
+      {
+        lms: {
+          listGroupSets: async () => {
+            throw new Error("not used")
+          },
+          fetchGroupSet: async () => {
+            throw new Error("not used")
+          },
+        },
+        userFile: {
+          readText: async () => {
+            throw new Error("not used")
+          },
+          writeText: async (reference) => ({
+            displayName: reference.displayName,
+            mediaType: "text/csv",
+            byteLength: 0,
+            savedAt: "2026-03-04T10:00:00.000Z",
+          }),
+        },
+      },
+    )
+
+    await assert.rejects(
+      handlers["groupSet.connectFromLms"]({
+        profileId: profile.id,
+        remoteGroupSetId: "remote-set-1",
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation",
+    )
+  })
+
   it("syncs an LMS-connected group set into the profile roster", async () => {
     const profile = makeProfile()
     profile.lmsConnectionName = "main-lms"

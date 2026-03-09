@@ -103,12 +103,14 @@ function createLmsProviderDispatch(http: HttpPort) {
       courseId: string,
       groupSetId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ) {
       return resolveClient(draft.provider).fetchGroupSet(
         draft,
         courseId,
         groupSetId,
         signal,
+        onProgress,
       )
     },
   }
@@ -320,6 +322,9 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
     ),
     "groupSet.fetchAvailableFromLms": createWorkflowSubscriptionProcedure(
       workflowRegistry["groupSet.fetchAvailableFromLms"],
+    ),
+    "groupSet.connectFromLms": createWorkflowSubscriptionProcedure(
+      workflowRegistry["groupSet.connectFromLms"],
     ),
     "groupSet.syncFromLms": createWorkflowSubscriptionProcedure(
       workflowRegistry["groupSet.syncFromLms"],

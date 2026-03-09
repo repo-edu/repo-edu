@@ -96,12 +96,14 @@ function createLmsProviderDispatch() {
       courseId: string,
       groupSetId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ) {
       return resolveClient(draft.provider).fetchGroupSet(
         draft,
         courseId,
         groupSetId,
         signal,
+        onProgress,
       )
     },
   }

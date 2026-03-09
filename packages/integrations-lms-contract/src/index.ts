@@ -51,5 +51,6 @@ export type LmsClient = {
     courseId: string,
     groupSetId: string,
     signal?: AbortSignal,
+    onProgress?: (message: string) => void,
   ): Promise<LmsFetchedGroupSet>
 }

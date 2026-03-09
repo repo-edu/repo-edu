@@ -9,6 +9,16 @@ import type {
   LmsGroupSetSummary,
 } from "@repo-edu/integrations-lms-contract"
 
+class CanvasRequestStatusError extends Error {
+  readonly status: number
+
+  constructor(status: number) {
+    super(`Canvas request failed with status ${status}.`)
+    this.name = "CanvasRequestStatusError"
+    this.status = status
+  }
+}
+
 function resolveApiBase(draft: LmsConnectionDraft): string {
   const base = draft.baseUrl.replace(/\/+$/, "")
   return base.endsWith("/api/v1") ? base : `${base}/api/v1`
@@ -82,24 +92,35 @@ async function fetchPaginatedArray(
   draft: LmsConnectionDraft,
   initialPath: string,
   signal?: AbortSignal,
+  onPage?: (page: number, loaded: number) => void,
 ): Promise<unknown[]> {
   const items: unknown[] = []
   let nextUrl: string | null = initialPath
+  let page = 0
 
   while (nextUrl) {
+    page += 1
     const response = await canvasRequest(http, draft, nextUrl, signal)
     if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Canvas request failed with status ${response.status}.`)
+      throw new CanvasRequestStatusError(response.status)
     }
 
     if (Array.isArray(response.data)) {
       items.push(...response.data)
     }
 
+    onPage?.(page, items.length)
     nextUrl = extractNextLink(response.headers.link)
   }
 
   return items
+}
+
+function isCanvasAuthStatusError(error: unknown): boolean {
+  return (
+    error instanceof CanvasRequestStatusError &&
+    (error.status === 401 || error.status === 403)
+  )
 }
 
 function toCourseSummary(course: unknown): LmsCourseSummary {
@@ -198,9 +219,95 @@ function toGroupMemberIds(memberships: unknown[]): string[] {
   })
 }
 
+function parseGroupCategoryId(group: unknown): string | null {
+  const record = (group ?? {}) as {
+    group_category_id?: unknown
+    group_category?: unknown
+  }
+  const category = (record.group_category ?? {}) as { id?: unknown }
+
+  const candidate = record.group_category_id ?? category.id
+  if (candidate === undefined || candidate === null) {
+    return null
+  }
+
+  return String(candidate)
+}
+
+function parseGroupCategoryName(group: unknown, categoryId: string): string {
+  const record = (group ?? {}) as { group_category?: unknown }
+  const category = (record.group_category ?? {}) as { name?: unknown }
+  return typeof category.name === "string"
+    ? category.name
+    : `Group Set ${categoryId}`
+}
+
+function deriveGroupSetSummariesFromCourseGroups(
+  groups: unknown[],
+): LmsGroupSetSummary[] {
+  const byCategoryId = new Map<
+    string,
+    { id: string; name: string; groupCount: number }
+  >()
+
+  for (const group of groups) {
+    const categoryId = parseGroupCategoryId(group)
+    if (categoryId === null) {
+      continue
+    }
+
+    const existing = byCategoryId.get(categoryId)
+    if (existing) {
+      existing.groupCount += 1
+      continue
+    }
+
+    byCategoryId.set(categoryId, {
+      id: categoryId,
+      name: parseGroupCategoryName(group, categoryId),
+      groupCount: 1,
+    })
+  }
+
+  return [...byCategoryId.values()]
+}
+
+async function fetchGroupSetSummaries(
+  http: HttpPort,
+  draft: LmsConnectionDraft,
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<LmsGroupSetSummary[]> {
+  try {
+    const groupSets = await fetchPaginatedArray(
+      http,
+      draft,
+      `/courses/${encodeURIComponent(courseId)}/group_categories?per_page=100`,
+      signal,
+    )
+
+    return groupSets.map(toGroupSetSummary)
+  } catch (error) {
+    if (!isCanvasAuthStatusError(error)) {
+      throw error
+    }
+
+    const groups = await fetchPaginatedArray(
+      http,
+      draft,
+      `/courses/${encodeURIComponent(
+        courseId,
+      )}/groups?include[]=group_category&per_page=100`,
+      signal,
+    )
+    return deriveGroupSetSummariesFromCourseGroups(groups)
+  }
+}
+
 async function fetchGroupSetName(
   http: HttpPort,
   draft: LmsConnectionDraft,
+  courseId: string,
   groupSetId: string,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -212,6 +319,20 @@ async function fetchGroupSetName(
   )
 
   if (response.status < 200 || response.status >= 300) {
+    try {
+      const groupSets = await fetchGroupSetSummaries(
+        http,
+        draft,
+        courseId,
+        signal,
+      )
+      const matched = groupSets.find((entry) => entry.id === groupSetId)
+      if (matched && matched.name.trim() !== "") {
+        return matched.name
+      }
+    } catch {
+      // Fall through to generic fallback name.
+    }
     return `Group Set ${groupSetId}`
   }
 
@@ -224,24 +345,57 @@ async function fetchGroupSetName(
 async function fetchGroupsForSet(
   http: HttpPort,
   draft: LmsConnectionDraft,
+  courseId: string,
   groupSetId: string,
   signal?: AbortSignal,
+  onProgress?: (message: string) => void,
 ): Promise<Group[]> {
-  const groups = await fetchPaginatedArray(
-    http,
-    draft,
-    `/group_categories/${encodeURIComponent(groupSetId)}/groups?per_page=100`,
-    signal,
-  )
+  let groups: unknown[]
+  try {
+    groups = await fetchPaginatedArray(
+      http,
+      draft,
+      `/group_categories/${encodeURIComponent(groupSetId)}/groups?per_page=100`,
+      signal,
+      (page, loaded) => {
+        onProgress?.(`Fetched group page ${page} (${loaded} groups loaded)`)
+      },
+    )
+  } catch (error) {
+    if (!isCanvasAuthStatusError(error)) {
+      throw error
+    }
+
+    const courseGroups = await fetchPaginatedArray(
+      http,
+      draft,
+      `/courses/${encodeURIComponent(courseId)}/groups?per_page=100`,
+      signal,
+      (page, loaded) => {
+        onProgress?.(`Fetched group page ${page} (${loaded} groups loaded)`)
+      },
+    )
+    groups = courseGroups.filter(
+      (group) => parseGroupCategoryId(group) === groupSetId,
+    )
+  }
 
   const result: Group[] = []
   for (const group of groups) {
-    const groupId = String((group as { id?: unknown }).id ?? "")
+    const record = group as { id?: unknown; name?: unknown }
+    const groupId = String(record.id ?? "")
+    const groupName =
+      typeof record.name === "string" ? record.name : `Group ${groupId}`
     const memberships = await fetchPaginatedArray(
       http,
       draft,
       `/groups/${encodeURIComponent(groupId)}/memberships?filter_states[]=accepted&per_page=100`,
       signal,
+      (_page, loaded) => {
+        onProgress?.(
+          `Loading members for group ${groupName} (${loaded} loaded)`,
+        )
+      },
     )
 
     result.push(toGroup(group, toGroupMemberIds(memberships)))
@@ -307,14 +461,7 @@ export function createCanvasClient(http: HttpPort): LmsClient {
       courseId: string,
       signal?: AbortSignal,
     ): Promise<LmsGroupSetSummary[]> {
-      const groupSets = await fetchPaginatedArray(
-        http,
-        draft,
-        `/courses/${encodeURIComponent(courseId)}/group_categories?per_page=100`,
-        signal,
-      )
-
-      return groupSets.map(toGroupSetSummary)
+      return fetchGroupSetSummaries(http, draft, courseId, signal)
     },
 
     async fetchGroupSet(
@@ -322,10 +469,18 @@ export function createCanvasClient(http: HttpPort): LmsClient {
       courseId: string,
       groupSetId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ): Promise<LmsFetchedGroupSet> {
       const [name, groups] = await Promise.all([
-        fetchGroupSetName(http, draft, groupSetId, signal),
-        fetchGroupsForSet(http, draft, groupSetId, signal),
+        fetchGroupSetName(http, draft, courseId, groupSetId, signal),
+        fetchGroupsForSet(
+          http,
+          draft,
+          courseId,
+          groupSetId,
+          signal,
+          onProgress,
+        ),
       ])
 
       return {

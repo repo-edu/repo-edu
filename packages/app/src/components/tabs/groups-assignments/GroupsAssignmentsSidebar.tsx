@@ -186,7 +186,10 @@ export function GroupsAssignmentsSidebar({
   const renameGroupSet = useProfileStore((s) => s.renameGroupSet)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
-  const busyGroupSetId = groupSetOperation?.groupSetId ?? null
+  const busyGroupSetId =
+    groupSetOperation && "groupSetId" in groupSetOperation
+      ? groupSetOperation.groupSetId
+      : null
 
   const setRenameGroupSetTriggerId = useUiStore(
     (s) => s.setRenameGroupSetTriggerId,

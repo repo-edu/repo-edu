@@ -291,7 +291,9 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       courseId: string,
       groupSetId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ): Promise<LmsFetchedGroupSet> {
+      onProgress?.("Fetching LMS group set data.")
       const [groupings, groups] = await Promise.all([
         moodleRequest(
           http,
@@ -314,6 +316,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       const matchedGroups = groupList
         .filter((group) => isGroupInGrouping(group, groupSetId))
         .map(toGroup)
+      onProgress?.(`Loaded ${matchedGroups.length} groups from LMS.`)
       const grouping = groupingList.find(
         (item) => String((item as { id?: unknown }).id ?? "") === groupSetId,
       ) as { name?: unknown } | undefined

@@ -183,6 +183,52 @@ describe("createCanvasClient", () => {
     ])
   })
 
+  it("falls back to course groups when group categories endpoint is forbidden", async () => {
+    const http = createMockHttpPort([
+      {
+        method: "GET",
+        urlPattern:
+          /\/api\/v1\/courses\/course-1\/group_categories\?per_page=100$/,
+        status: 403,
+        body: { errors: [{ message: "Forbidden" }] },
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/groups?include[]=group_category&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 11,
+            name: "A",
+            group_category_id: 55,
+            group_category: { id: 55, name: "Project Teams" },
+          },
+          {
+            id: 12,
+            name: "B",
+            group_category_id: 55,
+            group_category: { id: 55, name: "Project Teams" },
+          },
+          {
+            id: 13,
+            name: "C",
+            group_category_id: 77,
+            group_category: { id: 77, name: "Lab Groups" },
+          },
+        ],
+      },
+    ])
+
+    const client = createCanvasClient(http)
+    const result = await client.listGroupSets(baseDraft, "course-1")
+
+    assert.deepStrictEqual(result, [
+      { id: "55", name: "Project Teams", groupCount: 2 },
+      { id: "77", name: "Lab Groups", groupCount: 1 },
+    ])
+  })
+
   it("fetches a full group set with members", async () => {
     const http = createMockHttpPort([
       {
@@ -248,5 +294,158 @@ describe("createCanvasClient", () => {
       result.groupSet.connection?.lastUpdated ?? "",
       /^\d{4}-\d{2}-\d{2}T/,
     )
+  })
+
+  it("emits detailed progress while fetching a group set", async () => {
+    const http = createMockHttpPort([
+      {
+        method: "GET",
+        urlPattern: /\/api\/v1\/group_categories\/group-set-1$/,
+        status: 200,
+        body: { id: 99, name: "Lab Groups" },
+      },
+      {
+        method: "GET",
+        urlPattern:
+          /\/api\/v1\/group_categories\/group-set-1\/groups\?per_page=100$/,
+        status: 200,
+        body: [{ id: 201, name: "Group A" }],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/groups/201/memberships?filter_states[]=accepted&per_page=100",
+        status: 200,
+        body: [{ user_id: 10 }, { user_id: 11 }],
+      },
+    ])
+
+    const progress: string[] = []
+    const client = createCanvasClient(http)
+    await client.fetchGroupSet(
+      baseDraft,
+      "course-1",
+      "group-set-1",
+      undefined,
+      (message) => {
+        progress.push(message)
+      },
+    )
+
+    assert.equal(
+      progress.includes("Fetched group page 1 (1 groups loaded)"),
+      true,
+    )
+    assert.equal(
+      progress.includes("Loading members for group Group A (2 loaded)"),
+      true,
+    )
+  })
+
+  it("falls back to course groups when group set groups endpoint is forbidden", async () => {
+    const http = createMockHttpPort([
+      {
+        method: "GET",
+        urlPattern: /\/api\/v1\/group_categories\/group-set-1$/,
+        status: 200,
+        body: { id: 99, name: "Lab Groups" },
+      },
+      {
+        method: "GET",
+        urlPattern:
+          /\/api\/v1\/group_categories\/group-set-1\/groups\?per_page=100$/,
+        status: 403,
+        body: { errors: [{ message: "Forbidden" }] },
+      },
+      {
+        method: "GET",
+        urlPattern: "/api/v1/courses/course-1/groups?per_page=100",
+        status: 200,
+        body: [
+          { id: 201, name: "Group A", group_category_id: "group-set-1" },
+          { id: 301, name: "Group B", group_category_id: "group-set-2" },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/groups/201/memberships?filter_states[]=accepted&per_page=100",
+        status: 200,
+        body: [{ user_id: 10 }],
+      },
+    ])
+
+    const client = createCanvasClient(http)
+    const result = await client.fetchGroupSet(
+      baseDraft,
+      "course-1",
+      "group-set-1",
+    )
+
+    assert.deepStrictEqual(result.groups, [
+      {
+        id: "201",
+        name: "Group A",
+        memberIds: ["10"],
+        origin: "lms",
+        lmsGroupId: "201",
+      },
+    ])
+    assert.deepStrictEqual(result.groupSet.groupIds, ["201"])
+  })
+
+  it("resolves group set name from fallback summaries when direct name endpoint is forbidden", async () => {
+    const http = createMockHttpPort([
+      {
+        method: "GET",
+        urlPattern: /\/api\/v1\/group_categories\/group-set-1$/,
+        status: 403,
+        body: { errors: [{ message: "Forbidden" }] },
+      },
+      {
+        method: "GET",
+        urlPattern:
+          /\/api\/v1\/courses\/course-1\/group_categories\?per_page=100$/,
+        status: 403,
+        body: { errors: [{ message: "Forbidden" }] },
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/groups?include[]=group_category&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 201,
+            name: "Group A",
+            group_category_id: "group-set-1",
+            group_category: { id: "group-set-1", name: "Project Groups" },
+          },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          /\/api\/v1\/group_categories\/group-set-1\/groups\?per_page=100$/,
+        status: 200,
+        body: [{ id: 201, name: "Group A" }],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/groups/201/memberships?filter_states[]=accepted&per_page=100",
+        status: 200,
+        body: [{ user_id: 10 }],
+      },
+    ])
+
+    const client = createCanvasClient(http)
+    const result = await client.fetchGroupSet(
+      baseDraft,
+      "course-1",
+      "group-set-1",
+    )
+
+    assert.equal(result.groupSet.name, "Project Groups")
   })
 })

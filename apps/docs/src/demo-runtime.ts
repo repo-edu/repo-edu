@@ -196,7 +196,13 @@ export function createDocsDemoRuntime() {
         },
       ]
     },
-    async fetchGroupSet(_draft: unknown, courseId: string, groupSetId: string) {
+    async fetchGroupSet(
+      _draft: unknown,
+      courseId: string,
+      groupSetId: string,
+      _signal?: AbortSignal,
+      _onProgress?: (message: string) => void,
+    ) {
       return {
         groupSet: {
           id: groupSetId,

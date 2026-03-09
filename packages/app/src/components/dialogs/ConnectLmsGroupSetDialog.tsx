@@ -1,5 +1,5 @@
 import type { GroupSetLmsSummary } from "@repo-edu/application-contract"
-import type { Group, GroupSetConnection } from "@repo-edu/domain"
+import type { GroupSetConnection } from "@repo-edu/domain"
 import {
   Alert,
   Button,
@@ -23,7 +23,6 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
-import { generateGroupSetId } from "../../utils/nanoid.js"
 
 function connectedExternalId(
   connection: GroupSetConnection | null,
@@ -130,21 +129,23 @@ export function ConnectLmsGroupSetDialog() {
   }
 
   const handleConnect = async () => {
-    if (!canConnect || !roster || !activeProfileId || !selectedGroupSet) return
+    if (!canConnect || !roster || !activeProfileId || !selectedGroupSet) {
+      return
+    }
     const requestId = connectRequestIdRef.current + 1
     connectRequestIdRef.current = requestId
 
-    const provisionalId = generateGroupSetId()
+    const client = getWorkflowClient()
+
     setConnecting(true)
     setError(null)
     setProgressMessage("Connecting to LMS...")
-    setGroupSetOperation({ kind: "sync", groupSetId: provisionalId })
+    setGroupSetOperation({ kind: "connect" })
 
     try {
-      const client = getWorkflowClient()
       const syncedGroupSet = await client.run(
-        "groupSet.syncFromLms",
-        { profileId: activeProfileId, groupSetId: selectedGroupSet.id },
+        "groupSet.connectFromLms",
+        { profileId: activeProfileId, remoteGroupSetId: selectedGroupSet.id },
         {
           onProgress: (p) => {
             if (connectRequestIdRef.current !== requestId) return
@@ -154,22 +155,17 @@ export function ConnectLmsGroupSetDialog() {
       )
       if (connectRequestIdRef.current !== requestId) return
 
-      // Apply synced group set to roster
-      const updatedRoster = {
-        ...roster,
-        groupSets: [
-          ...roster.groupSets,
-          { ...syncedGroupSet, id: provisionalId },
-        ],
-        groups: [
-          ...roster.groups,
-          ...syncedGroupSet.groupIds
-            .map((gid) => roster.groups.find((g) => g.id === gid))
-            .filter((group): group is Group => group !== undefined),
-        ],
-      }
-      setRoster(updatedRoster, `Connect group set "${selectedGroupSet.name}"`)
-      setSidebarSelection({ kind: "group-set", id: provisionalId })
+      setProgressMessage("Refreshing synced profile...")
+      const syncedProfile = await client.run("profile.load", {
+        profileId: activeProfileId,
+      })
+      if (connectRequestIdRef.current !== requestId) return
+
+      setRoster(
+        syncedProfile.roster,
+        `Connect group set "${selectedGroupSet.name}"`,
+      )
+      setSidebarSelection({ kind: "group-set", id: syncedGroupSet.id })
       handleClose()
     } catch (cause) {
       if (connectRequestIdRef.current !== requestId) return
