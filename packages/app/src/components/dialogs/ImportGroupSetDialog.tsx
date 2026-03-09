@@ -1,7 +1,4 @@
-import type {
-  GroupSelectionMode,
-  GroupSetImportPreview,
-} from "@repo-edu/domain"
+import type { GroupSetImportPreview } from "@repo-edu/domain"
 import {
   Alert,
   Button,

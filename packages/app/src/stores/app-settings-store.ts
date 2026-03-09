@@ -6,7 +6,7 @@ import type {
   ThemePreference,
   TimeFormatPreference,
 } from "@repo-edu/domain"
-import { defaultAppSettings, persistedAppSettingsKind } from "@repo-edu/domain"
+import { defaultAppSettings } from "@repo-edu/domain"
 import { create } from "zustand"
 import { getWorkflowClient } from "../contexts/workflow-client.js"
 import type { StoreStatus } from "../types/index.js"

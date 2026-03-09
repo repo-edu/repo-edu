@@ -9,7 +9,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useProfileStore } from "../../stores/profile-store.js"

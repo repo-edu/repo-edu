@@ -251,13 +251,17 @@ export function OperationTab() {
                 { value: "by-task", label: "By Task" },
               ] as const
             ).map((option) => (
-              <label
+              <Label
                 key={option.value}
-                className="flex items-center gap-1.5 text-sm cursor-pointer"
+                htmlFor={`dir-layout-${option.value}`}
+                className="flex items-center gap-1.5 text-sm font-normal cursor-pointer"
               >
-                <RadioGroupItem value={option.value} />
+                <RadioGroupItem
+                  value={option.value}
+                  id={`dir-layout-${option.value}`}
+                />
                 {option.label}
-              </label>
+              </Label>
             ))}
           </RadioGroup>
         </div>

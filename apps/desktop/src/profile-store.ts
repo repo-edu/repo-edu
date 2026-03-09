@@ -154,6 +154,7 @@ function resolveProfilesDirectory(storageRoot: string): string {
 
 function sanitizeProfileFileBaseName(displayName: string): string {
   const normalized = displayName.trim().replace(/\s+/g, " ")
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional range for filename sanitization
   const withoutIllegal = normalized.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
   const withoutTrailingDots = withoutIllegal.replace(/[. ]+$/g, "")
   return withoutTrailingDots.length > 0 ? withoutTrailingDots : "profile"
@@ -336,11 +337,7 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
         return null
       }
 
-      try {
-        return await readPersistedProfile(profilePath)
-      } catch (error) {
-        throw error
-      }
+      return await readPersistedProfile(profilePath)
     },
     async saveProfile(profile: PersistedProfile, signal?: AbortSignal) {
       throwIfAborted(signal)

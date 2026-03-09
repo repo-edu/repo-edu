@@ -1,4 +1,4 @@
-import type { Group, RosterMember } from "@repo-edu/domain"
+import type { RosterMember } from "@repo-edu/domain"
 import { generateGroupName, slugify } from "@repo-edu/domain"
 import {
   Button,

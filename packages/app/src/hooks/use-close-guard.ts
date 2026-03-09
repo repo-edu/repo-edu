@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from "react"
 
 type CloseGuardOptions = {
   isDirty: boolean
-  onShowPrompt: () => void
   onHidePrompt: () => void
   onSave: () => Promise<void>
   onBeforeClose?: () => Promise<void> | void
@@ -17,7 +16,6 @@ type CloseGuardOptions = {
  */
 export function useCloseGuard({
   isDirty,
-  onShowPrompt,
   onHidePrompt,
   onSave,
   onBeforeClose,

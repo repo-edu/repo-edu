@@ -11,7 +11,6 @@ export function ToastStack() {
       {toasts.map((toast) => (
         <ToastItem
           key={toast.id}
-          id={toast.id}
           message={toast.message}
           tone={toast.tone}
           durationMs={toast.durationMs}
@@ -25,7 +24,6 @@ export function ToastStack() {
 }
 
 function ToastItem({
-  id,
   message,
   tone,
   durationMs,
@@ -33,7 +31,6 @@ function ToastItem({
   onAction,
   onDismiss,
 }: {
-  id: string
   message: string
   tone: string
   durationMs: number

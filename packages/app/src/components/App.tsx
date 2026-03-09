@@ -96,7 +96,6 @@ function AppShell() {
   const setActiveTab = useUiStore((s) => s.setActiveTab)
   const activeProfileId = useUiStore((s) => s.activeProfileId)
   const closePromptVisible = useUiStore((s) => s.closePromptVisible)
-  const showClosePrompt = useUiStore((s) => s.showClosePrompt)
   const hideClosePrompt = useUiStore((s) => s.hideClosePrompt)
 
   const theme = useAppSettingsStore(selectTheme)
@@ -144,7 +143,6 @@ function AppShell() {
   const { handlePromptSave, handlePromptDiscard, handlePromptCancel } =
     useCloseGuard({
       isDirty,
-      onShowPrompt: showClosePrompt,
       onHidePrompt: hideClosePrompt,
       onSave: handleSave,
     })

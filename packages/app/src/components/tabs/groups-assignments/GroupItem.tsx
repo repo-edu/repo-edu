@@ -19,7 +19,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   type EditableGroupTarget,
-  selectEditableGroupTargets,
   selectOtherGroupSetNames,
   useProfileStore,
 } from "../../../stores/profile-store.js"

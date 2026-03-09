@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo-edu/ui"
-import { Copy, Download, Plus } from "@repo-edu/ui/components/icons"
+import { Download, Plus } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
 import { useCallback, useMemo, useRef } from "react"
 import {

@@ -349,7 +349,7 @@ export type WorkflowPayloads = {
     input: { profileId: string }
     progress: never
     output: never
-    result: void
+    result: undefined
   }
   "settings.loadApp": {
     input: undefined

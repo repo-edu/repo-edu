@@ -178,35 +178,50 @@ export function MemberListPane({
     setAddingMember(false)
   }
 
-  const handleUpdateName = (id: string, name: string) => {
-    updateMember(id, { name })
-  }
+  const handleUpdateName = useCallback(
+    (id: string, name: string) => {
+      updateMember(id, { name })
+    },
+    [updateMember],
+  )
 
-  const handleUpdateEmail = (id: string, email: string) => {
-    updateMember(id, { email })
-  }
+  const handleUpdateEmail = useCallback(
+    (id: string, email: string) => {
+      updateMember(id, { email })
+    },
+    [updateMember],
+  )
 
-  const handleUpdateGitUsername = (id: string, gitUsername: string) => {
-    updateMember(id, {
-      gitUsername: gitUsername || null,
-      gitUsernameStatus: "unknown",
-    })
-  }
+  const handleUpdateGitUsername = useCallback(
+    (id: string, gitUsername: string) => {
+      updateMember(id, {
+        gitUsername: gitUsername || null,
+        gitUsernameStatus: "unknown",
+      })
+    },
+    [updateMember],
+  )
 
-  const handleUpdateStatus = (id: string, status: MemberStatus) => {
-    updateMember(id, { status })
-    const member = members.find((entry) => entry.id === id)
-    if (!member) return
-    if (status === "dropped" || status === "incomplete") {
-      addToast(`${member.name} excluded from coverage`, { tone: "info" })
-    }
-  }
+  const handleUpdateStatus = useCallback(
+    (id: string, status: MemberStatus) => {
+      updateMember(id, { status })
+      const member = members.find((entry) => entry.id === id)
+      if (!member) return
+      if (status === "dropped" || status === "incomplete") {
+        addToast(`${member.name} excluded from coverage`, { tone: "info" })
+      }
+    },
+    [updateMember, members, addToast],
+  )
 
-  const handleRequestPermanentDelete = (id: string) => {
-    const member = members.find((entry) => entry.id === id)
-    if (!member || member.source !== "local") return
-    setMemberPendingDeletion(member)
-  }
+  const handleRequestPermanentDelete = useCallback(
+    (id: string) => {
+      const member = members.find((entry) => entry.id === id)
+      if (!member || member.source !== "local") return
+      setMemberPendingDeletion(member)
+    },
+    [members],
+  )
 
   const handleConfirmPermanentDelete = () => {
     if (!memberPendingDeletion) return
@@ -216,8 +231,11 @@ export function MemberListPane({
     setMemberPendingDeletion(null)
   }
 
-  const memberTypeLabel = (member: RosterMember): string =>
-    member.enrollmentType === "student" ? "Student" : "Staff"
+  const memberTypeLabel = useCallback(
+    (member: RosterMember): string =>
+      member.enrollmentType === "student" ? "Student" : "Staff",
+    [],
+  )
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -381,7 +399,16 @@ export function MemberListPane({
         ),
       },
     ],
-    [handleSort, memberGroupNames],
+    [
+      handleSort,
+      memberGroupNames,
+      handleUpdateName,
+      handleUpdateEmail,
+      handleUpdateGitUsername,
+      handleUpdateStatus,
+      handleRequestPermanentDelete,
+      memberTypeLabel,
+    ],
   )
 
   const table = useReactTable({
@@ -700,6 +727,7 @@ export function MemberListPane({
                                 header.getContext(),
                               )}
                           {header.column.getCanResize() && (
+                            // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag, not keyboard interaction
                             <div
                               onMouseDown={header.getResizeHandler()}
                               onTouchStart={header.getResizeHandler()}

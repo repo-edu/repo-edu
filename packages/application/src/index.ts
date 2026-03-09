@@ -77,7 +77,9 @@ import type {
   FileSystemPort,
   GitCommandPort,
   HttpPort,
+  ProcessResult,
   UserFilePort,
+  UserFileText,
 } from "@repo-edu/host-runtime-contract"
 import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract"
 import type {
@@ -1416,7 +1418,7 @@ export function createGroupSetWorkflowHandlers(
         totalSteps,
         label: "Reading and parsing group-set import file.",
       })
-      let fileText
+      let fileText: UserFileText
       try {
         fileText = await ports.userFile.readText(input.file, options?.signal)
       } catch (error) {
@@ -1474,7 +1476,7 @@ export function createGroupSetWorkflowHandlers(
         totalSteps,
         label: "Reading and parsing group-set reimport file.",
       })
-      let fileText
+      let fileText: UserFileText
       try {
         fileText = await ports.userFile.readText(input.file, options?.signal)
       } catch (error) {
@@ -2149,7 +2151,7 @@ export function createRepositoryWorkflowHandlers(
             continue
           }
 
-          let result
+          let result: ProcessResult
           try {
             result = await ports.gitCommand.run({
               args: ["clone", target.cloneUrl, target.path],

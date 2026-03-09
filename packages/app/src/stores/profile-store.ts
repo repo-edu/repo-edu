@@ -2,10 +2,8 @@ import type {
   Assignment,
   GitIdentityMode,
   Group,
-  GroupOrigin,
   GroupSelectionMode,
   GroupSet,
-  GroupSetConnection,
   PersistedProfile,
   Roster,
   RosterMember,
@@ -13,8 +11,6 @@ import type {
 } from "@repo-edu/domain"
 import {
   ensureSystemGroupSets,
-  normalizeRoster,
-  persistedProfileKind,
   validateAssignment,
   validateRoster,
 } from "@repo-edu/domain"

@@ -1,5 +1,4 @@
 import type { Roster } from "@repo-edu/domain"
-import { Button } from "@repo-edu/ui"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {

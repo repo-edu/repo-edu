@@ -15,17 +15,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { Loader2, Plus, Search, Trash2 } from "@repo-edu/ui/components/icons"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  type SortingState,
-  type Updater,
-  useReactTable,
-} from "@tanstack/react-table"
-import { useCallback, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
@@ -33,16 +23,7 @@ import {
   selectGroupsForGroupSet,
   useProfileStore,
 } from "../../../stores/profile-store.js"
-import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
-import {
-  chainComparisons,
-  compareNumber,
-  compareText,
-  getNextProgressiveSorting,
-  normalizeProgressiveSorting,
-} from "../../../utils/sorting.js"
-import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { GroupItem } from "./GroupItem.js"
 
 type GroupSetPanelProps = {
@@ -64,8 +45,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const updateAssignment = useProfileStore((s) => s.updateAssignment)
   const deleteAssignment = useProfileStore((s) => s.deleteAssignment)
   const roster = useProfileStore((s) => s.profile?.roster ?? null)
-  const addToast = useToastStore((s) => s.addToast)
-
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const panelTab = useUiStore((s) => s.groupSetPanelTab)
   const setPanelTab = useUiStore((s) => s.setGroupSetPanelTab)
@@ -77,23 +56,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     (s) => s.setAddGroupDialogGroupSetId,
   )
   const setDeleteGroupTargetId = useUiStore((s) => s.setDeleteGroupTargetId)
-
-  if (!groupSet) {
-    return (
-      <EmptyState message="Group set not found">
-        <Text className="text-muted-foreground text-center">
-          The selected group set no longer exists.
-        </Text>
-      </EmptyState>
-    )
-  }
-
-  const connection = groupSet.connection
-  const kind = getConnectionKind(connection)
-  const isOperationActive = groupSetOperation !== null
-  const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
-  const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
-  const isSetEditable = !isReadOnly
 
   // Build a memberGroupIndex for MemberChip dedup.
   const memberGroupIndex = useMemo(() => {
@@ -126,6 +88,23 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     () => new Set((roster?.staff ?? []).map((s) => s.id)),
     [roster],
   )
+
+  if (!groupSet) {
+    return (
+      <EmptyState message="Group set not found">
+        <Text className="text-muted-foreground text-center">
+          The selected group set no longer exists.
+        </Text>
+      </EmptyState>
+    )
+  }
+
+  const connection = groupSet.connection
+  const kind = getConnectionKind(connection)
+  const isOperationActive = groupSetOperation !== null
+  const isThisGroupSetBusy = groupSetOperation?.groupSetId === groupSetId
+  const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
+  const isSetEditable = !isReadOnly
 
   return (
     <div className="flex flex-col h-full">
@@ -171,7 +150,6 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
         >
           <AssignmentsTab
             assignments={assignments}
-            groupSetId={groupSetId}
             updateAssignment={updateAssignment}
             deleteAssignment={deleteAssignment}
             onAddAssignment={() => {
@@ -297,14 +275,12 @@ function GroupsTab({
 
 function AssignmentsTab({
   assignments,
-  groupSetId,
   updateAssignment,
   deleteAssignment,
   onAddAssignment,
   disabled,
 }: {
   assignments: Assignment[]
-  groupSetId: string
   updateAssignment: (id: string, updates: Partial<Assignment>) => void
   deleteAssignment: (id: string) => void
   onAddAssignment: () => void

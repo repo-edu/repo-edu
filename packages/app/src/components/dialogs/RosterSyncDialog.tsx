@@ -9,7 +9,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectProfileStatus,
@@ -55,7 +55,7 @@ export function RosterSyncDialog() {
     }
   }
 
-  const handlePreview = async () => {
+  const handlePreview = useCallback(async () => {
     const requestId = previewRequestIdRef.current + 1
     previewRequestIdRef.current = requestId
 
@@ -107,7 +107,13 @@ export function RosterSyncDialog() {
         setLoadingPreview(false)
       }
     }
-  }
+  }, [
+    activeProfileId,
+    loadedProfile,
+    profileStatus,
+    lmsConnectionName,
+    courseId,
+  ])
 
   useEffect(() => {
     if (!open) {
@@ -120,7 +126,7 @@ export function RosterSyncDialog() {
 
     hasAutoPreviewedRef.current = true
     void handlePreview()
-  }, [open, activeProfileId, loadedProfile, profileStatus])
+  }, [open, activeProfileId, loadedProfile, profileStatus, handlePreview])
 
   const handleApply = () => {
     if (!preview) return

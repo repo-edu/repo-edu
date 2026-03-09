@@ -181,7 +181,7 @@ export function NewProfileDialog() {
     selectedCourseId,
   ])
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setProfileName("")
     setCourseId("")
     setCourseMode(lmsConnections.length > 0 ? "lms" : "manual")
@@ -194,13 +194,13 @@ export function NewProfileDialog() {
     setSelectedGitConnection("")
     setCreating(false)
     setError(null)
-  }
+  }, [lmsConnections])
 
   useEffect(() => {
     if (open) {
       reset()
     }
-  }, [open])
+  }, [open, reset])
 
   useEffect(() => {
     if (!open || courseMode !== "lms") {
