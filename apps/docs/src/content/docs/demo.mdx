@@ -5,17 +5,18 @@ template: splash
 ---
 
 import { LinkCard, CardGrid } from "@astrojs/starlight/components"
+import DemoShell from "../../components/DemoShell"
 
 <style>{`
   .sl-container:has(h1#_top) { display: none; }
   h1#_top { display: none; }
-  main { padding-top: 0 !important; }
-  .content-panel { padding-top: 0 !important; border-top: none !important; }
-  .main-frame { border-top: none !important; }
+  main { padding-top: 0 \!important; }
+  .content-panel { padding-top: 0 \!important; border-top: none \!important; }
+  .main-frame { border-top: none \!important; }
 `}</style>
 
-<div className="not-content mt-0 mb-12 border border-gray-700 bg-zinc-900 rounded-lg overflow-hidden min-h-[600px] shadow-2xl relative left-1/2 -translate-x-1/2 w-[95vw] max-w-[1600px]" style={{ height: "calc((100vh - var(--sl-nav-height, 3.5rem)) * 0.90)" }}>
-  <iframe src="/demo-standalone" className="w-full h-full border-none" title="repo-edu interactive demo" />
+<div className="not-content mt-0 mb-12">
+  <DemoShell client:only="react" />
 </div>
 
 ## What this page proves
