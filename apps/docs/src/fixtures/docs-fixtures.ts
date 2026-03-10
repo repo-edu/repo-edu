@@ -1,13 +1,26 @@
 import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
-import { docsFixtureMatrix } from "./docs-fixtures.generated.js"
+import {
+  defaultFixtureSelection,
+  type FixturePreset,
+  type FixtureSelection,
+  type FixtureSource,
+  type FixtureTier,
+  fixturePresets,
+  fixtureSources,
+  fixtureTiers,
+  getFixture,
+  isFixturePreset,
+  isFixtureSource,
+  isFixtureTier,
+} from "@repo-edu/test-fixtures"
 
-export const docsFixtureTiers = ["small", "medium", "stress"] as const
-export const docsFixturePresets = ["shared-teams", "assignment-scoped"] as const
-export const docsFixtureSources = ["canvas", "moodle", "file"] as const
+export const docsFixtureTiers = fixtureTiers
+export const docsFixturePresets = fixturePresets
+export const docsFixtureSources = fixtureSources
 
-export type DocsFixtureTier = (typeof docsFixtureTiers)[number]
-export type DocsFixturePreset = (typeof docsFixturePresets)[number]
-export type DocsFixtureSource = (typeof docsFixtureSources)[number]
+export type DocsFixtureTier = FixtureTier
+export type DocsFixturePreset = FixturePreset
+export type DocsFixtureSource = FixtureSource
 
 export type DocsReadableFileSeed = {
   referenceId: string
@@ -34,39 +47,9 @@ export type DocsFixtureSelection = {
 }
 
 export const defaultDocsFixtureSelection: DocsFixtureSelection = {
-  tier: "medium",
-  preset: "shared-teams",
+  tier: defaultFixtureSelection.tier,
+  preset: defaultFixtureSelection.preset,
   source: "canvas",
-}
-
-export function isDocsFixtureTier(
-  candidate: string | null | undefined,
-): candidate is DocsFixtureTier {
-  return (
-    candidate !== null &&
-    candidate !== undefined &&
-    (docsFixtureTiers as readonly string[]).includes(candidate)
-  )
-}
-
-export function isDocsFixturePreset(
-  candidate: string | null | undefined,
-): candidate is DocsFixturePreset {
-  return (
-    candidate !== null &&
-    candidate !== undefined &&
-    (docsFixturePresets as readonly string[]).includes(candidate)
-  )
-}
-
-export function isDocsFixtureSource(
-  candidate: string | null | undefined,
-): candidate is DocsFixtureSource {
-  return (
-    candidate !== null &&
-    candidate !== undefined &&
-    (docsFixtureSources as readonly string[]).includes(candidate)
-  )
 }
 
 function queryFixtureSelection(search: string): Partial<DocsFixtureSelection> {
@@ -76,9 +59,9 @@ function queryFixtureSelection(search: string): Partial<DocsFixtureSelection> {
   const sourceParam = params.get("source")
 
   return {
-    tier: isDocsFixtureTier(tierParam) ? tierParam : undefined,
-    preset: isDocsFixturePreset(presetParam) ? presetParam : undefined,
-    source: isDocsFixtureSource(sourceParam) ? sourceParam : undefined,
+    tier: isFixtureTier(tierParam) ? tierParam : undefined,
+    preset: isFixturePreset(presetParam) ? presetParam : undefined,
+    source: isFixtureSource(sourceParam) ? sourceParam : undefined,
   }
 }
 
@@ -102,8 +85,27 @@ export function resolveDocsFixtureSelection(options?: {
   }
 }
 
+function toDocsFixtureRecord(
+  sharedSelection: FixtureSelection,
+): DocsFixtureRecord {
+  const shared = getFixture(sharedSelection)
+  return {
+    profile: shared.profile,
+    settings: shared.settings,
+    readableFiles: shared.artifacts.map((artifact) => ({
+      referenceId: artifact.artifactId,
+      displayName: artifact.displayName,
+      mediaType: artifact.mediaType,
+      text: artifact.text,
+    })),
+  }
+}
+
 export function getDocsFixture(
   selection: DocsFixtureSelection,
 ): DocsFixtureRecord {
-  return docsFixtureMatrix[selection.tier][selection.preset]
+  return toDocsFixtureRecord({
+    tier: selection.tier,
+    preset: selection.preset,
+  })
 }

@@ -5,16 +5,12 @@ import {
   validatePersistedProfile,
   validateRoster,
 } from "@repo-edu/domain"
-import {
-  type DocsFixtureMatrix,
-  type DocsFixtureRecord,
-  docsFixturePresets,
-  docsFixtureTierCounts,
-  docsFixtureTiers,
-} from "./docs-fixtures-lib.ts"
+import { fixturePresets, fixtureTiers } from "./fixture-defs.js"
+import type { FixtureMatrix, FixtureRecord } from "./fixtures.js"
+import { fixtureTierCounts } from "./generator-lib.js"
 
 function fail(message: string): never {
-  throw new Error(`[fixture:docs] ${message}`)
+  throw new Error(`[fixture] ${message}`)
 }
 
 function assertUnique(values: readonly string[], description: string): void {
@@ -35,7 +31,7 @@ function assertUnique(values: readonly string[], description: string): void {
 }
 
 function validateFixtureReferences(
-  fixture: DocsFixtureRecord,
+  fixture: FixtureRecord,
   memberIds: ReadonlySet<string>,
   groupIds: ReadonlySet<string>,
   groupSetIds: ReadonlySet<string>,
@@ -77,15 +73,15 @@ function formatIssueKinds(kinds: readonly string[]): string {
   return kinds.slice(0, 8).join(", ")
 }
 
-export function validateFixtureMatrix(matrix: DocsFixtureMatrix): void {
-  for (const tier of docsFixtureTiers) {
-    for (const preset of docsFixturePresets) {
+export function validateFixtureMatrix(matrix: FixtureMatrix): void {
+  for (const tier of fixtureTiers) {
+    for (const preset of fixturePresets) {
       const fixture = matrix[tier][preset]
       if (!fixture) {
         fail(`Missing fixture entry for ${tier}/${preset}`)
       }
 
-      const expectedCounts = docsFixtureTierCounts[tier]
+      const expectedCounts = fixtureTierCounts[tier]
       const profile = fixture.profile
       const settings = fixture.settings
 
@@ -170,8 +166,8 @@ export function validateFixtureMatrix(matrix: DocsFixtureMatrix): void {
         }
       }
 
-      if (fixture.readableFiles.length === 0) {
-        fail(`${tier}/${preset}: expected seeded readable files`)
+      if (fixture.artifacts.length === 0) {
+        fail(`${tier}/${preset}: expected seeded artifacts`)
       }
     }
   }

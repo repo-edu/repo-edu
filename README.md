@@ -95,6 +95,7 @@ repo-edu/
     ├── host-runtime-contract/   # Runtime port contracts
     ├── host-node/               # Node host adapters (fs/process/http/git)
     ├── host-browser-mock/       # Browser/mock adapters for docs/tests
+    ├── test-fixtures/           # Canonical shared fixtures + source overlays
     ├── integrations-lms-contract/ # LMS integration contract
     ├── integrations-lms/          # LMS integration implementations
     ├── integrations-git-contract/ # Git/provider integration contract

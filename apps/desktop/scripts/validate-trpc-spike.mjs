@@ -57,10 +57,8 @@ if (!marker) {
   throw new Error(`electron-trpc marker was not emitted.\n${stderr}`.trim());
 }
 
-if (marker.validationProfileId !== "seed-profile") {
-  throw new Error(
-    `unexpected validation profile id: ${String(marker.validationProfileId)}`,
-  );
+if (typeof marker.validationProfileId !== "string") {
+  throw new Error("validationProfileId was not emitted as a string.");
 }
 
 if (marker.environmentShell !== "electron-renderer") {
@@ -93,20 +91,24 @@ if (marker.profileCount !== marker.listedProfileIds.length) {
   throw new Error("profileCount did not match listedProfileIds length.");
 }
 
-if (marker.listedProfileIds.includes("seed-profile")) {
-  throw new Error("seed-profile should not be listed by profile.list.");
-}
-
-if (marker.loadedProfileId !== "seed-profile") {
+if (marker.loadedProfileId !== marker.validationProfileId) {
   throw new Error(
     `unexpected loadedProfileId: ${String(marker.loadedProfileId)}`,
   );
 }
 
-if (marker.savedProfileId !== "seed-profile") {
+if (marker.savedProfileId !== marker.validationProfileId) {
   throw new Error(
     `unexpected savedProfileId: ${String(marker.savedProfileId)}`,
   );
+}
+
+if (marker.validationProfileId === "seed-profile") {
+  if (marker.listedProfileIds.includes("seed-profile")) {
+    throw new Error("seed-profile should not be listed by profile.list.");
+  }
+} else if (!marker.listedProfileIds.includes(marker.validationProfileId)) {
+  throw new Error("fixture validation profile should be listed by profile.list.");
 }
 
 if (typeof marker.savedProfileUpdatedAt !== "string") {

@@ -12,6 +12,7 @@
     { "path": "./packages/integrations-git-contract" },
     { "path": "./packages/host-node" },
     { "path": "./packages/host-browser-mock" },
+    { "path": "./packages/test-fixtures" },
     { "path": "./packages/integrations-lms" },
     { "path": "./packages/integrations-git" },
     { "path": "./apps/desktop" },

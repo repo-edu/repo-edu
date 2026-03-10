@@ -1,33 +1,15 @@
 import { faker } from "@faker-js/faker"
 import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
 import { defaultAppSettings, persistedProfileKind } from "@repo-edu/domain"
+import type { FixturePreset, FixtureTier } from "./fixture-defs.js"
+import type {
+  FixtureArtifact,
+  FixtureMatrix,
+  FixtureRecord,
+} from "./fixtures.js"
 
-export const docsFixtureTiers = ["small", "medium", "stress"] as const
-export const docsFixturePresets = ["shared-teams", "assignment-scoped"] as const
-
-export type DocsFixtureTier = (typeof docsFixtureTiers)[number]
-export type DocsFixturePreset = (typeof docsFixturePresets)[number]
-
-export type DocsReadableFileSeed = {
-  referenceId: string
-  displayName: string
-  mediaType: string | null
-  text: string
-}
-
-export type DocsFixtureRecord = {
-  profile: PersistedProfile
-  settings: PersistedAppSettings
-  readableFiles: DocsReadableFileSeed[]
-}
-
-export type DocsFixtureMatrix = Record<
-  DocsFixtureTier,
-  Record<DocsFixturePreset, DocsFixtureRecord>
->
-
-export const docsFixtureTierCounts: Record<
-  DocsFixtureTier,
+export const fixtureTierCounts: Record<
+  FixtureTier,
   { students: number; staff: number }
 > = {
   small: { students: 24, staff: 2 },
@@ -112,12 +94,11 @@ function splitMembersBySizes(
   return groups
 }
 
-function fixtureSeed(tier: DocsFixtureTier, preset: DocsFixturePreset): number {
-  return (
-    baseSeed +
-    docsFixtureTiers.indexOf(tier) * 1_000 +
-    docsFixturePresets.indexOf(preset) * 100
-  )
+function fixtureSeed(tier: FixtureTier, preset: FixturePreset): number {
+  const tierIndex =
+    tier === "small" ? 0 : tier === "medium" ? 1 : tier === "stress" ? 2 : 0
+  const presetIndex = preset === "shared-teams" ? 0 : 1
+  return baseSeed + tierIndex * 1_000 + presetIndex * 100
 }
 
 function createStudents(count: number) {
@@ -287,10 +268,10 @@ function createAssignmentScopedGroupModel(
   }
 }
 
-function createReadableFiles(
+function createArtifacts(
   profile: PersistedProfile,
-  preset: DocsFixturePreset,
-): DocsReadableFileSeed[] {
+  preset: FixturePreset,
+): FixtureArtifact[] {
   const studentsCsv = [
     toCsvLine([
       "id",
@@ -372,19 +353,19 @@ function createReadableFiles(
 
   return [
     {
-      referenceId: "seed-students",
+      artifactId: "students-csv",
       displayName: "students.csv",
       mediaType: "text/csv",
       text: studentsCsv,
     },
     {
-      referenceId: "seed-groups",
+      artifactId: "groups-csv",
       displayName: "groups.csv",
       mediaType: "text/csv",
       text: groupsCsv,
     },
     {
-      referenceId: "seed-groups-json",
+      artifactId: "groups-json",
       displayName: "groups.json",
       mediaType: "application/json",
       text: groupsJson,
@@ -393,12 +374,12 @@ function createReadableFiles(
 }
 
 function createFixtureRecord(
-  tier: DocsFixtureTier,
-  preset: DocsFixturePreset,
-): DocsFixtureRecord {
+  tier: FixtureTier,
+  preset: FixturePreset,
+): FixtureRecord {
   faker.seed(fixtureSeed(tier, preset))
 
-  const counts = docsFixtureTierCounts[tier]
+  const counts = fixtureTierCounts[tier]
   const students = createStudents(counts.students)
   const staff = createStaff(counts.staff)
   const studentIds = students.map((student) => student.id)
@@ -425,7 +406,7 @@ function createFixtureRecord(
     lmsGroupId: null,
   }
 
-  const profileId = `docs-${tier}-${preset}`
+  const profileId = `fixture-${tier}-${preset}`
   const courseId = `course-${tier}-${preset}`
   const roster = {
     connection: null,
@@ -468,13 +449,13 @@ function createFixtureRecord(
     kind: persistedProfileKind,
     schemaVersion: 2,
     id: profileId,
-    displayName: `Docs Demo (${tier}, ${preset})`,
+    displayName: `Fixture (${tier}, ${preset})`,
     lmsConnectionName: "Canvas Demo",
     gitConnectionName: "GitHub Demo",
     courseId,
     roster,
     repositoryTemplate: {
-      owner: "demo-org",
+      owner: "fixture-org",
       name: "starter-template",
       visibility: "private",
     },
@@ -498,7 +479,7 @@ function createFixtureRecord(
         provider: "github",
         baseUrl: null,
         token: "demo-token",
-        organization: "demo-org",
+        organization: "fixture-org",
       },
     ],
     lastOpenedAt: fixtureGeneratedAt,
@@ -507,11 +488,11 @@ function createFixtureRecord(
   return {
     profile,
     settings,
-    readableFiles: createReadableFiles(profile, preset),
+    artifacts: createArtifacts(profile, preset),
   }
 }
 
-export function buildDocsFixtureMatrix(): DocsFixtureMatrix {
+export function buildFixtureMatrix(): FixtureMatrix {
   return {
     small: {
       "shared-teams": createFixtureRecord("small", "shared-teams"),
@@ -528,14 +509,14 @@ export function buildDocsFixtureMatrix(): DocsFixtureMatrix {
   }
 }
 
-export function renderDocsFixtureModule(matrix: DocsFixtureMatrix): string {
+export function renderFixtureModule(matrix: FixtureMatrix): string {
   return [
     "// AUTO-GENERATED BY scripts/generate-docs-fixtures.ts",
     "// DO NOT EDIT MANUALLY.",
     "",
-    'import type { DocsFixtureMatrix } from "./docs-fixtures.js"',
+    'import type { FixtureMatrix } from "./fixtures.js"',
     "",
-    `export const docsFixtureMatrix: DocsFixtureMatrix = ${JSON.stringify(matrix, null, 2)}`,
+    `export const fixtureMatrix: FixtureMatrix = ${JSON.stringify(matrix, null, 2)}`,
     "",
   ].join("\n")
 }

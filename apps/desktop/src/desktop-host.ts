@@ -111,6 +111,8 @@ function toSaveDialogFilters(format: FileFormat | null) {
 
 export type DesktopHostEnvironment = {
   userFilePort: UserFilePort
+  queueUserFilePath(path: string): void
+  queueSaveTargetPath(path: string): void
   pickUserFile(
     parentWindow: BrowserWindow | null,
     options?: OpenUserFileDialogOptions,
@@ -123,9 +125,18 @@ export type DesktopHostEnvironment = {
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
 }
 
-export function createDesktopHostEnvironment(): DesktopHostEnvironment {
+type DesktopHostOptions = {
+  queuedUserFilePaths?: readonly string[]
+  queuedSaveTargetPaths?: readonly string[]
+}
+
+export function createDesktopHostEnvironment(
+  options: DesktopHostOptions = {},
+): DesktopHostEnvironment {
   const readableReferences = new Map<string, ReadReferenceRecord>()
   const writableReferences = new Map<string, WriteReferenceRecord>()
+  const queuedUserFilePaths = [...(options.queuedUserFilePaths ?? [])]
+  const queuedSaveTargetPaths = [...(options.queuedSaveTargetPaths ?? [])]
   let lastOpenedExternalUrl: string | null = null
 
   const registerReadable = async (
@@ -240,10 +251,49 @@ export function createDesktopHostEnvironment(): DesktopHostEnvironment {
     },
   }
 
+  const popQueuedUserFilePath = (
+    acceptFormats?: readonly FileFormat[],
+  ): string | null => {
+    if (queuedUserFilePaths.length === 0) {
+      return null
+    }
+
+    if (!acceptFormats || acceptFormats.length === 0) {
+      return queuedUserFilePaths.shift() ?? null
+    }
+
+    const index = queuedUserFilePaths.findIndex((path) => {
+      const format = inferFormatFromPath(path)
+      return format !== null && acceptFormats.includes(format)
+    })
+
+    if (index < 0) {
+      return null
+    }
+
+    const [selectedPath] = queuedUserFilePaths.splice(index, 1)
+    return selectedPath ?? null
+  }
+
+  const popQueuedSaveTargetPath = (): string | null => {
+    return queuedSaveTargetPaths.shift() ?? null
+  }
+
   return {
     userFilePort,
+    queueUserFilePath(path) {
+      queuedUserFilePaths.push(path)
+    },
+    queueSaveTargetPath(path) {
+      queuedSaveTargetPaths.push(path)
+    },
 
     async pickUserFile(parentWindow, options) {
+      const queuedPath = popQueuedUserFilePath(options?.acceptFormats)
+      if (queuedPath) {
+        return await registerReadable(queuedPath)
+      }
+
       const dialogOptions: OpenDialogOptions = {
         title: options?.title,
         properties: ["openFile"],
@@ -262,6 +312,11 @@ export function createDesktopHostEnvironment(): DesktopHostEnvironment {
 
     async pickSaveTarget(parentWindow, options) {
       const suggestedFormat = options?.defaultFormat ?? null
+      const queuedPath = popQueuedSaveTargetPath()
+      if (queuedPath) {
+        return registerWritable(queuedPath, suggestedFormat)
+      }
+
       const dialogOptions: SaveDialogOptions = {
         title: options?.title,
         defaultPath: options?.suggestedName,

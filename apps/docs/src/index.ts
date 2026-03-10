@@ -1,5 +1,6 @@
 import { AppRoot } from "@repo-edu/app"
 import { packageId as hostBrowserMockPackageId } from "@repo-edu/host-browser-mock"
+import { packageId as testFixturesPackageId } from "@repo-edu/test-fixtures"
 import { mountDocsDemoApp } from "./demo-runtime.js"
 
 const appPackageId = "@repo-edu/app"
@@ -18,6 +19,7 @@ export const workspaceDependencies = [
   domainPackageId,
   integrationsLmsContractPackageId,
   integrationsGitContractPackageId,
+  testFixturesPackageId,
 ] as const
 
 export type { DocsDemoRuntimeOptions } from "./demo-runtime.js"

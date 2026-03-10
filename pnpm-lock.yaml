@@ -89,6 +89,9 @@ importers:
       '@repo-edu/renderer-host-contract':
         specifier: workspace:*
         version: link:../../packages/renderer-host-contract
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
       '@trpc/client':
         specifier: ^11.11.0
         version: 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
@@ -153,6 +156,9 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
       astro:
         specifier: ^5.2.0
         version: 5.18.0(@types/node@22.18.11)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.59.0)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -339,6 +345,15 @@ importers:
 
   packages/renderer-host-contract:
     dependencies:
+      '@repo-edu/domain':
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/test-fixtures:
+    dependencies:
+      '@faker-js/faker':
+        specifier: ^10.3.0
+        version: 10.3.0
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain

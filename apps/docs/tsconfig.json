@@ -9,6 +9,7 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     { "path": "../../packages/app" },
-    { "path": "../../packages/host-browser-mock" }
+    { "path": "../../packages/host-browser-mock" },
+    { "path": "../../packages/test-fixtures" }
   ]
 }

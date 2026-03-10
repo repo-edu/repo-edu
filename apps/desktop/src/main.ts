@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path"
+import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import {
@@ -9,6 +9,8 @@ import {
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
 import { createIPCHandler } from "trpc-electron/main"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
+import { desktopSeedProfileId } from "./profile-ids"
 import { createDesktopProfileStore } from "./profile-store"
 import {
   type DesktopRendererHostBridge,
@@ -32,28 +34,62 @@ const nodeFileSystemPort = createNodeFileSystemPort()
 let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
+let storageRootPath: string | null = null
+let validationProfileId: string = desktopSeedProfileId
 
 function resolvePreloadPath() {
   return join(currentDir, "../preload/preload.cjs")
 }
 
 function resolveRendererUrl() {
-  const baseUrl = process.env.ELECTRON_RENDERER_URL
-  const validationSuffix = isTRPCValidationMode ? "?mode=validate-trpc" : ""
+  const baseUrl =
+    process.env.ELECTRON_RENDERER_URL ??
+    pathToFileURL(join(currentDir, "../renderer/index.html")).toString()
+  const url = new URL(baseUrl)
 
-  if (baseUrl) {
-    return `${baseUrl}${validationSuffix}`
+  if (isTRPCValidationMode) {
+    url.searchParams.set("mode", "validate-trpc")
+    url.searchParams.set("profileId", validationProfileId)
   }
 
-  const fileUrl = pathToFileURL(
-    join(currentDir, "../renderer/index.html"),
-  ).toString()
-
-  return `${fileUrl}${validationSuffix}`
+  return url.toString()
 }
 
 function resolveStorageRootPath() {
+  const override = process.env.REPO_EDU_STORAGE_ROOT?.trim()
+  if (override) {
+    return resolve(override)
+  }
   return join(app.getPath("appData"), "repo-edu")
+}
+
+function currentStorageRootPath() {
+  return storageRootPath ?? resolveStorageRootPath()
+}
+
+function parsePathQueue(value: string | undefined): string[] {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    return []
+  }
+
+  if (trimmed.startsWith("[")) {
+    const parsed = JSON.parse(trimmed) as unknown
+    if (
+      !Array.isArray(parsed) ||
+      !parsed.every((entry) => typeof entry === "string")
+    ) {
+      throw new Error(
+        "Path queue env vars must be JSON arrays of strings when JSON format is used.",
+      )
+    }
+    return parsed
+  }
+
+  return trimmed
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
 }
 
 function registerRendererHostIpcHandlers() {
@@ -112,7 +148,7 @@ function registerRendererHostIpcHandlers() {
   ipcMain.handle(
     desktopRendererHostChannels.revealProfilesDirectory,
     async () => {
-      const profilesDir = join(resolveStorageRootPath(), "profiles")
+      const profilesDir = join(currentStorageRootPath(), "profiles")
       await shell.openPath(profilesDir)
     },
   )
@@ -154,7 +190,7 @@ async function createWindow() {
   })
 
   if (!desktopRouter) {
-    const storageRoot = resolveStorageRootPath()
+    const storageRoot = currentStorageRootPath()
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       profileStore: createDesktopProfileStore(storageRoot),
@@ -255,6 +291,36 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  storageRootPath = resolveStorageRootPath()
+
+  const seededFixture = await seedDesktopFixtureFromEnvironment(storageRootPath)
+  if (seededFixture) {
+    validationProfileId = seededFixture.profileId
+    for (const fixturePath of seededFixture.artifactPaths) {
+      desktopHost.queueUserFilePath(fixturePath)
+    }
+  }
+
+  const userFileQueue = parsePathQueue(
+    process.env.REPO_EDU_TEST_USER_FILE_QUEUE,
+  )
+  for (const path of userFileQueue) {
+    desktopHost.queueUserFilePath(path)
+  }
+
+  const saveTargetQueue = parsePathQueue(
+    process.env.REPO_EDU_TEST_SAVE_TARGET_QUEUE,
+  )
+  for (const path of saveTargetQueue) {
+    desktopHost.queueSaveTargetPath(path)
+  }
+
+  const validationProfileOverride =
+    process.env.REPO_EDU_VALIDATION_PROFILE_ID?.trim()
+  if (validationProfileOverride) {
+    validationProfileId = validationProfileOverride
+  }
+
   registerRendererHostIpcHandlers()
   await createWindow()
 

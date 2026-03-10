@@ -1,28 +1,28 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { validateFixtureMatrix } from "../packages/test-fixtures/src/fixtures-validate.ts"
 import {
-  buildDocsFixtureMatrix,
-  renderDocsFixtureModule,
-} from "./docs-fixtures-lib.ts"
-import { validateFixtureMatrix } from "./docs-fixtures-validate.ts"
+  buildFixtureMatrix,
+  renderFixtureModule,
+} from "../packages/test-fixtures/src/generator-lib.ts"
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDirectory, "..")
 const fixtureModulePath = resolve(
   repoRoot,
-  "apps/docs/src/fixtures/docs-fixtures.generated.ts",
+  "packages/test-fixtures/src/fixtures.generated.ts",
 )
 
 async function main() {
-  const matrix = buildDocsFixtureMatrix()
+  const matrix = buildFixtureMatrix()
   validateFixtureMatrix(matrix)
-  const source = renderDocsFixtureModule(matrix)
+  const source = renderFixtureModule(matrix)
 
   await mkdir(dirname(fixtureModulePath), { recursive: true })
   await writeFile(fixtureModulePath, source, "utf8")
 
-  console.log(`[fixture:docs] generated ${fixtureModulePath}`)
+  console.log(`[fixture] generated ${fixtureModulePath}`)
 }
 
 void main().catch((error) => {

@@ -17,13 +17,10 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import type {
-  GroupSet,
-  PersistedAppSettings,
-  PersistedProfile,
-} from "@repo-edu/domain"
-import { ORIGIN_LMS, ORIGIN_LOCAL } from "@repo-edu/domain"
+import type { GroupSet, PersistedProfile } from "@repo-edu/domain"
+import { ORIGIN_LMS } from "@repo-edu/domain"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
+import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
 import type {
@@ -75,131 +72,6 @@ function cloneValue<TValue>(value: TValue): TValue {
     return structuredClone(value)
   }
   return JSON.parse(JSON.stringify(value)) as TValue
-}
-
-// ---------------------------------------------------------------------------
-// Source overlay — mutates cloned profile/settings to reflect the selected
-// data source (Canvas LMS, Moodle LMS, or CSV file import).
-// ---------------------------------------------------------------------------
-
-function applySourceOverlay(
-  profile: PersistedProfile,
-  settings: PersistedAppSettings,
-  source: DocsFixtureSource,
-  courseId: string,
-): void {
-  const now = new Date().toISOString()
-
-  switch (source) {
-    case "canvas": {
-      settings.lmsConnections = [
-        {
-          name: "Canvas Demo",
-          provider: "canvas",
-          baseUrl: "https://canvas.example.edu",
-          token: "demo-token",
-        },
-      ]
-      profile.lmsConnectionName = "Canvas Demo"
-      profile.courseId = courseId
-      profile.roster.connection = {
-        kind: "canvas",
-        courseId,
-        lastUpdated: now,
-      }
-
-      let canvasGroupSetIndex = 0
-      for (const groupSet of profile.roster.groupSets) {
-        if (groupSet.connection?.kind === "system") continue
-        canvasGroupSetIndex += 1
-        groupSet.connection = {
-          kind: "canvas",
-          courseId,
-          groupSetId: `canvas-gs-${canvasGroupSetIndex}`,
-          lastUpdated: now,
-        }
-      }
-
-      let canvasGroupIndex = 0
-      for (const group of profile.roster.groups) {
-        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
-          canvasGroupIndex += 1
-          group.origin = ORIGIN_LMS
-          group.lmsGroupId = `canvas-g-${canvasGroupIndex}`
-        }
-      }
-      break
-    }
-
-    case "moodle": {
-      settings.lmsConnections = [
-        {
-          name: "Moodle Demo",
-          provider: "moodle",
-          baseUrl: "https://moodle.example.edu",
-          token: "demo-token",
-        },
-      ]
-      profile.lmsConnectionName = "Moodle Demo"
-      profile.courseId = courseId
-      profile.roster.connection = {
-        kind: "moodle",
-        courseId,
-        lastUpdated: now,
-      }
-
-      let moodleGroupSetIndex = 0
-      for (const groupSet of profile.roster.groupSets) {
-        if (groupSet.connection?.kind === "system") continue
-        moodleGroupSetIndex += 1
-        groupSet.connection = {
-          kind: "moodle",
-          courseId,
-          groupingId: `moodle-grouping-${moodleGroupSetIndex}`,
-          lastUpdated: now,
-        }
-      }
-
-      let moodleGroupIndex = 0
-      for (const group of profile.roster.groups) {
-        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
-          moodleGroupIndex += 1
-          group.origin = ORIGIN_LMS
-          group.lmsGroupId = `moodle-g-${moodleGroupIndex}`
-        }
-      }
-      break
-    }
-
-    case "file": {
-      settings.lmsConnections = []
-      profile.lmsConnectionName = null
-      profile.courseId = null
-      profile.roster.connection = {
-        kind: "import",
-        sourceFilename: "students.csv",
-        lastUpdated: now,
-      }
-
-      for (const groupSet of profile.roster.groupSets) {
-        if (groupSet.connection?.kind === "system") continue
-        groupSet.connection = {
-          kind: "import",
-          sourceFilename: "groups.csv",
-          sourcePath: null,
-          lastUpdated: now,
-        }
-      }
-
-      for (const group of profile.roster.groups) {
-        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
-          group.origin = ORIGIN_LOCAL
-          group.lmsGroupId = null
-        }
-      }
-      break
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -331,7 +203,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     seedProfile.courseId ??
     `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
 
-  applySourceOverlay(
+  applyFixtureSourceOverlay(
     seedProfile,
     seedSettings,
     fixtureSelection.source,

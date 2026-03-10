@@ -18,6 +18,7 @@
     "../../packages/integrations-lms-contract/src/**/*.ts",
     "../../packages/host-runtime-contract/src/**/*.ts",
     "../../packages/renderer-host-contract/src/**/*.ts",
-    "../../packages/host-node/src/**/*.ts"
+    "../../packages/host-node/src/**/*.ts",
+    "../../packages/test-fixtures/src/**/*.ts"
   ]
 }

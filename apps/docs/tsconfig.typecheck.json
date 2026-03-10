@@ -19,6 +19,7 @@
     "../../packages/host-runtime-contract/src/**/*.ts",
     "../../packages/renderer-host-contract/src/**/*.ts",
     "../../packages/integrations-lms-contract/src/**/*.ts",
-    "../../packages/integrations-git-contract/src/**/*.ts"
+    "../../packages/integrations-git-contract/src/**/*.ts",
+    "../../packages/test-fixtures/src/**/*.ts"
   ]
 }

@@ -10,6 +10,8 @@ import { createDesktopWorkflowClient } from "./workflow-client"
 const trpcMarker = "repo-edu-desktop-trpc"
 const searchParams = new URLSearchParams(window.location.search)
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
+const validationProfileId =
+  searchParams.get("profileId")?.trim() || desktopSeedProfileId
 
 const mountNode = document.querySelector<HTMLDivElement>("#app")
 if (!mountNode) {
@@ -70,7 +72,7 @@ async function collectValidationSnapshot() {
 
   const profileList = await workflowClient.run("profile.list", undefined)
   const loadedProfile = await workflowClient.run("profile.load", {
-    profileId: desktopSeedProfileId,
+    profileId: validationProfileId,
   })
   const savedProfile = await workflowClient.run("profile.save", loadedProfile)
 
@@ -81,15 +83,16 @@ async function collectValidationSnapshot() {
   )
 
   const rosterValidation = await workflowClient.run("validation.roster", {
-    profileId: desktopSeedProfileId,
+    profileId: validationProfileId,
   })
-  const assignmentValidation = await workflowClient.run(
-    "validation.assignment",
-    {
-      profileId: desktopSeedProfileId,
-      assignmentId: "a-seed-project-1",
-    },
-  )
+  const validationAssignmentId = loadedProfile.roster.assignments[0]?.id ?? null
+  const assignmentValidation =
+    validationAssignmentId === null
+      ? { issues: [] }
+      : await workflowClient.run("validation.assignment", {
+          profileId: validationProfileId,
+          assignmentId: validationAssignmentId,
+        })
 
   const spike = await workflowClient.run("spike.e2e-trpc", undefined, {
     onProgress(event) {
@@ -100,7 +103,7 @@ async function collectValidationSnapshot() {
   let repoDeleteErrorType: AppError["type"] | null = null
   try {
     await workflowClient.run("repo.delete", {
-      profileId: desktopSeedProfileId,
+      profileId: validationProfileId,
       assignmentId: null,
       template: null,
       confirmDelete: false,
@@ -118,6 +121,7 @@ async function collectValidationSnapshot() {
     loadedProfileId: loadedProfile.id,
     savedProfileId: savedProfile.id,
     savedProfileUpdatedAt: savedProfile.updatedAt,
+    validationAssignmentId,
     settingsKind: loadedSettings.kind,
     settingsSchemaVersion: savedSettings.schemaVersion,
     rosterIssueKinds: rosterValidation.issues.map((issue) => issue.kind),
@@ -136,7 +140,7 @@ async function runValidationMode() {
 
     emitValidationMarker({
       marker: trpcMarker,
-      validationProfileId: desktopSeedProfileId,
+      validationProfileId,
       ...snapshot,
     })
   } catch (error) {

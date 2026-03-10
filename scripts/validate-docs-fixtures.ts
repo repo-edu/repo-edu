@@ -1,5 +1,5 @@
-import { docsFixtureMatrix } from "../apps/docs/src/fixtures/docs-fixtures.generated.ts"
-import { validateFixtureMatrix } from "./docs-fixtures-validate.ts"
+import { fixtureMatrix } from "../packages/test-fixtures/src/fixtures.generated.ts"
+import { validateFixtureMatrix } from "../packages/test-fixtures/src/fixtures-validate.ts"
 
-validateFixtureMatrix(docsFixtureMatrix)
-console.log("[fixture:docs] validation passed")
+validateFixtureMatrix(fixtureMatrix)
+console.log("[fixture] validation passed")

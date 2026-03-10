@@ -1,0 +1,29 @@
+import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import type {
+  FixturePreset,
+  FixtureSelection,
+  FixtureTier,
+} from "./fixture-defs.js"
+import { fixtureMatrix } from "./fixtures.generated.js"
+
+export type FixtureArtifact = {
+  artifactId: string
+  displayName: string
+  mediaType: string | null
+  text: string
+}
+
+export type FixtureRecord = {
+  profile: PersistedProfile
+  settings: PersistedAppSettings
+  artifacts: FixtureArtifact[]
+}
+
+export type FixtureMatrix = Record<
+  FixtureTier,
+  Record<FixturePreset, FixtureRecord>
+>
+
+export function getFixture(selection: FixtureSelection): FixtureRecord {
+  return fixtureMatrix[selection.tier][selection.preset]
+}
