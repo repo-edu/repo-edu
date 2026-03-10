@@ -17,12 +17,18 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import { ORIGIN_LMS } from "@repo-edu/domain"
+import type {
+  GroupSet,
+  PersistedAppSettings,
+  PersistedProfile,
+} from "@repo-edu/domain"
+import { ORIGIN_LMS, ORIGIN_LOCAL } from "@repo-edu/domain"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
 import type {
   DocsFixturePreset,
+  DocsFixtureSource,
   DocsFixtureTier,
 } from "./fixtures/docs-fixtures.js"
 import {
@@ -39,6 +45,7 @@ export type DocsMountOptions = {
   createRoot?: (mountNode: unknown) => DocsMountRoot
   tier?: DocsFixtureTier
   preset?: DocsFixturePreset
+  source?: DocsFixtureSource
   appRootComponent?: React.ComponentType<{
     workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
     rendererHost: ReturnType<typeof createDocsDemoRuntime>["rendererHost"]
@@ -48,6 +55,7 @@ export type DocsMountOptions = {
 export type DocsDemoRuntimeOptions = {
   tier?: DocsFixtureTier
   preset?: DocsFixturePreset
+  source?: DocsFixtureSource
 }
 
 function resolveMountNode(queryMountNode?: () => unknown): unknown {
@@ -69,30 +77,163 @@ function cloneValue<TValue>(value: TValue): TValue {
   return JSON.parse(JSON.stringify(value)) as TValue
 }
 
-export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
-  const fixtureSelection = resolveDocsFixtureSelection(options)
-  const fixture = getDocsFixture(fixtureSelection)
-  const seedProfile = cloneValue(fixture.profile)
-  const seedSettings = cloneValue(fixture.settings)
-  const seedProfileId = seedProfile.id
-  const seedCourseId =
-    seedProfile.courseId ??
-    `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
-  const browserMockHost = createBrowserMockHostEnvironment({
-    readableFiles: fixture.readableFiles,
-  })
-  const lmsMemberIds = seedProfile.roster.students
-    .slice(0, 2)
-    .map((member) => member.id)
-  const collaborativeGroupSet =
-    seedProfile.roster.groupSets.find(
-      (groupSet) => groupSet.connection === null,
-    ) ?? null
+// ---------------------------------------------------------------------------
+// Source overlay — mutates cloned profile/settings to reflect the selected
+// data source (Canvas LMS, Moodle LMS, or CSV file import).
+// ---------------------------------------------------------------------------
 
-  const profileStore = createInMemoryProfileStore([seedProfile])
-  const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
+function applySourceOverlay(
+  profile: PersistedProfile,
+  settings: PersistedAppSettings,
+  source: DocsFixtureSource,
+  courseId: string,
+): void {
+  const now = new Date().toISOString()
 
-  const lmsPorts = {
+  switch (source) {
+    case "canvas": {
+      settings.lmsConnections = [
+        {
+          name: "Canvas Demo",
+          provider: "canvas",
+          baseUrl: "https://canvas.example.edu",
+          token: "demo-token",
+        },
+      ]
+      profile.lmsConnectionName = "Canvas Demo"
+      profile.courseId = courseId
+      profile.roster.connection = {
+        kind: "canvas",
+        courseId,
+        lastUpdated: now,
+      }
+
+      let canvasGroupSetIndex = 0
+      for (const groupSet of profile.roster.groupSets) {
+        if (groupSet.connection?.kind === "system") continue
+        canvasGroupSetIndex += 1
+        groupSet.connection = {
+          kind: "canvas",
+          courseId,
+          groupSetId: `canvas-gs-${canvasGroupSetIndex}`,
+          lastUpdated: now,
+        }
+      }
+
+      let canvasGroupIndex = 0
+      for (const group of profile.roster.groups) {
+        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
+          canvasGroupIndex += 1
+          group.origin = ORIGIN_LMS
+          group.lmsGroupId = `canvas-g-${canvasGroupIndex}`
+        }
+      }
+      break
+    }
+
+    case "moodle": {
+      settings.lmsConnections = [
+        {
+          name: "Moodle Demo",
+          provider: "moodle",
+          baseUrl: "https://moodle.example.edu",
+          token: "demo-token",
+        },
+      ]
+      profile.lmsConnectionName = "Moodle Demo"
+      profile.courseId = courseId
+      profile.roster.connection = {
+        kind: "moodle",
+        courseId,
+        lastUpdated: now,
+      }
+
+      let moodleGroupSetIndex = 0
+      for (const groupSet of profile.roster.groupSets) {
+        if (groupSet.connection?.kind === "system") continue
+        moodleGroupSetIndex += 1
+        groupSet.connection = {
+          kind: "moodle",
+          courseId,
+          groupingId: `moodle-grouping-${moodleGroupSetIndex}`,
+          lastUpdated: now,
+        }
+      }
+
+      let moodleGroupIndex = 0
+      for (const group of profile.roster.groups) {
+        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
+          moodleGroupIndex += 1
+          group.origin = ORIGIN_LMS
+          group.lmsGroupId = `moodle-g-${moodleGroupIndex}`
+        }
+      }
+      break
+    }
+
+    case "file": {
+      settings.lmsConnections = []
+      profile.lmsConnectionName = null
+      profile.courseId = null
+      profile.roster.connection = {
+        kind: "import",
+        sourceFilename: "students.csv",
+        lastUpdated: now,
+      }
+
+      for (const groupSet of profile.roster.groupSets) {
+        if (groupSet.connection?.kind === "system") continue
+        groupSet.connection = {
+          kind: "import",
+          sourceFilename: "groups.csv",
+          sourcePath: null,
+          lastUpdated: now,
+        }
+      }
+
+      for (const group of profile.roster.groups) {
+        if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
+          group.origin = ORIGIN_LOCAL
+          group.lmsGroupId = null
+        }
+      }
+      break
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mock LMS ports — source-aware factory
+// ---------------------------------------------------------------------------
+
+function createMockLmsPorts(
+  source: DocsFixtureSource,
+  seedProfile: PersistedProfile,
+  seedCourseId: string,
+  collaborativeGroupSet: GroupSet | null,
+  lmsMemberIds: string[],
+) {
+  if (source === "file") {
+    return {
+      async verifyConnection() {
+        return { verified: false }
+      },
+      async listCourses() {
+        return []
+      },
+      async fetchRoster(): Promise<never> {
+        throw new Error("No LMS connection configured")
+      },
+      async listGroupSets() {
+        return []
+      },
+      async fetchGroupSet(): Promise<never> {
+        throw new Error("No LMS connection configured")
+      },
+    }
+  }
+
+  return {
     async verifyConnection() {
       return { verified: true }
     },
@@ -103,13 +244,21 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       ]
     },
     async fetchRoster() {
+      const connection =
+        source === "canvas"
+          ? {
+              kind: "canvas" as const,
+              courseId: seedCourseId,
+              lastUpdated: new Date().toISOString(),
+            }
+          : {
+              kind: "moodle" as const,
+              courseId: seedCourseId,
+              lastUpdated: new Date().toISOString(),
+            }
       return {
         ...seedProfile.roster,
-        connection: {
-          kind: "canvas" as const,
-          courseId: seedCourseId,
-          lastUpdated: new Date().toISOString(),
-        },
+        connection,
       }
     },
     async listGroupSets() {
@@ -128,17 +277,27 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       _signal?: AbortSignal,
       _onProgress?: (message: string) => void,
     ) {
+      const connection =
+        source === "canvas"
+          ? {
+              kind: "canvas" as const,
+              courseId,
+              groupSetId,
+              lastUpdated: new Date().toISOString(),
+            }
+          : {
+              kind: "moodle" as const,
+              courseId,
+              groupingId: groupSetId,
+              lastUpdated: new Date().toISOString(),
+            }
+
       return {
         groupSet: {
           id: groupSetId,
           name: "LMS Teams",
           groupIds: ["lms-group-1"],
-          connection: {
-            kind: "canvas" as const,
-            courseId,
-            groupSetId,
-            lastUpdated: new Date().toISOString(),
-          },
+          connection,
           groupSelection: {
             kind: "all" as const,
             excludedGroupIds: [],
@@ -156,6 +315,51 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       }
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime creation
+// ---------------------------------------------------------------------------
+
+export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
+  const fixtureSelection = resolveDocsFixtureSelection(options)
+  const fixture = getDocsFixture(fixtureSelection)
+  const seedProfile = cloneValue(fixture.profile)
+  const seedSettings = cloneValue(fixture.settings)
+  const seedProfileId = seedProfile.id
+  const seedCourseId =
+    seedProfile.courseId ??
+    `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
+
+  applySourceOverlay(
+    seedProfile,
+    seedSettings,
+    fixtureSelection.source,
+    seedCourseId,
+  )
+
+  const browserMockHost = createBrowserMockHostEnvironment({
+    readableFiles: fixture.readableFiles,
+  })
+  const lmsMemberIds = seedProfile.roster.students
+    .slice(0, 2)
+    .map((member) => member.id)
+  const collaborativeGroupSet =
+    seedProfile.roster.groupSets.find(
+      (groupSet) =>
+        groupSet.connection !== null && groupSet.connection.kind !== "system",
+    ) ?? null
+
+  const profileStore = createInMemoryProfileStore([seedProfile])
+  const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
+
+  const lmsPorts = createMockLmsPorts(
+    fixtureSelection.source,
+    seedProfile,
+    seedCourseId,
+    collaborativeGroupSet,
+    lmsMemberIds,
+  )
 
   const gitPorts = {
     async verifyConnection() {
@@ -294,6 +498,7 @@ export function mountDocsDemoApp(options: DocsMountOptions = {}) {
   const runtime = createDocsDemoRuntime({
     tier: options.tier,
     preset: options.preset,
+    source: options.source,
   })
   const appRootComponent = options.appRootComponent
   if (!appRootComponent) {

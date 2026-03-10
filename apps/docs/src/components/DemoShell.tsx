@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react"
 import {
   type DocsFixturePreset,
+  type DocsFixtureSource,
   type DocsFixtureTier,
   docsFixturePresets,
+  docsFixtureSources,
   docsFixtureTiers,
   resolveDocsFixtureSelection,
 } from "../fixtures/docs-fixtures.js"
@@ -18,16 +20,31 @@ const presetDescriptions: Record<DocsFixturePreset, string> = {
   "assignment-scoped": "a1-grp01 … a2-grp01 … — separate groups per assignment",
 }
 
-function updateParentQuery(tier: DocsFixtureTier, preset: DocsFixturePreset) {
+const sourceDescriptions: Record<DocsFixtureSource, string> = {
+  canvas: "Canvas LMS — synced roster and groups",
+  moodle: "Moodle LMS — synced roster and groupings",
+  file: "CSV file import — no LMS connection",
+}
+
+function updateParentQuery(
+  tier: DocsFixtureTier,
+  preset: DocsFixturePreset,
+  source: DocsFixtureSource,
+) {
   if (typeof window === "undefined") return
   const url = new URL(window.location.href)
   url.searchParams.set("tier", tier)
   url.searchParams.set("preset", preset)
+  url.searchParams.set("source", source)
   window.history.replaceState(null, "", url)
 }
 
-function buildIframeSrc(tier: DocsFixtureTier, preset: DocsFixturePreset) {
-  return `/demo-standalone?tier=${tier}&preset=${preset}`
+function buildIframeSrc(
+  tier: DocsFixtureTier,
+  preset: DocsFixturePreset,
+  source: DocsFixtureSource,
+) {
+  return `/demo-standalone?tier=${tier}&preset=${preset}&source=${source}`
 }
 
 export default function DemoShell() {
@@ -39,7 +56,7 @@ export default function DemoShell() {
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const tier = event.currentTarget.value as DocsFixtureTier
       setSelection((prev) => {
-        updateParentQuery(tier, prev.preset)
+        updateParentQuery(tier, prev.preset, prev.source)
         return { ...prev, tier }
       })
     },
@@ -50,8 +67,19 @@ export default function DemoShell() {
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const preset = event.currentTarget.value as DocsFixturePreset
       setSelection((prev) => {
-        updateParentQuery(prev.tier, preset)
+        updateParentQuery(prev.tier, preset, prev.source)
         return { ...prev, preset }
+      })
+    },
+    [],
+  )
+
+  const onSourceChange = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const source = event.currentTarget.value as DocsFixtureSource
+      setSelection((prev) => {
+        updateParentQuery(prev.tier, prev.preset, source)
+        return { ...prev, source }
       })
     },
     [],
@@ -95,9 +123,27 @@ export default function DemoShell() {
             ))}
           </select>
         </div>
+        <div style={styles.separator} />
+        <div style={styles.field}>
+          <label style={styles.fieldLabel} htmlFor="demo-source">
+            Data source
+          </label>
+          <select
+            id="demo-source"
+            value={selection.source}
+            onChange={onSourceChange}
+            style={styles.select}
+          >
+            {docsFixtureSources.map((source) => (
+              <option key={source} value={source}>
+                {sourceDescriptions[source]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <iframe
-        src={buildIframeSrc(selection.tier, selection.preset)}
+        src={buildIframeSrc(selection.tier, selection.preset, selection.source)}
         style={styles.iframe}
         title="repo-edu interactive demo"
       />

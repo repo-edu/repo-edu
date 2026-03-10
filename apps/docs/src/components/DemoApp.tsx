@@ -11,6 +11,7 @@ export default function DemoApp() {
       createDocsDemoRuntime({
         tier: selection.tier,
         preset: selection.preset,
+        source: selection.source,
       }),
     [selection],
   )
