@@ -14,6 +14,7 @@
     { "path": "../../packages/application" },
     { "path": "../../packages/host-node" },
     { "path": "../../packages/integrations-git" },
-    { "path": "../../packages/integrations-lms" }
+    { "path": "../../packages/integrations-lms" },
+    { "path": "../../packages/test-fixtures" }
   ]
 }

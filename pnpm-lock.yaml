@@ -56,6 +56,9 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -248,6 +251,9 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../integrations-lms-contract
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
       papaparse:
         specifier: ^5.5.3
         version: 5.5.3

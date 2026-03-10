@@ -141,26 +141,51 @@ async function scanSourceImports(root) {
   return violations;
 }
 
-const allViolations = [];
-
-for (const packageJsonPath of await listWorkspacePackageJsonFiles()) {
-  const raw = await readFile(packageJsonPath, "utf8");
-  const pkg = JSON.parse(raw);
-  allViolations.push(...collectBlockedDependencies(pkg, packageJsonPath));
+function errorText(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
-for (const srcRoot of await listSourceRoots()) {
-  allViolations.push(...(await scanSourceImports(srcRoot)));
+function emitSuccess() {
+  process.stdout.write("PASS desktop shell boundary\n");
 }
 
-if (allViolations.length > 0) {
-  const formatted = allViolations
-    .map((violation) => `${violation.kind}: ${violation.file} (${violation.detail})`)
-    .join("\n");
-
-  throw new Error(`Desktop shell boundary violations found:\n${formatted}`);
+function emitFailure(error) {
+  const message = errorText(error);
+  process.stderr.write("FAIL desktop shell boundary\n");
+  process.stderr.write(`  ${message}\n`);
 }
 
-process.stdout.write(
-  `${JSON.stringify({ marker: "repo-edu-desktop-shell-boundary", ok: true })}\n`,
-);
+async function main() {
+  const allViolations = [];
+
+  for (const packageJsonPath of await listWorkspacePackageJsonFiles()) {
+    const raw = await readFile(packageJsonPath, "utf8");
+    const pkg = JSON.parse(raw);
+    allViolations.push(...collectBlockedDependencies(pkg, packageJsonPath));
+  }
+
+  for (const srcRoot of await listSourceRoots()) {
+    allViolations.push(...(await scanSourceImports(srcRoot)));
+  }
+
+  if (allViolations.length > 0) {
+    const formatted = allViolations
+      .map(
+        (violation) =>
+          `${violation.kind}: ${violation.file} (${violation.detail})`,
+      )
+      .join("\n");
+
+    throw new Error(`Desktop shell boundary violations found:\n${formatted}`);
+  }
+
+  emitSuccess();
+}
+
+main().catch((error) => {
+  emitFailure(error);
+  process.exitCode = 1;
+});

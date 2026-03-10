@@ -8,6 +8,7 @@
     "../application-contract/src/**/*.ts",
     "../domain/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
+    "../test-fixtures/src/**/*.ts",
     "../integrations-git-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts"
   ]

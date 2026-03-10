@@ -2,7 +2,7 @@
 
 This is the Electron desktop shell (`@repo-edu/desktop`).
 
-Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @repo-edu/desktop run validate:phase5`
+Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @repo-edu/desktop run validate:runtime`
 
 ## Structure
 

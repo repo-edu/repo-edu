@@ -12,6 +12,7 @@
     "@repo-edu/integrations-git-contract": "workspace:*",
     "@repo-edu/integrations-lms": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
+    "@repo-edu/test-fixtures": "workspace:*",
     "commander": "^14.0.3"
   },
   "scripts": {

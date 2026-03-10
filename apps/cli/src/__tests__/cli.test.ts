@@ -4,6 +4,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import {
+  applyFixtureSourceOverlay,
+  type FixtureSource,
+  getFixture,
+} from "@repo-edu/test-fixtures"
 import { createProgram } from "../cli.js"
 
 function toText(chunk: unknown): string {
@@ -194,6 +199,32 @@ function makeSettings(activeProfileId: string | null): PersistedAppSettings {
     gitConnections: [],
     lastOpenedAt: null,
   }
+}
+
+function cloneValue<TValue>(value: TValue): TValue {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value)
+  }
+  return JSON.parse(JSON.stringify(value)) as TValue
+}
+
+function makeFixtureSeed(options?: {
+  tier?: "small" | "medium"
+  preset?: "shared-teams" | "assignment-scoped"
+  source?: FixtureSource
+}): { profile: PersistedProfile; settings: PersistedAppSettings } {
+  const tier = options?.tier ?? "small"
+  const preset = options?.preset ?? "shared-teams"
+  const fixture = getFixture({ tier, preset })
+  const profile = cloneValue(fixture.profile)
+  const settings = cloneValue(fixture.settings)
+
+  if (options?.source) {
+    const courseId = profile.courseId ?? `course-${tier}-${preset}`
+    applyFixtureSourceOverlay(profile, settings, options.source, courseId)
+  }
+
+  return { profile, settings }
 }
 
 async function seedCliDataDirectory(
@@ -405,6 +436,79 @@ describe("CLI workflow-backed behaviors", () => {
       ])
       assert.equal(result.exitCode, 1)
       assert.match(result.stderr, /does not reference a Git connection/)
+    })
+  })
+})
+
+describe("CLI fixture-backed integration", () => {
+  it("runs offline-safe commands against fixture-seeded data", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      const { profile, settings } = makeFixtureSeed({
+        tier: "small",
+        preset: "shared-teams",
+      })
+      await seedCliDataDirectory(rootDirectory, { profile, settings })
+
+      const profileList = await runCli(["profile", "list"])
+      assert.equal(profileList.exitCode, 0)
+      assert.equal(
+        profileList.stdout.includes(`* ${profile.id}\t${profile.displayName}`),
+        true,
+      )
+
+      const rosterShow = await runCli([
+        "roster",
+        "show",
+        "--students",
+        "--assignments",
+      ])
+      assert.equal(rosterShow.exitCode, 0)
+      assert.match(rosterShow.stdout, new RegExp(`Profile: ${profile.id}`))
+      assert.match(rosterShow.stdout, /Students:\n- s-0001\t/)
+      assert.match(rosterShow.stdout, /Assignments:\n- a1\tassignment-1\t/)
+
+      const validate = await runCli([
+        "validate",
+        "--assignment",
+        "assignment-1",
+      ])
+      assert.equal(validate.exitCode, 0)
+      assert.match(
+        validate.stdout,
+        /Validation passed for assignment 'assignment-1'/,
+      )
+
+      const repoDryRun = await runCli([
+        "repo",
+        "create",
+        "--assignment",
+        "assignment-1",
+        "--dry-run",
+      ])
+      assert.equal(repoDryRun.exitCode, 0)
+      assert.match(
+        repoDryRun.stdout,
+        /Planned repository operation for assignment 'assignment-1' \(a1\)/,
+      )
+      assert.match(repoDryRun.stdout, /^- .+\tgroup=.+\tassignment=.+$/m)
+    })
+  })
+
+  it("fails LMS-dependent command with fixture file source overlay", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      const { profile, settings } = makeFixtureSeed({
+        tier: "small",
+        preset: "shared-teams",
+        source: "file",
+      })
+      await seedCliDataDirectory(rootDirectory, { profile, settings })
+
+      const verify = await runCli(["lms", "verify"])
+      assert.equal(verify.exitCode, 1)
+      assert.match(
+        verify.stderr,
+        /Selected profile does not reference an LMS connection/,
+      )
     })
   })
 })

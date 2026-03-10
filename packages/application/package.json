@@ -8,6 +8,7 @@
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-git-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
+    "@repo-edu/test-fixtures": "workspace:*",
     "papaparse": "^5.5.3",
     "xlsx": "^0.18.5"
   },

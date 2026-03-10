@@ -82,6 +82,21 @@ export default defineConfig({
       outDir: "out/renderer",
       rollupOptions: {
         input: resolve(__dirname, "index.html"),
+        // Some ESM dependencies include top-level `"use client"` directives.
+        // Rollup prints MODULE_LEVEL_DIRECTIVE warnings because those directives
+        // are not used in this Electron renderer bundle. They are expected and
+        // noisy for runtime validation output, so we suppress only this case.
+        onwarn(warning, warn) {
+          const isUseClientDirectiveWarning =
+            warning.code === "MODULE_LEVEL_DIRECTIVE" &&
+            warning.message.includes('"use client"')
+
+          if (isUseClientDirectiveWarning) {
+            return
+          }
+
+          warn(warning)
+        },
       },
     },
   },
