@@ -22,6 +22,8 @@ describe("docs demo smoke", () => {
     })
 
     assert.notEqual(renderedElement, null)
+    assert.equal(runtime.fixtureSelection.tier, "medium")
+    assert.equal(runtime.fixtureSelection.preset, "shared-teams")
 
     const profiles = await runtime.workflowClient.run("profile.list", undefined)
     assert.equal(

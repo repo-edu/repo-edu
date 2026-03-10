@@ -17,18 +17,18 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
-import {
-  defaultAppSettings,
-  ORIGIN_LMS,
-  persistedProfileKind,
-} from "@repo-edu/domain"
+import { ORIGIN_LMS } from "@repo-edu/domain"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
-
-const seedProfileId = "docs-profile"
-const seedCourseId = "course-seed"
+import type {
+  DocsFixturePreset,
+  DocsFixtureTier,
+} from "./fixtures/docs-fixtures.js"
+import {
+  getDocsFixture,
+  resolveDocsFixtureSelection,
+} from "./fixtures/docs-fixtures.js"
 
 export type DocsMountRoot = {
   render(element: ReturnType<typeof React.createElement>): void
@@ -37,10 +37,17 @@ export type DocsMountRoot = {
 export type DocsMountOptions = {
   queryMountNode?: () => unknown
   createRoot?: (mountNode: unknown) => DocsMountRoot
+  tier?: DocsFixtureTier
+  preset?: DocsFixturePreset
   appRootComponent?: React.ComponentType<{
     workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
     rendererHost: ReturnType<typeof createDocsDemoRuntime>["rendererHost"]
   }>
+}
+
+export type DocsDemoRuntimeOptions = {
+  tier?: DocsFixtureTier
+  preset?: DocsFixturePreset
 }
 
 function resolveMountNode(queryMountNode?: () => unknown): unknown {
@@ -55,114 +62,32 @@ function resolveMountNode(queryMountNode?: () => unknown): unknown {
   return document.querySelector("#app")
 }
 
-export function createDocsDemoRuntime() {
-  const browserMockHost = createBrowserMockHostEnvironment()
-  const now = new Date().toISOString()
-
-  const seedProfile: PersistedProfile = {
-    kind: persistedProfileKind,
-    schemaVersion: 2,
-    id: seedProfileId,
-    displayName: "Docs Demo Profile",
-    lmsConnectionName: "Canvas Demo",
-    gitConnectionName: "GitHub Demo",
-    courseId: seedCourseId,
-    roster: {
-      connection: null,
-      students: [
-        {
-          id: "s-ada",
-          name: "Ada Lovelace",
-          email: "ada@example.edu",
-          studentNumber: "1001",
-          gitUsername: "ada",
-          gitUsernameStatus: "unknown",
-          status: "active",
-          lmsStatus: "active",
-          lmsUserId: "s-ada",
-          enrollmentType: "student",
-          enrollmentDisplay: "Student",
-          department: null,
-          institution: null,
-          source: "seed",
-        },
-        {
-          id: "s-grace",
-          name: "Grace Hopper",
-          email: "grace@example.edu",
-          studentNumber: "1002",
-          gitUsername: "grace",
-          gitUsernameStatus: "unknown",
-          status: "active",
-          lmsStatus: "active",
-          lmsUserId: "s-grace",
-          enrollmentType: "student",
-          enrollmentDisplay: "Student",
-          department: null,
-          institution: null,
-          source: "seed",
-        },
-      ],
-      staff: [],
-      groups: [
-        {
-          id: "g-team-1",
-          name: "team-1",
-          memberIds: ["s-ada", "s-grace"],
-          origin: "local",
-          lmsGroupId: null,
-        },
-      ],
-      groupSets: [
-        {
-          id: "gs-local-1",
-          name: "Project Teams",
-          groupIds: ["g-team-1"],
-          connection: null,
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
-        },
-      ],
-      assignments: [
-        {
-          id: "a-project-1",
-          name: "project-1",
-          groupSetId: "gs-local-1",
-        },
-      ],
-    },
-    repositoryTemplate: {
-      owner: "demo-org",
-      name: "starter-template",
-      visibility: "private",
-    },
-    updatedAt: now,
+function cloneValue<TValue>(value: TValue): TValue {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value)
   }
+  return JSON.parse(JSON.stringify(value)) as TValue
+}
 
-  const seedSettings: PersistedAppSettings = {
-    ...defaultAppSettings,
-    activeProfileId: seedProfileId,
-    lmsConnections: [
-      {
-        name: "Canvas Demo",
-        provider: "canvas",
-        baseUrl: "https://canvas.example.edu",
-        token: "demo-token",
-      },
-    ],
-    gitConnections: [
-      {
-        name: "GitHub Demo",
-        provider: "github",
-        baseUrl: null,
-        token: "demo-token",
-        organization: "demo-org",
-      },
-    ],
-    lastOpenedAt: now,
-  }
+export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
+  const fixtureSelection = resolveDocsFixtureSelection(options)
+  const fixture = getDocsFixture(fixtureSelection)
+  const seedProfile = cloneValue(fixture.profile)
+  const seedSettings = cloneValue(fixture.settings)
+  const seedProfileId = seedProfile.id
+  const seedCourseId =
+    seedProfile.courseId ??
+    `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
+  const browserMockHost = createBrowserMockHostEnvironment({
+    readableFiles: fixture.readableFiles,
+  })
+  const lmsMemberIds = seedProfile.roster.students
+    .slice(0, 2)
+    .map((member) => member.id)
+  const collaborativeGroupSet =
+    seedProfile.roster.groupSets.find(
+      (groupSet) => groupSet.connection === null,
+    ) ?? null
 
   const profileStore = createInMemoryProfileStore([seedProfile])
   const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
@@ -192,7 +117,7 @@ export function createDocsDemoRuntime() {
         {
           id: "lms-group-set-1",
           name: "LMS Teams",
-          groupCount: 1,
+          groupCount: collaborativeGroupSet?.groupIds.length ?? 1,
         },
       ]
     },
@@ -223,7 +148,7 @@ export function createDocsDemoRuntime() {
           {
             id: "lms-group-1",
             name: "lms-team-1",
-            memberIds: ["s-ada", "s-grace"],
+            memberIds: lmsMemberIds,
             origin: ORIGIN_LMS,
             lmsGroupId: "lms-group-1",
           },
@@ -356,6 +281,7 @@ export function createDocsDemoRuntime() {
     rendererHost: browserMockHost.rendererHost,
     seedProfileId,
     seedCourseId,
+    fixtureSelection,
   }
 }
 
@@ -365,7 +291,10 @@ export function mountDocsDemoApp(options: DocsMountOptions = {}) {
     throw new Error("Docs app mount node #app was not found")
   }
 
-  const runtime = createDocsDemoRuntime()
+  const runtime = createDocsDemoRuntime({
+    tier: options.tier,
+    preset: options.preset,
+  })
   const appRootComponent = options.appRootComponent
   if (!appRootComponent) {
     throw new Error("Docs app root component was not provided.")

@@ -1,5 +1,6 @@
 import { AppRoot } from "@repo-edu/app"
 import { useMemo } from "react"
+import "../../../../packages/app/src/App.css"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
 export default function DemoApp() {

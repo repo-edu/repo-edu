@@ -22,6 +22,8 @@ type MockReadableFile = {
   text: string
 }
 
+export type BrowserMockReadableFileSeed = MockReadableFile
+
 type MockWritableFile = {
   displayName: string
   mediaType: string | null
@@ -54,43 +56,75 @@ function byteLengthFor(text: string) {
   return new TextEncoder().encode(text).byteLength
 }
 
-export function createBrowserMockHostEnvironment() {
+function defaultReadableFiles(): MockReadableFile[] {
+  return [
+    {
+      referenceId: "seed-students",
+      displayName: "students.csv",
+      mediaType: "text/csv",
+      text: [
+        "student_id,display_name,git_username",
+        "s-1001,Ada Lovelace,adal",
+        "s-1002,Grace Hopper,ghopper",
+      ].join("\n"),
+    },
+    {
+      referenceId: "seed-groups",
+      displayName: "groups.json",
+      mediaType: "application/json",
+      text: JSON.stringify(
+        {
+          groups: [
+            { name: "group-1", members: ["s-1001"] },
+            { name: "group-2", members: ["s-1002"] },
+          ],
+        },
+        null,
+        2,
+      ),
+    },
+  ]
+}
+
+function inferFormatFromFile(file: MockReadableFile): FileFormat | null {
+  const loweredName = file.displayName.toLowerCase()
+  if (loweredName.endsWith(".csv") || file.mediaType === "text/csv") {
+    return "csv"
+  }
+  if (
+    loweredName.endsWith(".xlsx") ||
+    file.mediaType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) {
+    return "xlsx"
+  }
+  if (loweredName.endsWith(".json") || file.mediaType === "application/json") {
+    return "json"
+  }
+  if (loweredName.endsWith(".yaml") || loweredName.endsWith(".yml")) {
+    return "yaml"
+  }
+  return null
+}
+
+export function createBrowserMockHostEnvironment(options?: {
+  readableFiles?: readonly BrowserMockReadableFileSeed[]
+}) {
   let selectionCounter = 0
+  let fileSelectionCounter = 0
   let lastOpenedExternalUrl: string | null = null
 
-  const readableFiles = new Map<string, MockReadableFile>([
-    [
-      "seed-students",
+  const readableFiles = new Map<string, MockReadableFile>(
+    (options?.readableFiles ?? defaultReadableFiles()).map((file) => [
+      file.referenceId,
       {
-        referenceId: "seed-students",
-        displayName: "students.csv",
-        mediaType: "text/csv",
-        text: [
-          "student_id,display_name,git_username",
-          "s-1001,Ada Lovelace,adal",
-          "s-1002,Grace Hopper,ghopper",
-        ].join("\n"),
+        referenceId: file.referenceId,
+        displayName: file.displayName,
+        mediaType: file.mediaType,
+        text: file.text,
       },
-    ],
-    [
-      "seed-groups",
-      {
-        referenceId: "seed-groups",
-        displayName: "groups.json",
-        mediaType: "application/json",
-        text: JSON.stringify(
-          {
-            groups: [
-              { name: "group-1", members: ["s-1001"] },
-              { name: "group-2", members: ["s-1002"] },
-            ],
-          },
-          null,
-          2,
-        ),
-      },
-    ],
-  ])
+    ]),
+  )
 
   const writableFiles = new Map<string, MockWritableFile>()
 
@@ -142,19 +176,25 @@ export function createBrowserMockHostEnvironment() {
   return {
     rendererHost: {
       async pickUserFile(options?: { acceptFormats?: readonly FileFormat[] }) {
-        const nextFile = [...readableFiles.values()].find((file) => {
+        const matchingFiles = [...readableFiles.values()].filter((file) => {
           if (!options?.acceptFormats || options.acceptFormats.length === 0) {
             return true
           }
 
-          return options.acceptFormats.some((format) =>
-            file.displayName.endsWith(`.${format}`),
+          const fileFormat = inferFormatFromFile(file)
+          return (
+            fileFormat !== null &&
+            options.acceptFormats.some((f) => f === fileFormat)
           )
         })
 
-        if (!nextFile) {
+        if (matchingFiles.length === 0) {
           return null
         }
+
+        const nextFile =
+          matchingFiles[fileSelectionCounter % matchingFiles.length]
+        fileSelectionCounter += 1
 
         return {
           kind: "user-file-ref" as const,

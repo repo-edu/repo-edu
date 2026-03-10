@@ -194,12 +194,6 @@
   }
 }
 
-#root {
-  background-color: var(--background);
-  color: var(--foreground);
-  min-height: 100vh;
-}
-
 /* ===== Component Styles ===== */
 
 .repobee-container {
