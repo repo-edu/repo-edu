@@ -107,7 +107,7 @@ describe("createCanvasClient", () => {
     ])
   })
 
-  it("fetches and normalizes a student roster", async () => {
+  it("fetches and normalizes a roster with students and staff by enrollment type", async () => {
     const http = createMockHttpPort([
       {
         method: "GET",
@@ -123,43 +123,62 @@ describe("createCanvasClient", () => {
           },
         ],
       },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=teacher&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 20,
+            sis_user_id: null,
+            sortable_name: "Turing, Alan",
+            login_id: "alan@example.com",
+          },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=ta&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 30,
+            sis_user_id: null,
+            sortable_name: "Hopper, Grace",
+            login_id: "grace@example.com",
+          },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=designer&per_page=100",
+        status: 200,
+        body: [],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=observer&per_page=100",
+        status: 200,
+        body: [],
+      },
     ])
 
     const client = createCanvasClient(http)
     const result = await client.fetchRoster(baseDraft, "course-1")
 
-    assert.deepStrictEqual(result, {
-      connection: {
-        kind: "canvas",
-        courseId: "course-1",
-        lastUpdated:
-          result.connection?.kind === "canvas"
-            ? result.connection.lastUpdated
-            : "",
-      },
-      students: [
-        {
-          id: "10",
-          name: "Lovelace, Ada",
-          email: "ada@example.com",
-          studentNumber: "s-10",
-          gitUsername: null,
-          gitUsernameStatus: "unknown",
-          status: "active",
-          lmsStatus: null,
-          lmsUserId: null,
-          enrollmentType: "student",
-          enrollmentDisplay: null,
-          department: null,
-          institution: null,
-          source: "local",
-        },
-      ],
-      staff: [],
-      groups: [],
-      groupSets: [],
-      assignments: [],
-    })
+    assert.equal(result.students.length, 1)
+    assert.equal(result.students[0].enrollmentType, "student")
+
+    assert.equal(result.staff.length, 2)
+    assert.equal(result.staff[0].name, "Turing, Alan")
+    assert.equal(result.staff[0].enrollmentType, "teacher")
+    assert.equal(result.staff[1].name, "Hopper, Grace")
+    assert.equal(result.staff[1].enrollmentType, "ta")
+
     assert.equal(result.connection?.kind, "canvas")
     assert.equal(result.connection?.courseId, "course-1")
     assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)

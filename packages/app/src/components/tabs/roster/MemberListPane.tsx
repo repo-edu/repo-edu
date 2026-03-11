@@ -223,11 +223,22 @@ export function MemberListPane({
     setMemberPendingDeletion(null)
   }
 
-  const memberTypeLabel = useCallback(
-    (member: RosterMember): string =>
-      member.enrollmentType === "student" ? "Student" : "Staff",
-    [],
-  )
+  const memberTypeLabel = useCallback((member: RosterMember): string => {
+    switch (member.enrollmentType) {
+      case "student":
+        return "Student"
+      case "teacher":
+        return "Teacher"
+      case "ta":
+        return "TA"
+      case "designer":
+        return "Designer"
+      case "observer":
+        return "Observer"
+      default:
+        return "Other"
+    }
+  }, [])
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -932,14 +943,23 @@ function compareRosterMemberStatuses(
   )
 }
 
+const ENROLLMENT_TYPE_ORDER: Record<string, number> = {
+  student: 0,
+  teacher: 1,
+  ta: 2,
+  designer: 3,
+  observer: 4,
+  other: 5,
+}
+
 function compareRosterMemberRoles(
   rowA: { original: RosterMember },
   rowB: { original: RosterMember },
 ): number {
   return chainComparisons(
     compareNumber(
-      rowA.original.enrollmentType === "student" ? 0 : 1,
-      rowB.original.enrollmentType === "student" ? 0 : 1,
+      ENROLLMENT_TYPE_ORDER[rowA.original.enrollmentType] ?? 5,
+      ENROLLMENT_TYPE_ORDER[rowB.original.enrollmentType] ?? 5,
     ),
     compareRosterMembersByName(rowA.original, rowB.original),
   )

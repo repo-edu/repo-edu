@@ -1,4 +1,4 @@
-import type { Group, Roster } from "@repo-edu/domain"
+import type { Group, Roster, RosterMemberNormalizationInput } from "@repo-edu/domain"
 import { normalizeRoster } from "@repo-edu/domain"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
@@ -101,7 +101,28 @@ function toCourseSummary(course: unknown): LmsCourseSummary {
   }
 }
 
-function toRosterStudentInput(user: unknown) {
+const MOODLE_ROLE_TO_ENROLLMENT: Record<string, string> = {
+  editingteacher: "teacher",
+  teacher: "teacher",
+  manager: "designer",
+  coursecreator: "designer",
+}
+
+function moodleStaffEnrollmentType(user: unknown): string | null {
+  const record = (user ?? {}) as { roles?: unknown }
+  if (!Array.isArray(record.roles)) {
+    return null
+  }
+  for (const role of record.roles) {
+    const r = role as { shortname?: unknown }
+    if (typeof r.shortname === "string" && r.shortname in MOODLE_ROLE_TO_ENROLLMENT) {
+      return MOODLE_ROLE_TO_ENROLLMENT[r.shortname]
+    }
+  }
+  return null
+}
+
+function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
   const record = (user ?? {}) as {
     id?: unknown
     idnumber?: unknown
@@ -256,8 +277,19 @@ export function createMoodleClient(http: HttpPort): LmsClient {
         }
       }
 
+      const staffInputs: ReturnType<typeof toRosterMemberInput>[] = []
+      const studentInputs: ReturnType<typeof toRosterMemberInput>[] = []
+      for (const user of data) {
+        const staffType = moodleStaffEnrollmentType(user)
+        if (staffType !== null) {
+          staffInputs.push({ ...toRosterMemberInput(user), enrollmentType: staffType })
+        } else {
+          studentInputs.push(toRosterMemberInput(user))
+        }
+      }
+
       return {
-        ...normalizeRoster(data.map(toRosterStudentInput)),
+        ...normalizeRoster(studentInputs, staffInputs),
         connection: {
           kind: "moodle",
           courseId,

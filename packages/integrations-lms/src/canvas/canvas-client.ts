@@ -1,4 +1,4 @@
-import type { Group, Roster } from "@repo-edu/domain"
+import type { Group, Roster, RosterMemberNormalizationInput } from "@repo-edu/domain"
 import { normalizeRoster } from "@repo-edu/domain"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
@@ -137,7 +137,7 @@ function toCourseSummary(course: unknown): LmsCourseSummary {
   }
 }
 
-function toRosterStudentInput(user: unknown) {
+function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
   const record = (user ?? {}) as {
     id?: unknown
     sis_user_id?: unknown
@@ -437,17 +437,36 @@ export function createCanvasClient(http: HttpPort): LmsClient {
       courseId: string,
       signal?: AbortSignal,
     ): Promise<Roster> {
-      const students = await fetchPaginatedArray(
-        http,
-        draft,
-        `/courses/${encodeURIComponent(
-          courseId,
-        )}/users?enrollment_type[]=student&per_page=100`,
-        signal,
+      const encodedCourseId = encodeURIComponent(courseId)
+
+      const staffTypes = ["teacher", "ta", "designer", "observer"] as const
+
+      const [students, ...staffByType] = await Promise.all([
+        fetchPaginatedArray(
+          http,
+          draft,
+          `/courses/${encodedCourseId}/users?enrollment_type[]=student&per_page=100`,
+          signal,
+        ),
+        ...staffTypes.map((type) =>
+          fetchPaginatedArray(
+            http,
+            draft,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=${type}&per_page=100`,
+            signal,
+          ),
+        ),
+      ])
+
+      const staffInputs = staffTypes.flatMap((type, index) =>
+        staffByType[index].map((user) => ({
+          ...toRosterMemberInput(user),
+          enrollmentType: type,
+        })),
       )
 
       return {
-        ...normalizeRoster(students.map(toRosterStudentInput)),
+        ...normalizeRoster(students.map(toRosterMemberInput), staffInputs),
         connection: {
           kind: "canvas",
           courseId,

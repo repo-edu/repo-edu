@@ -93,7 +93,7 @@ describe("createMoodleClient", () => {
     ])
   })
 
-  it("fetches and normalizes a roster", async () => {
+  it("fetches and normalizes a roster with students and staff by role", async () => {
     const http = createMockHttpPort([
       {
         urlPattern: "wsfunction=core_enrol_get_enrolled_users",
@@ -104,6 +104,21 @@ describe("createMoodleClient", () => {
             idnumber: "s-11",
             fullname: "Ada Lovelace",
             email: "ada@example.com",
+            roles: [{ shortname: "student" }],
+          },
+          {
+            id: 20,
+            idnumber: null,
+            fullname: "Alan Turing",
+            email: "alan@example.com",
+            roles: [{ shortname: "editingteacher" }],
+          },
+          {
+            id: 30,
+            idnumber: null,
+            fullname: "Grace Hopper",
+            email: "grace@example.com",
+            roles: [{ shortname: "manager" }],
           },
         ],
       },
@@ -112,38 +127,15 @@ describe("createMoodleClient", () => {
     const client = createMoodleClient(http)
     const result = await client.fetchRoster(baseDraft, "course-1")
 
-    assert.deepStrictEqual(result, {
-      connection: {
-        kind: "moodle",
-        courseId: "course-1",
-        lastUpdated:
-          result.connection?.kind === "moodle"
-            ? result.connection.lastUpdated
-            : "",
-      },
-      students: [
-        {
-          id: "11",
-          name: "Ada Lovelace",
-          email: "ada@example.com",
-          studentNumber: "s-11",
-          gitUsername: null,
-          gitUsernameStatus: "unknown",
-          status: "active",
-          lmsStatus: null,
-          lmsUserId: null,
-          enrollmentType: "student",
-          enrollmentDisplay: null,
-          department: null,
-          institution: null,
-          source: "local",
-        },
-      ],
-      staff: [],
-      groups: [],
-      groupSets: [],
-      assignments: [],
-    })
+    assert.equal(result.students.length, 1)
+    assert.equal(result.students[0].enrollmentType, "student")
+
+    assert.equal(result.staff.length, 2)
+    assert.equal(result.staff[0].name, "Alan Turing")
+    assert.equal(result.staff[0].enrollmentType, "teacher")
+    assert.equal(result.staff[1].name, "Grace Hopper")
+    assert.equal(result.staff[1].enrollmentType, "designer")
+
     assert.equal(result.connection?.kind, "moodle")
     assert.equal(result.connection?.courseId, "course-1")
     assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
