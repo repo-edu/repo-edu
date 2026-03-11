@@ -1,4 +1,4 @@
-import type { Roster } from "@repo-edu/domain"
+import type { RosterImportFromLmsResult } from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -30,9 +30,12 @@ export function RosterSyncDialog() {
   const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null
 
   const setRoster = useProfileStore((state) => state.setRoster)
+  const setLmsImportConflicts = useUiStore(
+    (state) => state.setLmsImportConflicts,
+  )
 
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const [preview, setPreview] = useState<Roster | null>(null)
+  const [preview, setPreview] = useState<RosterImportFromLmsResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progressMessage, setProgressMessage] = useState<string | null>(null)
   const hasAutoPreviewedRef = useRef(false)
@@ -44,6 +47,7 @@ export function RosterSyncDialog() {
     setPreview(null)
     setError(null)
     setProgressMessage(null)
+    setLmsImportConflicts(null)
   }
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -128,7 +132,7 @@ export function RosterSyncDialog() {
 
   const handleApply = () => {
     if (!preview) return
-    setRoster(preview, "Sync roster from LMS")
+    setRoster(preview.roster, "Sync roster from LMS")
     setOpen(false)
     resetState()
   }
@@ -170,9 +174,30 @@ export function RosterSyncDialog() {
           {preview && (
             <div className="rounded-md border p-3 space-y-2">
               <p className="text-sm font-medium">
-                Preview: {preview.students.length} students,{" "}
-                {preview.staff.length} staff
+                Preview: {preview.roster.students.length} students,{" "}
+                {preview.roster.staff.length} staff
               </p>
+              <p className="text-xs text-muted-foreground">
+                Pending sync: +{preview.summary.membersAdded} to add,{" "}
+                {preview.summary.membersUpdated} to update,{" "}
+                {preview.summary.membersUnchanged} unchanged
+              </p>
+              {preview.totalConflicts > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    {preview.totalConflicts} identity conflicts were detected.
+                    Conflicts are warnings only and conflicted entries are left
+                    unchanged.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLmsImportConflicts(preview.conflicts)}
+                  >
+                    View Conflict Details
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

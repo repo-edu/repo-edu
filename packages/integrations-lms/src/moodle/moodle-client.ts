@@ -149,6 +149,8 @@ function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
 
   return {
     id: record.id,
+    lmsUserId: record.id,
+    source: "moodle",
     studentNumber: record.idnumber,
     displayNameCandidates: [record.fullname, fullName],
     emailCandidates: [record.email],

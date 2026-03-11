@@ -57,12 +57,18 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   )
   const setDeleteGroupTargetId = useUiStore((s) => s.setDeleteGroupTargetId)
 
-  // Build a memberGroupIndex for MemberChip dedup.
+  // Build a memberGroupIndex for MemberChip dedup (active members only).
   const memberGroupIndex = useMemo(() => {
     const index = new Map<string, Set<string>>()
     if (!roster) return index
+    const activeIds = new Set(
+      [...roster.students, ...roster.staff]
+        .filter((m) => m.status === "active")
+        .map((m) => m.id),
+    )
     for (const group of roster.groups) {
       for (const memberId of group.memberIds) {
+        if (!activeIds.has(memberId)) continue
         let s = index.get(memberId)
         if (!s) {
           s = new Set()
@@ -255,7 +261,9 @@ function GroupsTab({
         {filteredGroups.map((group) => {
           const members = group.memberIds
             .map((id) => memberById.get(id))
-            .filter((m): m is RosterMember => m !== undefined)
+            .filter(
+              (m): m is RosterMember => m !== undefined && m.status === "active",
+            )
           return (
             <GroupItem
               key={group.id}

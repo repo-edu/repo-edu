@@ -66,7 +66,7 @@ describe("docs fixture integration: source parity", () => {
       profileId: runtime.seedProfileId,
       courseId: runtime.seedCourseId,
     })
-    assert.equal(imported.connection?.kind, "canvas")
+    assert.equal(imported.roster.connection?.kind, "canvas")
   })
 
   it("supports moodle source overlays and source-sensitive workflows", async () => {
@@ -116,7 +116,7 @@ describe("docs fixture integration: source parity", () => {
       profileId: runtime.seedProfileId,
       courseId: runtime.seedCourseId,
     })
-    assert.equal(imported.connection?.kind, "moodle")
+    assert.equal(imported.roster.connection?.kind, "moodle")
   })
 
   it("rejects LMS workflows for file source overlays", async () => {

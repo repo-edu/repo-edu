@@ -141,6 +141,26 @@ function toCourseSummary(course: unknown): LmsCourseSummary {
   }
 }
 
+function resolveCanvasEnrollmentStatus(
+  user: unknown,
+): "active" | "dropped" | "incomplete" {
+  const record = user as { enrollments?: unknown[] }
+  if (!Array.isArray(record.enrollments) || record.enrollments.length === 0) {
+    return "incomplete"
+  }
+  for (const enrollment of record.enrollments) {
+    const e = enrollment as { enrollment_state?: unknown }
+    if (e.enrollment_state === "active") return "active"
+  }
+  // Any non-active state (completed, inactive, deleted) → dropped
+  const first = record.enrollments[0] as { enrollment_state?: unknown }
+  const state = first.enrollment_state
+  if (state === "completed" || state === "inactive" || state === "deleted") {
+    return "dropped"
+  }
+  return "incomplete"
+}
+
 function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
   const record = (user ?? {}) as {
     id?: unknown
@@ -160,8 +180,14 @@ function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
         ? loginId
         : null
 
+  const lmsStatus = resolveCanvasEnrollmentStatus(user)
+
   return {
     id: record.id,
+    lmsUserId: record.id,
+    source: "canvas",
+    status: lmsStatus,
+    lmsStatus,
     studentNumber: record.sis_user_id,
     displayNameCandidates: [
       record.sortable_name,
@@ -449,14 +475,14 @@ export function createCanvasClient(http: HttpPort): LmsClient {
         fetchPaginatedArray(
           http,
           draft,
-          `/courses/${encodedCourseId}/users?enrollment_type[]=student&per_page=100`,
+          `/courses/${encodedCourseId}/users?enrollment_type[]=student&include[]=enrollments&per_page=100`,
           signal,
         ),
         ...staffTypes.map((type) =>
           fetchPaginatedArray(
             http,
             draft,
-            `/courses/${encodedCourseId}/users?enrollment_type[]=${type}&per_page=100`,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=${type}&include[]=enrollments&per_page=100`,
             signal,
           ),
         ),

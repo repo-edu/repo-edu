@@ -59,6 +59,7 @@ import {
   enrollmentTypeKinds,
   ensureSystemGroupSets,
   exportGroupSetRows,
+  mergeRosterFromLmsWithConflicts,
   formatSmokeWorkflowMessage,
   gitUsernameImportRowSchema,
   groupSetExportHeaders,
@@ -1021,7 +1022,7 @@ export function createRosterWorkflowHandlers(
           channel: "info",
           message: `Fetching roster from ${draft.provider} course ${input.courseId}.`,
         })
-        const roster = await ports.lms.fetchRoster(
+        const fetchedRoster = await ports.lms.fetchRoster(
           draft,
           input.courseId,
           options?.signal,
@@ -1030,9 +1031,13 @@ export function createRosterWorkflowHandlers(
         options?.onProgress?.({
           step: 3,
           totalSteps,
-          label: "Ensuring required system group sets.",
+          label: "Merging roster members.",
         })
-        ensureSystemGroupSets(roster)
+        const result = mergeRosterFromLmsWithConflicts(
+          profile.roster,
+          fetchedRoster,
+        )
+        ensureSystemGroupSets(result.roster)
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
@@ -1040,7 +1045,7 @@ export function createRosterWorkflowHandlers(
           totalSteps,
           label: "LMS roster import complete.",
         })
-        return roster
+        return result
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error

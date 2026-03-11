@@ -11,7 +11,10 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import {
+  selectRoster,
+  useProfileStore,
+} from "../../stores/profile-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -22,6 +25,7 @@ export function ImportStudentsFromFileDialog() {
   )
 
   const setRoster = useProfileStore((state) => state.setRoster)
+  const currentRoster = useProfileStore(selectRoster)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -61,6 +65,13 @@ export function ImportStudentsFromFileDialog() {
       const newRoster = await client.run("roster.importFromFile", {
         file: fileRef,
       })
+      // Preserve existing groups, group sets, and assignments
+      // (roster import only updates members and connection)
+      if (currentRoster) {
+        newRoster.groups = currentRoster.groups
+        newRoster.groupSets = currentRoster.groupSets
+        newRoster.assignments = currentRoster.assignments
+      }
       setRoster(newRoster, "Import students from file")
       setImportFileDialogOpen(false)
       setFileName("")

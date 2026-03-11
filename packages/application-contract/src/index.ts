@@ -9,6 +9,7 @@ import type {
   ProfileSummary,
   RepositoryTemplate,
   Roster,
+  RosterImportFromLmsResult,
   RosterValidationIssue,
   RosterValidationResult,
   ValidationIssue,
@@ -396,7 +397,7 @@ export type WorkflowPayloads = {
     input: RosterImportFromLmsInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: Roster
+    result: RosterImportFromLmsResult
   }
   "roster.exportMembers": {
     input: RosterExportMembersInput

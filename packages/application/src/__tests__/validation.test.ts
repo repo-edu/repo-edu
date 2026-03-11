@@ -737,7 +737,7 @@ describe("application roster workflow helpers", () => {
       },
     )
 
-    const roster = await handlers["roster.importFromLms"]({
+    const imported = await handlers["roster.importFromLms"]({
       profileId: profile.id,
       courseId: "course-42",
     })
@@ -748,7 +748,7 @@ describe("application roster workflow helpers", () => {
       token: "token-1",
     })
     assert.equal(receivedCourseId, "course-42")
-    assert.equal(systemSetsMissing(roster), false)
+    assert.equal(systemSetsMissing(imported.roster), false)
   })
 
   it("exports students to CSV and rejects unsupported xlsx export", async () => {

@@ -112,7 +112,7 @@ describe("createCanvasClient", () => {
       {
         method: "GET",
         urlPattern:
-          "/api/v1/courses/course-1/users?enrollment_type[]=student&per_page=100",
+          "/api/v1/courses/course-1/users?enrollment_type[]=student&include[]=enrollments&per_page=100",
         status: 200,
         body: [
           {
@@ -120,13 +120,14 @@ describe("createCanvasClient", () => {
             sis_user_id: "s-10",
             sortable_name: "Lovelace, Ada",
             login_id: "ada@example.com",
+            enrollments: [{ enrollment_state: "active" }],
           },
         ],
       },
       {
         method: "GET",
         urlPattern:
-          "/api/v1/courses/course-1/users?enrollment_type[]=teacher&per_page=100",
+          "/api/v1/courses/course-1/users?enrollment_type[]=teacher&include[]=enrollments&per_page=100",
         status: 200,
         body: [
           {
@@ -134,13 +135,14 @@ describe("createCanvasClient", () => {
             sis_user_id: null,
             sortable_name: "Turing, Alan",
             login_id: "alan@example.com",
+            enrollments: [{ enrollment_state: "active" }],
           },
         ],
       },
       {
         method: "GET",
         urlPattern:
-          "/api/v1/courses/course-1/users?enrollment_type[]=ta&per_page=100",
+          "/api/v1/courses/course-1/users?enrollment_type[]=ta&include[]=enrollments&per_page=100",
         status: 200,
         body: [
           {
@@ -148,20 +150,21 @@ describe("createCanvasClient", () => {
             sis_user_id: null,
             sortable_name: "Hopper, Grace",
             login_id: "grace@example.com",
+            enrollments: [{ enrollment_state: "active" }],
           },
         ],
       },
       {
         method: "GET",
         urlPattern:
-          "/api/v1/courses/course-1/users?enrollment_type[]=designer&per_page=100",
+          "/api/v1/courses/course-1/users?enrollment_type[]=designer&include[]=enrollments&per_page=100",
         status: 200,
         body: [],
       },
       {
         method: "GET",
         urlPattern:
-          "/api/v1/courses/course-1/users?enrollment_type[]=observer&per_page=100",
+          "/api/v1/courses/course-1/users?enrollment_type[]=observer&include[]=enrollments&per_page=100",
         status: 200,
         body: [],
       },

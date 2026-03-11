@@ -128,18 +128,18 @@ export function registerLmsCommands(parent: Command): void {
           )
         }
 
-        const roster = await workflowClient.run("roster.importFromLms", {
+        const imported = await workflowClient.run("roster.importFromLms", {
           profileId: profile.id,
           courseId: profile.courseId,
         })
 
         await workflowClient.run("profile.save", {
           ...profile,
-          roster,
+          roster: imported.roster,
         })
 
         process.stdout.write(
-          `Imported ${roster.students.length} students from LMS into profile '${profile.id}'.\n`,
+          `Imported ${imported.roster.students.length} students from LMS into profile '${profile.id}'.\n`,
         )
       } catch (error) {
         emitCommandError(toErrorMessage(error))
