@@ -11,10 +11,7 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import {
-  selectRoster,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+import { selectRoster, useProfileStore } from "../../stores/profile-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 

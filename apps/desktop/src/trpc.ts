@@ -194,40 +194,24 @@ function createDesktopWorkflowRegistry(
     ...createProfileWorkflowHandlers(ports.profileStore),
     ...createSettingsWorkflowHandlers(ports.appSettingsStore),
     ...createConnectionWorkflowHandlers({ lms, git }),
-    ...createRosterWorkflowHandlers(
-      ports.profileStore,
-      ports.appSettingsStore,
-      {
-        lms,
-        userFile: ports.userFile,
-      },
-    ),
-    ...createGroupSetWorkflowHandlers(
-      ports.profileStore,
-      ports.appSettingsStore,
-      {
-        lms,
-        userFile: ports.userFile,
-      },
-    ),
-    ...createGitUsernameWorkflowHandlers(
-      ports.profileStore,
-      ports.appSettingsStore,
-      {
-        userFile: ports.userFile,
-        git,
-      },
-    ),
-    ...createValidationWorkflowHandlers(ports.profileStore),
-    ...createRepositoryWorkflowHandlers(
-      ports.profileStore,
-      ports.appSettingsStore,
-      {
-        git,
-        gitCommand: ports.gitCommand,
-        fileSystem: ports.fileSystem,
-      },
-    ),
+    ...createRosterWorkflowHandlers({
+      lms,
+      userFile: ports.userFile,
+    }),
+    ...createGroupSetWorkflowHandlers({
+      lms,
+      userFile: ports.userFile,
+    }),
+    ...createGitUsernameWorkflowHandlers({
+      userFile: ports.userFile,
+      git,
+    }),
+    ...createValidationWorkflowHandlers(),
+    ...createRepositoryWorkflowHandlers({
+      git,
+      gitCommand: ports.gitCommand,
+      fileSystem: ports.fileSystem,
+    }),
     "userFile.inspectSelection": (input, options) =>
       runInspectUserFileWorkflow(ports.userFile, input, options),
     "userFile.exportPreview": (input, options) =>

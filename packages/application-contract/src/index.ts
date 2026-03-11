@@ -219,28 +219,32 @@ export type RosterImportFromFileInput = {
 }
 
 export type RosterExportMembersInput = {
-  profileId: string
+  profile: PersistedProfile
   target: UserSaveTargetRef
   format: Extract<FileFormat, "csv" | "xlsx">
 }
 
 export type RosterImportFromLmsInput = {
-  profileId: string
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
   courseId: string
 }
 
 export type GroupSetSyncFromLmsInput = {
-  profileId: string
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
   groupSetId: string
 }
 
 export type GroupSetConnectFromLmsInput = {
-  profileId: string
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
   remoteGroupSetId: string
 }
 
 export type GroupSetFetchAvailableFromLmsInput = {
-  profileId: string
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
 }
 
 export type GroupSetLmsSummary = {
@@ -249,39 +253,46 @@ export type GroupSetLmsSummary = {
   groupCount: number
 }
 
+export type GroupSetLmsApplyResult = {
+  roster: Roster
+} & GroupSet
+
 export type GroupSetPreviewImportFromFileInput = {
-  profileId: string
+  profile: PersistedProfile
   file: UserFileRef
 }
 
 export type GroupSetPreviewReimportFromFileInput = {
-  profileId: string
+  profile: PersistedProfile
   groupSetId: string
   file: UserFileRef
 }
 
 export type GroupSetExportInput = {
-  profileId: string
+  profile: PersistedProfile
   groupSetId: string
   target: UserSaveTargetRef
   format: Extract<FileFormat, "csv" | "xlsx" | "yaml">
 }
 
 export type GitUsernameImportInput = {
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
   file: UserFileRef
 }
 
 export type AssignmentValidationInput = {
-  profileId: string
+  profile: PersistedProfile
   assignmentId: string
 }
 
 export type RosterValidationInput = {
-  profileId: string
+  profile: PersistedProfile
 }
 
 export type RepositoryBatchInput = {
-  profileId: string
+  profile: PersistedProfile
+  appSettings: PersistedAppSettings
   assignmentId: string | null
   template: RepositoryTemplate | null
   targetDirectory?: string
@@ -415,13 +426,13 @@ export type WorkflowPayloads = {
     input: GroupSetConnectFromLmsInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: GroupSet
+    result: GroupSetLmsApplyResult
   }
   "groupSet.syncFromLms": {
     input: GroupSetSyncFromLmsInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: GroupSet
+    result: GroupSetLmsApplyResult
   }
   "groupSet.previewImportFromFile": {
     input: GroupSetPreviewImportFromFileInput

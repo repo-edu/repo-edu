@@ -28,6 +28,8 @@ import { useToastStore } from "./toast-store.js"
 enablePatches()
 
 const HISTORY_LIMIT = 100
+const AUTOSAVE_DEBOUNCE_MS = 300
+const AUTOSAVE_RETRY_DELAYS_MS = [300, 900, 2000] as const
 
 type HistoryEntry = {
   patches: Patch[]
@@ -50,6 +52,10 @@ type ProfileState = {
   checksStatus: ChecksStatus
   checksError: string | null
   checksDirty: boolean
+  localVersion: number
+  lastSavedRevision: number | null
+  syncState: "idle" | "saving" | "error"
+  syncError: string | null
 
   history: HistoryEntry[]
   future: HistoryEntry[]
@@ -133,12 +139,180 @@ const initialState: ProfileState = {
   checksStatus: "idle",
   checksError: null,
   checksDirty: false,
+  localVersion: 0,
+  lastSavedRevision: null,
+  syncState: "idle",
+  syncError: null,
   history: [],
   future: [],
 }
 
 export const useProfileStore = create<ProfileState & ProfileActions>()(
   immer((set, get) => {
+    let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+    let saveRequested = false
+    let saveWorkerRunning = false
+    const idleResolvers = new Set<() => void>()
+
+    const clearAutosaveTimer = () => {
+      if (autosaveTimer !== null) {
+        clearTimeout(autosaveTimer)
+        autosaveTimer = null
+      }
+    }
+
+    const resolveIdleWaiters = () => {
+      if (saveWorkerRunning || saveRequested) {
+        return
+      }
+      for (const resolve of idleResolvers) {
+        resolve()
+      }
+      idleResolvers.clear()
+    }
+
+    const waitForIdle = async () => {
+      if (!saveWorkerRunning && !saveRequested) {
+        return
+      }
+      await new Promise<void>((resolve) => {
+        idleResolvers.add(resolve)
+      })
+    }
+
+    const isRetryableSaveError = (error: unknown): boolean => {
+      const message = getErrorMessage(error).toLowerCase()
+      if (message.includes("revision invariant violated")) {
+        return false
+      }
+      if (typeof error === "object" && error !== null && "type" in error) {
+        const appError = error as { type?: string; retryable?: boolean }
+        if (appError.type === "validation" || appError.type === "not-found") {
+          return false
+        }
+        if (appError.retryable === false) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const saveLatestSnapshot = async () => {
+      const stateAtStart = get()
+      const profile = stateAtStart.profile
+      if (!profile) {
+        return true
+      }
+
+      const startLocalVersion = stateAtStart.localVersion
+      const profileId = profile.id
+      let lastError: unknown = null
+
+      for (
+        let attempt = 0;
+        attempt <= AUTOSAVE_RETRY_DELAYS_MS.length;
+        attempt += 1
+      ) {
+        const savingIndicatorTimer = setTimeout(() => {
+          set((draft) => {
+            if (draft.profile?.id !== profileId) return
+            draft.syncState = "saving"
+          })
+        }, 500)
+
+        try {
+          const client = getWorkflowClient()
+          const saved = (await client.run(
+            "profile.save",
+            profile,
+          )) as PersistedProfile
+          clearTimeout(savingIndicatorTimer)
+
+          set((draft) => {
+            if (!draft.profile || draft.profile.id !== profileId) {
+              return
+            }
+            draft.lastSavedRevision = saved.revision
+            draft.syncError = null
+            draft.syncState = "idle"
+
+            if (draft.localVersion === startLocalVersion) {
+              draft.profile = saved
+              return
+            }
+
+            // Preserve newer local edits while advancing revision baseline.
+            draft.profile.revision = saved.revision
+          })
+          return true
+        } catch (error) {
+          clearTimeout(savingIndicatorTimer)
+          lastError = error
+          const canRetry =
+            attempt < AUTOSAVE_RETRY_DELAYS_MS.length &&
+            isRetryableSaveError(error)
+          if (canRetry) {
+            const delayMs = AUTOSAVE_RETRY_DELAYS_MS[attempt]
+            await new Promise((resolve) => setTimeout(resolve, delayMs))
+            continue
+          }
+
+          const message = getErrorMessage(error, "Could not save profile")
+          set((draft) => {
+            if (draft.profile?.id !== profileId) {
+              return
+            }
+            draft.syncState = "error"
+            draft.syncError = message
+          })
+          useToastStore.getState().addToast(message, { tone: "error" })
+          break
+        }
+      }
+
+      void lastError
+      return false
+    }
+
+    const requestAutosave = () => {
+      saveRequested = true
+      if (saveWorkerRunning) {
+        return
+      }
+
+      saveWorkerRunning = true
+      void (async () => {
+        while (saveRequested) {
+          saveRequested = false
+          await saveLatestSnapshot()
+        }
+        saveWorkerRunning = false
+        resolveIdleWaiters()
+      })()
+    }
+
+    const scheduleAutosave = () => {
+      clearAutosaveTimer()
+      autosaveTimer = setTimeout(() => {
+        autosaveTimer = null
+        requestAutosave()
+      }, AUTOSAVE_DEBOUNCE_MS)
+    }
+
+    const markProfileMutated = () => {
+      set((draft) => {
+        if (!draft.profile) return
+        draft.localVersion += 1
+        draft.profile.updatedAt = new Date().toISOString()
+        draft.checksDirty = true
+        if (draft.syncState === "error") {
+          draft.syncState = "idle"
+          draft.syncError = null
+        }
+      })
+      scheduleAutosave()
+    }
+
     /** Apply a roster mutation with undo/redo history tracking. */
     function mutateRoster(
       description: string,
@@ -165,12 +339,17 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         draft.future = []
         draft.checksDirty = true
       })
+      markProfileMutated()
     }
 
     return {
       ...initialState,
 
       load: async (profileId) => {
+        const currentProfileId = get().profile?.id ?? null
+        if (currentProfileId !== null && currentProfileId !== profileId) {
+          await get().save()
+        }
         try {
           set((draft) => {
             draft.status = "loading"
@@ -186,6 +365,10 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
             draft.assignmentSelection = null
             draft.checksDirty = true
             draft.systemSetsReady = false
+            draft.localVersion = 0
+            draft.lastSavedRevision = (loaded as PersistedProfile).revision
+            draft.syncState = "idle"
+            draft.syncError = null
           })
         } catch (err) {
           set((draft) => {
@@ -196,24 +379,20 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
       },
 
       save: async () => {
-        const state = get()
-        if (!state.profile) return false
-        try {
-          const client = getWorkflowClient()
-          const saved = await client.run("profile.save", state.profile)
-          set((draft) => {
-            draft.profile = saved as PersistedProfile
-          })
+        clearAutosaveTimer()
+        if (!get().profile) {
           return true
-        } catch (err) {
-          useToastStore
-            .getState()
-            .addToast(getErrorMessage(err, "Save failed"), { tone: "error" })
-          return false
         }
+        requestAutosave()
+        await waitForIdle()
+        return get().syncState !== "error"
       },
 
-      clear: () => set(initialState),
+      clear: () => {
+        clearAutosaveTimer()
+        saveRequested = false
+        set(initialState)
+      },
 
       // ------------------------------------------------------------------
       // Member mutations
@@ -287,6 +466,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           draft.future = []
           draft.checksDirty = true
         })
+        markProfileMutated()
       },
 
       // ------------------------------------------------------------------
@@ -499,30 +679,35 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         set((draft) => {
           if (draft.profile) draft.profile.courseId = courseId
         })
+        markProfileMutated()
       },
 
       setLmsConnectionName: (name) => {
         set((draft) => {
           if (draft.profile) draft.profile.lmsConnectionName = name
         })
+        markProfileMutated()
       },
 
       setGitConnectionName: (name) => {
         set((draft) => {
           if (draft.profile) draft.profile.gitConnectionName = name
         })
+        markProfileMutated()
       },
 
       setRepositoryTemplate: (template) => {
         set((draft) => {
           if (draft.profile) draft.profile.repositoryTemplate = template
         })
+        markProfileMutated()
       },
 
       setDisplayName: (name) => {
         set((draft) => {
           if (draft.profile) draft.profile.displayName = name
         })
+        markProfileMutated()
       },
 
       // ------------------------------------------------------------------
@@ -568,6 +753,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           draft.systemSetsReady = true
           draft.checksDirty = true
         })
+        markProfileMutated()
       },
 
       // ------------------------------------------------------------------
@@ -632,6 +818,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           draft.future.push(entry)
           draft.checksDirty = true
         })
+        markProfileMutated()
         return entry
       },
 
@@ -648,6 +835,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           draft.history.push(entry)
           draft.checksDirty = true
         })
+        markProfileMutated()
         return entry
       },
 

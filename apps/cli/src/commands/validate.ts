@@ -16,10 +16,7 @@ export function registerValidateCommand(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, selectedProfileId } = await loadSelectedProfile(
-          this,
-          workflowClient,
-        )
+        const { profile } = await loadSelectedProfile(this, workflowClient)
         const assignment = resolveAssignmentFromProfile(
           profile,
           options.assignment,
@@ -33,12 +30,12 @@ export function registerValidateCommand(parent: Command): void {
         }
 
         const rosterValidation = await workflowClient.run("validation.roster", {
-          profileId: selectedProfileId,
+          profile,
         })
         const assignmentValidation = await workflowClient.run(
           "validation.assignment",
           {
-            profileId: selectedProfileId,
+            profile,
             assignmentId: assignment.id,
           },
         )

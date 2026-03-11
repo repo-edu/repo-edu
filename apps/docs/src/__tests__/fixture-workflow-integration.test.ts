@@ -35,6 +35,10 @@ describe("docs fixture integration: source parity", () => {
     const profile = await runtime.workflowClient.run("profile.load", {
       profileId: runtime.seedProfileId,
     })
+    const appSettings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
 
     assert.equal(profile.lmsConnectionName, "Canvas Demo")
     assert.equal(profile.roster.connection?.kind, "canvas")
@@ -58,12 +62,13 @@ describe("docs fixture integration: source parity", () => {
 
     const available = await runtime.workflowClient.run(
       "groupSet.fetchAvailableFromLms",
-      { profileId: runtime.seedProfileId },
+      { profile, appSettings },
     )
     assert.equal(available.length > 0, true)
 
     const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       courseId: runtime.seedCourseId,
     })
     assert.equal(imported.roster.connection?.kind, "canvas")
@@ -78,6 +83,10 @@ describe("docs fixture integration: source parity", () => {
     const profile = await runtime.workflowClient.run("profile.load", {
       profileId: runtime.seedProfileId,
     })
+    const appSettings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
 
     assert.equal(profile.lmsConnectionName, "Moodle Demo")
     assert.equal(profile.roster.connection?.kind, "moodle")
@@ -108,12 +117,13 @@ describe("docs fixture integration: source parity", () => {
 
     const available = await runtime.workflowClient.run(
       "groupSet.fetchAvailableFromLms",
-      { profileId: runtime.seedProfileId },
+      { profile, appSettings },
     )
     assert.equal(available.length > 0, true)
 
     const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       courseId: runtime.seedCourseId,
     })
     assert.equal(imported.roster.connection?.kind, "moodle")
@@ -128,6 +138,10 @@ describe("docs fixture integration: source parity", () => {
     const profile = await runtime.workflowClient.run("profile.load", {
       profileId: runtime.seedProfileId,
     })
+    const appSettings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
 
     assert.equal(profile.lmsConnectionName, null)
     assert.equal(profile.courseId, null)
@@ -152,14 +166,16 @@ describe("docs fixture integration: source parity", () => {
 
     await assert.rejects(
       runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
-        profileId: runtime.seedProfileId,
+        profile,
+        appSettings,
       }),
       (error: unknown) => isAppErrorWithType(error, "not-found"),
     )
 
     await assert.rejects(
       runtime.workflowClient.run("roster.importFromLms", {
-        profileId: runtime.seedProfileId,
+        profile,
+        appSettings,
         courseId: "course-small-shared-teams",
       }),
       (error: unknown) => isAppErrorWithType(error, "not-found"),
@@ -177,6 +193,10 @@ describe("docs fixture integration: repository planning by preset", () => {
     const profile = await runtime.workflowClient.run("profile.load", {
       profileId: runtime.seedProfileId,
     })
+    const appSettings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
 
     const a1Plan = planRepositoryOperation(profile.roster, "a1")
     const a2Plan = planRepositoryOperation(profile.roster, "a2")
@@ -187,14 +207,16 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a1GroupIds.length > 0, true)
 
     const a1Result = await runtime.workflowClient.run("repo.create", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       assignmentId: "a1",
       template: null,
     })
     assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
 
     const a2Result = await runtime.workflowClient.run("repo.create", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       assignmentId: "a2",
       template: null,
     })
@@ -210,6 +232,10 @@ describe("docs fixture integration: repository planning by preset", () => {
     const profile = await runtime.workflowClient.run("profile.load", {
       profileId: runtime.seedProfileId,
     })
+    const appSettings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
 
     const a1Plan = planRepositoryOperation(profile.roster, "a1")
     const a2Plan = planRepositoryOperation(profile.roster, "a2")
@@ -222,14 +248,16 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a2GroupIds.length > 0, true)
 
     const a1Result = await runtime.workflowClient.run("repo.create", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       assignmentId: "a1",
       template: null,
     })
     assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
 
     const a2Result = await runtime.workflowClient.run("repo.create", {
-      profileId: runtime.seedProfileId,
+      profile,
+      appSettings,
       assignmentId: "a2",
       template: null,
     })

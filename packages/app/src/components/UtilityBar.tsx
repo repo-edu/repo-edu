@@ -1,6 +1,6 @@
 /**
  * UtilityBar — Bottom control bar.
- * Left: Profile switcher + utility menu (context). Right: Save button (action).
+ * Left: Profile switcher + utility menu.
  */
 
 import {
@@ -14,23 +14,16 @@ import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { useToastStore } from "../stores/toast-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { ProfileSwitcher } from "./ProfileSwitcher.js"
-import { SaveButton } from "./SaveButton.js"
 
-type UtilityBarProps = {
-  isDirty: boolean
-  onSaved: () => void
-}
-
-export function UtilityBar({ isDirty, onSaved }: UtilityBarProps) {
+export function UtilityBar() {
   return (
     <div className="group/utilitybar border-t bg-muted/30">
       <div className="flex items-center gap-2 pl-2 pr-4 py-1.5 min-w-0">
         <div className="flex items-center min-w-0">
-          <ProfileSwitcher isDirty={isDirty} />
+          <ProfileSwitcher />
           <UtilityMenu />
         </div>
         <div className="flex-1" />
-        <SaveButton isDirty={isDirty} onSaved={onSaved} />
       </div>
     </div>
   )

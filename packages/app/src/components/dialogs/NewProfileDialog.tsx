@@ -232,7 +232,8 @@ export function NewProfileDialog() {
           : courseId.trim() || null
       const profile: PersistedProfile = {
         kind: persistedProfileKind,
-        schemaVersion: 2,
+        schemaVersion: 3,
+        revision: 0,
         id: generateProfileId(),
         displayName: profileName.trim(),
         lmsConnectionName: selectedLmsConnection || null,

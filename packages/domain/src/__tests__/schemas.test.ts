@@ -129,8 +129,9 @@ describe("validatePersistedAppSettings", () => {
 
 describe("validatePersistedProfile", () => {
   const validProfile = {
-    kind: "repo-edu.profile.v2",
-    schemaVersion: 2,
+    kind: "repo-edu.profile.v3",
+    schemaVersion: 3,
+    revision: 0,
     id: "prof-1",
     displayName: "Test Profile",
     lmsConnectionName: null,

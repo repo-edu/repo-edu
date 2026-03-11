@@ -315,20 +315,20 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       lms: lmsPorts,
       git: gitPorts,
     }),
-    ...createValidationWorkflowHandlers(profileStore),
-    ...createRosterWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createValidationWorkflowHandlers(),
+    ...createRosterWorkflowHandlers({
       lms: lmsPorts,
       userFile: browserMockHost.userFilePort,
     }),
-    ...createGroupSetWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createGroupSetWorkflowHandlers({
       lms: lmsPorts,
       userFile: browserMockHost.userFilePort,
     }),
-    ...createGitUsernameWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createGitUsernameWorkflowHandlers({
       userFile: browserMockHost.userFilePort,
       git: gitPorts,
     }),
-    ...createRepositoryWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createRepositoryWorkflowHandlers({
       git: gitPorts,
       gitCommand: gitCommandPort,
       fileSystem: fileSystemPort,

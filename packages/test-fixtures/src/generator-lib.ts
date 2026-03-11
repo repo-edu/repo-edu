@@ -447,7 +447,8 @@ function createFixtureRecord(
 
   const profile: PersistedProfile = {
     kind: persistedProfileKind,
-    schemaVersion: 2,
+    schemaVersion: 3,
+    revision: 0,
     id: profileId,
     displayName: `Fixture (${tier}, ${preset})`,
     lmsConnectionName: "Canvas Demo",

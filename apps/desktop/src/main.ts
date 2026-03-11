@@ -37,6 +37,23 @@ let hostIpcRegistered = false
 let storageRootPath: string | null = null
 let validationProfileId: string = desktopSeedProfileId
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) {
+  app.quit()
+}
+
+app.on("second-instance", () => {
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (!mainWindow) {
+    return
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore()
+  }
+  mainWindow.focus()
+})
+
 function resolvePreloadPath() {
   return join(currentDir, "../preload/preload.cjs")
 }
@@ -290,46 +307,49 @@ async function createWindow() {
   await mainWindow.loadURL(rendererUrl)
 }
 
-app.whenReady().then(async () => {
-  storageRootPath = resolveStorageRootPath()
+if (hasSingleInstanceLock) {
+  app.whenReady().then(async () => {
+    storageRootPath = resolveStorageRootPath()
 
-  const seededFixture = await seedDesktopFixtureFromEnvironment(storageRootPath)
-  if (seededFixture) {
-    validationProfileId = seededFixture.profileId
-    for (const fixturePath of seededFixture.artifactPaths) {
-      desktopHost.queueUserFilePath(fixturePath)
+    const seededFixture =
+      await seedDesktopFixtureFromEnvironment(storageRootPath)
+    if (seededFixture) {
+      validationProfileId = seededFixture.profileId
+      for (const fixturePath of seededFixture.artifactPaths) {
+        desktopHost.queueUserFilePath(fixturePath)
+      }
     }
-  }
 
-  const userFileQueue = parsePathQueue(
-    process.env.REPO_EDU_TEST_USER_FILE_QUEUE,
-  )
-  for (const path of userFileQueue) {
-    desktopHost.queueUserFilePath(path)
-  }
-
-  const saveTargetQueue = parsePathQueue(
-    process.env.REPO_EDU_TEST_SAVE_TARGET_QUEUE,
-  )
-  for (const path of saveTargetQueue) {
-    desktopHost.queueSaveTargetPath(path)
-  }
-
-  const validationProfileOverride =
-    process.env.REPO_EDU_VALIDATION_PROFILE_ID?.trim()
-  if (validationProfileOverride) {
-    validationProfileId = validationProfileOverride
-  }
-
-  registerRendererHostIpcHandlers()
-  await createWindow()
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow()
+    const userFileQueue = parsePathQueue(
+      process.env.REPO_EDU_TEST_USER_FILE_QUEUE,
+    )
+    for (const path of userFileQueue) {
+      desktopHost.queueUserFilePath(path)
     }
+
+    const saveTargetQueue = parsePathQueue(
+      process.env.REPO_EDU_TEST_SAVE_TARGET_QUEUE,
+    )
+    for (const path of saveTargetQueue) {
+      desktopHost.queueSaveTargetPath(path)
+    }
+
+    const validationProfileOverride =
+      process.env.REPO_EDU_VALIDATION_PROFILE_ID?.trim()
+    if (validationProfileOverride) {
+      validationProfileId = validationProfileOverride
+    }
+
+    registerRendererHostIpcHandlers()
+    await createWindow()
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        void createWindow()
+      }
+    })
   })
-})
+}
 
 process.on("uncaughtException", (error) => {
   process.stderr.write(

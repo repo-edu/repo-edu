@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { RepositoryTemplate } from "@repo-edu/domain"
+import type {
+  PersistedAppSettings,
+  PersistedProfile,
+  RepositoryTemplate,
+} from "@repo-edu/domain"
 import {
   buildRepositoryWorkflowRequest,
   resolveRepositoryWorkflowId,
@@ -12,6 +16,44 @@ const template: RepositoryTemplate = {
   visibility: "private",
 }
 
+const profile: PersistedProfile = {
+  kind: "repo-edu.profile.v3",
+  schemaVersion: 3,
+  revision: 0,
+  id: "profile-1",
+  displayName: "Profile 1",
+  lmsConnectionName: null,
+  gitConnectionName: "git-main",
+  courseId: null,
+  roster: {
+    connection: null,
+    students: [],
+    staff: [],
+    groups: [],
+    groupSets: [],
+    assignments: [],
+  },
+  repositoryTemplate: null,
+  updatedAt: "2026-03-11T00:00:00.000Z",
+}
+
+const appSettings: PersistedAppSettings = {
+  kind: "repo-edu.app-settings.v1",
+  schemaVersion: 1,
+  activeProfileId: profile.id,
+  appearance: {
+    theme: "system",
+    windowChrome: "system",
+    dateFormat: "DMY",
+    timeFormat: "24h",
+  },
+  lmsConnections: [],
+  gitConnections: [],
+  lastOpenedAt: null,
+  rosterColumnVisibility: {},
+  rosterColumnSizing: {},
+}
+
 describe("repository workflow helpers", () => {
   it("maps each operation to the correct workflow id", () => {
     assert.equal(resolveRepositoryWorkflowId("create"), "repo.create")
@@ -21,7 +63,8 @@ describe("repository workflow helpers", () => {
 
   it("builds create input without clone/delete-only fields", () => {
     const result = buildRepositoryWorkflowRequest({
-      activeProfileId: "profile-1",
+      profile,
+      appSettings,
       assignmentId: "assignment-1",
       operation: "create",
       repositoryTemplate: template,
@@ -32,7 +75,8 @@ describe("repository workflow helpers", () => {
     assert.deepStrictEqual(result, {
       workflowId: "repo.create",
       input: {
-        profileId: "profile-1",
+        profile,
+        appSettings,
         assignmentId: "assignment-1",
         template,
       },
@@ -41,7 +85,8 @@ describe("repository workflow helpers", () => {
 
   it("builds clone input with directory options", () => {
     const result = buildRepositoryWorkflowRequest({
-      activeProfileId: "profile-1",
+      profile,
+      appSettings,
       assignmentId: "assignment-1",
       operation: "clone",
       repositoryTemplate: template,
@@ -52,7 +97,8 @@ describe("repository workflow helpers", () => {
     assert.deepStrictEqual(result, {
       workflowId: "repo.clone",
       input: {
-        profileId: "profile-1",
+        profile,
+        appSettings,
         assignmentId: "assignment-1",
         template,
         targetDirectory: "/tmp/repos",
@@ -63,7 +109,8 @@ describe("repository workflow helpers", () => {
 
   it("builds delete input with explicit confirmation", () => {
     const result = buildRepositoryWorkflowRequest({
-      activeProfileId: "profile-1",
+      profile,
+      appSettings,
       assignmentId: "assignment-1",
       operation: "delete",
       repositoryTemplate: template,
@@ -74,7 +121,8 @@ describe("repository workflow helpers", () => {
     assert.deepStrictEqual(result, {
       workflowId: "repo.delete",
       input: {
-        profileId: "profile-1",
+        profile,
+        appSettings,
         assignmentId: "assignment-1",
         template,
         confirmDelete: true,

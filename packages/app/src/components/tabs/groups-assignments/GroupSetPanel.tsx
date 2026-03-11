@@ -262,7 +262,8 @@ function GroupsTab({
           const members = group.memberIds
             .map((id) => memberById.get(id))
             .filter(
-              (m): m is RosterMember => m !== undefined && m.status === "active",
+              (m): m is RosterMember =>
+                m !== undefined && m.status === "active",
             )
           return (
             <GroupItem

@@ -22,12 +22,13 @@ description: Persisted app settings and profile fields
 }
 ```
 
-## Profile (`repo-edu.profile.v2`)
+## Profile (`repo-edu.profile.v3`)
 
 ```ts
 {
-  kind: "repo-edu.profile.v2";
-  schemaVersion: 2;
+  kind: "repo-edu.profile.v3";
+  schemaVersion: 3;
+  revision: number;
   id: string;
   displayName: string;
   lmsConnectionName: string | null;

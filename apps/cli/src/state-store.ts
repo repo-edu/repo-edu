@@ -57,6 +57,17 @@ export function resolveCliStorageRoot(): string {
 export function createCliProfileStore(
   storageRoot: string = resolveCliStorageRoot(),
 ): ProfileStore {
+  let writeQueue: Promise<void> = Promise.resolve()
+
+  const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
+    const run = writeQueue.then(task, task)
+    writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
   return {
     async listProfiles(signal?: AbortSignal) {
       throwIfAborted(signal)
@@ -101,34 +112,65 @@ export function createCliProfileStore(
     },
 
     async saveProfile(profile: PersistedProfile, signal?: AbortSignal) {
-      throwIfAborted(signal)
+      return await enqueueWrite(async () => {
+        throwIfAborted(signal)
 
-      const validation = validatePersistedProfile(profile)
-      if (!validation.ok) {
-        throw new Error(
-          `Invalid persisted profile: ${validation.issues
-            .map((issue) => `${issue.path}: ${issue.message}`)
-            .join("; ")}`,
+        const validation = validatePersistedProfile(profile)
+        if (!validation.ok) {
+          throw new Error(
+            `Invalid persisted profile: ${validation.issues
+              .map((issue) => `${issue.path}: ${issue.message}`)
+              .join("; ")}`,
+          )
+        }
+
+        const profilesDirectory = resolveProfilesDirectory(storageRoot)
+        await mkdir(profilesDirectory, { recursive: true })
+        throwIfAborted(signal)
+
+        const profilePath = resolveProfilePath(storageRoot, validation.value.id)
+        const existing = await readValidatedProfile(profilePath).catch(
+          (error: unknown) => {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+              return null
+            }
+            throw error
+          },
         )
-      }
+        if (
+          existing !== null &&
+          existing.revision !== validation.value.revision
+        ) {
+          throw new Error(
+            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existing.revision}).`,
+          )
+        }
+        if (existing === null && validation.value.revision !== 0) {
+          throw new Error(
+            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing profile).`,
+          )
+        }
 
-      const profilesDirectory = resolveProfilesDirectory(storageRoot)
-      await mkdir(profilesDirectory, { recursive: true })
-      throwIfAborted(signal)
-
-      const profilePath = resolveProfilePath(storageRoot, validation.value.id)
-      await writeFile(
-        profilePath,
-        JSON.stringify(validation.value, null, 2),
-        "utf8",
-      )
-      return validation.value
+        const savedProfile: PersistedProfile = {
+          ...validation.value,
+          revision: validation.value.revision + 1,
+          updatedAt: new Date().toISOString(),
+        }
+        await writeFile(
+          profilePath,
+          JSON.stringify(savedProfile, null, 2),
+          "utf8",
+        )
+        return savedProfile
+      })
     },
 
     async deleteProfile(profileId: string, signal?: AbortSignal) {
-      throwIfAborted(signal)
-      const profilePath = resolveProfilePath(storageRoot, profileId)
-      await rm(profilePath, { force: true })
+      await enqueueWrite(async () => {
+        throwIfAborted(signal)
+        const profilePath = resolveProfilePath(storageRoot, profileId)
+        await rm(profilePath, { force: true })
+      })
     },
   }
 }

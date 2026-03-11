@@ -83,14 +83,14 @@ async function collectValidationSnapshot() {
   )
 
   const rosterValidation = await workflowClient.run("validation.roster", {
-    profileId: validationProfileId,
+    profile: loadedProfile,
   })
   const validationAssignmentId = loadedProfile.roster.assignments[0]?.id ?? null
   const assignmentValidation =
     validationAssignmentId === null
       ? { issues: [] }
       : await workflowClient.run("validation.assignment", {
-          profileId: validationProfileId,
+          profile: loadedProfile,
           assignmentId: validationAssignmentId,
         })
 
@@ -103,7 +103,8 @@ async function collectValidationSnapshot() {
   let repoDeleteErrorType: AppError["type"] | null = null
   try {
     await workflowClient.run("repo.delete", {
-      profileId: validationProfileId,
+      profile: loadedProfile,
+      appSettings: loadedSettings,
       assignmentId: null,
       template: null,
       confirmDelete: false,

@@ -13,15 +13,10 @@ import { getErrorMessage } from "../../utils/error-message.js"
 import { NoProfileEmptyState } from "../NoProfileEmptyState.js"
 import { MemberListPane } from "./roster/MemberListPane.js"
 
-type RosterTabProps = {
-  isDirty: boolean
-}
-
-export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
+export function RosterTab() {
   const roster = useProfileStore(selectRoster)
   const profile = useProfileStore((s) => s.profile)
   const setRoster = useProfileStore((s) => s.setRoster)
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
   const lmsConnectionName = useProfileStore(selectLmsConnectionName)
   const courseId = useProfileStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
@@ -59,7 +54,7 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {
-    if (!activeProfileId || !roster) return
+    if (!profile || !roster) return
 
     try {
       const host = getRendererHost()
@@ -70,7 +65,7 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
 
       const client = getWorkflowClient()
       await client.run("roster.exportMembers", {
-        profileId: activeProfileId,
+        profile,
         target,
         format,
       })
@@ -80,7 +75,7 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
     }
   }
 
-  if (!activeProfileId || !profile) {
+  if (!profile) {
     return <NoProfileEmptyState tabLabel="the roster" />
   }
 

@@ -31,7 +31,6 @@ export {
   WorkflowClientProvider,
 } from "./contexts/workflow-client.js"
 export { useAppSettings } from "./hooks/use-app-settings.js"
-export { useDirtyState } from "./hooks/use-dirty-state.js"
 export { useIssues } from "./hooks/use-issues.js"
 export { useProfiles } from "./hooks/use-profiles.js"
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import {
 import { AlertCircle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useOperationStore } from "../../stores/operation-store.js"
 import {
   selectAssignments,
@@ -39,6 +40,7 @@ const LABEL_WIDTH = 100
 export function OperationTab() {
   const activeProfileId = useUiStore((s) => s.activeProfileId)
   const profile = useProfileStore((s) => s.profile)
+  const appSettings = useAppSettingsStore((state) => state.settings)
   const roster = useProfileStore(selectRoster)
   const assignments = useProfileStore(selectAssignments)
   const repositoryTemplate = useProfileStore(selectRepositoryTemplate)
@@ -91,7 +93,7 @@ export function OperationTab() {
     : 0
 
   const handleExecute = useCallback(async () => {
-    if (!activeProfileId || !assignmentSelection) {
+    if (!profile || !assignmentSelection) {
       return
     }
 
@@ -100,7 +102,8 @@ export function OperationTab() {
     setLastResult(null)
 
     const { workflowId, input } = buildRepositoryWorkflowRequest({
-      activeProfileId,
+      profile,
+      appSettings,
       assignmentId: assignmentSelection,
       operation: operationSelected,
       repositoryTemplate,
@@ -119,7 +122,8 @@ export function OperationTab() {
       setOperationError(message)
     }
   }, [
-    activeProfileId,
+    profile,
+    appSettings,
     assignmentSelection,
     repositoryTemplate,
     operationSelected,

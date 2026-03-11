@@ -1,14 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Button,
   Tabs,
   TabsContent,
@@ -20,12 +12,10 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { useCallback, useEffect, useLayoutEffect } from "react"
+import { useEffect, useLayoutEffect } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { useCloseGuard } from "../hooks/use-close-guard.js"
-import { useDirtyState } from "../hooks/use-dirty-state.js"
 import { useLoadProfile } from "../hooks/use-load-profile.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
@@ -95,8 +85,6 @@ function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
   const activeProfileId = useUiStore((s) => s.activeProfileId)
-  const closePromptVisible = useUiStore((s) => s.closePromptVisible)
-  const hideClosePrompt = useUiStore((s) => s.hideClosePrompt)
 
   const theme = useAppSettingsStore(selectTheme)
   const appSettingsActiveProfileId = useAppSettingsStore(
@@ -110,7 +98,7 @@ function AppShell() {
   const redoDescription = useProfileStore(selectNextRedoDescription)
   const undo = useProfileStore((s) => s.undo)
   const redo = useProfileStore((s) => s.redo)
-  const saveProfile = useProfileStore((s) => s.save)
+  const flushProfile = useProfileStore((s) => s.save)
 
   // Load app settings on mount.
   useEffect(() => {
@@ -131,33 +119,19 @@ function AppShell() {
   // Load profile when activeProfileId changes.
   useLoadProfile(activeProfileId)
 
-  // Dirty state tracking.
-  const { isDirty, markClean } = useDirtyState(activeProfileId)
-
-  const handleSave = useCallback(async () => {
-    const success = await saveProfile()
-    if (success) markClean()
-  }, [saveProfile, markClean])
-
-  // Close guard.
-  const { handlePromptSave, handlePromptDiscard, handlePromptCancel } =
-    useCloseGuard({
-      isDirty,
-      onHidePrompt: hideClosePrompt,
-      onSave: handleSave,
-    })
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      void flushProfile()
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [flushProfile])
 
   // Keyboard shortcuts.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
-
-      if (e.key === "s") {
-        e.preventDefault()
-        void handleSave()
-        return
-      }
 
       if (e.key === ",") {
         e.preventDefault()
@@ -182,7 +156,7 @@ function AppShell() {
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [handleSave, undo, redo])
+  }, [undo, redo])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -247,7 +221,7 @@ function AppShell() {
 
         {/* Tab content */}
         <TabsContent value="roster" className="flex-1 overflow-auto">
-          <RosterTab isDirty={isDirty} />
+          <RosterTab />
         </TabsContent>
         <TabsContent
           value="groups-assignments"
@@ -260,38 +234,7 @@ function AppShell() {
         </TabsContent>
       </Tabs>
 
-      <UtilityBar isDirty={isDirty} onSaved={markClean} />
-
-      {/* Unsaved changes prompt */}
-      <AlertDialog
-        open={closePromptVisible}
-        onOpenChange={(open) => {
-          if (!open) hideClosePrompt()
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Do you want to save before closing?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handlePromptCancel}>
-              Cancel
-            </AlertDialogCancel>
-            <Button
-              variant="outline"
-              onClick={() => void handlePromptDiscard()}
-            >
-              Discard
-            </Button>
-            <AlertDialogAction onClick={() => void handlePromptSave()}>
-              Save
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <UtilityBar />
 
       {/* Assignment and group dialogs */}
       <NewAssignmentDialog />

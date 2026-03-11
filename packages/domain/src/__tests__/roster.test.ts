@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { Roster, RosterMember } from "../index.js"
 import {
   mergeRosterFromLms,
   mergeRosterFromLmsWithConflicts,
   normalizeRoster,
   normalizeRosterMember,
 } from "../index.js"
-import type { Roster, RosterMember } from "../index.js"
 
 describe("normalizeRosterMember", () => {
   it("uses the first non-empty name candidate and normalizes optional fields", () => {
@@ -155,7 +155,9 @@ describe("normalizeRoster", () => {
 // mergeRosterFromLms
 // ---------------------------------------------------------------------------
 
-function makeMember(overrides: Partial<RosterMember> & { id: string }): RosterMember {
+function makeMember(
+  overrides: Partial<RosterMember> & { id: string },
+): RosterMember {
   return {
     name: overrides.id,
     email: "",
@@ -267,7 +269,12 @@ describe("mergeRosterFromLms", () => {
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
       students: [
-        makeMember({ id: "200", lmsUserId: "200", name: "New Student", source: "canvas" }),
+        makeMember({
+          id: "200",
+          lmsUserId: "200",
+          name: "New Student",
+          source: "canvas",
+        }),
       ],
     })
 
@@ -280,9 +287,7 @@ describe("mergeRosterFromLms", () => {
 
   it("enrollment type change moves member between arrays", () => {
     const existing = makeRoster({
-      students: [
-        makeMember({ id: "42", lmsUserId: "42", name: "Promoted" }),
-      ],
+      students: [makeMember({ id: "42", lmsUserId: "42", name: "Promoted" })],
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
@@ -312,9 +317,7 @@ describe("mergeRosterFromLms", () => {
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
-      students: [
-        makeMember({ id: "42", lmsUserId: "42", source: "canvas" }),
-      ],
+      students: [makeMember({ id: "42", lmsUserId: "42", source: "canvas" })],
     })
 
     const result = mergeRosterFromLms(existing, incoming)
@@ -326,8 +329,24 @@ describe("mergeRosterFromLms", () => {
 
   it("preserves groups, groupSets, and assignments from existing", () => {
     const existing = makeRoster({
-      groups: [{ id: "g1", name: "Group 1", memberIds: ["42"], origin: "local", lmsGroupId: null }],
-      groupSets: [{ id: "gs1", name: "Set 1", groupIds: ["g1"], groupSelection: { kind: "all", excludedGroupIds: [] }, connection: null }],
+      groups: [
+        {
+          id: "g1",
+          name: "Group 1",
+          memberIds: ["42"],
+          origin: "local",
+          lmsGroupId: null,
+        },
+      ],
+      groupSets: [
+        {
+          id: "gs1",
+          name: "Set 1",
+          groupIds: ["g1"],
+          groupSelection: { kind: "all", excludedGroupIds: [] },
+          connection: null,
+        },
+      ],
       assignments: [{ id: "a1", name: "Assignment 1", groupSetId: "gs1" }],
     })
     const incoming = makeRoster({
@@ -360,9 +379,7 @@ describe("mergeRosterFromLms", () => {
 
   it("propagates LMS enrollment status to matched member", () => {
     const existing = makeRoster({
-      students: [
-        makeMember({ id: "42", lmsUserId: "42" }),
-      ],
+      students: [makeMember({ id: "42", lmsUserId: "42" })],
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
@@ -386,9 +403,7 @@ describe("mergeRosterFromLms", () => {
 
   it("forces incomplete when matched member has no email", () => {
     const existing = makeRoster({
-      students: [
-        makeMember({ id: "42", lmsUserId: "42", email: "" }),
-      ],
+      students: [makeMember({ id: "42", lmsUserId: "42", email: "" })],
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
@@ -418,9 +433,7 @@ describe("mergeRosterFromLms", () => {
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
-      students: [
-        makeMember({ id: "42", lmsUserId: "42", email: "" }),
-      ],
+      students: [makeMember({ id: "42", lmsUserId: "42", email: "" })],
     })
 
     const result = mergeRosterFromLms(existing, incoming)

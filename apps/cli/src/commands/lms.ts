@@ -121,7 +121,10 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         if (profile.courseId === null) {
           throw new Error(
             "Selected profile does not have a configured courseId.",
@@ -129,7 +132,8 @@ export function registerLmsCommands(parent: Command): void {
         }
 
         const imported = await workflowClient.run("roster.importFromLms", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           courseId: profile.courseId,
         })
 
@@ -154,11 +158,19 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
 
         const result = await workflowClient.run("groupSet.syncFromLms", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           groupSetId: String(options.groupSet),
+        })
+        await workflowClient.run("profile.save", {
+          ...profile,
+          roster: result.roster,
         })
 
         process.stdout.write(
@@ -207,11 +219,15 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         const available = await workflowClient.run(
           "groupSet.fetchAvailableFromLms",
           {
-            profileId: profile.id,
+            profile,
+            appSettings: settings,
           },
         )
 
@@ -254,10 +270,18 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         const result = await workflowClient.run("groupSet.syncFromLms", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           groupSetId,
+        })
+        await workflowClient.run("profile.save", {
+          ...profile,
+          roster: result.roster,
         })
 
         process.stdout.write(

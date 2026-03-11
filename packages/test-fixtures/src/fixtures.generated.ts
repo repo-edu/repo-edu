@@ -7,8 +7,9 @@ export const fixtureMatrix: FixtureMatrix = {
   small: {
     "shared-teams": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-small-shared-teams",
         displayName: "Fixture (small, shared-teams)",
         lmsConnectionName: "Canvas Demo",
@@ -807,8 +808,9 @@ export const fixtureMatrix: FixtureMatrix = {
     },
     "assignment-scoped": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-small-assignment-scoped",
         displayName: "Fixture (small, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
@@ -1676,8 +1678,9 @@ export const fixtureMatrix: FixtureMatrix = {
   medium: {
     "shared-teams": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-medium-shared-teams",
         displayName: "Fixture (medium, shared-teams)",
         lmsConnectionName: "Canvas Demo",
@@ -3772,8 +3775,9 @@ export const fixtureMatrix: FixtureMatrix = {
     },
     "assignment-scoped": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-medium-assignment-scoped",
         displayName: "Fixture (medium, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
@@ -6049,8 +6053,9 @@ export const fixtureMatrix: FixtureMatrix = {
   stress: {
     "shared-teams": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-stress-shared-teams",
         displayName: "Fixture (stress, shared-teams)",
         lmsConnectionName: "Canvas Demo",
@@ -11050,8 +11055,9 @@ export const fixtureMatrix: FixtureMatrix = {
     },
     "assignment-scoped": {
       profile: {
-        kind: "repo-edu.profile.v2",
-        schemaVersion: 2,
+        kind: "repo-edu.profile.v3",
+        schemaVersion: 3,
+        revision: 0,
         id: "fixture-stress-assignment-scoped",
         displayName: "Fixture (stress, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",

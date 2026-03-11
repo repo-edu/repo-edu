@@ -13,11 +13,12 @@ Key fields:
 - `gitConnections[]`
 - `lastOpenedAt`
 
-## Persisted profile (`repo-edu.profile.v2`)
+## Persisted profile (`repo-edu.profile.v3`)
 
 Key fields:
 
 - `id`, `displayName`
+- `revision` (monotonic save revision for CAS writes)
 - `lmsConnectionName`, `gitConnectionName`, `courseId`
 - `roster` (students, staff, groups, groupSets, assignments)
 - `repositoryTemplate`

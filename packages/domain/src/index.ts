@@ -3,7 +3,7 @@ import { z } from "zod"
 export const packageId = "@repo-edu/domain"
 
 export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
-export const persistedProfileKind = "repo-edu.profile.v2" as const
+export const persistedProfileKind = "repo-edu.profile.v3" as const
 
 export const lmsProviderKinds = ["canvas", "moodle"] as const
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
@@ -197,7 +197,8 @@ export type RepositoryTemplate = {
 
 export type PersistedProfile = {
   kind: typeof persistedProfileKind
-  schemaVersion: 2
+  schemaVersion: 3
+  revision: number
   id: string
   displayName: string
   lmsConnectionName: string | null
@@ -654,7 +655,10 @@ export function mergeRosterFromLmsWithConflicts(
 
     if (matchedExistingId === null) {
       const existingMember = existingById.get(incomingMember.id)
-      if (existingMember !== undefined && !matchedExistingIds.has(existingMember.id)) {
+      if (
+        existingMember !== undefined &&
+        !matchedExistingIds.has(existingMember.id)
+      ) {
         matchedExistingId = existingMember.id
       }
     }
@@ -675,13 +679,9 @@ export function mergeRosterFromLmsWithConflicts(
       existingMember.lmsUserId !== null &&
       existingMember.lmsUserId !== lmsUserId
     ) {
-      recordConflict(
-        conflicts,
-        conflictSignatures,
-        "lmsUserId",
-        lmsUserId,
-        [existingMember.id],
-      )
+      recordConflict(conflicts, conflictSignatures, "lmsUserId", lmsUserId, [
+        existingMember.id,
+      ])
       conflictedExistingIds.add(existingMember.id)
       continue
     }
@@ -730,7 +730,10 @@ export function mergeRosterFromLmsWithConflicts(
       } else {
         membersUpdated += 1
       }
-    } else if (member.lmsUserId !== null && !conflictedExistingIds.has(member.id)) {
+    } else if (
+      member.lmsUserId !== null &&
+      !conflictedExistingIds.has(member.id)
+    ) {
       // LMS-sourced member no longer in LMS → mark dropped
       const droppedMember: RosterMember = {
         ...member,
@@ -793,7 +796,11 @@ export function mergeRosterFromLms(existing: Roster, incoming: Roster): Roster {
   return mergeRosterFromLmsWithConflicts(existing, incoming).roster
 }
 
-function pushMemberId(index: Map<string, string[]>, key: string, memberId: string) {
+function pushMemberId(
+  index: Map<string, string[]>,
+  key: string,
+  memberId: string,
+) {
   const ids = index.get(key)
   if (ids === undefined) {
     index.set(key, [memberId])
@@ -846,7 +853,10 @@ function sortRosterMembers(members: readonly RosterMember[]): RosterMember[] {
   })
 }
 
-function isRosterMemberEquivalent(left: RosterMember, right: RosterMember): boolean {
+function isRosterMemberEquivalent(
+  left: RosterMember,
+  right: RosterMember,
+): boolean {
   return (
     left.id === right.id &&
     left.name === right.name &&
@@ -2866,7 +2876,8 @@ const rosterSchema = z.object({
 
 export const persistedProfileSchema = z.object({
   kind: z.literal(persistedProfileKind),
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
+  revision: z.number().int().nonnegative(),
   id: z.string(),
   displayName: z.string(),
   lmsConnectionName: z.string().nullable(),

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { GitUsernameImportInput } from "@repo-edu/application-contract"
 import {
   type PersistedAppSettings,
   type PersistedProfile,
@@ -23,8 +24,9 @@ import {
 
 function makeProfile(): PersistedProfile {
   return {
-    kind: "repo-edu.profile.v2",
-    schemaVersion: 2,
+    kind: "repo-edu.profile.v3",
+    schemaVersion: 3,
+    revision: 0,
     id: "profile-1",
     displayName: "Profile",
     lmsConnectionName: null,
@@ -149,17 +151,15 @@ describe("application validation helpers", () => {
     })
   })
 
-  it("resolves profileId-based validation workflows through a profile store", async () => {
+  it("validates using explicit profile snapshots", async () => {
     const profile = makeProfile()
-    const handlers = createValidationWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-    )
+    const handlers = createValidationWorkflowHandlers()
 
     const rosterResult = await handlers["validation.roster"]({
-      profileId: profile.id,
+      profile,
     })
     const assignmentResult = await handlers["validation.assignment"]({
-      profileId: profile.id,
+      profile,
       assignmentId: "a1",
     })
 
@@ -170,18 +170,21 @@ describe("application validation helpers", () => {
     )
   })
 
-  it("throws a not-found AppError when the profile is missing", async () => {
-    const handlers = createValidationWorkflowHandlers(
-      createInMemoryProfileStore([]),
-    )
+  it("returns validation error for invalid profile snapshots", async () => {
+    const handlers = createValidationWorkflowHandlers()
 
     await assert.rejects(
-      handlers["validation.roster"]({ profileId: "missing-profile" }),
+      handlers["validation.roster"]({
+        profile: {
+          ...makeProfile(),
+          kind: "wrong-kind" as PersistedProfile["kind"],
+        },
+      }),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "not-found",
+        error.type === "validation",
     )
   })
 })
@@ -214,40 +217,37 @@ describe("application git username workflow helpers", () => {
     let receivedDraft: unknown = null
     let receivedUsernames: string[] = []
 
-    const store = createInMemoryProfileStore([profile])
-    const handlers = createGitUsernameWorkflowHandlers(
-      store,
-      createInMemoryAppSettingsStore(settings),
-      {
-        userFile: {
-          readText: async () => ({
-            displayName: "git-usernames.csv",
-            mediaType: "text/csv",
-            text: [
-              "email,git_username",
-              "s1@example.com,ada-l",
-              "unknown@example.com,ghost-user",
-            ].join("\n"),
-            byteLength: 0,
-          }),
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
-        },
-        git: {
-          verifyGitUsernames: async (draft, usernames) => {
-            receivedDraft = draft
-            receivedUsernames = usernames
-            return [{ username: "ada-l", exists: true }]
-          },
+    const handlers = createGitUsernameWorkflowHandlers({
+      userFile: {
+        readText: async () => ({
+          displayName: "git-usernames.csv",
+          mediaType: "text/csv",
+          text: [
+            "email,git_username",
+            "s1@example.com,ada-l",
+            "unknown@example.com,ghost-user",
+          ].join("\n"),
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+      git: {
+        verifyGitUsernames: async (draft, usernames) => {
+          receivedDraft = draft
+          receivedUsernames = usernames
+          return [{ username: "ada-l", exists: true }]
         },
       },
-    )
+    })
 
     const roster = await handlers["gitUsernames.import"]({
+      profile,
+      appSettings: settings,
       file: {
         kind: "user-file-ref",
         referenceId: "file-1",
@@ -266,89 +266,71 @@ describe("application git username workflow helpers", () => {
     assert.deepStrictEqual(receivedUsernames, ["ada-l"])
     assert.equal(roster.students[0]?.gitUsername, "ada-l")
     assert.equal(roster.students[0]?.gitUsernameStatus, "valid")
-    const reloaded = await store.loadProfile(profile.id)
-    assert.equal(reloaded?.roster.students[0]?.gitUsername, "ada-l")
   })
 
-  it("requires an active profile", async () => {
-    const handlers = createGitUsernameWorkflowHandlers(
-      createInMemoryProfileStore([makeProfile()]),
-      createInMemoryAppSettingsStore({
-        ...makeSettings(),
-        activeProfileId: null,
-      }),
-      {
-        userFile: {
-          readText: async () => ({
-            displayName: "usernames.xlsx",
-            mediaType:
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            text: "",
-            byteLength: 0,
-          }),
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
-        },
-        git: {
-          verifyGitUsernames: async () => [],
-        },
+  it("requires snapshot payloads", async () => {
+    const handlers = createGitUsernameWorkflowHandlers({
+      userFile: {
+        readText: async () => ({
+          displayName: "usernames.xlsx",
+          mediaType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          text: "",
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
       },
-    )
+      git: {
+        verifyGitUsernames: async () => [],
+      },
+    })
 
     await assert.rejects(
-      handlers["gitUsernames.import"]({
-        file: {
-          kind: "user-file-ref",
-          referenceId: "file-2",
-          displayName: "usernames.csv",
-          mediaType: "text/csv",
-          byteLength: null,
-        },
-      }),
+      handlers["gitUsernames.import"]({} as GitUsernameImportInput),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "not-found",
+        error.type === "validation",
     )
   })
 
   it("rejects non-csv imports with a validation AppError", async () => {
     const profile = makeProfile()
-    const handlers = createGitUsernameWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore({
-        ...makeSettings(),
-        activeProfileId: profile.id,
-      }),
-      {
-        userFile: {
-          readText: async () => ({
-            displayName: "usernames.xlsx",
-            mediaType:
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            text: "",
-            byteLength: 0,
-          }),
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
-        },
-        git: {
-          verifyGitUsernames: async () => [],
-        },
+    const settings = {
+      ...makeSettings(),
+      activeProfileId: profile.id,
+    }
+    const handlers = createGitUsernameWorkflowHandlers({
+      userFile: {
+        readText: async () => ({
+          displayName: "usernames.xlsx",
+          mediaType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          text: "",
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
       },
-    )
+      git: {
+        verifyGitUsernames: async () => [],
+      },
+    })
 
     await assert.rejects(
       handlers["gitUsernames.import"]({
+        profile,
+        appSettings: settings,
         file: {
           kind: "user-file-ref",
           referenceId: "file-3",
@@ -625,33 +607,29 @@ describe("application settings workflow helpers", () => {
 
 describe("application roster workflow helpers", () => {
   it("imports students from CSV file and ensures system group sets", async () => {
-    const handlers = createRosterWorkflowHandlers(
-      createInMemoryProfileStore([]),
-      createInMemoryAppSettingsStore(),
-      {
-        lms: {
-          fetchRoster: async () => makeProfile().roster,
-        },
-        userFile: {
-          readText: async () => ({
-            displayName: "students.csv",
-            mediaType: "text/csv",
-            text: [
-              "id,name,email,student_number,git_username",
-              "s-1,Ada Lovelace,ada@example.com,1001,adal",
-              "s-2,Grace Hopper,grace@example.com,1002,ghopper",
-            ].join("\n"),
-            byteLength: 0,
-          }),
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
-        },
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async () => makeProfile().roster,
       },
-    )
+      userFile: {
+        readText: async () => ({
+          displayName: "students.csv",
+          mediaType: "text/csv",
+          text: [
+            "id,name,email,student_number,git_username",
+            "s-1,Ada Lovelace,ada@example.com,1001,adal",
+            "s-2,Grace Hopper,grace@example.com,1002,ghopper",
+          ].join("\n"),
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const roster = await handlers["roster.importFromFile"]({
       file: {
@@ -688,57 +666,54 @@ describe("application roster workflow helpers", () => {
     let receivedDraft: unknown = null
     let receivedCourseId = ""
 
-    const handlers = createRosterWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(settings),
-      {
-        lms: {
-          fetchRoster: async (draft, courseId) => {
-            receivedDraft = draft
-            receivedCourseId = courseId
-            return {
-              connection: null,
-              students: [
-                {
-                  id: "s1",
-                  name: "Ada",
-                  email: "ada@example.com",
-                  studentNumber: null,
-                  gitUsername: null,
-                  gitUsernameStatus: "unknown",
-                  status: "active",
-                  lmsStatus: null,
-                  lmsUserId: null,
-                  enrollmentType: "student",
-                  enrollmentDisplay: null,
-                  department: null,
-                  institution: null,
-                  source: "canvas",
-                },
-              ],
-              staff: [],
-              groups: [],
-              groupSets: [],
-              assignments: [],
-            }
-          },
-        },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
-          },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async (draft, courseId) => {
+          receivedDraft = draft
+          receivedCourseId = courseId
+          return {
+            connection: null,
+            students: [
+              {
+                id: "s1",
+                name: "Ada",
+                email: "ada@example.com",
+                studentNumber: null,
+                gitUsername: null,
+                gitUsernameStatus: "unknown",
+                status: "active",
+                lmsStatus: null,
+                lmsUserId: null,
+                enrollmentType: "student",
+                enrollmentDisplay: null,
+                department: null,
+                institution: null,
+                source: "canvas",
+              },
+            ],
+            staff: [],
+            groups: [],
+            groupSets: [],
+            assignments: [],
+          }
         },
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const imported = await handlers["roster.importFromLms"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       courseId: "course-42",
     })
 
@@ -755,32 +730,28 @@ describe("application roster workflow helpers", () => {
     const profile = makeProfile()
     let lastWrittenText = ""
 
-    const handlers = createRosterWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(),
-      {
-        lms: {
-          fetchRoster: async () => makeProfile().roster,
-        },
-        userFile: {
-          readText: async () => ({
-            displayName: "unused.csv",
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async () => makeProfile().roster,
+      },
+      userFile: {
+        readText: async () => ({
+          displayName: "unused.csv",
+          mediaType: "text/csv",
+          text: "",
+          byteLength: 0,
+        }),
+        writeText: async (reference, text) => {
+          lastWrittenText = text
+          return {
+            displayName: reference.displayName,
             mediaType: "text/csv",
-            text: "",
-            byteLength: 0,
-          }),
-          writeText: async (reference, text) => {
-            lastWrittenText = text
-            return {
-              displayName: reference.displayName,
-              mediaType: "text/csv",
-              byteLength: text.length,
-              savedAt: "2026-03-04T10:00:00.000Z",
-            }
-          },
+            byteLength: text.length,
+            savedAt: "2026-03-04T10:00:00.000Z",
+          }
         },
       },
-    )
+    })
 
     const target = {
       kind: "user-save-target-ref" as const,
@@ -789,7 +760,7 @@ describe("application roster workflow helpers", () => {
       suggestedFormat: "csv" as const,
     }
     const result = await handlers["roster.exportMembers"]({
-      profileId: profile.id,
+      profile,
       target,
       format: "csv",
     })
@@ -798,7 +769,7 @@ describe("application roster workflow helpers", () => {
 
     await assert.rejects(
       handlers["roster.exportMembers"]({
-        profileId: profile.id,
+        profile,
         target: {
           ...target,
           displayName: "students.xlsx",
@@ -835,38 +806,35 @@ describe("application group-set workflow helpers", () => {
     }
     let receivedCourseId = ""
 
-    const handlers = createGroupSetWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(settings),
-      {
-        lms: {
-          listGroupSets: async (_draft, courseId) => {
-            receivedCourseId = courseId
-            return [
-              { id: "set-1", name: "Lab Teams", groupCount: 8 },
-              { id: "set-2", name: "Project Teams", groupCount: 6 },
-            ]
-          },
-          fetchGroupSet: async () => {
-            throw new Error("not used")
-          },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async (_draft, courseId) => {
+          receivedCourseId = courseId
+          return [
+            { id: "set-1", name: "Lab Teams", groupCount: 8 },
+            { id: "set-2", name: "Project Teams", groupCount: 6 },
+          ]
         },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
-          },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
+        fetchGroupSet: async () => {
+          throw new Error("not used")
         },
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const result = await handlers["groupSet.fetchAvailableFromLms"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
     })
 
     assert.equal(receivedCourseId, "course-42")
@@ -906,60 +874,56 @@ describe("application group-set workflow helpers", () => {
     let fetchCourseId = ""
     let fetchGroupSetId = ""
 
-    const store = createInMemoryProfileStore([profile])
-    const handlers = createGroupSetWorkflowHandlers(
-      store,
-      createInMemoryAppSettingsStore(settings),
-      {
-        lms: {
-          listGroupSets: async () => {
-            throw new Error("not used")
-          },
-          fetchGroupSet: async (draft, courseId, groupSetId) => {
-            fetchDraft = draft
-            fetchCourseId = courseId
-            fetchGroupSetId = groupSetId
-            return {
-              groupSet: {
-                id: "remote-set-1",
-                name: "Project Groups",
-                groupIds: ["10"],
-                connection: {
-                  kind: "canvas",
-                  courseId: "course-42",
-                  groupSetId: "remote-set-1",
-                  lastUpdated: "2026-03-04T10:00:00.000Z",
-                },
-                groupSelection: { kind: "all", excludedGroupIds: [] },
-              },
-              groups: [
-                {
-                  id: "10",
-                  name: "Team 10",
-                  memberIds: ["u-1"],
-                  origin: "lms",
-                  lmsGroupId: "10",
-                },
-              ],
-            }
-          },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
         },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
-          },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
+        fetchGroupSet: async (draft, courseId, groupSetId) => {
+          fetchDraft = draft
+          fetchCourseId = courseId
+          fetchGroupSetId = groupSetId
+          return {
+            groupSet: {
+              id: "remote-set-1",
+              name: "Project Groups",
+              groupIds: ["10"],
+              connection: {
+                kind: "canvas",
+                courseId: "course-42",
+                groupSetId: "remote-set-1",
+                lastUpdated: "2026-03-04T10:00:00.000Z",
+              },
+              groupSelection: { kind: "all", excludedGroupIds: [] },
+            },
+            groups: [
+              {
+                id: "10",
+                name: "Team 10",
+                memberIds: ["u-1"],
+                origin: "lms",
+                lmsGroupId: "10",
+              },
+            ],
+          }
         },
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const connected = await handlers["groupSet.connectFromLms"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       remoteGroupSetId: "remote-set-1",
     })
 
@@ -978,11 +942,9 @@ describe("application group-set workflow helpers", () => {
       assert.equal(connected.connection.groupSetId, "remote-set-1")
     }
 
-    const reloaded = await store.loadProfile(profile.id)
-    assert.ok(reloaded)
-    assert.equal(reloaded?.roster.groupSets.length, 1)
-    assert.equal(reloaded?.roster.groups.length, 1)
-    assert.deepStrictEqual(reloaded?.roster.groups[0], {
+    assert.equal(connected.roster.groupSets.length, 1)
+    assert.equal(connected.roster.groups.length, 1)
+    assert.deepStrictEqual(connected.roster.groups[0], {
       id: "10",
       name: "Team 10",
       memberIds: ["s-local-1"],
@@ -1025,35 +987,32 @@ describe("application group-set workflow helpers", () => {
       ],
     }
 
-    const handlers = createGroupSetWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(settings),
-      {
-        lms: {
-          listGroupSets: async () => {
-            throw new Error("not used")
-          },
-          fetchGroupSet: async () => {
-            throw new Error("not used")
-          },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
         },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
-          },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
+        fetchGroupSet: async () => {
+          throw new Error("not used")
         },
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     await assert.rejects(
       handlers["groupSet.connectFromLms"]({
-        profileId: profile.id,
+        profile,
+        appSettings: settings,
         remoteGroupSetId: "remote-set-1",
       }),
       (error: unknown) =>
@@ -1121,72 +1080,66 @@ describe("application group-set workflow helpers", () => {
       ],
     }
 
-    const store = createInMemoryProfileStore([profile])
-    const handlers = createGroupSetWorkflowHandlers(
-      store,
-      createInMemoryAppSettingsStore(settings),
-      {
-        lms: {
-          listGroupSets: async () => {
-            throw new Error("not used")
-          },
-          fetchGroupSet: async () => ({
-            groupSet: {
-              id: "remote-set-1",
-              name: "Synced LMS Set",
-              groupIds: ["10", "30"],
-              connection: {
-                kind: "canvas",
-                courseId: "course-42",
-                groupSetId: "remote-set-1",
-                lastUpdated: "2026-03-04T10:00:00.000Z",
-              },
-              groupSelection: { kind: "all", excludedGroupIds: [] },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
+        },
+        fetchGroupSet: async () => ({
+          groupSet: {
+            id: "remote-set-1",
+            name: "Synced LMS Set",
+            groupIds: ["10", "30"],
+            connection: {
+              kind: "canvas",
+              courseId: "course-42",
+              groupSetId: "remote-set-1",
+              lastUpdated: "2026-03-04T10:00:00.000Z",
             },
-            groups: [
-              {
-                id: "10",
-                name: "Group 10",
-                memberIds: ["u-1"],
-                origin: "lms",
-                lmsGroupId: "10",
-              },
-              {
-                id: "30",
-                name: "Group 30",
-                memberIds: ["missing-user", "u-1"],
-                origin: "lms",
-                lmsGroupId: "30",
-              },
-            ],
-          }),
-        },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
+            groupSelection: { kind: "all", excludedGroupIds: [] },
           },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
-        },
+          groups: [
+            {
+              id: "10",
+              name: "Group 10",
+              memberIds: ["u-1"],
+              origin: "lms",
+              lmsGroupId: "10",
+            },
+            {
+              id: "30",
+              name: "Group 30",
+              memberIds: ["missing-user", "u-1"],
+              origin: "lms",
+              lmsGroupId: "30",
+            },
+          ],
+        }),
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const synced = await handlers["groupSet.syncFromLms"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       groupSetId: "gs1",
     })
 
     assert.deepStrictEqual(synced.groupIds, ["g-local-1", "30"])
     assert.equal(synced.name, "Synced LMS Set")
 
-    const reloaded = await store.loadProfile(profile.id)
-    assert.ok(reloaded)
     assert.deepStrictEqual(
-      reloaded?.roster.groups.map((group) => group.id).sort(),
+      synced.roster.groups.map((group) => group.id).sort(),
       ["30", "g-local-1"],
     )
   })
@@ -1200,51 +1153,47 @@ describe("application group-set workflow helpers", () => {
       },
     ]
 
-    const handlers = createGroupSetWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(),
-      {
-        lms: {
-          listGroupSets: async () => {
-            throw new Error("not used")
-          },
-          fetchGroupSet: async () => {
-            throw new Error("not used")
-          },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
         },
-        userFile: {
-          readText: async (file) => {
-            if (file.referenceId === "import-file") {
-              return {
-                displayName: "group-import.csv",
-                mediaType: "text/csv",
-                byteLength: 0,
-                text: ["group_name,email", "Team A,s1@example.com"].join("\n"),
-              }
-            }
-
-            return {
-              displayName: "group-reimport.csv",
-              mediaType: "text/csv",
-              byteLength: 0,
-              text: [
-                "group_name,group_id,email",
-                "Renamed Alpha,g1,s1@example.com",
-              ].join("\n"),
-            }
-          },
-          writeText: async (reference) => ({
-            displayName: reference.displayName,
-            mediaType: "text/csv",
-            byteLength: 0,
-            savedAt: "2026-03-04T10:00:00.000Z",
-          }),
+        fetchGroupSet: async () => {
+          throw new Error("not used")
         },
       },
-    )
+      userFile: {
+        readText: async (file) => {
+          if (file.referenceId === "import-file") {
+            return {
+              displayName: "group-import.csv",
+              mediaType: "text/csv",
+              byteLength: 0,
+              text: ["group_name,email", "Team A,s1@example.com"].join("\n"),
+            }
+          }
+
+          return {
+            displayName: "group-reimport.csv",
+            mediaType: "text/csv",
+            byteLength: 0,
+            text: [
+              "group_name,group_id,email",
+              "Renamed Alpha,g1,s1@example.com",
+            ].join("\n"),
+          }
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
 
     const importPreview = await handlers["groupSet.previewImportFromFile"]({
-      profileId: profile.id,
+      profile,
       file: {
         kind: "user-file-ref",
         referenceId: "import-file",
@@ -1259,7 +1208,7 @@ describe("application group-set workflow helpers", () => {
     ])
 
     const reimportPreview = await handlers["groupSet.previewReimportFromFile"]({
-      profileId: profile.id,
+      profile,
       groupSetId: "gs1",
       file: {
         kind: "user-file-ref",
@@ -1282,34 +1231,30 @@ describe("application group-set workflow helpers", () => {
     const profile = makeProfile()
     let lastWritten = ""
 
-    const handlers = createGroupSetWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(),
-      {
-        lms: {
-          listGroupSets: async () => {
-            throw new Error("not used")
-          },
-          fetchGroupSet: async () => {
-            throw new Error("not used")
-          },
+    const handlers = createGroupSetWorkflowHandlers({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
         },
-        userFile: {
-          readText: async () => {
-            throw new Error("not used")
-          },
-          writeText: async (reference, text) => {
-            lastWritten = text
-            return {
-              displayName: reference.displayName,
-              mediaType: "text/csv",
-              byteLength: text.length,
-              savedAt: "2026-03-04T10:00:00.000Z",
-            }
-          },
+        fetchGroupSet: async () => {
+          throw new Error("not used")
         },
       },
-    )
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference, text) => {
+          lastWritten = text
+          return {
+            displayName: reference.displayName,
+            mediaType: "text/csv",
+            byteLength: text.length,
+            savedAt: "2026-03-04T10:00:00.000Z",
+          }
+        },
+      },
+    })
 
     const csvTarget = {
       kind: "user-save-target-ref" as const,
@@ -1318,7 +1263,7 @@ describe("application group-set workflow helpers", () => {
       suggestedFormat: "csv" as const,
     }
     const csvResult = await handlers["groupSet.export"]({
-      profileId: profile.id,
+      profile,
       groupSetId: "gs1",
       target: csvTarget,
       format: "csv",
@@ -1336,7 +1281,7 @@ describe("application group-set workflow helpers", () => {
       suggestedFormat: "yaml" as const,
     }
     await handlers["groupSet.export"]({
-      profileId: profile.id,
+      profile,
       groupSetId: "gs1",
       target: yamlTarget,
       format: "yaml",
@@ -1345,7 +1290,7 @@ describe("application group-set workflow helpers", () => {
 
     await assert.rejects(
       handlers["groupSet.export"]({
-        profileId: profile.id,
+        profile,
         groupSetId: "gs1",
         target: {
           ...csvTarget,
@@ -1384,45 +1329,42 @@ describe("application repository workflow helpers", () => {
     }
     let receivedRequest: unknown = null
 
-    const handlers = createRepositoryWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(settings),
-      {
-        git: {
-          createRepositories: async (_draft, request) => {
-            receivedRequest = request
-            return {
-              createdCount: request.repositoryNames.length,
-              repositoryUrls: [],
-            }
-          },
-          resolveRepositoryCloneUrls: async () => ({
-            resolved: [],
-            missing: [],
-          }),
-          deleteRepositories: async () => ({
-            deletedCount: 0,
-            missing: [],
-          }),
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async (_draft, request) => {
+          receivedRequest = request
+          return {
+            createdCount: request.repositoryNames.length,
+            repositoryUrls: [],
+          }
         },
-        gitCommand: {
-          cancellation: "best-effort",
-          run: async () => ({
-            exitCode: 0,
-            signal: null,
-            stdout: "",
-            stderr: "",
-          }),
-        },
-        fileSystem: {
-          inspect: async () => [],
-          applyBatch: async () => ({ completed: [] }),
-        },
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+        deleteRepositories: async () => ({
+          deletedCount: 0,
+          missing: [],
+        }),
       },
-    )
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
 
     const result = await handlers["repo.create"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       assignmentId: null,
       template: null,
     })
@@ -1456,52 +1398,49 @@ describe("application repository workflow helpers", () => {
     const cloneCommands: string[][] = []
     let deleteRequest: unknown = null
 
-    const handlers = createRepositoryWorkflowHandlers(
-      createInMemoryProfileStore([profile]),
-      createInMemoryAppSettingsStore(settings),
-      {
-        git: {
-          createRepositories: async () => ({
-            createdCount: 0,
-            repositoryUrls: [],
-          }),
-          resolveRepositoryCloneUrls: async (_draft, request) => ({
-            resolved: request.repositoryNames.map((repositoryName) => ({
-              repositoryName,
-              cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
-            })),
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          createdCount: 0,
+          repositoryUrls: [],
+        }),
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+        deleteRepositories: async (_draft, request) => {
+          deleteRequest = request
+          return {
+            deletedCount: request.repositoryNames.length,
             missing: [],
-          }),
-          deleteRepositories: async (_draft, request) => {
-            deleteRequest = request
-            return {
-              deletedCount: request.repositoryNames.length,
-              missing: [],
-            }
-          },
-        },
-        gitCommand: {
-          cancellation: "best-effort",
-          run: async (request) => {
-            cloneCommands.push(request.args)
-            return {
-              exitCode: 0,
-              signal: null,
-              stdout: "",
-              stderr: "",
-            }
-          },
-        },
-        fileSystem: {
-          inspect: async (request) =>
-            request.paths.map((path) => ({ path, kind: "missing" as const })),
-          applyBatch: async () => ({ completed: [] }),
+          }
         },
       },
-    )
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async (request) => {
+          cloneCommands.push(request.args)
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }
+        },
+      },
+      fileSystem: {
+        inspect: async (request) =>
+          request.paths.map((path) => ({ path, kind: "missing" as const })),
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
 
     const cloneResult = await handlers["repo.clone"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       assignmentId: null,
       template: null,
       targetDirectory: "/work/repos",
@@ -1516,7 +1455,8 @@ describe("application repository workflow helpers", () => {
 
     await assert.rejects(
       handlers["repo.delete"]({
-        profileId: profile.id,
+        profile,
+        appSettings: settings,
         assignmentId: null,
         template: null,
       }),
@@ -1528,7 +1468,8 @@ describe("application repository workflow helpers", () => {
     )
 
     const deleteResult = await handlers["repo.delete"]({
-      profileId: profile.id,
+      profile,
+      appSettings: settings,
       assignmentId: null,
       template: null,
       confirmDelete: true,

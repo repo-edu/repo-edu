@@ -70,6 +70,7 @@ export function useProfiles() {
         const duplicate: PersistedProfile = {
           kind: persistedProfileKind,
           schemaVersion: source.schemaVersion,
+          revision: 0,
           id: generateProfileId(),
           displayName,
           lmsConnectionName: source.lmsConnectionName,

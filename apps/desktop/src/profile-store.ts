@@ -135,8 +135,9 @@ function createSeedRoster(): Roster {
 
 function createSeedProfile(): PersistedProfile {
   return {
-    kind: "repo-edu.profile.v2",
-    schemaVersion: 2,
+    kind: "repo-edu.profile.v3",
+    schemaVersion: 3,
+    revision: 0,
     id: desktopSeedProfileId,
     displayName: "Seed Profile",
     lmsConnectionName: null,
@@ -302,6 +303,17 @@ async function readPersistedProfile(
 }
 
 export function createDesktopProfileStore(storageRoot: string): ProfileStore {
+  let writeQueue: Promise<void> = Promise.resolve()
+
+  const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
+    const run = writeQueue.then(task, task)
+    writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
   return {
     async listProfiles(signal?: AbortSignal) {
       throwIfAborted(signal)
@@ -340,50 +352,72 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
       return await readPersistedProfile(profilePath)
     },
     async saveProfile(profile: PersistedProfile, signal?: AbortSignal) {
-      throwIfAborted(signal)
-      const validation = validatePersistedProfile(profile)
-      if (!validation.ok) {
-        throw new Error(
-          `Invalid persisted profile: ${validation.issues
-            .map((issue) => `${issue.path}: ${issue.message}`)
-            .join("; ")}`,
+      return await enqueueWrite(async () => {
+        throwIfAborted(signal)
+        const validation = validatePersistedProfile(profile)
+        if (!validation.ok) {
+          throw new Error(
+            `Invalid persisted profile: ${validation.issues
+              .map((issue) => `${issue.path}: ${issue.message}`)
+              .join("; ")}`,
+          )
+        }
+
+        await ensureSeedProfile(storageRoot)
+        throwIfAborted(signal)
+
+        const existingPath = await findProfilePathById(
+          storageRoot,
+          validation.value.id,
+          signal,
         )
-      }
+        if (existingPath !== null) {
+          const existingProfile = await readPersistedProfile(existingPath)
+          if (existingProfile.revision !== validation.value.revision) {
+            throw new Error(
+              `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existingProfile.revision}).`,
+            )
+          }
+        } else if (validation.value.revision !== 0) {
+          throw new Error(
+            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing profile).`,
+          )
+        }
 
-      await ensureSeedProfile(storageRoot)
-      throwIfAborted(signal)
-
-      const profilePath = await resolveProfilePathForWrite(
-        storageRoot,
-        validation.value.id,
-        validation.value.displayName,
-        signal,
-      )
-      const previousPath = await findProfilePathById(
-        storageRoot,
-        validation.value.id,
-        signal,
-      )
-      await writeFile(
-        profilePath,
-        JSON.stringify(validation.value, null, 2),
-        "utf8",
-      )
-      if (previousPath !== null && previousPath !== profilePath) {
-        await rm(previousPath, { force: true })
-      }
-      return validation.value
+        const savedProfile: PersistedProfile = {
+          ...validation.value,
+          revision: validation.value.revision + 1,
+          updatedAt: new Date().toISOString(),
+        }
+        const profilePath = await resolveProfilePathForWrite(
+          storageRoot,
+          savedProfile.id,
+          savedProfile.displayName,
+          signal,
+        )
+        await writeFile(
+          profilePath,
+          JSON.stringify(savedProfile, null, 2),
+          "utf8",
+        )
+        if (existingPath !== null && existingPath !== profilePath) {
+          await rm(existingPath, { force: true })
+        }
+        return savedProfile
+      })
     },
     async deleteProfile(profileId: string, signal?: AbortSignal) {
-      throwIfAborted(signal)
-      const profilePath = await findProfilePathById(
-        storageRoot,
-        profileId,
-        signal,
-      )
-      if (profilePath !== null) {
-        await rm(profilePath, { force: true })
-      }
+      await enqueueWrite(async () => {
+        throwIfAborted(signal)
+        const profilePath = await findProfilePathById(
+          storageRoot,
+          profileId,
+          signal,
+        )
+        if (profilePath !== null) {
+          await rm(profilePath, { force: true })
+        }
+      })
     },
   }
 }

@@ -78,8 +78,9 @@ async function runCli(args: string[]): Promise<{
 
 function makeProfile(): PersistedProfile {
   return {
-    kind: "repo-edu.profile.v2",
-    schemaVersion: 2,
+    kind: "repo-edu.profile.v3",
+    schemaVersion: 3,
+    revision: 0,
     id: "seed-profile",
     displayName: "Seed Profile",
     lmsConnectionName: null,

@@ -11,6 +11,7 @@ import {
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import {
   selectProfileStatus,
   useProfileStore,
@@ -24,6 +25,7 @@ export function RosterSyncDialog() {
   const activeProfileId = useUiStore((state) => state.activeProfileId)
   const profile = useProfileStore((state) => state.profile)
   const profileStatus = useProfileStore(selectProfileStatus)
+  const appSettings = useAppSettingsStore((state) => state.settings)
   const loadedProfile =
     profile && profile.id === activeProfileId ? profile : null
   const courseId = loadedProfile?.courseId ?? null
@@ -88,7 +90,11 @@ export function RosterSyncDialog() {
       const client = getWorkflowClient()
       const result = await client.run(
         "roster.importFromLms",
-        { profileId: activeProfileId, courseId },
+        {
+          profile: loadedProfile,
+          appSettings,
+          courseId,
+        },
         {
           onProgress: (p) => {
             if (previewRequestIdRef.current !== requestId) return
@@ -111,6 +117,7 @@ export function RosterSyncDialog() {
     }
   }, [
     activeProfileId,
+    appSettings,
     loadedProfile,
     profileStatus,
     lmsConnectionName,

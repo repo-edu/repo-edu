@@ -46,7 +46,10 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         const assignment = resolveAssignmentFromProfile(
           profile,
           options.assignment,
@@ -82,7 +85,8 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const result = await workflowClient.run("repo.create", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           assignmentId: assignment.id,
           template: profile.repositoryTemplate,
         })
@@ -105,7 +109,10 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         const assignment = resolveAssignmentFromProfile(
           profile,
           options.assignment,
@@ -129,7 +136,8 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const result = await workflowClient.run("repo.clone", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           assignmentId: assignment.id,
           template: profile.repositoryTemplate,
           targetDirectory: options.target,
@@ -153,7 +161,10 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { profile, settings } = await loadSelectedProfile(
+          this,
+          workflowClient,
+        )
         const assignment = resolveAssignmentFromProfile(
           profile,
           options.assignment,
@@ -166,7 +177,8 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const result = await workflowClient.run("repo.delete", {
-          profileId: profile.id,
+          profile,
+          appSettings: settings,
           assignmentId: assignment.id,
           template: profile.repositoryTemplate,
           confirmDelete: options.force === true,

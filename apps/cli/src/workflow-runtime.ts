@@ -188,16 +188,16 @@ export function createCliWorkflowClient(): WorkflowClient {
     ...createProfileWorkflowHandlers(profileStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
     ...createConnectionWorkflowHandlers({ lms, git }),
-    ...createValidationWorkflowHandlers(profileStore),
-    ...createRosterWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createValidationWorkflowHandlers(),
+    ...createRosterWorkflowHandlers({
       lms,
       userFile: unsupportedUserFilePort,
     }),
-    ...createGroupSetWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createGroupSetWorkflowHandlers({
       lms,
       userFile: unsupportedUserFilePort,
     }),
-    ...createRepositoryWorkflowHandlers(profileStore, appSettingsStore, {
+    ...createRepositoryWorkflowHandlers({
       git,
       gitCommand: createNodeGitCommandPort(),
       fileSystem: createNodeFileSystemPort(),

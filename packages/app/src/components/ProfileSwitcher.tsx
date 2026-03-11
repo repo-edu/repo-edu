@@ -39,11 +39,7 @@ import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
 import { useProfiles } from "../hooks/use-profiles.js"
 import { useUiStore } from "../stores/ui-store.js"
 
-type ProfileSwitcherProps = {
-  isDirty: boolean
-}
-
-export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
+export function ProfileSwitcher() {
   const activeProfileId = useUiStore((s) => s.activeProfileId)
   const setNewProfileDialogOpen = useUiStore((s) => s.setNewProfileDialogOpen)
   const {
@@ -63,12 +59,6 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
 
   const activeDisplayName =
     profiles.find((p) => p.id === activeProfileId)?.displayName ?? null
-
-  // --- Unsaved changes dialog ---
-  const [unsavedDialog, setUnsavedDialog] = useState<{
-    open: boolean
-    targetProfileId: string
-  }>({ open: false, targetProfileId: "" })
 
   // --- Rename dialog ---
   const [renameDialog, setRenameDialog] = useState<{
@@ -103,12 +93,7 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
   const handleProfileSelect = (id: string) => {
     if (id === activeProfileId) return
     setOpen(false)
-
-    if (isDirty) {
-      setUnsavedDialog({ open: true, targetProfileId: id })
-    } else {
-      void switchProfile(id)
-    }
+    void switchProfile(id)
   }
 
   const handleProfileKeyDown = (
@@ -314,34 +299,6 @@ export function ProfileSwitcher({ isDirty }: ProfileSwitcherProps) {
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Unsaved Changes Confirmation Dialog */}
-      <AlertDialog
-        open={unsavedDialog.open}
-        onOpenChange={(nextOpen) =>
-          setUnsavedDialog((prev) => ({ ...prev, open: nextOpen }))
-        }
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              Loading a different profile will discard your unsaved changes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                void switchProfile(unsavedDialog.targetProfileId)
-                setUnsavedDialog({ open: false, targetProfileId: "" })
-              }}
-            >
-              Discard &amp; Switch
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Duplicate Dialog */}
       <Dialog

@@ -41,9 +41,9 @@ export function FileImportExportSheet() {
     (state) => state.setReimportGroupSetTargetId,
   )
   const selection = useUiStore((state) => state.sidebarSelection)
-  const activeProfileId = useUiStore((state) => state.activeProfileId)
 
-  const roster = useProfileStore((state) => state.profile?.roster ?? null)
+  const profile = useProfileStore((state) => state.profile)
+  const roster = profile?.roster ?? null
   const addToast = useToastStore((state) => state.addToast)
 
   const [selectedGroupSetId, setSelectedGroupSetId] = useState<string>("")
@@ -88,7 +88,7 @@ export function FileImportExportSheet() {
   }
 
   const handleExport = async (format: "csv" | "xlsx" | "yaml") => {
-    if (!activeProfileId || !selectedGroupSetId) return
+    if (!profile || !selectedGroupSetId) return
 
     setExportingFormat(format)
     try {
@@ -103,7 +103,7 @@ export function FileImportExportSheet() {
 
       const client = getWorkflowClient()
       await client.run("groupSet.export", {
-        profileId: activeProfileId,
+        profile,
         groupSetId: selectedGroupSetId,
         target,
         format,

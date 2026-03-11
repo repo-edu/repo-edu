@@ -29,7 +29,8 @@ function deferred<T>() {
 function makeProfile(profileId = "profile-1"): PersistedProfile {
   return {
     kind: persistedProfileKind,
-    schemaVersion: 2,
+    schemaVersion: 3,
+    revision: 0,
     id: profileId,
     displayName: "Test Profile",
     lmsConnectionName: null,

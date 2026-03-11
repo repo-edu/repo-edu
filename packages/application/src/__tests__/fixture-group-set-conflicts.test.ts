@@ -1,11 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { getFixture } from "@repo-edu/test-fixtures"
-import {
-  createGroupSetWorkflowHandlers,
-  createInMemoryAppSettingsStore,
-  createInMemoryProfileStore,
-} from "../index.js"
+import { createGroupSetWorkflowHandlers } from "../index.js"
 
 type GroupCsvRow = {
   groupName: string
@@ -56,12 +52,10 @@ function parseGroupsCsv(csvText: string): GroupCsvRow[] {
 
 function makeGroupSetHandlers(profileCsvText: string) {
   const profile = cloneValue(fixture.profile)
-  const settings = cloneValue(fixture.settings)
 
-  return createGroupSetWorkflowHandlers(
-    createInMemoryProfileStore([profile]),
-    createInMemoryAppSettingsStore(settings),
-    {
+  return {
+    profile,
+    handlers: createGroupSetWorkflowHandlers({
       lms: {
         listGroupSets: async () => {
           throw new Error("not used")
@@ -84,19 +78,19 @@ function makeGroupSetHandlers(profileCsvText: string) {
           savedAt: "2026-03-10T00:00:00.000Z",
         }),
       },
-    },
-  )
+    }),
+  }
 }
 
 describe("fixture-backed group-set conflict previews", () => {
   it("flags duplicate memberships in import preview", async () => {
     const lines = groupCsvArtifact.text.trim().split(/\r?\n/)
     const duplicateMembershipCsv = [...lines, lines[1]].join("\n")
-    const handlers = makeGroupSetHandlers(duplicateMembershipCsv)
+    const { profile, handlers } = makeGroupSetHandlers(duplicateMembershipCsv)
 
     await assert.rejects(
       handlers["groupSet.previewImportFromFile"]({
-        profileId: fixture.profile.id,
+        profile,
         file: {
           kind: "user-file-ref",
           referenceId: "groups-csv",
@@ -118,10 +112,10 @@ describe("fixture-backed group-set conflict previews", () => {
       "@example.edu",
       "@unknown.invalid",
     )
-    const handlers = makeGroupSetHandlers(unknownEmailCsv)
+    const { profile, handlers } = makeGroupSetHandlers(unknownEmailCsv)
 
     const preview = await handlers["groupSet.previewImportFromFile"]({
-      profileId: fixture.profile.id,
+      profile,
       file: {
         kind: "user-file-ref",
         referenceId: "groups-csv",
@@ -188,9 +182,9 @@ describe("fixture-backed group-set conflict previews", () => {
     )
     assert.ok(targetGroupSet)
 
-    const handlers = makeGroupSetHandlers(reimportCsv)
+    const { profile, handlers } = makeGroupSetHandlers(reimportCsv)
     const preview = await handlers["groupSet.previewReimportFromFile"]({
-      profileId: fixture.profile.id,
+      profile,
       groupSetId: targetGroupSet.id,
       file: {
         kind: "user-file-ref",

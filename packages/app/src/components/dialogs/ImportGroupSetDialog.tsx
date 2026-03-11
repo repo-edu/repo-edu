@@ -37,7 +37,7 @@ export function ImportGroupSetDialog() {
   const setOpen = useUiStore((state) => state.setImportGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
-  const activeProfileId = useUiStore((state) => state.activeProfileId)
+  const profile = useProfileStore((state) => state.profile)
 
   const handleBrowse = async () => {
     try {
@@ -54,7 +54,7 @@ export function ImportGroupSetDialog() {
       const defaultName = fileRef.displayName.replace(/\.csv$/i, "")
       setName(defaultName)
 
-      if (!activeProfileId) {
+      if (!profile) {
         setError("No profile loaded")
         return
       }
@@ -62,7 +62,7 @@ export function ImportGroupSetDialog() {
       setLoading(true)
       const client = getWorkflowClient()
       const result = await client.run("groupSet.previewImportFromFile", {
-        profileId: activeProfileId,
+        profile,
         file: fileRef,
       })
       if (result.mode === "import") {

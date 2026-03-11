@@ -20,6 +20,7 @@ import {
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useProfileStore } from "../../stores/profile-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -38,9 +39,10 @@ export function ConnectLmsGroupSetDialog() {
   const setOpen = useUiStore((state) => state.setConnectLmsGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
-  const activeProfileId = useUiStore((state) => state.activeProfileId)
+  const profile = useProfileStore((state) => state.profile)
   const roster = useProfileStore((state) => state.profile?.roster ?? null)
   const setRoster = useProfileStore((state) => state.setRoster)
+  const appSettings = useAppSettingsStore((state) => state.settings)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
   const [selectedId, setSelectedId] = useState("")
@@ -73,7 +75,7 @@ export function ConnectLmsGroupSetDialog() {
   }, [availableGroupSets, open, selectedId])
 
   useEffect(() => {
-    if (!open || !activeProfileId) return
+    if (!open || !profile) return
 
     let cancelled = false
     setLoading(true)
@@ -81,7 +83,10 @@ export function ConnectLmsGroupSetDialog() {
 
     const client = getWorkflowClient()
     client
-      .run("groupSet.fetchAvailableFromLms", { profileId: activeProfileId })
+      .run("groupSet.fetchAvailableFromLms", {
+        profile,
+        appSettings,
+      })
       .then((list) => {
         if (cancelled) return
         const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
@@ -101,7 +106,7 @@ export function ConnectLmsGroupSetDialog() {
     return () => {
       cancelled = true
     }
-  }, [open, activeProfileId])
+  }, [open, profile, appSettings])
 
   const selectedGroupSet = useMemo(
     () => availableGroupSets.find((groupSet) => groupSet.id === selectedId),
@@ -111,7 +116,7 @@ export function ConnectLmsGroupSetDialog() {
   const canConnect =
     open &&
     !!roster &&
-    !!activeProfileId &&
+    !!profile &&
     !!selectedGroupSet &&
     !loading &&
     !connecting
@@ -129,7 +134,7 @@ export function ConnectLmsGroupSetDialog() {
   }
 
   const handleConnect = async () => {
-    if (!canConnect || !roster || !activeProfileId || !selectedGroupSet) {
+    if (!canConnect || !roster || !profile || !selectedGroupSet) {
       return
     }
     const requestId = connectRequestIdRef.current + 1
@@ -143,9 +148,13 @@ export function ConnectLmsGroupSetDialog() {
     setGroupSetOperation({ kind: "connect" })
 
     try {
-      const syncedGroupSet = await client.run(
+      const result = await client.run(
         "groupSet.connectFromLms",
-        { profileId: activeProfileId, remoteGroupSetId: selectedGroupSet.id },
+        {
+          profile,
+          appSettings,
+          remoteGroupSetId: selectedGroupSet.id,
+        },
         {
           onProgress: (p) => {
             if (connectRequestIdRef.current !== requestId) return
@@ -155,17 +164,8 @@ export function ConnectLmsGroupSetDialog() {
       )
       if (connectRequestIdRef.current !== requestId) return
 
-      setProgressMessage("Refreshing synced profile...")
-      const syncedProfile = await client.run("profile.load", {
-        profileId: activeProfileId,
-      })
-      if (connectRequestIdRef.current !== requestId) return
-
-      setRoster(
-        syncedProfile.roster,
-        `Connect group set "${selectedGroupSet.name}"`,
-      )
-      setSidebarSelection({ kind: "group-set", id: syncedGroupSet.id })
+      setRoster(result.roster, `Connect group set "${selectedGroupSet.name}"`)
+      setSidebarSelection({ kind: "group-set", id: result.id })
       handleClose()
     } catch (cause) {
       if (connectRequestIdRef.current !== requestId) return

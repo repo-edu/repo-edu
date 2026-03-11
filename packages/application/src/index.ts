@@ -59,11 +59,11 @@ import {
   enrollmentTypeKinds,
   ensureSystemGroupSets,
   exportGroupSetRows,
-  mergeRosterFromLmsWithConflicts,
   formatSmokeWorkflowMessage,
   gitUsernameImportRowSchema,
   groupSetExportHeaders,
   groupSetImportRowSchema,
+  mergeRosterFromLmsWithConflicts,
   normalizeRoster,
   ORIGIN_LMS,
   planRepositoryOperation,
@@ -208,8 +208,25 @@ export function createInMemoryProfileStore(
       return profilesById.get(profileId) ?? null
     },
     saveProfile(profile: PersistedProfile) {
-      profilesById.set(profile.id, profile)
-      return profile
+      const current = profilesById.get(profile.id) ?? null
+      if (current !== null && current.revision !== profile.revision) {
+        throw new Error(
+          `Profile revision invariant violated for '${profile.id}' (expected ${profile.revision}, stored ${current.revision}).`,
+        )
+      }
+      if (current === null && profile.revision !== 0) {
+        throw new Error(
+          `Profile revision invariant violated for '${profile.id}' (expected ${profile.revision}, stored missing profile).`,
+        )
+      }
+
+      const savedProfile: PersistedProfile = {
+        ...profile,
+        revision: profile.revision + 1,
+        updatedAt: new Date().toISOString(),
+      }
+      profilesById.set(profile.id, savedProfile)
+      return savedProfile
     },
     deleteProfile(profileId: string) {
       profilesById.delete(profileId)
@@ -304,6 +321,23 @@ async function loadSettingsOrDefault(
   return validation.value
 }
 
+function resolveProfileSnapshot(profile: PersistedProfile): PersistedProfile {
+  return validateLoadedProfile(profile)
+}
+
+function resolveAppSettingsSnapshot(
+  appSettings: PersistedAppSettings,
+): PersistedAppSettings {
+  const validation = validatePersistedAppSettings(appSettings)
+  if (!validation.ok) {
+    throw createValidationAppError(
+      "App settings validation failed.",
+      validation.issues,
+    )
+  }
+  return validation.value
+}
+
 export function createProfileWorkflowHandlers(
   profileStore: ProfileStore,
 ): Pick<
@@ -363,13 +397,9 @@ export function createProfileWorkflowHandlers(
         )
       }
 
-      const nextProfile: PersistedProfile = {
-        ...validation.value,
-        updatedAt: new Date().toISOString(),
-      }
       options?.onOutput?.({
         channel: "info",
-        message: `Saving profile ${nextProfile.displayName}.`,
+        message: `Saving profile ${validation.value.displayName}.`,
       })
       options?.onProgress?.({
         step: 2,
@@ -377,7 +407,7 @@ export function createProfileWorkflowHandlers(
         label: "Writing profile to profile store.",
       })
       const savedProfile = await profileStore.saveProfile(
-        nextProfile,
+        validation.value,
         options?.signal,
       )
       options?.onProgress?.({
@@ -394,9 +424,7 @@ export function createProfileWorkflowHandlers(
   }
 }
 
-export function createValidationWorkflowHandlers(
-  profileStore: ProfileStore,
-): Pick<
+export function createValidationWorkflowHandlers(): Pick<
   WorkflowHandlerMap<"validation.roster" | "validation.assignment">,
   "validation.roster" | "validation.assignment"
 > {
@@ -405,22 +433,16 @@ export function createValidationWorkflowHandlers(
       input: RosterValidationInput,
       options?: WorkflowCallOptions<never, never>,
     ) => {
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      throwIfAborted(options?.signal)
+      const profile = resolveProfileSnapshot(input.profile)
       return runValidateRosterForProfile(profile)
     },
     "validation.assignment": async (
       input: AssignmentValidationInput,
       options?: WorkflowCallOptions<never, never>,
     ) => {
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      throwIfAborted(options?.signal)
+      const profile = resolveProfileSnapshot(input.profile)
       return runValidateAssignmentForProfile(profile, input.assignmentId)
     },
   }
@@ -921,8 +943,6 @@ function resolveGitDraft(
 }
 
 export function createRosterWorkflowHandlers(
-  profileStore: ProfileStore,
-  appSettingsStore: AppSettingsStore,
   ports: RosterWorkflowPorts,
 ): Pick<
   WorkflowHandlerMap<
@@ -998,17 +1018,11 @@ export function createRosterWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
 
         const draft = resolveLmsDraft(profile, settings)
         providerForError = draft.provider
@@ -1062,13 +1076,10 @@ export function createRosterWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Loading profile for roster export.",
+        label: "Reading profile snapshot for roster export.",
       })
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      const profile = resolveProfileSnapshot(input.profile)
+      throwIfAborted(options?.signal)
 
       if (input.format !== "csv") {
         throw createValidationAppError("Roster export format is unsupported.", [
@@ -1359,8 +1370,6 @@ function serializeGroupSetRowsAsYaml(
 }
 
 export function createGroupSetWorkflowHandlers(
-  profileStore: ProfileStore,
-  appSettingsStore: AppSettingsStore,
   ports: GroupSetWorkflowPorts,
 ): Pick<
   WorkflowHandlerMap<
@@ -1391,17 +1400,11 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(profile, settings)
         providerForError = draft.provider
 
@@ -1442,7 +1445,7 @@ export function createGroupSetWorkflowHandlers(
       input: GroupSetConnectFromLmsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
-      const totalSteps = 6
+      const totalSteps = 5
       let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
 
       try {
@@ -1450,17 +1453,11 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(profile, settings)
         providerForError = draft.provider
 
@@ -1541,20 +1538,13 @@ export function createGroupSetWorkflowHandlers(
           fetched,
         )
 
+        throwIfAborted(options?.signal)
         options?.onProgress?.({
           step: 5,
           totalSteps,
-          label: "Saving connected group-set state to profile store.",
-        })
-        await profileStore.saveProfile(nextProfile, options?.signal)
-
-        throwIfAborted(options?.signal)
-        options?.onProgress?.({
-          step: 6,
-          totalSteps,
           label: "LMS group-set connection complete.",
         })
-        return nextGroupSet
+        return { ...nextGroupSet, roster: nextProfile.roster }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error
@@ -1566,7 +1556,7 @@ export function createGroupSetWorkflowHandlers(
       input: GroupSetSyncFromLmsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
-      const totalSteps = 5
+      const totalSteps = 4
       let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
 
       try {
@@ -1574,17 +1564,11 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(profile, settings)
         providerForError = draft.provider
 
@@ -1628,20 +1612,13 @@ export function createGroupSetWorkflowHandlers(
           fetched,
         )
 
+        throwIfAborted(options?.signal)
         options?.onProgress?.({
           step: 4,
           totalSteps,
-          label: "Saving synced group-set state to profile store.",
-        })
-        await profileStore.saveProfile(nextProfile, options?.signal)
-
-        throwIfAborted(options?.signal)
-        options?.onProgress?.({
-          step: 5,
-          totalSteps,
           label: "LMS group-set sync complete.",
         })
-        return nextGroupSet
+        return { ...nextGroupSet, roster: nextProfile.roster }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error
@@ -1658,13 +1635,10 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Loading profile for group-set import preview.",
+        label: "Reading profile snapshot for group-set import preview.",
       })
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      const profile = resolveProfileSnapshot(input.profile)
+      throwIfAborted(options?.signal)
 
       options?.onProgress?.({
         step: 2,
@@ -1716,13 +1690,10 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Loading profile for group-set reimport preview.",
+        label: "Reading profile snapshot for group-set reimport preview.",
       })
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      const profile = resolveProfileSnapshot(input.profile)
+      throwIfAborted(options?.signal)
 
       options?.onProgress?.({
         step: 2,
@@ -1778,13 +1749,10 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Loading profile and group set for export.",
+        label: "Reading profile snapshot and group set for export.",
       })
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
-        options?.signal,
-      )
+      const profile = resolveProfileSnapshot(input.profile)
+      throwIfAborted(options?.signal)
 
       const exportedRows = exportGroupSetRows(profile.roster, input.groupSetId)
       if (!exportedRows.ok) {
@@ -1846,8 +1814,6 @@ function normalizeImportedEmail(email: string): string {
 }
 
 export function createGitUsernameWorkflowHandlers(
-  profileStore: ProfileStore,
-  appSettingsStore: AppSettingsStore,
   ports: GitUsernameWorkflowPorts,
 ): Pick<WorkflowHandlerMap<"gitUsernames.import">, "gitUsernames.import"> {
   return {
@@ -1863,25 +1829,11 @@ export function createGitUsernameWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading active profile and app settings.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
-        if (settings.activeProfileId === null) {
-          throw {
-            type: "not-found",
-            message: "No active profile selected for Git username import.",
-            resource: "profile",
-          } satisfies AppError
-        }
-
-        const profile = await loadRequiredProfile(
-          profileStore,
-          settings.activeProfileId,
-          options?.signal,
-        )
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const profile = resolveProfileSnapshot(input.profile)
+        throwIfAborted(options?.signal)
 
         options?.onProgress?.({
           step: 2,
@@ -1988,15 +1940,6 @@ export function createGitUsernameWorkflowHandlers(
               "Skipping provider verification (no Git connection configured).",
           })
         }
-
-        await profileStore.saveProfile(
-          {
-            ...profile,
-            roster,
-            updatedAt: new Date().toISOString(),
-          },
-          options?.signal,
-        )
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
@@ -2162,8 +2105,6 @@ function normalizeRepositoryExecutionError(
 }
 
 export function createRepositoryWorkflowHandlers(
-  profileStore: ProfileStore,
-  appSettingsStore: AppSettingsStore,
   ports: RepositoryWorkflowPorts,
 ): Pick<
   WorkflowHandlerMap<"repo.create" | "repo.clone" | "repo.delete">,
@@ -2182,17 +2123,11 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings for repository create.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(profile, settings)
         if (gitDraft === null) {
           throw {
@@ -2270,17 +2205,11 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings for repository clone.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(profile, settings)
         if (gitDraft === null) {
           throw {
@@ -2478,17 +2407,11 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Loading profile and app settings for repository delete.",
+          label: "Reading profile and app settings snapshots.",
         })
-        const profile = await loadRequiredProfile(
-          profileStore,
-          input.profileId,
-          options?.signal,
-        )
-        const settings = await loadSettingsOrDefault(
-          appSettingsStore,
-          options?.signal,
-        )
+        const profile = resolveProfileSnapshot(input.profile)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(profile, settings)
         if (gitDraft === null) {
           throw {

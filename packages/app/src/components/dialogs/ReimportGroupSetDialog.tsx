@@ -33,12 +33,12 @@ export function ReimportGroupSetDialog() {
   const targetId = useUiStore((state) => state.reimportGroupSetTargetId)
   const setTargetId = useUiStore((state) => state.setReimportGroupSetTargetId)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
-  const activeProfileId = useUiStore((state) => state.activeProfileId)
   const open = targetId !== null
+  const profile = useProfileStore((state) => state.profile)
   const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""))
 
   const handleBrowse = async () => {
-    if (!targetId || !activeProfileId) return
+    if (!targetId || !profile) return
 
     try {
       const host = getRendererHost()
@@ -54,7 +54,7 @@ export function ReimportGroupSetDialog() {
 
       const client = getWorkflowClient()
       const result = await client.run("groupSet.previewReimportFromFile", {
-        profileId: activeProfileId,
+        profile,
         groupSetId: targetId,
         file: fileRef,
       })
