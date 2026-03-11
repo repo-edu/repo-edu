@@ -65,6 +65,8 @@ export type PersistedAppSettings = {
   lmsConnections: PersistedLmsConnection[]
   gitConnections: PersistedGitConnection[]
   lastOpenedAt: string | null
+  rosterColumnVisibility: Record<string, boolean>
+  rosterColumnSizing: Record<string, number>
 }
 
 export type RosterConnection =
@@ -403,6 +405,8 @@ export const defaultAppSettings: PersistedAppSettings = {
   lmsConnections: [],
   gitConnections: [],
   lastOpenedAt: null,
+  rosterColumnVisibility: {},
+  rosterColumnSizing: {},
 }
 
 export const SYSTEM_TYPE_INDIVIDUAL_STUDENTS = "individual_students" as const
@@ -2388,6 +2392,8 @@ export const persistedAppSettingsSchema = z.object({
   lmsConnections: z.array(persistedLmsConnectionSchema),
   gitConnections: z.array(persistedGitConnectionSchema),
   lastOpenedAt: z.string().nullable(),
+  rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
+  rosterColumnSizing: z.record(z.string(), z.number()).default({}),
 })
 
 const memberStatusSchema = z.enum(memberStatusKinds)

@@ -198,6 +198,8 @@ function makeSettings(activeProfileId: string | null): PersistedAppSettings {
     lmsConnections: [],
     gitConnections: [],
     lastOpenedAt: null,
+    rosterColumnVisibility: {},
+    rosterColumnSizing: {},
   }
 }
 

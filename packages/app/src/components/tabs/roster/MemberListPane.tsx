@@ -81,12 +81,14 @@ export function MemberListPane({
 }: MemberListPaneProps) {
   const openSettings = useUiStore((s) => s.openSettings)
   const rosterColumnVisibility = useAppSettingsStore(
-    (s) => s.rosterColumnVisibility,
+    (s) => s.settings.rosterColumnVisibility,
   )
   const setRosterColumnVisibility = useAppSettingsStore(
     (s) => s.setRosterColumnVisibility,
   )
-  const rosterColumnSizing = useAppSettingsStore((s) => s.rosterColumnSizing)
+  const rosterColumnSizing = useAppSettingsStore(
+    (s) => s.settings.rosterColumnSizing,
+  )
   const setRosterColumnSizing = useAppSettingsStore(
     (s) => s.setRosterColumnSizing,
   )

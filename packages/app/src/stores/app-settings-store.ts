@@ -15,8 +15,6 @@ import { useConnectionsStore } from "./connections-store.js"
 
 type AppSettingsState = {
   settings: PersistedAppSettings
-  rosterColumnVisibility: Record<string, boolean>
-  rosterColumnSizing: Record<string, number>
   status: StoreStatus
   error: string | null
 }
@@ -55,8 +53,6 @@ type AppSettingsActions = {
 
 const initialState: AppSettingsState = {
   settings: defaultAppSettings,
-  rosterColumnVisibility: {},
-  rosterColumnSizing: {},
   status: "loading",
   error: null,
 }
@@ -208,9 +204,14 @@ export const useAppSettingsStore = create<
   },
 
   setRosterColumnVisibility: (visibility) =>
-    set({ rosterColumnVisibility: visibility }),
+    set((state) => ({
+      settings: { ...state.settings, rosterColumnVisibility: visibility },
+    })),
 
-  setRosterColumnSizing: (sizing) => set({ rosterColumnSizing: sizing }),
+  setRosterColumnSizing: (sizing) =>
+    set((state) => ({
+      settings: { ...state.settings, rosterColumnSizing: sizing },
+    })),
 
   reset: () => set(initialState),
 }))
@@ -227,8 +228,8 @@ export const selectGitConnection =
   (name: string) => (state: AppSettingsState) =>
     state.settings.gitConnections.find((gc) => gc.name === name) ?? null
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>
-  state.rosterColumnVisibility
+  state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
-  state.rosterColumnSizing
+  state.settings.rosterColumnSizing
 export const selectAppSettingsStatus = (state: AppSettingsState) => state.status
 export const selectAppSettingsError = (state: AppSettingsState) => state.error

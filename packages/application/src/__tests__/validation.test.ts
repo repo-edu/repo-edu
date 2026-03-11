@@ -106,6 +106,8 @@ function makeSettings(): PersistedAppSettings {
     lmsConnections: [],
     gitConnections: [],
     lastOpenedAt: null,
+    rosterColumnVisibility: {},
+    rosterColumnSizing: {},
   }
 }
 
