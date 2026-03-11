@@ -317,8 +317,8 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
     "roster.importFromLms": createWorkflowSubscriptionProcedure(
       workflowRegistry["roster.importFromLms"],
     ),
-    "roster.exportStudents": createWorkflowSubscriptionProcedure(
-      workflowRegistry["roster.exportStudents"],
+    "roster.exportMembers": createWorkflowSubscriptionProcedure(
+      workflowRegistry["roster.exportMembers"],
     ),
     "groupSet.fetchAvailableFromLms": createWorkflowSubscriptionProcedure(
       workflowRegistry["groupSet.fetchAvailableFromLms"],

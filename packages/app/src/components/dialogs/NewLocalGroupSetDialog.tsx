@@ -14,6 +14,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
   Text,
@@ -346,24 +347,31 @@ export function NewLocalGroupSetDialog() {
                     </SelectGroup>
                   )}
                   {sortedConnected.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Connected</SelectLabel>
-                      {sortedConnected.map((gs) => (
-                        <SelectItem key={gs.id} value={gs.id}>
-                          {gs.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    <>
+                      {systemSets.length > 0 && <SelectSeparator />}
+                      <SelectGroup>
+                        <SelectLabel>Connected</SelectLabel>
+                        {sortedConnected.map((gs) => (
+                          <SelectItem key={gs.id} value={gs.id}>
+                            {gs.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </>
                   )}
                   {sortedLocal.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Local</SelectLabel>
-                      {sortedLocal.map((gs) => (
-                        <SelectItem key={gs.id} value={gs.id}>
-                          {gs.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    <>
+                      {(systemSets.length > 0 ||
+                        sortedConnected.length > 0) && <SelectSeparator />}
+                      <SelectGroup>
+                        <SelectLabel>Local</SelectLabel>
+                        {sortedLocal.map((gs) => (
+                          <SelectItem key={gs.id} value={gs.id}>
+                            {gs.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </>
                   )}
                 </SelectContent>
               </Select>

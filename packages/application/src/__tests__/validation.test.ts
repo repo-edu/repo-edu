@@ -786,7 +786,7 @@ describe("application roster workflow helpers", () => {
       displayName: "students.csv",
       suggestedFormat: "csv" as const,
     }
-    const result = await handlers["roster.exportStudents"]({
+    const result = await handlers["roster.exportMembers"]({
       profileId: profile.id,
       target,
       format: "csv",
@@ -795,7 +795,7 @@ describe("application roster workflow helpers", () => {
     assert.equal(lastWrittenText.startsWith("id,name,email"), true)
 
     await assert.rejects(
-      handlers["roster.exportStudents"]({
+      handlers["roster.exportMembers"]({
         profileId: profile.id,
         target: {
           ...target,

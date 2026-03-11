@@ -167,8 +167,8 @@ function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> 
       runDesktopWorkflow("roster.importFromFile", input, options),
     "roster.importFromLms": (input, options) =>
       runDesktopWorkflow("roster.importFromLms", input, options),
-    "roster.exportStudents": (input, options) =>
-      runDesktopWorkflow("roster.exportStudents", input, options),
+    "roster.exportMembers": (input, options) =>
+      runDesktopWorkflow("roster.exportMembers", input, options),
     "groupSet.fetchAvailableFromLms": (input, options) =>
       runDesktopWorkflow("groupSet.fetchAvailableFromLms", input, options),
     "groupSet.connectFromLms": (input, options) =>

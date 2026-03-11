@@ -217,7 +217,7 @@ export type RosterImportFromFileInput = {
   file: UserFileRef
 }
 
-export type RosterExportStudentsInput = {
+export type RosterExportMembersInput = {
   profileId: string
   target: UserSaveTargetRef
   format: Extract<FileFormat, "csv" | "xlsx">
@@ -398,8 +398,8 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: Roster
   }
-  "roster.exportStudents": {
-    input: RosterExportStudentsInput
+  "roster.exportMembers": {
+    input: RosterExportMembersInput
     progress: MilestoneProgress
     output: DiagnosticOutput
     result: { file: UserSaveTargetRef }
@@ -564,7 +564,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "best-effort",
   },
-  "roster.exportStudents": {
+  "roster.exportMembers": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",

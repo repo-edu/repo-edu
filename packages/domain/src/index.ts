@@ -2566,6 +2566,7 @@ export const studentImportRowSchema = z.object({
   student_number: z.string().optional(),
   git_username: z.string().optional(),
   status: z.string().optional(),
+  role: z.string().optional(),
 })
 
 export type StudentImportRow = z.infer<typeof studentImportRowSchema>

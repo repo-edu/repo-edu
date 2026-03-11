@@ -69,7 +69,7 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
       if (!target) return
 
       const client = getWorkflowClient()
-      await client.run("roster.exportStudents", {
+      await client.run("roster.exportMembers", {
         profileId: activeProfileId,
         target,
         format,

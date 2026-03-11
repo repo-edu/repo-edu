@@ -468,7 +468,7 @@ export function GroupsAssignmentsSidebar({
                   onClick={onCreateLocalGroupSet}
                 >
                   <Plus className="size-3.5 mr-2" />
-                  New empty group set
+                  New group set
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={isOperationActive}

@@ -556,11 +556,7 @@ export function MemberListPane({
           {hasMembers && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  title="Export the roster."
-                >
+                <Button size="sm" variant="outline" title="Export the roster.">
                   Export
                   <ChevronDown className="size-4 ml-1" />
                 </Button>
@@ -791,10 +787,7 @@ export function MemberListPane({
       )}
 
       {/* Clear roster confirmation dialog */}
-      <AlertDialog
-        open={clearConfirmOpen}
-        onOpenChange={setClearConfirmOpen}
-      >
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Clear roster?</AlertDialogTitle>

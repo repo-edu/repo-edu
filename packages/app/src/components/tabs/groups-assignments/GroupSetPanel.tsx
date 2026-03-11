@@ -199,8 +199,18 @@ function GroupsTab({
 
   const filteredGroups = useMemo(() => {
     if (!query) return groups
-    return groups.filter((g) => g.name.toLowerCase().includes(query))
-  }, [groups, query])
+    return groups.filter((g) => {
+      if (g.name.toLowerCase().includes(query)) return true
+      return g.memberIds.some((id) => {
+        const m = memberById.get(id)
+        if (!m) return false
+        return (
+          m.name.toLowerCase().includes(query) ||
+          m.email.toLowerCase().includes(query)
+        )
+      })
+    })
+  }, [groups, query, memberById])
 
   if (groups.length === 0) {
     return (
@@ -222,7 +232,7 @@ function GroupsTab({
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 size-4" />
           <Input
-            placeholder="Search groups..."
+            placeholder="Search members and groups..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8"
@@ -265,7 +275,7 @@ function GroupsTab({
 
       {filteredGroups.length === 0 && query && (
         <p className="text-center text-sm text-muted-foreground py-4">
-          No groups match &ldquo;{search}&rdquo;
+          No members or groups match &ldquo;{search}&rdquo;
         </p>
       )}
     </div>

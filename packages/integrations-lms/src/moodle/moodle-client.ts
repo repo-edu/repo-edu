@@ -1,4 +1,8 @@
-import type { Group, Roster, RosterMemberNormalizationInput } from "@repo-edu/domain"
+import type {
+  Group,
+  Roster,
+  RosterMemberNormalizationInput,
+} from "@repo-edu/domain"
 import { normalizeRoster } from "@repo-edu/domain"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
@@ -115,7 +119,10 @@ function moodleStaffEnrollmentType(user: unknown): string | null {
   }
   for (const role of record.roles) {
     const r = role as { shortname?: unknown }
-    if (typeof r.shortname === "string" && r.shortname in MOODLE_ROLE_TO_ENROLLMENT) {
+    if (
+      typeof r.shortname === "string" &&
+      r.shortname in MOODLE_ROLE_TO_ENROLLMENT
+    ) {
       return MOODLE_ROLE_TO_ENROLLMENT[r.shortname]
     }
   }
@@ -282,7 +289,10 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       for (const user of data) {
         const staffType = moodleStaffEnrollmentType(user)
         if (staffType !== null) {
-          staffInputs.push({ ...toRosterMemberInput(user), enrollmentType: staffType })
+          staffInputs.push({
+            ...toRosterMemberInput(user),
+            enrollmentType: staffType,
+          })
         } else {
           studentInputs.push(toRosterMemberInput(user))
         }

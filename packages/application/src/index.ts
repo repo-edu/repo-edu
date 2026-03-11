@@ -16,7 +16,7 @@ import type {
   MilestoneProgress,
   RepositoryBatchInput,
   RepositoryBatchResult,
-  RosterExportStudentsInput,
+  RosterExportMembersInput,
   RosterImportFromFileInput,
   RosterImportFromLmsInput,
   RosterValidationInput,
@@ -56,6 +56,7 @@ import type {
 import {
   defaultAppSettings,
   packageId as domainPackageId,
+  enrollmentTypeKinds,
   ensureSystemGroupSets,
   exportGroupSetRows,
   formatSmokeWorkflowMessage,
@@ -665,13 +666,14 @@ export type RosterWorkflowPorts = {
   userFile: UserFilePort
 }
 
-const studentExportHeaders = [
+const memberExportHeaders = [
   "id",
   "name",
   "email",
   "student_number",
   "git_username",
   "status",
+  "enrollment_type",
 ] as const
 
 function inferFileFormat(file: UserFileRef): "csv" | "xlsx" | null {
@@ -689,6 +691,23 @@ function inferFileFormat(file: UserFileRef): "csv" | "xlsx" | null {
   return null
 }
 
+const ROLE_SYNONYMS: Record<string, string> = {
+  instructor: "teacher",
+  faculty: "teacher",
+  teaching_assistant: "ta",
+  staff: "teacher",
+}
+
+const ENROLLMENT_TYPE_SET = new Set<string>(enrollmentTypeKinds)
+
+function resolveEnrollmentType(role: string | undefined): string | undefined {
+  if (role === undefined) return undefined
+  const normalized = role.trim().toLowerCase()
+  if (normalized === "") return undefined
+  if (ENROLLMENT_TYPE_SET.has(normalized)) return normalized
+  return ROLE_SYNONYMS[normalized]
+}
+
 function toStudentImportRow(row: TabularRow): StudentImportRow {
   return {
     name:
@@ -704,6 +723,7 @@ function toStudentImportRow(row: TabularRow): StudentImportRow {
     student_number: row.student_number,
     git_username: row.git_username,
     status: row.status,
+    role: row.role ?? row.type ?? row.enrollment_type ?? row.member_type,
   }
 }
 
@@ -810,19 +830,34 @@ function parseGroupSetImportRows(
   return normalizedRows
 }
 
-function rosterFromStudentRows(rows: readonly StudentImportRow[]) {
-  const roster = normalizeRoster(
-    rows.map((row, index) => ({
-      id: row.id ?? row.student_number ?? row.email ?? `imported-${index + 1}`,
-      nameCandidates: [row.name],
-      emailCandidates: row.email === undefined ? [] : [row.email],
-      studentNumber: row.student_number,
-      gitUsername: row.git_username,
-      status: row.status,
-      source: "import",
-    })),
-  )
+function toRosterMemberInput(row: StudentImportRow, index: number) {
+  return {
+    id: row.id ?? row.student_number ?? row.email ?? `imported-${index + 1}`,
+    nameCandidates: [row.name],
+    emailCandidates: row.email === undefined ? [] : [row.email],
+    studentNumber: row.student_number,
+    gitUsername: row.git_username,
+    status: row.status,
+    enrollmentType: resolveEnrollmentType(row.role),
+    source: "import",
+  }
+}
 
+function rosterFromStudentRows(rows: readonly StudentImportRow[]) {
+  const studentInputs: ReturnType<typeof toRosterMemberInput>[] = []
+  const staffInputs: ReturnType<typeof toRosterMemberInput>[] = []
+
+  for (const [index, row] of rows.entries()) {
+    const input = toRosterMemberInput(row, index)
+    const enrollmentType = resolveEnrollmentType(row.role)
+    if (enrollmentType !== undefined && enrollmentType !== "student") {
+      staffInputs.push(input)
+    } else {
+      studentInputs.push(input)
+    }
+  }
+
+  const roster = normalizeRoster(studentInputs, staffInputs)
   ensureSystemGroupSets(roster)
   return roster
 }
@@ -890,9 +925,9 @@ export function createRosterWorkflowHandlers(
   ports: RosterWorkflowPorts,
 ): Pick<
   WorkflowHandlerMap<
-    "roster.importFromFile" | "roster.importFromLms" | "roster.exportStudents"
+    "roster.importFromFile" | "roster.importFromLms" | "roster.exportMembers"
   >,
-  "roster.importFromFile" | "roster.importFromLms" | "roster.exportStudents"
+  "roster.importFromFile" | "roster.importFromLms" | "roster.exportMembers"
 > {
   return {
     "roster.importFromFile": async (
@@ -1013,8 +1048,8 @@ export function createRosterWorkflowHandlers(
         throw normalizeProviderError(error, providerForError, "fetchRoster")
       }
     },
-    "roster.exportStudents": async (
-      input: RosterExportStudentsInput,
+    "roster.exportMembers": async (
+      input: RosterExportMembersInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       const totalSteps = 3
@@ -1022,7 +1057,7 @@ export function createRosterWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Loading profile for student export.",
+        label: "Loading profile for roster export.",
       })
       const profile = await loadRequiredProfile(
         profileStore,
@@ -1031,33 +1066,32 @@ export function createRosterWorkflowHandlers(
       )
 
       if (input.format !== "csv") {
-        throw createValidationAppError(
-          "Student export format is unsupported.",
-          [
-            {
-              path: "format",
-              message:
-                "Only CSV export is supported by the current text-based file port.",
-            },
-          ],
-        )
+        throw createValidationAppError("Roster export format is unsupported.", [
+          {
+            path: "format",
+            message:
+              "Only CSV export is supported by the current text-based file port.",
+          },
+        ])
       }
 
       options?.onProgress?.({
         step: 2,
         totalSteps,
-        label: "Serializing student export payload.",
+        label: "Serializing roster export payload.",
       })
-      const exportRows = profile.roster.students.map((student) => ({
-        id: student.id,
-        name: student.name,
-        email: student.email,
-        student_number: student.studentNumber ?? "",
-        git_username: student.gitUsername ?? "",
-        status: student.status,
+      const allMembers = [...profile.roster.students, ...profile.roster.staff]
+      const exportRows = allMembers.map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        student_number: member.studentNumber ?? "",
+        git_username: member.gitUsername ?? "",
+        status: member.status,
+        enrollment_type: member.enrollmentType,
       }))
       const text = serializeCsv({
-        headers: [...studentExportHeaders],
+        headers: [...memberExportHeaders],
         rows: exportRows,
       })
       await ports.userFile.writeText(input.target, text, options?.signal)
@@ -1066,11 +1100,11 @@ export function createRosterWorkflowHandlers(
       options?.onProgress?.({
         step: 3,
         totalSteps,
-        label: "Student export written.",
+        label: "Roster export written.",
       })
       options?.onOutput?.({
         channel: "info",
-        message: `Exported ${exportRows.length} students to ${input.target.displayName}.`,
+        message: `Exported ${exportRows.length} members to ${input.target.displayName}.`,
       })
 
       return { file: input.target }

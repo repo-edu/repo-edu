@@ -14,7 +14,7 @@ Domain-level formats:
 
 Workflow usage examples:
 
-- `roster.exportStudents`: `csv`, `xlsx`
+- `roster.exportMembers`: `csv`, `xlsx`
 - `groupSet.export`: `csv`, `xlsx`, `yaml`
 - persisted settings/profile files: `json`
 

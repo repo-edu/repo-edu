@@ -100,7 +100,7 @@ export function ImportStudentsFromFileDialog() {
           <div className="text-sm">
             <p className="font-medium">Optional columns:</p>
             <p className="text-muted-foreground">
-              id, email, student_number, git_username, status
+              id, email, student_number, git_username, status, role
             </p>
           </div>
 
