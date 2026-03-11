@@ -211,7 +211,7 @@ function AppShell() {
                   disabled={!canUndo}
                   onClick={() => undo()}
                 >
-                  <Undo2 className="size-4" />
+                  <Undo2 className="size-[18px]" />
                   <span className="sr-only">Undo</span>
                 </Button>
               </TooltipTrigger>
@@ -230,7 +230,7 @@ function AppShell() {
                   disabled={!canRedo}
                   onClick={() => redo()}
                 >
-                  <Redo2 className="size-4" />
+                  <Redo2 className="size-[18px]" />
                   <span className="sr-only">Redo</span>
                 </Button>
               </TooltipTrigger>

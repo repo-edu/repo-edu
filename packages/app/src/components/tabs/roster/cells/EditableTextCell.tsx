@@ -73,7 +73,7 @@ export function EditableTextCell({
   return (
     <button
       type="button"
-      className="inline-flex max-w-full cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left font-normal hover:underline"
+      className="group/cell inline-flex max-w-full cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left font-normal hover:underline"
       onClick={() => setIsEditing(true)}
     >
       <span
@@ -82,7 +82,7 @@ export function EditableTextCell({
       >
         {value || <span className="text-muted-foreground">{placeholder}</span>}
       </span>
-      <Pencil className="size-3 text-muted-foreground" />
+      <Pencil className="size-3 text-muted-foreground opacity-0 group-hover/cell:opacity-100" />
       {trailing}
     </button>
   )

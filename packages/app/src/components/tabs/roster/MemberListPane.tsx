@@ -9,8 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-  Checkbox,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -100,12 +100,12 @@ export function MemberListPane({
 
   const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>([])
-  const [showColumnControls, setShowColumnControls] = useState(false)
   const [addingMember, setAddingMember] = useState(false)
   const [memberPendingDeletion, setMemberPendingDeletion] =
     useState<RosterMember | null>(null)
   const [newMemberName, setNewMemberName] = useState("")
   const [newMemberEmail, setNewMemberEmail] = useState("")
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   const students = roster?.students ?? []
   const staff = roster?.staff ?? []
@@ -507,87 +507,101 @@ export function MemberListPane({
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
           Roster
         </span>
+        <RosterSourceBadge roster={roster} />
         <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onImportFromLms}
-            disabled={!canImportFromLms}
-            title={lmsImportTooltip}
-          >
-            {importing ? (
-              <>
-                <Loader2 className="size-4 mr-1 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              "Import from LMS"
-            )}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onImportFromFile}
-            title="Import roster members from a CSV or Excel file."
-          >
-            Import from File
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onImportGitUsernames}
-            disabled={!hasMembers}
-            title="Import Git usernames from a CSV file."
-          >
-            Git Usernames
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onVerifyGitUsernames}
-            disabled={!hasMembers}
-            title="Review Git username verification status."
-          >
-            Verify Usernames
-          </Button>
-          {hasMembers && (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    title="Export the roster."
-                  >
-                    Export
-                    <ChevronDown className="size-4 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onExport("csv")}>
-                    Roster (CSV)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onExport("xlsx")}>
-                    Roster (XLSX)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={onClear}
-                title="Remove all members, assignments, and groups."
+                disabled={importing}
+                title="Import roster members."
               >
-                Clear
+                {importing ? (
+                  <>
+                    <Loader2 className="size-4 mr-1 animate-spin" />
+                    Importing…
+                  </>
+                ) : (
+                  <>
+                    Import
+                    <ChevronDown className="size-4 ml-1" />
+                  </>
+                )}
               </Button>
-            </>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={onImportFromLms}
+                disabled={!canImportFromLms}
+              >
+                From LMS
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onImportFromFile}>
+                From File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {hasMembers && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Export the roster."
+                >
+                  Export
+                  <ChevronDown className="size-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExport("csv")}>
+                  Roster (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("xlsx")}>
+                  Roster (XLSX)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!hasMembers}
+                title="Import or verify Git usernames."
+              >
+                Git Usernames
+                <ChevronDown className="size-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={onImportGitUsernames}
+                disabled={!hasMembers}
+              >
+                Import from CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onVerifyGitUsernames}
+                disabled={!hasMembers}
+              >
+                Verify
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {hasMembers && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setClearConfirmOpen(true)}
+              title="Remove all members, assignments, and groups."
+            >
+              Clear
+            </Button>
           )}
         </div>
-      </div>
-
-      {/* Roster source */}
-      <div className="px-3 py-2 border-b">
-        <RosterSourceDisplay roster={roster} />
       </div>
 
       {/* Empty state or member list */}
@@ -655,42 +669,25 @@ export function MemberListPane({
               <Plus className="size-4 mr-1" />
               Add Member
             </Button>
-            <div className="relative">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowColumnControls((c) => !c)}
-              >
-                Columns
-              </Button>
-              {showColumnControls && hideableColumns.length > 0 && (
-                <div className="absolute right-0 top-9 z-10 bg-popover border rounded-md p-2 shadow-md min-w-44 space-y-1">
-                  {hideableColumns.map((column) => (
-                    <div
-                      key={column.id}
-                      role="option"
-                      aria-selected={column.getIsVisible()}
-                      className="w-full inline-flex items-center gap-2 text-left text-xs px-1 py-1 rounded hover:bg-muted/50 cursor-pointer"
-                      onClick={() => column.toggleVisibility()}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault()
-                          column.toggleVisibility()
-                        }
-                      }}
-                      tabIndex={0}
-                    >
-                      <Checkbox
-                        size="sm"
-                        checked={column.getIsVisible()}
-                        tabIndex={-1}
-                      />
-                      <span>{columnLabel(column.id)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hideableColumns.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={() => column.toggleVisibility()}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {columnLabel(column.id)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Add member form */}
@@ -782,6 +779,34 @@ export function MemberListPane({
         </>
       )}
 
+      {/* Clear roster confirmation dialog */}
+      <AlertDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear roster?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes all members, assignments, and groups from the current
+              profile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setClearConfirmOpen(false)
+                onClear()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Permanent delete confirmation dialog */}
       <AlertDialog
         open={memberPendingDeletion != null}
@@ -814,15 +839,8 @@ export function MemberListPane({
   )
 }
 
-function RosterSourceDisplay({ roster }: { roster: Roster | null }) {
-  if (!roster?.connection) {
-    return (
-      <div className="flex items-center text-sm h-6">
-        <span className="text-muted-foreground w-14 shrink-0">Source:</span>
-        <span>None (local only)</span>
-      </div>
-    )
-  }
+function RosterSourceBadge({ roster }: { roster: Roster | null }) {
+  if (!roster?.connection) return null
 
   const { connection } = roster
   let sourceLabel: string
@@ -839,15 +857,12 @@ function RosterSourceDisplay({ roster }: { roster: Roster | null }) {
   }
 
   return (
-    <div className="flex items-center text-sm h-6">
-      <span className="text-muted-foreground w-14 shrink-0">Source:</span>
-      <span>{sourceLabel}</span>
+    <span className="text-xs text-muted-foreground truncate min-w-0">
+      {sourceLabel}
       {connection.lastUpdated && (
-        <span className="text-muted-foreground ml-1">
-          {new Date(connection.lastUpdated).toLocaleDateString()}
-        </span>
+        <> {new Date(connection.lastUpdated).toLocaleDateString()}</>
       )}
-    </div>
+    </span>
   )
 }
 

@@ -56,15 +56,6 @@ export function RosterTab({ isDirty: _isDirty }: RosterTabProps) {
       assignments: [],
     }
     setRoster(emptyRoster, "Clear roster")
-    addToast("Roster cleared", {
-      tone: "warning",
-      action: {
-        label: "Undo",
-        onClick: () => {
-          useProfileStore.getState().undo()
-        },
-      },
-    })
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {

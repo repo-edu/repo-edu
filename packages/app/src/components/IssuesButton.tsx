@@ -27,7 +27,7 @@ export function IssuesButton() {
           className="h-8 gap-1.5 px-2 relative"
           onClick={handleClick}
         >
-          <span className="text-xs">Issues</span>
+          <span className="text-[13px]">Issues</span>
           {issueCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-medium leading-none">
               {issueCount}

@@ -21,7 +21,7 @@ export function SettingsButton() {
       className="relative h-8 w-8 p-0"
       onClick={() => openSettings()}
     >
-      <Settings className="size-4" />
+      <Settings className="size-[18px]" />
       {hasConnected && (
         <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-success" />
       )}
