@@ -5,15 +5,15 @@ import {
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
-  type PersistedProfile,
-  persistedProfileKind,
+  type PersistedCourse,
+  persistedCourseKind,
   type RosterMember,
 } from "@repo-edu/domain"
 import {
   clearWorkflowClient,
   setWorkflowClient,
 } from "../contexts/workflow-client.js"
-import { useProfileStore } from "../stores/profile-store.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 
 function deferred<T>() {
@@ -26,16 +26,16 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function makeProfile(profileId = "profile-1"): PersistedProfile {
+function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
-    kind: persistedProfileKind,
-    schemaVersion: 3,
+    kind: persistedCourseKind,
+    schemaVersion: 1,
     revision: 0,
-    id: profileId,
-    displayName: "Test Profile",
+    id: courseId,
+    displayName: "Test Course",
     lmsConnectionName: null,
     gitConnectionName: "git-main",
-    courseId: null,
+    lmsCourseId: null,
     roster: {
       connection: null,
       students: [
@@ -91,98 +91,98 @@ function makeStudent(id: string, name: string): RosterMember {
 
 beforeEach(() => {
   clearWorkflowClient()
-  useProfileStore.getState().clear()
+  useCourseStore.getState().clear()
   useToastStore.getState().clearToasts()
 })
 
-describe("profile store", () => {
-  it("tracks async load checkpoints and stores the loaded profile", async () => {
-    const gate = deferred<PersistedProfile>()
+describe("course store", () => {
+  it("tracks async load checkpoints and stores the loaded course", async () => {
+    const gate = deferred<PersistedCourse>()
     const client = createWorkflowClient({
-      "profile.load": async ({ profileId }) => {
-        const profile = await gate.promise
-        return { ...profile, id: profileId }
+      "course.load": async ({ courseId }) => {
+        const course = await gate.promise
+        return { ...course, id: courseId }
       },
-      "profile.save": async (profile) => profile,
+      "course.save": async (course) => course,
     })
     setWorkflowClient(client as unknown as WorkflowClient)
 
-    const loadPromise = useProfileStore.getState().load("profile-a")
-    assert.equal(useProfileStore.getState().status, "loading")
+    const loadPromise = useCourseStore.getState().load("course-a")
+    assert.equal(useCourseStore.getState().status, "loading")
 
     gate.resolve(makeProfile())
     await loadPromise
 
-    const state = useProfileStore.getState()
+    const state = useCourseStore.getState()
     assert.equal(state.status, "loaded")
-    assert.equal(state.profile?.id, "profile-a")
+    assert.equal(state.course?.id, "course-a")
     assert.equal(state.history.length, 0)
     assert.equal(state.future.length, 0)
   })
 
   it("supports undo and redo for roster mutations", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     const client = createWorkflowClient({
-      "profile.load": async () => profile,
-      "profile.save": async (current) => current,
+      "course.load": async () => course,
+      "course.save": async (current) => current,
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useProfileStore.getState().load(profile.id)
+    await useCourseStore.getState().load(course.id)
 
-    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2)
-    assert.equal(useProfileStore.getState().history.length, 1)
+    useCourseStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
+    assert.equal(useCourseStore.getState().course?.roster.students.length, 2)
+    assert.equal(useCourseStore.getState().history.length, 1)
 
-    const undone = useProfileStore.getState().undo()
+    const undone = useCourseStore.getState().undo()
     assert.equal(undone?.description, "Add Grace Hopper")
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 1)
-    assert.equal(useProfileStore.getState().future.length, 1)
+    assert.equal(useCourseStore.getState().course?.roster.students.length, 1)
+    assert.equal(useCourseStore.getState().future.length, 1)
 
-    const redone = useProfileStore.getState().redo()
+    const redone = useCourseStore.getState().redo()
     assert.equal(redone?.description, "Add Grace Hopper")
-    assert.equal(useProfileStore.getState().profile?.roster.students.length, 2)
-    assert.equal(useProfileStore.getState().history.length, 1)
+    assert.equal(useCourseStore.getState().course?.roster.students.length, 2)
+    assert.equal(useCourseStore.getState().history.length, 1)
   })
 
   it("clears redo history after a new mutation following undo", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     const client = createWorkflowClient({
-      "profile.load": async () => profile,
-      "profile.save": async (current) => current,
+      "course.load": async () => course,
+      "course.save": async (current) => current,
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useProfileStore.getState().load(profile.id)
+    await useCourseStore.getState().load(course.id)
 
-    useProfileStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
-    useProfileStore.getState().addMember(makeStudent("s-3", "Linus Torvalds"))
-    assert.equal(useProfileStore.getState().history.length, 2)
+    useCourseStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
+    useCourseStore.getState().addMember(makeStudent("s-3", "Linus Torvalds"))
+    assert.equal(useCourseStore.getState().history.length, 2)
 
-    useProfileStore.getState().undo()
-    assert.equal(useProfileStore.getState().future.length, 1)
+    useCourseStore.getState().undo()
+    assert.equal(useCourseStore.getState().future.length, 1)
 
-    useProfileStore.getState().addMember(makeStudent("s-4", "Alan Turing"))
-    assert.equal(useProfileStore.getState().future.length, 0)
-    assert.equal(useProfileStore.getState().history.length, 2)
+    useCourseStore.getState().addMember(makeStudent("s-4", "Alan Turing"))
+    assert.equal(useCourseStore.getState().future.length, 0)
+    assert.equal(useCourseStore.getState().history.length, 2)
   })
 
   it("keeps local updates and reports save errors via toast", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     const client = createWorkflowClient({
-      "profile.load": async () => profile,
-      "profile.save": async () => {
+      "course.load": async () => course,
+      "course.save": async () => {
         throw new Error("save failed")
       },
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useProfileStore.getState().load(profile.id)
+    await useCourseStore.getState().load(course.id)
 
-    useProfileStore.getState().setDisplayName("Renamed Profile")
+    useCourseStore.getState().setDisplayName("Renamed Course")
     assert.equal(
-      useProfileStore.getState().profile?.displayName,
-      "Renamed Profile",
+      useCourseStore.getState().course?.displayName,
+      "Renamed Course",
     )
 
-    const result = await useProfileStore.getState().save()
+    const result = await useCourseStore.getState().save()
     assert.equal(result, false)
     assert.equal(useToastStore.getState().toasts.length, 1)
     assert.equal(useToastStore.getState().toasts[0]?.message, "save failed")

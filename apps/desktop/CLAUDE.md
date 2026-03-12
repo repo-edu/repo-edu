@@ -12,7 +12,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
-- `src/profile-store.ts`, `src/settings-store.ts`: desktop persistence stores
+- `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores
 
 ## Notes
 

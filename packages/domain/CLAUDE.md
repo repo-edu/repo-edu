@@ -6,7 +6,7 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 
 `@repo-edu/domain` is side-effect free and host-agnostic. It defines:
 
-- canonical persisted settings/profile/roster/group/assignment types
+- canonical persisted settings/course/roster/group/assignment types
 - zod validation for boundary payloads
 - roster normalization and validation
 - system group-set maintenance

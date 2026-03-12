@@ -1,7 +1,7 @@
 /**
- * ProfileSwitcher — Dropdown-based profile selector in the utility bar.
- * Shows all profiles with per-profile management actions (duplicate, rename,
- * delete) and a "New Profile" action.
+ * CourseSwitcher — Dropdown-based course selector in the utility bar.
+ * Shows all courses with per-course management actions (duplicate, rename,
+ * delete) and a "New Course" action.
  */
 
 import {
@@ -36,21 +36,21 @@ import {
   Trash2,
 } from "@repo-edu/ui/components/icons"
 import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
-import { useProfiles } from "../hooks/use-profiles.js"
+import { useCourses } from "../hooks/use-courses.js"
 import { useUiStore } from "../stores/ui-store.js"
 
-export function ProfileSwitcher() {
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
-  const setNewProfileDialogOpen = useUiStore((s) => s.setNewProfileDialogOpen)
+export function CourseSwitcher() {
+  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
   const {
-    profiles,
+    courses,
     loading,
     refresh,
-    switchProfile,
-    duplicateProfile,
-    renameProfile,
-    deleteProfile,
-  } = useProfiles()
+    switchCourse,
+    duplicateCourse,
+    renameCourse,
+    deleteCourse,
+  } = useCourses()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -58,52 +58,52 @@ export function ProfileSwitcher() {
   }, [refresh])
 
   const activeDisplayName =
-    profiles.find((p) => p.id === activeProfileId)?.displayName ?? null
+    courses.find((p) => p.id === activeCourseId)?.displayName ?? null
 
   // --- Rename dialog ---
   const [renameDialog, setRenameDialog] = useState<{
     open: boolean
-    profileId: string
+    courseId: string
     currentName: string
     newName: string
-  }>({ open: false, profileId: "", currentName: "", newName: "" })
+  }>({ open: false, courseId: "", currentName: "", newName: "" })
 
   // --- Duplicate dialog ---
   const [duplicateDialog, setDuplicateDialog] = useState<{
     open: boolean
-    sourceProfileId: string
+    sourceCourseId: string
     sourceName: string
-    newProfileName: string
+    newCourseName: string
     isProcessing: boolean
   }>({
     open: false,
-    sourceProfileId: "",
+    sourceCourseId: "",
     sourceName: "",
-    newProfileName: "",
+    newCourseName: "",
     isProcessing: false,
   })
 
   // --- Delete dialog ---
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
-    profileId: string
-    profileName: string
-  }>({ open: false, profileId: "", profileName: "" })
+    courseId: string
+    courseName: string
+  }>({ open: false, courseId: "", courseName: "" })
 
-  const handleProfileSelect = (id: string) => {
-    if (id === activeProfileId) return
+  const handleCourseSelect = (id: string) => {
+    if (id === activeCourseId) return
     setOpen(false)
-    void switchProfile(id)
+    void switchCourse(id)
   }
 
-  const handleProfileKeyDown = (
+  const handleCourseKeyDown = (
     id: string,
     event: KeyboardEvent<HTMLDivElement>,
   ) => {
     if (event.target !== event.currentTarget) return
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault()
-      handleProfileSelect(id)
+      handleCourseSelect(id)
     }
   }
 
@@ -116,33 +116,30 @@ export function ProfileSwitcher() {
   }
 
   // --- Duplicate ---
-  const handleDuplicateClick = (profileId: string, profileName: string) => {
+  const handleDuplicateClick = (courseId: string, courseName: string) => {
     setOpen(false)
     setDuplicateDialog({
       open: true,
-      sourceProfileId: profileId,
-      sourceName: profileName,
-      newProfileName: `${profileName} copy`,
+      sourceCourseId: courseId,
+      sourceName: courseName,
+      newCourseName: `${courseName} copy`,
       isProcessing: false,
     })
   }
 
   const handleDuplicateConfirm = async () => {
-    const { sourceProfileId, newProfileName } = duplicateDialog
-    if (!newProfileName.trim()) return
+    const { sourceCourseId, newCourseName } = duplicateDialog
+    if (!newCourseName.trim()) return
 
     setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
-    const success = await duplicateProfile(
-      sourceProfileId,
-      newProfileName.trim(),
-    )
+    const success = await duplicateCourse(sourceCourseId, newCourseName.trim())
 
     if (success) {
       setDuplicateDialog({
         open: false,
-        sourceProfileId: "",
+        sourceCourseId: "",
         sourceName: "",
-        newProfileName: "",
+        newCourseName: "",
         isProcessing: false,
       })
     } else {
@@ -151,50 +148,50 @@ export function ProfileSwitcher() {
   }
 
   // --- Rename ---
-  const handleRenameClick = (profileId: string, profileName: string) => {
+  const handleRenameClick = (courseId: string, courseName: string) => {
     setOpen(false)
     setRenameDialog({
       open: true,
-      profileId,
-      currentName: profileName,
-      newName: profileName,
+      courseId,
+      currentName: courseName,
+      newName: courseName,
     })
   }
 
   const handleRenameConfirm = async () => {
-    const { profileId, newName } = renameDialog
-    await renameProfile(profileId, newName)
+    const { courseId, newName } = renameDialog
+    await renameCourse(courseId, newName)
     setRenameDialog({
       open: false,
-      profileId: "",
+      courseId: "",
       currentName: "",
       newName: "",
     })
   }
 
   // --- Delete ---
-  const handleDeleteClick = (profileId: string, profileName: string) => {
+  const handleDeleteClick = (courseId: string, courseName: string) => {
     setOpen(false)
-    setDeleteDialog({ open: true, profileId, profileName })
+    setDeleteDialog({ open: true, courseId, courseName })
   }
 
   const handleDeleteConfirm = async () => {
-    await deleteProfile(deleteDialog.profileId)
-    setDeleteDialog({ open: false, profileId: "", profileName: "" })
+    await deleteCourse(deleteDialog.courseId)
+    setDeleteDialog({ open: false, courseId: "", courseName: "" })
   }
 
-  // --- New profile ---
-  const handleNewProfile = () => {
+  // --- New course ---
+  const handleNewCourse = () => {
     setOpen(false)
-    setNewProfileDialogOpen(true)
+    setNewCourseDialogOpen(true)
   }
 
-  const canDuplicate = duplicateDialog.newProfileName.trim().length > 0
+  const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
 
-  const profileToDelete = deleteDialog.profileId
-  const remainingProfiles = profiles.filter((p) => p.id !== profileToDelete)
-  const isLastProfile = remainingProfiles.length === 0
-  const nextProfile = remainingProfiles[0]?.displayName
+  const courseToDelete = deleteDialog.courseId
+  const remainingCourses = courses.filter((p) => p.id !== courseToDelete)
+  const isLastCourse = remainingCourses.length === 0
+  const nextCourse = remainingCourses[0]?.displayName
 
   return (
     <>
@@ -206,7 +203,7 @@ export function ProfileSwitcher() {
             className="max-w-full min-w-0 overflow-hidden"
           >
             <span className="truncate">
-              <span className="text-muted-foreground">Profile:</span>{" "}
+              <span className="text-muted-foreground">Course:</span>{" "}
               {loading ? "Loading..." : (activeDisplayName ?? "None")}
             </span>
             <ChevronUp className="size-3.5 shrink-0 text-muted-foreground" />
@@ -214,33 +211,33 @@ export function ProfileSwitcher() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" side="top">
-          {profiles.map((profile) => {
-            const isActive = profile.id === activeProfileId
+          {courses.map((course) => {
+            const isActive = course.id === activeCourseId
             return (
               <div
-                key={profile.id}
+                key={course.id}
                 role="option"
                 tabIndex={0}
                 aria-selected={isActive}
-                onClick={() => handleProfileSelect(profile.id)}
-                onKeyDown={(event) => handleProfileKeyDown(profile.id, event)}
+                onClick={() => handleCourseSelect(course.id)}
+                onKeyDown={(event) => handleCourseKeyDown(course.id, event)}
                 className={cn(
                   "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
                   "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
                   isActive && "bg-selection",
                 )}
               >
-                <span className="truncate">{profile.displayName}</span>
+                <span className="truncate">{course.displayName}</span>
                 <div className="flex shrink-0 items-center gap-0">
                   <Button
                     size="icon-xs"
                     variant="ghost"
                     className="size-4"
-                    aria-label={`Duplicate ${profile.displayName}`}
+                    aria-label={`Duplicate ${course.displayName}`}
                     title="Duplicate"
                     onClick={(event) =>
                       handleActionClick(event, () =>
-                        handleDuplicateClick(profile.id, profile.displayName),
+                        handleDuplicateClick(course.id, course.displayName),
                       )
                     }
                   >
@@ -250,11 +247,11 @@ export function ProfileSwitcher() {
                     size="icon-xs"
                     variant="ghost"
                     className="size-4"
-                    aria-label={`Rename ${profile.displayName}`}
+                    aria-label={`Rename ${course.displayName}`}
                     title="Rename"
                     onClick={(event) =>
                       handleActionClick(event, () =>
-                        handleRenameClick(profile.id, profile.displayName),
+                        handleRenameClick(course.id, course.displayName),
                       )
                     }
                   >
@@ -264,11 +261,11 @@ export function ProfileSwitcher() {
                     size="icon-xs"
                     variant="ghost"
                     className="size-4"
-                    aria-label={`Delete ${profile.displayName}`}
+                    aria-label={`Delete ${course.displayName}`}
                     title="Delete"
                     onClick={(event) =>
                       handleActionClick(event, () =>
-                        handleDeleteClick(profile.id, profile.displayName),
+                        handleDeleteClick(course.id, course.displayName),
                       )
                     }
                   >
@@ -279,23 +276,23 @@ export function ProfileSwitcher() {
             )
           })}
 
-          {profiles.length > 0 && <DropdownMenuSeparator className="my-0.5" />}
+          {courses.length > 0 && <DropdownMenuSeparator className="my-0.5" />}
 
           <div
             role="option"
             tabIndex={0}
             aria-selected={false}
-            onClick={handleNewProfile}
+            onClick={handleNewCourse}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault()
-                handleNewProfile()
+                handleNewCourse()
               }
             }}
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <Plus className="size-3" />
-            New Profile
+            New Course
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -311,19 +308,19 @@ export function ProfileSwitcher() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Duplicate Profile</DialogTitle>
+            <DialogTitle>Duplicate Course</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="dup-profile-name">Profile Name</Label>
+              <Label htmlFor="dup-course-name">Course Name</Label>
               <Input
-                id="dup-profile-name"
-                placeholder="New profile name"
-                value={duplicateDialog.newProfileName}
+                id="dup-course-name"
+                placeholder="New course name"
+                value={duplicateDialog.newCourseName}
                 onChange={(event) =>
                   setDuplicateDialog((prev) => ({
                     ...prev,
-                    newProfileName: event.target.value,
+                    newCourseName: event.target.value,
                   }))
                 }
                 onKeyDown={(event) => {
@@ -374,7 +371,7 @@ export function ProfileSwitcher() {
       >
         <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle>Rename Profile</DialogTitle>
+            <DialogTitle>Rename Course</DialogTitle>
           </DialogHeader>
           <Input
             placeholder="New name"
@@ -399,7 +396,7 @@ export function ProfileSwitcher() {
               onClick={() =>
                 setRenameDialog({
                   open: false,
-                  profileId: "",
+                  courseId: "",
                   currentName: "",
                   newName: "",
                 })
@@ -427,26 +424,25 @@ export function ProfileSwitcher() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Profile</AlertDialogTitle>
+            <AlertDialogTitle>Delete Course</AlertDialogTitle>
             <AlertDialogDescription>
-              {isLastProfile ? (
+              {isLastCourse ? (
                 <>
-                  Delete &quot;{deleteDialog.profileName}&quot;? This is your
-                  last profile.
+                  Delete &quot;{deleteDialog.courseName}&quot;? This is your
+                  last course.
                 </>
-              ) : deleteDialog.profileId === activeProfileId ? (
+              ) : deleteDialog.courseId === activeCourseId ? (
                 <>
-                  Delete &quot;{deleteDialog.profileName}&quot;? You will be
+                  Delete &quot;{deleteDialog.courseName}&quot;? You will be
                   switched to &quot;
-                  {nextProfile}&quot;.
+                  {nextCourse}&quot;.
                 </>
               ) : (
-                <>Delete &quot;{deleteDialog.profileName}&quot;?</>
+                <>Delete &quot;{deleteDialog.courseName}&quot;?</>
               )}
               <br />
               <br />
-              This will also delete the roster data associated with this
-              profile.
+              This will also delete the roster data associated with this course.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

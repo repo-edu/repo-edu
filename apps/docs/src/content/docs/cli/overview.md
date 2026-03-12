@@ -8,12 +8,12 @@ The CLI is implemented in `apps/cli` and delegates all business logic to shared 
 ## Top-level command
 
 ```bash
-redu [--profile <name>] <command>
+redu [--course <name>] <command>
 ```
 
 ## Command groups
 
-- `profile`: `list`, `active`, `show`, `load`
+- `course`: `list`, `active`, `show`, `load`
 - `roster`: `show`
 - `lms`: `verify`, `import-students`, `import-groups`, `cache list|fetch|refresh|delete`
 - `git`: `verify`

@@ -17,7 +17,7 @@ Supported providers:
 CLI:
 
 ```bash
-node apps/cli/dist/index.js lms import-students --profile <profile-id>
+node apps/cli/dist/index.js lms import-students --course <course-id>
 ```
 
 Workflow used: `roster.importFromLms`
@@ -27,8 +27,8 @@ Workflow used: `roster.importFromLms`
 CLI:
 
 ```bash
-node apps/cli/dist/index.js lms cache fetch --profile <profile-id>
-node apps/cli/dist/index.js lms import-groups --group-set <group-set-id> --profile <profile-id>
+node apps/cli/dist/index.js lms cache fetch --course <course-id>
+node apps/cli/dist/index.js lms import-groups --group-set <group-set-id> --course <course-id>
 ```
 
 Workflows used:
@@ -38,5 +38,5 @@ Workflows used:
 
 ## Notes
 
-- The selected profile must include a valid LMS connection and `courseId`.
-- Import writes back to persisted profile data through `profile.save`.
+- The selected course must include a valid LMS connection and `lmsCourseId`.
+- Import writes back to persisted course data through `course.save`.

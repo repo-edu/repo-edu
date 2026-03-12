@@ -11,7 +11,7 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { selectRoster, useProfileStore } from "../../stores/profile-store.js"
+import { selectRoster, useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -21,8 +21,8 @@ export function ImportStudentsFromFileDialog() {
     (state) => state.setImportFileDialogOpen,
   )
 
-  const setRoster = useProfileStore((state) => state.setRoster)
-  const currentRoster = useProfileStore(selectRoster)
+  const setRoster = useCourseStore((state) => state.setRoster)
+  const currentRoster = useCourseStore(selectRoster)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{

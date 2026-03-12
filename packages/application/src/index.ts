@@ -41,14 +41,14 @@ import {
   isAppError,
 } from "@repo-edu/application-contract"
 import type {
+  CourseSummary,
   GitIdentityMode,
   GitUsernameImportRow,
   GroupSetExportRow,
   GroupSetImportRow,
   PersistedAppSettings,
-  PersistedProfile,
+  PersistedCourse,
   PlannedRepositoryGroup,
-  ProfileSummary,
   RosterValidationResult,
   StudentImportRow,
   ValidationResult,
@@ -73,7 +73,7 @@ import {
   validateAssignment,
   validateAssignmentWithTemplate,
   validatePersistedAppSettings,
-  validatePersistedProfile,
+  validatePersistedCourse,
   validateRoster,
 } from "@repo-edu/domain"
 import type {
@@ -116,19 +116,19 @@ export type SmokeWorkflowResult = {
   executedAt: string
 }
 
-export type ProfileStore = {
-  listProfiles(
+export type CourseStore = {
+  listCourses(
     signal?: AbortSignal,
-  ): Promise<PersistedProfile[]> | PersistedProfile[]
-  loadProfile(
-    profileId: string,
+  ): Promise<PersistedCourse[]> | PersistedCourse[]
+  loadCourse(
+    courseId: string,
     signal?: AbortSignal,
-  ): Promise<PersistedProfile | null> | PersistedProfile | null
-  saveProfile(
-    profile: PersistedProfile,
+  ): Promise<PersistedCourse | null> | PersistedCourse | null
+  saveCourse(
+    course: PersistedCourse,
     signal?: AbortSignal,
-  ): Promise<PersistedProfile> | PersistedProfile
-  deleteProfile(profileId: string, signal?: AbortSignal): Promise<void> | void
+  ): Promise<PersistedCourse> | PersistedCourse
+  deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
 }
 
 export type AppSettingsStore = {
@@ -163,14 +163,14 @@ export function createValidationAppError(
   }
 }
 
-export function runValidateRosterForProfile(
-  profile: PersistedProfile,
+export function runValidateRosterForCourse(
+  course: PersistedCourse,
 ): RosterValidationResult {
-  return validateRoster(profile.roster)
+  return validateRoster(course.roster)
 }
 
-export function runValidateAssignmentForProfile(
-  profile: PersistedProfile,
+export function runValidateAssignmentForCourse(
+  course: PersistedCourse,
   assignmentId: string,
   options?: {
     identityMode?: GitIdentityMode
@@ -179,7 +179,7 @@ export function runValidateAssignmentForProfile(
 ): RosterValidationResult {
   if (options?.repoNameTemplate !== undefined) {
     return validateAssignmentWithTemplate(
-      profile.roster,
+      course.roster,
       assignmentId,
       options.identityMode ?? "username",
       options.repoNameTemplate,
@@ -187,49 +187,49 @@ export function runValidateAssignmentForProfile(
   }
 
   return validateAssignment(
-    profile.roster,
+    course.roster,
     assignmentId,
     options?.identityMode ?? "username",
   )
 }
 
-export function createInMemoryProfileStore(
-  profiles: readonly PersistedProfile[],
-): ProfileStore {
-  const profilesById = new Map(
-    profiles.map((profile) => [profile.id, profile] as const),
+export function createInMemoryCourseStore(
+  courses: readonly PersistedCourse[],
+): CourseStore {
+  const coursesById = new Map(
+    courses.map((course) => [course.id, course] as const),
   )
 
   return {
-    listProfiles() {
-      return [...profilesById.values()]
+    listCourses() {
+      return [...coursesById.values()]
     },
-    loadProfile(profileId: string) {
-      return profilesById.get(profileId) ?? null
+    loadCourse(courseId: string) {
+      return coursesById.get(courseId) ?? null
     },
-    saveProfile(profile: PersistedProfile) {
-      const current = profilesById.get(profile.id) ?? null
-      if (current !== null && current.revision !== profile.revision) {
+    saveCourse(course: PersistedCourse) {
+      const current = coursesById.get(course.id) ?? null
+      if (current !== null && current.revision !== course.revision) {
         throw new Error(
-          `Profile revision invariant violated for '${profile.id}' (expected ${profile.revision}, stored ${current.revision}).`,
+          `Course revision invariant violated for '${course.id}' (expected ${course.revision}, stored ${current.revision}).`,
         )
       }
-      if (current === null && profile.revision !== 0) {
+      if (current === null && course.revision !== 0) {
         throw new Error(
-          `Profile revision invariant violated for '${profile.id}' (expected ${profile.revision}, stored missing profile).`,
+          `Course revision invariant violated for '${course.id}' (expected ${course.revision}, stored missing course).`,
         )
       }
 
-      const savedProfile: PersistedProfile = {
-        ...profile,
-        revision: profile.revision + 1,
+      const savedCourse: PersistedCourse = {
+        ...course,
+        revision: course.revision + 1,
         updatedAt: new Date().toISOString(),
       }
-      profilesById.set(profile.id, savedProfile)
-      return savedProfile
+      coursesById.set(course.id, savedCourse)
+      return savedCourse
     },
-    deleteProfile(profileId: string) {
-      profilesById.delete(profileId)
+    deleteCourse(courseId: string) {
+      coursesById.delete(courseId)
     },
   }
 }
@@ -250,27 +250,27 @@ export function createInMemoryAppSettingsStore(
   }
 }
 
-function summarizeProfile(profile: PersistedProfile): ProfileSummary {
+function summarizeCourse(course: PersistedCourse): CourseSummary {
   return {
-    id: profile.id,
-    displayName: profile.displayName,
-    updatedAt: profile.updatedAt,
+    id: course.id,
+    displayName: course.displayName,
+    updatedAt: course.updatedAt,
   }
 }
 
-function sortProfilesByUpdatedAt(
-  profiles: readonly PersistedProfile[],
-): PersistedProfile[] {
-  return [...profiles].sort((left, right) =>
+function sortCoursesByUpdatedAt(
+  courses: readonly PersistedCourse[],
+): PersistedCourse[] {
+  return [...courses].sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
   )
 }
 
-function validateLoadedProfile(profile: PersistedProfile): PersistedProfile {
-  const validation = validatePersistedProfile(profile)
+function validateLoadedCourse(course: PersistedCourse): PersistedCourse {
+  const validation = validatePersistedCourse(course)
   if (!validation.ok) {
     throw createValidationAppError(
-      "Loaded profile validation failed.",
+      "Loaded course validation failed.",
       validation.issues,
     )
   }
@@ -278,23 +278,23 @@ function validateLoadedProfile(profile: PersistedProfile): PersistedProfile {
   return validation.value
 }
 
-async function loadRequiredProfile(
-  profileStore: ProfileStore,
-  profileId: string,
+async function loadRequiredCourse(
+  courseStore: CourseStore,
+  courseId: string,
   signal?: AbortSignal,
-): Promise<PersistedProfile> {
+): Promise<PersistedCourse> {
   throwIfAborted(signal)
-  const profile = await profileStore.loadProfile(profileId, signal)
+  const course = await courseStore.loadCourse(courseId, signal)
   throwIfAborted(signal)
 
-  if (profile !== null) {
-    return validateLoadedProfile(profile)
+  if (course !== null) {
+    return validateLoadedCourse(course)
   }
 
   throw {
     type: "not-found",
-    message: `Profile '${profileId}' was not found.`,
-    resource: "profile",
+    message: `Course '${courseId}' was not found.`,
+    resource: "course",
   } satisfies AppError
 }
 
@@ -321,8 +321,8 @@ async function loadSettingsOrDefault(
   return validation.value
 }
 
-function resolveProfileSnapshot(profile: PersistedProfile): PersistedProfile {
-  return validateLoadedProfile(profile)
+function resolveCourseSnapshot(course: PersistedCourse): PersistedCourse {
+  return validateLoadedCourse(course)
 }
 
 function resolveAppSettingsSnapshot(
@@ -338,88 +338,88 @@ function resolveAppSettingsSnapshot(
   return validation.value
 }
 
-export function createProfileWorkflowHandlers(
-  profileStore: ProfileStore,
+export function createCourseWorkflowHandlers(
+  courseStore: CourseStore,
 ): Pick<
   WorkflowHandlerMap<
-    "profile.list" | "profile.load" | "profile.save" | "profile.delete"
+    "course.list" | "course.load" | "course.save" | "course.delete"
   >,
-  "profile.list" | "profile.load" | "profile.save" | "profile.delete"
+  "course.list" | "course.load" | "course.save" | "course.delete"
 > {
   return {
-    "profile.list": async (_input, options) => {
+    "course.list": async (_input, options) => {
       throwIfAborted(options?.signal)
-      const profiles = await profileStore.listProfiles(options?.signal)
+      const courses = await courseStore.listCourses(options?.signal)
       throwIfAborted(options?.signal)
-      return sortProfilesByUpdatedAt(profiles)
-        .map(validateLoadedProfile)
-        .map(summarizeProfile)
+      return sortCoursesByUpdatedAt(courses)
+        .map(validateLoadedCourse)
+        .map(summarizeCourse)
     },
-    "profile.load": async (
-      input: { profileId: string },
+    "course.load": async (
+      input: { courseId: string },
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       options?.onProgress?.({
         step: 1,
         totalSteps: 2,
-        label: "Resolving profile from profile store.",
+        label: "Resolving course from course store.",
       })
-      const profile = await loadRequiredProfile(
-        profileStore,
-        input.profileId,
+      const course = await loadRequiredCourse(
+        courseStore,
+        input.courseId,
         options?.signal,
       )
       options?.onOutput?.({
         channel: "info",
-        message: `Loaded profile ${profile.displayName}.`,
+        message: `Loaded course ${course.displayName}.`,
       })
       options?.onProgress?.({
         step: 2,
         totalSteps: 2,
-        label: "Profile loaded.",
+        label: "Course loaded.",
       })
-      return profile
+      return course
     },
-    "profile.save": async (
-      input: PersistedProfile,
+    "course.save": async (
+      input: PersistedCourse,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
-        label: "Validating profile payload.",
+        label: "Validating course payload.",
       })
-      const validation = validatePersistedProfile(input)
+      const validation = validatePersistedCourse(input)
       if (!validation.ok) {
         throw createValidationAppError(
-          "Profile validation failed.",
+          "Course validation failed.",
           validation.issues,
         )
       }
 
       options?.onOutput?.({
         channel: "info",
-        message: `Saving profile ${validation.value.displayName}.`,
+        message: `Saving course ${validation.value.displayName}.`,
       })
       options?.onProgress?.({
         step: 2,
         totalSteps: 3,
-        label: "Writing profile to profile store.",
+        label: "Writing course to course store.",
       })
-      const savedProfile = await profileStore.saveProfile(
+      const savedCourse = await courseStore.saveCourse(
         validation.value,
         options?.signal,
       )
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
-        label: "Profile saved.",
+        label: "Course saved.",
       })
-      return savedProfile
+      return savedCourse
     },
-    "profile.delete": async (input: { profileId: string }, options) => {
+    "course.delete": async (input: { courseId: string }, options) => {
       throwIfAborted(options?.signal)
-      await profileStore.deleteProfile(input.profileId, options?.signal)
+      await courseStore.deleteCourse(input.courseId, options?.signal)
     },
   }
 }
@@ -434,16 +434,16 @@ export function createValidationWorkflowHandlers(): Pick<
       options?: WorkflowCallOptions<never, never>,
     ) => {
       throwIfAborted(options?.signal)
-      const profile = resolveProfileSnapshot(input.profile)
-      return runValidateRosterForProfile(profile)
+      const course = resolveCourseSnapshot(input.course)
+      return runValidateRosterForCourse(course)
     },
     "validation.assignment": async (
       input: AssignmentValidationInput,
       options?: WorkflowCallOptions<never, never>,
     ) => {
       throwIfAborted(options?.signal)
-      const profile = resolveProfileSnapshot(input.profile)
-      return runValidateAssignmentForProfile(profile, input.assignmentId)
+      const course = resolveCourseSnapshot(input.course)
+      return runValidateAssignmentForCourse(course, input.assignmentId)
     },
   }
 }
@@ -888,24 +888,24 @@ function rosterFromStudentRows(rows: readonly StudentImportRow[]) {
 }
 
 function resolveLmsDraft(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   settings: PersistedAppSettings,
 ): LmsConnectionDraft {
-  if (profile.lmsConnectionName === null) {
+  if (course.lmsConnectionName === null) {
     throw {
       type: "not-found",
-      message: "Profile does not reference an LMS connection.",
+      message: "Course does not reference an LMS connection.",
       resource: "connection",
     } satisfies AppError
   }
 
   const connection = settings.lmsConnections.find(
-    (candidate) => candidate.name === profile.lmsConnectionName,
+    (candidate) => candidate.name === course.lmsConnectionName,
   )
   if (connection === undefined) {
     throw {
       type: "not-found",
-      message: `LMS connection '${profile.lmsConnectionName}' was not found.`,
+      message: `LMS connection '${course.lmsConnectionName}' was not found.`,
       resource: "connection",
     } satisfies AppError
   }
@@ -930,20 +930,20 @@ function optionalUserAgent(value: string | null | undefined): {
 }
 
 function resolveGitDraft(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   settings: PersistedAppSettings,
 ): GitConnectionDraft | null {
-  if (profile.gitConnectionName === null) {
+  if (course.gitConnectionName === null) {
     return null
   }
 
   const connection = settings.gitConnections.find(
-    (candidate) => candidate.name === profile.gitConnectionName,
+    (candidate) => candidate.name === course.gitConnectionName,
   )
   if (connection === undefined) {
     throw {
       type: "not-found",
-      message: `Git connection '${profile.gitConnectionName}' was not found.`,
+      message: `Git connection '${course.gitConnectionName}' was not found.`,
       resource: "connection",
     } satisfies AppError
   }
@@ -1032,13 +1032,13 @@ export function createRosterWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
 
-        const draft = resolveLmsDraft(profile, settings)
+        const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
 
         options?.onProgress?.({
@@ -1048,11 +1048,11 @@ export function createRosterWorkflowHandlers(
         })
         options?.onOutput?.({
           channel: "info",
-          message: `Fetching roster from ${draft.provider} course ${input.courseId}.`,
+          message: `Fetching roster from ${draft.provider} course ${input.lmsCourseId}.`,
         })
         const fetchedRoster = await ports.lms.fetchRoster(
           draft,
-          input.courseId,
+          input.lmsCourseId,
           options?.signal,
         )
 
@@ -1062,7 +1062,7 @@ export function createRosterWorkflowHandlers(
           label: "Merging roster members.",
         })
         const result = mergeRosterFromLmsWithConflicts(
-          profile.roster,
+          course.roster,
           fetchedRoster,
         )
         ensureSystemGroupSets(result.roster)
@@ -1090,9 +1090,9 @@ export function createRosterWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Reading profile snapshot for roster export.",
+        label: "Reading course snapshot for roster export.",
       })
-      const profile = resolveProfileSnapshot(input.profile)
+      const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
 
       if (input.format !== "csv") {
@@ -1110,7 +1110,7 @@ export function createRosterWorkflowHandlers(
         totalSteps,
         label: "Serializing roster export payload.",
       })
-      const allMembers = [...profile.roster.students, ...profile.roster.staff]
+      const allMembers = [...course.roster.students, ...course.roster.staff]
       const exportRows = allMembers.map((member) => ({
         id: member.id,
         name: member.name,
@@ -1149,9 +1149,9 @@ export type GroupSetWorkflowPorts = {
 
 function lmsGroupSetRemoteId(
   groupSetId: string,
-  profile: PersistedProfile,
+  course: PersistedCourse,
 ): string {
-  const groupSet = profile.roster.groupSets.find(
+  const groupSet = course.roster.groupSets.find(
     (candidate) => candidate.id === groupSetId,
   )
   if (groupSet === undefined) {
@@ -1178,9 +1178,9 @@ function lmsGroupSetRemoteId(
   ])
 }
 
-function generateLocalGroupSetId(profile: PersistedProfile): string {
+function generateLocalGroupSetId(course: PersistedCourse): string {
   const existingIds = new Set(
-    profile.roster.groupSets.map((groupSet) => groupSet.id),
+    course.roster.groupSets.map((groupSet) => groupSet.id),
   )
   while (true) {
     const randomPart =
@@ -1199,7 +1199,7 @@ function createConnectedGroupSet(
   courseId: string,
   remoteGroupSetId: string,
   localGroupSetId: string,
-): PersistedProfile["roster"]["groupSets"][number] {
+): PersistedCourse["roster"]["groupSets"][number] {
   const connection =
     provider === "canvas"
       ? ({
@@ -1228,7 +1228,7 @@ function createConnectedGroupSet(
 }
 
 function connectedRemoteId(
-  connection: PersistedProfile["roster"]["groupSets"][number]["connection"],
+  connection: PersistedCourse["roster"]["groupSets"][number]["connection"],
 ): string | null {
   if (connection?.kind === "canvas") {
     return connection.groupSetId
@@ -1239,15 +1239,15 @@ function connectedRemoteId(
   return null
 }
 
-function applyFetchedGroupSetToProfile(
-  profile: PersistedProfile,
+function applyFetchedGroupSetToCourse(
+  course: PersistedCourse,
   localGroupSetId: string,
   fetched: LmsFetchedGroupSet,
 ): {
-  nextProfile: PersistedProfile
-  nextGroupSet: PersistedProfile["roster"]["groupSets"][number]
+  nextCourse: PersistedCourse
+  nextGroupSet: PersistedCourse["roster"]["groupSets"][number]
 } {
-  const currentGroupSet = profile.roster.groupSets.find(
+  const currentGroupSet = course.roster.groupSets.find(
     (candidate) => candidate.id === localGroupSetId,
   )
   if (currentGroupSet === undefined) {
@@ -1261,16 +1261,16 @@ function applyFetchedGroupSetToProfile(
   const currentSetGroupIds = new Set(currentGroupSet.groupIds)
   const existingByLmsGroupId = new Map<
     string,
-    (typeof profile.roster.groups)[number]
+    (typeof course.roster.groups)[number]
   >()
-  for (const group of profile.roster.groups) {
+  for (const group of course.roster.groups) {
     if (!currentSetGroupIds.has(group.id) || group.lmsGroupId === null) {
       continue
     }
     existingByLmsGroupId.set(group.lmsGroupId, group)
   }
 
-  const memberMap = buildLmsMemberMap(profile)
+  const memberMap = buildLmsMemberMap(course)
   const syncedGroups = fetched.groups.map((group) => {
     const lmsGroupId = group.lmsGroupId ?? group.id
     const existing = existingByLmsGroupId.get(lmsGroupId)
@@ -1288,7 +1288,7 @@ function applyFetchedGroupSetToProfile(
   )
 
   const groupsById = new Map(
-    profile.roster.groups.map((group) => [group.id, group]),
+    course.roster.groups.map((group) => [group.id, group]),
   )
   for (const removedId of removedGroupIds) {
     groupsById.delete(removedId)
@@ -1306,7 +1306,7 @@ function applyFetchedGroupSetToProfile(
   }
 
   const removedIdSet = new Set(removedGroupIds)
-  const nextGroupSets = profile.roster.groupSets.map((groupSet) => {
+  const nextGroupSets = course.roster.groupSets.map((groupSet) => {
     if (groupSet.id === currentGroupSet.id) {
       return nextGroupSet
     }
@@ -1320,10 +1320,10 @@ function applyFetchedGroupSetToProfile(
 
   return {
     nextGroupSet,
-    nextProfile: {
-      ...profile,
+    nextCourse: {
+      ...course,
       roster: {
-        ...profile.roster,
+        ...course.roster,
         groups: [...groupsById.values()],
         groupSets: nextGroupSets,
       },
@@ -1332,9 +1332,9 @@ function applyFetchedGroupSetToProfile(
   }
 }
 
-function buildLmsMemberMap(profile: PersistedProfile): Map<string, string> {
+function buildLmsMemberMap(course: PersistedCourse): Map<string, string> {
   const map = new Map<string, string>()
-  for (const member of profile.roster.students.concat(profile.roster.staff)) {
+  for (const member of course.roster.students.concat(course.roster.staff)) {
     map.set(member.id, member.id)
     if (member.lmsUserId !== null && member.lmsUserId !== "") {
       map.set(member.lmsUserId, member.id)
@@ -1414,18 +1414,18 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const draft = resolveLmsDraft(profile, settings)
+        const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
 
-        if (profile.courseId === null) {
+        if (course.lmsCourseId === null) {
           throw {
             type: "not-found",
-            message: "Profile does not have a selected course.",
+            message: "Course does not have a selected LMS course ID.",
             resource: "course",
           } satisfies AppError
         }
@@ -1437,7 +1437,7 @@ export function createGroupSetWorkflowHandlers(
         })
         const available = await ports.lms.listGroupSets(
           draft,
-          profile.courseId,
+          course.lmsCourseId,
           options?.signal,
         )
 
@@ -1467,23 +1467,23 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const draft = resolveLmsDraft(profile, settings)
+        const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
 
-        if (profile.courseId === null) {
+        if (course.lmsCourseId === null) {
           throw {
             type: "not-found",
-            message: "Profile does not have a selected course.",
+            message: "Course does not have a selected LMS course ID.",
             resource: "course",
           } satisfies AppError
         }
 
-        const alreadyConnected = profile.roster.groupSets.find(
+        const alreadyConnected = course.roster.groupSets.find(
           (groupSet) =>
             connectedRemoteId(groupSet.connection) === input.remoteGroupSetId,
         )
@@ -1504,16 +1504,16 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "Creating connected local group set.",
         })
-        const localGroupSetId = generateLocalGroupSetId(profile)
-        const profileWithConnectedSet: PersistedProfile = {
-          ...profile,
+        const localGroupSetId = generateLocalGroupSetId(course)
+        const courseWithConnectedSet: PersistedCourse = {
+          ...course,
           roster: {
-            ...profile.roster,
+            ...course.roster,
             groupSets: [
-              ...profile.roster.groupSets,
+              ...course.roster.groupSets,
               createConnectedGroupSet(
                 draft.provider,
-                profile.courseId,
+                course.lmsCourseId,
                 input.remoteGroupSetId,
                 localGroupSetId,
               ),
@@ -1529,7 +1529,7 @@ export function createGroupSetWorkflowHandlers(
         })
         const fetched = await ports.lms.fetchGroupSet(
           draft,
-          profile.courseId,
+          course.lmsCourseId,
           input.remoteGroupSetId,
           options?.signal,
           (message) => {
@@ -1546,8 +1546,8 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "Applying LMS group-set patch to roster.",
         })
-        const { nextProfile, nextGroupSet } = applyFetchedGroupSetToProfile(
-          profileWithConnectedSet,
+        const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
+          courseWithConnectedSet,
           localGroupSetId,
           fetched,
         )
@@ -1558,7 +1558,7 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "LMS group-set connection complete.",
         })
-        return { ...nextGroupSet, roster: nextProfile.roster }
+        return { ...nextGroupSet, roster: nextCourse.roster }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error
@@ -1578,23 +1578,23 @@ export function createGroupSetWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const draft = resolveLmsDraft(profile, settings)
+        const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
 
-        if (profile.courseId === null) {
+        if (course.lmsCourseId === null) {
           throw {
             type: "not-found",
-            message: "Profile does not have a selected course.",
+            message: "Course does not have a selected LMS course ID.",
             resource: "course",
           } satisfies AppError
         }
 
-        const remoteGroupSetId = lmsGroupSetRemoteId(input.groupSetId, profile)
+        const remoteGroupSetId = lmsGroupSetRemoteId(input.groupSetId, course)
 
         options?.onProgress?.({
           step: 2,
@@ -1603,7 +1603,7 @@ export function createGroupSetWorkflowHandlers(
         })
         const fetched = await ports.lms.fetchGroupSet(
           draft,
-          profile.courseId,
+          course.lmsCourseId,
           remoteGroupSetId,
           options?.signal,
           (message) => {
@@ -1620,8 +1620,8 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "Applying LMS group-set patch to roster.",
         })
-        const { nextProfile, nextGroupSet } = applyFetchedGroupSetToProfile(
-          profile,
+        const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
+          course,
           input.groupSetId,
           fetched,
         )
@@ -1632,7 +1632,7 @@ export function createGroupSetWorkflowHandlers(
           totalSteps,
           label: "LMS group-set sync complete.",
         })
-        return { ...nextGroupSet, roster: nextProfile.roster }
+        return { ...nextGroupSet, roster: nextCourse.roster }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error
@@ -1649,9 +1649,9 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Reading profile snapshot for group-set import preview.",
+        label: "Reading course snapshot for group-set import preview.",
       })
-      const profile = resolveProfileSnapshot(input.profile)
+      const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
 
       options?.onProgress?.({
@@ -1679,7 +1679,7 @@ export function createGroupSetWorkflowHandlers(
         )
       }
       const parsedRows = parseGroupSetImportRows(parseCsv(fileText.text).rows)
-      const preview = previewImportGroupSet(profile.roster, parsedRows)
+      const preview = previewImportGroupSet(course.roster, parsedRows)
       if (!preview.ok) {
         throw createValidationAppError(
           "Group-set import preview failed.",
@@ -1704,9 +1704,9 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Reading profile snapshot for group-set reimport preview.",
+        label: "Reading course snapshot for group-set reimport preview.",
       })
-      const profile = resolveProfileSnapshot(input.profile)
+      const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
 
       options?.onProgress?.({
@@ -1735,7 +1735,7 @@ export function createGroupSetWorkflowHandlers(
       }
       const parsedRows = parseGroupSetImportRows(parseCsv(fileText.text).rows)
       const preview = previewReimportGroupSet(
-        profile.roster,
+        course.roster,
         input.groupSetId,
         parsedRows,
       )
@@ -1763,12 +1763,12 @@ export function createGroupSetWorkflowHandlers(
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Reading profile snapshot and group set for export.",
+        label: "Reading course snapshot and group set for export.",
       })
-      const profile = resolveProfileSnapshot(input.profile)
+      const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
 
-      const exportedRows = exportGroupSetRows(profile.roster, input.groupSetId)
+      const exportedRows = exportGroupSetRows(course.roster, input.groupSetId)
       if (!exportedRows.ok) {
         throw createValidationAppError(
           "Group-set export preparation failed.",
@@ -1843,10 +1843,10 @@ export function createGitUsernameWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
         const settings = resolveAppSettingsSnapshot(input.appSettings)
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         throwIfAborted(options?.signal)
 
         options?.onProgress?.({
@@ -1880,9 +1880,9 @@ export function createGitUsernameWorkflowHandlers(
         const parsed = parseCsv(fileText.text)
         const rows = parseGitUsernameRows(parsed.rows)
         const roster = {
-          ...profile.roster,
-          students: profile.roster.students.map((student) => ({ ...student })),
-          staff: profile.roster.staff.map((member) => ({ ...member })),
+          ...course.roster,
+          students: course.roster.students.map((student) => ({ ...student })),
+          staff: course.roster.staff.map((member) => ({ ...member })),
         }
         const studentIndexByEmail = new Map<string, number>()
         for (const [index, student] of roster.students.entries()) {
@@ -1908,7 +1908,7 @@ export function createGitUsernameWorkflowHandlers(
           matched += 1
         }
 
-        const gitDraft = resolveGitDraft(profile, settings)
+        const gitDraft = resolveGitDraft(course, settings)
         if (gitDraft !== null) {
           providerForError = gitDraft.provider
           options?.onProgress?.({
@@ -1990,17 +1990,17 @@ export type RepositoryWorkflowPorts = {
 }
 
 function collectRepositoryGroups(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   assignmentId: string | null,
 ): ValidationResult<PlannedRepositoryGroup[]> {
   const assignmentIds =
     assignmentId === null
-      ? profile.roster.assignments.map((assignment) => assignment.id)
+      ? course.roster.assignments.map((assignment) => assignment.id)
       : [assignmentId]
 
   const plannedGroups: PlannedRepositoryGroup[] = []
   for (const selectedAssignmentId of assignmentIds) {
-    const plan = planRepositoryOperation(profile.roster, selectedAssignmentId)
+    const plan = planRepositoryOperation(course.roster, selectedAssignmentId)
     if (!plan.ok) {
       return plan
     }
@@ -2137,16 +2137,16 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const gitDraft = resolveGitDraft(profile, settings)
+        const gitDraft = resolveGitDraft(course, settings)
         if (gitDraft === null) {
           throw {
             type: "not-found",
-            message: "Profile does not reference a Git connection.",
+            message: "Course does not reference a Git connection.",
             resource: "connection",
           } satisfies AppError
         }
@@ -2158,7 +2158,7 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(profile, input.assignmentId)
+        const planned = collectRepositoryGroups(course, input.assignmentId)
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -2219,16 +2219,16 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const gitDraft = resolveGitDraft(profile, settings)
+        const gitDraft = resolveGitDraft(course, settings)
         if (gitDraft === null) {
           throw {
             type: "not-found",
-            message: "Profile does not reference a Git connection.",
+            message: "Course does not reference a Git connection.",
             resource: "connection",
           } satisfies AppError
         }
@@ -2240,7 +2240,7 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(profile, input.assignmentId)
+        const planned = collectRepositoryGroups(course, input.assignmentId)
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -2421,16 +2421,16 @@ export function createRepositoryWorkflowHandlers(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading profile and app settings snapshots.",
+          label: "Reading course and app settings snapshots.",
         })
-        const profile = resolveProfileSnapshot(input.profile)
+        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const gitDraft = resolveGitDraft(profile, settings)
+        const gitDraft = resolveGitDraft(course, settings)
         if (gitDraft === null) {
           throw {
             type: "not-found",
-            message: "Profile does not reference a Git connection.",
+            message: "Course does not reference a Git connection.",
             resource: "connection",
           } satisfies AppError
         }
@@ -2442,7 +2442,7 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(profile, input.assignmentId)
+        const planned = collectRepositoryGroups(course, input.assignmentId)
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",

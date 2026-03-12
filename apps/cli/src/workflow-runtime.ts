@@ -1,7 +1,7 @@
 import {
   createConnectionWorkflowHandlers,
+  createCourseWorkflowHandlers,
   createGroupSetWorkflowHandlers,
-  createProfileWorkflowHandlers,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
@@ -32,7 +32,7 @@ import { createLmsClient } from "@repo-edu/integrations-lms"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import {
   createCliAppSettingsStore,
-  createCliProfileStore,
+  createCliCourseStore,
 } from "./state-store.js"
 
 const unsupportedUserFilePort: UserFilePort = {
@@ -179,13 +179,13 @@ function createGitProviderDispatch() {
 }
 
 export function createCliWorkflowClient(): WorkflowClient {
-  const profileStore = createCliProfileStore()
+  const courseStore = createCliCourseStore()
   const appSettingsStore = createCliAppSettingsStore()
   const lms = createLmsProviderDispatch()
   const git = createGitProviderDispatch()
 
   return createWorkflowClient({
-    ...createProfileWorkflowHandlers(profileStore),
+    ...createCourseWorkflowHandlers(courseStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
     ...createConnectionWorkflowHandlers({ lms, git }),
     ...createValidationWorkflowHandlers(),

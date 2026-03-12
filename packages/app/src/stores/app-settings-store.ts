@@ -23,7 +23,7 @@ type AppSettingsActions = {
   load: () => Promise<void>
   save: () => Promise<void>
 
-  setActiveProfileId: (profileId: string | null) => void
+  setActiveCourseId: (courseId: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
   setDateFormat: (dateFormat: DateFormatPreference) => void
@@ -90,11 +90,11 @@ export const useAppSettingsStore = create<
     }
   },
 
-  setActiveProfileId: (profileId) =>
+  setActiveCourseId: (courseId) =>
     set((state) => ({
       settings: {
         ...state.settings,
-        activeProfileId: profileId,
+        activeCourseId: courseId,
       },
     })),
 
@@ -218,8 +218,8 @@ export const useAppSettingsStore = create<
 
 export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
-export const selectAppSettingsActiveProfileId = (state: AppSettingsState) =>
-  state.settings.activeProfileId
+export const selectAppSettingsActiveCourseId = (state: AppSettingsState) =>
+  state.settings.activeCourseId
 export const selectLmsConnections = (state: AppSettingsState) =>
   state.settings.lmsConnections
 export const selectGitConnections = (state: AppSettingsState) =>

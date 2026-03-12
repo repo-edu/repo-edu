@@ -1,12 +1,12 @@
 /**
- * SaveButton — Saves profile and displays visual feedback.
+ * SaveButton — Saves course and displays visual feedback.
  * States: idle → saving (spinner) → success (checkmark) → idle.
  */
 
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
-import { useProfileStore } from "../stores/profile-store.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 type SaveStatus = "idle" | "saving" | "success" | "error"
@@ -17,12 +17,12 @@ type SaveButtonProps = {
 }
 
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
-  const save = useProfileStore((s) => s.save)
+  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const save = useCourseStore((s) => s.save)
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   const handleSave = useCallback(async () => {
-    if (!activeProfileId) return
+    if (!activeCourseId) return
 
     setStatus("saving")
 
@@ -42,9 +42,9 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
       setStatus("error")
       setTimeout(() => setStatus("idle"), 1500)
     }
-  }, [activeProfileId, save, onSaved])
+  }, [activeCourseId, save, onSaved])
 
-  const isDisabled = !activeProfileId || !isDirty || status === "saving"
+  const isDisabled = !activeCourseId || !isDirty || status === "saving"
 
   return (
     <Button

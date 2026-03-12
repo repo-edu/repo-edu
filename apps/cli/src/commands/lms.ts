@@ -1,8 +1,8 @@
-import type { GroupSet, PersistedProfile } from "@repo-edu/domain"
+import type { GroupSet, PersistedCourse } from "@repo-edu/domain"
 import type { Command } from "commander"
 import {
   emitCommandError,
-  loadSelectedProfile,
+  loadSelectedCourse,
   requireLmsConnection,
   toErrorMessage,
 } from "../command-utils.js"
@@ -34,17 +34,17 @@ function printCachedGroupSet(groupSet: GroupSet): void {
 }
 
 function removeCachedGroupSet(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   groupSetId: string,
-): PersistedProfile {
-  const target = profile.roster.groupSets.find(
+): PersistedCourse {
+  const target = course.roster.groupSets.find(
     (groupSet) => groupSet.id === groupSetId,
   )
   if (!target) {
     throw new Error(`Cached group set '${groupSetId}' was not found.`)
   }
 
-  const assignmentUsingTarget = profile.roster.assignments.find(
+  const assignmentUsingTarget = course.roster.assignments.find(
     (assignment) => assignment.groupSetId === groupSetId,
   )
   if (assignmentUsingTarget) {
@@ -54,7 +54,7 @@ function removeCachedGroupSet(
   }
 
   const sharedGroupIds = new Set<string>()
-  for (const groupSet of profile.roster.groupSets) {
+  for (const groupSet of course.roster.groupSets) {
     if (groupSet.id === groupSetId) {
       continue
     }
@@ -69,13 +69,13 @@ function removeCachedGroupSet(
   )
 
   return {
-    ...profile,
+    ...course,
     roster: {
-      ...profile.roster,
-      groupSets: profile.roster.groupSets.filter(
+      ...course.roster,
+      groupSets: course.roster.groupSets.filter(
         (groupSet) => groupSet.id !== groupSetId,
       ),
-      groups: profile.roster.groups.filter(
+      groups: course.roster.groups.filter(
         (group) => !removableGroupIds.has(group.id),
       ),
     },
@@ -87,16 +87,16 @@ export function registerLmsCommands(parent: Command): void {
 
   lms
     .command("verify")
-    .description("Verify LMS connection for selected profile")
+    .description("Verify LMS connection for selected course")
     .action(async function (this: Command) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const connection = requireLmsConnection(profile, settings)
+        const connection = requireLmsConnection(course, settings)
         const result = await workflowClient.run("connection.verifyLmsDraft", {
           provider: connection.provider,
           baseUrl: connection.baseUrl,
@@ -117,34 +117,34 @@ export function registerLmsCommands(parent: Command): void {
 
   lms
     .command("import-students")
-    .description("Import students from LMS and save to the selected profile")
+    .description("Import students from LMS and save to the selected course")
     .action(async function (this: Command) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        if (profile.courseId === null) {
+        if (course.lmsCourseId === null) {
           throw new Error(
-            "Selected profile does not have a configured courseId.",
+            "Selected course does not have a configured LMS course ID.",
           )
         }
 
         const imported = await workflowClient.run("roster.importFromLms", {
-          profile,
+          course,
           appSettings: settings,
-          courseId: profile.courseId,
+          lmsCourseId: course.lmsCourseId,
         })
 
-        await workflowClient.run("profile.save", {
-          ...profile,
+        await workflowClient.run("course.save", {
+          ...course,
           roster: imported.roster,
         })
 
         process.stdout.write(
-          `Imported ${imported.roster.students.length} students from LMS into profile '${profile.id}'.\n`,
+          `Imported ${imported.roster.students.length} students from LMS into course '${course.id}'.\n`,
         )
       } catch (error) {
         emitCommandError(toErrorMessage(error))
@@ -153,24 +153,24 @@ export function registerLmsCommands(parent: Command): void {
 
   lms
     .command("import-groups")
-    .description("Sync an LMS-linked group set into the selected profile")
+    .description("Sync an LMS-linked group set into the selected course")
     .requiredOption("--group-set <id>", "Group-set ID to sync")
     .action(async function (this: Command, options: LmsImportGroupsOptions) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
 
         const result = await workflowClient.run("groupSet.syncFromLms", {
-          profile,
+          course,
           appSettings: settings,
           groupSetId: String(options.groupSet),
         })
-        await workflowClient.run("profile.save", {
-          ...profile,
+        await workflowClient.run("course.save", {
+          ...course,
           roster: result.roster,
         })
 
@@ -186,14 +186,14 @@ export function registerLmsCommands(parent: Command): void {
 
   cache
     .command("list")
-    .description("List cached LMS group sets in selected profile")
+    .description("List cached LMS group sets in selected course")
     .action(async function (this: Command) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { course } = await loadSelectedCourse(this, workflowClient)
 
-        const cached = profile.roster.groupSets.filter(
+        const cached = course.roster.groupSets.filter(
           (groupSet) =>
             groupSet.connection?.kind === "canvas" ||
             groupSet.connection?.kind === "moodle",
@@ -214,20 +214,20 @@ export function registerLmsCommands(parent: Command): void {
 
   cache
     .command("fetch")
-    .description("Fetch available LMS group sets for selected profile")
+    .description("Fetch available LMS group sets for selected course")
     .option("--group-set <id>", "Specific LMS group-set ID")
     .action(async function (this: Command, options: LmsCacheFetchOptions) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
         const available = await workflowClient.run(
           "groupSet.fetchAvailableFromLms",
           {
-            profile,
+            course,
             appSettings: settings,
           },
         )
@@ -271,17 +271,17 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
         const result = await workflowClient.run("groupSet.syncFromLms", {
-          profile,
+          course,
           appSettings: settings,
           groupSetId,
         })
-        await workflowClient.run("profile.save", {
-          ...profile,
+        await workflowClient.run("course.save", {
+          ...course,
           roster: result.roster,
         })
 
@@ -301,10 +301,10 @@ export function registerLmsCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const loaded = await loadSelectedProfile(this, workflowClient)
-        const nextProfile = removeCachedGroupSet(loaded.profile, groupSetId)
+        const loaded = await loadSelectedCourse(this, workflowClient)
+        const nextCourse = removeCachedGroupSet(loaded.course, groupSetId)
 
-        await workflowClient.run("profile.save", nextProfile)
+        await workflowClient.run("course.save", nextCourse)
 
         process.stdout.write(`Deleted cached group set '${groupSetId}'.\n`)
       } catch (error) {

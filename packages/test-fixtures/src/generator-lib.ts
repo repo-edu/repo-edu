@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker"
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
-import { defaultAppSettings, persistedProfileKind } from "@repo-edu/domain"
+import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
+import { defaultAppSettings, persistedCourseKind } from "@repo-edu/domain"
 import type { FixturePreset, FixtureTier } from "./fixture-defs.js"
 import type {
   FixtureArtifact,
@@ -269,7 +269,7 @@ function createAssignmentScopedGroupModel(
 }
 
 function createArtifacts(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   preset: FixturePreset,
 ): FixtureArtifact[] {
   const studentsCsv = [
@@ -281,7 +281,7 @@ function createArtifacts(
       "git_username",
       "status",
     ]),
-    ...profile.roster.students.map((student) =>
+    ...course.roster.students.map((student) =>
       toCsvLine([
         student.id,
         student.name,
@@ -294,24 +294,24 @@ function createArtifacts(
   ].join("\n")
 
   const memberById = new Map(
-    profile.roster.students
-      .concat(profile.roster.staff)
+    course.roster.students
+      .concat(course.roster.staff)
       .map((member) => [member.id, member] as const),
   )
 
   const preferredGroupSetId =
     preset === "assignment-scoped" ? "gs-a1" : "gs-project-teams"
-  const fallbackGroupSet = profile.roster.groupSets.find(
+  const fallbackGroupSet = course.roster.groupSets.find(
     (groupSet) => groupSet.connection === null,
   )
   const selectedGroupSet =
-    profile.roster.groupSets.find(
+    course.roster.groupSets.find(
       (groupSet) => groupSet.id === preferredGroupSetId,
     ) ?? fallbackGroupSet
 
   const selectedGroups = (selectedGroupSet?.groupIds ?? [])
     .map((groupId) =>
-      profile.roster.groups.find((group) => group.id === groupId),
+      course.roster.groups.find((group) => group.id === groupId),
     )
     .filter((group): group is NonNullable<typeof group> => group !== undefined)
 
@@ -406,8 +406,7 @@ function createFixtureRecord(
     lmsGroupId: null,
   }
 
-  const profileId = `fixture-${tier}-${preset}`
-  const courseId = `course-${tier}-${preset}`
+  const courseId = `fixture-${tier}-${preset}`
   const roster = {
     connection: null,
     students,
@@ -445,15 +444,15 @@ function createFixtureRecord(
     assignments: userGroups.assignments,
   }
 
-  const profile: PersistedProfile = {
-    kind: persistedProfileKind,
-    schemaVersion: 3,
+  const course: PersistedCourse = {
+    kind: persistedCourseKind,
+    schemaVersion: 1,
     revision: 0,
-    id: profileId,
+    id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
     lmsConnectionName: "Canvas Demo",
     gitConnectionName: "GitHub Demo",
-    courseId,
+    lmsCourseId: courseId,
     roster,
     repositoryTemplate: {
       owner: "fixture-org",
@@ -465,7 +464,7 @@ function createFixtureRecord(
 
   const settings: PersistedAppSettings = {
     ...defaultAppSettings,
-    activeProfileId: profileId,
+    activeCourseId: courseId,
     lmsConnections: [
       {
         name: "Canvas Demo",
@@ -487,9 +486,9 @@ function createFixtureRecord(
   }
 
   return {
-    profile,
+    course,
     settings,
-    artifacts: createArtifacts(profile, preset),
+    artifacts: createArtifacts(course, preset),
   }
 }
 

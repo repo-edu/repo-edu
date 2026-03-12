@@ -3,35 +3,35 @@ import { describe, it } from "node:test"
 import type { GitUsernameImportInput } from "@repo-edu/application-contract"
 import {
   type PersistedAppSettings,
-  type PersistedProfile,
+  type PersistedCourse,
   systemSetsMissing,
 } from "@repo-edu/domain"
 import {
   createConnectionWorkflowHandlers,
+  createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
   createInMemoryAppSettingsStore,
-  createInMemoryProfileStore,
-  createProfileWorkflowHandlers,
+  createInMemoryCourseStore,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationAppError,
   createValidationWorkflowHandlers,
-  runValidateAssignmentForProfile,
-  runValidateRosterForProfile,
+  runValidateAssignmentForCourse,
+  runValidateRosterForCourse,
 } from "../index.js"
 
-function makeProfile(): PersistedProfile {
+function makeProfile(): PersistedCourse {
   return {
-    kind: "repo-edu.profile.v3",
-    schemaVersion: 3,
+    kind: "repo-edu.course.v1",
+    schemaVersion: 1,
     revision: 0,
-    id: "profile-1",
-    displayName: "Profile",
+    id: "course-1",
+    displayName: "Course",
     lmsConnectionName: null,
     gitConnectionName: null,
-    courseId: null,
+    lmsCourseId: null,
     roster: {
       connection: null,
       students: [
@@ -98,7 +98,7 @@ function makeSettings(): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
     schemaVersion: 1,
-    activeProfileId: null,
+    activeCourseId: null,
     appearance: {
       theme: "system",
       windowChrome: "system",
@@ -114,8 +114,8 @@ function makeSettings(): PersistedAppSettings {
 }
 
 describe("application validation helpers", () => {
-  it("validates roster issues from a persisted profile", () => {
-    const result = runValidateRosterForProfile(makeProfile())
+  it("validates roster issues from a persisted course", () => {
+    const result = runValidateRosterForCourse(makeProfile())
 
     assert.equal(
       result.issues.some((issue) => issue.kind === "system_group_sets_missing"),
@@ -127,8 +127,8 @@ describe("application validation helpers", () => {
     )
   })
 
-  it("validates assignment issues from a persisted profile", () => {
-    const result = runValidateAssignmentForProfile(makeProfile(), "a1")
+  it("validates assignment issues from a persisted course", () => {
+    const result = runValidateAssignmentForCourse(makeProfile(), "a1")
 
     assert.equal(
       result.issues.some((issue) => issue.kind === "empty_group"),
@@ -141,7 +141,7 @@ describe("application validation helpers", () => {
   })
 
   it("normalizes validation issues into an AppError", () => {
-    const issues = runValidateRosterForProfile(makeProfile()).issues
+    const issues = runValidateRosterForCourse(makeProfile()).issues
     const error = createValidationAppError("Validation failed.", issues)
 
     assert.deepStrictEqual(error, {
@@ -151,15 +151,15 @@ describe("application validation helpers", () => {
     })
   })
 
-  it("validates using explicit profile snapshots", async () => {
-    const profile = makeProfile()
+  it("validates using explicit course snapshots", async () => {
+    const course = makeProfile()
     const handlers = createValidationWorkflowHandlers()
 
     const rosterResult = await handlers["validation.roster"]({
-      profile,
+      course,
     })
     const assignmentResult = await handlers["validation.assignment"]({
-      profile,
+      course,
       assignmentId: "a1",
     })
 
@@ -170,14 +170,14 @@ describe("application validation helpers", () => {
     )
   })
 
-  it("returns validation error for invalid profile snapshots", async () => {
+  it("returns validation error for invalid course snapshots", async () => {
     const handlers = createValidationWorkflowHandlers()
 
     await assert.rejects(
       handlers["validation.roster"]({
-        profile: {
+        course: {
           ...makeProfile(),
-          kind: "wrong-kind" as PersistedProfile["kind"],
+          kind: "wrong-kind" as PersistedCourse["kind"],
         },
       }),
       (error: unknown) =>
@@ -191,19 +191,19 @@ describe("application validation helpers", () => {
 
 describe("application git username workflow helpers", () => {
   it("imports Git usernames by student email and verifies status with provider", async () => {
-    const profile = {
+    const course = {
       ...makeProfile(),
       gitConnectionName: "main-git",
     }
-    profile.roster.students = [
+    course.roster.students = [
       {
-        ...profile.roster.students[0],
+        ...course.roster.students[0],
         email: "s1@example.com",
       },
     ]
     const settings = {
       ...makeSettings(),
-      activeProfileId: profile.id,
+      activeCourseId: course.id,
       gitConnections: [
         {
           name: "main-git",
@@ -246,7 +246,7 @@ describe("application git username workflow helpers", () => {
     })
 
     const roster = await handlers["gitUsernames.import"]({
-      profile,
+      course,
       appSettings: settings,
       file: {
         kind: "user-file-ref",
@@ -301,10 +301,10 @@ describe("application git username workflow helpers", () => {
   })
 
   it("rejects non-csv imports with a validation AppError", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     const settings = {
       ...makeSettings(),
-      activeProfileId: profile.id,
+      activeCourseId: course.id,
     }
     const handlers = createGitUsernameWorkflowHandlers({
       userFile: {
@@ -329,7 +329,7 @@ describe("application git username workflow helpers", () => {
 
     await assert.rejects(
       handlers["gitUsernames.import"]({
-        profile,
+        course,
         appSettings: settings,
         file: {
           kind: "user-file-ref",
@@ -474,13 +474,13 @@ describe("application connection verification workflow helpers", () => {
   })
 })
 
-describe("application profile workflow helpers", () => {
-  it("lists, loads, and saves profiles through the shared profile store", async () => {
+describe("application course workflow helpers", () => {
+  it("lists, loads, and saves courses through the shared course store", async () => {
     const original = makeProfile()
-    const store = createInMemoryProfileStore([original])
-    const handlers = createProfileWorkflowHandlers(store)
+    const store = createInMemoryCourseStore([original])
+    const handlers = createCourseWorkflowHandlers(store)
 
-    const listed = await handlers["profile.list"](undefined)
+    const listed = await handlers["course.list"](undefined)
     assert.deepStrictEqual(listed, [
       {
         id: original.id,
@@ -489,31 +489,29 @@ describe("application profile workflow helpers", () => {
       },
     ])
 
-    const loaded = await handlers["profile.load"]({ profileId: original.id })
+    const loaded = await handlers["course.load"]({ courseId: original.id })
     assert.equal(loaded.id, original.id)
 
-    const saved = await handlers["profile.save"]({
+    const saved = await handlers["course.save"]({
       ...original,
-      displayName: "Updated Profile",
+      displayName: "Updated Course",
       updatedAt: "2000-01-01T00:00:00Z",
     })
-    assert.equal(saved.displayName, "Updated Profile")
+    assert.equal(saved.displayName, "Updated Course")
     assert.notEqual(saved.updatedAt, "2000-01-01T00:00:00Z")
 
-    const reloaded = await handlers["profile.load"]({ profileId: original.id })
-    assert.equal(reloaded.displayName, "Updated Profile")
+    const reloaded = await handlers["course.load"]({ courseId: original.id })
+    assert.equal(reloaded.displayName, "Updated Course")
     assert.equal(reloaded.updatedAt, saved.updatedAt)
   })
 
-  it("returns a validation AppError when profile.save receives invalid data", async () => {
-    const handlers = createProfileWorkflowHandlers(
-      createInMemoryProfileStore([]),
-    )
+  it("returns a validation AppError when course.save receives invalid data", async () => {
+    const handlers = createCourseWorkflowHandlers(createInMemoryCourseStore([]))
 
     await assert.rejects(
-      handlers["profile.save"]({
-        ...(makeProfile() as PersistedProfile),
-        kind: "wrong-kind" as PersistedProfile["kind"],
+      handlers["course.save"]({
+        ...(makeProfile() as PersistedCourse),
+        kind: "wrong-kind" as PersistedCourse["kind"],
       }),
       (error: unknown) =>
         typeof error === "object" &&
@@ -523,20 +521,20 @@ describe("application profile workflow helpers", () => {
     )
   })
 
-  it("returns a validation AppError when profile.load resolves invalid profile data", async () => {
-    const handlers = createProfileWorkflowHandlers({
-      listProfiles: () => [],
-      loadProfile: () =>
+  it("returns a validation AppError when course.load resolves invalid course data", async () => {
+    const handlers = createCourseWorkflowHandlers({
+      listCourses: () => [],
+      loadCourse: () =>
         ({
           ...makeProfile(),
           kind: "wrong-kind",
-        }) as unknown as PersistedProfile,
-      saveProfile: (profile: PersistedProfile) => profile,
-      deleteProfile: () => {},
+        }) as unknown as PersistedCourse,
+      saveCourse: (course: PersistedCourse) => course,
+      deleteCourse: () => {},
     })
 
     await assert.rejects(
-      handlers["profile.load"]({ profileId: "profile-1" }),
+      handlers["course.load"]({ courseId: "course-1" }),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
@@ -545,22 +543,22 @@ describe("application profile workflow helpers", () => {
     )
   })
 
-  it("returns a validation AppError when profile.list contains invalid profile data", async () => {
-    const handlers = createProfileWorkflowHandlers({
-      listProfiles: () =>
+  it("returns a validation AppError when course.list contains invalid course data", async () => {
+    const handlers = createCourseWorkflowHandlers({
+      listCourses: () =>
         [
           {
             ...makeProfile(),
             kind: "wrong-kind",
           },
-        ] as unknown as PersistedProfile[],
-      loadProfile: () => makeProfile(),
-      saveProfile: (profile: PersistedProfile) => profile,
-      deleteProfile: () => {},
+        ] as unknown as PersistedCourse[],
+      loadCourse: () => makeProfile(),
+      saveCourse: (course: PersistedCourse) => course,
+      deleteCourse: () => {},
     })
 
     await assert.rejects(
-      handlers["profile.list"](undefined),
+      handlers["course.list"](undefined),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
@@ -582,12 +580,12 @@ describe("application settings workflow helpers", () => {
 
     const saved = await handlers["settings.saveApp"]({
       ...makeSettings(),
-      activeProfileId: "profile-1",
+      activeCourseId: "course-1",
     })
-    assert.equal(saved.activeProfileId, "profile-1")
+    assert.equal(saved.activeCourseId, "course-1")
 
     const reloaded = await handlers["settings.loadApp"](undefined)
-    assert.equal(reloaded.activeProfileId, "profile-1")
+    assert.equal(reloaded.activeCourseId, "course-1")
   })
 
   it("returns a validation AppError when settings.saveApp receives invalid data", async () => {
@@ -650,8 +648,8 @@ describe("application roster workflow helpers", () => {
     assert.equal(roster.connection?.kind, "import")
   })
 
-  it("imports roster from LMS using the profile connection and enforces system sets", async () => {
-    const profile = {
+  it("imports roster from LMS using the course connection and enforces system sets", async () => {
+    const course = {
       ...makeProfile(),
       lmsConnectionName: "main-lms",
     }
@@ -716,9 +714,9 @@ describe("application roster workflow helpers", () => {
     })
 
     const imported = await handlers["roster.importFromLms"]({
-      profile,
+      course,
       appSettings: settings,
-      courseId: "course-42",
+      lmsCourseId: "course-42",
     })
 
     assert.deepStrictEqual(receivedDraft, {
@@ -731,7 +729,7 @@ describe("application roster workflow helpers", () => {
   })
 
   it("exports students to CSV and rejects unsupported xlsx export", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     let lastWrittenText = ""
 
     const handlers = createRosterWorkflowHandlers({
@@ -764,7 +762,7 @@ describe("application roster workflow helpers", () => {
       suggestedFormat: "csv" as const,
     }
     const result = await handlers["roster.exportMembers"]({
-      profile,
+      course,
       target,
       format: "csv",
     })
@@ -773,7 +771,7 @@ describe("application roster workflow helpers", () => {
 
     await assert.rejects(
       handlers["roster.exportMembers"]({
-        profile,
+        course,
         target: {
           ...target,
           displayName: "students.xlsx",
@@ -791,11 +789,11 @@ describe("application roster workflow helpers", () => {
 })
 
 describe("application group-set workflow helpers", () => {
-  it("discovers available LMS group sets for the profile course", async () => {
-    const profile = {
+  it("discovers available LMS group sets for the course course", async () => {
+    const course = {
       ...makeProfile(),
       lmsConnectionName: "main-lms",
-      courseId: "course-42",
+      lmsCourseId: "course-42",
     }
     const settings = {
       ...makeSettings(),
@@ -837,7 +835,7 @@ describe("application group-set workflow helpers", () => {
     })
 
     const result = await handlers["groupSet.fetchAvailableFromLms"]({
-      profile,
+      course,
       appSettings: settings,
     })
 
@@ -849,18 +847,18 @@ describe("application group-set workflow helpers", () => {
   })
 
   it("connects an LMS group set using a local id and persists remote linkage", async () => {
-    const profile = makeProfile()
-    profile.lmsConnectionName = "main-lms"
-    profile.courseId = "course-42"
-    profile.roster.students = [
+    const course = makeProfile()
+    course.lmsConnectionName = "main-lms"
+    course.lmsCourseId = "course-42"
+    course.roster.students = [
       {
-        ...profile.roster.students[0],
+        ...course.roster.students[0],
         id: "s-local-1",
         lmsUserId: "u-1",
       },
     ]
-    profile.roster.groups = []
-    profile.roster.groupSets = []
+    course.roster.groups = []
+    course.roster.groupSets = []
 
     const settings = {
       ...makeSettings(),
@@ -926,7 +924,7 @@ describe("application group-set workflow helpers", () => {
     })
 
     const connected = await handlers["groupSet.connectFromLms"]({
-      profile,
+      course,
       appSettings: settings,
       remoteGroupSetId: "remote-set-1",
     })
@@ -958,10 +956,10 @@ describe("application group-set workflow helpers", () => {
   })
 
   it("rejects connecting an LMS group set that is already connected", async () => {
-    const profile = makeProfile()
-    profile.lmsConnectionName = "main-lms"
-    profile.courseId = "course-42"
-    profile.roster.groupSets = [
+    const course = makeProfile()
+    course.lmsConnectionName = "main-lms"
+    course.lmsCourseId = "course-42"
+    course.roster.groupSets = [
       {
         id: "gs-remote-1",
         name: "Existing LMS Set",
@@ -1015,7 +1013,7 @@ describe("application group-set workflow helpers", () => {
 
     await assert.rejects(
       handlers["groupSet.connectFromLms"]({
-        profile,
+        course,
         appSettings: settings,
         remoteGroupSetId: "remote-set-1",
       }),
@@ -1027,18 +1025,18 @@ describe("application group-set workflow helpers", () => {
     )
   })
 
-  it("syncs an LMS-connected group set into the profile roster", async () => {
-    const profile = makeProfile()
-    profile.lmsConnectionName = "main-lms"
-    profile.courseId = "course-42"
-    profile.roster.students = [
+  it("syncs an LMS-connected group set into the course roster", async () => {
+    const course = makeProfile()
+    course.lmsConnectionName = "main-lms"
+    course.lmsCourseId = "course-42"
+    course.roster.students = [
       {
-        ...profile.roster.students[0],
+        ...course.roster.students[0],
         id: "s-local-1",
         lmsUserId: "u-1",
       },
     ]
-    profile.roster.groups = [
+    course.roster.groups = [
       {
         id: "g-local-1",
         name: "Old Name",
@@ -1054,7 +1052,7 @@ describe("application group-set workflow helpers", () => {
         lmsGroupId: "20",
       },
     ]
-    profile.roster.groupSets = [
+    course.roster.groupSets = [
       {
         id: "gs1",
         name: "Imported LMS Set",
@@ -1134,7 +1132,7 @@ describe("application group-set workflow helpers", () => {
     })
 
     const synced = await handlers["groupSet.syncFromLms"]({
-      profile,
+      course,
       appSettings: settings,
       groupSetId: "gs1",
     })
@@ -1149,10 +1147,10 @@ describe("application group-set workflow helpers", () => {
   })
 
   it("previews group-set import and reimport from csv", async () => {
-    const profile = makeProfile()
-    profile.roster.students = [
+    const course = makeProfile()
+    course.roster.students = [
       {
-        ...profile.roster.students[0],
+        ...course.roster.students[0],
         email: "s1@example.com",
       },
     ]
@@ -1197,7 +1195,7 @@ describe("application group-set workflow helpers", () => {
     })
 
     const importPreview = await handlers["groupSet.previewImportFromFile"]({
-      profile,
+      course,
       file: {
         kind: "user-file-ref",
         referenceId: "import-file",
@@ -1212,7 +1210,7 @@ describe("application group-set workflow helpers", () => {
     ])
 
     const reimportPreview = await handlers["groupSet.previewReimportFromFile"]({
-      profile,
+      course,
       groupSetId: "gs1",
       file: {
         kind: "user-file-ref",
@@ -1232,7 +1230,7 @@ describe("application group-set workflow helpers", () => {
   })
 
   it("exports group sets to csv/yaml and rejects xlsx", async () => {
-    const profile = makeProfile()
+    const course = makeProfile()
     let lastWritten = ""
 
     const handlers = createGroupSetWorkflowHandlers({
@@ -1267,7 +1265,7 @@ describe("application group-set workflow helpers", () => {
       suggestedFormat: "csv" as const,
     }
     const csvResult = await handlers["groupSet.export"]({
-      profile,
+      course,
       groupSetId: "gs1",
       target: csvTarget,
       format: "csv",
@@ -1285,7 +1283,7 @@ describe("application group-set workflow helpers", () => {
       suggestedFormat: "yaml" as const,
     }
     await handlers["groupSet.export"]({
-      profile,
+      course,
       groupSetId: "gs1",
       target: yamlTarget,
       format: "yaml",
@@ -1294,7 +1292,7 @@ describe("application group-set workflow helpers", () => {
 
     await assert.rejects(
       handlers["groupSet.export"]({
-        profile,
+        course,
         groupSetId: "gs1",
         target: {
           ...csvTarget,
@@ -1315,7 +1313,7 @@ describe("application group-set workflow helpers", () => {
 
 describe("application repository workflow helpers", () => {
   it("creates repositories from assignment planning output", async () => {
-    const profile = {
+    const course = {
       ...makeProfile(),
       gitConnectionName: "main-git",
     }
@@ -1367,7 +1365,7 @@ describe("application repository workflow helpers", () => {
     })
 
     const result = await handlers["repo.create"]({
-      profile,
+      course,
       appSettings: settings,
       assignmentId: null,
       template: null,
@@ -1383,7 +1381,7 @@ describe("application repository workflow helpers", () => {
   })
 
   it("clones repositories and requires confirmation for delete", async () => {
-    const profile = {
+    const course = {
       ...makeProfile(),
       gitConnectionName: "main-git",
     }
@@ -1443,7 +1441,7 @@ describe("application repository workflow helpers", () => {
     })
 
     const cloneResult = await handlers["repo.clone"]({
-      profile,
+      course,
       appSettings: settings,
       assignmentId: null,
       template: null,
@@ -1459,7 +1457,7 @@ describe("application repository workflow helpers", () => {
 
     await assert.rejects(
       handlers["repo.delete"]({
-        profile,
+        course,
         appSettings: settings,
         assignmentId: null,
         template: null,
@@ -1472,7 +1470,7 @@ describe("application repository workflow helpers", () => {
     )
 
     const deleteResult = await handlers["repo.delete"]({
-      profile,
+      course,
       appSettings: settings,
       assignmentId: null,
       template: null,

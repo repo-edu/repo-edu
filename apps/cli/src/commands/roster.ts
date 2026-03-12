@@ -1,7 +1,7 @@
 import type { Command } from "commander"
 import {
   emitCommandError,
-  loadSelectedProfile,
+  loadSelectedCourse,
   toErrorMessage,
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
@@ -23,22 +23,20 @@ export function registerRosterCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
+        const { course } = await loadSelectedCourse(this, workflowClient)
 
+        process.stdout.write(`Course: ${course.id} (${course.displayName})\n`)
+        process.stdout.write(`Students: ${course.roster.students.length}\n`)
+        process.stdout.write(`Staff: ${course.roster.staff.length}\n`)
+        process.stdout.write(`Groups: ${course.roster.groups.length}\n`)
+        process.stdout.write(`Group sets: ${course.roster.groupSets.length}\n`)
         process.stdout.write(
-          `Profile: ${profile.id} (${profile.displayName})\n`,
-        )
-        process.stdout.write(`Students: ${profile.roster.students.length}\n`)
-        process.stdout.write(`Staff: ${profile.roster.staff.length}\n`)
-        process.stdout.write(`Groups: ${profile.roster.groups.length}\n`)
-        process.stdout.write(`Group sets: ${profile.roster.groupSets.length}\n`)
-        process.stdout.write(
-          `Assignments: ${profile.roster.assignments.length}\n`,
+          `Assignments: ${course.roster.assignments.length}\n`,
         )
 
         if (options.students) {
           process.stdout.write("\nStudents:\n")
-          for (const student of profile.roster.students) {
+          for (const student of course.roster.students) {
             process.stdout.write(
               `- ${student.id}\t${student.name}\t${student.email || "(no email)"}\t${student.gitUsername ?? "(no git username)"}\n`,
             )
@@ -48,10 +46,10 @@ export function registerRosterCommands(parent: Command): void {
         if (options.assignments) {
           process.stdout.write("\nAssignments:\n")
           const groupSetById = new Map(
-            profile.roster.groupSets.map((groupSet) => [groupSet.id, groupSet]),
+            course.roster.groupSets.map((groupSet) => [groupSet.id, groupSet]),
           )
 
-          for (const assignment of profile.roster.assignments) {
+          for (const assignment of course.roster.assignments) {
             const groupSet = groupSetById.get(assignment.groupSetId)
             process.stdout.write(
               `- ${assignment.id}\t${assignment.name}\tgroup-set=${groupSet?.name ?? assignment.groupSetId}\n`,

@@ -1,4 +1,4 @@
-import type { ProfileSummary } from "@repo-edu/domain"
+import type { CourseSummary } from "@repo-edu/domain"
 import { create } from "zustand"
 import type { ActiveTab } from "../types/index.js"
 
@@ -27,12 +27,12 @@ export type LmsImportConflict = {
 type UiState = {
   // Navigation
   activeTab: ActiveTab
-  activeProfileId: string | null
+  activeCourseId: string | null
 
   // Dialog visibility
   settingsDialogOpen: boolean
   settingsCategory: SettingsCategory
-  newProfileDialogOpen: boolean
+  newCourseDialogOpen: boolean
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
   importGitUsernamesDialogOpen: boolean
@@ -69,9 +69,9 @@ type UiState = {
   exportGroupSetTriggerId: string | null
   syncGroupSetTriggerId: string | null
 
-  // Profile list cache
-  profileList: ProfileSummary[]
-  profileListLoading: boolean
+  // Course list cache
+  courseList: CourseSummary[]
+  courseListLoading: boolean
 
   // Close prompt
   closePromptVisible: boolean
@@ -79,11 +79,11 @@ type UiState = {
 
 type UiActions = {
   setActiveTab: (tab: ActiveTab) => void
-  setActiveProfileId: (id: string | null) => void
+  setActiveCourseId: (id: string | null) => void
 
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
-  setNewProfileDialogOpen: (open: boolean) => void
+  setNewCourseDialogOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
@@ -114,8 +114,8 @@ type UiActions = {
   setExportGroupSetTriggerId: (id: string | null) => void
   setSyncGroupSetTriggerId: (id: string | null) => void
 
-  setProfileList: (list: ProfileSummary[]) => void
-  setProfileListLoading: (loading: boolean) => void
+  setCourseList: (list: CourseSummary[]) => void
+  setCourseListLoading: (loading: boolean) => void
 
   showClosePrompt: () => void
   hideClosePrompt: () => void
@@ -125,11 +125,11 @@ type UiActions = {
 
 const initialState: UiState = {
   activeTab: "roster",
-  activeProfileId: null,
+  activeCourseId: null,
 
   settingsDialogOpen: false,
   settingsCategory: "connections",
-  newProfileDialogOpen: false,
+  newCourseDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
   importGitUsernamesDialogOpen: false,
@@ -160,8 +160,8 @@ const initialState: UiState = {
   exportGroupSetTriggerId: null,
   syncGroupSetTriggerId: null,
 
-  profileList: [],
-  profileListLoading: false,
+  courseList: [],
+  courseListLoading: false,
 
   closePromptVisible: false,
 }
@@ -189,8 +189,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
 
   setActiveTab: (tab) => set((state) => setIfChanged(state, "activeTab", tab)),
-  setActiveProfileId: (id) =>
-    set((state) => setIfChanged(state, "activeProfileId", id)),
+  setActiveCourseId: (id) =>
+    set((state) => setIfChanged(state, "activeCourseId", id)),
 
   setSettingsDialogOpen: (open) =>
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
@@ -205,8 +205,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
         settingsCategory: nextCategory,
       }
     }),
-  setNewProfileDialogOpen: (open) =>
-    set((state) => setIfChanged(state, "newProfileDialogOpen", open)),
+  setNewCourseDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "newCourseDialogOpen", open)),
   setImportFileDialogOpen: (open) =>
     set((state) => setIfChanged(state, "importFileDialogOpen", open)),
   setRosterSyncDialogOpen: (open) =>
@@ -281,10 +281,10 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   setSyncGroupSetTriggerId: (id) =>
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 
-  setProfileList: (list) =>
-    set((state) => setIfChanged(state, "profileList", list)),
-  setProfileListLoading: (loading) =>
-    set((state) => setIfChanged(state, "profileListLoading", loading)),
+  setCourseList: (list) =>
+    set((state) => setIfChanged(state, "courseList", list)),
+  setCourseListLoading: (loading) =>
+    set((state) => setIfChanged(state, "courseListLoading", loading)),
 
   showClosePrompt: () =>
     set((state) => setIfChanged(state, "closePromptVisible", true)),
@@ -295,6 +295,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 }))
 
 export const selectActiveTab = (state: UiState) => state.activeTab
-export const selectActiveProfileId = (state: UiState) => state.activeProfileId
+export const selectActiveCourseId = (state: UiState) => state.activeCourseId
 export const selectClosePromptVisible = (state: UiState) =>
   state.closePromptVisible

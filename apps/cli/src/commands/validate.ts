@@ -1,8 +1,8 @@
 import type { Command } from "commander"
 import {
   emitCommandError,
-  loadSelectedProfile,
-  resolveAssignmentFromProfile,
+  loadSelectedCourse,
+  resolveAssignmentFromCourse,
   toErrorMessage,
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
@@ -16,26 +16,26 @@ export function registerValidateCommand(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile } = await loadSelectedProfile(this, workflowClient)
-        const assignment = resolveAssignmentFromProfile(
-          profile,
+        const { course } = await loadSelectedCourse(this, workflowClient)
+        const assignment = resolveAssignmentFromCourse(
+          course,
           options.assignment,
         )
 
         if (!assignment) {
           emitCommandError(
-            `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
+            `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
           )
           return
         }
 
         const rosterValidation = await workflowClient.run("validation.roster", {
-          profile,
+          course,
         })
         const assignmentValidation = await workflowClient.run(
           "validation.assignment",
           {
-            profile,
+            course,
             assignmentId: assignment.id,
           },
         )
@@ -47,13 +47,13 @@ export function registerValidateCommand(parent: Command): void {
 
         if (allIssues.length === 0) {
           process.stdout.write(
-            `Validation passed for assignment '${assignment.name}' in profile '${profile.id}'.\n`,
+            `Validation passed for assignment '${assignment.name}' in course '${course.id}'.\n`,
           )
           return
         }
 
         process.stdout.write(
-          `Validation found ${allIssues.length} issue(s) for assignment '${assignment.name}' in profile '${profile.id}':\n`,
+          `Validation found ${allIssues.length} issue(s) for assignment '${assignment.name}' in course '${course.id}':\n`,
         )
         for (const issue of allIssues) {
           process.stdout.write(

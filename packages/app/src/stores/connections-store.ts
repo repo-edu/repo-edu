@@ -10,7 +10,7 @@ type ConnectionsState = {
   gitErrors: Record<string, string | null>
   courseStatuses: Record<string, CourseStatus>
   courseErrors: Record<string, string | null>
-  activeProfileForCourse: string | null
+  activeCourseForConnections: string | null
 }
 
 type ConnectionsActions = {
@@ -26,11 +26,11 @@ type ConnectionsActions = {
     error?: string | null,
   ) => void
   setCourseStatus: (
-    profile: string,
+    course: string,
     status: CourseStatus,
     error?: string | null,
   ) => void
-  setActiveProfileForCourse: (profile: string | null) => void
+  setActiveCourseForConnections: (course: string | null) => void
   resetLmsStatus: () => void
   resetLmsConnectionStatus: (name: string) => void
   removeLmsConnectionStatus: (name: string) => void
@@ -50,7 +50,7 @@ const initialState: ConnectionsState = {
   gitErrors: {},
   courseStatuses: {},
   courseErrors: {},
-  activeProfileForCourse: null,
+  activeCourseForConnections: null,
 }
 
 export const useConnectionsStore = create<
@@ -73,14 +73,14 @@ export const useConnectionsStore = create<
       gitErrors: { ...state.gitErrors, [name]: error ?? null },
     })),
 
-  setCourseStatus: (profile, status, error) =>
+  setCourseStatus: (course, status, error) =>
     set((state) => ({
-      courseStatuses: { ...state.courseStatuses, [profile]: status },
-      courseErrors: { ...state.courseErrors, [profile]: error ?? null },
+      courseStatuses: { ...state.courseStatuses, [course]: status },
+      courseErrors: { ...state.courseErrors, [course]: error ?? null },
     })),
 
-  setActiveProfileForCourse: (profile) =>
-    set({ activeProfileForCourse: profile }),
+  setActiveCourseForConnections: (course) =>
+    set({ activeCourseForConnections: course }),
 
   resetLmsStatus: () => set({ lmsStatus: "disconnected", lmsError: null }),
 
@@ -168,8 +168,8 @@ export const selectGitStatus = (name: string) => (state: ConnectionsState) =>
 export const selectGitError = (name: string) => (state: ConnectionsState) =>
   state.gitErrors[name] ?? null
 export const selectCourseStatus =
-  (profile: string) => (state: ConnectionsState) =>
-    state.courseStatuses[profile] ?? "unknown"
+  (course: string) => (state: ConnectionsState) =>
+    state.courseStatuses[course] ?? "unknown"
 export const selectCourseError =
-  (profile: string) => (state: ConnectionsState) =>
-    state.courseErrors[profile] ?? null
+  (course: string) => (state: ConnectionsState) =>
+    state.courseErrors[course] ?? null

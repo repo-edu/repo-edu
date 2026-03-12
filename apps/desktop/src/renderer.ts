@@ -3,15 +3,15 @@ import { createRoot } from "react-dom/client"
 import "../../../packages/app/src/App.css"
 import { AppRoot } from "@repo-edu/app"
 import type { AppError } from "@repo-edu/application-contract"
-import { desktopSeedProfileId } from "./profile-ids"
+import { desktopSeedCourseId } from "./course-ids"
 import { createRendererHostFromBridge } from "./renderer-host-bridge"
 import { createDesktopWorkflowClient } from "./workflow-client"
 
 const trpcMarker = "repo-edu-desktop-trpc"
 const searchParams = new URLSearchParams(window.location.search)
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
-const validationProfileId =
-  searchParams.get("profileId")?.trim() || desktopSeedProfileId
+const validationCourseId =
+  searchParams.get("courseId")?.trim() || desktopSeedCourseId
 
 const mountNode = document.querySelector<HTMLDivElement>("#app")
 if (!mountNode) {
@@ -70,11 +70,11 @@ async function collectValidationSnapshot() {
   const spikeProgressLabels: string[] = []
   const environmentSnapshot = await rendererHost.getEnvironmentSnapshot()
 
-  const profileList = await workflowClient.run("profile.list", undefined)
-  const loadedProfile = await workflowClient.run("profile.load", {
-    profileId: validationProfileId,
+  const courseList = await workflowClient.run("course.list", undefined)
+  const loadedCourse = await workflowClient.run("course.load", {
+    courseId: validationCourseId,
   })
-  const savedProfile = await workflowClient.run("profile.save", loadedProfile)
+  const savedCourse = await workflowClient.run("course.save", loadedCourse)
 
   const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
   const savedSettings = await workflowClient.run(
@@ -83,14 +83,14 @@ async function collectValidationSnapshot() {
   )
 
   const rosterValidation = await workflowClient.run("validation.roster", {
-    profile: loadedProfile,
+    course: loadedCourse,
   })
-  const validationAssignmentId = loadedProfile.roster.assignments[0]?.id ?? null
+  const validationAssignmentId = loadedCourse.roster.assignments[0]?.id ?? null
   const assignmentValidation =
     validationAssignmentId === null
       ? { issues: [] }
       : await workflowClient.run("validation.assignment", {
-          profile: loadedProfile,
+          course: loadedCourse,
           assignmentId: validationAssignmentId,
         })
 
@@ -103,7 +103,7 @@ async function collectValidationSnapshot() {
   let repoDeleteErrorType: AppError["type"] | null = null
   try {
     await workflowClient.run("repo.delete", {
-      profile: loadedProfile,
+      course: loadedCourse,
       appSettings: loadedSettings,
       assignmentId: null,
       template: null,
@@ -117,11 +117,11 @@ async function collectValidationSnapshot() {
     environmentShell: environmentSnapshot.shell,
     environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
     environmentWindowChrome: environmentSnapshot.windowChrome,
-    profileCount: profileList.length,
-    listedProfileIds: profileList.map((entry) => entry.id),
-    loadedProfileId: loadedProfile.id,
-    savedProfileId: savedProfile.id,
-    savedProfileUpdatedAt: savedProfile.updatedAt,
+    courseCount: courseList.length,
+    listedCourseIds: courseList.map((entry) => entry.id),
+    loadedCourseId: loadedCourse.id,
+    savedCourseId: savedCourse.id,
+    savedCourseUpdatedAt: savedCourse.updatedAt,
     validationAssignmentId,
     settingsKind: loadedSettings.kind,
     settingsSchemaVersion: savedSettings.schemaVersion,
@@ -141,7 +141,7 @@ async function runValidationMode() {
 
     emitValidationMarker({
       marker: trpcMarker,
-      validationProfileId,
+      validationCourseId,
       ...snapshot,
     })
   } catch (error) {

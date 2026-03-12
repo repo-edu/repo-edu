@@ -5,20 +5,20 @@ import {
   selectCourseId,
   selectLmsConnectionName,
   selectRoster,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
-import { NoProfileEmptyState } from "../NoProfileEmptyState.js"
-import { MemberListPane } from "./roster/MemberListPane.js"
+import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
+import { MemberListPane } from "./students/MemberListPane.js"
 
-export function RosterTab() {
-  const roster = useProfileStore(selectRoster)
-  const profile = useProfileStore((s) => s.profile)
-  const setRoster = useProfileStore((s) => s.setRoster)
-  const lmsConnectionName = useProfileStore(selectLmsConnectionName)
-  const courseId = useProfileStore(selectCourseId)
+export function StudentsTab() {
+  const roster = useCourseStore(selectRoster)
+  const course = useCourseStore((s) => s.course)
+  const setRoster = useCourseStore((s) => s.setRoster)
+  const lmsConnectionName = useCourseStore(selectLmsConnectionName)
+  const courseId = useCourseStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
 
   const setImportFileDialogOpen = useUiStore((s) => s.setImportFileDialogOpen)
@@ -37,7 +37,7 @@ export function RosterTab() {
   const lmsImportTooltip = !hasLmsConnection
     ? "Configure an LMS connection in Settings first"
     : !hasCourseId
-      ? "No course configured for this profile"
+      ? "No course configured for this course"
       : "Sync roster from LMS"
 
   const handleClear = () => {
@@ -54,7 +54,7 @@ export function RosterTab() {
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {
-    if (!profile || !roster) return
+    if (!course || !roster) return
 
     try {
       const host = getRendererHost()
@@ -65,7 +65,7 @@ export function RosterTab() {
 
       const client = getWorkflowClient()
       await client.run("roster.exportMembers", {
-        profile,
+        course,
         target,
         format,
       })
@@ -75,8 +75,8 @@ export function RosterTab() {
     }
   }
 
-  if (!profile) {
-    return <NoProfileEmptyState tabLabel="the roster" />
+  if (!course) {
+    return <NoCourseEmptyState tabLabel="the roster" />
   }
 
   return (

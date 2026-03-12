@@ -1,4 +1,4 @@
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
 import type {
   FixturePreset,
   FixtureSelection,
@@ -14,7 +14,7 @@ export type FixtureArtifact = {
 }
 
 export type FixtureRecord = {
-  profile: PersistedProfile
+  course: PersistedCourse
   settings: PersistedAppSettings
   artifacts: FixtureArtifact[]
 }

@@ -11,13 +11,13 @@ Run CLI after build: `node apps/cli/dist/index.js --help`
 - `src/cli.ts`: Commander command tree (`redu`)
 - `src/commands/*`: command handlers and shell output formatting
 - `src/workflow-runtime.ts`: builds in-process `WorkflowClient` from `@repo-edu/application`
-- `src/state-store.ts`: filesystem-backed profile/settings stores
+- `src/state-store.ts`: filesystem-backed course/settings stores
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).
 
 ## Command Surface
 
-- `profile list|active|show|load`
+- `course list|active|show|load`
 - `roster show`
 - `lms verify|import-students|import-groups`
 - `lms cache list|fetch|refresh|delete`
@@ -32,7 +32,7 @@ Default: `~/.repo-edu`
 Override for tests or automation:
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js profile list
+REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
 ```
 
 ## Rules

@@ -2,8 +2,8 @@ import { EmptyState, Text } from "@repo-edu/ui"
 import { useEffect } from "react"
 import {
   selectGroupSetById,
-  useProfileStore,
-} from "../../../stores/profile-store.js"
+  useCourseStore,
+} from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupSetPanel } from "./GroupSetPanel.js"
 
@@ -16,7 +16,7 @@ type GroupsAssignmentsPanelProps = {
 export function GroupsAssignmentsPanel({
   selection,
 }: GroupsAssignmentsPanelProps) {
-  const selectedGroupSet = useProfileStore(
+  const selectedGroupSet = useCourseStore(
     selectGroupSetById(selection?.id ?? ""),
   )
   const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)

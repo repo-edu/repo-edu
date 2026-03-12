@@ -1,12 +1,12 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { AppSettingsStore, ProfileStore } from "@repo-edu/application"
+import type { AppSettingsStore, CourseStore } from "@repo-edu/application"
 import {
   type PersistedAppSettings,
-  type PersistedProfile,
+  type PersistedCourse,
   validatePersistedAppSettings,
-  validatePersistedProfile,
+  validatePersistedCourse,
 } from "@repo-edu/domain"
 
 const cliDataDirEnv = "REPO_EDU_CLI_DATA_DIR"
@@ -17,31 +17,31 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-function resolveProfilesDirectory(storageRoot: string): string {
-  return join(storageRoot, "profiles")
+function resolveCoursesDirectory(storageRoot: string): string {
+  return join(storageRoot, "courses")
 }
 
 function resolveSettingsPath(storageRoot: string): string {
   return join(storageRoot, "settings", "app-settings.json")
 }
 
-function resolveProfilePath(storageRoot: string, profileId: string): string {
+function resolveCoursePath(storageRoot: string, courseId: string): string {
   return join(
-    resolveProfilesDirectory(storageRoot),
-    `${encodeURIComponent(profileId)}.json`,
+    resolveCoursesDirectory(storageRoot),
+    `${encodeURIComponent(courseId)}.json`,
   )
 }
 
-async function readValidatedProfile(
-  profilePath: string,
-): Promise<PersistedProfile> {
-  const raw = await readFile(profilePath, "utf8")
-  const parsed = JSON.parse(raw) as PersistedProfile
-  const validation = validatePersistedProfile(parsed)
+async function readValidatedCourse(
+  coursePath: string,
+): Promise<PersistedCourse> {
+  const raw = await readFile(coursePath, "utf8")
+  const parsed = JSON.parse(raw) as PersistedCourse
+  const validation = validatePersistedCourse(parsed)
 
   if (!validation.ok) {
     throw new Error(
-      `Invalid persisted profile at ${profilePath}: ${validation.issues
+      `Invalid persisted course at ${coursePath}: ${validation.issues
         .map((issue) => `${issue.path}: ${issue.message}`)
         .join("; ")}`,
     )
@@ -54,9 +54,9 @@ export function resolveCliStorageRoot(): string {
   return process.env[cliDataDirEnv] ?? join(homedir(), ".repo-edu")
 }
 
-export function createCliProfileStore(
+export function createCliCourseStore(
   storageRoot: string = resolveCliStorageRoot(),
-): ProfileStore {
+): CourseStore {
   let writeQueue: Promise<void> = Promise.resolve()
 
   const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
@@ -69,10 +69,10 @@ export function createCliProfileStore(
   }
 
   return {
-    async listProfiles(signal?: AbortSignal) {
+    async listCourses(signal?: AbortSignal) {
       throwIfAborted(signal)
 
-      const directory = resolveProfilesDirectory(storageRoot)
+      const directory = resolveCoursesDirectory(storageRoot)
       const entries = await readdir(directory, { withFileTypes: true }).catch(
         (error: unknown) => {
           if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -83,25 +83,25 @@ export function createCliProfileStore(
         },
       )
 
-      const profiles: PersistedProfile[] = []
+      const courses: PersistedCourse[] = []
       for (const entry of entries) {
         throwIfAborted(signal)
         if (!entry.isFile() || !entry.name.endsWith(".json")) {
           continue
         }
 
-        profiles.push(await readValidatedProfile(join(directory, entry.name)))
+        courses.push(await readValidatedCourse(join(directory, entry.name)))
       }
 
-      return profiles
+      return courses
     },
 
-    async loadProfile(profileId: string, signal?: AbortSignal) {
+    async loadCourse(courseId: string, signal?: AbortSignal) {
       throwIfAborted(signal)
 
-      const profilePath = resolveProfilePath(storageRoot, profileId)
+      const coursePath = resolveCoursePath(storageRoot, courseId)
       try {
-        return await readValidatedProfile(profilePath)
+        return await readValidatedCourse(coursePath)
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
           return null
@@ -111,25 +111,25 @@ export function createCliProfileStore(
       }
     },
 
-    async saveProfile(profile: PersistedProfile, signal?: AbortSignal) {
+    async saveCourse(course: PersistedCourse, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
         throwIfAborted(signal)
 
-        const validation = validatePersistedProfile(profile)
+        const validation = validatePersistedCourse(course)
         if (!validation.ok) {
           throw new Error(
-            `Invalid persisted profile: ${validation.issues
+            `Invalid persisted course: ${validation.issues
               .map((issue) => `${issue.path}: ${issue.message}`)
               .join("; ")}`,
           )
         }
 
-        const profilesDirectory = resolveProfilesDirectory(storageRoot)
-        await mkdir(profilesDirectory, { recursive: true })
+        const coursesDirectory = resolveCoursesDirectory(storageRoot)
+        await mkdir(coursesDirectory, { recursive: true })
         throwIfAborted(signal)
 
-        const profilePath = resolveProfilePath(storageRoot, validation.value.id)
-        const existing = await readValidatedProfile(profilePath).catch(
+        const coursePath = resolveCoursePath(storageRoot, validation.value.id)
+        const existing = await readValidatedCourse(coursePath).catch(
           (error: unknown) => {
             if ((error as NodeJS.ErrnoException).code === "ENOENT") {
               return null
@@ -142,34 +142,34 @@ export function createCliProfileStore(
           existing.revision !== validation.value.revision
         ) {
           throw new Error(
-            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existing.revision}).`,
+            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existing.revision}).`,
           )
         }
         if (existing === null && validation.value.revision !== 0) {
           throw new Error(
-            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing profile).`,
+            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing course).`,
           )
         }
 
-        const savedProfile: PersistedProfile = {
+        const savedCourse: PersistedCourse = {
           ...validation.value,
           revision: validation.value.revision + 1,
           updatedAt: new Date().toISOString(),
         }
         await writeFile(
-          profilePath,
-          JSON.stringify(savedProfile, null, 2),
+          coursePath,
+          JSON.stringify(savedCourse, null, 2),
           "utf8",
         )
-        return savedProfile
+        return savedCourse
       })
     },
 
-    async deleteProfile(profileId: string, signal?: AbortSignal) {
+    async deleteCourse(courseId: string, signal?: AbortSignal) {
       await enqueueWrite(async () => {
         throwIfAborted(signal)
-        const profilePath = resolveProfilePath(storageRoot, profileId)
-        await rm(profilePath, { force: true })
+        const coursePath = resolveCoursePath(storageRoot, courseId)
+        await rm(coursePath, { force: true })
       })
     },
   }

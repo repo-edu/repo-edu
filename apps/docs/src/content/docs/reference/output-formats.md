@@ -16,7 +16,7 @@ Workflow usage examples:
 
 - `roster.exportMembers`: `csv`, `xlsx`
 - `groupSet.export`: `csv`, `xlsx`, `yaml`
-- persisted settings/profile files: `json`
+- persisted settings/course files: `json`
 
 ## Notes
 

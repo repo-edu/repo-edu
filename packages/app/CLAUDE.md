@@ -18,9 +18,9 @@ It consumes:
 
 - `src/configure-app.ts`: app wiring and dependency injection
 - `src/contexts/*`: workflow and renderer-host providers
-- `src/stores/*`: Zustand stores (profile, settings, operations, ui, toasts, connections)
+- `src/stores/*`: Zustand stores (course, settings, operations, ui, toasts, connections)
 - `src/components/*`: tabs, dialogs, sheets, settings panes
-- `src/hooks/*`: app behavior hooks (`use-load-profile`, `use-dirty-state`, etc.)
+- `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, etc.)
 - `src/utils/*`: formatting, sorting, workflow helpers
 
 ## Rules

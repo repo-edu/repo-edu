@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { EllipsisVertical, Trash2 } from "@repo-edu/ui/components/icons"
-import type { EditableGroupTarget } from "../../../stores/profile-store.js"
+import type { EditableGroupTarget } from "../../../stores/course-store.js"
 
 type MemberChipProps = {
   member: RosterMember

@@ -15,8 +15,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   selectGroupsForGroupSet,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { StudentMultiSelect } from "./StudentMultiSelect.js"
 
@@ -32,10 +32,10 @@ export function AddGroupDialog() {
   const groupSetId = useUiStore((state) => state.addGroupDialogGroupSetId)
   const setGroupSetId = useUiStore((state) => state.setAddGroupDialogGroupSetId)
   const open = groupSetId !== null
-  const roster = useProfileStore((state) => state.profile?.roster ?? null)
-  const createGroup = useProfileStore((state) => state.createGroup)
+  const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const createGroup = useCourseStore((state) => state.createGroup)
   const students = useMemo(() => roster?.students ?? EMPTY_STUDENTS, [roster])
-  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId ?? ""))
+  const groups = useCourseStore(selectGroupsForGroupSet(groupSetId ?? ""))
 
   const groupsForSelect = useMemo(
     () =>

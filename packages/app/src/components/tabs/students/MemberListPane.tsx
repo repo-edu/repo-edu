@@ -36,7 +36,7 @@ import {
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useProfileStore } from "../../../stores/profile-store.js"
+import { useCourseStore } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
 import { generateMemberId } from "../../../utils/nanoid.js"
@@ -94,11 +94,11 @@ export function MemberListPane({
   )
   const saveAppSettings = useAppSettingsStore((s) => s.save)
 
-  const addMember = useProfileStore((s) => s.addMember)
-  const deleteMemberPermanently = useProfileStore(
+  const addMember = useCourseStore((s) => s.addMember)
+  const deleteMemberPermanently = useCourseStore(
     (s) => s.deleteMemberPermanently,
   )
-  const updateMember = useProfileStore((s) => s.updateMember)
+  const updateMember = useCourseStore((s) => s.updateMember)
 
   const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>([])
@@ -795,7 +795,7 @@ export function MemberListPane({
             <AlertDialogTitle>Clear roster?</AlertDialogTitle>
             <AlertDialogDescription>
               This removes all members, assignments, and groups from the current
-              profile.
+              course.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

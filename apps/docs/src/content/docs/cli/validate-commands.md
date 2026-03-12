@@ -16,5 +16,5 @@ If issues are found, they are printed and exit code is `1`.
 ## Example
 
 ```bash
-node apps/cli/dist/index.js validate --assignment "Project 1" --profile seed-profile
+node apps/cli/dist/index.js validate --assignment "Project 1" --course seed-course
 ```

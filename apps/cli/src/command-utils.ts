@@ -2,7 +2,7 @@ import type { WorkflowClient } from "@repo-edu/application-contract"
 import type {
   Assignment,
   PersistedAppSettings,
-  PersistedProfile,
+  PersistedCourse,
 } from "@repo-edu/domain"
 import type { Command } from "commander"
 
@@ -28,57 +28,57 @@ export function toErrorMessage(error: unknown): string {
   return String(error)
 }
 
-export function resolveRequestedProfileId(
+export function resolveRequestedCourseId(
   command: Command,
-  fallbackActiveProfileId: string | null,
+  fallbackActiveCourseId: string | null,
 ): string | null {
-  const options = command.optsWithGlobals() as { profile?: unknown }
-  if (typeof options.profile === "string" && options.profile.length > 0) {
-    return options.profile
+  const options = command.optsWithGlobals() as { course?: unknown }
+  if (typeof options.course === "string" && options.course.length > 0) {
+    return options.course
   }
 
-  return fallbackActiveProfileId
+  return fallbackActiveCourseId
 }
 
-export async function loadSelectedProfile(
+export async function loadSelectedCourse(
   command: Command,
   workflowClient: WorkflowClient,
 ): Promise<{
-  selectedProfileId: string
+  selectedCourseId: string
   settings: PersistedAppSettings
-  profile: PersistedProfile
+  course: PersistedCourse
 }> {
   const settings = await workflowClient.run("settings.loadApp", undefined)
-  const selectedProfileId = resolveRequestedProfileId(
+  const selectedCourseId = resolveRequestedCourseId(
     command,
-    settings.activeProfileId,
+    settings.activeCourseId,
   )
 
-  if (selectedProfileId === null) {
+  if (selectedCourseId === null) {
     throw new Error(
-      "No active profile. Use --profile <id> or `redu profile load <id>`.",
+      "No active course. Use --course <id> or `redu course load <id>`.",
     )
   }
 
-  const profile = await workflowClient.run("profile.load", {
-    profileId: selectedProfileId,
+  const course = await workflowClient.run("course.load", {
+    courseId: selectedCourseId,
   })
 
   return {
-    selectedProfileId,
+    selectedCourseId,
     settings,
-    profile,
+    course,
   }
 }
 
-export function resolveAssignmentFromProfile(
-  profile: PersistedProfile,
+export function resolveAssignmentFromCourse(
+  course: PersistedCourse,
   assignmentKey: string,
 ): Assignment | null {
   const normalized = assignmentKey.trim().toLowerCase()
 
   return (
-    profile.roster.assignments.find(
+    course.roster.assignments.find(
       (assignment) =>
         assignment.id.toLowerCase() === normalized ||
         assignment.name.toLowerCase() === normalized,
@@ -87,20 +87,20 @@ export function resolveAssignmentFromProfile(
 }
 
 export function requireLmsConnection(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   settings: PersistedAppSettings,
 ) {
-  if (profile.lmsConnectionName === null) {
-    throw new Error("Selected profile does not reference an LMS connection.")
+  if (course.lmsConnectionName === null) {
+    throw new Error("Selected course does not reference an LMS connection.")
   }
 
   const connection = settings.lmsConnections.find(
-    (candidate) => candidate.name === profile.lmsConnectionName,
+    (candidate) => candidate.name === course.lmsConnectionName,
   )
 
   if (!connection) {
     throw new Error(
-      `LMS connection '${profile.lmsConnectionName}' was not found in app settings.`,
+      `LMS connection '${course.lmsConnectionName}' was not found in app settings.`,
     )
   }
 
@@ -108,20 +108,20 @@ export function requireLmsConnection(
 }
 
 export function requireGitConnection(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   settings: PersistedAppSettings,
 ) {
-  if (profile.gitConnectionName === null) {
-    throw new Error("Selected profile does not reference a Git connection.")
+  if (course.gitConnectionName === null) {
+    throw new Error("Selected course does not reference a Git connection.")
   }
 
   const connection = settings.gitConnections.find(
-    (candidate) => candidate.name === profile.gitConnectionName,
+    (candidate) => candidate.name === course.gitConnectionName,
   )
 
   if (!connection) {
     throw new Error(
-      `Git connection '${profile.gitConnectionName}' was not found in app settings.`,
+      `Git connection '${course.gitConnectionName}' was not found in app settings.`,
     )
   }
 

@@ -32,18 +32,18 @@ describe("docs fixture integration: source parity", () => {
       preset: "shared-teams",
       source: "canvas",
     })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    assert.equal(profile.lmsConnectionName, "Canvas Demo")
-    assert.equal(profile.roster.connection?.kind, "canvas")
+    assert.equal(course.lmsConnectionName, "Canvas Demo")
+    assert.equal(course.roster.connection?.kind, "canvas")
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (groupSet) => groupSet.connection?.kind !== "system",
     )
     assert.ok(nonSystemGroupSets.length > 0)
@@ -53,7 +53,7 @@ describe("docs fixture integration: source parity", () => {
       ),
     )
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (group) => group.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
@@ -62,14 +62,14 @@ describe("docs fixture integration: source parity", () => {
 
     const available = await runtime.workflowClient.run(
       "groupSet.fetchAvailableFromLms",
-      { profile, appSettings },
+      { course, appSettings },
     )
     assert.equal(available.length > 0, true)
 
     const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      profile,
+      course,
       appSettings,
-      courseId: runtime.seedCourseId,
+      lmsCourseId: runtime.seedCourseId,
     })
     assert.equal(imported.roster.connection?.kind, "canvas")
   })
@@ -80,18 +80,18 @@ describe("docs fixture integration: source parity", () => {
       preset: "shared-teams",
       source: "moodle",
     })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    assert.equal(profile.lmsConnectionName, "Moodle Demo")
-    assert.equal(profile.roster.connection?.kind, "moodle")
+    assert.equal(course.lmsConnectionName, "Moodle Demo")
+    assert.equal(course.roster.connection?.kind, "moodle")
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (groupSet) => groupSet.connection?.kind !== "system",
     )
     assert.ok(nonSystemGroupSets.length > 0)
@@ -108,7 +108,7 @@ describe("docs fixture integration: source parity", () => {
       ),
     )
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (group) => group.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
@@ -117,14 +117,14 @@ describe("docs fixture integration: source parity", () => {
 
     const available = await runtime.workflowClient.run(
       "groupSet.fetchAvailableFromLms",
-      { profile, appSettings },
+      { course, appSettings },
     )
     assert.equal(available.length > 0, true)
 
     const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      profile,
+      course,
       appSettings,
-      courseId: runtime.seedCourseId,
+      lmsCourseId: runtime.seedCourseId,
     })
     assert.equal(imported.roster.connection?.kind, "moodle")
   })
@@ -135,19 +135,19 @@ describe("docs fixture integration: source parity", () => {
       preset: "shared-teams",
       source: "file",
     })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    assert.equal(profile.lmsConnectionName, null)
-    assert.equal(profile.courseId, null)
-    assert.equal(profile.roster.connection?.kind, "import")
+    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsCourseId, null)
+    assert.equal(course.roster.connection?.kind, "import")
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (groupSet) => groupSet.connection?.kind !== "system",
     )
     assert.ok(nonSystemGroupSets.length > 0)
@@ -157,7 +157,7 @@ describe("docs fixture integration: source parity", () => {
       ),
     )
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (group) => group.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
@@ -166,7 +166,7 @@ describe("docs fixture integration: source parity", () => {
 
     await assert.rejects(
       runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
-        profile,
+        course,
         appSettings,
       }),
       (error: unknown) => isAppErrorWithType(error, "not-found"),
@@ -174,9 +174,9 @@ describe("docs fixture integration: source parity", () => {
 
     await assert.rejects(
       runtime.workflowClient.run("roster.importFromLms", {
-        profile,
+        course,
         appSettings,
-        courseId: "course-small-shared-teams",
+        lmsCourseId: "course-small-shared-teams",
       }),
       (error: unknown) => isAppErrorWithType(error, "not-found"),
     )
@@ -190,16 +190,16 @@ describe("docs fixture integration: repository planning by preset", () => {
       preset: "shared-teams",
       source: "canvas",
     })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    const a1Plan = planRepositoryOperation(profile.roster, "a1")
-    const a2Plan = planRepositoryOperation(profile.roster, "a2")
+    const a1Plan = planRepositoryOperation(course.roster, "a1")
+    const a2Plan = planRepositoryOperation(course.roster, "a2")
 
     const a1GroupIds = plannedGroupIds(a1Plan)
     const a2GroupIds = plannedGroupIds(a2Plan)
@@ -207,7 +207,7 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a1GroupIds.length > 0, true)
 
     const a1Result = await runtime.workflowClient.run("repo.create", {
-      profile,
+      course,
       appSettings,
       assignmentId: "a1",
       template: null,
@@ -215,7 +215,7 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
 
     const a2Result = await runtime.workflowClient.run("repo.create", {
-      profile,
+      course,
       appSettings,
       assignmentId: "a2",
       template: null,
@@ -229,16 +229,16 @@ describe("docs fixture integration: repository planning by preset", () => {
       preset: "assignment-scoped",
       source: "canvas",
     })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    const a1Plan = planRepositoryOperation(profile.roster, "a1")
-    const a2Plan = planRepositoryOperation(profile.roster, "a2")
+    const a1Plan = planRepositoryOperation(course.roster, "a1")
+    const a2Plan = planRepositoryOperation(course.roster, "a2")
 
     const a1GroupIds = plannedGroupIds(a1Plan)
     const a2GroupIds = plannedGroupIds(a2Plan)
@@ -248,7 +248,7 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a2GroupIds.length > 0, true)
 
     const a1Result = await runtime.workflowClient.run("repo.create", {
-      profile,
+      course,
       appSettings,
       assignmentId: "a1",
       template: null,
@@ -256,7 +256,7 @@ describe("docs fixture integration: repository planning by preset", () => {
     assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
 
     const a2Result = await runtime.workflowClient.run("repo.create", {
-      profile,
+      course,
       appSettings,
       assignmentId: "a2",
       template: null,

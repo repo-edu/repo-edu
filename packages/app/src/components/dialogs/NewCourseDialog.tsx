@@ -1,6 +1,6 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import type { PersistedProfile, Roster } from "@repo-edu/domain"
-import { persistedProfileKind } from "@repo-edu/domain"
+import type { PersistedCourse, Roster } from "@repo-edu/domain"
+import { persistedCourseKind } from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -27,7 +27,7 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
-import { generateProfileId } from "../../utils/nanoid.js"
+import { generateCourseId } from "../../utils/nanoid.js"
 
 const EMPTY_ROSTER: Roster = {
   connection: null,
@@ -41,24 +41,24 @@ const NONE_VALUE = "__none__"
 type CourseMode = "lms" | "manual"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
 
-export function NewProfileDialog() {
-  const open = useUiStore((state) => state.newProfileDialogOpen)
-  const setOpen = useUiStore((state) => state.setNewProfileDialogOpen)
-  const setActiveProfileId = useUiStore((state) => state.setActiveProfileId)
-  const setProfileList = useUiStore((state) => state.setProfileList)
-  const existingProfiles = useUiStore((state) => state.profileList)
+export function NewCourseDialog() {
+  const open = useUiStore((state) => state.newCourseDialogOpen)
+  const setOpen = useUiStore((state) => state.setNewCourseDialogOpen)
+  const setActiveCourseId = useUiStore((state) => state.setActiveCourseId)
+  const setCourseList = useUiStore((state) => state.setCourseList)
+  const existingCourses = useUiStore((state) => state.courseList)
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
 
   const settings = useAppSettingsStore((state) => state.settings)
   const saveAppSettings = useAppSettingsStore((state) => state.save)
-  const setSettingsActiveProfileId = useAppSettingsStore(
-    (state) => state.setActiveProfileId,
+  const setSettingsActiveCourseId = useAppSettingsStore(
+    (state) => state.setActiveCourseId,
   )
 
-  const [profileName, setProfileName] = useState("")
-  const [courseId, setCourseId] = useState("")
+  const [courseName, setCourseName] = useState("")
+  const [lmsCourseId, setLmsCourseId] = useState("")
   const [courseMode, setCourseMode] = useState<CourseMode>("manual")
   const [courseSearch, setCourseSearch] = useState("")
   const [courses, setCourses] = useState<LmsCourseSummary[]>([])
@@ -96,16 +96,16 @@ export function NewProfileDialog() {
     )
   }, [courseSearch, courses])
 
-  const isProfileNameTaken = useMemo(() => {
-    const normalized = profileName.trim().toLowerCase()
+  const isCourseNameTaken = useMemo(() => {
+    const normalized = courseName.trim().toLowerCase()
     if (normalized.length === 0) {
       return false
     }
 
-    return existingProfiles.some(
-      (profile) => profile.displayName.trim().toLowerCase() === normalized,
+    return existingCourses.some(
+      (course) => course.displayName.trim().toLowerCase() === normalized,
     )
-  }, [existingProfiles, profileName])
+  }, [existingCourses, courseName])
 
   const loadLmsCourses = useCallback(() => {
     if (!selectedLmsDraft) {
@@ -159,7 +159,7 @@ export function NewProfileDialog() {
   }, [selectedLmsDraft])
 
   const canCreate = useMemo(() => {
-    if (profileName.trim().length === 0 || creating || isProfileNameTaken) {
+    if (courseName.trim().length === 0 || creating || isCourseNameTaken) {
       return false
     }
 
@@ -172,17 +172,17 @@ export function NewProfileDialog() {
 
     return true
   }, [
-    profileName,
+    courseName,
     creating,
-    isProfileNameTaken,
+    isCourseNameTaken,
     courseMode,
     selectedLmsConnection,
     selectedCourseId,
   ])
 
   const reset = useCallback(() => {
-    setProfileName("")
-    setCourseId("")
+    setCourseName("")
+    setLmsCourseId("")
     setCourseMode(lmsConnections.length > 0 ? "lms" : "manual")
     setCourseSearch("")
     setCourses([])
@@ -217,8 +217,8 @@ export function NewProfileDialog() {
   const handleCreate = async () => {
     if (!canCreate) return
 
-    if (isProfileNameTaken) {
-      setError("A profile with this name already exists.")
+    if (isCourseNameTaken) {
+      setError("A course with this name already exists.")
       return
     }
 
@@ -230,35 +230,35 @@ export function NewProfileDialog() {
       const nextCourseId =
         courseMode === "lms"
           ? selectedCourseId.trim() || null
-          : courseId.trim() || null
-      const profile: PersistedProfile = {
-        kind: persistedProfileKind,
-        schemaVersion: 3,
+          : lmsCourseId.trim() || null
+      const course: PersistedCourse = {
+        kind: persistedCourseKind,
+        schemaVersion: 1,
         revision: 0,
-        id: generateProfileId(),
-        displayName: profileName.trim(),
+        id: generateCourseId(),
+        displayName: courseName.trim(),
         lmsConnectionName: selectedLmsConnection || null,
         gitConnectionName: selectedGitConnection || null,
-        courseId: nextCourseId,
+        lmsCourseId: nextCourseId,
         roster: EMPTY_ROSTER,
         repositoryTemplate: null,
         updatedAt: now,
       }
 
       const client = getWorkflowClient()
-      const saved = await client.run("profile.save", profile)
-      const profiles = await client.run("profile.list", undefined)
-      setProfileList(profiles)
-      setActiveProfileId(saved.id)
+      const saved = await client.run("course.save", course)
+      const courses = await client.run("course.list", undefined)
+      setCourseList(courses)
+      setActiveCourseId(saved.id)
 
-      setSettingsActiveProfileId(saved.id)
+      setSettingsActiveCourseId(saved.id)
       await saveAppSettings()
 
       handleClose()
 
       if (
         saved.lmsConnectionName !== null &&
-        (saved.courseId ?? "").trim().length > 0
+        (saved.lmsCourseId ?? "").trim().length > 0
       ) {
         setRosterSyncDialogOpen(true)
       }
@@ -274,15 +274,15 @@ export function NewProfileDialog() {
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Profile</DialogTitle>
+          <DialogTitle>New Course</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          <FormField label="Profile name" htmlFor="new-profile-name">
+          <FormField label="Course name" htmlFor="new-course-name">
             <Input
-              id="new-profile-name"
+              id="new-course-name"
               placeholder="e.g., Software Engineering 2026"
-              value={profileName}
-              onChange={(event) => setProfileName(event.target.value)}
+              value={courseName}
+              onChange={(event) => setCourseName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && canCreate) {
                   void handleCreate()
@@ -290,9 +290,9 @@ export function NewProfileDialog() {
               }}
               autoFocus
             />
-            {isProfileNameTaken && (
+            {isCourseNameTaken && (
               <Text className="text-sm text-destructive mt-1">
-                A profile with this name already exists.
+                A course with this name already exists.
               </Text>
             )}
           </FormField>
@@ -304,9 +304,9 @@ export function NewProfileDialog() {
               className="space-y-2"
             >
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="lms" id="new-profile-course-mode-lms" />
+                <RadioGroupItem value="lms" id="new-course-course-mode-lms" />
                 <Label
-                  htmlFor="new-profile-course-mode-lms"
+                  htmlFor="new-course-course-mode-lms"
                   className="font-normal cursor-pointer"
                 >
                   Select from LMS
@@ -315,10 +315,10 @@ export function NewProfileDialog() {
               <div className="flex items-center gap-2">
                 <RadioGroupItem
                   value="manual"
-                  id="new-profile-course-mode-manual"
+                  id="new-course-course-mode-manual"
                 />
                 <Label
-                  htmlFor="new-profile-course-mode-manual"
+                  htmlFor="new-course-course-mode-manual"
                   className="font-normal cursor-pointer"
                 >
                   Enter manually
@@ -329,7 +329,7 @@ export function NewProfileDialog() {
 
           <FormField
             label="LMS connection (optional)"
-            htmlFor="new-profile-lms-connection"
+            htmlFor="new-course-lms-connection"
           >
             <Select
               value={selectedLmsConnection || NONE_VALUE}
@@ -337,7 +337,7 @@ export function NewProfileDialog() {
                 setSelectedLmsConnection(value === NONE_VALUE ? "" : value)
               }
             >
-              <SelectTrigger id="new-profile-lms-connection">
+              <SelectTrigger id="new-course-lms-connection">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
@@ -449,20 +449,20 @@ export function NewProfileDialog() {
           ) : (
             <FormField
               label="Course ID (optional)"
-              htmlFor="new-profile-course-id"
+              htmlFor="new-course-course-id"
             >
               <Input
-                id="new-profile-course-id"
+                id="new-course-course-id"
                 placeholder="e.g., SE-2026-A"
-                value={courseId}
-                onChange={(event) => setCourseId(event.target.value)}
+                value={lmsCourseId}
+                onChange={(event) => setLmsCourseId(event.target.value)}
               />
             </FormField>
           )}
 
           <FormField
             label="Git connection (optional)"
-            htmlFor="new-profile-git-connection"
+            htmlFor="new-course-git-connection"
           >
             <Select
               value={selectedGitConnection || NONE_VALUE}
@@ -470,7 +470,7 @@ export function NewProfileDialog() {
                 setSelectedGitConnection(value === NONE_VALUE ? "" : value)
               }
             >
-              <SelectTrigger id="new-profile-git-connection">
+              <SelectTrigger id="new-course-git-connection">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
@@ -491,7 +491,7 @@ export function NewProfileDialog() {
             Cancel
           </Button>
           <Button onClick={() => void handleCreate()} disabled={!canCreate}>
-            {creating ? "Creating..." : "Create Profile"}
+            {creating ? "Creating..." : "Create Course"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,7 +1,7 @@
 import type { Command } from "commander"
 import {
   emitCommandError,
-  loadSelectedProfile,
+  loadSelectedCourse,
   requireGitConnection,
   toErrorMessage,
 } from "../command-utils.js"
@@ -12,16 +12,16 @@ export function registerGitCommands(parent: Command): void {
 
   git
     .command("verify")
-    .description("Verify Git platform connection for selected profile")
+    .description("Verify Git platform connection for selected course")
     .action(async function (this: Command) {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const connection = requireGitConnection(profile, settings)
+        const connection = requireGitConnection(course, settings)
 
         const result = await workflowClient.run("connection.verifyGitDraft", {
           provider: connection.provider,

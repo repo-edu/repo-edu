@@ -13,8 +13,8 @@ import {
 import { useState } from "react"
 import {
   selectGroupSetById,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
 export function CopyGroupSetDialog() {
@@ -23,8 +23,8 @@ export function CopyGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const open = sourceId !== null
 
-  const groupSet = useProfileStore(selectGroupSetById(sourceId ?? ""))
-  const copyGroupSet = useProfileStore((state) => state.copyGroupSet)
+  const groupSet = useCourseStore(selectGroupSetById(sourceId ?? ""))
+  const copyGroupSet = useCourseStore((state) => state.copyGroupSet)
 
   const defaultName = groupSet ? `${groupSet.name} (copy)` : ""
   const [name, setName] = useState("")
@@ -49,7 +49,7 @@ export function CopyGroupSetDialog() {
     if (!canCopy || !sourceId) return
     const newId = copyGroupSet(sourceId)
     if (newId) {
-      useProfileStore.getState().renameGroupSet(newId, trimmedName)
+      useCourseStore.getState().renameGroupSet(newId, trimmedName)
       setSidebarSelection({ kind: "group-set", id: newId })
     }
     handleClose()

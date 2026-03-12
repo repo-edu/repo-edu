@@ -1,4 +1,4 @@
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
 import { ORIGIN_LMS, ORIGIN_LOCAL } from "@repo-edu/domain"
 
 export const fixtureSources = ["canvas", "moodle", "file"] as const
@@ -15,7 +15,7 @@ export function isFixtureSource(
 }
 
 export function applyFixtureSourceOverlay(
-  profile: PersistedProfile,
+  course: PersistedCourse,
   settings: PersistedAppSettings,
   source: FixtureSource,
   courseId: string,
@@ -32,16 +32,16 @@ export function applyFixtureSourceOverlay(
           token: "demo-token",
         },
       ]
-      profile.lmsConnectionName = "Canvas Demo"
-      profile.courseId = courseId
-      profile.roster.connection = {
+      course.lmsConnectionName = "Canvas Demo"
+      course.lmsCourseId = courseId
+      course.roster.connection = {
         kind: "canvas",
         courseId,
         lastUpdated: now,
       }
 
       let canvasGroupSetIndex = 0
-      for (const groupSet of profile.roster.groupSets) {
+      for (const groupSet of course.roster.groupSets) {
         if (groupSet.connection?.kind === "system") continue
         canvasGroupSetIndex += 1
         groupSet.connection = {
@@ -53,7 +53,7 @@ export function applyFixtureSourceOverlay(
       }
 
       let canvasGroupIndex = 0
-      for (const group of profile.roster.groups) {
+      for (const group of course.roster.groups) {
         if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
           canvasGroupIndex += 1
           group.origin = ORIGIN_LMS
@@ -72,16 +72,16 @@ export function applyFixtureSourceOverlay(
           token: "demo-token",
         },
       ]
-      profile.lmsConnectionName = "Moodle Demo"
-      profile.courseId = courseId
-      profile.roster.connection = {
+      course.lmsConnectionName = "Moodle Demo"
+      course.lmsCourseId = courseId
+      course.roster.connection = {
         kind: "moodle",
         courseId,
         lastUpdated: now,
       }
 
       let moodleGroupSetIndex = 0
-      for (const groupSet of profile.roster.groupSets) {
+      for (const groupSet of course.roster.groupSets) {
         if (groupSet.connection?.kind === "system") continue
         moodleGroupSetIndex += 1
         groupSet.connection = {
@@ -93,7 +93,7 @@ export function applyFixtureSourceOverlay(
       }
 
       let moodleGroupIndex = 0
-      for (const group of profile.roster.groups) {
+      for (const group of course.roster.groups) {
         if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
           moodleGroupIndex += 1
           group.origin = ORIGIN_LMS
@@ -105,15 +105,15 @@ export function applyFixtureSourceOverlay(
 
     case "file": {
       settings.lmsConnections = []
-      profile.lmsConnectionName = null
-      profile.courseId = null
-      profile.roster.connection = {
+      course.lmsConnectionName = null
+      course.lmsCourseId = null
+      course.roster.connection = {
         kind: "import",
         sourceFilename: "students.csv",
         lastUpdated: now,
       }
 
-      for (const groupSet of profile.roster.groupSets) {
+      for (const groupSet of course.roster.groupSets) {
         if (groupSet.connection?.kind === "system") continue
         groupSet.connection = {
           kind: "import",
@@ -123,7 +123,7 @@ export function applyFixtureSourceOverlay(
         }
       }
 
-      for (const group of profile.roster.groups) {
+      for (const group of course.roster.groups) {
         if (group.origin === ORIGIN_LOCAL || group.origin === ORIGIN_LMS) {
           group.origin = ORIGIN_LOCAL
           group.lmsGroupId = null

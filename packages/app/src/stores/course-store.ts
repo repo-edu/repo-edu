@@ -4,7 +4,7 @@ import type {
   Group,
   GroupSelectionMode,
   GroupSet,
-  PersistedProfile,
+  PersistedCourse,
   Roster,
   RosterMember,
   RosterValidationResult,
@@ -37,8 +37,8 @@ type HistoryEntry = {
   description: string
 }
 
-type ProfileState = {
-  profile: PersistedProfile | null
+type CourseState = {
+  course: PersistedCourse | null
   status: DocumentStatus
   error: string | null
   warnings: string[]
@@ -61,8 +61,8 @@ type ProfileState = {
   future: HistoryEntry[]
 }
 
-type ProfileActions = {
-  load: (profileId: string) => Promise<void>
+type CourseActions = {
+  load: (courseId: string) => Promise<void>
   save: () => Promise<boolean>
   clear: () => void
 
@@ -105,12 +105,12 @@ type ProfileActions = {
     selection: GroupSelectionMode,
   ) => void
 
-  // Profile metadata
+  // Course metadata
   setCourseId: (courseId: string | null) => void
   setLmsConnectionName: (name: string | null) => void
   setGitConnectionName: (name: string | null) => void
   setRepositoryTemplate: (
-    template: PersistedProfile["repositoryTemplate"],
+    template: PersistedCourse["repositoryTemplate"],
   ) => void
   setDisplayName: (name: string) => void
 
@@ -126,8 +126,8 @@ type ProfileActions = {
   clearHistory: () => void
 }
 
-const initialState: ProfileState = {
-  profile: null,
+const initialState: CourseState = {
+  course: null,
   status: "empty",
   error: null,
   warnings: [],
@@ -147,7 +147,7 @@ const initialState: ProfileState = {
   future: [],
 }
 
-export const useProfileStore = create<ProfileState & ProfileActions>()(
+export const useCourseStore = create<CourseState & CourseActions>()(
   immer((set, get) => {
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
     let saveRequested = false
@@ -199,13 +199,13 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
     const saveLatestSnapshot = async () => {
       const stateAtStart = get()
-      const profile = stateAtStart.profile
-      if (!profile) {
+      const course = stateAtStart.course
+      if (!course) {
         return true
       }
 
       const startLocalVersion = stateAtStart.localVersion
-      const profileId = profile.id
+      const courseId = course.id
       let lastError: unknown = null
 
       for (
@@ -215,7 +215,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
       ) {
         const savingIndicatorTimer = setTimeout(() => {
           set((draft) => {
-            if (draft.profile?.id !== profileId) return
+            if (draft.course?.id !== courseId) return
             draft.syncState = "saving"
           })
         }, 500)
@@ -223,13 +223,13 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         try {
           const client = getWorkflowClient()
           const saved = (await client.run(
-            "profile.save",
-            profile,
-          )) as PersistedProfile
+            "course.save",
+            course,
+          )) as PersistedCourse
           clearTimeout(savingIndicatorTimer)
 
           set((draft) => {
-            if (!draft.profile || draft.profile.id !== profileId) {
+            if (!draft.course || draft.course.id !== courseId) {
               return
             }
             draft.lastSavedRevision = saved.revision
@@ -237,12 +237,12 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
             draft.syncState = "idle"
 
             if (draft.localVersion === startLocalVersion) {
-              draft.profile = saved
+              draft.course = saved
               return
             }
 
             // Preserve newer local edits while advancing revision baseline.
-            draft.profile.revision = saved.revision
+            draft.course.revision = saved.revision
           })
           return true
         } catch (error) {
@@ -257,9 +257,9 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
             continue
           }
 
-          const message = getErrorMessage(error, "Could not save profile")
+          const message = getErrorMessage(error, "Could not save course")
           set((draft) => {
-            if (draft.profile?.id !== profileId) {
+            if (draft.course?.id !== courseId) {
               return
             }
             draft.syncState = "error"
@@ -299,11 +299,11 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
       }, AUTOSAVE_DEBOUNCE_MS)
     }
 
-    const markProfileMutated = () => {
+    const markCourseMutated = () => {
       set((draft) => {
-        if (!draft.profile) return
+        if (!draft.course) return
         draft.localVersion += 1
-        draft.profile.updatedAt = new Date().toISOString()
+        draft.course.updatedAt = new Date().toISOString()
         draft.checksDirty = true
         if (draft.syncState === "error") {
           draft.syncState = "idle"
@@ -319,19 +319,19 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
       mutator: (roster: Roster) => void,
     ) {
       const state = get()
-      if (!state.profile) return
+      if (!state.course) return
 
       const [nextRoster, patches, inversePatches] = produceWithPatches(
-        state.profile.roster,
+        state.course.roster,
         mutator,
       )
 
       if (patches.length === 0) return
 
       set((draft) => {
-        if (!draft.profile) return
-        draft.profile.roster = nextRoster as Roster
-        draft.profile.updatedAt = new Date().toISOString()
+        if (!draft.course) return
+        draft.course.roster = nextRoster as Roster
+        draft.course.updatedAt = new Date().toISOString()
         draft.history.push({ patches, inversePatches, description })
         if (draft.history.length > HISTORY_LIMIT) {
           draft.history.splice(0, draft.history.length - HISTORY_LIMIT)
@@ -339,15 +339,15 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         draft.future = []
         draft.checksDirty = true
       })
-      markProfileMutated()
+      markCourseMutated()
     }
 
     return {
       ...initialState,
 
-      load: async (profileId) => {
-        const currentProfileId = get().profile?.id ?? null
-        if (currentProfileId !== null && currentProfileId !== profileId) {
+      load: async (courseId) => {
+        const currentCourseId = get().course?.id ?? null
+        if (currentCourseId !== null && currentCourseId !== courseId) {
           await get().save()
         }
         try {
@@ -356,9 +356,9 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
             draft.error = null
           })
           const client = getWorkflowClient()
-          const loaded = await client.run("profile.load", { profileId })
+          const loaded = await client.run("course.load", { courseId })
           set((draft) => {
-            draft.profile = loaded as PersistedProfile
+            draft.course = loaded as PersistedCourse
             draft.status = "loaded"
             draft.history = []
             draft.future = []
@@ -366,7 +366,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
             draft.checksDirty = true
             draft.systemSetsReady = false
             draft.localVersion = 0
-            draft.lastSavedRevision = (loaded as PersistedProfile).revision
+            draft.lastSavedRevision = (loaded as PersistedCourse).revision
             draft.syncState = "idle"
             draft.syncError = null
           })
@@ -380,7 +380,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
       save: async () => {
         clearAutosaveTimer()
-        if (!get().profile) {
+        if (!get().course) {
           return true
         }
         requestAutosave()
@@ -447,14 +447,14 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         })
         // Full replacement bypasses the inner mutator and applies directly.
         set((draft) => {
-          if (!draft.profile) return
+          if (!draft.course) return
           const [nextRoster, patches, inversePatches] = produceWithPatches(
-            draft.profile.roster,
+            draft.course.roster,
             () => roster,
           )
           if (patches.length === 0) return
-          draft.profile.roster = nextRoster as Roster
-          draft.profile.updatedAt = new Date().toISOString()
+          draft.course.roster = nextRoster as Roster
+          draft.course.updatedAt = new Date().toISOString()
           draft.history.push({
             patches,
             inversePatches,
@@ -466,7 +466,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           draft.future = []
           draft.checksDirty = true
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       // ------------------------------------------------------------------
@@ -587,8 +587,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
       copyGroupSet: (groupSetId) => {
         const state = get()
-        if (!state.profile) return null
-        const source = state.profile.roster.groupSets.find(
+        if (!state.course) return null
+        const source = state.course.roster.groupSets.find(
           (gs) => gs.id === groupSetId,
         )
         if (!source) return null
@@ -672,42 +672,42 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
       },
 
       // ------------------------------------------------------------------
-      // Profile metadata (non-roster, no undo)
+      // Course metadata (non-roster, no undo)
       // ------------------------------------------------------------------
 
       setCourseId: (courseId) => {
         set((draft) => {
-          if (draft.profile) draft.profile.courseId = courseId
+          if (draft.course) draft.course.lmsCourseId = courseId
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       setLmsConnectionName: (name) => {
         set((draft) => {
-          if (draft.profile) draft.profile.lmsConnectionName = name
+          if (draft.course) draft.course.lmsConnectionName = name
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       setGitConnectionName: (name) => {
         set((draft) => {
-          if (draft.profile) draft.profile.gitConnectionName = name
+          if (draft.course) draft.course.gitConnectionName = name
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       setRepositoryTemplate: (template) => {
         set((draft) => {
-          if (draft.profile) draft.profile.repositoryTemplate = template
+          if (draft.course) draft.course.repositoryTemplate = template
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       setDisplayName: (name) => {
         set((draft) => {
-          if (draft.profile) draft.profile.displayName = name
+          if (draft.course) draft.course.displayName = name
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       // ------------------------------------------------------------------
@@ -716,8 +716,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
       ensureSystemGroupSets: () => {
         const state = get()
-        if (!state.profile) return
-        const result = ensureSystemGroupSets(state.profile.roster)
+        if (!state.course) return
+        const result = ensureSystemGroupSets(state.course.roster)
 
         const hasChanges =
           result.groupsUpserted.length > 0 || result.deletedGroupIds.length > 0
@@ -730,8 +730,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
         }
 
         set((draft) => {
-          if (!draft.profile) return
-          const roster = draft.profile.roster
+          if (!draft.course) return
+          const roster = draft.course.roster
 
           // Apply upserted groups.
           const upsertedIds = new Set(result.groupsUpserted.map((g) => g.id))
@@ -749,11 +749,11 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
           )
           roster.groupSets.push(...(result.groupSets as GroupSet[]))
 
-          draft.profile.updatedAt = new Date().toISOString()
+          draft.course.updatedAt = new Date().toISOString()
           draft.systemSetsReady = true
           draft.checksDirty = true
         })
-        markProfileMutated()
+        markCourseMutated()
       },
 
       // ------------------------------------------------------------------
@@ -762,8 +762,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
       runChecks: (identityMode) => {
         const state = get()
-        if (!state.profile) return
-        const roster = state.profile.roster
+        if (!state.course) return
+        const roster = state.course.roster
 
         set((draft) => {
           draft.checksStatus = "running"
@@ -804,38 +804,38 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 
       undo: () => {
         const state = get()
-        if (state.history.length === 0 || !state.profile) return null
+        if (state.history.length === 0 || !state.course) return null
         const entry = state.history[state.history.length - 1]
         const nextRoster = applyPatches(
-          state.profile.roster,
+          state.course.roster,
           entry.inversePatches,
         )
         set((draft) => {
-          if (!draft.profile) return
-          draft.profile.roster = nextRoster as Roster
-          draft.profile.updatedAt = new Date().toISOString()
+          if (!draft.course) return
+          draft.course.roster = nextRoster as Roster
+          draft.course.updatedAt = new Date().toISOString()
           draft.history.pop()
           draft.future.push(entry)
           draft.checksDirty = true
         })
-        markProfileMutated()
+        markCourseMutated()
         return entry
       },
 
       redo: () => {
         const state = get()
-        if (state.future.length === 0 || !state.profile) return null
+        if (state.future.length === 0 || !state.course) return null
         const entry = state.future[state.future.length - 1]
-        const nextRoster = applyPatches(state.profile.roster, entry.patches)
+        const nextRoster = applyPatches(state.course.roster, entry.patches)
         set((draft) => {
-          if (!draft.profile) return
-          draft.profile.roster = nextRoster as Roster
-          draft.profile.updatedAt = new Date().toISOString()
+          if (!draft.course) return
+          draft.course.roster = nextRoster as Roster
+          draft.course.updatedAt = new Date().toISOString()
           draft.future.pop()
           draft.history.push(entry)
           draft.checksDirty = true
         })
-        markProfileMutated()
+        markCourseMutated()
         return entry
       },
 
@@ -853,12 +853,11 @@ export const useProfileStore = create<ProfileState & ProfileActions>()(
 // Selectors
 // ---------------------------------------------------------------------------
 
-export const selectProfile = (state: ProfileState) => state.profile
-export const selectRoster = (state: ProfileState) =>
-  state.profile?.roster ?? null
-export const selectProfileStatus = (state: ProfileState) => state.status
-export const selectProfileError = (state: ProfileState) => state.error
-export const selectProfileWarnings = (state: ProfileState) => state.warnings
+export const selectCourse = (state: CourseState) => state.course
+export const selectRoster = (state: CourseState) => state.course?.roster ?? null
+export const selectCourseStatus = (state: CourseState) => state.status
+export const selectCourseError = (state: CourseState) => state.error
+export const selectCourseWarnings = (state: CourseState) => state.warnings
 
 const EMPTY_MEMBERS: RosterMember[] = []
 const EMPTY_GROUPS: Group[] = []
@@ -874,8 +873,8 @@ function makeRosterDerivedSelector<T>(
   let cachedRoster: Roster | null = null
   let cachedValue = emptyValue
 
-  return (state: ProfileState): T => {
-    const roster = state.profile?.roster ?? null
+  return (state: CourseState): T => {
+    const roster = state.course?.roster ?? null
     if (!roster) {
       cachedRoster = null
       cachedValue = emptyValue
@@ -890,47 +889,47 @@ function makeRosterDerivedSelector<T>(
   }
 }
 
-export const selectStudents = (state: ProfileState) =>
-  state.profile?.roster.students ?? EMPTY_MEMBERS
-export const selectStaff = (state: ProfileState) =>
-  state.profile?.roster.staff ?? EMPTY_MEMBERS
-export const selectGroups = (state: ProfileState) =>
-  state.profile?.roster.groups ?? EMPTY_GROUPS
-export const selectGroupSets = (state: ProfileState) =>
-  state.profile?.roster.groupSets ?? EMPTY_GROUP_SETS
-export const selectAssignments = (state: ProfileState) =>
-  state.profile?.roster.assignments ?? EMPTY_ASSIGNMENTS
-export const selectAssignmentSelection = (state: ProfileState) =>
+export const selectStudents = (state: CourseState) =>
+  state.course?.roster.students ?? EMPTY_MEMBERS
+export const selectStaff = (state: CourseState) =>
+  state.course?.roster.staff ?? EMPTY_MEMBERS
+export const selectGroups = (state: CourseState) =>
+  state.course?.roster.groups ?? EMPTY_GROUPS
+export const selectGroupSets = (state: CourseState) =>
+  state.course?.roster.groupSets ?? EMPTY_GROUP_SETS
+export const selectAssignments = (state: CourseState) =>
+  state.course?.roster.assignments ?? EMPTY_ASSIGNMENTS
+export const selectAssignmentSelection = (state: CourseState) =>
   state.assignmentSelection
 
-export const selectGroupById = (groupId: string) => (state: ProfileState) =>
-  state.profile?.roster.groups.find((g) => g.id === groupId) ?? null
+export const selectGroupById = (groupId: string) => (state: CourseState) =>
+  state.course?.roster.groups.find((g) => g.id === groupId) ?? null
 export const selectGroupSetById =
-  (groupSetId: string) => (state: ProfileState) =>
-    state.profile?.roster.groupSets.find((gs) => gs.id === groupSetId) ?? null
+  (groupSetId: string) => (state: CourseState) =>
+    state.course?.roster.groupSets.find((gs) => gs.id === groupSetId) ?? null
 export const selectAssignmentById =
-  (assignmentId: string) => (state: ProfileState) =>
-    state.profile?.roster.assignments.find((a) => a.id === assignmentId) ?? null
+  (assignmentId: string) => (state: CourseState) =>
+    state.course?.roster.assignments.find((a) => a.id === assignmentId) ?? null
 
-export const selectCourseId = (state: ProfileState) =>
-  state.profile?.courseId ?? null
-export const selectGitConnectionName = (state: ProfileState) =>
-  state.profile?.gitConnectionName ?? null
-export const selectLmsConnectionName = (state: ProfileState) =>
-  state.profile?.lmsConnectionName ?? null
-export const selectRepositoryTemplate = (state: ProfileState) =>
-  state.profile?.repositoryTemplate ?? null
+export const selectCourseId = (state: CourseState) =>
+  state.course?.lmsCourseId ?? null
+export const selectGitConnectionName = (state: CourseState) =>
+  state.course?.gitConnectionName ?? null
+export const selectLmsConnectionName = (state: CourseState) =>
+  state.course?.lmsConnectionName ?? null
+export const selectRepositoryTemplate = (state: CourseState) =>
+  state.course?.repositoryTemplate ?? null
 
-export const selectSystemSetsReady = (state: ProfileState) =>
+export const selectSystemSetsReady = (state: CourseState) =>
   state.systemSetsReady
-export const selectRosterValidation = (state: ProfileState) =>
+export const selectRosterValidation = (state: CourseState) =>
   state.rosterValidation
-export const selectAssignmentValidations = (state: ProfileState) =>
+export const selectAssignmentValidations = (state: CourseState) =>
   state.assignmentValidations
-export const selectIssueCards = (state: ProfileState) => state.issueCards
-export const selectChecksStatus = (state: ProfileState) => state.checksStatus
-export const selectChecksError = (state: ProfileState) => state.checksError
-export const selectChecksDirty = (state: ProfileState) => state.checksDirty
+export const selectIssueCards = (state: CourseState) => state.issueCards
+export const selectChecksStatus = (state: CourseState) => state.checksStatus
+export const selectChecksError = (state: CourseState) => state.checksError
+export const selectChecksDirty = (state: CourseState) => state.checksDirty
 
 // Group set category selectors
 
@@ -940,8 +939,8 @@ export const selectSystemGroupSets = makeRosterDerivedSelector((roster) => {
 }, EMPTY_GROUP_SETS)
 
 export const selectSystemGroupSet =
-  (systemType: string) => (state: ProfileState) =>
-    (state.profile?.roster.groupSets ?? []).find(
+  (systemType: string) => (state: CourseState) =>
+    (state.course?.roster.groupSets ?? []).find(
       (gs) =>
         gs.connection?.kind === "system" &&
         gs.connection.systemType === systemType,
@@ -1027,19 +1026,19 @@ export const selectOtherGroupSetNames = (
 }
 
 export const selectGroupReferenceCount =
-  (groupId: string) => (state: ProfileState) => {
-    const roster = state.profile?.roster
+  (groupId: string) => (state: CourseState) => {
+    const roster = state.course?.roster
     if (!roster) return 0
     return roster.groupSets.filter((gs) => gs.groupIds.includes(groupId)).length
   }
 
-export const selectCanUndo = (state: ProfileState) => state.history.length > 0
-export const selectCanRedo = (state: ProfileState) => state.future.length > 0
-export const selectNextUndoDescription = (state: ProfileState) =>
+export const selectCanUndo = (state: CourseState) => state.history.length > 0
+export const selectCanRedo = (state: CourseState) => state.future.length > 0
+export const selectNextUndoDescription = (state: CourseState) =>
   state.history.length > 0
     ? state.history[state.history.length - 1].description
     : null
-export const selectNextRedoDescription = (state: ProfileState) =>
+export const selectNextRedoDescription = (state: CourseState) =>
   state.future.length > 0
     ? state.future[state.future.length - 1].description
     : null

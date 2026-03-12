@@ -6,7 +6,7 @@ import {
   groupEditImportRowSchema,
   studentImportRowSchema,
   validatePersistedAppSettings,
-  validatePersistedProfile,
+  validatePersistedCourse,
 } from "../index.js"
 
 describe("validatePersistedAppSettings", () => {
@@ -21,7 +21,7 @@ describe("validatePersistedAppSettings", () => {
   it("accepts settings with populated connections", () => {
     const settings = {
       ...defaultAppSettings,
-      activeProfileId: "abc-123",
+      activeCourseId: "abc-123",
       lastOpenedAt: "2026-03-04T10:00:00Z",
       lmsConnections: [
         {
@@ -128,16 +128,16 @@ describe("validatePersistedAppSettings", () => {
   })
 })
 
-describe("validatePersistedProfile", () => {
+describe("validatePersistedCourse", () => {
   const validProfile = {
-    kind: "repo-edu.profile.v3",
-    schemaVersion: 3,
+    kind: "repo-edu.course.v1",
+    schemaVersion: 1,
     revision: 0,
     id: "prof-1",
-    displayName: "Test Profile",
+    displayName: "Test Course",
     lmsConnectionName: null,
     gitConnectionName: null,
-    courseId: null,
+    lmsCourseId: null,
     roster: {
       connection: null,
       students: [],
@@ -150,17 +150,17 @@ describe("validatePersistedProfile", () => {
     updatedAt: "2026-03-04T10:00:00Z",
   }
 
-  it("accepts a valid empty profile", () => {
-    const result = validatePersistedProfile(validProfile)
+  it("accepts a valid empty course", () => {
+    const result = validatePersistedCourse(validProfile)
     assert.equal(result.ok, true)
     if (result.ok) {
       assert.equal(result.value.id, "prof-1")
-      assert.equal(result.value.displayName, "Test Profile")
+      assert.equal(result.value.displayName, "Test Course")
     }
   })
 
-  it("accepts a profile with populated roster and groups", () => {
-    const profile = {
+  it("accepts a course with populated roster and groups", () => {
+    const course = {
       ...validProfile,
       roster: {
         connection: {
@@ -238,12 +238,12 @@ describe("validatePersistedProfile", () => {
         visibility: "private",
       },
     }
-    const result = validatePersistedProfile(profile)
+    const result = validatePersistedCourse(course)
     assert.equal(result.ok, true)
   })
 
   it("accepts pattern-based group selection", () => {
-    const profile = {
+    const course = {
       ...validProfile,
       roster: {
         ...validProfile.roster,
@@ -262,17 +262,17 @@ describe("validatePersistedProfile", () => {
         ],
       },
     }
-    const result = validatePersistedProfile(profile)
+    const result = validatePersistedCourse(course)
     assert.equal(result.ok, true)
   })
 
   it("rejects non-object input", () => {
-    const result = validatePersistedProfile(42)
+    const result = validatePersistedCourse(42)
     assert.equal(result.ok, false)
   })
 
   it("rejects wrong kind", () => {
-    const result = validatePersistedProfile({ ...validProfile, kind: "wrong" })
+    const result = validatePersistedCourse({ ...validProfile, kind: "wrong" })
     assert.equal(result.ok, false)
     if (!result.ok) {
       assert.ok(result.issues.some((i) => i.path === "kind"))
@@ -280,7 +280,7 @@ describe("validatePersistedProfile", () => {
   })
 
   it("rejects invalid member in roster", () => {
-    const result = validatePersistedProfile({
+    const result = validatePersistedCourse({
       ...validProfile,
       roster: {
         ...validProfile.roster,
@@ -311,7 +311,7 @@ describe("validatePersistedProfile", () => {
   })
 
   it("rejects invalid group selection mode", () => {
-    const result = validatePersistedProfile({
+    const result = validatePersistedCourse({
       ...validProfile,
       roster: {
         ...validProfile.roster,
@@ -337,7 +337,7 @@ describe("validatePersistedProfile", () => {
   })
 
   it("rejects invalid repository template visibility", () => {
-    const result = validatePersistedProfile({
+    const result = validatePersistedCourse({
       ...validProfile,
       repositoryTemplate: {
         owner: "org",

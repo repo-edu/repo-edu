@@ -13,13 +13,13 @@ description: Common setup and runtime failures
 - Check `pnpm --filter @repo-edu/desktop run dev` output for preload or renderer errors.
 - Verify `apps/desktop/src/preload.ts` bridge is exposing `repoEduDesktopHost`.
 
-## CLI reports no active profile
+## CLI reports no active course
 
 Run:
 
 ```bash
-node apps/cli/dist/index.js profile list
-node apps/cli/dist/index.js profile load <profile-id>
+node apps/cli/dist/index.js course list
+node apps/cli/dist/index.js course load <course-id>
 ```
 
 ## Docs demo build fails

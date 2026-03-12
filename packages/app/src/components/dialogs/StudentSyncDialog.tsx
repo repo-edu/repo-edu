@@ -13,25 +13,24 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import {
-  selectProfileStatus,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  selectCourseStatus,
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
-export function RosterSyncDialog() {
+export function StudentSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
-  const activeProfileId = useUiStore((state) => state.activeProfileId)
-  const profile = useProfileStore((state) => state.profile)
-  const profileStatus = useProfileStore(selectProfileStatus)
+  const activeCourseId = useUiStore((state) => state.activeCourseId)
+  const course = useCourseStore((state) => state.course)
+  const courseStatus = useCourseStore(selectCourseStatus)
   const appSettings = useAppSettingsStore((state) => state.settings)
-  const loadedProfile =
-    profile && profile.id === activeProfileId ? profile : null
-  const courseId = loadedProfile?.courseId ?? null
-  const lmsConnectionName = loadedProfile?.lmsConnectionName ?? null
+  const loadedCourse = course && course.id === activeCourseId ? course : null
+  const lmsCourseId = loadedCourse?.lmsCourseId ?? null
+  const lmsConnectionName = loadedCourse?.lmsConnectionName ?? null
 
-  const setRoster = useProfileStore((state) => state.setRoster)
+  const setRoster = useCourseStore((state) => state.setRoster)
   const setLmsImportConflicts = useUiStore(
     (state) => state.setLmsImportConflicts,
   )
@@ -63,19 +62,19 @@ export function RosterSyncDialog() {
     const requestId = previewRequestIdRef.current + 1
     previewRequestIdRef.current = requestId
 
-    if (!activeProfileId) {
-      setError("No profile is selected")
+    if (!activeCourseId) {
+      setError("No course is selected")
       setProgressMessage(null)
       return
     }
 
-    if (!loadedProfile || profileStatus === "loading") {
+    if (!loadedCourse || courseStatus === "loading") {
       setError(null)
-      setProgressMessage("Loading profile configuration...")
+      setProgressMessage("Loading course configuration...")
       return
     }
 
-    if (!lmsConnectionName || !courseId) {
+    if (!lmsConnectionName || !lmsCourseId) {
       setError("LMS connection or course is not configured")
       setProgressMessage(null)
       return
@@ -91,9 +90,9 @@ export function RosterSyncDialog() {
       const result = await client.run(
         "roster.importFromLms",
         {
-          profile: loadedProfile,
+          course: loadedCourse,
           appSettings,
-          courseId,
+          lmsCourseId,
         },
         {
           onProgress: (p) => {
@@ -116,12 +115,12 @@ export function RosterSyncDialog() {
       }
     }
   }, [
-    activeProfileId,
+    activeCourseId,
     appSettings,
-    loadedProfile,
-    profileStatus,
+    loadedCourse,
+    courseStatus,
     lmsConnectionName,
-    courseId,
+    lmsCourseId,
   ])
 
   useEffect(() => {
@@ -130,12 +129,12 @@ export function RosterSyncDialog() {
       return
     }
     if (hasAutoPreviewedRef.current) return
-    if (!activeProfileId) return
-    if (!loadedProfile || profileStatus === "loading") return
+    if (!activeCourseId) return
+    if (!loadedCourse || courseStatus === "loading") return
 
     hasAutoPreviewedRef.current = true
     void handlePreview()
-  }, [open, activeProfileId, loadedProfile, profileStatus, handlePreview])
+  }, [open, activeCourseId, loadedCourse, courseStatus, handlePreview])
 
   const handleApply = () => {
     if (!preview) return

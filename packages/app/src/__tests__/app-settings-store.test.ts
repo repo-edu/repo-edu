@@ -57,14 +57,14 @@ describe("app settings store", () => {
 
     gate.resolve(
       makeSettings({
-        activeProfileId: "profile-1",
+        activeCourseId: "course-1",
       }),
     )
     await loadPromise
 
     const state = useAppSettingsStore.getState()
     assert.equal(state.status, "loaded")
-    assert.equal(state.settings.activeProfileId, "profile-1")
+    assert.equal(state.settings.activeCourseId, "course-1")
   })
 
   it("keeps local mutations visible during save and returns to loaded status", async () => {
@@ -76,14 +76,14 @@ describe("app settings store", () => {
     setWorkflowClient(client as unknown as WorkflowClient)
 
     await useAppSettingsStore.getState().load()
-    useAppSettingsStore.getState().setActiveProfileId("profile-2")
+    useAppSettingsStore.getState().setActiveCourseId("course-2")
     useAppSettingsStore.getState().setTheme("dark")
 
     const savePromise = useAppSettingsStore.getState().save()
     assert.equal(useAppSettingsStore.getState().status, "saving")
     assert.equal(
-      useAppSettingsStore.getState().settings.activeProfileId,
-      "profile-2",
+      useAppSettingsStore.getState().settings.activeCourseId,
+      "course-2",
     )
     assert.equal(
       useAppSettingsStore.getState().settings.appearance.theme,
@@ -92,7 +92,7 @@ describe("app settings store", () => {
 
     saveGate.resolve(
       makeSettings({
-        activeProfileId: "profile-2",
+        activeCourseId: "course-2",
         appearance: {
           theme: "dark",
           windowChrome: "system",

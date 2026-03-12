@@ -20,8 +20,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   type EditableGroupTarget,
   selectOtherGroupSetNames,
-  useProfileStore,
-} from "../../../stores/profile-store.js"
+  useCourseStore,
+} from "../../../stores/course-store.js"
 import { GroupLockIcon } from "./GroupLockIcon.js"
 import { MemberChip } from "./MemberChip.js"
 
@@ -55,13 +55,13 @@ export function GroupItem({
     () => selectOtherGroupSetNames(group.id, groupSetId),
     [group.id, groupSetId],
   )
-  const otherNames = useProfileStore(otherSetNames)
+  const otherNames = useCourseStore(otherSetNames)
   const isShared = otherNames.length > 0
 
-  const updateGroup = useProfileStore((s) => s.updateGroup)
-  const removeGroupFromSet = useProfileStore((s) => s.removeGroupFromSet)
-  const moveMemberToGroup = useProfileStore((s) => s.moveMemberToGroup)
-  const copyMemberToGroup = useProfileStore((s) => s.copyMemberToGroup)
+  const updateGroup = useCourseStore((s) => s.updateGroup)
+  const removeGroupFromSet = useCourseStore((s) => s.removeGroupFromSet)
+  const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
+  const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)

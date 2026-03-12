@@ -1,23 +1,23 @@
 ---
 title: LMS Commands
-description: Verify and synchronize LMS data into profiles
+description: Verify and synchronize LMS data into courses
 ---
 
 ## `redu lms verify`
 
-Verifies the selected profile's LMS connection.
+Verifies the selected course's LMS connection.
 
 ## `redu lms import-students`
 
-Imports students from LMS using `profile.courseId`.
+Imports students from LMS using `course.lmsCourseId`.
 
 ## `redu lms import-groups --group-set <id>`
 
-Synchronizes one LMS group set into the selected profile.
+Synchronizes one LMS group set into the selected course.
 
 ## `redu lms cache list`
 
-Lists cached LMS-linked group sets from the selected profile.
+Lists cached LMS-linked group sets from the selected course.
 
 ## `redu lms cache fetch [--group-set <id>]`
 
@@ -34,7 +34,7 @@ Deletes a cached LMS group set (fails if referenced by assignments).
 ## Examples
 
 ```bash
-node apps/cli/dist/index.js lms verify --profile seed-profile
-node apps/cli/dist/index.js lms cache fetch --profile seed-profile
-node apps/cli/dist/index.js lms import-groups --group-set lms-group-set-1 --profile seed-profile
+node apps/cli/dist/index.js lms verify --course seed-course
+node apps/cli/dist/index.js lms cache fetch --course seed-course
+node apps/cli/dist/index.js lms import-groups --group-set lms-group-set-1 --course seed-course
 ```

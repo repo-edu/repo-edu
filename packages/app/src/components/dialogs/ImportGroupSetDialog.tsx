@@ -19,7 +19,7 @@ import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -37,7 +37,7 @@ export function ImportGroupSetDialog() {
   const setOpen = useUiStore((state) => state.setImportGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
-  const profile = useProfileStore((state) => state.profile)
+  const course = useCourseStore((state) => state.course)
 
   const handleBrowse = async () => {
     try {
@@ -54,15 +54,15 @@ export function ImportGroupSetDialog() {
       const defaultName = fileRef.displayName.replace(/\.csv$/i, "")
       setName(defaultName)
 
-      if (!profile) {
-        setError("No profile loaded")
+      if (!course) {
+        setError("No course loaded")
         return
       }
 
       setLoading(true)
       const client = getWorkflowClient()
       const result = await client.run("groupSet.previewImportFromFile", {
-        profile,
+        course,
         file: fileRef,
       })
       if (result.mode === "import") {
@@ -87,9 +87,9 @@ export function ImportGroupSetDialog() {
     setGroupSetOperation({ kind: "import" })
 
     try {
-      // The preview contains the parsed groups. Apply via profile store.
+      // The preview contains the parsed groups. Apply via course store.
       const groupSetName = name.trim()
-      const createLocalGroupSet = useProfileStore.getState().createLocalGroupSet
+      const createLocalGroupSet = useCourseStore.getState().createLocalGroupSet
       const id = createLocalGroupSet(groupSetName)
       if (id) {
         setSidebarSelection({ kind: "group-set", id })

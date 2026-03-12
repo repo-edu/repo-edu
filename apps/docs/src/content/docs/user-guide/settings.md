@@ -1,20 +1,20 @@
 ---
-title: Settings and Profiles
-description: Connection settings, profile selection, and persistence behavior
+title: Settings and Courses
+description: Connection settings, course selection, and persistence behavior
 ---
 
 ## Data model split
 
 - App settings store global connections and appearance preferences.
-- Profiles store course-specific roster, groups, assignments, and repo template data.
+- Courses store course-specific roster, groups, assignments, and repo template data.
 
-## CLI profile commands
+## CLI course commands
 
 ```bash
-node apps/cli/dist/index.js profile list
-node apps/cli/dist/index.js profile active
-node apps/cli/dist/index.js profile show --profile <profile-id>
-node apps/cli/dist/index.js profile load <profile-id>
+node apps/cli/dist/index.js course list
+node apps/cli/dist/index.js course active
+node apps/cli/dist/index.js course show --course <course-id>
+node apps/cli/dist/index.js course load <course-id>
 ```
 
 ## Storage locations
@@ -24,4 +24,4 @@ node apps/cli/dist/index.js profile load <profile-id>
 
 ## Validation behavior
 
-Both settings and profiles are validated via `@repo-edu/domain` schemas on load and save.
+Both settings and courses are validated via `@repo-edu/domain` schemas on load and save.

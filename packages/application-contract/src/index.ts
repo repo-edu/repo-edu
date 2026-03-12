@@ -1,12 +1,12 @@
 import type {
+  CourseSummary,
   FileFormat,
   GitProviderKind,
   GroupSet,
   GroupSetImportPreview,
   LmsProviderKind,
   PersistedAppSettings,
-  PersistedProfile,
-  ProfileSummary,
+  PersistedCourse,
   RepositoryTemplate,
   Roster,
   RosterImportFromLmsResult,
@@ -83,7 +83,6 @@ export type AppError =
       type: "not-found"
       message: string
       resource:
-        | "profile"
         | "connection"
         | "course"
         | "group-set"
@@ -95,7 +94,7 @@ export type AppError =
       type: "conflict"
       message: string
       resource:
-        | "profile"
+        | "course"
         | "connection"
         | "group-set"
         | "assignment"
@@ -136,7 +135,7 @@ export const appErrorOwnership = {
   provider:
     "Only packages/application may normalize LMS, Git, or subprocess adapter failures into provider errors.",
   persistence:
-    "Only packages/application may normalize settings, profile, and user-file boundary failures into persistence errors.",
+    "Only packages/application may normalize settings, course, and user-file boundary failures into persistence errors.",
   unexpected:
     "Only packages/application may expose unexpected as the final catch-all for unknown failures.",
 } as const
@@ -221,31 +220,31 @@ export type RosterImportFromFileInput = {
 }
 
 export type RosterExportMembersInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   target: UserSaveTargetRef
   format: Extract<FileFormat, "csv" | "xlsx">
 }
 
 export type RosterImportFromLmsInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
-  courseId: string
+  lmsCourseId: string
 }
 
 export type GroupSetSyncFromLmsInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
   groupSetId: string
 }
 
 export type GroupSetConnectFromLmsInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
   remoteGroupSetId: string
 }
 
 export type GroupSetFetchAvailableFromLmsInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
 }
 
@@ -260,40 +259,40 @@ export type GroupSetLmsApplyResult = {
 } & GroupSet
 
 export type GroupSetPreviewImportFromFileInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   file: UserFileRef
 }
 
 export type GroupSetPreviewReimportFromFileInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   groupSetId: string
   file: UserFileRef
 }
 
 export type GroupSetExportInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   groupSetId: string
   target: UserSaveTargetRef
   format: Extract<FileFormat, "csv" | "xlsx" | "yaml">
 }
 
 export type GitUsernameImportInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
   file: UserFileRef
 }
 
 export type AssignmentValidationInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   assignmentId: string
 }
 
 export type RosterValidationInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
 }
 
 export type RepositoryBatchInput = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
   assignmentId: string | null
   template: RepositoryTemplate | null
@@ -346,26 +345,26 @@ export type SpikeCorsWorkflowResult = {
 }
 
 export type WorkflowPayloads = {
-  "profile.list": {
+  "course.list": {
     input: undefined
     progress: never
     output: never
-    result: ProfileSummary[]
+    result: CourseSummary[]
   }
-  "profile.load": {
-    input: { profileId: string }
+  "course.load": {
+    input: { courseId: string }
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: PersistedProfile
+    result: PersistedCourse
   }
-  "profile.save": {
-    input: PersistedProfile
+  "course.save": {
+    input: PersistedCourse
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: PersistedProfile
+    result: PersistedCourse
   }
-  "profile.delete": {
-    input: { profileId: string }
+  "course.delete": {
+    input: { courseId: string }
     progress: never
     output: never
     result: undefined
@@ -523,22 +522,22 @@ type WorkflowMetadata = WorkflowExecutionProfile & {
 }
 
 export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
-  "profile.list": {
+  "course.list": {
     delivery: ["desktop", "docs", "cli"],
     progress: "none",
     cancellation: "non-cancellable",
   },
-  "profile.load": {
+  "course.load": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "cooperative",
   },
-  "profile.save": {
+  "course.save": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "cooperative",
   },
-  "profile.delete": {
+  "course.delete": {
     delivery: ["desktop", "docs", "cli"],
     progress: "none",
     cancellation: "non-cancellable",

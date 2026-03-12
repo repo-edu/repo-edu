@@ -2,8 +2,8 @@ import { planRepositoryOperation } from "@repo-edu/domain"
 import type { Command } from "commander"
 import {
   emitCommandError,
-  loadSelectedProfile,
-  resolveAssignmentFromProfile,
+  loadSelectedCourse,
+  resolveAssignmentFromCourse,
   toErrorMessage,
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
@@ -27,10 +27,10 @@ type RepoDeleteOptions = {
 function printRepositoryPlan(
   assignmentName: string,
   assignmentId: string,
-  profileId: string,
+  courseId: string,
 ) {
   process.stdout.write(
-    `Planned repository operation for assignment '${assignmentName}' (${assignmentId}) in profile '${profileId}':\n`,
+    `Planned repository operation for assignment '${assignmentName}' (${assignmentId}) in course '${courseId}':\n`,
   )
 }
 
@@ -46,23 +46,23 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const assignment = resolveAssignmentFromProfile(
-          profile,
+        const assignment = resolveAssignmentFromCourse(
+          course,
           options.assignment,
         )
 
         if (!assignment) {
           throw new Error(
-            `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
+            `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
           )
         }
 
         if (options.dryRun) {
-          const planned = planRepositoryOperation(profile.roster, assignment.id)
+          const planned = planRepositoryOperation(course.roster, assignment.id)
           if (!planned.ok) {
             process.stdout.write("Repository plan is invalid:\n")
             for (const issue of planned.issues) {
@@ -72,7 +72,7 @@ export function registerRepoCommands(parent: Command): void {
             return
           }
 
-          printRepositoryPlan(assignment.name, assignment.id, profile.id)
+          printRepositoryPlan(assignment.name, assignment.id, course.id)
           if (planned.value.groups.length === 0) {
             process.stdout.write("- No repositories planned.\n")
           }
@@ -85,10 +85,10 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const result = await workflowClient.run("repo.create", {
-          profile,
+          course,
           appSettings: settings,
           assignmentId: assignment.id,
-          template: profile.repositoryTemplate,
+          template: course.repositoryTemplate,
         })
 
         process.stdout.write(
@@ -109,18 +109,18 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const assignment = resolveAssignmentFromProfile(
-          profile,
+        const assignment = resolveAssignmentFromCourse(
+          course,
           options.assignment,
         )
 
         if (!assignment) {
           throw new Error(
-            `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
+            `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
           )
         }
 
@@ -136,10 +136,10 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const result = await workflowClient.run("repo.clone", {
-          profile,
+          course,
           appSettings: settings,
           assignmentId: assignment.id,
-          template: profile.repositoryTemplate,
+          template: course.repositoryTemplate,
           targetDirectory: options.target,
           directoryLayout: options.layout,
         })
@@ -161,26 +161,26 @@ export function registerRepoCommands(parent: Command): void {
       const workflowClient = createCliWorkflowClient()
 
       try {
-        const { profile, settings } = await loadSelectedProfile(
+        const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const assignment = resolveAssignmentFromProfile(
-          profile,
+        const assignment = resolveAssignmentFromCourse(
+          course,
           options.assignment,
         )
 
         if (!assignment) {
           throw new Error(
-            `Assignment '${options.assignment}' was not found in profile '${profile.id}'.`,
+            `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
           )
         }
 
         const result = await workflowClient.run("repo.delete", {
-          profile,
+          course,
           appSettings: settings,
           assignmentId: assignment.id,
-          template: profile.repositoryTemplate,
+          template: course.repositoryTemplate,
           confirmDelete: options.force === true,
         })
 

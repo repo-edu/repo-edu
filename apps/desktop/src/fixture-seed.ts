@@ -11,7 +11,7 @@ import {
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
-import { createDesktopProfileStore } from "./profile-store"
+import { createDesktopCourseStore } from "./course-store"
 import { createDesktopAppSettingsStore } from "./settings-store"
 
 export type DesktopFixtureSelection = {
@@ -22,7 +22,7 @@ export type DesktopFixtureSelection = {
 
 export type SeededDesktopFixture = {
   selection: DesktopFixtureSelection
-  profileId: string
+  courseEntityId: string
   artifactPaths: string[]
 }
 
@@ -147,27 +147,27 @@ export async function seedDesktopFixtureFromEnvironment(
     tier: selection.tier,
     preset: selection.preset,
   })
-  const profile = cloneValue(fixture.profile)
+  const course = cloneValue(fixture.course)
   const settings = cloneValue(fixture.settings)
   const courseId =
-    profile.courseId ?? `course-${selection.tier}-${selection.preset}`
+    course.lmsCourseId ?? `course-${selection.tier}-${selection.preset}`
 
-  applyFixtureSourceOverlay(profile, settings, selection.source, courseId)
+  applyFixtureSourceOverlay(course, settings, selection.source, courseId)
 
-  const profileStore = createDesktopProfileStore(storageRoot)
+  const courseStore = createDesktopCourseStore(storageRoot)
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
 
-  await profileStore.saveProfile(profile)
+  await courseStore.saveCourse(course)
   await appSettingsStore.saveSettings({
     ...settings,
-    activeProfileId: profile.id,
+    activeCourseId: course.id,
   })
 
   const artifactPaths = await writeFixtureArtifacts(storageRoot, selection)
 
   return {
     selection,
-    profileId: profile.id,
+    courseEntityId: course.id,
     artifactPaths,
   }
 }

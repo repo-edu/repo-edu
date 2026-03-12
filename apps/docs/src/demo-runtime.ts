@@ -1,10 +1,10 @@
 import {
   createConnectionWorkflowHandlers,
+  createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
   createInMemoryAppSettingsStore,
-  createInMemoryProfileStore,
-  createProfileWorkflowHandlers,
+  createInMemoryCourseStore,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
@@ -17,7 +17,7 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import type { GroupSet, PersistedProfile } from "@repo-edu/domain"
+import type { GroupSet, PersistedCourse } from "@repo-edu/domain"
 import { ORIGIN_LMS } from "@repo-edu/domain"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
@@ -80,7 +80,7 @@ function cloneValue<TValue>(value: TValue): TValue {
 
 function createMockLmsPorts(
   source: DocsFixtureSource,
-  seedProfile: PersistedProfile,
+  seedCourse: PersistedCourse,
   seedCourseId: string,
   collaborativeGroupSet: GroupSet | null,
   lmsMemberIds: string[],
@@ -129,7 +129,7 @@ function createMockLmsPorts(
               lastUpdated: new Date().toISOString(),
             }
       return {
-        ...seedProfile.roster,
+        ...seedCourse.roster,
         connection,
       }
     },
@@ -196,15 +196,15 @@ function createMockLmsPorts(
 export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const fixtureSelection = resolveDocsFixtureSelection(options)
   const fixture = getDocsFixture(fixtureSelection)
-  const seedProfile = cloneValue(fixture.profile)
+  const seedCourse = cloneValue(fixture.course)
   const seedSettings = cloneValue(fixture.settings)
-  const seedProfileId = seedProfile.id
+  const seedCourseEntityId = seedCourse.id
   const seedCourseId =
-    seedProfile.courseId ??
+    seedCourse.lmsCourseId ??
     `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
 
   applyFixtureSourceOverlay(
-    seedProfile,
+    seedCourse,
     seedSettings,
     fixtureSelection.source,
     seedCourseId,
@@ -213,21 +213,21 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const browserMockHost = createBrowserMockHostEnvironment({
     readableFiles: fixture.readableFiles,
   })
-  const lmsMemberIds = seedProfile.roster.students
+  const lmsMemberIds = seedCourse.roster.students
     .slice(0, 2)
     .map((member) => member.id)
   const collaborativeGroupSet =
-    seedProfile.roster.groupSets.find(
+    seedCourse.roster.groupSets.find(
       (groupSet) =>
         groupSet.connection !== null && groupSet.connection.kind !== "system",
     ) ?? null
 
-  const profileStore = createInMemoryProfileStore([seedProfile])
+  const courseStore = createInMemoryCourseStore([seedCourse])
   const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
 
   const lmsPorts = createMockLmsPorts(
     fixtureSelection.source,
-    seedProfile,
+    seedCourse,
     seedCourseId,
     collaborativeGroupSet,
     lmsMemberIds,
@@ -309,7 +309,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   }
 
   const workflowHandlers = {
-    ...createProfileWorkflowHandlers(profileStore),
+    ...createCourseWorkflowHandlers(courseStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
     ...createConnectionWorkflowHandlers({
       lms: lmsPorts,
@@ -355,7 +355,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     workflowClient,
     workflowHandlers,
     rendererHost: browserMockHost.rendererHost,
-    seedProfileId,
+    seedCourseEntityId,
     seedCourseId,
     fixtureSelection,
   }

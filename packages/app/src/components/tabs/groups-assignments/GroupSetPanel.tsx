@@ -21,8 +21,8 @@ import {
   selectEditableGroupTargets,
   selectGroupSetById,
   selectGroupsForGroupSet,
-  useProfileStore,
-} from "../../../stores/profile-store.js"
+  useCourseStore,
+} from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupItem } from "./GroupItem.js"
 
@@ -38,13 +38,13 @@ function getConnectionKind(
 }
 
 export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
-  const groupSet = useProfileStore(selectGroupSetById(groupSetId))
-  const groups = useProfileStore(selectGroupsForGroupSet(groupSetId))
-  const assignments = useProfileStore(selectAssignmentsForGroupSet(groupSetId))
-  const editableTargets = useProfileStore(selectEditableGroupTargets)
-  const updateAssignment = useProfileStore((s) => s.updateAssignment)
-  const deleteAssignment = useProfileStore((s) => s.deleteAssignment)
-  const roster = useProfileStore((s) => s.profile?.roster ?? null)
+  const groupSet = useCourseStore(selectGroupSetById(groupSetId))
+  const groups = useCourseStore(selectGroupsForGroupSet(groupSetId))
+  const assignments = useCourseStore(selectAssignmentsForGroupSet(groupSetId))
+  const editableTargets = useCourseStore(selectEditableGroupTargets)
+  const updateAssignment = useCourseStore((s) => s.updateAssignment)
+  const deleteAssignment = useCourseStore((s) => s.deleteAssignment)
+  const roster = useCourseStore((s) => s.course?.roster ?? null)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const panelTab = useUiStore((s) => s.groupSetPanelTab)
   const setPanelTab = useUiStore((s) => s.setGroupSetPanelTab)

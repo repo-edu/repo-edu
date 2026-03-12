@@ -1,12 +1,12 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import { useIssues } from "../hooks/use-issues.js"
-import { useProfileStore } from "../stores/profile-store.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 export function IssuesButton() {
   const { issueCards, checksDirty, checksStatus } = useIssues()
-  const hasRoster = useProfileStore((state) => !!state.profile?.roster)
-  const runChecks = useProfileStore((state) => state.runChecks)
+  const hasRoster = useCourseStore((state) => !!state.course?.roster)
+  const runChecks = useCourseStore((state) => state.runChecks)
   const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen)
 
   const issueCount = issueCards.length

@@ -16,7 +16,7 @@ import { Upload } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -42,8 +42,8 @@ export function FileImportExportSheet() {
   )
   const selection = useUiStore((state) => state.sidebarSelection)
 
-  const profile = useProfileStore((state) => state.profile)
-  const roster = profile?.roster ?? null
+  const course = useCourseStore((state) => state.course)
+  const roster = course?.roster ?? null
   const addToast = useToastStore((state) => state.addToast)
 
   const [selectedGroupSetId, setSelectedGroupSetId] = useState<string>("")
@@ -88,7 +88,7 @@ export function FileImportExportSheet() {
   }
 
   const handleExport = async (format: "csv" | "xlsx" | "yaml") => {
-    if (!profile || !selectedGroupSetId) return
+    if (!course || !selectedGroupSetId) return
 
     setExportingFormat(format)
     try {
@@ -103,7 +103,7 @@ export function FileImportExportSheet() {
 
       const client = getWorkflowClient()
       await client.run("groupSet.export", {
-        profile,
+        course,
         groupSetId: selectedGroupSetId,
         target,
         format,

@@ -18,4 +18,4 @@ Shared packages remain platform-agnostic and browser-safe where required.
 
 ## 4. No legacy migration layer
 
-This rewrite intentionally does not include automated migration code from older profile/settings formats.
+This rewrite intentionally does not include automated migration code from older course/settings formats.

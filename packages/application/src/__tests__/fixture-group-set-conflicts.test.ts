@@ -51,10 +51,10 @@ function parseGroupsCsv(csvText: string): GroupCsvRow[] {
 }
 
 function makeGroupSetHandlers(profileCsvText: string) {
-  const profile = cloneValue(fixture.profile)
+  const course = cloneValue(fixture.course)
 
   return {
-    profile,
+    course,
     handlers: createGroupSetWorkflowHandlers({
       lms: {
         listGroupSets: async () => {
@@ -86,11 +86,11 @@ describe("fixture-backed group-set conflict previews", () => {
   it("flags duplicate memberships in import preview", async () => {
     const lines = groupCsvArtifact.text.trim().split(/\r?\n/)
     const duplicateMembershipCsv = [...lines, lines[1]].join("\n")
-    const { profile, handlers } = makeGroupSetHandlers(duplicateMembershipCsv)
+    const { course, handlers } = makeGroupSetHandlers(duplicateMembershipCsv)
 
     await assert.rejects(
       handlers["groupSet.previewImportFromFile"]({
-        profile,
+        course,
         file: {
           kind: "user-file-ref",
           referenceId: "groups-csv",
@@ -112,10 +112,10 @@ describe("fixture-backed group-set conflict previews", () => {
       "@example.edu",
       "@unknown.invalid",
     )
-    const { profile, handlers } = makeGroupSetHandlers(unknownEmailCsv)
+    const { course, handlers } = makeGroupSetHandlers(unknownEmailCsv)
 
     const preview = await handlers["groupSet.previewImportFromFile"]({
-      profile,
+      course,
       file: {
         kind: "user-file-ref",
         referenceId: "groups-csv",
@@ -163,9 +163,9 @@ describe("fixture-backed group-set conflict previews", () => {
         .filter((email) => email.length > 0),
     )
     const replacementEmail =
-      fixture.profile.roster.students.find(
+      fixture.course.roster.students.find(
         (student) => !updateOriginalEmails.has(student.email),
-      )?.email ?? fixture.profile.roster.students[0]?.email
+      )?.email ?? fixture.course.roster.students[0]?.email
     assert.ok(replacementEmail)
 
     const renamedGroupName = `${renameTarget.groupName}-renamed`
@@ -177,14 +177,14 @@ describe("fixture-backed group-set conflict previews", () => {
       `${addedGroupName},,${replacementEmail}`,
     ].join("\n")
 
-    const targetGroupSet = fixture.profile.roster.groupSets.find(
+    const targetGroupSet = fixture.course.roster.groupSets.find(
       (groupSet) => groupSet.connection === null,
     )
     assert.ok(targetGroupSet)
 
-    const { profile, handlers } = makeGroupSetHandlers(reimportCsv)
+    const { course, handlers } = makeGroupSetHandlers(reimportCsv)
     const preview = await handlers["groupSet.previewReimportFromFile"]({
-      profile,
+      course,
       groupSetId: targetGroupSet.id,
       file: {
         kind: "user-file-ref",

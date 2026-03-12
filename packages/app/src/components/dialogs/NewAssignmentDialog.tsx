@@ -11,7 +11,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useEffect, useMemo, useState } from "react"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { generateAssignmentId } from "../../utils/nanoid.js"
 
@@ -28,8 +28,8 @@ export function NewAssignmentDialog() {
   )
   const selection = useUiStore((state) => state.sidebarSelection)
 
-  const addAssignment = useProfileStore((state) => state.addAssignment)
-  const roster = useProfileStore((state) => state.profile?.roster ?? null)
+  const addAssignment = useCourseStore((state) => state.addAssignment)
+  const roster = useCourseStore((state) => state.course?.roster ?? null)
 
   const resolvedGroupSetId =
     preSelectedGroupSetId ??

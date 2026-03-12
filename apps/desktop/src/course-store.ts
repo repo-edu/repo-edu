@@ -1,12 +1,13 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { ProfileStore } from "@repo-edu/application"
+import type { CourseStore } from "@repo-edu/application"
 import {
-  type PersistedProfile,
+  type PersistedCourse,
+  persistedCourseKind,
   type Roster,
-  validatePersistedProfile,
+  validatePersistedCourse,
 } from "@repo-edu/domain"
-import { desktopSeedProfileId } from "./profile-ids"
+import { desktopSeedCourseId } from "./course-ids"
 
 function createSeedRoster(): Roster {
   const roster: Roster = {
@@ -133,58 +134,58 @@ function createSeedRoster(): Roster {
   return roster
 }
 
-function createSeedProfile(): PersistedProfile {
+function createSeedCourse(): PersistedCourse {
   return {
-    kind: "repo-edu.profile.v3",
-    schemaVersion: 3,
+    kind: persistedCourseKind,
+    schemaVersion: 1,
     revision: 0,
-    id: desktopSeedProfileId,
-    displayName: "Seed Profile",
+    id: desktopSeedCourseId,
+    displayName: "Seed Course",
     lmsConnectionName: null,
     gitConnectionName: null,
-    courseId: null,
+    lmsCourseId: null,
     roster: createSeedRoster(),
     repositoryTemplate: null,
     updatedAt: "2026-03-04T10:00:00Z",
   }
 }
 
-function resolveProfilesDirectory(storageRoot: string): string {
-  return join(storageRoot, "profiles")
+function resolveCoursesDirectory(storageRoot: string): string {
+  return join(storageRoot, "courses")
 }
 
-function sanitizeProfileFileBaseName(displayName: string): string {
+function sanitizeCourseFileBaseName(displayName: string): string {
   const normalized = displayName.trim().replace(/\s+/g, " ")
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional range for filename sanitization
   const withoutIllegal = normalized.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
   const withoutTrailingDots = withoutIllegal.replace(/[. ]+$/g, "")
-  return withoutTrailingDots.length > 0 ? withoutTrailingDots : "profile"
+  return withoutTrailingDots.length > 0 ? withoutTrailingDots : "course"
 }
 
-function resolveProfilePathFromDisplayName(
+function resolveCoursePathFromDisplayName(
   storageRoot: string,
   displayName: string,
   duplicateIndex = 0,
 ): string {
-  const baseName = sanitizeProfileFileBaseName(displayName)
+  const baseName = sanitizeCourseFileBaseName(displayName)
   const fileName =
     duplicateIndex === 0
       ? `${baseName}.json`
       : `${baseName} (${duplicateIndex + 1}).json`
-  return join(resolveProfilesDirectory(storageRoot), fileName)
+  return join(resolveCoursesDirectory(storageRoot), fileName)
 }
 
-type ProfileFileInspection =
+type CourseFileInspection =
   | { kind: "missing" }
   | { kind: "invalid" }
-  | { kind: "profile"; profile: PersistedProfile }
+  | { kind: "course"; course: PersistedCourse }
 
-async function inspectProfileFile(
-  profilePath: string,
-): Promise<ProfileFileInspection> {
+async function inspectCourseFile(
+  coursePath: string,
+): Promise<CourseFileInspection> {
   let raw: string
   try {
-    raw = await readFile(profilePath, "utf8")
+    raw = await readFile(coursePath, "utf8")
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return { kind: "missing" }
@@ -193,23 +194,23 @@ async function inspectProfileFile(
   }
 
   try {
-    const parsed = JSON.parse(raw) as PersistedProfile
-    const validation = validatePersistedProfile(parsed)
+    const parsed = JSON.parse(raw) as PersistedCourse
+    const validation = validatePersistedCourse(parsed)
     if (!validation.ok) {
       return { kind: "invalid" }
     }
-    return { kind: "profile", profile: validation.value }
+    return { kind: "course", course: validation.value }
   } catch {
     return { kind: "invalid" }
   }
 }
 
-async function findProfilePathById(
+async function findCoursePathById(
   storageRoot: string,
-  profileId: string,
+  courseId: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  const directory = resolveProfilesDirectory(storageRoot)
+  const directory = resolveCoursesDirectory(storageRoot)
   const entries = await readdir(directory, { withFileTypes: true }).catch(
     (error: unknown) => {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -226,8 +227,8 @@ async function findProfilePathById(
     }
 
     const path = join(directory, entry.name)
-    const inspected = await inspectProfileFile(path)
-    if (inspected.kind === "profile" && inspected.profile.id === profileId) {
+    const inspected = await inspectCourseFile(path)
+    if (inspected.kind === "course" && inspected.course.id === courseId) {
       return path
     }
   }
@@ -235,43 +236,43 @@ async function findProfilePathById(
   return null
 }
 
-async function resolveProfilePathForWrite(
+async function resolveCoursePathForWrite(
   storageRoot: string,
-  profileId: string,
+  courseId: string,
   displayName: string,
   signal?: AbortSignal,
 ): Promise<string> {
   for (let duplicateIndex = 0; ; duplicateIndex += 1) {
     throwIfAborted(signal)
-    const candidatePath = resolveProfilePathFromDisplayName(
+    const candidatePath = resolveCoursePathFromDisplayName(
       storageRoot,
       displayName,
       duplicateIndex,
     )
 
-    const inspected = await inspectProfileFile(candidatePath)
+    const inspected = await inspectCourseFile(candidatePath)
     if (inspected.kind === "missing") {
       return candidatePath
     }
-    if (inspected.kind === "profile" && inspected.profile.id === profileId) {
+    if (inspected.kind === "course" && inspected.course.id === courseId) {
       return candidatePath
     }
   }
 }
 
-async function ensureSeedProfile(storageRoot: string): Promise<void> {
-  const directory = resolveProfilesDirectory(storageRoot)
+async function ensureSeedCourse(storageRoot: string): Promise<void> {
+  const directory = resolveCoursesDirectory(storageRoot)
   await mkdir(directory, { recursive: true })
-  const existingSeedPath = await findProfilePathById(
+  const existingSeedPath = await findCoursePathById(
     storageRoot,
-    desktopSeedProfileId,
+    desktopSeedCourseId,
   )
   if (existingSeedPath !== null) {
     return
   }
 
-  const seed = createSeedProfile()
-  const seedPath = await resolveProfilePathForWrite(
+  const seed = createSeedCourse()
+  const seedPath = await resolveCoursePathForWrite(
     storageRoot,
     seed.id,
     seed.displayName,
@@ -285,15 +286,15 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-async function readPersistedProfile(
-  profilePath: string,
-): Promise<PersistedProfile> {
-  const raw = await readFile(profilePath, "utf8")
-  const parsed = JSON.parse(raw) as PersistedProfile
-  const validation = validatePersistedProfile(parsed)
+async function readPersistedCourse(
+  coursePath: string,
+): Promise<PersistedCourse> {
+  const raw = await readFile(coursePath, "utf8")
+  const parsed = JSON.parse(raw) as PersistedCourse
+  const validation = validatePersistedCourse(parsed)
   if (!validation.ok) {
     throw new Error(
-      `Invalid persisted profile at ${profilePath}: ${validation.issues
+      `Invalid persisted course at ${coursePath}: ${validation.issues
         .map((issue) => `${issue.path}: ${issue.message}`)
         .join("; ")}`,
     )
@@ -302,7 +303,7 @@ async function readPersistedProfile(
   return validation.value
 }
 
-export function createDesktopProfileStore(storageRoot: string): ProfileStore {
+export function createDesktopCourseStore(storageRoot: string): CourseStore {
   let writeQueue: Promise<void> = Promise.resolve()
 
   const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
@@ -315,14 +316,14 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
   }
 
   return {
-    async listProfiles(signal?: AbortSignal) {
+    async listCourses(signal?: AbortSignal) {
       throwIfAborted(signal)
-      await ensureSeedProfile(storageRoot)
+      await ensureSeedCourse(storageRoot)
       throwIfAborted(signal)
 
-      const directory = resolveProfilesDirectory(storageRoot)
+      const directory = resolveCoursesDirectory(storageRoot)
       const entries = await readdir(directory, { withFileTypes: true })
-      const profiles: PersistedProfile[] = []
+      const courses: PersistedCourse[] = []
 
       for (const entry of entries) {
         throwIfAborted(signal)
@@ -330,92 +331,88 @@ export function createDesktopProfileStore(storageRoot: string): ProfileStore {
           continue
         }
 
-        profiles.push(await readPersistedProfile(join(directory, entry.name)))
+        courses.push(await readPersistedCourse(join(directory, entry.name)))
       }
 
-      return profiles.filter((profile) => profile.id !== desktopSeedProfileId)
+      return courses.filter((course) => course.id !== desktopSeedCourseId)
     },
-    async loadProfile(profileId: string, signal?: AbortSignal) {
+    async loadCourse(courseId: string, signal?: AbortSignal) {
       throwIfAborted(signal)
-      await ensureSeedProfile(storageRoot)
+      await ensureSeedCourse(storageRoot)
       throwIfAborted(signal)
 
-      const profilePath = await findProfilePathById(
-        storageRoot,
-        profileId,
-        signal,
-      )
-      if (profilePath === null) {
+      const coursePath = await findCoursePathById(storageRoot, courseId, signal)
+      if (coursePath === null) {
         return null
       }
 
-      return await readPersistedProfile(profilePath)
+      return await readPersistedCourse(coursePath)
     },
-    async saveProfile(profile: PersistedProfile, signal?: AbortSignal) {
+    async saveCourse(course: PersistedCourse, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
         throwIfAborted(signal)
-        const validation = validatePersistedProfile(profile)
+        const validation = validatePersistedCourse(course)
         if (!validation.ok) {
           throw new Error(
-            `Invalid persisted profile: ${validation.issues
+            `Invalid persisted course: ${validation.issues
               .map((issue) => `${issue.path}: ${issue.message}`)
               .join("; ")}`,
           )
         }
 
-        await ensureSeedProfile(storageRoot)
+        await ensureSeedCourse(storageRoot)
         throwIfAborted(signal)
 
-        const existingPath = await findProfilePathById(
+        const existingPath = await findCoursePathById(
           storageRoot,
           validation.value.id,
           signal,
         )
         if (existingPath !== null) {
-          const existingProfile = await readPersistedProfile(existingPath)
-          if (existingProfile.revision !== validation.value.revision) {
+          const existingCourse = await readPersistedCourse(existingPath)
+          if (existingCourse.revision !== validation.value.revision) {
             throw new Error(
-              `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existingProfile.revision}).`,
+              `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existingCourse.revision}).`,
             )
           }
         } else if (validation.value.revision !== 0) {
           throw new Error(
-            `Profile revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing profile).`,
+            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing course).`,
           )
         }
 
-        const savedProfile: PersistedProfile = {
+        const savedCourse: PersistedCourse = {
           ...validation.value,
           revision: validation.value.revision + 1,
           updatedAt: new Date().toISOString(),
         }
-        const profilePath = await resolveProfilePathForWrite(
+        const coursePath = await resolveCoursePathForWrite(
           storageRoot,
-          savedProfile.id,
-          savedProfile.displayName,
+          savedCourse.id,
+          savedCourse.displayName,
           signal,
         )
         await writeFile(
-          profilePath,
-          JSON.stringify(savedProfile, null, 2),
+          coursePath,
+          JSON.stringify(savedCourse, null, 2),
           "utf8",
         )
-        if (existingPath !== null && existingPath !== profilePath) {
+        if (existingPath !== null && existingPath !== coursePath) {
           await rm(existingPath, { force: true })
         }
-        return savedProfile
+        return savedCourse
       })
     },
-    async deleteProfile(profileId: string, signal?: AbortSignal) {
+    async deleteCourse(courseId: string, signal?: AbortSignal) {
       await enqueueWrite(async () => {
         throwIfAborted(signal)
-        const profilePath = await findProfilePathById(
+        const coursePath = await findCoursePathById(
           storageRoot,
-          profileId,
+          courseId,
           signal,
         )
-        if (profilePath !== null) {
-          await rm(profilePath, { force: true })
+        if (coursePath !== null) {
+          await rm(coursePath, { force: true })
         }
       })
     },

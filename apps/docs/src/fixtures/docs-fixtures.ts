@@ -1,4 +1,4 @@
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
 import {
   defaultFixtureSelection,
   type FixturePreset,
@@ -30,7 +30,7 @@ export type DocsReadableFileSeed = {
 }
 
 export type DocsFixtureRecord = {
-  profile: PersistedProfile
+  course: PersistedCourse
   settings: PersistedAppSettings
   readableFiles: DocsReadableFileSeed[]
 }
@@ -90,7 +90,7 @@ function toDocsFixtureRecord(
 ): DocsFixtureRecord {
   const shared = getFixture(sharedSelection)
   return {
-    profile: shared.profile,
+    course: shared.course,
     settings: shared.settings,
     readableFiles: shared.artifacts.map((artifact) => ({
       referenceId: artifact.artifactId,

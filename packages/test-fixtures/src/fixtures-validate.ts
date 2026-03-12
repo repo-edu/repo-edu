@@ -2,7 +2,7 @@ import {
   hasBlockingIssues,
   isBlockingValidationKind,
   validateAssignment,
-  validatePersistedProfile,
+  validatePersistedCourse,
   validateRoster,
 } from "@repo-edu/domain"
 import { fixturePresets, fixtureTiers } from "./fixture-defs.js"
@@ -38,9 +38,9 @@ function validateFixtureReferences(
   tier: string,
   preset: string,
 ): void {
-  const profile = fixture.profile
+  const course = fixture.course
 
-  for (const group of profile.roster.groups) {
+  for (const group of course.roster.groups) {
     for (const memberId of group.memberIds) {
       if (!memberIds.has(memberId)) {
         fail(
@@ -50,7 +50,7 @@ function validateFixtureReferences(
     }
   }
 
-  for (const groupSet of profile.roster.groupSets) {
+  for (const groupSet of course.roster.groupSets) {
     for (const groupId of groupSet.groupIds) {
       if (!groupIds.has(groupId)) {
         fail(
@@ -60,7 +60,7 @@ function validateFixtureReferences(
     }
   }
 
-  for (const assignment of profile.roster.assignments) {
+  for (const assignment of course.roster.assignments) {
     if (!groupSetIds.has(assignment.groupSetId)) {
       fail(
         `${tier}/${preset}: assignment '${assignment.id}' references missing group set '${assignment.groupSetId}'`,
@@ -82,47 +82,45 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
       }
 
       const expectedCounts = fixtureTierCounts[tier]
-      const profile = fixture.profile
+      const course = fixture.course
       const settings = fixture.settings
 
-      if (profile.roster.students.length !== expectedCounts.students) {
+      if (course.roster.students.length !== expectedCounts.students) {
         fail(
-          `${tier}/${preset}: expected ${expectedCounts.students} students, got ${profile.roster.students.length}`,
+          `${tier}/${preset}: expected ${expectedCounts.students} students, got ${course.roster.students.length}`,
         )
       }
 
-      if (profile.roster.staff.length !== expectedCounts.staff) {
+      if (course.roster.staff.length !== expectedCounts.staff) {
         fail(
-          `${tier}/${preset}: expected ${expectedCounts.staff} staff, got ${profile.roster.staff.length}`,
+          `${tier}/${preset}: expected ${expectedCounts.staff} staff, got ${course.roster.staff.length}`,
         )
       }
 
-      if (settings.activeProfileId !== profile.id) {
+      if (settings.activeCourseId !== course.id) {
         fail(
-          `${tier}/${preset}: activeProfileId '${settings.activeProfileId}' must match profile id '${profile.id}'`,
+          `${tier}/${preset}: activeCourseId '${settings.activeCourseId}' must match course id '${course.id}'`,
         )
       }
 
-      const profileValidation = validatePersistedProfile(profile)
+      const profileValidation = validatePersistedCourse(course)
       if (!profileValidation.ok) {
         fail(
-          `${tier}/${preset}: profile schema invalid: ${profileValidation.issues
+          `${tier}/${preset}: course schema invalid: ${profileValidation.issues
             .slice(0, 3)
             .map((issue) => `${issue.path}: ${issue.message}`)
             .join(" | ")}`,
         )
       }
 
-      const memberIds = profile.roster.students
-        .concat(profile.roster.staff)
+      const memberIds = course.roster.students
+        .concat(course.roster.staff)
         .map((member) => member.id)
-      const memberEmails = profile.roster.students
-        .concat(profile.roster.staff)
+      const memberEmails = course.roster.students
+        .concat(course.roster.staff)
         .map((member) => member.email.trim().toLowerCase())
-      const groupIds = profile.roster.groups.map((group) => group.id)
-      const groupSetIds = profile.roster.groupSets.map(
-        (groupSet) => groupSet.id,
-      )
+      const groupIds = course.roster.groups.map((group) => group.id)
+      const groupSetIds = course.roster.groupSets.map((groupSet) => groupSet.id)
 
       assertUnique(memberIds, `${tier}/${preset} member ids`)
       assertUnique(memberEmails, `${tier}/${preset} member emails`)
@@ -138,7 +136,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         preset,
       )
 
-      const rosterValidation = validateRoster(profile.roster)
+      const rosterValidation = validateRoster(course.roster)
       if (hasBlockingIssues(rosterValidation)) {
         const blockingKinds = rosterValidation.issues
           .filter((issue) => isBlockingValidationKind(issue.kind))
@@ -148,9 +146,9 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         )
       }
 
-      for (const assignment of profile.roster.assignments) {
+      for (const assignment of course.roster.assignments) {
         const assignmentValidation = validateAssignment(
-          profile.roster,
+          course.roster,
           assignment.id,
           "username",
         )

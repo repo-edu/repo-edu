@@ -13,16 +13,16 @@ import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 export function ImportGitUsernamesDialog() {
   const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
-  const profile = useProfileStore((state) => state.profile)
+  const course = useCourseStore((state) => state.course)
   const appSettings = useAppSettingsStore((state) => state.settings)
-  const setRoster = useProfileStore((state) => state.setRoster)
+  const setRoster = useCourseStore((state) => state.setRoster)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -35,7 +35,7 @@ export function ImportGitUsernamesDialog() {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const hasStudents = (profile?.roster.students.length ?? 0) > 0
+  const hasStudents = (course?.roster.students.length ?? 0) > 0
 
   const handleBrowse = async () => {
     try {
@@ -55,7 +55,7 @@ export function ImportGitUsernamesDialog() {
   }
 
   const handleImport = async () => {
-    if (!fileRef || !profile) return
+    if (!fileRef || !course) return
 
     setImporting(true)
     setError(null)
@@ -63,7 +63,7 @@ export function ImportGitUsernamesDialog() {
     try {
       const client = getWorkflowClient()
       const importedRoster = await client.run("gitUsernames.import", {
-        profile,
+        course,
         appSettings,
         file: fileRef,
       })

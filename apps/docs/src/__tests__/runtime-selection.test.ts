@@ -11,11 +11,11 @@ describe("docs runtime fixture selection", () => {
       source: "canvas",
     })
 
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
-    assert.equal(profile.roster.students.length, 72)
-    assert.equal(profile.roster.staff.length, 4)
+    assert.equal(course.roster.students.length, 72)
+    assert.equal(course.roster.staff.length, 4)
   })
 
   it("supports explicit tier/preset runtime options", async () => {
@@ -30,14 +30,14 @@ describe("docs runtime fixture selection", () => {
       source: "canvas",
     })
 
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
 
-    assert.equal(profile.roster.students.length, 24)
-    assert.equal(profile.roster.staff.length, 2)
+    assert.equal(course.roster.students.length, 24)
+    assert.equal(course.roster.staff.length, 2)
     assert.equal(
-      profile.roster.assignments.every((assignment) =>
+      course.roster.assignments.every((assignment) =>
         assignment.groupSetId.startsWith("gs-a"),
       ),
       true,
@@ -68,21 +68,21 @@ describe("docs runtime fixture selection", () => {
 
   it("applies canvas source overlay to fixture", async () => {
     const runtime = createDocsDemoRuntime({ source: "canvas" })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
 
-    assert.equal(profile.lmsConnectionName, "Canvas Demo")
-    assert.equal(profile.roster.connection?.kind, "canvas")
+    assert.equal(course.lmsConnectionName, "Canvas Demo")
+    assert.equal(course.roster.connection?.kind, "canvas")
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (g) => g.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
     assert.ok(nonSystemGroups.every((g) => g.origin === "lms"))
     assert.ok(nonSystemGroups.every((g) => g.lmsGroupId !== null))
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (gs) => gs.connection?.kind !== "system",
     )
     assert.ok(
@@ -92,21 +92,21 @@ describe("docs runtime fixture selection", () => {
 
   it("applies moodle source overlay to fixture", async () => {
     const runtime = createDocsDemoRuntime({ source: "moodle" })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
 
-    assert.equal(profile.lmsConnectionName, "Moodle Demo")
-    assert.equal(profile.roster.connection?.kind, "moodle")
+    assert.equal(course.lmsConnectionName, "Moodle Demo")
+    assert.equal(course.roster.connection?.kind, "moodle")
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (g) => g.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
     assert.ok(nonSystemGroups.every((g) => g.origin === "lms"))
     assert.ok(nonSystemGroups.every((g) => g.lmsGroupId !== null))
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (gs) => gs.connection?.kind !== "system",
     )
     assert.ok(
@@ -122,22 +122,22 @@ describe("docs runtime fixture selection", () => {
 
   it("applies file source overlay with no LMS connection", async () => {
     const runtime = createDocsDemoRuntime({ source: "file" })
-    const profile = await runtime.workflowClient.run("profile.load", {
-      profileId: runtime.seedProfileId,
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
     })
 
-    assert.equal(profile.lmsConnectionName, null)
-    assert.equal(profile.courseId, null)
-    assert.equal(profile.roster.connection?.kind, "import")
+    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsCourseId, null)
+    assert.equal(course.roster.connection?.kind, "import")
 
-    const nonSystemGroups = profile.roster.groups.filter(
+    const nonSystemGroups = course.roster.groups.filter(
       (g) => g.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
     assert.ok(nonSystemGroups.every((g) => g.origin === "local"))
     assert.ok(nonSystemGroups.every((g) => g.lmsGroupId === null))
 
-    const nonSystemGroupSets = profile.roster.groupSets.filter(
+    const nonSystemGroupSets = course.roster.groupSets.filter(
       (gs) => gs.connection?.kind !== "system",
     )
     assert.ok(

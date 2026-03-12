@@ -16,7 +16,7 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { useIssues } from "../../hooks/use-issues.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import type { IssueCard } from "../../types/index.js"
 
@@ -25,7 +25,7 @@ export function IssuesSheet() {
   const setOpen = useUiStore((state) => state.setIssuesSheetOpen)
   const setActiveTab = useUiStore((state) => state.setActiveTab)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
-  const setAssignmentSelection = useProfileStore(
+  const setAssignmentSelection = useCourseStore(
     (state) => state.setAssignmentSelection,
   )
 

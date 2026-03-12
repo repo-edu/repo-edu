@@ -1,15 +1,15 @@
 import { useCallback, useRef } from "react"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
-import { NoProfileEmptyState } from "../NoProfileEmptyState.js"
+import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
 
 export function GroupsAssignmentsTab() {
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
-  const profile = useProfileStore((s) => s.profile)
+  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const course = useCourseStore((s) => s.course)
   const selection = useUiStore((s) => s.sidebarSelection)
   const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)
   const setNewLocalGroupSetDialogOpen = useUiStore(
@@ -42,8 +42,8 @@ export function GroupsAssignmentsTab() {
     firstFocusable?.focus()
   }, [])
 
-  if (!activeProfileId || !profile) {
-    return <NoProfileEmptyState tabLabel="groups and assignments" />
+  if (!activeCourseId || !course) {
+    return <NoCourseEmptyState tabLabel="groups and assignments" />
   }
 
   return (

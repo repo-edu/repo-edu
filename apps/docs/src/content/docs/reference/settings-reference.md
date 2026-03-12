@@ -1,6 +1,6 @@
 ---
 title: Settings Reference
-description: Persisted app settings and profile fields
+description: Persisted app settings and course fields
 ---
 
 ## App settings (`repo-edu.app-settings.v1`)
@@ -9,7 +9,7 @@ description: Persisted app settings and profile fields
 {
   kind: "repo-edu.app-settings.v1";
   schemaVersion: 1;
-  activeProfileId: string | null;
+  activeCourseId: string | null;
   appearance: {
     theme: "system" | "light" | "dark";
     windowChrome: "system" | "hiddenInset";
@@ -22,18 +22,18 @@ description: Persisted app settings and profile fields
 }
 ```
 
-## Profile (`repo-edu.profile.v3`)
+## Course (`repo-edu.course.v1`)
 
 ```ts
 {
-  kind: "repo-edu.profile.v3";
-  schemaVersion: 3;
+  kind: "repo-edu.course.v1";
+  schemaVersion: 1;
   revision: number;
   id: string;
   displayName: string;
   lmsConnectionName: string | null;
   gitConnectionName: string | null;
-  courseId: string | null;
+  lmsCourseId: string | null;
   roster: { students; staff; groups; groupSets; assignments; connection };
   repositoryTemplate: { owner: string; name: string; visibility: "private" | "internal" | "public" } | null;
   updatedAt: string;

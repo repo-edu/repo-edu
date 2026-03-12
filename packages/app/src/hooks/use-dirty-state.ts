@@ -1,29 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import {
-  selectProfileStatus,
-  useProfileStore,
-} from "../stores/profile-store.js"
+import { selectCourseStatus, useCourseStore } from "../stores/course-store.js"
 import { hashSnapshot } from "../utils/snapshot.js"
 
 /**
- * Tracks whether the current profile has unsaved changes using FNV-1a hashing.
- * Resets the baseline when the active profile changes or when `markClean` is called.
+ * Tracks whether the current course has unsaved changes using FNV-1a hashing.
+ * Resets the baseline when the active course changes or when `markClean` is called.
  */
-export function useDirtyState(activeProfileId: string | null) {
+export function useDirtyState(activeCourseId: string | null) {
   const [isDirty, setIsDirty] = useState(false)
   const baselineRef = useRef<number>(0)
-  const profileStatus = useProfileStore(selectProfileStatus)
-  const loadedProfileId = useProfileStore((state) => state.profile?.id ?? null)
+  const courseStatus = useCourseStore(selectCourseStatus)
+  const loadedCourseId = useCourseStore((state) => state.course?.id ?? null)
 
   const computeHash = useCallback(() => {
-    const profile = useProfileStore.getState().profile
-    if (!profile) return 0
+    const course = useCourseStore.getState().course
+    if (!course) return 0
     return hashSnapshot({
-      roster: profile.roster,
-      courseId: profile.courseId,
-      gitConnectionName: profile.gitConnectionName,
-      lmsConnectionName: profile.lmsConnectionName,
-      repositoryTemplate: profile.repositoryTemplate,
+      roster: course.roster,
+      courseId: course.lmsCourseId,
+      gitConnectionName: course.gitConnectionName,
+      lmsConnectionName: course.lmsConnectionName,
+      repositoryTemplate: course.repositoryTemplate,
     })
   }, [])
 
@@ -36,25 +33,25 @@ export function useDirtyState(activeProfileId: string | null) {
     setIsDirty(true)
   }, [])
 
-  // Reset baseline only when the active profile is actually loaded.
+  // Reset baseline only when the active course is actually loaded.
   useEffect(() => {
-    if (activeProfileId === null) {
+    if (activeCourseId === null) {
       baselineRef.current = 0
       setIsDirty(false)
       return
     }
 
-    if (profileStatus !== "loaded" || loadedProfileId !== activeProfileId) {
+    if (courseStatus !== "loaded" || loadedCourseId !== activeCourseId) {
       return
     }
 
     baselineRef.current = computeHash()
     setIsDirty(false)
-  }, [activeProfileId, profileStatus, loadedProfileId, computeHash])
+  }, [activeCourseId, courseStatus, loadedCourseId, computeHash])
 
-  // Subscribe to profile store changes.
+  // Subscribe to course store changes.
   useEffect(() => {
-    const unsub = useProfileStore.subscribe(() => {
+    const unsub = useCourseStore.subscribe(() => {
       const current = computeHash()
       setIsDirty(current !== baselineRef.current)
     })

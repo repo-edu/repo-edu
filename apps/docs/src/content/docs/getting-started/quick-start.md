@@ -25,7 +25,7 @@ Expected behavior:
 
 ```bash
 pnpm cli:build
-node apps/cli/dist/index.js profile list
+node apps/cli/dist/index.js course list
 node apps/cli/dist/index.js roster show --assignments
 ```
 

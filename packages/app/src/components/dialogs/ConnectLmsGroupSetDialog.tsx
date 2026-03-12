@@ -21,7 +21,7 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -39,9 +39,9 @@ export function ConnectLmsGroupSetDialog() {
   const setOpen = useUiStore((state) => state.setConnectLmsGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
-  const profile = useProfileStore((state) => state.profile)
-  const roster = useProfileStore((state) => state.profile?.roster ?? null)
-  const setRoster = useProfileStore((state) => state.setRoster)
+  const course = useCourseStore((state) => state.course)
+  const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const setRoster = useCourseStore((state) => state.setRoster)
   const appSettings = useAppSettingsStore((state) => state.settings)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
@@ -75,7 +75,7 @@ export function ConnectLmsGroupSetDialog() {
   }, [availableGroupSets, open, selectedId])
 
   useEffect(() => {
-    if (!open || !profile) return
+    if (!open || !course) return
 
     let cancelled = false
     setLoading(true)
@@ -84,7 +84,7 @@ export function ConnectLmsGroupSetDialog() {
     const client = getWorkflowClient()
     client
       .run("groupSet.fetchAvailableFromLms", {
-        profile,
+        course,
         appSettings,
       })
       .then((list) => {
@@ -106,7 +106,7 @@ export function ConnectLmsGroupSetDialog() {
     return () => {
       cancelled = true
     }
-  }, [open, profile, appSettings])
+  }, [open, course, appSettings])
 
   const selectedGroupSet = useMemo(
     () => availableGroupSets.find((groupSet) => groupSet.id === selectedId),
@@ -116,7 +116,7 @@ export function ConnectLmsGroupSetDialog() {
   const canConnect =
     open &&
     !!roster &&
-    !!profile &&
+    !!course &&
     !!selectedGroupSet &&
     !loading &&
     !connecting
@@ -134,7 +134,7 @@ export function ConnectLmsGroupSetDialog() {
   }
 
   const handleConnect = async () => {
-    if (!canConnect || !roster || !profile || !selectedGroupSet) {
+    if (!canConnect || !roster || !course || !selectedGroupSet) {
       return
     }
     const requestId = connectRequestIdRef.current + 1
@@ -151,7 +151,7 @@ export function ConnectLmsGroupSetDialog() {
       const result = await client.run(
         "groupSet.connectFromLms",
         {
-          profile,
+          course,
           appSettings,
           remoteGroupSetId: selectedGroupSet.id,
         },

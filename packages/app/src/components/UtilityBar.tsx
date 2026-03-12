@@ -1,6 +1,6 @@
 /**
  * UtilityBar — Bottom control bar.
- * Left: Profile switcher + utility menu.
+ * Left: Course switcher + utility menu.
  */
 
 import {
@@ -13,14 +13,14 @@ import {
 import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { useToastStore } from "../stores/toast-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import { ProfileSwitcher } from "./ProfileSwitcher.js"
+import { CourseSwitcher } from "./CourseSwitcher.js"
 
 export function UtilityBar() {
   return (
     <div className="group/utilitybar border-t bg-muted/30">
       <div className="flex items-center gap-2 pl-2 pr-4 py-1.5 min-w-0">
         <div className="flex items-center min-w-0">
-          <ProfileSwitcher />
+          <CourseSwitcher />
           <UtilityMenu />
         </div>
         <div className="flex-1" />
@@ -30,10 +30,10 @@ export function UtilityBar() {
 }
 
 /**
- * UtilityMenu — Generic overflow menu for profile-adjacent utility actions.
+ * UtilityMenu — Generic overflow menu for course-adjacent utility actions.
  */
 type DesktopBridge = {
-  revealProfilesDirectory?: () => Promise<void>
+  revealCoursesDirectory?: () => Promise<void>
 }
 
 function getDesktopBridge(): DesktopBridge | undefined {
@@ -46,12 +46,12 @@ function UtilityMenu() {
   const addToast = useToastStore((s) => s.addToast)
   const bridge = getDesktopBridge()
 
-  const handleShowProfileLocation = async () => {
+  const handleShowCourseLocation = async () => {
     try {
-      await bridge?.revealProfilesDirectory?.()
+      await bridge?.revealCoursesDirectory?.()
     } catch (error) {
       const message = getErrorMessage(error)
-      addToast(`Failed to open profiles directory: ${message}`, {
+      addToast(`Failed to open courses directory: ${message}`, {
         tone: "error",
       })
     }
@@ -66,9 +66,9 @@ function UtilityMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
-        <DropdownMenuItem onClick={() => void handleShowProfileLocation()}>
+        <DropdownMenuItem onClick={() => void handleShowCourseLocation()}>
           <FolderOpen className="size-4 mr-2" />
-          Show Profile Location
+          Show Course Location
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

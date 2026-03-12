@@ -11,7 +11,7 @@ import {
 } from "@repo-edu/ui"
 import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useMemo } from "react"
-import { useProfileStore } from "../../stores/profile-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
 const EMPTY_ASSIGNMENTS: Assignment[] = []
@@ -24,8 +24,8 @@ export function DeleteGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const open = targetId !== null
 
-  const roster = useProfileStore((state) => state.profile?.roster ?? null)
-  const deleteGroupSet = useProfileStore((state) => state.deleteGroupSet)
+  const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const deleteGroupSet = useCourseStore((state) => state.deleteGroupSet)
 
   const allGroupSets = roster?.groupSets ?? EMPTY_GROUP_SETS
   const groupSet = useMemo(() => {

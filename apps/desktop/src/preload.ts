@@ -34,10 +34,8 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     await ipcRenderer.invoke(desktopRendererHostChannels.setNativeTheme, theme)
   },
 
-  async revealProfilesDirectory() {
-    await ipcRenderer.invoke(
-      desktopRendererHostChannels.revealProfilesDirectory,
-    )
+  async revealCoursesDirectory() {
+    await ipcRenderer.invoke(desktopRendererHostChannels.revealCoursesDirectory)
   },
 }
 

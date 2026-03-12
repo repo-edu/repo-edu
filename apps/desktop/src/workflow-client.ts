@@ -145,14 +145,14 @@ function normalizeTransportError(error: Error): AppError {
 
 function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> {
   return {
-    "profile.list": (input, options) =>
-      runDesktopWorkflow("profile.list", input, options),
-    "profile.load": (input, options) =>
-      runDesktopWorkflow("profile.load", input, options),
-    "profile.save": (input, options) =>
-      runDesktopWorkflow("profile.save", input, options),
-    "profile.delete": (input, options) =>
-      runDesktopWorkflow("profile.delete", input, options),
+    "course.list": (input, options) =>
+      runDesktopWorkflow("course.list", input, options),
+    "course.load": (input, options) =>
+      runDesktopWorkflow("course.load", input, options),
+    "course.save": (input, options) =>
+      runDesktopWorkflow("course.save", input, options),
+    "course.delete": (input, options) =>
+      runDesktopWorkflow("course.delete", input, options),
     "settings.loadApp": (input, options) =>
       runDesktopWorkflow("settings.loadApp", input, options),
     "settings.saveApp": (input, options) =>

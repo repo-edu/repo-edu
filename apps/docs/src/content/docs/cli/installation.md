@@ -20,7 +20,7 @@ node apps/cli/dist/index.js --help
 ## Run a command
 
 ```bash
-node apps/cli/dist/index.js profile list
+node apps/cli/dist/index.js course list
 ```
 
 ## Data directory
@@ -32,5 +32,5 @@ Default:
 Override:
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js profile list
+REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
 ```

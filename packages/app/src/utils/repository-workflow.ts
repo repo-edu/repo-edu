@@ -1,7 +1,7 @@
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
 import type {
   PersistedAppSettings,
-  PersistedProfile,
+  PersistedCourse,
   RepoOperationMode,
   RepositoryTemplate,
 } from "@repo-edu/domain"
@@ -11,7 +11,7 @@ export type RepositoryWorkflowId = "repo.create" | "repo.clone" | "repo.delete"
 export type CloneDirectoryLayout = "flat" | "by-team" | "by-task"
 
 export type BuildRepositoryWorkflowRequestArgs = {
-  profile: PersistedProfile
+  course: PersistedCourse
   appSettings: PersistedAppSettings
   assignmentId: string
   operation: RepoOperationMode
@@ -29,7 +29,7 @@ export function resolveRepositoryWorkflowId(
 }
 
 export function buildRepositoryWorkflowRequest({
-  profile,
+  course,
   appSettings,
   assignmentId,
   operation,
@@ -43,7 +43,7 @@ export function buildRepositoryWorkflowRequest({
   const workflowId = resolveRepositoryWorkflowId(operation)
 
   const input: RepositoryBatchInput = {
-    profile,
+    course,
     appSettings,
     assignmentId,
     template: repositoryTemplate,

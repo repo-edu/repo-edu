@@ -19,36 +19,36 @@ import { AlertCircle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useOperationStore } from "../../stores/operation-store.js"
 import {
   selectAssignments,
   selectGitConnectionName,
   selectRepositoryTemplate,
   selectRoster,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
+import { useOperationStore } from "../../stores/operation-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   buildRepositoryWorkflowRequest,
   type CloneDirectoryLayout,
 } from "../../utils/repository-workflow.js"
-import { NoProfileEmptyState } from "../NoProfileEmptyState.js"
+import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 
 const LABEL_WIDTH = 100
 
 export function OperationTab() {
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
-  const profile = useProfileStore((s) => s.profile)
+  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const course = useCourseStore((s) => s.course)
   const appSettings = useAppSettingsStore((state) => state.settings)
-  const roster = useProfileStore(selectRoster)
-  const assignments = useProfileStore(selectAssignments)
-  const repositoryTemplate = useProfileStore(selectRepositoryTemplate)
-  const gitConnectionName = useProfileStore(selectGitConnectionName)
-  const setRepositoryTemplate = useProfileStore((s) => s.setRepositoryTemplate)
+  const roster = useCourseStore(selectRoster)
+  const assignments = useCourseStore(selectAssignments)
+  const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
+  const gitConnectionName = useCourseStore(selectGitConnectionName)
+  const setRepositoryTemplate = useCourseStore((s) => s.setRepositoryTemplate)
 
-  const assignmentSelection = useProfileStore((s) => s.assignmentSelection)
-  const selectAssignment = useProfileStore((s) => s.setAssignmentSelection)
+  const assignmentSelection = useCourseStore((s) => s.assignmentSelection)
+  const selectAssignment = useCourseStore((s) => s.setAssignmentSelection)
 
   const operationSelected = useOperationStore((s) => s.selected)
   const setOperationSelected = useOperationStore((s) => s.setSelected)
@@ -58,12 +58,12 @@ export function OperationTab() {
   const lastResult = useOperationStore((s) => s.lastResult)
   const setLastResult = useOperationStore((s) => s.setLastResult)
 
-  // Local form state for fields not persisted on profile.
+  // Local form state for fields not persisted on course.
   const [targetDirectory, setTargetDirectory] = useState("")
   const [directoryLayout, setDirectoryLayout] =
     useState<CloneDirectoryLayout>("flat")
 
-  // Template fields derive from the profile's repositoryTemplate.
+  // Template fields derive from the course's repositoryTemplate.
   const templateOwner = repositoryTemplate?.owner ?? ""
   const templateVisibility = repositoryTemplate?.visibility ?? "private"
 
@@ -93,7 +93,7 @@ export function OperationTab() {
     : 0
 
   const handleExecute = useCallback(async () => {
-    if (!profile || !assignmentSelection) {
+    if (!course || !assignmentSelection) {
       return
     }
 
@@ -102,7 +102,7 @@ export function OperationTab() {
     setLastResult(null)
 
     const { workflowId, input } = buildRepositoryWorkflowRequest({
-      profile,
+      course,
       appSettings,
       assignmentId: assignmentSelection,
       operation: operationSelected,
@@ -122,7 +122,7 @@ export function OperationTab() {
       setOperationError(message)
     }
   }, [
-    profile,
+    course,
     appSettings,
     assignmentSelection,
     repositoryTemplate,
@@ -134,8 +134,8 @@ export function OperationTab() {
     setLastResult,
   ])
 
-  if (!activeProfileId || !profile) {
-    return <NoProfileEmptyState tabLabel="repository operations" />
+  if (!activeCourseId || !course) {
+    return <NoCourseEmptyState tabLabel="repository operations" />
   }
 
   const isExecuteDisabled =
@@ -270,7 +270,7 @@ export function OperationTab() {
       {!gitConnectionName && (
         <p className="text-sm text-destructive">
           <AlertCircle className="inline-block size-4 mr-1" />
-          No Git connection configured for this profile.
+          No Git connection configured for this course.
         </p>
       )}
 

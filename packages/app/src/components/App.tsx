@@ -16,10 +16,10 @@ import { useEffect, useLayoutEffect } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { useLoadProfile } from "../hooks/use-load-profile.js"
+import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  selectAppSettingsActiveProfileId,
+  selectAppSettingsActiveCourseId,
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
@@ -28,8 +28,8 @@ import {
   selectCanUndo,
   selectNextRedoDescription,
   selectNextUndoDescription,
-  useProfileStore,
-} from "../stores/profile-store.js"
+  useCourseStore,
+} from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import { AddGroupDialog } from "./dialogs/AddGroupDialog.js"
@@ -42,11 +42,11 @@ import { ImportGroupSetDialog } from "./dialogs/ImportGroupSetDialog.js"
 import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDialog.js"
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
+import { NewCourseDialog } from "./dialogs/NewCourseDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
-import { NewProfileDialog } from "./dialogs/NewProfileDialog.js"
 import { PreflightDialog } from "./dialogs/PreflightDialog.js"
 import { ReimportGroupSetDialog } from "./dialogs/ReimportGroupSetDialog.js"
-import { RosterSyncDialog } from "./dialogs/RosterSyncDialog.js"
+import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
 import { IssuesButton } from "./IssuesButton.js"
@@ -57,7 +57,7 @@ import { IssuesSheet } from "./sheets/IssuesSheet.js"
 import { ToastStack } from "./ToastStack.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { OperationTab } from "./tabs/OperationTab.js"
-import { RosterTab } from "./tabs/RosterTab.js"
+import { StudentsTab } from "./tabs/StudentsTab.js"
 import { UtilityBar } from "./UtilityBar.js"
 
 export type AppRootProps = {
@@ -84,48 +84,48 @@ export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
-  const activeProfileId = useUiStore((s) => s.activeProfileId)
+  const activeCourseId = useUiStore((s) => s.activeCourseId)
 
   const theme = useAppSettingsStore(selectTheme)
-  const appSettingsActiveProfileId = useAppSettingsStore(
-    selectAppSettingsActiveProfileId,
+  const appSettingsActiveCourseId = useAppSettingsStore(
+    selectAppSettingsActiveCourseId,
   )
   const loadAppSettings = useAppSettingsStore((s) => s.load)
 
-  const canUndo = useProfileStore(selectCanUndo)
-  const canRedo = useProfileStore(selectCanRedo)
-  const undoDescription = useProfileStore(selectNextUndoDescription)
-  const redoDescription = useProfileStore(selectNextRedoDescription)
-  const undo = useProfileStore((s) => s.undo)
-  const redo = useProfileStore((s) => s.redo)
-  const flushProfile = useProfileStore((s) => s.save)
+  const canUndo = useCourseStore(selectCanUndo)
+  const canRedo = useCourseStore(selectCanRedo)
+  const undoDescription = useCourseStore(selectNextUndoDescription)
+  const redoDescription = useCourseStore(selectNextRedoDescription)
+  const undo = useCourseStore((s) => s.undo)
+  const redo = useCourseStore((s) => s.redo)
+  const flushCourse = useCourseStore((s) => s.save)
 
   // Load app settings on mount.
   useEffect(() => {
     void loadAppSettings()
   }, [loadAppSettings])
 
-  // Restore active profile from app settings after settings load.
+  // Restore active course from app settings after settings load.
   useEffect(() => {
-    if (!activeProfileId && appSettingsActiveProfileId) {
+    if (!activeCourseId && appSettingsActiveCourseId) {
       setActiveTab("roster")
-      useUiStore.getState().setActiveProfileId(appSettingsActiveProfileId)
+      useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
     }
-  }, [activeProfileId, appSettingsActiveProfileId, setActiveTab])
+  }, [activeCourseId, appSettingsActiveCourseId, setActiveTab])
 
   // Apply theme.
   useTheme(theme)
 
-  // Load profile when activeProfileId changes.
-  useLoadProfile(activeProfileId)
+  // Load course when activeCourseId changes.
+  useLoadCourse(activeCourseId)
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      void flushProfile()
+      void flushCourse()
     }
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [flushProfile])
+  }, [flushCourse])
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -221,7 +221,7 @@ function AppShell() {
 
         {/* Tab content */}
         <TabsContent value="roster" className="flex-1 overflow-auto">
-          <RosterTab />
+          <StudentsTab />
         </TabsContent>
         <TabsContent
           value="groups-assignments"
@@ -251,9 +251,9 @@ function AppShell() {
       <ValidationDialog />
       <PreflightDialog />
 
-      {/* Profile and roster dialogs */}
-      <NewProfileDialog />
-      <RosterSyncDialog />
+      {/* Course and roster dialogs */}
+      <NewCourseDialog />
+      <StudentSyncDialog />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />
       <UsernameVerificationDialog />

@@ -37,18 +37,18 @@ This project is under active development. Contracts and command output may chang
 ## Typical CLI flow
 
 <TerminalPreview title="redu">
-<span class="line"><span class="prompt">$</span> redu profile list</span>
-<span class="line muted">* seed-profile Seed Profile 2026-03-04T10:00:00Z</span>
+<span class="line"><span class="prompt">$</span> redu course list</span>
+<span class="line muted">* seed-course Seed Course 2026-03-04T10:00:00Z</span>
 <span class="line"></span>
-<span class="line"><span class="prompt">$</span> redu lms verify --profile seed-profile</span>
+<span class="line"><span class="prompt">$</span> redu lms verify --course seed-course</span>
 <span class="line muted">LMS connection 'Canvas Demo' verified=true checkedAt=2026-03-05T12:00:00Z</span>
 <span class="line"></span>
 <span class="line"><span class="prompt">$</span> redu roster show --assignments</span>
-<span class="line">Profile: seed-profile (Seed Profile)</span>
+<span class="line">Course: seed-course (Seed Course)</span>
 <span class="line">Assignments: 1</span>
 <span class="line"></span>
 <span class="line"><span class="prompt">$</span> redu validate --assignment Project\ 1</span>
-<span class="line success">Validation passed for assignment 'Project 1' in profile 'seed-profile'.</span>
+<span class="line success">Validation passed for assignment 'Project 1' in course 'seed-course'.</span>
 </TerminalPreview>
 
 ## Choose your entry point
@@ -79,6 +79,6 @@ This project is under active development. Contracts and command output may chang
 <CardGrid>
   <LinkCard title="Installation" href="/getting-started/installation/" description="Set up Node, pnpm, and workspace scripts." />
   <LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Run desktop, CLI, and docs demo targets." />
-  <LinkCard title="Settings Reference" href="/reference/settings-reference/" description="Persisted settings and profile fields." />
+  <LinkCard title="Settings Reference" href="/reference/settings-reference/" description="Persisted settings and course fields." />
   <LinkCard title="Troubleshooting" href="/reference/troubleshooting/" description="Common setup and runtime failures." />
 </CardGrid>

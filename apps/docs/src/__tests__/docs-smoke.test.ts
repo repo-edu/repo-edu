@@ -26,9 +26,9 @@ describe("docs demo smoke", () => {
     assert.equal(runtime.fixtureSelection.preset, "shared-teams")
     assert.equal(runtime.fixtureSelection.source, "canvas")
 
-    const profiles = await runtime.workflowClient.run("profile.list", undefined)
+    const courses = await runtime.workflowClient.run("course.list", undefined)
     assert.equal(
-      profiles.some((profile) => profile.id === runtime.seedProfileId),
+      courses.some((course) => course.id === runtime.seedCourseEntityId),
       true,
     )
 

@@ -18,8 +18,8 @@ import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectGroupSetById,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -34,11 +34,11 @@ export function ReimportGroupSetDialog() {
   const setTargetId = useUiStore((state) => state.setReimportGroupSetTargetId)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const open = targetId !== null
-  const profile = useProfileStore((state) => state.profile)
-  const groupSet = useProfileStore(selectGroupSetById(targetId ?? ""))
+  const course = useCourseStore((state) => state.course)
+  const groupSet = useCourseStore(selectGroupSetById(targetId ?? ""))
 
   const handleBrowse = async () => {
-    if (!targetId || !profile) return
+    if (!targetId || !course) return
 
     try {
       const host = getRendererHost()
@@ -54,7 +54,7 @@ export function ReimportGroupSetDialog() {
 
       const client = getWorkflowClient()
       const result = await client.run("groupSet.previewReimportFromFile", {
-        profile,
+        course,
         groupSetId: targetId,
         file: fileRef,
       })

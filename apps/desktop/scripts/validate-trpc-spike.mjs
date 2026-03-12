@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 const desktopDir = resolve(import.meta.dirname, "..");
 const trpcMarker = "repo-edu-desktop-trpc";
 const fixtureSelector = "small/shared-teams/canvas";
-const expectedFixtureProfileId = "fixture-small-shared-teams";
+const expectedFixtureCourseId = "fixture-small-shared-teams";
 
 function errorText(error) {
   if (error instanceof Error) {
@@ -19,7 +19,7 @@ function errorText(error) {
 function emitSuccess(marker) {
   process.stdout.write("PASS desktop runtime (trpc fixture)\n");
   process.stdout.write(
-    `  profile=${marker.validationProfileId} profiles=${marker.profileCount} assignment=${marker.validationAssignmentId ?? "-"}\n`,
+    `  course=${marker.validationCourseId} courses=${marker.courseCount} assignment=${marker.validationAssignmentId ?? "-"}\n`,
   );
 }
 
@@ -88,13 +88,13 @@ async function main() {
       throw new Error(`electron-trpc marker was not emitted.\n${stderr}`.trim());
     }
 
-    if (typeof marker.validationProfileId !== "string") {
-      throw new Error("validationProfileId was not emitted as a string.");
+    if (typeof marker.validationCourseId !== "string") {
+      throw new Error("validationCourseId was not emitted as a string.");
     }
 
-    if (marker.validationProfileId !== expectedFixtureProfileId) {
+    if (marker.validationCourseId !== expectedFixtureCourseId) {
       throw new Error(
-        `unexpected validationProfileId: ${String(marker.validationProfileId)}`,
+        `unexpected validationCourseId: ${String(marker.validationCourseId)}`,
       );
     }
 
@@ -116,38 +116,38 @@ async function main() {
       );
     }
 
-    if (!Array.isArray(marker.listedProfileIds)) {
-      throw new Error("listedProfileIds was not an array.");
+    if (!Array.isArray(marker.listedCourseIds)) {
+      throw new Error("listedCourseIds was not an array.");
     }
 
-    if (typeof marker.profileCount !== "number" || marker.profileCount < 0) {
-      throw new Error("profileCount was not a non-negative number.");
+    if (typeof marker.courseCount !== "number" || marker.courseCount < 0) {
+      throw new Error("courseCount was not a non-negative number.");
     }
 
-    if (marker.profileCount !== marker.listedProfileIds.length) {
-      throw new Error("profileCount did not match listedProfileIds length.");
+    if (marker.courseCount !== marker.listedCourseIds.length) {
+      throw new Error("courseCount did not match listedCourseIds length.");
     }
 
-    if (marker.loadedProfileId !== marker.validationProfileId) {
+    if (marker.loadedCourseId !== marker.validationCourseId) {
       throw new Error(
-        `unexpected loadedProfileId: ${String(marker.loadedProfileId)}`,
+        `unexpected loadedCourseId: ${String(marker.loadedCourseId)}`,
       );
     }
 
-    if (marker.savedProfileId !== marker.validationProfileId) {
+    if (marker.savedCourseId !== marker.validationCourseId) {
       throw new Error(
-        `unexpected savedProfileId: ${String(marker.savedProfileId)}`,
+        `unexpected savedCourseId: ${String(marker.savedCourseId)}`,
       );
     }
 
-    if (!marker.listedProfileIds.includes(marker.validationProfileId)) {
+    if (!marker.listedCourseIds.includes(marker.validationCourseId)) {
       throw new Error(
-        "fixture validation profile should be listed by profile.list.",
+        "fixture validation course should be listed by course.list.",
       );
     }
 
-    if (typeof marker.savedProfileUpdatedAt !== "string") {
-      throw new Error("savedProfileUpdatedAt was not emitted as a string.");
+    if (typeof marker.savedCourseUpdatedAt !== "string") {
+      throw new Error("savedCourseUpdatedAt was not emitted as a string.");
     }
 
     if (marker.settingsKind !== "repo-edu.app-settings.v1") {

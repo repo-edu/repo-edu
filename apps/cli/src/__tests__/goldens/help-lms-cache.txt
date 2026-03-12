@@ -6,8 +6,8 @@ Options:
   -h, --help              display help for command
 
 Commands:
-  list                    List cached LMS group sets in selected profile
-  fetch [options]         Fetch available LMS group sets for selected profile
+  list                    List cached LMS group sets in selected course
+  fetch [options]         Fetch available LMS group sets for selected course
   refresh <group-set-id>  Refresh a cached group set
   delete <group-set-id>   Delete a cached group set
   help [command]          display help for command

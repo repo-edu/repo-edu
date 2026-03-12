@@ -30,7 +30,7 @@ export default defineConfig({
             items: [
             { label: "LMS Import", slug: "user-guide/lms-import" },
             { label: "Repository Setup", slug: "user-guide/repository-setup" },
-            { label: "Settings & Profiles", slug: "user-guide/settings" },
+            { label: "Settings & Courses", slug: "user-guide/settings" },
             ],
         },
         {
@@ -38,7 +38,7 @@ export default defineConfig({
             items: [
             { label: "Overview", slug: "cli/overview" },
             { label: "Installation", slug: "cli/installation" },
-            { label: "Profile Commands", slug: "cli/profile-commands" },
+            { label: "Course Commands", slug: "cli/course-commands" },
             { label: "LMS Commands", slug: "cli/lms-commands" },
             { label: "Roster Commands", slug: "cli/roster-commands" },
             { label: "Repository Commands", slug: "cli/repo-commands" },

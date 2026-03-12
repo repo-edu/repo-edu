@@ -8,7 +8,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useMemo } from "react"
-import { selectStudents, useProfileStore } from "../../stores/profile-store.js"
+import { selectStudents, useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
 export function UsernameVerificationDialog() {
@@ -18,7 +18,7 @@ export function UsernameVerificationDialog() {
     (state) => state.setImportGitUsernamesDialogOpen,
   )
 
-  const students = useProfileStore(selectStudents)
+  const students = useCourseStore(selectStudents)
 
   const summary = useMemo(() => {
     let valid = 0

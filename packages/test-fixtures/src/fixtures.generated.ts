@@ -6,15 +6,15 @@ import type { FixtureMatrix } from "./fixtures.js"
 export const fixtureMatrix: FixtureMatrix = {
   small: {
     "shared-teams": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-small-shared-teams",
         displayName: "Fixture (small, shared-teams)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-small-shared-teams",
+        lmsCourseId: "fixture-small-shared-teams",
         roster: {
           connection: null,
           students: [
@@ -757,7 +757,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-small-shared-teams",
+        activeCourseId: "fixture-small-shared-teams",
         appearance: {
           theme: "system",
           windowChrome: "system",
@@ -807,15 +807,15 @@ export const fixtureMatrix: FixtureMatrix = {
       ],
     },
     "assignment-scoped": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-small-assignment-scoped",
         displayName: "Fixture (small, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-small-assignment-scoped",
+        lmsCourseId: "fixture-small-assignment-scoped",
         roster: {
           connection: null,
           students: [
@@ -1625,7 +1625,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-small-assignment-scoped",
+        activeCourseId: "fixture-small-assignment-scoped",
         appearance: {
           theme: "system",
           windowChrome: "system",
@@ -1677,15 +1677,15 @@ export const fixtureMatrix: FixtureMatrix = {
   },
   medium: {
     "shared-teams": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-medium-shared-teams",
         displayName: "Fixture (medium, shared-teams)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-medium-shared-teams",
+        lmsCourseId: "fixture-medium-shared-teams",
         roster: {
           connection: null,
           students: [
@@ -3724,7 +3724,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-medium-shared-teams",
+        activeCourseId: "fixture-medium-shared-teams",
         appearance: {
           theme: "system",
           windowChrome: "system",
@@ -3774,15 +3774,15 @@ export const fixtureMatrix: FixtureMatrix = {
       ],
     },
     "assignment-scoped": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-medium-assignment-scoped",
         displayName: "Fixture (medium, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-medium-assignment-scoped",
+        lmsCourseId: "fixture-medium-assignment-scoped",
         roster: {
           connection: null,
           students: [
@@ -6000,7 +6000,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-medium-assignment-scoped",
+        activeCourseId: "fixture-medium-assignment-scoped",
         appearance: {
           theme: "system",
           windowChrome: "system",
@@ -6052,15 +6052,15 @@ export const fixtureMatrix: FixtureMatrix = {
   },
   stress: {
     "shared-teams": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-stress-shared-teams",
         displayName: "Fixture (stress, shared-teams)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-stress-shared-teams",
+        lmsCourseId: "fixture-stress-shared-teams",
         roster: {
           connection: null,
           students: [
@@ -11004,7 +11004,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-stress-shared-teams",
+        activeCourseId: "fixture-stress-shared-teams",
         appearance: {
           theme: "system",
           windowChrome: "system",
@@ -11054,15 +11054,15 @@ export const fixtureMatrix: FixtureMatrix = {
       ],
     },
     "assignment-scoped": {
-      profile: {
-        kind: "repo-edu.profile.v3",
-        schemaVersion: 3,
+      course: {
+        kind: "repo-edu.course.v1",
+        schemaVersion: 1,
         revision: 0,
         id: "fixture-stress-assignment-scoped",
         displayName: "Fixture (stress, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
         gitConnectionName: "GitHub Demo",
-        courseId: "course-stress-assignment-scoped",
+        lmsCourseId: "fixture-stress-assignment-scoped",
         roster: {
           connection: null,
           students: [
@@ -16425,7 +16425,7 @@ export const fixtureMatrix: FixtureMatrix = {
       settings: {
         kind: "repo-edu.app-settings.v1",
         schemaVersion: 1,
-        activeProfileId: "fixture-stress-assignment-scoped",
+        activeCourseId: "fixture-stress-assignment-scoped",
         appearance: {
           theme: "system",
           windowChrome: "system",

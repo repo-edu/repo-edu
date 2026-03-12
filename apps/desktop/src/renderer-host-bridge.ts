@@ -13,7 +13,7 @@ export const desktopRendererHostChannels = {
   openExternalUrl: "repo-edu/renderer-host/open-external-url",
   getEnvironmentSnapshot: "repo-edu/renderer-host/get-environment-snapshot",
   setNativeTheme: "repo-edu/renderer-host/set-native-theme",
-  revealProfilesDirectory: "repo-edu/renderer-host/reveal-profiles-directory",
+  revealCoursesDirectory: "repo-edu/renderer-host/reveal-courses-directory",
 } as const
 
 export type DesktopRendererHostBridge = {
@@ -26,7 +26,7 @@ export type DesktopRendererHostBridge = {
   openExternalUrl(url: string): Promise<void>
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
-  revealProfilesDirectory(): Promise<void>
+  revealCoursesDirectory(): Promise<void>
 }
 
 export function createRendererHostFromBridge(

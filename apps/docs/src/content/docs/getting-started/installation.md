@@ -50,5 +50,5 @@ pnpm --filter @repo-edu/docs run preview
 By default, CLI data is stored in `~/.repo-edu`.
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js profile list
+REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
 ```

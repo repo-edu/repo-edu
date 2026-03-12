@@ -1,14 +1,14 @@
 import {
   type AppSettingsStore,
+  type CourseStore,
   createConnectionWorkflowHandlers,
+  createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
-  createProfileWorkflowHandlers,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
-  type ProfileStore,
   runInspectUserFileWorkflow,
   runSpikeCorsWorkflow,
   runSpikeWorkflow,
@@ -52,7 +52,7 @@ type DesktopWorkflowId = keyof typeof workflowCatalog
 
 export type DesktopRouterPorts = {
   http: HttpPort
-  profileStore: ProfileStore
+  courseStore: CourseStore
   appSettingsStore: AppSettingsStore
   userFile: UserFilePort
   gitCommand: GitCommandPort
@@ -191,7 +191,7 @@ function createDesktopWorkflowRegistry(
   const git = createGitProviderDispatch(ports.http)
 
   return {
-    ...createProfileWorkflowHandlers(ports.profileStore),
+    ...createCourseWorkflowHandlers(ports.courseStore),
     ...createSettingsWorkflowHandlers(ports.appSettingsStore),
     ...createConnectionWorkflowHandlers({ lms, git }),
     ...createRosterWorkflowHandlers({
@@ -268,17 +268,17 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
   const workflowRegistry = createDesktopWorkflowRegistry(ports)
 
   return t.router({
-    "profile.list": createWorkflowSubscriptionProcedure(
-      workflowRegistry["profile.list"],
+    "course.list": createWorkflowSubscriptionProcedure(
+      workflowRegistry["course.list"],
     ),
-    "profile.load": createWorkflowSubscriptionProcedure(
-      workflowRegistry["profile.load"],
+    "course.load": createWorkflowSubscriptionProcedure(
+      workflowRegistry["course.load"],
     ),
-    "profile.save": createWorkflowSubscriptionProcedure(
-      workflowRegistry["profile.save"],
+    "course.save": createWorkflowSubscriptionProcedure(
+      workflowRegistry["course.save"],
     ),
-    "profile.delete": createWorkflowSubscriptionProcedure(
-      workflowRegistry["profile.delete"],
+    "course.delete": createWorkflowSubscriptionProcedure(
+      workflowRegistry["course.delete"],
     ),
     "settings.loadApp": createWorkflowSubscriptionProcedure(
       workflowRegistry["settings.loadApp"],

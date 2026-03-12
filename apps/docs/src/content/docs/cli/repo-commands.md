@@ -18,7 +18,7 @@ Deletes repositories for assignment groups. Use `--force` to confirm delete.
 ## Examples
 
 ```bash
-node apps/cli/dist/index.js repo create --assignment "Project 1" --dry-run --profile seed-profile
-node apps/cli/dist/index.js repo clone --assignment "Project 1" --target ./repos --layout by-team --profile seed-profile
-node apps/cli/dist/index.js repo delete --assignment "Project 1" --force --profile seed-profile
+node apps/cli/dist/index.js repo create --assignment "Project 1" --dry-run --course seed-course
+node apps/cli/dist/index.js repo clone --assignment "Project 1" --target ./repos --layout by-team --course seed-course
+node apps/cli/dist/index.js repo delete --assignment "Project 1" --force --course seed-course
 ```

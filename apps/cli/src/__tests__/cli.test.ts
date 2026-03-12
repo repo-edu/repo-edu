@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import type { PersistedAppSettings, PersistedProfile } from "@repo-edu/domain"
+import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
 import {
   applyFixtureSourceOverlay,
   type FixtureSource,
@@ -76,16 +76,16 @@ async function runCli(args: string[]): Promise<{
   }
 }
 
-function makeProfile(): PersistedProfile {
+function makeProfile(): PersistedCourse {
   return {
-    kind: "repo-edu.profile.v3",
-    schemaVersion: 3,
+    kind: "repo-edu.course.v1",
+    schemaVersion: 1,
     revision: 0,
-    id: "seed-profile",
-    displayName: "Seed Profile",
+    id: "seed-course",
+    displayName: "Seed Course",
     lmsConnectionName: null,
     gitConnectionName: null,
-    courseId: "course-1",
+    lmsCourseId: "course-1",
     roster: {
       connection: null,
       students: [
@@ -148,13 +148,13 @@ function makeProfile(): PersistedProfile {
   }
 }
 
-function withCachedGroupSet(profile: PersistedProfile): PersistedProfile {
+function withCachedGroupSet(course: PersistedCourse): PersistedCourse {
   return {
-    ...profile,
+    ...course,
     roster: {
-      ...profile.roster,
+      ...course.roster,
       groups: [
-        ...profile.roster.groups,
+        ...course.roster.groups,
         {
           id: "g-cache",
           name: "LMS Team",
@@ -164,7 +164,7 @@ function withCachedGroupSet(profile: PersistedProfile): PersistedProfile {
         },
       ],
       groupSets: [
-        ...profile.roster.groupSets,
+        ...course.roster.groupSets,
         {
           id: "gs-cache",
           name: "LMS Cached",
@@ -185,11 +185,11 @@ function withCachedGroupSet(profile: PersistedProfile): PersistedProfile {
   }
 }
 
-function makeSettings(activeProfileId: string | null): PersistedAppSettings {
+function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
     schemaVersion: 1,
-    activeProfileId,
+    activeCourseId,
     appearance: {
       theme: "system",
       windowChrome: "system",
@@ -215,34 +215,34 @@ function makeFixtureSeed(options?: {
   tier?: "small" | "medium"
   preset?: "shared-teams" | "assignment-scoped"
   source?: FixtureSource
-}): { profile: PersistedProfile; settings: PersistedAppSettings } {
+}): { course: PersistedCourse; settings: PersistedAppSettings } {
   const tier = options?.tier ?? "small"
   const preset = options?.preset ?? "shared-teams"
   const fixture = getFixture({ tier, preset })
-  const profile = cloneValue(fixture.profile)
+  const course = cloneValue(fixture.course)
   const settings = cloneValue(fixture.settings)
 
   if (options?.source) {
-    const courseId = profile.courseId ?? `course-${tier}-${preset}`
-    applyFixtureSourceOverlay(profile, settings, options.source, courseId)
+    const courseId = course.lmsCourseId ?? `course-${tier}-${preset}`
+    applyFixtureSourceOverlay(course, settings, options.source, courseId)
   }
 
-  return { profile, settings }
+  return { course, settings }
 }
 
 async function seedCliDataDirectory(
   rootDirectory: string,
   options?: {
-    profile?: PersistedProfile
+    course?: PersistedCourse
     settings?: PersistedAppSettings
   },
 ): Promise<void> {
-  if (options?.profile) {
-    const profilesDirectory = join(rootDirectory, "profiles")
-    await mkdir(profilesDirectory, { recursive: true })
+  if (options?.course) {
+    const coursesDirectory = join(rootDirectory, "courses")
+    await mkdir(coursesDirectory, { recursive: true })
     await writeFile(
-      join(profilesDirectory, `${encodeURIComponent(options.profile.id)}.json`),
-      JSON.stringify(options.profile, null, 2),
+      join(coursesDirectory, `${encodeURIComponent(options.course.id)}.json`),
+      JSON.stringify(options.course, null, 2),
       "utf8",
     )
   }
@@ -309,26 +309,26 @@ describe("CLI command tree", () => {
 })
 
 describe("CLI workflow-backed behaviors", () => {
-  it("profile list shows seeded profile and active marker", async () => {
+  it("course list shows seeded course and active marker", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
-      const result = await runCli(["profile", "list"])
+      const result = await runCli(["course", "list"])
       assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /^\* seed-profile\tSeed Profile\t/m)
+      assert.match(result.stdout, /^\* seed-course\tSeed Course\t/m)
     })
   })
 
   it("roster show renders summary, students, and assignments", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli([
@@ -338,7 +338,7 @@ describe("CLI workflow-backed behaviors", () => {
         "--assignments",
       ])
       assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /Profile: seed-profile/)
+      assert.match(result.stdout, /Course: seed-course/)
       assert.match(result.stdout, /Students:\n- s1\tAda Lovelace/)
       assert.match(result.stdout, /Assignments:\n- a1\tProject 1/)
     })
@@ -346,10 +346,10 @@ describe("CLI workflow-backed behaviors", () => {
 
   it("lms cache list reports empty cache", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli(["lms", "cache", "list"])
@@ -358,12 +358,12 @@ describe("CLI workflow-backed behaviors", () => {
     })
   })
 
-  it("lms cache delete removes cached group set from saved profile", async () => {
+  it("lms cache delete removes cached group set from saved course", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = withCachedGroupSet(makeProfile())
+      const course = withCachedGroupSet(makeProfile())
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli(["lms", "cache", "delete", "gs-cache"])
@@ -371,19 +371,19 @@ describe("CLI workflow-backed behaviors", () => {
       assert.match(result.stdout, /Deleted cached group set 'gs-cache'\./)
 
       const rawProfile = await readFile(
-        join(rootDirectory, "profiles", "seed-profile.json"),
+        join(rootDirectory, "courses", "seed-course.json"),
         "utf8",
       )
-      const savedProfile = JSON.parse(rawProfile) as PersistedProfile
+      const savedCourse = JSON.parse(rawProfile) as PersistedCourse
 
       assert.equal(
-        savedProfile.roster.groupSets.some(
+        savedCourse.roster.groupSets.some(
           (groupSet) => groupSet.id === "gs-cache",
         ),
         false,
       )
       assert.equal(
-        savedProfile.roster.groups.some((group) => group.id === "g-cache"),
+        savedCourse.roster.groups.some((group) => group.id === "g-cache"),
         false,
       )
     })
@@ -391,10 +391,10 @@ describe("CLI workflow-backed behaviors", () => {
 
   it("validate reports domain issues with non-zero exit", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli(["validate", "--assignment", "Project 1"])
@@ -406,10 +406,10 @@ describe("CLI workflow-backed behaviors", () => {
 
   it("repo delete enforces explicit confirmation via workflow", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli([
@@ -423,12 +423,12 @@ describe("CLI workflow-backed behaviors", () => {
     })
   })
 
-  it("repo create fails when selected profile has no git connection", async () => {
+  it("repo create fails when selected course has no git connection", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const profile = makeProfile()
+      const course = makeProfile()
       await seedCliDataDirectory(rootDirectory, {
-        profile,
-        settings: makeSettings(profile.id),
+        course,
+        settings: makeSettings(course.id),
       })
 
       const result = await runCli([
@@ -446,16 +446,16 @@ describe("CLI workflow-backed behaviors", () => {
 describe("CLI fixture-backed integration", () => {
   it("runs offline-safe commands against fixture-seeded data", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const { profile, settings } = makeFixtureSeed({
+      const { course, settings } = makeFixtureSeed({
         tier: "small",
         preset: "shared-teams",
       })
-      await seedCliDataDirectory(rootDirectory, { profile, settings })
+      await seedCliDataDirectory(rootDirectory, { course, settings })
 
-      const profileList = await runCli(["profile", "list"])
-      assert.equal(profileList.exitCode, 0)
+      const courseList = await runCli(["course", "list"])
+      assert.equal(courseList.exitCode, 0)
       assert.equal(
-        profileList.stdout.includes(`* ${profile.id}\t${profile.displayName}`),
+        courseList.stdout.includes(`* ${course.id}\t${course.displayName}`),
         true,
       )
 
@@ -466,7 +466,7 @@ describe("CLI fixture-backed integration", () => {
         "--assignments",
       ])
       assert.equal(rosterShow.exitCode, 0)
-      assert.match(rosterShow.stdout, new RegExp(`Profile: ${profile.id}`))
+      assert.match(rosterShow.stdout, new RegExp(`Course: ${course.id}`))
       assert.match(rosterShow.stdout, /Students:\n- s-0001\t/)
       assert.match(rosterShow.stdout, /Assignments:\n- a1\tassignment-1\t/)
 
@@ -499,18 +499,18 @@ describe("CLI fixture-backed integration", () => {
 
   it("fails LMS-dependent command with fixture file source overlay", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
-      const { profile, settings } = makeFixtureSeed({
+      const { course, settings } = makeFixtureSeed({
         tier: "small",
         preset: "shared-teams",
         source: "file",
       })
-      await seedCliDataDirectory(rootDirectory, { profile, settings })
+      await seedCliDataDirectory(rootDirectory, { course, settings })
 
       const verify = await runCli(["lms", "verify"])
       assert.equal(verify.exitCode, 1)
       assert.match(
         verify.stderr,
-        /Selected profile does not reference an LMS connection/,
+        /Selected course does not reference an LMS connection/,
       )
     })
   })

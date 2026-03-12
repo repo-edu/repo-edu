@@ -3,7 +3,7 @@ import { z } from "zod"
 export const packageId = "@repo-edu/domain"
 
 export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
-export const persistedProfileKind = "repo-edu.profile.v3" as const
+export const persistedCourseKind = "repo-edu.course.v1" as const
 
 export const lmsProviderKinds = ["canvas", "moodle"] as const
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
@@ -61,7 +61,7 @@ export type AppAppearance = {
 export type PersistedAppSettings = {
   kind: typeof persistedAppSettingsKind
   schemaVersion: 1
-  activeProfileId: string | null
+  activeCourseId: string | null
   appearance: AppAppearance
   lmsConnections: PersistedLmsConnection[]
   gitConnections: PersistedGitConnection[]
@@ -196,22 +196,22 @@ export type RepositoryTemplate = {
   visibility: "private" | "internal" | "public"
 }
 
-export type PersistedProfile = {
-  kind: typeof persistedProfileKind
-  schemaVersion: 3
+export type PersistedCourse = {
+  kind: typeof persistedCourseKind
+  schemaVersion: 1
   revision: number
   id: string
   displayName: string
   lmsConnectionName: string | null
   gitConnectionName: string | null
-  courseId: string | null
+  lmsCourseId: string | null
   roster: Roster
   repositoryTemplate: RepositoryTemplate | null
   updatedAt: string
 }
 
-export type ProfileSummary = Pick<
-  PersistedProfile,
+export type CourseSummary = Pick<
+  PersistedCourse,
   "id" | "displayName" | "updatedAt"
 >
 
@@ -417,7 +417,7 @@ export type RosterMemberNormalizationInput = {
 export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
   schemaVersion: 1,
-  activeProfileId: null,
+  activeCourseId: null,
   appearance: {
     theme: "system",
     windowChrome: "system",
@@ -2749,7 +2749,7 @@ const appAppearanceSchema = z.object({
 export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
   schemaVersion: z.literal(1),
-  activeProfileId: z.string().nullable(),
+  activeCourseId: z.string().nullable(),
   appearance: appAppearanceSchema,
   lmsConnections: z.array(persistedLmsConnectionSchema),
   gitConnections: z.array(persistedGitConnectionSchema),
@@ -2876,15 +2876,15 @@ const rosterSchema = z.object({
   assignments: z.array(assignmentSchema),
 })
 
-export const persistedProfileSchema = z.object({
-  kind: z.literal(persistedProfileKind),
-  schemaVersion: z.literal(3),
+export const persistedCourseSchema = z.object({
+  kind: z.literal(persistedCourseKind),
+  schemaVersion: z.literal(1),
   revision: z.number().int().nonnegative(),
   id: z.string(),
   displayName: z.string(),
   lmsConnectionName: z.string().nullable(),
   gitConnectionName: z.string().nullable(),
-  courseId: z.string().nullable(),
+  lmsCourseId: z.string().nullable(),
   roster: rosterSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable(),
   updatedAt: z.string(),
@@ -2900,14 +2900,14 @@ type _AppSettingsCheck =
 const _appSettingsGuard: _AppSettingsCheck = true
 void _appSettingsGuard
 
-type _ProfileCheck =
-  z.infer<typeof persistedProfileSchema> extends PersistedProfile
-    ? PersistedProfile extends z.infer<typeof persistedProfileSchema>
+type _CourseCheck =
+  z.infer<typeof persistedCourseSchema> extends PersistedCourse
+    ? PersistedCourse extends z.infer<typeof persistedCourseSchema>
       ? true
       : never
     : never
-const _profileGuard: _ProfileCheck = true
-void _profileGuard
+const _courseGuard: _CourseCheck = true
+void _courseGuard
 
 // ---------------------------------------------------------------------------
 // Tabular import row schemas (consumed at parse boundary by application workflows)
@@ -2984,10 +2984,10 @@ export function validatePersistedAppSettings(
   return { ok: false, issues: toValidationIssues(result.error) }
 }
 
-export function validatePersistedProfile(
+export function validatePersistedCourse(
   value: unknown,
-): ValidationResult<PersistedProfile> {
-  const result = persistedProfileSchema.safeParse(value)
+): ValidationResult<PersistedCourse> {
+  const result = persistedCourseSchema.safeParse(value)
   if (result.success) {
     return { ok: true, value: result.data }
   }

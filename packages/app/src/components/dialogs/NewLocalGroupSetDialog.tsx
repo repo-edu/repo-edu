@@ -27,8 +27,8 @@ import {
   selectLocalGroupSets,
   selectRoster,
   selectSystemGroupSet,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
 export function NewLocalGroupSetDialog() {
@@ -43,19 +43,19 @@ export function NewLocalGroupSetDialog() {
   const open = useUiStore((state) => state.newLocalGroupSetDialogOpen)
   const setOpen = useUiStore((state) => state.setNewLocalGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
-  const createLocalGroupSet = useProfileStore(
+  const createLocalGroupSet = useCourseStore(
     (state) => state.createLocalGroupSet,
   )
-  const connectedSets = useProfileStore(selectConnectedGroupSets)
-  const localSets = useProfileStore(selectLocalGroupSets)
-  const individualStudentsSet = useProfileStore(
+  const connectedSets = useCourseStore(selectConnectedGroupSets)
+  const localSets = useCourseStore(selectLocalGroupSets)
+  const individualStudentsSet = useCourseStore(
     selectSystemGroupSet("individual_students"),
   )
-  const staffSet = useProfileStore(selectSystemGroupSet("staff"))
-  const sourceGroups = useProfileStore(
+  const staffSet = useCourseStore(selectSystemGroupSet("staff"))
+  const sourceGroups = useCourseStore(
     selectGroupsForGroupSet(sourceGroupSetId ?? ""),
   )
-  const roster = useProfileStore(selectRoster)
+  const roster = useCourseStore(selectRoster)
 
   const memberNameById = useMemo(() => {
     if (!roster) return new Map<string, string>()

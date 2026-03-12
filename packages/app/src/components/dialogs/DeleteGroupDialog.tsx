@@ -12,8 +12,8 @@ import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import {
   selectGroupById,
   selectGroupReferenceCount,
-  useProfileStore,
-} from "../../stores/profile-store.js"
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
 export function DeleteGroupDialog() {
@@ -21,9 +21,9 @@ export function DeleteGroupDialog() {
   const setTargetId = useUiStore((state) => state.setDeleteGroupTargetId)
   const open = targetId !== null
 
-  const group = useProfileStore(selectGroupById(targetId ?? ""))
-  const refCount = useProfileStore(selectGroupReferenceCount(targetId ?? ""))
-  const deleteGroup = useProfileStore((state) => state.deleteGroup)
+  const group = useCourseStore(selectGroupById(targetId ?? ""))
+  const refCount = useCourseStore(selectGroupReferenceCount(targetId ?? ""))
+  const deleteGroup = useCourseStore((state) => state.deleteGroup)
 
   const isShared = refCount > 1
 

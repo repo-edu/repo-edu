@@ -14,8 +14,8 @@ import {
   selectGroupSets,
   selectLocalGroupSets,
   selectSystemGroupSet,
-  useProfileStore,
-} from "../../../stores/profile-store.js"
+  useCourseStore,
+} from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupSetItem } from "./GroupSetItem.js"
 
@@ -175,15 +175,15 @@ export function GroupsAssignmentsSidebar({
 }: GroupsAssignmentsSidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
 
-  const individualStudentsSet = useProfileStore(
+  const individualStudentsSet = useCourseStore(
     selectSystemGroupSet("individual_students"),
   )
-  const staffSet = useProfileStore(selectSystemGroupSet("staff"))
-  const connectedSets = useProfileStore(selectConnectedGroupSets)
-  const localSets = useProfileStore(selectLocalGroupSets)
-  const allGroupSets = useProfileStore(selectGroupSets)
-  const roster = useProfileStore((s) => s.profile?.roster ?? null)
-  const renameGroupSet = useProfileStore((s) => s.renameGroupSet)
+  const staffSet = useCourseStore(selectSystemGroupSet("staff"))
+  const connectedSets = useCourseStore(selectConnectedGroupSets)
+  const localSets = useCourseStore(selectLocalGroupSets)
+  const allGroupSets = useCourseStore(selectGroupSets)
+  const roster = useCourseStore((s) => s.course?.roster ?? null)
+  const renameGroupSet = useCourseStore((s) => s.renameGroupSet)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
   const busyGroupSetId =

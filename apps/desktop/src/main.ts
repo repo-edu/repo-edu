@@ -8,10 +8,10 @@ import {
 } from "@repo-edu/host-node"
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
 import { createIPCHandler } from "trpc-electron/main"
+import { desktopSeedCourseId } from "./course-ids"
+import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
-import { desktopSeedProfileId } from "./profile-ids"
-import { createDesktopProfileStore } from "./profile-store"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
@@ -35,7 +35,7 @@ let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
 let storageRootPath: string | null = null
-let validationProfileId: string = desktopSeedProfileId
+let validationCourseId: string = desktopSeedCourseId
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
@@ -66,7 +66,7 @@ function resolveRendererUrl() {
 
   if (isTRPCValidationMode) {
     url.searchParams.set("mode", "validate-trpc")
-    url.searchParams.set("profileId", validationProfileId)
+    url.searchParams.set("courseId", validationCourseId)
   }
 
   return url.toString()
@@ -163,10 +163,10 @@ function registerRendererHostIpcHandlers() {
   )
 
   ipcMain.handle(
-    desktopRendererHostChannels.revealProfilesDirectory,
+    desktopRendererHostChannels.revealCoursesDirectory,
     async () => {
-      const profilesDir = join(currentStorageRootPath(), "profiles")
-      await shell.openPath(profilesDir)
+      const coursesDir = join(currentStorageRootPath(), "courses")
+      await shell.openPath(coursesDir)
     },
   )
 }
@@ -210,7 +210,7 @@ async function createWindow() {
     const storageRoot = currentStorageRootPath()
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
-      profileStore: createDesktopProfileStore(storageRoot),
+      courseStore: createDesktopCourseStore(storageRoot),
       appSettingsStore: createDesktopAppSettingsStore(storageRoot),
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
@@ -314,7 +314,7 @@ if (hasSingleInstanceLock) {
     const seededFixture =
       await seedDesktopFixtureFromEnvironment(storageRootPath)
     if (seededFixture) {
-      validationProfileId = seededFixture.profileId
+      validationCourseId = seededFixture.courseEntityId
       for (const fixturePath of seededFixture.artifactPaths) {
         desktopHost.queueUserFilePath(fixturePath)
       }
@@ -334,10 +334,10 @@ if (hasSingleInstanceLock) {
       desktopHost.queueSaveTargetPath(path)
     }
 
-    const validationProfileOverride =
-      process.env.REPO_EDU_VALIDATION_PROFILE_ID?.trim()
-    if (validationProfileOverride) {
-      validationProfileId = validationProfileOverride
+    const validationCourseOverride =
+      process.env.REPO_EDU_VALIDATION_COURSE_ID?.trim()
+    if (validationCourseOverride) {
+      validationCourseId = validationCourseOverride
     }
 
     registerRendererHostIpcHandlers()
