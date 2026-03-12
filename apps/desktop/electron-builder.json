@@ -1,0 +1,26 @@
+{
+    "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+    "appId": "edu.repo.desktop",
+    "productName": "Repo Edu",
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+        "output": "release"
+    },
+    "files": [
+        "out/main/**/*",
+        "out/preload/**/*",
+        "out/renderer/**/*",
+        "package.json"
+    ],
+    "extraMetadata": {
+        "main": "./out/main/main.js",
+        "dependencies": {}
+    },
+    "mac": {
+        "category": "public.app-category.developer-tools",
+        "target": [
+            "dir"
+        ]
+    }
+}

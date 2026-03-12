@@ -51,6 +51,14 @@ pnpm validate
 pnpm dev
 ```
 
+### Generate macOS `.app` bundle
+
+```bash
+pnpm desktop:package:macos:app
+```
+
+This outputs `Repo Edu.app` under `apps/desktop/release/mac-*/`.
+
 ### Run CLI (`redu`)
 
 ```bash

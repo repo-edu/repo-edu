@@ -31,6 +31,7 @@ node_modules/
 target/
 dist/
 out/
+release/
 site/
 *.tsbuildinfo
 apps/docs/.astro/

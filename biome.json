@@ -12,11 +12,9 @@
             "**/*.tsx",
             "**/*.js",
             "**/*.jsx",
-            "!apps/repo-manage/src/bindings/commands.ts",
-            "!apps/repo-manage/src/bindings/types.ts",
-            "!**/dist",
-            "!**/build",
-            "!**/target",
+            "!apps/**/dist",
+            "!**/out",
+            "!apps/**/release",
             "!**/node_modules",
             "!**/.vitepress/cache"
         ]

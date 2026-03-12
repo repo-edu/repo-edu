@@ -22,6 +22,7 @@
         "test:all": "pnpm test:workspace && pnpm test:runtime",
         "validate": "pnpm check && pnpm test",
         "desktop:test": "pnpm test:runtime",
+        "desktop:package:macos:app": "pnpm --filter @repo-edu/desktop run package:macos:app",
         "cli:build": "pnpm --filter @repo-edu/cli run build",
         "fixture:constraints": "pnpx tsx scripts/create-fixture-constraints.ts",
         "fixture:create": "pnpm fixture:constraints && cd ../test-fixtures && claude /create-students-repo",
