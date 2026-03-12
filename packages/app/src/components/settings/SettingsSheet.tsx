@@ -81,7 +81,7 @@ export function SettingsSheet() {
             </ul>
           </nav>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
             <div
               className={cn(
                 activeCategory === "connections" ? "block" : "hidden",

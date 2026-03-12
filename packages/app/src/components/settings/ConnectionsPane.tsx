@@ -17,6 +17,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import {
+  ArrowLeft,
   Check,
   Loader2,
   Pencil,
@@ -38,6 +39,11 @@ type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
   userAgent: string
 }
 type GitDraft = PersistedGitConnection
+
+type ViewState =
+  | { view: "list" }
+  | { view: "lms-editor"; index: number | null }
+  | { view: "git-editor"; originalName: string | null }
 
 const LMS_PROVIDER_LABELS: Record<LmsProviderKind, string> = {
   canvas: "Canvas",
@@ -116,6 +122,10 @@ function VerificationStatusIcon({ status }: { status: VerificationStatus }) {
   }
 }
 
+function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\//, "")
+}
+
 function emptyLmsDraft(): LmsDraft {
   return {
     name: "",
@@ -184,24 +194,24 @@ export function ConnectionsPane() {
   const lmsConnections = settings.lmsConnections
   const gitConnections = settings.gitConnections
 
-  const [showLmsEditor, setShowLmsEditor] = useState(false)
-  const [lmsEditorIndex, setLmsEditorIndex] = useState<number | null>(null)
+  const [viewState, setViewState] = useState<ViewState>({ view: "list" })
   const [lmsDraft, setLmsDraft] = useState<LmsDraft>(emptyLmsDraft())
   const [lmsEditorStatus, setLmsEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [lmsEditorError, setLmsEditorError] = useState<string | null>(null)
-
-  const [showGitEditor, setShowGitEditor] = useState(false)
-  const [gitEditorOriginalName, setGitEditorOriginalName] = useState<
-    string | null
-  >(null)
   const [gitDraft, setGitDraft] = useState<GitDraft>(emptyGitDraft())
   const [gitEditorStatus, setGitEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [gitEditorError, setGitEditorError] = useState<string | null>(null)
 
-  const editingLms = showLmsEditor && lmsEditorIndex !== null
-  const editingGit = showGitEditor && gitEditorOriginalName !== null
+  const lmsEditorIndex =
+    viewState.view === "lms-editor" ? viewState.index : null
+  const gitEditorOriginalName =
+    viewState.view === "git-editor" ? viewState.originalName : null
+  const editingLms =
+    viewState.view === "lms-editor" && viewState.index !== null
+  const editingGit =
+    viewState.view === "git-editor" && viewState.originalName !== null
 
   const lmsNameTaken = useMemo(() => {
     const normalized = lmsDraft.name.trim().toLowerCase()
@@ -239,17 +249,54 @@ export function ConnectionsPane() {
     gitBaseUrlError === null &&
     !gitNameTaken
 
+  const lmsHasChanges = useMemo(() => {
+    if (!editingLms || lmsEditorIndex === null) return true
+    const current = lmsConnections[lmsEditorIndex]
+    if (!current) return true
+
+    const normalizedBaseUrl = normalizeHttpUrl(lmsDraft.baseUrl, {
+      allowImplicitHttps: true,
+    })
+    const nextBaseUrl = normalizedBaseUrl ?? lmsDraft.baseUrl.trim()
+    const nextUserAgent = toOptionalUserAgent(lmsDraft.userAgent)
+
+    return (
+      current.name !== lmsDraft.name.trim() ||
+      current.provider !== lmsDraft.provider ||
+      current.baseUrl !== nextBaseUrl ||
+      current.token !== lmsDraft.token.trim() ||
+      current.userAgent !== nextUserAgent
+    )
+  }, [editingLms, lmsConnections, lmsDraft, lmsEditorIndex])
+
+  const gitHasChanges = useMemo(() => {
+    if (!editingGit || gitEditorOriginalName === null) return true
+    const current = gitConnections.find(
+      (connection) => connection.name === gitEditorOriginalName,
+    )
+    if (!current) return true
+
+    return (
+      current.name !== gitDraft.name.trim() ||
+      current.provider !== gitDraft.provider ||
+      current.baseUrl !== (gitDraft.baseUrl?.trim() || null) ||
+      current.token !== gitDraft.token.trim() ||
+      current.organization !== (gitDraft.organization?.trim() || null)
+    )
+  }, [editingGit, gitConnections, gitDraft, gitEditorOriginalName])
+
+  const canSubmitLms = canSaveLms && (!editingLms || lmsHasChanges)
+  const canSubmitGit = canSaveGit && (!editingGit || gitHasChanges)
+
   const resetLmsEditor = () => {
-    setShowLmsEditor(false)
-    setLmsEditorIndex(null)
+    setViewState({ view: "list" })
     setLmsDraft(emptyLmsDraft())
     setLmsEditorStatus("disconnected")
     setLmsEditorError(null)
   }
 
   const resetGitEditor = () => {
-    setShowGitEditor(false)
-    setGitEditorOriginalName(null)
+    setViewState({ view: "list" })
     setGitDraft(emptyGitDraft())
     setGitEditorStatus("disconnected")
     setGitEditorError(null)
@@ -334,7 +381,7 @@ export function ConnectionsPane() {
   }
 
   const handleSaveLms = async () => {
-    if (!canSaveLms) return
+    if (!canSubmitLms) return
     const normalizedBaseUrl = normalizeHttpUrl(lmsDraft.baseUrl, {
       allowImplicitHttps: true,
     })
@@ -362,7 +409,7 @@ export function ConnectionsPane() {
   }
 
   const handleSaveGit = async () => {
-    if (!canSaveGit) return
+    if (!canSubmitGit) return
     const urlError = validateOptionalBaseUrl(gitDraft.baseUrl)
     if (urlError) {
       setGitEditorError(urlError)
@@ -463,6 +510,307 @@ export function ConnectionsPane() {
     }
   }
 
+  if (viewState.view === "lms-editor") {
+    return (
+      <div className="space-y-3">
+        <div className="mb-3 h-10 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={resetLmsEditor}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-3.5" />
+            Connections
+          </button>
+          <span className="text-sm text-muted-foreground">
+            {editingLms ? "Edit LMS Connection" : "New LMS Connection"}
+          </span>
+        </div>
+
+        <FormField label="Name" htmlFor="settings-lms-name">
+          <Input
+            id="settings-lms-name"
+            value={lmsDraft.name}
+            onChange={(event) =>
+              setLmsDraft((current) => ({
+                ...current,
+                name: event.target.value,
+              }))
+            }
+            placeholder="e.g., Canvas Production"
+          />
+        </FormField>
+        <FormField label="Provider" htmlFor="settings-lms-provider">
+          <Select
+            value={lmsDraft.provider}
+            onValueChange={(value) =>
+              setLmsDraft((current) => ({
+                ...current,
+                provider: value as LmsProviderKind,
+              }))
+            }
+          >
+            <SelectTrigger id="settings-lms-provider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="canvas">Canvas</SelectItem>
+              <SelectItem value="moodle">Moodle</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Base URL" htmlFor="settings-lms-base-url">
+          <Input
+            id="settings-lms-base-url"
+            value={lmsDraft.baseUrl}
+            onChange={(event) =>
+              setLmsDraft((current) => ({
+                ...current,
+                baseUrl: event.target.value,
+              }))
+            }
+            placeholder="https://canvas.example.edu"
+          />
+        </FormField>
+        <FormField label="Access Token" htmlFor="settings-lms-token">
+          <PasswordInput
+            id="settings-lms-token"
+            value={lmsDraft.token}
+            onChange={(event) =>
+              setLmsDraft((current) => ({
+                ...current,
+                token: event.target.value,
+              }))
+            }
+          />
+        </FormField>
+        <FormField
+          label="User-Agent (optional)"
+          htmlFor="settings-lms-user-agent"
+          title="Identifies this application to the LMS API."
+          description="Identifies you to LMS administrators. Recommended format: Name / Organization / email"
+        >
+          <Input
+            id="settings-lms-user-agent"
+            value={lmsDraft.userAgent}
+            onChange={(event) =>
+              setLmsDraft((current) => ({
+                ...current,
+                userAgent: event.target.value,
+              }))
+            }
+            placeholder="Your Name / Organization / email@university.edu"
+            title="Identifies this application to the LMS API."
+          />
+        </FormField>
+
+        {lmsNameTaken && (
+          <Text className="text-xs text-destructive">
+            An LMS connection with this name already exists.
+          </Text>
+        )}
+        {lmsBaseUrlError && (
+          <Text className="text-xs text-destructive">{lmsBaseUrlError}</Text>
+        )}
+        {lmsEditorError && (
+          <Text className="text-xs text-destructive">{lmsEditorError}</Text>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void verifyLms(lmsDraft)}
+            disabled={!canSaveLms || lmsEditorStatus === "verifying"}
+          >
+            {lmsEditorStatus === "verifying" ? (
+              <>
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+                Verifying...
+              </>
+            ) : lmsEditorStatus === "connected" ? (
+              <>
+                <Check className="size-3.5 mr-1 text-success" />
+                Verified
+              </>
+            ) : lmsEditorStatus === "error" ? (
+              <>
+                <X className="size-3.5 mr-1 text-destructive" />
+                Retry Verify
+              </>
+            ) : (
+              <>
+                <Check className="size-3.5 mr-1" />
+                Verify
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handleSaveLms()}
+            disabled={!canSubmitLms}
+          >
+            {editingLms ? "Update connection" : "Add connection"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={resetLmsEditor}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (viewState.view === "git-editor") {
+    return (
+      <div className="space-y-3">
+        <div className="mb-3 h-10 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={resetGitEditor}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-3.5" />
+            Connections
+          </button>
+          <span className="text-sm text-muted-foreground">
+            {editingGit ? "Edit Git Connection" : "New Git Connection"}
+          </span>
+        </div>
+
+        <FormField label="Name" htmlFor="settings-git-name">
+          <Input
+            id="settings-git-name"
+            value={gitDraft.name}
+            onChange={(event) =>
+              setGitDraft((current) => ({
+                ...current,
+                name: event.target.value,
+              }))
+            }
+            placeholder="e.g., Course GitHub"
+          />
+        </FormField>
+        <FormField label="Provider" htmlFor="settings-git-provider">
+          <Select
+            value={gitDraft.provider}
+            onValueChange={(value) =>
+              setGitDraft((current) => ({
+                ...current,
+                provider: value as GitProviderKind,
+              }))
+            }
+          >
+            <SelectTrigger id="settings-git-provider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="github">GitHub</SelectItem>
+              <SelectItem value="gitlab">GitLab</SelectItem>
+              <SelectItem value="gitea">Gitea</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField
+          label="Base URL (optional)"
+          htmlFor="settings-git-base-url"
+        >
+          <Input
+            id="settings-git-base-url"
+            value={gitDraft.baseUrl ?? ""}
+            onChange={(event) =>
+              setGitDraft((current) => ({
+                ...current,
+                baseUrl: event.target.value || null,
+              }))
+            }
+            placeholder="https://git.example.edu"
+          />
+        </FormField>
+        <FormField
+          label="Organization (optional)"
+          htmlFor="settings-git-organization"
+        >
+          <Input
+            id="settings-git-organization"
+            value={gitDraft.organization ?? ""}
+            onChange={(event) =>
+              setGitDraft((current) => ({
+                ...current,
+                organization: event.target.value || null,
+              }))
+            }
+            placeholder="e.g., course-org"
+          />
+        </FormField>
+        <FormField label="Access Token" htmlFor="settings-git-token">
+          <PasswordInput
+            id="settings-git-token"
+            value={gitDraft.token}
+            onChange={(event) =>
+              setGitDraft((current) => ({
+                ...current,
+                token: event.target.value,
+              }))
+            }
+          />
+        </FormField>
+
+        {gitNameTaken && (
+          <Text className="text-xs text-destructive">
+            A Git connection with this name already exists.
+          </Text>
+        )}
+        {gitBaseUrlError && (
+          <Text className="text-xs text-destructive">{gitBaseUrlError}</Text>
+        )}
+        {gitEditorError && (
+          <Text className="text-xs text-destructive">{gitEditorError}</Text>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void verifyGit(gitDraft)}
+            disabled={!canSaveGit || gitEditorStatus === "verifying"}
+          >
+            {gitEditorStatus === "verifying" ? (
+              <>
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+                Verifying...
+              </>
+            ) : gitEditorStatus === "connected" ? (
+              <>
+                <Check className="size-3.5 mr-1 text-success" />
+                Verified
+              </>
+            ) : gitEditorStatus === "error" ? (
+              <>
+                <X className="size-3.5 mr-1 text-destructive" />
+                Retry Verify
+              </>
+            ) : (
+              <>
+                <Check className="size-3.5 mr-1" />
+                Verify
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handleSaveGit()}
+            disabled={!canSubmitGit}
+          >
+            {editingGit ? "Update connection" : "Add connection"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={resetGitEditor}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <section className="space-y-3">
@@ -472,20 +820,18 @@ export function ConnectionsPane() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setShowLmsEditor(true)
-              setLmsEditorIndex(null)
+              setViewState({ view: "lms-editor", index: null })
               setLmsDraft(emptyLmsDraft())
               setLmsEditorStatus("disconnected")
               setLmsEditorError(null)
             }}
-            disabled={showLmsEditor}
           >
             <Plus className="size-4 mr-1" />
             Add
           </Button>
         </div>
 
-        {lmsConnections.length === 0 && !showLmsEditor && (
+        {lmsConnections.length === 0 && (
           <Text className="text-sm text-muted-foreground">
             No LMS connections configured.
           </Text>
@@ -501,16 +847,18 @@ export function ConnectionsPane() {
                 className="rounded-md border p-3 space-y-2"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <div className="font-medium text-sm">
+                      <div className="font-medium text-sm truncate">
                         {connection.name}
                       </div>
                       <VerificationStatusIcon status={status} />
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {LMS_PROVIDER_LABELS[connection.provider]} ·{" "}
-                      {connection.baseUrl}
+                    <div
+                      className="text-xs text-muted-foreground truncate"
+                      title={connection.baseUrl}
+                    >
+                      {displayUrl(connection.baseUrl)}
                     </div>
                     {error && (
                       <div className="text-xs text-destructive mt-1">
@@ -518,7 +866,7 @@ export function ConnectionsPane() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     <Button
                       size="sm"
                       variant="outline"
@@ -531,8 +879,7 @@ export function ConnectionsPane() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setShowLmsEditor(true)
-                        setLmsEditorIndex(index)
+                        setViewState({ view: "lms-editor", index })
                         setLmsDraft(toLmsDraft(connection))
                         setLmsEditorStatus("disconnected")
                         setLmsEditorError(null)
@@ -555,145 +902,6 @@ export function ConnectionsPane() {
             )
           })}
         </div>
-
-        {showLmsEditor && (
-          <div className="rounded-md border p-4 space-y-3">
-            <div className="text-sm font-medium">
-              {editingLms ? "Edit LMS Connection" : "New LMS Connection"}
-            </div>
-            <FormField label="Name" htmlFor="settings-lms-name">
-              <Input
-                id="settings-lms-name"
-                value={lmsDraft.name}
-                onChange={(event) =>
-                  setLmsDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="e.g., Canvas Production"
-              />
-            </FormField>
-            <FormField label="Provider" htmlFor="settings-lms-provider">
-              <Select
-                value={lmsDraft.provider}
-                onValueChange={(value) =>
-                  setLmsDraft((current) => ({
-                    ...current,
-                    provider: value as LmsProviderKind,
-                  }))
-                }
-              >
-                <SelectTrigger id="settings-lms-provider">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="canvas">Canvas</SelectItem>
-                  <SelectItem value="moodle">Moodle</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
-            <FormField label="Base URL" htmlFor="settings-lms-base-url">
-              <Input
-                id="settings-lms-base-url"
-                value={lmsDraft.baseUrl}
-                onChange={(event) =>
-                  setLmsDraft((current) => ({
-                    ...current,
-                    baseUrl: event.target.value,
-                  }))
-                }
-                placeholder="https://canvas.example.edu"
-              />
-            </FormField>
-            <FormField label="Access Token" htmlFor="settings-lms-token">
-              <PasswordInput
-                id="settings-lms-token"
-                value={lmsDraft.token}
-                onChange={(event) =>
-                  setLmsDraft((current) => ({
-                    ...current,
-                    token: event.target.value,
-                  }))
-                }
-              />
-            </FormField>
-            <FormField
-              label="User-Agent (optional)"
-              htmlFor="settings-lms-user-agent"
-              title="Identifies this application to the LMS API."
-              description="Identifies you to LMS administrators. Recommended format: Name / Organization / email"
-            >
-              <Input
-                id="settings-lms-user-agent"
-                value={lmsDraft.userAgent}
-                onChange={(event) =>
-                  setLmsDraft((current) => ({
-                    ...current,
-                    userAgent: event.target.value,
-                  }))
-                }
-                placeholder="Your Name / Organization / email@university.edu"
-                title="Identifies this application to the LMS API."
-              />
-            </FormField>
-
-            {lmsNameTaken && (
-              <Text className="text-xs text-destructive">
-                An LMS connection with this name already exists.
-              </Text>
-            )}
-            {lmsBaseUrlError && (
-              <Text className="text-xs text-destructive">
-                {lmsBaseUrlError}
-              </Text>
-            )}
-            {lmsEditorError && (
-              <Text className="text-xs text-destructive">{lmsEditorError}</Text>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void verifyLms(lmsDraft)}
-                disabled={!canSaveLms || lmsEditorStatus === "verifying"}
-              >
-                {lmsEditorStatus === "verifying" ? (
-                  <>
-                    <Loader2 className="size-3.5 mr-1 animate-spin" />
-                    Verifying...
-                  </>
-                ) : lmsEditorStatus === "connected" ? (
-                  <>
-                    <Check className="size-3.5 mr-1 text-success" />
-                    Verified
-                  </>
-                ) : lmsEditorStatus === "error" ? (
-                  <>
-                    <X className="size-3.5 mr-1 text-destructive" />
-                    Retry Verify
-                  </>
-                ) : (
-                  <>
-                    <Check className="size-3.5 mr-1" />
-                    Verify
-                  </>
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => void handleSaveLms()}
-                disabled={!canSaveLms}
-              >
-                Save
-              </Button>
-              <Button size="sm" variant="outline" onClick={resetLmsEditor}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
       </section>
 
       <section className="space-y-3">
@@ -703,20 +911,18 @@ export function ConnectionsPane() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setShowGitEditor(true)
-              setGitEditorOriginalName(null)
+              setViewState({ view: "git-editor", originalName: null })
               setGitDraft(emptyGitDraft())
               setGitEditorStatus("disconnected")
               setGitEditorError(null)
             }}
-            disabled={showGitEditor}
           >
             <Plus className="size-4 mr-1" />
             Add
           </Button>
         </div>
 
-        {gitConnections.length === 0 && !showGitEditor && (
+        {gitConnections.length === 0 && (
           <Text className="text-sm text-muted-foreground">
             No Git connections configured.
           </Text>
@@ -732,16 +938,20 @@ export function ConnectionsPane() {
                 className="rounded-md border p-3 space-y-2"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <div className="font-medium text-sm">
+                      <div className="font-medium text-sm truncate">
                         {connection.name}
                       </div>
                       <VerificationStatusIcon status={status} />
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {GIT_PROVIDER_LABELS[connection.provider]} ·{" "}
-                      {connection.baseUrl ?? "default base URL"}
+                    <div
+                      className="text-xs text-muted-foreground truncate"
+                      title={connection.baseUrl ?? undefined}
+                    >
+                      {connection.baseUrl
+                        ? displayUrl(connection.baseUrl)
+                        : "default base URL"}
                       {connection.organization
                         ? ` · org: ${connection.organization}`
                         : ""}
@@ -752,7 +962,7 @@ export function ConnectionsPane() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-1">
                     <Button
                       size="sm"
                       variant="outline"
@@ -765,8 +975,10 @@ export function ConnectionsPane() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setShowGitEditor(true)
-                        setGitEditorOriginalName(connection.name)
+                        setViewState({
+                          view: "git-editor",
+                          originalName: connection.name,
+                        })
                         setGitDraft(connection)
                         setGitEditorStatus("disconnected")
                         setGitEditorError(null)
@@ -789,146 +1001,6 @@ export function ConnectionsPane() {
             )
           })}
         </div>
-
-        {showGitEditor && (
-          <div className="rounded-md border p-4 space-y-3">
-            <div className="text-sm font-medium">
-              {editingGit ? "Edit Git Connection" : "New Git Connection"}
-            </div>
-            <FormField label="Name" htmlFor="settings-git-name">
-              <Input
-                id="settings-git-name"
-                value={gitDraft.name}
-                onChange={(event) =>
-                  setGitDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="e.g., Course GitHub"
-              />
-            </FormField>
-            <FormField label="Provider" htmlFor="settings-git-provider">
-              <Select
-                value={gitDraft.provider}
-                onValueChange={(value) =>
-                  setGitDraft((current) => ({
-                    ...current,
-                    provider: value as GitProviderKind,
-                  }))
-                }
-              >
-                <SelectTrigger id="settings-git-provider">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="github">GitHub</SelectItem>
-                  <SelectItem value="gitlab">GitLab</SelectItem>
-                  <SelectItem value="gitea">Gitea</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
-            <FormField
-              label="Base URL (optional)"
-              htmlFor="settings-git-base-url"
-            >
-              <Input
-                id="settings-git-base-url"
-                value={gitDraft.baseUrl ?? ""}
-                onChange={(event) =>
-                  setGitDraft((current) => ({
-                    ...current,
-                    baseUrl: event.target.value || null,
-                  }))
-                }
-                placeholder="https://git.example.edu"
-              />
-            </FormField>
-            <FormField
-              label="Organization (optional)"
-              htmlFor="settings-git-organization"
-            >
-              <Input
-                id="settings-git-organization"
-                value={gitDraft.organization ?? ""}
-                onChange={(event) =>
-                  setGitDraft((current) => ({
-                    ...current,
-                    organization: event.target.value || null,
-                  }))
-                }
-                placeholder="e.g., course-org"
-              />
-            </FormField>
-            <FormField label="Access Token" htmlFor="settings-git-token">
-              <PasswordInput
-                id="settings-git-token"
-                value={gitDraft.token}
-                onChange={(event) =>
-                  setGitDraft((current) => ({
-                    ...current,
-                    token: event.target.value,
-                  }))
-                }
-              />
-            </FormField>
-
-            {gitNameTaken && (
-              <Text className="text-xs text-destructive">
-                A Git connection with this name already exists.
-              </Text>
-            )}
-            {gitBaseUrlError && (
-              <Text className="text-xs text-destructive">
-                {gitBaseUrlError}
-              </Text>
-            )}
-            {gitEditorError && (
-              <Text className="text-xs text-destructive">{gitEditorError}</Text>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void verifyGit(gitDraft)}
-                disabled={!canSaveGit || gitEditorStatus === "verifying"}
-              >
-                {gitEditorStatus === "verifying" ? (
-                  <>
-                    <Loader2 className="size-3.5 mr-1 animate-spin" />
-                    Verifying...
-                  </>
-                ) : gitEditorStatus === "connected" ? (
-                  <>
-                    <Check className="size-3.5 mr-1 text-success" />
-                    Verified
-                  </>
-                ) : gitEditorStatus === "error" ? (
-                  <>
-                    <X className="size-3.5 mr-1 text-destructive" />
-                    Retry Verify
-                  </>
-                ) : (
-                  <>
-                    <Check className="size-3.5 mr-1" />
-                    Verify
-                  </>
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => void handleSaveGit()}
-                disabled={!canSaveGit}
-              >
-                Save
-              </Button>
-              <Button size="sm" variant="outline" onClick={resetGitEditor}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
       </section>
     </div>
   )
