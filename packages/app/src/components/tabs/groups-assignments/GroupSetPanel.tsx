@@ -14,7 +14,7 @@ import {
   TabsTrigger,
   Text,
 } from "@repo-edu/ui"
-import { Loader2, Plus, Search, Trash2 } from "@repo-edu/ui/components/icons"
+import { Plus, Search, Trash2 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import {
   selectAssignmentsForGroupSet,
@@ -108,35 +108,25 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const connection = groupSet.connection
   const kind = getConnectionKind(connection)
   const isOperationActive = groupSetOperation !== null
-  const isThisGroupSetBusy =
-    !!groupSetOperation &&
-    "groupSetId" in groupSetOperation &&
-    groupSetOperation.groupSetId === groupSetId
   const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
   const isSetEditable = !isReadOnly
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b">
-        <h3 className="text-sm font-semibold truncate">{groupSet.name}</h3>
-        {isThisGroupSetBusy && (
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
       {/* Tabs: Groups and Assignments */}
       <Tabs
         value={panelTab}
         onValueChange={(v) => setPanelTab(v as "groups" | "assignments")}
-        className="flex-1 flex flex-col min-h-0"
+        className="flex-1 flex flex-col min-h-0 gap-0"
       >
-        <TabsList className="px-4 pt-2">
-          <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
-          <TabsTrigger value="assignments">
-            Assignments ({assignments.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="border-b px-4">
+          <TabsList>
+            <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
+            <TabsTrigger value="assignments">
+              Assignments ({assignments.length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="groups" className="flex-1 overflow-auto px-4 py-2">
           <GroupsTab

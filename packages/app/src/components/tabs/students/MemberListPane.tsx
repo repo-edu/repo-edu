@@ -516,7 +516,7 @@ export function MemberListPane({
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 min-h-11 pb-3 border-b">
+      <div className="flex items-center gap-2 px-3 py-2 border-b">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
           Roster
         </span>

@@ -163,7 +163,7 @@ function AppShell() {
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as ActiveTab)}
-        className="flex flex-1 flex-col overflow-hidden"
+        className="flex flex-1 flex-col overflow-hidden gap-0"
       >
         {/* Header bar */}
         <div className="flex items-center border-b">
