@@ -1,15 +1,15 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
-  Button,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Button,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@repo-edu/ui"
 import { Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useLayoutEffect } from "react"
@@ -19,19 +19,20 @@ import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  selectAppSettingsActiveCourseId,
-  selectTheme,
-  useAppSettingsStore,
+    selectAppSettingsActiveCourseId,
+    selectTheme,
+    useAppSettingsStore,
 } from "../stores/app-settings-store.js"
 import {
-  selectCanRedo,
-  selectCanUndo,
-  selectNextRedoDescription,
-  selectNextUndoDescription,
-  useCourseStore,
+    selectCanRedo,
+    selectCanUndo,
+    selectNextRedoDescription,
+    selectNextUndoDescription,
+    useCourseStore,
 } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
+import { CourseSwitcher } from "./CourseSwitcher.js"
 import { AddGroupDialog } from "./dialogs/AddGroupDialog.js"
 import { ConnectLmsGroupSetDialog } from "./dialogs/ConnectLmsGroupSetDialog.js"
 import { CopyGroupSetDialog } from "./dialogs/CopyGroupSetDialog.js"
@@ -50,221 +51,237 @@ import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
 import { IssuesButton } from "./IssuesButton.js"
-import { SettingsButton } from "./SettingsButton.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
+import { SettingsButton } from "./SettingsButton.js"
 import { FileImportExportSheet } from "./sheets/FileImportExportSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
-import { ToastStack } from "./ToastStack.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { OperationTab } from "./tabs/OperationTab.js"
 import { StudentsTab } from "./tabs/StudentsTab.js"
-import { UtilityBar } from "./UtilityBar.js"
+import { ToastStack } from "./ToastStack.js"
 
 export type AppRootProps = {
-  workflowClient: WorkflowClient
-  rendererHost: RendererHost
+    workflowClient: WorkflowClient
+    rendererHost: RendererHost
 }
 
 export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
-  useLayoutEffect(() => {
-    return configureApp({ workflowClient, rendererHost })
-  }, [workflowClient, rendererHost])
+    useLayoutEffect(() => {
+        return configureApp({ workflowClient, rendererHost })
+    }, [workflowClient, rendererHost])
 
-  return (
-    <WorkflowClientProvider value={workflowClient}>
-      <RendererHostProvider value={rendererHost}>
-        <TooltipProvider>
-          <AppShell />
-        </TooltipProvider>
-      </RendererHostProvider>
-    </WorkflowClientProvider>
-  )
+    return (
+        <WorkflowClientProvider value={workflowClient}>
+            <RendererHostProvider value={rendererHost}>
+                <TooltipProvider>
+                    <AppShell />
+                </TooltipProvider>
+            </RendererHostProvider>
+        </WorkflowClientProvider>
+    )
+}
+
+function hasMacDesktopBridge(): boolean {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+        return false
+    }
+
+    const hasDesktopBridge = Boolean(
+        (window as unknown as Record<string, unknown>).repoEduDesktopHost,
+    )
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+
+    return hasDesktopBridge && isMac
 }
 
 function AppShell() {
-  const activeTab = useUiStore((s) => s.activeTab)
-  const setActiveTab = useUiStore((s) => s.setActiveTab)
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
+    const activeTab = useUiStore((s) => s.activeTab)
+    const setActiveTab = useUiStore((s) => s.setActiveTab)
+    const activeCourseId = useUiStore((s) => s.activeCourseId)
 
-  const theme = useAppSettingsStore(selectTheme)
-  const appSettingsActiveCourseId = useAppSettingsStore(
-    selectAppSettingsActiveCourseId,
-  )
-  const loadAppSettings = useAppSettingsStore((s) => s.load)
+    const theme = useAppSettingsStore(selectTheme)
+    const appSettingsActiveCourseId = useAppSettingsStore(
+        selectAppSettingsActiveCourseId,
+    )
+    const loadAppSettings = useAppSettingsStore((s) => s.load)
 
-  const canUndo = useCourseStore(selectCanUndo)
-  const canRedo = useCourseStore(selectCanRedo)
-  const undoDescription = useCourseStore(selectNextUndoDescription)
-  const redoDescription = useCourseStore(selectNextRedoDescription)
-  const undo = useCourseStore((s) => s.undo)
-  const redo = useCourseStore((s) => s.redo)
-  const flushCourse = useCourseStore((s) => s.save)
+    const canUndo = useCourseStore(selectCanUndo)
+    const canRedo = useCourseStore(selectCanRedo)
+    const undoDescription = useCourseStore(selectNextUndoDescription)
+    const redoDescription = useCourseStore(selectNextRedoDescription)
+    const undo = useCourseStore((s) => s.undo)
+    const redo = useCourseStore((s) => s.redo)
+    const flushCourse = useCourseStore((s) => s.save)
+    const leftInsetClass = hasMacDesktopBridge() ? "pl-[76px]" : ""
 
-  // Load app settings on mount.
-  useEffect(() => {
-    void loadAppSettings()
-  }, [loadAppSettings])
+    // Load app settings on mount.
+    useEffect(() => {
+        void loadAppSettings()
+    }, [loadAppSettings])
 
-  // Restore active course from app settings after settings load.
-  useEffect(() => {
-    if (!activeCourseId && appSettingsActiveCourseId) {
-      setActiveTab("roster")
-      useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
-    }
-  }, [activeCourseId, appSettingsActiveCourseId, setActiveTab])
+    // Restore active course from app settings after settings load.
+    useEffect(() => {
+        if (!activeCourseId && appSettingsActiveCourseId) {
+            setActiveTab("roster")
+            useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
+        }
+    }, [activeCourseId, appSettingsActiveCourseId, setActiveTab])
 
-  // Apply theme.
-  useTheme(theme)
+    // Apply theme.
+    useTheme(theme)
 
-  // Load course when activeCourseId changes.
-  useLoadCourse(activeCourseId)
+    // Load course when activeCourseId changes.
+    useLoadCourse(activeCourseId)
 
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      void flushCourse()
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [flushCourse])
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            void flushCourse()
+        }
+        window.addEventListener("beforeunload", handleBeforeUnload)
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+    }, [flushCourse])
 
-  // Keyboard shortcuts.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
+    // Keyboard shortcuts.
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            const mod = e.metaKey || e.ctrlKey
+            if (!mod) return
 
-      if (e.key === ",") {
-        e.preventDefault()
-        useUiStore.getState().openSettings()
-        return
-      }
+            if (e.key === ",") {
+                e.preventDefault()
+                useUiStore.getState().openSettings()
+                return
+            }
 
-      // Skip undo/redo when focus is in an input or textarea.
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA") return
+            // Skip undo/redo when focus is in an input or textarea.
+            const tag = (e.target as HTMLElement)?.tagName
+            if (tag === "INPUT" || tag === "TEXTAREA") return
 
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault()
-        undo()
-        return
-      }
+            if (e.key === "z" && !e.shiftKey) {
+                e.preventDefault()
+                undo()
+                return
+            }
 
-      if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
-        e.preventDefault()
-        redo()
-      }
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [undo, redo])
+            if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
+                e.preventDefault()
+                redo()
+            }
+        }
+        window.addEventListener("keydown", handler)
+        return () => window.removeEventListener("keydown", handler)
+    }, [undo, redo])
 
-  return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as ActiveTab)}
-        className="flex flex-1 flex-col overflow-hidden gap-0"
-      >
-        {/* Header bar */}
-        <div className="flex items-center border-b">
-          <TabsList>
-            <TabsTrigger value="roster">Roster</TabsTrigger>
-            <TabsTrigger value="groups-assignments">
-              Groups &amp; Assignments
-            </TabsTrigger>
-            <TabsTrigger value="operation">Operation</TabsTrigger>
-          </TabsList>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1 pr-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canUndo}
-                  onClick={() => undo()}
+    return (
+        <div className="flex h-screen flex-col overflow-hidden">
+            <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as ActiveTab)}
+                className="flex flex-1 flex-col overflow-hidden gap-0"
+            >
+                {/* Header bar */}
+                <div className="app-drag flex min-h-11 items-center gap-2 border-b px-2">
+                    <div
+                        className={`app-no-drag flex min-w-0 items-center ${leftInsetClass}`}
+                    >
+                        <CourseSwitcher />
+                    </div>
+                    <TabsList className="app-no-drag">
+                        <TabsTrigger value="roster">Roster</TabsTrigger>
+                        <TabsTrigger value="groups-assignments">
+                            Groups
+                        </TabsTrigger>
+                        <TabsTrigger value="operation">Operation</TabsTrigger>
+                    </TabsList>
+                    <div className="flex-1" />
+                    <div className="app-no-drag flex items-center gap-1 pr-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    disabled={!canUndo}
+                                    onClick={() => undo()}
+                                >
+                                    <Undo2 className="size-[18px]" />
+                                    <span className="sr-only">Undo</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {undoDescription
+                                    ? `Undo: ${undoDescription} (Ctrl+Z)`
+                                    : "Undo (Ctrl+Z)"}
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    disabled={!canRedo}
+                                    onClick={() => redo()}
+                                >
+                                    <Redo2 className="size-[18px]" />
+                                    <span className="sr-only">Redo</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {redoDescription
+                                    ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
+                                    : "Redo (Ctrl+Shift+Z)"}
+                            </TooltipContent>
+                        </Tooltip>
+                        <IssuesButton />
+                        <SettingsButton />
+                    </div>
+                </div>
+
+                {/* Tab content */}
+                <TabsContent value="roster" className="flex-1 overflow-auto">
+                    <StudentsTab />
+                </TabsContent>
+                <TabsContent
+                    value="groups-assignments"
+                    className="flex-1 overflow-auto"
                 >
-                  <Undo2 className="size-[18px]" />
-                  <span className="sr-only">Undo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {undoDescription
-                  ? `Undo: ${undoDescription} (Ctrl+Z)`
-                  : "Undo (Ctrl+Z)"}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canRedo}
-                  onClick={() => redo()}
-                >
-                  <Redo2 className="size-[18px]" />
-                  <span className="sr-only">Redo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {redoDescription
-                  ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
-                  : "Redo (Ctrl+Shift+Z)"}
-              </TooltipContent>
-            </Tooltip>
-            <IssuesButton />
-            <SettingsButton />
-          </div>
+                    <GroupsAssignmentsTab />
+                </TabsContent>
+                <TabsContent value="operation" className="flex-1 overflow-auto">
+                    <OperationTab />
+                </TabsContent>
+            </Tabs>
+
+            {/* Assignment and group dialogs */}
+            <NewAssignmentDialog />
+            <ConnectLmsGroupSetDialog />
+            <NewLocalGroupSetDialog />
+            <ImportGroupSetDialog />
+            <ReimportGroupSetDialog />
+            <CopyGroupSetDialog />
+            <DeleteGroupSetDialog />
+            <DeleteGroupDialog />
+            <AddGroupDialog />
+
+            {/* Operation dialogs */}
+            <ValidationDialog />
+            <PreflightDialog />
+
+            {/* Course and roster dialogs */}
+            <NewCourseDialog />
+            <StudentSyncDialog />
+            <ImportStudentsFromFileDialog />
+            <ImportGitUsernamesDialog />
+            <UsernameVerificationDialog />
+            <LmsImportConflictDialog />
+
+            {/* Sheets */}
+            <FileImportExportSheet />
+            <IssuesSheet />
+            <SettingsSheet />
+
+            <ToastStack />
         </div>
-
-        {/* Tab content */}
-        <TabsContent value="roster" className="flex-1 overflow-auto">
-          <StudentsTab />
-        </TabsContent>
-        <TabsContent
-          value="groups-assignments"
-          className="flex-1 overflow-auto"
-        >
-          <GroupsAssignmentsTab />
-        </TabsContent>
-        <TabsContent value="operation" className="flex-1 overflow-auto">
-          <OperationTab />
-        </TabsContent>
-      </Tabs>
-
-      <UtilityBar />
-
-      {/* Assignment and group dialogs */}
-      <NewAssignmentDialog />
-      <ConnectLmsGroupSetDialog />
-      <NewLocalGroupSetDialog />
-      <ImportGroupSetDialog />
-      <ReimportGroupSetDialog />
-      <CopyGroupSetDialog />
-      <DeleteGroupSetDialog />
-      <DeleteGroupDialog />
-      <AddGroupDialog />
-
-      {/* Operation dialogs */}
-      <ValidationDialog />
-      <PreflightDialog />
-
-      {/* Course and roster dialogs */}
-      <NewCourseDialog />
-      <StudentSyncDialog />
-      <ImportStudentsFromFileDialog />
-      <ImportGitUsernamesDialog />
-      <UsernameVerificationDialog />
-      <LmsImportConflictDialog />
-
-      {/* Sheets */}
-      <FileImportExportSheet />
-      <IssuesSheet />
-      <SettingsSheet />
-
-      <ToastStack />
-    </div>
-  )
+    )
 }

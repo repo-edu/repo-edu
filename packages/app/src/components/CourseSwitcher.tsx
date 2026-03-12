@@ -1,5 +1,5 @@
 /**
- * CourseSwitcher — Dropdown-based course selector in the utility bar.
+ * CourseSwitcher — Dropdown-based course selector.
  * Shows all courses with per-course management actions (duplicate, rename,
  * delete) and a "New Course" action.
  */
@@ -28,7 +28,7 @@ import {
   Label,
 } from "@repo-edu/ui"
 import {
-  ChevronUp,
+  ChevronDown,
   Copy,
   Loader2,
   Pencil,
@@ -206,11 +206,11 @@ export function CourseSwitcher() {
               <span className="text-muted-foreground">Course:</span>{" "}
               {loading ? "Loading..." : (activeDisplayName ?? "None")}
             </span>
-            <ChevronUp className="size-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="start" side="top">
+        <DropdownMenuContent align="start" side="bottom">
           {courses.map((course) => {
             const isActive = course.id === activeCourseId
             return (

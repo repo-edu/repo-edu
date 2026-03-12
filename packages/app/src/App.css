@@ -196,6 +196,14 @@
 
 /* ===== Component Styles ===== */
 
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 .repobee-container {
   @apply flex flex-col h-screen;
   padding: 4px;
