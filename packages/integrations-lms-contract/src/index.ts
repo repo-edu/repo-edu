@@ -8,6 +8,7 @@ export type LmsConnectionDraft = {
   provider: LmsProviderKind
   baseUrl: string
   token: string
+  userAgent?: string
 }
 
 export type LmsCourseSummary = {

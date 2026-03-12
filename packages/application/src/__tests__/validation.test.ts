@@ -381,6 +381,7 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
     })
     assert.equal(lmsResult.verified, true)
     assert.equal(Number.isNaN(Date.parse(lmsResult.checkedAt)), false)
@@ -388,12 +389,14 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
     })
 
     const courseResult = await handlers["connection.listLmsCoursesDraft"]({
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
     })
     assert.deepStrictEqual(courseResult, [
       { id: "course-1", name: "Course One", code: "C1" },
@@ -403,6 +406,7 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
     })
 
     const gitResult = await handlers["connection.verifyGitDraft"]({

@@ -34,7 +34,9 @@ import { getErrorMessage } from "../../utils/error-message.js"
 
 type VerificationStatus = ConnectionStatus
 
-type LmsDraft = PersistedLmsConnection
+type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
+  userAgent: string
+}
 type GitDraft = PersistedGitConnection
 
 const LMS_PROVIDER_LABELS: Record<LmsProviderKind, string> = {
@@ -120,6 +122,7 @@ function emptyLmsDraft(): LmsDraft {
     provider: "canvas",
     baseUrl: "",
     token: "",
+    userAgent: "",
   }
 }
 
@@ -130,6 +133,18 @@ function emptyGitDraft(): GitDraft {
     baseUrl: null,
     token: "",
     organization: null,
+  }
+}
+
+function toOptionalUserAgent(value: string): string | undefined {
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function toLmsDraft(connection: PersistedLmsConnection): LmsDraft {
+  return {
+    ...connection,
+    userAgent: connection.userAgent ?? "",
   }
 }
 
@@ -246,6 +261,7 @@ export function ConnectionsPane() {
     })
     const baseUrl = normalizedBaseUrl ?? draft.baseUrl.trim()
     const token = draft.token.trim()
+    const userAgent = toOptionalUserAgent(draft.userAgent)
     const urlError =
       normalizedBaseUrl === null ? INVALID_REQUIRED_URL_MESSAGE : null
     if (urlError) {
@@ -262,6 +278,7 @@ export function ConnectionsPane() {
         provider: draft.provider,
         baseUrl,
         token,
+        userAgent,
       })
       if (result.verified) {
         setLmsEditorStatus("connected")
@@ -331,6 +348,7 @@ export function ConnectionsPane() {
       provider: lmsDraft.provider,
       baseUrl: normalizedBaseUrl,
       token: lmsDraft.token.trim(),
+      userAgent: toOptionalUserAgent(lmsDraft.userAgent),
     }
 
     if (lmsEditorIndex === null) {
@@ -405,6 +423,7 @@ export function ConnectionsPane() {
         provider: connection.provider,
         baseUrl: normalizedBaseUrl,
         token: connection.token,
+        userAgent: connection.userAgent,
       })
       setLmsConnectionStatus(
         connection.name,
@@ -514,7 +533,7 @@ export function ConnectionsPane() {
                       onClick={() => {
                         setShowLmsEditor(true)
                         setLmsEditorIndex(index)
-                        setLmsDraft(connection)
+                        setLmsDraft(toLmsDraft(connection))
                         setLmsEditorStatus("disconnected")
                         setLmsEditorError(null)
                       }}
@@ -597,6 +616,25 @@ export function ConnectionsPane() {
                     token: event.target.value,
                   }))
                 }
+              />
+            </FormField>
+            <FormField
+              label="User-Agent (optional)"
+              htmlFor="settings-lms-user-agent"
+              title="Identifies this application to the LMS API."
+              description="Identifies you to LMS administrators. Recommended format: Name / Organization / email"
+            >
+              <Input
+                id="settings-lms-user-agent"
+                value={lmsDraft.userAgent}
+                onChange={(event) =>
+                  setLmsDraft((current) => ({
+                    ...current,
+                    userAgent: event.target.value,
+                  }))
+                }
+                placeholder="Your Name / Organization / email@university.edu"
+                title="Identifies this application to the LMS API."
               />
             </FormField>
 

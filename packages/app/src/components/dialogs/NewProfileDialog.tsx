@@ -127,6 +127,7 @@ export function NewProfileDialog() {
         provider: selectedLmsDraft.provider,
         baseUrl: selectedLmsDraft.baseUrl,
         token: selectedLmsDraft.token,
+        userAgent: selectedLmsDraft.userAgent,
       })
       .then((fetchedCourses) => {
         if (cancelled) {

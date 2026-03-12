@@ -52,9 +52,11 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
 describe("createMoodleClient", () => {
   it("verifies connection through core_webservice_get_site_info", async () => {
     let capturedUrl = ""
+    let capturedHeaders: Record<string, string> | undefined
     const http: HttpPort = {
       async fetch(request: HttpRequest): Promise<HttpResponse> {
         capturedUrl = request.url
+        capturedHeaders = request.headers
         return {
           status: 200,
           statusText: "OK",
@@ -70,6 +72,33 @@ describe("createMoodleClient", () => {
     assert.deepStrictEqual(result, { verified: true })
     assert.ok(capturedUrl.includes("wsfunction=core_webservice_get_site_info"))
     assert.ok(capturedUrl.includes("wstoken=moodle-token"))
+    assert.equal(capturedHeaders?.["User-Agent"], "repo-edu")
+  })
+
+  it("uses custom user-agent header when provided", async () => {
+    let capturedHeaders: Record<string, string> | undefined
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        capturedHeaders = request.headers
+        return {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sitename: "Example Moodle" }),
+        }
+      },
+    }
+
+    const client = createMoodleClient(http)
+    await client.verifyConnection({
+      ...baseDraft,
+      userAgent: "Name / Organization / email@example.edu",
+    })
+
+    assert.equal(
+      capturedHeaders?.["User-Agent"],
+      "Name / Organization / email@example.edu",
+    )
   })
 
   it("lists courses", async () => {

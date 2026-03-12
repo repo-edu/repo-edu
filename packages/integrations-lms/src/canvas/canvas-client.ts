@@ -23,15 +23,19 @@ class CanvasRequestStatusError extends Error {
   }
 }
 
+const DEFAULT_USER_AGENT = "repo-edu"
+
 function resolveApiBase(draft: LmsConnectionDraft): string {
   const base = draft.baseUrl.replace(/\/+$/, "")
   return base.endsWith("/api/v1") ? base : `${base}/api/v1`
 }
 
 function createHeaders(draft: LmsConnectionDraft): Record<string, string> {
+  const userAgent = draft.userAgent?.trim() || DEFAULT_USER_AGENT
   return {
     Authorization: `Bearer ${draft.token}`,
     Accept: "application/json",
+    "User-Agent": userAgent,
   }
 }
 

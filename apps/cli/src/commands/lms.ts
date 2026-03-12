@@ -101,6 +101,7 @@ export function registerLmsCommands(parent: Command): void {
           provider: connection.provider,
           baseUrl: connection.baseUrl,
           token: connection.token,
+          userAgent: connection.userAgent,
         })
 
         process.stdout.write(

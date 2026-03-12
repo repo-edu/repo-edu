@@ -77,6 +77,33 @@ describe("createCanvasClient", () => {
 
     assert.deepStrictEqual(result, { verified: true })
     assert.equal(capturedHeaders?.Authorization, "Bearer canvas-token")
+    assert.equal(capturedHeaders?.["User-Agent"], "repo-edu")
+  })
+
+  it("uses custom user-agent header when provided", async () => {
+    let capturedHeaders: Record<string, string> | undefined
+    const http: HttpPort = {
+      async fetch(request: HttpRequest): Promise<HttpResponse> {
+        capturedHeaders = request.headers
+        return {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: 1, name: "Teacher" }),
+        }
+      },
+    }
+
+    const client = createCanvasClient(http)
+    await client.verifyConnection({
+      ...baseDraft,
+      userAgent: "Name / Organization / email@example.edu",
+    })
+
+    assert.equal(
+      capturedHeaders?.["User-Agent"],
+      "Name / Organization / email@example.edu",
+    )
   })
 
   it("lists courses across paginated responses", async () => {

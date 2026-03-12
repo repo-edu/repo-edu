@@ -188,12 +188,14 @@ export type VerifyLmsDraftInput = {
   provider: LmsProviderKind
   baseUrl: string
   token: string
+  userAgent?: string
 }
 
 export type ListLmsCoursesDraftInput = {
   provider: LmsProviderKind
   baseUrl: string
   token: string
+  userAgent?: string
 }
 
 export type VerifyGitDraftInput = {

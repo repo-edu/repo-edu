@@ -20,6 +20,8 @@ type MoodleFunction =
   | "core_group_get_course_groupings"
   | "core_group_get_course_groups"
 
+const DEFAULT_USER_AGENT = "repo-edu"
+
 function resolveEndpoint(draft: LmsConnectionDraft): string {
   const base = draft.baseUrl.replace(/\/+$/, "")
   return base.endsWith("/webservice/rest/server.php")
@@ -69,11 +71,13 @@ async function moodleRequest(
   params: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<unknown> {
+  const userAgent = draft.userAgent?.trim() || DEFAULT_USER_AGENT
   const response = await http.fetch({
     url: buildMoodleUrl(draft, fn, params),
     method: "GET",
     headers: {
       Accept: "application/json",
+      "User-Agent": userAgent,
     },
     signal,
   })

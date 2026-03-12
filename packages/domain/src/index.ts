@@ -40,6 +40,7 @@ export type PersistedLmsConnection = {
   provider: LmsProviderKind
   baseUrl: string
   token: string
+  userAgent?: string
 }
 
 export type PersistedGitConnection = {
@@ -2727,6 +2728,7 @@ const persistedLmsConnectionSchema = z.object({
   provider: z.enum(lmsProviderKinds),
   baseUrl: z.string(),
   token: z.string(),
+  userAgent: z.string().optional(),
 })
 
 const persistedGitConnectionSchema = z.object({

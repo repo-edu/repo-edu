@@ -29,6 +29,7 @@ describe("validatePersistedAppSettings", () => {
           provider: "canvas",
           baseUrl: "https://canvas.example.com",
           token: "tok_canvas",
+          userAgent: "Name / Organization / email@example.edu",
         },
       ],
       gitConnections: [

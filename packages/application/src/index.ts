@@ -562,6 +562,7 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
+          ...optionalUserAgent(input.userAgent),
         }
 
         options?.onOutput?.({
@@ -608,6 +609,7 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
+          ...optionalUserAgent(input.userAgent),
         }
 
         options?.onOutput?.({
@@ -912,7 +914,19 @@ function resolveLmsDraft(
     provider: connection.provider,
     baseUrl: connection.baseUrl,
     token: connection.token,
+    ...optionalUserAgent(connection.userAgent),
   }
+}
+
+function optionalUserAgent(value: string | null | undefined): {
+  userAgent?: string
+} {
+  const normalized = value?.trim()
+  if (!normalized) {
+    return {}
+  }
+
+  return { userAgent: normalized }
 }
 
 function resolveGitDraft(
