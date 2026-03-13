@@ -94,6 +94,7 @@ function createSeedRoster(): Roster {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
       {
         id: "gs-system-individual",
@@ -107,6 +108,7 @@ function createSeedRoster(): Roster {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
       {
         id: "gs-system-staff",
@@ -120,6 +122,7 @@ function createSeedRoster(): Roster {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
     ],
     assignments: [

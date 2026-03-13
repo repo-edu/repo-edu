@@ -65,16 +65,16 @@ describe("group naming", () => {
   it("handles sortable names and Dutch surname particles", () => {
     const member = makeMember("a1b2c3d4", "Jong, Stijn de")
 
-    assert.equal(generateGroupName([member]), "stijn_de-jong")
+    assert.equal(generateGroupName([member]), "stijn.de.jong")
   })
 
   it("resolves single-member collisions with an id suffix", () => {
     const member = makeMember("a1b2c3d4", "Alice Smith")
-    const existingNames = new Set(["alice_smith"])
+    const existingNames = new Set(["alice.smith"])
 
     assert.equal(
       generateUniqueGroupName([member], existingNames),
-      "alice_smith_a1b2",
+      "alice.smith.a1b2",
     )
   })
 })
@@ -110,6 +110,7 @@ describe("group selection", () => {
     groupIds: ["g1", "g2", "g3"],
     connection: null,
     groupSelection: selectionModeAll(),
+    repoNameTemplate: null,
   }
 
   const assignment: Assignment = {
@@ -227,6 +228,7 @@ describe("system group sets", () => {
           groupIds: ["g-local"],
           connection: null,
           groupSelection: selectionModeAll(),
+          repoNameTemplate: null,
         },
       ],
     })
@@ -264,6 +266,7 @@ describe("system group sets", () => {
             systemType: SYSTEM_TYPE_STAFF,
           },
           groupSelection: selectionModeAll(),
+          repoNameTemplate: null,
         },
       ],
     })

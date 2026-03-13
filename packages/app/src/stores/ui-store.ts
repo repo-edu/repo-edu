@@ -61,7 +61,7 @@ type UiState = {
 
   // Sidebar
   sidebarSelection: SidebarSelection
-  groupSetPanelTab: "groups" | "assignments"
+  selectedAssignmentIdByGroupSet: Record<string, string | null>
   groupSetOperation: GroupSetOperationState | null
 
   // Sidebar action triggers
@@ -107,7 +107,10 @@ type UiActions = {
   setLmsImportConflicts: (conflicts: LmsImportConflict[] | null) => void
 
   setSidebarSelection: (selection: SidebarSelection) => void
-  setGroupSetPanelTab: (tab: "groups" | "assignments") => void
+  setSelectedAssignmentId: (
+    groupSetId: string,
+    assignmentId: string | null,
+  ) => void
   setGroupSetOperation: (op: GroupSetOperationState | null) => void
 
   setRenameGroupSetTriggerId: (id: string | null) => void
@@ -153,7 +156,7 @@ const initialState: UiState = {
   lmsImportConflicts: null,
 
   sidebarSelection: null,
-  groupSetPanelTab: "groups",
+  selectedAssignmentIdByGroupSet: {},
   groupSetOperation: null,
 
   renameGroupSetTriggerId: null,
@@ -259,8 +262,17 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
       }
       return { sidebarSelection: selection }
     }),
-  setGroupSetPanelTab: (tab) =>
-    set((state) => setIfChanged(state, "groupSetPanelTab", tab)),
+  setSelectedAssignmentId: (groupSetId, assignmentId) =>
+    set((state) => {
+      const current = state.selectedAssignmentIdByGroupSet[groupSetId] ?? null
+      if (Object.is(current, assignmentId)) return state
+      return {
+        selectedAssignmentIdByGroupSet: {
+          ...state.selectedAssignmentIdByGroupSet,
+          [groupSetId]: assignmentId,
+        },
+      }
+    }),
   setGroupSetOperation: (op) =>
     set((state) => {
       const current = state.groupSetOperation

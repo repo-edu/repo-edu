@@ -35,6 +35,7 @@ type GroupItemProps = {
   editableTargets: EditableGroupTarget[]
   memberGroupIndex: Map<string, Set<string>>
   onDeleteGroup?: () => void
+  repoNamePreview?: string | null
 }
 
 export function GroupItem({
@@ -47,6 +48,7 @@ export function GroupItem({
   editableTargets,
   memberGroupIndex,
   onDeleteGroup,
+  repoNamePreview,
 }: GroupItemProps) {
   const isEditable = group.origin === "local"
   const isLocked = group.origin !== "local"
@@ -144,6 +146,12 @@ export function GroupItem({
             origin={group.origin as "lms" | "system"}
             inLocalSet={isSetEditable}
           />
+        )}
+
+        {repoNamePreview && (
+          <span className="text-xs text-muted-foreground truncate ml-1">
+            Repo: {repoNamePreview}
+          </span>
         )}
 
         <span className="text-sm ml-auto mr-4 shrink-0">{members.length}</span>

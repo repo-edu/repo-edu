@@ -256,6 +256,7 @@ describe("createMoodleClient", () => {
         kind: "all",
         excludedGroupIds: [],
       },
+      repoNameTemplate: null,
     })
     assert.equal(result.groupSet.connection?.kind, "moodle")
     assert.equal(result.groupSet.connection?.courseId, "course-1")

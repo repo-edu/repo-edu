@@ -174,6 +174,7 @@ function createMockLmsPorts(
             kind: "all" as const,
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
         groups: [
           {

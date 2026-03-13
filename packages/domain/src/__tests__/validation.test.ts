@@ -113,6 +113,7 @@ describe("validateRoster", () => {
         lastUpdated: "2026-03-04T10:00:00Z",
       },
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const roster = makeRoster({
       students: [makeMember("s1")],
@@ -200,6 +201,7 @@ describe("validateAssignment", () => {
           groupIds: groups.map((group) => group.id),
           connection: null,
           groupSelection: selectionModeAll(),
+          repoNameTemplate: null,
         },
       ],
       assignments: [assignment],

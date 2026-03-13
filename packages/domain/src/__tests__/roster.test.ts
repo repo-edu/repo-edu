@@ -344,6 +344,7 @@ describe("mergeRosterFromLms", () => {
           name: "Set 1",
           groupIds: ["g1"],
           groupSelection: { kind: "all", excludedGroupIds: [] },
+          repoNameTemplate: null,
           connection: null,
         },
       ],

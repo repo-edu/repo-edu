@@ -551,6 +551,7 @@ export function createCanvasClient(http: HttpPort): LmsClient {
             kind: "all",
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
         groups,
       }

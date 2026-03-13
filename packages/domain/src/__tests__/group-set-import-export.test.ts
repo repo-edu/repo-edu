@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   exportGroupSetRows,
+  exportRepoTeams,
   type Group,
   type GroupSet,
   importGroupSet,
@@ -184,6 +185,7 @@ describe("group-set import and reimport", () => {
         lastUpdated: "2026-03-01T00:00:00.000Z",
       },
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const roster = makeRoster({
       groups,
@@ -261,6 +263,7 @@ describe("group-set export", () => {
       groupIds: ["g1", "g2"],
       connection: null,
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const groups: Group[] = [
       {
@@ -310,5 +313,118 @@ describe("group-set export", () => {
         email: "",
       },
     ])
+  })
+})
+
+describe("exportRepoTeams", () => {
+  it("extracts teams with active member emails sorted by name", () => {
+    const groupSet: GroupSet = {
+      id: "gs1",
+      name: "Projects",
+      groupIds: ["g2", "g1"],
+      connection: null,
+      groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
+    }
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Zebra",
+        memberIds: ["s2", "s1"],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+      {
+        id: "g2",
+        name: "Alpha",
+        memberIds: ["s3"],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+    ]
+    const roster = makeRoster({ groups, groupSets: [groupSet] })
+
+    const result = exportRepoTeams(roster, "gs1")
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+
+    assert.deepStrictEqual(result.value, [
+      { members: ["carol@example.com"], name: "Alpha" },
+      {
+        members: ["bob@example.com", "alice@example.com"],
+        name: "Zebra",
+      },
+    ])
+  })
+
+  it("returns error for unknown group set", () => {
+    const roster = makeRoster()
+    const result = exportRepoTeams(roster, "nonexistent")
+    assert.equal(result.ok, false)
+  })
+
+  it("excludes inactive members", () => {
+    const groupSet: GroupSet = {
+      id: "gs1",
+      name: "Projects",
+      groupIds: ["g1"],
+      connection: null,
+      groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
+    }
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Team A",
+        memberIds: ["s1", "inactive1"],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+    ]
+    const roster = makeRoster({
+      students: [
+        makeMember("s1", "Alice Smith", "alice@example.com"),
+        makeMember("inactive1", "Gone User", "gone@example.com", {
+          status: "dropped",
+        }),
+      ],
+      groups,
+      groupSets: [groupSet],
+    })
+
+    const result = exportRepoTeams(roster, "gs1")
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+
+    assert.deepStrictEqual(result.value, [
+      { members: ["alice@example.com"], name: "Team A" },
+    ])
+  })
+
+  it("includes groups with no members as empty teams", () => {
+    const groupSet: GroupSet = {
+      id: "gs1",
+      name: "Projects",
+      groupIds: ["g1"],
+      connection: null,
+      groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
+    }
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Empty",
+        memberIds: [],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+    ]
+    const roster = makeRoster({ groups, groupSets: [groupSet] })
+
+    const result = exportRepoTeams(roster, "gs1")
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+
+    assert.deepStrictEqual(result.value, [{ members: [], name: "Empty" }])
   })
 })

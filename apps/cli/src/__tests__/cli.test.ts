@@ -133,6 +133,7 @@ function makeProfile(): PersistedCourse {
             kind: "all",
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
       ],
       assignments: [
@@ -179,6 +180,7 @@ function withCachedGroupSet(course: PersistedCourse): PersistedCourse {
             kind: "all",
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
       ],
     },

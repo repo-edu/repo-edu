@@ -701,6 +701,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -714,6 +715,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-project-teams",
@@ -732,6 +734,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [
@@ -1551,6 +1554,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -1564,6 +1568,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a1",
@@ -1582,6 +1587,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a2",
@@ -1600,6 +1606,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [
@@ -3654,6 +3661,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -3667,6 +3675,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-project-teams",
@@ -3699,6 +3708,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [
@@ -5898,6 +5908,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -5911,6 +5922,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a1",
@@ -5943,6 +5955,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a2",
@@ -5975,6 +5988,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [
@@ -10904,6 +10918,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -10917,6 +10932,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-project-teams",
@@ -10979,6 +10995,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [
@@ -16263,6 +16280,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-system-staff",
@@ -16276,6 +16294,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a1",
@@ -16338,6 +16357,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
             {
               id: "gs-a2",
@@ -16400,6 +16420,7 @@ export const fixtureMatrix: FixtureMatrix = {
                 kind: "all",
                 excludedGroupIds: [],
               },
+              repoNameTemplate: null,
             },
           ],
           assignments: [

@@ -1,4 +1,5 @@
-import { EmptyState, Text } from "@repo-edu/ui"
+import { EmptyState } from "@repo-edu/ui"
+import { Layers } from "@repo-edu/ui/components/icons"
 import { useEffect } from "react"
 import {
   selectGroupSetById,
@@ -28,23 +29,15 @@ export function GroupsAssignmentsPanel({
     }
   }, [selection, selectedGroupSet, setSidebarSelection])
 
-  if (!selection) {
+  if (!selection || !selectedGroupSet) {
     return (
-      <EmptyState message="Select an item from the sidebar">
-        <Text className="text-muted-foreground text-center">
-          Choose a group set to view details.
-        </Text>
-      </EmptyState>
-    )
-  }
-
-  if (!selectedGroupSet) {
-    return (
-      <EmptyState message="Group set not found">
-        <Text className="text-muted-foreground text-center">
-          The selected group set no longer exists.
-        </Text>
-      </EmptyState>
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <EmptyState
+          className="[&>p]:text-foreground [&>p]:text-lg [&>p]:font-medium [&>p]:leading-tight"
+          icon={<Layers className="text-muted-foreground/50 size-10" />}
+          message="Select a group set to view its groups."
+        />
+      </div>
     )
   }
 

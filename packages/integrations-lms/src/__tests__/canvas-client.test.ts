@@ -335,6 +335,7 @@ describe("createCanvasClient", () => {
         kind: "all",
         excludedGroupIds: [],
       },
+      repoNameTemplate: null,
     })
     assert.equal(result.groupSet.connection?.kind, "canvas")
     assert.equal(result.groupSet.connection?.courseId, "course-1")

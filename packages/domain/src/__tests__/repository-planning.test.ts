@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  type Assignment,
+  computeMembersSurnamesSlug,
+  computeRepoName,
+  expandTemplate,
   type Group,
   type GroupSet,
   ORIGIN_LOCAL,
@@ -75,6 +79,7 @@ describe("repository planning", () => {
       groupIds: ["g1", "g2"],
       connection: null,
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const roster = makeRoster(
       groups,
@@ -93,7 +98,7 @@ describe("repository planning", () => {
         assignmentName: "HW 1",
         groupId: "g1",
         groupName: "Team A",
-        repoName: "hw-1-team-a",
+        repoName: "team-a",
         activeMemberIds: ["s1"],
       },
     ])
@@ -131,6 +136,7 @@ describe("repository planning", () => {
       groupIds: ["g1", "g2"],
       connection: null,
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const roster = makeRoster(
       groups,
@@ -207,6 +213,7 @@ describe("repository planning", () => {
       groupIds: ["g1"],
       connection: null,
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     }
     const roster = makeRoster(
       groups,
@@ -259,5 +266,77 @@ describe("repository planning", () => {
         context: "hw-1-team-b",
       },
     ])
+  })
+})
+
+describe("computeMembersSurnamesSlug", () => {
+  it("returns empty string for empty array", () => {
+    assert.equal(computeMembersSurnamesSlug([]), "")
+  })
+
+  it("extracts surname with particle for a single member", () => {
+    assert.equal(computeMembersSurnamesSlug(["Jan de Vries"]), "de.vries")
+  })
+
+  it("joins multiple member surnames by hyphen", () => {
+    const result = computeMembersSurnamesSlug([
+      "Alice Smith",
+      "Bob van der Berg",
+      "Charlie Jones",
+    ])
+    assert.equal(result, "smith-van.der.berg-jones")
+  })
+
+  it("filters out single-word names with no parseable surname", () => {
+    const result = computeMembersSurnamesSlug(["Alice", "Bob Smith"])
+    assert.equal(result, "smith")
+  })
+
+  it("respects the limit parameter", () => {
+    const result = computeMembersSurnamesSlug(
+      ["Alice Smith", "Bob van der Berg", "Charlie Jones"],
+      2,
+    )
+    assert.equal(result, "smith-van.der.berg")
+  })
+})
+
+describe("expandTemplate with surnames", () => {
+  it("substitutes {surnames} placeholder", () => {
+    const assignment: Assignment = { id: "a1", name: "HW1", groupSetId: "gs1" }
+    const group: Group = {
+      id: "g1",
+      name: "101",
+      memberIds: [],
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }
+    const result = expandTemplate(
+      "{assignment}-{group}-{surnames}",
+      assignment,
+      group,
+      { surnames: "smith-jones" },
+    )
+    assert.equal(result, "HW1-101-smith-jones")
+  })
+})
+
+describe("computeRepoName with surnames", () => {
+  it("produces a slugified repo name from template + surnames", () => {
+    const assignment: Assignment = { id: "a1", name: "HW 1", groupSetId: "gs1" }
+    const group: Group = {
+      id: "g1",
+      name: "Team A",
+      memberIds: [],
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }
+    const result = computeRepoName(
+      "{assignment}-{group}-{surnames}",
+      assignment,
+      group,
+      { surnames: "smith-jones" },
+    )
+    assert.equal(result, "hw-1-team-a-smith-jones")
   })
 })

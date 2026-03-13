@@ -387,6 +387,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
             kind: "all",
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
         groups: matchedGroups,
       }

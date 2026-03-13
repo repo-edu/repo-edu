@@ -67,6 +67,7 @@ function makeRoster(): Roster {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
     ],
     assignments: [

@@ -104,6 +104,7 @@ type CourseActions = {
     groupSetId: string,
     selection: GroupSelectionMode,
   ) => void
+  updateGroupSetTemplate: (groupSetId: string, template: string | null) => void
 
   // Course metadata
   setCourseId: (courseId: string | null) => void
@@ -357,16 +358,18 @@ export const useCourseStore = create<CourseState & CourseActions>()(
           })
           const client = getWorkflowClient()
           const loaded = await client.run("course.load", { courseId })
+          const loadedCourse = loaded as PersistedCourse
+          ensureSystemGroupSets(loadedCourse.roster)
           set((draft) => {
-            draft.course = loaded as PersistedCourse
+            draft.course = loadedCourse
             draft.status = "loaded"
             draft.history = []
             draft.future = []
             draft.assignmentSelection = null
             draft.checksDirty = true
-            draft.systemSetsReady = false
+            draft.systemSetsReady = true
             draft.localVersion = 0
-            draft.lastSavedRevision = (loaded as PersistedCourse).revision
+            draft.lastSavedRevision = loadedCourse.revision
             draft.syncState = "idle"
             draft.syncError = null
           })
@@ -579,6 +582,7 @@ export const useCourseStore = create<CourseState & CourseActions>()(
             groupIds: groupIds ?? [],
             connection: null,
             groupSelection: { kind: "all", excludedGroupIds: [] },
+            repoNameTemplate: null,
           }
           roster.groupSets.push(groupSet)
         })
@@ -617,6 +621,7 @@ export const useCourseStore = create<CourseState & CourseActions>()(
             groupIds: copiedGroupIds,
             connection: null,
             groupSelection: { kind: "all", excludedGroupIds: [] },
+            repoNameTemplate: source.repoNameTemplate,
           })
         })
 
@@ -668,6 +673,13 @@ export const useCourseStore = create<CourseState & CourseActions>()(
         mutateRoster("Update group set selection", (roster) => {
           const gs = roster.groupSets.find((g) => g.id === groupSetId)
           if (gs) gs.groupSelection = selection
+        })
+      },
+
+      updateGroupSetTemplate: (groupSetId, template) => {
+        mutateRoster("Update group set template", (roster) => {
+          const gs = roster.groupSets.find((g) => g.id === groupSetId)
+          if (gs) gs.repoNameTemplate = template
         })
       },
 

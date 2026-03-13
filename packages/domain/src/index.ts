@@ -182,6 +182,7 @@ export type GroupSet = {
   groupIds: string[]
   connection: GroupSetConnection | null
   groupSelection: GroupSelectionMode
+  repoNameTemplate: string | null
 }
 
 export type Assignment = {
@@ -311,6 +312,11 @@ export type GroupSetExportRow = {
   group_name: string
   name: string
   email: string
+}
+
+export type RepoTeam = {
+  members: string[]
+  name: string
 }
 
 export type RepoOperationMode = "create" | "clone" | "delete"
@@ -908,6 +914,17 @@ function normalizeSlug(value: string): string {
     .replace(/-{2,}/g, "-")
 }
 
+/** Like normalizeSlug but uses `.` as the separator within a name part. */
+function normalizeNameSlug(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "")
+    .replace(/\.{2,}/g, ".")
+}
+
 function sortableToDisplay(name: string): string {
   const commaIndex = name.indexOf(",")
   if (commaIndex < 0) {
@@ -969,8 +986,8 @@ export function generateGroupName(members: readonly RosterMember[]): string {
   if (members.length === 1) {
     const member = members[0]
     const parsed = parseName(member.name)
-    const given = normalizeSlug(parsed.given)
-    const surname = normalizeSlug(parsed.surname)
+    const given = normalizeNameSlug(parsed.given)
+    const surname = normalizeNameSlug(parsed.surname)
     if (given.length === 0 && surname.length === 0) {
       return `member-${shortId(member.id)}`
     }
@@ -980,12 +997,12 @@ export function generateGroupName(members: readonly RosterMember[]): string {
     if (surname.length === 0) {
       return given
     }
-    return `${given}_${surname}`
+    return `${given}.${surname}`
   }
 
   const memberLimit = 5
   const surnames = members.slice(0, memberLimit).map((member) => {
-    const surname = normalizeSlug(parseName(member.name).surname)
+    const surname = normalizeNameSlug(parseName(member.name).surname)
     return surname.length > 0 ? surname : shortId(member.id)
   })
 
@@ -996,13 +1013,27 @@ export function generateGroupName(members: readonly RosterMember[]): string {
   return `${surnames.join("-")}-+${members.length - memberLimit}`
 }
 
+export function computeMembersSurnamesSlug(
+  memberNames: readonly string[],
+  limit = 5,
+): string {
+  return memberNames
+    .slice(0, limit)
+    .map((name) => {
+      const slug = normalizeNameSlug(parseName(name).surname)
+      return slug.length > 0 ? slug : ""
+    })
+    .filter((s) => s.length > 0)
+    .join("-")
+}
+
 export function resolveGroupNameCollision(
   baseName: string,
   existingNames: ReadonlySet<string>,
   memberId?: string,
 ): string {
   if (memberId !== undefined) {
-    const withIdSuffix = `${baseName}_${shortId(memberId)}`
+    const withIdSuffix = `${baseName}.${shortId(memberId)}`
     if (!existingNames.has(withIdSuffix)) {
       return withIdSuffix
     }
@@ -1436,6 +1467,7 @@ function ensureIndividualStudentsSet(roster: Roster): {
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_INDIVIDUAL_STUDENTS),
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     })
     setIndex = roster.groupSets.length - 1
   }
@@ -1545,6 +1577,7 @@ function ensureStaffSet(roster: Roster): {
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_STAFF),
       groupSelection: selectionModeAll(),
+      repoNameTemplate: null,
     })
     setIndex = roster.groupSets.length - 1
   }
@@ -1903,6 +1936,7 @@ export function importGroupSet(
         groupIds: groupsUpserted.map((group) => group.id),
         connection: createImportConnection(source),
         groupSelection: selectionModeAll(),
+        repoNameTemplate: null,
       },
       groupsUpserted,
       deletedGroupIds: [],
@@ -2154,11 +2188,54 @@ export function exportGroupSetRows(
   }
 }
 
+export function exportRepoTeams(
+  roster: Roster,
+  groupSetId: string,
+): ValidationResult<RepoTeam[]> {
+  const groupSet = roster.groupSets.find(
+    (candidate) => candidate.id === groupSetId,
+  )
+  if (groupSet === undefined) {
+    return importValidationError("groupSetId", "Group set not found")
+  }
+
+  const memberById = new Map<string, RosterMember>()
+  for (const member of roster.students.concat(roster.staff)) {
+    memberById.set(member.id, member)
+  }
+
+  const teams: RepoTeam[] = []
+  for (const groupId of groupSet.groupIds) {
+    const group = roster.groups.find((candidate) => candidate.id === groupId)
+    if (group === undefined) continue
+
+    const members = group.memberIds
+      .map((id) => memberById.get(id))
+      .filter(
+        (m): m is RosterMember => m !== undefined && m.status === "active",
+      )
+      .map((m) => m.email)
+      .filter((email) => email !== "")
+
+    teams.push({ members, name: group.name })
+  }
+
+  teams.sort((a, b) => a.name.localeCompare(b.name))
+
+  return { ok: true, value: teams }
+}
+
 const maxSlugLength = 100
-const defaultRepoTemplate = "{assignment}-{group}"
+export const defaultRepoTemplate = "{group}-{surnames}"
 
 export function slugify(value: string): string {
-  const slug = normalizeSlug(value.replace(/[_\s]+/g, "-"))
+  const slug = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
   return slug.slice(0, maxSlugLength).replace(/-+$/g, "")
 }
 
@@ -2166,21 +2243,23 @@ export function expandTemplate(
   template: string,
   assignment: Assignment,
   group: Group,
+  options?: { surnames?: string },
 ): string {
   return template
     .replaceAll("{assignment}", assignment.name)
     .replaceAll("{group}", group.name)
     .replaceAll("{group_id}", group.id)
     .replaceAll("{initials}", "")
-    .replaceAll("{surnames}", "")
+    .replaceAll("{surnames}", options?.surnames ?? "")
 }
 
 export function computeRepoName(
   template: string,
   assignment: Assignment,
   group: Group,
+  options?: { surnames?: string },
 ): string {
-  return slugify(expandTemplate(template, assignment, group))
+  return slugify(expandTemplate(template, assignment, group, options))
 }
 
 function findAssignment(
@@ -2859,6 +2938,7 @@ const groupSetSchema = z.object({
   groupIds: z.array(z.string()),
   connection: groupSetConnectionSchema,
   groupSelection: groupSelectionModeSchema,
+  repoNameTemplate: z.string().nullable().default(null),
 })
 
 const repositoryTemplateSchema = z.object({

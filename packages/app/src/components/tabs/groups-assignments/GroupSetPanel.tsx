@@ -5,17 +5,13 @@ import type {
   RosterMember,
 } from "@repo-edu/domain"
 import {
-  Button,
-  EmptyState,
-  Input,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Text,
-} from "@repo-edu/ui"
-import { Plus, Search, Trash2 } from "@repo-edu/ui/components/icons"
-import { useMemo, useState } from "react"
+  computeMembersSurnamesSlug,
+  computeRepoName,
+  defaultRepoTemplate,
+} from "@repo-edu/domain"
+import { Button, EmptyState, Input, Text } from "@repo-edu/ui"
+import { Plus, Search } from "@repo-edu/ui/components/icons"
+import { useCallback, useMemo, useState } from "react"
 import {
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
@@ -24,7 +20,9 @@ import {
   useCourseStore,
 } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
+import { AssignmentChipsRow } from "./AssignmentChipsRow.js"
 import { GroupItem } from "./GroupItem.js"
+import { RepoNameTemplateBuilder } from "./RepoNameTemplateBuilder.js"
 
 type GroupSetPanelProps = {
   groupSetId: string
@@ -44,10 +42,9 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const editableTargets = useCourseStore(selectEditableGroupTargets)
   const updateAssignment = useCourseStore((s) => s.updateAssignment)
   const deleteAssignment = useCourseStore((s) => s.deleteAssignment)
+  const updateGroupSetTemplate = useCourseStore((s) => s.updateGroupSetTemplate)
   const roster = useCourseStore((s) => s.course?.roster ?? null)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
-  const panelTab = useUiStore((s) => s.groupSetPanelTab)
-  const setPanelTab = useUiStore((s) => s.setGroupSetPanelTab)
   const setNewAssignmentDialogOpen = useUiStore(
     (s) => s.setNewAssignmentDialogOpen,
   )
@@ -56,6 +53,11 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     (s) => s.setAddGroupDialogGroupSetId,
   )
   const setDeleteGroupTargetId = useUiStore((s) => s.setDeleteGroupTargetId)
+
+  const selectedAssignmentId = useUiStore(
+    (s) => s.selectedAssignmentIdByGroupSet[groupSetId] ?? null,
+  )
+  const setSelectedAssignmentId = useUiStore((s) => s.setSelectedAssignmentId)
 
   // Build a memberGroupIndex for MemberChip dedup (active members only).
   const memberGroupIndex = useMemo(() => {
@@ -80,7 +82,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     return index
   }, [roster])
 
-  // Resolve members for each group.
+  // Resolve members
   const allMembers = useMemo(
     () => (roster ? [...roster.students, ...roster.staff] : []),
     [roster],
@@ -111,63 +113,77 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
   const isSetEditable = !isReadOnly
 
+  const template = groupSet.repoNameTemplate ?? defaultRepoTemplate
+  const templateIncludesAssignment = template.includes("{assignment}")
+
+  // Derive effective selected assignment for preview
+  const effectiveAssignment: Assignment | null =
+    assignments.length === 0
+      ? null
+      : assignments.length === 1
+        ? assignments[0]
+        : templateIncludesAssignment && selectedAssignmentId
+          ? (assignments.find((a) => a.id === selectedAssignmentId) ??
+            assignments[0])
+          : assignments[0]
+
+  const showAssignmentSelection =
+    assignments.length > 1 && templateIncludesAssignment
+
   return (
     <div className="flex flex-col h-full">
-      {/* Tabs: Groups and Assignments */}
-      <Tabs
-        value={panelTab}
-        onValueChange={(v) => setPanelTab(v as "groups" | "assignments")}
-        className="flex-1 flex flex-col min-h-0 gap-0"
-      >
-        <div className="border-b px-4">
-          <TabsList>
-            <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
-            <TabsTrigger value="assignments">
-              Assignments ({assignments.length})
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      {/* Header: template + assignments + search */}
+      <div className="px-4 py-2 space-y-2 border-b">
+        <RepoNameTemplateBuilder
+          template={template}
+          onTemplateChange={(t) =>
+            updateGroupSetTemplate(groupSetId, t || null)
+          }
+          disabled={isOperationActive}
+        />
+        <AssignmentChipsRow
+          assignments={assignments}
+          selectedId={
+            showAssignmentSelection ? (effectiveAssignment?.id ?? null) : null
+          }
+          onSelect={(id) => setSelectedAssignmentId(groupSetId, id)}
+          onAdd={() => {
+            setPreSelectedGroupSetId(groupSetId)
+            setNewAssignmentDialogOpen(true)
+          }}
+          onEdit={(id, name) => updateAssignment(id, { name })}
+          onDelete={(id) => deleteAssignment(id)}
+          showSelection={showAssignmentSelection}
+          disabled={isOperationActive}
+        />
+      </div>
 
-        <TabsContent value="groups" className="flex-1 overflow-auto px-4 py-2">
-          <GroupsTab
-            groups={groups}
-            groupSetId={groupSetId}
-            memberById={memberById}
-            staffIds={staffIds}
-            isSetEditable={isSetEditable}
-            editableTargets={editableTargets}
-            memberGroupIndex={memberGroupIndex}
-            disabled={isOperationActive}
-            onAddGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
-            onDeleteGroup={(groupId) => setDeleteGroupTargetId(groupId)}
-          />
-        </TabsContent>
-
-        <TabsContent
-          value="assignments"
-          className="flex-1 overflow-auto px-4 py-2"
-        >
-          <AssignmentsTab
-            assignments={assignments}
-            updateAssignment={updateAssignment}
-            deleteAssignment={deleteAssignment}
-            onAddAssignment={() => {
-              setPreSelectedGroupSetId(groupSetId)
-              setNewAssignmentDialogOpen(true)
-            }}
-            disabled={isOperationActive}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Groups list */}
+      <div className="flex-1 overflow-auto px-4 py-2">
+        <GroupsList
+          groups={groups}
+          groupSetId={groupSetId}
+          memberById={memberById}
+          staffIds={staffIds}
+          isSetEditable={isSetEditable}
+          editableTargets={editableTargets}
+          memberGroupIndex={memberGroupIndex}
+          disabled={isOperationActive}
+          onAddGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
+          onDeleteGroup={(groupId) => setDeleteGroupTargetId(groupId)}
+          template={template}
+          effectiveAssignment={effectiveAssignment}
+        />
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Groups sub-tab
+// Groups list (replaces former GroupsTab)
 // ---------------------------------------------------------------------------
 
-function GroupsTab({
+function GroupsList({
   groups,
   groupSetId,
   memberById,
@@ -178,6 +194,8 @@ function GroupsTab({
   disabled,
   onAddGroup,
   onDeleteGroup,
+  template,
+  effectiveAssignment,
 }: {
   groups: Group[]
   groupSetId: string
@@ -189,6 +207,8 @@ function GroupsTab({
   disabled: boolean
   onAddGroup: () => void
   onDeleteGroup: (groupId: string) => void
+  template: string
+  effectiveAssignment: Assignment | null
 }) {
   const [search, setSearch] = useState("")
   const query = search.trim().toLowerCase()
@@ -207,6 +227,23 @@ function GroupsTab({
       })
     })
   }, [groups, query, memberById])
+
+  const computePreview = useCallback(
+    (group: Group): string | null => {
+      if (!effectiveAssignment) return null
+      const memberNames = group.memberIds
+        .map((id) => memberById.get(id))
+        .filter(
+          (m): m is RosterMember => m !== undefined && m.status === "active",
+        )
+        .map((m) => m.name)
+      const surnames = computeMembersSurnamesSlug(memberNames)
+      return computeRepoName(template, effectiveAssignment, group, {
+        surnames,
+      })
+    },
+    [template, effectiveAssignment, memberById],
+  )
 
   if (groups.length === 0) {
     return (
@@ -267,6 +304,7 @@ function GroupsTab({
               editableTargets={editableTargets}
               memberGroupIndex={memberGroupIndex}
               onDeleteGroup={() => onDeleteGroup(group.id)}
+              repoNamePreview={computePreview(group)}
             />
           )
         })}
@@ -277,134 +315,11 @@ function GroupsTab({
           No members or groups match &ldquo;{search}&rdquo;
         </p>
       )}
-    </div>
-  )
-}
 
-// ---------------------------------------------------------------------------
-// Assignments sub-tab
-// ---------------------------------------------------------------------------
-
-function AssignmentsTab({
-  assignments,
-  updateAssignment,
-  deleteAssignment,
-  onAddAssignment,
-  disabled,
-}: {
-  assignments: Assignment[]
-  updateAssignment: (id: string, updates: Partial<Assignment>) => void
-  deleteAssignment: (id: string) => void
-  onAddAssignment: () => void
-  disabled: boolean
-}) {
-  if (assignments.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground mb-3">
-          No assignments for this group set.
-        </p>
-        <Button size="sm" variant="outline" onClick={onAddAssignment}>
-          <Plus className="size-4 mr-1" />
-          Add Assignment
-        </Button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onAddAssignment}
-          disabled={disabled}
-        >
-          <Plus className="size-4 mr-1" />
-          Add Assignment
-        </Button>
-      </div>
-      <div className="divide-y">
-        {assignments.map((assignment) => (
-          <AssignmentRow
-            key={assignment.id}
-            assignment={assignment}
-            onUpdate={(updates) => updateAssignment(assignment.id, updates)}
-            onDelete={() => deleteAssignment(assignment.id)}
-            disabled={disabled}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function AssignmentRow({
-  assignment,
-  onUpdate,
-  onDelete,
-  disabled,
-}: {
-  assignment: Assignment
-  onUpdate: (updates: Partial<Assignment>) => void
-  onDelete: () => void
-  disabled: boolean
-}) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(assignment.name)
-
-  const handleSave = () => {
-    const trimmed = editName.trim()
-    if (trimmed && trimmed !== assignment.name) {
-      onUpdate({ name: trimmed })
-    }
-    setIsEditing(false)
-    setEditName(assignment.name)
-  }
-
-  return (
-    <div className="flex items-center gap-2 py-2">
-      {isEditing ? (
-        <Input
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave()
-            if (e.key === "Escape") {
-              setIsEditing(false)
-              setEditName(assignment.name)
-            }
-          }}
-          autoFocus
-          className="h-7 flex-1"
-        />
-      ) : (
-        <button
-          type="button"
-          className="text-sm font-medium hover:underline text-left flex-1 truncate"
-          onClick={() => {
-            if (!disabled) {
-              setEditName(assignment.name)
-              setIsEditing(true)
-            }
-          }}
-          disabled={disabled}
-        >
-          {assignment.name}
-        </button>
-      )}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
-        onClick={onDelete}
-        disabled={disabled}
-        title="Delete assignment"
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+      {/* Footer group count */}
+      <p className="text-center text-xs text-muted-foreground pt-2 pb-1">
+        {groups.length} {groups.length === 1 ? "group" : "groups"}
+      </p>
     </div>
   )
 }

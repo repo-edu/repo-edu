@@ -184,6 +184,7 @@ function createSharedTeamsGroupModel(
           kind: "all" as const,
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
     ],
     assignments: [
@@ -219,6 +220,7 @@ function createAssignmentScopedGroupModel(
     groupIds: string[]
     connection: null
     groupSelection: { kind: "all"; excludedGroupIds: [] }
+    repoNameTemplate: null
   }> = []
 
   const assignments: Array<{ id: string; name: string; groupSetId: string }> =
@@ -253,6 +255,7 @@ function createAssignmentScopedGroupModel(
         kind: "all",
         excludedGroupIds: [],
       },
+      repoNameTemplate: null,
     })
     assignments.push({
       id: assignmentPrefix,
@@ -425,6 +428,7 @@ function createFixtureRecord(
           kind: "all" as const,
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
       {
         id: "gs-system-staff",
@@ -438,6 +442,7 @@ function createFixtureRecord(
           kind: "all" as const,
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
       ...userGroups.groupSets,
     ],

@@ -228,6 +228,7 @@ describe("validatePersistedCourse", () => {
               kind: "all",
               excludedGroupIds: [],
             },
+            repoNameTemplate: null,
           },
         ],
         assignments: [{ id: "a1", name: "HW1", groupSetId: "gs1" }],
@@ -258,6 +259,7 @@ describe("validatePersistedCourse", () => {
               pattern: "lab-*",
               excludedGroupIds: ["g3"],
             },
+            repoNameTemplate: null,
           },
         ],
       },
@@ -324,6 +326,7 @@ describe("validatePersistedCourse", () => {
             groupSelection: {
               kind: "invalid",
             },
+            repoNameTemplate: null,
           },
         ],
       },
@@ -346,6 +349,58 @@ describe("validatePersistedCourse", () => {
       },
     })
     assert.equal(result.ok, false)
+  })
+
+  it("accepts a group set without repoNameTemplate (defaults to null)", () => {
+    const course = {
+      ...validProfile,
+      roster: {
+        ...validProfile.roster,
+        groupSets: [
+          {
+            id: "gs1",
+            name: "Teams",
+            groupIds: [],
+            connection: null,
+            groupSelection: { kind: "all", excludedGroupIds: [] },
+          },
+        ],
+      },
+    }
+    const result = validatePersistedCourse(course)
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      const groupSet = result.value.roster.groupSets[0]
+      assert.equal(groupSet?.repoNameTemplate, null)
+    }
+  })
+
+  it("accepts a group set with a custom repoNameTemplate", () => {
+    const course = {
+      ...validProfile,
+      roster: {
+        ...validProfile.roster,
+        groupSets: [
+          {
+            id: "gs1",
+            name: "Teams",
+            groupIds: [],
+            connection: null,
+            groupSelection: { kind: "all", excludedGroupIds: [] },
+            repoNameTemplate: "{assignment}-{group}-{surnames}",
+          },
+        ],
+      },
+    }
+    const result = validatePersistedCourse(course)
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      const groupSet = result.value.roster.groupSets[0]
+      assert.equal(
+        groupSet?.repoNameTemplate,
+        "{assignment}-{group}-{surnames}",
+      )
+    }
   })
 })
 

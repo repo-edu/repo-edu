@@ -79,6 +79,7 @@ function makeProfile(): PersistedCourse {
             kind: "all",
             excludedGroupIds: [],
           },
+          repoNameTemplate: null,
         },
       ],
       assignments: [
@@ -897,6 +898,7 @@ describe("application group-set workflow helpers", () => {
                 lastUpdated: "2026-03-04T10:00:00.000Z",
               },
               groupSelection: { kind: "all", excludedGroupIds: [] },
+              repoNameTemplate: null,
             },
             groups: [
               {
@@ -974,6 +976,7 @@ describe("application group-set workflow helpers", () => {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
     ]
 
@@ -1067,6 +1070,7 @@ describe("application group-set workflow helpers", () => {
           kind: "all",
           excludedGroupIds: [],
         },
+        repoNameTemplate: null,
       },
     ]
 
@@ -1099,6 +1103,7 @@ describe("application group-set workflow helpers", () => {
               lastUpdated: "2026-03-04T10:00:00.000Z",
             },
             groupSelection: { kind: "all", excludedGroupIds: [] },
+            repoNameTemplate: null,
           },
           groups: [
             {
@@ -1288,7 +1293,7 @@ describe("application group-set workflow helpers", () => {
       target: yamlTarget,
       format: "yaml",
     })
-    assert.equal(lastWritten.includes("- group_set_id:"), true)
+    assert.equal(lastWritten.includes("\tmembers:["), true)
 
     await assert.rejects(
       handlers["groupSet.export"]({
@@ -1373,7 +1378,7 @@ describe("application repository workflow helpers", () => {
 
     assert.deepStrictEqual(receivedRequest, {
       organization: "repo-edu",
-      repositoryNames: ["project-1-beta"],
+      repositoryNames: ["beta"],
       template: null,
     })
     assert.equal(result.repositoriesPlanned, 1)
@@ -1451,8 +1456,8 @@ describe("application repository workflow helpers", () => {
     assert.equal(cloneResult.repositoriesPlanned, 1)
     assert.deepStrictEqual(cloneCommands[0], [
       "clone",
-      "https://x-access-token:token-1@github.com/repo-edu/project-1-beta.git",
-      "/work/repos/project-1-beta",
+      "https://x-access-token:token-1@github.com/repo-edu/beta.git",
+      "/work/repos/beta",
     ])
 
     await assert.rejects(
@@ -1479,7 +1484,7 @@ describe("application repository workflow helpers", () => {
     assert.equal(deleteResult.repositoriesPlanned, 1)
     assert.deepStrictEqual(deleteRequest, {
       organization: "repo-edu",
-      repositoryNames: ["project-1-beta"],
+      repositoryNames: ["beta"],
     })
   })
 })

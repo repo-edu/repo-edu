@@ -75,7 +75,6 @@ function buildGroupSetActions(
     setDeleteGroupSetTargetId: (id: string | null) => void
     setNewAssignmentDialogOpen: (open: boolean) => void
     setPreSelectedGroupSetId: (id: string | null) => void
-    setGroupSetPanelTab: (tab: "groups" | "assignments") => void
   },
 ) {
   const kind = connection ? connection.kind : "local"
@@ -92,7 +91,6 @@ function buildGroupSetActions(
   return {
     onAddAssignment: withSelect(() => {
       setters.setPreSelectedGroupSetId(groupSetId)
-      setters.setGroupSetPanelTab("assignments")
       setters.setNewAssignmentDialogOpen(true)
     }),
     onStartRename: isNameEditable
@@ -209,7 +207,6 @@ export function GroupsAssignmentsSidebar({
     (s) => s.setNewAssignmentDialogOpen,
   )
   const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
-  const setGroupSetPanelTab = useUiStore((s) => s.setGroupSetPanelTab)
 
   const actionSetters = useMemo(
     () => ({
@@ -221,7 +218,6 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
       setPreSelectedGroupSetId,
-      setGroupSetPanelTab,
     }),
     [
       setRenameGroupSetTriggerId,
@@ -232,7 +228,6 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
       setPreSelectedGroupSetId,
-      setGroupSetPanelTab,
     ],
   )
 
