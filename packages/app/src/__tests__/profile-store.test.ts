@@ -5,9 +5,11 @@ import {
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
+  ORIGIN_SYSTEM,
   type PersistedCourse,
   persistedCourseKind,
   type RosterMember,
+  SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
 } from "@repo-edu/domain"
 import {
   clearWorkflowClient,
@@ -163,6 +165,45 @@ describe("course store", () => {
     useCourseStore.getState().addMember(makeStudent("s-4", "Alan Turing"))
     assert.equal(useCourseStore.getState().future.length, 0)
     assert.equal(useCourseStore.getState().history.length, 2)
+  })
+
+  it("normalizes individual-student system group names during load", async () => {
+    const course = makeProfile()
+    course.roster.students = [makeStudent("s-1", "Berg, S.O.S. van den")]
+    course.roster.groups = [
+      {
+        id: "g-system-1",
+        name: "s-o-s.van-den-berg",
+        memberIds: ["s-1"],
+        origin: ORIGIN_SYSTEM,
+        lmsGroupId: null,
+      },
+    ]
+    course.roster.groupSets = [
+      {
+        id: "gs-system-individual",
+        name: "Individual Students",
+        groupIds: ["g-system-1"],
+        connection: {
+          kind: "system",
+          systemType: SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
+        },
+        groupSelection: { kind: "all", excludedGroupIds: [] },
+        repoNameTemplate: null,
+      },
+    ]
+
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    const renamedGroup = useCourseStore
+      .getState()
+      .course?.roster.groups.find((group) => group.id === "g-system-1")
+    assert.equal(renamedGroup?.name, "s.o.s.van.den.berg")
   })
 
   it("keeps local updates and reports save errors via toast", async () => {

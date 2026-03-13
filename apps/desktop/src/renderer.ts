@@ -11,160 +11,160 @@ const trpcMarker = "repo-edu-desktop-trpc"
 const searchParams = new URLSearchParams(window.location.search)
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
 const validationCourseId =
-    searchParams.get("courseId")?.trim() || desktopSeedCourseId
+  searchParams.get("courseId")?.trim() || desktopSeedCourseId
 
 const mountNode = document.querySelector<HTMLDivElement>("#app")
 if (!mountNode) {
-    throw new Error("Renderer mount node #app was not found")
+  throw new Error("Renderer mount node #app was not found")
 }
 
 if (!window.repoEduDesktopHost) {
-    throw new Error("Desktop renderer host bridge was not exposed from preload.")
+  throw new Error("Desktop renderer host bridge was not exposed from preload.")
 }
 
 const workflowClient = createDesktopWorkflowClient()
 const rendererHost = createRendererHostFromBridge(window.repoEduDesktopHost)
 
 function ensureValidationOutputNode(): HTMLOutputElement {
-    let markerNode = document.querySelector<HTMLOutputElement>(
-        "#repo-edu-trpc-marker",
-    )
+  let markerNode = document.querySelector<HTMLOutputElement>(
+    "#repo-edu-trpc-marker",
+  )
 
-    if (markerNode) {
-        return markerNode
-    }
-
-    markerNode = document.createElement("output")
-    markerNode.id = "repo-edu-trpc-marker"
-    markerNode.hidden = true
-    document.body.append(markerNode)
+  if (markerNode) {
     return markerNode
+  }
+
+  markerNode = document.createElement("output")
+  markerNode.id = "repo-edu-trpc-marker"
+  markerNode.hidden = true
+  document.body.append(markerNode)
+  return markerNode
 }
 
 function emitValidationMarker(payload: Record<string, unknown>) {
-    const markerNode = ensureValidationOutputNode()
-    markerNode.value = JSON.stringify(payload)
-    markerNode.textContent = markerNode.value
+  const markerNode = ensureValidationOutputNode()
+  markerNode.value = JSON.stringify(payload)
+  markerNode.textContent = markerNode.value
 }
 
 function normalizeAppError(error: unknown): AppError {
-    if (
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        "message" in error &&
-        typeof error.type === "string" &&
-        typeof error.message === "string"
-    ) {
-        return error as AppError
-    }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    "message" in error &&
+    typeof error.type === "string" &&
+    typeof error.message === "string"
+  ) {
+    return error as AppError
+  }
 
-    return {
-        type: "unexpected",
-        message: error instanceof Error ? error.message : String(error),
-        retryable: false,
-    }
+  return {
+    type: "unexpected",
+    message: error instanceof Error ? error.message : String(error),
+    retryable: false,
+  }
 }
 
 async function collectValidationSnapshot() {
-    const spikeProgressLabels: string[] = []
-    const environmentSnapshot = await rendererHost.getEnvironmentSnapshot()
+  const spikeProgressLabels: string[] = []
+  const environmentSnapshot = await rendererHost.getEnvironmentSnapshot()
 
-    const courseList = await workflowClient.run("course.list", undefined)
-    const loadedCourse = await workflowClient.run("course.load", {
-        courseId: validationCourseId,
-    })
-    const savedCourse = await workflowClient.run("course.save", loadedCourse)
+  const courseList = await workflowClient.run("course.list", undefined)
+  const loadedCourse = await workflowClient.run("course.load", {
+    courseId: validationCourseId,
+  })
+  const savedCourse = await workflowClient.run("course.save", loadedCourse)
 
-    const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
-    const savedSettings = await workflowClient.run(
-        "settings.saveApp",
-        loadedSettings,
-    )
+  const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
+  const savedSettings = await workflowClient.run(
+    "settings.saveApp",
+    loadedSettings,
+  )
 
-    const rosterValidation = await workflowClient.run("validation.roster", {
-        course: loadedCourse,
-    })
-    const validationAssignmentId = loadedCourse.roster.assignments[0]?.id ?? null
-    const assignmentValidation =
-        validationAssignmentId === null
-            ? { issues: [] }
-            : await workflowClient.run("validation.assignment", {
-                course: loadedCourse,
-                assignmentId: validationAssignmentId,
-            })
-
-    const spike = await workflowClient.run("spike.e2e-trpc", undefined, {
-        onProgress(event) {
-            spikeProgressLabels.push(event.label)
-        },
-    })
-
-    let repoDeleteErrorType: AppError["type"] | null = null
-    try {
-        await workflowClient.run("repo.delete", {
-            course: loadedCourse,
-            appSettings: loadedSettings,
-            assignmentId: null,
-            template: null,
-            confirmDelete: false,
+  const rosterValidation = await workflowClient.run("validation.roster", {
+    course: loadedCourse,
+  })
+  const validationAssignmentId = loadedCourse.roster.assignments[0]?.id ?? null
+  const assignmentValidation =
+    validationAssignmentId === null
+      ? { issues: [] }
+      : await workflowClient.run("validation.assignment", {
+          course: loadedCourse,
+          assignmentId: validationAssignmentId,
         })
-    } catch (error) {
-        repoDeleteErrorType = normalizeAppError(error).type
-    }
 
-    return {
-        environmentShell: environmentSnapshot.shell,
-        environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
-        environmentWindowChrome: environmentSnapshot.windowChrome,
-        courseCount: courseList.length,
-        listedCourseIds: courseList.map((entry) => entry.id),
-        loadedCourseId: loadedCourse.id,
-        savedCourseId: savedCourse.id,
-        savedCourseUpdatedAt: savedCourse.updatedAt,
-        validationAssignmentId,
-        settingsKind: loadedSettings.kind,
-        settingsSchemaVersion: savedSettings.schemaVersion,
-        rosterIssueKinds: rosterValidation.issues.map((issue) => issue.kind),
-        assignmentIssueKinds: assignmentValidation.issues.map(
-            (issue) => issue.kind,
-        ),
-        spikeWorkflowId: spike.workflowId,
-        spikeProgressCount: spikeProgressLabels.length,
-        repoDeleteErrorType,
-    }
+  const spike = await workflowClient.run("spike.e2e-trpc", undefined, {
+    onProgress(event) {
+      spikeProgressLabels.push(event.label)
+    },
+  })
+
+  let repoDeleteErrorType: AppError["type"] | null = null
+  try {
+    await workflowClient.run("repo.delete", {
+      course: loadedCourse,
+      appSettings: loadedSettings,
+      assignmentId: null,
+      template: null,
+      confirmDelete: false,
+    })
+  } catch (error) {
+    repoDeleteErrorType = normalizeAppError(error).type
+  }
+
+  return {
+    environmentShell: environmentSnapshot.shell,
+    environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
+    environmentWindowChrome: environmentSnapshot.windowChrome,
+    courseCount: courseList.length,
+    listedCourseIds: courseList.map((entry) => entry.id),
+    loadedCourseId: loadedCourse.id,
+    savedCourseId: savedCourse.id,
+    savedCourseUpdatedAt: savedCourse.updatedAt,
+    validationAssignmentId,
+    settingsKind: loadedSettings.kind,
+    settingsSchemaVersion: savedSettings.schemaVersion,
+    rosterIssueKinds: rosterValidation.issues.map((issue) => issue.kind),
+    assignmentIssueKinds: assignmentValidation.issues.map(
+      (issue) => issue.kind,
+    ),
+    spikeWorkflowId: spike.workflowId,
+    spikeProgressCount: spikeProgressLabels.length,
+    repoDeleteErrorType,
+  }
 }
 
 async function runValidationMode() {
-    try {
-        const snapshot = await collectValidationSnapshot()
+  try {
+    const snapshot = await collectValidationSnapshot()
 
-        emitValidationMarker({
-            marker: trpcMarker,
-            validationCourseId,
-            ...snapshot,
-        })
-    } catch (error) {
-        const appError = normalizeAppError(error)
+    emitValidationMarker({
+      marker: trpcMarker,
+      validationCourseId,
+      ...snapshot,
+    })
+  } catch (error) {
+    const appError = normalizeAppError(error)
 
-        emitValidationMarker({
-            marker: trpcMarker,
-            error: appError.message,
-            errorType: appError.type,
-        })
+    emitValidationMarker({
+      marker: trpcMarker,
+      error: appError.message,
+      errorType: appError.type,
+    })
 
-        throw error
-    }
+    throw error
+  }
 }
 
 if (isTRPCValidationMode) {
-    void runValidationMode()
+  void runValidationMode()
 } else {
-    document.title = "Repo Edu"
-    createRoot(mountNode).render(
-        React.createElement(AppRoot, {
-            workflowClient,
-            rendererHost,
-        }),
-    )
+  document.title = "Repo Edu"
+  createRoot(mountNode).render(
+    React.createElement(AppRoot, {
+      workflowClient,
+      rendererHost,
+    }),
+  )
 }
