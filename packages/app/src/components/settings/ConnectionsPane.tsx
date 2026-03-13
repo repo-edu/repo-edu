@@ -45,17 +45,6 @@ type ViewState =
   | { view: "lms-editor"; index: number | null }
   | { view: "git-editor"; originalName: string | null }
 
-const LMS_PROVIDER_LABELS: Record<LmsProviderKind, string> = {
-  canvas: "Canvas",
-  moodle: "Moodle",
-}
-
-const GIT_PROVIDER_LABELS: Record<GitProviderKind, string> = {
-  github: "GitHub",
-  gitlab: "GitLab",
-  gitea: "Gitea",
-}
-
 const INVALID_REQUIRED_URL_MESSAGE = "Base URL must be a valid http(s) URL."
 const INVALID_OPTIONAL_URL_MESSAGE =
   "Base URL must be a valid http(s) URL when provided."
@@ -208,8 +197,7 @@ export function ConnectionsPane() {
     viewState.view === "lms-editor" ? viewState.index : null
   const gitEditorOriginalName =
     viewState.view === "git-editor" ? viewState.originalName : null
-  const editingLms =
-    viewState.view === "lms-editor" && viewState.index !== null
+  const editingLms = viewState.view === "lms-editor" && viewState.index !== null
   const editingGit =
     viewState.view === "git-editor" && viewState.originalName !== null
 
@@ -710,10 +698,7 @@ export function ConnectionsPane() {
             </SelectContent>
           </Select>
         </FormField>
-        <FormField
-          label="Base URL (optional)"
-          htmlFor="settings-git-base-url"
-        >
+        <FormField label="Base URL (optional)" htmlFor="settings-git-base-url">
           <Input
             id="settings-git-base-url"
             value={gitDraft.baseUrl ?? ""}

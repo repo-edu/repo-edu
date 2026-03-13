@@ -44,11 +44,11 @@ import type {
   CourseSummary,
   GitIdentityMode,
   GitUsernameImportRow,
-  GroupSetExportRow,
   GroupSetImportRow,
   PersistedAppSettings,
   PersistedCourse,
   PlannedRepositoryGroup,
+  RepoTeam,
   RosterValidationResult,
   StudentImportRow,
   ValidationResult,
@@ -59,6 +59,7 @@ import {
   enrollmentTypeKinds,
   ensureSystemGroupSets,
   exportGroupSetRows,
+  exportRepoTeams,
   formatSmokeWorkflowMessage,
   gitUsernameImportRowSchema,
   groupSetExportHeaders,
@@ -1224,6 +1225,7 @@ function createConnectedGroupSet(
       kind: "all",
       excludedGroupIds: [],
     },
+    repoNameTemplate: null,
   }
 }
 
@@ -1360,26 +1362,9 @@ function resolveLmsGroupMembers(
   return resolved
 }
 
-function escapeYamlScalar(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`
-}
-
-function serializeGroupSetRowsAsYaml(
-  rows: readonly GroupSetExportRow[],
-): string {
-  if (rows.length === 0) {
-    return "[]\n"
-  }
-
-  return rows
-    .map(
-      (row) =>
-        `- group_set_id: ${escapeYamlScalar(row.group_set_id)}\n` +
-        `  group_id: ${escapeYamlScalar(row.group_id)}\n` +
-        `  group_name: ${escapeYamlScalar(row.group_name)}\n` +
-        `  name: ${escapeYamlScalar(row.name)}\n` +
-        `  email: ${escapeYamlScalar(row.email)}`,
-    )
+function serializeRepobeeYaml(teams: readonly RepoTeam[]): string {
+  return teams
+    .map((team) => `${team.name}:\n\tmembers:[${team.members.join(", ")}]`)
     .join("\n")
 }
 
@@ -1789,9 +1774,17 @@ export function createGroupSetWorkflowHandlers(
             rows: exportedRows.value,
           })
           break
-        case "yaml":
-          serialized = serializeGroupSetRowsAsYaml(exportedRows.value)
+        case "yaml": {
+          const teams = exportRepoTeams(course.roster, input.groupSetId)
+          if (!teams.ok) {
+            throw createValidationAppError(
+              "Repobee YAML export preparation failed.",
+              teams.issues,
+            )
+          }
+          serialized = serializeRepobeeYaml(teams.value)
           break
+        }
         case "xlsx":
           throw createValidationAppError(
             "Group-set export format is unsupported.",
