@@ -47,6 +47,18 @@ import { RepoNameTemplateBuilder } from "./RepoNameTemplateBuilder.js"
 
 /** Minimum scroll fraction before the back-to-top button appears. */
 const SCROLL_TOP_THRESHOLD = 0.15
+const GROUPS_COLUMN_WIDTHS = {
+  group: 170,
+  members: 470,
+  memberCount: 60,
+  repoName: 300,
+} as const
+const GROUPS_COLUMN_MIN_WIDTHS = {
+  group: 100,
+  members: 200,
+  memberCount: 40,
+  repoName: 100,
+} as const
 
 type GroupSetPanelProps = {
   groupSetId: string
@@ -323,8 +335,8 @@ function GroupsTable({
     () => [
       {
         id: "name",
-        size: 150,
-        minSize: 100,
+        size: GROUPS_COLUMN_WIDTHS.group,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.group,
         accessorFn: (row) => row.group.name,
         header: ({ column }) => (
           <SortHeaderButton
@@ -347,8 +359,8 @@ function GroupsTable({
       },
       {
         id: "repoName",
-        size: 220,
-        minSize: 100,
+        size: GROUPS_COLUMN_WIDTHS.repoName,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.repoName,
         accessorFn: (row) => row.repoNamePreview,
         header: ({ column }) => (
           <SortHeaderButton
@@ -367,8 +379,8 @@ function GroupsTable({
       },
       {
         id: "memberCount",
-        size: 50,
-        minSize: 40,
+        size: GROUPS_COLUMN_WIDTHS.memberCount,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.memberCount,
         accessorFn: (row) => row.memberCount,
         header: ({ column }) => (
           <SortHeaderButton
@@ -385,8 +397,8 @@ function GroupsTable({
       },
       {
         id: "members",
-        size: 450,
-        minSize: 200,
+        size: GROUPS_COLUMN_WIDTHS.members,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.members,
         enableSorting: false,
         header: () => <span className="font-medium">Members</span>,
         cell: ({ row }) => {
@@ -472,6 +484,9 @@ function GroupsTable({
       )
     },
   })
+  const totalColumnSize = table.getTotalSize()
+  const toColumnWidth = (size: number): string | undefined =>
+    totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
 
   // Empty state
   if (groups.length === 0) {
@@ -536,7 +551,7 @@ function GroupsTable({
                         <th
                           key={header.id}
                           className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
-                          style={{ width: header.getSize() }}
+                          style={{ width: toColumnWidth(header.getSize()) }}
                         >
                           {header.isPlaceholder
                             ? null
@@ -568,7 +583,9 @@ function GroupsTable({
                         <td
                           key={cell.id}
                           className="p-2 align-top min-w-0 overflow-hidden"
-                          style={{ width: cell.column.getSize() }}
+                          style={{
+                            width: toColumnWidth(cell.column.getSize()),
+                          }}
                         >
                           {flexRender(
                             cell.column.columnDef.cell,

@@ -56,6 +56,22 @@ import { StatusCell } from "./cells/StatusSelectCell.js"
 /** Minimum scroll fraction before the back-to-top button appears.
  *  Avoids showing the button when only a small amount has been scrolled. */
 const SCROLL_TOP_THRESHOLD = 0.15
+const ROSTER_COLUMN_WIDTHS = {
+  name: 200,
+  email: 260,
+  status: 110,
+  memberType: 90,
+  groups: 150,
+  gitUsername: 190,
+} as const
+const ROSTER_COLUMN_MIN_WIDTHS = {
+  name: 100,
+  email: 120,
+  status: 80,
+  memberType: 60,
+  groups: 80,
+  gitUsername: 100,
+} as const
 
 type MemberListPaneProps = {
   roster: Roster | null
@@ -292,8 +308,8 @@ export function MemberListPane({
     () => [
       {
         id: "name",
-        size: 200,
-        minSize: 100,
+        size: ROSTER_COLUMN_WIDTHS.name,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.name,
         accessorFn: (row) => row.name,
         header: ({ column }) => (
           <SortHeaderButton
@@ -314,8 +330,8 @@ export function MemberListPane({
       },
       {
         id: "email",
-        size: 260,
-        minSize: 120,
+        size: ROSTER_COLUMN_WIDTHS.email,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.email,
         accessorFn: (row) => row.email,
         header: ({ column }) => (
           <SortHeaderButton
@@ -339,8 +355,8 @@ export function MemberListPane({
       },
       {
         id: "status",
-        size: 110,
-        minSize: 80,
+        size: ROSTER_COLUMN_WIDTHS.status,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.status,
         accessorFn: (row) => row.status,
         header: ({ column }) => (
           <SortHeaderButton
@@ -365,8 +381,8 @@ export function MemberListPane({
       },
       {
         id: "memberType",
-        size: 90,
-        minSize: 60,
+        size: ROSTER_COLUMN_WIDTHS.memberType,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.memberType,
         accessorFn: (row) => memberTypeLabel(row),
         header: ({ column }) => (
           <SortHeaderButton
@@ -385,8 +401,8 @@ export function MemberListPane({
       },
       {
         id: "groups",
-        size: 150,
-        minSize: 80,
+        size: ROSTER_COLUMN_WIDTHS.groups,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.groups,
         accessorFn: (row) => memberGroupNames.get(row.id)?.join(", ") ?? "",
         header: ({ column }) => (
           <SortHeaderButton
@@ -417,8 +433,8 @@ export function MemberListPane({
       },
       {
         id: "gitUsername",
-        size: 180,
-        minSize: 100,
+        size: ROSTER_COLUMN_WIDTHS.gitUsername,
+        minSize: ROSTER_COLUMN_MIN_WIDTHS.gitUsername,
         accessorFn: (row) => row.gitUsername ?? "",
         header: ({ column }) => (
           <SortHeaderButton
@@ -497,6 +513,9 @@ export function MemberListPane({
       )
     },
   })
+  const totalColumnSize = table.getTotalSize()
+  const toColumnWidth = (size: number): string | undefined =>
+    totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
 
   // Save column sizing to app settings when a resize operation ends.
   const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
@@ -828,7 +847,7 @@ export function MemberListPane({
                             <th
                               key={header.id}
                               className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
-                              style={{ width: header.getSize() }}
+                              style={{ width: toColumnWidth(header.getSize()) }}
                             >
                               {header.isPlaceholder
                                 ? null
@@ -865,7 +884,9 @@ export function MemberListPane({
                             <td
                               key={cell.id}
                               className="p-2 align-middle min-w-0"
-                              style={{ width: cell.column.getSize() }}
+                              style={{
+                                width: toColumnWidth(cell.column.getSize()),
+                              }}
                             >
                               {flexRender(
                                 cell.column.columnDef.cell,
