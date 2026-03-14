@@ -35,7 +35,7 @@ export function GroupsAssignmentsPanel({
         <EmptyState
           className="[&>p]:text-foreground [&>p]:text-lg [&>p]:font-medium [&>p]:leading-tight"
           icon={<Layers className="text-muted-foreground/50 size-10" />}
-          message="Select a group set to view its groups."
+          message="Select a group set to view its groups and assignments"
         />
       </div>
     )
