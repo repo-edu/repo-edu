@@ -177,7 +177,7 @@ function AppShell() {
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as ActiveTab)}
-        className="flex flex-1 flex-col overflow-hidden gap-0"
+        className="flex flex-1 min-h-0 flex-col overflow-hidden gap-0"
       >
         {/* Header bar */}
         <div className="app-drag flex min-h-11 items-center gap-2 border-b px-2">
@@ -237,16 +237,19 @@ function AppShell() {
         </div>
 
         {/* Tab content */}
-        <TabsContent value="roster" className="flex-1 overflow-auto">
+        <TabsContent value="roster" className="flex-1 min-h-0 overflow-hidden">
           <StudentsTab />
         </TabsContent>
         <TabsContent
           value="groups-assignments"
-          className="flex-1 overflow-auto"
+          className="flex-1 min-h-0 overflow-hidden"
         >
           <GroupsAssignmentsTab />
         </TabsContent>
-        <TabsContent value="operation" className="flex-1 overflow-auto">
+        <TabsContent
+          value="operation"
+          className="flex-1 min-h-0 overflow-hidden"
+        >
           <OperationTab />
         </TabsContent>
       </Tabs>

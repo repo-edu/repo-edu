@@ -17,6 +17,7 @@ import {
   Input,
 } from "@repo-edu/ui"
 import {
+  ArrowUp,
   ChevronDown,
   Loader2,
   Plus,
@@ -51,6 +52,10 @@ import {
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { EditableTextCell } from "./cells/EditableTextCell.js"
 import { StatusCell } from "./cells/StatusSelectCell.js"
+
+/** Minimum scroll fraction before the back-to-top button appears.
+ *  Avoids showing the button when only a small amount has been scrolled. */
+const SCROLL_TOP_THRESHOLD = 0.15
 
 type MemberListPaneProps = {
   roster: Roster | null
@@ -99,6 +104,35 @@ export function MemberListPane({
     (s) => s.deleteMemberPermanently,
   )
   const updateMember = useCourseStore((s) => s.updateMember)
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    setShowBackToTop(
+      maxScroll > 0 && el.scrollTop / maxScroll > SCROLL_TOP_THRESHOLD,
+    )
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateScrollState()
+    el.addEventListener("scroll", updateScrollState, { passive: true })
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener("scroll", updateScrollState)
+      observer.disconnect()
+    }
+  }, [updateScrollState])
+
+  const scrollToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
 
   const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>([])
@@ -515,269 +549,361 @@ export function MemberListPane({
 
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
-          Roster
-        </span>
-        <RosterSourceBadge roster={roster} />
-        <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+      {/* Empty state */}
+      {!hasMembers ? (
+        <>
+          {/* Header */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
+              Roster
+            </span>
+            <RosterSourceBadge roster={roster} />
+            <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={importing}
+                    title="Import roster members."
+                  >
+                    {importing ? (
+                      <>
+                        <Loader2 className="size-4 mr-1 animate-spin" />
+                        Importing…
+                      </>
+                    ) : (
+                      <>
+                        Import
+                        <ChevronDown className="size-4 ml-1" />
+                      </>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={onImportFromLms}
+                    disabled={!canImportFromLms}
+                  >
+                    From LMS
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onImportFromFile}>
+                    From File
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!hasMembers}
+                    title="Import or verify Git usernames."
+                  >
+                    Git Usernames
+                    <ChevronDown className="size-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={onImportGitUsernames}
+                    disabled={!hasMembers}
+                  >
+                    Import from CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={onVerifyGitUsernames}
+                    disabled={!hasMembers}
+                  >
+                    Verify
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-4 text-center">
+            <p className="text-muted-foreground max-w-md">
+              {hasLmsConnection
+                ? "No roster members yet. Import from your LMS or a file, or add manually."
+                : "Import a roster from a CSV/Excel file, add manually, or configure an LMS connection to import directly."}
+            </p>
+            <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                disabled={importing}
-                title="Import roster members."
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="size-4 mr-1 animate-spin" />
-                    Importing…
-                  </>
-                ) : (
-                  <>
-                    Import
-                    <ChevronDown className="size-4 ml-1" />
-                  </>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
                 onClick={onImportFromLms}
                 disabled={!canImportFromLms}
+                title={lmsImportTooltip}
               >
-                From LMS
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onImportFromFile}>
-                From File
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {hasMembers && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" title="Export the roster.">
-                  Export
-                  <ChevronDown className="size-4 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onExport("csv")}>
-                  Roster (CSV)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("xlsx")}>
-                  Roster (XLSX)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+                Import from LMS
+              </Button>
+              <Button size="sm" variant="outline" onClick={onImportFromFile}>
+                Import from File
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!hasMembers}
-                title="Import or verify Git usernames."
+                onClick={onImportGitUsernames}
               >
                 Git Usernames
-                <ChevronDown className="size-4 ml-1" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={onImportGitUsernames}
-                disabled={!hasMembers}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAddingMember(true)}
               >
-                Import from CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onVerifyGitUsernames}
-                disabled={!hasMembers}
+                Add Manually
+              </Button>
+            </div>
+            {!hasLmsConnection && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => openSettings("connections")}
               >
-                Verify
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {hasMembers && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setClearConfirmOpen(true)}
-              title="Remove all members, assignments, and groups."
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Empty state or member list */}
-      {!hasMembers ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-4 text-center">
-          <p className="text-muted-foreground max-w-md">
-            {hasLmsConnection
-              ? "No roster members yet. Import from your LMS or a file, or add manually."
-              : "Import a roster from a CSV/Excel file, add manually, or configure an LMS connection to import directly."}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onImportFromLms}
-              disabled={!canImportFromLms}
-              title={lmsImportTooltip}
-            >
-              Import from LMS
-            </Button>
-            <Button size="sm" variant="outline" onClick={onImportFromFile}>
-              Import from File
-            </Button>
-            <Button size="sm" variant="outline" onClick={onImportGitUsernames}>
-              Git Usernames
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAddingMember(true)}
-            >
-              Add Manually
-            </Button>
+                Configure LMS Connection
+              </Button>
+            )}
+            {addingMember && addMemberForm}
           </div>
-          {!hasLmsConnection && (
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => openSettings("connections")}
-            >
-              Configure LMS Connection
-            </Button>
-          )}
-          {addingMember && addMemberForm}
-        </div>
+        </>
       ) : (
         <>
-          {/* Search and table actions */}
-          <div className="flex items-center gap-2 px-3 py-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 size-4" />
-              <Input
-                placeholder="Search members..."
-                value={globalFilter}
-                onChange={(event) => setGlobalFilter(event.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddingMember(true)}
-              title="Add a member manually"
-            >
-              <Plus className="size-4 mr-1" />
-              Add Member
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Columns
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {hideableColumns.map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={() => column.toggleVisibility()}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    {columnLabel(column.id)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Add member form */}
-          {addingMember && addMemberForm}
-
-          {/* Member table */}
-          <div className="flex-1 min-h-0 px-3 pb-2">
-            <div className="border rounded h-full overflow-y-auto">
-              <table
-                className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
-                style={{ tableLayout: "fixed" }}
-              >
-                <thead className="bg-muted sticky top-0 z-10">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="bg-muted p-2 text-left font-medium relative min-w-0"
-                          style={{ width: header.getSize() }}
-                        >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                          {header.column.getCanResize() && (
-                            // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag, not keyboard interaction
-                            <div
-                              onMouseDown={header.getResizeHandler()}
-                              onTouchStart={header.getResizeHandler()}
-                              className={`absolute right-0 top-0 h-full w-px cursor-col-resize select-none touch-none bg-border after:absolute after:inset-y-0 after:-left-1 after:-right-1 ${
-                                header.column.getIsResizing()
-                                  ? "bg-primary"
-                                  : ""
-                              }`}
-                            />
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={`border-t hover:bg-muted/50 ${
-                        row.original.status !== "active" ? "opacity-40" : ""
-                      }`}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          className="p-2 align-middle min-w-0"
-                          style={{ width: cell.column.getSize() }}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                  {table.getRowModel().rows.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={table.getVisibleLeafColumns().length}
-                        className="p-4 text-center text-muted-foreground"
+          {/* Scrollable area: toolbar, search, add-member form, and table */}
+          <div className="flex-1 min-h-0 relative">
+            <div ref={scrollRef} className="h-full overflow-y-auto">
+              {/* Header toolbar */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
+                  Roster
+                </span>
+                <RosterSourceBadge roster={roster} />
+                <div className="ml-auto min-w-0 flex flex-wrap justify-end gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={importing}
+                        title="Import roster members."
                       >
-                        {globalFilter
-                          ? "No roster members match search"
-                          : "No roster members"}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        {importing ? (
+                          <>
+                            <Loader2 className="size-4 mr-1 animate-spin" />
+                            Importing…
+                          </>
+                        ) : (
+                          <>
+                            Import
+                            <ChevronDown className="size-4 ml-1" />
+                          </>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={onImportFromLms}
+                        disabled={!canImportFromLms}
+                      >
+                        From LMS
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onImportFromFile}>
+                        From File
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Export the roster."
+                      >
+                        Export
+                        <ChevronDown className="size-4 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onExport("csv")}>
+                        Roster (CSV)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onExport("xlsx")}>
+                        Roster (XLSX)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!hasMembers}
+                        title="Import or verify Git usernames."
+                      >
+                        Git Usernames
+                        <ChevronDown className="size-4 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={onImportGitUsernames}
+                        disabled={!hasMembers}
+                      >
+                        Import from CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={onVerifyGitUsernames}
+                        disabled={!hasMembers}
+                      >
+                        Verify
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setClearConfirmOpen(true)}
+                    title="Remove all members, assignments, and groups."
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search and table actions */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-2.5 size-4" />
+                  <Input
+                    placeholder="Search members..."
+                    value={globalFilter}
+                    onChange={(event) => setGlobalFilter(event.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddingMember(true)}
+                  title="Add a member manually"
+                >
+                  <Plus className="size-4 mr-1" />
+                  Add Member
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Columns
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {hideableColumns.map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        checked={column.getIsVisible()}
+                        onCheckedChange={() => column.toggleVisibility()}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {columnLabel(column.id)}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Add member form */}
+              {addingMember && addMemberForm}
+
+              {/* Member table */}
+              <div className="px-3 pb-2">
+                <div className="border rounded">
+                  <table
+                    className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
+                    style={{ tableLayout: "fixed" }}
+                  >
+                    <thead className="bg-muted">
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <tr key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <th
+                              key={header.id}
+                              className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
+                              style={{ width: header.getSize() }}
+                            >
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                  )}
+                              {header.column.getCanResize() && (
+                                // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag, not keyboard interaction
+                                <div
+                                  onMouseDown={header.getResizeHandler()}
+                                  onTouchStart={header.getResizeHandler()}
+                                  className={`absolute right-0 top-0 h-full w-px cursor-col-resize select-none touch-none bg-border after:absolute after:inset-y-0 after:-left-1 after:-right-1 ${
+                                    header.column.getIsResizing()
+                                      ? "bg-primary"
+                                      : ""
+                                  }`}
+                                />
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody>
+                      {table.getRowModel().rows.map((row) => (
+                        <tr
+                          key={row.id}
+                          className={`border-t hover:bg-muted/50 ${
+                            row.original.status !== "active" ? "opacity-40" : ""
+                          }`}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <td
+                              key={cell.id}
+                              className="p-2 align-middle min-w-0"
+                              style={{ width: cell.column.getSize() }}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {table.getRowModel().rows.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={table.getVisibleLeafColumns().length}
+                            className="p-4 text-center text-muted-foreground"
+                          >
+                            {globalFilter
+                              ? "No roster members match search"
+                              : "No roster members"}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
+
+            {/* Back to top button */}
+            {showBackToTop && (
+              <button
+                type="button"
+                onClick={scrollToTop}
+                className="absolute bottom-3 right-6 z-20 size-7 flex items-center justify-center rounded-full border bg-background/90 shadow-sm backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                title="Scroll to top"
+              >
+                <ArrowUp className="size-4" />
+              </button>
+            )}
           </div>
 
           {/* Footer summary */}

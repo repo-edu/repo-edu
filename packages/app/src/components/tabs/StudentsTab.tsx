@@ -80,18 +80,20 @@ export function StudentsTab() {
   }
 
   return (
-    <MemberListPane
-      roster={roster}
-      importing={false}
-      canImportFromLms={canImportFromLms}
-      lmsImportTooltip={lmsImportTooltip}
-      hasLmsConnection={hasLmsConnection}
-      onImportFromLms={() => setRosterSyncDialogOpen(true)}
-      onImportFromFile={() => setImportFileDialogOpen(true)}
-      onImportGitUsernames={() => setImportGitUsernamesDialogOpen(true)}
-      onVerifyGitUsernames={() => setUsernameVerificationDialogOpen(true)}
-      onClear={handleClear}
-      onExport={(format) => void handleExport(format)}
-    />
+    <div className="h-full min-h-0 flex flex-col">
+      <MemberListPane
+        roster={roster}
+        importing={false}
+        canImportFromLms={canImportFromLms}
+        lmsImportTooltip={lmsImportTooltip}
+        hasLmsConnection={hasLmsConnection}
+        onImportFromLms={() => setRosterSyncDialogOpen(true)}
+        onImportFromFile={() => setImportFileDialogOpen(true)}
+        onImportGitUsernames={() => setImportGitUsernamesDialogOpen(true)}
+        onVerifyGitUsernames={() => setUsernameVerificationDialogOpen(true)}
+        onClear={handleClear}
+        onExport={(format) => void handleExport(format)}
+      />
+    </div>
   )
 }

@@ -1,8 +1,10 @@
 export {
   AlertCircle,
   AlertTriangle,
+  ArrowDown,
   ArrowLeft,
   ArrowRightLeft,
+  ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,

@@ -47,7 +47,7 @@ export function GroupsAssignmentsTab() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
       <GroupsAssignmentsSidebar
         selection={selection}
         onSelect={setSidebarSelection}
