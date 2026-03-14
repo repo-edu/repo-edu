@@ -936,7 +936,7 @@ function sortableToDisplay(name: string): string {
   return afterComma.length === 0 ? beforeComma : `${afterComma} ${beforeComma}`
 }
 
-function parseName(name: string): { given: string; surname: string } {
+export function parseName(name: string): { given: string; surname: string } {
   const displayName = sortableToDisplay(name.trim())
   const parts = displayName.split(/\s+/).filter((part) => part.length > 0)
   if (parts.length === 0) {
@@ -1013,11 +1013,41 @@ export function generateGroupName(members: readonly RosterMember[]): string {
   return `${surnames.join("-")}-+${members.length - memberLimit}`
 }
 
+/** Sort key for a surname: strips leading particles so "de Oliveira" sorts under "O". */
+export function surnameSortKey(surname: string): string {
+  const particles = new Set([
+    "da",
+    "de",
+    "del",
+    "della",
+    "den",
+    "der",
+    "di",
+    "du",
+    "la",
+    "le",
+    "ter",
+    "van",
+    "von",
+  ])
+  const parts = surname.split(/\s+/)
+  let start = 0
+  while (start < parts.length - 1 && particles.has(parts[start].toLowerCase())) {
+    start += 1
+  }
+  return parts.slice(start).join(" ")
+}
+
 export function computeMembersSurnamesSlug(
   memberNames: readonly string[],
   limit = 5,
 ): string {
-  return memberNames
+  const sorted = [...memberNames].sort((a, b) => {
+    const sa = surnameSortKey(parseName(a).surname)
+    const sb = surnameSortKey(parseName(b).surname)
+    return sa.localeCompare(sb, undefined, { sensitivity: "base" })
+  })
+  return sorted
     .slice(0, limit)
     .map((name) => {
       const slug = normalizeNameSlug(parseName(name).surname)

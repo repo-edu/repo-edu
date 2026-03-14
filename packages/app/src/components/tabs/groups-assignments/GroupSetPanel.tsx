@@ -8,6 +8,8 @@ import {
   computeMembersSurnamesSlug,
   computeRepoName,
   defaultRepoTemplate,
+  parseName,
+  surnameSortKey,
 } from "@repo-edu/domain"
 import { Button, EmptyState, Input, Text } from "@repo-edu/ui"
 import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
@@ -312,6 +314,13 @@ function GroupsTable({
         .map((id) => memberById.get(id))
         .filter(
           (m): m is RosterMember => m !== undefined && m.status === "active",
+        )
+        .sort((a, b) =>
+          surnameSortKey(parseName(a.name).surname).localeCompare(
+            surnameSortKey(parseName(b.name).surname),
+            undefined,
+            { sensitivity: "base" },
+          ),
         )
 
       let repoNamePreview: string | null = null

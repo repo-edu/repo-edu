@@ -278,13 +278,14 @@ describe("computeMembersSurnamesSlug", () => {
     assert.equal(computeMembersSurnamesSlug(["Jan de Vries"]), "de.vries")
   })
 
-  it("joins multiple member surnames by hyphen", () => {
+  it("sorts by surname ignoring particles", () => {
     const result = computeMembersSurnamesSlug([
       "Alice Smith",
       "Bob van der Berg",
       "Charlie Jones",
     ])
-    assert.equal(result, "smith-van.der.berg-jones")
+    // Berg < Jones < Smith (particles stripped for sort, kept in slug)
+    assert.equal(result, "van.der.berg-jones-smith")
   })
 
   it("filters out single-word names with no parseable surname", () => {
@@ -292,12 +293,13 @@ describe("computeMembersSurnamesSlug", () => {
     assert.equal(result, "smith")
   })
 
-  it("respects the limit parameter", () => {
+  it("respects the limit parameter after sorting", () => {
     const result = computeMembersSurnamesSlug(
       ["Alice Smith", "Bob van der Berg", "Charlie Jones"],
       2,
     )
-    assert.equal(result, "smith-van.der.berg")
+    // Berg < Jones (limit 2 takes first two after sort)
+    assert.equal(result, "van.der.berg-jones")
   })
 })
 
