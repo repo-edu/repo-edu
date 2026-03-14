@@ -10,9 +10,20 @@ import {
   defaultRepoTemplate,
 } from "@repo-edu/domain"
 import { Button, EmptyState, Input, Text } from "@repo-edu/ui"
-import { Plus, Search } from "@repo-edu/ui/components/icons"
-import { useCallback, useMemo, useState } from "react"
+import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
 import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  type SortingState,
+  type Updater,
+  useReactTable,
+} from "@tanstack/react-table"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type EditableGroupTarget,
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
   selectGroupSetById,
@@ -20,9 +31,22 @@ import {
   useCourseStore,
 } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
+import {
+  chainComparisons,
+  compareNullableText,
+  compareNumber,
+  compareText,
+  getNextProgressiveSorting,
+  normalizeProgressiveSorting,
+} from "../../../utils/sorting.js"
+import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AssignmentChipsRow } from "./AssignmentChipsRow.js"
-import { GroupItem } from "./GroupItem.js"
+import { GroupNameCell } from "./GroupNameCell.js"
+import { MemberChip } from "./MemberChip.js"
 import { RepoNameTemplateBuilder } from "./RepoNameTemplateBuilder.js"
+
+/** Minimum scroll fraction before the back-to-top button appears. */
+const SCROLL_TOP_THRESHOLD = 0.15
 
 type GroupSetPanelProps = {
   groupSetId: string
@@ -130,60 +154,66 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const showAssignmentSelection =
     assignments.length > 1 && templateIncludesAssignment
 
+  const headerContent = (
+    <div className="px-4 py-2 space-y-2 border-b">
+      <RepoNameTemplateBuilder
+        template={template}
+        onTemplateChange={(t) => updateGroupSetTemplate(groupSetId, t || null)}
+        disabled={isOperationActive}
+      />
+      <AssignmentChipsRow
+        assignments={assignments}
+        selectedId={
+          showAssignmentSelection ? (effectiveAssignment?.id ?? null) : null
+        }
+        onSelect={(id) => setSelectedAssignmentId(groupSetId, id)}
+        onAdd={() => {
+          setPreSelectedGroupSetId(groupSetId)
+          setNewAssignmentDialogOpen(true)
+        }}
+        onEdit={(id, name) => updateAssignment(id, { name })}
+        onDelete={(id) => deleteAssignment(id)}
+        showSelection={showAssignmentSelection}
+        disabled={isOperationActive}
+      />
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header: template + assignments + search */}
-      <div className="px-4 py-2 space-y-2 border-b">
-        <RepoNameTemplateBuilder
-          template={template}
-          onTemplateChange={(t) =>
-            updateGroupSetTemplate(groupSetId, t || null)
-          }
-          disabled={isOperationActive}
-        />
-        <AssignmentChipsRow
-          assignments={assignments}
-          selectedId={
-            showAssignmentSelection ? (effectiveAssignment?.id ?? null) : null
-          }
-          onSelect={(id) => setSelectedAssignmentId(groupSetId, id)}
-          onAdd={() => {
-            setPreSelectedGroupSetId(groupSetId)
-            setNewAssignmentDialogOpen(true)
-          }}
-          onEdit={(id, name) => updateAssignment(id, { name })}
-          onDelete={(id) => deleteAssignment(id)}
-          showSelection={showAssignmentSelection}
-          disabled={isOperationActive}
-        />
-      </div>
-
-      {/* Groups list */}
-      <div className="flex-1 overflow-auto px-4 py-2">
-        <GroupsList
-          groups={groups}
-          groupSetId={groupSetId}
-          memberById={memberById}
-          staffIds={staffIds}
-          isSetEditable={isSetEditable}
-          editableTargets={editableTargets}
-          memberGroupIndex={memberGroupIndex}
-          disabled={isOperationActive}
-          onAddGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
-          onDeleteGroup={(groupId) => setDeleteGroupTargetId(groupId)}
-          template={template}
-          effectiveAssignment={effectiveAssignment}
-        />
-      </div>
+      {/* Groups table */}
+      <GroupsTable
+        headerContent={headerContent}
+        groups={groups}
+        groupSetId={groupSetId}
+        memberById={memberById}
+        staffIds={staffIds}
+        isSetEditable={isSetEditable}
+        editableTargets={editableTargets}
+        memberGroupIndex={memberGroupIndex}
+        disabled={isOperationActive}
+        onAddGroup={() => setAddGroupDialogGroupSetId(groupSetId)}
+        onDeleteGroup={(groupId) => setDeleteGroupTargetId(groupId)}
+        template={template}
+        effectiveAssignment={effectiveAssignment}
+      />
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Groups list (replaces former GroupsTab)
+// Groups table (TanStack React Table)
 // ---------------------------------------------------------------------------
 
-function GroupsList({
+type GroupRow = {
+  group: Group
+  members: RosterMember[]
+  memberCount: number
+  repoNamePreview: string | null
+}
+
+function GroupsTable({
+  headerContent,
   groups,
   groupSetId,
   memberById,
@@ -197,12 +227,13 @@ function GroupsList({
   template,
   effectiveAssignment,
 }: {
+  headerContent: React.ReactNode
   groups: Group[]
   groupSetId: string
   memberById: Map<string, RosterMember>
   staffIds: Set<string>
   isSetEditable: boolean
-  editableTargets: ReturnType<typeof selectEditableGroupTargets>
+  editableTargets: EditableGroupTarget[]
   memberGroupIndex: Map<string, Set<string>>
   disabled: boolean
   onAddGroup: () => void
@@ -210,116 +241,431 @@ function GroupsList({
   template: string
   effectiveAssignment: Assignment | null
 }) {
-  const [search, setSearch] = useState("")
-  const query = search.trim().toLowerCase()
+  const updateGroup = useCourseStore((s) => s.updateGroup)
+  const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
+  const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
 
-  const filteredGroups = useMemo(() => {
-    if (!query) return groups
-    return groups.filter((g) => {
-      if (g.name.toLowerCase().includes(query)) return true
-      return g.memberIds.some((id) => {
-        const m = memberById.get(id)
-        if (!m) return false
-        return (
-          m.name.toLowerCase().includes(query) ||
-          m.email.toLowerCase().includes(query)
-        )
-      })
-    })
-  }, [groups, query, memberById])
+  // Scroll state
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
-  const computePreview = useCallback(
-    (group: Group): string | null => {
-      if (!effectiveAssignment) return null
-      const memberNames = group.memberIds
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    setShowBackToTop(
+      maxScroll > 0 && el.scrollTop / maxScroll > SCROLL_TOP_THRESHOLD,
+    )
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateScrollState()
+    el.addEventListener("scroll", updateScrollState, { passive: true })
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener("scroll", updateScrollState)
+      observer.disconnect()
+    }
+  }, [updateScrollState])
+
+  const scrollToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
+
+  // Search
+  const [globalFilter, setGlobalFilter] = useState("")
+
+  // Sorting
+  const [sorting, setSorting] = useState<SortingState>([])
+
+  const handleSort = useCallback((columnId: string) => {
+    setSorting((current) => getNextProgressiveSorting(current, columnId))
+  }, [])
+
+  const handleSortingChange = useCallback((updater: Updater<SortingState>) => {
+    setSorting((current) =>
+      normalizeProgressiveSorting(
+        typeof updater === "function" ? updater(current) : updater,
+      ),
+    )
+  }, [])
+
+  // Pre-resolve group rows
+  const rows = useMemo<GroupRow[]>(() => {
+    return groups.map((group) => {
+      const members = group.memberIds
         .map((id) => memberById.get(id))
         .filter(
           (m): m is RosterMember => m !== undefined && m.status === "active",
         )
-        .map((m) => m.name)
-      const surnames = computeMembersSurnamesSlug(memberNames)
-      return computeRepoName(template, effectiveAssignment, group, {
-        surnames,
-      })
-    },
-    [template, effectiveAssignment, memberById],
+
+      let repoNamePreview: string | null = null
+      if (effectiveAssignment) {
+        const memberNames = members.map((m) => m.name)
+        const surnames = computeMembersSurnamesSlug(memberNames)
+        repoNamePreview = computeRepoName(
+          template,
+          effectiveAssignment,
+          group,
+          { surnames },
+        )
+      }
+
+      return { group, members, memberCount: members.length, repoNamePreview }
+    })
+  }, [groups, memberById, template, effectiveAssignment])
+
+  // Column definitions
+  const columns = useMemo<ColumnDef<GroupRow>[]>(
+    () => [
+      {
+        id: "name",
+        size: 150,
+        minSize: 100,
+        accessorFn: (row) => row.group.name,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Group"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
+        ),
+        sortingFn: compareGroupRowsByName,
+        cell: ({ row }) => (
+          <GroupNameCell
+            group={row.original.group}
+            groupSetId={groupSetId}
+            isSetEditable={isSetEditable}
+            disabled={disabled}
+            onDeleteGroup={() => onDeleteGroup(row.original.group.id)}
+          />
+        ),
+      },
+      {
+        id: "repoName",
+        size: 220,
+        minSize: 100,
+        accessorFn: (row) => row.repoNamePreview,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Repo Name"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
+        ),
+        sortingFn: compareGroupRowsByRepoName,
+        cell: ({ row }) => (
+          <span className="block text-sm text-muted-foreground">
+            {insertWordBreaks(row.original.repoNamePreview ?? "")}
+          </span>
+        ),
+      },
+      {
+        id: "memberCount",
+        size: 50,
+        minSize: 40,
+        accessorFn: (row) => row.memberCount,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="#"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
+        ),
+        sortingFn: compareGroupRowsByMemberCount,
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.memberCount}</span>
+        ),
+      },
+      {
+        id: "members",
+        size: 450,
+        minSize: 200,
+        enableSorting: false,
+        header: () => <span className="font-medium">Members</span>,
+        cell: ({ row }) => {
+          const { group, members } = row.original
+          const isEditable = group.origin === "local"
+
+          return (
+            <div className="flex flex-wrap gap-1">
+              {members.map((member) => (
+                <MemberChip
+                  key={member.id}
+                  member={member}
+                  isStaff={staffIds.has(member.id)}
+                  sourceGroupId={group.id}
+                  sourceGroupEditable={isEditable}
+                  editableTargets={editableTargets}
+                  memberGroupIds={memberGroupIndex.get(member.id) ?? new Set()}
+                  onRemove={
+                    isEditable && !disabled
+                      ? () =>
+                          updateGroup(group.id, {
+                            memberIds: group.memberIds.filter(
+                              (id) => id !== member.id,
+                            ),
+                          })
+                      : undefined
+                  }
+                  onMove={
+                    isEditable && !disabled
+                      ? (targetId) =>
+                          moveMemberToGroup(member.id, group.id, targetId)
+                      : undefined
+                  }
+                  onCopy={
+                    !disabled
+                      ? (targetId) => copyMemberToGroup(member.id, targetId)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )
+        },
+      },
+    ],
+    [
+      groupSetId,
+      isSetEditable,
+      disabled,
+      staffIds,
+      editableTargets,
+      memberGroupIndex,
+      onDeleteGroup,
+      handleSort,
+      updateGroup,
+      moveMemberToGroup,
+      copyMemberToGroup,
+    ],
   )
 
+  const table = useReactTable({
+    data: rows,
+    columns,
+    columnResizeMode: "onChange",
+    state: {
+      sorting,
+      globalFilter,
+    },
+    onSortingChange: handleSortingChange,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: (row, _columnId, filterValue: string) => {
+      const query = filterValue.trim().toLowerCase()
+      if (!query) return true
+      const { group, members } = row.original
+      if (group.name.toLowerCase().includes(query)) return true
+      return members.some(
+        (m) =>
+          m.name.toLowerCase().includes(query) ||
+          m.email.toLowerCase().includes(query),
+      )
+    },
+  })
+
+  // Empty state
   if (groups.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground mb-3">No groups in this set.</p>
-        {isSetEditable && (
-          <Button size="sm" variant="outline" onClick={onAddGroup}>
-            <Plus className="size-4 mr-1" />
-            Add Group
-          </Button>
-        )}
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-3">No groups in this set.</p>
+          {isSetEditable && (
+            <Button size="sm" variant="outline" onClick={onAddGroup}>
+              <Plus className="size-4 mr-1" />
+              Add Group
+            </Button>
+          )}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 size-4" />
-          <Input
-            placeholder="Search members and groups..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
+    <>
+      {/* Scrollable area: search, table */}
+      <div className="flex-1 min-h-0 relative pb-3">
+        <div ref={scrollRef} className="h-full overflow-y-auto">
+          {/* Template + Assignments (scrolls away) */}
+          {headerContent}
+
+          {/* Search + Add Group */}
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 size-4" />
+              <Input
+                placeholder="Search members and groups..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            {isSetEditable && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onAddGroup}
+                disabled={disabled}
+              >
+                <Plus className="size-4 mr-1" />
+                Add Group
+              </Button>
+            )}
+          </div>
+
+          {/* Groups table */}
+          <div className="px-3 pb-2">
+            <div className="border rounded mb-2">
+              <table
+                className={`w-full text-sm ${table.getState().columnSizingInfo.isResizingColumn ? "select-none" : ""}`}
+                style={{ tableLayout: "fixed" }}
+              >
+                <thead className="bg-muted">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="bg-muted sticky top-0 z-10 p-2 text-left font-medium relative min-w-0"
+                          style={{ width: header.getSize() }}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                          {header.column.getCanResize() && (
+                            // biome-ignore lint/a11y/noStaticElementInteractions: column resize handle uses mouse/touch drag
+                            <div
+                              onMouseDown={header.getResizeHandler()}
+                              onTouchStart={header.getResizeHandler()}
+                              className={`absolute right-0 top-0 h-full w-px cursor-col-resize select-none touch-none bg-border after:absolute after:inset-y-0 after:-left-1 after:-right-1 ${
+                                header.column.getIsResizing()
+                                  ? "bg-primary"
+                                  : ""
+                              }`}
+                            />
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="border-t hover:bg-muted/50">
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className="p-2 align-top min-w-0 overflow-hidden"
+                          style={{ width: cell.column.getSize() }}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {table.getRowModel().rows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={table.getVisibleLeafColumns().length}
+                        className="p-4 text-center text-muted-foreground"
+                      >
+                        {globalFilter
+                          ? "No groups or members match search"
+                          : "No groups"}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        {isSetEditable && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onAddGroup}
-            disabled={disabled}
+
+        {/* Back to top button */}
+        {showBackToTop && (
+          <button
+            type="button"
+            onClick={scrollToTop}
+            className="absolute bottom-3 right-6 z-20 size-7 flex items-center justify-center rounded-full border bg-background/90 shadow-sm backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+            title="Scroll to top"
           >
-            <Plus className="size-4 mr-1" />
-            Add Group
-          </Button>
+            <ArrowUp className="size-4" />
+          </button>
         )}
       </div>
+    </>
+  )
+}
 
-      <div className="divide-y">
-        {filteredGroups.map((group) => {
-          const members = group.memberIds
-            .map((id) => memberById.get(id))
-            .filter(
-              (m): m is RosterMember =>
-                m !== undefined && m.status === "active",
-            )
-          return (
-            <GroupItem
-              key={group.id}
-              group={group}
-              groupSetId={groupSetId}
-              members={members}
-              staffIds={staffIds}
-              isSetEditable={isSetEditable}
-              disabled={disabled}
-              editableTargets={editableTargets}
-              memberGroupIndex={memberGroupIndex}
-              onDeleteGroup={() => onDeleteGroup(group.id)}
-              repoNamePreview={computePreview(group)}
-            />
-          )
-        })}
-      </div>
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-      {filteredGroups.length === 0 && query && (
-        <p className="text-center text-sm text-muted-foreground py-4">
-          No members or groups match &ldquo;{search}&rdquo;
-        </p>
-      )}
+/** Insert word-break opportunities (`<wbr>`) after hyphens so long
+ *  hyphenated repo names wrap at natural boundaries. */
+function insertWordBreaks(text: string): React.ReactNode {
+  if (!text.includes("-")) return text
+  const parts = text.split("-")
+  return parts.map((part, i) =>
+    i < parts.length - 1 ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: stable split output
+      <span key={i}>
+        {part}-<wbr />
+      </span>
+    ) : (
+      part
+    ),
+  )
+}
 
-      {/* Footer group count */}
-      <p className="text-center text-xs text-muted-foreground pt-2 pb-1">
-        {groups.length} {groups.length === 1 ? "group" : "groups"}
-      </p>
-    </div>
+// ---------------------------------------------------------------------------
+// Sorting comparators
+// ---------------------------------------------------------------------------
+
+function compareGroupRowsByName(
+  rowA: { original: GroupRow },
+  rowB: { original: GroupRow },
+): number {
+  return chainComparisons(
+    compareText(rowA.original.group.name, rowB.original.group.name),
+    compareNumber(rowA.original.memberCount, rowB.original.memberCount),
+  )
+}
+
+function compareGroupRowsByMemberCount(
+  rowA: { original: GroupRow },
+  rowB: { original: GroupRow },
+): number {
+  return chainComparisons(
+    compareNumber(rowA.original.memberCount, rowB.original.memberCount),
+    compareText(rowA.original.group.name, rowB.original.group.name),
+  )
+}
+
+function compareGroupRowsByRepoName(
+  rowA: { original: GroupRow },
+  rowB: { original: GroupRow },
+): number {
+  return chainComparisons(
+    compareNullableText(
+      rowA.original.repoNamePreview,
+      rowB.original.repoNamePreview,
+    ),
+    compareText(rowA.original.group.name, rowB.original.group.name),
   )
 }

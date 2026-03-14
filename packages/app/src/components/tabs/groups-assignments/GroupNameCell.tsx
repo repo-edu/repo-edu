@@ -1,4 +1,4 @@
-import type { Group, RosterMember } from "@repo-edu/domain"
+import type { Group } from "@repo-edu/domain"
 import {
   Button,
   cn,
@@ -13,43 +13,30 @@ import {
   EllipsisVertical,
   Pencil,
   Trash2,
-  Users,
   X,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  type EditableGroupTarget,
   selectOtherGroupSetNames,
   useCourseStore,
 } from "../../../stores/course-store.js"
 import { GroupLockIcon } from "./GroupLockIcon.js"
-import { MemberChip } from "./MemberChip.js"
 
-type GroupItemProps = {
+type GroupNameCellProps = {
   group: Group
   groupSetId: string
-  members: RosterMember[]
-  staffIds: Set<string>
   isSetEditable: boolean
-  disabled?: boolean
-  editableTargets: EditableGroupTarget[]
-  memberGroupIndex: Map<string, Set<string>>
-  onDeleteGroup?: () => void
-  repoNamePreview?: string | null
+  disabled: boolean
+  onDeleteGroup: () => void
 }
 
-export function GroupItem({
+export function GroupNameCell({
   group,
   groupSetId,
-  members,
-  staffIds,
   isSetEditable,
-  disabled = false,
-  editableTargets,
-  memberGroupIndex,
+  disabled,
   onDeleteGroup,
-  repoNamePreview,
-}: GroupItemProps) {
+}: GroupNameCellProps) {
   const isEditable = group.origin === "local"
   const isLocked = group.origin !== "local"
 
@@ -62,8 +49,6 @@ export function GroupItem({
 
   const updateGroup = useCourseStore((s) => s.updateGroup)
   const removeGroupFromSet = useCourseStore((s) => s.removeGroupFromSet)
-  const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
-  const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)
@@ -90,22 +75,9 @@ export function GroupItem({
     setEditName(group.name)
   }, [editName, group.name, group.id, updateGroup, disabled])
 
-  const handleRemoveMember = useCallback(
-    (memberId: string) => {
-      if (!isEditable || disabled) return
-      updateGroup(group.id, {
-        memberIds: group.memberIds.filter((id) => id !== memberId),
-      })
-    },
-    [disabled, group.id, group.memberIds, isEditable, updateGroup],
-  )
-
   return (
-    <div className="py-1.5 space-y-1">
-      {/* Group header */}
-      <div className="flex items-center gap-2">
-        <Users className="size-3 shrink-0 text-muted-foreground" />
-
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-1.5">
         {isEditing ? (
           <Input
             ref={inputRef}
@@ -147,14 +119,6 @@ export function GroupItem({
             inLocalSet={isSetEditable}
           />
         )}
-
-        {repoNamePreview && (
-          <span className="text-xs text-muted-foreground truncate ml-1">
-            Repo: {repoNamePreview}
-          </span>
-        )}
-
-        <span className="text-sm ml-auto mr-4 shrink-0">{members.length}</span>
 
         {/* Actions menu for editable groups */}
         {isEditable && (
@@ -219,42 +183,9 @@ export function GroupItem({
 
       {/* Shared group warning */}
       {isShared && (
-        <p className="text-[11px] text-muted-foreground pl-5">
+        <p className="text-[11px] text-muted-foreground">
           Also in: {otherNames.join(", ")}
         </p>
-      )}
-
-      {/* Member chips */}
-      {members.length > 0 && (
-        <div className="flex flex-wrap gap-1 pl-5">
-          {members.map((member) => (
-            <MemberChip
-              key={member.id}
-              member={member}
-              isStaff={staffIds.has(member.id)}
-              sourceGroupId={group.id}
-              sourceGroupEditable={isEditable}
-              editableTargets={editableTargets}
-              memberGroupIds={memberGroupIndex.get(member.id) ?? new Set()}
-              onRemove={
-                isEditable && !disabled
-                  ? () => handleRemoveMember(member.id)
-                  : undefined
-              }
-              onMove={
-                isEditable && !disabled
-                  ? (targetId) =>
-                      moveMemberToGroup(member.id, group.id, targetId)
-                  : undefined
-              }
-              onCopy={
-                !disabled
-                  ? (targetId) => copyMemberToGroup(member.id, targetId)
-                  : undefined
-              }
-            />
-          ))}
-        </div>
       )}
     </div>
   )
