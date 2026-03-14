@@ -38,7 +38,7 @@ function SectionHeader({
   action?: ReactNode
 }) {
   return (
-    <div className="px-2 pt-3 pb-1 flex items-center justify-between gap-2">
+    <div className="pl-2 pr-0 pt-3 pb-1 flex items-center justify-between gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {children}
       </span>
@@ -50,6 +50,7 @@ function SectionHeader({
 type GroupSetRowData = {
   groupSet: GroupSet
   groupCount: number
+  assignmentCount: number
 }
 
 type NavigationItem = {
@@ -137,11 +138,12 @@ function GroupSetList({
 }) {
   return (
     <div className="space-y-0.5">
-      {rows.map(({ groupSet, groupCount }) => (
+      {rows.map(({ groupSet, groupCount, assignmentCount }) => (
         <GroupSetItem
           key={groupSet.id}
           groupSet={groupSet}
           groupCount={groupCount}
+          assignmentCount={assignmentCount}
           selection={selection}
           onSelect={onSelect}
           actions={buildGroupSetActions(
@@ -278,14 +280,29 @@ export function GroupsAssignmentsSidebar({
     return map
   }, [allGroupSets, roster])
 
+  const assignmentCountByGroupSetId = useMemo(() => {
+    const map = new Map<string, number>()
+
+    for (const groupSet of allGroupSets) {
+      map.set(groupSet.id, 0)
+    }
+
+    for (const assignment of roster?.assignments ?? []) {
+      map.set(assignment.groupSetId, (map.get(assignment.groupSetId) ?? 0) + 1)
+    }
+
+    return map
+  }, [allGroupSets, roster])
+
   const buildRows = useCallback(
     (groupSets: GroupSet[]): GroupSetRowData[] => {
       return groupSets.map((groupSet) => ({
         groupSet,
         groupCount: groupCountByGroupSetId.get(groupSet.id) ?? 0,
+        assignmentCount: assignmentCountByGroupSetId.get(groupSet.id) ?? 0,
       }))
     },
-    [groupCountByGroupSetId],
+    [assignmentCountByGroupSetId, groupCountByGroupSetId],
   )
 
   const systemRows = useMemo(

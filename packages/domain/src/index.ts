@@ -1032,7 +1032,10 @@ export function surnameSortKey(surname: string): string {
   ])
   const parts = surname.split(/\s+/)
   let start = 0
-  while (start < parts.length - 1 && particles.has(parts[start].toLowerCase())) {
+  while (
+    start < parts.length - 1 &&
+    particles.has(parts[start].toLowerCase())
+  ) {
     start += 1
   }
   return parts.slice(start).join(" ")

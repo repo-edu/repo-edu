@@ -49,6 +49,7 @@ type GroupSetItemActions = {
 type GroupSetItemProps = {
   groupSet: GroupSet
   groupCount: number
+  assignmentCount: number
   selection: SidebarSelection
   onSelect: (selection: SidebarSelection) => void
   actions?: GroupSetItemActions
@@ -85,6 +86,7 @@ function connectionTimestamp(
 export function GroupSetItem({
   groupSet,
   groupCount,
+  assignmentCount,
   selection,
   onSelect,
   actions,
@@ -203,13 +205,23 @@ export function GroupSetItem({
               <Loader2 className="size-3.5 shrink-0 text-muted-foreground animate-spin" />
             )}
           </div>
-          <div className="flex items-center gap-1 pl-5 text-[11px] text-muted-foreground">
-            <span>
-              {groupCount} group{groupCount !== 1 ? "s" : ""}
-            </span>
+          <div className="pl-5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span>
+                {groupCount} group{groupCount !== 1 ? "s" : ""}
+              </span>
+              {assignmentCount > 0 && (
+                <>
+                  <span>&middot;</span>
+                  <span>
+                    {assignmentCount} assignment
+                    {assignmentCount !== 1 ? "s" : ""}
+                  </span>
+                </>
+              )}
+            </div>
             {timestamp && (
-              <>
-                <span>&middot;</span>
+              <div>
                 {timestamp.exact ? (
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
@@ -226,7 +238,7 @@ export function GroupSetItem({
                 ) : (
                   <span>{timestamp.relative}</span>
                 )}
-              </>
+              </div>
             )}
           </div>
         </button>
@@ -237,7 +249,7 @@ export function GroupSetItem({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 shrink-0 mr-1"
+              className="h-6 w-6 p-0 shrink-0"
               disabled={disabled}
               onClick={(e) => e.stopPropagation()}
             >
