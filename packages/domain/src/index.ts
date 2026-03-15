@@ -742,7 +742,11 @@ export function mergeRosterFromLmsWithConflicts(
     if (match !== undefined) {
       const email = match.email || member.email
       const lmsStatus: MemberStatus = match.lmsStatus ?? match.status
-      const status = normalizeMissingEmailStatus(email, lmsStatus)
+      const hasManualDroppedOverride =
+        member.status === "dropped" && member.lmsStatus !== "dropped"
+      const status = hasManualDroppedOverride
+        ? "dropped"
+        : normalizeMissingEmailStatus(email, lmsStatus)
       const mergedMember: RosterMember = {
         id: member.id,
         name: match.name,

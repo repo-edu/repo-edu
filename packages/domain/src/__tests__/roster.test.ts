@@ -242,6 +242,41 @@ describe("mergeRosterFromLms", () => {
     assert.equal(m.source, "canvas")
   })
 
+  it("keeps manually dropped status when the member is still active in LMS", () => {
+    const existing = makeRoster({
+      students: [
+        makeMember({
+          id: "42",
+          lmsUserId: "42",
+          name: "Ada",
+          email: "ada@example.com",
+          status: "dropped",
+          lmsStatus: "active",
+          source: "canvas",
+        }),
+      ],
+    })
+    const incoming = makeRoster({
+      connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
+      students: [
+        makeMember({
+          id: "42",
+          lmsUserId: "42",
+          name: "Ada",
+          email: "ada@example.com",
+          status: "active",
+          lmsStatus: "active",
+          source: "canvas",
+        }),
+      ],
+    })
+
+    const result = mergeRosterFromLms(existing, incoming)
+    const member = result.students[0]
+    assert.equal(member.status, "dropped")
+    assert.equal(member.lmsStatus, "active")
+  })
+
   it("unmatched LMS-sourced member becomes dropped", () => {
     const existing = makeRoster({
       students: [
