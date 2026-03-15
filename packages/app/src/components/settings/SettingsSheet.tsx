@@ -2,6 +2,10 @@ import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
 import { Command, Link, Monitor, X } from "@repo-edu/ui/components/icons"
 import type { ReactNode } from "react"
 import { useUiStore } from "../../stores/ui-store.js"
+import {
+  hasMacDesktopInset,
+  MAC_TRAFFIC_LIGHT_INSET_PX,
+} from "../../utils/platform.js"
 import { ConnectionsPane } from "./ConnectionsPane.js"
 import { DisplayPane } from "./DisplayPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
@@ -36,19 +40,24 @@ export function SettingsSheet() {
   const open = useUiStore((state) => state.settingsDialogOpen)
   const setOpen = useUiStore((state) => state.setSettingsDialogOpen)
   const activeCategory = useUiStore((state) => state.settingsCategory)
+  const macInset = hasMacDesktopInset()
+  const macInsetMaxWidth = macInset
+    ? `min(42rem, calc(100vw - ${MAC_TRAFFIC_LIGHT_INSET_PX}px))`
+    : undefined
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
         className="w-full sm:max-w-2xl flex flex-col p-0 gap-0"
+        style={macInsetMaxWidth ? { maxWidth: macInsetMaxWidth } : undefined}
         showCloseButton={false}
       >
-        <div className="h-11 px-4 border-b shrink-0 flex items-center">
+        <div className="app-drag h-11 px-4 border-b shrink-0 flex items-center">
           <SheetTitle className="font-medium">Settings</SheetTitle>
           <div className="flex-1" />
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-md border border-transparent h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="app-no-drag inline-flex items-center justify-center rounded-md border border-transparent h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => setOpen(false)}
             aria-label="Close settings"
           >

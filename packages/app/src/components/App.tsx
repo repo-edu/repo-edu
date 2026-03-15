@@ -32,6 +32,10 @@ import {
 } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
+import {
+  hasMacDesktopInset,
+  MAC_TRAFFIC_LIGHT_INSET_PX,
+} from "../utils/platform.js"
 import { CourseSwitcher } from "./CourseSwitcher.js"
 import { AddGroupDialog } from "./dialogs/AddGroupDialog.js"
 import { ConnectLmsGroupSetDialog } from "./dialogs/ConnectLmsGroupSetDialog.js"
@@ -81,18 +85,8 @@ export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
   )
 }
 
-function hasMacDesktopBridge(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false
-  }
-
-  const hasDesktopBridge = Boolean(
-    (window as unknown as Record<string, unknown>).repoEduDesktopHost,
-  )
-  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
-
-  return hasDesktopBridge && isMac
-}
+// Re-export kept for call-site below; canonical definition in utils/platform.
+const hasMacDesktopBridge = hasMacDesktopInset
 
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
@@ -112,7 +106,9 @@ function AppShell() {
   const undo = useCourseStore((s) => s.undo)
   const redo = useCourseStore((s) => s.redo)
   const flushCourse = useCourseStore((s) => s.save)
-  const leftInsetClass = hasMacDesktopBridge() ? "pl-[76px]" : ""
+  const leftInsetStyle = hasMacDesktopBridge()
+    ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
+    : undefined
 
   // Load app settings on mount.
   useEffect(() => {
@@ -182,7 +178,8 @@ function AppShell() {
         {/* Header bar */}
         <div className="app-drag flex min-h-11 items-center gap-2 border-b px-2">
           <div
-            className={`app-no-drag flex min-w-0 items-center ${leftInsetClass}`}
+            className="app-no-drag flex min-w-0 items-center"
+            style={leftInsetStyle}
           >
             <CourseSwitcher />
           </div>
