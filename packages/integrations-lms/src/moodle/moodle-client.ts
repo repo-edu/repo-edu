@@ -270,7 +270,9 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       draft: LmsConnectionDraft,
       courseId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ): Promise<Roster> {
+      onProgress?.("Fetching enrolled users from LMS.")
       const data = await moodleRequest(
         http,
         draft,
@@ -280,6 +282,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       )
 
       if (!Array.isArray(data)) {
+        onProgress?.("Loaded 0 enrolled users from LMS.")
         return {
           ...normalizeRoster([]),
           connection: {
@@ -303,6 +306,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
           studentInputs.push(toRosterMemberInput(user))
         }
       }
+      onProgress?.(`Loaded ${data.length} enrolled users from LMS.`)
 
       return {
         ...normalizeRoster(studentInputs, staffInputs),

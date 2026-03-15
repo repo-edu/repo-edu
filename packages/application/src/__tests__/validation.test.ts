@@ -665,12 +665,14 @@ describe("application roster workflow helpers", () => {
 
     let receivedDraft: unknown = null
     let receivedCourseId = ""
+    const progressLabels: string[] = []
 
     const handlers = createRosterWorkflowHandlers({
       lms: {
-        fetchRoster: async (draft, courseId) => {
+        fetchRoster: async (draft, courseId, _signal, onProgress) => {
           receivedDraft = draft
           receivedCourseId = courseId
+          onProgress?.("Loaded 1 enrolled users from LMS.")
           return {
             connection: null,
             students: [
@@ -711,11 +713,18 @@ describe("application roster workflow helpers", () => {
       },
     })
 
-    const imported = await handlers["roster.importFromLms"]({
-      course,
-      appSettings: settings,
-      lmsCourseId: "course-42",
-    })
+    const imported = await handlers["roster.importFromLms"](
+      {
+        course,
+        appSettings: settings,
+        lmsCourseId: "course-42",
+      },
+      {
+        onProgress: (progress) => {
+          progressLabels.push(progress.label)
+        },
+      },
+    )
 
     assert.deepStrictEqual(receivedDraft, {
       provider: "canvas",
@@ -723,6 +732,10 @@ describe("application roster workflow helpers", () => {
       token: "token-1",
     })
     assert.equal(receivedCourseId, "course-42")
+    assert.equal(
+      progressLabels.includes("Loaded 1 enrolled users from LMS."),
+      true,
+    )
     assert.equal(systemSetsMissing(imported.roster), false)
   })
 

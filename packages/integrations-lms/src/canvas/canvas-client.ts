@@ -470,33 +470,88 @@ export function createCanvasClient(http: HttpPort): LmsClient {
       draft: LmsConnectionDraft,
       courseId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ): Promise<Roster> {
       const encodedCourseId = encodeURIComponent(courseId)
-
-      const staffTypes = ["teacher", "ta", "designer", "observer"] as const
-
-      const [students, ...staffByType] = await Promise.all([
-        fetchPaginatedArray(
-          http,
-          draft,
-          `/courses/${encodedCourseId}/users?enrollment_type[]=student&include[]=enrollments&per_page=100`,
-          signal,
-        ),
-        ...staffTypes.map((type) =>
+      const [students, teacherStaff, taStaff, designerStaff, observerStaff] =
+        await Promise.all([
           fetchPaginatedArray(
             http,
             draft,
-            `/courses/${encodedCourseId}/users?enrollment_type[]=${type}&include[]=enrollments&per_page=100`,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=student&include[]=enrollments&per_page=100`,
             signal,
+            (page, loaded) => {
+              onProgress?.(
+                `Loading students from LMS (page ${page}, ${loaded} loaded)`,
+              )
+            },
           ),
-        ),
-      ])
+          fetchPaginatedArray(
+            http,
+            draft,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=teacher&include[]=enrollments&per_page=100`,
+            signal,
+            (page, loaded) => {
+              onProgress?.(
+                `Loading teachers from LMS (page ${page}, ${loaded} loaded)`,
+              )
+            },
+          ),
+          fetchPaginatedArray(
+            http,
+            draft,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=ta&include[]=enrollments&per_page=100`,
+            signal,
+            (page, loaded) => {
+              onProgress?.(
+                `Loading teaching assistants from LMS (page ${page}, ${loaded} loaded)`,
+              )
+            },
+          ),
+          fetchPaginatedArray(
+            http,
+            draft,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=designer&include[]=enrollments&per_page=100`,
+            signal,
+            (page, loaded) => {
+              onProgress?.(
+                `Loading designers from LMS (page ${page}, ${loaded} loaded)`,
+              )
+            },
+          ),
+          fetchPaginatedArray(
+            http,
+            draft,
+            `/courses/${encodedCourseId}/users?enrollment_type[]=observer&include[]=enrollments&per_page=100`,
+            signal,
+            (page, loaded) => {
+              onProgress?.(
+                `Loading observers from LMS (page ${page}, ${loaded} loaded)`,
+              )
+            },
+          ),
+        ])
 
-      const staffInputs = staffTypes.flatMap((type, index) =>
-        staffByType[index].map((user) => ({
+      const staffInputs = [
+        ...teacherStaff.map((user) => ({
           ...toRosterMemberInput(user),
-          enrollmentType: type,
+          enrollmentType: "teacher" as const,
         })),
+        ...taStaff.map((user) => ({
+          ...toRosterMemberInput(user),
+          enrollmentType: "ta" as const,
+        })),
+        ...designerStaff.map((user) => ({
+          ...toRosterMemberInput(user),
+          enrollmentType: "designer" as const,
+        })),
+        ...observerStaff.map((user) => ({
+          ...toRosterMemberInput(user),
+          enrollmentType: "observer" as const,
+        })),
+      ]
+      onProgress?.(
+        `Loaded ${students.length} students and ${staffInputs.length} staff from LMS.`,
       )
 
       return {

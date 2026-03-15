@@ -214,6 +214,80 @@ describe("createCanvasClient", () => {
     assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
   })
 
+  it("emits detailed progress while fetching a roster", async () => {
+    const http = createMockHttpPort([
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=student&include[]=enrollments&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 10,
+            sis_user_id: "s-10",
+            sortable_name: "Lovelace, Ada",
+            login_id: "ada@example.com",
+            enrollments: [{ enrollment_state: "active" }],
+          },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=teacher&include[]=enrollments&per_page=100",
+        status: 200,
+        body: [
+          {
+            id: 20,
+            sortable_name: "Turing, Alan",
+            login_id: "alan@example.com",
+            enrollments: [{ enrollment_state: "active" }],
+          },
+        ],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=ta&include[]=enrollments&per_page=100",
+        status: 200,
+        body: [],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=designer&include[]=enrollments&per_page=100",
+        status: 200,
+        body: [],
+      },
+      {
+        method: "GET",
+        urlPattern:
+          "/api/v1/courses/course-1/users?enrollment_type[]=observer&include[]=enrollments&per_page=100",
+        status: 200,
+        body: [],
+      },
+    ])
+
+    const progress: string[] = []
+    const client = createCanvasClient(http)
+    await client.fetchRoster(baseDraft, "course-1", undefined, (message) => {
+      progress.push(message)
+    })
+
+    assert.equal(
+      progress.includes("Loading students from LMS (page 1, 1 loaded)"),
+      true,
+    )
+    assert.equal(
+      progress.includes("Loading teachers from LMS (page 1, 1 loaded)"),
+      true,
+    )
+    assert.equal(
+      progress.includes("Loaded 1 students and 1 staff from LMS."),
+      true,
+    )
+  })
+
   it("lists group sets for a course", async () => {
     const http = createMockHttpPort([
       {

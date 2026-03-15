@@ -170,6 +170,39 @@ describe("createMoodleClient", () => {
     assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
   })
 
+  it("emits progress while fetching a roster", async () => {
+    const http = createMockHttpPort([
+      {
+        urlPattern: "wsfunction=core_enrol_get_enrolled_users",
+        status: 200,
+        body: [
+          {
+            id: 11,
+            idnumber: "s-11",
+            fullname: "Ada Lovelace",
+            email: "ada@example.com",
+            roles: [{ shortname: "student" }],
+          },
+          {
+            id: 20,
+            fullname: "Alan Turing",
+            email: "alan@example.com",
+            roles: [{ shortname: "editingteacher" }],
+          },
+        ],
+      },
+    ])
+
+    const progress: string[] = []
+    const client = createMoodleClient(http)
+    await client.fetchRoster(baseDraft, "course-1", undefined, (message) => {
+      progress.push(message)
+    })
+
+    assert.equal(progress.includes("Fetching enrolled users from LMS."), true)
+    assert.equal(progress.includes("Loaded 2 enrolled users from LMS."), true)
+  })
+
   it("lists group sets", async () => {
     const http = createMockHttpPort([
       {

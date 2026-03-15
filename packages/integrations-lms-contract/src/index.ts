@@ -41,6 +41,7 @@ export type LmsClient = {
     draft: LmsConnectionDraft,
     courseId: string,
     signal?: AbortSignal,
+    onProgress?: (message: string) => void,
   ): Promise<Roster>
   listGroupSets(
     draft: LmsConnectionDraft,

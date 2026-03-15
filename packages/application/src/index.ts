@@ -1053,6 +1053,13 @@ export function createRosterWorkflowHandlers(
           draft,
           input.lmsCourseId,
           options?.signal,
+          (message) => {
+            options?.onProgress?.({
+              step: 2,
+              totalSteps,
+              label: message,
+            })
+          },
         )
 
         options?.onProgress?.({

@@ -77,8 +77,14 @@ function createLmsProviderDispatch() {
       draft: LmsConnectionDraft,
       courseId: string,
       signal?: AbortSignal,
+      onProgress?: (message: string) => void,
     ) {
-      return resolveClient(draft.provider).fetchRoster(draft, courseId, signal)
+      return resolveClient(draft.provider).fetchRoster(
+        draft,
+        courseId,
+        signal,
+        onProgress,
+      )
     },
     listGroupSets(
       draft: LmsConnectionDraft,
