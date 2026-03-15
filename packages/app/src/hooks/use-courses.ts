@@ -6,6 +6,7 @@ import {
   useWorkflowClient,
 } from "../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
@@ -135,6 +136,8 @@ export function useCourses() {
         await wfClient.run("course.delete", { courseId })
 
         if (isActive) {
+          // Prevent the next course load from trying to autosave a now-deleted course.
+          useCourseStore.getState().clear()
           if (remaining.length > 0) {
             await switchCourse(remaining[0].id)
           } else {
