@@ -507,6 +507,10 @@ export function normalizeRosterMember(
     input.emailCandidates
       ?.map(normalizeOptionalString)
       .find((value): value is string => value !== null) ?? ""
+  const status = normalizeMissingEmailStatus(
+    email,
+    normalizeEnumValue(input.status, memberStatusKinds, "active"),
+  )
 
   return {
     id,
@@ -519,7 +523,7 @@ export function normalizeRosterMember(
       gitUsernameStatusKinds,
       "unknown",
     ),
-    status: normalizeEnumValue(input.status, memberStatusKinds, "active"),
+    status,
     lmsStatus:
       input.lmsStatus === undefined || input.lmsStatus === null
         ? null
@@ -738,9 +742,7 @@ export function mergeRosterFromLmsWithConflicts(
     if (match !== undefined) {
       const email = match.email || member.email
       const lmsStatus: MemberStatus = match.lmsStatus ?? match.status
-      // Members with no email who would otherwise be active are incomplete
-      const status: MemberStatus =
-        email === "" && lmsStatus === "active" ? "incomplete" : lmsStatus
+      const status = normalizeMissingEmailStatus(email, lmsStatus)
       const mergedMember: RosterMember = {
         id: member.id,
         name: match.name,
@@ -788,7 +790,10 @@ export function mergeRosterFromLmsWithConflicts(
 
   // Add new incoming members that weren't matched
   for (const member of unmatchedIncoming) {
-    merged.push(member)
+    merged.push({
+      ...member,
+      status: normalizeMissingEmailStatus(member.email, member.status),
+    })
     membersAdded += 1
   }
 
@@ -827,6 +832,13 @@ export function mergeRosterFromLmsWithConflicts(
 
 export function mergeRosterFromLms(existing: Roster, incoming: Roster): Roster {
   return mergeRosterFromLmsWithConflicts(existing, incoming).roster
+}
+
+function normalizeMissingEmailStatus(
+  email: string,
+  status: MemberStatus,
+): MemberStatus {
+  return email === "" && status === "active" ? "incomplete" : status
 }
 
 function pushMemberId(

@@ -65,6 +65,19 @@ describe("normalizeRosterMember", () => {
       source: "local",
     })
   })
+
+  it("forces incomplete when email is missing and status resolves to active", () => {
+    const member = normalizeRosterMember({
+      id: "s-1",
+      nameCandidates: ["No Email"],
+      emailCandidates: ["", "  "],
+      lmsStatus: "active",
+    })
+
+    assert.equal(member.email, "")
+    assert.equal(member.status, "incomplete")
+    assert.equal(member.lmsStatus, "active")
+  })
 })
 
 describe("normalizeRoster", () => {
@@ -116,7 +129,7 @@ describe("normalizeRoster", () => {
           studentNumber: null,
           gitUsername: null,
           gitUsernameStatus: "unknown",
-          status: "active",
+          status: "incomplete",
           lmsStatus: null,
           lmsUserId: null,
           enrollmentType: "student",
@@ -283,6 +296,31 @@ describe("mergeRosterFromLms", () => {
     assert.equal(result.students.length, 1)
     assert.equal(result.students[0].id, "200")
     assert.equal(result.students[0].name, "New Student")
+  })
+
+  it("new incoming member with no email becomes incomplete", () => {
+    const existing = makeRoster()
+    const incoming = makeRoster({
+      connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
+      students: [
+        makeMember({
+          id: "201",
+          lmsUserId: "201",
+          name: "No Email Student",
+          email: "",
+          status: "active",
+          lmsStatus: "active",
+          source: "canvas",
+        }),
+      ],
+    })
+
+    const result = mergeRosterFromLms(existing, incoming)
+
+    assert.equal(result.students.length, 1)
+    assert.equal(result.students[0].id, "201")
+    assert.equal(result.students[0].status, "incomplete")
+    assert.equal(result.students[0].lmsStatus, "active")
   })
 
   it("enrollment type change moves member between arrays", () => {
