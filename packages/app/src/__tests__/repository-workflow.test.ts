@@ -23,7 +23,8 @@ const course: PersistedCourse = {
   id: "course-1",
   displayName: "Course 1",
   lmsConnectionName: null,
-  gitConnectionName: "git-main",
+  gitConnectionId: "git-main",
+  organization: null,
   lmsCourseId: null,
   roster: {
     connection: null,

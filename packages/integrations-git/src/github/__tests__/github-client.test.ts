@@ -10,9 +10,8 @@ import { createGitHubClient } from "../github-client.js"
 
 const baseDraft: GitConnectionDraft = {
   provider: "github",
-  baseUrl: null,
+  baseUrl: "https://github.com",
   token: "ghp_test_token",
-  organization: "test-org",
 }
 
 type MockRoute = {
@@ -56,13 +55,13 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
 
 describe("createGitHubClient", () => {
   describe("verifyConnection", () => {
-    it("returns verified true when org exists", async () => {
+    it("returns verified true when authenticated user exists", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: "/orgs/test-org",
+          urlPattern: "/user",
           status: 200,
-          body: { login: "test-org", id: 1 },
+          body: { login: "test-user", id: 1 },
         },
       ])
 
@@ -71,28 +70,18 @@ describe("createGitHubClient", () => {
       assert.deepStrictEqual(result, { verified: true })
     })
 
-    it("returns verified false when org does not exist", async () => {
+    it("returns verified false when authentication fails", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: "/orgs/test-org",
-          status: 404,
-          body: { message: "Not Found" },
+          urlPattern: "/user",
+          status: 401,
+          body: { message: "Bad credentials" },
         },
       ])
 
       const client = createGitHubClient(http)
       const result = await client.verifyConnection(baseDraft)
-      assert.deepStrictEqual(result, { verified: false })
-    })
-
-    it("returns verified false when no organization provided", async () => {
-      const http = createMockHttpPort([])
-      const client = createGitHubClient(http)
-      const result = await client.verifyConnection({
-        ...baseDraft,
-        organization: null,
-      })
       assert.deepStrictEqual(result, { verified: false })
     })
   })

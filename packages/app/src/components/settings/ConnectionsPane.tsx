@@ -5,6 +5,10 @@ import type {
   PersistedLmsConnection,
 } from "@repo-edu/domain"
 import {
+  gitConnectionDisplayLabel,
+  gitProviderDefaultBaseUrls,
+} from "@repo-edu/domain"
+import {
   Button,
   FormField,
   Input,
@@ -37,11 +41,9 @@ type VerificationStatus = ConnectionStatus
 type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
   userAgent: string
 }
-type GitDraft = PersistedGitConnection
+type GitDraft = { provider: GitProviderKind; baseUrl: string; token: string }
 
 const INVALID_REQUIRED_URL_MESSAGE = "Base URL must be a valid http(s) URL."
-const INVALID_OPTIONAL_URL_MESSAGE =
-  "Base URL must be a valid http(s) URL when provided."
 const VERIFY_FAILED_MESSAGE = "Verification failed. Check URL and credentials."
 
 function normalizeHttpUrl(
@@ -81,17 +83,6 @@ function validateRequiredBaseUrl(value: string): string | null {
     : null
 }
 
-function validateOptionalBaseUrl(value: string | null): string | null {
-  const normalized = value?.trim() ?? ""
-  if (normalized.length === 0) {
-    return null
-  }
-
-  return normalizeHttpUrl(normalized) === null
-    ? INVALID_OPTIONAL_URL_MESSAGE
-    : null
-}
-
 function VerificationStatusIcon({ status }: { status: VerificationStatus }) {
   switch (status) {
     case "connected":
@@ -121,11 +112,9 @@ function emptyLmsDraft(): LmsDraft {
 
 function emptyGitDraft(): GitDraft {
   return {
-    name: "",
     provider: "github",
-    baseUrl: null,
+    baseUrl: gitProviderDefaultBaseUrls.github,
     token: "",
-    organization: null,
   }
 }
 
@@ -565,7 +554,7 @@ export function LmsConnectionsPane() {
 
 type GitViewState =
   | { view: "list" }
-  | { view: "editor"; originalName: string | null }
+  | { view: "editor"; originalId: string | null }
 
 export function GitConnectionsPane() {
   const settings = useAppSettingsStore((state) => state.settings)
@@ -574,9 +563,6 @@ export function GitConnectionsPane() {
   )
   const updateGitConnection = useAppSettingsStore(
     (state) => state.updateGitConnection,
-  )
-  const renameGitConnection = useAppSettingsStore(
-    (state) => state.renameGitConnection,
   )
   const removeGitConnection = useAppSettingsStore(
     (state) => state.removeGitConnection,
@@ -594,43 +580,35 @@ export function GitConnectionsPane() {
     useState<VerificationStatus>("disconnected")
   const [editorError, setEditorError] = useState<string | null>(null)
 
-  const editorOriginalName =
-    viewState.view === "editor" ? viewState.originalName : null
-  const editing = viewState.view === "editor" && viewState.originalName !== null
+  const editorOriginalId =
+    viewState.view === "editor" ? viewState.originalId : null
+  const editing = viewState.view === "editor" && viewState.originalId !== null
 
-  const nameTaken = useMemo(() => {
-    const normalized = draft.name.trim().toLowerCase()
-    if (!normalized) return false
-    return gitConnections.some(
-      (connection) =>
-        connection.name.trim().toLowerCase() === normalized &&
-        connection.name !== editorOriginalName,
-    )
-  }, [gitConnections, draft.name, editorOriginalName])
-
-  const baseUrlError = validateOptionalBaseUrl(draft.baseUrl)
+  const baseUrlError = validateRequiredBaseUrl(draft.baseUrl)
 
   const canSave =
-    draft.name.trim().length > 0 &&
+    draft.baseUrl.trim().length > 0 &&
     draft.token.trim().length > 0 &&
-    baseUrlError === null &&
-    !nameTaken
+    baseUrlError === null
 
   const hasChanges = useMemo(() => {
-    if (!editing || editorOriginalName === null) return true
+    if (!editing || editorOriginalId === null) return true
     const current = gitConnections.find(
-      (connection) => connection.name === editorOriginalName,
+      (connection) => connection.id === editorOriginalId,
     )
     if (!current) return true
 
+    const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
+      allowImplicitHttps: true,
+    })
+    const nextBaseUrl = normalizedBaseUrl ?? draft.baseUrl.trim()
+
     return (
-      current.name !== draft.name.trim() ||
       current.provider !== draft.provider ||
-      current.baseUrl !== (draft.baseUrl?.trim() || null) ||
-      current.token !== draft.token.trim() ||
-      current.organization !== (draft.organization?.trim() || null)
+      current.baseUrl !== nextBaseUrl ||
+      current.token !== draft.token.trim()
     )
-  }, [editing, gitConnections, draft, editorOriginalName])
+  }, [editing, gitConnections, draft, editorOriginalId])
 
   const canSubmit = canSave && (!editing || hasChanges)
 
@@ -642,10 +620,13 @@ export function GitConnectionsPane() {
   }
 
   const verify = async (d: GitDraft) => {
-    const baseUrl = d.baseUrl?.trim() || null
+    const normalizedBaseUrl = normalizeHttpUrl(d.baseUrl, {
+      allowImplicitHttps: true,
+    })
+    const baseUrl = normalizedBaseUrl ?? d.baseUrl.trim()
     const token = d.token.trim()
-    const organization = d.organization?.trim() || null
-    const urlError = validateOptionalBaseUrl(baseUrl)
+    const urlError =
+      normalizedBaseUrl === null ? INVALID_REQUIRED_URL_MESSAGE : null
     if (urlError) {
       setEditorStatus("error")
       setEditorError(urlError)
@@ -660,7 +641,6 @@ export function GitConnectionsPane() {
         provider: d.provider,
         baseUrl,
         token,
-        organization,
       })
       if (result.verified) {
         setEditorStatus("connected")
@@ -680,93 +660,78 @@ export function GitConnectionsPane() {
 
   const handleSave = async () => {
     if (!canSubmit) return
-    const urlError = validateOptionalBaseUrl(draft.baseUrl)
-    if (urlError) {
-      setEditorError(urlError)
+    const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
+      allowImplicitHttps: true,
+    })
+    if (normalizedBaseUrl === null) {
+      setEditorError(INVALID_REQUIRED_URL_MESSAGE)
       return
     }
 
     const nextConnection: PersistedGitConnection = {
-      name: draft.name.trim(),
+      id: editorOriginalId ?? crypto.randomUUID(),
       provider: draft.provider,
-      baseUrl: draft.baseUrl?.trim() || null,
+      baseUrl: normalizedBaseUrl,
       token: draft.token.trim(),
-      organization: draft.organization?.trim() || null,
     }
 
-    if (editorOriginalName === null) {
+    if (editorOriginalId === null) {
       addGitConnection(nextConnection)
-    } else if (editorOriginalName !== nextConnection.name) {
-      renameGitConnection(
-        editorOriginalName,
-        nextConnection.name,
-        nextConnection,
-      )
     } else {
-      updateGitConnection(editorOriginalName, nextConnection)
+      updateGitConnection(editorOriginalId, nextConnection)
     }
 
     await saveAppSettings()
     resetEditor()
   }
 
-  const handleRemove = async (name: string) => {
-    removeGitConnection(name)
+  const handleRemove = async (id: string) => {
+    removeGitConnection(id)
     await saveAppSettings()
   }
 
   const handleVerifySaved = async (connection: PersistedGitConnection) => {
-    const urlError = validateOptionalBaseUrl(connection.baseUrl)
-    if (urlError) {
-      setGitStatus(connection.name, "error", urlError)
+    const normalizedBaseUrl = normalizeHttpUrl(connection.baseUrl, {
+      allowImplicitHttps: true,
+    })
+    if (normalizedBaseUrl === null) {
+      setGitStatus(connection.id, "error", INVALID_REQUIRED_URL_MESSAGE)
       return
     }
 
-    setGitStatus(connection.name, "verifying", null)
+    setGitStatus(connection.id, "verifying", null)
     try {
       const client = getWorkflowClient()
       const result = await client.run("connection.verifyGitDraft", {
         provider: connection.provider,
-        baseUrl: connection.baseUrl,
+        baseUrl: normalizedBaseUrl,
         token: connection.token,
-        organization: connection.organization,
       })
       setGitStatus(
-        connection.name,
+        connection.id,
         result.verified ? "connected" : "error",
         result.verified ? null : VERIFY_FAILED_MESSAGE,
       )
     } catch (cause) {
       const message = getErrorMessage(cause)
-      setGitStatus(connection.name, "error", message)
+      setGitStatus(connection.id, "error", message)
     }
   }
 
   if (viewState.view === "editor") {
     return (
       <div className="space-y-3">
-        <FormField label="Name" htmlFor="settings-git-name">
-          <Input
-            id="settings-git-name"
-            value={draft.name}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                name: event.target.value,
-              }))
-            }
-            placeholder="e.g., Course GitHub"
-          />
-        </FormField>
         <FormField label="Provider" htmlFor="settings-git-provider">
           <Select
             value={draft.provider}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
+              const provider = value as GitProviderKind
               setDraft((current) => ({
                 ...current,
-                provider: value as GitProviderKind,
+                provider,
+                baseUrl: gitProviderDefaultBaseUrls[provider],
               }))
-            }
+            }}
           >
             <SelectTrigger id="settings-git-provider">
               <SelectValue />
@@ -778,33 +743,17 @@ export function GitConnectionsPane() {
             </SelectContent>
           </Select>
         </FormField>
-        <FormField label="Base URL (optional)" htmlFor="settings-git-base-url">
+        <FormField label="Base URL" htmlFor="settings-git-base-url">
           <Input
             id="settings-git-base-url"
-            value={draft.baseUrl ?? ""}
+            value={draft.baseUrl}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
-                baseUrl: event.target.value || null,
+                baseUrl: event.target.value,
               }))
             }
             placeholder="https://git.example.edu"
-          />
-        </FormField>
-        <FormField
-          label="Organization (optional)"
-          htmlFor="settings-git-organization"
-        >
-          <Input
-            id="settings-git-organization"
-            value={draft.organization ?? ""}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                organization: event.target.value || null,
-              }))
-            }
-            placeholder="e.g., course-org"
           />
         </FormField>
         <FormField label="Access Token" htmlFor="settings-git-token">
@@ -820,11 +769,6 @@ export function GitConnectionsPane() {
           />
         </FormField>
 
-        {nameTaken && (
-          <Text className="text-xs text-destructive">
-            A Git connection with this name already exists.
-          </Text>
-        )}
         {baseUrlError && (
           <Text className="text-xs text-destructive">{baseUrlError}</Text>
         )}
@@ -884,7 +828,7 @@ export function GitConnectionsPane() {
           size="sm"
           variant="outline"
           onClick={() => {
-            setViewState({ view: "editor", originalName: null })
+            setViewState({ view: "editor", originalId: null })
             setDraft(emptyGitDraft())
             setEditorStatus("disconnected")
             setEditorError(null)
@@ -903,31 +847,26 @@ export function GitConnectionsPane() {
 
       <div className="space-y-2">
         {gitConnections.map((connection) => {
-          const status = gitSavedStatuses[connection.name] ?? "disconnected"
-          const error = gitSavedErrors[connection.name] ?? null
+          const status = gitSavedStatuses[connection.id] ?? "disconnected"
+          const error = gitSavedErrors[connection.id] ?? null
           return (
             <div
-              key={connection.name}
+              key={connection.id}
               className="rounded-md border p-3 space-y-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="font-medium text-sm truncate">
-                      {connection.name}
+                      {gitConnectionDisplayLabel(connection)}
                     </div>
                     <VerificationStatusIcon status={status} />
                   </div>
                   <div
                     className="text-xs text-muted-foreground truncate"
-                    title={connection.baseUrl ?? undefined}
+                    title={connection.baseUrl}
                   >
-                    {connection.baseUrl
-                      ? displayUrl(connection.baseUrl)
-                      : "default base URL"}
-                    {connection.organization
-                      ? ` · org: ${connection.organization}`
-                      : ""}
+                    {displayUrl(connection.baseUrl)}
                   </div>
                   {error && (
                     <div className="text-xs text-destructive mt-1">{error}</div>
@@ -948,9 +887,13 @@ export function GitConnectionsPane() {
                     onClick={() => {
                       setViewState({
                         view: "editor",
-                        originalName: connection.name,
+                        originalId: connection.id,
                       })
-                      setDraft(connection)
+                      setDraft({
+                        provider: connection.provider,
+                        baseUrl: connection.baseUrl,
+                        token: connection.token,
+                      })
                       setEditorStatus("disconnected")
                       setEditorError(null)
                     }}
@@ -961,7 +904,7 @@ export function GitConnectionsPane() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => void handleRemove(connection.name)}
+                    onClick={() => void handleRemove(connection.id)}
                   >
                     <Trash2 className="size-3.5 mr-1" />
                     Remove

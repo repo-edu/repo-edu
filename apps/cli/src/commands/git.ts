@@ -27,11 +27,10 @@ export function registerGitCommands(parent: Command): void {
           provider: connection.provider,
           baseUrl: connection.baseUrl,
           token: connection.token,
-          organization: connection.organization,
         })
 
         process.stdout.write(
-          `Git connection '${connection.name}' verified=${result.verified} checkedAt=${result.checkedAt}\n`,
+          `Git connection '${connection.id}' verified=${result.verified} checkedAt=${result.checkedAt}\n`,
         )
         if (!result.verified) {
           process.exitCode = 1

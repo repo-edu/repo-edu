@@ -43,7 +43,7 @@ type ResourceOptions = {
 }
 
 function resolveHost(draft: GitConnectionDraft): string {
-  const base = (draft.baseUrl ?? "https://gitlab.com").replace(/\/+$/, "")
+  const base = (draft.baseUrl || "https://gitlab.com").replace(/\/+$/, "")
   return base.endsWith("/api/v4") ? base.slice(0, -"/api/v4".length) : base
 }
 
@@ -404,15 +404,10 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
       draft: GitConnectionDraft,
       _signal?: AbortSignal,
     ): Promise<{ verified: boolean }> {
-      const org = draft.organization
-      if (!org) {
-        return { verified: false }
-      }
-
       try {
         const api = createGitLabApi(http, draft)
-        const groupId = await resolveGroupId(api, org)
-        return { verified: groupId !== null }
+        const user = await api.Users.showCurrentUser()
+        return { verified: user !== null && typeof user === "object" }
       } catch {
         return { verified: false }
       }

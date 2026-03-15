@@ -34,16 +34,8 @@ type AppSettingsActions = {
   removeLmsConnection: (index: number) => void
 
   addGitConnection: (connection: PersistedGitConnection) => void
-  updateGitConnection: (
-    name: string,
-    connection: PersistedGitConnection,
-  ) => void
-  renameGitConnection: (
-    oldName: string,
-    newName: string,
-    connection: PersistedGitConnection,
-  ) => void
-  removeGitConnection: (name: string) => void
+  updateGitConnection: (id: string, connection: PersistedGitConnection) => void
+  removeGitConnection: (id: string) => void
 
   setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
   setRosterColumnSizing: (sizing: Record<string, number>) => void
@@ -169,38 +161,26 @@ export const useAppSettingsStore = create<
       },
     })),
 
-  updateGitConnection: (name, connection) =>
+  updateGitConnection: (id, connection) =>
     set((state) => ({
       settings: {
         ...state.settings,
         gitConnections: state.settings.gitConnections.map((gc) =>
-          gc.name === name ? connection : gc,
+          gc.id === id ? connection : gc,
         ),
       },
     })),
 
-  renameGitConnection: (oldName, newName, connection) => {
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        gitConnections: state.settings.gitConnections.map((gc) =>
-          gc.name === oldName ? { ...connection, name: newName } : gc,
-        ),
-      },
-    }))
-    useConnectionsStore.getState().renameGitStatus(oldName, newName)
-  },
-
-  removeGitConnection: (name) => {
+  removeGitConnection: (id) => {
     set((state) => ({
       settings: {
         ...state.settings,
         gitConnections: state.settings.gitConnections.filter(
-          (gc) => gc.name !== name,
+          (gc) => gc.id !== id,
         ),
       },
     }))
-    useConnectionsStore.getState().removeGitStatus(name)
+    useConnectionsStore.getState().removeGitStatus(id)
   },
 
   setRosterColumnVisibility: (visibility) =>
@@ -224,9 +204,8 @@ export const selectLmsConnections = (state: AppSettingsState) =>
   state.settings.lmsConnections
 export const selectGitConnections = (state: AppSettingsState) =>
   state.settings.gitConnections
-export const selectGitConnection =
-  (name: string) => (state: AppSettingsState) =>
-    state.settings.gitConnections.find((gc) => gc.name === name) ?? null
+export const selectGitConnection = (id: string) => (state: AppSettingsState) =>
+  state.settings.gitConnections.find((gc) => gc.id === id) ?? null
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>

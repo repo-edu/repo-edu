@@ -30,7 +30,8 @@ function makeProfile(): PersistedCourse {
     id: "course-1",
     displayName: "Course",
     lmsConnectionName: null,
-    gitConnectionName: null,
+    gitConnectionId: null,
+    organization: null,
     lmsCourseId: null,
     roster: {
       connection: null,
@@ -194,7 +195,8 @@ describe("application git username workflow helpers", () => {
   it("imports Git usernames by student email and verifies status with provider", async () => {
     const course = {
       ...makeProfile(),
-      gitConnectionName: "main-git",
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
     }
     course.roster.students = [
       {
@@ -207,11 +209,10 @@ describe("application git username workflow helpers", () => {
       activeCourseId: course.id,
       gitConnections: [
         {
-          name: "main-git",
+          id: "main-git",
           provider: "github" as const,
-          baseUrl: null,
+          baseUrl: "https://github.com",
           token: "token-1",
-          organization: "repo-edu",
         },
       ],
     }
@@ -260,9 +261,8 @@ describe("application git username workflow helpers", () => {
 
     assert.deepStrictEqual(receivedDraft, {
       provider: "github",
-      baseUrl: null,
+      baseUrl: "https://github.com",
       token: "token-1",
-      organization: "repo-edu",
     })
     assert.deepStrictEqual(receivedUsernames, ["ada-l"])
     assert.equal(roster.students[0]?.gitUsername, "ada-l")
@@ -412,17 +412,15 @@ describe("application connection verification workflow helpers", () => {
 
     const gitResult = await handlers["connection.verifyGitDraft"]({
       provider: "github",
-      baseUrl: null,
+      baseUrl: "https://github.com",
       token: "token-2",
-      organization: "repo-edu",
     })
     assert.equal(gitResult.verified, false)
     assert.equal(Number.isNaN(Date.parse(gitResult.checkedAt)), false)
     assert.deepStrictEqual(gitDraft, {
       provider: "github",
-      baseUrl: null,
+      baseUrl: "https://github.com",
       token: "token-2",
-      organization: "repo-edu",
     })
   })
 
@@ -462,7 +460,6 @@ describe("application connection verification workflow helpers", () => {
           provider: "gitlab",
           baseUrl: "https://gitlab.example.edu",
           token: "token",
-          organization: "repo-edu",
         },
         { signal: controller.signal },
       ),
@@ -1320,17 +1317,17 @@ describe("application repository workflow helpers", () => {
   it("creates repositories from assignment planning output", async () => {
     const course = {
       ...makeProfile(),
-      gitConnectionName: "main-git",
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
     }
     const settings = {
       ...makeSettings(),
       gitConnections: [
         {
-          name: "main-git",
+          id: "main-git",
           provider: "github" as const,
-          baseUrl: null,
+          baseUrl: "https://github.com",
           token: "token-1",
-          organization: "repo-edu",
         },
       ],
     }
@@ -1388,17 +1385,17 @@ describe("application repository workflow helpers", () => {
   it("clones repositories and requires confirmation for delete", async () => {
     const course = {
       ...makeProfile(),
-      gitConnectionName: "main-git",
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
     }
     const settings = {
       ...makeSettings(),
       gitConnections: [
         {
-          name: "main-git",
+          id: "main-git",
           provider: "github" as const,
-          baseUrl: null,
+          baseUrl: "https://github.com",
           token: "token-1",
-          organization: "repo-edu",
         },
       ],
     }

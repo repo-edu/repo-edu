@@ -6,9 +6,8 @@ export const supportedGitProviders = ["github", "gitlab", "gitea"] as const
 
 export type GitConnectionDraft = {
   provider: GitProviderKind
-  baseUrl: string | null
+  baseUrl: string
   token: string
-  organization: string | null
 }
 
 export type GitUsernameStatus = {

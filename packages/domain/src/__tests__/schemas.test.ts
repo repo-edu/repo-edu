@@ -34,11 +34,10 @@ describe("validatePersistedAppSettings", () => {
       ],
       gitConnections: [
         {
-          name: "GitHub",
+          id: "github-1",
           provider: "github",
-          baseUrl: null,
+          baseUrl: "https://github.com",
           token: "ghp_abc",
-          organization: "my-org",
         },
       ],
     }
@@ -104,11 +103,10 @@ describe("validatePersistedAppSettings", () => {
       ...defaultAppSettings,
       gitConnections: [
         {
-          name: "Bad",
+          id: "bad-1",
           provider: "bitbucket",
-          baseUrl: null,
+          baseUrl: "https://example.com",
           token: "tok",
-          organization: null,
         },
       ],
     })
@@ -136,7 +134,8 @@ describe("validatePersistedCourse", () => {
     id: "prof-1",
     displayName: "Test Course",
     lmsConnectionName: null,
-    gitConnectionName: null,
+    gitConnectionId: null,
+    organization: null,
     lmsCourseId: null,
     roster: {
       connection: null,

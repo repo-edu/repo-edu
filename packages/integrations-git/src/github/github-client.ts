@@ -14,7 +14,7 @@ import type {
 import { createHttpPortFetch } from "./http-port-fetch.js"
 
 function resolveApiBaseUrl(draft: GitConnectionDraft): string {
-  if (draft.baseUrl === null || draft.baseUrl === "") {
+  if (draft.baseUrl === "") {
     return "https://api.github.com"
   }
   const base = draft.baseUrl.replace(/\/+$/, "")
@@ -57,14 +57,9 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
       signal?: AbortSignal,
     ): Promise<{ verified: boolean }> {
       const octokit = createOctokit(http, draft)
-      const org = draft.organization
-      if (!org) {
-        return { verified: false }
-      }
 
       try {
-        await octokit.orgs.get({
-          org,
+        await octokit.users.getAuthenticated({
           request: { signal },
         })
         return { verified: true }

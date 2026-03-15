@@ -19,7 +19,7 @@ Key fields:
 
 - `id`, `displayName`
 - `revision` (monotonic save revision for CAS writes)
-- `lmsConnectionName`, `gitConnectionName`, `lmsCourseId`
+- `lmsConnectionName`, `gitConnectionId`, `organization`, `lmsCourseId`
 - `roster` (students, staff, groups, groupSets, assignments)
 - `repositoryTemplate`
 

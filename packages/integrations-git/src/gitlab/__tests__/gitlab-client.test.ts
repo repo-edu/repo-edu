@@ -12,7 +12,6 @@ const baseDraft: GitConnectionDraft = {
   provider: "gitlab",
   baseUrl: "https://gitlab.example.com",
   token: "glpat-test-token",
-  organization: "my-group",
 }
 
 type MockRoute = {
@@ -56,13 +55,13 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
 
 describe("createGitLabClient", () => {
   describe("verifyConnection", () => {
-    it("returns verified true when group exists", async () => {
+    it("returns verified true when authenticated user exists", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: "/groups/my-group",
+          urlPattern: "/user",
           status: 200,
-          body: { id: 1, path: "my-group", full_path: "my-group" },
+          body: { id: 1, username: "test-user" },
         },
       ])
 
@@ -71,28 +70,18 @@ describe("createGitLabClient", () => {
       assert.deepStrictEqual(result, { verified: true })
     })
 
-    it("returns verified false when group does not exist", async () => {
+    it("returns verified false when authentication fails", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: "/groups/my-group",
-          status: 404,
-          body: { message: "404 Group Not Found" },
+          urlPattern: "/user",
+          status: 401,
+          body: { message: "401 Unauthorized" },
         },
       ])
 
       const client = createGitLabClient(http)
       const result = await client.verifyConnection(baseDraft)
-      assert.deepStrictEqual(result, { verified: false })
-    })
-
-    it("returns verified false when no organization provided", async () => {
-      const http = createMockHttpPort([])
-      const client = createGitLabClient(http)
-      const result = await client.verifyConnection({
-        ...baseDraft,
-        organization: null,
-      })
       assert.deepStrictEqual(result, { verified: false })
     })
 
@@ -105,7 +94,7 @@ describe("createGitLabClient", () => {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ id: 1, path: "my-group" }),
+            body: JSON.stringify({ id: 1, username: "test-user" }),
           }
         },
       }
@@ -117,7 +106,7 @@ describe("createGitLabClient", () => {
       assert.equal(capturedHeaders["private-token"], "glpat-test-token")
     })
 
-    it("uses default gitlab.com when baseUrl is null", async () => {
+    it("uses default gitlab.com when baseUrl is empty", async () => {
       let capturedUrl = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
@@ -126,13 +115,13 @@ describe("createGitLabClient", () => {
             status: 200,
             statusText: "OK",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ id: 1, path: "my-group" }),
+            body: JSON.stringify({ id: 1, username: "test-user" }),
           }
         },
       }
 
       const client = createGitLabClient(http)
-      await client.verifyConnection({ ...baseDraft, baseUrl: null })
+      await client.verifyConnection({ ...baseDraft, baseUrl: "" })
 
       assert.ok(capturedUrl.startsWith("https://gitlab.com/api/v4"))
     })
@@ -312,9 +301,10 @@ describe("createGitLabClient", () => {
       }
 
       const client = createGitLabClient(http)
-      await client.verifyConnection({
-        ...baseDraft,
+      await client.createRepositories(baseDraft, {
         organization: "parent/nested",
+        repositoryNames: ["repo-1"],
+        template: null,
       })
 
       assert.ok(

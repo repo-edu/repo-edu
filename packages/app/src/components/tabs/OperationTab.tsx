@@ -21,7 +21,8 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import {
   selectAssignments,
-  selectGitConnectionName,
+  selectGitConnectionId,
+  selectOrganization,
   selectRepositoryTemplate,
   selectRoster,
   useCourseStore,
@@ -44,7 +45,9 @@ export function OperationTab() {
   const roster = useCourseStore(selectRoster)
   const assignments = useCourseStore(selectAssignments)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
-  const gitConnectionName = useCourseStore(selectGitConnectionName)
+  const gitConnectionId = useCourseStore(selectGitConnectionId)
+  const organization = useCourseStore(selectOrganization)
+  const setOrganization = useCourseStore((s) => s.setOrganization)
   const setRepositoryTemplate = useCourseStore((s) => s.setRepositoryTemplate)
 
   const assignmentSelection = useCourseStore((s) => s.assignmentSelection)
@@ -142,7 +145,7 @@ export function OperationTab() {
     !assignmentSelection ||
     validGroupCount === 0 ||
     operationStatus === "running" ||
-    !gitConnectionName ||
+    !gitConnectionId ||
     (operationSelected === "clone" && !targetDirectory)
 
   return (
@@ -192,6 +195,20 @@ export function OperationTab() {
               ))}
             </SelectContent>
           </Select>
+
+          <Label
+            htmlFor="organization"
+            title="The Git organization or group for repository operations."
+          >
+            Organization
+          </Label>
+          <Input
+            id="organization"
+            value={organization ?? ""}
+            onChange={(e) => setOrganization(e.target.value || null)}
+            className="w-80"
+            placeholder="e.g., course-org"
+          />
 
           {operationSelected === "create" && (
             <>
@@ -270,7 +287,7 @@ export function OperationTab() {
         )}
 
         {/* Git connection warning */}
-        {!gitConnectionName && (
+        {!gitConnectionId && (
           <p className="text-sm text-destructive">
             <AlertCircle className="inline-block size-4 mr-1" />
             No Git connection configured for this course.

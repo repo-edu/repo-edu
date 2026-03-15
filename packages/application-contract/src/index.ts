@@ -199,9 +199,8 @@ export type ListLmsCoursesDraftInput = {
 
 export type VerifyGitDraftInput = {
   provider: GitProviderKind
-  baseUrl: string | null
+  baseUrl: string
   token: string
-  organization: string | null
 }
 
 export type ConnectionVerificationResult = {

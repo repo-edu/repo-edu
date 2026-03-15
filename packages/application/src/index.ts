@@ -654,7 +654,6 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
-          organization: input.organization,
         }
 
         options?.onOutput?.({
@@ -934,17 +933,17 @@ function resolveGitDraft(
   course: PersistedCourse,
   settings: PersistedAppSettings,
 ): GitConnectionDraft | null {
-  if (course.gitConnectionName === null) {
+  if (course.gitConnectionId === null) {
     return null
   }
 
   const connection = settings.gitConnections.find(
-    (candidate) => candidate.name === course.gitConnectionName,
+    (candidate) => candidate.id === course.gitConnectionId,
   )
   if (connection === undefined) {
     throw {
       type: "not-found",
-      message: `Git connection '${course.gitConnectionName}' was not found.`,
+      message: `Git connection '${course.gitConnectionId}' was not found.`,
       resource: "connection",
     } satisfies AppError
   }
@@ -953,7 +952,6 @@ function resolveGitDraft(
     provider: connection.provider,
     baseUrl: connection.baseUrl,
     token: connection.token,
-    organization: connection.organization,
   }
 }
 
@@ -2074,21 +2072,21 @@ function repositoryClonePath(
 }
 
 function requireGitOrganization(
-  gitDraft: GitConnectionDraft,
+  course: PersistedCourse,
   operation: "repo.create" | "repo.clone" | "repo.delete",
 ): string {
-  if (gitDraft.organization === null || gitDraft.organization.trim() === "") {
+  if (course.organization === null || course.organization.trim() === "") {
     throw createValidationAppError(
-      "Git connection is missing organization for repository workflows.",
+      "Course is missing organization for repository workflows.",
       [
         {
-          path: "gitConnection.organization",
+          path: "course.organization",
           message: `Set an organization before running ${operation}.`,
         },
       ],
     )
   }
-  return gitDraft.organization
+  return course.organization
 }
 
 function normalizeRepositoryExecutionError(
@@ -2144,7 +2142,7 @@ export function createRepositoryWorkflowHandlers(
           } satisfies AppError
         }
         providerForError = gitDraft.provider
-        const organization = requireGitOrganization(gitDraft, "repo.create")
+        const organization = requireGitOrganization(course, "repo.create")
 
         options?.onProgress?.({
           step: 2,
@@ -2226,7 +2224,7 @@ export function createRepositoryWorkflowHandlers(
           } satisfies AppError
         }
         providerForError = gitDraft.provider
-        const organization = requireGitOrganization(gitDraft, "repo.clone")
+        const organization = requireGitOrganization(course, "repo.clone")
 
         options?.onProgress?.({
           step: 2,
@@ -2428,7 +2426,7 @@ export function createRepositoryWorkflowHandlers(
           } satisfies AppError
         }
         providerForError = gitDraft.provider
-        const organization = requireGitOrganization(gitDraft, "repo.delete")
+        const organization = requireGitOrganization(course, "repo.delete")
 
         options?.onProgress?.({
           step: 2,

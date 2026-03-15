@@ -13,7 +13,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-small-shared-teams",
         displayName: "Fixture (small, shared-teams)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-small-shared-teams",
         roster: {
           connection: null,
@@ -777,11 +778,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
@@ -817,7 +817,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-small-assignment-scoped",
         displayName: "Fixture (small, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-small-assignment-scoped",
         roster: {
           connection: null,
@@ -1649,11 +1650,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
@@ -1691,7 +1691,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-medium-shared-teams",
         displayName: "Fixture (medium, shared-teams)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-medium-shared-teams",
         roster: {
           connection: null,
@@ -3751,11 +3752,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
@@ -3791,7 +3791,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-medium-assignment-scoped",
         displayName: "Fixture (medium, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-medium-assignment-scoped",
         roster: {
           connection: null,
@@ -6031,11 +6032,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
@@ -6073,7 +6073,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-stress-shared-teams",
         displayName: "Fixture (stress, shared-teams)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-stress-shared-teams",
         roster: {
           connection: null,
@@ -11038,11 +11039,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
@@ -11078,7 +11078,8 @@ export const fixtureMatrix: FixtureMatrix = {
         id: "fixture-stress-assignment-scoped",
         displayName: "Fixture (stress, assignment-scoped)",
         lmsConnectionName: "Canvas Demo",
-        gitConnectionName: "GitHub Demo",
+        gitConnectionId: "github-demo",
+        organization: "fixture-org",
         lmsCourseId: "fixture-stress-assignment-scoped",
         roster: {
           connection: null,
@@ -16463,11 +16464,10 @@ export const fixtureMatrix: FixtureMatrix = {
         ],
         gitConnections: [
           {
-            name: "GitHub Demo",
+            id: "github-demo",
             provider: "github",
-            baseUrl: null,
+            baseUrl: "https://github.com",
             token: "demo-token",
-            organization: "fixture-org",
           },
         ],
         lastOpenedAt: "2026-01-01T00:00:00.000Z",

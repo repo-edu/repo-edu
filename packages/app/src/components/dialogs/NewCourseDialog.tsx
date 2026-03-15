@@ -1,6 +1,9 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
 import type { PersistedCourse, Roster } from "@repo-edu/domain"
-import { persistedCourseKind } from "@repo-edu/domain"
+import {
+  gitConnectionDisplayLabel,
+  persistedCourseKind,
+} from "@repo-edu/domain"
 import {
   Button,
   Dialog,
@@ -238,7 +241,8 @@ export function NewCourseDialog() {
         id: generateCourseId(),
         displayName: courseName.trim(),
         lmsConnectionName: selectedLmsConnection || null,
-        gitConnectionName: selectedGitConnection || null,
+        gitConnectionId: selectedGitConnection || null,
+        organization: null,
         lmsCourseId: nextCourseId,
         roster: EMPTY_ROSTER,
         repositoryTemplate: null,
@@ -476,8 +480,8 @@ export function NewCourseDialog() {
               <SelectContent>
                 <SelectItem value={NONE_VALUE}>None</SelectItem>
                 {gitConnections.map((connection) => (
-                  <SelectItem key={connection.name} value={connection.name}>
-                    {connection.name}
+                  <SelectItem key={connection.id} value={connection.id}>
+                    {gitConnectionDisplayLabel(connection)}
                   </SelectItem>
                 ))}
               </SelectContent>

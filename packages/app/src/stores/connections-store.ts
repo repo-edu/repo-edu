@@ -21,7 +21,7 @@ type ConnectionsActions = {
     error?: string | null,
   ) => void
   setGitStatus: (
-    name: string,
+    id: string,
     status: ConnectionStatus,
     error?: string | null,
   ) => void
@@ -35,9 +35,8 @@ type ConnectionsActions = {
   resetLmsConnectionStatus: (name: string) => void
   removeLmsConnectionStatus: (name: string) => void
   renameLmsConnectionStatus: (oldName: string, newName: string) => void
-  resetGitStatus: (name: string) => void
-  removeGitStatus: (name: string) => void
-  renameGitStatus: (oldName: string, newName: string) => void
+  resetGitStatus: (id: string) => void
+  removeGitStatus: (id: string) => void
   resetAllStatuses: () => void
 }
 
@@ -67,10 +66,10 @@ export const useConnectionsStore = create<
       lmsErrors: { ...state.lmsErrors, [name]: error ?? null },
     })),
 
-  setGitStatus: (name, status, error) =>
+  setGitStatus: (id, status, error) =>
     set((state) => ({
-      gitStatuses: { ...state.gitStatuses, [name]: status },
-      gitErrors: { ...state.gitErrors, [name]: error ?? null },
+      gitStatuses: { ...state.gitStatuses, [id]: status },
+      gitErrors: { ...state.gitErrors, [id]: error ?? null },
     })),
 
   setCourseStatus: (course, status, error) =>
@@ -117,36 +116,21 @@ export const useConnectionsStore = create<
       return { lmsStatuses, lmsErrors }
     }),
 
-  resetGitStatus: (name) =>
+  resetGitStatus: (id) =>
     set((state) => {
       const gitStatuses = { ...state.gitStatuses }
       const gitErrors = { ...state.gitErrors }
-      delete gitStatuses[name]
-      delete gitErrors[name]
+      delete gitStatuses[id]
+      delete gitErrors[id]
       return { gitStatuses, gitErrors }
     }),
 
-  removeGitStatus: (name) =>
+  removeGitStatus: (id) =>
     set((state) => {
       const gitStatuses = { ...state.gitStatuses }
       const gitErrors = { ...state.gitErrors }
-      delete gitStatuses[name]
-      delete gitErrors[name]
-      return { gitStatuses, gitErrors }
-    }),
-
-  renameGitStatus: (oldName, newName) =>
-    set((state) => {
-      const gitStatuses = { ...state.gitStatuses }
-      const gitErrors = { ...state.gitErrors }
-      if (oldName in gitStatuses) {
-        gitStatuses[newName] = gitStatuses[oldName]
-        delete gitStatuses[oldName]
-      }
-      if (oldName in gitErrors) {
-        gitErrors[newName] = gitErrors[oldName]
-        delete gitErrors[oldName]
-      }
+      delete gitStatuses[id]
+      delete gitErrors[id]
       return { gitStatuses, gitErrors }
     }),
 
@@ -163,10 +147,10 @@ export const selectLmsErrorByName =
   (name: string) => (state: ConnectionsState) =>
     state.lmsErrors[name] ?? null
 export const selectGitStatuses = (state: ConnectionsState) => state.gitStatuses
-export const selectGitStatus = (name: string) => (state: ConnectionsState) =>
-  state.gitStatuses[name] ?? "disconnected"
-export const selectGitError = (name: string) => (state: ConnectionsState) =>
-  state.gitErrors[name] ?? null
+export const selectGitStatus = (id: string) => (state: ConnectionsState) =>
+  state.gitStatuses[id] ?? "disconnected"
+export const selectGitError = (id: string) => (state: ConnectionsState) =>
+  state.gitErrors[id] ?? null
 export const selectCourseStatus =
   (course: string) => (state: ConnectionsState) =>
     state.courseStatuses[course] ?? "unknown"

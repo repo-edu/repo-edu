@@ -111,17 +111,17 @@ export function requireGitConnection(
   course: PersistedCourse,
   settings: PersistedAppSettings,
 ) {
-  if (course.gitConnectionName === null) {
+  if (course.gitConnectionId === null) {
     throw new Error("Selected course does not reference a Git connection.")
   }
 
   const connection = settings.gitConnections.find(
-    (candidate) => candidate.name === course.gitConnectionName,
+    (candidate) => candidate.id === course.gitConnectionId,
   )
 
   if (!connection) {
     throw new Error(
-      `Git connection '${course.gitConnectionName}' was not found in app settings.`,
+      `Git connection '${course.gitConnectionId}' was not found in app settings.`,
     )
   }
 

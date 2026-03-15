@@ -17,7 +17,7 @@ description: Persisted app settings and course fields
     timeFormat: "12h" | "24h";
   };
   lmsConnections: Array<{ name: string; provider: "canvas" | "moodle"; baseUrl: string; token: string }>;
-  gitConnections: Array<{ name: string; provider: "github" | "gitlab" | "gitea"; baseUrl: string | null; token: string; organization: string | null }>;
+  gitConnections: Array<{ id: string; provider: "github" | "gitlab" | "gitea"; baseUrl: string; token: string }>;
   lastOpenedAt: string | null;
 }
 ```
@@ -32,7 +32,8 @@ description: Persisted app settings and course fields
   id: string;
   displayName: string;
   lmsConnectionName: string | null;
-  gitConnectionName: string | null;
+  gitConnectionId: string | null;
+  organization: string | null;
   lmsCourseId: string | null;
   roster: { students; staff; groups; groupSets; assignments; connection };
   repositoryTemplate: { owner: string; name: string; visibility: "private" | "internal" | "public" } | null;

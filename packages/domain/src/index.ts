@@ -44,11 +44,34 @@ export type PersistedLmsConnection = {
 }
 
 export type PersistedGitConnection = {
-  name: string
+  id: string
   provider: GitProviderKind
-  baseUrl: string | null
+  baseUrl: string
   token: string
-  organization: string | null
+}
+
+export const gitProviderDefaultBaseUrls: Record<GitProviderKind, string> = {
+  github: "https://github.com",
+  gitlab: "https://gitlab.com",
+  gitea: "",
+}
+
+const gitProviderDisplayLabels: Record<GitProviderKind, string> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  gitea: "Gitea",
+}
+
+export function gitConnectionDisplayLabel(
+  connection: Pick<PersistedGitConnection, "provider" | "baseUrl">,
+): string {
+  const label = gitProviderDisplayLabels[connection.provider]
+  const defaultUrl = gitProviderDefaultBaseUrls[connection.provider]
+  if (connection.baseUrl === defaultUrl || connection.baseUrl === "") {
+    return label
+  }
+  const shortUrl = connection.baseUrl.replace(/^https?:\/\//, "")
+  return `${label} · ${shortUrl}`
 }
 
 export type AppAppearance = {
@@ -204,7 +227,8 @@ export type PersistedCourse = {
   id: string
   displayName: string
   lmsConnectionName: string | null
-  gitConnectionName: string | null
+  gitConnectionId: string | null
+  organization: string | null
   lmsCourseId: string | null
   roster: Roster
   repositoryTemplate: RepositoryTemplate | null
@@ -2844,11 +2868,10 @@ const persistedLmsConnectionSchema = z.object({
 })
 
 const persistedGitConnectionSchema = z.object({
-  name: z.string(),
+  id: z.string(),
   provider: z.enum(gitProviderKinds),
-  baseUrl: z.string().nullable(),
+  baseUrl: z.string(),
   token: z.string(),
-  organization: z.string().nullable(),
 })
 
 const appAppearanceSchema = z.object({
@@ -2996,7 +3019,8 @@ export const persistedCourseSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   lmsConnectionName: z.string().nullable(),
-  gitConnectionName: z.string().nullable(),
+  gitConnectionId: z.string().nullable(),
+  organization: z.string().nullable(),
   lmsCourseId: z.string().nullable(),
   roster: rosterSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable(),

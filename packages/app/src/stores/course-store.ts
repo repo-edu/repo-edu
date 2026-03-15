@@ -109,7 +109,8 @@ type CourseActions = {
   // Course metadata
   setCourseId: (courseId: string | null) => void
   setLmsConnectionName: (name: string | null) => void
-  setGitConnectionName: (name: string | null) => void
+  setGitConnectionId: (id: string | null) => void
+  setOrganization: (organization: string | null) => void
   setRepositoryTemplate: (
     template: PersistedCourse["repositoryTemplate"],
   ) => void
@@ -701,9 +702,16 @@ export const useCourseStore = create<CourseState & CourseActions>()(
         markCourseMutated()
       },
 
-      setGitConnectionName: (name) => {
+      setGitConnectionId: (id) => {
         set((draft) => {
-          if (draft.course) draft.course.gitConnectionName = name
+          if (draft.course) draft.course.gitConnectionId = id
+        })
+        markCourseMutated()
+      },
+
+      setOrganization: (organization) => {
+        set((draft) => {
+          if (draft.course) draft.course.organization = organization
         })
         markCourseMutated()
       },
@@ -925,8 +933,10 @@ export const selectAssignmentById =
 
 export const selectCourseId = (state: CourseState) =>
   state.course?.lmsCourseId ?? null
-export const selectGitConnectionName = (state: CourseState) =>
-  state.course?.gitConnectionName ?? null
+export const selectGitConnectionId = (state: CourseState) =>
+  state.course?.gitConnectionId ?? null
+export const selectOrganization = (state: CourseState) =>
+  state.course?.organization ?? null
 export const selectLmsConnectionName = (state: CourseState) =>
   state.course?.lmsConnectionName ?? null
 export const selectRepositoryTemplate = (state: CourseState) =>

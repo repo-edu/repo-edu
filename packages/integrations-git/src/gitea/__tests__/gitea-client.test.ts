@@ -12,7 +12,6 @@ const baseDraft: GitConnectionDraft = {
   provider: "gitea",
   baseUrl: "https://gitea.example.com",
   token: "gitea-test-token",
-  organization: "course-org",
 }
 
 type MockRoute = {
@@ -56,13 +55,13 @@ function createMockHttpPort(routes: MockRoute[]): HttpPort {
 
 describe("createGiteaClient", () => {
   describe("verifyConnection", () => {
-    it("returns verified true when org exists", async () => {
+    it("returns verified true when authenticated user exists", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
-          urlPattern: "/api/v1/orgs/course-org",
+          urlPattern: "/api/v1/user",
           status: 200,
-          body: { username: "course-org" },
+          body: { username: "test-user" },
         },
       ])
 
@@ -76,7 +75,7 @@ describe("createGiteaClient", () => {
       const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.verifyConnection({
         ...baseDraft,
-        baseUrl: null,
+        baseUrl: "",
       })
 
       assert.deepStrictEqual(result, { verified: false })
@@ -117,7 +116,7 @@ describe("createGiteaClient", () => {
     it("returns false results when baseUrl is missing", async () => {
       const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.verifyGitUsernames(
-        { ...baseDraft, baseUrl: null },
+        { ...baseDraft, baseUrl: "" },
         ["alice"],
       )
 
@@ -212,7 +211,7 @@ describe("createGiteaClient", () => {
     it("returns empty result when baseUrl is missing", async () => {
       const client = createGiteaClient(createMockHttpPort([]))
       const result = await client.createRepositories(
-        { ...baseDraft, baseUrl: null },
+        { ...baseDraft, baseUrl: "" },
         {
           organization: "course-org",
           repositoryNames: ["repo-1"],

@@ -18,7 +18,8 @@ export function useDirtyState(activeCourseId: string | null) {
     return hashSnapshot({
       roster: course.roster,
       courseId: course.lmsCourseId,
-      gitConnectionName: course.gitConnectionName,
+      gitConnectionId: course.gitConnectionId,
+      organization: course.organization,
       lmsConnectionName: course.lmsConnectionName,
       repositoryTemplate: course.repositoryTemplate,
     })

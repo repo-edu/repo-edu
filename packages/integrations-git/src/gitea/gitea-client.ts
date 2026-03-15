@@ -12,7 +12,7 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 
 function resolveApiBase(draft: GitConnectionDraft): string | null {
-  const baseUrl = draft.baseUrl?.trim()
+  const baseUrl = draft.baseUrl.trim()
   if (!baseUrl) {
     return null
   }
@@ -181,8 +181,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       draft: GitConnectionDraft,
       signal?: AbortSignal,
     ): Promise<{ verified: boolean }> {
-      const org = draft.organization
-      if (!org || !resolveApiBase(draft)) {
+      if (!resolveApiBase(draft)) {
         return { verified: false }
       }
 
@@ -191,7 +190,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
           http,
           draft,
           "GET",
-          `/orgs/${encodeURIComponent(org)}`,
+          "/user",
           undefined,
           signal,
         )

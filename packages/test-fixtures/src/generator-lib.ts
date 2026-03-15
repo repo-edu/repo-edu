@@ -456,7 +456,8 @@ function createFixtureRecord(
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
     lmsConnectionName: "Canvas Demo",
-    gitConnectionName: "GitHub Demo",
+    gitConnectionId: "github-demo",
+    organization: "fixture-org",
     lmsCourseId: courseId,
     roster,
     repositoryTemplate: {
@@ -480,11 +481,10 @@ function createFixtureRecord(
     ],
     gitConnections: [
       {
-        name: "GitHub Demo",
+        id: "github-demo",
         provider: "github",
-        baseUrl: null,
+        baseUrl: "https://github.com",
         token: "demo-token",
-        organization: "fixture-org",
       },
     ],
     lastOpenedAt: fixtureGeneratedAt,
