@@ -23,7 +23,6 @@ import type { ChecksStatus, DocumentStatus, IssueCard } from "../types/index.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { buildIssueCards } from "../utils/issues.js"
 import { generateGroupId, generateGroupSetId } from "../utils/nanoid.js"
-import { useToastStore } from "./toast-store.js"
 
 enablePatches()
 
@@ -199,6 +198,28 @@ export const useCourseStore = create<CourseState & CourseActions>()(
       return true
     }
 
+    const toUserFacingSyncError = (
+      error: unknown,
+      courseDisplayName: string,
+    ): string => {
+      const raw = getErrorMessage(error, "Could not save course")
+      const missingCourseMatch = raw.match(
+        /^Course revision invariant violated for '([^']+)' \(expected \d+, stored missing course\)\.$/,
+      )
+      if (missingCourseMatch) {
+        return `Could not save course "${courseDisplayName}" because it no longer exists. It may have been deleted while another save was still in progress. (Course ID: ${missingCourseMatch[1]})`
+      }
+
+      const staleRevisionMatch = raw.match(
+        /^Course revision invariant violated for '([^']+)' \(expected (\d+), stored (\d+)\)\.$/,
+      )
+      if (staleRevisionMatch) {
+        return `Could not save course "${courseDisplayName}" because a newer version exists (expected revision ${staleRevisionMatch[2]}, found ${staleRevisionMatch[3]}). Reload the course and try again. (Course ID: ${staleRevisionMatch[1]})`
+      }
+
+      return raw
+    }
+
     const saveLatestSnapshot = async () => {
       const stateAtStart = get()
       const course = stateAtStart.course
@@ -235,7 +256,6 @@ export const useCourseStore = create<CourseState & CourseActions>()(
               return
             }
             draft.lastSavedRevision = saved.revision
-            draft.syncError = null
             draft.syncState = "idle"
 
             if (draft.localVersion === startLocalVersion) {
@@ -259,15 +279,16 @@ export const useCourseStore = create<CourseState & CourseActions>()(
             continue
           }
 
-          const message = getErrorMessage(error, "Could not save course")
-          set((draft) => {
-            if (draft.course?.id !== courseId) {
-              return
-            }
-            draft.syncState = "error"
-            draft.syncError = message
-          })
-          useToastStore.getState().addToast(message, { tone: "error" })
+          const message = toUserFacingSyncError(error, course.displayName)
+          if (get().course?.id === courseId) {
+            set((draft) => {
+              if (draft.course?.id !== courseId) {
+                return
+              }
+              draft.syncState = "error"
+              draft.syncError = message
+            })
+          }
           break
         }
       }
@@ -307,10 +328,6 @@ export const useCourseStore = create<CourseState & CourseActions>()(
         draft.localVersion += 1
         draft.course.updatedAt = new Date().toISOString()
         draft.checksDirty = true
-        if (draft.syncState === "error") {
-          draft.syncState = "idle"
-          draft.syncError = null
-        }
       })
       scheduleAutosave()
     }
@@ -372,7 +389,6 @@ export const useCourseStore = create<CourseState & CourseActions>()(
             draft.localVersion = 0
             draft.lastSavedRevision = loadedCourse.revision
             draft.syncState = "idle"
-            draft.syncError = null
           })
         } catch (err) {
           set((draft) => {

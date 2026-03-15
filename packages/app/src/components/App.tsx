@@ -56,6 +56,7 @@ import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
 import { IssuesButton } from "./IssuesButton.js"
 import { SettingsButton } from "./SettingsButton.js"
+import { SyncErrorBanner } from "./SyncErrorBanner.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
 import { FileImportExportSheet } from "./sheets/FileImportExportSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
@@ -232,6 +233,8 @@ function AppShell() {
             <SettingsButton />
           </div>
         </div>
+
+        <SyncErrorBanner />
 
         {/* Tab content */}
         <TabsContent value="roster" className="flex-1 min-h-0 overflow-hidden">
