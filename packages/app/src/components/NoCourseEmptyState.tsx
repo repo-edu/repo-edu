@@ -44,7 +44,7 @@ export function NoCourseEmptyState({ tabLabel }: NoCourseEmptyStateProps) {
         }
       >
         {!hasLmsConnection && (
-          <Button onClick={() => openSettings("connections")}>
+          <Button onClick={() => openSettings("lms-connections")}>
             <Link className="size-4 mr-1" />
             Set Up LMS
           </Button>

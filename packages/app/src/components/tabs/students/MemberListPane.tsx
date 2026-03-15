@@ -678,7 +678,7 @@ export function MemberListPane({
               <Button
                 variant="link"
                 size="sm"
-                onClick={() => openSettings("connections")}
+                onClick={() => openSettings("lms-connections")}
               >
                 Configure LMS Connection
               </Button>

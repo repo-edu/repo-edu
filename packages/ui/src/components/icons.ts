@@ -22,6 +22,8 @@ export {
   Folder,
   FolderMinus,
   FolderOpen,
+  GitBranch,
+  GraduationCap,
   GripHorizontal,
   HelpCircle,
   Info,

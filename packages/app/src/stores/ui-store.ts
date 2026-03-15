@@ -16,7 +16,11 @@ type SidebarSelection = {
   id: string
 } | null
 
-type SettingsCategory = "connections" | "display" | "shortcuts"
+type SettingsCategory =
+  | "lms-connections"
+  | "git-connections"
+  | "display"
+  | "shortcuts"
 
 export type LmsImportConflict = {
   matchKey: string
@@ -131,7 +135,7 @@ const initialState: UiState = {
   activeCourseId: null,
 
   settingsDialogOpen: false,
-  settingsCategory: "connections",
+  settingsCategory: "lms-connections",
   newCourseDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
@@ -199,7 +203,7 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
   openSettings: (category) =>
     set((state) => {
-      const nextCategory = category ?? "connections"
+      const nextCategory = category ?? "lms-connections"
       if (state.settingsDialogOpen && state.settingsCategory === nextCategory) {
         return state
       }

@@ -1,16 +1,26 @@
 import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
-import { Command, Link, Monitor, X } from "@repo-edu/ui/components/icons"
+import {
+  Command,
+  GitBranch,
+  GraduationCap,
+  Monitor,
+  X,
+} from "@repo-edu/ui/components/icons"
 import type { ReactNode } from "react"
 import { useUiStore } from "../../stores/ui-store.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../../utils/platform.js"
-import { ConnectionsPane } from "./ConnectionsPane.js"
+import { GitConnectionsPane, LmsConnectionsPane } from "./ConnectionsPane.js"
 import { DisplayPane } from "./DisplayPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
 
-type SettingsCategory = "connections" | "display" | "shortcuts"
+type SettingsCategory =
+  | "lms-connections"
+  | "git-connections"
+  | "display"
+  | "shortcuts"
 
 type CategoryItem = {
   id: SettingsCategory
@@ -20,9 +30,14 @@ type CategoryItem = {
 
 const categories: CategoryItem[] = [
   {
-    id: "connections",
-    label: "Connections",
-    icon: <Link className="size-4" />,
+    id: "lms-connections",
+    label: "LMS Connections",
+    icon: <GraduationCap className="size-4" />,
+  },
+  {
+    id: "git-connections",
+    label: "Git Connections",
+    icon: <GitBranch className="size-4" />,
   },
   {
     id: "display",
@@ -93,11 +108,19 @@ export function SettingsSheet() {
           <div className="flex-1 overflow-y-auto p-6 pt-4">
             <div
               className={cn(
-                activeCategory === "connections" ? "block" : "hidden",
+                activeCategory === "lms-connections" ? "block" : "hidden",
               )}
-              aria-hidden={activeCategory !== "connections"}
+              aria-hidden={activeCategory !== "lms-connections"}
             >
-              <ConnectionsPane />
+              <LmsConnectionsPane />
+            </div>
+            <div
+              className={cn(
+                activeCategory === "git-connections" ? "block" : "hidden",
+              )}
+              aria-hidden={activeCategory !== "git-connections"}
+            >
+              <GitConnectionsPane />
             </div>
             <div
               className={cn(activeCategory === "display" ? "block" : "hidden")}
