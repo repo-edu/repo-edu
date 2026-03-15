@@ -1989,6 +1989,7 @@ export type RepositoryWorkflowPorts = {
 
 function collectRepositoryGroups(
   course: PersistedCourse,
+  appSettings: PersistedAppSettings,
   assignmentId: string | null,
 ): ValidationResult<PlannedRepositoryGroup[]> {
   const assignmentIds =
@@ -2002,13 +2003,28 @@ function collectRepositoryGroups(
     if (!plan.ok) {
       return plan
     }
-    plannedGroups.push(...plan.value.groups)
+    const groups = appSettings.groupsHideIncomplete
+      ? filterCompleteGroups(plan.value.groups)
+      : plan.value.groups
+    plannedGroups.push(...groups)
   }
 
   return {
     ok: true,
     value: plannedGroups,
   }
+}
+
+function filterCompleteGroups(
+  groups: readonly PlannedRepositoryGroup[],
+): PlannedRepositoryGroup[] {
+  if (groups.length === 0) {
+    return []
+  }
+  const maxMembers = Math.max(
+    ...groups.map((group) => group.activeMemberIds.length),
+  )
+  return groups.filter((group) => group.activeMemberIds.length >= maxMembers)
 }
 
 function uniqueRepositoryNames(
@@ -2156,7 +2172,11 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(course, input.assignmentId)
+        const planned = collectRepositoryGroups(
+          course,
+          settings,
+          input.assignmentId,
+        )
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -2238,7 +2258,11 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(course, input.assignmentId)
+        const planned = collectRepositoryGroups(
+          course,
+          settings,
+          input.assignmentId,
+        )
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -2440,7 +2464,11 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(course, input.assignmentId)
+        const planned = collectRepositoryGroups(
+          course,
+          settings,
+          input.assignmentId,
+        )
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",

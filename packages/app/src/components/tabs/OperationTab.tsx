@@ -42,6 +42,9 @@ export function OperationTab() {
   const activeCourseId = useUiStore((s) => s.activeCourseId)
   const course = useCourseStore((s) => s.course)
   const appSettings = useAppSettingsStore((state) => state.settings)
+  const hideIncompleteGroups = useAppSettingsStore(
+    (state) => state.settings.groupsHideIncomplete,
+  )
   const roster = useCourseStore(selectRoster)
   const assignments = useCourseStore(selectAssignments)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
@@ -88,9 +91,21 @@ export function OperationTab() {
     selectedAssignment && roster
       ? resolveAssignmentGroups(roster, selectedAssignment)
       : []
-  const groupCount = resolvedGroups.length
+  const groupCounts = resolvedGroups.map((group) => ({
+    group,
+    activeCount: roster ? activeMemberIds(roster, group).length : 0,
+  }))
+  const maxGroupSize = groupCounts.length
+    ? Math.max(...groupCounts.map((entry) => entry.activeCount))
+    : 0
+  const operationGroups = hideIncompleteGroups
+    ? groupCounts
+        .filter((entry) => entry.activeCount >= maxGroupSize)
+        .map((entry) => entry.group)
+    : resolvedGroups
+  const groupCount = operationGroups.length
   const validGroupCount = roster
-    ? resolvedGroups.filter(
+    ? operationGroups.filter(
         (group) => activeMemberIds(roster, group).length > 0,
       ).length
     : 0

@@ -112,6 +112,7 @@ function makeSettings(): PersistedAppSettings {
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
+    groupsHideIncomplete: false,
   }
 }
 
@@ -1393,6 +1394,74 @@ describe("application repository workflow helpers", () => {
     })
     assert.equal(result.repositoriesPlanned, 1)
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
+  })
+
+  it("filters incomplete groups from repository planning when enabled", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      groupsHideIncomplete: true,
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    let receivedRequest: unknown = null
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async (_draft, request) => {
+          receivedRequest = request
+          return {
+            createdCount: request.repositoryNames.length,
+            repositoryUrls: [],
+          }
+        },
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+        deleteRepositories: async () => ({
+          deletedCount: 0,
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    const result = await handlers["repo.create"]({
+      course,
+      appSettings: settings,
+      assignmentId: "a1",
+      template: null,
+    })
+
+    assert.deepStrictEqual(receivedRequest, {
+      organization: "repo-edu",
+      repositoryNames: ["beta"],
+      template: null,
+    })
+    assert.equal(result.repositoriesPlanned, 1)
   })
 
   it("clones repositories and requires confirmation for delete", async () => {

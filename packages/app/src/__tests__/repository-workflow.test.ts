@@ -53,6 +53,7 @@ const appSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
+  groupsHideIncomplete: false,
 }
 
 describe("repository workflow helpers", () => {

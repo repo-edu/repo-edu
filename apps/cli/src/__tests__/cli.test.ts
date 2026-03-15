@@ -204,6 +204,7 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
+    groupsHideIncomplete: false,
   }
 }
 

@@ -39,6 +39,7 @@ type AppSettingsActions = {
 
   setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
   setRosterColumnSizing: (sizing: Record<string, number>) => void
+  setGroupsHideIncomplete: (value: boolean) => void
 
   reset: () => void
 }
@@ -51,150 +52,188 @@ const initialState: AppSettingsState = {
 
 export const useAppSettingsStore = create<
   AppSettingsState & AppSettingsActions
->((set, get) => ({
-  ...initialState,
+>((set, get) => {
+  let loadRequestId = 0
+  let saveRequestId = 0
 
-  load: async () => {
-    try {
-      set({ status: "loading", error: null })
-      const client = getWorkflowClient()
-      const loaded = await client.run("settings.loadApp", undefined)
-      set({ settings: loaded, status: "loaded" })
-    } catch (err) {
-      set({
-        status: "error",
-        error: getErrorMessage(err),
-      })
-    }
-  },
+  return {
+    ...initialState,
 
-  save: async () => {
-    try {
-      set({ status: "saving", error: null })
-      const client = getWorkflowClient()
-      const saved = await client.run("settings.saveApp", get().settings)
-      set({ settings: saved, status: "loaded" })
-    } catch (err) {
-      set({
-        status: "error",
-        error: getErrorMessage(err),
-      })
-    }
-  },
-
-  setActiveCourseId: (courseId) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        activeCourseId: courseId,
-      },
-    })),
-
-  setTheme: (theme) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        appearance: { ...state.settings.appearance, theme },
-      },
-    })),
-
-  setDateFormat: (dateFormat) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        appearance: { ...state.settings.appearance, dateFormat },
-      },
-    })),
-
-  setTimeFormat: (timeFormat) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        appearance: { ...state.settings.appearance, timeFormat },
-      },
-    })),
-
-  setLmsConnection: (index, connection) =>
-    set((state) => {
-      const connections = [...state.settings.lmsConnections]
-      const previousName = connections[index]?.name ?? null
-      connections[index] = connection
-      if (previousName !== null && previousName !== connection.name) {
-        useConnectionsStore
-          .getState()
-          .renameLmsConnectionStatus(previousName, connection.name)
+    load: async () => {
+      const requestId = ++loadRequestId
+      try {
+        set({ status: "loading", error: null })
+        const client = getWorkflowClient()
+        const loaded = await client.run("settings.loadApp", undefined)
+        set((state) => {
+          if (requestId !== loadRequestId || state.status !== "loading") {
+            return state
+          }
+          return { settings: loaded, status: "loaded", error: null }
+        })
+      } catch (err) {
+        set((state) => {
+          if (requestId !== loadRequestId) {
+            return state
+          }
+          return {
+            status: "error",
+            error: getErrorMessage(err),
+          }
+        })
       }
-      return {
-        settings: { ...state.settings, lmsConnections: connections },
-      }
-    }),
+    },
 
-  addLmsConnection: (connection) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        lmsConnections: [...state.settings.lmsConnections, connection],
-      },
-    })),
-
-  removeLmsConnection: (index) =>
-    set((state) => {
-      const removedName = state.settings.lmsConnections[index]?.name ?? null
-      if (removedName !== null) {
-        useConnectionsStore.getState().removeLmsConnectionStatus(removedName)
+    save: async () => {
+      const requestId = ++saveRequestId
+      const settingsAtRequest = get().settings
+      try {
+        set({ status: "saving", error: null })
+        const client = getWorkflowClient()
+        const saved = await client.run("settings.saveApp", settingsAtRequest)
+        set((state) => {
+          if (requestId !== saveRequestId) {
+            return state
+          }
+          return {
+            settings:
+              state.settings === settingsAtRequest ? saved : state.settings,
+            status: "loaded",
+            error: null,
+          }
+        })
+      } catch (err) {
+        set((state) => {
+          if (requestId !== saveRequestId) {
+            return state
+          }
+          return {
+            status: "error",
+            error: getErrorMessage(err),
+          }
+        })
       }
-      return {
+    },
+
+    setActiveCourseId: (courseId) =>
+      set((state) => ({
         settings: {
           ...state.settings,
-          lmsConnections: state.settings.lmsConnections.filter(
-            (_, i) => i !== index,
+          activeCourseId: courseId,
+        },
+      })),
+
+    setTheme: (theme) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          appearance: { ...state.settings.appearance, theme },
+        },
+      })),
+
+    setDateFormat: (dateFormat) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          appearance: { ...state.settings.appearance, dateFormat },
+        },
+      })),
+
+    setTimeFormat: (timeFormat) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          appearance: { ...state.settings.appearance, timeFormat },
+        },
+      })),
+
+    setLmsConnection: (index, connection) =>
+      set((state) => {
+        const connections = [...state.settings.lmsConnections]
+        const previousName = connections[index]?.name ?? null
+        connections[index] = connection
+        if (previousName !== null && previousName !== connection.name) {
+          useConnectionsStore
+            .getState()
+            .renameLmsConnectionStatus(previousName, connection.name)
+        }
+        return {
+          settings: { ...state.settings, lmsConnections: connections },
+        }
+      }),
+
+    addLmsConnection: (connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          lmsConnections: [...state.settings.lmsConnections, connection],
+        },
+      })),
+
+    removeLmsConnection: (index) =>
+      set((state) => {
+        const removedName = state.settings.lmsConnections[index]?.name ?? null
+        if (removedName !== null) {
+          useConnectionsStore.getState().removeLmsConnectionStatus(removedName)
+        }
+        return {
+          settings: {
+            ...state.settings,
+            lmsConnections: state.settings.lmsConnections.filter(
+              (_, i) => i !== index,
+            ),
+          },
+        }
+      }),
+
+    addGitConnection: (connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          gitConnections: [...state.settings.gitConnections, connection],
+        },
+      })),
+
+    updateGitConnection: (id, connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          gitConnections: state.settings.gitConnections.map((gc) =>
+            gc.id === id ? connection : gc,
           ),
         },
-      }
-    }),
+      })),
 
-  addGitConnection: (connection) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        gitConnections: [...state.settings.gitConnections, connection],
-      },
-    })),
+    removeGitConnection: (id) => {
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          gitConnections: state.settings.gitConnections.filter(
+            (gc) => gc.id !== id,
+          ),
+        },
+      }))
+      useConnectionsStore.getState().removeGitStatus(id)
+    },
 
-  updateGitConnection: (id, connection) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        gitConnections: state.settings.gitConnections.map((gc) =>
-          gc.id === id ? connection : gc,
-        ),
-      },
-    })),
+    setRosterColumnVisibility: (visibility) =>
+      set((state) => ({
+        settings: { ...state.settings, rosterColumnVisibility: visibility },
+      })),
 
-  removeGitConnection: (id) => {
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        gitConnections: state.settings.gitConnections.filter(
-          (gc) => gc.id !== id,
-        ),
-      },
-    }))
-    useConnectionsStore.getState().removeGitStatus(id)
-  },
+    setRosterColumnSizing: (sizing) =>
+      set((state) => ({
+        settings: { ...state.settings, rosterColumnSizing: sizing },
+      })),
 
-  setRosterColumnVisibility: (visibility) =>
-    set((state) => ({
-      settings: { ...state.settings, rosterColumnVisibility: visibility },
-    })),
+    setGroupsHideIncomplete: (value) =>
+      set((state) => ({
+        settings: { ...state.settings, groupsHideIncomplete: value },
+      })),
 
-  setRosterColumnSizing: (sizing) =>
-    set((state) => ({
-      settings: { ...state.settings, rosterColumnSizing: sizing },
-    })),
-
-  reset: () => set(initialState),
-}))
+    reset: () => set(initialState),
+  }
+})
 
 export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
@@ -210,5 +249,7 @@ export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
   state.settings.rosterColumnSizing
+export const selectGroupsHideIncomplete = (state: AppSettingsState) =>
+  state.settings.groupsHideIncomplete
 export const selectAppSettingsStatus = (state: AppSettingsState) => state.status
 export const selectAppSettingsError = (state: AppSettingsState) => state.error

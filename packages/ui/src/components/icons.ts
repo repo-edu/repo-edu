@@ -29,6 +29,7 @@ export {
   Info,
   Layers,
   Link,
+  ListFilter,
   Loader2,
   Lock,
   LockKeyhole,

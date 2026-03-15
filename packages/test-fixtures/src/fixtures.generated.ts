@@ -787,6 +787,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {
@@ -1659,6 +1660,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {
@@ -3761,6 +3763,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {
@@ -6041,6 +6044,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {
@@ -11048,6 +11052,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {
@@ -16473,6 +16478,7 @@ export const fixtureMatrix: FixtureMatrix = {
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         rosterColumnVisibility: {},
         rosterColumnSizing: {},
+        groupsHideIncomplete: false,
       },
       artifacts: [
         {

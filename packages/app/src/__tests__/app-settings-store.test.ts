@@ -122,4 +122,42 @@ describe("app settings store", () => {
     assert.equal(useAppSettingsStore.getState().status, "error")
     assert.equal(useAppSettingsStore.getState().error, "cannot save")
   })
+
+  it("ignores stale save completions and keeps newest settings", async () => {
+    const firstSaveGate = deferred<PersistedAppSettings>()
+    const secondSaveGate = deferred<PersistedAppSettings>()
+    let saveCallCount = 0
+
+    const client = createWorkflowClient({
+      "settings.loadApp": async () => makeSettings(),
+      "settings.saveApp": async () => {
+        saveCallCount += 1
+        return saveCallCount === 1
+          ? firstSaveGate.promise
+          : secondSaveGate.promise
+      },
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+
+    await useAppSettingsStore.getState().load()
+
+    const firstSavePromise = useAppSettingsStore.getState().save()
+    useAppSettingsStore.getState().setGroupsHideIncomplete(true)
+    const secondSavePromise = useAppSettingsStore.getState().save()
+
+    secondSaveGate.resolve(makeSettings({ groupsHideIncomplete: true }))
+    await secondSavePromise
+    assert.equal(
+      useAppSettingsStore.getState().settings.groupsHideIncomplete,
+      true,
+    )
+
+    firstSaveGate.resolve(makeSettings({ groupsHideIncomplete: false }))
+    await firstSavePromise
+    assert.equal(
+      useAppSettingsStore.getState().settings.groupsHideIncomplete,
+      true,
+    )
+    assert.equal(useAppSettingsStore.getState().status, "loaded")
+  })
 })

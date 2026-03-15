@@ -11,8 +11,22 @@ import {
   parseName,
   surnameSortKey,
 } from "@repo-edu/domain"
-import { Button, EmptyState, Input, Text } from "@repo-edu/ui"
-import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  EmptyState,
+  Input,
+  Text,
+} from "@repo-edu/ui"
+import {
+  ArrowUp,
+  ListFilter,
+  Plus,
+  Search,
+} from "@repo-edu/ui/components/icons"
 import {
   type ColumnDef,
   flexRender,
@@ -24,6 +38,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  selectGroupsHideIncomplete,
+  useAppSettingsStore,
+} from "../../../stores/app-settings-store.js"
 import {
   type EditableGroupTarget,
   selectAssignmentsForGroupSet,
@@ -292,6 +310,13 @@ function GroupsTable({
   // Search
   const [globalFilter, setGlobalFilter] = useState("")
 
+  // Filter: hide incomplete groups (persisted)
+  const hideIncomplete = useAppSettingsStore(selectGroupsHideIncomplete)
+  const setGroupsHideIncomplete = useAppSettingsStore(
+    (s) => s.setGroupsHideIncomplete,
+  )
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+
   // Sorting
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -335,6 +360,13 @@ function GroupsTable({
       return { group, members, memberCount: members.length, repoNamePreview }
     })
   }, [groups, memberById, template, effectiveAssignment])
+
+  // Apply incomplete-group filter
+  const filteredRows = useMemo(() => {
+    if (!hideIncomplete || rows.length === 0) return rows
+    const maxSize = Math.max(...rows.map((r) => r.memberCount))
+    return rows.filter((r) => r.memberCount >= maxSize)
+  }, [rows, hideIncomplete])
 
   // Column definitions
   const columns = useMemo<ColumnDef<GroupRow>[]>(
@@ -466,7 +498,7 @@ function GroupsTable({
   )
 
   const table = useReactTable({
-    data: rows,
+    data: filteredRows,
     columns,
     columnResizeMode: "onChange",
     state: {
@@ -530,6 +562,26 @@ function GroupsTable({
                 className="pl-8"
               />
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <ListFilter className="size-4 mr-1" />
+                  Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuCheckboxItem
+                  checked={hideIncomplete}
+                  onCheckedChange={(v) => {
+                    setGroupsHideIncomplete(!!v)
+                    void saveAppSettings()
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Hide incomplete groups
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isSetEditable && (
               <Button
                 size="sm"
@@ -609,7 +661,9 @@ function GroupsTable({
                       >
                         {globalFilter
                           ? "No groups or members match search"
-                          : "No groups"}
+                          : hideIncomplete
+                            ? "No complete groups found"
+                            : "No groups"}
                       </td>
                     </tr>
                   )}
@@ -631,6 +685,11 @@ function GroupsTable({
           </button>
         )}
       </div>
+      {hideIncomplete && (
+        <div className="px-3 py-2 border-t text-sm text-muted-foreground">
+          Showing {filteredRows.length} of {rows.length} groups
+        </div>
+      )}
     </>
   )
 }

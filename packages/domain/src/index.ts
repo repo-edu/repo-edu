@@ -91,6 +91,7 @@ export type PersistedAppSettings = {
   lastOpenedAt: string | null
   rosterColumnVisibility: Record<string, boolean>
   rosterColumnSizing: Record<string, number>
+  groupsHideIncomplete: boolean
 }
 
 export type RosterConnection =
@@ -459,6 +460,7 @@ export const defaultAppSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
+  groupsHideIncomplete: false,
 }
 
 export const SYSTEM_TYPE_INDIVIDUAL_STUDENTS = "individual_students" as const
@@ -2891,6 +2893,7 @@ export const persistedAppSettingsSchema = z.object({
   lastOpenedAt: z.string().nullable(),
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
+  groupsHideIncomplete: z.boolean().default(false),
 })
 
 const memberStatusSchema = z.enum(memberStatusKinds)
