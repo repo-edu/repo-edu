@@ -4,11 +4,11 @@ Repository management for education
 
 Options:
   -V, --version       output the version number
-  --course <name>    Course to use (default: active course)
+  --course <name>     Course to use (default: active course)
   -h, --help          display help for command
 
 Commands:
-  course             Course management
+  course              Course management
   roster              Roster operations
   lms                 LMS operations
   git                 Git platform operations
