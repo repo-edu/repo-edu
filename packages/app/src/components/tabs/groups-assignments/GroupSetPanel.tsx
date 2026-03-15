@@ -323,17 +323,14 @@ function GroupsTable({
           ),
         )
 
-      let repoNamePreview: string | null = null
-      if (effectiveAssignment) {
-        const memberNames = members.map((m) => m.name)
-        const surnames = computeMembersSurnamesSlug(memberNames)
-        repoNamePreview = computeRepoName(
-          template,
-          effectiveAssignment,
-          group,
-          { surnames },
-        )
-      }
+      const memberNames = members.map((m) => m.name)
+      const surnames = computeMembersSurnamesSlug(memberNames)
+      const repoNamePreview = computeRepoName(
+        template,
+        effectiveAssignment,
+        group,
+        { surnames },
+      )
 
       return { group, members, memberCount: members.length, repoNamePreview }
     })

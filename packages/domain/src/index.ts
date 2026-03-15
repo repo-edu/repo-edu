@@ -1524,7 +1524,7 @@ function ensureIndividualStudentsSet(roster: Roster): {
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_INDIVIDUAL_STUDENTS),
       groupSelection: selectionModeAll(),
-      repoNameTemplate: null,
+      repoNameTemplate: "{group}",
     })
     setIndex = roster.groupSets.length - 1
   }
@@ -2298,12 +2298,12 @@ export function slugify(value: string): string {
 
 export function expandTemplate(
   template: string,
-  assignment: Assignment,
+  assignment: Assignment | null,
   group: Group,
   options?: { surnames?: string },
 ): string {
   return template
-    .replaceAll("{assignment}", assignment.name)
+    .replaceAll("{assignment}", assignment?.name ?? "")
     .replaceAll("{group}", group.name)
     .replaceAll("{group_id}", group.id)
     .replaceAll("{initials}", "")
@@ -2312,7 +2312,7 @@ export function expandTemplate(
 
 export function computeRepoName(
   template: string,
-  assignment: Assignment,
+  assignment: Assignment | null,
   group: Group,
   options?: { surnames?: string },
 ): string {
