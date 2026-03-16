@@ -112,7 +112,8 @@ function makeSettings(): PersistedAppSettings {
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
-    groupsHideIncomplete: false,
+    groupsColumnVisibility: {},
+    groupsColumnSizing: {},
   }
 }
 
@@ -1360,10 +1361,6 @@ describe("application repository workflow helpers", () => {
           resolved: [],
           missing: [],
         }),
-        deleteRepositories: async () => ({
-          deletedCount: 0,
-          missing: [],
-        }),
       },
       gitCommand: {
         cancellation: "best-effort",
@@ -1396,7 +1393,7 @@ describe("application repository workflow helpers", () => {
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
   })
 
-  it("filters incomplete groups from repository planning when enabled", async () => {
+  it("filters repository planning to the selected group ids", async () => {
     const course = {
       ...makeProfile(),
       gitConnectionId: "main-git",
@@ -1404,7 +1401,6 @@ describe("application repository workflow helpers", () => {
     }
     const settings = {
       ...makeSettings(),
-      groupsHideIncomplete: true,
       gitConnections: [
         {
           id: "main-git",
@@ -1429,10 +1425,6 @@ describe("application repository workflow helpers", () => {
           resolved: [],
           missing: [],
         }),
-        deleteRepositories: async () => ({
-          deletedCount: 0,
-          missing: [],
-        }),
       },
       gitCommand: {
         cancellation: "best-effort",
@@ -1454,6 +1446,7 @@ describe("application repository workflow helpers", () => {
       appSettings: settings,
       assignmentId: "a1",
       template: null,
+      groupIds: ["g2"],
     })
 
     assert.deepStrictEqual(receivedRequest, {
@@ -1464,7 +1457,7 @@ describe("application repository workflow helpers", () => {
     assert.equal(result.repositoriesPlanned, 1)
   })
 
-  it("clones repositories and requires confirmation for delete", async () => {
+  it("clones repositories from selected group ids", async () => {
     const course = {
       ...makeProfile(),
       gitConnectionId: "main-git",
@@ -1482,8 +1475,6 @@ describe("application repository workflow helpers", () => {
       ],
     }
     const cloneCommands: string[][] = []
-    let deleteRequest: unknown = null
-
     const handlers = createRepositoryWorkflowHandlers({
       git: {
         createRepositories: async () => ({
@@ -1497,13 +1488,6 @@ describe("application repository workflow helpers", () => {
           })),
           missing: [],
         }),
-        deleteRepositories: async (_draft, request) => {
-          deleteRequest = request
-          return {
-            deletedCount: request.repositoryNames.length,
-            missing: [],
-          }
-        },
       },
       gitCommand: {
         cancellation: "best-effort",
@@ -1531,6 +1515,7 @@ describe("application repository workflow helpers", () => {
       template: null,
       targetDirectory: "/work/repos",
       directoryLayout: "flat",
+      groupIds: ["g2"],
     })
     assert.equal(cloneResult.repositoriesPlanned, 1)
     assert.deepStrictEqual(cloneCommands[0], [
@@ -1538,32 +1523,5 @@ describe("application repository workflow helpers", () => {
       "https://x-access-token:token-1@github.com/repo-edu/beta.git",
       "/work/repos/beta",
     ])
-
-    await assert.rejects(
-      handlers["repo.delete"]({
-        course,
-        appSettings: settings,
-        assignmentId: null,
-        template: null,
-      }),
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation",
-    )
-
-    const deleteResult = await handlers["repo.delete"]({
-      course,
-      appSettings: settings,
-      assignmentId: null,
-      template: null,
-      confirmDelete: true,
-    })
-    assert.equal(deleteResult.repositoriesPlanned, 1)
-    assert.deepStrictEqual(deleteRequest, {
-      organization: "repo-edu",
-      repositoryNames: ["beta"],
-    })
   })
 })

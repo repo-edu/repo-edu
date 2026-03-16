@@ -37,7 +37,6 @@ import type {
 import { createGitProviderClient } from "@repo-edu/integrations-git"
 import type {
   CreateRepositoriesRequest,
-  DeleteRepositoriesRequest,
   GitConnectionDraft,
   ResolveRepositoryCloneUrlsRequest,
 } from "@repo-edu/integrations-git-contract"
@@ -171,17 +170,6 @@ function createGitProviderDispatch(http: HttpPort) {
       signal?: AbortSignal,
     ) {
       return resolveClient(draft.provider).resolveRepositoryCloneUrls(
-        draft,
-        request,
-        signal,
-      )
-    },
-    deleteRepositories(
-      draft: GitConnectionDraft,
-      request: DeleteRepositoriesRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).deleteRepositories(
         draft,
         request,
         signal,
@@ -342,9 +330,6 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
     ),
     "repo.clone": createWorkflowSubscriptionProcedure(
       workflowRegistry["repo.clone"],
-    ),
-    "repo.delete": createWorkflowSubscriptionProcedure(
-      workflowRegistry["repo.delete"],
     ),
     "userFile.inspectSelection": createWorkflowSubscriptionProcedure(
       workflowRegistry["userFile.inspectSelection"],

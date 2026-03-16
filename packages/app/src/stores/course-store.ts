@@ -113,6 +113,12 @@ type CourseActions = {
   setRepositoryTemplate: (
     template: PersistedCourse["repositoryTemplate"],
   ) => void
+  setRepositoryCloneTargetDirectory: (
+    targetDirectory: PersistedCourse["repositoryCloneTargetDirectory"],
+  ) => void
+  setRepositoryCloneDirectoryLayout: (
+    layout: PersistedCourse["repositoryCloneDirectoryLayout"],
+  ) => void
   setDisplayName: (name: string) => void
 
   // System sets
@@ -739,6 +745,24 @@ export const useCourseStore = create<CourseState & CourseActions>()(
         markCourseMutated()
       },
 
+      setRepositoryCloneTargetDirectory: (targetDirectory) => {
+        set((draft) => {
+          if (draft.course) {
+            draft.course.repositoryCloneTargetDirectory = targetDirectory
+          }
+        })
+        markCourseMutated()
+      },
+
+      setRepositoryCloneDirectoryLayout: (layout) => {
+        set((draft) => {
+          if (draft.course) {
+            draft.course.repositoryCloneDirectoryLayout = layout
+          }
+        })
+        markCourseMutated()
+      },
+
       setDisplayName: (name) => {
         set((draft) => {
           if (draft.course) draft.course.displayName = name
@@ -957,6 +981,10 @@ export const selectLmsConnectionName = (state: CourseState) =>
   state.course?.lmsConnectionName ?? null
 export const selectRepositoryTemplate = (state: CourseState) =>
   state.course?.repositoryTemplate ?? null
+export const selectRepositoryCloneTargetDirectory = (state: CourseState) =>
+  state.course?.repositoryCloneTargetDirectory ?? null
+export const selectRepositoryCloneDirectoryLayout = (state: CourseState) =>
+  state.course?.repositoryCloneDirectoryLayout ?? null
 
 export const selectSystemSetsReady = (state: CourseState) =>
   state.systemSetsReady

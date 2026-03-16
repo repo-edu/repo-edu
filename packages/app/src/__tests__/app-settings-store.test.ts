@@ -142,21 +142,25 @@ describe("app settings store", () => {
     await useAppSettingsStore.getState().load()
 
     const firstSavePromise = useAppSettingsStore.getState().save()
-    useAppSettingsStore.getState().setGroupsHideIncomplete(true)
+    useAppSettingsStore
+      .getState()
+      .setGroupsColumnVisibility({ repoName: false })
     const secondSavePromise = useAppSettingsStore.getState().save()
 
-    secondSaveGate.resolve(makeSettings({ groupsHideIncomplete: true }))
+    secondSaveGate.resolve(
+      makeSettings({ groupsColumnVisibility: { repoName: false } }),
+    )
     await secondSavePromise
     assert.equal(
-      useAppSettingsStore.getState().settings.groupsHideIncomplete,
-      true,
+      useAppSettingsStore.getState().settings.groupsColumnVisibility.repoName,
+      false,
     )
 
-    firstSaveGate.resolve(makeSettings({ groupsHideIncomplete: false }))
+    firstSaveGate.resolve(makeSettings({ groupsColumnVisibility: {} }))
     await firstSavePromise
     assert.equal(
-      useAppSettingsStore.getState().settings.groupsHideIncomplete,
-      true,
+      useAppSettingsStore.getState().settings.groupsColumnVisibility.repoName,
+      false,
     )
     assert.equal(useAppSettingsStore.getState().status, "loaded")
   })

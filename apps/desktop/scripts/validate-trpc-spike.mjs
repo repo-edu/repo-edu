@@ -181,12 +181,6 @@ async function main() {
       throw new Error("spikeProgressCount was not a positive number.");
     }
 
-    if (marker.repoDeleteErrorType !== "validation") {
-      throw new Error(
-        `unexpected repoDeleteErrorType: ${String(marker.repoDeleteErrorType)}`,
-      );
-    }
-
     const fixtureArtifactsDirectory = join(
       temporaryStorageRoot,
       "fixtures",

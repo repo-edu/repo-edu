@@ -99,12 +99,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
           <Info className="size-4" />
           <span>
             {readyCount} repositor{readyCount === 1 ? "y" : "ies"} will be{" "}
-            {operationSelected === "create"
-              ? "created"
-              : operationSelected === "clone"
-                ? "cloned"
-                : "deleted"}
-            .
+            {operationSelected === "create" ? "created" : "cloned"}.
           </span>
         </div>
 
@@ -112,12 +107,7 @@ export function PreflightDialog({ onContinue }: PreflightDialogProps) {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleContinue}
-            variant={operationSelected === "delete" ? "destructive" : "default"}
-          >
-            Continue
-          </Button>
+          <Button onClick={handleContinue}>Continue</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

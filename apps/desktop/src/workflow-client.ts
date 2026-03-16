@@ -191,8 +191,6 @@ function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> 
       runDesktopWorkflow("repo.create", input, options),
     "repo.clone": (input, options) =>
       runDesktopWorkflow("repo.clone", input, options),
-    "repo.delete": (input, options) =>
-      runDesktopWorkflow("repo.delete", input, options),
     "userFile.inspectSelection": (input, options) =>
       runDesktopWorkflow("userFile.inspectSelection", input, options),
     "userFile.exportPreview": (input, options) =>

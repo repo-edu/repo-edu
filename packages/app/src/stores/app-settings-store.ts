@@ -39,7 +39,8 @@ type AppSettingsActions = {
 
   setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
   setRosterColumnSizing: (sizing: Record<string, number>) => void
-  setGroupsHideIncomplete: (value: boolean) => void
+  setGroupsColumnVisibility: (visibility: Record<string, boolean>) => void
+  setGroupsColumnSizing: (sizing: Record<string, number>) => void
 
   reset: () => void
 }
@@ -226,9 +227,14 @@ export const useAppSettingsStore = create<
         settings: { ...state.settings, rosterColumnSizing: sizing },
       })),
 
-    setGroupsHideIncomplete: (value) =>
+    setGroupsColumnVisibility: (visibility) =>
       set((state) => ({
-        settings: { ...state.settings, groupsHideIncomplete: value },
+        settings: { ...state.settings, groupsColumnVisibility: visibility },
+      })),
+
+    setGroupsColumnSizing: (sizing) =>
+      set((state) => ({
+        settings: { ...state.settings, groupsColumnSizing: sizing },
       })),
 
     reset: () => set(initialState),
@@ -249,7 +255,9 @@ export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
   state.settings.rosterColumnSizing
-export const selectGroupsHideIncomplete = (state: AppSettingsState) =>
-  state.settings.groupsHideIncomplete
+export const selectGroupsColumnVisibility = (state: AppSettingsState) =>
+  state.settings.groupsColumnVisibility
+export const selectGroupsColumnSizing = (state: AppSettingsState) =>
+  state.settings.groupsColumnSizing
 export const selectAppSettingsStatus = (state: AppSettingsState) => state.status
 export const selectAppSettingsError = (state: AppSettingsState) => state.error

@@ -16,7 +16,6 @@ import {
   setWorkflowClient,
 } from "../contexts/workflow-client.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useToastStore } from "../stores/toast-store.js"
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -95,7 +94,6 @@ function makeStudent(id: string, name: string): RosterMember {
 beforeEach(() => {
   clearWorkflowClient()
   useCourseStore.getState().clear()
-  useToastStore.getState().clearToasts()
 })
 
 describe("course store", () => {
@@ -207,7 +205,7 @@ describe("course store", () => {
     assert.equal(renamedGroup?.name, "s.o.s.van.den.berg")
   })
 
-  it("keeps local updates and reports save errors via toast", async () => {
+  it("keeps local updates and reports save errors via sync state", async () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
@@ -226,7 +224,7 @@ describe("course store", () => {
 
     const result = await useCourseStore.getState().save()
     assert.equal(result, false)
-    assert.equal(useToastStore.getState().toasts.length, 1)
-    assert.equal(useToastStore.getState().toasts[0]?.message, "save failed")
+    assert.equal(useCourseStore.getState().syncState, "error")
+    assert.equal(useCourseStore.getState().syncError, "save failed")
   })
 })

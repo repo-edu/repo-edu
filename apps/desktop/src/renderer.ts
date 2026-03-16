@@ -100,19 +100,6 @@ async function collectValidationSnapshot() {
     },
   })
 
-  let repoDeleteErrorType: AppError["type"] | null = null
-  try {
-    await workflowClient.run("repo.delete", {
-      course: loadedCourse,
-      appSettings: loadedSettings,
-      assignmentId: null,
-      template: null,
-      confirmDelete: false,
-    })
-  } catch (error) {
-    repoDeleteErrorType = normalizeAppError(error).type
-  }
-
   return {
     environmentShell: environmentSnapshot.shell,
     environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
@@ -131,7 +118,6 @@ async function collectValidationSnapshot() {
     ),
     spikeWorkflowId: spike.workflowId,
     spikeProgressCount: spikeProgressLabels.length,
-    repoDeleteErrorType,
   }
 }
 

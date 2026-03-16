@@ -16,6 +16,8 @@ type SidebarSelection = {
   id: string
 } | null
 
+type GroupOperationSection = "create" | "clone" | null
+
 type SettingsCategory =
   | "lms-connections"
   | "git-connections"
@@ -67,6 +69,8 @@ type UiState = {
   sidebarSelection: SidebarSelection
   selectedAssignmentIdByGroupSet: Record<string, string | null>
   groupSetOperation: GroupSetOperationState | null
+  groupCountFilterByGroupSet: Record<string, Record<string, boolean>>
+  groupOperationSectionByGroupSet: Record<string, GroupOperationSection>
 
   // Sidebar action triggers
   renameGroupSetTriggerId: string | null
@@ -116,6 +120,14 @@ type UiActions = {
     assignmentId: string | null,
   ) => void
   setGroupSetOperation: (op: GroupSetOperationState | null) => void
+  setGroupCountFilter: (
+    groupSetId: string,
+    filter: Record<string, boolean>,
+  ) => void
+  setGroupOperationSection: (
+    groupSetId: string,
+    section: GroupOperationSection,
+  ) => void
 
   setRenameGroupSetTriggerId: (id: string | null) => void
   setExportGroupSetTriggerId: (id: string | null) => void
@@ -162,6 +174,8 @@ const initialState: UiState = {
   sidebarSelection: null,
   selectedAssignmentIdByGroupSet: {},
   groupSetOperation: null,
+  groupCountFilterByGroupSet: {},
+  groupOperationSectionByGroupSet: {},
 
   renameGroupSetTriggerId: null,
   exportGroupSetTriggerId: null,
@@ -288,6 +302,32 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
         return state
       }
       return { groupSetOperation: op }
+    }),
+  setGroupCountFilter: (groupSetId, filter) =>
+    set((state) => {
+      const current = state.groupCountFilterByGroupSet[groupSetId]
+      if (current === filter) {
+        return state
+      }
+      return {
+        groupCountFilterByGroupSet: {
+          ...state.groupCountFilterByGroupSet,
+          [groupSetId]: filter,
+        },
+      }
+    }),
+  setGroupOperationSection: (groupSetId, section) =>
+    set((state) => {
+      const current = state.groupOperationSectionByGroupSet[groupSetId] ?? null
+      if (current === section) {
+        return state
+      }
+      return {
+        groupOperationSectionByGroupSet: {
+          ...state.groupOperationSectionByGroupSet,
+          [groupSetId]: section,
+        },
+      }
     }),
 
   setRenameGroupSetTriggerId: (id) =>

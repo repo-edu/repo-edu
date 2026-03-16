@@ -19,11 +19,6 @@ type RepoCloneOptions = {
   layout?: "flat" | "by-team" | "by-task"
 }
 
-type RepoDeleteOptions = {
-  assignment: string
-  force?: boolean
-}
-
 function printRepositoryPlan(
   assignmentName: string,
   assignmentId: string,
@@ -146,46 +141,6 @@ export function registerRepoCommands(parent: Command): void {
 
         process.stdout.write(
           `Repository clone complete: planned=${result.repositoriesPlanned} completedAt=${result.completedAt}\n`,
-        )
-      } catch (error) {
-        emitCommandError(toErrorMessage(error))
-      }
-    })
-
-  repo
-    .command("delete")
-    .description("Delete repositories")
-    .requiredOption("--assignment <name>", "Assignment name or id")
-    .option("--force", "Execute delete without interactive confirmation")
-    .action(async function (this: Command, options: RepoDeleteOptions) {
-      const workflowClient = createCliWorkflowClient()
-
-      try {
-        const { course, settings } = await loadSelectedCourse(
-          this,
-          workflowClient,
-        )
-        const assignment = resolveAssignmentFromCourse(
-          course,
-          options.assignment,
-        )
-
-        if (!assignment) {
-          throw new Error(
-            `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
-          )
-        }
-
-        const result = await workflowClient.run("repo.delete", {
-          course,
-          appSettings: settings,
-          assignmentId: assignment.id,
-          template: course.repositoryTemplate,
-          confirmDelete: options.force === true,
-        })
-
-        process.stdout.write(
-          `Repository delete complete: planned=${result.repositoriesPlanned} completedAt=${result.completedAt}\n`,
         )
       } catch (error) {
         emitCommandError(toErrorMessage(error))

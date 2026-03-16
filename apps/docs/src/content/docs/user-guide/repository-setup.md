@@ -1,6 +1,6 @@
 ---
 title: Repository Setup
-description: Plan, validate, create, clone, and delete repositories
+description: Plan, validate, create, and clone repositories
 ---
 
 ## Required course state
@@ -33,10 +33,4 @@ node apps/cli/dist/index.js repo create --assignment <assignment-name> --dry-run
 
 ```bash
 node apps/cli/dist/index.js repo clone --assignment <assignment-name> --target ./repos --layout by-team --course <course-id>
-```
-
-## Delete repositories
-
-```bash
-node apps/cli/dist/index.js repo delete --assignment <assignment-name> --force --course <course-id>
 ```

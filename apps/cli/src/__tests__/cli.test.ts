@@ -204,7 +204,8 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
-    groupsHideIncomplete: false,
+    groupsColumnVisibility: {},
+    groupsColumnSizing: {},
   }
 }
 
@@ -405,25 +406,6 @@ describe("CLI workflow-backed behaviors", () => {
       assert.equal(result.exitCode, 1)
       assert.match(result.stdout, /Validation found/)
       assert.match(result.stdout, /missing_email/)
-    })
-  })
-
-  it("repo delete enforces explicit confirmation via workflow", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = makeProfile()
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli([
-        "repo",
-        "delete",
-        "--assignment",
-        "Project 1",
-      ])
-      assert.equal(result.exitCode, 1)
-      assert.match(result.stderr, /explicit confirmation/)
     })
   })
 

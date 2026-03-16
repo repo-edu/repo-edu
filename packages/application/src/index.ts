@@ -1981,7 +1981,7 @@ export function createGitUsernameWorkflowHandlers(
 export type RepositoryWorkflowPorts = {
   git: Pick<
     GitProviderClient,
-    "createRepositories" | "resolveRepositoryCloneUrls" | "deleteRepositories"
+    "createRepositories" | "resolveRepositoryCloneUrls"
   >
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
@@ -1989,13 +1989,14 @@ export type RepositoryWorkflowPorts = {
 
 function collectRepositoryGroups(
   course: PersistedCourse,
-  appSettings: PersistedAppSettings,
   assignmentId: string | null,
+  groupIds?: readonly string[],
 ): ValidationResult<PlannedRepositoryGroup[]> {
   const assignmentIds =
     assignmentId === null
       ? course.roster.assignments.map((assignment) => assignment.id)
       : [assignmentId]
+  const selectedGroupIds = groupIds ? new Set(groupIds) : null
 
   const plannedGroups: PlannedRepositoryGroup[] = []
   for (const selectedAssignmentId of assignmentIds) {
@@ -2003,9 +2004,12 @@ function collectRepositoryGroups(
     if (!plan.ok) {
       return plan
     }
-    const groups = appSettings.groupsHideIncomplete
-      ? filterCompleteGroups(plan.value.groups)
-      : plan.value.groups
+    const groups =
+      selectedGroupIds === null
+        ? plan.value.groups
+        : plan.value.groups.filter((group) =>
+            selectedGroupIds.has(group.groupId),
+          )
     plannedGroups.push(...groups)
   }
 
@@ -2013,18 +2017,6 @@ function collectRepositoryGroups(
     ok: true,
     value: plannedGroups,
   }
-}
-
-function filterCompleteGroups(
-  groups: readonly PlannedRepositoryGroup[],
-): PlannedRepositoryGroup[] {
-  if (groups.length === 0) {
-    return []
-  }
-  const maxMembers = Math.max(
-    ...groups.map((group) => group.activeMemberIds.length),
-  )
-  return groups.filter((group) => group.activeMemberIds.length >= maxMembers)
 }
 
 function uniqueRepositoryNames(
@@ -2096,7 +2088,7 @@ function repositoryClonePath(
 
 function requireGitOrganization(
   course: PersistedCourse,
-  operation: "repo.create" | "repo.clone" | "repo.delete",
+  operation: "repo.create" | "repo.clone",
 ): string {
   if (course.organization === null || course.organization.trim() === "") {
     throw createValidationAppError(
@@ -2135,8 +2127,8 @@ function normalizeRepositoryExecutionError(
 export function createRepositoryWorkflowHandlers(
   ports: RepositoryWorkflowPorts,
 ): Pick<
-  WorkflowHandlerMap<"repo.create" | "repo.clone" | "repo.delete">,
-  "repo.create" | "repo.clone" | "repo.delete"
+  WorkflowHandlerMap<"repo.create" | "repo.clone">,
+  "repo.create" | "repo.clone"
 > {
   return {
     "repo.create": async (
@@ -2174,8 +2166,8 @@ export function createRepositoryWorkflowHandlers(
         })
         const planned = collectRepositoryGroups(
           course,
-          settings,
           input.assignmentId,
+          input.groupIds,
         )
         if (!planned.ok) {
           throw createValidationAppError(
@@ -2260,8 +2252,8 @@ export function createRepositoryWorkflowHandlers(
         })
         const planned = collectRepositoryGroups(
           course,
-          settings,
           input.assignmentId,
+          input.groupIds,
         )
         if (!planned.ok) {
           throw createValidationAppError(
@@ -2416,103 +2408,6 @@ export function createRepositoryWorkflowHandlers(
           error,
           providerForError,
           "resolveRepositoryCloneUrls",
-        )
-      }
-    },
-    "repo.delete": async (
-      input: RepositoryBatchInput,
-      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-    ): Promise<RepositoryBatchResult> => {
-      const totalSteps = 4
-      let providerForError: VerifyGitDraftInput["provider"] = "github"
-
-      try {
-        if (input.confirmDelete !== true) {
-          throw createValidationAppError(
-            "Repository delete requires explicit confirmation.",
-            [
-              {
-                path: "confirmDelete",
-                message: "Set confirmDelete=true to execute repo.delete.",
-              },
-            ],
-          )
-        }
-
-        throwIfAborted(options?.signal)
-        options?.onProgress?.({
-          step: 1,
-          totalSteps,
-          label: "Reading course and app settings snapshots.",
-        })
-        const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
-        throwIfAborted(options?.signal)
-        const gitDraft = resolveGitDraft(course, settings)
-        if (gitDraft === null) {
-          throw {
-            type: "not-found",
-            message: "Course does not reference a Git connection.",
-            resource: "connection",
-          } satisfies AppError
-        }
-        providerForError = gitDraft.provider
-        const organization = requireGitOrganization(course, "repo.delete")
-
-        options?.onProgress?.({
-          step: 2,
-          totalSteps,
-          label: "Planning repositories from roster assignments.",
-        })
-        const planned = collectRepositoryGroups(
-          course,
-          settings,
-          input.assignmentId,
-        )
-        if (!planned.ok) {
-          throw createValidationAppError(
-            "Repository planning failed.",
-            planned.issues,
-          )
-        }
-        const repositoryNames = uniqueRepositoryNames(planned.value)
-
-        options?.onProgress?.({
-          step: 3,
-          totalSteps,
-          label: "Deleting repositories through Git provider client.",
-        })
-        const deleted = await ports.git.deleteRepositories(
-          gitDraft,
-          {
-            organization,
-            repositoryNames,
-          },
-          options?.signal,
-        )
-        options?.onOutput?.({
-          channel: "info",
-          message: `Repository delete summary: requested ${repositoryNames.length}, deleted ${deleted.deletedCount}, missing ${deleted.missing.length}.`,
-        })
-
-        throwIfAborted(options?.signal)
-        options?.onProgress?.({
-          step: 4,
-          totalSteps,
-          label: "Repository delete workflow complete.",
-        })
-        return {
-          repositoriesPlanned: planned.value.length,
-          completedAt: new Date().toISOString(),
-        }
-      } catch (error) {
-        if (isSharedAppError(error)) {
-          throw error
-        }
-        throw normalizeProviderError(
-          error,
-          providerForError,
-          "deleteRepositories",
         )
       }
     },

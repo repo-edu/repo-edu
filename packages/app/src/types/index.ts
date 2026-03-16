@@ -1,6 +1,6 @@
 import type { RosterValidationKind } from "@repo-edu/domain"
 
-export type ActiveTab = "roster" | "groups-assignments" | "operation"
+export type ActiveTab = "roster" | "groups-assignments"
 
 export type ConnectionStatus =
   | "disconnected"

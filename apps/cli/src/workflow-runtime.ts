@@ -24,7 +24,6 @@ import type {
 import { createGitProviderClient } from "@repo-edu/integrations-git"
 import type {
   CreateRepositoriesRequest,
-  DeleteRepositoriesRequest,
   GitConnectionDraft,
   ResolveRepositoryCloneUrlsRequest,
 } from "@repo-edu/integrations-git-contract"
@@ -165,17 +164,6 @@ function createGitProviderDispatch() {
       signal?: AbortSignal,
     ) {
       return resolveClient(draft.provider).resolveRepositoryCloneUrls(
-        draft,
-        request,
-        signal,
-      )
-    },
-    deleteRepositories(
-      draft: GitConnectionDraft,
-      request: DeleteRepositoriesRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).deleteRepositories(
         draft,
         request,
         signal,

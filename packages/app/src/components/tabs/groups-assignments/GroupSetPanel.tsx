@@ -1,3 +1,4 @@
+import type { RepositoryBatchResult } from "@repo-edu/application-contract"
 import type {
   Assignment,
   Group,
@@ -13,17 +14,27 @@ import {
 } from "@repo-edu/domain"
 import {
   Button,
+  Checkbox,
+  Collapsible,
+  CollapsibleContent,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
   EmptyState,
   Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Text,
 } from "@repo-edu/ui"
 import {
   ArrowUp,
-  ListFilter,
+  ChevronDown,
+  Loader2,
   Plus,
   Search,
 } from "@repo-edu/ui/components/icons"
@@ -33,24 +44,35 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  type RowSelectionState,
   type SortingState,
   type Updater,
   useReactTable,
+  type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  selectGroupsHideIncomplete,
-  useAppSettingsStore,
-} from "../../../stores/app-settings-store.js"
+import { getWorkflowClient } from "../../../contexts/workflow-client.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
   type EditableGroupTarget,
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
+  selectGitConnectionId,
   selectGroupSetById,
   selectGroupsForGroupSet,
+  selectOrganization,
+  selectRepositoryCloneDirectoryLayout,
+  selectRepositoryCloneTargetDirectory,
+  selectRepositoryTemplate,
   useCourseStore,
 } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
+import { getErrorMessage } from "../../../utils/error-message.js"
+import {
+  buildRepositoryWorkflowRequest,
+  type CloneDirectoryLayout,
+  type RepositoryOperationMode,
+} from "../../../utils/repository-workflow.js"
 import {
   chainComparisons,
   compareNullableText,
@@ -68,12 +90,14 @@ import { RepoNameTemplateBuilder } from "./RepoNameTemplateBuilder.js"
 /** Minimum scroll fraction before the back-to-top button appears. */
 const SCROLL_TOP_THRESHOLD = 0.15
 const GROUPS_COLUMN_WIDTHS = {
-  group: 170,
-  members: 470,
+  select: 40,
+  group: 150,
+  members: 450,
   memberCount: 60,
   repoName: 300,
 } as const
 const GROUPS_COLUMN_MIN_WIDTHS = {
+  select: 36,
   group: 100,
   members: 200,
   memberCount: 40,
@@ -273,6 +297,49 @@ function GroupsTable({
   template: string
   effectiveAssignment: Assignment | null
 }) {
+  const course = useCourseStore((s) => s.course)
+  const gitConnectionId = useCourseStore(selectGitConnectionId)
+  const organization = useCourseStore(selectOrganization)
+  const setOrganization = useCourseStore((s) => s.setOrganization)
+  const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
+  const setRepositoryTemplate = useCourseStore((s) => s.setRepositoryTemplate)
+  const repositoryCloneTargetDirectory = useCourseStore(
+    selectRepositoryCloneTargetDirectory,
+  )
+  const setRepositoryCloneTargetDirectory = useCourseStore(
+    (s) => s.setRepositoryCloneTargetDirectory,
+  )
+  const repositoryCloneDirectoryLayout = useCourseStore(
+    selectRepositoryCloneDirectoryLayout,
+  )
+  const setRepositoryCloneDirectoryLayout = useCourseStore(
+    (s) => s.setRepositoryCloneDirectoryLayout,
+  )
+
+  const appSettings = useAppSettingsStore((s) => s.settings)
+  const groupsColumnVisibility = useAppSettingsStore(
+    (s) => s.settings.groupsColumnVisibility,
+  )
+  const setGroupsColumnVisibility = useAppSettingsStore(
+    (s) => s.setGroupsColumnVisibility,
+  )
+  const groupsColumnSizing = useAppSettingsStore(
+    (s) => s.settings.groupsColumnSizing,
+  )
+  const setGroupsColumnSizing = useAppSettingsStore(
+    (s) => s.setGroupsColumnSizing,
+  )
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+
+  const groupCountFilterByGroupSet = useUiStore(
+    (s) => s.groupCountFilterByGroupSet,
+  )
+  const setGroupCountFilter = useUiStore((s) => s.setGroupCountFilter)
+  const groupOperationSectionByGroupSet = useUiStore(
+    (s) => s.groupOperationSectionByGroupSet,
+  )
+  const setGroupOperationSection = useUiStore((s) => s.setGroupOperationSection)
+
   const updateGroup = useCourseStore((s) => s.updateGroup)
   const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
   const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
@@ -310,15 +377,19 @@ function GroupsTable({
   // Search
   const [globalFilter, setGlobalFilter] = useState("")
 
-  // Filter: hide incomplete groups (persisted)
-  const hideIncomplete = useAppSettingsStore(selectGroupsHideIncomplete)
-  const setGroupsHideIncomplete = useAppSettingsStore(
-    (s) => s.setGroupsHideIncomplete,
-  )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-
   // Sorting
   const [sorting, setSorting] = useState<SortingState>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [operationStatus, setOperationStatus] = useState<
+    "idle" | "running" | "success" | "error"
+  >("idle")
+  const [runningOperation, setRunningOperation] =
+    useState<RepositoryOperationMode | null>(null)
+  const [operationError, setOperationError] = useState<string | null>(null)
+  const [lastResult, setLastResult] = useState<{
+    operation: RepositoryOperationMode
+    result: RepositoryBatchResult
+  } | null>(null)
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -361,16 +432,90 @@ function GroupsTable({
     })
   }, [groups, memberById, template, effectiveAssignment])
 
-  // Apply incomplete-group filter
+  const memberCountValues = useMemo(
+    () =>
+      Array.from(new Set(rows.map((row) => row.memberCount))).sort(
+        (a, b) => a - b,
+      ),
+    [rows],
+  )
+  const rawCountFilter = groupCountFilterByGroupSet[groupSetId] ?? {}
+  const countFilter = useMemo(() => {
+    const next: Record<string, boolean> = {}
+    for (const value of memberCountValues) {
+      const key = String(value)
+      next[key] = rawCountFilter[key] ?? true
+    }
+    return next
+  }, [memberCountValues, rawCountFilter])
+
+  useEffect(() => {
+    if (memberCountValues.length === 0) {
+      return
+    }
+    const hasMissingValue = memberCountValues.some(
+      (value) => rawCountFilter[String(value)] === undefined,
+    )
+    if (!hasMissingValue) {
+      return
+    }
+    setGroupCountFilter(groupSetId, countFilter)
+  }, [
+    countFilter,
+    groupSetId,
+    memberCountValues,
+    rawCountFilter,
+    setGroupCountFilter,
+  ])
+
+  // Apply member-count filter.
   const filteredRows = useMemo(() => {
-    if (!hideIncomplete || rows.length === 0) return rows
-    const maxSize = Math.max(...rows.map((r) => r.memberCount))
-    return rows.filter((r) => r.memberCount >= maxSize)
-  }, [rows, hideIncomplete])
+    return rows.filter((row) => countFilter[String(row.memberCount)] ?? true)
+  }, [countFilter, rows])
 
   // Column definitions
   const columns = useMemo<ColumnDef<GroupRow>[]>(
     () => [
+      {
+        id: "select",
+        size: GROUPS_COLUMN_WIDTHS.select,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.select,
+        enableSorting: false,
+        accessorFn: (row) => row.group.id,
+        header: ({ table }) => {
+          const visibleRows = table.getFilteredRowModel().rows
+          const selectedVisible = visibleRows.filter((row) =>
+            row.getIsSelected(),
+          ).length
+          const allSelected =
+            visibleRows.length > 0 && selectedVisible === visibleRows.length
+          const someSelected = selectedVisible > 0 && !allSelected
+
+          return (
+            <Checkbox
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
+              onCheckedChange={(checked) => {
+                const nextSelected = checked === true
+                for (const row of visibleRows) {
+                  row.toggleSelected(nextSelected)
+                }
+              }}
+              aria-label="Select all visible groups"
+              size="sm"
+            />
+          )
+        },
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+            aria-label={`Select group ${row.original.group.name}`}
+            size="sm"
+          />
+        ),
+      },
       {
         id: "name",
         size: GROUPS_COLUMN_WIDTHS.group,
@@ -378,7 +523,7 @@ function GroupsTable({
         accessorFn: (row) => row.group.name,
         header: ({ column }) => (
           <SortHeaderButton
-            label="Group"
+            label="Group Name"
             canSort={column.getCanSort()}
             sorted={column.getIsSorted()}
             onToggle={() => handleSort(column.id)}
@@ -413,24 +558,6 @@ function GroupsTable({
           <span className="block text-sm text-muted-foreground">
             {insertWordBreaks(row.original.repoNamePreview ?? "")}
           </span>
-        ),
-      },
-      {
-        id: "memberCount",
-        size: GROUPS_COLUMN_WIDTHS.memberCount,
-        minSize: GROUPS_COLUMN_MIN_WIDTHS.memberCount,
-        accessorFn: (row) => row.memberCount,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="#"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => handleSort(column.id)}
-          />
-        ),
-        sortingFn: compareGroupRowsByMemberCount,
-        cell: ({ row }) => (
-          <span className="text-sm">{row.original.memberCount}</span>
         ),
       },
       {
@@ -481,6 +608,24 @@ function GroupsTable({
           )
         },
       },
+      {
+        id: "memberCount",
+        size: GROUPS_COLUMN_WIDTHS.memberCount,
+        minSize: GROUPS_COLUMN_MIN_WIDTHS.memberCount,
+        accessorFn: (row) => row.memberCount,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="#"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => handleSort(column.id)}
+          />
+        ),
+        sortingFn: compareGroupRowsByMemberCount,
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.memberCount}</span>
+        ),
+      },
     ],
     [
       groupSetId,
@@ -504,9 +649,28 @@ function GroupsTable({
     state: {
       sorting,
       globalFilter,
+      rowSelection,
+      columnVisibility: groupsColumnVisibility,
+      columnSizing: groupsColumnSizing,
     },
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    onColumnSizingChange: (updater) => {
+      const next =
+        typeof updater === "function" ? updater(groupsColumnSizing) : updater
+      setGroupsColumnSizing(next)
+    },
+    onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
+      const next =
+        typeof updater === "function"
+          ? updater(groupsColumnVisibility)
+          : updater
+      setGroupsColumnVisibility(next)
+      void saveAppSettings()
+    },
+    enableRowSelection: true,
+    getRowId: (row) => row.group.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -522,9 +686,124 @@ function GroupsTable({
       )
     },
   })
+
+  useEffect(() => {
+    const validGroupIds = new Set(rows.map((row) => row.group.id))
+    setRowSelection((current) => {
+      const next: RowSelectionState = {}
+      let changed = false
+      for (const [groupId, selected] of Object.entries(current)) {
+        if (!validGroupIds.has(groupId)) {
+          changed = true
+          continue
+        }
+        next[groupId] = selected
+      }
+      for (const row of rows) {
+        if (next[row.group.id] === undefined) {
+          next[row.group.id] = true
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [rows])
+
   const totalColumnSize = table.getTotalSize()
   const toColumnWidth = (size: number): string | undefined =>
     totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
+  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
+  const prevIsResizingRef = useRef<string | false>(false)
+
+  useEffect(() => {
+    const wasResizing = prevIsResizingRef.current
+    prevIsResizingRef.current = isResizingColumn
+    if (wasResizing && !isResizingColumn) {
+      void saveAppSettings()
+    }
+  }, [isResizingColumn, saveAppSettings])
+
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedGroupIds = selectedRows.map((row) => row.original.group.id)
+  const selectedNonEmptyCount = selectedRows.filter(
+    (row) => row.original.memberCount > 0,
+  ).length
+  const selectedEmptyCount = selectedRows.length - selectedNonEmptyCount
+  const showingCount = table.getFilteredRowModel().rows.length
+  const openSection = groupOperationSectionByGroupSet[groupSetId] ?? null
+  const cloneTargetDirectory = repositoryCloneTargetDirectory ?? ""
+  const cloneDirectoryLayout = (repositoryCloneDirectoryLayout ??
+    "flat") as CloneDirectoryLayout
+  const templateOwner = repositoryTemplate?.owner ?? ""
+  const templateVisibility = repositoryTemplate?.visibility ?? "private"
+  const effectiveAssignmentId = effectiveAssignment?.id ?? null
+  const isRunning = operationStatus === "running"
+  const hasBaseOperationInputs =
+    !disabled &&
+    !isRunning &&
+    effectiveAssignmentId !== null &&
+    gitConnectionId !== null &&
+    selectedNonEmptyCount > 0
+
+  const setTemplateOwner = useCallback(
+    (owner: string) => {
+      setRepositoryTemplate({
+        owner,
+        name: repositoryTemplate?.name ?? "",
+        visibility: templateVisibility,
+      })
+    },
+    [repositoryTemplate, setRepositoryTemplate, templateVisibility],
+  )
+
+  const handleRunOperation = useCallback(
+    async (operation: RepositoryOperationMode) => {
+      if (!course || !effectiveAssignmentId) {
+        return
+      }
+
+      setOperationStatus("running")
+      setRunningOperation(operation)
+      setOperationError(null)
+      setLastResult(null)
+
+      const { workflowId, input } = buildRepositoryWorkflowRequest({
+        course,
+        appSettings,
+        assignmentId: effectiveAssignmentId,
+        operation,
+        repositoryTemplate,
+        targetDirectory: cloneTargetDirectory,
+        directoryLayout: cloneDirectoryLayout,
+        groupIds: selectedGroupIds,
+      })
+
+      try {
+        const client = getWorkflowClient()
+        const result = await client.run(workflowId, input)
+        setOperationStatus("success")
+        setLastResult({ operation, result })
+      } catch (error) {
+        setOperationStatus("error")
+        setOperationError(getErrorMessage(error))
+      } finally {
+        setRunningOperation(null)
+      }
+    },
+    [
+      appSettings,
+      cloneDirectoryLayout,
+      cloneTargetDirectory,
+      course,
+      effectiveAssignmentId,
+      repositoryTemplate,
+      selectedGroupIds,
+    ],
+  )
+
+  const hideableColumns = table
+    .getAllLeafColumns()
+    .filter((column) => column.getCanHide())
 
   // Empty state
   if (groups.length === 0) {
@@ -545,13 +824,211 @@ function GroupsTable({
 
   return (
     <>
-      {/* Scrollable area: search, table */}
+      {/* Scrollable area: operation controls, header, search, table */}
       <div className="flex-1 min-h-0 relative pb-3">
         <div ref={scrollRef} className="h-full overflow-y-auto">
+          <div className="px-3 py-2 space-y-2 border-b">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={openSection === "create" ? "default" : "outline"}
+                disabled={disabled}
+                onClick={() =>
+                  setGroupOperationSection(
+                    groupSetId,
+                    openSection === "create" ? null : "create",
+                  )
+                }
+              >
+                Create Repos
+                <ChevronDown
+                  className={`ml-1 size-4 transition-transform ${
+                    openSection === "create" ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+              <Button
+                size="sm"
+                variant={openSection === "clone" ? "default" : "outline"}
+                disabled={disabled}
+                onClick={() =>
+                  setGroupOperationSection(
+                    groupSetId,
+                    openSection === "clone" ? null : "clone",
+                  )
+                }
+              >
+                Clone Repos
+                <ChevronDown
+                  className={`ml-1 size-4 transition-transform ${
+                    openSection === "clone" ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+            </div>
+
+            <Collapsible open={openSection === "create"}>
+              <CollapsibleContent>
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="group-set-create-organization">
+                        Organization
+                      </Label>
+                      <Input
+                        id="group-set-create-organization"
+                        value={organization ?? ""}
+                        onChange={(event) =>
+                          setOrganization(event.target.value || null)
+                        }
+                        placeholder="e.g., course-org"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="group-set-create-template-owner">
+                        Template Org
+                      </Label>
+                      <Input
+                        id="group-set-create-template-owner"
+                        value={templateOwner}
+                        onChange={(event) =>
+                          setTemplateOwner(event.target.value)
+                        }
+                        placeholder="e.g., template-org"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void handleRunOperation("create")}
+                      disabled={!hasBaseOperationInputs}
+                    >
+                      {runningOperation === "create" ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Running...
+                        </>
+                      ) : (
+                        "Create Repos"
+                      )}
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      Will create {selectedNonEmptyCount} repositor
+                      {selectedNonEmptyCount === 1 ? "y" : "ies"}.
+                      {selectedEmptyCount > 0 && (
+                        <span className="ml-1">
+                          {selectedEmptyCount} empty group
+                          {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Collapsible open={openSection === "clone"}>
+              <CollapsibleContent>
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                    <div className="space-y-1 md:flex-1">
+                      <Label htmlFor="group-set-clone-target-folder">
+                        Target Folder
+                      </Label>
+                      <Input
+                        id="group-set-clone-target-folder"
+                        value={cloneTargetDirectory}
+                        onChange={(event) =>
+                          setRepositoryCloneTargetDirectory(
+                            event.target.value || null,
+                          )
+                        }
+                        placeholder="e.g., ~/repos/course"
+                      />
+                    </div>
+                    <div className="space-y-1 md:ml-auto md:shrink-0">
+                      <Label htmlFor="group-set-clone-layout">
+                        Directory Layout
+                      </Label>
+                      <Select
+                        value={cloneDirectoryLayout}
+                        onValueChange={(value) =>
+                          setRepositoryCloneDirectoryLayout(
+                            value as CloneDirectoryLayout,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          id="group-set-clone-layout"
+                          className="w-full md:w-[16ch]"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="w-[16ch] min-w-[16ch]">
+                          <SelectItem value="flat">Flat</SelectItem>
+                          <SelectItem value="by-team">By Team</SelectItem>
+                          <SelectItem value="by-task">By Assignment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void handleRunOperation("clone")}
+                      disabled={
+                        !hasBaseOperationInputs ||
+                        cloneTargetDirectory.trim().length === 0
+                      }
+                    >
+                      {runningOperation === "clone" ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Running...
+                        </>
+                      ) : (
+                        "Clone Repos"
+                      )}
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      Will clone {selectedNonEmptyCount} repositor
+                      {selectedNonEmptyCount === 1 ? "y" : "ies"}.
+                      {selectedEmptyCount > 0 && (
+                        <span className="ml-1">
+                          {selectedEmptyCount} empty group
+                          {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {gitConnectionId === null && (
+              <p className="text-sm text-destructive">
+                Configure a Git connection for this course before running
+                repository operations.
+              </p>
+            )}
+            {operationError && (
+              <p className="text-sm text-destructive">{operationError}</p>
+            )}
+            {lastResult && (
+              <p className="text-sm text-muted-foreground">
+                {lastResult.result.repositoriesPlanned} repositor
+                {lastResult.result.repositoriesPlanned === 1 ? "y" : "ies"}{" "}
+                {lastResult.operation === "create" ? "created" : "cloned"} at{" "}
+                {new Date(lastResult.result.completedAt).toLocaleTimeString()}.
+              </p>
+            )}
+          </div>
+
           {/* Template + Assignments (scrolls away) */}
           {headerContent}
 
-          {/* Search + Add Group */}
+          {/* Search + actions */}
           <div className="flex items-center gap-2 px-3 py-2">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 size-4" />
@@ -562,26 +1039,6 @@ function GroupsTable({
                 className="pl-8"
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <ListFilter className="size-4 mr-1" />
-                  Filter
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuCheckboxItem
-                  checked={hideIncomplete}
-                  onCheckedChange={(v) => {
-                    setGroupsHideIncomplete(!!v)
-                    void saveAppSettings()
-                  }}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  Hide incomplete groups
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             {isSetEditable && (
               <Button
                 size="sm"
@@ -593,6 +1050,57 @@ function GroupsTable({
                 Add Group
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  # Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {memberCountValues.length === 0 && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    No groups
+                  </div>
+                )}
+                {memberCountValues.map((value) => {
+                  const key = String(value)
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={key}
+                      checked={countFilter[key] ?? true}
+                      onCheckedChange={(checked) => {
+                        setGroupCountFilter(groupSetId, {
+                          ...countFilter,
+                          [key]: checked === true,
+                        })
+                      }}
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hideableColumns.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={() => column.toggleVisibility()}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {groupColumnLabel(column.id)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Groups table */}
@@ -661,9 +1169,7 @@ function GroupsTable({
                       >
                         {globalFilter
                           ? "No groups or members match search"
-                          : hideIncomplete
-                            ? "No complete groups found"
-                            : "No groups"}
+                          : "No groups match the selected filters"}
                       </td>
                     </tr>
                   )}
@@ -685,9 +1191,10 @@ function GroupsTable({
           </button>
         )}
       </div>
-      {hideIncomplete && (
+      {showingCount < rows.length && (
         <div className="px-3 py-2 border-t text-sm text-muted-foreground">
-          Showing {filteredRows.length} of {rows.length} groups
+          Showing {showingCount} of {rows.length} groups · {selectedRows.length}{" "}
+          selected
         </div>
       )}
     </>
@@ -713,6 +1220,17 @@ function insertWordBreaks(text: string): React.ReactNode {
       part
     ),
   )
+}
+
+function groupColumnLabel(columnId: string): string {
+  const labels: Record<string, string> = {
+    select: "Selection",
+    name: "Group Name",
+    members: "Members",
+    memberCount: "#",
+    repoName: "Repo Name",
+  }
+  return labels[columnId] ?? columnId
 }
 
 // ---------------------------------------------------------------------------

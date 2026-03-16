@@ -297,7 +297,7 @@ export type RepositoryBatchInput = {
   template: RepositoryTemplate | null
   targetDirectory?: string
   directoryLayout?: "flat" | "by-team" | "by-task"
-  confirmDelete?: boolean
+  groupIds?: string[]
 }
 
 export type RepositoryBatchResult = {
@@ -482,12 +482,6 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: RepositoryBatchResult
   }
-  "repo.delete": {
-    input: RepositoryBatchInput
-    progress: MilestoneProgress
-    output: DiagnosticOutput
-    result: RepositoryBatchResult
-  }
   "userFile.inspectSelection": {
     input: UserFileRef
     progress: MilestoneProgress
@@ -632,11 +626,6 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "repo.clone": {
-    delivery: ["desktop", "docs", "cli"],
-    progress: "milestone",
-    cancellation: "best-effort",
-  },
-  "repo.delete": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",

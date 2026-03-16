@@ -53,25 +53,24 @@ const appSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
-  groupsHideIncomplete: false,
+  groupsColumnVisibility: {},
+  groupsColumnSizing: {},
 }
 
 describe("repository workflow helpers", () => {
   it("maps each operation to the correct workflow id", () => {
     assert.equal(resolveRepositoryWorkflowId("create"), "repo.create")
     assert.equal(resolveRepositoryWorkflowId("clone"), "repo.clone")
-    assert.equal(resolveRepositoryWorkflowId("delete"), "repo.delete")
   })
 
-  it("builds create input without clone/delete-only fields", () => {
+  it("builds create input without clone-only fields", () => {
     const result = buildRepositoryWorkflowRequest({
       course,
       appSettings,
       assignmentId: "assignment-1",
       operation: "create",
       repositoryTemplate: template,
-      targetDirectory: "/tmp/repos",
-      directoryLayout: "flat",
+      groupIds: ["g1", "g2"],
     })
 
     assert.deepStrictEqual(result, {
@@ -81,6 +80,7 @@ describe("repository workflow helpers", () => {
         appSettings,
         assignmentId: "assignment-1",
         template,
+        groupIds: ["g1", "g2"],
       },
     })
   })
@@ -94,6 +94,7 @@ describe("repository workflow helpers", () => {
       repositoryTemplate: template,
       targetDirectory: "/tmp/repos",
       directoryLayout: "by-team",
+      groupIds: ["g1"],
     })
 
     assert.deepStrictEqual(result, {
@@ -105,29 +106,7 @@ describe("repository workflow helpers", () => {
         template,
         targetDirectory: "/tmp/repos",
         directoryLayout: "by-team",
-      },
-    })
-  })
-
-  it("builds delete input with explicit confirmation", () => {
-    const result = buildRepositoryWorkflowRequest({
-      course,
-      appSettings,
-      assignmentId: "assignment-1",
-      operation: "delete",
-      repositoryTemplate: template,
-      targetDirectory: "/tmp/repos",
-      directoryLayout: "flat",
-    })
-
-    assert.deepStrictEqual(result, {
-      workflowId: "repo.delete",
-      input: {
-        course,
-        appSettings,
-        assignmentId: "assignment-1",
-        template,
-        confirmDelete: true,
+        groupIds: ["g1"],
       },
     })
   })

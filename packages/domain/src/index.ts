@@ -91,7 +91,8 @@ export type PersistedAppSettings = {
   lastOpenedAt: string | null
   rosterColumnVisibility: Record<string, boolean>
   rosterColumnSizing: Record<string, number>
-  groupsHideIncomplete: boolean
+  groupsColumnVisibility: Record<string, boolean>
+  groupsColumnSizing: Record<string, number>
 }
 
 export type RosterConnection =
@@ -233,6 +234,8 @@ export type PersistedCourse = {
   lmsCourseId: string | null
   roster: Roster
   repositoryTemplate: RepositoryTemplate | null
+  repositoryCloneTargetDirectory?: string | null
+  repositoryCloneDirectoryLayout?: "flat" | "by-team" | "by-task" | null
   updatedAt: string
 }
 
@@ -344,7 +347,7 @@ export type RepoTeam = {
   name: string
 }
 
-export type RepoOperationMode = "create" | "clone" | "delete"
+export type RepoOperationMode = "create" | "clone"
 
 export type RepoCollisionKind = "already_exists" | "not_found"
 
@@ -460,7 +463,8 @@ export const defaultAppSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
-  groupsHideIncomplete: false,
+  groupsColumnVisibility: {},
+  groupsColumnSizing: {},
 }
 
 export const SYSTEM_TYPE_INDIVIDUAL_STUDENTS = "individual_students" as const
@@ -2909,7 +2913,8 @@ export const persistedAppSettingsSchema = z.object({
   lastOpenedAt: z.string().nullable(),
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
-  groupsHideIncomplete: z.boolean().default(false),
+  groupsColumnVisibility: z.record(z.string(), z.boolean()).default({}),
+  groupsColumnSizing: z.record(z.string(), z.number()).default({}),
 })
 
 const memberStatusSchema = z.enum(memberStatusKinds)
@@ -3043,6 +3048,11 @@ export const persistedCourseSchema = z.object({
   lmsCourseId: z.string().nullable(),
   roster: rosterSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable(),
+  repositoryCloneTargetDirectory: z.string().nullable().optional(),
+  repositoryCloneDirectoryLayout: z
+    .enum(["flat", "by-team", "by-task"])
+    .nullable()
+    .optional(),
   updatedAt: z.string(),
 })
 
