@@ -197,10 +197,11 @@ describe("createGitLabClient", () => {
         organization: "target-group",
         repositoryNames: ["repo-1"],
         template: null,
+        autoInit: true,
       })
 
-      assert.equal(result.createdCount, 1)
-      assert.ok(result.repositoryUrls[0].includes("repo-1"))
+      assert.equal(result.created.length, 1)
+      assert.ok(result.created[0]?.repositoryUrl.includes("repo-1"))
     })
 
     it("uses template owner and name for custom templates", async () => {
@@ -256,9 +257,10 @@ describe("createGitLabClient", () => {
           name: "course-template",
           visibility: "internal",
         },
+        autoInit: false,
       })
 
-      assert.equal(result.createdCount, 1)
+      assert.equal(result.created.length, 1)
       assert.ok(capturedBody.includes('"use_custom_template":true'))
       assert.ok(capturedBody.includes('"template_name":"course-template"'))
       assert.ok(capturedBody.includes('"group_with_project_templates_id":7'))
@@ -279,9 +281,10 @@ describe("createGitLabClient", () => {
         organization: "my-group",
         repositoryNames: ["repo-1"],
         template: null,
+        autoInit: true,
       })
 
-      assert.equal(result.createdCount, 0)
+      assert.equal(result.created.length, 0)
     })
 
     it("URL-encodes group paths with slashes", async () => {
@@ -305,12 +308,382 @@ describe("createGitLabClient", () => {
         organization: "parent/nested",
         repositoryNames: ["repo-1"],
         template: null,
+        autoInit: true,
       })
 
       assert.ok(
         capturedUrl.includes("parent%2Fnested"),
         `Expected URL-encoded path, got: ${capturedUrl}`,
       )
+    })
+  })
+
+  describe("createRepositories alreadyExisted", () => {
+    it("classifies HTTP 400 already-exists as alreadyExisted", async () => {
+      let projectPostCalled = false
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "GET" &&
+            request.url.includes("/groups/my-group")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 42, path: "my-group" }),
+            }
+          }
+          if (request.method === "POST" && request.url.includes("/projects")) {
+            projectPostCalled = true
+            return {
+              status: 400,
+              statusText: "Bad Request",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                message: { name: ["has already been taken"] },
+              }),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("/projects/my-group%2Frepo-1")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                web_url: "https://gitlab.example.com/my-group/repo-1",
+              }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      const result = await client.createRepositories(baseDraft, {
+        organization: "my-group",
+        repositoryNames: ["repo-1"],
+        template: null,
+        autoInit: true,
+      })
+
+      assert.ok(projectPostCalled)
+      assert.deepStrictEqual(result.created, [])
+      assert.equal(result.alreadyExisted.length, 1)
+      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
+      assert.deepStrictEqual(result.failed, [])
+    })
+  })
+
+  describe("createTeam", () => {
+    it("creates a subgroup team and adds members", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "GET" &&
+            request.url.includes("/groups/my-org")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 10, path: "my-org" }),
+            }
+          }
+          if (
+            request.method === "POST" &&
+            request.url.includes("/groups") &&
+            !request.url.includes("/members")
+          ) {
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 77, path: "hw1-team" }),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("username=alice")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify([
+                { id: 5, username: "alice", state: "active" },
+              ]),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("username=nobody")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify([]),
+            }
+          }
+          if (
+            request.method === "POST" &&
+            request.url.includes("/groups/77/members")
+          ) {
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({}),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      const result = await client.createTeam(baseDraft, {
+        organization: "my-org",
+        teamName: "hw1-team",
+        memberUsernames: ["alice", "nobody"],
+        permission: "push",
+      })
+
+      assert.equal(result.created, true)
+      assert.equal(result.teamSlug, "hw1-team")
+      assert.deepStrictEqual(result.membersAdded, ["alice"])
+      assert.deepStrictEqual(result.membersNotFound, ["nobody"])
+    })
+  })
+
+  describe("assignRepositoriesToTeam", () => {
+    it("shares projects with the team group", async () => {
+      const capturedShareUrls: string[] = []
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "GET" &&
+            request.url.includes("/groups/my-org%2Fhw1-team")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 77, path: "hw1-team" }),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("/projects/my-org%2Frepo-1")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 100 }),
+            }
+          }
+          if (
+            request.method === "POST" &&
+            request.url.includes("/projects/100/share")
+          ) {
+            capturedShareUrls.push(request.url)
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({}),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      await client.assignRepositoriesToTeam(baseDraft, {
+        organization: "my-org",
+        teamSlug: "hw1-team",
+        repositoryNames: ["repo-1"],
+        permission: "push",
+      })
+
+      assert.equal(capturedShareUrls.length, 1)
+      assert.ok(capturedShareUrls[0]?.includes("/projects/100/share"))
+    })
+  })
+
+  describe("getRepositoryDefaultBranchHead", () => {
+    it("returns HEAD sha and branch name", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /\/repository\/branches\//,
+          status: 200,
+          body: { commit: { id: "abc123" } },
+        },
+        {
+          method: "GET",
+          urlPattern: "/projects/",
+          status: 200,
+          body: { id: 50, default_branch: "main" },
+        },
+      ])
+
+      const client = createGitLabClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template",
+      })
+
+      assert.deepStrictEqual(result, { sha: "abc123", branchName: "main" })
+    })
+
+    it("returns null for missing project", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/projects/",
+          status: 404,
+          body: { message: "404 Project Not Found" },
+        },
+      ])
+
+      const client = createGitLabClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "missing",
+      })
+
+      assert.equal(result, null)
+    })
+  })
+
+  describe("getTemplateDiff", () => {
+    it("returns changed files between two commits", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (request.url.includes("/repository/compare")) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                diffs: [
+                  {
+                    new_path: "README.md",
+                    old_path: "README.md",
+                    new_file: false,
+                    deleted_file: false,
+                    renamed_file: false,
+                  },
+                ],
+              }),
+            }
+          }
+          if (request.url.includes("/repository/files/")) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                content: "dXBkYXRlZA==",
+                encoding: "base64",
+              }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      const result = await client.getTemplateDiff(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template",
+        fromSha: "sha1",
+        toSha: "sha2",
+      })
+
+      assert.ok(result)
+      assert.equal(result.files.length, 1)
+      assert.equal(result.files[0]?.path, "README.md")
+      assert.equal(result.files[0]?.status, "modified")
+      assert.equal(result.files[0]?.contentBase64, "dXBkYXRlZA==")
+    })
+  })
+
+  describe("createPullRequest", () => {
+    it("creates a merge request and returns URL", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "GET" &&
+            request.url.includes("/projects/my-org%2Frepo-1")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 100 }),
+            }
+          }
+          if (
+            request.method === "POST" &&
+            request.url.includes("/merge_requests")
+          ) {
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                web_url:
+                  "https://gitlab.example.com/my-org/repo-1/-/merge_requests/1",
+              }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      const result = await client.createPullRequest(baseDraft, {
+        owner: "my-org",
+        repositoryName: "repo-1",
+        headBranch: "template-update",
+        baseBranch: "main",
+        title: "Template update",
+        body: "Updated files",
+      })
+
+      assert.equal(result.created, true)
+      assert.ok(result.url.includes("merge_requests/1"))
     })
   })
 

@@ -61,6 +61,7 @@ describe("repository workflow helpers", () => {
   it("maps each operation to the correct workflow id", () => {
     assert.equal(resolveRepositoryWorkflowId("create"), "repo.create")
     assert.equal(resolveRepositoryWorkflowId("clone"), "repo.clone")
+    assert.equal(resolveRepositoryWorkflowId("update"), "repo.update")
   })
 
   it("builds create input without clone-only fields", () => {
@@ -107,6 +108,28 @@ describe("repository workflow helpers", () => {
         targetDirectory: "/tmp/repos",
         directoryLayout: "by-team",
         groupIds: ["g1"],
+      },
+    })
+  })
+
+  it("builds update input without create/clone-only fields", () => {
+    const result = buildRepositoryWorkflowRequest({
+      course,
+      appSettings,
+      assignmentId: "assignment-1",
+      operation: "update",
+      repositoryTemplate: template,
+      groupIds: ["g1"],
+      targetDirectory: "/tmp/repos",
+      directoryLayout: "by-team",
+    })
+
+    assert.deepStrictEqual(result, {
+      workflowId: "repo.update",
+      input: {
+        course,
+        appSettings,
+        assignmentId: "assignment-1",
       },
     })
   })

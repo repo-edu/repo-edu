@@ -146,12 +146,16 @@ describe("createGitHubClient", () => {
         organization: "test-org",
         repositoryNames: ["repo-1"],
         template: null,
+        autoInit: true,
       })
 
-      assert.equal(result.createdCount, 1)
-      assert.deepStrictEqual(result.repositoryUrls, [
-        "https://github.com/test-org/repo-1",
-      ])
+      assert.equal(result.created.length, 1)
+      assert.deepStrictEqual(result.created[0], {
+        repositoryName: "repo-1",
+        repositoryUrl: "https://github.com/test-org/repo-1",
+      })
+      assert.deepStrictEqual(result.alreadyExisted, [])
+      assert.deepStrictEqual(result.failed, [])
     })
 
     it("creates repositories with template", async () => {
@@ -173,10 +177,11 @@ describe("createGitHubClient", () => {
           name: "template",
           visibility: "private",
         },
+        autoInit: false,
       })
 
-      assert.equal(result.createdCount, 1)
-      assert.ok(result.repositoryUrls[0].includes("hw1-team-alpha"))
+      assert.equal(result.created.length, 1)
+      assert.ok(result.created[0]?.repositoryUrl.includes("hw1-team-alpha"))
     })
 
     it("handles partial failure gracefully", async () => {
@@ -203,10 +208,369 @@ describe("createGitHubClient", () => {
         organization: "test-org",
         repositoryNames: ["repo-1", "repo-2"],
         template: null,
+        autoInit: true,
       })
 
-      assert.equal(result.createdCount, 1)
-      assert.equal(result.repositoryUrls.length, 1)
+      assert.equal(result.created.length, 1)
+      assert.equal(result.failed.length, 1)
+    })
+  })
+
+  describe("createRepositories alreadyExisted", () => {
+    it("classifies HTTP 422 already-exists as alreadyExisted", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/repos",
+          status: 422,
+          body: { message: "Repository name already exists on this owner" },
+        },
+        {
+          method: "GET",
+          urlPattern: "/repos/test-org/repo-1",
+          status: 200,
+          body: { html_url: "https://github.com/test-org/repo-1" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.createRepositories(baseDraft, {
+        organization: "test-org",
+        repositoryNames: ["repo-1"],
+        template: null,
+        autoInit: true,
+      })
+
+      assert.deepStrictEqual(result.created, [])
+      assert.equal(result.alreadyExisted.length, 1)
+      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
+      assert.equal(
+        result.alreadyExisted[0]?.repositoryUrl,
+        "https://github.com/test-org/repo-1",
+      )
+      assert.deepStrictEqual(result.failed, [])
+    })
+  })
+
+  describe("createTeam", () => {
+    it("creates a team and adds members", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/teams",
+          status: 201,
+          body: { slug: "hw1-team" },
+        },
+        {
+          method: "PUT",
+          urlPattern: "/orgs/test-org/teams/hw1-team/memberships/alice",
+          status: 200,
+          body: { state: "active" },
+        },
+        {
+          method: "PUT",
+          urlPattern: "/orgs/test-org/teams/hw1-team/memberships/nobody",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.createTeam(baseDraft, {
+        organization: "test-org",
+        teamName: "hw1-team",
+        memberUsernames: ["alice", "nobody"],
+        permission: "push",
+      })
+
+      assert.equal(result.created, true)
+      assert.equal(result.teamSlug, "hw1-team")
+      assert.deepStrictEqual(result.membersAdded, ["alice"])
+      assert.deepStrictEqual(result.membersNotFound, ["nobody"])
+    })
+
+    it("falls back to existing team on HTTP 422", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/orgs/test-org/teams",
+          status: 422,
+          body: { message: "Validation Failed" },
+        },
+        {
+          method: "GET",
+          urlPattern: "/orgs/test-org/teams/hw1-team",
+          status: 200,
+          body: { slug: "hw1-team" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.createTeam(baseDraft, {
+        organization: "test-org",
+        teamName: "hw1-team",
+        memberUsernames: [],
+        permission: "push",
+      })
+
+      assert.equal(result.created, false)
+      assert.equal(result.teamSlug, "hw1-team")
+    })
+  })
+
+  describe("assignRepositoriesToTeam", () => {
+    it("assigns repositories to a team", async () => {
+      const capturedUrls: string[] = []
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedUrls.push(request.url)
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({}),
+          }
+        },
+      }
+
+      const client = createGitHubClient(http)
+      await client.assignRepositoriesToTeam(baseDraft, {
+        organization: "test-org",
+        teamSlug: "hw1-team",
+        repositoryNames: ["repo-1", "repo-2"],
+        permission: "push",
+      })
+
+      assert.equal(capturedUrls.length, 2)
+      assert.ok(
+        capturedUrls[0]?.includes("/teams/hw1-team/repos/test-org/repo-1"),
+      )
+      assert.ok(
+        capturedUrls[1]?.includes("/teams/hw1-team/repos/test-org/repo-2"),
+      )
+    })
+  })
+
+  describe("getRepositoryDefaultBranchHead", () => {
+    it("returns HEAD sha and branch name", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /\/repos\/my-org\/template-repo\/branches\/main/,
+          status: 200,
+          body: { commit: { sha: "abc123" } },
+        },
+        {
+          method: "GET",
+          urlPattern: "/repos/my-org/template-repo",
+          status: 200,
+          body: { default_branch: "main" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template-repo",
+      })
+
+      assert.deepStrictEqual(result, { sha: "abc123", branchName: "main" })
+    })
+
+    it("returns null for missing repository", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/repos/my-org/missing",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "missing",
+      })
+
+      assert.equal(result, null)
+    })
+  })
+
+  describe("getTemplateDiff", () => {
+    it("returns changed files between two commits", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/repos/my-org/template/compare/sha1...sha2",
+          status: 200,
+          body: {
+            files: [
+              { filename: "README.md", status: "modified" },
+              { filename: "old.txt", status: "removed" },
+            ],
+          },
+        },
+        {
+          method: "GET",
+          urlPattern: "/repos/my-org/template/contents/README.md",
+          status: 200,
+          body: { content: "dXBkYXRlZA==", encoding: "base64", type: "file" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.getTemplateDiff(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template",
+        fromSha: "sha1",
+        toSha: "sha2",
+      })
+
+      assert.ok(result)
+      assert.equal(result.files.length, 2)
+      assert.equal(result.files[0]?.path, "README.md")
+      assert.equal(result.files[0]?.status, "modified")
+      assert.equal(result.files[0]?.contentBase64, "dXBkYXRlZA==")
+      assert.equal(result.files[1]?.path, "old.txt")
+      assert.equal(result.files[1]?.status, "removed")
+      assert.equal(result.files[1]?.contentBase64, null)
+    })
+
+    it("returns null for missing repository", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/repos/my-org/missing/compare",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.getTemplateDiff(baseDraft, {
+        owner: "my-org",
+        repositoryName: "missing",
+        fromSha: "sha1",
+        toSha: "sha2",
+      })
+
+      assert.equal(result, null)
+    })
+  })
+
+  describe("createBranch", () => {
+    it("creates a branch and commits files", async () => {
+      const capturedUrls: string[] = []
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedUrls.push(`${request.method} ${request.url}`)
+          if (request.method === "POST" && request.url.includes("/git/refs")) {
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ ref: "refs/heads/template-update" }),
+            }
+          }
+          if (request.method === "GET" && request.url.includes("/contents/")) {
+            return {
+              status: 404,
+              statusText: "Not Found",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ message: "Not Found" }),
+            }
+          }
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ content: {} }),
+          }
+        },
+      }
+
+      const client = createGitHubClient(http)
+      await client.createBranch(baseDraft, {
+        owner: "test-org",
+        repositoryName: "repo-1",
+        branchName: "template-update",
+        baseSha: "abc123",
+        commitMessage: "Template update",
+        files: [
+          {
+            path: "README.md",
+            previousPath: null,
+            status: "modified",
+            contentBase64: "dXBkYXRlZA==",
+          },
+        ],
+      })
+
+      assert.ok(
+        capturedUrls.some((url) => url.includes("/git/refs")),
+        "Should create a git ref",
+      )
+      assert.ok(
+        capturedUrls.some((url) => url.includes("/contents/README.md")),
+        "Should update file contents",
+      )
+    })
+  })
+
+  describe("createPullRequest", () => {
+    it("creates a pull request and returns URL", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/repos/test-org/repo-1/pulls",
+          status: 201,
+          body: { html_url: "https://github.com/test-org/repo-1/pull/1" },
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.createPullRequest(baseDraft, {
+        owner: "test-org",
+        repositoryName: "repo-1",
+        headBranch: "template-update",
+        baseBranch: "main",
+        title: "Template update",
+        body: "Updated files",
+      })
+
+      assert.equal(result.created, true)
+      assert.equal(result.url, "https://github.com/test-org/repo-1/pull/1")
+    })
+
+    it("returns existing PR when no changes error", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/repos/test-org/repo-1/pulls",
+          status: 422,
+          body: { message: "No commits between main and template-update" },
+        },
+        {
+          method: "GET",
+          urlPattern: "/repos/test-org/repo-1/pulls",
+          status: 200,
+          body: [{ html_url: "https://github.com/test-org/repo-1/pull/5" }],
+        },
+      ])
+
+      const client = createGitHubClient(http)
+      const result = await client.createPullRequest(baseDraft, {
+        owner: "test-org",
+        repositoryName: "repo-1",
+        headBranch: "template-update",
+        baseBranch: "main",
+        title: "Template update",
+        body: "Updated files",
+      })
+
+      assert.equal(result.created, false)
+      assert.equal(result.url, "https://github.com/test-org/repo-1/pull/5")
     })
   })
 

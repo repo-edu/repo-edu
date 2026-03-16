@@ -155,11 +155,13 @@ describe("createGiteaClient", () => {
         organization: "course-org",
         repositoryNames: ["repo-1"],
         template: null,
+        autoInit: true,
       })
 
-      assert.equal(result.createdCount, 1)
-      assert.ok(result.repositoryUrls[0].includes("repo-1"))
+      assert.equal(result.created.length, 1)
+      assert.ok(result.created[0]?.repositoryUrl.includes("repo-1"))
       assert.ok(capturedBody.includes('"private":true'))
+      assert.ok(capturedBody.includes('"auto_init":true'))
     })
 
     it("uses the template generate endpoint when a template is provided", async () => {
@@ -200,9 +202,10 @@ describe("createGiteaClient", () => {
           name: "course-template",
           visibility: "public",
         },
+        autoInit: false,
       })
 
-      assert.equal(result.createdCount, 1)
+      assert.equal(result.created.length, 1)
       assert.ok(capturedBody.includes('"owner":"course-org"'))
       assert.ok(capturedBody.includes('"name":"hw1-team-alpha"'))
       assert.ok(capturedBody.includes('"private":false'))
@@ -216,13 +219,328 @@ describe("createGiteaClient", () => {
           organization: "course-org",
           repositoryNames: ["repo-1"],
           template: null,
+          autoInit: true,
         },
       )
 
       assert.deepStrictEqual(result, {
-        createdCount: 0,
-        repositoryUrls: [],
+        created: [],
+        alreadyExisted: [],
+        failed: [],
       })
+    })
+  })
+
+  describe("createRepositories alreadyExisted", () => {
+    it("classifies HTTP 409 already-exists as alreadyExisted", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "POST" &&
+            request.url.includes("/api/v1/orgs/course-org/repos")
+          ) {
+            return {
+              status: 409,
+              statusText: "Conflict",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                message: "The repository with the same name already exists.",
+              }),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("/api/v1/repos/course-org/repo-1")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                html_url: "https://gitea.example.com/course-org/repo-1",
+              }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      const result = await client.createRepositories(baseDraft, {
+        organization: "course-org",
+        repositoryNames: ["repo-1"],
+        template: null,
+        autoInit: true,
+      })
+
+      assert.deepStrictEqual(result.created, [])
+      assert.equal(result.alreadyExisted.length, 1)
+      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
+      assert.deepStrictEqual(result.failed, [])
+    })
+  })
+
+  describe("createTeam", () => {
+    it("creates a team and adds members", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "POST" &&
+            request.url.includes("/api/v1/orgs/course-org/teams")
+          ) {
+            return {
+              status: 201,
+              statusText: "Created",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id: 42, name: "hw1-team" }),
+            }
+          }
+          if (
+            request.method === "PUT" &&
+            request.url.includes("/teams/42/members/alice")
+          ) {
+            return {
+              status: 204,
+              statusText: "No Content",
+              headers: { "content-type": "application/json" },
+              body: "",
+            }
+          }
+          if (
+            request.method === "PUT" &&
+            request.url.includes("/teams/42/members/nobody")
+          ) {
+            return {
+              status: 404,
+              statusText: "Not Found",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ message: "Not Found" }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      const result = await client.createTeam(baseDraft, {
+        organization: "course-org",
+        teamName: "hw1-team",
+        memberUsernames: ["alice", "nobody"],
+        permission: "push",
+      })
+
+      assert.equal(result.created, true)
+      assert.equal(result.teamSlug, "42")
+      assert.deepStrictEqual(result.membersAdded, ["alice"])
+      assert.deepStrictEqual(result.membersNotFound, ["nobody"])
+    })
+
+    it("falls back to existing team on HTTP 409", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (
+            request.method === "POST" &&
+            request.url.includes("/api/v1/orgs/course-org/teams")
+          ) {
+            return {
+              status: 409,
+              statusText: "Conflict",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ message: "team already exists" }),
+            }
+          }
+          if (
+            request.method === "GET" &&
+            request.url.includes("/api/v1/orgs/course-org/teams")
+          ) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify([{ id: 42, name: "hw1-team" }]),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      const result = await client.createTeam(baseDraft, {
+        organization: "course-org",
+        teamName: "hw1-team",
+        memberUsernames: [],
+        permission: "push",
+      })
+
+      assert.equal(result.created, false)
+      assert.equal(result.teamSlug, "42")
+    })
+  })
+
+  describe("assignRepositoriesToTeam", () => {
+    it("assigns repositories to a team", async () => {
+      const capturedUrls: string[] = []
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedUrls.push(`${request.method} ${request.url}`)
+          return {
+            status: 204,
+            statusText: "No Content",
+            headers: { "content-type": "application/json" },
+            body: "",
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      await client.assignRepositoriesToTeam(baseDraft, {
+        organization: "course-org",
+        teamSlug: "42",
+        repositoryNames: ["repo-1"],
+        permission: "push",
+      })
+
+      assert.equal(capturedUrls.length, 1)
+      assert.ok(capturedUrls[0]?.includes("/teams/42/repos/course-org/repo-1"))
+    })
+  })
+
+  describe("getRepositoryDefaultBranchHead", () => {
+    it("returns HEAD sha and branch name", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /\/api\/v1\/repos\/my-org\/template\/branches\/main/,
+          status: 200,
+          body: { commit: { id: "abc123" } },
+        },
+        {
+          method: "GET",
+          urlPattern: "/api/v1/repos/my-org/template",
+          status: 200,
+          body: { default_branch: "main" },
+        },
+      ])
+
+      const client = createGiteaClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template",
+      })
+
+      assert.deepStrictEqual(result, { sha: "abc123", branchName: "main" })
+    })
+
+    it("returns null for missing repository", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/api/v1/repos/my-org/missing",
+          status: 404,
+          body: { message: "Not Found" },
+        },
+      ])
+
+      const client = createGiteaClient(http)
+      const result = await client.getRepositoryDefaultBranchHead(baseDraft, {
+        owner: "my-org",
+        repositoryName: "missing",
+      })
+
+      assert.equal(result, null)
+    })
+  })
+
+  describe("getTemplateDiff", () => {
+    it("returns changed files between two commits", async () => {
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          if (request.url.includes("/compare/")) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                files: [{ filename: "README.md", status: "modified" }],
+              }),
+            }
+          }
+          if (request.url.includes("/contents/README.md")) {
+            return {
+              status: 200,
+              statusText: "OK",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                content: "dXBkYXRlZA==",
+                encoding: "base64",
+              }),
+            }
+          }
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "Not Found" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      const result = await client.getTemplateDiff(baseDraft, {
+        owner: "my-org",
+        repositoryName: "template",
+        fromSha: "sha1",
+        toSha: "sha2",
+      })
+
+      assert.ok(result)
+      assert.equal(result.files.length, 1)
+      assert.equal(result.files[0]?.path, "README.md")
+      assert.equal(result.files[0]?.status, "modified")
+      assert.equal(result.files[0]?.contentBase64, "dXBkYXRlZA==")
+    })
+  })
+
+  describe("createPullRequest", () => {
+    it("creates a pull request and returns URL", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "POST",
+          urlPattern: "/api/v1/repos/my-org/repo-1/pulls",
+          status: 201,
+          body: {
+            html_url: "https://gitea.example.com/my-org/repo-1/pulls/1",
+          },
+        },
+      ])
+
+      const client = createGiteaClient(http)
+      const result = await client.createPullRequest(baseDraft, {
+        owner: "my-org",
+        repositoryName: "repo-1",
+        headBranch: "template-update",
+        baseBranch: "main",
+        title: "Template update",
+        body: "Updated files",
+      })
+
+      assert.equal(result.created, true)
+      assert.ok(result.url.includes("pulls/1"))
     })
   })
 

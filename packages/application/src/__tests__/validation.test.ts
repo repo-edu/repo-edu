@@ -1353,10 +1353,31 @@ describe("application repository workflow helpers", () => {
         createRepositories: async (_draft, request) => {
           receivedRequest = request
           return {
-            createdCount: request.repositoryNames.length,
-            repositoryUrls: [],
+            created: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            })),
+            alreadyExisted: [],
+            failed: [],
           }
         },
+        createTeam: async (_draft, request) => ({
+          created: true,
+          teamSlug: request.teamName,
+          membersAdded: request.memberUsernames,
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
         resolveRepositoryCloneUrls: async () => ({
           resolved: [],
           missing: [],
@@ -1388,8 +1409,12 @@ describe("application repository workflow helpers", () => {
       organization: "repo-edu",
       repositoryNames: ["beta"],
       template: null,
+      autoInit: true,
     })
     assert.equal(result.repositoriesPlanned, 1)
+    assert.equal(result.repositoriesCreated, 1)
+    assert.equal(result.repositoriesAlreadyExisted, 0)
+    assert.equal(result.repositoriesFailed, 0)
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
   })
 
@@ -1417,10 +1442,31 @@ describe("application repository workflow helpers", () => {
         createRepositories: async (_draft, request) => {
           receivedRequest = request
           return {
-            createdCount: request.repositoryNames.length,
-            repositoryUrls: [],
+            created: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            })),
+            alreadyExisted: [],
+            failed: [],
           }
         },
+        createTeam: async (_draft, request) => ({
+          created: true,
+          teamSlug: request.teamName,
+          membersAdded: request.memberUsernames,
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
         resolveRepositoryCloneUrls: async () => ({
           resolved: [],
           missing: [],
@@ -1453,8 +1499,12 @@ describe("application repository workflow helpers", () => {
       organization: "repo-edu",
       repositoryNames: ["beta"],
       template: null,
+      autoInit: true,
     })
     assert.equal(result.repositoriesPlanned, 1)
+    assert.equal(result.repositoriesCreated, 1)
+    assert.equal(result.repositoriesAlreadyExisted, 0)
+    assert.equal(result.repositoriesFailed, 0)
   })
 
   it("clones repositories from selected group ids", async () => {
@@ -1478,8 +1528,26 @@ describe("application repository workflow helpers", () => {
     const handlers = createRepositoryWorkflowHandlers({
       git: {
         createRepositories: async () => ({
-          createdCount: 0,
-          repositoryUrls: [],
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
         }),
         resolveRepositoryCloneUrls: async (_draft, request) => ({
           resolved: request.repositoryNames.map((repositoryName) => ({
@@ -1518,10 +1586,399 @@ describe("application repository workflow helpers", () => {
       groupIds: ["g2"],
     })
     assert.equal(cloneResult.repositoriesPlanned, 1)
+    assert.equal(cloneResult.repositoriesCloned, 1)
+    assert.equal(cloneResult.repositoriesFailed, 0)
     assert.deepStrictEqual(cloneCommands[0], [
       "clone",
       "https://x-access-token:token-1@github.com/repo-edu/beta.git",
       "/work/repos/beta",
     ])
+  })
+
+  it("reports alreadyExisted and failed buckets in repo.create result", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [
+            {
+              repositoryName: "beta",
+              repositoryUrl: "https://github.com/repo-edu/beta",
+            },
+          ],
+          failed: [],
+        }),
+        createTeam: async (_draft, request) => ({
+          created: true,
+          teamSlug: request.teamName,
+          membersAdded: request.memberUsernames,
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    const result = await handlers["repo.create"]({
+      course,
+      appSettings: settings,
+      assignmentId: null,
+      template: null,
+    })
+
+    assert.equal(result.repositoriesPlanned, 1)
+    assert.equal(result.repositoriesCreated, 0)
+    assert.equal(result.repositoriesAlreadyExisted, 1)
+    assert.equal(result.repositoriesFailed, 0)
+  })
+
+  it("uses per-assignment template when available", async () => {
+    const assignmentTemplate = {
+      owner: "assignment-templates",
+      name: "hw1-template",
+      visibility: "private" as const,
+    }
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+      repositoryTemplate: {
+        owner: "course-templates",
+        name: "default-template",
+        visibility: "private" as const,
+      },
+      roster: {
+        ...makeProfile().roster,
+        assignments: [
+          {
+            ...makeProfile().roster.assignments[0],
+            repositoryTemplate: assignmentTemplate,
+          },
+        ],
+      },
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    let receivedTemplate: unknown = null
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async (_draft, request) => {
+          receivedTemplate = request.template
+          return {
+            created: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            })),
+            alreadyExisted: [],
+            failed: [],
+          }
+        },
+        createTeam: async (_draft, request) => ({
+          created: true,
+          teamSlug: request.teamName,
+          membersAdded: request.memberUsernames,
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    await handlers["repo.create"]({
+      course,
+      appSettings: settings,
+      assignmentId: "a1",
+      template: null,
+    })
+
+    assert.deepStrictEqual(receivedTemplate, assignmentTemplate)
+  })
+
+  it("creates template update pull requests for planned repositories", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+      repositoryTemplate: {
+        owner: "template-org",
+        name: "course-template",
+        visibility: "private" as const,
+      },
+      roster: {
+        ...makeProfile().roster,
+        assignments: [
+          {
+            ...makeProfile().roster.assignments[0],
+            templateCommitSha: "old-template-sha",
+          },
+        ],
+      },
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    const createdBranches: string[] = []
+    const createdPullRequests: string[] = []
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async (_draft, request) => {
+          if (
+            request.owner === "template-org" &&
+            request.repositoryName === "course-template"
+          ) {
+            return { sha: "new-template-sha", branchName: "main" }
+          }
+          return { sha: "repo-base-sha", branchName: "main" }
+        },
+        getTemplateDiff: async () => ({
+          files: [
+            {
+              path: "README.md",
+              previousPath: null,
+              status: "modified",
+              contentBase64: "VGVtcGxhdGUgY29udGVudA==",
+            },
+          ],
+        }),
+        createBranch: async (_draft, request) => {
+          createdBranches.push(
+            `${request.owner}/${request.repositoryName}:${request.branchName}`,
+          )
+        },
+        createPullRequest: async (_draft, request) => {
+          createdPullRequests.push(
+            `${request.owner}/${request.repositoryName}:${request.headBranch}`,
+          )
+          return {
+            url: `https://github.com/${request.owner}/${request.repositoryName}/pull/1`,
+            created: true,
+          }
+        },
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    const result = await handlers["repo.update"]({
+      course,
+      appSettings: settings,
+      assignmentId: "a1",
+    })
+
+    assert.equal(result.repositoriesPlanned, 1)
+    assert.equal(result.prsCreated, 1)
+    assert.equal(result.prsSkipped, 0)
+    assert.equal(result.prsFailed, 0)
+    assert.equal(result.templateCommitSha, "new-template-sha")
+    assert.equal(createdBranches.length, 1)
+    assert.equal(createdPullRequests.length, 1)
+  })
+
+  it("skips update when template SHA is unchanged", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+      repositoryTemplate: {
+        owner: "template-org",
+        name: "course-template",
+        visibility: "private" as const,
+      },
+      roster: {
+        ...makeProfile().roster,
+        assignments: [
+          {
+            ...makeProfile().roster.assignments[0],
+            templateCommitSha: "same-template-sha",
+          },
+        ],
+      },
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    let getTemplateDiffCalls = 0
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "same-template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => {
+          getTemplateDiffCalls += 1
+          return { files: [] }
+        },
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "",
+          created: false,
+        }),
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    const result = await handlers["repo.update"]({
+      course,
+      appSettings: settings,
+      assignmentId: "a1",
+    })
+
+    assert.equal(result.repositoriesPlanned, 1)
+    assert.equal(result.prsCreated, 0)
+    assert.equal(result.prsSkipped, 1)
+    assert.equal(result.prsFailed, 0)
+    assert.equal(getTemplateDiffCalls, 0)
   })
 })
