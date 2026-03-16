@@ -23,8 +23,14 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { createGitProviderClient } from "@repo-edu/integrations-git"
 import type {
+  AssignRepositoriesToTeamRequest,
+  CreateBranchRequest,
+  CreatePullRequestRequest,
   CreateRepositoriesRequest,
+  CreateTeamRequest,
+  GetTemplateDiffRequest,
   GitConnectionDraft,
+  RepositoryHeadRequest,
   ResolveRepositoryCloneUrlsRequest,
 } from "@repo-edu/integrations-git-contract"
 import { createLmsClient } from "@repo-edu/integrations-lms"
@@ -153,6 +159,64 @@ function createGitProviderDispatch() {
       signal?: AbortSignal,
     ) {
       return resolveClient(draft.provider).createRepositories(
+        draft,
+        request,
+        signal,
+      )
+    },
+    createTeam(
+      draft: GitConnectionDraft,
+      request: CreateTeamRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).createTeam(draft, request, signal)
+    },
+    assignRepositoriesToTeam(
+      draft: GitConnectionDraft,
+      request: AssignRepositoriesToTeamRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).assignRepositoriesToTeam(
+        draft,
+        request,
+        signal,
+      )
+    },
+    getRepositoryDefaultBranchHead(
+      draft: GitConnectionDraft,
+      request: RepositoryHeadRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).getRepositoryDefaultBranchHead(
+        draft,
+        request,
+        signal,
+      )
+    },
+    getTemplateDiff(
+      draft: GitConnectionDraft,
+      request: GetTemplateDiffRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).getTemplateDiff(
+        draft,
+        request,
+        signal,
+      )
+    },
+    createBranch(
+      draft: GitConnectionDraft,
+      request: CreateBranchRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).createBranch(draft, request, signal)
+    },
+    createPullRequest(
+      draft: GitConnectionDraft,
+      request: CreatePullRequestRequest,
+      signal?: AbortSignal,
+    ) {
+      return resolveClient(draft.provider).createPullRequest(
         draft,
         request,
         signal,

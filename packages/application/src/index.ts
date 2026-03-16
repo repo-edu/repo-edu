@@ -15,7 +15,10 @@ import type {
   ListLmsCoursesDraftInput,
   MilestoneProgress,
   RepositoryBatchInput,
-  RepositoryBatchResult,
+  RepositoryCloneResult,
+  RepositoryCreateResult,
+  RepositoryUpdateInput,
+  RepositoryUpdateResult,
   RosterExportMembersInput,
   RosterImportFromFileInput,
   RosterImportFromLmsInput,
@@ -48,6 +51,7 @@ import type {
   PersistedAppSettings,
   PersistedCourse,
   PlannedRepositoryGroup,
+  RepositoryTemplate,
   RepoTeam,
   RosterValidationResult,
   StudentImportRow,
@@ -70,6 +74,7 @@ import {
   planRepositoryOperation,
   previewImportGroupSet,
   previewReimportGroupSet,
+  resolveGitUsernames,
   studentImportRowSchema,
   validateAssignment,
   validateAssignmentWithTemplate,
@@ -1981,10 +1986,88 @@ export function createGitUsernameWorkflowHandlers(
 export type RepositoryWorkflowPorts = {
   git: Pick<
     GitProviderClient,
-    "createRepositories" | "resolveRepositoryCloneUrls"
+    | "createRepositories"
+    | "createTeam"
+    | "assignRepositoriesToTeam"
+    | "getRepositoryDefaultBranchHead"
+    | "getTemplateDiff"
+    | "createBranch"
+    | "createPullRequest"
+    | "resolveRepositoryCloneUrls"
   >
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
+}
+
+type PlannedRepositoryWithTemplate = {
+  group: PlannedRepositoryGroup
+  template: RepositoryTemplate | null
+}
+
+type RepositoryCreateBatch = {
+  template: RepositoryTemplate | null
+  repositoryNames: string[]
+}
+
+type PlannedTeamSetup = {
+  groupId: string
+  teamName: string
+  memberIds: string[]
+  repositoryNames: string[]
+}
+
+function resolveAssignment(
+  course: PersistedCourse,
+  assignmentId: string,
+): PersistedCourse["roster"]["assignments"][number] | null {
+  return (
+    course.roster.assignments.find(
+      (assignment) => assignment.id === assignmentId,
+    ) ?? null
+  )
+}
+
+function resolveGroupSetRepoNameTemplate(
+  course: PersistedCourse,
+  assignmentId: string,
+): string | undefined {
+  const assignment = resolveAssignment(course, assignmentId)
+  if (assignment === null) {
+    return undefined
+  }
+  const groupSet = course.roster.groupSets.find(
+    (candidate) => candidate.id === assignment.groupSetId,
+  )
+  if (groupSet?.repoNameTemplate === null || groupSet === undefined) {
+    return undefined
+  }
+  return groupSet.repoNameTemplate
+}
+
+function resolveAssignmentRepositoryTemplate(
+  course: PersistedCourse,
+  assignmentId: string,
+  fallbackTemplate: RepositoryTemplate | null,
+): RepositoryTemplate | null {
+  const assignment = resolveAssignment(course, assignmentId)
+  if (assignment?.repositoryTemplate !== undefined) {
+    return assignment.repositoryTemplate
+  }
+  return fallbackTemplate
+}
+
+function templateKey(template: RepositoryTemplate | null): string {
+  if (template === null) {
+    return "__none__"
+  }
+  return `${template.owner}/${template.name}:${template.visibility}`
+}
+
+function describeTemplate(template: RepositoryTemplate | null): string {
+  if (template === null) {
+    return "no template"
+  }
+  return `${template.owner}/${template.name} (${template.visibility})`
 }
 
 function collectRepositoryGroups(
@@ -2000,7 +2083,15 @@ function collectRepositoryGroups(
 
   const plannedGroups: PlannedRepositoryGroup[] = []
   for (const selectedAssignmentId of assignmentIds) {
-    const plan = planRepositoryOperation(course.roster, selectedAssignmentId)
+    const repoNameTemplate = resolveGroupSetRepoNameTemplate(
+      course,
+      selectedAssignmentId,
+    )
+    const plan = planRepositoryOperation(
+      course.roster,
+      selectedAssignmentId,
+      repoNameTemplate,
+    )
     if (!plan.ok) {
       return plan
     }
@@ -2019,10 +2110,174 @@ function collectRepositoryGroups(
   }
 }
 
+function planRepositoriesWithTemplates(
+  course: PersistedCourse,
+  groups: readonly PlannedRepositoryGroup[],
+  fallbackTemplate: RepositoryTemplate | null,
+): ValidationResult<PlannedRepositoryWithTemplate[]> {
+  const repoTemplateKeyByName = new Map<string, string>()
+  const groupIdByRepoName = new Map<string, string>()
+  const planned: PlannedRepositoryWithTemplate[] = []
+
+  for (const group of groups) {
+    const effectiveTemplate = resolveAssignmentRepositoryTemplate(
+      course,
+      group.assignmentId,
+      fallbackTemplate,
+    )
+    const key = templateKey(effectiveTemplate)
+    const existingTemplateKey = repoTemplateKeyByName.get(group.repoName)
+    if (existingTemplateKey !== undefined && existingTemplateKey !== key) {
+      return {
+        ok: false,
+        issues: [
+          {
+            path: "input.assignmentId",
+            message: `Repository '${group.repoName}' resolves to multiple templates. Use unique repo names or a single template per repository name.`,
+          },
+        ],
+      }
+    }
+
+    const existingGroupId = groupIdByRepoName.get(group.repoName)
+    if (existingGroupId !== undefined && existingGroupId !== group.groupId) {
+      return {
+        ok: false,
+        issues: [
+          {
+            path: "input.assignmentId",
+            message: `Repository name collision: '${group.repoName}' is produced by multiple groups.`,
+          },
+        ],
+      }
+    }
+
+    repoTemplateKeyByName.set(group.repoName, key)
+    groupIdByRepoName.set(group.repoName, group.groupId)
+    planned.push({
+      group,
+      template: effectiveTemplate,
+    })
+  }
+
+  return {
+    ok: true,
+    value: planned,
+  }
+}
+
+function createRepositoryBatches(
+  planned: readonly PlannedRepositoryWithTemplate[],
+): RepositoryCreateBatch[] {
+  const batchesByTemplateKey = new Map<
+    string,
+    { template: RepositoryTemplate | null; repositoryNames: Set<string> }
+  >()
+
+  for (const entry of planned) {
+    const key = templateKey(entry.template)
+    const existing = batchesByTemplateKey.get(key)
+    if (existing) {
+      existing.repositoryNames.add(entry.group.repoName)
+      continue
+    }
+    batchesByTemplateKey.set(key, {
+      template: entry.template,
+      repositoryNames: new Set([entry.group.repoName]),
+    })
+  }
+
+  return Array.from(batchesByTemplateKey.values()).map((batch) => ({
+    template: batch.template,
+    repositoryNames: Array.from(batch.repositoryNames),
+  }))
+}
+
+function planTeamSetup(
+  groups: readonly PlannedRepositoryGroup[],
+): PlannedTeamSetup[] {
+  const teamsByGroupId = new Map<
+    string,
+    {
+      teamName: string
+      memberIds: Set<string>
+      repositoryNames: Set<string>
+    }
+  >()
+
+  for (const group of groups) {
+    const existing = teamsByGroupId.get(group.groupId)
+    if (existing) {
+      group.activeMemberIds.forEach((memberId) => {
+        existing.memberIds.add(memberId)
+      })
+      existing.repositoryNames.add(group.repoName)
+      continue
+    }
+
+    teamsByGroupId.set(group.groupId, {
+      teamName: group.groupName,
+      memberIds: new Set(group.activeMemberIds),
+      repositoryNames: new Set([group.repoName]),
+    })
+  }
+
+  return Array.from(teamsByGroupId.entries()).map(([groupId, team]) => ({
+    groupId,
+    teamName: team.teamName,
+    memberIds: Array.from(team.memberIds),
+    repositoryNames: Array.from(team.repositoryNames),
+  }))
+}
+
 function uniqueRepositoryNames(
   groups: readonly PlannedRepositoryGroup[],
 ): string[] {
   return Array.from(new Set(groups.map((group) => group.repoName)))
+}
+
+function resolveRequiredAssignment(
+  course: PersistedCourse,
+  assignmentId: string,
+) {
+  const assignment = resolveAssignment(course, assignmentId)
+  if (assignment !== null) {
+    return assignment
+  }
+  throw createValidationAppError("Repository update assignment is invalid.", [
+    {
+      path: "input.assignmentId",
+      message: `Assignment '${assignmentId}' was not found.`,
+    },
+  ])
+}
+
+function formatTemplateUpdateBody(
+  assignmentName: string,
+  fromSha: string,
+  toSha: string,
+  files: ReadonlyArray<{
+    path: string
+    previousPath: string | null
+    status: string
+  }>,
+): string {
+  const header = [
+    `Template update for assignment '${assignmentName}'.`,
+    "",
+    `Source template diff: ${fromSha.slice(0, 7)} -> ${toSha.slice(0, 7)}`,
+    "",
+    "Changed files:",
+  ]
+  const lines =
+    files.length === 0
+      ? ["- (No changed files reported by provider)"]
+      : files.map((file) =>
+          file.status === "renamed" && file.previousPath
+            ? `- ${file.status}: ${file.previousPath} -> ${file.path}`
+            : `- ${file.status}: ${file.path}`,
+        )
+  return header.concat(lines).join("\n")
 }
 
 type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
@@ -2088,7 +2343,7 @@ function repositoryClonePath(
 
 function requireGitOrganization(
   course: PersistedCourse,
-  operation: "repo.create" | "repo.clone",
+  operation: "repo.create" | "repo.clone" | "repo.update",
 ): string {
   if (course.organization === null || course.organization.trim() === "") {
     throw createValidationAppError(
@@ -2127,15 +2382,15 @@ function normalizeRepositoryExecutionError(
 export function createRepositoryWorkflowHandlers(
   ports: RepositoryWorkflowPorts,
 ): Pick<
-  WorkflowHandlerMap<"repo.create" | "repo.clone">,
-  "repo.create" | "repo.clone"
+  WorkflowHandlerMap<"repo.create" | "repo.clone" | "repo.update">,
+  "repo.create" | "repo.clone" | "repo.update"
 > {
   return {
     "repo.create": async (
       input: RepositoryBatchInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-    ): Promise<RepositoryBatchResult> => {
-      const totalSteps = 4
+    ): Promise<RepositoryCreateResult> => {
+      const totalSteps = 6
       let providerForError: VerifyGitDraftInput["provider"] = "github"
 
       try {
@@ -2175,35 +2430,242 @@ export function createRepositoryWorkflowHandlers(
             planned.issues,
           )
         }
+        const plannedWithTemplates = planRepositoriesWithTemplates(
+          course,
+          planned.value,
+          input.template,
+        )
+        if (!plannedWithTemplates.ok) {
+          throw createValidationAppError(
+            "Repository planning failed.",
+            plannedWithTemplates.issues,
+          )
+        }
+
+        if (planned.value.length === 0) {
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository create workflow complete.",
+          })
+          return {
+            repositoriesPlanned: 0,
+            repositoriesCreated: 0,
+            repositoriesAlreadyExisted: 0,
+            repositoriesFailed: 0,
+            templateCommitShas: {},
+            completedAt: new Date().toISOString(),
+          }
+        }
 
         options?.onProgress?.({
           step: 3,
           totalSteps,
           label: "Creating repositories through Git provider client.",
         })
-        const createResult = await ports.git.createRepositories(
-          gitDraft,
-          {
-            organization,
-            repositoryNames: uniqueRepositoryNames(planned.value),
-            template: input.template,
-          },
-          options?.signal,
+        const batches = createRepositoryBatches(plannedWithTemplates.value)
+        const created: Awaited<
+          ReturnType<GitProviderClient["createRepositories"]>
+        >["created"] = []
+        const alreadyExisted: Awaited<
+          ReturnType<GitProviderClient["createRepositories"]>
+        >["alreadyExisted"] = []
+        const failed: Awaited<
+          ReturnType<GitProviderClient["createRepositories"]>
+        >["failed"] = []
+
+        for (const batch of batches) {
+          const createResult = await ports.git.createRepositories(
+            gitDraft,
+            {
+              organization,
+              repositoryNames: batch.repositoryNames,
+              template: batch.template,
+              autoInit: batch.template === null,
+            },
+            options?.signal,
+          )
+          created.push(...createResult.created)
+          alreadyExisted.push(...createResult.alreadyExisted)
+          failed.push(...createResult.failed)
+          options?.onOutput?.({
+            channel: "info",
+            message: `Create batch (${describeTemplate(batch.template)}): created ${createResult.created.length}, existing ${createResult.alreadyExisted.length}, failed ${createResult.failed.length}.`,
+          })
+        }
+
+        for (const repository of alreadyExisted) {
+          options?.onOutput?.({
+            channel: "info",
+            message: `Repository '${repository.repositoryName}' already exists.`,
+          })
+        }
+        for (const repository of failed) {
+          options?.onOutput?.({
+            channel: "warn",
+            message: `Repository '${repository.repositoryName}' failed: ${repository.reason}`,
+          })
+        }
+
+        const successfulRepositoryNames = new Set(
+          created
+            .concat(alreadyExisted)
+            .map((repository) => repository.repositoryName),
         )
-        options?.onOutput?.({
-          channel: "info",
-          message: `Requested ${planned.value.length} repositories, provider created ${createResult.createdCount}.`,
+        if (planned.value.length > 0 && successfulRepositoryNames.size === 0) {
+          throw {
+            type: "provider",
+            message: "Repository creation failed for all planned repositories.",
+            provider: providerForError,
+            operation: "createRepositories",
+            retryable: true,
+          } satisfies AppError
+        }
+
+        const templateCommitShas: Record<string, string> = {}
+        const successfulAssignmentTemplateById = new Map<
+          string,
+          RepositoryTemplate
+        >()
+        for (const entry of plannedWithTemplates.value) {
+          if (entry.template === null) {
+            continue
+          }
+          if (!successfulRepositoryNames.has(entry.group.repoName)) {
+            continue
+          }
+          successfulAssignmentTemplateById.set(
+            entry.group.assignmentId,
+            entry.template,
+          )
+        }
+        for (const [
+          assignmentId,
+          template,
+        ] of successfulAssignmentTemplateById) {
+          try {
+            const head = await ports.git.getRepositoryDefaultBranchHead(
+              gitDraft,
+              {
+                owner: template.owner,
+                repositoryName: template.name,
+              },
+              options?.signal,
+            )
+            if (head !== null) {
+              templateCommitShas[assignmentId] = head.sha
+            }
+          } catch {
+            // Best-effort: template commit tracking should not fail repo creation.
+          }
+        }
+
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "Creating teams and assigning members.",
         })
+        const teams = planTeamSetup(planned.value)
+        const teamSlugByGroupId = new Map<string, string>()
+        for (const team of teams) {
+          const usernames = resolveGitUsernames(course.roster, team.memberIds)
+          for (const missingMemberId of usernames.missing) {
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Skipping member '${missingMemberId}' for team '${team.teamName}' (missing Git username).`,
+            })
+          }
+
+          try {
+            const result = await ports.git.createTeam(
+              gitDraft,
+              {
+                organization,
+                teamName: team.teamName,
+                memberUsernames: usernames.resolved.map(
+                  (resolved) => resolved.gitUsername,
+                ),
+                permission: "push",
+              },
+              options?.signal,
+            )
+            teamSlugByGroupId.set(team.groupId, result.teamSlug)
+            if (result.membersNotFound.length > 0) {
+              options?.onOutput?.({
+                channel: "warn",
+                message: `Team '${team.teamName}' missing members: ${result.membersNotFound.join(", ")}.`,
+              })
+            }
+            options?.onOutput?.({
+              channel: "info",
+              message: `Team '${team.teamName}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
+            })
+          } catch (error) {
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to create team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,
+            })
+          }
+        }
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
-          step: 4,
+          step: 5,
+          totalSteps,
+          label: "Assigning repositories to teams.",
+        })
+        for (const team of teams) {
+          const teamSlug = teamSlugByGroupId.get(team.groupId)
+          if (teamSlug === undefined) {
+            continue
+          }
+          const repositoryNames = team.repositoryNames.filter(
+            (repositoryName) => successfulRepositoryNames.has(repositoryName),
+          )
+          if (repositoryNames.length === 0) {
+            continue
+          }
+          try {
+            await ports.git.assignRepositoriesToTeam(
+              gitDraft,
+              {
+                organization,
+                teamSlug,
+                repositoryNames,
+                permission: "push",
+              },
+              options?.signal,
+            )
+            options?.onOutput?.({
+              channel: "info",
+              message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,
+            })
+          } catch (error) {
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to assign repositories to team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,
+            })
+          }
+        }
+
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 6,
           totalSteps,
           label: "Repository create workflow complete.",
         })
 
+        options?.onOutput?.({
+          channel: "info",
+          message: `Repository create summary: planned ${planned.value.length}, created ${created.length}, existing ${alreadyExisted.length}, failed ${failed.length}.`,
+        })
+
         return {
           repositoriesPlanned: planned.value.length,
+          repositoriesCreated: created.length,
+          repositoriesAlreadyExisted: alreadyExisted.length,
+          repositoriesFailed: failed.length,
+          templateCommitShas,
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
@@ -2220,7 +2682,7 @@ export function createRepositoryWorkflowHandlers(
     "repo.clone": async (
       input: RepositoryBatchInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-    ): Promise<RepositoryBatchResult> => {
+    ): Promise<RepositoryCloneResult> => {
       const totalSteps = 5
       let providerForError: VerifyGitDraftInput["provider"] = "github"
 
@@ -2269,6 +2731,8 @@ export function createRepositoryWorkflowHandlers(
           })
           return {
             repositoriesPlanned: 0,
+            repositoriesCloned: 0,
+            repositoriesFailed: 0,
             completedAt: new Date().toISOString(),
           }
         }
@@ -2398,6 +2862,8 @@ export function createRepositoryWorkflowHandlers(
         })
         return {
           repositoriesPlanned: planned.value.length,
+          repositoriesCloned: cloned,
+          repositoriesFailed: failed + resolved.missing.length,
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
@@ -2408,6 +2874,323 @@ export function createRepositoryWorkflowHandlers(
           error,
           providerForError,
           "resolveRepositoryCloneUrls",
+        )
+      }
+    },
+    "repo.update": async (
+      input: RepositoryUpdateInput,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ): Promise<RepositoryUpdateResult> => {
+      const totalSteps = 6
+      let providerForError: VerifyGitDraftInput["provider"] = "github"
+
+      try {
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Reading course and app settings snapshots.",
+        })
+        const course = resolveCourseSnapshot(input.course)
+        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        throwIfAborted(options?.signal)
+        const gitDraft = resolveGitDraft(course, settings)
+        if (gitDraft === null) {
+          throw {
+            type: "not-found",
+            message: "Course does not reference a Git connection.",
+            resource: "connection",
+          } satisfies AppError
+        }
+        providerForError = gitDraft.provider
+        const organization = requireGitOrganization(course, "repo.update")
+        const assignment = resolveRequiredAssignment(course, input.assignmentId)
+
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Planning repositories from assignment groups.",
+        })
+        const planned = collectRepositoryGroups(course, assignment.id)
+        if (!planned.ok) {
+          throw createValidationAppError(
+            "Repository planning failed.",
+            planned.issues,
+          )
+        }
+        const plannedRepositoryNames = uniqueRepositoryNames(planned.value)
+        if (plannedRepositoryNames.length === 0) {
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository update workflow complete.",
+          })
+          return {
+            repositoriesPlanned: 0,
+            prsCreated: 0,
+            prsSkipped: 0,
+            prsFailed: 0,
+            templateCommitSha: assignment.templateCommitSha ?? null,
+            completedAt: new Date().toISOString(),
+          }
+        }
+
+        const template = resolveAssignmentRepositoryTemplate(
+          course,
+          assignment.id,
+          course.repositoryTemplate,
+        )
+        if (template === null) {
+          throw createValidationAppError(
+            "Repository update requires a template repository.",
+            [
+              {
+                path: "course.repositoryTemplate",
+                message:
+                  "Configure an assignment template or a course-level template first.",
+              },
+            ],
+          )
+        }
+
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "Resolving template head and changed files.",
+        })
+        const templateHead = await ports.git.getRepositoryDefaultBranchHead(
+          gitDraft,
+          {
+            owner: template.owner,
+            repositoryName: template.name,
+          },
+          options?.signal,
+        )
+        if (templateHead === null) {
+          throw {
+            type: "provider",
+            message: `Template repository '${template.owner}/${template.name}' was not found.`,
+            provider: providerForError,
+            operation: "getRepositoryDefaultBranchHead",
+            retryable: true,
+          } satisfies AppError
+        }
+
+        const fromSha = assignment.templateCommitSha ?? null
+        if (fromSha === null || fromSha.trim() === "") {
+          options?.onOutput?.({
+            channel: "warn",
+            message:
+              "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
+          })
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository update workflow complete.",
+          })
+          return {
+            repositoriesPlanned: plannedRepositoryNames.length,
+            prsCreated: 0,
+            prsSkipped: plannedRepositoryNames.length,
+            prsFailed: 0,
+            templateCommitSha: templateHead.sha,
+            completedAt: new Date().toISOString(),
+          }
+        }
+
+        if (fromSha === templateHead.sha) {
+          options?.onOutput?.({
+            channel: "info",
+            message: "Template unchanged since the stored baseline SHA.",
+          })
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository update workflow complete.",
+          })
+          return {
+            repositoriesPlanned: plannedRepositoryNames.length,
+            prsCreated: 0,
+            prsSkipped: plannedRepositoryNames.length,
+            prsFailed: 0,
+            templateCommitSha: templateHead.sha,
+            completedAt: new Date().toISOString(),
+          }
+        }
+
+        const templateDiff = await ports.git.getTemplateDiff(
+          gitDraft,
+          {
+            owner: template.owner,
+            repositoryName: template.name,
+            fromSha,
+            toSha: templateHead.sha,
+          },
+          options?.signal,
+        )
+        if (templateDiff === null) {
+          throw {
+            type: "provider",
+            message:
+              "Template diff could not be resolved from the Git provider.",
+            provider: providerForError,
+            operation: "getTemplateDiff",
+            retryable: true,
+          } satisfies AppError
+        }
+        if (templateDiff.files.length === 0) {
+          options?.onOutput?.({
+            channel: "info",
+            message:
+              "Template compare reported no file changes; skipping pull request creation.",
+          })
+          options?.onProgress?.({
+            step: totalSteps,
+            totalSteps,
+            label: "Repository update workflow complete.",
+          })
+          return {
+            repositoriesPlanned: plannedRepositoryNames.length,
+            prsCreated: 0,
+            prsSkipped: plannedRepositoryNames.length,
+            prsFailed: 0,
+            templateCommitSha: templateHead.sha,
+            completedAt: new Date().toISOString(),
+          }
+        }
+
+        const branchName = `template-update-${templateHead.sha.slice(0, 7)}`
+        const commitMessage = `Template update ${fromSha.slice(0, 7)} -> ${templateHead.sha.slice(0, 7)}`
+        const prTitle = "Template update"
+        const prBody = formatTemplateUpdateBody(
+          assignment.name,
+          fromSha,
+          templateHead.sha,
+          templateDiff.files,
+        )
+
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "Applying template updates to repository branches.",
+        })
+        const prCandidates: Array<{
+          repositoryName: string
+          baseBranch: string
+        }> = []
+        let prsFailed = 0
+        for (const repositoryName of plannedRepositoryNames) {
+          const head = await ports.git.getRepositoryDefaultBranchHead(
+            gitDraft,
+            {
+              owner: organization,
+              repositoryName,
+            },
+            options?.signal,
+          )
+          if (head === null) {
+            prsFailed += 1
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Repository '${repositoryName}' was not found.`,
+            })
+            continue
+          }
+
+          try {
+            await ports.git.createBranch(
+              gitDraft,
+              {
+                owner: organization,
+                repositoryName,
+                branchName,
+                baseSha: head.sha,
+                commitMessage,
+                files: templateDiff.files,
+              },
+              options?.signal,
+            )
+            prCandidates.push({
+              repositoryName,
+              baseBranch: head.branchName,
+            })
+          } catch (error) {
+            prsFailed += 1
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to apply template patch for '${repositoryName}': ${error instanceof Error ? error.message : String(error)}`,
+            })
+          }
+        }
+
+        options?.onProgress?.({
+          step: 5,
+          totalSteps,
+          label: "Creating pull requests for updated repositories.",
+        })
+        let prsCreated = 0
+        let prsSkipped = 0
+        for (const candidate of prCandidates) {
+          try {
+            const pr = await ports.git.createPullRequest(
+              gitDraft,
+              {
+                owner: organization,
+                repositoryName: candidate.repositoryName,
+                headBranch: branchName,
+                baseBranch: candidate.baseBranch,
+                title: prTitle,
+                body: prBody,
+              },
+              options?.signal,
+            )
+            if (pr.created) {
+              prsCreated += 1
+              options?.onOutput?.({
+                channel: "info",
+                message: `Opened PR for '${candidate.repositoryName}': ${pr.url}`,
+              })
+            } else {
+              prsSkipped += 1
+              options?.onOutput?.({
+                channel: "info",
+                message: `Skipped PR for '${candidate.repositoryName}' (already exists or no changes).`,
+              })
+            }
+          } catch (error) {
+            prsFailed += 1
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Failed to create PR for '${candidate.repositoryName}': ${error instanceof Error ? error.message : String(error)}`,
+            })
+          }
+        }
+
+        options?.onOutput?.({
+          channel: "info",
+          message: `Repository update summary: planned ${plannedRepositoryNames.length}, prs created ${prsCreated}, skipped ${prsSkipped}, failed ${prsFailed}.`,
+        })
+        options?.onProgress?.({
+          step: 6,
+          totalSteps,
+          label: "Repository update workflow complete.",
+        })
+        return {
+          repositoriesPlanned: plannedRepositoryNames.length,
+          prsCreated,
+          prsSkipped,
+          prsFailed,
+          templateCommitSha: templateHead.sha,
+          completedAt: new Date().toISOString(),
+        }
+      } catch (error) {
+        if (isSharedAppError(error)) {
+          throw error
+        }
+        throw normalizeProviderError(
+          error,
+          providerForError,
+          "createPullRequest",
         )
       }
     },

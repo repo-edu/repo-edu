@@ -300,8 +300,34 @@ export type RepositoryBatchInput = {
   groupIds?: string[]
 }
 
-export type RepositoryBatchResult = {
+export type RepositoryUpdateInput = {
+  course: PersistedCourse
+  appSettings: PersistedAppSettings
+  assignmentId: string
+}
+
+export type RepositoryCreateResult = {
   repositoriesPlanned: number
+  repositoriesCreated: number
+  repositoriesAlreadyExisted: number
+  repositoriesFailed: number
+  templateCommitShas: Record<string, string>
+  completedAt: string
+}
+
+export type RepositoryCloneResult = {
+  repositoriesPlanned: number
+  repositoriesCloned: number
+  repositoriesFailed: number
+  completedAt: string
+}
+
+export type RepositoryUpdateResult = {
+  repositoriesPlanned: number
+  prsCreated: number
+  prsSkipped: number
+  prsFailed: number
+  templateCommitSha: string | null
   completedAt: string
 }
 
@@ -474,13 +500,19 @@ export type WorkflowPayloads = {
     input: RepositoryBatchInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: RepositoryBatchResult
+    result: RepositoryCreateResult
   }
   "repo.clone": {
     input: RepositoryBatchInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: RepositoryBatchResult
+    result: RepositoryCloneResult
+  }
+  "repo.update": {
+    input: RepositoryUpdateInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: RepositoryUpdateResult
   }
   "userFile.inspectSelection": {
     input: UserFileRef
@@ -626,6 +658,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "repo.clone": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "repo.update": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",

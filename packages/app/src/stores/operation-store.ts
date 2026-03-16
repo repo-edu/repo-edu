@@ -1,4 +1,8 @@
-import type { RepositoryBatchResult } from "@repo-edu/application-contract"
+import type {
+  RepositoryCloneResult,
+  RepositoryCreateResult,
+  RepositoryUpdateResult,
+} from "@repo-edu/application-contract"
 import type {
   RepoOperationMode,
   RepoPreflightResult,
@@ -12,7 +16,11 @@ type OperationState = {
   selected: RepoOperationMode
   status: OperationStatus
   error: string | null
-  lastResult: RepositoryBatchResult | null
+  lastResult:
+    | RepositoryCreateResult
+    | RepositoryCloneResult
+    | RepositoryUpdateResult
+    | null
   validationResult: RosterValidationResult | null
   preflightResult: RepoPreflightResult | null
 }
@@ -21,7 +29,13 @@ type OperationActions = {
   setSelected: (operation: RepoOperationMode) => void
   setStatus: (status: OperationStatus) => void
   setError: (error: string | null) => void
-  setLastResult: (result: RepositoryBatchResult | null) => void
+  setLastResult: (
+    result:
+      | RepositoryCreateResult
+      | RepositoryCloneResult
+      | RepositoryUpdateResult
+      | null,
+  ) => void
   setValidationResult: (result: RosterValidationResult | null) => void
   setPreflightResult: (result: RepoPreflightResult | null) => void
   reset: () => void

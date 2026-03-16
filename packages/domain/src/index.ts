@@ -214,6 +214,8 @@ export type Assignment = {
   id: string
   name: string
   groupSetId: string
+  repositoryTemplate?: RepositoryTemplate | null
+  templateCommitSha?: string | null
 }
 
 export type RepositoryTemplate = {
@@ -1495,6 +1497,57 @@ export function activeMemberIds(roster: Roster, group: Group): string[] {
   )
 
   return group.memberIds.filter((memberId) => activeIds.has(memberId))
+}
+
+export type ResolvedGitUsername = {
+  memberId: string
+  gitUsername: string
+}
+
+export type ResolveGitUsernamesResult = {
+  resolved: ResolvedGitUsername[]
+  missing: string[]
+}
+
+export function resolveGitUsernames(
+  roster: Roster,
+  memberIds: readonly string[],
+): ResolveGitUsernamesResult {
+  const memberById = new Map(
+    roster.students.concat(roster.staff).map((member) => [member.id, member]),
+  )
+  const resolved: ResolvedGitUsername[] = []
+  const missing: string[] = []
+  const seen = new Set<string>()
+
+  for (const memberId of memberIds) {
+    if (seen.has(memberId)) {
+      continue
+    }
+    seen.add(memberId)
+
+    const member = memberById.get(memberId)
+    if (member === undefined) {
+      missing.push(memberId)
+      continue
+    }
+
+    const gitUsername = (member.gitUsername ?? "").trim()
+    if (gitUsername === "") {
+      missing.push(memberId)
+      continue
+    }
+
+    resolved.push({
+      memberId,
+      gitUsername,
+    })
+  }
+
+  return {
+    resolved,
+    missing,
+  }
 }
 
 function isSystemSet(groupSet: GroupSet, systemType: string): boolean {
@@ -3006,10 +3059,18 @@ const groupSetConnectionSchema = z
   ])
   .nullable()
 
+const repositoryTemplateSchema = z.object({
+  owner: z.string(),
+  name: z.string(),
+  visibility: z.enum(["private", "internal", "public"]),
+})
+
 const assignmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   groupSetId: z.string(),
+  repositoryTemplate: repositoryTemplateSchema.nullable().optional(),
+  templateCommitSha: z.string().nullable().optional(),
 })
 
 const groupSetSchema = z.object({
@@ -3019,12 +3080,6 @@ const groupSetSchema = z.object({
   connection: groupSetConnectionSchema,
   groupSelection: groupSelectionModeSchema,
   repoNameTemplate: z.string().nullable().default(null),
-})
-
-const repositoryTemplateSchema = z.object({
-  owner: z.string(),
-  name: z.string(),
-  visibility: z.enum(["private", "internal", "public"]),
 })
 
 const rosterSchema = z.object({

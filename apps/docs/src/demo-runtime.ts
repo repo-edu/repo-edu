@@ -74,6 +74,21 @@ function cloneValue<TValue>(value: TValue): TValue {
   return JSON.parse(JSON.stringify(value)) as TValue
 }
 
+function toBase64(value: string): string {
+  if (typeof btoa === "function") {
+    return btoa(value)
+  }
+  const bytes = new TextEncoder().encode(value)
+  let binary = ""
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  if (typeof btoa === "function") {
+    return btoa(binary)
+  }
+  return value
+}
+
 // ---------------------------------------------------------------------------
 // Mock LMS ports — source-aware factory
 // ---------------------------------------------------------------------------
@@ -249,10 +264,62 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       request: { organization: string; repositoryNames: string[] },
     ) {
       return {
-        createdCount: request.repositoryNames.length,
-        repositoryUrls: request.repositoryNames.map(
-          (name) => `https://github.com/${request.organization}/${name}`,
-        ),
+        created: request.repositoryNames.map((name) => ({
+          repositoryName: name,
+          repositoryUrl: `https://github.com/${request.organization}/${name}`,
+        })),
+        alreadyExisted: [],
+        failed: [],
+      }
+    },
+    async createTeam(
+      _draft: unknown,
+      request: { teamName: string; memberUsernames: string[] },
+    ) {
+      return {
+        created: true,
+        teamSlug: request.teamName,
+        membersAdded: request.memberUsernames,
+        membersNotFound: [],
+      }
+    },
+    async assignRepositoriesToTeam(
+      _draft: unknown,
+      _request: { repositoryNames: string[]; teamSlug: string },
+    ) {
+      return
+    },
+    async getRepositoryDefaultBranchHead(
+      _draft: unknown,
+      request: { owner: string; repositoryName: string },
+    ) {
+      return {
+        sha: `${request.owner}-${request.repositoryName}-sha`,
+        branchName: "main",
+      }
+    },
+    async getTemplateDiff() {
+      return {
+        files: [
+          {
+            path: "README.md",
+            previousPath: null,
+            status: "modified" as const,
+            contentBase64: toBase64("Updated template content"),
+          },
+        ],
+      }
+    },
+    async createBranch() {
+      return
+    },
+    async createPullRequest(
+      _draft: unknown,
+      request: { owner: string; repositoryName: string; headBranch: string },
+    ) {
+      return {
+        url: `https://github.com/${request.owner}/${request.repositoryName}/pull/1?branch=${request.headBranch}`,
+        created: true,
       }
     },
     async resolveRepositoryCloneUrls(

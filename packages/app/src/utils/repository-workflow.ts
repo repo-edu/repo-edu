@@ -1,14 +1,17 @@
-import type { RepositoryBatchInput } from "@repo-edu/application-contract"
+import type {
+  RepositoryBatchInput,
+  RepositoryUpdateInput,
+} from "@repo-edu/application-contract"
 import type {
   PersistedAppSettings,
   PersistedCourse,
   RepositoryTemplate,
 } from "@repo-edu/domain"
 
-export type RepositoryWorkflowId = "repo.create" | "repo.clone"
+export type RepositoryWorkflowId = "repo.create" | "repo.clone" | "repo.update"
 
 export type CloneDirectoryLayout = "flat" | "by-team" | "by-task"
-export type RepositoryOperationMode = "create" | "clone"
+export type RepositoryOperationMode = "create" | "clone" | "update"
 
 export type BuildRepositoryWorkflowRequestArgs = {
   course: PersistedCourse
@@ -25,7 +28,8 @@ export function resolveRepositoryWorkflowId(
   operation: RepositoryOperationMode,
 ): RepositoryWorkflowId {
   if (operation === "create") return "repo.create"
-  return "repo.clone"
+  if (operation === "clone") return "repo.clone"
+  return "repo.update"
 }
 
 export function buildRepositoryWorkflowRequest({
@@ -39,11 +43,11 @@ export function buildRepositoryWorkflowRequest({
   groupIds,
 }: BuildRepositoryWorkflowRequestArgs): {
   workflowId: RepositoryWorkflowId
-  input: RepositoryBatchInput
+  input: RepositoryBatchInput | RepositoryUpdateInput
 } {
   const workflowId = resolveRepositoryWorkflowId(operation)
 
-  const input: RepositoryBatchInput = {
+  const baseInput: RepositoryBatchInput = {
     course,
     appSettings,
     assignmentId,
@@ -51,10 +55,21 @@ export function buildRepositoryWorkflowRequest({
     groupIds,
   }
 
-  if (operation === "clone") {
-    input.targetDirectory = targetDirectory
-    input.directoryLayout = directoryLayout
+  if (operation === "update") {
+    return {
+      workflowId,
+      input: {
+        course,
+        appSettings,
+        assignmentId,
+      },
+    }
   }
 
-  return { workflowId, input }
+  if (operation === "clone") {
+    baseInput.targetDirectory = targetDirectory
+    baseInput.directoryLayout = directoryLayout
+  }
+
+  return { workflowId, input: baseInput }
 }

@@ -16,7 +16,7 @@ type SidebarSelection = {
   id: string
 } | null
 
-type GroupOperationSection = "create" | "clone" | null
+type GroupOperationSection = "create" | "clone" | "update" | null
 
 type SettingsCategory =
   | "lms-connections"

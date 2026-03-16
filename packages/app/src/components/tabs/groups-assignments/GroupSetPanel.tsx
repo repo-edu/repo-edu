@@ -1,4 +1,8 @@
-import type { RepositoryBatchResult } from "@repo-edu/application-contract"
+import type {
+  RepositoryCloneResult,
+  RepositoryCreateResult,
+  RepositoryUpdateResult,
+} from "@repo-edu/application-contract"
 import type {
   Assignment,
   Group,
@@ -341,6 +345,7 @@ function GroupsTable({
   const setGroupOperationSection = useUiStore((s) => s.setGroupOperationSection)
 
   const updateGroup = useCourseStore((s) => s.updateGroup)
+  const updateAssignment = useCourseStore((s) => s.updateAssignment)
   const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
   const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
 
@@ -386,10 +391,21 @@ function GroupsTable({
   const [runningOperation, setRunningOperation] =
     useState<RepositoryOperationMode | null>(null)
   const [operationError, setOperationError] = useState<string | null>(null)
-  const [lastResult, setLastResult] = useState<{
-    operation: RepositoryOperationMode
-    result: RepositoryBatchResult
-  } | null>(null)
+  const [lastResult, setLastResult] = useState<
+    | {
+        operation: "create"
+        result: RepositoryCreateResult
+      }
+    | {
+        operation: "clone"
+        result: RepositoryCloneResult
+      }
+    | {
+        operation: "update"
+        result: RepositoryUpdateResult
+      }
+    | null
+  >(null)
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -755,6 +771,11 @@ function GroupsTable({
     effectiveAssignmentId !== null &&
     gitConnectionId !== null &&
     selectedNonEmptyCount > 0
+  const hasUpdateOperationInputs =
+    !disabled &&
+    !isRunning &&
+    effectiveAssignmentId !== null &&
+    gitConnectionId !== null
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
@@ -793,7 +814,30 @@ function GroupsTable({
         const client = getWorkflowClient()
         const result = await client.run(workflowId, input)
         setOperationStatus("success")
-        setLastResult({ operation, result })
+        if (operation === "create") {
+          setLastResult({
+            operation: "create",
+            result: result as RepositoryCreateResult,
+          })
+        } else {
+          if (operation === "update") {
+            const typed = result as RepositoryUpdateResult
+            setLastResult({
+              operation: "update",
+              result: typed,
+            })
+            if (effectiveAssignmentId && typed.templateCommitSha) {
+              updateAssignment(effectiveAssignmentId, {
+                templateCommitSha: typed.templateCommitSha,
+              })
+            }
+            return
+          }
+          setLastResult({
+            operation: "clone",
+            result: result as RepositoryCloneResult,
+          })
+        }
       } catch (error) {
         setOperationStatus("error")
         setOperationError(getErrorMessage(error))
@@ -809,6 +853,7 @@ function GroupsTable({
       effectiveAssignmentId,
       repositoryTemplate,
       selectedGroupIds,
+      updateAssignment,
     ],
   )
 
@@ -873,6 +918,24 @@ function GroupsTable({
                 <ChevronDown
                   className={`ml-1 size-4 transition-transform ${
                     openSection === "clone" ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+              <Button
+                size="sm"
+                variant={openSection === "update" ? "default" : "outline"}
+                disabled={disabled}
+                onClick={() =>
+                  setGroupOperationSection(
+                    groupSetId,
+                    openSection === "update" ? null : "update",
+                  )
+                }
+              >
+                Update Repos
+                <ChevronDown
+                  className={`ml-1 size-4 transition-transform ${
+                    openSection === "update" ? "rotate-180" : ""
                   }`}
                 />
               </Button>
@@ -1017,6 +1080,36 @@ function GroupsTable({
               </CollapsibleContent>
             </Collapsible>
 
+            <Collapsible open={openSection === "update"}>
+              <CollapsibleContent>
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Creates pull requests from template changes for the selected
+                    assignment's repositories.
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void handleRunOperation("update")}
+                      disabled={!hasUpdateOperationInputs}
+                    >
+                      {runningOperation === "update" ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Running...
+                        </>
+                      ) : (
+                        "Update Repos"
+                      )}
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      Uses assignment template SHA tracking to open update PRs.
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
             {gitConnectionId === null && (
               <p className="text-sm text-destructive">
                 Configure a Git connection for this course before running
@@ -1028,9 +1121,18 @@ function GroupsTable({
             )}
             {lastResult && (
               <p className="text-sm text-muted-foreground">
-                {lastResult.result.repositoriesPlanned} repositor
-                {lastResult.result.repositoriesPlanned === 1 ? "y" : "ies"}{" "}
-                {lastResult.operation === "create" ? "created" : "cloned"} at{" "}
+                {lastResult.operation === "update"
+                  ? `${lastResult.result.prsCreated} pull request${lastResult.result.prsCreated === 1 ? "" : "s"} created (${lastResult.result.prsSkipped} skipped, ${lastResult.result.prsFailed} failed)`
+                  : `${lastResult.operation === "create" ? lastResult.result.repositoriesCreated : lastResult.result.repositoriesCloned} repositor${
+                      (
+                        lastResult.operation === "create"
+                          ? lastResult.result.repositoriesCreated
+                          : lastResult.result.repositoriesCloned
+                      ) === 1
+                        ? "y"
+                        : "ies"
+                    } ${lastResult.operation === "create" ? "created" : "cloned"}`}{" "}
+                at{" "}
                 {new Date(lastResult.result.completedAt).toLocaleTimeString()}.
               </p>
             )}
