@@ -472,6 +472,17 @@ function GroupsTable({
   const filteredRows = useMemo(() => {
     return rows.filter((row) => countFilter[String(row.memberCount)] ?? true)
   }, [countFilter, rows])
+  const selectedCountFilterCount = useMemo(
+    () =>
+      memberCountValues.filter((value) => countFilter[String(value)] ?? true)
+        .length,
+    [countFilter, memberCountValues],
+  )
+  const allCountFiltersSelected =
+    memberCountValues.length > 0 &&
+    selectedCountFilterCount === memberCountValues.length
+  const someCountFiltersSelected =
+    selectedCountFilterCount > 0 && !allCountFiltersSelected
 
   // Column definitions
   const columns = useMemo<ColumnDef<GroupRow>[]>(
@@ -1061,6 +1072,28 @@ function GroupsTable({
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">
                     No groups
                   </div>
+                )}
+                {memberCountValues.length > 0 && (
+                  <DropdownMenuCheckboxItem
+                    checked={
+                      allCountFiltersSelected
+                        ? true
+                        : someCountFiltersSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={(checked) => {
+                      const nextSelected = checked === true
+                      const nextFilter: Record<string, boolean> = {}
+                      for (const value of memberCountValues) {
+                        nextFilter[String(value)] = nextSelected
+                      }
+                      setGroupCountFilter(groupSetId, nextFilter)
+                    }}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    All
+                  </DropdownMenuCheckboxItem>
                 )}
                 {memberCountValues.map((value) => {
                   const key = String(value)
