@@ -448,7 +448,7 @@ describe("createGitLabClient", () => {
       })
 
       assert.equal(result.created, true)
-      assert.equal(result.teamSlug, "hw1-team")
+      assert.equal(result.teamSlug, "team-hw1-team")
       assert.deepStrictEqual(result.membersAdded, ["alice"])
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
     })

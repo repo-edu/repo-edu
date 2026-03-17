@@ -15,8 +15,13 @@
     "tsx": "^4.19.4"
   },
   "scripts": {
-    "test:integration": "node --import tsx --test src/repo-create.test.ts src/repo-clone.test.ts",
-    "docker:up": "docker compose up -d --wait && (docker compose exec -T -u git gitea gitea admin user create --admin --username test-admin --password test-admin-pw --email admin@test.local --must-change-password=false || true)",
+    "test:integration": "sh ./scripts/run-integration-tests.sh",
+    "test:integration:gitea": "INTEGRATION_GIT_PROVIDERS=gitea pnpm run test:integration",
+    "test:integration:gitlab": "INTEGRATION_GIT_PROVIDERS=gitlab pnpm run test:integration",
+    "test:integration:github": "INTEGRATION_GIT_PROVIDERS=github pnpm run test:integration",
+    "docker:up": "pnpm run docker:up:gitea",
+    "docker:up:gitea": "docker compose up -d --wait gitea && (docker compose exec -T -u git gitea gitea admin user create --admin --username test-admin --password test-admin-pw --email admin@test.local --must-change-password=false || true)",
+    "docker:up:gitlab": "sh ./scripts/docker-up-gitlab.sh",
     "docker:down": "docker compose down -v --remove-orphans"
   }
 }

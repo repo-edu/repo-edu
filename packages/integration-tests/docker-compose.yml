@@ -1,6 +1,6 @@
 services:
   gitea:
-    image: gitea/gitea:1.22.6
+    image: gitea/gitea:1.25.4@sha256:17d18218be2dad1f8ed402a4f906989505c90ab8b66ee9befcecfb5d470133e7
     ports:
       - "${GITEA_PORT:-3000}:3000"
     environment:
@@ -14,3 +14,18 @@ services:
       timeout: 5s
       retries: 30
       start_period: 10s
+  gitlab:
+    image: gitlab/gitlab-ce:18.1.0-ce.0@sha256:4c85bb2c7fe659688e8c948e88f1ab74148f193cf8775dfa7db943acdb772a02
+    hostname: gitlab.local
+    environment:
+      - GITLAB_OMNIBUS_CONFIG=external_url 'http://localhost:${GITLAB_PORT:-8929}'; nginx['listen_port'] = ${GITLAB_PORT:-8929}; gitlab_rails['initial_root_password'] = '${GITLAB_INITIAL_ROOT_PASSWORD:-R7vK2pQ9mL4xT8nC5bH3jF6sD1wZ}';
+    ports:
+      - "${GITLAB_PORT:-8929}:${GITLAB_PORT:-8929}"
+    shm_size: "256m"
+    healthcheck:
+      test:
+        ["CMD", "curl", "-fsSL", "http://localhost:${GITLAB_PORT:-8929}/-/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 60s

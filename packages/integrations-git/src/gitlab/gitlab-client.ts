@@ -70,6 +70,15 @@ function toTeamSlug(name: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
+function toTeamPathSlug(name: string): string {
+  const slug = toTeamSlug(name)
+  return slug.startsWith("team-") ? slug : `team-${slug}`
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -595,6 +604,15 @@ async function fileExistsInBranch(
 }
 
 export function createGitLabClient(http: HttpPort): GitProviderClient {
+  const recentlyCreatedProjectAtMs = new Map<string, number>()
+  const recentlyCreatedWindowMs = 30_000
+  const recentProjectRetryIntervalMs = 1_000
+  const recentProjectRetryAttempts = 5
+
+  function toProjectKey(organization: string, repositoryName: string): string {
+    return `${organization}/${repositoryName}`
+  }
+
   return {
     async verifyConnection(
       draft: GitConnectionDraft,
@@ -668,6 +686,10 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
         try {
           const url = await createProject(api, namespaceId, repoName, request)
           if (url !== "") {
+            recentlyCreatedProjectAtMs.set(
+              toProjectKey(request.organization, repoName),
+              Date.now(),
+            )
             created.push({
               repositoryName: repoName,
               repositoryUrl: url,
@@ -731,7 +753,7 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
         )
       }
 
-      const teamSlug = toTeamSlug(request.teamName)
+      const teamSlug = toTeamPathSlug(request.teamName)
       const teamPath = `${request.organization}/${teamSlug}`
       let created = false
       let teamId: number | null = null
@@ -1176,23 +1198,40 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
         }
 
         const projectPath = `${request.organization}/${repositoryName}`
-        try {
-          const project = await api.Projects.show(projectPath)
-          const cloneUrl = extractProjectUrl(project)
-          if (cloneUrl === "") {
-            missing.push(repositoryName)
-            continue
+        const projectKey = toProjectKey(request.organization, repositoryName)
+        const createdAtMs = recentlyCreatedProjectAtMs.get(projectKey)
+        const shouldRetryRecent =
+          typeof createdAtMs === "number" &&
+          Date.now() - createdAtMs <= recentlyCreatedWindowMs
+        const attempts = shouldRetryRecent ? recentProjectRetryAttempts : 1
+
+        let found = false
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+          try {
+            const project = await api.Projects.show(projectPath)
+            const cloneUrl = extractProjectUrl(project)
+            if (cloneUrl === "") {
+              break
+            }
+            resolved.push({
+              repositoryName,
+              cloneUrl: withGitLabToken(cloneUrl, draft.token),
+            })
+            recentlyCreatedProjectAtMs.delete(projectKey)
+            found = true
+            break
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              throw error
+            }
+            if (attempt < attempts) {
+              await sleep(recentProjectRetryIntervalMs)
+            }
           }
-          resolved.push({
-            repositoryName,
-            cloneUrl: withGitLabToken(cloneUrl, draft.token),
-          })
-        } catch (error) {
-          if (isNotFoundError(error)) {
-            missing.push(repositoryName)
-            continue
-          }
-          throw error
+        }
+
+        if (!found) {
+          missing.push(repositoryName)
         }
       }
 

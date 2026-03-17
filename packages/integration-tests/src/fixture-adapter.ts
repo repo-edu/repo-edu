@@ -1,4 +1,5 @@
 import {
+  type GitProviderKind,
   type PersistedAppSettings,
   type PersistedCourse,
   type PlannedRepositoryGroup,
@@ -6,22 +7,60 @@ import {
 } from "@repo-edu/domain"
 import { getFixture } from "@repo-edu/test-fixtures"
 
-export function createGiteaFixture(
-  baseUrl: string,
-  token: string,
-  orgName: string,
-): { course: PersistedCourse; settings: PersistedAppSettings } {
+function applyGroupNameSuffix(course: PersistedCourse, suffix: string): void {
+  for (const group of course.roster.groups) {
+    group.name = `${group.name}-${suffix}`
+  }
+}
+
+function applyGitUsernameOverrides(
+  course: PersistedCourse,
+  usernames: readonly string[],
+): void {
+  const pool = usernames.map((entry) => entry.trim()).filter(Boolean)
+  if (pool.length === 0) {
+    return
+  }
+
+  let index = 0
+  for (const member of [...course.roster.students, ...course.roster.staff]) {
+    if ((member.gitUsername ?? "").trim() === "") {
+      continue
+    }
+    member.gitUsername = pool[index % pool.length] ?? member.gitUsername
+    index += 1
+  }
+}
+
+export function createGitFixture(input: {
+  provider: GitProviderKind
+  baseUrl: string
+  token: string
+  organization: string
+  scopeSuffix: string
+  fixtureGitUsernames?: readonly string[]
+}): { course: PersistedCourse; settings: PersistedAppSettings } {
   const fixture = getFixture({ tier: "small", preset: "shared-teams" })
 
   const course: PersistedCourse = structuredClone(fixture.course)
   const settings: PersistedAppSettings = structuredClone(fixture.settings)
 
-  const connectionId = "integration-gitea"
+  applyGroupNameSuffix(course, input.scopeSuffix)
+  if (input.fixtureGitUsernames && input.fixtureGitUsernames.length > 0) {
+    applyGitUsernameOverrides(course, input.fixtureGitUsernames)
+  }
+
+  const connectionId = `integration-${input.provider}`
   settings.gitConnections = [
-    { id: connectionId, provider: "gitea", baseUrl, token },
+    {
+      id: connectionId,
+      provider: input.provider,
+      baseUrl: input.baseUrl,
+      token: input.token,
+    },
   ]
   course.gitConnectionId = connectionId
-  course.organization = orgName
+  course.organization = input.organization
 
   return { course, settings }
 }

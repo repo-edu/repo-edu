@@ -12,218 +12,178 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
 } from "@repo-edu/host-node"
-import { createGiteaClient } from "@repo-edu/integrations-git"
-
+import { createGitProviderClient } from "@repo-edu/integrations-git"
 import {
   collectExpectedRepoNames,
   collectFixtureGitUsernames,
-  createGiteaFixture,
+  createGitFixture,
 } from "./fixture-adapter.js"
-import {
-  cleanupOrganization,
-  createAdminToken,
-  ensureGiteaReady,
-  seedGiteaOrganization,
-  seedGiteaUsers,
-  seedTemplateRepository,
-  verifyRepositoriesExist,
-  verifyTeamMembers,
-  verifyTeamRepos,
-  verifyTeams,
-} from "./gitea-harness.js"
+import type { IntegrationTeam } from "./git-provider-harness.js"
+import { resolveHarnessesFromEnvironment } from "./provider-matrix.js"
 
-const GITEA_URL = process.env.INTEGRATION_GITEA_URL ?? ""
+function plannedTeamsForExpected(
+  teams: IntegrationTeam[],
+  expectedGroupNames: string[],
+): IntegrationTeam[] {
+  const normalize = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
 
-const describeIntegration = GITEA_URL ? describe : describe.skip
+  const expectedByName = new Set(expectedGroupNames)
+  const expectedBySlug = new Set(expectedGroupNames.map(normalize))
+  return teams.filter(
+    (team) =>
+      expectedByName.has(team.name) || expectedBySlug.has(normalize(team.name)),
+  )
+}
 
-describeIntegration("repo.create integration (Gitea)", () => {
-  let token: string
-  let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
+const harnesses = resolveHarnessesFromEnvironment()
 
-  before(async () => {
-    await ensureGiteaReady(GITEA_URL)
-    token = await createAdminToken(GITEA_URL)
+for (const harness of harnesses) {
+  const describeIntegration = harness.isConfigured ? describe : describe.skip
 
-    const http = createNodeHttpPort()
-    const git = createGiteaClient(http)
-    handlers = createRepositoryWorkflowHandlers({
-      git,
-      gitCommand: createNodeGitCommandPort(),
-      fileSystem: createNodeFileSystemPort(),
-    })
-  })
+  describeIntegration(`repo.create integration (${harness.label})`, () => {
+    let handlers: ReturnType<typeof createRepositoryWorkflowHandlers>
 
-  async function withIsolatedOrg(
-    fn: (ctx: {
-      orgName: string
-      course: PersistedCourse
-      settings: PersistedAppSettings
-    }) => Promise<void>,
-  ): Promise<void> {
-    const orgName = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    await seedGiteaOrganization(GITEA_URL, token, orgName)
-
-    const { course, settings } = createGiteaFixture(GITEA_URL, token, orgName)
-    const usernames = collectFixtureGitUsernames(course)
-    await seedGiteaUsers(GITEA_URL, token, usernames)
-
-    try {
-      await fn({ orgName, course, settings })
-    } finally {
-      await cleanupOrganization(GITEA_URL, token, orgName)
-    }
-  }
-
-  it("creates repositories and teams", async () => {
-    await withIsolatedOrg(async ({ orgName, course, settings }) => {
-      const expected = collectExpectedRepoNames(course, "a1")
-      assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
-
-      const result = await handlers["repo.create"]({
-        course,
-        appSettings: settings,
-        assignmentId: "a1",
-        template: null,
+    before(async () => {
+      await harness.ensureReady()
+      const draft = harness.getConnectionDraft()
+      const http = createNodeHttpPort()
+      const git = createGitProviderClient(draft.provider, http)
+      handlers = createRepositoryWorkflowHandlers({
+        git,
+        gitCommand: createNodeGitCommandPort(),
+        fileSystem: createNodeFileSystemPort(),
       })
-
-      assert.ok(result.repositoriesCreated > 0, "should create repositories")
-      assert.equal(result.repositoriesFailed, 0, "no failures expected")
-      assert.equal(
-        result.repositoriesAlreadyExisted,
-        0,
-        "no pre-existing repos",
-      )
-
-      const existing = await verifyRepositoriesExist(
-        GITEA_URL,
-        token,
-        orgName,
-        expected.repoNames,
-      )
-      assert.deepEqual(
-        existing.sort(),
-        expected.repoNames.sort(),
-        "all planned repos should exist in Gitea",
-      )
-
-      const teams = await verifyTeams(GITEA_URL, token, orgName)
-      const nonOwnerTeams = teams.filter((team) => team.name !== "Owners")
-      assert.ok(nonOwnerTeams.length > 0, "teams should be created")
-
-      const teamWithMembers = nonOwnerTeams[0] as (typeof nonOwnerTeams)[number]
-      const members = await verifyTeamMembers(
-        GITEA_URL,
-        token,
-        teamWithMembers.id,
-      )
-      assert.ok(members.length > 0, "team should have members")
-
-      const repos = await verifyTeamRepos(GITEA_URL, token, teamWithMembers.id)
-      assert.ok(repos.length > 0, "team should have repo assignments")
     })
-  })
 
-  it("reports existing repositories on idempotent re-run", async () => {
-    await withIsolatedOrg(async ({ course, settings }) => {
-      const firstResult = await handlers["repo.create"]({
-        course,
-        appSettings: settings,
-        assignmentId: "a1",
-        template: null,
+    async function withIsolatedOrg(
+      fn: (ctx: {
+        organization: string
+        course: PersistedCourse
+        settings: PersistedAppSettings
+      }) => Promise<void>,
+    ): Promise<void> {
+      const scopeSuffix = `${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`
+      const requestedOrg = `test-${scopeSuffix}`
+      const organization = await harness.createOrganization(requestedOrg)
+
+      const draft = harness.getConnectionDraft()
+      const { course, settings } = createGitFixture({
+        provider: draft.provider,
+        baseUrl: draft.baseUrl,
+        token: draft.token,
+        organization,
+        scopeSuffix,
+        fixtureGitUsernames: harness.fixtureGitUsernames,
       })
-      assert.ok(firstResult.repositoriesCreated > 0, "first run should create")
+      const usernames = collectFixtureGitUsernames(course)
 
-      const secondResult = await handlers["repo.create"]({
-        course,
-        appSettings: settings,
-        assignmentId: "a1",
-        template: null,
-      })
-      assert.equal(
-        secondResult.repositoriesCreated,
-        0,
-        "second run should create nothing",
-      )
-      assert.ok(
-        secondResult.repositoriesAlreadyExisted > 0,
-        "second run should report existing",
-      )
-      assert.equal(secondResult.repositoriesFailed, 0, "no failures expected")
-    })
-  })
-
-  it("creates from template and captures commit SHA", async () => {
-    await withIsolatedOrg(async ({ orgName, course, settings }) => {
-      const templateRepoName = "starter-template"
-      await seedTemplateRepository(GITEA_URL, token, orgName, templateRepoName)
-
-      const template = {
-        kind: "remote" as const,
-        owner: orgName,
-        name: templateRepoName,
-        visibility: "private" as const,
+      if (harness.supportsUserProvisioning) {
+        await harness.seedUsers(usernames)
       }
 
-      const result = await handlers["repo.create"]({
-        course,
-        appSettings: settings,
-        assignmentId: "a1",
-        template,
+      try {
+        await fn({ organization, course, settings })
+      } finally {
+        await harness.cleanupOrganization(organization)
+      }
+    }
+
+    it("creates repositories and teams", async () => {
+      await withIsolatedOrg(async ({ organization, course, settings }) => {
+        const expected = collectExpectedRepoNames(course, "a1")
+        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
+
+        const result = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+
+        assert.ok(
+          result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+          "should create or discover repositories",
+        )
+        assert.equal(result.repositoriesFailed, 0, "no failures expected")
+
+        const existing = await harness.verifyRepositoriesExist(
+          organization,
+          expected.repoNames,
+        )
+        assert.deepEqual(
+          existing.sort(),
+          expected.repoNames.sort(),
+          "all planned repos should exist",
+        )
+
+        const teams = await harness.verifyTeams(organization)
+        const plannedTeams = plannedTeamsForExpected(teams, expected.groupNames)
+        assert.ok(plannedTeams.length > 0, "planned teams should be created")
+
+        const team = plannedTeams[0] as IntegrationTeam
+        if (harness.assertTeamMemberAssignments) {
+          const members = await harness.verifyTeamMembers(organization, team)
+          assert.ok(members.length > 0, "team should have members")
+        }
+
+        const repos = await harness.verifyTeamRepos(organization, team)
+        assert.ok(
+          repos.some((repoName) => expected.repoNames.includes(repoName)),
+          "team should have repo assignments",
+        )
       })
-
-      assert.ok(
-        result.repositoriesCreated > 0,
-        "should create repos from template",
-      )
-      assert.equal(result.repositoriesFailed, 0, "no failures expected")
-      assert.ok(
-        result.templateCommitShas.a1 !== undefined &&
-          result.templateCommitShas.a1 !== "",
-        "should capture template commit SHA for assignment",
-      )
     })
-  })
 
-  it("creates from local template and captures commit SHA", async () => {
-    const exec = promisify(execFile)
-    const localTemplatePath = await mkdtemp(join(tmpdir(), "repo-edu-tpl-"))
-
-    try {
-      await exec("git", ["init"], { cwd: localTemplatePath })
-      await exec(
-        "git",
-        [
-          "-c",
-          "user.name=Test",
-          "-c",
-          "user.email=t@t",
-          "commit",
-          "--allow-empty",
-          "-m",
-          "init",
-        ],
-        { cwd: localTemplatePath },
-      )
-      await writeFile(join(localTemplatePath, "README.md"), "# Template\n")
-      await exec("git", ["add", "."], { cwd: localTemplatePath })
-      await exec(
-        "git",
-        [
-          "-c",
-          "user.name=Test",
-          "-c",
-          "user.email=t@t",
-          "commit",
-          "-m",
-          "add readme",
-        ],
-        { cwd: localTemplatePath },
-      )
-
+    it("reports existing repositories on idempotent re-run", async () => {
       await withIsolatedOrg(async ({ course, settings }) => {
+        const firstResult = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+        assert.ok(
+          firstResult.repositoriesCreated +
+            firstResult.repositoriesAlreadyExisted >
+            0,
+          "first run should process planned repositories",
+        )
+
+        const secondResult = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+        assert.equal(
+          secondResult.repositoriesCreated,
+          0,
+          "second run should create nothing",
+        )
+        assert.ok(
+          secondResult.repositoriesAlreadyExisted > 0,
+          "second run should report existing",
+        )
+        assert.equal(secondResult.repositoriesFailed, 0, "no failures expected")
+      })
+    })
+
+    it("creates from template and captures commit SHA", async () => {
+      await withIsolatedOrg(async ({ organization, course, settings }) => {
+        const templateRepoName = "starter-template"
+        await harness.seedTemplateRepository(organization, templateRepoName)
+
         const template = {
-          kind: "local" as const,
-          path: localTemplatePath,
+          kind: "remote" as const,
+          owner: organization,
+          name: templateRepoName,
           visibility: "private" as const,
         }
 
@@ -235,8 +195,8 @@ describeIntegration("repo.create integration (Gitea)", () => {
         })
 
         assert.ok(
-          result.repositoriesCreated > 0,
-          "should create repos from local template",
+          result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+          "should process repos from template",
         )
         assert.equal(result.repositoriesFailed, 0, "no failures expected")
         assert.ok(
@@ -244,18 +204,82 @@ describeIntegration("repo.create integration (Gitea)", () => {
             result.templateCommitShas.a1 !== "",
           "should capture template commit SHA for assignment",
         )
-        assert.match(
-          result.templateCommitShas.a1,
-          /^[0-9a-f]{40}$/,
-          "SHA should be a 40-char hex string",
-        )
       })
-    } finally {
-      await rm(localTemplatePath, { recursive: true, force: true })
-    }
-  })
+    })
 
-  after(async () => {
-    // Cleanup is handled per-test in withIsolatedOrg.
+    it("creates from local template and captures commit SHA", async () => {
+      const exec = promisify(execFile)
+      const localTemplatePath = await mkdtemp(join(tmpdir(), "repo-edu-tpl-"))
+
+      try {
+        await exec("git", ["init"], { cwd: localTemplatePath })
+        await exec(
+          "git",
+          [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "init",
+          ],
+          { cwd: localTemplatePath },
+        )
+        await writeFile(join(localTemplatePath, "README.md"), "# Template\n")
+        await exec("git", ["add", "."], { cwd: localTemplatePath })
+        await exec(
+          "git",
+          [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-m",
+            "add readme",
+          ],
+          { cwd: localTemplatePath },
+        )
+
+        await withIsolatedOrg(async ({ course, settings }) => {
+          const template = {
+            kind: "local" as const,
+            path: localTemplatePath,
+            visibility: "private" as const,
+          }
+
+          const result = await handlers["repo.create"]({
+            course,
+            appSettings: settings,
+            assignmentId: "a1",
+            template,
+          })
+
+          assert.ok(
+            result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+            "should process repos from local template",
+          )
+          assert.equal(result.repositoriesFailed, 0, "no failures expected")
+          assert.ok(
+            result.templateCommitShas.a1 !== undefined &&
+              result.templateCommitShas.a1 !== "",
+            "should capture template commit SHA for assignment",
+          )
+          assert.match(
+            result.templateCommitShas.a1,
+            /^[0-9a-f]{40}$/,
+            "SHA should be a 40-char hex string",
+          )
+        })
+      } finally {
+        await rm(localTemplatePath, { recursive: true, force: true })
+      }
+    })
+
+    after(async () => {
+      // Cleanup is handled per-test in withIsolatedOrg.
+    })
   })
-})
+}

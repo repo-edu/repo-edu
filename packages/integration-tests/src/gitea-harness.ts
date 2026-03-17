@@ -1,3 +1,9 @@
+import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import type {
+  GitProviderHarness,
+  IntegrationTeam,
+} from "./git-provider-harness.js"
+
 const ADMIN_USERNAME = "test-admin"
 const ADMIN_PASSWORD = "test-admin-pw"
 
@@ -41,7 +47,7 @@ async function giteaFetch(
   return { status: response.status, data }
 }
 
-export async function ensureGiteaReady(baseUrl: string): Promise<void> {
+async function ensureGiteaReady(baseUrl: string): Promise<void> {
   const maxAttempts = 30
   const intervalMs = 1000
 
@@ -63,7 +69,7 @@ export async function ensureGiteaReady(baseUrl: string): Promise<void> {
   }
 }
 
-export async function createAdminToken(baseUrl: string): Promise<string> {
+async function createAdminToken(baseUrl: string): Promise<string> {
   const tokenName = `integration-${Date.now()}`
   const { status, data } = await giteaFetch(
     baseUrl,
@@ -100,218 +106,248 @@ export async function createAdminToken(baseUrl: string): Promise<string> {
   return token
 }
 
-export async function seedGiteaOrganization(
-  baseUrl: string,
-  token: string,
-  orgName: string,
-): Promise<void> {
-  const { status } = await giteaFetch(baseUrl, "/orgs", {
-    method: "POST",
-    auth: tokenAuthHeader(token),
-    body: { username: orgName, visibility: "private" },
-  })
+export function createGiteaHarness(): GitProviderHarness {
+  const baseUrl = process.env.INTEGRATION_GITEA_URL ?? ""
+  let token: string | null = null
 
-  if (status !== 201 && status !== 422) {
-    throw new Error(`Failed to create org '${orgName}' (${status}).`)
-  }
-}
-
-export async function seedGiteaUsers(
-  baseUrl: string,
-  token: string,
-  usernames: string[],
-): Promise<void> {
-  for (const username of usernames) {
-    const { status } = await giteaFetch(baseUrl, "/admin/users", {
-      method: "POST",
-      auth: tokenAuthHeader(token),
-      body: {
-        username,
-        email: `${username}@test.local`,
-        password: "test-user-pw-00",
-        must_change_password: false,
-      },
-    })
-
-    if (status !== 201 && status !== 422) {
-      throw new Error(`Failed to create user '${username}' (${status}).`)
+  const getToken = (): string => {
+    if (token === null) {
+      throw new Error("Gitea admin token is not initialized.")
     }
-  }
-}
-
-export async function seedTemplateRepository(
-  baseUrl: string,
-  token: string,
-  owner: string,
-  repoName: string,
-): Promise<void> {
-  const createResult = await giteaFetch(baseUrl, `/orgs/${owner}/repos`, {
-    method: "POST",
-    auth: tokenAuthHeader(token),
-    body: {
-      name: repoName,
-      auto_init: true,
-      private: true,
-      template: false,
-    },
-  })
-
-  if (createResult.status !== 201 && createResult.status !== 409) {
-    throw new Error(
-      `Failed to create template repo '${owner}/${repoName}' (${createResult.status}).`,
-    )
+    return token
   }
 
-  const patchResult = await giteaFetch(baseUrl, `/repos/${owner}/${repoName}`, {
-    method: "PATCH",
-    auth: tokenAuthHeader(token),
-    body: { template: true },
-  })
+  const getAuth = (): string => tokenAuthHeader(getToken())
 
-  if (patchResult.status !== 200) {
-    throw new Error(
-      `Failed to mark '${owner}/${repoName}' as template (${patchResult.status}).`,
-    )
-  }
-}
-
-export async function seedOrganizationRepository(
-  baseUrl: string,
-  token: string,
-  owner: string,
-  repoName: string,
-  options?: {
-    autoInit?: boolean
-  },
-): Promise<void> {
-  const createResult = await giteaFetch(baseUrl, `/orgs/${owner}/repos`, {
-    method: "POST",
-    auth: tokenAuthHeader(token),
-    body: {
-      name: repoName,
-      auto_init: options?.autoInit ?? true,
-      private: true,
-      template: false,
-    },
-  })
-
-  if (createResult.status !== 201 && createResult.status !== 409) {
-    throw new Error(
-      `Failed to create repo '${owner}/${repoName}' (${createResult.status}).`,
-    )
-  }
-}
-
-export async function verifyRepositoriesExist(
-  baseUrl: string,
-  token: string,
-  org: string,
-  names: string[],
-): Promise<string[]> {
-  const existing: string[] = []
-  for (const name of names) {
-    const { status } = await giteaFetch(baseUrl, `/repos/${org}/${name}`, {
-      auth: tokenAuthHeader(token),
-    })
-    if (status === 200) {
-      existing.push(name)
-    }
-  }
-  return existing
-}
-
-export async function verifyTeams(
-  baseUrl: string,
-  token: string,
-  org: string,
-): Promise<Array<{ id: number; name: string }>> {
-  const { status, data } = await giteaFetch(baseUrl, `/orgs/${org}/teams`, {
-    auth: tokenAuthHeader(token),
-  })
-
-  if (status !== 200) {
-    throw new Error(`Failed to list teams for org '${org}' (${status}).`)
-  }
-
-  return (data as Array<{ id: number; name: string }>).map((team) => ({
-    id: team.id,
-    name: team.name,
-  }))
-}
-
-export async function verifyTeamMembers(
-  baseUrl: string,
-  token: string,
-  teamId: number,
-): Promise<string[]> {
-  const { status, data } = await giteaFetch(
+  const getConnectionDraft = (): GitConnectionDraft => ({
+    provider: "gitea",
     baseUrl,
-    `/teams/${teamId}/members`,
-    { auth: tokenAuthHeader(token) },
-  )
-
-  if (status !== 200) {
-    throw new Error(`Failed to list members for team ${teamId} (${status}).`)
-  }
-
-  return (data as Array<{ login: string }>).map((member) => member.login)
-}
-
-export async function verifyTeamRepos(
-  baseUrl: string,
-  token: string,
-  teamId: number,
-): Promise<string[]> {
-  const { status, data } = await giteaFetch(baseUrl, `/teams/${teamId}/repos`, {
-    auth: tokenAuthHeader(token),
+    token: getToken(),
   })
 
-  if (status !== 200) {
-    throw new Error(`Failed to list repos for team ${teamId} (${status}).`)
-  }
+  return {
+    label: "Gitea",
+    isConfigured: baseUrl !== "",
+    supportsUserProvisioning: true,
+    assertTeamMemberAssignments: true,
+    fixtureGitUsernames: [],
+    async ensureReady() {
+      await ensureGiteaReady(baseUrl)
+      token = await createAdminToken(baseUrl)
+    },
+    getConnectionDraft,
+    async createOrganization(orgName: string): Promise<string> {
+      const { status } = await giteaFetch(baseUrl, "/orgs", {
+        method: "POST",
+        auth: getAuth(),
+        body: { username: orgName, visibility: "private" },
+      })
 
-  return (data as Array<{ name: string }>).map((repo) => repo.name)
-}
+      if (status !== 201 && status !== 422) {
+        throw new Error(`Failed to create org '${orgName}' (${status}).`)
+      }
+      return orgName
+    },
+    async cleanupOrganization(orgName: string): Promise<void> {
+      const auth = getAuth()
 
-export async function cleanupOrganization(
-  baseUrl: string,
-  token: string,
-  orgName: string,
-): Promise<void> {
-  const auth = tokenAuthHeader(token)
+      const reposResult = await giteaFetch(
+        baseUrl,
+        `/orgs/${orgName}/repos?limit=50`,
+        { auth },
+      )
+      if (reposResult.status === 200 && Array.isArray(reposResult.data)) {
+        for (const repo of reposResult.data as Array<{ name: string }>) {
+          await giteaFetch(baseUrl, `/repos/${orgName}/${repo.name}`, {
+            method: "DELETE",
+            auth,
+          })
+        }
+      }
 
-  const reposResult = await giteaFetch(
-    baseUrl,
-    `/orgs/${orgName}/repos?limit=50`,
-    { auth },
-  )
-  if (reposResult.status === 200 && Array.isArray(reposResult.data)) {
-    for (const repo of reposResult.data as Array<{ name: string }>) {
-      await giteaFetch(baseUrl, `/repos/${orgName}/${repo.name}`, {
+      const teamsResult = await giteaFetch(baseUrl, `/orgs/${orgName}/teams`, {
+        auth,
+      })
+      if (teamsResult.status === 200 && Array.isArray(teamsResult.data)) {
+        for (const team of teamsResult.data as Array<{
+          id: number
+          name: string
+        }>) {
+          if (team.name === "Owners") {
+            continue
+          }
+          await giteaFetch(baseUrl, `/teams/${team.id}`, {
+            method: "DELETE",
+            auth,
+          })
+        }
+      }
+
+      await giteaFetch(baseUrl, `/orgs/${orgName}`, {
         method: "DELETE",
         auth,
       })
-    }
-  }
+    },
+    async seedUsers(usernames: string[]): Promise<void> {
+      for (const username of usernames) {
+        const { status } = await giteaFetch(baseUrl, "/admin/users", {
+          method: "POST",
+          auth: getAuth(),
+          body: {
+            username,
+            email: `${username}@test.local`,
+            password: "test-user-pw-00",
+            must_change_password: false,
+          },
+        })
 
-  const teamsResult = await giteaFetch(baseUrl, `/orgs/${orgName}/teams`, {
-    auth,
-  })
-  if (teamsResult.status === 200 && Array.isArray(teamsResult.data)) {
-    for (const team of teamsResult.data as Array<{
-      id: number
-      name: string
-    }>) {
-      if (team.name === "Owners") continue
-      await giteaFetch(baseUrl, `/teams/${team.id}`, {
-        method: "DELETE",
-        auth,
+        if (status !== 201 && status !== 422) {
+          throw new Error(`Failed to create user '${username}' (${status}).`)
+        }
+      }
+    },
+    async seedTemplateRepository(orgName: string, repoName: string) {
+      const createResult = await giteaFetch(baseUrl, `/orgs/${orgName}/repos`, {
+        method: "POST",
+        auth: getAuth(),
+        body: {
+          name: repoName,
+          auto_init: true,
+          private: true,
+          template: false,
+        },
       })
-    }
-  }
 
-  await giteaFetch(baseUrl, `/orgs/${orgName}`, {
-    method: "DELETE",
-    auth,
-  })
+      if (createResult.status !== 201 && createResult.status !== 409) {
+        throw new Error(
+          `Failed to create template repo '${orgName}/${repoName}' (${createResult.status}).`,
+        )
+      }
+
+      const patchResult = await giteaFetch(
+        baseUrl,
+        `/repos/${orgName}/${repoName}`,
+        {
+          method: "PATCH",
+          auth: getAuth(),
+          body: { template: true },
+        },
+      )
+
+      if (patchResult.status !== 200) {
+        throw new Error(
+          `Failed to mark '${orgName}/${repoName}' as template (${patchResult.status}).`,
+        )
+      }
+    },
+    async seedOrganizationRepository(
+      orgName: string,
+      repoName: string,
+      options?: { autoInit?: boolean },
+    ): Promise<void> {
+      const createResult = await giteaFetch(baseUrl, `/orgs/${orgName}/repos`, {
+        method: "POST",
+        auth: getAuth(),
+        body: {
+          name: repoName,
+          auto_init: options?.autoInit ?? true,
+          private: true,
+          template: false,
+        },
+      })
+
+      if (createResult.status !== 201 && createResult.status !== 409) {
+        throw new Error(
+          `Failed to create repo '${orgName}/${repoName}' (${createResult.status}).`,
+        )
+      }
+    },
+    async verifyRepositoriesExist(
+      orgName: string,
+      names: string[],
+    ): Promise<string[]> {
+      const existing: string[] = []
+      for (const name of names) {
+        const { status } = await giteaFetch(
+          baseUrl,
+          `/repos/${orgName}/${name}`,
+          {
+            auth: getAuth(),
+          },
+        )
+        if (status === 200) {
+          existing.push(name)
+        }
+      }
+      return existing
+    },
+    async verifyTeams(orgName: string): Promise<IntegrationTeam[]> {
+      const { status, data } = await giteaFetch(
+        baseUrl,
+        `/orgs/${orgName}/teams`,
+        {
+          auth: getAuth(),
+        },
+      )
+
+      if (status !== 200) {
+        throw new Error(
+          `Failed to list teams for org '${orgName}' (${status}).`,
+        )
+      }
+
+      return (data as Array<{ id: number; name: string }>).map((team) => ({
+        id: team.id,
+        name: team.name,
+      }))
+    },
+    async verifyTeamMembers(
+      _orgName: string,
+      team: IntegrationTeam,
+    ): Promise<string[]> {
+      const teamId =
+        typeof team.id === "number" ? team.id : Number.parseInt(team.id, 10)
+      if (!Number.isFinite(teamId)) {
+        throw new Error(`Invalid Gitea team id '${String(team.id)}'.`)
+      }
+
+      const { status, data } = await giteaFetch(
+        baseUrl,
+        `/teams/${teamId}/members`,
+        { auth: getAuth() },
+      )
+
+      if (status !== 200) {
+        throw new Error(
+          `Failed to list members for team ${teamId} (${status}).`,
+        )
+      }
+
+      return (data as Array<{ login: string }>).map((member) => member.login)
+    },
+    async verifyTeamRepos(
+      _orgName: string,
+      team: IntegrationTeam,
+    ): Promise<string[]> {
+      const teamId =
+        typeof team.id === "number" ? team.id : Number.parseInt(team.id, 10)
+      if (!Number.isFinite(teamId)) {
+        throw new Error(`Invalid Gitea team id '${String(team.id)}'.`)
+      }
+
+      const { status, data } = await giteaFetch(
+        baseUrl,
+        `/teams/${teamId}/repos`,
+        {
+          auth: getAuth(),
+        },
+      )
+
+      if (status !== 200) {
+        throw new Error(`Failed to list repos for team ${teamId} (${status}).`)
+      }
+
+      return (data as Array<{ name: string }>).map((repo) => repo.name)
+    },
+  }
 }

@@ -37,7 +37,13 @@
         "docs:preview": "pnpm --filter @repo-edu/docs run build && pnpm --filter @repo-edu/docs run preview",
         "docs:test": "pnpm --filter @repo-edu/docs run test",
         "claude2assistants": "node scripts/claude2assistants.mjs",
-        "test:integration": "sh -c 'GITEA_PORT=${GITEA_PORT:-3000}; pnpm --filter @repo-edu/integration-tests run docker:up || exit $?; INTEGRATION_GITEA_URL=${INTEGRATION_GITEA_URL:-http://localhost:${GITEA_PORT}} pnpm --filter @repo-edu/integration-tests run test:integration; status=$?; pnpm --filter @repo-edu/integration-tests run docker:down || true; exit $status'"
+        "test:integration": "pnpm test:integration:gitea",
+        "test:integration:gitea": "sh -c 'GITEA_PORT=${GITEA_PORT:-3000}; pnpm --filter @repo-edu/integration-tests run docker:up:gitea || exit $?; INTEGRATION_GIT_PROVIDERS=gitea INTEGRATION_GITEA_URL=${INTEGRATION_GITEA_URL:-http://localhost:${GITEA_PORT}} pnpm --filter @repo-edu/integration-tests run test:integration; status=$?; pnpm --filter @repo-edu/integration-tests run docker:down || true; exit $status'",
+        "test:integration:gitlab": "sh ./scripts/test-integration-gitlab.sh",
+        "test:integration:gitlab:up": "pnpm --filter @repo-edu/integration-tests run docker:up:gitlab",
+        "test:integration:gitlab:run": "sh ./scripts/test-integration-gitlab-run.sh",
+        "test:integration:gitlab:down": "pnpm --filter @repo-edu/integration-tests run docker:down",
+        "test:integration:github": "sh -c 'INTEGRATION_GIT_PROVIDERS=github pnpm --filter @repo-edu/integration-tests run test:integration'"
     },
     "devDependencies": {
         "@biomejs/biome": "2.3.14",
