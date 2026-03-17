@@ -1395,6 +1395,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1408,7 +1409,7 @@ describe("application repository workflow helpers", () => {
     assert.deepStrictEqual(receivedRequest, {
       organization: "repo-edu",
       repositoryNames: ["beta"],
-      template: null,
+      visibility: "private",
       autoInit: true,
     })
     assert.equal(result.repositoriesPlanned, 1)
@@ -1484,6 +1485,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1498,7 +1500,7 @@ describe("application repository workflow helpers", () => {
     assert.deepStrictEqual(receivedRequest, {
       organization: "repo-edu",
       repositoryNames: ["beta"],
-      template: null,
+      visibility: "private",
       autoInit: true,
     })
     assert.equal(result.repositoriesPlanned, 1)
@@ -1579,6 +1581,7 @@ describe("application repository workflow helpers", () => {
           )
           return { completed: [] }
         },
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1697,6 +1700,7 @@ describe("application repository workflow helpers", () => {
         inspect: async (request) =>
           request.paths.map((path) => ({ path, kind: "missing" as const })),
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1791,6 +1795,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [{ path: "/work/repos/beta", kind: "directory" }],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1898,6 +1903,7 @@ describe("application repository workflow helpers", () => {
           )
           return { completed: [] }
         },
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -1987,6 +1993,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -2005,6 +2012,7 @@ describe("application repository workflow helpers", () => {
 
   it("uses per-assignment template when available", async () => {
     const assignmentTemplate = {
+      kind: "remote" as const,
       owner: "assignment-templates",
       name: "hw1-template",
       visibility: "private" as const,
@@ -2014,6 +2022,7 @@ describe("application repository workflow helpers", () => {
       gitConnectionId: "main-git",
       organization: "repo-edu",
       repositoryTemplate: {
+        kind: "remote" as const,
         owner: "course-templates",
         name: "default-template",
         visibility: "private" as const,
@@ -2039,12 +2048,12 @@ describe("application repository workflow helpers", () => {
         },
       ],
     }
-    let receivedTemplate: unknown = null
+    let receivedVisibility: unknown = null
 
     const handlers = createRepositoryWorkflowHandlers({
       git: {
         createRepositories: async (_draft, request) => {
-          receivedTemplate = request.template
+          receivedVisibility = request.visibility
           return {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -2088,6 +2097,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -2098,7 +2108,7 @@ describe("application repository workflow helpers", () => {
       template: null,
     })
 
-    assert.deepStrictEqual(receivedTemplate, assignmentTemplate)
+    assert.equal(receivedVisibility, assignmentTemplate.visibility)
   })
 
   it("creates template update pull requests for planned repositories", async () => {
@@ -2107,6 +2117,7 @@ describe("application repository workflow helpers", () => {
       gitConnectionId: "main-git",
       organization: "repo-edu",
       repositoryTemplate: {
+        kind: "remote" as const,
         owner: "template-org",
         name: "course-template",
         visibility: "private" as const,
@@ -2199,6 +2210,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 
@@ -2223,6 +2235,7 @@ describe("application repository workflow helpers", () => {
       gitConnectionId: "main-git",
       organization: "repo-edu",
       repositoryTemplate: {
+        kind: "remote" as const,
         owner: "template-org",
         name: "course-template",
         visibility: "private" as const,
@@ -2294,6 +2307,7 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
       },
     })
 

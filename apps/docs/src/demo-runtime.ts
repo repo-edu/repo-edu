@@ -374,6 +374,9 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
         completed: request.operations,
       }
     },
+    async createTempDirectory(_prefix: string) {
+      return "/tmp/repo-edu-demo"
+    },
   }
 
   const workflowHandlers = {

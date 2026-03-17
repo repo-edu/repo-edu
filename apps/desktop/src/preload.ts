@@ -20,6 +20,13 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     )
   },
 
+  async pickDirectory(options) {
+    return await ipcRenderer.invoke(
+      desktopRendererHostChannels.pickDirectory,
+      options,
+    )
+  },
+
   async openExternalUrl(url) {
     await ipcRenderer.invoke(desktopRendererHostChannels.openExternalUrl, url)
   },

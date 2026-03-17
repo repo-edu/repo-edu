@@ -218,11 +218,24 @@ export type Assignment = {
   templateCommitSha?: string | null
 }
 
-export type RepositoryTemplate = {
+export type RepositoryTemplateVisibility = "private" | "internal" | "public"
+
+export type RemoteRepositoryTemplate = {
+  kind: "remote"
   owner: string
   name: string
-  visibility: "private" | "internal" | "public"
+  visibility: RepositoryTemplateVisibility
 }
+
+export type LocalRepositoryTemplate = {
+  kind: "local"
+  path: string
+  visibility: RepositoryTemplateVisibility
+}
+
+export type RepositoryTemplate =
+  | RemoteRepositoryTemplate
+  | LocalRepositoryTemplate
 
 export type PersistedCourse = {
   kind: typeof persistedCourseKind
@@ -3059,11 +3072,19 @@ const groupSetConnectionSchema = z
   ])
   .nullable()
 
-const repositoryTemplateSchema = z.object({
-  owner: z.string(),
-  name: z.string(),
-  visibility: z.enum(["private", "internal", "public"]),
-})
+const repositoryTemplateSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("remote"),
+    owner: z.string(),
+    name: z.string(),
+    visibility: z.enum(["private", "internal", "public"]),
+  }),
+  z.object({
+    kind: z.literal("local"),
+    path: z.string(),
+    visibility: z.enum(["private", "internal", "public"]),
+  }),
+])
 
 const assignmentSchema = z.object({
   id: z.string(),

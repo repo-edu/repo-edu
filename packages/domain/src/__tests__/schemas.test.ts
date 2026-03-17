@@ -233,6 +233,7 @@ describe("validatePersistedCourse", () => {
         assignments: [{ id: "a1", name: "HW1", groupSetId: "gs1" }],
       },
       repositoryTemplate: {
+        kind: "remote",
         owner: "org",
         name: "template",
         visibility: "private",
@@ -342,6 +343,7 @@ describe("validatePersistedCourse", () => {
     const result = validatePersistedCourse({
       ...validProfile,
       repositoryTemplate: {
+        kind: "remote",
         owner: "org",
         name: "tmpl",
         visibility: "secret",

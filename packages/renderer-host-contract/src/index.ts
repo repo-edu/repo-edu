@@ -40,6 +40,10 @@ export type RendererEnvironmentSnapshot = {
   lastOpenedExternalUrl: string | null
 }
 
+export type PickDirectoryOptions = {
+  title?: string
+}
+
 export type RendererHost = {
   pickUserFile(
     options?: OpenUserFileDialogOptions,
@@ -47,6 +51,7 @@ export type RendererHost = {
   pickSaveTarget(
     options?: SaveUserFileDialogOptions,
   ): Promise<RendererSaveTargetRef | null>
+  pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   openExternalUrl(url: string): Promise<void>
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
 }

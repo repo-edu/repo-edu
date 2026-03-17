@@ -289,27 +289,14 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
         if (signal?.aborted) break
 
         try {
-          let repositoryUrl: string
-          if (request.template) {
-            const response = await octokit.repos.createUsingTemplate({
-              template_owner: request.template.owner,
-              template_repo: request.template.name,
-              owner: request.organization,
-              name: repoName,
-              private: request.template.visibility !== "public",
-              request: { signal },
-            })
-            repositoryUrl = response.data.html_url
-          } else {
-            const response = await octokit.repos.createInOrg({
-              org: request.organization,
-              name: repoName,
-              private: true,
-              auto_init: request.autoInit,
-              request: { signal },
-            })
-            repositoryUrl = response.data.html_url
-          }
+          const response = await octokit.repos.createInOrg({
+            org: request.organization,
+            name: repoName,
+            private: request.visibility !== "public",
+            auto_init: request.autoInit,
+            request: { signal },
+          })
+          const repositoryUrl = response.data.html_url
           created.push({
             repositoryName: repoName,
             repositoryUrl,

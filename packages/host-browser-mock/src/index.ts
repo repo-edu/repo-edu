@@ -224,6 +224,10 @@ export function createBrowserMockHostEnvironment(options?: {
         }
       },
 
+      async pickDirectory() {
+        return null
+      },
+
       async openExternalUrl(url: string) {
         lastOpenedExternalUrl = url
       },

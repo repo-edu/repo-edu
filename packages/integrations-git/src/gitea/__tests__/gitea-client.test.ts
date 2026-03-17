@@ -154,7 +154,7 @@ describe("createGiteaClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -164,15 +164,11 @@ describe("createGiteaClient", () => {
       assert.ok(capturedBody.includes('"auto_init":true'))
     })
 
-    it("uses the template generate endpoint when a template is provided", async () => {
+    it("creates public repos when visibility is public", async () => {
       let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
-          if (
-            request.url.includes(
-              "/api/v1/repos/templates/course-template/generate",
-            )
-          ) {
+          if (request.url.includes("/api/v1/orgs/course-org/repos")) {
             capturedBody = request.body ?? ""
             return {
               status: 201,
@@ -197,19 +193,13 @@ describe("createGiteaClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["hw1-team-alpha"],
-        template: {
-          owner: "templates",
-          name: "course-template",
-          visibility: "public",
-        },
+        visibility: "public",
         autoInit: false,
       })
 
       assert.equal(result.created.length, 1)
-      assert.ok(capturedBody.includes('"owner":"course-org"'))
       assert.ok(capturedBody.includes('"name":"hw1-team-alpha"'))
       assert.ok(capturedBody.includes('"private":false'))
-      assert.ok(capturedBody.includes('"git_content":true'))
     })
 
     it("returns empty result when baseUrl is missing", async () => {
@@ -219,7 +209,7 @@ describe("createGiteaClient", () => {
         {
           organization: "course-org",
           repositoryNames: ["repo-1"],
-          template: null,
+          visibility: "private",
           autoInit: true,
         },
       )
@@ -275,7 +265,7 @@ describe("createGiteaClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "course-org",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 

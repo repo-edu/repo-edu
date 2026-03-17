@@ -461,6 +461,7 @@ function createFixtureRecord(
     lmsCourseId: courseId,
     roster,
     repositoryTemplate: {
+      kind: "remote",
       owner: "fixture-org",
       name: "starter-template",
       visibility: "private",

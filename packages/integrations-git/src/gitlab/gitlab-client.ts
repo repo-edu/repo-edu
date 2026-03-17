@@ -317,13 +317,7 @@ async function resolveGroupId(
 function resolveVisibility(
   request: CreateRepositoriesRequest,
 ): "public" | "internal" | "private" {
-  if (request.template?.visibility === "public") {
-    return "public"
-  }
-  if (request.template?.visibility === "internal") {
-    return "internal"
-  }
-  return "private"
+  return request.visibility
 }
 
 function extractProjectUrl(project: unknown): string {
@@ -501,9 +495,6 @@ async function createProject(
     namespaceId: number
     visibility: "public" | "internal" | "private"
     initializeWithReadme?: boolean
-    useCustomTemplate?: boolean
-    templateName?: string
-    groupWithProjectTemplatesId?: number
   } = {
     name: repoName,
     path: repoName,
@@ -511,16 +502,7 @@ async function createProject(
     visibility: resolveVisibility(request),
   }
 
-  if (request.template) {
-    const templateGroupId = await resolveGroupId(api, request.template.owner)
-    if (templateGroupId === null) {
-      return ""
-    }
-
-    options.useCustomTemplate = true
-    options.templateName = request.template.name
-    options.groupWithProjectTemplatesId = templateGroupId
-  } else if (request.autoInit) {
+  if (request.autoInit) {
     options.initializeWithReadme = true
   }
 

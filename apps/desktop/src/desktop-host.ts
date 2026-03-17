@@ -121,6 +121,10 @@ export type DesktopHostEnvironment = {
     parentWindow: BrowserWindow | null,
     options?: SaveUserFileDialogOptions,
   ): Promise<RendererSaveTargetRef | null>
+  pickDirectory(
+    parentWindow: BrowserWindow | null,
+    options?: { title?: string },
+  ): Promise<string | null>
   openExternalUrl(url: string): Promise<void>
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
 }
@@ -331,6 +335,22 @@ export function createDesktopHostEnvironment(
       }
 
       return registerWritable(result.filePath, suggestedFormat)
+    },
+
+    async pickDirectory(parentWindow, options) {
+      const dialogOptions: OpenDialogOptions = {
+        title: options?.title,
+        properties: ["openDirectory"],
+      }
+      const result = parentWindow
+        ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+
+      return result.filePaths[0]
     },
 
     async openExternalUrl(url: string) {

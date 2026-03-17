@@ -55,6 +55,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
@@ -301,6 +302,7 @@ function GroupsTable({
   template: string
   effectiveAssignment: Assignment | null
 }) {
+  const rendererHost = useRendererHost()
   const course = useCourseStore((s) => s.course)
   const gitConnectionId = useCourseStore(selectGitConnectionId)
   const organization = useCourseStore(selectOrganization)
@@ -761,7 +763,13 @@ function GroupsTable({
   const cloneTargetDirectory = repositoryCloneTargetDirectory ?? ""
   const cloneDirectoryLayout = (repositoryCloneDirectoryLayout ??
     "flat") as CloneDirectoryLayout
-  const templateOwner = repositoryTemplate?.owner ?? ""
+  const templateKind = repositoryTemplate?.kind ?? "remote"
+  const templateOwner =
+    repositoryTemplate?.kind === "remote"
+      ? (repositoryTemplate.owner ?? "")
+      : ""
+  const templateLocalPath =
+    repositoryTemplate?.kind === "local" ? (repositoryTemplate.path ?? "") : ""
   const templateVisibility = repositoryTemplate?.visibility ?? "private"
   const effectiveAssignmentId = effectiveAssignment?.id ?? null
   const isRunning = operationStatus === "running"
@@ -780,12 +788,56 @@ function GroupsTable({
   const setTemplateOwner = useCallback(
     (owner: string) => {
       setRepositoryTemplate({
+        kind: "remote",
         owner,
-        name: repositoryTemplate?.name ?? "",
+        name:
+          repositoryTemplate?.kind === "remote"
+            ? (repositoryTemplate.name ?? "")
+            : "",
         visibility: templateVisibility,
       })
     },
     [repositoryTemplate, setRepositoryTemplate, templateVisibility],
+  )
+
+  const setTemplateLocalPath = useCallback(
+    (localPath: string) => {
+      setRepositoryTemplate({
+        kind: "local",
+        path: localPath,
+        visibility: templateVisibility,
+      })
+    },
+    [setRepositoryTemplate, templateVisibility],
+  )
+
+  const setTemplateKind = useCallback(
+    (kind: "remote" | "local") => {
+      if (kind === "local") {
+        setRepositoryTemplate({
+          kind: "local",
+          path: templateLocalPath,
+          visibility: templateVisibility,
+        })
+      } else {
+        setRepositoryTemplate({
+          kind: "remote",
+          owner: templateOwner,
+          name:
+            repositoryTemplate?.kind === "remote"
+              ? (repositoryTemplate.name ?? "")
+              : "",
+          visibility: templateVisibility,
+        })
+      }
+    },
+    [
+      repositoryTemplate,
+      setRepositoryTemplate,
+      templateOwner,
+      templateLocalPath,
+      templateVisibility,
+    ],
   )
 
   const handleRunOperation = useCallback(
@@ -860,6 +912,8 @@ function GroupsTable({
   const hideableColumns = table
     .getAllLeafColumns()
     .filter((column) => column.getCanHide())
+  const selectedOutlineButtonClass =
+    "!bg-selection ![background-image:none] !text-foreground"
 
   // Empty state
   if (groups.length === 0) {
@@ -887,7 +941,10 @@ function GroupsTable({
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                variant={openSection === "create" ? "default" : "outline"}
+                variant="outline"
+                className={
+                  openSection === "create" ? selectedOutlineButtonClass : ""
+                }
                 disabled={disabled}
                 onClick={() =>
                   setGroupOperationSection(
@@ -905,7 +962,10 @@ function GroupsTable({
               </Button>
               <Button
                 size="sm"
-                variant={openSection === "update" ? "default" : "outline"}
+                variant="outline"
+                className={
+                  openSection === "update" ? selectedOutlineButtonClass : ""
+                }
                 disabled={disabled}
                 onClick={() =>
                   setGroupOperationSection(
@@ -923,7 +983,10 @@ function GroupsTable({
               </Button>
               <Button
                 size="sm"
-                variant={openSection === "clone" ? "default" : "outline"}
+                variant="outline"
+                className={
+                  openSection === "clone" ? selectedOutlineButtonClass : ""
+                }
                 disabled={disabled}
                 onClick={() =>
                   setGroupOperationSection(
@@ -944,6 +1007,35 @@ function GroupsTable({
             <Collapsible open={openSection === "create"}>
               <CollapsibleContent>
                 <div className="border rounded-md p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Label>Template Source</Label>
+                    <Button
+                      variant="outline"
+                      className={
+                        templateKind === "remote"
+                          ? selectedOutlineButtonClass
+                          : ""
+                      }
+                      size="sm"
+                      type="button"
+                      onClick={() => setTemplateKind("remote")}
+                    >
+                      Remote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className={
+                        templateKind === "local"
+                          ? selectedOutlineButtonClass
+                          : ""
+                      }
+                      size="sm"
+                      type="button"
+                      onClick={() => setTemplateKind("local")}
+                    >
+                      Local
+                    </Button>
+                  </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="group-set-create-organization">
@@ -959,17 +1051,49 @@ function GroupsTable({
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="group-set-create-template-owner">
-                        Template Org
-                      </Label>
-                      <Input
-                        id="group-set-create-template-owner"
-                        value={templateOwner}
-                        onChange={(event) =>
-                          setTemplateOwner(event.target.value)
-                        }
-                        placeholder="e.g., template-org"
-                      />
+                      {templateKind === "remote" ? (
+                        <>
+                          <Label htmlFor="group-set-create-template-owner">
+                            Template Org
+                          </Label>
+                          <Input
+                            id="group-set-create-template-owner"
+                            value={templateOwner}
+                            onChange={(event) =>
+                              setTemplateOwner(event.target.value)
+                            }
+                            placeholder="e.g., template-org"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Label htmlFor="group-set-create-template-path">
+                            Template Path
+                          </Label>
+                          <div className="flex gap-1">
+                            <Input
+                              id="group-set-create-template-path"
+                              value={templateLocalPath}
+                              onChange={(event) =>
+                                setTemplateLocalPath(event.target.value)
+                              }
+                              placeholder="e.g., /path/to/template"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                const dir = await rendererHost.pickDirectory({
+                                  title: "Select template repository",
+                                })
+                                if (dir) setTemplateLocalPath(dir)
+                              }}
+                            >
+                              Browse
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">

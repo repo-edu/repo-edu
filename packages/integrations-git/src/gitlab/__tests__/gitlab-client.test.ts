@@ -196,7 +196,7 @@ describe("createGitLabClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "target-group",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -204,19 +204,10 @@ describe("createGitLabClient", () => {
       assert.ok(result.created[0]?.repositoryUrl.includes("repo-1"))
     })
 
-    it("uses template owner and name for custom templates", async () => {
+    it("creates repos with internal visibility", async () => {
       let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
-          if (request.url.includes("/groups/template-owner")) {
-            return {
-              status: 200,
-              statusText: "OK",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ id: 7, path: "template-owner" }),
-            }
-          }
-
           if (request.url.includes("/groups/my-group")) {
             return {
               status: 200,
@@ -252,18 +243,12 @@ describe("createGitLabClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["hw1-team-alpha"],
-        template: {
-          owner: "template-owner",
-          name: "course-template",
-          visibility: "internal",
-        },
+        visibility: "internal",
         autoInit: false,
       })
 
       assert.equal(result.created.length, 1)
-      assert.ok(capturedBody.includes('"use_custom_template":true'))
-      assert.ok(capturedBody.includes('"template_name":"course-template"'))
-      assert.ok(capturedBody.includes('"group_with_project_templates_id":7'))
+      assert.ok(capturedBody.includes('"visibility":"internal"'))
     })
 
     it("returns empty result when org has no namespace id", async () => {
@@ -280,7 +265,7 @@ describe("createGitLabClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -307,7 +292,7 @@ describe("createGitLabClient", () => {
       await client.createRepositories(baseDraft, {
         organization: "parent/nested",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -371,7 +356,7 @@ describe("createGitLabClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "my-group",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 

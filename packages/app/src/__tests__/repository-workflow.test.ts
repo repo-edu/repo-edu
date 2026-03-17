@@ -11,6 +11,7 @@ import {
 } from "../utils/repository-workflow.js"
 
 const template: RepositoryTemplate = {
+  kind: "remote",
   owner: "repo-edu",
   name: "starter-template",
   visibility: "private",

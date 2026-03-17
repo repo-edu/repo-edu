@@ -142,6 +142,17 @@ function registerRendererHostIpcHandlers() {
   )
 
   ipcMain.handle(
+    desktopRendererHostChannels.pickDirectory,
+    async (
+      event,
+      options: Parameters<DesktopRendererHostBridge["pickDirectory"]>[0],
+    ) => {
+      const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      return await desktopHost.pickDirectory(parentWindow, options)
+    },
+  )
+
+  ipcMain.handle(
     desktopRendererHostChannels.openExternalUrl,
     async (
       _event,

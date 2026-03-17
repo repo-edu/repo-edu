@@ -752,6 +752,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",
@@ -1626,6 +1627,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",
@@ -3730,6 +3732,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",
@@ -6012,6 +6015,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",
@@ -11021,6 +11025,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",
@@ -16448,6 +16453,7 @@ export const fixtureMatrix: FixtureMatrix = {
           ],
         },
         repositoryTemplate: {
+          kind: "remote",
           owner: "fixture-org",
           name: "starter-template",
           visibility: "private",

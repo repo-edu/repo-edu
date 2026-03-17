@@ -145,7 +145,7 @@ describe("createGitHubClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "test-org",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -158,11 +158,11 @@ describe("createGitHubClient", () => {
       assert.deepStrictEqual(result.failed, [])
     })
 
-    it("creates repositories with template", async () => {
+    it("creates repositories with non-public visibility", async () => {
       const http = createMockHttpPort([
         {
           method: "POST",
-          urlPattern: "/repos/my-org/template/generate",
+          urlPattern: "/orgs/test-org/repos",
           status: 201,
           body: { html_url: "https://github.com/test-org/hw1-team-alpha" },
         },
@@ -172,11 +172,7 @@ describe("createGitHubClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "test-org",
         repositoryNames: ["hw1-team-alpha"],
-        template: {
-          owner: "my-org",
-          name: "template",
-          visibility: "private",
-        },
+        visibility: "private",
         autoInit: false,
       })
 
@@ -207,7 +203,7 @@ describe("createGitHubClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "test-org",
         repositoryNames: ["repo-1", "repo-2"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 
@@ -237,7 +233,7 @@ describe("createGitHubClient", () => {
       const result = await client.createRepositories(baseDraft, {
         organization: "test-org",
         repositoryNames: ["repo-1"],
-        template: null,
+        visibility: "private",
         autoInit: true,
       })
 

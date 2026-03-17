@@ -101,7 +101,7 @@ function isActiveUser(data: unknown, username: string): boolean {
 }
 
 function resolvePrivateFlag(request: CreateRepositoriesRequest): boolean {
-  return request.template?.visibility !== "public"
+  return request.visibility !== "public"
 }
 
 function mapTeamPermission(
@@ -390,34 +390,18 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
         }
 
         try {
-          const response = request.template
-            ? await giteaRequest(
-                http,
-                draft,
-                "POST",
-                `/repos/${encodeURIComponent(request.template.owner)}/${encodeURIComponent(
-                  request.template.name,
-                )}/generate`,
-                JSON.stringify({
-                  owner: request.organization,
-                  name: repoName,
-                  private: resolvePrivateFlag(request),
-                  git_content: true,
-                }),
-                signal,
-              )
-            : await giteaRequest(
-                http,
-                draft,
-                "POST",
-                `/orgs/${encodeURIComponent(request.organization)}/repos`,
-                JSON.stringify({
-                  name: repoName,
-                  private: resolvePrivateFlag(request),
-                  auto_init: request.autoInit,
-                }),
-                signal,
-              )
+          const response = await giteaRequest(
+            http,
+            draft,
+            "POST",
+            `/orgs/${encodeURIComponent(request.organization)}/repos`,
+            JSON.stringify({
+              name: repoName,
+              private: resolvePrivateFlag(request),
+              auto_init: request.autoInit,
+            }),
+            signal,
+          )
 
           if (response.status >= 200 && response.status < 300) {
             const repositoryUrl = extractRepositoryUrl(response.data)

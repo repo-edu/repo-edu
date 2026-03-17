@@ -1,4 +1,7 @@
-import type { GitProviderKind, RepositoryTemplate } from "@repo-edu/domain"
+import type {
+  GitProviderKind,
+  RepositoryTemplateVisibility,
+} from "@repo-edu/domain"
 
 export const packageId = "@repo-edu/integrations-git-contract"
 
@@ -18,7 +21,7 @@ export type GitUsernameStatus = {
 export type CreateRepositoriesRequest = {
   organization: string
   repositoryNames: string[]
-  template: RepositoryTemplate | null
+  visibility: RepositoryTemplateVisibility
   autoInit: boolean
 }
 

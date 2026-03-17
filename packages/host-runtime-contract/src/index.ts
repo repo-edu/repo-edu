@@ -146,4 +146,5 @@ export type FileSystemBatchResult = {
 export type FileSystemPort = {
   inspect(request: FileSystemInspectRequest): Promise<FileSystemEntryStatus[]>
   applyBatch(request: FileSystemBatchRequest): Promise<FileSystemBatchResult>
+  createTempDirectory(prefix: string): Promise<string>
 }

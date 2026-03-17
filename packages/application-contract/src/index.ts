@@ -304,6 +304,7 @@ export type RepositoryUpdateInput = {
   course: PersistedCourse
   appSettings: PersistedAppSettings
   assignmentId: string
+  templateOverride?: RepositoryTemplate | null
 }
 
 export type RepositoryCreateResult = {

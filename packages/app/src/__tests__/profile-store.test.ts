@@ -64,6 +64,7 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
       assignments: [],
     },
     repositoryTemplate: {
+      kind: "remote",
       owner: "repo-edu",
       name: "starter",
       visibility: "private",

@@ -1,4 +1,5 @@
-import type { PersistedCourse } from "@repo-edu/domain"
+import path from "node:path"
+import type { PersistedCourse, RepositoryTemplate } from "@repo-edu/domain"
 import { planRepositoryOperation } from "@repo-edu/domain"
 import type { Command } from "commander"
 import {
@@ -14,6 +15,7 @@ type RepoCreateOptions = {
   all?: boolean
   groups?: string
   dryRun?: boolean
+  templatePath?: string
 }
 
 type RepoCloneOptions = {
@@ -26,6 +28,19 @@ type RepoCloneOptions = {
 
 type RepoUpdateOptions = {
   assignment?: string
+  templatePath?: string
+}
+
+function resolveLocalTemplateOverride(
+  templatePath: string | undefined,
+  course: PersistedCourse,
+): RepositoryTemplate | null {
+  if (!templatePath) return null
+  return {
+    kind: "local",
+    path: path.resolve(templatePath),
+    visibility: course.repositoryTemplate?.visibility ?? "private",
+  }
 }
 
 function printRepositoryPlan(
@@ -138,6 +153,10 @@ export function registerRepoCommands(parent: Command): void {
     .option("--all", "Run across all assignments")
     .option("--groups <name,...>", "Filter to groups by group name")
     .option("--dry-run", "Show what would be created")
+    .option(
+      "--template-path <dir>",
+      "Local template directory (must be a Git repository)",
+    )
     .action(async function (this: Command, options: RepoCreateOptions) {
       const workflowClient = createCliWorkflowClient()
 
@@ -198,11 +217,14 @@ export function registerRepoCommands(parent: Command): void {
           return
         }
 
+        const template =
+          resolveLocalTemplateOverride(options.templatePath, course) ??
+          course.repositoryTemplate
         const result = await workflowClient.run("repo.create", {
           course,
           appSettings: settings,
           assignmentId: assignment?.id ?? null,
-          template: course.repositoryTemplate,
+          template,
           groupIds,
         })
 
@@ -280,6 +302,10 @@ export function registerRepoCommands(parent: Command): void {
       "Create template update pull requests for assignment repositories",
     )
     .requiredOption("--assignment <name>", "Assignment name or id")
+    .option(
+      "--template-path <dir>",
+      "Local template directory (must be a Git repository)",
+    )
     .action(async function (this: Command, options: RepoUpdateOptions) {
       const workflowClient = createCliWorkflowClient()
 
@@ -298,10 +324,15 @@ export function registerRepoCommands(parent: Command): void {
           )
         }
 
+        const templateOverride = resolveLocalTemplateOverride(
+          options.templatePath,
+          course,
+        )
         const result = await workflowClient.run("repo.update", {
           course,
           appSettings: settings,
           assignmentId: assignment.id,
+          ...(templateOverride ? { templateOverride } : {}),
         })
 
         if (result.templateCommitSha) {

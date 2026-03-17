@@ -94,6 +94,8 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
   GitUsernameStatus as GitProviderUsernameStatus,
+  PatchFile,
+  PatchFileStatus,
 } from "@repo-edu/integrations-git-contract"
 import { packageId as gitContractPackageId } from "@repo-edu/integrations-git-contract"
 import type {
@@ -2059,12 +2061,18 @@ function templateKey(template: RepositoryTemplate | null): string {
   if (template === null) {
     return "__none__"
   }
-  return `${template.owner}/${template.name}:${template.visibility}`
+  if (template.kind === "local") {
+    return `local:${template.path}:${template.visibility}`
+  }
+  return `remote:${template.owner}/${template.name}:${template.visibility}`
 }
 
 function describeTemplate(template: RepositoryTemplate | null): string {
   if (template === null) {
     return "no template"
+  }
+  if (template.kind === "local") {
+    return `local:${template.path} (${template.visibility})`
   }
   return `${template.owner}/${template.name} (${template.visibility})`
 }
@@ -2403,7 +2411,7 @@ export function createRepositoryWorkflowHandlers(
       input: RepositoryBatchInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<RepositoryCreateResult> => {
-      const totalSteps = 6
+      const totalSteps = 7
       let providerForError: VerifyGitDraftInput["provider"] = "github"
 
       try {
@@ -2493,7 +2501,7 @@ export function createRepositoryWorkflowHandlers(
             {
               organization,
               repositoryNames: batch.repositoryNames,
-              template: batch.template,
+              visibility: batch.template?.visibility ?? "private",
               autoInit: batch.template === null,
             },
             options?.signal,
@@ -2535,46 +2543,159 @@ export function createRepositoryWorkflowHandlers(
           } satisfies AppError
         }
 
+        // Step 4: Push template content to newly created repos.
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "Pushing template content to repositories.",
+        })
+
         const templateCommitShas: Record<string, string> = {}
-        const successfulAssignmentTemplateById = new Map<
-          string,
-          RepositoryTemplate
-        >()
-        for (const entry of plannedWithTemplates.value) {
-          if (entry.template === null) {
-            continue
-          }
-          if (!successfulRepositoryNames.has(entry.group.repoName)) {
-            continue
-          }
-          successfulAssignmentTemplateById.set(
-            entry.group.assignmentId,
-            entry.template,
+        const templateBatches = batches.filter(
+          (batch) => batch.template !== null,
+        )
+
+        const newlyCreatedNames = new Set(created.map((r) => r.repositoryName))
+        const tmpDirsToCleanup: string[] = []
+
+        for (const batch of templateBatches) {
+          const template = batch.template
+          if (template === null) continue
+          const reposToPopulate = batch.repositoryNames.filter((name) =>
+            newlyCreatedNames.has(name),
           )
-        }
-        for (const [
-          assignmentId,
-          template,
-        ] of successfulAssignmentTemplateById) {
-          try {
-            const head = await ports.git.getRepositoryDefaultBranchHead(
-              gitDraft,
-              {
-                owner: template.owner,
-                repositoryName: template.name,
-              },
+
+          if (reposToPopulate.length === 0) {
+            continue
+          }
+
+          let templateLocalPath: string
+
+          if (template.kind === "local") {
+            templateLocalPath = template.path
+          } else {
+            // Clone remote template to tmpdir.
+            const tmpDir =
+              await ports.fileSystem.createTempDirectory("repo-edu-template-")
+            tmpDirsToCleanup.push(tmpDir)
+
+            const templateAuthUrl = (
+              await ports.git.resolveRepositoryCloneUrls(
+                gitDraft,
+                {
+                  organization: template.owner,
+                  repositoryNames: [template.name],
+                },
+                options?.signal,
+              )
+            ).resolved[0]?.cloneUrl
+
+            if (!templateAuthUrl) {
+              options?.onOutput?.({
+                channel: "warn",
+                message: `Could not resolve clone URL for template '${describeTemplate(template)}'.`,
+              })
+              continue
+            }
+
+            const cloned = await cloneRemoteTemplateToTmpdir(
+              ports.gitCommand,
+              templateAuthUrl,
+              tmpDir,
               options?.signal,
             )
-            if (head !== null) {
-              templateCommitShas[assignmentId] = head.sha
+            if (!cloned) {
+              options?.onOutput?.({
+                channel: "warn",
+                message: `Failed to clone template '${describeTemplate(template)}'.`,
+              })
+              continue
+            }
+
+            templateLocalPath = tmpDir
+          }
+
+          const defaultBranch = await resolveLocalDefaultBranch(
+            ports.gitCommand,
+            templateLocalPath,
+            options?.signal,
+          )
+
+          // Resolve auth URLs for target repos.
+          const targetUrls = await ports.git.resolveRepositoryCloneUrls(
+            gitDraft,
+            { organization, repositoryNames: reposToPopulate },
+            options?.signal,
+          )
+
+          const pushItems = targetUrls.resolved.map((r) => ({
+            repoName: r.repositoryName,
+            authUrl: r.cloneUrl,
+          }))
+
+          const pushResults = await mapConcurrent(
+            pushItems,
+            async (item) => {
+              const ok = await pushTemplateToRepo(
+                ports.gitCommand,
+                templateLocalPath,
+                item.authUrl,
+                defaultBranch,
+                options?.signal,
+              )
+              if (!ok) {
+                options?.onOutput?.({
+                  channel: "warn",
+                  message: `Failed to push template to '${item.repoName}'.`,
+                })
+              }
+              return ok
+            },
+            8,
+          )
+
+          const pushSuccessCount = pushResults.filter(Boolean).length
+          options?.onOutput?.({
+            channel: "info",
+            message: `Pushed template '${describeTemplate(template)}' to ${pushSuccessCount}/${pushItems.length} repositories.`,
+          })
+
+          // Capture template commit SHA.
+          try {
+            const sha = await resolveLocalTemplateSha(
+              ports.gitCommand,
+              templateLocalPath,
+              options?.signal,
+            )
+            if (sha !== null) {
+              for (const entry of plannedWithTemplates.value) {
+                if (
+                  entry.template !== null &&
+                  templateKey(entry.template) === templateKey(template) &&
+                  successfulRepositoryNames.has(entry.group.repoName)
+                ) {
+                  templateCommitShas[entry.group.assignmentId] = sha
+                }
+              }
             }
           } catch {
             // Best-effort: template commit tracking should not fail repo creation.
           }
         }
 
+        // Cleanup temporary directories.
+        for (const tmpDir of tmpDirsToCleanup) {
+          try {
+            await ports.fileSystem.applyBatch({
+              operations: [{ kind: "delete-path", path: tmpDir }],
+            })
+          } catch {
+            // Best-effort cleanup.
+          }
+        }
+
         options?.onProgress?.({
-          step: 4,
+          step: 5,
           totalSteps,
           label: "Creating teams and assigning members.",
         })
@@ -2623,7 +2744,7 @@ export function createRepositoryWorkflowHandlers(
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
-          step: 5,
+          step: 6,
           totalSteps,
           label: "Assigning repositories to teams.",
         })
@@ -2663,7 +2784,7 @@ export function createRepositoryWorkflowHandlers(
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
-          step: 6,
+          step: 7,
           totalSteps,
           label: "Repository create workflow complete.",
         })
@@ -3045,11 +3166,13 @@ export function createRepositoryWorkflowHandlers(
           }
         }
 
-        const template = resolveAssignmentRepositoryTemplate(
-          course,
-          assignment.id,
-          course.repositoryTemplate,
-        )
+        const template =
+          input.templateOverride ??
+          resolveAssignmentRepositoryTemplate(
+            course,
+            assignment.id,
+            course.repositoryTemplate,
+          )
         if (template === null) {
           throw createValidationAppError(
             "Repository update requires a template repository.",
@@ -3068,87 +3191,167 @@ export function createRepositoryWorkflowHandlers(
           totalSteps,
           label: "Resolving template head and changed files.",
         })
-        const templateHead = await ports.git.getRepositoryDefaultBranchHead(
-          gitDraft,
-          {
-            owner: template.owner,
-            repositoryName: template.name,
-          },
-          options?.signal,
-        )
-        if (templateHead === null) {
-          throw {
-            type: "provider",
-            message: `Template repository '${template.owner}/${template.name}' was not found.`,
-            provider: providerForError,
-            operation: "getRepositoryDefaultBranchHead",
-            retryable: true,
-          } satisfies AppError
-        }
 
-        const fromSha = assignment.templateCommitSha ?? null
-        if (fromSha === null || fromSha.trim() === "") {
-          options?.onOutput?.({
-            channel: "warn",
-            message:
-              "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
-          })
-          options?.onProgress?.({
-            step: totalSteps,
-            totalSteps,
-            label: "Repository update workflow complete.",
-          })
-          return {
-            repositoriesPlanned: plannedRepositoryNames.length,
-            prsCreated: 0,
-            prsSkipped: plannedRepositoryNames.length,
-            prsFailed: 0,
-            templateCommitSha: templateHead.sha,
-            completedAt: new Date().toISOString(),
+        let currentSha: string
+        let diffFiles: PatchFile[]
+
+        if (template.kind === "local") {
+          // Local template: compute SHA and diff locally.
+          const sha = await resolveLocalTemplateSha(
+            ports.gitCommand,
+            template.path,
+            options?.signal,
+          )
+          if (sha === null) {
+            throw createValidationAppError(
+              `Local template at '${template.path}' is not a valid Git repository.`,
+              [
+                {
+                  path: "template.path",
+                  message: "Ensure the template path is a Git repository.",
+                },
+              ],
+            )
           }
-        }
+          currentSha = sha
 
-        if (fromSha === templateHead.sha) {
-          options?.onOutput?.({
-            channel: "info",
-            message: "Template unchanged since the stored baseline SHA.",
-          })
-          options?.onProgress?.({
-            step: totalSteps,
-            totalSteps,
-            label: "Repository update workflow complete.",
-          })
-          return {
-            repositoriesPlanned: plannedRepositoryNames.length,
-            prsCreated: 0,
-            prsSkipped: plannedRepositoryNames.length,
-            prsFailed: 0,
-            templateCommitSha: templateHead.sha,
-            completedAt: new Date().toISOString(),
+          const fromSha = assignment.templateCommitSha ?? null
+          if (fromSha === null || fromSha.trim() === "") {
+            options?.onOutput?.({
+              channel: "warn",
+              message:
+                "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
+            })
+            options?.onProgress?.({
+              step: totalSteps,
+              totalSteps,
+              label: "Repository update workflow complete.",
+            })
+            return {
+              repositoriesPlanned: plannedRepositoryNames.length,
+              prsCreated: 0,
+              prsSkipped: plannedRepositoryNames.length,
+              prsFailed: 0,
+              templateCommitSha: currentSha,
+              completedAt: new Date().toISOString(),
+            }
           }
-        }
 
-        const templateDiff = await ports.git.getTemplateDiff(
-          gitDraft,
-          {
-            owner: template.owner,
-            repositoryName: template.name,
+          if (fromSha === currentSha) {
+            options?.onOutput?.({
+              channel: "info",
+              message: "Template unchanged since the stored baseline SHA.",
+            })
+            options?.onProgress?.({
+              step: totalSteps,
+              totalSteps,
+              label: "Repository update workflow complete.",
+            })
+            return {
+              repositoriesPlanned: plannedRepositoryNames.length,
+              prsCreated: 0,
+              prsSkipped: plannedRepositoryNames.length,
+              prsFailed: 0,
+              templateCommitSha: currentSha,
+              completedAt: new Date().toISOString(),
+            }
+          }
+
+          diffFiles = await computeLocalTemplateDiff(
+            ports.gitCommand,
+            template.path,
             fromSha,
-            toSha: templateHead.sha,
-          },
-          options?.signal,
-        )
-        if (templateDiff === null) {
-          throw {
-            type: "provider",
-            message:
-              "Template diff could not be resolved from the Git provider.",
-            provider: providerForError,
-            operation: "getTemplateDiff",
-            retryable: true,
-          } satisfies AppError
+            currentSha,
+            options?.signal,
+          )
+        } else {
+          // Remote template: use Git provider API.
+          const templateHead = await ports.git.getRepositoryDefaultBranchHead(
+            gitDraft,
+            {
+              owner: template.owner,
+              repositoryName: template.name,
+            },
+            options?.signal,
+          )
+          if (templateHead === null) {
+            throw {
+              type: "provider",
+              message: `Template repository '${template.owner}/${template.name}' was not found.`,
+              provider: providerForError,
+              operation: "getRepositoryDefaultBranchHead",
+              retryable: true,
+            } satisfies AppError
+          }
+          currentSha = templateHead.sha
+
+          const fromSha = assignment.templateCommitSha ?? null
+          if (fromSha === null || fromSha.trim() === "") {
+            options?.onOutput?.({
+              channel: "warn",
+              message:
+                "Template baseline SHA is missing for this assignment. Skipping PR creation and returning the current template SHA for persistence.",
+            })
+            options?.onProgress?.({
+              step: totalSteps,
+              totalSteps,
+              label: "Repository update workflow complete.",
+            })
+            return {
+              repositoriesPlanned: plannedRepositoryNames.length,
+              prsCreated: 0,
+              prsSkipped: plannedRepositoryNames.length,
+              prsFailed: 0,
+              templateCommitSha: currentSha,
+              completedAt: new Date().toISOString(),
+            }
+          }
+
+          if (fromSha === currentSha) {
+            options?.onOutput?.({
+              channel: "info",
+              message: "Template unchanged since the stored baseline SHA.",
+            })
+            options?.onProgress?.({
+              step: totalSteps,
+              totalSteps,
+              label: "Repository update workflow complete.",
+            })
+            return {
+              repositoriesPlanned: plannedRepositoryNames.length,
+              prsCreated: 0,
+              prsSkipped: plannedRepositoryNames.length,
+              prsFailed: 0,
+              templateCommitSha: currentSha,
+              completedAt: new Date().toISOString(),
+            }
+          }
+
+          const templateDiff = await ports.git.getTemplateDiff(
+            gitDraft,
+            {
+              owner: template.owner,
+              repositoryName: template.name,
+              fromSha,
+              toSha: currentSha,
+            },
+            options?.signal,
+          )
+          if (templateDiff === null) {
+            throw {
+              type: "provider",
+              message:
+                "Template diff could not be resolved from the Git provider.",
+              provider: providerForError,
+              operation: "getTemplateDiff",
+              retryable: true,
+            } satisfies AppError
+          }
+          diffFiles = templateDiff.files
         }
-        if (templateDiff.files.length === 0) {
+
+        const fromSha = assignment.templateCommitSha ?? ""
+        if (diffFiles.length === 0) {
           options?.onOutput?.({
             channel: "info",
             message:
@@ -3164,19 +3367,19 @@ export function createRepositoryWorkflowHandlers(
             prsCreated: 0,
             prsSkipped: plannedRepositoryNames.length,
             prsFailed: 0,
-            templateCommitSha: templateHead.sha,
+            templateCommitSha: currentSha,
             completedAt: new Date().toISOString(),
           }
         }
 
-        const branchName = `template-update-${templateHead.sha.slice(0, 7)}`
-        const commitMessage = `Template update ${fromSha.slice(0, 7)} -> ${templateHead.sha.slice(0, 7)}`
+        const branchName = `template-update-${currentSha.slice(0, 7)}`
+        const commitMessage = `Template update ${fromSha.slice(0, 7)} -> ${currentSha.slice(0, 7)}`
         const prTitle = "Template update"
         const prBody = formatTemplateUpdateBody(
           assignment.name,
           fromSha,
-          templateHead.sha,
-          templateDiff.files,
+          currentSha,
+          diffFiles,
         )
 
         options?.onProgress?.({
@@ -3216,7 +3419,7 @@ export function createRepositoryWorkflowHandlers(
                 branchName,
                 baseSha: head.sha,
                 commitMessage,
-                files: templateDiff.files,
+                files: diffFiles,
               },
               options?.signal,
             )
@@ -3290,7 +3493,7 @@ export function createRepositoryWorkflowHandlers(
           prsCreated,
           prsSkipped,
           prsFailed,
-          templateCommitSha: templateHead.sha,
+          templateCommitSha: currentSha,
           completedAt: new Date().toISOString(),
         }
       } catch (error) {
@@ -3523,6 +3726,145 @@ async function initPullClone(
     signal,
   })
   return addRemote.exitCode === 0
+}
+
+// ---------------------------------------------------------------------------
+// Template push helpers — git push content to newly created empty repos
+// ---------------------------------------------------------------------------
+
+async function pushTemplateToRepo(
+  gitCommand: GitCommandPort,
+  templateLocalPath: string,
+  authUrl: string,
+  defaultBranch: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const result = await gitCommand.run({
+    args: ["push", authUrl, `HEAD:refs/heads/${defaultBranch}`, "--force"],
+    cwd: templateLocalPath,
+    signal,
+  })
+  return result.exitCode === 0
+}
+
+async function resolveLocalTemplateSha(
+  gitCommand: GitCommandPort,
+  templatePath: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const result = await gitCommand.run({
+    args: ["rev-parse", "HEAD"],
+    cwd: templatePath,
+    signal,
+  })
+  return result.exitCode === 0 ? result.stdout.trim() : null
+}
+
+async function resolveLocalDefaultBranch(
+  gitCommand: GitCommandPort,
+  templatePath: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const result = await gitCommand.run({
+    args: ["rev-parse", "--abbrev-ref", "HEAD"],
+    cwd: templatePath,
+    signal,
+  })
+  return result.exitCode === 0 ? result.stdout.trim() : "main"
+}
+
+async function cloneRemoteTemplateToTmpdir(
+  gitCommand: GitCommandPort,
+  authUrl: string,
+  destPath: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const result = await gitCommand.run({
+    args: ["clone", "--single-branch", authUrl, destPath],
+    signal,
+  })
+  return result.exitCode === 0
+}
+
+function parseGitDiffNameStatus(
+  output: string,
+): { status: PatchFileStatus; path: string; previousPath: string | null }[] {
+  const entries: {
+    status: PatchFileStatus
+    path: string
+    previousPath: string | null
+  }[] = []
+
+  for (const line of output.split("\n")) {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) continue
+
+    const statusChar = trimmed[0]
+    const rest = trimmed.slice(1).trim()
+
+    if (statusChar === "R") {
+      const parts = rest.split("\t")
+      entries.push({
+        status: "renamed",
+        path: parts[1] ?? parts[0],
+        previousPath: parts[0],
+      })
+    } else {
+      const path = rest.split("\t")[0] ?? rest
+      let status: PatchFileStatus
+      if (statusChar === "A") status = "added"
+      else if (statusChar === "D") status = "removed"
+      else status = "modified"
+      entries.push({ status, path, previousPath: null })
+    }
+  }
+
+  return entries
+}
+
+async function computeLocalTemplateDiff(
+  gitCommand: GitCommandPort,
+  templatePath: string,
+  fromSha: string,
+  toSha: string,
+  signal?: AbortSignal,
+): Promise<PatchFile[]> {
+  const nameStatus = await gitCommand.run({
+    args: ["diff", "--name-status", `${fromSha}..${toSha}`],
+    cwd: templatePath,
+    signal,
+  })
+
+  if (nameStatus.exitCode !== 0) {
+    return []
+  }
+
+  const entries = parseGitDiffNameStatus(nameStatus.stdout)
+  const files: PatchFile[] = []
+
+  for (const entry of entries) {
+    let contentBase64: string | null = null
+
+    if (entry.status !== "removed") {
+      const show = await gitCommand.run({
+        args: ["show", `${toSha}:${entry.path}`],
+        cwd: templatePath,
+        signal,
+      })
+      if (show.exitCode === 0) {
+        contentBase64 = Buffer.from(show.stdout).toString("base64")
+      }
+    }
+
+    files.push({
+      path: entry.path,
+      previousPath: entry.previousPath,
+      status: entry.status,
+      contentBase64,
+    })
+  }
+
+  return files
 }
 
 async function mapConcurrent<T, R>(

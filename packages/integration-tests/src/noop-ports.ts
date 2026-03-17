@@ -11,4 +11,5 @@ export const noopGitCommand: GitCommandPort = {
 export const noopFileSystem: FileSystemPort = {
   inspect: async () => [],
   applyBatch: async () => ({ completed: [] }),
+  createTempDirectory: async (prefix: string) => `/tmp/${prefix}`,
 }

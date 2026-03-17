@@ -1,8 +1,17 @@
 import assert from "node:assert/strict"
+import { execFile } from "node:child_process"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { after, before, describe, it } from "node:test"
+import { promisify } from "node:util"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
 import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
-import { createNodeHttpPort } from "@repo-edu/host-node"
+import {
+  createNodeFileSystemPort,
+  createNodeGitCommandPort,
+  createNodeHttpPort,
+} from "@repo-edu/host-node"
 import { createGiteaClient } from "@repo-edu/integrations-git"
 
 import {
@@ -22,7 +31,6 @@ import {
   verifyTeamRepos,
   verifyTeams,
 } from "./gitea-harness.js"
-import { noopFileSystem, noopGitCommand } from "./noop-ports.js"
 
 const GITEA_URL = process.env.INTEGRATION_GITEA_URL ?? ""
 
@@ -40,8 +48,8 @@ describeIntegration("repo.create integration (Gitea)", () => {
     const git = createGiteaClient(http)
     handlers = createRepositoryWorkflowHandlers({
       git,
-      gitCommand: noopGitCommand,
-      fileSystem: noopFileSystem,
+      gitCommand: createNodeGitCommandPort(),
+      fileSystem: createNodeFileSystemPort(),
     })
   })
 
@@ -150,6 +158,7 @@ describeIntegration("repo.create integration (Gitea)", () => {
       await seedTemplateRepository(GITEA_URL, token, orgName, templateRepoName)
 
       const template = {
+        kind: "remote" as const,
         owner: orgName,
         name: templateRepoName,
         visibility: "private" as const,
@@ -173,6 +182,77 @@ describeIntegration("repo.create integration (Gitea)", () => {
         "should capture template commit SHA for assignment",
       )
     })
+  })
+
+  it("creates from local template and captures commit SHA", async () => {
+    const exec = promisify(execFile)
+    const localTemplatePath = await mkdtemp(join(tmpdir(), "repo-edu-tpl-"))
+
+    try {
+      await exec("git", ["init"], { cwd: localTemplatePath })
+      await exec(
+        "git",
+        [
+          "-c",
+          "user.name=Test",
+          "-c",
+          "user.email=t@t",
+          "commit",
+          "--allow-empty",
+          "-m",
+          "init",
+        ],
+        { cwd: localTemplatePath },
+      )
+      await writeFile(join(localTemplatePath, "README.md"), "# Template\n")
+      await exec("git", ["add", "."], { cwd: localTemplatePath })
+      await exec(
+        "git",
+        [
+          "-c",
+          "user.name=Test",
+          "-c",
+          "user.email=t@t",
+          "commit",
+          "-m",
+          "add readme",
+        ],
+        { cwd: localTemplatePath },
+      )
+
+      await withIsolatedOrg(async ({ course, settings }) => {
+        const template = {
+          kind: "local" as const,
+          path: localTemplatePath,
+          visibility: "private" as const,
+        }
+
+        const result = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template,
+        })
+
+        assert.ok(
+          result.repositoriesCreated > 0,
+          "should create repos from local template",
+        )
+        assert.equal(result.repositoriesFailed, 0, "no failures expected")
+        assert.ok(
+          result.templateCommitShas.a1 !== undefined &&
+            result.templateCommitShas.a1 !== "",
+          "should capture template commit SHA for assignment",
+        )
+        assert.match(
+          result.templateCommitShas.a1,
+          /^[0-9a-f]{40}$/,
+          "SHA should be a 40-char hex string",
+        )
+      })
+    } finally {
+      await rm(localTemplatePath, { recursive: true, force: true })
+    }
   })
 
   after(async () => {

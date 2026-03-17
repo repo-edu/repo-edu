@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process"
-import { cp, mkdir, rm, stat } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, rm, stat } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -230,6 +232,10 @@ export function createNodeFileSystemPort(): FileSystemPort {
       }
 
       return { completed }
+    },
+
+    async createTempDirectory(prefix: string): Promise<string> {
+      return mkdtemp(join(tmpdir(), prefix))
     },
   }
 }
