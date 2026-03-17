@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../application" },
+    { "path": "../domain" },
+    { "path": "../host-node" },
+    { "path": "../host-runtime-contract" },
+    { "path": "../integrations-git" },
+    { "path": "../integrations-git-contract" },
+    { "path": "../test-fixtures" }
+  ]
+}

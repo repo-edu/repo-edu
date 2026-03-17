@@ -316,6 +316,34 @@ importers:
         specifier: workspace:*
         version: link:../domain
 
+  packages/integration-tests:
+    dependencies:
+      '@repo-edu/application':
+        specifier: workspace:*
+        version: link:../application
+      '@repo-edu/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@repo-edu/host-node':
+        specifier: workspace:*
+        version: link:../host-node
+      '@repo-edu/host-runtime-contract':
+        specifier: workspace:*
+        version: link:../host-runtime-contract
+      '@repo-edu/integrations-git':
+        specifier: workspace:*
+        version: link:../integrations-git
+      '@repo-edu/integrations-git-contract':
+        specifier: workspace:*
+        version: link:../integrations-git-contract
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+    devDependencies:
+      tsx:
+        specifier: ^4.19.4
+        version: 4.21.0
+
   packages/integrations-git:
     dependencies:
       '@gitbeaker/rest':

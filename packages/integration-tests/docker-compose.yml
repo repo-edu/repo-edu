@@ -1,0 +1,16 @@
+services:
+  gitea:
+    image: gitea/gitea:1.22.6
+    ports:
+      - "${GITEA_PORT:-3000}:3000"
+    environment:
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__server__ROOT_URL=http://localhost:${GITEA_PORT:-3000}
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "curl", "-fsSL", "http://localhost:3000/api/v1/version"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s

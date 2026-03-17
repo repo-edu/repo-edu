@@ -15,6 +15,7 @@
     { "path": "./packages/test-fixtures" },
     { "path": "./packages/integrations-lms" },
     { "path": "./packages/integrations-git" },
+    { "path": "./packages/integration-tests" },
     { "path": "./apps/desktop" },
     { "path": "./apps/cli" },
     { "path": "./apps/docs" }
