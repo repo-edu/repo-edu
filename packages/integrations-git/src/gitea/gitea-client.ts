@@ -116,6 +116,17 @@ function mapTeamPermission(
   return "write"
 }
 
+const defaultTeamUnits = [
+  "repo.code",
+  "repo.issues",
+  "repo.pulls",
+  "repo.actions",
+  "repo.releases",
+  "repo.wiki",
+  "repo.projects",
+  "repo.packages",
+]
+
 function toErrorMessage(data: unknown): string {
   if (typeof data === "string") {
     return data
@@ -391,6 +402,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
                   owner: request.organization,
                   name: repoName,
                   private: resolvePrivateFlag(request),
+                  git_content: true,
                 }),
                 signal,
               )
@@ -480,6 +492,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
         JSON.stringify({
           name: request.teamName,
           permission: mapTeamPermission(request.permission),
+          units: defaultTeamUnits,
         }),
         signal,
       )

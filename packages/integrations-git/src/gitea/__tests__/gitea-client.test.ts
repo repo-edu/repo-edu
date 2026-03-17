@@ -209,6 +209,7 @@ describe("createGiteaClient", () => {
       assert.ok(capturedBody.includes('"owner":"course-org"'))
       assert.ok(capturedBody.includes('"name":"hw1-team-alpha"'))
       assert.ok(capturedBody.includes('"private":false'))
+      assert.ok(capturedBody.includes('"git_content":true'))
     })
 
     it("returns empty result when baseUrl is missing", async () => {
@@ -287,12 +288,14 @@ describe("createGiteaClient", () => {
 
   describe("createTeam", () => {
     it("creates a team and adds members", async () => {
+      let capturedBody = ""
       const http: HttpPort = {
         async fetch(request: HttpRequest): Promise<HttpResponse> {
           if (
             request.method === "POST" &&
             request.url.includes("/api/v1/orgs/course-org/teams")
           ) {
+            capturedBody = request.body ?? ""
             return {
               status: 201,
               statusText: "Created",
@@ -343,6 +346,9 @@ describe("createGiteaClient", () => {
       assert.equal(result.teamSlug, "42")
       assert.deepStrictEqual(result.membersAdded, ["alice"])
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
+      assert.ok(capturedBody.includes('"permission":"write"'))
+      assert.ok(capturedBody.includes('"units":["repo.code"'))
+      assert.ok(capturedBody.includes('"repo.packages"'))
     })
 
     it("falls back to existing team on HTTP 409", async () => {
