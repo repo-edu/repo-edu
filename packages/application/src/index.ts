@@ -86,7 +86,6 @@ import type {
   FileSystemPort,
   GitCommandPort,
   HttpPort,
-  ProcessResult,
   UserFilePort,
   UserFileText,
 } from "@repo-edu/host-runtime-contract"
@@ -2341,6 +2340,20 @@ function repositoryClonePath(
   )
 }
 
+const TEMP_CLONE_DIRECTORY_NAME = ".repo-edu-clone-tmp"
+
+function repositoryCloneTempRoot(targetDirectory: string): string {
+  return joinPath(targetDirectory, TEMP_CLONE_DIRECTORY_NAME)
+}
+
+function repositoryCloneTempPath(
+  tempRoot: string,
+  repoName: string,
+  index: number,
+): string {
+  return joinPath(tempRoot, `${sanitizePathSegment(repoName)}-${index}`)
+}
+
 function requireGitOrganization(
   course: PersistedCourse,
   operation: "repo.create" | "repo.clone" | "repo.update",
@@ -2760,7 +2773,11 @@ export function createRepositoryWorkflowHandlers(
 
         const targetDirectory = normalizeTargetDirectory(input.targetDirectory)
         const layout = normalizeDirectoryLayout(input.directoryLayout)
-        const parentDirectories = new Set<string>([targetDirectory])
+        const tempCloneRoot = repositoryCloneTempRoot(targetDirectory)
+        const parentDirectories = new Set<string>([
+          targetDirectory,
+          tempCloneRoot,
+        ])
         const cloneTargets: Array<{
           repoName: string
           cloneUrl: string
@@ -2805,11 +2822,61 @@ export function createRepositoryWorkflowHandlers(
         } catch (error) {
           throw normalizeRepositoryExecutionError(error, "inspectCloneTargets")
         }
-        const existingPathSet = new Set(
-          inspected
-            .filter((entry) => entry.kind !== "missing")
-            .map((entry) => entry.path),
+        const targetByPath = new Map(
+          cloneTargets.map((target) => [target.path, target]),
         )
+        const clashIssues: AppValidationIssue[] = []
+        const existingDirectoryPaths: string[] = []
+        for (const entry of inspected) {
+          if (entry.kind === "missing") {
+            continue
+          }
+          const target = targetByPath.get(entry.path)
+          if (target === undefined) {
+            continue
+          }
+          if (entry.kind === "file") {
+            clashIssues.push({
+              path: "targetDirectory",
+              message: `Target path '${entry.path}' for repository '${target.repoName}' already exists as a file.`,
+            })
+            continue
+          }
+          existingDirectoryPaths.push(entry.path)
+        }
+        const existingGitRepoPaths = new Set<string>()
+        const existingDirectoryChecks = await mapConcurrent(
+          existingDirectoryPaths,
+          async (path) => {
+            const isGitRepo = await isGitRepositoryPath(
+              ports.gitCommand,
+              path,
+              options?.signal,
+            )
+            return { path, isGitRepo }
+          },
+          8,
+        )
+        for (const check of existingDirectoryChecks) {
+          const target = targetByPath.get(check.path)
+          if (target === undefined) {
+            continue
+          }
+          if (check.isGitRepo) {
+            existingGitRepoPaths.add(check.path)
+            continue
+          }
+          clashIssues.push({
+            path: "targetDirectory",
+            message: `Target path '${check.path}' for repository '${target.repoName}' already exists and is not a Git repository.`,
+          })
+        }
+        if (clashIssues.length > 0) {
+          throw createValidationAppError(
+            "Repository clone target paths conflict with existing non-git entries.",
+            clashIssues,
+          )
+        }
 
         options?.onProgress?.({
           step: 4,
@@ -2818,40 +2885,83 @@ export function createRepositoryWorkflowHandlers(
         })
         let cloned = 0
         let failed = 0
-        let skippedExisting = 0
-        for (const target of cloneTargets) {
-          if (existingPathSet.has(target.path)) {
-            skippedExisting += 1
-            continue
-          }
+        const skippedExistingNames: string[] = []
 
-          let result: ProcessResult
-          try {
-            result = await ports.gitCommand.run({
-              args: ["clone", target.cloneUrl, target.path],
-              signal: options?.signal,
-            })
-          } catch (error) {
-            failed += 1
-            options?.onOutput?.({
-              channel: "warn",
-              message: `git clone failed for '${target.repoName}': ${error instanceof Error ? error.message : String(error)}`,
-            })
-            continue
+        const toClone = cloneTargets.filter((target) => {
+          if (existingGitRepoPaths.has(target.path)) {
+            skippedExistingNames.push(target.repoName)
+            return false
           }
-          if (result.exitCode === 0) {
-            cloned += 1
-            continue
-          }
-          failed += 1
-          options?.onOutput?.({
-            channel: "warn",
-            message: `git clone failed for '${target.repoName}': ${result.stderr || result.stdout || "unknown error"}`,
-          })
+          return true
+        })
+        const cloneItems = toClone.map((target, index) => ({
+          ...target,
+          tempPath: repositoryCloneTempPath(
+            tempCloneRoot,
+            target.repoName,
+            index,
+          ),
+        }))
+
+        const cloneResults = await mapConcurrent(
+          cloneItems,
+          async (target) => {
+            const cleanupTempPath = async () => {
+              try {
+                await ports.fileSystem.applyBatch({
+                  operations: [{ kind: "delete-path", path: target.tempPath }],
+                  signal: options?.signal,
+                })
+              } catch {
+                // Best effort cleanup.
+              }
+            }
+            try {
+              await cleanupTempPath()
+              const ok = await initPullClone(
+                ports.gitCommand,
+                target.cloneUrl,
+                target.tempPath,
+                options?.signal,
+              )
+              if (ok) {
+                await ports.fileSystem.applyBatch({
+                  operations: [
+                    {
+                      kind: "copy-directory",
+                      sourcePath: target.tempPath,
+                      destinationPath: target.path,
+                    },
+                  ],
+                  signal: options?.signal,
+                })
+                await cleanupTempPath()
+                return "cloned" as const
+              }
+              await cleanupTempPath()
+              options?.onOutput?.({
+                channel: "warn",
+                message: `git clone failed for '${target.repoName}': git pull returned non-zero exit code`,
+              })
+              return "failed" as const
+            } catch (error) {
+              await cleanupTempPath()
+              options?.onOutput?.({
+                channel: "warn",
+                message: `git clone failed for '${target.repoName}': ${error instanceof Error ? error.message : String(error)}`,
+              })
+              return "failed" as const
+            }
+          },
+          8,
+        )
+        for (const result of cloneResults) {
+          if (result === "cloned") cloned += 1
+          else failed += 1
         }
         options?.onOutput?.({
           channel: "info",
-          message: `Repository clone summary: planned ${planned.value.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${skippedExisting}, failed ${failed}.`,
+          message: `Repository clone summary: planned ${planned.value.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${skippedExistingNames.length}${skippedExistingNames.length > 0 ? ` (${skippedExistingNames.join(", ")})` : ""}, failed ${failed}.`,
         })
 
         throwIfAborted(options?.signal)
@@ -3349,6 +3459,92 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 
     signal?.addEventListener("abort", abort, { once: true })
   })
+}
+
+// ---------------------------------------------------------------------------
+// Clone helpers — init+pull (no token in .git/config) + concurrency pool
+// ---------------------------------------------------------------------------
+
+function stripCredentials(url: string): string {
+  const parsed = new URL(url)
+  parsed.username = ""
+  parsed.password = ""
+  return parsed.toString()
+}
+
+function isMissingRemoteHeadError(stderr: string, stdout: string): boolean {
+  const text = `${stderr}\n${stdout}`.toLowerCase()
+  return (
+    text.includes("couldn't find remote ref head") ||
+    text.includes("could not find remote ref head")
+  )
+}
+
+async function isGitRepositoryPath(
+  gitCommand: GitCommandPort,
+  path: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const result = await gitCommand.run({
+    args: ["-C", path, "rev-parse", "--is-inside-work-tree"],
+    signal,
+  })
+  return result.exitCode === 0
+}
+
+async function initPullClone(
+  gitCommand: GitCommandPort,
+  authUrl: string,
+  destPath: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const init = await gitCommand.run({
+    args: ["init", destPath],
+    signal,
+  })
+  if (init.exitCode !== 0) return false
+
+  const pull = await gitCommand.run({
+    args: ["pull", authUrl],
+    cwd: destPath,
+    signal,
+  })
+  if (
+    pull.exitCode !== 0 &&
+    !isMissingRemoteHeadError(pull.stderr, pull.stdout)
+  ) {
+    return false
+  }
+
+  const cleanUrl = stripCredentials(authUrl)
+  const addRemote = await gitCommand.run({
+    args: ["remote", "add", "origin", cleanUrl],
+    cwd: destPath,
+    signal,
+  })
+  return addRemote.exitCode === 0
+}
+
+async function mapConcurrent<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  limit: number,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let next = 0
+
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () =>
+    worker(),
+  )
+  await Promise.all(workers)
+  return results
 }
 
 export async function runSpikeWorkflow(

@@ -15,7 +15,7 @@
     "tsx": "^4.19.4"
   },
   "scripts": {
-    "test:integration": "node --import tsx --test src/repo-create.test.ts",
+    "test:integration": "node --import tsx --test src/repo-create.test.ts src/repo-clone.test.ts",
     "docker:up": "docker compose up -d --wait && (docker compose exec -T -u git gitea gitea admin user create --admin --username test-admin --password test-admin-pw --email admin@test.local --must-change-password=false || true)",
     "docker:down": "docker compose down -v --remove-orphans"
   }

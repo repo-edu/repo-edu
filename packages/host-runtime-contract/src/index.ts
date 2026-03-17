@@ -123,8 +123,15 @@ export type FileSystemDeletePathOperation = {
   path: string
 }
 
+export type FileSystemCopyDirectoryOperation = {
+  kind: "copy-directory"
+  sourcePath: string
+  destinationPath: string
+}
+
 export type FileSystemBatchOperation =
   | FileSystemEnsureDirectoryOperation
+  | FileSystemCopyDirectoryOperation
   | FileSystemDeletePathOperation
 
 export type FileSystemBatchRequest = {

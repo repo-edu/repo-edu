@@ -1525,6 +1525,7 @@ describe("application repository workflow helpers", () => {
       ],
     }
     const cloneCommands: string[][] = []
+    const batchOperations: Array<Array<Record<string, string>>> = []
     const handlers = createRepositoryWorkflowHandlers({
       git: {
         createRepositories: async () => ({
@@ -1572,7 +1573,12 @@ describe("application repository workflow helpers", () => {
       fileSystem: {
         inspect: async (request) =>
           request.paths.map((path) => ({ path, kind: "missing" as const })),
-        applyBatch: async () => ({ completed: [] }),
+        applyBatch: async (request) => {
+          batchOperations.push(
+            request.operations as Array<Record<string, string>>,
+          )
+          return { completed: [] }
+        },
       },
     })
 
@@ -1588,11 +1594,333 @@ describe("application repository workflow helpers", () => {
     assert.equal(cloneResult.repositoriesPlanned, 1)
     assert.equal(cloneResult.repositoriesCloned, 1)
     assert.equal(cloneResult.repositoriesFailed, 0)
-    assert.deepStrictEqual(cloneCommands[0], [
-      "clone",
+    assert.deepStrictEqual(cloneCommands[0]?.slice(0, 1), ["init"])
+    assert.ok(
+      cloneCommands[0]?.[1]?.includes("/work/repos/.repo-edu-clone-tmp/"),
+    )
+    assert.ok(cloneCommands[0]?.[1]?.endsWith("/beta-0"))
+    const tempPath = cloneCommands[0]?.[1] ?? ""
+    assert.deepStrictEqual(cloneCommands[1], [
+      "pull",
       "https://x-access-token:token-1@github.com/repo-edu/beta.git",
-      "/work/repos/beta",
     ])
+    assert.equal(cloneCommands[2]?.[0], "remote")
+    const copyOperations = batchOperations.flat().filter((operation) => {
+      return operation.kind === "copy-directory"
+    })
+    assert.deepStrictEqual(copyOperations, [
+      {
+        kind: "copy-directory",
+        sourcePath: tempPath,
+        destinationPath: "/work/repos/beta",
+      },
+    ])
+    assert.deepStrictEqual(cloneCommands[2], [
+      "remote",
+      "add",
+      "origin",
+      "https://github.com/repo-edu/beta.git",
+    ])
+  })
+
+  it("treats empty remote repositories as successful clones", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    const cloneCommands: string[][] = []
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async (request) => {
+          cloneCommands.push(request.args)
+          if (request.args[0] === "pull") {
+            return {
+              exitCode: 1,
+              signal: null,
+              stdout: "",
+              stderr: "fatal: couldn't find remote ref HEAD",
+            }
+          }
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }
+        },
+      },
+      fileSystem: {
+        inspect: async (request) =>
+          request.paths.map((path) => ({ path, kind: "missing" as const })),
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    const cloneResult = await handlers["repo.clone"]({
+      course,
+      appSettings: settings,
+      assignmentId: null,
+      template: null,
+      targetDirectory: "/work/repos",
+      directoryLayout: "flat",
+      groupIds: ["g2"],
+    })
+
+    assert.equal(cloneResult.repositoriesCloned, 1)
+    assert.equal(cloneResult.repositoriesFailed, 0)
+    assert.deepStrictEqual(cloneCommands[2], [
+      "remote",
+      "add",
+      "origin",
+      "https://github.com/repo-edu/beta.git",
+    ])
+  })
+
+  it("errors when clone target clashes with non-git directories", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async (request) => {
+          if (request.args[0] === "-C") {
+            return {
+              exitCode: 1,
+              signal: null,
+              stdout: "",
+              stderr: "fatal: not a git repository",
+            }
+          }
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }
+        },
+      },
+      fileSystem: {
+        inspect: async () => [{ path: "/work/repos/beta", kind: "directory" }],
+        applyBatch: async () => ({ completed: [] }),
+      },
+    })
+
+    await assert.rejects(
+      async () =>
+        handlers["repo.clone"]({
+          course,
+          appSettings: settings,
+          assignmentId: null,
+          template: null,
+          targetDirectory: "/work/repos",
+          directoryLayout: "flat",
+          groupIds: ["g2"],
+        }),
+      (error: unknown) => {
+        const appError = error as { type?: string; message?: string }
+        assert.equal(appError.type, "validation", "expected validation error")
+        assert.match(
+          appError.message ?? "",
+          /non-git entries/,
+          "expected non-git clash message",
+        )
+        return true
+      },
+    )
+  })
+
+  it("does not copy into final destination when clone pull fails", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+    const cloneCommands: string[][] = []
+    const batchOperations: Array<Array<Record<string, string>>> = []
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => ({
+          created: [],
+          alreadyExisted: [],
+          failed: [],
+        }),
+        createTeam: async () => ({
+          created: true,
+          teamSlug: "team",
+          membersAdded: [],
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async (_draft, request) => ({
+          resolved: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async (request) => {
+          cloneCommands.push(request.args)
+          if (request.args[0] === "pull") {
+            return {
+              exitCode: 1,
+              signal: null,
+              stdout: "",
+              stderr: "fatal: authentication failed",
+            }
+          }
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+          }
+        },
+      },
+      fileSystem: {
+        inspect: async (request) =>
+          request.paths.map((path) => ({ path, kind: "missing" as const })),
+        applyBatch: async (request) => {
+          batchOperations.push(
+            request.operations as Array<Record<string, string>>,
+          )
+          return { completed: [] }
+        },
+      },
+    })
+
+    const cloneResult = await handlers["repo.clone"]({
+      course,
+      appSettings: settings,
+      assignmentId: null,
+      template: null,
+      targetDirectory: "/work/repos",
+      directoryLayout: "flat",
+      groupIds: ["g2"],
+    })
+
+    assert.equal(cloneResult.repositoriesCloned, 0)
+    assert.equal(cloneResult.repositoriesFailed, 1)
+    assert.deepStrictEqual(cloneCommands[0]?.slice(0, 1), ["init"])
+    assert.ok(
+      cloneCommands[0]?.[1]?.includes("/work/repos/.repo-edu-clone-tmp/"),
+    )
+    const copyOperations = batchOperations.flat().filter((operation) => {
+      return operation.kind === "copy-directory"
+    })
+    assert.deepStrictEqual(copyOperations, [])
   })
 
   it("reports alreadyExisted and failed buckets in repo.create result", async () => {

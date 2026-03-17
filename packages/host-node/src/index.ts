@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { mkdir, rm, stat } from "node:fs/promises"
+import { cp, mkdir, rm, stat } from "node:fs/promises"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -183,10 +183,16 @@ async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
     return
   }
 
-  await rm(operation.path, {
-    force: true,
-    recursive: true,
-  })
+  if (operation.kind === "copy-directory") {
+    await cp(operation.sourcePath, operation.destinationPath, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+    })
+    return
+  }
+
+  await rm(operation.path, { force: true, recursive: true })
 }
 
 // ---------------------------------------------------------------------------

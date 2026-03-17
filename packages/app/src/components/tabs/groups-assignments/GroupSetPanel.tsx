@@ -905,24 +905,6 @@ function GroupsTable({
               </Button>
               <Button
                 size="sm"
-                variant={openSection === "clone" ? "default" : "outline"}
-                disabled={disabled}
-                onClick={() =>
-                  setGroupOperationSection(
-                    groupSetId,
-                    openSection === "clone" ? null : "clone",
-                  )
-                }
-              >
-                Clone Repos
-                <ChevronDown
-                  className={`ml-1 size-4 transition-transform ${
-                    openSection === "clone" ? "rotate-180" : ""
-                  }`}
-                />
-              </Button>
-              <Button
-                size="sm"
                 variant={openSection === "update" ? "default" : "outline"}
                 disabled={disabled}
                 onClick={() =>
@@ -936,6 +918,24 @@ function GroupsTable({
                 <ChevronDown
                   className={`ml-1 size-4 transition-transform ${
                     openSection === "update" ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+              <Button
+                size="sm"
+                variant={openSection === "clone" ? "default" : "outline"}
+                disabled={disabled}
+                onClick={() =>
+                  setGroupOperationSection(
+                    groupSetId,
+                    openSection === "clone" ? null : "clone",
+                  )
+                }
+              >
+                Clone Repos
+                <ChevronDown
+                  className={`ml-1 size-4 transition-transform ${
+                    openSection === "clone" ? "rotate-180" : ""
                   }`}
                 />
               </Button>
@@ -996,6 +996,36 @@ function GroupsTable({
                           {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
                         </span>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Collapsible open={openSection === "update"}>
+              <CollapsibleContent>
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Creates pull requests from template changes for the selected
+                    assignment's repositories.
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void handleRunOperation("update")}
+                      disabled={!hasUpdateOperationInputs}
+                    >
+                      {runningOperation === "update" ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Running...
+                        </>
+                      ) : (
+                        "Update Repos"
+                      )}
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      Uses assignment template SHA tracking to open update PRs.
                     </div>
                   </div>
                 </div>
@@ -1074,36 +1104,6 @@ function GroupsTable({
                           {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
                         </span>
                       )}
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible open={openSection === "update"}>
-              <CollapsibleContent>
-                <div className="border rounded-md p-3 space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    Creates pull requests from template changes for the selected
-                    assignment's repositories.
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => void handleRunOperation("update")}
-                      disabled={!hasUpdateOperationInputs}
-                    >
-                      {runningOperation === "update" ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Running...
-                        </>
-                      ) : (
-                        "Update Repos"
-                      )}
-                    </Button>
-                    <div className="text-sm text-muted-foreground">
-                      Uses assignment template SHA tracking to open update PRs.
                     </div>
                   </div>
                 </div>

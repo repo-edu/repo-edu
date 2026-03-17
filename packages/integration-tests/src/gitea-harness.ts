@@ -175,6 +175,33 @@ export async function seedTemplateRepository(
   }
 }
 
+export async function seedOrganizationRepository(
+  baseUrl: string,
+  token: string,
+  owner: string,
+  repoName: string,
+  options?: {
+    autoInit?: boolean
+  },
+): Promise<void> {
+  const createResult = await giteaFetch(baseUrl, `/orgs/${owner}/repos`, {
+    method: "POST",
+    auth: tokenAuthHeader(token),
+    body: {
+      name: repoName,
+      auto_init: options?.autoInit ?? true,
+      private: true,
+      template: false,
+    },
+  })
+
+  if (createResult.status !== 201 && createResult.status !== 409) {
+    throw new Error(
+      `Failed to create repo '${owner}/${repoName}' (${createResult.status}).`,
+    )
+  }
+}
+
 export async function verifyRepositoriesExist(
   baseUrl: string,
   token: string,
