@@ -9,8 +9,6 @@ import type {
   CreateRepositoriesResult,
   CreateTeamRequest,
   CreateTeamResult,
-  DeleteRepositoriesRequest,
-  DeleteRepositoriesResult,
   GetTemplateDiffRequest,
   GetTemplateDiffResult,
   GitConnectionDraft,
@@ -673,41 +671,6 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
 
       return {
         resolved,
-        missing,
-      }
-    },
-    async deleteRepositories(
-      draft: GitConnectionDraft,
-      request: DeleteRepositoriesRequest,
-      signal?: AbortSignal,
-    ): Promise<DeleteRepositoriesResult> {
-      const octokit = createOctokit(http, draft)
-      let deletedCount = 0
-      const missing: string[] = []
-
-      for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) {
-          break
-        }
-
-        try {
-          await octokit.repos.delete({
-            owner: request.organization,
-            repo: repositoryName,
-            request: { signal },
-          })
-          deletedCount += 1
-        } catch (error) {
-          if (isNotFoundError(error)) {
-            missing.push(repositoryName)
-            continue
-          }
-          throw error
-        }
-      }
-
-      return {
-        deletedCount,
         missing,
       }
     },

@@ -67,7 +67,6 @@ function normalizeAppError(error: unknown): AppError {
 }
 
 async function collectValidationSnapshot() {
-  const spikeProgressLabels: string[] = []
   const environmentSnapshot = await rendererHost.getEnvironmentSnapshot()
 
   const courseList = await workflowClient.run("course.list", undefined)
@@ -94,12 +93,6 @@ async function collectValidationSnapshot() {
           assignmentId: validationAssignmentId,
         })
 
-  const spike = await workflowClient.run("spike.e2e-trpc", undefined, {
-    onProgress(event) {
-      spikeProgressLabels.push(event.label)
-    },
-  })
-
   return {
     environmentShell: environmentSnapshot.shell,
     environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
@@ -116,8 +109,6 @@ async function collectValidationSnapshot() {
     assignmentIssueKinds: assignmentValidation.issues.map(
       (issue) => issue.kind,
     ),
-    spikeWorkflowId: spike.workflowId,
-    spikeProgressCount: spikeProgressLabels.length,
   }
 }
 

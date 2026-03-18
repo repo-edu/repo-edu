@@ -9,8 +9,6 @@ import type {
   CreateRepositoriesResult,
   CreateTeamRequest,
   CreateTeamResult,
-  DeleteRepositoriesRequest,
-  DeleteRepositoriesResult,
   GetTemplateDiffRequest,
   GetTemplateDiffResult,
   GitConnectionDraft,
@@ -1237,45 +1235,6 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
 
       return {
         resolved,
-        missing,
-      }
-    },
-    async deleteRepositories(
-      draft: GitConnectionDraft,
-      request: DeleteRepositoriesRequest,
-      signal?: AbortSignal,
-    ): Promise<DeleteRepositoriesResult> {
-      if (!request.organization) {
-        return {
-          deletedCount: 0,
-          missing: [...request.repositoryNames],
-        }
-      }
-
-      const api = createGitLabApi(http, draft)
-      let deletedCount = 0
-      const missing: string[] = []
-
-      for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) {
-          break
-        }
-
-        const projectPath = `${request.organization}/${repositoryName}`
-        try {
-          await api.Projects.remove(projectPath)
-          deletedCount += 1
-        } catch (error) {
-          if (isNotFoundError(error)) {
-            missing.push(repositoryName)
-            continue
-          }
-          throw error
-        }
-      }
-
-      return {
-        deletedCount,
         missing,
       }
     },

@@ -168,19 +168,6 @@ async function main() {
       throw new Error("assignmentIssueKinds was not an array.");
     }
 
-    if (marker.spikeWorkflowId !== "spike.e2e-trpc") {
-      throw new Error(
-        `unexpected spikeWorkflowId: ${String(marker.spikeWorkflowId)}`,
-      );
-    }
-
-    if (
-      typeof marker.spikeProgressCount !== "number" ||
-      marker.spikeProgressCount < 1
-    ) {
-      throw new Error("spikeProgressCount was not a positive number.");
-    }
-
     const fixtureArtifactsDirectory = join(
       temporaryStorageRoot,
       "fixtures",

@@ -20,6 +20,7 @@ import { createWorkflowClient } from "@repo-edu/application-contract"
 import type { GroupSet, PersistedCourse } from "@repo-edu/domain"
 import { ORIGIN_LMS } from "@repo-edu/domain"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
+import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
@@ -334,15 +335,6 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
         missing: [],
       }
     },
-    async deleteRepositories(
-      _draft: unknown,
-      request: { repositoryNames: string[] },
-    ) {
-      return {
-        deletedCount: request.repositoryNames.length,
-        missing: [],
-      }
-    },
   }
 
   const gitCommandPort = {
@@ -357,24 +349,19 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     },
   }
 
-  const fileSystemPort = {
-    async inspect(request: { paths: string[] }) {
+  const fileSystemPort: FileSystemPort = {
+    async inspect(request) {
       return request.paths.map((path) => ({
         path,
         kind: "missing" as const,
       }))
     },
-    async applyBatch(request: {
-      operations: Array<{
-        kind: "ensure-directory" | "delete-path"
-        path: string
-      }>
-    }) {
+    async applyBatch(request) {
       return {
         completed: request.operations,
       }
     },
-    async createTempDirectory(_prefix: string) {
+    async createTempDirectory(_prefix) {
       return "/tmp/repo-edu-demo"
     },
   }

@@ -10,8 +10,6 @@ import {
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
   runInspectUserFileWorkflow,
-  runSpikeCorsWorkflow,
-  runSpikeWorkflow,
   runUserFileExportPreviewWorkflow,
 } from "@repo-edu/application"
 import type {
@@ -27,27 +25,14 @@ import {
   isAppError,
   type workflowCatalog,
 } from "@repo-edu/application-contract"
-import type { GitProviderKind, LmsProviderKind } from "@repo-edu/domain"
 import type {
   FileSystemPort,
   GitCommandPort,
   HttpPort,
   UserFilePort,
 } from "@repo-edu/host-runtime-contract"
-import { createGitProviderClient } from "@repo-edu/integrations-git"
-import type {
-  AssignRepositoriesToTeamRequest,
-  CreateBranchRequest,
-  CreatePullRequestRequest,
-  CreateRepositoriesRequest,
-  CreateTeamRequest,
-  GetTemplateDiffRequest,
-  GitConnectionDraft,
-  RepositoryHeadRequest,
-  ResolveRepositoryCloneUrlsRequest,
-} from "@repo-edu/integrations-git-contract"
-import { createLmsClient } from "@repo-edu/integrations-lms"
-import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
+import { createGitProviderDispatch } from "@repo-edu/integrations-git"
+import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
 
@@ -62,184 +47,6 @@ export type DesktopRouterPorts = {
   userFile: UserFilePort
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
-}
-
-function createLmsProviderDispatch(http: HttpPort) {
-  const clients = new Map<LmsProviderKind, ReturnType<typeof createLmsClient>>()
-
-  const resolveClient = (provider: LmsProviderKind) => {
-    const existing = clients.get(provider)
-    if (existing) {
-      return existing
-    }
-
-    const next = createLmsClient(provider, http)
-    clients.set(provider, next)
-    return next
-  }
-
-  return {
-    verifyConnection(draft: LmsConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).verifyConnection(draft, signal)
-    },
-    listCourses(draft: LmsConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).listCourses(draft, signal)
-    },
-    fetchRoster(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      signal?: AbortSignal,
-      onProgress?: (message: string) => void,
-    ) {
-      return resolveClient(draft.provider).fetchRoster(
-        draft,
-        courseId,
-        signal,
-        onProgress,
-      )
-    },
-    listGroupSets(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).listGroupSets(
-        draft,
-        courseId,
-        signal,
-      )
-    },
-    fetchGroupSet(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      groupSetId: string,
-      signal?: AbortSignal,
-      onProgress?: (message: string) => void,
-    ) {
-      return resolveClient(draft.provider).fetchGroupSet(
-        draft,
-        courseId,
-        groupSetId,
-        signal,
-        onProgress,
-      )
-    },
-  }
-}
-
-function createGitProviderDispatch(http: HttpPort) {
-  const clients = new Map<
-    GitProviderKind,
-    ReturnType<typeof createGitProviderClient>
-  >()
-
-  const resolveClient = (provider: GitProviderKind) => {
-    const existing = clients.get(provider)
-    if (existing) {
-      return existing
-    }
-
-    const next = createGitProviderClient(provider, http)
-    clients.set(provider, next)
-    return next
-  }
-
-  return {
-    verifyConnection(draft: GitConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).verifyConnection(draft, signal)
-    },
-    verifyGitUsernames(
-      draft: GitConnectionDraft,
-      usernames: string[],
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).verifyGitUsernames(
-        draft,
-        usernames,
-        signal,
-      )
-    },
-    createRepositories(
-      draft: GitConnectionDraft,
-      request: CreateRepositoriesRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createRepositories(
-        draft,
-        request,
-        signal,
-      )
-    },
-    createTeam(
-      draft: GitConnectionDraft,
-      request: CreateTeamRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createTeam(draft, request, signal)
-    },
-    assignRepositoriesToTeam(
-      draft: GitConnectionDraft,
-      request: AssignRepositoriesToTeamRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).assignRepositoriesToTeam(
-        draft,
-        request,
-        signal,
-      )
-    },
-    getRepositoryDefaultBranchHead(
-      draft: GitConnectionDraft,
-      request: RepositoryHeadRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).getRepositoryDefaultBranchHead(
-        draft,
-        request,
-        signal,
-      )
-    },
-    getTemplateDiff(
-      draft: GitConnectionDraft,
-      request: GetTemplateDiffRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).getTemplateDiff(
-        draft,
-        request,
-        signal,
-      )
-    },
-    createBranch(
-      draft: GitConnectionDraft,
-      request: CreateBranchRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createBranch(draft, request, signal)
-    },
-    createPullRequest(
-      draft: GitConnectionDraft,
-      request: CreatePullRequestRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createPullRequest(
-        draft,
-        request,
-        signal,
-      )
-    },
-    resolveRepositoryCloneUrls(
-      draft: GitConnectionDraft,
-      request: ResolveRepositoryCloneUrlsRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).resolveRepositoryCloneUrls(
-        draft,
-        request,
-        signal,
-      )
-    },
-  }
 }
 
 function createDesktopWorkflowRegistry(
@@ -274,9 +81,6 @@ function createDesktopWorkflowRegistry(
       runInspectUserFileWorkflow(ports.userFile, input, options),
     "userFile.exportPreview": (input, options) =>
       runUserFileExportPreviewWorkflow(ports.userFile, input, options),
-    "spike.e2e-trpc": (_input, options) => runSpikeWorkflow(options),
-    "spike.cors-http": (_input, options) =>
-      runSpikeCorsWorkflow({ http: ports.http }, options),
   }
 }
 
@@ -325,92 +129,16 @@ function createWorkflowSubscriptionProcedure<
 export function createDesktopRouter(ports: DesktopRouterPorts) {
   const workflowRegistry = createDesktopWorkflowRegistry(ports)
 
-  return t.router({
-    "course.list": createWorkflowSubscriptionProcedure(
-      workflowRegistry["course.list"],
-    ),
-    "course.load": createWorkflowSubscriptionProcedure(
-      workflowRegistry["course.load"],
-    ),
-    "course.save": createWorkflowSubscriptionProcedure(
-      workflowRegistry["course.save"],
-    ),
-    "course.delete": createWorkflowSubscriptionProcedure(
-      workflowRegistry["course.delete"],
-    ),
-    "settings.loadApp": createWorkflowSubscriptionProcedure(
-      workflowRegistry["settings.loadApp"],
-    ),
-    "settings.saveApp": createWorkflowSubscriptionProcedure(
-      workflowRegistry["settings.saveApp"],
-    ),
-    "connection.verifyLmsDraft": createWorkflowSubscriptionProcedure(
-      workflowRegistry["connection.verifyLmsDraft"],
-    ),
-    "connection.listLmsCoursesDraft": createWorkflowSubscriptionProcedure(
-      workflowRegistry["connection.listLmsCoursesDraft"],
-    ),
-    "connection.verifyGitDraft": createWorkflowSubscriptionProcedure(
-      workflowRegistry["connection.verifyGitDraft"],
-    ),
-    "roster.importFromFile": createWorkflowSubscriptionProcedure(
-      workflowRegistry["roster.importFromFile"],
-    ),
-    "roster.importFromLms": createWorkflowSubscriptionProcedure(
-      workflowRegistry["roster.importFromLms"],
-    ),
-    "roster.exportMembers": createWorkflowSubscriptionProcedure(
-      workflowRegistry["roster.exportMembers"],
-    ),
-    "groupSet.fetchAvailableFromLms": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.fetchAvailableFromLms"],
-    ),
-    "groupSet.connectFromLms": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.connectFromLms"],
-    ),
-    "groupSet.syncFromLms": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.syncFromLms"],
-    ),
-    "groupSet.previewImportFromFile": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.previewImportFromFile"],
-    ),
-    "groupSet.previewReimportFromFile": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.previewReimportFromFile"],
-    ),
-    "groupSet.export": createWorkflowSubscriptionProcedure(
-      workflowRegistry["groupSet.export"],
-    ),
-    "gitUsernames.import": createWorkflowSubscriptionProcedure(
-      workflowRegistry["gitUsernames.import"],
-    ),
-    "validation.roster": createWorkflowSubscriptionProcedure(
-      workflowRegistry["validation.roster"],
-    ),
-    "validation.assignment": createWorkflowSubscriptionProcedure(
-      workflowRegistry["validation.assignment"],
-    ),
-    "repo.create": createWorkflowSubscriptionProcedure(
-      workflowRegistry["repo.create"],
-    ),
-    "repo.clone": createWorkflowSubscriptionProcedure(
-      workflowRegistry["repo.clone"],
-    ),
-    "repo.update": createWorkflowSubscriptionProcedure(
-      workflowRegistry["repo.update"],
-    ),
-    "userFile.inspectSelection": createWorkflowSubscriptionProcedure(
-      workflowRegistry["userFile.inspectSelection"],
-    ),
-    "userFile.exportPreview": createWorkflowSubscriptionProcedure(
-      workflowRegistry["userFile.exportPreview"],
-    ),
-    "spike.e2e-trpc": createWorkflowSubscriptionProcedure(
-      workflowRegistry["spike.e2e-trpc"],
-    ),
-    "spike.cors-http": createWorkflowSubscriptionProcedure(
-      workflowRegistry["spike.cors-http"],
-    ),
-  })
+  const procedures = Object.fromEntries(
+    (Object.keys(workflowRegistry) as DesktopWorkflowId[]).map((workflowId) => [
+      workflowId,
+      createWorkflowSubscriptionProcedure(
+        workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
+      ),
+    ]),
+  )
+
+  return t.router(procedures)
 }
 
 function emitFailure(

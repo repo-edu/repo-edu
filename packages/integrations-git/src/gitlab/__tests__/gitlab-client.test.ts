@@ -705,34 +705,4 @@ describe("createGitLabClient", () => {
       )
     })
   })
-
-  describe("deleteRepositories", () => {
-    it("deletes repositories and reports missing", async () => {
-      const http = createMockHttpPort([
-        {
-          method: "DELETE",
-          urlPattern: "/projects/my-group%2Frepo-1",
-          status: 204,
-          body: {},
-        },
-        {
-          method: "DELETE",
-          urlPattern: "/projects/my-group%2Frepo-missing",
-          status: 404,
-          body: { message: "404 Project Not Found" },
-        },
-      ])
-
-      const client = createGitLabClient(http)
-      const result = await client.deleteRepositories(baseDraft, {
-        organization: "my-group",
-        repositoryNames: ["repo-1", "repo-missing"],
-      })
-
-      assert.deepStrictEqual(result, {
-        deletedCount: 1,
-        missing: ["repo-missing"],
-      })
-    })
-  })
 })

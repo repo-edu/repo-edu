@@ -467,18 +467,16 @@ export const useCourseStore = create<CourseState & CourseActions>()(
       },
 
       setRoster: (roster, description) => {
-        mutateRoster(description ?? "Replace roster", () => {
-          // The `mutateRoster` only records patches on the existing roster.
-          // For a full replacement we need to use set() directly.
-        })
-        // Full replacement bypasses the inner mutator and applies directly.
+        const state = get()
+        if (!state.course) return
+        const [nextRoster, patches, inversePatches] = produceWithPatches(
+          state.course.roster,
+          () => roster,
+        )
+        if (patches.length === 0) return
+
         set((draft) => {
           if (!draft.course) return
-          const [nextRoster, patches, inversePatches] = produceWithPatches(
-            draft.course.roster,
-            () => roster,
-          )
-          if (patches.length === 0) return
           draft.course.roster = nextRoster as Roster
           draft.course.updatedAt = new Date().toISOString()
           draft.history.push({

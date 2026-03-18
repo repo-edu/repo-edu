@@ -6,21 +6,21 @@ import {
   type PersistedCourse,
   systemSetsMissing,
 } from "@repo-edu/domain"
+import { createConnectionWorkflowHandlers } from "../connection-workflows.js"
 import {
-  createConnectionWorkflowHandlers,
-  createCourseWorkflowHandlers,
-  createGitUsernameWorkflowHandlers,
-  createGroupSetWorkflowHandlers,
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
-  createRepositoryWorkflowHandlers,
-  createRosterWorkflowHandlers,
-  createSettingsWorkflowHandlers,
   createValidationAppError,
-  createValidationWorkflowHandlers,
   runValidateAssignmentForCourse,
   runValidateRosterForCourse,
-} from "../index.js"
+} from "../core.js"
+import { createCourseWorkflowHandlers } from "../course-workflows.js"
+import { createGitUsernameWorkflowHandlers } from "../git-username-workflows.js"
+import { createGroupSetWorkflowHandlers } from "../group-set-workflows.js"
+import { createRepositoryWorkflowHandlers } from "../repository-workflows.js"
+import { createRosterWorkflowHandlers } from "../roster-workflows.js"
+import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
+import { createValidationWorkflowHandlers } from "../validation-workflows.js"
 
 function makeProfile(): PersistedCourse {
   return {
@@ -646,6 +646,46 @@ describe("application roster workflow helpers", () => {
     assert.equal(roster.students.length, 2)
     assert.equal(systemSetsMissing(roster), false)
     assert.equal(roster.connection?.kind, "import")
+  })
+
+  it("fails roster import when CSV rows violate student schema", async () => {
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async () => makeProfile().roster,
+      },
+      userFile: {
+        readText: async () => ({
+          displayName: "students.csv",
+          mediaType: "text/csv",
+          text: ["email", "ada@example.com"].join("\n"),
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["roster.importFromFile"]({
+          file: {
+            kind: "user-file-ref",
+            referenceId: "file-2",
+            displayName: "students.csv",
+            mediaType: "text/csv",
+            byteLength: null,
+          },
+        }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation",
+    )
   })
 
   it("imports roster from LMS using the course connection and enforces system sets", async () => {
@@ -1417,6 +1457,87 @@ describe("application repository workflow helpers", () => {
     assert.equal(result.repositoriesAlreadyExisted, 0)
     assert.equal(result.repositoriesFailed, 0)
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
+  })
+
+  it("normalizes provider failures from repo.create", async () => {
+    const course = {
+      ...makeProfile(),
+      gitConnectionId: "main-git",
+      organization: "repo-edu",
+    }
+    const settings = {
+      ...makeSettings(),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github" as const,
+          baseUrl: "https://github.com",
+          token: "token-1",
+        },
+      ],
+    }
+
+    const handlers = createRepositoryWorkflowHandlers({
+      git: {
+        createRepositories: async () => {
+          throw new Error("provider unavailable")
+        },
+        createTeam: async (_draft, request) => ({
+          created: true,
+          teamSlug: request.teamName,
+          membersAdded: request.memberUsernames,
+          membersNotFound: [],
+        }),
+        assignRepositoriesToTeam: async () => {},
+        getRepositoryDefaultBranchHead: async () => ({
+          sha: "template-sha",
+          branchName: "main",
+        }),
+        getTemplateDiff: async () => ({ files: [] }),
+        createBranch: async () => {},
+        createPullRequest: async () => ({
+          url: "https://example.com/pr/1",
+          created: true,
+        }),
+        resolveRepositoryCloneUrls: async () => ({
+          resolved: [],
+          missing: [],
+        }),
+      },
+      gitCommand: {
+        cancellation: "best-effort",
+        run: async () => ({
+          exitCode: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+        }),
+      },
+      fileSystem: {
+        inspect: async () => [],
+        applyBatch: async () => ({ completed: [] }),
+        createTempDirectory: async () => "/tmp/repo-edu-test",
+      },
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: null,
+          template: null,
+        }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "provider" &&
+        "provider" in error &&
+        error.provider === "github" &&
+        "operation" in error &&
+        error.operation === "createRepositories",
+    )
   })
 
   it("filters repository planning to the selected group ids", async () => {

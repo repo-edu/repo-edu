@@ -167,6 +167,32 @@ describe("course store", () => {
     assert.equal(useCourseStore.getState().history.length, 2)
   })
 
+  it("records exactly one undo entry for full setRoster replacement", async () => {
+    const course = makeProfile()
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    const nextRoster = {
+      ...course.roster,
+      students: [...course.roster.students, makeStudent("s-2", "Grace Hopper")],
+    }
+    useCourseStore.getState().setRoster(nextRoster, "Import students from file")
+
+    assert.equal(useCourseStore.getState().history.length, 1)
+    assert.equal(useCourseStore.getState().future.length, 0)
+    assert.equal(useCourseStore.getState().course?.roster.students.length, 2)
+
+    const undone = useCourseStore.getState().undo()
+    assert.equal(undone?.description, "Import students from file")
+    assert.equal(useCourseStore.getState().history.length, 0)
+    assert.equal(useCourseStore.getState().future.length, 1)
+    assert.equal(useCourseStore.getState().course?.roster.students.length, 1)
+  })
+
   it("normalizes individual-student system group names during load", async () => {
     const course = makeProfile()
     course.roster.students = [makeStudent("s-1", "Berg, S.O.S. van den")]

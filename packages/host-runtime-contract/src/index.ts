@@ -2,7 +2,7 @@ import type { FileFormat } from "@repo-edu/domain"
 
 export const packageId = "@repo-edu/host-runtime-contract"
 
-export type UserFileReadRef = {
+export type UserFileRef = {
   kind: "user-file-ref"
   referenceId: string
   displayName: string
@@ -10,12 +10,15 @@ export type UserFileReadRef = {
   byteLength: number | null
 }
 
-export type UserSaveTargetWriteRef = {
+export type UserSaveTargetRef = {
   kind: "user-save-target-ref"
   referenceId: string
   displayName: string
   suggestedFormat: FileFormat | null
 }
+
+export type UserFileReadRef = UserFileRef
+export type UserSaveTargetWriteRef = UserSaveTargetRef
 
 export type UserFileText = {
   displayName: string

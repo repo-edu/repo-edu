@@ -10,6 +10,7 @@
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
     "@repo-edu/host-browser-mock": "workspace:*",
+    "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-git-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
     "@repo-edu/test-fixtures": "workspace:*",

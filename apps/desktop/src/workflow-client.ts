@@ -13,7 +13,7 @@ import {
   createCancelledAppError,
   createTransportAppError,
   createWorkflowClient,
-  type workflowCatalog,
+  workflowCatalog,
 } from "@repo-edu/application-contract"
 import { createTRPCProxyClient } from "@trpc/client"
 import { ipcLink } from "trpc-electron/renderer"
@@ -27,11 +27,25 @@ type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
   onComplete(): void
 }
 
-const trpcClient = createTRPCProxyClient<DesktopRouter>({
-  links: [ipcLink<DesktopRouter>()],
-})
+let trpcClient: ReturnType<typeof createTRPCProxyClient<DesktopRouter>> | null =
+  null
 
-function runSubscriptionFromFactory<TWorkflowId extends DesktopWorkflowId>(
+function getTrpcClient(): ReturnType<
+  typeof createTRPCProxyClient<DesktopRouter>
+> {
+  if (trpcClient !== null) {
+    return trpcClient
+  }
+
+  trpcClient = createTRPCProxyClient<DesktopRouter>({
+    links: [ipcLink<DesktopRouter>()],
+  })
+  return trpcClient
+}
+
+export function runSubscriptionFromFactory<
+  TWorkflowId extends DesktopWorkflowId,
+>(
   subscribe: (handlers: SubscriptionHandlers<TWorkflowId>) => {
     unsubscribe(): void
   },
@@ -113,7 +127,7 @@ function subscribeWorkflow<TWorkflowId extends DesktopWorkflowId>(
   input: WorkflowInput<TWorkflowId>,
   handlers: SubscriptionHandlers<TWorkflowId>,
 ): { unsubscribe(): void } {
-  const procedure = trpcClient[workflowId] as {
+  const procedure = getTrpcClient()[workflowId] as {
     subscribe(
       value: WorkflowInput<TWorkflowId>,
       subscriptionHandlers: SubscriptionHandlers<TWorkflowId>,
@@ -144,64 +158,22 @@ function normalizeTransportError(error: Error): AppError {
 }
 
 function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> {
-  return {
-    "course.list": (input, options) =>
-      runDesktopWorkflow("course.list", input, options),
-    "course.load": (input, options) =>
-      runDesktopWorkflow("course.load", input, options),
-    "course.save": (input, options) =>
-      runDesktopWorkflow("course.save", input, options),
-    "course.delete": (input, options) =>
-      runDesktopWorkflow("course.delete", input, options),
-    "settings.loadApp": (input, options) =>
-      runDesktopWorkflow("settings.loadApp", input, options),
-    "settings.saveApp": (input, options) =>
-      runDesktopWorkflow("settings.saveApp", input, options),
-    "connection.verifyLmsDraft": (input, options) =>
-      runDesktopWorkflow("connection.verifyLmsDraft", input, options),
-    "connection.listLmsCoursesDraft": (input, options) =>
-      runDesktopWorkflow("connection.listLmsCoursesDraft", input, options),
-    "connection.verifyGitDraft": (input, options) =>
-      runDesktopWorkflow("connection.verifyGitDraft", input, options),
-    "roster.importFromFile": (input, options) =>
-      runDesktopWorkflow("roster.importFromFile", input, options),
-    "roster.importFromLms": (input, options) =>
-      runDesktopWorkflow("roster.importFromLms", input, options),
-    "roster.exportMembers": (input, options) =>
-      runDesktopWorkflow("roster.exportMembers", input, options),
-    "groupSet.fetchAvailableFromLms": (input, options) =>
-      runDesktopWorkflow("groupSet.fetchAvailableFromLms", input, options),
-    "groupSet.connectFromLms": (input, options) =>
-      runDesktopWorkflow("groupSet.connectFromLms", input, options),
-    "groupSet.syncFromLms": (input, options) =>
-      runDesktopWorkflow("groupSet.syncFromLms", input, options),
-    "groupSet.previewImportFromFile": (input, options) =>
-      runDesktopWorkflow("groupSet.previewImportFromFile", input, options),
-    "groupSet.previewReimportFromFile": (input, options) =>
-      runDesktopWorkflow("groupSet.previewReimportFromFile", input, options),
-    "groupSet.export": (input, options) =>
-      runDesktopWorkflow("groupSet.export", input, options),
-    "gitUsernames.import": (input, options) =>
-      runDesktopWorkflow("gitUsernames.import", input, options),
-    "validation.roster": (input, options) =>
-      runDesktopWorkflow("validation.roster", input, options),
-    "validation.assignment": (input, options) =>
-      runDesktopWorkflow("validation.assignment", input, options),
-    "repo.create": (input, options) =>
-      runDesktopWorkflow("repo.create", input, options),
-    "repo.clone": (input, options) =>
-      runDesktopWorkflow("repo.clone", input, options),
-    "repo.update": (input, options) =>
-      runDesktopWorkflow("repo.update", input, options),
-    "userFile.inspectSelection": (input, options) =>
-      runDesktopWorkflow("userFile.inspectSelection", input, options),
-    "userFile.exportPreview": (input, options) =>
-      runDesktopWorkflow("userFile.exportPreview", input, options),
-    "spike.e2e-trpc": (input, options) =>
-      runDesktopWorkflow("spike.e2e-trpc", input, options),
-    "spike.cors-http": (input, options) =>
-      runDesktopWorkflow("spike.cors-http", input, options),
-  }
+  const workflowIds = Object.keys(
+    workflowCatalog,
+  ) as readonly DesktopWorkflowId[]
+
+  return Object.fromEntries(
+    workflowIds.map((workflowId) => [
+      workflowId,
+      (
+        input: WorkflowInput<typeof workflowId>,
+        options?: WorkflowCallOptions<
+          WorkflowProgress<typeof workflowId>,
+          WorkflowOutput<typeof workflowId>
+        >,
+      ) => runDesktopWorkflow(workflowId, input, options),
+    ]),
+  ) as WorkflowHandlerMap<DesktopWorkflowId>
 }
 
 export function createDesktopWorkflowClient(): WorkflowClient<DesktopWorkflowId> {

@@ -8,8 +8,6 @@ import type {
   CreateRepositoriesResult,
   CreateTeamRequest,
   CreateTeamResult,
-  DeleteRepositoriesRequest,
-  DeleteRepositoriesResult,
   GetTemplateDiffRequest,
   GetTemplateDiffResult,
   GitConnectionDraft,
@@ -970,55 +968,6 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
 
       return {
         resolved,
-        missing,
-      }
-    },
-    async deleteRepositories(
-      draft: GitConnectionDraft,
-      request: DeleteRepositoriesRequest,
-      signal?: AbortSignal,
-    ): Promise<DeleteRepositoriesResult> {
-      if (!request.organization || !resolveApiBase(draft)) {
-        return {
-          deletedCount: 0,
-          missing: [...request.repositoryNames],
-        }
-      }
-
-      let deletedCount = 0
-      const missing: string[] = []
-
-      for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) {
-          break
-        }
-
-        const response = await giteaRequest(
-          http,
-          draft,
-          "DELETE",
-          `/repos/${encodeURIComponent(request.organization)}/${encodeURIComponent(repositoryName)}`,
-          undefined,
-          signal,
-        )
-
-        if (response.status === 404) {
-          missing.push(repositoryName)
-          continue
-        }
-
-        if (response.status >= 200 && response.status < 300) {
-          deletedCount += 1
-          continue
-        }
-
-        throw new Error(
-          `Failed to delete repository '${repositoryName}' (${response.status}).`,
-        )
-      }
-
-      return {
-        deletedCount,
         missing,
       }
     },

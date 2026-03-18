@@ -132,16 +132,6 @@ export type ResolveRepositoryCloneUrlsResult = {
   missing: string[]
 }
 
-export type DeleteRepositoriesRequest = {
-  organization: string
-  repositoryNames: string[]
-}
-
-export type DeleteRepositoriesResult = {
-  deletedCount: number
-  missing: string[]
-}
-
 export type GitProviderClient = {
   verifyConnection(
     draft: GitConnectionDraft,
@@ -192,9 +182,4 @@ export type GitProviderClient = {
     request: ResolveRepositoryCloneUrlsRequest,
     signal?: AbortSignal,
   ): Promise<ResolveRepositoryCloneUrlsResult>
-  deleteRepositories(
-    draft: GitConnectionDraft,
-    request: DeleteRepositoriesRequest,
-    signal?: AbortSignal,
-  ): Promise<DeleteRepositoriesResult>
 }

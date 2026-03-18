@@ -571,34 +571,4 @@ describe("createGiteaClient", () => {
       assert.ok(result.resolved[0]?.cloneUrl.includes("token:gitea-test-token"))
     })
   })
-
-  describe("deleteRepositories", () => {
-    it("deletes repositories and reports missing", async () => {
-      const http = createMockHttpPort([
-        {
-          method: "DELETE",
-          urlPattern: "/api/v1/repos/course-org/repo-1",
-          status: 204,
-          body: {},
-        },
-        {
-          method: "DELETE",
-          urlPattern: "/api/v1/repos/course-org/repo-missing",
-          status: 404,
-          body: { message: "Not Found" },
-        },
-      ])
-
-      const client = createGiteaClient(http)
-      const result = await client.deleteRepositories(baseDraft, {
-        organization: "course-org",
-        repositoryNames: ["repo-1", "repo-missing"],
-      })
-
-      assert.deepStrictEqual(result, {
-        deletedCount: 1,
-        missing: ["repo-missing"],
-      })
-    })
-  })
 })

@@ -14,8 +14,13 @@ import type {
   RosterValidationResult,
   ValidationIssue,
 } from "@repo-edu/domain"
+import type {
+  UserFileRef,
+  UserSaveTargetRef,
+} from "@repo-edu/host-runtime-contract"
 
 export const packageId = "@repo-edu/application-contract"
+export type { UserFileRef, UserSaveTargetRef }
 
 export type DeliverySurface = "desktop" | "docs" | "cli"
 export type WorkflowProgressGranularity = "none" | "milestone" | "granular"
@@ -40,21 +45,6 @@ export type MilestoneProgress = {
   step: number
   totalSteps: number
   label: string
-}
-
-export type UserFileRef = {
-  kind: "user-file-ref"
-  referenceId: string
-  displayName: string
-  mediaType: string | null
-  byteLength: number | null
-}
-
-export type UserSaveTargetRef = {
-  kind: "user-save-target-ref"
-  referenceId: string
-  displayName: string
-  suggestedFormat: FileFormat | null
 }
 
 export type TransportErrorReason =
@@ -162,12 +152,24 @@ export function createCancelledAppError(
   }
 }
 
+const appErrorTypes = new Set<string>([
+  "transport",
+  "cancelled",
+  "validation",
+  "not-found",
+  "conflict",
+  "provider",
+  "persistence",
+  "unexpected",
+])
+
 export function isAppError(value: unknown): value is AppError {
   return (
     typeof value === "object" &&
     value !== null &&
     "type" in value &&
-    typeof value.type === "string"
+    typeof value.type === "string" &&
+    appErrorTypes.has(value.type)
   )
 }
 
@@ -347,29 +349,6 @@ export type UserFileExportPreviewResult = {
   savedAt: string
 }
 
-export type SpikeWorkflowProgress = MilestoneProgress
-export type SpikeWorkflowOutput = {
-  line: string
-}
-export type SpikeWorkflowResult = {
-  workflowId: "spike.e2e-trpc"
-  message: string
-  packageLine: string
-  executedAt: string
-}
-
-export type SpikeCorsWorkflowProgress = MilestoneProgress
-export type SpikeCorsWorkflowOutput = {
-  line: string
-}
-export type SpikeCorsWorkflowResult = {
-  workflowId: "spike.cors-http"
-  executedIn: "node"
-  httpStatus: number
-  bodySnippet: string
-  executedAt: string
-}
-
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -527,18 +506,6 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: UserFileExportPreviewResult
   }
-  "spike.e2e-trpc": {
-    input: undefined
-    progress: SpikeWorkflowProgress
-    output: SpikeWorkflowOutput
-    result: SpikeWorkflowResult
-  }
-  "spike.cors-http": {
-    input: undefined
-    progress: SpikeCorsWorkflowProgress
-    output: SpikeCorsWorkflowOutput
-    result: SpikeCorsWorkflowResult
-  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -569,27 +536,27 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "non-cancellable",
   },
   "settings.loadApp": {
-    delivery: ["desktop", "docs"],
+    delivery: ["desktop", "docs", "cli"],
     progress: "none",
     cancellation: "non-cancellable",
   },
   "settings.saveApp": {
-    delivery: ["desktop", "docs"],
+    delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "cooperative",
   },
   "connection.verifyLmsDraft": {
-    delivery: ["desktop", "docs"],
+    delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",
   },
   "connection.listLmsCoursesDraft": {
-    delivery: ["desktop", "docs"],
+    delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",
   },
   "connection.verifyGitDraft": {
-    delivery: ["desktop", "docs"],
+    delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",
   },
@@ -669,22 +636,12 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "userFile.inspectSelection": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",
   },
   "userFile.exportPreview": {
-    delivery: ["desktop", "docs", "cli"],
-    progress: "milestone",
-    cancellation: "cooperative",
-  },
-  "spike.e2e-trpc": {
-    delivery: ["desktop"],
-    progress: "milestone",
-    cancellation: "cooperative",
-  },
-  "spike.cors-http": {
-    delivery: ["desktop"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",
   },
@@ -743,6 +700,3 @@ export function createWorkflowClient<TWorkflowId extends WorkflowId>(
     },
   }
 }
-
-export type SpikeWorkflowEvent = WorkflowEventFor<"spike.e2e-trpc">
-export type SpikeCorsWorkflowEvent = WorkflowEventFor<"spike.cors-http">

@@ -9,6 +9,8 @@ import {
 } from "@repo-edu/application"
 import {
   createWorkflowClient,
+  type DiagnosticOutput,
+  type MilestoneProgress,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
@@ -21,20 +23,8 @@ import type {
   UserFileReadRef,
   UserSaveTargetWriteRef,
 } from "@repo-edu/host-runtime-contract"
-import { createGitProviderClient } from "@repo-edu/integrations-git"
-import type {
-  AssignRepositoriesToTeamRequest,
-  CreateBranchRequest,
-  CreatePullRequestRequest,
-  CreateRepositoriesRequest,
-  CreateTeamRequest,
-  GetTemplateDiffRequest,
-  GitConnectionDraft,
-  RepositoryHeadRequest,
-  ResolveRepositoryCloneUrlsRequest,
-} from "@repo-edu/integrations-git-contract"
-import { createLmsClient } from "@repo-edu/integrations-lms"
-import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
+import { createGitProviderDispatch } from "@repo-edu/integrations-git"
+import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
   createCliAppSettingsStore,
   createCliCourseStore,
@@ -53,212 +43,90 @@ const unsupportedUserFilePort: UserFilePort = {
   },
 }
 
-function createLmsProviderDispatch() {
-  const http = createNodeHttpPort()
-  const clients = new Map<
-    LmsConnectionDraft["provider"],
-    ReturnType<typeof createLmsClient>
-  >()
-
-  const resolveClient = (provider: LmsConnectionDraft["provider"]) => {
-    const existing = clients.get(provider)
-    if (existing) {
-      return existing
-    }
-
-    const next = createLmsClient(provider, http)
-    clients.set(provider, next)
-    return next
-  }
-
-  return {
-    verifyConnection(draft: LmsConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).verifyConnection(draft, signal)
-    },
-    listCourses(draft: LmsConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).listCourses(draft, signal)
-    },
-    fetchRoster(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      signal?: AbortSignal,
-      onProgress?: (message: string) => void,
-    ) {
-      return resolveClient(draft.provider).fetchRoster(
-        draft,
-        courseId,
-        signal,
-        onProgress,
-      )
-    },
-    listGroupSets(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).listGroupSets(
-        draft,
-        courseId,
-        signal,
-      )
-    },
-    fetchGroupSet(
-      draft: LmsConnectionDraft,
-      courseId: string,
-      groupSetId: string,
-      signal?: AbortSignal,
-      onProgress?: (message: string) => void,
-    ) {
-      return resolveClient(draft.provider).fetchGroupSet(
-        draft,
-        courseId,
-        groupSetId,
-        signal,
-        onProgress,
-      )
-    },
-  }
-}
-
-function createGitProviderDispatch() {
-  const http = createNodeHttpPort()
-  const clients = new Map<
-    GitConnectionDraft["provider"],
-    ReturnType<typeof createGitProviderClient>
-  >()
-
-  const resolveClient = (provider: GitConnectionDraft["provider"]) => {
-    const existing = clients.get(provider)
-    if (existing) {
-      return existing
-    }
-
-    const next = createGitProviderClient(provider, http)
-    clients.set(provider, next)
-    return next
-  }
-
-  return {
-    verifyConnection(draft: GitConnectionDraft, signal?: AbortSignal) {
-      return resolveClient(draft.provider).verifyConnection(draft, signal)
-    },
-    verifyGitUsernames(
-      draft: GitConnectionDraft,
-      usernames: string[],
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).verifyGitUsernames(
-        draft,
-        usernames,
-        signal,
-      )
-    },
-    createRepositories(
-      draft: GitConnectionDraft,
-      request: CreateRepositoriesRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createRepositories(
-        draft,
-        request,
-        signal,
-      )
-    },
-    createTeam(
-      draft: GitConnectionDraft,
-      request: CreateTeamRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createTeam(draft, request, signal)
-    },
-    assignRepositoriesToTeam(
-      draft: GitConnectionDraft,
-      request: AssignRepositoriesToTeamRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).assignRepositoriesToTeam(
-        draft,
-        request,
-        signal,
-      )
-    },
-    getRepositoryDefaultBranchHead(
-      draft: GitConnectionDraft,
-      request: RepositoryHeadRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).getRepositoryDefaultBranchHead(
-        draft,
-        request,
-        signal,
-      )
-    },
-    getTemplateDiff(
-      draft: GitConnectionDraft,
-      request: GetTemplateDiffRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).getTemplateDiff(
-        draft,
-        request,
-        signal,
-      )
-    },
-    createBranch(
-      draft: GitConnectionDraft,
-      request: CreateBranchRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createBranch(draft, request, signal)
-    },
-    createPullRequest(
-      draft: GitConnectionDraft,
-      request: CreatePullRequestRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).createPullRequest(
-        draft,
-        request,
-        signal,
-      )
-    },
-    resolveRepositoryCloneUrls(
-      draft: GitConnectionDraft,
-      request: ResolveRepositoryCloneUrlsRequest,
-      signal?: AbortSignal,
-    ) {
-      return resolveClient(draft.provider).resolveRepositoryCloneUrls(
-        draft,
-        request,
-        signal,
-      )
-    },
-  }
-}
-
-export function createCliWorkflowClient(): WorkflowClient {
+export function createCliWorkflowHandlers() {
   const courseStore = createCliCourseStore()
   const appSettingsStore = createCliAppSettingsStore()
-  const lms = createLmsProviderDispatch()
-  const git = createGitProviderDispatch()
+  const http = createNodeHttpPort()
+  const lms = createLmsProviderDispatch(http)
+  const git = createGitProviderDispatch(http)
+  const connectionHandlers = createConnectionWorkflowHandlers({ lms, git })
+  const rosterHandlers = createRosterWorkflowHandlers({
+    lms,
+    userFile: unsupportedUserFilePort,
+  })
+  const groupSetHandlers = createGroupSetWorkflowHandlers({
+    lms,
+    userFile: unsupportedUserFilePort,
+  })
 
-  return createWorkflowClient({
+  return {
     ...createCourseWorkflowHandlers(courseStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
-    ...createConnectionWorkflowHandlers({ lms, git }),
+    ...connectionHandlers,
     ...createValidationWorkflowHandlers(),
-    ...createRosterWorkflowHandlers({
-      lms,
-      userFile: unsupportedUserFilePort,
-    }),
-    ...createGroupSetWorkflowHandlers({
-      lms,
-      userFile: unsupportedUserFilePort,
-    }),
+    "roster.importFromLms": rosterHandlers["roster.importFromLms"],
+    "groupSet.fetchAvailableFromLms":
+      groupSetHandlers["groupSet.fetchAvailableFromLms"],
+    "groupSet.syncFromLms": groupSetHandlers["groupSet.syncFromLms"],
     ...createRepositoryWorkflowHandlers({
       git,
       gitCommand: createNodeGitCommandPort(),
       fileSystem: createNodeFileSystemPort(),
     }),
-  })
+  }
+}
+
+function writeProgressToStderr(event: MilestoneProgress): void {
+  process.stderr.write(`[${event.step}/${event.totalSteps}] ${event.label}\n`)
+}
+
+function writeOutputToStderr(event: DiagnosticOutput): void {
+  const stream =
+    event.channel === "stderr" || event.channel === "warn"
+      ? process.stderr
+      : process.stdout
+  stream.write(`${event.message}\n`)
+}
+
+export function createCliWorkflowClient(): WorkflowClient {
+  const base = createWorkflowClient(createCliWorkflowHandlers())
+
+  return {
+    run(workflowId, input, options) {
+      if (options?.signal) {
+        return (base as WorkflowClient).run(workflowId, input, {
+          ...options,
+          onProgress: options.onProgress ?? (writeProgressToStderr as never),
+          onOutput: options.onOutput ?? (writeOutputToStderr as never),
+        })
+      }
+
+      const abortController = new AbortController()
+      let sigintCount = 0
+      const onSigint = () => {
+        sigintCount++
+        if (sigintCount === 1) {
+          abortController.abort()
+          process.stderr.write("\nAborting...\n")
+        } else {
+          process.exit(130)
+        }
+      }
+
+      process.on("SIGINT", onSigint)
+
+      return (base as WorkflowClient)
+        .run(workflowId, input, {
+          ...options,
+          signal: abortController.signal,
+          // Safe: all workflow progress types are MilestoneProgress,
+          // and all output types are DiagnosticOutput.
+          onProgress: options?.onProgress ?? (writeProgressToStderr as never),
+          onOutput: options?.onOutput ?? (writeOutputToStderr as never),
+        })
+        .finally(() => {
+          process.off("SIGINT", onSigint)
+        })
+    },
+  }
 }

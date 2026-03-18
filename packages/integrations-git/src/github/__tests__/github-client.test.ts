@@ -601,34 +601,4 @@ describe("createGitHubClient", () => {
       )
     })
   })
-
-  describe("deleteRepositories", () => {
-    it("deletes existing repositories and returns missing names", async () => {
-      const http = createMockHttpPort([
-        {
-          method: "DELETE",
-          urlPattern: "/repos/test-org/repo-1",
-          status: 200,
-          body: {},
-        },
-        {
-          method: "DELETE",
-          urlPattern: "/repos/test-org/repo-missing",
-          status: 404,
-          body: { message: "Not Found" },
-        },
-      ])
-
-      const client = createGitHubClient(http)
-      const result = await client.deleteRepositories(baseDraft, {
-        organization: "test-org",
-        repositoryNames: ["repo-1", "repo-missing"],
-      })
-
-      assert.deepStrictEqual(result, {
-        deletedCount: 1,
-        missing: ["repo-missing"],
-      })
-    })
-  })
 })
