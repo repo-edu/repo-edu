@@ -1,4 +1,4 @@
-import type { RosterImportFromLmsResult } from "@repo-edu/domain"
+import type { RosterImportFromLmsResult } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,

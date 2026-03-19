@@ -1,20 +1,22 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { selectionModeAll } from "../group-set.js"
 import {
-  type Assignment,
-  computeMembersSurnamesSlug,
   computeRepoName,
   expandTemplate,
+  planRepositoryOperation,
+  preflightRepositoryOperation,
+  skippedGroupsFromRepoCollisions,
+} from "../repository-planning.js"
+import { computeMembersSurnamesSlug } from "../roster.js"
+import {
+  type Assignment,
   type Group,
   type GroupSet,
   ORIGIN_LOCAL,
-  planRepositoryOperation,
-  preflightRepositoryOperation,
   type Roster,
   type RosterMember,
-  selectionModeAll,
-  skippedGroupsFromRepoCollisions,
-} from "../index.js"
+} from "../types.js"
 
 function makeMember(
   id: string,

@@ -1,5 +1,6 @@
-import type { RosterMember } from "@repo-edu/domain"
-import { generateGroupName, slugify } from "@repo-edu/domain"
+import { slugify } from "@repo-edu/domain/repository-planning"
+import { generateGroupName } from "@repo-edu/domain/roster"
+import type { RosterMember } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,

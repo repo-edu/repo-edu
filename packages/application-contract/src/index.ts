@@ -13,7 +13,7 @@ import type {
   RosterValidationIssue,
   RosterValidationResult,
   ValidationIssue,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import type {
   UserFileRef,
   UserSaveTargetRef,

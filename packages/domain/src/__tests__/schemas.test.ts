@@ -1,13 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  defaultAppSettings,
   gitUsernameImportRowSchema,
   groupEditImportRowSchema,
   studentImportRowSchema,
   validatePersistedAppSettings,
   validatePersistedCourse,
-} from "../index.js"
+} from "../schemas.js"
+import { defaultAppSettings } from "../settings.js"
 
 describe("validatePersistedAppSettings", () => {
   it("accepts valid default settings", () => {

@@ -8,10 +8,8 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import {
-  ensureSystemGroupSets,
-  mergeRosterFromLmsWithConflicts,
-} from "@repo-edu/domain"
+import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
+import { mergeRosterFromLmsWithConflicts } from "@repo-edu/domain/roster-lms-merge"
 import type { UserFilePort } from "@repo-edu/host-runtime-contract"
 import type { LmsClient } from "@repo-edu/integrations-lms-contract"
 import { parseCsv, serializeCsv } from "./adapters/tabular/index.js"

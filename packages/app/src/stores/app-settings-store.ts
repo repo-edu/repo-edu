@@ -1,3 +1,4 @@
+import { defaultAppSettings } from "@repo-edu/domain/settings"
 import type {
   DateFormatPreference,
   PersistedAppSettings,
@@ -5,8 +6,7 @@ import type {
   PersistedLmsConnection,
   ThemePreference,
   TimeFormatPreference,
-} from "@repo-edu/domain"
-import { defaultAppSettings } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import { create } from "zustand"
 import { getWorkflowClient } from "../contexts/workflow-client.js"
 import type { StoreStatus } from "../types/index.js"

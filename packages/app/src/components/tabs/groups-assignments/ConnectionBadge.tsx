@@ -1,4 +1,4 @@
-import type { GroupSetConnection } from "@repo-edu/domain"
+import type { GroupSetConnection } from "@repo-edu/domain/types"
 
 export function connectionLabel(connection: GroupSetConnection | null): string {
   if (!connection) return "local"

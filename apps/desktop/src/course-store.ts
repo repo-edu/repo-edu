@@ -1,12 +1,12 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { CourseStore } from "@repo-edu/application"
+import { validatePersistedCourse } from "@repo-edu/domain/schemas"
 import {
   type PersistedCourse,
   persistedCourseKind,
   type Roster,
-  validatePersistedCourse,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import { desktopSeedCourseId } from "./course-ids"
 
 function createSeedRoster(): Roster {

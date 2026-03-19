@@ -3,19 +3,19 @@ import type {
   AppValidationIssue,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
-import type {
-  GitIdentityMode,
-  PersistedAppSettings,
-  PersistedCourse,
-  RosterValidationResult,
-} from "@repo-edu/domain"
+import { formatSmokeWorkflowMessage } from "@repo-edu/domain/schemas"
 import {
   packageId as domainPackageId,
-  formatSmokeWorkflowMessage,
+  type GitIdentityMode,
+  type PersistedAppSettings,
+  type PersistedCourse,
+  type RosterValidationResult,
+} from "@repo-edu/domain/types"
+import {
   validateAssignment,
   validateAssignmentWithTemplate,
   validateRoster,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/validation"
 import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract"
 import { packageId as gitContractPackageId } from "@repo-edu/integrations-git-contract"
 import { packageId as lmsContractPackageId } from "@repo-edu/integrations-lms-contract"

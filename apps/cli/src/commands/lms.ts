@@ -1,4 +1,4 @@
-import type { GroupSet, PersistedCourse } from "@repo-edu/domain"
+import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import type { Command } from "commander"
 import {
   emitCommandError,

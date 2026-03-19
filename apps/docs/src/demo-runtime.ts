@@ -17,8 +17,11 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import type { GroupSet, PersistedCourse } from "@repo-edu/domain"
-import { ORIGIN_LMS } from "@repo-edu/domain"
+import {
+  type GroupSet,
+  ORIGIN_LMS,
+  type PersistedCourse,
+} from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"

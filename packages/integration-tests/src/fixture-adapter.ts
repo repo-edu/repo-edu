@@ -1,10 +1,10 @@
-import {
-  type GitProviderKind,
-  type PersistedAppSettings,
-  type PersistedCourse,
-  type PlannedRepositoryGroup,
-  planRepositoryOperation,
-} from "@repo-edu/domain"
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type {
+  GitProviderKind,
+  PersistedAppSettings,
+  PersistedCourse,
+  PlannedRepositoryGroup,
+} from "@repo-edu/domain/types"
 import { getFixture } from "@repo-edu/test-fixtures"
 
 function applyGroupNameSuffix(course: PersistedCourse, suffix: string): void {

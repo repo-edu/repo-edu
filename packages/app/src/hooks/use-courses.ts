@@ -1,5 +1,8 @@
-import type { PersistedCourse, Roster } from "@repo-edu/domain"
-import { persistedCourseKind } from "@repo-edu/domain"
+import {
+  type PersistedCourse,
+  persistedCourseKind,
+  type Roster,
+} from "@repo-edu/domain/types"
 import { useCallback } from "react"
 import {
   getWorkflowClient,

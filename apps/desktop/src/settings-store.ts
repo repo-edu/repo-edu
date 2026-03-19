@@ -1,10 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { AppSettingsStore } from "@repo-edu/application"
-import {
-  type PersistedAppSettings,
-  validatePersistedAppSettings,
-} from "@repo-edu/domain"
+import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
+import type { PersistedAppSettings } from "@repo-edu/domain/types"
 
 function resolveSettingsPath(storageRoot: string): string {
   return join(storageRoot, "settings", "app-settings.json")

@@ -2,7 +2,7 @@ import type {
   DateFormatPreference,
   ThemePreference,
   TimeFormatPreference,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import {
   FormField,
   Select,

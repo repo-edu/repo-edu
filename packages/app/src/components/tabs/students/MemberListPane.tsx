@@ -1,4 +1,4 @@
-import type { MemberStatus, Roster, RosterMember } from "@repo-edu/domain"
+import type { MemberStatus, Roster, RosterMember } from "@repo-edu/domain/types"
 import {
   AlertDialog,
   AlertDialogAction,

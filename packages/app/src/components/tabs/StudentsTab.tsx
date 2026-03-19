@@ -1,4 +1,4 @@
-import type { Roster } from "@repo-edu/domain"
+import type { Roster } from "@repo-edu/domain/types"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {

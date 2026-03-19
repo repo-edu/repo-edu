@@ -4,7 +4,7 @@ import type {
   PersistedAppSettings,
   PersistedCourse,
   RepositoryTemplate,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import {
   buildRepositoryWorkflowRequest,
   resolveRepositoryWorkflowId,

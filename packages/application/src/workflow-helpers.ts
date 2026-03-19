@@ -9,24 +9,24 @@ import {
   createCancelledAppError,
   isAppError,
 } from "@repo-edu/application-contract"
-import type {
-  GitUsernameImportRow,
-  GroupSetImportRow,
-  PersistedAppSettings,
-  PersistedCourse,
-  StudentImportRow,
-} from "@repo-edu/domain"
+import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
+import { normalizeRoster } from "@repo-edu/domain/roster"
 import {
-  defaultAppSettings,
-  enrollmentTypeKinds,
-  ensureSystemGroupSets,
+  type GitUsernameImportRow,
   gitUsernameImportRowSchema,
   groupSetImportRowSchema,
-  normalizeRoster,
+  type StudentImportRow,
   studentImportRowSchema,
   validatePersistedAppSettings,
   validatePersistedCourse,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/schemas"
+import { defaultAppSettings } from "@repo-edu/domain/settings"
+import {
+  enrollmentTypeKinds,
+  type GroupSetImportRow,
+  type PersistedAppSettings,
+  type PersistedCourse,
+} from "@repo-edu/domain/types"
 import type { UserFileText } from "@repo-edu/host-runtime-contract"
 import type {
   GitConnectionDraft,

@@ -1,4 +1,4 @@
-import type { ThemePreference } from "@repo-edu/domain"
+import type { ThemePreference } from "@repo-edu/domain/types"
 import { useEffect } from "react"
 import { DARK_BG, LIGHT_BG, THEME_CLASSES } from "../constants/theme.js"
 

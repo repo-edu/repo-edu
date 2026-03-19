@@ -1,9 +1,9 @@
+import { normalizeRoster } from "@repo-edu/domain/roster"
 import type {
   Group,
   Roster,
   RosterMemberNormalizationInput,
-} from "@repo-edu/domain"
-import { normalizeRoster } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
   LmsClient,

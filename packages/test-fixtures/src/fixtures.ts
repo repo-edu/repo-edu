@@ -1,4 +1,7 @@
-import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
+import type {
+  PersistedAppSettings,
+  PersistedCourse,
+} from "@repo-edu/domain/types"
 import type {
   FixturePreset,
   FixtureSelection,

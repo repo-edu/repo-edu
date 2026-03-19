@@ -2,7 +2,7 @@ import type {
   FileFormat,
   ThemePreference,
   WindowChromeMode,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/renderer-host-contract"
 

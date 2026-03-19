@@ -8,7 +8,7 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { resolveGitUsernames } from "@repo-edu/domain"
+import { resolveGitUsernames } from "@repo-edu/domain/group-set"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import { createValidationAppError } from "../core.js"
 import {

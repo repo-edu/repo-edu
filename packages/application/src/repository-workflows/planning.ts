@@ -1,10 +1,10 @@
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type {
   PersistedCourse,
   PlannedRepositoryGroup,
   RepositoryTemplate,
   ValidationResult,
-} from "@repo-edu/domain"
-import { planRepositoryOperation } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 
 type PlannedRepositoryWithTemplate = {
   group: PlannedRepositoryGroup

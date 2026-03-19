@@ -1,4 +1,4 @@
-import { packageId as domainPackageId } from "@repo-edu/domain"
+import { packageId as domainPackageId } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/test-fixtures"
 export const workspaceDependencies = [domainPackageId] as const

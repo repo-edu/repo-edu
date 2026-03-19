@@ -1,4 +1,4 @@
-import type { GroupSet } from "@repo-edu/domain"
+import type { GroupSet } from "@repo-edu/domain/types"
 import {
   cn,
   DropdownMenu,

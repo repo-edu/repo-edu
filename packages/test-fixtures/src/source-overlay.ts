@@ -1,5 +1,9 @@
-import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
-import { ORIGIN_LMS, ORIGIN_LOCAL } from "@repo-edu/domain"
+import {
+  ORIGIN_LMS,
+  ORIGIN_LOCAL,
+  type PersistedAppSettings,
+  type PersistedCourse,
+} from "@repo-edu/domain/types"
 
 export const fixtureSources = ["canvas", "moodle", "file"] as const
 export type FixtureSource = (typeof fixtureSources)[number]

@@ -1,9 +1,9 @@
+import { defaultRepoTemplate } from "@repo-edu/domain/repository-planning"
 import type {
   Assignment,
   GroupSetConnection,
   RosterMember,
-} from "@repo-edu/domain"
-import { defaultRepoTemplate } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import { EmptyState, Text } from "@repo-edu/ui"
 import { useMemo } from "react"
 import {

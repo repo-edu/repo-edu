@@ -1,21 +1,22 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { ensureSystemGroupSets, selectionModeAll } from "../group-set.js"
+import { computeRepoName } from "../repository-planning.js"
+import type {
+  Assignment,
+  Group,
+  GroupSet,
+  Roster,
+  RosterMember,
+} from "../types.js"
 import {
-  type Assignment,
   blockingIssues,
-  computeRepoName,
-  ensureSystemGroupSets,
-  type Group,
-  type GroupSet,
   hasBlockingIssues,
-  type Roster,
-  type RosterMember,
-  selectionModeAll,
   validateAssignment,
   validateAssignmentWithTemplate,
   validateRoster,
   warningIssues,
-} from "../index.js"
+} from "../validation.js"
 
 function makeMember(
   id: string,

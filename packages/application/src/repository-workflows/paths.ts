@@ -1,5 +1,5 @@
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
-import type { PlannedRepositoryGroup } from "@repo-edu/domain"
+import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
 
 export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
 

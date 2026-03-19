@@ -4,8 +4,8 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { PersistedAppSettings } from "@repo-edu/domain"
-import { validatePersistedAppSettings } from "@repo-edu/domain"
+import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
+import type { PersistedAppSettings } from "@repo-edu/domain/types"
 import { type AppSettingsStore, createValidationAppError } from "./core.js"
 import { loadSettingsOrDefault } from "./workflow-helpers.js"
 

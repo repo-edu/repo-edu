@@ -1,10 +1,10 @@
-import type { Assignment, Group, RosterMember } from "@repo-edu/domain"
+import { computeRepoName } from "@repo-edu/domain/repository-planning"
 import {
   computeMembersSurnamesSlug,
-  computeRepoName,
   parseName,
   surnameSortKey,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/roster"
+import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
 import { Checkbox } from "@repo-edu/ui"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { EditableGroupTarget } from "../../../../stores/course-store.js"

@@ -23,7 +23,26 @@
       ],
       "@repo-edu/ui/lib/*": ["./packages/ui/src/lib/*"],
       "@repo-edu/app": ["./packages/app/src/index.ts"],
-      "@repo-edu/domain": ["./packages/domain/src/index.ts"],
+      "@repo-edu/domain/types": ["./packages/domain/src/types.ts"],
+      "@repo-edu/domain/settings": ["./packages/domain/src/settings.ts"],
+      "@repo-edu/domain/roster": ["./packages/domain/src/roster.ts"],
+      "@repo-edu/domain/roster-lms-merge": [
+        "./packages/domain/src/roster-lms-merge.ts"
+      ],
+      "@repo-edu/domain/group-set": ["./packages/domain/src/group-set.ts"],
+      "@repo-edu/domain/group-set-import-export": [
+        "./packages/domain/src/group-set-import-export.ts"
+      ],
+      "@repo-edu/domain/group-selection": [
+        "./packages/domain/src/group-selection.ts"
+      ],
+      "@repo-edu/domain/repository-planning": [
+        "./packages/domain/src/repository-planning.ts"
+      ],
+      "@repo-edu/domain/validation": [
+        "./packages/domain/src/validation.ts"
+      ],
+      "@repo-edu/domain/schemas": ["./packages/domain/src/schemas.ts"],
       "@repo-edu/application-contract": [
         "./packages/application-contract/src/index.ts"
       ],

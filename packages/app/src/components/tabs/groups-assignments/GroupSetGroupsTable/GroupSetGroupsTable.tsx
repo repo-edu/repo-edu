@@ -1,4 +1,4 @@
-import type { Assignment, Group, RosterMember } from "@repo-edu/domain"
+import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
 import {
   Button,
   DropdownMenu,

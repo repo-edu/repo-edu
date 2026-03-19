@@ -1,4 +1,4 @@
-import type { RosterMember } from "@repo-edu/domain"
+import type { RosterMember } from "@repo-edu/domain/types"
 import {
   DropdownMenu,
   DropdownMenuContent,

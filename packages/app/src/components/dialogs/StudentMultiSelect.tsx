@@ -1,4 +1,4 @@
-import type { RosterMember } from "@repo-edu/domain"
+import type { RosterMember } from "@repo-edu/domain/types"
 import { Checkbox, Input } from "@repo-edu/ui"
 import { useMemo, useState } from "react"
 

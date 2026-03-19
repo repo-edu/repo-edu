@@ -1,4 +1,4 @@
-import type { MemberStatus } from "@repo-edu/domain"
+import type { MemberStatus } from "@repo-edu/domain/types"
 
 export function formatMemberStatus(status: MemberStatus): string {
   switch (status) {

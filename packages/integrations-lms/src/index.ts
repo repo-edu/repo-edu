@@ -1,4 +1,4 @@
-import type { LmsProviderKind } from "@repo-edu/domain"
+import type { LmsProviderKind } from "@repo-edu/domain/types"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { LmsClient } from "@repo-edu/integrations-lms-contract"
 import { packageId as contractPackageId } from "@repo-edu/integrations-lms-contract"

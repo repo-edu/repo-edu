@@ -12,7 +12,7 @@ import {
   exportRepoTeams,
   previewImportGroupSet,
   previewReimportGroupSet,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/group-set-import-export"
 import type { UserFileText } from "@repo-edu/host-runtime-contract"
 import { parseCsv, serializeCsv } from "../adapters/tabular/index.js"
 import { createValidationAppError } from "../core.js"

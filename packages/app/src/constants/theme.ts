@@ -1,4 +1,4 @@
-import type { ThemePreference } from "@repo-edu/domain"
+import type { ThemePreference } from "@repo-edu/domain/types"
 
 export const THEME_CLASSES = [
   "theme-light",

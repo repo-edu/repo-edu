@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, extname } from "node:path"
-import type { FileFormat } from "@repo-edu/domain"
+import type { FileFormat } from "@repo-edu/domain/types"
 import type {
   UserFilePort,
   UserFileReadRef,

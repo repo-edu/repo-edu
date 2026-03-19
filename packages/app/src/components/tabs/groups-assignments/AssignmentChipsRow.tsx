@@ -1,4 +1,4 @@
-import type { Assignment } from "@repo-edu/domain"
+import type { Assignment } from "@repo-edu/domain/types"
 import {
   Button,
   cn,

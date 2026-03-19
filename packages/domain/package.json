@@ -3,9 +3,45 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./settings": {
+      "types": "./dist/settings.d.ts",
+      "default": "./dist/settings.js"
+    },
+    "./roster": {
+      "types": "./dist/roster.d.ts",
+      "default": "./dist/roster.js"
+    },
+    "./roster-lms-merge": {
+      "types": "./dist/roster-lms-merge.d.ts",
+      "default": "./dist/roster-lms-merge.js"
+    },
+    "./group-set": {
+      "types": "./dist/group-set.d.ts",
+      "default": "./dist/group-set.js"
+    },
+    "./group-set-import-export": {
+      "types": "./dist/group-set-import-export.d.ts",
+      "default": "./dist/group-set-import-export.js"
+    },
+    "./group-selection": {
+      "types": "./dist/group-selection.d.ts",
+      "default": "./dist/group-selection.js"
+    },
+    "./repository-planning": {
+      "types": "./dist/repository-planning.d.ts",
+      "default": "./dist/repository-planning.js"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "default": "./dist/validation.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas.d.ts",
+      "default": "./dist/schemas.js"
     }
   },
   "scripts": {

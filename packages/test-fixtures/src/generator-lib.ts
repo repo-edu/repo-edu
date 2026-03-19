@@ -1,6 +1,10 @@
 import { faker } from "@faker-js/faker"
-import type { PersistedAppSettings, PersistedCourse } from "@repo-edu/domain"
-import { defaultAppSettings, persistedCourseKind } from "@repo-edu/domain"
+import { defaultAppSettings } from "@repo-edu/domain/settings"
+import {
+  type PersistedAppSettings,
+  type PersistedCourse,
+  persistedCourseKind,
+} from "@repo-edu/domain/types"
 import type { FixturePreset, FixtureTier } from "./fixture-defs.js"
 import type {
   FixtureArtifact,

@@ -1,4 +1,4 @@
-import type { GroupSet, GroupSetConnection } from "@repo-edu/domain"
+import type { GroupSet, GroupSetConnection } from "@repo-edu/domain/types"
 import {
   Button,
   cn,

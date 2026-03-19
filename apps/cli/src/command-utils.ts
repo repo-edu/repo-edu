@@ -3,7 +3,7 @@ import type {
   Assignment,
   PersistedAppSettings,
   PersistedCourse,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import type { Command } from "commander"
 
 export function emitCommandError(message: string): void {

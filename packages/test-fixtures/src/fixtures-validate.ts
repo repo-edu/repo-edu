@@ -1,10 +1,10 @@
+import { validatePersistedCourse } from "@repo-edu/domain/schemas"
 import {
   hasBlockingIssues,
   isBlockingValidationKind,
   validateAssignment,
-  validatePersistedCourse,
   validateRoster,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/validation"
 import { fixturePresets, fixtureTiers } from "./fixture-defs.js"
 import type { FixtureMatrix, FixtureRecord } from "./fixtures.js"
 import { fixtureTierCounts } from "./generator-lib.js"

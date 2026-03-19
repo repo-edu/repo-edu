@@ -1,4 +1,9 @@
-import type { Group, GroupSet, LmsProviderKind, Roster } from "@repo-edu/domain"
+import type {
+  Group,
+  GroupSet,
+  LmsProviderKind,
+  Roster,
+} from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/integrations-lms-contract"
 

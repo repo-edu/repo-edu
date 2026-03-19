@@ -1,12 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { Roster, RosterMember } from "../index.js"
+import { normalizeRoster, normalizeRosterMember } from "../roster.js"
 import {
   mergeRosterFromLms,
   mergeRosterFromLmsWithConflicts,
-  normalizeRoster,
-  normalizeRosterMember,
-} from "../index.js"
+} from "../roster-lms-merge.js"
+import type { Roster, RosterMember } from "../types.js"
 
 describe("normalizeRosterMember", () => {
   it("uses the first non-empty name candidate and normalizes optional fields", () => {

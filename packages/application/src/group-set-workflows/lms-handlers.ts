@@ -9,7 +9,7 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { PersistedCourse } from "@repo-edu/domain"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createValidationAppError } from "../core.js"
 import {
   isSharedAppError,

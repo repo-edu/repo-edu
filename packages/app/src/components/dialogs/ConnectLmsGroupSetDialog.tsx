@@ -1,5 +1,5 @@
 import type { GroupSetLmsSummary } from "@repo-edu/application-contract"
-import type { GroupSetConnection } from "@repo-edu/domain"
+import type { GroupSetConnection } from "@repo-edu/domain/types"
 import {
   Alert,
   Button,

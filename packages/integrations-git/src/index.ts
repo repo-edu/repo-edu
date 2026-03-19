@@ -1,4 +1,4 @@
-import type { GitProviderKind } from "@repo-edu/domain"
+import type { GitProviderKind } from "@repo-edu/domain/types"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import { packageId as contractPackageId } from "@repo-edu/integrations-git-contract"

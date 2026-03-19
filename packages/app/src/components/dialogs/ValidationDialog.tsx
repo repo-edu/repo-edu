@@ -1,7 +1,7 @@
 import type {
   RosterValidationIssue,
   RosterValidationKind,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,

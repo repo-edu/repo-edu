@@ -1,10 +1,10 @@
+import { gitProviderDefaultBaseUrls } from "@repo-edu/domain/settings"
 import type {
   GitProviderKind,
   LmsProviderKind,
   PersistedGitConnection,
   PersistedLmsConnection,
-} from "@repo-edu/domain"
-import { gitProviderDefaultBaseUrls } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import { Check, Loader2, X } from "@repo-edu/ui/components/icons"
 import type { ConnectionStatus } from "../../types/index.js"
 

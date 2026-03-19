@@ -1,8 +1,8 @@
-import type { GitProviderKind } from "@repo-edu/domain"
 import {
   gitConnectionDisplayLabel,
   gitProviderDefaultBaseUrls,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/settings"
+import type { GitProviderKind } from "@repo-edu/domain/types"
 import {
   Button,
   FormField,

@@ -1,9 +1,10 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import type { PersistedCourse, Roster } from "@repo-edu/domain"
+import { gitConnectionDisplayLabel } from "@repo-edu/domain/settings"
 import {
-  gitConnectionDisplayLabel,
+  type PersistedCourse,
   persistedCourseKind,
-} from "@repo-edu/domain"
+  type Roster,
+} from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,

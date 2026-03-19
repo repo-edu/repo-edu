@@ -1,3 +1,5 @@
+import { resolveGroupsFromSelection } from "@repo-edu/domain/group-selection"
+import { activeMemberIds } from "@repo-edu/domain/group-set"
 import type {
   Assignment,
   GroupSet,
@@ -6,8 +8,7 @@ import type {
   RosterValidationIssue,
   RosterValidationKind,
   RosterValidationResult,
-} from "@repo-edu/domain"
-import { activeMemberIds, resolveGroupsFromSelection } from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import type { IssueCard, RosterInsights } from "../types/index.js"
 
 type MemberMap = Map<string, RosterMember>

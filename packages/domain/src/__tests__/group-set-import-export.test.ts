@@ -1,19 +1,21 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { selectionModeAll } from "../group-set.js"
 import {
   exportGroupSetRows,
   exportRepoTeams,
-  type Group,
-  type GroupSet,
   importGroupSet,
-  ORIGIN_LOCAL,
   previewImportGroupSet,
   previewReimportGroupSet,
+  reimportGroupSet,
+} from "../group-set-import-export.js"
+import {
+  type Group,
+  type GroupSet,
+  ORIGIN_LOCAL,
   type Roster,
   type RosterMember,
-  reimportGroupSet,
-  selectionModeAll,
-} from "../index.js"
+} from "../types.js"
 
 function makeMember(
   id: string,

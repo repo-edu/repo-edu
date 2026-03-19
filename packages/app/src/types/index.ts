@@ -1,4 +1,4 @@
-import type { RosterValidationKind } from "@repo-edu/domain"
+import type { RosterValidationKind } from "@repo-edu/domain/types"
 
 export type ActiveTab = "roster" | "groups-assignments"
 

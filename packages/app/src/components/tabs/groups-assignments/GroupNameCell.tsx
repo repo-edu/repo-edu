@@ -1,4 +1,4 @@
-import type { Group } from "@repo-edu/domain"
+import type { Group } from "@repo-edu/domain/types"
 import {
   Button,
   cn,

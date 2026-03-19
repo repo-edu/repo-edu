@@ -4,8 +4,8 @@ import type {
   GroupSet,
   Roster,
   RosterMember,
-} from "@repo-edu/domain"
-import type { CourseState } from "./course-store.js"
+} from "@repo-edu/domain/types"
+import type { CourseState } from "./slices/types.js"
 
 // Selectors
 // ---------------------------------------------------------------------------

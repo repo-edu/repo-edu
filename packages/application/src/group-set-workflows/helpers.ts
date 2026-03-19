@@ -2,8 +2,11 @@ import type {
   AppError,
   VerifyLmsDraftInput,
 } from "@repo-edu/application-contract"
-import type { PersistedCourse, RepoTeam } from "@repo-edu/domain"
-import { ORIGIN_LMS } from "@repo-edu/domain"
+import {
+  ORIGIN_LMS,
+  type PersistedCourse,
+  type RepoTeam,
+} from "@repo-edu/domain/types"
 import type { LmsFetchedGroupSet } from "@repo-edu/integrations-lms-contract"
 import { createValidationAppError } from "../core.js"
 

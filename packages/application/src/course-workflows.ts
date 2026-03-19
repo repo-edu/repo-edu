@@ -4,8 +4,8 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { CourseSummary, PersistedCourse } from "@repo-edu/domain"
-import { validatePersistedCourse } from "@repo-edu/domain"
+import { validatePersistedCourse } from "@repo-edu/domain/schemas"
+import type { CourseSummary, PersistedCourse } from "@repo-edu/domain/types"
 import { type CourseStore, createValidationAppError } from "./core.js"
 import {
   loadRequiredCourse,

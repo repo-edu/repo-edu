@@ -1,4 +1,4 @@
-import type { CourseSummary } from "@repo-edu/domain"
+import type { CourseSummary } from "@repo-edu/domain/types"
 import { create } from "zustand"
 import type { ActiveTab } from "../types/index.js"
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { planRepositoryOperation } from "@repo-edu/domain"
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
 function isAppErrorWithType(

@@ -1,29 +1,32 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  type Assignment,
-  activeMemberIds,
-  ensureSystemGroupSets,
   filterByPattern,
-  findSystemSet,
-  type Group,
-  type GroupSet,
-  generateGroupName,
-  generateUniqueGroupName,
-  ORIGIN_LOCAL,
-  ORIGIN_SYSTEM,
   previewGroupSelection,
-  type Roster,
-  type RosterMember,
   resolveAssignmentGroups,
   resolveGroupsFromSelection,
-  STAFF_GROUP_NAME,
-  SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
-  SYSTEM_TYPE_STAFF,
+} from "../group-selection.js"
+import {
+  activeMemberIds,
+  ensureSystemGroupSets,
+  findSystemSet,
   selectionModeAll,
   selectionModePattern,
   systemSetsMissing,
-} from "../index.js"
+} from "../group-set.js"
+import { generateGroupName, generateUniqueGroupName } from "../roster.js"
+import {
+  type Assignment,
+  type Group,
+  type GroupSet,
+  ORIGIN_LOCAL,
+  ORIGIN_SYSTEM,
+  type Roster,
+  type RosterMember,
+  STAFF_GROUP_NAME,
+  SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
+  SYSTEM_TYPE_STAFF,
+} from "../types.js"
 
 function makeMember(
   id: string,

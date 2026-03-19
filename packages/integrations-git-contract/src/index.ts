@@ -1,7 +1,7 @@
 import type {
   GitProviderKind,
   RepositoryTemplateVisibility,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/integrations-git-contract"
 

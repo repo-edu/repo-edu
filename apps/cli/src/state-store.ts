@@ -3,11 +3,13 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import type { AppSettingsStore, CourseStore } from "@repo-edu/application"
 import {
-  type PersistedAppSettings,
-  type PersistedCourse,
   validatePersistedAppSettings,
   validatePersistedCourse,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/schemas"
+import type {
+  PersistedAppSettings,
+  PersistedCourse,
+} from "@repo-edu/domain/types"
 
 const cliDataDirEnv = "REPO_EDU_CLI_DATA_DIR"
 

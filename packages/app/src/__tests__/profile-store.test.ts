@@ -10,7 +10,7 @@ import {
   persistedCourseKind,
   type RosterMember,
   SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import {
   clearWorkflowClient,
   setWorkflowClient,

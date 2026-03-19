@@ -7,7 +7,7 @@ import type {
   RepoOperationMode,
   RepoPreflightResult,
   RosterValidationResult,
-} from "@repo-edu/domain"
+} from "@repo-edu/domain/types"
 import { create } from "zustand"
 
 type OperationStatus = "idle" | "running" | "success" | "error"

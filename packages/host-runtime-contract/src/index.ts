@@ -1,4 +1,4 @@
-import type { FileFormat } from "@repo-edu/domain"
+import type { FileFormat } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/host-runtime-contract"
 

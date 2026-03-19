@@ -1,6 +1,9 @@
 import path from "node:path"
-import type { PersistedCourse, RepositoryTemplate } from "@repo-edu/domain"
-import { planRepositoryOperation } from "@repo-edu/domain"
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type {
+  PersistedCourse,
+  RepositoryTemplate,
+} from "@repo-edu/domain/types"
 import type { Command } from "commander"
 import {
   emitCommandError,

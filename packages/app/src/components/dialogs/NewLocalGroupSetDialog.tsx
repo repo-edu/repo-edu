@@ -1,4 +1,4 @@
-import { filterByPattern } from "@repo-edu/domain"
+import { filterByPattern } from "@repo-edu/domain/group-selection"
 import {
   Button,
   Checkbox,
