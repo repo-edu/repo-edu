@@ -4,22 +4,17 @@ This file provides guidance to AI coding assistants when working in this reposit
 
 ## Build and Development Commands
 
-Use pnpm scripts only. All packages follow `pnpm --filter <name> run {build,typecheck,test}`. Non-obvious targets are noted in package CLAUDE.md files.
+Use pnpm scripts only. All validation runs from the workspace root:
 
 ```bash
-# Install
 pnpm install
-
-# Workspace validation
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm check
-
-# Formatting
-pnpm format
+pnpm fmt && pnpm fix && pnpm check && pnpm test
 ```
+
+- `fmt` — Biome format + markdown format
+- `fix` — Biome auto-fix
+- `check` — lint + typecheck + build:types + check:fixtures + check:architecture
+- `test` — runs all package tests workspace-wide
 
 ## Architecture
 
@@ -42,8 +37,31 @@ repo-edu/
     ├── integrations-lms(-contract)
     ├── integrations-git(-contract)
     ├── renderer-app/               # Shared React application
-    └── ui/                        # Shared UI component library
+    ├── ui/                         # Shared UI component library
+    ├── test-fixtures/              # Shared domain fixture generation (faker-based)
+    └── integration-tests/          # E2E workflow tests against live Git providers
 ```
+
+Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-obvious conventions:
+
+- [apps/cli/CLAUDE.md](apps/cli/CLAUDE.md)
+- [apps/desktop/CLAUDE.md](apps/desktop/CLAUDE.md)
+- [apps/docs/CLAUDE.md](apps/docs/CLAUDE.md)
+- [packages/application/CLAUDE.md](packages/application/CLAUDE.md)
+- [packages/application-contract/CLAUDE.md](packages/application-contract/CLAUDE.md)
+- [packages/domain/CLAUDE.md](packages/domain/CLAUDE.md)
+- [packages/host-browser-mock/CLAUDE.md](packages/host-browser-mock/CLAUDE.md)
+- [packages/host-node/CLAUDE.md](packages/host-node/CLAUDE.md)
+- [packages/host-runtime-contract/CLAUDE.md](packages/host-runtime-contract/CLAUDE.md)
+- [packages/integration-tests/CLAUDE.md](packages/integration-tests/CLAUDE.md)
+- [packages/integrations-git/CLAUDE.md](packages/integrations-git/CLAUDE.md)
+- [packages/integrations-git-contract/CLAUDE.md](packages/integrations-git-contract/CLAUDE.md)
+- [packages/integrations-lms/CLAUDE.md](packages/integrations-lms/CLAUDE.md)
+- [packages/integrations-lms-contract/CLAUDE.md](packages/integrations-lms-contract/CLAUDE.md)
+- [packages/renderer-app/CLAUDE.md](packages/renderer-app/CLAUDE.md)
+- [packages/renderer-host-contract/CLAUDE.md](packages/renderer-host-contract/CLAUDE.md)
+- [packages/test-fixtures/CLAUDE.md](packages/test-fixtures/CLAUDE.md)
+- [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
 Core flow:
 
@@ -55,13 +73,13 @@ Core flow:
 ## Critical Rules
 
 - Do not add ad hoc IPC for workflow execution. Desktop workflow calls must go through the typed tRPC router.
-- Keep browser-safe packages (`domain`, `application-contract`, `app`, docs-facing code) free of Node/Electron imports.
+- Keep browser-safe packages (`domain`, `application-contract`, `renderer-app`, docs-facing code) free of Node/Electron imports.
 - Keep side effects in adapters/ports (`host-node`, integration adapters), not in domain logic.
 - Do not introduce legacy settings/profile migration logic.
 
 ## Testing Strategy
 
-Prefer tests at package boundaries:
+Tests are functional/behavioral — they verify *what* the code must do, not *how* it's structured internally. Prefer tests at package boundaries:
 
 - domain invariants in `packages/domain/src/__tests__`
 - workflow behavior in `packages/application/src/__tests__`
