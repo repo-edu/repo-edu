@@ -9,7 +9,7 @@ import {
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
 const repoRoot = resolve(import.meta.dirname, "../../../..")
-const appSourceRoot = resolve(repoRoot, "packages/app/src")
+const appSourceRoot = resolve(repoRoot, "packages/renderer-app/src")
 
 const appWorkflowPattern = /\.run\(\s*["']([a-z][a-zA-Z0-9.-]+)["']/g
 
@@ -69,7 +69,7 @@ describe("docs workflow alignment", () => {
     assert.deepEqual(actual, expected)
   })
 
-  it("covers every workflow id invoked by packages/app runtime code", async () => {
+  it("covers every workflow id invoked by packages/renderer-app runtime code", async () => {
     const runtime = createDocsDemoRuntime()
     const docsWorkflowIds = new Set(Object.keys(runtime.workflowHandlers))
     const appWorkflowIds = await collectAppWorkflowIds()

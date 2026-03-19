@@ -5,7 +5,7 @@
   "dependencies": {
     "@astrojs/react": "^4.4.2",
     "@astrojs/starlight": "^0.32.0",
-    "@repo-edu/app": "workspace:*",
+    "@repo-edu/renderer-app": "workspace:*",
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",

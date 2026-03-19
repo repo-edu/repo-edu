@@ -11,7 +11,7 @@ apps/
   cli/       TypeScript CLI (Commander)
   docs/      Astro/Starlight docs + browser-safe app demo
 packages/
-  app/                   shared React app
+  renderer-app/          shared React app
   application/           workflow orchestration
   application-contract/  workflow ids/types/catalog
   domain/                pure data model + validation/invariants
@@ -25,7 +25,7 @@ packages/
 
 - Desktop: renderer calls main-side workflows via `trpc-electron`.
 - CLI: command handlers call in-process workflow handlers.
-- Docs: browser-safe runtime mounts the same `@repo-edu/app` with mock host ports.
+- Docs: browser-safe runtime mounts the same `@repo-edu/renderer-app` with mock host ports.
 
 ## Boundary rules
 

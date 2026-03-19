@@ -9,7 +9,7 @@ const guardedRoots = [
   "packages/domain/src",
   "packages/application-contract/src",
   "packages/renderer-host-contract/src",
-  "packages/app/src",
+  "packages/renderer-app/src",
   "packages/host-browser-mock/src",
   "packages/test-fixtures/src",
 ] as const

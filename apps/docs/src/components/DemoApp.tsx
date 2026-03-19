@@ -1,6 +1,6 @@
-import { AppRoot } from "@repo-edu/app"
+import { AppRoot } from "@repo-edu/renderer-app"
 import { useMemo } from "react"
-import "../../../../packages/app/src/App.css"
+import "../../../../packages/renderer-app/src/App.css"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 import { resolveDocsFixtureSelection } from "../fixtures/docs-fixtures.js"
 

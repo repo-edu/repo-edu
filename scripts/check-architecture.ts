@@ -58,13 +58,21 @@ const DOMAIN_MODULE_ORDER = [
 
 /** Cross-layer import rules — keys may NOT import from values. */
 const FORBIDDEN_CROSS_LAYER: [string, string[]][] = [
-  ["packages/domain/", ["packages/application/", "packages/app/", "apps/"]],
   [
-    "packages/application-contract/",
-    ["packages/application/", "packages/app/", "apps/", "packages/host-node/"],
+    "packages/domain/",
+    ["packages/application/", "packages/renderer-app/", "apps/"],
   ],
   [
-    "packages/app/",
+    "packages/application-contract/",
+    [
+      "packages/application/",
+      "packages/renderer-app/",
+      "apps/",
+      "packages/host-node/",
+    ],
+  ],
+  [
+    "packages/renderer-app/",
     [
       "packages/integrations-git/src/",
       "packages/integrations-lms/src/",

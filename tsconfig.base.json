@@ -22,7 +22,7 @@
         "./packages/ui/src/components/ui/*"
       ],
       "@repo-edu/ui/lib/*": ["./packages/ui/src/lib/*"],
-      "@repo-edu/app": ["./packages/app/src/index.ts"],
+      "@repo-edu/renderer-app": ["./packages/renderer-app/src/index.ts"],
       "@repo-edu/domain/types": ["./packages/domain/src/types.ts"],
       "@repo-edu/domain/settings": ["./packages/domain/src/settings.ts"],
       "@repo-edu/domain/roster": ["./packages/domain/src/roster.ts"],

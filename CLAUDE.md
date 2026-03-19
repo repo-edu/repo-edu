@@ -41,13 +41,13 @@ repo-edu/
     ├── host-browser-mock/         # Browser mock host for docs/tests
     ├── integrations-lms(-contract)
     ├── integrations-git(-contract)
-    ├── app/                       # Shared React application
+    ├── renderer-app/               # Shared React application
     └── ui/                        # Shared UI component library
 ```
 
 Core flow:
 
-1. `packages/app` invokes workflows through `WorkflowClient` from `@repo-edu/application-contract`.
+1. `packages/renderer-app` invokes workflows through `WorkflowClient` from `@repo-edu/application-contract`.
 2. `apps/desktop` provides that client over `trpc-electron`; `apps/cli` runs workflows in-process.
 3. `packages/application` orchestrates use-cases using ports/contracts.
 4. `packages/domain` owns pure semantics and invariants.

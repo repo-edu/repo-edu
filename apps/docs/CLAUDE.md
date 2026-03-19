@@ -4,7 +4,7 @@ This is the Astro/Starlight docs site and browser-safe demo harness (`@repo-edu/
 
 ## Purpose
 
-`apps/docs` serves documentation pages and mounts the real shared app (`@repo-edu/app`) against browser-safe mocks.
+`apps/docs` serves documentation pages and mounts the real shared app (`@repo-edu/renderer-app`) against browser-safe mocks.
 
 It is a validation target for:
 

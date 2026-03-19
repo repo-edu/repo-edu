@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // React app — the primary export for Phase 4+.
 // ---------------------------------------------------------------------------
-export const packageId = "@repo-edu/app"
+export const packageId = "@repo-edu/renderer-app"
 export const workspaceDependencies = [
   "@repo-edu/domain",
   "@repo-edu/application-contract",

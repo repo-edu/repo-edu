@@ -5,8 +5,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "../../packages/app/src/**/*.ts",
-    "../../packages/app/src/**/*.tsx",
+    "../../packages/renderer-app/src/**/*.ts",
+    "../../packages/renderer-app/src/**/*.tsx",
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx",
     "../../packages/application-contract/src/**/*.ts",

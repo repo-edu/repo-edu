@@ -18,7 +18,7 @@ pnpm dev
 Expected behavior:
 
 - A desktop window opens.
-- The renderer mounts `@repo-edu/app`.
+- The renderer mounts `@repo-edu/renderer-app`.
 - Main/preload/renderer communication uses `trpc-electron`.
 
 ## 3. Run CLI smoke commands

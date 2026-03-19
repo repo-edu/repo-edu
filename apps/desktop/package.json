@@ -6,7 +6,7 @@
     "type": "module",
     "main": "./out/main/main.js",
     "dependencies": {
-        "@repo-edu/app": "workspace:*",
+        "@repo-edu/renderer-app": "workspace:*",
         "@repo-edu/application": "workspace:*",
         "@repo-edu/application-contract": "workspace:*",
         "@repo-edu/domain": "workspace:*",

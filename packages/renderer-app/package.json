@@ -1,5 +1,5 @@
 {
-  "name": "@repo-edu/app",
+  "name": "@repo-edu/renderer-app",
   "private": true,
   "type": "module",
   "peerDependencies": {

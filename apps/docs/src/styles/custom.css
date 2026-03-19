@@ -4,7 +4,7 @@
 /* Restrict Tailwind scanning to docs sources only.
    Without this, auto-detection scans the entire monorepo and generates
    utilities for app/ui classes using the default theme — conflicting
-   with the custom @theme inline defined in packages/app/src/App.css. */
+   with the custom @theme inline defined in packages/renderer-app/src/App.css. */
 @source "../";
 
 /* ============================================

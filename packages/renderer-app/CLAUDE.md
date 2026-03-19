@@ -1,17 +1,17 @@
 # CLAUDE.md
 
-This package contains the shared React app (`@repo-edu/app`).
+This package contains the shared React app (`@repo-edu/renderer-app`).
 
 ## Purpose
 
-`@repo-edu/app` is environment-agnostic UI/state logic used by:
+`@repo-edu/renderer-app` is environment-agnostic UI/state logic used by:
 
 - Electron desktop (`apps/desktop`)
 - docs/browser harness (`apps/docs`)
 
 It consumes:
 
-- `WorkflowClient` from `@repo-edu/application-contract`
+- `WorkflowClient` from `@repo-edu/renderer-application-contract`
 - `RendererHost` from `@repo-edu/renderer-host-contract`
 
 ## Architecture

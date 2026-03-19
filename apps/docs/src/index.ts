@@ -1,9 +1,9 @@
-import { AppRoot } from "@repo-edu/app"
 import { packageId as hostBrowserMockPackageId } from "@repo-edu/host-browser-mock"
+import { AppRoot } from "@repo-edu/renderer-app"
 import { packageId as testFixturesPackageId } from "@repo-edu/test-fixtures"
 import { mountDocsDemoApp } from "./demo-runtime.js"
 
-const appPackageId = "@repo-edu/app"
+const appPackageId = "@repo-edu/renderer-app"
 const applicationPackageId = "@repo-edu/application"
 const applicationContractPackageId = "@repo-edu/application-contract"
 const domainPackageId = "@repo-edu/domain"

@@ -65,9 +65,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@repo-edu/app':
-        specifier: workspace:*
-        version: link:../../packages/app
       '@repo-edu/application':
         specifier: workspace:*
         version: link:../../packages/application
@@ -89,6 +86,9 @@ importers:
       '@repo-edu/integrations-lms':
         specifier: workspace:*
         version: link:../../packages/integrations-lms
+      '@repo-edu/renderer-app':
+        specifier: workspace:*
+        version: link:../../packages/renderer-app
       '@repo-edu/renderer-host-contract':
         specifier: workspace:*
         version: link:../../packages/renderer-host-contract
@@ -141,9 +141,6 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.32.0
         version: 0.32.6(astro@5.18.0(@types/node@22.18.11)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.59.0)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2))
-      '@repo-edu/app':
-        specifier: workspace:*
-        version: link:../../packages/app
       '@repo-edu/application':
         specifier: workspace:*
         version: link:../../packages/application
@@ -156,12 +153,18 @@ importers:
       '@repo-edu/host-browser-mock':
         specifier: workspace:*
         version: link:../../packages/host-browser-mock
+      '@repo-edu/host-runtime-contract':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime-contract
       '@repo-edu/integrations-git-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-git-contract
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
+      '@repo-edu/renderer-app':
+        specifier: workspace:*
+        version: link:../../packages/renderer-app
       '@repo-edu/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
@@ -192,58 +195,6 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       tailwindcss:
         specifier: ^4.1.17
-        version: 4.2.1
-
-  packages/app:
-    dependencies:
-      '@dnd-kit/core':
-        specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@dnd-kit/sortable':
-        specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.4)
-      '@repo-edu/application-contract':
-        specifier: workspace:*
-        version: link:../application-contract
-      '@repo-edu/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@repo-edu/renderer-host-contract':
-        specifier: workspace:*
-        version: link:../renderer-host-contract
-      '@repo-edu/ui':
-        specifier: workspace:*
-        version: link:../ui
-      '@tanstack/react-table':
-        specifier: ^8.21.3
-        version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      immer:
-        specifier: ^10.1.1
-        version: 10.2.0
-      nanoid:
-        specifier: ^5.1.5
-        version: 5.1.6
-      react:
-        specifier: ^18.3.1 || ^19.0.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^18.3.1 || ^19.0.0
-        version: 19.2.4(react@19.2.4)
-      zustand:
-        specifier: ^5.0.9
-        version: 5.0.11(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.14)
-      tailwindcss:
-        specifier: ^4.2.1
         version: 4.2.1
 
   packages/application:
@@ -282,6 +233,9 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+      '@repo-edu/host-runtime-contract':
+        specifier: workspace:*
+        version: link:../host-runtime-contract
 
   packages/domain:
     dependencies:
@@ -388,6 +342,58 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+
+  packages/renderer-app:
+    dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.4)
+      '@repo-edu/application-contract':
+        specifier: workspace:*
+        version: link:../application-contract
+      '@repo-edu/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@repo-edu/renderer-host-contract':
+        specifier: workspace:*
+        version: link:../renderer-host-contract
+      '@repo-edu/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@tanstack/react-table':
+        specifier: ^8.21.3
+        version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      immer:
+        specifier: ^10.1.1
+        version: 10.2.0
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.6
+      react:
+        specifier: ^18.3.1 || ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^18.3.1 || ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      zustand:
+        specifier: ^5.0.9
+        version: 5.0.11(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.14)
+      tailwindcss:
+        specifier: ^4.2.1
+        version: 4.2.1
 
   packages/renderer-host-contract:
     dependencies:

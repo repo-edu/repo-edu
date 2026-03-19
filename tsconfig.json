@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/ui" },
-    { "path": "./packages/app" },
+    { "path": "./packages/renderer-app" },
     { "path": "./packages/domain" },
     { "path": "./packages/application-contract" },
     { "path": "./packages/application" },
