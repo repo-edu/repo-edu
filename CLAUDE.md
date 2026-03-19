@@ -23,7 +23,7 @@ pnpm format
 
 ## Architecture
 
-`repo-edu` is a pure TypeScript pnpm monorepo (no Rust, no Tauri, no generated backend bindings).
+`repo-edu` is a pure TypeScript pnpm monorepo.
 
 ```text
 repo-edu/

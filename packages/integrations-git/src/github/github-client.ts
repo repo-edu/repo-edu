@@ -1,4 +1,3 @@
-import { Octokit } from "@octokit/rest"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   AssignRepositoriesToTeamRequest,
@@ -20,215 +19,22 @@ import type {
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
-import { createHttpPortFetch } from "./http-port-fetch.js"
-
-function resolveApiBaseUrl(draft: GitConnectionDraft): string {
-  if (draft.baseUrl === "") {
-    return "https://api.github.com"
-  }
-  const base = draft.baseUrl.replace(/\/+$/, "")
-  if (base === "https://github.com" || base === "http://github.com") {
-    return "https://api.github.com"
-  }
-  return `${base}/api/v3`
-}
-
-function toErrorStatus(error: unknown): number | null {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof (error as { status?: unknown }).status === "number"
-  ) {
-    return (error as { status: number }).status
-  }
-  return null
-}
-
-function toErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
-  ) {
-    return (error as { message: string }).message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return String(error)
-}
-
-function isAlreadyExistsError(error: unknown): boolean {
-  const status = toErrorStatus(error)
-  if (status !== 409 && status !== 422) {
-    return false
-  }
-  return /already exists|name already exists/i.test(toErrorMessage(error))
-}
-
-function mapTeamPermission(permission: CreateTeamRequest["permission"]) {
-  if (permission === "admin") {
-    return "admin" as const
-  }
-  if (permission === "pull") {
-    return "pull" as const
-  }
-  return "push" as const
-}
-
-function mapTeamRole(permission: CreateTeamRequest["permission"]) {
-  return permission === "push" || permission === "admin"
-    ? ("maintainer" as const)
-    : ("member" as const)
-}
-
-function teamSlugFromName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-}
-
-function createOctokit(http: HttpPort, draft: GitConnectionDraft): Octokit {
-  return new Octokit({
-    auth: draft.token,
-    baseUrl: resolveApiBaseUrl(draft),
-    request: {
-      fetch: createHttpPortFetch(http),
-    },
-  })
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return toErrorStatus(error) === 404
-}
-
-function withGitHubToken(cloneUrl: string, token: string): string {
-  const url = new URL(cloneUrl)
-  url.username = "x-access-token"
-  url.password = token
-  return url.toString()
-}
-
-function toBase64FromUnknown(
-  content: unknown,
-  encoding: unknown,
-): string | null {
-  if (typeof content !== "string") {
-    return null
-  }
-  if (encoding === "base64") {
-    return content.replace(/\n/g, "")
-  }
-  return Buffer.from(content, "utf8").toString("base64")
-}
-
-async function readRepositoryFileBase64(
-  octokit: Octokit,
-  owner: string,
-  repositoryName: string,
-  path: string,
-  ref: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  try {
-    const response = await octokit.repos.getContent({
-      owner,
-      repo: repositoryName,
-      path,
-      ref,
-      request: { signal },
-    })
-    if (Array.isArray(response.data)) {
-      return null
-    }
-    if (response.data.type !== "file") {
-      return null
-    }
-    return toBase64FromUnknown(response.data.content, response.data.encoding)
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return null
-    }
-    throw error
-  }
-}
-
-async function readRepositoryFileSha(
-  octokit: Octokit,
-  owner: string,
-  repositoryName: string,
-  path: string,
-  ref: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  try {
-    const response = await octokit.repos.getContent({
-      owner,
-      repo: repositoryName,
-      path,
-      ref,
-      request: { signal },
-    })
-    if (Array.isArray(response.data)) {
-      return null
-    }
-    if (response.data.type !== "file") {
-      return null
-    }
-    return typeof response.data.sha === "string" ? response.data.sha : null
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return null
-    }
-    throw error
-  }
-}
-
-function normalizeTemplateDiffStatus(status: string): PatchFile["status"] {
-  if (status === "added") {
-    return "added"
-  }
-  if (status === "removed") {
-    return "removed"
-  }
-  if (status === "renamed") {
-    return "renamed"
-  }
-  return "modified"
-}
-
-function isNoChangesError(error: unknown): boolean {
-  return /no commits between|no changes|already exists|unprocessable entity/i.test(
-    toErrorMessage(error),
-  )
-}
-
-async function resolveExistingPullRequestUrl(
-  octokit: Octokit,
-  owner: string,
-  repositoryName: string,
-  headBranch: string,
-  baseBranch: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  const response = await octokit.pulls.list({
-    owner,
-    repo: repositoryName,
-    state: "open",
-    head: `${owner}:${headBranch}`,
-    base: baseBranch,
-    request: { signal },
-  })
-  const first = response.data[0]
-  if (!first || typeof first.html_url !== "string") {
-    return null
-  }
-  return first.html_url
-}
+import { withGitHubToken } from "./auth.js"
+import {
+  isAlreadyExistsError,
+  isNoChangesError,
+  isNotFoundError,
+  toErrorMessage,
+  toErrorStatus,
+} from "./errors.js"
+import {
+  normalizeTemplateDiffStatus,
+  readRepositoryFileBase64,
+  readRepositoryFileSha,
+  resolveExistingPullRequestUrl,
+} from "./repositories.js"
+import { mapTeamPermission, mapTeamRole, teamSlugFromName } from "./teams.js"
+import { createOctokit } from "./transport.js"
 
 export function createGitHubClient(http: HttpPort): GitProviderClient {
   return {

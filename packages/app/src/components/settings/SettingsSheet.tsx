@@ -12,9 +12,10 @@ import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../../utils/platform.js"
-import { GitConnectionsPane, LmsConnectionsPane } from "./ConnectionsPane.js"
 import { DisplayPane } from "./DisplayPane.js"
+import { GitConnectionsPane } from "./GitConnectionsPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
+import { LmsConnectionsPane } from "./LmsConnectionsPane.js"
 
 type SettingsCategory =
   | "lms-connections"
