@@ -7,7 +7,7 @@ import type {
   FixtureSelection,
   FixtureTier,
 } from "./fixture-defs.js"
-import { fixtureMatrix } from "./fixtures.generated.js"
+import { fixtureMatrix } from "./fixture-matrix.js"
 
 export type FixtureArtifact = {
   artifactId: string
