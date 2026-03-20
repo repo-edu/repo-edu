@@ -15,6 +15,8 @@ pnpm fmt && pnpm fix && pnpm check && pnpm test
 - `fix` — Biome auto-fix
 - `check` — lint + typecheck + build:types + check:fixtures + check:architecture
 - `test` — runs all package tests workspace-wide
+- `file-sizes` — tree-style line/file counts per subfolder for a given directory
+  (`pnpm file-sizes` for options)
 
 ## Architecture
 
