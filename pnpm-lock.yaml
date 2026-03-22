@@ -236,6 +236,9 @@ importers:
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../host-runtime-contract
+      '@repo-edu/integrations-lms-contract':
+        specifier: workspace:*
+        version: link:../integrations-lms-contract
 
   packages/domain:
     dependencies:
@@ -400,6 +403,9 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+      '@repo-edu/host-runtime-contract':
+        specifier: workspace:*
+        version: link:../host-runtime-contract
 
   packages/test-fixtures:
     dependencies:

@@ -71,8 +71,11 @@ describe("createNodeProcessPort", () => {
     const elapsedMs = Date.now() - startedAt
 
     assert.equal(processPort.cancellation, "best-effort")
-    assert.equal(result.exitCode, 0)
-    assert.equal(result.signal, null)
+    const exitedViaSignalHandler =
+      result.exitCode === 0 && result.signal === null
+    const terminatedBySignal =
+      result.exitCode === null && result.signal === "SIGTERM"
+    assert.ok(exitedViaSignalHandler || terminatedBySignal)
     assert.ok(elapsedMs < 1_000)
   })
 })

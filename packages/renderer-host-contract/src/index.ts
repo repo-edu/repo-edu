@@ -3,23 +3,15 @@ import type {
   ThemePreference,
   WindowChromeMode,
 } from "@repo-edu/domain/types"
+import type {
+  UserFileRef,
+  UserSaveTargetRef,
+} from "@repo-edu/host-runtime-contract"
 
 export const packageId = "@repo-edu/renderer-host-contract"
 
-export type RendererOpenUserFileRef = {
-  kind: "user-file-ref"
-  referenceId: string
-  displayName: string
-  mediaType: string | null
-  byteLength: number | null
-}
-
-export type RendererSaveTargetRef = {
-  kind: "user-save-target-ref"
-  referenceId: string
-  displayName: string
-  suggestedFormat: FileFormat | null
-}
+export type RendererOpenUserFileRef = UserFileRef
+export type RendererSaveTargetRef = UserSaveTargetRef
 
 export type OpenUserFileDialogOptions = {
   title?: string

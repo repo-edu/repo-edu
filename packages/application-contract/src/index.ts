@@ -18,6 +18,10 @@ import type {
   UserFileRef,
   UserSaveTargetRef,
 } from "@repo-edu/host-runtime-contract"
+import type {
+  LmsCourseSummary as LmsContractCourseSummary,
+  LmsGroupSetSummary as LmsContractGroupSetSummary,
+} from "@repo-edu/integrations-lms-contract"
 
 export const packageId = "@repo-edu/application-contract"
 export type { UserFileRef, UserSaveTargetRef }
@@ -210,11 +214,7 @@ export type ConnectionVerificationResult = {
   checkedAt: string
 }
 
-export type LmsCourseSummary = {
-  id: string
-  name: string
-  code: string | null
-}
+export type LmsCourseSummary = LmsContractCourseSummary
 
 export type RosterImportFromFileInput = {
   file: UserFileRef
@@ -249,11 +249,7 @@ export type GroupSetFetchAvailableFromLmsInput = {
   appSettings: PersistedAppSettings
 }
 
-export type GroupSetLmsSummary = {
-  id: string
-  name: string
-  groupCount: number
-}
+export type GroupSetLmsSummary = LmsContractGroupSetSummary
 
 export type GroupSetLmsApplyResult = {
   roster: Roster

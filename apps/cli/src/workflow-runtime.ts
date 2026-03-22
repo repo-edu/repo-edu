@@ -76,28 +76,36 @@ export function createCliWorkflowHandlers() {
   }
 }
 
-function writeProgressToStderr(event: MilestoneProgress): void {
-  process.stderr.write(`[${event.step}/${event.totalSteps}] ${event.label}\n`)
+export type CliRuntimeProcess = Pick<NodeJS.Process, "on" | "off" | "exit"> & {
+  stdout: Pick<NodeJS.WriteStream, "write">
+  stderr: Pick<NodeJS.WriteStream, "write">
 }
 
-function writeOutputToStderr(event: DiagnosticOutput): void {
-  const stream =
-    event.channel === "stderr" || event.channel === "warn"
-      ? process.stderr
-      : process.stdout
-  stream.write(`${event.message}\n`)
-}
+export function createCliWorkflowClientFromBase(
+  base: WorkflowClient,
+  runtimeProcess: CliRuntimeProcess = process,
+): WorkflowClient {
+  function writeProgressToRuntime(event: MilestoneProgress): void {
+    runtimeProcess.stderr.write(
+      `[${event.step}/${event.totalSteps}] ${event.label}\n`,
+    )
+  }
 
-export function createCliWorkflowClient(): WorkflowClient {
-  const base = createWorkflowClient(createCliWorkflowHandlers())
+  function writeOutputToRuntime(event: DiagnosticOutput): void {
+    const stream =
+      event.channel === "stderr" || event.channel === "warn"
+        ? runtimeProcess.stderr
+        : runtimeProcess.stdout
+    stream.write(`${event.message}\n`)
+  }
 
   return {
     run(workflowId, input, options) {
       if (options?.signal) {
-        return (base as WorkflowClient).run(workflowId, input, {
+        return base.run(workflowId, input, {
           ...options,
-          onProgress: options.onProgress ?? (writeProgressToStderr as never),
-          onOutput: options.onOutput ?? (writeOutputToStderr as never),
+          onProgress: options.onProgress ?? (writeProgressToRuntime as never),
+          onOutput: options.onOutput ?? (writeOutputToRuntime as never),
         })
       }
 
@@ -107,26 +115,38 @@ export function createCliWorkflowClient(): WorkflowClient {
         sigintCount++
         if (sigintCount === 1) {
           abortController.abort()
-          process.stderr.write("\nAborting...\n")
+          runtimeProcess.stderr.write("\nAborting...\n")
         } else {
-          process.exit(130)
+          runtimeProcess.exit(130)
         }
       }
 
-      process.on("SIGINT", onSigint)
+      runtimeProcess.on("SIGINT", onSigint)
 
-      return (base as WorkflowClient)
-        .run(workflowId, input, {
-          ...options,
-          signal: abortController.signal,
-          // Safe: all workflow progress types are MilestoneProgress,
-          // and all output types are DiagnosticOutput.
-          onProgress: options?.onProgress ?? (writeProgressToStderr as never),
-          onOutput: options?.onOutput ?? (writeOutputToStderr as never),
-        })
-        .finally(() => {
-          process.off("SIGINT", onSigint)
-        })
+      try {
+        return base
+          .run(workflowId, input, {
+            ...options,
+            signal: abortController.signal,
+            // Safe: all workflow progress types are MilestoneProgress,
+            // and all output types are DiagnosticOutput.
+            onProgress:
+              options?.onProgress ?? (writeProgressToRuntime as never),
+            onOutput: options?.onOutput ?? (writeOutputToRuntime as never),
+          })
+          .finally(() => {
+            runtimeProcess.off("SIGINT", onSigint)
+          })
+      } catch (error) {
+        runtimeProcess.off("SIGINT", onSigint)
+        throw error
+      }
     },
   }
+}
+
+export function createCliWorkflowClient(): WorkflowClient {
+  return createCliWorkflowClientFromBase(
+    createWorkflowClient(createCliWorkflowHandlers()),
+  )
 }

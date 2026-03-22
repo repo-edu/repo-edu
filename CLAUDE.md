@@ -8,7 +8,10 @@ Use pnpm scripts only. All validation runs from the workspace root:
 
 ```bash
 pnpm install
-pnpm fmt && pnpm fix && pnpm check && pnpm test
+pnpm fmt
+pnpm fix
+pnpm check
+pnpm test
 ```
 
 - `fmt` — Biome format + markdown format

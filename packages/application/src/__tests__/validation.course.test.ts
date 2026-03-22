@@ -76,6 +76,42 @@ describe("application course workflow helpers", () => {
     )
   })
 
+  it("course.delete removes a course from the store", async () => {
+    const original = getCourseScenario()
+    const store = createInMemoryCourseStore([original])
+    const handlers = createCourseWorkflowHandlers(store)
+
+    await handlers["course.delete"]({ courseId: original.id })
+
+    await assert.rejects(
+      handlers["course.load"]({ courseId: original.id }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "not-found",
+    )
+  })
+
+  it("course.delete throws cancelled AppError when signal is aborted", async () => {
+    const store = createInMemoryCourseStore([getCourseScenario()])
+    const handlers = createCourseWorkflowHandlers(store)
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      handlers["course.delete"](
+        { courseId: "any" },
+        { signal: controller.signal },
+      ),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "cancelled",
+    )
+  })
+
   it("returns a validation AppError when course.list contains invalid course data", async () => {
     const handlers = createCourseWorkflowHandlers({
       listCourses: () =>

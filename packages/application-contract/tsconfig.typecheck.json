@@ -6,6 +6,7 @@
   "include": [
     "src/**/*.ts",
     "../domain/src/**/*.ts",
-    "../host-runtime-contract/src/**/*.ts"
+    "../host-runtime-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts"
   ]
 }

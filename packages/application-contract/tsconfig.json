@@ -9,5 +9,9 @@
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../domain" }, { "path": "../host-runtime-contract" }]
+  "references": [
+    { "path": "../domain" },
+    { "path": "../host-runtime-contract" },
+    { "path": "../integrations-lms-contract" }
+  ]
 }

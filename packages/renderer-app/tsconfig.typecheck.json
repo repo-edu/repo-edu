@@ -11,6 +11,7 @@
     "../domain/src/**/*.ts",
     "../application-contract/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
-    "../renderer-host-contract/src/**/*.ts"
+    "../renderer-host-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts"
   ]
 }

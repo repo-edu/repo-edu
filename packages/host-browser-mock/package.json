@@ -18,6 +18,6 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
-    "test": "node --test"
+    "test": "node --import tsx --test src/__tests__/*.test.ts"
   }
 }
