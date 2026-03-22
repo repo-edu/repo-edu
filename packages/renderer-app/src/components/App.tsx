@@ -20,6 +20,7 @@ import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
   selectAppSettingsActiveCourseId,
+  selectAppSettingsActiveTab,
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
@@ -97,6 +98,9 @@ function AppShell() {
   const appSettingsActiveCourseId = useAppSettingsStore(
     selectAppSettingsActiveCourseId,
   )
+  const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
+  const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
   const loadAppSettings = useAppSettingsStore((s) => s.load)
 
   const canUndo = useCourseStore(selectCanUndo)
@@ -115,13 +119,31 @@ function AppShell() {
     void loadAppSettings()
   }, [loadAppSettings])
 
-  // Restore active course from app settings after settings load.
+  // Restore active course and tab from app settings after settings load.
   useEffect(() => {
     if (!activeCourseId && appSettingsActiveCourseId) {
-      setActiveTab("roster")
+      setActiveTab(appSettingsActiveTab)
       useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
     }
-  }, [activeCourseId, appSettingsActiveCourseId, setActiveTab])
+  }, [
+    activeCourseId,
+    appSettingsActiveCourseId,
+    appSettingsActiveTab,
+    setActiveTab,
+  ])
+
+  // Persist activeTab changes to app settings.
+  useEffect(() => {
+    if (activeTab !== appSettingsActiveTab) {
+      setAppSettingsActiveTab(activeTab)
+      void saveAppSettings()
+    }
+  }, [
+    activeTab,
+    appSettingsActiveTab,
+    setAppSettingsActiveTab,
+    saveAppSettings,
+  ])
 
   // Apply theme.
   useTheme(theme)

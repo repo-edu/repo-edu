@@ -42,11 +42,18 @@ const appAppearanceSchema = z.object({
   timeFormat: z.enum(["12h", "24h"]),
 })
 
+const persistedWindowStateSchema = z.object({
+  width: z.number(),
+  height: z.number(),
+})
+
 export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
   schemaVersion: z.literal(1),
   activeCourseId: z.string().nullable(),
+  activeTab: z.enum(["roster", "groups-assignments"]).default("roster"),
   appearance: appAppearanceSchema,
+  window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
   lmsConnections: z.array(persistedLmsConnectionSchema),
   gitConnections: z.array(persistedGitConnectionSchema),
   lastOpenedAt: z.string().nullable(),

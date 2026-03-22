@@ -26,6 +26,7 @@ export type EnrollmentType = (typeof enrollmentTypeKinds)[number]
 export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
+export type ActiveTab = "roster" | "groups-assignments"
 export type FileFormat = "csv" | "xlsx" | "yaml" | "json"
 export type ThemePreference = "system" | "light" | "dark"
 export type WindowChromeMode = "system" | "hiddenInset"
@@ -55,11 +56,18 @@ export type AppAppearance = {
   timeFormat: TimeFormatPreference
 }
 
+export type PersistedWindowState = {
+  width: number
+  height: number
+}
+
 export type PersistedAppSettings = {
   kind: typeof persistedAppSettingsKind
   schemaVersion: 1
   activeCourseId: string | null
+  activeTab: ActiveTab
   appearance: AppAppearance
+  window: PersistedWindowState
   lmsConnections: PersistedLmsConnection[]
   gitConnections: PersistedGitConnection[]
   lastOpenedAt: string | null

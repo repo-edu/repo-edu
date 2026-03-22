@@ -1,5 +1,6 @@
 import { defaultAppSettings } from "@repo-edu/domain/settings"
 import type {
+  ActiveTab,
   DateFormatPreference,
   PersistedAppSettings,
   PersistedGitConnection,
@@ -24,6 +25,7 @@ type AppSettingsActions = {
   save: () => Promise<void>
 
   setActiveCourseId: (courseId: string | null) => void
+  setActiveTab: (tab: ActiveTab) => void
 
   setTheme: (theme: ThemePreference) => void
   setDateFormat: (dateFormat: DateFormatPreference) => void
@@ -121,6 +123,14 @@ export const useAppSettingsStore = create<
         settings: {
           ...state.settings,
           activeCourseId: courseId,
+        },
+      })),
+
+    setActiveTab: (tab) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          activeTab: tab,
         },
       })),
 
@@ -245,6 +255,8 @@ export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
 export const selectAppSettingsActiveCourseId = (state: AppSettingsState) =>
   state.settings.activeCourseId
+export const selectAppSettingsActiveTab = (state: AppSettingsState) =>
+  state.settings.activeTab
 export const selectLmsConnections = (state: AppSettingsState) =>
   state.settings.lmsConnections
 export const selectGitConnections = (state: AppSettingsState) =>

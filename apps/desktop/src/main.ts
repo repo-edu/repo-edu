@@ -1,6 +1,9 @@
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import type { AppSettingsStore } from "@repo-edu/application"
+import { defaultAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedAppSettings } from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -206,11 +209,40 @@ function handleValidationMarker(message: string) {
   }
 }
 
+async function saveWindowState(appSettingsStore: AppSettingsStore) {
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  if (!mainWindow) return
+
+  const [width, height] = mainWindow.getSize()
+  const current = await appSettingsStore.loadSettings()
+  if (!current) return
+
+  await appSettingsStore.saveSettings({
+    ...current,
+    window: { width, height },
+  })
+}
+
 async function createWindow() {
   const isMac = process.platform === "darwin"
+  const storageRoot = currentStorageRootPath()
+  const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
+
+  let appSettings: PersistedAppSettings | null = null
+  try {
+    appSettings = await appSettingsStore.loadSettings()
+  } catch {
+    // Fall back to defaults on load failure.
+  }
+
+  const windowWidth =
+    appSettings?.window.width ?? defaultAppSettings.window.width
+  const windowHeight =
+    appSettings?.window.height ?? defaultAppSettings.window.height
+
   const mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 760,
+    width: windowWidth,
+    height: windowHeight,
     show: !(isMeasureMode || isTRPCValidationMode),
     title: desktopAppName,
     backgroundColor: "#f5f5f5",
@@ -227,12 +259,24 @@ async function createWindow() {
     },
   })
 
+  let resizeTimer: ReturnType<typeof setTimeout> | null = null
+  mainWindow.on("resize", () => {
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(() => {
+      void saveWindowState(appSettingsStore)
+    }, 300)
+  })
+
+  mainWindow.on("close", () => {
+    if (resizeTimer) clearTimeout(resizeTimer)
+    void saveWindowState(appSettingsStore)
+  })
+
   if (!desktopRouter) {
-    const storageRoot = currentStorageRootPath()
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       courseStore: createDesktopCourseStore(storageRoot),
-      appSettingsStore: createDesktopAppSettingsStore(storageRoot),
+      appSettingsStore,
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,

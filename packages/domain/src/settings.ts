@@ -34,11 +34,16 @@ export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
   schemaVersion: 1,
   activeCourseId: null,
+  activeTab: "roster",
   appearance: {
     theme: "system",
     windowChrome: "system",
     dateFormat: "DMY",
     timeFormat: "24h",
+  },
+  window: {
+    width: 1180,
+    height: 760,
   },
   lmsConnections: [],
   gitConnections: [],
