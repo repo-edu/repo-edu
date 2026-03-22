@@ -86,6 +86,42 @@ export function registerLmsCommands(parent: Command): void {
   const lms = parent.command("lms").description("LMS operations")
 
   lms
+    .command("list-courses")
+    .description("List courses available on the LMS connection")
+    .action(async function (this: Command) {
+      const workflowClient = createCliWorkflowClient()
+
+      try {
+        const { course, settings } = await loadSelectedCourse(
+          this,
+          workflowClient,
+        )
+        const connection = requireLmsConnection(course, settings)
+        const courses = await workflowClient.run(
+          "connection.listLmsCoursesDraft",
+          {
+            provider: connection.provider,
+            baseUrl: connection.baseUrl,
+            token: connection.token,
+            userAgent: connection.userAgent,
+          },
+        )
+
+        if (courses.length === 0) {
+          process.stdout.write("No courses found on LMS.\n")
+          return
+        }
+
+        for (const entry of courses) {
+          const code = entry.code ?? "-"
+          process.stdout.write(`${entry.id}\t${entry.name}\tcode=${code}\n`)
+        }
+      } catch (error) {
+        emitCommandError(toErrorMessage(error))
+      }
+    })
+
+  lms
     .command("verify")
     .description("Verify LMS connection for selected course")
     .action(async function (this: Command) {

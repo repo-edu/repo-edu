@@ -397,6 +397,80 @@ describe("CLI workflow-backed behaviors", () => {
     })
   })
 
+  it("course delete removes course file from disk", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      const course = makeProfile()
+      await seedCliDataDirectory(rootDirectory, {
+        course,
+        settings: makeSettings(course.id),
+      })
+
+      const result = await runCli(["course", "delete", course.id])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /Deleted course 'seed-course'\./)
+
+      const listResult = await runCli(["course", "list"])
+      assert.equal(listResult.exitCode, 0)
+      assert.match(listResult.stdout, /No courses found\./)
+
+      const activeResult = await runCli(["course", "active"])
+      assert.equal(activeResult.exitCode, 0)
+      assert.match(activeResult.stdout, /No active course\./)
+    })
+  })
+
+  it("course delete switches active course to another remaining course", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      const activeCourse = makeProfile()
+      const remainingCourse: PersistedCourse = {
+        ...makeProfile(),
+        id: "other-course",
+        displayName: "Other Course",
+      }
+      await seedCliDataDirectory(rootDirectory, {
+        course: activeCourse,
+        settings: makeSettings(activeCourse.id),
+      })
+      await seedCliDataDirectory(rootDirectory, {
+        course: remainingCourse,
+      })
+
+      const deleteResult = await runCli(["course", "delete", activeCourse.id])
+      assert.equal(deleteResult.exitCode, 0)
+      assert.match(deleteResult.stdout, /Deleted course 'seed-course'\./)
+
+      const activeResult = await runCli(["course", "active"])
+      assert.equal(activeResult.exitCode, 0)
+      assert.equal(activeResult.stdout, "other-course\n")
+    })
+  })
+
+  it("course delete succeeds silently for non-existent course", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      await seedCliDataDirectory(rootDirectory, {
+        settings: makeSettings(null),
+      })
+
+      const result = await runCli(["course", "delete", "no-such-course"])
+      assert.equal(result.exitCode, 0)
+      assert.match(result.stdout, /Deleted course 'no-such-course'\./)
+    })
+  })
+
+  it("lms list-courses fails when no LMS connection with non-zero exit", async () => {
+    await withTempCliDataDirectory(async (rootDirectory) => {
+      const course = makeProfile()
+      await seedCliDataDirectory(rootDirectory, {
+        course,
+        settings: makeSettings(course.id),
+      })
+
+      const result = await runCli(["lms", "list-courses"])
+      assert.equal(result.exitCode, 1)
+      assert.match(result.stderr, /does not reference an LMS connection/)
+    })
+  })
+
   it("validate reports domain issues with non-zero exit", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
       const course = makeProfile()

@@ -17,12 +17,12 @@ All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-ed
 
 ## Command Surface
 
-- `course list|active|show|load`
+- `course list|active|show|load|delete`
 - `roster show`
-- `lms verify|import-students|import-groups`
+- `lms list-courses|verify|import-students|import-groups`
 - `lms cache list|fetch|refresh|delete`
 - `git verify`
-- `repo create|clone|delete`
+- `repo create|clone|update`
 - `validate`
 
 ## Data Directory
