@@ -12,7 +12,6 @@
 
 # AI assistants
 .claude/settings.local.json
-.claude/settings.json
 .gemini-clipboard/
 
 # Planning files and notes

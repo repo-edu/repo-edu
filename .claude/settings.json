@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -q 'CLAUDE\\.md' && pnpm claude2assistants 2>/dev/null || true",
+            "statusMessage": "Syncing CLAUDE.md → AGENTS.md + GEMINI.md"
+          }
+        ]
+      }
+    ]
+  }
+}
