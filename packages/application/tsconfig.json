@@ -8,13 +8,32 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "references": [
-    { "path": "../application-contract" },
-    { "path": "../domain" },
-    { "path": "../host-runtime-contract" },
-    { "path": "../integrations-git-contract" },
-    { "path": "../integrations-lms-contract" },
-    { "path": "../test-fixtures" }
+    {
+      "path": "../application-contract"
+    },
+    {
+      "path": "../domain"
+    },
+    {
+      "path": "../host-runtime-contract"
+    },
+    {
+      "path": "../integrations-git-contract"
+    },
+    {
+      "path": "../integrations-lms-contract"
+    },
+    {
+      "path": "../test-fixtures"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

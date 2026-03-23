@@ -6,15 +6,37 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "references": [
-    { "path": "../../packages/application-contract" },
-    { "path": "../../packages/application" },
-    { "path": "../../packages/host-node" },
-    { "path": "../../packages/integrations-git" },
-    { "path": "../../packages/integrations-lms" },
-    { "path": "../../packages/test-fixtures" }
+    {
+      "path": "../../packages/application-contract"
+    },
+    {
+      "path": "../../packages/application"
+    },
+    {
+      "path": "../../packages/host-node"
+    },
+    {
+      "path": "../../packages/integrations-git"
+    },
+    {
+      "path": "../../packages/integrations-lms"
+    },
+    {
+      "path": "../../packages/test-fixtures"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

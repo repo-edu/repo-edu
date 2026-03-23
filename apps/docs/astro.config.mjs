@@ -12,9 +12,9 @@ export default defineConfig({
     starlight({
       title: "repo-edu",
       description: "Educational Repository Management",
-      social: {
-        github: "https://github.com/repo-edu/repo-edu",
-      },
+      social: [
+        { icon: "github", label: "GitHub", href: "https://github.com/repo-edu/repo-edu" },
+      ],
       customCss: ["./src/styles/custom.css"],
       sidebar: [
         { label: "Interactive Demo", slug: "demo" },

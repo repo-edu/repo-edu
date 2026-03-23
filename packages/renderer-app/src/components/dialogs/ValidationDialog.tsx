@@ -114,20 +114,39 @@ function IssueList({
   variant: "error" | "warning"
 }) {
   const iconClass = variant === "error" ? "text-destructive" : "text-warning"
+  const keyedIssues = withStableKeys(issues, (issue) => {
+    const affectedIds = [...issue.affectedIds].sort().join(",")
+    return `${issue.kind}:${issue.context ?? "none"}:${affectedIds}`
+  })
 
   return (
     <ul className="space-y-1.5 text-sm">
-      {issues.map((issue, index) => (
-        <li
-          key={`${issue.kind}:${issue.context ?? "none"}:${index}`}
-          className="flex gap-2"
-        >
+      {keyedIssues.map(({ item: issue, key }) => (
+        <li key={key} className="flex gap-2">
           <span className={iconClass}>{variant === "error" ? "✗" : "⚠"}</span>
           <span>{formatIssue(issue)}</span>
         </li>
       ))}
     </ul>
   )
+}
+
+function withStableKeys<T>(
+  items: T[],
+  signatureFor: (item: T) => string,
+): Array<{ item: T; key: string }> {
+  const seenCounts = new Map<string, number>()
+
+  return items.map((item) => {
+    const signature = signatureFor(item)
+    const seenCount = seenCounts.get(signature) ?? 0
+    seenCounts.set(signature, seenCount + 1)
+
+    return {
+      item,
+      key: seenCount === 0 ? signature : `${signature}:${seenCount + 1}`,
+    }
+  })
 }
 
 function formatIssue(issue: RosterValidationIssue): string {

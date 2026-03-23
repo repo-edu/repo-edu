@@ -1,3 +1,4 @@
+import { createRequire } from "node:module"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -10,7 +11,6 @@ import {
   createNodeHttpPort,
 } from "@repo-edu/host-node"
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
-import { createIPCHandler } from "trpc-electron/main"
 import { desktopSeedCourseId } from "./course-ids"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
@@ -22,6 +22,10 @@ import {
 import { createDesktopAppSettingsStore } from "./settings-store"
 import type { DesktopRouter } from "./trpc"
 import { createDesktopRouter } from "./trpc"
+
+const { createIPCHandler } = createRequire(import.meta.url)(
+  "trpc-electron/main",
+) as typeof import("trpc-electron/main")
 
 const startupMarker = "repo-edu-desktop-cold-start"
 const trpcMarker = "repo-edu-desktop-trpc"

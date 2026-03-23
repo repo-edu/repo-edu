@@ -4,19 +4,40 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "rootDir": "./src",
     "outDir": "./dist",
     "jsx": "react-jsx",
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "references": [
-    { "path": "../../packages/renderer-app" },
-    { "path": "../../packages/application" },
-    { "path": "../../packages/host-node" },
-    { "path": "../../packages/integrations-git" },
-    { "path": "../../packages/integrations-lms" },
-    { "path": "../../packages/test-fixtures" }
+    {
+      "path": "../../packages/renderer-app"
+    },
+    {
+      "path": "../../packages/application"
+    },
+    {
+      "path": "../../packages/host-node"
+    },
+    {
+      "path": "../../packages/integrations-git"
+    },
+    {
+      "path": "../../packages/integrations-lms"
+    },
+    {
+      "path": "../../packages/test-fixtures"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

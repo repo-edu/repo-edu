@@ -3,9 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@astrojs/react": "^4.4.2",
-    "@astrojs/starlight": "^0.32.0",
-    "@repo-edu/renderer-app": "workspace:*",
+    "@astrojs/react": "^5.0.1",
+    "@astrojs/starlight": "^0.38.2",
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
@@ -13,18 +12,19 @@
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-git-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
+    "@repo-edu/renderer-app": "workspace:*",
     "@repo-edu/test-fixtures": "workspace:*",
-    "astro": "^5.2.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "sharp": "^0.33.0"
+    "astro": "^6.0.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "@tailwindcss/vite": "^4.1.17",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "tailwindcss": "^4.1.17"
+    "@astrojs/check": "^0.9.8",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.2.2"
   },
   "scripts": {
     "dev": "astro dev --host --port 4321",

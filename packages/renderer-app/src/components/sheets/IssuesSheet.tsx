@@ -153,6 +153,10 @@ function IssueCardRow({
   onAction: () => void
 }) {
   const actionLabel = getIssueActionLabel(issue)
+  const keyedDetails = issue.details
+    ? withStableKeys(issue.details, (detail) => detail)
+    : null
+
   return (
     <div className="rounded-md border px-3 py-2">
       <div className="flex items-start gap-2">
@@ -180,10 +184,10 @@ function IssueCardRow({
               </span>
             </div>
           )}
-          {issue.details && (
+          {keyedDetails && (
             <ul className="text-xs text-muted-foreground">
-              {issue.details.map((detail, index) => (
-                <li key={`${issue.id}:${index}`}>{detail}</li>
+              {keyedDetails.map(({ item: detail, key }) => (
+                <li key={`${issue.id}:${key}`}>{detail}</li>
               ))}
             </ul>
           )}
@@ -194,6 +198,24 @@ function IssueCardRow({
       </div>
     </div>
   )
+}
+
+function withStableKeys<T>(
+  items: T[],
+  signatureFor: (item: T) => string,
+): Array<{ item: T; key: string }> {
+  const seenCounts = new Map<string, number>()
+
+  return items.map((item) => {
+    const signature = signatureFor(item)
+    const seenCount = seenCounts.get(signature) ?? 0
+    seenCounts.set(signature, seenCount + 1)
+
+    return {
+      item,
+      key: seenCount === 0 ? signature : `${signature}:${seenCount + 1}`,
+    }
+  })
 }
 
 function getIssueActionLabel(issue: IssueCard) {

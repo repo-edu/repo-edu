@@ -3,13 +3,30 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "noEmit": true,
-    "types": ["node", "astro/client"],
+    "types": [
+      "node",
+      "astro/client"
+    ],
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
   "references": [
-    { "path": "../../packages/renderer-app" },
-    { "path": "../../packages/host-browser-mock" },
-    { "path": "../../packages/test-fixtures" }
+    {
+      "path": "../../packages/renderer-app"
+    },
+    {
+      "path": "../../packages/host-browser-mock"
+    },
+    {
+      "path": "../../packages/test-fixtures"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

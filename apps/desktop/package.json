@@ -6,7 +6,6 @@
     "type": "module",
     "main": "./out/main/main.js",
     "dependencies": {
-        "@repo-edu/renderer-app": "workspace:*",
         "@repo-edu/application": "workspace:*",
         "@repo-edu/application-contract": "workspace:*",
         "@repo-edu/domain": "workspace:*",
@@ -14,22 +13,23 @@
         "@repo-edu/host-runtime-contract": "workspace:*",
         "@repo-edu/integrations-git": "workspace:*",
         "@repo-edu/integrations-lms": "workspace:*",
+        "@repo-edu/renderer-app": "workspace:*",
         "@repo-edu/renderer-host-contract": "workspace:*",
         "@repo-edu/test-fixtures": "workspace:*",
-        "@trpc/client": "^11.11.0",
-        "@trpc/server": "^11.11.0",
-        "react": "^19.1.1",
-        "react-dom": "^19.1.1",
+        "@trpc/client": "^11.15.0",
+        "@trpc/server": "^11.15.0",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
         "trpc-electron": "^0.1.2"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.2.1",
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "electron": "^35.7.5",
-        "electron-builder": "^26.0.12",
-        "electron-vite": "^3.1.0",
-        "tailwindcss": "^4.2.1"
+        "@tailwindcss/vite": "^4.2.2",
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "electron": "^41.0.3",
+        "electron-builder": "^26.8.1",
+        "electron-vite": "^5.0.0",
+        "tailwindcss": "^4.2.2"
     },
     "scripts": {
         "build": "electron-vite build",

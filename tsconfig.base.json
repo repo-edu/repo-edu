@@ -1,7 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2024",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",

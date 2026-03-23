@@ -39,5 +39,5 @@ function PasswordInput({ className, size, ...props }: PasswordInputProps) {
   )
 }
 
-export { PasswordInput }
 export type { PasswordInputProps }
+export { PasswordInput }

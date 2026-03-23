@@ -1,9 +1,21 @@
 import { contextBridge, ipcRenderer } from "electron"
-import { exposeElectronTRPC } from "trpc-electron/main"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
+
+const electronTRPCChannel = "trpc-electron"
+
+const electronTRPCBridge = {
+  sendMessage(message: unknown) {
+    ipcRenderer.send(electronTRPCChannel, message)
+  },
+  onMessage(handler: (message: unknown) => void) {
+    ipcRenderer.on(electronTRPCChannel, (_event, message: unknown) => {
+      handler(message)
+    })
+  },
+}
 
 const desktopHostBridge: DesktopRendererHostBridge = {
   async pickUserFile(options) {
@@ -47,6 +59,6 @@ const desktopHostBridge: DesktopRendererHostBridge = {
 }
 
 process.once("loaded", () => {
-  exposeElectronTRPC()
+  contextBridge.exposeInMainWorld("electronTRPC", electronTRPCBridge)
   contextBridge.exposeInMainWorld("repoEduDesktopHost", desktopHostBridge)
 })

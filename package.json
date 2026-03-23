@@ -1,7 +1,6 @@
 {
     "name": "repo-edu",
     "private": true,
-    "packageManager": "pnpm@10.28.0",
     "scripts": {
         "dev": "pnpm --filter @repo-edu/desktop run dev",
         "build": "pnpm -r run build",
@@ -38,14 +37,16 @@
         "test:integration:gitlab:up": "pnpm --filter @repo-edu/integration-tests run docker:up:gitlab",
         "test:integration:gitlab:run": "sh ./scripts/test-integration-gitlab-run.sh",
         "test:integration:gitlab:down": "pnpm --filter @repo-edu/integration-tests run docker:down",
-        "test:integration:github": "sh -c 'INTEGRATION_GIT_PROVIDERS=github pnpm --filter @repo-edu/integration-tests run test:integration'"
+        "test:integration:github": "sh -c 'INTEGRATION_GIT_PROVIDERS=github pnpm --filter @repo-edu/integration-tests run test:integration'",
+        "deps:latest": "pnpm up -r --latest && pnpm dedupe",
+        "pnpm:update": "npm i -g pnpm@latest"
     },
     "devDependencies": {
-        "@biomejs/biome": "2.3.14",
+        "@biomejs/biome": "2.4.8",
         "@faker-js/faker": "^10.3.0",
-        "@types/node": "22.18.11",
+        "@types/node": "25.5.0",
         "globby": "^16.1.1",
         "tsx": "^4.21.0",
-        "typescript": "5.9.3"
+        "typescript": "6.0.2"
     }
 }

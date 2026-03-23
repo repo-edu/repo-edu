@@ -36,5 +36,5 @@ function FormField({
   )
 }
 
-export { FormField }
 export type { FormFieldProps }
+export { FormField }

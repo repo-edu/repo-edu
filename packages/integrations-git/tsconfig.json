@@ -6,12 +6,28 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./.tsbuildinfo"
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "references": [
-    { "path": "../domain" },
-    { "path": "../host-runtime-contract" },
-    { "path": "../integrations-git-contract" }
+    {
+      "path": "../domain"
+    },
+    {
+      "path": "../host-runtime-contract"
+    },
+    {
+      "path": "../integrations-git-contract"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

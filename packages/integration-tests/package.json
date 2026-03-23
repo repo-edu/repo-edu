@@ -12,7 +12,7 @@
     "@repo-edu/test-fixtures": "workspace:*"
   },
   "devDependencies": {
-    "tsx": "^4.19.4"
+    "tsx": "^4.21.0"
   },
   "scripts": {
     "test:integration": "sh ./scripts/run-integration-tests.sh",

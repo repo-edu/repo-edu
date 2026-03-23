@@ -9,11 +9,27 @@
     "jsx": "react-jsx",
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
   "references": [
-    { "path": "../ui" },
-    { "path": "../domain" },
-    { "path": "../application-contract" },
-    { "path": "../renderer-host-contract" }
+    {
+      "path": "../ui"
+    },
+    {
+      "path": "../domain"
+    },
+    {
+      "path": "../application-contract"
+    },
+    {
+      "path": "../renderer-host-contract"
+    }
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
