@@ -79,37 +79,6 @@ export function registerCourseCommands(parent: Command): void {
     })
 
   course
-    .command("delete")
-    .description("Delete a course")
-    .argument("<course-id>", "Course id to delete")
-    .action(async function (this: Command, courseId: string) {
-      const workflowClient = createCliWorkflowClient()
-
-      try {
-        const currentSettings = await workflowClient.run(
-          "settings.loadApp",
-          undefined,
-        )
-        await workflowClient.run("course.delete", { courseId })
-
-        if (currentSettings.activeCourseId === courseId) {
-          const remainingCourses = await workflowClient.run(
-            "course.list",
-            undefined,
-          )
-          await workflowClient.run("settings.saveApp", {
-            ...currentSettings,
-            activeCourseId: remainingCourses[0]?.id ?? null,
-          })
-        }
-
-        process.stdout.write(`Deleted course '${courseId}'.\n`)
-      } catch (error) {
-        emitCommandError(toErrorMessage(error))
-      }
-    })
-
-  course
     .command("load")
     .description("Set active course")
     .argument("<course-id>", "Course id to activate")

@@ -527,7 +527,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "cooperative",
   },
   "course.delete": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "none",
     cancellation: "non-cancellable",
   },
@@ -547,7 +547,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "connection.listLmsCoursesDraft": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },
@@ -562,7 +562,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "cooperative",
   },
   "roster.importFromLms": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },
@@ -572,7 +572,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "cooperative",
   },
   "groupSet.fetchAvailableFromLms": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },
@@ -582,7 +582,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "groupSet.syncFromLms": {
-    delivery: ["desktop", "docs", "cli"],
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },

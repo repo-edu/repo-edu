@@ -17,10 +17,8 @@ All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-ed
 
 ## Command Surface
 
-- `course list|active|show|load|delete`
-- `roster show`
-- `lms list-courses|verify|import-students|import-groups`
-- `lms cache list|fetch|refresh|delete`
+- `course list|active|show|load`
+- `lms verify`
 - `git verify`
 - `repo create|clone|update`
 - `validate`
@@ -40,3 +38,4 @@ REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
 - Keep command files thin: parse args, call workflows, render output.
 - Do not duplicate workflow/domain logic in CLI.
 - Keep help/golden outputs stable unless command UX changes intentionally.
+- See [CLI-GUI Parity](../docs/src/content/docs/development/cli-gui-parity.md) for the decision rule on which workflows belong in CLI vs GUI.

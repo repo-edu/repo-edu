@@ -149,6 +149,24 @@ describe("application-contract workflow catalog", () => {
     }
   })
 
+  it("setup-phase workflows exclude CLI delivery", () => {
+    const setupWorkflows: WorkflowId[] = [
+      "course.delete",
+      "connection.listLmsCoursesDraft",
+      "roster.importFromLms",
+      "groupSet.fetchAvailableFromLms",
+      "groupSet.syncFromLms",
+    ]
+
+    for (const id of setupWorkflows) {
+      const meta = workflowCatalog[id]
+      assert.ok(
+        !meta.delivery.includes("cli"),
+        `Setup-phase workflow '${id}' should not include CLI delivery`,
+      )
+    }
+  })
+
   it("createWorkflowClient routes to the correct handler", async () => {
     const calls: string[] = []
 

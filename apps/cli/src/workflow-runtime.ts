@@ -1,9 +1,7 @@
 import {
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
-  createGroupSetWorkflowHandlers,
   createRepositoryWorkflowHandlers,
-  createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
 } from "@repo-edu/application"
@@ -18,11 +16,6 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
 } from "@repo-edu/host-node"
-import type {
-  UserFilePort,
-  UserFileReadRef,
-  UserSaveTargetWriteRef,
-} from "@repo-edu/host-runtime-contract"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
@@ -30,44 +23,26 @@ import {
   createCliCourseStore,
 } from "./state-store.js"
 
-const unsupportedUserFilePort: UserFilePort = {
-  async readText(reference: UserFileReadRef) {
-    throw new Error(
-      `CLI does not support file-reference reads for '${reference.displayName}'.`,
-    )
-  },
-  async writeText(reference: UserSaveTargetWriteRef) {
-    throw new Error(
-      `CLI does not support save-target writes for '${reference.displayName}'.`,
-    )
-  },
-}
-
 export function createCliWorkflowHandlers() {
   const courseStore = createCliCourseStore()
   const appSettingsStore = createCliAppSettingsStore()
   const http = createNodeHttpPort()
   const lms = createLmsProviderDispatch(http)
   const git = createGitProviderDispatch(http)
+
+  const courseHandlers = createCourseWorkflowHandlers(courseStore)
   const connectionHandlers = createConnectionWorkflowHandlers({ lms, git })
-  const rosterHandlers = createRosterWorkflowHandlers({
-    lms,
-    userFile: unsupportedUserFilePort,
-  })
-  const groupSetHandlers = createGroupSetWorkflowHandlers({
-    lms,
-    userFile: unsupportedUserFilePort,
-  })
 
   return {
-    ...createCourseWorkflowHandlers(courseStore),
+    "course.list": courseHandlers["course.list"],
+    "course.load": courseHandlers["course.load"],
+    "course.save": courseHandlers["course.save"],
     ...createSettingsWorkflowHandlers(appSettingsStore),
-    ...connectionHandlers,
+    "connection.verifyLmsDraft":
+      connectionHandlers["connection.verifyLmsDraft"],
+    "connection.verifyGitDraft":
+      connectionHandlers["connection.verifyGitDraft"],
     ...createValidationWorkflowHandlers(),
-    "roster.importFromLms": rosterHandlers["roster.importFromLms"],
-    "groupSet.fetchAvailableFromLms":
-      groupSetHandlers["groupSet.fetchAvailableFromLms"],
-    "groupSet.syncFromLms": groupSetHandlers["groupSet.syncFromLms"],
     ...createRepositoryWorkflowHandlers({
       git,
       gitCommand: createNodeGitCommandPort(),

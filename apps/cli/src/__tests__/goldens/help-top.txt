@@ -9,7 +9,6 @@ Options:
 
 Commands:
   course              Course management
-  roster              Roster operations
   lms                 LMS operations
   git                 Git platform operations
   repo                Repository operations

@@ -153,44 +153,6 @@ function makeProfile(): PersistedCourse {
   }
 }
 
-function withCachedGroupSet(course: PersistedCourse): PersistedCourse {
-  return {
-    ...course,
-    roster: {
-      ...course.roster,
-      groups: [
-        ...course.roster.groups,
-        {
-          id: "g-cache",
-          name: "LMS Team",
-          memberIds: ["s1"],
-          origin: "lms",
-          lmsGroupId: "remote-group-1",
-        },
-      ],
-      groupSets: [
-        ...course.roster.groupSets,
-        {
-          id: "gs-cache",
-          name: "LMS Cached",
-          groupIds: ["g-cache"],
-          connection: {
-            kind: "canvas",
-            courseId: "course-1",
-            groupSetId: "remote-set-1",
-            lastUpdated: "2026-03-04T10:00:00Z",
-          },
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
-          repoNameTemplate: null,
-        },
-      ],
-    },
-  }
-}
-
 function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
@@ -298,24 +260,6 @@ describe("CLI command tree", () => {
     const help = createProgram().helpInformation()
     assert.equal(normalize(help), normalize(golden))
   })
-
-  it("lms cache help matches golden", async () => {
-    const golden = await readFile(
-      join(import.meta.dirname, "goldens", "help-lms-cache.txt"),
-      "utf8",
-    )
-
-    const lms = createProgram().commands.find(
-      (command) => command.name() === "lms",
-    )
-    assert.ok(lms)
-
-    const cache = lms.commands.find((command) => command.name() === "cache")
-    assert.ok(cache)
-
-    const help = cache.helpInformation()
-    assert.equal(normalize(help), normalize(golden))
-  })
 })
 
 describe("CLI workflow-backed behaviors", () => {
@@ -330,146 +274,6 @@ describe("CLI workflow-backed behaviors", () => {
       const result = await runCli(["course", "list"])
       assert.equal(result.exitCode, 0)
       assert.match(result.stdout, /^\* seed-course\tSeed Course\t/m)
-    })
-  })
-
-  it("roster show renders summary, students, and assignments", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = makeProfile()
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli([
-        "roster",
-        "show",
-        "--students",
-        "--assignments",
-      ])
-      assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /Course: seed-course/)
-      assert.match(result.stdout, /Students:\n- s1\tAda Lovelace/)
-      assert.match(result.stdout, /Assignments:\n- a1\tProject 1/)
-    })
-  })
-
-  it("lms cache list reports empty cache", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = makeProfile()
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli(["lms", "cache", "list"])
-      assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /No LMS cached group sets\./)
-    })
-  })
-
-  it("lms cache delete removes cached group set from saved course", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = withCachedGroupSet(makeProfile())
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli(["lms", "cache", "delete", "gs-cache"])
-      assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /Deleted cached group set 'gs-cache'\./)
-
-      const rawProfile = await readFile(
-        join(rootDirectory, "courses", "seed-course.json"),
-        "utf8",
-      )
-      const savedCourse = JSON.parse(rawProfile) as PersistedCourse
-
-      assert.equal(
-        savedCourse.roster.groupSets.some(
-          (groupSet) => groupSet.id === "gs-cache",
-        ),
-        false,
-      )
-      assert.equal(
-        savedCourse.roster.groups.some((group) => group.id === "g-cache"),
-        false,
-      )
-    })
-  })
-
-  it("course delete removes course file from disk", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = makeProfile()
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli(["course", "delete", course.id])
-      assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /Deleted course 'seed-course'\./)
-
-      const listResult = await runCli(["course", "list"])
-      assert.equal(listResult.exitCode, 0)
-      assert.match(listResult.stdout, /No courses found\./)
-
-      const activeResult = await runCli(["course", "active"])
-      assert.equal(activeResult.exitCode, 0)
-      assert.match(activeResult.stdout, /No active course\./)
-    })
-  })
-
-  it("course delete switches active course to another remaining course", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const activeCourse = makeProfile()
-      const remainingCourse: PersistedCourse = {
-        ...makeProfile(),
-        id: "other-course",
-        displayName: "Other Course",
-      }
-      await seedCliDataDirectory(rootDirectory, {
-        course: activeCourse,
-        settings: makeSettings(activeCourse.id),
-      })
-      await seedCliDataDirectory(rootDirectory, {
-        course: remainingCourse,
-      })
-
-      const deleteResult = await runCli(["course", "delete", activeCourse.id])
-      assert.equal(deleteResult.exitCode, 0)
-      assert.match(deleteResult.stdout, /Deleted course 'seed-course'\./)
-
-      const activeResult = await runCli(["course", "active"])
-      assert.equal(activeResult.exitCode, 0)
-      assert.equal(activeResult.stdout, "other-course\n")
-    })
-  })
-
-  it("course delete succeeds silently for non-existent course", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      await seedCliDataDirectory(rootDirectory, {
-        settings: makeSettings(null),
-      })
-
-      const result = await runCli(["course", "delete", "no-such-course"])
-      assert.equal(result.exitCode, 0)
-      assert.match(result.stdout, /Deleted course 'no-such-course'\./)
-    })
-  })
-
-  it("lms list-courses fails when no LMS connection with non-zero exit", async () => {
-    await withTempCliDataDirectory(async (rootDirectory) => {
-      const course = makeProfile()
-      await seedCliDataDirectory(rootDirectory, {
-        course,
-        settings: makeSettings(course.id),
-      })
-
-      const result = await runCli(["lms", "list-courses"])
-      assert.equal(result.exitCode, 1)
-      assert.match(result.stderr, /does not reference an LMS connection/)
     })
   })
 
@@ -523,17 +327,6 @@ describe("CLI fixture-backed integration", () => {
         courseList.stdout.includes(`* ${course.id}\t${course.displayName}`),
         true,
       )
-
-      const rosterShow = await runCli([
-        "roster",
-        "show",
-        "--students",
-        "--assignments",
-      ])
-      assert.equal(rosterShow.exitCode, 0)
-      assert.match(rosterShow.stdout, new RegExp(`Course: ${course.id}`))
-      assert.match(rosterShow.stdout, /Students:\n- s-0001\t/)
-      assert.match(rosterShow.stdout, /Assignments:\n- a1\tassignment-1\t/)
 
       const validate = await runCli([
         "validate",

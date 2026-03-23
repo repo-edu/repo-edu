@@ -21,39 +21,15 @@ const workflowToCommandMatrix: Record<
   "course.load": { kind: "composite", commands: ["course load"] },
   "course.save": {
     kind: "composite",
-    commands: [
-      "lms import-students",
-      "lms import-groups",
-      "lms cache delete",
-      "lms cache refresh",
-      "repo create",
-      "repo update",
-    ],
+    commands: ["repo create", "repo update"],
   },
-  "course.delete": { kind: "direct", commands: ["course delete"] },
   "settings.loadApp": {
     kind: "composite",
     commands: ["course list", "course active", "course load"],
   },
   "settings.saveApp": { kind: "composite", commands: ["course load"] },
   "connection.verifyLmsDraft": { kind: "direct", commands: ["lms verify"] },
-  "connection.listLmsCoursesDraft": {
-    kind: "direct",
-    commands: ["lms list-courses"],
-  },
   "connection.verifyGitDraft": { kind: "direct", commands: ["git verify"] },
-  "roster.importFromLms": {
-    kind: "composite",
-    commands: ["lms import-students"],
-  },
-  "groupSet.fetchAvailableFromLms": {
-    kind: "direct",
-    commands: ["lms cache fetch"],
-  },
-  "groupSet.syncFromLms": {
-    kind: "composite",
-    commands: ["lms import-groups", "lms cache refresh"],
-  },
   "validation.roster": {
     kind: "composite",
     commands: ["validate"],
@@ -100,6 +76,39 @@ describe("CLI workflow-to-command completeness", () => {
           current = sub
         }
       }
+    }
+  })
+
+  it("dropped commands are not resolvable in the command tree", () => {
+    const program = createProgram()
+
+    const droppedPaths = [
+      ["course", "delete"],
+      ["roster"],
+      ["lms", "list-courses"],
+      ["lms", "import-students"],
+      ["lms", "import-groups"],
+      ["lms", "cache"],
+    ]
+
+    for (const segments of droppedPaths) {
+      let current = program
+      let found = true
+
+      for (const part of segments) {
+        const sub = current.commands.find((c) => c.name() === part)
+        if (!sub) {
+          found = false
+          break
+        }
+        current = sub
+      }
+
+      assert.equal(
+        found,
+        false,
+        `Dropped command path '${segments.join(" ")}' should not exist in CLI tree.`,
+      )
     }
   })
 })
