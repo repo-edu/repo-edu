@@ -14,11 +14,12 @@ redu [--course <name>] <command>
 ## Command groups
 
 - `course`: `list`, `active`, `show`, `load`
-- `roster`: `show`
-- `lms`: `verify`, `import-students`, `import-groups`, `cache list|fetch|refresh|delete`
+- `lms`: `verify`
 - `git`: `verify`
-- `repo`: `create`, `clone`, `delete`
+- `repo`: `create`, `clone`, `update`
 - `validate`
+
+This is the target CLI command surface for repeatable execution paths. Setup-phase workflows (LMS imports, group set management, roster editing) are intentionally GUI-only. See [CLI-GUI Parity](/development/cli-gui-parity/) for the rationale.
 
 ## Build and run
 

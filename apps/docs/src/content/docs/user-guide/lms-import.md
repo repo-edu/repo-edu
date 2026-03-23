@@ -5,31 +5,37 @@ description: Import roster and group sets from LMS connections
 
 ## Overview
 
-LMS import flows are implemented in shared workflows and used from desktop and CLI.
+LMS import flows are setup-phase operations and are managed in the desktop GUI.
 
 Supported providers:
 
 - Canvas
 - Moodle
 
-## Student roster import
+## Connection verification (optional CLI pre-check)
 
-CLI:
+You can verify the selected course LMS connection from CLI:
 
 ```bash
-node apps/cli/dist/index.js lms import-students --course <course-id>
+node apps/cli/dist/index.js lms verify --course <course-id>
 ```
+
+## Student roster import (desktop)
+
+In the desktop app:
+
+- Open the course.
+- Go to LMS import.
+- Run student import for the selected LMS course.
 
 Workflow used: `roster.importFromLms`
 
-## Group set discovery and sync
+## Group set discovery and sync (desktop)
 
-CLI:
+In the desktop app:
 
-```bash
-node apps/cli/dist/index.js lms cache fetch --course <course-id>
-node apps/cli/dist/index.js lms import-groups --group-set <group-set-id> --course <course-id>
-```
+- Fetch available LMS group sets.
+- Connect/sync the selected group set.
 
 Workflows used:
 

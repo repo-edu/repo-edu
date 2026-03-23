@@ -19,3 +19,7 @@ Shared packages remain platform-agnostic and browser-safe where required.
 ## 4. No legacy migration layer
 
 This rewrite intentionally does not include automated migration code from older course/settings formats.
+
+## 5. CLI-GUI parity is intentionally partial
+
+The CLI covers repeatable execution (repo ops, validation, connection checks). Setup-phase workflows stay GUI-only. See [CLI-GUI Parity](/development/cli-gui-parity/) for the full rationale and workflow matrix.

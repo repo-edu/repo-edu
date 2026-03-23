@@ -26,7 +26,7 @@ Expected behavior:
 ```bash
 pnpm cli:build
 node apps/cli/dist/index.js course list
-node apps/cli/dist/index.js roster show --assignments
+node apps/cli/dist/index.js repo update --help
 ```
 
 ## 4. Run docs demo and tests

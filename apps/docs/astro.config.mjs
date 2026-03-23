@@ -40,7 +40,6 @@ export default defineConfig({
             { label: "Installation", slug: "cli/installation" },
             { label: "Course Commands", slug: "cli/course-commands" },
             { label: "LMS Commands", slug: "cli/lms-commands" },
-            { label: "Roster Commands", slug: "cli/roster-commands" },
             { label: "Repository Commands", slug: "cli/repo-commands" },
             { label: "Git Commands", slug: "cli/git-commands" },
             { label: "Validate Commands", slug: "cli/validate-commands" },
@@ -57,6 +56,7 @@ export default defineConfig({
             { label: "Contributing", slug: "development/contributing" },
             { label: "Crates", slug: "development/crates" },
             { label: "Design Decisions", slug: "development/design-decisions" },
+            { label: "CLI-GUI Parity", slug: "development/cli-gui-parity" },
             ],
         },
         {
