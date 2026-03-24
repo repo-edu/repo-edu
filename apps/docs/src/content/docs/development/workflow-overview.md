@@ -39,7 +39,7 @@ type WorkflowPayloads = {
 }
 ```
 
-See [Payload Channels](/development/workflow-channels/) for what each channel means.
+See [Payload Channels](/repo-edu/development/workflow-channels/) for what each channel means.
 
 ### WorkflowClient
 
@@ -84,7 +84,7 @@ Workflows are organized into domain groups:
 - **repo** — create, clone, and update repositories
 - **userFile** — inspect file selections and preview exports
 
-Not all workflows are available on all surfaces. The [workflow catalog](/development/workflow-catalog/) declares which surfaces support each workflow.
+Not all workflows are available on all surfaces. The [workflow catalog](/repo-edu/development/workflow-catalog/) declares which surfaces support each workflow.
 
 ## Where to look
 

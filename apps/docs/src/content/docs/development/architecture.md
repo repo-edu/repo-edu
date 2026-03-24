@@ -48,7 +48,7 @@ This works because the application is designed around abstract ports. In the des
 
 The `createDocsDemoRuntime()` function in `apps/docs/src/demo-runtime.ts` assembles this simulation: it takes the same workflow handler factories used by the desktop and CLI, wires them to browser-mock ports, and produces a `WorkflowClient` and `RendererHost` that the React app can use without modification. The result is a fully interactive demo that exercises real workflow logic, real validation, and real UI code — just with synthetic data instead of live services.
 
-This is not just a convenience for users browsing the docs. It also serves as a continuous integration check: if any shared package accidentally imports a Node or Electron API, the docs build breaks. The [guardrail tests](/development/contributing/#guardrail-tests) enforce this boundary automatically.
+This is not just a convenience for users browsing the docs. It also serves as a continuous integration check: if any shared package accidentally imports a Node or Electron API, the docs build breaks. The [guardrail tests](/repo-edu/development/contributing/#guardrail-tests) enforce this boundary automatically.
 
 ## Contract layers
 
@@ -58,7 +58,7 @@ Four contract packages define the typed boundaries between layers. All are brows
 
 The workflow contract. Defines every `WorkflowId`, the `WorkflowPayloads` type map (input, progress, output, result per workflow), the `workflowCatalog` metadata (delivery surfaces, progress granularity, cancellation guarantee), and the `AppError` discriminated union.
 
-See the [Workflow Overview](/development/workflow-overview/) for details.
+See the [Workflow Overview](/repo-edu/development/workflow-overview/) for details.
 
 ### renderer-host-contract
 
@@ -105,13 +105,13 @@ Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DI
 
 1. **Shared workflows across surfaces.** Desktop, CLI, and docs use the same workflow contract and handler model. This eliminates behavioral drift and means a bug fix in a handler benefits all surfaces.
 
-2. **Explicit platform boundaries.** Electron APIs are isolated in `apps/desktop`. Shared packages remain platform-agnostic. Browser-safe packages are enforced by the [browser guardrail test](/development/contributing/#guardrail-tests).
+2. **Explicit platform boundaries.** Electron APIs are isolated in `apps/desktop`. Shared packages remain platform-agnostic. Browser-safe packages are enforced by the [browser guardrail test](/repo-edu/development/contributing/#guardrail-tests).
 
-3. **Docs as a first-class surface.** `apps/docs` mounts the real `@repo-edu/renderer-app` with mock host adapters. It has dedicated [alignment and guardrail tests](/development/contributing/#guardrail-tests) that break the build if the docs runtime drifts from the workflow catalog.
+3. **Docs as a first-class surface.** `apps/docs` mounts the real `@repo-edu/renderer-app` with mock host adapters. It has dedicated [alignment and guardrail tests](/repo-edu/development/contributing/#guardrail-tests) that break the build if the docs runtime drifts from the workflow catalog.
 
 4. **No legacy migration layer.** This codebase intentionally does not include migration code from older formats. Schema versioning exists (`repo-edu.app-settings.v1`, `repo-edu.course.v1`) for future evolution, not backward compatibility.
 
-5. **Intentionally partial CLI parity.** The CLI covers repeatable execution paths (repo ops, validation, connection checks). Setup-phase workflows stay GUI-only. See [CLI-GUI Parity](/development/cli-gui-parity/) for the full rationale and workflow matrix.
+5. **Intentionally partial CLI parity.** The CLI covers repeatable execution paths (repo ops, validation, connection checks). Setup-phase workflows stay GUI-only. See [CLI-GUI Parity](/repo-edu/development/cli-gui-parity/) for the full rationale and workflow matrix.
 
 ## Boundary rules
 

@@ -54,11 +54,11 @@ The import:
 
 If the import finds ambiguous matches (one LMS user matching multiple roster members), these are shown as conflicts for you to resolve.
 
-See [LMS Import](/user-guide/lms-import/) for the full workflow.
+See [LMS Import](/repo-edu/user-guide/lms-import/) for the full workflow.
 
 ## Importing from CSV
 
-Click **Import** → **From File** to upload a CSV file. The file should have columns matching the roster format (see [Output Formats](/reference/output-formats/) for the column spec). A preview shows what will be imported before you confirm.
+Click **Import** → **From File** to upload a CSV file. The file should have columns matching the roster format (see [Output Formats](/repo-edu/reference/output-formats/) for the column spec). A preview shows what will be imported before you confirm.
 
 ## Git usernames
 

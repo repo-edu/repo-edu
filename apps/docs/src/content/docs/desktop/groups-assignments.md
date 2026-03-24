@@ -33,7 +33,7 @@ After connecting, click **Sync** on a group set to refresh its membership from t
 Created within repo-edu, either manually or by importing a CSV file.
 
 - **Create manually** — use the dropdown menu to create an empty group set, then add groups and assign members
-- **Import from CSV** — upload a CSV file with group names and member emails (see [Output Formats](/reference/output-formats/) for the format). A preview shows groups to create, matched members, and any unmatched emails before you confirm.
+- **Import from CSV** — upload a CSV file with group names and member emails (see [Output Formats](/repo-edu/reference/output-formats/) for the format). A preview shows groups to create, matched members, and any unmatched emails before you confirm.
 
 Local group sets can be freely renamed, edited, and deleted.
 
@@ -97,4 +97,4 @@ Before running repository operations, validate your setup. The desktop app shows
 - Duplicate repository names
 - Missing Git connection or organization
 
-See [Repository Setup](/user-guide/repository-setup/) for the full validation and creation workflow.
+See [Repository Setup](/repo-edu/user-guide/repository-setup/) for the full validation and creation workflow.

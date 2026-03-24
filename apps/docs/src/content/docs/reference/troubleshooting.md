@@ -131,7 +131,7 @@ Common issues:
 
 ### Workflow alignment test fails
 
-This means the docs demo runtime is missing a handler for a workflow that's marked as docs-deliverable. See [Adding a Workflow](/development/workflow-adding/) for how to wire new workflows into the docs runtime.
+This means the docs demo runtime is missing a handler for a workflow that's marked as docs-deliverable. See [Adding a Workflow](/repo-edu/development/workflow-adding/) for how to wire new workflows into the docs runtime.
 
 ### Browser guardrail test fails
 

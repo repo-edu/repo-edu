@@ -97,4 +97,4 @@ Imported rosters and group sets are saved to the course document automatically. 
 
 - Review and edit members in the roster table
 - Validate the roster with `redu validate --assignment <name>`
-- Proceed to [Repository Setup](/user-guide/repository-setup/) for creating assignment repositories
+- Proceed to [Repository Setup](/repo-edu/user-guide/repository-setup/) for creating assignment repositories

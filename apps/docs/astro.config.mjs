@@ -5,6 +5,8 @@ import tailwindcss from "@tailwindcss/vite"
 import starlightSidebarTopics from "starlight-sidebar-topics"
 
 export default defineConfig({
+  site: "https://repo-edu.github.io",
+  base: "/repo-edu",
   vite: {
     plugins: [tailwindcss()],
   },

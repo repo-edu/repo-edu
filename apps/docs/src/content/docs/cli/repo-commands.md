@@ -5,7 +5,7 @@ description: Create, clone, and update assignment repositories
 
 Repository commands are the primary operational commands in the CLI. They create Git repositories for student teams, clone them locally for grading, and push template updates.
 
-All repository commands require a course with a configured Git connection and organization. See [Repository Setup](/user-guide/repository-setup/) for the full workflow including prerequisites and validation.
+All repository commands require a course with a configured Git connection and organization. See [Repository Setup](/repo-edu/user-guide/repository-setup/) for the full workflow including prerequisites and validation.
 
 ## `redu repo create`
 

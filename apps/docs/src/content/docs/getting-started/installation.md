@@ -43,7 +43,7 @@ pnpm cli:build
 redu --help
 ```
 
-The CLI provides command-line access to course and repository operations. See [CLI Overview](/cli/overview/) for the full command reference.
+The CLI provides command-line access to course and repository operations. See [CLI Overview](/repo-edu/cli/overview/) for the full command reference.
 
 ### Docs site
 

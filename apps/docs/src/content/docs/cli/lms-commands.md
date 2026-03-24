@@ -23,4 +23,4 @@ Run `lms verify` before importing rosters to confirm your credentials are still 
 
 ### LMS import and group set management
 
-Importing rosters and managing group sets from the LMS requires the interactive desktop GUI, where you can review import previews, resolve conflicts, and select which group sets to connect. See [LMS Import](/user-guide/lms-import/) for details.
+Importing rosters and managing group sets from the LMS requires the interactive desktop GUI, where you can review import previews, resolve conflicts, and select which group sets to connect. See [LMS Import](/repo-edu/user-guide/lms-import/) for details.

@@ -5,7 +5,7 @@ description: The primary interface for managing courses, rosters, and repository
 
 The desktop app is the primary interface for repo-edu. It runs as an Electron application and provides interactive tools for managing courses, editing rosters, organizing groups, and running repository operations.
 
-The [Interactive Demo](/demo/) on this site runs the same interface in the browser against mock data, so you can explore the UI without installing anything.
+The [Interactive Demo](/repo-edu/demo/) on this site runs the same interface in the browser against mock data, so you can explore the UI without installing anything.
 
 ## Interface layout
 
@@ -61,11 +61,11 @@ The app autosaves your course after each change. A save indicator shows the curr
 - **Saved** — all changes are persisted
 - **Error** — the save failed (hover for details)
 
-If a save fails, the app retries automatically. See [Troubleshooting](/reference/troubleshooting/) for common causes.
+If a save fails, the app retries automatically. See [Troubleshooting](/repo-edu/reference/troubleshooting/) for common causes.
 
 ## How the Interactive Demo relates
 
-The [Interactive Demo](/demo/) on this documentation site runs the exact same React application as the desktop app. The difference is in how it connects to the outside world:
+The [Interactive Demo](/repo-edu/demo/) on this documentation site runs the exact same React application as the desktop app. The difference is in how it connects to the outside world:
 
 - **Desktop app** — runs inside Electron and talks to real LMS and Git APIs through the main process
 - **Interactive Demo** — runs in the browser against mock data and simulated responses

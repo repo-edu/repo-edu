@@ -3,7 +3,7 @@ title: Quick Start
 description: Verify desktop, CLI, and docs surfaces in one pass
 ---
 
-After [installing](/getting-started/installation/), run through these steps to verify everything works.
+After [installing](/repo-edu/getting-started/installation/), run through these steps to verify everything works.
 
 ## 1. Build the project
 
@@ -19,7 +19,7 @@ This compiles all workspace packages and apps.
 pnpm dev
 ```
 
-A desktop window should open showing the repo-edu interface. If it doesn't, check the terminal output for errors — see [Troubleshooting](/reference/troubleshooting/) for common issues.
+A desktop window should open showing the repo-edu interface. If it doesn't, check the terminal output for errors — see [Troubleshooting](/repo-edu/reference/troubleshooting/) for common issues.
 
 ## 3. Try the CLI
 

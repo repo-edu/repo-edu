@@ -44,13 +44,13 @@ Or run everything at once:
 pnpm validate    # check + test
 ```
 
-See [Building](/development/building/) for the full script reference.
+See [Building](/repo-edu/development/building/) for the full script reference.
 
 ## High-risk areas
 
 ### Workflow contract changes
 
-Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contract` affects all surfaces. Adding a workflow requires wiring it in every surface listed in its `delivery` array. Changing payload types requires updating all handlers and callers. The alignment tests will catch missing wiring, but type errors must be resolved manually. See [Adding a Workflow](/development/workflow-adding/) for the full procedure.
+Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contract` affects all surfaces. Adding a workflow requires wiring it in every surface listed in its `delivery` array. Changing payload types requires updating all handlers and callers. The alignment tests will catch missing wiring, but type errors must be resolved manually. See [Adding a Workflow](/repo-edu/development/workflow-adding/) for the full procedure.
 
 ### Persistence schema changes
 

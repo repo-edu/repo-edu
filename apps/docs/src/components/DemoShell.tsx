@@ -26,6 +26,10 @@ const sourceDescriptions: Record<DocsFixtureSource, string> = {
   file: "CSV file import — no LMS connection",
 }
 
+const docsBasePath = import.meta.env.BASE_URL.endsWith("/")
+  ? import.meta.env.BASE_URL.slice(0, -1)
+  : import.meta.env.BASE_URL
+
 function updateParentQuery(
   tier: DocsFixtureTier,
   preset: DocsFixturePreset,
@@ -44,7 +48,12 @@ function buildIframeSrc(
   preset: DocsFixturePreset,
   source: DocsFixtureSource,
 ) {
-  return `/demo-standalone?tier=${tier}&preset=${preset}&source=${source}`
+  const params = new URLSearchParams({
+    tier,
+    preset,
+    source,
+  })
+  return `${docsBasePath}/demo-standalone?${params.toString()}`
 }
 
 export default function DemoShell() {

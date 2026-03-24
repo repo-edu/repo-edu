@@ -63,4 +63,4 @@ Inspect the catalog source directly for the complete list of workflows, their de
 
 ## Adding to the catalog
 
-When adding a new workflow, you must add a corresponding catalog entry. See [Adding a Workflow](/development/workflow-adding/) for the full procedure.
+When adding a new workflow, you must add a corresponding catalog entry. See [Adding a Workflow](/repo-edu/development/workflow-adding/) for the full procedure.

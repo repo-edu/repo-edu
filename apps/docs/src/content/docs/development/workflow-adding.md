@@ -123,4 +123,4 @@ When modifying an existing workflow (not adding a new one), changes propagate th
 
 4. **Update tests.** Behavior tests in `packages/application/src/__tests__/` must match the new contract. Alignment tests (`pnpm test`) will catch missing wiring automatically.
 
-The source of truth is always `packages/application-contract/src/index.ts`. The [guardrail tests](/development/contributing/#guardrail-tests) enforce that all surfaces stay in sync with the catalog.
+The source of truth is always `packages/application-contract/src/index.ts`. The [guardrail tests](/repo-edu/development/contributing/#guardrail-tests) enforce that all surfaces stay in sync with the catalog.
