@@ -19,8 +19,13 @@
     },
     "mac": {
         "category": "public.app-category.developer-tools",
-        "target": [
-            "dir"
-        ]
+        "target": ["dmg", "zip"]
+    },
+    "win": {
+        "target": ["nsis", "portable"]
+    },
+    "linux": {
+        "target": ["AppImage", "deb"],
+        "category": "Development"
     }
 }

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build types
+        run: pnpm build:types
+
+      - name: Check fixtures
+        run: pnpm check:fixtures
+
+      - name: Check architecture
+        run: pnpm check:architecture
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test:workspace
+
+      - name: Runtime validation (macOS)
+        if: runner.os == 'macOS'
+        run: pnpm test:runtime
+
+      - name: Runtime validation (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          xvfb-run -a pnpm test:runtime

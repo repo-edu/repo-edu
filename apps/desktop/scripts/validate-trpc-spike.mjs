@@ -35,7 +35,14 @@ async function main() {
   );
 
   try {
-    const child = spawn("pnpm", ["exec", "electron", "./out/main/main.js"], {
+    const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
+    const electronArguments = ["exec", "electron"];
+    if (isLinuxCi) {
+      electronArguments.push("--no-sandbox");
+    }
+    electronArguments.push("./out/main/main.js");
+
+    const child = spawn("pnpm", electronArguments, {
       cwd: desktopDir,
       env: {
         ...process.env,

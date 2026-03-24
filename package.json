@@ -11,6 +11,9 @@
         "lint": "biome check . && rumdl check",
         "fmt:md": "rumdl fmt",
         "fmt": "pnpm fmt:ts && pnpm fmt:md",
+        "fmt:ts:check": "biome format .",
+        "fmt:md:check": "rumdl fmt --check",
+        "fmt:check": "pnpm fmt:ts:check && pnpm fmt:md:check",
         "fix": "pnpm lint:fix",
         "typecheck": "pnpm -r run typecheck",
         "build:types": "tsc -b tsconfig.json",
@@ -46,6 +49,7 @@
         "@faker-js/faker": "^10.3.0",
         "@types/node": "25.5.0",
         "globby": "^16.1.1",
+        "rumdl": "0.1.59",
         "tsx": "^4.21.0",
         "typescript": "6.0.2"
     }

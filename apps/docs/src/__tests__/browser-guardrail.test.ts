@@ -44,7 +44,8 @@ async function listSourceFiles(rootDirectory: string): Promise<string[]> {
       continue
     }
 
-    if (absolutePath.includes("/__tests__/")) {
+    const normalizedPath = absolutePath.replaceAll("\\", "/")
+    if (normalizedPath.includes("/__tests__/")) {
       continue
     }
 
