@@ -22,7 +22,7 @@
         "test:all": "pnpm test:workspace && pnpm test:runtime",
         "validate": "pnpm check && pnpm test",
         "desktop:test": "pnpm test:runtime",
-        "desktop:package:macos:app": "pnpm --filter @repo-edu/desktop run package:macos:app",
+        "app:macos": "pnpm --filter @repo-edu/desktop run package:macos:app",
         "cli:build": "pnpm --filter @repo-edu/cli run build",
         "check:fixtures": "pnpm exec tsx scripts/check-fixtures.ts",
         "file-sizes": "pnpm exec tsx scripts/file-sizes.ts",

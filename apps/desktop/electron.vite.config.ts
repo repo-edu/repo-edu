@@ -51,6 +51,7 @@ export default defineConfig({
       alias: workspaceAliases,
     },
     build: {
+      externalizeDeps: false,
       outDir: "out/main",
       rollupOptions: {
         input: resolve(__dirname, "src/main.ts"),
@@ -62,6 +63,7 @@ export default defineConfig({
       alias: workspaceAliases,
     },
     build: {
+      externalizeDeps: false,
       outDir: "out/preload",
       rollupOptions: {
         input: resolve(__dirname, "src/preload.ts"),
