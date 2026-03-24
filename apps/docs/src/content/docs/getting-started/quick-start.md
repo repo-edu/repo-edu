@@ -3,43 +3,47 @@ title: Quick Start
 description: Verify desktop, CLI, and docs surfaces in one pass
 ---
 
-## 1. Build core packages
+After [installing](/getting-started/installation/), run through these steps to verify everything works.
+
+## 1. Build the project
 
 ```bash
 pnpm build
 ```
 
-## 2. Run Electron desktop
+This compiles all workspace packages and apps.
+
+## 2. Launch the desktop app
 
 ```bash
 pnpm dev
 ```
 
-Expected behavior:
+A desktop window should open showing the repo-edu interface. If it doesn't, check the terminal output for errors — see [Troubleshooting](/reference/troubleshooting/) for common issues.
 
-- A desktop window opens.
-- The renderer mounts `@repo-edu/renderer-app`.
-- Main/preload/renderer communication uses `trpc-electron`.
-
-## 3. Run CLI smoke commands
+## 3. Try the CLI
 
 ```bash
 pnpm cli:build
-node apps/cli/dist/index.js course list
-node apps/cli/dist/index.js repo update --help
+redu course list
+redu repo update --help
 ```
 
-## 4. Run docs demo and tests
+The first command builds the CLI. The second lists available courses (empty if this is a fresh installation). The third shows the help for the `repo update` command.
+
+## 4. Build and test the docs site
 
 ```bash
-pnpm --filter @repo-edu/docs run build
-pnpm --filter @repo-edu/docs run test
+pnpm docs:build
+pnpm docs:test
 ```
 
-## 5. Check desktop boundary validation
+The docs site includes an embedded demo that runs the real application against mock data in the browser. The build and test commands verify that the demo works correctly.
+
+## 5. Run full validation
 
 ```bash
-pnpm desktop:validate
+pnpm check
 ```
 
-This verifies shell-boundary constraints and the desktop tRPC spike path.
+This runs linting, type checking, and all tests across the workspace. Use this before committing changes to catch issues early.

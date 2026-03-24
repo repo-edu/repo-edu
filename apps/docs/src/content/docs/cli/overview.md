@@ -1,29 +1,36 @@
 ---
 title: CLI Overview
-description: Command surface for the TypeScript CLI (`redu`)
+description: Command-line interface for repeatable course and repository operations
 ---
 
-The CLI is implemented in `apps/cli` and delegates all business logic to shared workflows.
+The `redu` CLI provides command-line access to repo-edu's course management and repository operations. It is designed for repeatable, scriptable tasks — creating repositories in bulk, cloning them for grading, running validation checks, and verifying connections.
 
-## Top-level command
+Setup-phase operations like roster editing, LMS imports, and group set management are available only in the desktop app, where the interactive UI is better suited for reviewing and resolving data.
+
+## Usage
 
 ```bash
 redu [--course <name>] <command>
 ```
 
+The `--course` flag selects which course to operate on. If omitted, the active course is used.
+
 ## Command groups
 
-- `course`: `list`, `active`, `show`, `load`
-- `lms`: `verify`
-- `git`: `verify`
-- `repo`: `create`, `clone`, `update`
-- `validate`
+| Group | Commands | Purpose |
+|-------|----------|---------|
+| `course` | `list`, `active`, `show`, `load` | Browse and select courses |
+| `lms` | `verify` | Test LMS connection credentials |
+| `git` | `verify` | Test Git provider credentials |
+| `repo` | `create`, `clone`, `update` | Create, clone, and update assignment repositories |
+| `validate` | — | Check roster and assignment readiness |
 
-This is the target CLI command surface for repeatable execution paths. Setup-phase workflows (LMS imports, group set management, roster editing) are intentionally GUI-only. See [CLI-GUI Parity](/development/cli-gui-parity/) for the rationale.
+## Getting help
 
-## Build and run
+Every command supports `--help` for usage details:
 
 ```bash
-pnpm cli:build
-node apps/cli/dist/index.js --help
+redu --help
+redu repo create --help
+redu validate --help
 ```

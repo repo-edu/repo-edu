@@ -39,7 +39,7 @@
         "test:integration:gitlab:down": "pnpm --filter @repo-edu/integration-tests run docker:down",
         "test:integration:github": "sh -c 'INTEGRATION_GIT_PROVIDERS=github pnpm --filter @repo-edu/integration-tests run test:integration'",
         "deps:latest": "pnpm up -r --latest && pnpm dedupe",
-        "pnpm:update": "npm i -g pnpm@latest"
+        "pnpm:update": "pnpm self-update"
     },
     "devDependencies": {
         "@biomejs/biome": "2.4.8",

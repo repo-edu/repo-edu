@@ -1,12 +1,12 @@
 ---
 title: repo-edu
-description: Electron desktop app, TypeScript CLI, and browser-safe docs demo
+description: Manage course rosters and Git repositories across LMS platforms
 template: splash
 hero:
   title: repo-edu
-  tagline: Manage course rosters and repository operations across Electron, CLI, and browser-safe docs workflows.
+  tagline: Import rosters from your LMS, manage student repositories, and validate assignments — from a desktop app or the command line.
   actions:
-    - text: Installation
+    - text: Get Started
       link: /getting-started/installation/
       icon: right-arrow
       variant: primary
@@ -20,64 +20,38 @@ hero:
 ---
 
 import { LinkCard, CardGrid } from "@astrojs/starlight/components"
-import TerminalPreview from "../../components/TerminalPreview.astro"
 import RoleCard from "../../components/RoleCard.astro"
 
 :::caution[Pre-alpha]
 This project is under active development. Contracts and command output may change.
 :::
 
-## What repo-edu provides
-
-- Electron desktop shell (`apps/desktop`) for interactive workflows.
-- TypeScript CLI (`apps/cli`) with command name `redu`.
-- Browser-safe docs/demo app (`apps/docs`) that mounts the real shared React app with mock host adapters.
-- Shared domain and workflow packages used by all delivery surfaces.
-
-## Typical CLI flow
-
-<TerminalPreview title="redu">
-<span class="line"><span class="prompt">$</span> redu course list</span>
-<span class="line muted">* seed-course Seed Course 2026-03-04T10:00:00Z</span>
-<span class="line"></span>
-<span class="line"><span class="prompt">$</span> redu lms verify --course seed-course</span>
-<span class="line muted">LMS connection 'Canvas Demo' verified=true checkedAt=2026-03-05T12:00:00Z</span>
-<span class="line"></span>
-<span class="line"><span class="prompt">$</span> redu repo create --assignment Project\ 1 --dry-run --course seed-course</span>
-<span class="line">Planned repository operation for assignment 'Project 1' (a1)</span>
-<span class="line"></span>
-<span class="line"><span class="prompt">$</span> redu validate --assignment Project\ 1</span>
-<span class="line success">Validation passed for assignment 'Project 1' in course 'seed-course'.</span>
-</TerminalPreview>
-
-## Choose your entry point
+## Choose your path
 
 <div class="role-grid not-content">
   <RoleCard
     title="Desktop"
-    description="Use the Electron shell for end-to-end interactive workflows."
+    description="Interactive workflows for importing rosters, configuring connections, and managing repositories."
     href="/getting-started/quick-start/"
     icon="&#128187;"
   />
   <RoleCard
     title="CLI"
-    description="Use 'redu' for scripted and repeatable operations."
+    description="Scripted and repeatable operations for course validation, repo creation, and CI pipelines."
     href="/cli/overview/"
     icon="&#9000;"
   />
   <RoleCard
-    title="Development"
-    description="Understand the shared workflow architecture and contribution model."
+    title="Developer"
+    description="Shared workflow architecture, contract model, and contribution guide."
     href="/development/architecture/"
     icon="&#128295;"
   />
 </div>
 
-## Quick links
+## Reference
 
 <CardGrid>
-  <LinkCard title="Installation" href="/getting-started/installation/" description="Set up Node, pnpm, and workspace scripts." />
-  <LinkCard title="Quick Start" href="/getting-started/quick-start/" description="Run desktop, CLI, and docs demo targets." />
   <LinkCard title="Settings Reference" href="/reference/settings-reference/" description="Persisted settings and course fields." />
   <LinkCard title="Troubleshooting" href="/reference/troubleshooting/" description="Common setup and runtime failures." />
 </CardGrid>

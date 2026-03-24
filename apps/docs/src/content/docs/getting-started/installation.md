@@ -1,54 +1,62 @@
 ---
 title: Installation
-description: Install and validate the Electron/CLI/docs TypeScript workspace
+description: Set up the repo-edu development environment
 ---
 
 ## Prerequisites
 
-- Node.js 24 (recommended in this repository)
-- pnpm 10+
+- **Node.js 24** or later
+- **pnpm 10** or later
 
 ## Install dependencies
 
+Clone the repository and install all workspace dependencies:
+
 ```bash
+git clone <repo-url>
+cd repo-edu
 pnpm install
 ```
 
-## Validate the workspace
+## Validate the installation
 
 ```bash
-pnpm validate
+pnpm check
 ```
 
-This runs linting, type checks, and tests across workspace packages and apps.
+This runs linting, type checks, and tests across all packages and apps. If everything passes, your environment is ready.
 
 ## Run targets
 
-### Electron desktop
+### Desktop app
 
 ```bash
 pnpm dev
 ```
 
+Opens the Electron desktop application. This is the primary interface for managing courses, importing rosters, and running repository operations interactively.
+
 ### CLI (`redu`)
 
 ```bash
 pnpm cli:build
-node apps/cli/dist/index.js --help
+redu --help
 ```
+
+The CLI provides command-line access to course and repository operations. See [CLI Overview](/cli/overview/) for the full command reference.
 
 ### Docs site
 
 ```bash
-pnpm --filter @repo-edu/docs run dev
-pnpm --filter @repo-edu/docs run build
-pnpm --filter @repo-edu/docs run preview
+pnpm docs:dev
 ```
 
-## Optional CLI storage override
+Starts the documentation site locally with an embedded interactive demo.
 
-By default, CLI data is stored in `~/.repo-edu`.
+## CLI data directory
+
+By default, the CLI stores course and settings data in `~/.repo-edu/`. To use a different location:
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
+REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
 ```

@@ -1,10 +1,9 @@
 ---
 title: Interactive Demo
-description: Run the shared React app in a browser-safe docs runtime
+description: Try the repo-edu interface in your browser with mock data
 template: splash
 ---
 
-import { LinkCard, CardGrid } from "@astrojs/starlight/components"
 import DemoShell from "../../components/DemoShell"
 
 <style>{`
@@ -15,21 +14,10 @@ import DemoShell from "../../components/DemoShell"
   .main-frame { border-top: none \!important; }
 `}</style>
 
-<div className="not-content mt-0 mb-12">
+<p style="margin: 0.75rem 0 1rem; color: var(--sl-color-gray-2); font-size: 0.95rem;">
+  This is the real repo-edu desktop app running in your browser against mock data. Try editing the roster, browsing groups, or opening settings — everything works without installation. See the <a href="/desktop/overview/">Desktop App Guide</a> for details.
+</p>
+
+<div className="not-content mt-0">
   <DemoShell client:only="react" />
 </div>
-
-## What this page proves
-
-- The real `@repo-edu/renderer-app` mounts in a plain browser context.
-- Workflows are wired through `@repo-edu/application-contract` without Electron APIs.
-- Host capabilities come from `@repo-edu/host-browser-mock`.
-
-## Validation expectations
-
-The docs demo should keep parity with the app workflow surface marked as `delivery: ["docs"]` in the workflow catalog.
-
-<CardGrid>
-  <LinkCard title="Architecture" href="/development/architecture/" description="See how docs, desktop, and CLI share contracts." />
-  <LinkCard title="Workflow Commands" href="/cli/overview/" description="Inspect command coverage over shared workflows." />
-</CardGrid>

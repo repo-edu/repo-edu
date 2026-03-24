@@ -1,29 +1,135 @@
 ---
 title: Data Model
-description: Persisted settings/course schema and core roster entities
+description: Persisted settings, course schema, roster entities, and boundary validation
 ---
 
-## Persisted settings (`repo-edu.app-settings.v1`)
+The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, which means it runs identically in the Electron desktop app, the CLI, and the browser-based docs demo.
 
-Key fields:
+Domain types — the TypeScript interfaces that describe settings, courses, rosters, and every other entity — live in `packages/domain/src/types.ts`. Companion [Zod](https://zod.dev/) schemas in `packages/domain/src/schemas.ts` validate data at boundaries: the points where the application reads or writes JSON files. When a persisted file is loaded from disk, the schema checks that its shape matches what the code expects. If it doesn't, the load fails with structured, path-level error messages rather than producing subtle runtime bugs.
 
-- `activeCourseId`
-- `appearance`
-- `lmsConnections[]`
-- `gitConnections[]`
-- `lastOpenedAt`
+## Schema versioning
 
-## Persisted course (`repo-edu.course.v1`)
+Each persisted document carries a `kind` discriminator and a `schemaVersion` field:
 
-Key fields:
+| Document | Kind | Current version |
+|----------|------|-----------------|
+| App settings | `repo-edu.app-settings.v1` | `1` |
+| Course | `repo-edu.course.v1` | `1` |
 
-- `id`, `displayName`
-- `revision` (monotonic save revision for CAS writes)
-- `lmsConnectionName`, `gitConnectionId`, `organization`, `lmsCourseId`
-- `roster` (students, staff, groups, groupSets, assignments)
-- `repositoryTemplate`
+These markers exist for future schema evolution. There is no migration layer — invalid documents are rejected at the boundary.
 
-## Validation
+## Persisted settings
 
-`@repo-edu/domain` validates settings and course documents at boundaries.
-Invalid persisted files are rejected with explicit path-level issues.
+`PersistedAppSettings` stores application-wide state in a single file.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `activeCourseId` | `string \| null` | Currently selected course |
+| `activeTab` | `"roster" \| "groups-assignments"` | Last active UI tab |
+| `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
+| `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
+| `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
+| `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
+| `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
+| `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
+| `rosterColumnSizing` | `Record<string, number>` | Per-column width for roster table |
+| `groupsColumnVisibility` | `Record<string, boolean>` | Per-column visibility for groups table |
+| `groupsColumnSizing` | `Record<string, number>` | Per-column width for groups table |
+
+`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), and `timeFormat` (`"12h"`, `"24h"`).
+
+## Persisted course
+
+`PersistedCourse` stores all data for a single course.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique course identifier |
+| `displayName` | `string` | Human-readable name |
+| `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
+| `lmsConnectionName` | `string \| null` | References a connection in app settings by name |
+| `gitConnectionId` | `string \| null` | References a Git connection in app settings by id |
+| `organization` | `string \| null` | Git organization/group for repository operations |
+| `lmsCourseId` | `string \| null` | LMS-side course identifier |
+| `roster` | `Roster` | Students, staff, groups, group sets, assignments |
+| `repositoryTemplate` | `RepositoryTemplate \| null` | Default template for repo creation |
+| `repositoryCloneTargetDirectory` | `string \| null` | Local directory for clone operations |
+| `repositoryCloneDirectoryLayout` | `"flat" \| "by-team" \| "by-task" \| null` | How to organize cloned repos |
+| `updatedAt` | `string` | ISO timestamp of last save |
+
+The `revision` field enables compare-and-swap: the save workflow rejects writes where the supplied revision doesn't match the stored one, preventing lost updates from concurrent editors.
+
+## Roster
+
+A `Roster` contains the full student/staff/group/assignment graph for a course.
+
+### RosterMember
+
+Each roster member (student or staff) has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique within the roster |
+| `name` | `string` | Display name |
+| `email` | `string` | Primary email |
+| `studentNumber` | `string \| null` | Institution-specific ID |
+| `gitUsername` | `string \| null` | Git provider username |
+| `gitUsernameStatus` | `"unknown" \| "valid" \| "invalid"` | Verification status against Git provider |
+| `status` | `"active" \| "incomplete" \| "dropped"` | Current enrollment status |
+| `lmsStatus` | `MemberStatus \| null` | Status from LMS (may differ from local status) |
+| `lmsUserId` | `string \| null` | LMS-side user ID for sync |
+| `enrollmentType` | `EnrollmentType` | `"student"`, `"teacher"`, `"ta"`, `"designer"`, `"observer"`, `"other"` |
+| `source` | `string` | Origin of this member record |
+
+### RosterConnection
+
+Tracks how the roster was populated — a discriminated union on `kind`:
+
+- `"canvas"` / `"moodle"` — imported from LMS, carries `courseId` and `lastUpdated`
+- `"import"` — imported from file, carries `sourceFilename` and `lastUpdated`
+
+### Groups and group sets
+
+A `Group` is a named collection of member IDs with an `origin` (`"system"`, `"lms"`, `"local"`). Two system group sets are always present: `individual_students` and `staff`.
+
+A `GroupSet` organizes groups for assignment purposes. It has a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`) and a `groupSelection` that controls which groups are active — either `"all"` with optional exclusions, or `"pattern"` with a filter string.
+
+### Assignments
+
+An `Assignment` links a `groupSetId` to an optional `RepositoryTemplate`. The template is a discriminated union:
+
+- `"remote"` — `owner` + `name` on the Git provider, with `visibility`
+- `"local"` — local file `path`, with `visibility`
+
+## Boundary validation
+
+Two functions validate persisted documents at load boundaries:
+
+- `validatePersistedAppSettings(value)` → `ValidationResult<PersistedAppSettings>`
+- `validatePersistedCourse(value)` → `ValidationResult<PersistedCourse>`
+
+Both use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each `ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid files are rejected — there is no partial-load or best-effort parsing.
+
+Compile-time drift guards in `schemas.ts` ensure the Zod inferred types stay in sync with the hand-authored TypeScript types.
+
+## Roster validation
+
+Beyond schema validation, `@repo-edu/domain` performs semantic roster validation via the `validation.roster` workflow. This catches 17 kinds of issues:
+
+| Kind | What it catches |
+|------|-----------------|
+| `duplicate_student_id` | Two students with the same ID |
+| `missing_email` / `invalid_email` / `duplicate_email` | Email problems |
+| `duplicate_assignment_name` | Non-unique assignment names |
+| `duplicate_group_id_in_assignment` / `duplicate_group_name_in_assignment` | Group uniqueness within assignments |
+| `duplicate_repo_name_in_assignment` | Repository name collisions |
+| `orphan_group_member` | Group references a member ID that doesn't exist |
+| `empty_group` | Group with no members |
+| `system_group_sets_missing` | Required system group sets not present |
+| `invalid_enrollment_partition` | Member in wrong collection (student in staff or vice versa) |
+| `invalid_group_origin` | Group origin inconsistent with its group set connection |
+| `missing_git_username` / `invalid_git_username` | Git username problems for active members |
+| `unassigned_student` | Student not in any group for an assignment |
+| `student_in_multiple_groups_in_assignment` | Student assigned to multiple groups |
+
+Each `RosterValidationIssue` includes `affectedIds` (member/group IDs) and optional `context` for diagnostic messages.

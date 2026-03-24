@@ -1,9 +1,9 @@
 ---
 title: CLI Installation
-description: Build and run the in-repo TypeScript CLI
+description: Build and run the redu CLI
 ---
 
-`redu` is currently built from this repository.
+The `redu` CLI is built from source as part of the repo-edu workspace.
 
 ## Build
 
@@ -11,26 +11,26 @@ description: Build and run the in-repo TypeScript CLI
 pnpm cli:build
 ```
 
-## Run help
+## Verify the installation
 
 ```bash
-node apps/cli/dist/index.js --help
+redu --help
 ```
+
+This prints the available commands and global options.
 
 ## Run a command
 
 ```bash
-node apps/cli/dist/index.js course list
+redu course list
 ```
 
 ## Data directory
 
-Default:
-
-- `~/.repo-edu`
-
-Override:
+The CLI stores course and settings data in `~/.repo-edu/` by default. To use a different directory, set the `REPO_EDU_CLI_DATA_DIR` environment variable:
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
+REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
 ```
+
+The desktop app and CLI share the same data format, but their default storage locations are different. If you use both, configure them to point to the same directory or copy data between them.
