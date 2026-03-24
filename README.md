@@ -1,63 +1,48 @@
 # repo-edu
 
-> Pre-alpha: active development, breaking changes expected.
+[![CI](https://github.com/repo-edu/repo-edu/actions/workflows/ci.yml/badge.svg)](https://github.com/repo-edu/repo-edu/actions/workflows/ci.yml)
+[![Docs](https://github.com/repo-edu/repo-edu/actions/workflows/docs.yml/badge.svg)](https://github.com/repo-edu/repo-edu/actions/workflows/docs.yml)
 
-`repo-edu` is a TypeScript monorepo for educational repository management. It combines:
+> Active development — contracts and command output may change.
 
-- an Electron desktop app
-- a TypeScript CLI (`redu`)
-- a browser-safe docs/demo runtime
+Import rosters from your LMS, manage student repositories, and validate assignments — from a desktop app or the command line.
 
-The project streamlines workflows around LMS rosters/group sets and Git repository operations.
+**[Documentation](https://repo-edu.github.io/repo-edu/)** |
+**[Interactive Demo](https://repo-edu.github.io/repo-edu/demo/)** |
+**[Getting Started](https://repo-edu.github.io/repo-edu/getting-started/installation/)**
 
 ## Features
 
-- LMS integration (Canvas, Moodle): verify connections, import rosters, sync group sets.
-- Git provider integration (GitHub, GitLab, Gitea): verify connections, plan/create/clone/delete repositories.
-- Shared business logic across desktop, CLI, and docs via typed workflows.
-- Browser-safe docs demo backed by in-memory/mock host adapters.
-
-## Migration Context
-
-This repository is the greenfield TypeScript rewrite of `repo-edu-tauri`:
-
-- no Rust
-- no Tauri runtime
-- no generated backend bindings
-- no legacy settings/profile migration logic
+- **LMS integration** (Canvas, Moodle) — verify connections, import rosters, sync group sets.
+- **Git provider integration** (GitHub, GitLab, Gitea) — verify connections, plan/create/clone/delete repositories.
+- **Desktop app** — interactive workflows for roster importing and repository management.
+- **CLI (`redu`)** — scripted operations for validation and CI pipelines.
+- **Browser demo** — the real desktop app running in your browser against mock data, no installation required.
+- **Shared business logic** across all targets via typed workflows and a clean hexagonal architecture.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js (recent LTS; tested in this repo with Node 24)
+- Node.js 24+
 - pnpm 10+
 
-### Install
+### Install and Check
 
 ```bash
+git clone https://github.com/repo-edu/repo-edu.git
+cd repo-edu
 pnpm install
-```
-
-### Validate workspace
-
-```bash
+pnpm check           # lint + typecheck + build:types + check:fixtures + architecture checks
+# Optional full validation (includes tests):
 pnpm validate
 ```
 
-### Run desktop app (Electron)
+### Run Desktop App
 
 ```bash
 pnpm dev
 ```
-
-### Generate macOS `.app` bundle
-
-```bash
-pnpm desktop:package:macos:app
-```
-
-This outputs `Repo Edu.app` under `apps/desktop/release/mac-*/`.
 
 ### Run CLI (`redu`)
 
@@ -66,62 +51,59 @@ pnpm cli:build
 node apps/cli/dist/index.js --help
 ```
 
-CLI data is stored under `~/.repo-edu` by default. Override with:
+CLI data is stored under `~/.repo-edu` by default. Override with `REPO_EDU_CLI_DATA_DIR`.
+
+### Run Docs Locally
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/path/to/data node apps/cli/dist/index.js profile list
+pnpm docs:dev
 ```
 
-### Build and test docs demo harness
+## Workspace Scripts
 
-```bash
-pnpm docs:build
-pnpm docs:test
-```
-
-### Run desktop bridge validation checks
-
-```bash
-pnpm desktop:validate
-```
+| Command          | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `pnpm fmt`       | Biome format + markdown format                               |
+| `pnpm fix`       | Biome auto-fix                                               |
+| `pnpm check`     | lint + typecheck + build:types + check:fixtures + architecture |
+| `pnpm test`      | Run all package tests workspace-wide                         |
+| `pnpm validate`  | `check` + `test` (full validation)                           |
+| `pnpm dev`       | Run desktop Electron app                                     |
+| `pnpm docs:dev`  | Run docs dev server                                          |
+| `pnpm file-sizes`| Tree-style line/file counts per subfolder                    |
 
 ## Workspace Structure
 
 ```text
 repo-edu/
 ├── apps/
-│   ├── desktop/                 # Electron shell (main/preload/renderer bridge)
-│   ├── cli/                     # TypeScript CLI (redu)
-│   └── docs/                    # Browser-safe docs/demo harness
+│   ├── desktop/                    # Electron shell (main/preload/renderer bridge)
+│   ├── cli/                        # TypeScript CLI (redu)
+│   └── docs/                       # Starlight docs site + browser-safe demo
 └── packages/
-    ├── app/                     # Shared React app
-    ├── ui/                      # Shared UI components
-    ├── domain/                  # Pure domain logic + invariants
-    ├── application/             # Workflow orchestration/use-cases
-    ├── application-contract/    # Typed workflow catalog + client contract
-    ├── renderer-host-contract/  # Renderer-safe host capability contract
-    ├── host-runtime-contract/   # Runtime port contracts
-    ├── host-node/               # Node host adapters (fs/process/http/git)
-    ├── host-browser-mock/       # Browser/mock adapters for docs/tests
-    ├── test-fixtures/           # Canonical shared fixtures + source overlays
-    ├── integrations-lms-contract/ # LMS integration contract
-    ├── integrations-lms/          # LMS integration implementations
-    ├── integrations-git-contract/ # Git/provider integration contract
-    └── integrations-git/          # Git/provider integration implementations
+    ├── domain/                     # Pure domain logic + invariants
+    ├── application/                # Workflow orchestration / use-cases
+    ├── application-contract/       # Typed workflow catalog + client contract
+    ├── renderer-app/               # Shared React application
+    ├── ui/                         # Shared UI component library
+    ├── renderer-host-contract/     # Renderer-safe host capability contract
+    ├── host-runtime-contract/      # Runtime port contracts (http/process/fs)
+    ├── host-node/                  # Node host adapters
+    ├── host-browser-mock/          # Browser/mock adapters for docs/tests
+    ├── integrations-lms-contract/  # LMS integration contract
+    ├── integrations-lms/           # LMS integration implementations
+    ├── integrations-git-contract/  # Git provider integration contract
+    ├── integrations-git/           # Git provider integration implementations
+    ├── test-fixtures/              # Shared domain fixture generation (faker-based)
+    └── integration-tests/          # E2E workflow tests against live Git providers
 ```
-
-## Current Notes
-
-- Desktop transport uses `trpc-electron` (tRPC v11 compatible).
-- Electron preload output is CommonJS (`preload.cjs`) for sandbox/runtime compatibility.
-- Some XLSX file flows remain intentionally deferred where binary file-port support is required.
 
 ## Acknowledgments
 
 - Repository operation concepts are inspired by [RepoBee](https://github.com/repobee/repobee).
 - Early Python GUI work was developed by Jingjing Wang.
-- The Tauri generation and the current Electron rewrite are by Bert van Beek.
+- The current TypeScript monorepo redesign and Electron desktop app are by Bert van Beek.
 
 ## License
 
-Dual-licensed under MIT or Apache-2.0 (see `LICENSE-MIT` and `LICENSE-APACHE`).
+Dual-licensed under MIT or Apache-2.0.
