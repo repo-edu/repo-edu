@@ -1,7 +1,7 @@
 {
     "name": "@repo-edu/desktop",
     "version": "0.0.0",
-    "productName": "Repo Edu",
+    "productName": "RepoEdu",
     "private": true,
     "type": "module",
     "main": "./out/main/main.js",
