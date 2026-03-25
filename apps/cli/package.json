@@ -1,24 +1,25 @@
 {
-  "name": "@repo-edu/cli",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@repo-edu/application": "workspace:*",
-    "@repo-edu/application-contract": "workspace:*",
-    "@repo-edu/domain": "workspace:*",
-    "@repo-edu/host-node": "workspace:*",
-    "@repo-edu/host-runtime-contract": "workspace:*",
-    "@repo-edu/integrations-git": "workspace:*",
-    "@repo-edu/integrations-git-contract": "workspace:*",
-    "@repo-edu/integrations-lms": "workspace:*",
-    "@repo-edu/integrations-lms-contract": "workspace:*",
-    "@repo-edu/test-fixtures": "workspace:*",
-    "commander": "^14.0.3"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
-    "check": "pnpm run typecheck",
-    "test": "node --import tsx --test src/__tests__/*.test.ts"
-  }
+    "name": "@repo-edu/cli",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@repo-edu/application": "workspace:*",
+        "@repo-edu/application-contract": "workspace:*",
+        "@repo-edu/domain": "workspace:*",
+        "@repo-edu/host-node": "workspace:*",
+        "@repo-edu/host-runtime-contract": "workspace:*",
+        "@repo-edu/integrations-git": "workspace:*",
+        "@repo-edu/integrations-git-contract": "workspace:*",
+        "@repo-edu/integrations-lms": "workspace:*",
+        "@repo-edu/integrations-lms-contract": "workspace:*",
+        "@repo-edu/test-fixtures": "workspace:*",
+        "commander": "^14.0.3"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
+        "check": "pnpm run typecheck",
+        "test": "node --import tsx --test src/__tests__/*.test.ts"
+    },
+    "version": "0.0.1"
 }
