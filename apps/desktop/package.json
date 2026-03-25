@@ -2,6 +2,12 @@
     "name": "@repo-edu/desktop",
     "version": "0.0.1",
     "productName": "RepoEdu",
+    "description": "RepoEdu desktop application",
+    "homepage": "https://github.com/repo-edu/repo-edu",
+    "author": {
+        "name": "Bert van Beek",
+        "email": "d.a.v.beek@tue.nl"
+    },
     "private": true,
     "type": "module",
     "main": "./out/main/main.js",

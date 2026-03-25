@@ -30,6 +30,7 @@
     "linux": {
         "executableName": "repo-edu",
         "target": ["AppImage", "deb"],
-        "category": "Development"
+        "category": "Development",
+        "maintainer": "RepoEdu Maintainers <opensource@repo-edu.dev>"
     }
 }
