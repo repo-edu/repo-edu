@@ -95,6 +95,11 @@ try {
   // Tag doesn't exist, good
 }
 
+console.log("\nRunning release preflight checks...\n")
+run("pnpm fmt:check")
+run("pnpm check")
+run("pnpm test:all")
+
 console.log(`\nBumping ${currentVersion} → ${version}\n`)
 
 for (const path of appPaths) {
