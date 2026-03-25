@@ -18,6 +18,9 @@ if (!mountNode) {
   throw new Error("Renderer mount node #app was not found")
 }
 
+document.documentElement.classList.add("repo-edu-shell-html")
+document.body.classList.add("repo-edu-shell-body")
+
 if (!window.repoEduDesktopHost) {
   throw new Error("Desktop renderer host bridge was not exposed from preload.")
 }
