@@ -18,7 +18,7 @@ Import rosters from your LMS, manage student repositories, and validate assignme
 - **Desktop app** — interactive workflows for roster importing and repository management.
 - **CLI (`redu`)** — scripted operations for validation and CI pipelines.
 - **Browser demo** — the real desktop app running in your browser against mock data, no installation required.
-- **Shared business logic** across all targets via typed workflows and a clean hexagonal architecture.
+- **Shared business logic** across all targets via typed workflows and a [ports-and-adapters architecture](https://repo-edu.github.io/repo-edu/development/architecture/).
 
 ## Quick Start
 

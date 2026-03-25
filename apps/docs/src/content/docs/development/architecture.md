@@ -3,6 +3,18 @@ title: Architecture
 description: Monorepo structure, delivery surfaces, contract layers, and CLI layering
 ---
 
+## Ports-and-adapters pattern
+
+The codebase follows a ports-and-adapters (hexagonal) architecture. Pure business logic sits at the center, typed port interfaces define what the core needs from the outside world, and swappable adapters provide concrete implementations:
+
+| Layer | Packages | Role |
+|-------|----------|------|
+| **Core** | `domain`, `application`, `application-contract` | Pure logic, validation, workflow orchestration — no platform imports |
+| **Ports** | `host-runtime-contract`, `renderer-host-contract`, `integrations-lms-contract`, `integrations-git-contract` | Typed interfaces (HTTP, filesystem, Git CLI, LMS/Git providers, UI bridge) |
+| **Adapters** | `host-node`, `host-browser-mock`, `integrations-lms`, `integrations-git` | Concrete implementations swapped per delivery surface |
+
+This is why the same workflow logic runs unmodified in Electron, the CLI, and the browser demo — only the adapters change.
+
 ## Monorepo structure
 
 ```text
