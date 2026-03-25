@@ -1,4 +1,4 @@
-name: Desktop Release
+name: Desktop
 
 on:
   workflow_dispatch:
@@ -16,15 +16,11 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  precheck:
-    name: precheck
+  validate-tag:
+    name: validate-tag
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-
     steps:
-      - name: Fail if tag does not exist (manual dispatch)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Fail if tag does not exist
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -34,27 +30,15 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "$api" >/dev/null
 
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ env.TAG }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: "10"
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Validate
-        run: pnpm check && pnpm test:workspace
+  ci:
+    needs: validate-tag
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag }}
 
   desktop-package:
     name: desktop-package (${{ matrix.os }})
-    needs: precheck
+    needs: ci
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -62,21 +46,14 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      TAG: ${{ inputs.tag }}
 
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ inputs.tag }}
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: "10"
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: pnpm
+      - uses: ./.github/actions/setup
 
       - name: Cache Electron artifacts
         uses: actions/cache@v5
@@ -97,8 +74,6 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-electron-
         if: runner.os == 'Windows'
-
-      - run: pnpm install --frozen-lockfile
 
       - name: Install xvfb (Linux)
         if: runner.os == 'Linux'
@@ -150,9 +125,6 @@ jobs:
     permissions:
       contents: write
 
-    env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v7
@@ -162,6 +134,6 @@ jobs:
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ inputs.tag }}
           generate_release_notes: true
           files: artifacts/**/*

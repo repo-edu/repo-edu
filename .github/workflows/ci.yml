@@ -2,13 +2,25 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: current ref)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: caller ref)"
+        required: false
+        type: string
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TARGET_REF: ${{ inputs.ref || github.ref }}
 
 jobs:
   validate:
@@ -21,17 +33,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
         with:
-          version: "10"
+          ref: ${{ env.TARGET_REF }}
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Format check
         run: pnpm fmt:check

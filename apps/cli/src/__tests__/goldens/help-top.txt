@@ -13,4 +13,3 @@ Commands:
   git                 Git platform operations
   repo                Repository operations
   validate [options]  Validate assignment readiness
-  help [command]      display help for command

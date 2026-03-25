@@ -26,22 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: "10"
+      - uses: ./.github/actions/setup
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build workspace packages
-        run: pnpm build
-
-      - name: Build docs
-        run: pnpm --filter @repo-edu/docs run build
+      - name: Build docs and dependencies
+        run: pnpm -r --filter @repo-edu/docs... run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
