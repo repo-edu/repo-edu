@@ -115,7 +115,12 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: desktop-${{ runner.os }}
-          path: apps/desktop/release/*
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.exe
           retention-days: 30
 
   release-attach:
