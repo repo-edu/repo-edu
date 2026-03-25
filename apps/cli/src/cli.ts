@@ -12,6 +12,9 @@ export function createProgram(): Command {
     .description("Repository management for education")
     .version("0.1.0")
     .option("--course <name>", "Course to use (default: active course)")
+    .action(() => {
+      program.outputHelp()
+    })
 
   registerCourseCommands(program)
   registerLmsCommands(program)

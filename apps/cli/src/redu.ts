@@ -13,8 +13,8 @@ export { createProgram }
 const isDirectExecution =
   typeof process !== "undefined" &&
   process.argv[1] &&
-  (process.argv[1].endsWith("/cli/src/index.ts") ||
-    process.argv[1].endsWith("/cli/dist/index.js"))
+  (process.argv[1].endsWith("/cli/src/redu.ts") ||
+    process.argv[1].endsWith("/cli/dist/redu.js"))
 
 if (isDirectExecution) {
   createProgram().parse(process.argv)

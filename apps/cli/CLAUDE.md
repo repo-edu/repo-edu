@@ -2,7 +2,7 @@
 
 This is the TypeScript CLI app (`@repo-edu/cli`).
 
-Run CLI after build: `node apps/cli/dist/index.js --help`
+Run CLI after build: `node apps/cli/dist/redu.js --help`
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Default: `~/.repo-edu`
 Override for tests or automation:
 
 ```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/index.js course list
+REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/redu.js course list
 ```
 
 ## Rules

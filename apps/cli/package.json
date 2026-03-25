@@ -21,5 +21,8 @@
         "check": "pnpm run typecheck",
         "test": "node --import tsx --test src/__tests__/*.test.ts"
     },
+    "bin": {
+        "redu": "./dist/redu.js"
+    },
     "version": "0.0.1"
 }

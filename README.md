@@ -48,7 +48,7 @@ pnpm dev
 
 ```bash
 pnpm cli:build
-node apps/cli/dist/index.js --help
+node apps/cli/dist/redu.js --help
 ```
 
 CLI data is stored under `~/.repo-edu` by default. Override with `REPO_EDU_CLI_DATA_DIR`.

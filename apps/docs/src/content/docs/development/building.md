@@ -47,7 +47,7 @@ For day-to-day development, `pnpm fmt && pnpm fix` after changes, and `pnpm vali
 | Command | Description |
 |---------|-------------|
 | `pnpm cli:build` | Build the CLI to `apps/cli/dist/` |
-| `node apps/cli/dist/index.js --help` | Run the built CLI |
+| `node apps/cli/dist/redu.js --help` | Run the built CLI |
 
 ### Docs
 

@@ -75,7 +75,7 @@ The CLI must be built before running:
 
 ```bash
 pnpm cli:build
-node apps/cli/dist/index.js --help
+node apps/cli/dist/redu.js --help
 ```
 
 ## LMS and Git connections
