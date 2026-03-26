@@ -36,14 +36,28 @@ pnpm dev
 
 Opens the Electron desktop application. This is the primary interface for managing courses, importing rosters, and running repository operations interactively.
 
-### CLI (`redu`)
+### CLI (`redu`) — from source
 
 ```bash
-pnpm cli:build
-redu --help
+pnpm build:cli
+./apps/cli/dist/redu --help
 ```
 
 The CLI provides command-line access to course and repository operations. See [CLI Overview](/repo-edu/cli/overview/) for the full command reference.
+
+### CLI (`redu`) — end-user install
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
+```
 
 ### Docs site
 

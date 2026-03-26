@@ -6,6 +6,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "package.json",
     "../../packages/application/src/**/*.ts",
     "../../packages/application-contract/src/**/*.ts",
     "../../packages/domain/src/**/*.ts",

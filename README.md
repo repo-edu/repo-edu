@@ -47,11 +47,25 @@ pnpm dev
 ### Run CLI (`redu`)
 
 ```bash
-pnpm cli:build
-node apps/cli/dist/redu.js --help
+pnpm build:cli
+./apps/cli/dist/redu --help
 ```
 
 CLI data is stored under `~/.repo-edu` by default. Override with `REPO_EDU_CLI_DATA_DIR`.
+
+### Install CLI (end-user)
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
+```
 
 ### Run Docs Locally
 

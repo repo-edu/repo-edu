@@ -12,4 +12,5 @@ Commands:
   lms                 LMS operations
   git                 Git platform operations
   repo                Repository operations
+  update [options]    Update redu to the latest version
   validate [options]  Validate assignment readiness

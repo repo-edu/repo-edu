@@ -11,6 +11,12 @@ import {
   createNodeHttpPort,
 } from "@repo-edu/host-node"
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
+import {
+  bindAutoUpdaterWindow,
+  downloadUpdate,
+  initAutoUpdater,
+  quitAndInstall,
+} from "./auto-updater"
 import { desktopSeedCourseId } from "./course-ids"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
@@ -190,6 +196,14 @@ function registerRendererHostIpcHandlers() {
       await shell.openPath(coursesDir)
     },
   )
+
+  ipcMain.handle(desktopRendererHostChannels.downloadUpdate, async () => {
+    await downloadUpdate()
+  })
+
+  ipcMain.handle(desktopRendererHostChannels.quitAndInstall, () => {
+    quitAndInstall()
+  })
 }
 
 function handleValidationMarker(message: string) {
@@ -227,7 +241,7 @@ async function saveWindowState(appSettingsStore: AppSettingsStore) {
   })
 }
 
-async function createWindow() {
+async function createWindow(): Promise<BrowserWindow> {
   const isMac = process.platform === "darwin"
   const storageRoot = currentStorageRootPath()
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
@@ -374,6 +388,8 @@ async function createWindow() {
   }
 
   await mainWindow.loadURL(rendererUrl)
+
+  return mainWindow
 }
 
 if (hasSingleInstanceLock) {
@@ -410,11 +426,14 @@ if (hasSingleInstanceLock) {
     }
 
     registerRendererHostIpcHandlers()
-    await createWindow()
+    const mainWindow = await createWindow()
+    initAutoUpdater(mainWindow)
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        void createWindow()
+        void createWindow().then((window) => {
+          bindAutoUpdaterWindow(window)
+        })
       }
     })
   })

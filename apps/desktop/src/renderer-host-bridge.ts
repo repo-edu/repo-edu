@@ -16,6 +16,11 @@ export const desktopRendererHostChannels = {
   getEnvironmentSnapshot: "repo-edu/renderer-host/get-environment-snapshot",
   setNativeTheme: "repo-edu/renderer-host/set-native-theme",
   revealCoursesDirectory: "repo-edu/renderer-host/reveal-courses-directory",
+  onUpdateAvailable: "repo-edu/updater/on-update-available",
+  onUpdateDownloaded: "repo-edu/updater/on-update-downloaded",
+  onUpdateError: "repo-edu/updater/on-update-error",
+  downloadUpdate: "repo-edu/updater/download-update",
+  quitAndInstall: "repo-edu/updater/quit-and-install",
 } as const
 
 export type DesktopRendererHostBridge = {
@@ -30,6 +35,11 @@ export type DesktopRendererHostBridge = {
   getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
   revealCoursesDirectory(): Promise<void>
+  onUpdateAvailable(callback: (info: { version: string }) => void): () => void
+  onUpdateDownloaded(callback: () => void): () => void
+  onUpdateError(callback: (error: { message: string }) => void): () => void
+  downloadUpdate(): Promise<void>
+  quitAndInstall(): Promise<void>
 }
 
 export function createRendererHostFromBridge(

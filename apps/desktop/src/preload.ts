@@ -56,6 +56,59 @@ const desktopHostBridge: DesktopRendererHostBridge = {
   async revealCoursesDirectory() {
     await ipcRenderer.invoke(desktopRendererHostChannels.revealCoursesDirectory)
   },
+
+  onUpdateAvailable(callback) {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: { version: string },
+    ) => {
+      callback(info)
+    }
+    ipcRenderer.on(desktopRendererHostChannels.onUpdateAvailable, handler)
+    return () => {
+      ipcRenderer.removeListener(
+        desktopRendererHostChannels.onUpdateAvailable,
+        handler,
+      )
+    }
+  },
+
+  onUpdateDownloaded(callback) {
+    const handler = () => {
+      callback()
+    }
+    ipcRenderer.on(desktopRendererHostChannels.onUpdateDownloaded, handler)
+    return () => {
+      ipcRenderer.removeListener(
+        desktopRendererHostChannels.onUpdateDownloaded,
+        handler,
+      )
+    }
+  },
+
+  onUpdateError(callback) {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      error: { message: string },
+    ) => {
+      callback(error)
+    }
+    ipcRenderer.on(desktopRendererHostChannels.onUpdateError, handler)
+    return () => {
+      ipcRenderer.removeListener(
+        desktopRendererHostChannels.onUpdateError,
+        handler,
+      )
+    }
+  },
+
+  async downloadUpdate() {
+    await ipcRenderer.invoke(desktopRendererHostChannels.downloadUpdate)
+  },
+
+  async quitAndInstall() {
+    await ipcRenderer.invoke(desktopRendererHostChannels.quitAndInstall)
+  },
 }
 
 process.once("loaded", () => {

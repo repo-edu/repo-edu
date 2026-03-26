@@ -4,7 +4,10 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import "../../../packages/renderer-app/src/App.css"
 import { desktopSeedCourseId } from "./course-ids"
-import { createRendererHostFromBridge } from "./renderer-host-bridge"
+import {
+  createRendererHostFromBridge,
+  type DesktopRendererHostBridge,
+} from "./renderer-host-bridge"
 import { createDesktopWorkflowClient } from "./workflow-client"
 
 const trpcMarker = "repo-edu-desktop-trpc"
@@ -27,6 +30,73 @@ if (!window.repoEduDesktopHost) {
 
 const workflowClient = createDesktopWorkflowClient()
 const rendererHost = createRendererHostFromBridge(window.repoEduDesktopHost)
+
+function normalizeDesktopError(error: unknown): string {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message: unknown }).message
+    if (typeof message === "string" && message.trim()) {
+      return message
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  return "Unknown error"
+}
+
+function registerDesktopAutoUpdatePrompts(
+  bridge: DesktopRendererHostBridge,
+): void {
+  let downloadInFlight = false
+
+  const unsubscribeAvailable = bridge.onUpdateAvailable(({ version }) => {
+    const shouldDownload = window.confirm(
+      `Repo Edu ${version} is available. Download now?`,
+    )
+    if (!shouldDownload || downloadInFlight) {
+      return
+    }
+
+    downloadInFlight = true
+    void bridge.downloadUpdate().catch((error) => {
+      downloadInFlight = false
+      window.alert(`Failed to download update: ${normalizeDesktopError(error)}`)
+    })
+  })
+
+  const unsubscribeDownloaded = bridge.onUpdateDownloaded(() => {
+    downloadInFlight = false
+    const shouldRestart = window.confirm(
+      "Update downloaded. Restart Repo Edu now to install it?",
+    )
+    if (!shouldRestart) {
+      return
+    }
+
+    void bridge.quitAndInstall().catch((error) => {
+      window.alert(
+        `Failed to restart for update: ${normalizeDesktopError(error)}`,
+      )
+    })
+  })
+
+  const unsubscribeError = bridge.onUpdateError(({ message }) => {
+    downloadInFlight = false
+    window.alert(`Update error: ${message || "Unknown error"}`)
+  })
+
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      unsubscribeAvailable()
+      unsubscribeDownloaded()
+      unsubscribeError()
+    },
+    { once: true },
+  )
+}
 
 function ensureValidationOutputNode(): HTMLOutputElement {
   let markerNode = document.querySelector<HTMLOutputElement>(
@@ -140,6 +210,7 @@ async function runValidationMode() {
 if (isTRPCValidationMode) {
   void runValidationMode()
 } else {
+  registerDesktopAutoUpdatePrompts(window.repoEduDesktopHost)
   document.title = "Repo Edu"
   createRoot(mountNode).render(
     React.createElement(AppRoot, {

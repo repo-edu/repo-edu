@@ -74,8 +74,8 @@ REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
 The CLI must be built before running:
 
 ```bash
-pnpm cli:build
-node apps/cli/dist/redu.js --help
+pnpm build:cli
+./apps/cli/dist/redu --help
 ```
 
 ## LMS and Git connections

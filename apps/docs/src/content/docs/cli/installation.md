@@ -1,14 +1,33 @@
 ---
 title: CLI Installation
-description: Build and run the redu CLI
+description: Install and run the redu CLI
 ---
 
-The `redu` CLI is built from source as part of the repo-edu workspace.
+## Quick install
 
-## Build
+### macOS / Linux
 
 ```bash
-pnpm cli:build
+curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
+```
+
+Override the install directory with `REDU_INSTALL_DIR` or pin a version with `REDU_VERSION`:
+
+```bash
+REDU_VERSION=v0.1.0 REDU_INSTALL_DIR=/usr/local/bin curl -fsSL ... | sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
+```
+
+## Build from source
+
+```bash
+pnpm build:cli
+./apps/cli/dist/redu --help
 ```
 
 ## Verify the installation
@@ -19,10 +38,16 @@ redu --help
 
 This prints the available commands and global options.
 
-## Run a command
+## Update
 
 ```bash
-redu course list
+redu update
+```
+
+Check for updates without installing:
+
+```bash
+redu update --check
 ```
 
 ## Data directory

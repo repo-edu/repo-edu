@@ -24,9 +24,9 @@ A desktop window should open showing the repo-edu interface. If it doesn't, chec
 ## 3. Try the CLI
 
 ```bash
-pnpm cli:build
-redu course list
-redu repo update --help
+pnpm build:cli
+./apps/cli/dist/redu course list
+./apps/cli/dist/redu repo update --help
 ```
 
 The first command builds the CLI. The second lists available courses (empty if this is a fresh installation). The third shows the help for the `repo update` command.

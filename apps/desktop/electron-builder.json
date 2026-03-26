@@ -18,12 +18,23 @@
         "main": "./out/main/main.js",
         "dependencies": {}
     },
+    "publish": {
+        "provider": "github",
+        "owner": "repo-edu",
+        "repo": "repo-edu"
+    },
     "mac": {
         "category": "public.app-category.developer-tools",
         "executableName": "RepoEdu",
         "target": [
-            "dmg"
-        ]
+            "dmg",
+            "zip"
+        ],
+        "notarize": true
+    },
+    "nsis": {
+        "oneClick": true,
+        "perMachine": false
     },
     "win": {
         "executableName": "RepoEdu",

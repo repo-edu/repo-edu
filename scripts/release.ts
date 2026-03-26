@@ -114,5 +114,5 @@ run(`git push`)
 run(`git push origin ${tag}`)
 
 console.log(
-  `\nDone. Trigger the release workflow with:\n  gh workflow run desktop-release.yml -f tag=${tag}`,
+  `\nDone. Trigger the release workflow with:\n  gh workflow run release.yml -f tag=${tag}`,
 )
