@@ -1,0 +1,233 @@
+name: Linux + Windows x64 Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (e.g. v1.2.3, must already exist)"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+concurrency:
+  group: linux-windows-x64-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Desktop packaging
+  # ---------------------------------------------------------------------------
+  desktop-package-linux:
+    name: desktop-package (Linux)
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: ./.github/actions/setup
+      - name: Cache Electron artifacts
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Build
+        run: pnpm build
+      - name: Runtime validation
+        run: xvfb-run -a pnpm test:runtime
+      - name: Package
+        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-Linux
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-linux.yml
+          retention-days: 30
+
+  desktop-package-windows:
+    name: desktop-package (Windows)
+    runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: ./.github/actions/setup
+      - name: Cache Electron artifacts
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
+      - name: Build
+        run: pnpm build
+      - name: Runtime validation
+        run: pnpm test:runtime
+      - name: Package
+        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --x64 --publish never
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-Windows
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest.yml
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # CLI binary builds (x64 only)
+  # ---------------------------------------------------------------------------
+  cli-build-linux:
+    name: cli-build (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: ./.github/actions/setup
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build CLI workspace dependencies
+        run: pnpm -r --filter @repo-edu/cli... run build
+
+      - name: Compile CLI binary
+        run: |
+          pnpm exec bun build --compile \
+            apps/cli/src/main.ts \
+            --outfile redu-linux-x64
+
+      - name: Smoke test
+        run: ./redu-linux-x64 --version
+
+      - name: Generate CLI checksum
+        run: |
+          node -e '
+            const { createHash } = require("node:crypto")
+            const { readFileSync, writeFileSync } = require("node:fs")
+            const path = process.argv[1]
+            const digest = createHash("sha256")
+              .update(readFileSync(path))
+              .digest("hex")
+            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
+          ' redu-linux-x64
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v6
+        with:
+          name: cli-linux-x64
+          path: redu-linux-x64*
+          retention-days: 30
+
+  cli-build-windows:
+    name: cli-build (windows-x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: ./.github/actions/setup
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build CLI workspace dependencies
+        run: pnpm -r --filter @repo-edu/cli... run build
+
+      - name: Compile CLI binary
+        run: |
+          pnpm exec bun build --compile `
+            apps/cli/src/main.ts `
+            --outfile redu-windows-x64.exe
+
+      - name: Smoke test
+        run: .\redu-windows-x64.exe --version
+
+      - name: Generate CLI checksum
+        shell: bash
+        run: |
+          node -e '
+            const { createHash } = require("node:crypto")
+            const { readFileSync, writeFileSync } = require("node:fs")
+            const path = process.argv[1]
+            const digest = createHash("sha256")
+              .update(readFileSync(path))
+              .digest("hex")
+            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
+          ' redu-windows-x64.exe
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v6
+        with:
+          name: cli-windows-x64
+          path: redu-windows-x64*
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # Attach all artifacts to GitHub Release
+  # ---------------------------------------------------------------------------
+  release-attach:
+    name: release-attach
+    needs:
+      - desktop-package-linux
+      - desktop-package-windows
+      - cli-build-linux
+      - cli-build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+          sparse-checkout: |
+            scripts/install-cli.sh
+            scripts/install-cli.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Copy install scripts
+        run: |
+          cp scripts/install-cli.sh artifacts/install.sh
+          cp scripts/install-cli.ps1 artifacts/install.ps1
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: true
+          files: artifacts/**/*

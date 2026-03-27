@@ -1,0 +1,136 @@
+name: Windows ARM64 Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (e.g. v1.2.3, must already exist)"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  desktop-package-windows:
+    name: desktop-package (Windows)
+    runs-on: windows-11-arm
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: ./.github/actions/setup
+      - name: Cache Electron artifacts
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
+      - name: Build
+        run: pnpm build
+      - name: Runtime validation
+        run: pnpm test:runtime
+      - name: Package
+        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --arm64 --publish never
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-Windows
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
+          retention-days: 30
+
+  cli-build-windows:
+    name: cli-build (windows-arm64)
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: ./.github/actions/setup
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build CLI workspace dependencies
+        run: pnpm -r --filter @repo-edu/cli... run build
+
+      - name: Compile CLI binary
+        run: |
+          pnpm exec bun build --compile `
+            apps/cli/src/main.ts `
+            --outfile redu-windows-arm64.exe
+
+      - name: Smoke test
+        run: .\redu-windows-arm64.exe --version
+
+      - name: Generate CLI checksum
+        shell: bash
+        run: |
+          node -e '
+            const { createHash } = require("node:crypto")
+            const { readFileSync, writeFileSync } = require("node:fs")
+            const path = process.argv[1]
+            const digest = createHash("sha256")
+              .update(readFileSync(path))
+              .digest("hex")
+            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
+          ' redu-windows-arm64.exe
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v6
+        with:
+          name: cli-windows-arm64
+          path: redu-windows-arm64*
+          retention-days: 30
+
+  release-attach:
+    name: release-attach
+    needs:
+      - desktop-package-windows
+      - cli-build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+          sparse-checkout: |
+            scripts/install-cli.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Copy install script
+        run: cp scripts/install-cli.ps1 artifacts/install.ps1
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: true
+          files: artifacts/**/*

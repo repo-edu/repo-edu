@@ -1,10 +1,15 @@
-name: macOS Release
+name: macOS ARM64 Release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: "Tag to build (e.g. v1.2.3, must already exist)"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
         required: true
         type: string
 
@@ -16,29 +21,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  validate-tag:
-    name: validate-tag
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fail if tag does not exist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          api="https://api.github.com/repos/${{ github.repository }}/git/ref/tags/${{ inputs.tag }}"
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "$api" >/dev/null
-
-  ci:
-    needs: validate-tag
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ inputs.tag }}
-
   desktop-package-macos:
     name: desktop-package (macOS)
-    needs: ci
     runs-on: macos-latest
     env:
       TAG: ${{ inputs.tag }}
@@ -60,7 +44,7 @@ jobs:
       - name: Runtime validation
         run: pnpm test:runtime
       - name: Package
-        run: pnpm --filter @repo-edu/desktop run package:ci:macos
+        run: NODE_OPTIONS=--no-deprecation pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --mac dmg zip --arm64 --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -80,7 +64,6 @@ jobs:
 
   cli-build-macos:
     name: cli-build (darwin-arm64)
-    needs: ci
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
