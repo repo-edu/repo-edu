@@ -134,3 +134,11 @@ jobs:
         with:
           tag_name: ${{ inputs.tag }}
           files: artifacts/**/*
+
+      - name: Publish to arm64 update feed
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: repo-edu/repo-edu-updates-arm64
+          token: ${{ secrets.FEED_REPO_TOKEN }}
+          tag_name: ${{ inputs.tag }}
+          files: artifacts/desktop-Windows/**/*
