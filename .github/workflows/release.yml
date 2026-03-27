@@ -9,7 +9,7 @@ on:
         type: string
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
@@ -23,12 +23,7 @@ jobs:
       - name: Fail if tag does not exist
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          api="https://api.github.com/repos/${{ github.repository }}/git/ref/tags/${{ inputs.tag }}"
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "$api" >/dev/null
+        run: gh api repos/${{ github.repository }}/git/ref/tags/${{ inputs.tag }} --silent
 
   ci:
     needs: validate-tag
@@ -36,29 +31,48 @@ jobs:
     with:
       ref: ${{ inputs.tag }}
 
-  macos-arm64:
+  create-release:
+    name: create-release
     needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Release $TAG already exists in $REPO; skipping create."
+          else
+            gh release create "$TAG" --repo "$REPO" --generate-notes
+          fi
+
+  macos-arm64:
+    needs: create-release
     uses: ./.github/workflows/macos-arm64-release.yml
     with:
       tag: ${{ inputs.tag }}
     secrets: inherit
 
   linux-arm64:
-    needs: ci
+    needs: create-release
     uses: ./.github/workflows/linux-arm64-release.yml
     with:
       tag: ${{ inputs.tag }}
     secrets: inherit
 
   windows-arm64:
-    needs: ci
+    needs: create-release
     uses: ./.github/workflows/windows-arm64-release.yml
     with:
       tag: ${{ inputs.tag }}
     secrets: inherit
 
   linux-windows-x64:
-    needs: ci
+    needs: create-release
     uses: ./.github/workflows/linux-windows-x64-release.yml
     with:
       tag: ${{ inputs.tag }}
