@@ -96,7 +96,6 @@ try {
 }
 
 console.log("\nRunning release preflight checks...\n")
-run("pnpm fmt:check")
 run("pnpm check")
 run("pnpm test:all")
 

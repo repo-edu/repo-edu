@@ -60,14 +60,14 @@ jobs:
         run: pnpm build
 
       - name: Test
-        run: pnpm test:workspace
+        run: pnpm test
 
       - name: Runtime validation (macOS)
         if: runner.os == 'macOS'
-        run: pnpm test:runtime
+        run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
 
       - name: Runtime validation (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb
-          xvfb-run -a pnpm test:runtime
+          xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
