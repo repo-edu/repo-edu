@@ -1,0 +1,65 @@
+name: CI arm64 macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: current ref)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: caller ref)"
+        required: false
+        type: string
+
+concurrency:
+  group: ci-macos-arm64-${{ github.event_name }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TARGET_REF: ${{ inputs.ref || github.ref }}
+
+jobs:
+  validate:
+    name: validate (macos-arm64)
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - uses: ./.github/actions/setup
+
+      - name: Assert arm64 runner
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Format check
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build types
+        run: pnpm build:types
+
+      - name: Check fixtures
+        run: pnpm check:fixtures
+
+      - name: Check architecture
+        run: pnpm check:architecture
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Runtime validation
+        run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
