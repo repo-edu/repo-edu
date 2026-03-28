@@ -30,8 +30,15 @@ jobs:
           FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${FEED_REPO_TOKEN:-}" ]; then
-            echo "::error::Missing required secret: FEED_REPO_TOKEN"
+          missing_secrets=()
+          for secret_name in FEED_REPO_TOKEN; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::Missing required secret: ${secret_name}"
+              missing_secrets+=("${secret_name}")
+            fi
+          done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
             exit 1
           fi
 

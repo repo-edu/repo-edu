@@ -40,12 +40,17 @@ jobs:
           FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
         run: |
           set -euo pipefail
+          missing_secrets=()
           for secret_name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID FEED_REPO_TOKEN; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
-              exit 1
+              missing_secrets+=("${secret_name}")
             fi
           done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
 
       - name: Validate arm64 feed repo write access
         env:
@@ -88,8 +93,15 @@ jobs:
           FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${FEED_REPO_TOKEN:-}" ]; then
-            echo "::error::Missing required secret: FEED_REPO_TOKEN"
+          missing_secrets=()
+          for secret_name in FEED_REPO_TOKEN; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::Missing required secret: ${secret_name}"
+              missing_secrets+=("${secret_name}")
+            fi
+          done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
             exit 1
           fi
 
@@ -136,12 +148,17 @@ jobs:
           FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
         run: |
           set -euo pipefail
+          missing_secrets=()
           for secret_name in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD FEED_REPO_TOKEN; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
-              exit 1
+              missing_secrets+=("${secret_name}")
             fi
           done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
 
       - name: Validate arm64 feed repo write access
         env:
@@ -185,12 +202,17 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          missing_secrets=()
           for secret_name in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
-              exit 1
+              missing_secrets+=("${secret_name}")
             fi
           done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
 
   ci:
     needs: validate-tag

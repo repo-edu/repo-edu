@@ -35,12 +35,17 @@ jobs:
           FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
         run: |
           set -euo pipefail
+          missing_secrets=()
           for secret_name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID FEED_REPO_TOKEN; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
-              exit 1
+              missing_secrets+=("${secret_name}")
             fi
           done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
 
       - name: Validate arm64 feed repo write access
         env:

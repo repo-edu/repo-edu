@@ -31,12 +31,17 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          missing_secrets=()
           for secret_name in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
-              exit 1
+              missing_secrets+=("${secret_name}")
             fi
           done
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
 
   # ---------------------------------------------------------------------------
   # Desktop packaging
