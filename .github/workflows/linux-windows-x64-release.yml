@@ -21,11 +21,29 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  secrets-preflight:
+    name: secrets-preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::Missing required secret: ${secret_name}"
+              exit 1
+            fi
+          done
+
   # ---------------------------------------------------------------------------
   # Desktop packaging
   # ---------------------------------------------------------------------------
   desktop-package-linux:
     name: desktop-package (Linux)
+    needs: secrets-preflight
     runs-on: ubuntu-latest
     env:
       TAG: ${{ inputs.tag }}
@@ -62,6 +80,7 @@ jobs:
 
   desktop-package-windows:
     name: desktop-package (Windows)
+    needs: secrets-preflight
     runs-on: windows-latest
     env:
       TAG: ${{ inputs.tag }}
@@ -101,6 +120,7 @@ jobs:
   # ---------------------------------------------------------------------------
   cli-build-linux:
     name: cli-build (linux-x64)
+    needs: secrets-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -146,6 +166,7 @@ jobs:
 
   cli-build-windows:
     name: cli-build (windows-x64)
+    needs: secrets-preflight
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
