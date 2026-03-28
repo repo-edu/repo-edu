@@ -21,61 +21,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  secrets-preflight:
-    name: secrets-preflight
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate required secrets
-        env:
-          FEED_REPO_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          missing_secrets=()
-          for secret_name in FEED_REPO_TOKEN; do
-            if [ -z "${!secret_name:-}" ]; then
-              echo "::error::Missing required secret: ${secret_name}"
-              missing_secrets+=("${secret_name}")
-            fi
-          done
-          if [ "${#missing_secrets[@]}" -gt 0 ]; then
-            echo "::error::Missing required secrets: ${missing_secrets[*]}"
-            exit 1
-          fi
-
-      - name: Validate arm64 feed repo write access
-        env:
-          GH_TOKEN: ${{ secrets.FEED_REPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          FEED_REPO="repo-edu/repo-edu-updates-arm64"
-          API_URL="https://api.github.com/repos/${FEED_REPO}/releases"
-
-          # Probe release-write permission without creating any release assets.
-          status_code="$(
-            curl -sS -o /tmp/feed-release-probe.json -w "%{http_code}" \
-              -X POST \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "Content-Type: application/json" \
-              "$API_URL" \
-              -d '{}'
-          )"
-
-          if [ "$status_code" = "401" ] || [ "$status_code" = "403" ] || [ "$status_code" = "404" ]; then
-            echo "::error::FEED_REPO_TOKEN lacks Contents:write on ${FEED_REPO}"
-            cat /tmp/feed-release-probe.json
-            exit 1
-          fi
-
-          if [ "$status_code" != "422" ]; then
-            echo "::error::Unexpected response while validating FEED_REPO_TOKEN write access (HTTP ${status_code})"
-            cat /tmp/feed-release-probe.json
-            exit 1
-          fi
-
   desktop-package-linux:
     name: desktop-package (Linux)
-    needs: secrets-preflight
     runs-on: ubuntu-24.04-arm
     env:
       TAG: ${{ inputs.tag }}
@@ -100,6 +47,8 @@ jobs:
         run: xvfb-run -a pnpm test:runtime
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --arm64 --publish never
+      - name: Rename update metadata for arm64
+        run: mv apps/desktop/release/latest-linux.yml apps/desktop/release/latest-linux-arm64.yml
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -108,12 +57,11 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-linux.yml
+            apps/desktop/release/latest-linux-arm64.yml
           retention-days: 30
 
   cli-build-linux:
     name: cli-build (linux-arm64)
-    needs: secrets-preflight
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
@@ -194,11 +142,3 @@ jobs:
         with:
           tag_name: ${{ inputs.tag }}
           files: artifacts/**/*
-
-      - name: Publish to arm64 update feed
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: repo-edu/repo-edu-updates-arm64
-          token: ${{ secrets.FEED_REPO_TOKEN }}
-          tag_name: ${{ inputs.tag }}
-          files: artifacts/desktop-linux-arm64/**/*

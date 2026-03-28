@@ -16,6 +16,21 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   initialized = true
   currentWindow = mainWindow
 
+  // Windows doesn't append arch to channel names, so we encode architecture in
+  // the channel to select latest-windows.yml vs latest-windows-arm64.yml.
+  // Linux and macOS use the default channel; electron-updater appends
+  // -linux[-arm64] and -mac automatically.
+  if (process.platform === "win32") {
+    const channel =
+      process.arch === "arm64" ? "latest-windows-arm64" : "latest-windows"
+
+    autoUpdater.setFeedURL({
+      provider: "github",
+      owner: "repo-edu",
+      repo: "repo-edu",
+      channel,
+    })
+  }
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
 
