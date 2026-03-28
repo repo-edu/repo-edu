@@ -38,6 +38,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -47,7 +51,13 @@ jobs:
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
             echo "Release $TAG already exists in $REPO; skipping create."
           else
-            gh release create "$TAG" --repo "$REPO" --generate-notes
+            COMMIT_SHA="$(git rev-list -n 1 "$TAG")"
+            COMMIT_SUBJECT="$(git show -s --format=%s "$COMMIT_SHA")"
+            COMMIT_URL="https://github.com/$REPO/commit/$COMMIT_SHA"
+
+            printf -- "- [%s](%s)\n" "$COMMIT_SUBJECT" "$COMMIT_URL" > release-notes.md
+
+            gh release create "$TAG" --repo "$REPO" --notes-file release-notes.md
           fi
 
   macos-arm64:
