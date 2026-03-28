@@ -114,7 +114,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: desktop-macOS
+          name: desktop-macos-arm64
           path: |
             apps/desktop/release/*.dmg
             apps/desktop/release/*.zip
@@ -220,10 +220,17 @@ jobs:
             scripts/install-cli.sh
           sparse-checkout-cone-mode: false
 
-      - name: Download all artifacts
+      - name: Download desktop artifact
         uses: actions/download-artifact@v7
         with:
-          path: artifacts
+          name: desktop-macos-arm64
+          path: artifacts/desktop-macos-arm64
+
+      - name: Download CLI artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: cli-darwin-arm64
+          path: artifacts/cli-darwin-arm64
 
       - name: Copy install script
         run: cp scripts/install-cli.sh artifacts/install.sh
@@ -240,4 +247,4 @@ jobs:
           repository: repo-edu/repo-edu-updates-arm64
           token: ${{ secrets.FEED_REPO_TOKEN }}
           tag_name: ${{ inputs.tag }}
-          files: artifacts/desktop-macOS/**/*
+          files: artifacts/desktop-macos-arm64/**/*

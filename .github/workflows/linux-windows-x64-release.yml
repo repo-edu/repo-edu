@@ -76,11 +76,12 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: desktop-Linux
+          name: desktop-linux-x64
           path: |
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
             apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-linux.yml
           retention-days: 30
 
   desktop-package-windows:
@@ -114,10 +115,11 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: desktop-Windows
+          name: desktop-windows-x64
           path: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
+            apps/desktop/release/latest.yml
           retention-days: 30
 
   # ---------------------------------------------------------------------------
@@ -239,10 +241,29 @@ jobs:
             scripts/install-cli.ps1
           sparse-checkout-cone-mode: false
 
-      - name: Download all artifacts
+      - name: Download desktop Linux artifact
         uses: actions/download-artifact@v7
         with:
-          path: artifacts
+          name: desktop-linux-x64
+          path: artifacts/desktop-linux-x64
+
+      - name: Download desktop Windows artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-windows-x64
+          path: artifacts/desktop-windows-x64
+
+      - name: Download CLI Linux artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: cli-linux-x64
+          path: artifacts/cli-linux-x64
+
+      - name: Download CLI Windows artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: cli-windows-x64
+          path: artifacts/cli-windows-x64
 
       - name: Copy install scripts
         run: |
