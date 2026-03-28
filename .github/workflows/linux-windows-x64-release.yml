@@ -112,6 +112,8 @@ jobs:
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Rename update metadata for Windows x64
+        run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows.yml
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -119,7 +121,7 @@ jobs:
           path: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest.yml
+            apps/desktop/release/latest-windows.yml
           retention-days: 30
 
   # ---------------------------------------------------------------------------
