@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { packageManagerCommand } from "./package-manager-command.mjs";
 
 const desktopDir = resolve(import.meta.dirname, "..");
 const trpcMarker = "repo-edu-desktop-trpc";
@@ -41,8 +42,9 @@ async function main() {
       electronArguments.push("--no-sandbox");
     }
     electronArguments.push("./out/main/main.js");
+    const { command, args } = packageManagerCommand(electronArguments);
 
-    const child = spawn("pnpm", electronArguments, {
+    const child = spawn(command, args, {
       cwd: desktopDir,
       env: {
         ...process.env,

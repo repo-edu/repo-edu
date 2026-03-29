@@ -2,11 +2,15 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
+import { packageManagerCommand } from "./package-manager-command.mjs";
 
 const desktopDir = resolve(import.meta.dirname, "..");
 const startedAt = performance.now();
+const electronArgs = ["exec", "electron", "./out/main/main.js"];
 
-const child = spawn("pnpm", ["exec", "electron", "./out/main/main.js"], {
+const { command, args } = packageManagerCommand(electronArgs);
+
+const child = spawn(command, args, {
   cwd: desktopDir,
   env: {
     ...process.env,
