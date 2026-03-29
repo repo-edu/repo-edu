@@ -19,9 +19,17 @@ export const desktopRendererHostChannels = {
   onUpdateAvailable: "repo-edu/updater/on-update-available",
   onUpdateDownloaded: "repo-edu/updater/on-update-downloaded",
   onUpdateError: "repo-edu/updater/on-update-error",
+  onDownloadProgress: "repo-edu/updater/on-download-progress",
   downloadUpdate: "repo-edu/updater/download-update",
   quitAndInstall: "repo-edu/updater/quit-and-install",
 } as const
+
+export type DownloadProgress = {
+  percent: number
+  bytesPerSecond: number
+  transferred: number
+  total: number
+}
 
 export type DesktopRendererHostBridge = {
   pickUserFile(
@@ -38,6 +46,7 @@ export type DesktopRendererHostBridge = {
   onUpdateAvailable(callback: (info: { version: string }) => void): () => void
   onUpdateDownloaded(callback: () => void): () => void
   onUpdateError(callback: (error: { message: string }) => void): () => void
+  onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void
   downloadUpdate(): Promise<void>
   quitAndInstall(): Promise<void>
 }

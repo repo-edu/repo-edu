@@ -163,7 +163,7 @@ function buildUpdateMenuItems(): MenuItemConstructorOptions[] {
         updaterState.initialized &&
         !updaterState.checking,
       click: () => {
-        void checkForUpdatesNow()
+        void checkForUpdatesNow({ manual: true })
       },
     },
     {

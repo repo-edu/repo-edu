@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 import {
   type DesktopRendererHostBridge,
+  type DownloadProgress,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
 
@@ -97,6 +98,22 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     return () => {
       ipcRenderer.removeListener(
         desktopRendererHostChannels.onUpdateError,
+        handler,
+      )
+    }
+  },
+
+  onDownloadProgress(callback) {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      progress: DownloadProgress,
+    ) => {
+      callback(progress)
+    }
+    ipcRenderer.on(desktopRendererHostChannels.onDownloadProgress, handler)
+    return () => {
+      ipcRenderer.removeListener(
+        desktopRendererHostChannels.onDownloadProgress,
         handler,
       )
     }

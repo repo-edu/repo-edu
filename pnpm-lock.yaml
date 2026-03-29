@@ -101,6 +101,9 @@ importers:
       '@repo-edu/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
+      '@repo-edu/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@trpc/client':
         specifier: ^11.15.0
         version: 11.15.0(@trpc/server@11.15.0(typescript@6.0.2))(typescript@6.0.2)

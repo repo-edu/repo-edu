@@ -6,6 +6,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "src/**/*.tsx",
     "../../packages/renderer-app/src/**/*.ts",
     "../../packages/renderer-app/src/**/*.tsx",
     "../../packages/ui/src/**/*.ts",

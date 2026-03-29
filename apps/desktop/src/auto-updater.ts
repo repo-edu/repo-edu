@@ -1,4 +1,4 @@
-import { app, type BrowserWindow } from "electron"
+import { app, type BrowserWindow, dialog } from "electron"
 import { autoUpdater } from "electron-updater"
 import { desktopRendererHostChannels } from "./renderer-host-bridge"
 
@@ -17,7 +17,15 @@ export type AutoUpdaterState = {
 }
 
 let initialized = false
+let manualCheckInFlight = false
 let currentWindow: BrowserWindow | null = null
+
+function getLiveWindow(): BrowserWindow | null {
+  if (currentWindow && !currentWindow.isDestroyed()) {
+    return currentWindow
+  }
+  return null
+}
 let autoUpdaterState: AutoUpdaterState = {
   initialized: false,
   supported: app.isPackaged,
@@ -98,13 +106,14 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on("update-available", (info) => {
+    manualCheckInFlight = false
     patchAutoUpdaterState({
       updateAvailable: true,
       updateDownloaded: false,
       availableVersion: info.version,
       errorMessage: null,
     })
-    currentWindow?.webContents.send(
+    getLiveWindow()?.webContents.send(
       desktopRendererHostChannels.onUpdateAvailable,
       {
         version: info.version,
@@ -118,6 +127,32 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       availableVersion: null,
       errorMessage: null,
     })
+    if (manualCheckInFlight) {
+      manualCheckInFlight = false
+      const options = {
+        type: "info" as const,
+        message: "There are currently no updates available.",
+        buttons: ["OK"],
+      }
+      const win = getLiveWindow()
+      if (win) {
+        void dialog.showMessageBox(win, options)
+      } else {
+        void dialog.showMessageBox(options)
+      }
+    }
+  })
+
+  autoUpdater.on("download-progress", (progress) => {
+    getLiveWindow()?.webContents.send(
+      desktopRendererHostChannels.onDownloadProgress,
+      {
+        percent: progress.percent,
+        bytesPerSecond: progress.bytesPerSecond,
+        transferred: progress.transferred,
+        total: progress.total,
+      },
+    )
   })
 
   autoUpdater.on("update-downloaded", () => {
@@ -127,18 +162,22 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       updateDownloaded: true,
       errorMessage: null,
     })
-    currentWindow?.webContents.send(
+    getLiveWindow()?.webContents.send(
       desktopRendererHostChannels.onUpdateDownloaded,
     )
   })
 
   autoUpdater.on("error", (error) => {
+    manualCheckInFlight = false
     patchAutoUpdaterState({
       errorMessage: error.message,
     })
-    currentWindow?.webContents.send(desktopRendererHostChannels.onUpdateError, {
-      message: error.message,
-    })
+    getLiveWindow()?.webContents.send(
+      desktopRendererHostChannels.onUpdateError,
+      {
+        message: error.message,
+      },
+    )
   })
 
   setTimeout(() => {
@@ -154,13 +193,19 @@ export function bindAutoUpdaterWindow(mainWindow: BrowserWindow): void {
   currentWindow = mainWindow
 }
 
-export async function checkForUpdatesNow(): Promise<void> {
+export async function checkForUpdatesNow(options?: {
+  manual?: boolean
+}): Promise<void> {
   if (
     !app.isPackaged ||
     !autoUpdaterState.initialized ||
     autoUpdaterState.checking
   ) {
     return
+  }
+
+  if (options?.manual) {
+    manualCheckInFlight = true
   }
 
   patchAutoUpdaterState({
@@ -170,6 +215,7 @@ export async function checkForUpdatesNow(): Promise<void> {
   try {
     await autoUpdater.checkForUpdates()
   } catch (error) {
+    manualCheckInFlight = false
     patchAutoUpdaterState({
       errorMessage: normalizeErrorMessage(error),
     })
