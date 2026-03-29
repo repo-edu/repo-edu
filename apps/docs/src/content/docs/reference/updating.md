@@ -11,6 +11,11 @@ The desktop app checks for updates automatically after startup and every 4 hours
 2. After the download completes, you can restart to apply the update.
 3. If you dismiss the prompt, the update installs automatically on the next quit.
 
+You can also trigger updates manually from the app menu:
+
+- **macOS**: `Repo Edu` -> `Check for Updates...`
+- **Windows / Linux**: `Help` -> `Check for Updates...`
+
 Updates use blockmap-based deltas where possible, so only changed bytes are downloaded.
 
 ### Per-platform details

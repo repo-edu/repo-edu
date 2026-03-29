@@ -1,3 +1,4 @@
+import os from "node:os"
 import { createRequire } from "node:module"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
@@ -10,11 +11,23 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
 } from "@repo-edu/host-node"
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron"
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  shell,
+  type MenuItemConstructorOptions,
+} from "electron"
 import {
   bindAutoUpdaterWindow,
+  checkForUpdatesNow,
   downloadUpdate,
+  getAutoUpdaterState,
   initAutoUpdater,
+  onAutoUpdaterStateChange,
   quitAndInstall,
 } from "./auto-updater"
 import { desktopSeedCourseId } from "./course-ids"
@@ -36,6 +49,7 @@ const { createIPCHandler } = createRequire(import.meta.url)(
 const startupMarker = "repo-edu-desktop-cold-start"
 const trpcMarker = "repo-edu-desktop-trpc"
 const desktopAppName = "Repo Edu"
+const docsWebsiteUrl = "https://repo-edu.github.io/repo-edu/"
 const startupStartedAt = performance.now()
 const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1"
 const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1"
@@ -50,6 +64,7 @@ let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
 let storageRootPath: string | null = null
 let validationCourseId: string = desktopSeedCourseId
+let updaterMenuBound = false
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
@@ -125,6 +140,179 @@ function parsePathQueue(value: string | undefined): string[] {
     .filter((entry) => entry.length > 0)
 }
 
+function buildUpdateMenuItems(): MenuItemConstructorOptions[] {
+  const updaterState = getAutoUpdaterState()
+  const checkLabel = !updaterState.supported
+    ? "Check for Updates... (Packaged builds only)"
+    : !updaterState.initialized
+      ? "Check for Updates... (Initializing)"
+      : updaterState.checking
+        ? "Checking for Updates..."
+        : "Check for Updates..."
+  const downloadLabel = updaterState.downloading
+    ? "Downloading Update..."
+    : updaterState.availableVersion
+      ? `Download Update ${updaterState.availableVersion}`
+      : "Download Update"
+
+  const items: MenuItemConstructorOptions[] = [
+    {
+      label: checkLabel,
+      enabled:
+        updaterState.supported &&
+        updaterState.initialized &&
+        !updaterState.checking,
+      click: () => {
+        void checkForUpdatesNow()
+      },
+    },
+    {
+      label: downloadLabel,
+      enabled:
+        updaterState.supported &&
+        updaterState.initialized &&
+        updaterState.updateAvailable &&
+        !updaterState.downloading,
+      click: () => {
+        void downloadUpdate()
+      },
+    },
+    {
+      label: "Install Update and Restart",
+      enabled:
+        updaterState.supported &&
+        updaterState.initialized &&
+        updaterState.updateDownloaded,
+      click: () => {
+        quitAndInstall()
+      },
+    },
+  ]
+
+  if (updaterState.errorMessage) {
+    items.push(
+      { type: "separator" },
+      {
+        label: `Update Error: ${updaterState.errorMessage}`,
+        enabled: false,
+      },
+    )
+  }
+
+  return items
+}
+
+async function showAboutDialog() {
+  const version = app.getVersion()
+  const runtime = app.isPackaged ? "Packaged build" : "Development build"
+  const detail = [
+    `Version: ${version}`,
+    `Electron: ${process.versions.electron}`,
+    `Chrome: ${process.versions.chrome}`,
+    `Node.js: ${process.versions.node}`,
+    `OS: ${os.type()} ${os.arch()} ${os.release()}`,
+    `Runtime: ${runtime}`,
+  ].join("\n")
+
+  const options = {
+    type: "info" as const,
+    title: `About ${desktopAppName}`,
+    message: `${desktopAppName}`,
+    detail,
+    buttons: ["OK"],
+    defaultId: 0,
+  }
+  const parent = BrowserWindow.getFocusedWindow()
+  if (parent) {
+    await dialog.showMessageBox(parent, options)
+  } else {
+    await dialog.showMessageBox(options)
+  }
+}
+
+function createHelpMenu(updateItems: MenuItemConstructorOptions[]) {
+  const helpItems: MenuItemConstructorOptions[] = [
+    {
+      label: "Documentation",
+      click: () => {
+        void shell.openExternal(docsWebsiteUrl)
+      },
+    },
+  ]
+
+  if (process.platform !== "darwin") {
+    helpItems.push({ type: "separator" }, ...updateItems)
+  }
+
+  if (process.platform !== "darwin") {
+    helpItems.push(
+      { type: "separator" },
+      {
+        label: `About ${desktopAppName}`,
+        click: () => {
+          void showAboutDialog()
+        },
+      },
+    )
+  }
+
+  return {
+    label: "Help",
+    submenu: helpItems,
+  } satisfies MenuItemConstructorOptions
+}
+
+function installApplicationMenu() {
+  const isMac = process.platform === "darwin"
+  const updateItems = buildUpdateMenuItems()
+  const template: MenuItemConstructorOptions[] = []
+
+  if (isMac) {
+    template.push({
+      label: app.name,
+      submenu: [
+        {
+          label: `About ${desktopAppName}`,
+          click: () => {
+            void showAboutDialog()
+          },
+        },
+        { type: "separator" },
+        ...updateItems,
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    })
+  }
+
+  template.push(
+    { role: "fileMenu" },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+  )
+
+  template.push(createHelpMenu(updateItems))
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+function bindUpdaterMenu() {
+  if (updaterMenuBound) {
+    return
+  }
+
+  updaterMenuBound = true
+  onAutoUpdaterStateChange(() => {
+    installApplicationMenu()
+  })
+}
 function registerRendererHostIpcHandlers() {
   if (hostIpcRegistered) {
     return
@@ -395,6 +583,7 @@ async function createWindow(): Promise<BrowserWindow> {
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {
     storageRootPath = resolveStorageRootPath()
+    bindUpdaterMenu()
 
     const seededFixture =
       await seedDesktopFixtureFromEnvironment(storageRootPath)
