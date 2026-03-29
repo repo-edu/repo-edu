@@ -69,6 +69,7 @@ export default defineConfig({
                   items: [
                     { label: "Settings Reference", slug: "reference/settings-reference" },
                     { label: "Output Formats", slug: "reference/output-formats" },
+                    { label: "Updating", slug: "reference/updating" },
                     { label: "Troubleshooting", slug: "reference/troubleshooting" },
                   ],
                 },
