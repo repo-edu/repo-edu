@@ -73,6 +73,17 @@ jobs:
         run: xvfb-run -a pnpm test:runtime
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never
+      - name: Verify Linux x64 update metadata
+        shell: bash
+        run: |
+          shopt -s nullglob
+          metadata_files=(apps/desktop/release/*-linux.yml)
+          if [ "${#metadata_files[@]}" -eq 0 ]; then
+            echo "::error::Expected Linux x64 update metadata (*-linux.yml) was not generated"
+            ls -la apps/desktop/release
+            exit 1
+          fi
+          printf "Found update metadata: %s\n" "${metadata_files[@]}"
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -81,7 +92,7 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-linux.yml
+            apps/desktop/release/*-linux.yml
           retention-days: 30
 
   desktop-package-windows:
