@@ -2,9 +2,6 @@
     "name": "repo-edu",
     "private": true,
     "scripts": {
-        "// ---- setup ----": "",
-        "setup": "pnpm install && pnpm rebuild electron",
-        "setup:ci": "pnpm install --frozen-lockfile && pnpm rebuild electron",
         "// ---- dev & build ----": "",
         "dev": "pnpm --filter @repo-edu/desktop run dev",
         "build": "pnpm --filter @repo-edu/desktop run package:app",
