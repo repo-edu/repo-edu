@@ -395,7 +395,7 @@ export function OperationControls(props: OperationControlsProps) {
       </Collapsible>
 
       {/* Status messages */}
-      {gitConnectionId === null && (
+      {gitConnectionId === null && openSection !== null && (
         <p className="text-sm text-destructive">
           Configure a Git connection for this course before running repository
           operations.
