@@ -1,5 +1,7 @@
 import { app, type BrowserWindow, dialog } from "electron"
 import { autoUpdater } from "electron-updater"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { desktopRendererHostChannels } from "./renderer-host-bridge"
 
 const updateCheckIntervalMs = 4 * 60 * 60 * 1000
@@ -20,6 +22,18 @@ let initialized = false
 let manualCheckInFlight = false
 let currentWindow: BrowserWindow | null = null
 
+function isUpdaterSupported(): boolean {
+  if (!app.isPackaged) {
+    return false
+  }
+
+  try {
+    return existsSync(join(process.resourcesPath, "app-update.yml"))
+  } catch {
+    return false
+  }
+}
+
 function getLiveWindow(): BrowserWindow | null {
   if (currentWindow && !currentWindow.isDestroyed()) {
     return currentWindow
@@ -28,7 +42,7 @@ function getLiveWindow(): BrowserWindow | null {
 }
 let autoUpdaterState: AutoUpdaterState = {
   initialized: false,
-  supported: app.isPackaged,
+  supported: isUpdaterSupported(),
   checking: false,
   downloading: false,
   updateAvailable: false,
@@ -75,7 +89,9 @@ export function onAutoUpdaterStateChange(
 }
 
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
-  if (!app.isPackaged || initialized) {
+  const supported = isUpdaterSupported()
+  patchAutoUpdaterState({ supported })
+  if (!supported || initialized) {
     return
   }
 
@@ -83,7 +99,6 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   currentWindow = mainWindow
   patchAutoUpdaterState({
     initialized: true,
-    supported: true,
     errorMessage: null,
   })
 
@@ -197,7 +212,7 @@ export async function checkForUpdatesNow(options?: {
   manual?: boolean
 }): Promise<void> {
   if (
-    !app.isPackaged ||
+    !autoUpdaterState.supported ||
     !autoUpdaterState.initialized ||
     autoUpdaterState.checking
   ) {
@@ -228,7 +243,7 @@ export async function checkForUpdatesNow(options?: {
 
 export async function downloadUpdate(): Promise<void> {
   if (
-    !app.isPackaged ||
+    !autoUpdaterState.supported ||
     !autoUpdaterState.initialized ||
     autoUpdaterState.downloading
   ) {
@@ -253,7 +268,7 @@ export async function downloadUpdate(): Promise<void> {
 }
 
 export function quitAndInstall(): void {
-  if (!app.isPackaged) {
+  if (!autoUpdaterState.supported) {
     return
   }
   autoUpdater.quitAndInstall()
