@@ -10,6 +10,7 @@ import type {
   PersistedAppSettings,
   PersistedCourse,
 } from "@repo-edu/domain/types"
+import { createWriteQueue, writeTextFileAtomic } from "@repo-edu/host-node"
 
 const cliDataDirEnv = "REPO_EDU_CLI_DATA_DIR"
 
@@ -59,16 +60,7 @@ export function resolveCliStorageRoot(): string {
 export function createCliCourseStore(
   storageRoot: string = resolveCliStorageRoot(),
 ): CourseStore {
-  let writeQueue: Promise<void> = Promise.resolve()
-
-  const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
-    const run = writeQueue.then(task, task)
-    writeQueue = run.then(
-      () => undefined,
-      () => undefined,
-    )
-    return run
-  }
+  const enqueueWrite = createWriteQueue()
 
   return {
     async listCourses(signal?: AbortSignal) {
@@ -180,6 +172,8 @@ export function createCliCourseStore(
 export function createCliAppSettingsStore(
   storageRoot: string = resolveCliStorageRoot(),
 ): AppSettingsStore {
+  const enqueueWrite = createWriteQueue()
+
   return {
     async loadSettings(signal?: AbortSignal) {
       throwIfAborted(signal)
@@ -208,27 +202,29 @@ export function createCliAppSettingsStore(
     },
 
     async saveSettings(settings: PersistedAppSettings, signal?: AbortSignal) {
-      throwIfAborted(signal)
+      return await enqueueWrite(async () => {
+        throwIfAborted(signal)
 
-      const validation = validatePersistedAppSettings(settings)
-      if (!validation.ok) {
-        throw new Error(
-          `Invalid persisted app settings: ${validation.issues
-            .map((issue) => `${issue.path}: ${issue.message}`)
-            .join("; ")}`,
+        const validation = validatePersistedAppSettings(settings)
+        if (!validation.ok) {
+          throw new Error(
+            `Invalid persisted app settings: ${validation.issues
+              .map((issue) => `${issue.path}: ${issue.message}`)
+              .join("; ")}`,
+          )
+        }
+
+        await mkdir(join(storageRoot, "settings"), { recursive: true })
+        throwIfAborted(signal)
+
+        const settingsPath = resolveSettingsPath(storageRoot)
+        await writeTextFileAtomic(
+          settingsPath,
+          JSON.stringify(validation.value, null, 2),
+          signal,
         )
-      }
-
-      await mkdir(join(storageRoot, "settings"), { recursive: true })
-      throwIfAborted(signal)
-
-      const settingsPath = resolveSettingsPath(storageRoot)
-      await writeFile(
-        settingsPath,
-        JSON.stringify(validation.value, null, 2),
-        "utf8",
-      )
-      return validation.value
+        return validation.value
+      })
     },
   }
 }

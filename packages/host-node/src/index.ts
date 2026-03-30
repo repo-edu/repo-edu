@@ -1,7 +1,16 @@
 import { spawn } from "node:child_process"
-import { cp, mkdir, mkdtemp, rm, stat } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -26,6 +35,48 @@ export const workspaceDependencies = [hostRuntimePackageId] as const
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw new Error("Operation cancelled.")
+  }
+}
+
+export function createWriteQueue() {
+  let chain: Promise<void> = Promise.resolve()
+
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const run = chain.then(task, task)
+    chain = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+}
+
+function resolveAtomicTempPath(path: string): string {
+  return join(
+    dirname(path),
+    `.${basename(path)}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`,
+  )
+}
+
+export async function writeTextFileAtomic(
+  path: string,
+  content: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  throwIfAborted(signal)
+  const temporaryPath = resolveAtomicTempPath(path)
+  const existing = await stat(path).catch(() => null)
+
+  try {
+    await writeFile(temporaryPath, content, {
+      encoding: "utf8",
+      mode: existing?.mode,
+    })
+    throwIfAborted(signal)
+    await rename(temporaryPath, path)
+  } catch (error) {
+    await rm(temporaryPath, { force: true }).catch(() => {})
+    throw error
   }
 }
 

@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { AppSettingsStore } from "@repo-edu/application"
 import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
 import type { PersistedAppSettings } from "@repo-edu/domain/types"
+import { createWriteQueue, writeTextFileAtomic } from "@repo-edu/host-node"
 
 function resolveSettingsPath(storageRoot: string): string {
   return join(storageRoot, "settings", "app-settings.json")
@@ -21,6 +22,8 @@ function throwIfAborted(signal?: AbortSignal): void {
 export function createDesktopAppSettingsStore(
   storageRoot: string,
 ): AppSettingsStore {
+  const enqueueWrite = createWriteQueue()
+
   return {
     async loadSettings(signal?: AbortSignal) {
       throwIfAborted(signal)
@@ -49,26 +52,28 @@ export function createDesktopAppSettingsStore(
       }
     },
     async saveSettings(settings: PersistedAppSettings, signal?: AbortSignal) {
-      throwIfAborted(signal)
-      const validation = validatePersistedAppSettings(settings)
-      if (!validation.ok) {
-        throw new Error(
-          `Invalid persisted app settings: ${validation.issues
-            .map((issue) => `${issue.path}: ${issue.message}`)
-            .join("; ")}`,
+      return await enqueueWrite(async () => {
+        throwIfAborted(signal)
+        const validation = validatePersistedAppSettings(settings)
+        if (!validation.ok) {
+          throw new Error(
+            `Invalid persisted app settings: ${validation.issues
+              .map((issue) => `${issue.path}: ${issue.message}`)
+              .join("; ")}`,
+          )
+        }
+
+        await ensureSettingsDirectory(storageRoot)
+        throwIfAborted(signal)
+
+        const settingsPath = resolveSettingsPath(storageRoot)
+        await writeTextFileAtomic(
+          settingsPath,
+          JSON.stringify(validation.value, null, 2),
+          signal,
         )
-      }
-
-      await ensureSettingsDirectory(storageRoot)
-      throwIfAborted(signal)
-
-      const settingsPath = resolveSettingsPath(storageRoot)
-      await writeFile(
-        settingsPath,
-        JSON.stringify(validation.value, null, 2),
-        "utf8",
-      )
-      return validation.value
+        return validation.value
+      })
     },
   }
 }
