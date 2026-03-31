@@ -19,6 +19,7 @@ import {
   type Assignment,
   type Group,
   type GroupSet,
+  initialIdSequences,
   ORIGIN_LOCAL,
   ORIGIN_SYSTEM,
   type Roster,
@@ -191,7 +192,7 @@ describe("system group sets", () => {
       staff: [staff],
     })
 
-    const result = ensureSystemGroupSets(roster)
+    const result = ensureSystemGroupSets(roster, initialIdSequences())
 
     assert.equal(systemSetsMissing(roster), false)
     assert.equal(result.groupSets.length, 2)
@@ -236,7 +237,7 @@ describe("system group sets", () => {
       ],
     })
 
-    ensureSystemGroupSets(roster)
+    ensureSystemGroupSets(roster, initialIdSequences())
 
     const individualSet = findSystemSet(roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS)
     assert.ok(individualSet)
@@ -274,7 +275,7 @@ describe("system group sets", () => {
       ],
     })
 
-    const result = ensureSystemGroupSets(roster)
+    const result = ensureSystemGroupSets(roster, initialIdSequences())
     const updatedStaffGroup = roster.groups.find(
       (group) => group.id === "g-staff",
     )

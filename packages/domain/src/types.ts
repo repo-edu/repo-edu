@@ -27,7 +27,7 @@ export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
 export type ActiveTab = "roster" | "groups-assignments"
-export type FileFormat = "csv" | "xlsx" | "yaml" | "json"
+export type FileFormat = "csv" | "xlsx" | "yaml" | "json" | "txt"
 export type ThemePreference = "system" | "light" | "dark"
 export type WindowChromeMode = "system" | "hiddenInset"
 export type DateFormatPreference = "MDY" | "DMY"
@@ -135,6 +135,7 @@ export type RosterImportFromLmsSummary = {
 
 export type RosterImportFromLmsResult = {
   roster: Roster
+  idSequences: IdSequences
   summary: RosterImportFromLmsSummary
   conflicts: LmsImportConflict[]
   totalConflicts: number
@@ -219,9 +220,16 @@ export type RepositoryTemplate =
   | RemoteRepositoryTemplate
   | LocalRepositoryTemplate
 
+export type IdSequences = {
+  nextGroupSeq: number
+  nextGroupSetSeq: number
+  nextMemberSeq: number
+  nextAssignmentSeq: number
+}
+
 export type PersistedCourse = {
   kind: typeof persistedCourseKind
-  schemaVersion: 1
+  schemaVersion: 2
   revision: number
   id: string
   displayName: string
@@ -229,6 +237,7 @@ export type PersistedCourse = {
   gitConnectionId: string | null
   organization: string | null
   lmsCourseId: string | null
+  idSequences: IdSequences
   roster: Roster
   repositoryTemplate: RepositoryTemplate | null
   repositoryCloneTargetDirectory?: string | null
@@ -274,13 +283,14 @@ export type SystemGroupSetEnsureResult = {
   groupSets: GroupSet[]
   groupsUpserted: Group[]
   deletedGroupIds: string[]
+  idSequences: IdSequences
 }
 
 export type GroupSetImportRow = {
   group_name: string
-  group_id?: string
   name?: string
   email?: string
+  git_username?: string
 }
 
 export type GroupSetImportSource = {
@@ -304,6 +314,19 @@ export type GroupSetRenamedGroup = {
   to: string
 }
 
+export type GroupSetImportFormat = "group-set-csv" | "repobee-students"
+
+export type GroupNameStrategy = "numbered" | "members"
+
+export type GroupSetImportMemberKey = "email" | "gitUsername"
+
+export type RepoBeeTeamMembershipDiff = {
+  previousUsernames: string[]
+  nextUsernames: string[]
+  addedUsernames: string[]
+  removedUsernames: string[]
+}
+
 export type GroupSetImportPreview =
   | {
       mode: "import"
@@ -312,28 +335,24 @@ export type GroupSetImportPreview =
       totalMissing: number
     }
   | {
-      mode: "reimport"
-      groups: GroupSetImportPreviewGroup[]
-      missingMembers: GroupSetImportMissingMember[]
-      totalMissing: number
-      addedGroupNames: string[]
-      removedGroupNames: string[]
-      updatedGroupNames: string[]
-      renamedGroups: GroupSetRenamedGroup[]
+      mode: "replace"
+      addedTeams: string[][]
+      removedTeams: string[][]
+      changedTeams: RepoBeeTeamMembershipDiff[]
+      unchangedTeams: string[][]
     }
 
 export type GroupSetImportResult = {
-  mode: "import" | "reimport"
+  mode: "import" | "replace"
   groupSet: GroupSet
   groupsUpserted: Group[]
   deletedGroupIds: string[]
   missingMembers: GroupSetImportMissingMember[]
   totalMissing: number
+  idSequences: IdSequences
 }
 
 export type GroupSetExportRow = {
-  group_set_id: string
-  group_id: string
   group_name: string
   name: string
   email: string
@@ -390,13 +409,7 @@ export type RepositoryOperationPlan = {
   skippedGroups: SkippedGroup[]
 }
 
-export const groupSetExportHeaders = [
-  "group_set_id",
-  "group_id",
-  "group_name",
-  "name",
-  "email",
-] as const
+export const groupSetExportHeaders = ["group_name", "name", "email"] as const
 
 export type RosterValidationKind =
   | "duplicate_student_id"
@@ -428,7 +441,7 @@ export type RosterValidationResult = {
 }
 
 export type RosterMemberNormalizationInput = {
-  id: unknown
+  id?: unknown
   studentNumber?: unknown
   nameCandidates?: unknown[]
   displayNameCandidates?: unknown[]
@@ -451,6 +464,15 @@ export const STAFF_GROUP_NAME = "staff" as const
 export const ORIGIN_SYSTEM: GroupOrigin = "system"
 export const ORIGIN_LMS: GroupOrigin = "lms"
 export const ORIGIN_LOCAL: GroupOrigin = "local"
+
+export function initialIdSequences(): IdSequences {
+  return {
+    nextGroupSeq: 1,
+    nextGroupSetSeq: 1,
+    nextMemberSeq: 1,
+    nextAssignmentSeq: 1,
+  }
+}
 
 export type ResolvedGitUsername = {
   memberId: string

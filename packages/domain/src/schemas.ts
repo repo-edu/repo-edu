@@ -67,6 +67,9 @@ const memberStatusSchema = z.enum(memberStatusKinds)
 const gitUsernameStatusSchema = z.enum(gitUsernameStatusKinds)
 const enrollmentTypeSchema = z.enum(enrollmentTypeKinds)
 const groupOriginSchema = z.enum(groupOriginKinds)
+const localMemberIdSchema = z.string().regex(/^m_\d{4,}$/)
+const localGroupIdSchema = z.string().regex(/^g_\d{4,}$/)
+const localGroupSetIdSchema = z.string().regex(/^gs_\d{4,}$/)
 
 const rosterConnectionSchema = z
   .discriminatedUnion("kind", [
@@ -89,7 +92,7 @@ const rosterConnectionSchema = z
   .nullable()
 
 const rosterMemberSchema = z.object({
-  id: z.string(),
+  id: localMemberIdSchema,
   name: z.string(),
   email: z.string(),
   studentNumber: z.string().nullable(),
@@ -106,7 +109,7 @@ const rosterMemberSchema = z.object({
 })
 
 const groupSchema = z.object({
-  id: z.string(),
+  id: localGroupIdSchema,
   name: z.string(),
   memberIds: z.array(z.string()),
   origin: groupOriginSchema,
@@ -169,15 +172,15 @@ const repositoryTemplateSchema = z.discriminatedUnion("kind", [
 const assignmentSchema = z.object({
   id: z.string(),
   name: z.string(),
-  groupSetId: z.string(),
+  groupSetId: localGroupSetIdSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable().optional(),
   templateCommitSha: z.string().nullable().optional(),
 })
 
 const groupSetSchema = z.object({
-  id: z.string(),
+  id: localGroupSetIdSchema,
   name: z.string(),
-  groupIds: z.array(z.string()),
+  groupIds: z.array(localGroupIdSchema),
   connection: groupSetConnectionSchema,
   groupSelection: groupSelectionModeSchema,
   repoNameTemplate: z.string().nullable().default(null),
@@ -192,9 +195,16 @@ const rosterSchema = z.object({
   assignments: z.array(assignmentSchema),
 })
 
+const idSequencesSchema = z.object({
+  nextGroupSeq: z.number().int().positive(),
+  nextGroupSetSeq: z.number().int().positive(),
+  nextMemberSeq: z.number().int().positive(),
+  nextAssignmentSeq: z.number().int().positive(),
+})
+
 export const persistedCourseSchema = z.object({
   kind: z.literal(persistedCourseKind),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   revision: z.number().int().nonnegative(),
   id: z.string(),
   displayName: z.string(),
@@ -202,6 +212,7 @@ export const persistedCourseSchema = z.object({
   gitConnectionId: z.string().nullable(),
   organization: z.string().nullable(),
   lmsCourseId: z.string().nullable(),
+  idSequences: idSequencesSchema,
   roster: rosterSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable(),
   repositoryCloneTargetDirectory: z.string().nullable().optional(),
@@ -237,14 +248,12 @@ void _courseGuard
 
 export const groupSetImportRowSchema = z.object({
   group_name: z.string().min(1),
-  group_id: z.string().optional(),
   name: z.string().optional(),
   email: z.string().optional(),
+  git_username: z.string().optional(),
 })
 
 export const groupSetExportRowSchema = z.object({
-  group_set_id: z.string(),
-  group_id: z.string(),
   group_name: z.string(),
   name: z.string(),
   email: z.string(),

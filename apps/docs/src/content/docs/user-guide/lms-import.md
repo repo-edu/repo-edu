@@ -34,7 +34,7 @@ This makes a test API call to the LMS without storing any data. It reports wheth
 In the desktop app, open your course and navigate to the LMS import panel. The import workflow:
 
 1. Fetches all enrolled users from the LMS course (students, TAs, instructors).
-2. Matches them against existing roster members by LMS user ID, email, or student number.
+2. Matches them against existing roster members by LMS user ID, then email/student number.
 3. Merges new and updated members into the roster, preserving any local edits you've made.
 4. Reports a summary: members added, updated, unchanged, and any that were skipped because they lack an email address.
 
@@ -52,7 +52,7 @@ Use **Fetch from LMS** in the desktop GUI to see which group sets exist in the L
 
 ### Connecting a group set
 
-Select a group set to connect it. This creates a local group set linked to the LMS source, imports all groups and member assignments, and matches members to your roster by email. Members in the LMS group who aren't in your roster are reported as missing.
+Select a group set to connect it. This creates a local group set linked to the LMS source, imports all groups and member assignments, and matches members to your roster by LMS user identity. Members in the LMS group who aren't in your roster are reported as missing.
 
 ### Syncing an existing group set
 
@@ -69,7 +69,6 @@ Use the desktop GUI to import a CSV file with columns:
 | Column | Required | Description |
 |--------|----------|-------------|
 | `name` | Yes | Student display name |
-| `id` | No | Unique student identifier |
 | `email` | No | Email address (used for matching) |
 | `student_number` | No | Institution student number |
 | `git_username` | No | Git provider username |
@@ -83,13 +82,15 @@ Import a group set from a CSV file with columns:
 | Column | Required | Description |
 |--------|----------|-------------|
 | `group_name` | Yes | Name of the group/team |
-| `group_id` | No | Optional group identifier |
 | `name` | No | Member name (for display in preview) |
 | `email` | No | Member email (matched against roster) |
 
 Each row represents one member in one group. A group with three members appears as three rows. Before the actual import, the desktop GUI shows a preview of what will change — groups to create, members matched, and any emails that don't match existing roster members.
 
-For updates to an existing group set, use the reimport workflow. It shows a diff: groups added, removed, updated, and renamed.
+For updates to an existing group set, use import with a target group set:
+
+- CSV import is additive/update-only (unmentioned groups are kept).
+- RepoBee `.txt` students import is full-replace for the target imported set and supports naming strategies (`members` or `numbered`).
 
 ## After import
 

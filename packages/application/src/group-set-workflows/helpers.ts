@@ -2,6 +2,7 @@ import type {
   AppError,
   VerifyLmsDraftInput,
 } from "@repo-edu/application-contract"
+import { allocateGroupId } from "@repo-edu/domain/id-allocator"
 import {
   ORIGIN_LMS,
   type PersistedCourse,
@@ -10,13 +11,7 @@ import {
 import type { LmsFetchedGroupSet } from "@repo-edu/integrations-lms-contract"
 import { createValidationAppError } from "../core.js"
 
-export const groupSetExportHeaders = [
-  "group_set_id",
-  "group_id",
-  "group_name",
-  "name",
-  "email",
-] as const
+export const groupSetExportHeaders = ["group_name", "name", "email"] as const
 
 export function lmsGroupSetRemoteId(
   groupSetId: string,
@@ -47,22 +42,6 @@ export function lmsGroupSetRemoteId(
       message: "The selected group set must be connected to Canvas or Moodle.",
     },
   ])
-}
-
-export function generateLocalGroupSetId(course: PersistedCourse): string {
-  const existingIds = new Set(
-    course.roster.groupSets.map((groupSet) => groupSet.id),
-  )
-  while (true) {
-    const randomPart =
-      typeof globalThis.crypto?.randomUUID === "function"
-        ? globalThis.crypto.randomUUID()
-        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-    const candidate = `group_set_${randomPart}`
-    if (!existingIds.has(candidate)) {
-      return candidate
-    }
-  }
 }
 
 export function createConnectedGroupSet(
@@ -139,15 +118,24 @@ export function applyFetchedGroupSetToCourse(
   }
 
   const memberMap = buildLmsMemberMap(course)
+  let seq = course.idSequences
   const syncedGroups = fetched.groups.map((group) => {
-    const lmsGroupId = group.lmsGroupId ?? group.id
-    const existing = existingByLmsGroupId.get(lmsGroupId)
+    const existing = existingByLmsGroupId.get(group.id)
+    const localId = (() => {
+      if (existing !== undefined) {
+        return existing.id
+      }
+      const alloc = allocateGroupId(seq)
+      seq = alloc.sequences
+      return alloc.id
+    })()
+
     return {
-      id: existing?.id ?? group.id,
+      id: localId,
       name: group.name,
-      memberIds: resolveLmsGroupMembers(memberMap, group.memberIds),
+      memberIds: resolveLmsGroupMembers(memberMap, group.memberLmsUserIds),
       origin: ORIGIN_LMS,
-      lmsGroupId,
+      lmsGroupId: group.id,
     }
   })
   const syncedIds = new Set(syncedGroups.map((group) => group.id))
@@ -169,7 +157,7 @@ export function applyFetchedGroupSetToCourse(
     ...currentGroupSet,
     name: fetched.groupSet.name,
     groupIds: syncedGroups.map((group) => group.id),
-    connection: fetched.groupSet.connection ?? currentGroupSet.connection,
+    connection: currentGroupSet.connection,
     groupSelection: currentGroupSet.groupSelection,
   }
 
@@ -190,6 +178,7 @@ export function applyFetchedGroupSetToCourse(
     nextGroupSet,
     nextCourse: {
       ...course,
+      idSequences: seq,
       roster: {
         ...course.roster,
         groups: [...groupsById.values()],
@@ -213,12 +202,12 @@ function buildLmsMemberMap(course: PersistedCourse): Map<string, string> {
 
 function resolveLmsGroupMembers(
   memberMap: ReadonlyMap<string, string>,
-  memberIds: readonly string[],
+  memberLmsUserIds: readonly string[],
 ): string[] {
   const resolved: string[] = []
   const seen = new Set<string>()
-  for (const memberId of memberIds) {
-    const rosterMemberId = memberMap.get(memberId)
+  for (const memberLmsUserId of memberLmsUserIds) {
+    const rosterMemberId = memberMap.get(memberLmsUserId)
     if (rosterMemberId === undefined || seen.has(rosterMemberId)) {
       continue
     }

@@ -10,7 +10,8 @@ repo-edu supports several file formats for importing and exporting roster, group
 | Format | Extension | Import | Export | Used by |
 |--------|-----------|--------|--------|---------|
 | CSV | `.csv` | Yes | Yes | Roster import/export, group set import/export, Git username import |
-| XLSX | `.xlsx` | No | Yes | Roster export, group set export |
+| TXT | `.txt` | Yes | No | RepoBee students group-set import |
+| XLSX | `.xlsx` | No | No | Unsupported |
 | YAML | `.yaml` | No | Yes | Group set export (Repobee-compatible) |
 | JSON | `.json` | — | — | Persisted settings and course files (internal) |
 
@@ -24,7 +25,6 @@ Exported by the `roster.exportMembers` workflow. One row per member (students an
 
 | Column | Description |
 |--------|-------------|
-| `id` | Member unique identifier |
 | `name` | Display name |
 | `email` | Email address |
 | `student_number` | Institution student number |
@@ -34,7 +34,10 @@ Exported by the `roster.exportMembers` workflow. One row per member (students an
 
 ### Roster import
 
-Imported by the `roster.importFromFile` workflow. Same columns as export, but only `name` is required — other fields are optional and will be filled with defaults.
+Imported by the `roster.importFromFile` workflow. Internal IDs are never imported from CSV.
+
+- Existing members are matched by normalized `email` (primary) or `student_number` (fallback).
+- Unmatched rows create new members with allocator-generated local IDs (`m_...`).
 
 ### Group set export
 
@@ -42,24 +45,40 @@ Exported by the `groupSet.export` workflow. One row per member per group.
 
 | Column | Description |
 |--------|-------------|
-| `group_set_id` | Group set identifier |
-| `group_id` | Group identifier |
 | `group_name` | Group display name |
 | `name` | Member display name |
 | `email` | Member email |
 
 ### Group set import
 
-Imported by the `groupSet.previewImportFromFile` workflow. One row per member per group.
+Imported by the `groupSet.previewImportFromFile` / `groupSet.importFromFile` workflows.
 
 | Column | Required | Description |
 |--------|----------|-------------|
 | `group_name` | Yes | Group display name |
-| `group_id` | No | Optional group identifier |
 | `name` | No | Member name (for preview display) |
 | `email` | No | Member email (matched against roster) |
 
-Members are matched to the existing roster by email. Emails that don't match any roster member are reported as missing in the import preview.
+Notes:
+
+- CSV import semantics are additive/update-only: existing groups not mentioned in the file are untouched.
+- Group matching uses normalized `group_name` (trim + collapse whitespace + lowercase).
+- Empty-group rows (`group_name` with blank `name` and `email`) create/keep empty groups.
+
+Members are matched to the existing roster by email (or by Git username in RepoBee flows). Missing members are reported in preview.
+
+### RepoBee students import (`.txt`)
+
+RepoBee students files are plain text: one team per line, usernames separated by whitespace.
+
+```text
+slarse glassey
+glennol
+```
+
+- Import format: `repobee-students`
+- Semantics: full replace of the target imported group set
+- Reconciliation: usernames are matched to roster `gitUsername`; unknown usernames create active members
 
 ### Git username import
 
@@ -80,4 +99,4 @@ The YAML export produces a team list compatible with [Repobee](https://repobee.r
 
 ## XLSX format
 
-XLSX export produces the same column structure as CSV. It is available for roster and group set exports but not for imports (import only accepts CSV).
+XLSX is currently unsupported for import and export workflows.

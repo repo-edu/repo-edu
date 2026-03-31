@@ -3,6 +3,7 @@ import type {
   GitIdentityMode,
   Group,
   GroupSelectionMode,
+  IdSequences,
   PersistedCourse,
   Roster,
   RosterMember,
@@ -60,9 +61,10 @@ export type CourseActions = {
   removeMember: (id: string) => void
   deleteMemberPermanently: (id: string) => void
   setRoster: (roster: Roster, description?: string) => void
+  setIdSequences: (idSequences: IdSequences) => void
 
   // Assignment CRUD
-  addAssignment: (assignment: Assignment) => void
+  addAssignment: (assignment: Omit<Assignment, "id">) => void
   updateAssignment: (id: string, updates: Partial<Assignment>) => void
   deleteAssignment: (id: string) => void
   setAssignmentSelection: (id: string | null) => void

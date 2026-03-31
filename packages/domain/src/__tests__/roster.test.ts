@@ -328,7 +328,7 @@ describe("mergeRosterFromLms", () => {
     const result = mergeRosterFromLms(existing, incoming)
 
     assert.equal(result.students.length, 1)
-    assert.equal(result.students[0].id, "200")
+    assert.equal(result.students[0].id, "m_0001")
     assert.equal(result.students[0].name, "New Student")
   })
 
@@ -352,7 +352,7 @@ describe("mergeRosterFromLms", () => {
     const result = mergeRosterFromLms(existing, incoming)
 
     assert.equal(result.students.length, 1)
-    assert.equal(result.students[0].id, "201")
+    assert.equal(result.students[0].id, "m_0001")
     assert.equal(result.students[0].status, "incomplete")
     assert.equal(result.students[0].lmsStatus, "active")
   })
@@ -381,15 +381,27 @@ describe("mergeRosterFromLms", () => {
     assert.equal(result.staff[0].enrollmentType, "ta")
   })
 
-  it("fallback id matching populates lmsUserId for legacy members", () => {
+  it("email matching populates lmsUserId for legacy members", () => {
     const existing = makeRoster({
       students: [
-        makeMember({ id: "42", lmsUserId: null, gitUsername: "legacy" }),
+        makeMember({
+          id: "m_0001",
+          lmsUserId: null,
+          email: "legacy@example.com",
+          gitUsername: "legacy",
+        }),
       ],
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },
-      students: [makeMember({ id: "42", lmsUserId: "42", source: "canvas" })],
+      students: [
+        makeMember({
+          id: "lms-42",
+          lmsUserId: "42",
+          email: "legacy@example.com",
+          source: "canvas",
+        }),
+      ],
     })
 
     const result = mergeRosterFromLms(existing, incoming)

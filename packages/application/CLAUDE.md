@@ -18,7 +18,8 @@ It composes:
 - `create*WorkflowHandlers(...)` functions build typed handler maps.
 - Long-running workflows use `WorkflowCallOptions` for progress/output/cancellation.
 - App-level error normalization returns `AppError` variants.
-- Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`.
+- Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`; `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
+- Group-set workflows are split into `src/group-set-workflows/` (`file-handlers.ts`, `lms-handlers.ts`, `helpers.ts`, `ports.ts`), supporting both CSV additive and RepoBee full-replace import via `GroupSetImportFormat`.
 
 ## Rules
 

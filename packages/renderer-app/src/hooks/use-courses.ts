@@ -1,5 +1,6 @@
 import {
   type PersistedCourse,
+  initialIdSequences,
   persistedCourseKind,
   type Roster,
 } from "@repo-edu/domain/types"
@@ -73,7 +74,7 @@ export function useCourses() {
 
         const duplicate: PersistedCourse = {
           kind: persistedCourseKind,
-          schemaVersion: source.schemaVersion,
+          schemaVersion: 2,
           revision: 0,
           id: generateCourseId(),
           displayName,
@@ -81,6 +82,7 @@ export function useCourses() {
           gitConnectionId: source.gitConnectionId,
           organization: source.organization,
           lmsCourseId: source.lmsCourseId,
+          idSequences: initialIdSequences(),
           roster: EMPTY_ROSTER,
           repositoryTemplate: source.repositoryTemplate,
           updatedAt: new Date().toISOString(),

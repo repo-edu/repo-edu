@@ -65,6 +65,7 @@ let hostIpcRegistered = false
 let storageRootPath: string | null = null
 let validationCourseId: string = desktopSeedCourseId
 let updaterMenuBound = false
+let quitRequested = false
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
@@ -466,16 +467,46 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   let resizeTimer: ReturnType<typeof setTimeout> | null = null
+  let saveInFlight: Promise<void> = Promise.resolve()
+  let closePhase: "idle" | "saving" | "ready" = "idle"
+
   mainWindow.on("resize", () => {
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
-      void saveWindowState(appSettingsStore)
+      saveInFlight = saveWindowState(appSettingsStore).catch(() => {})
     }, 300)
   })
 
-  mainWindow.on("close", () => {
-    if (resizeTimer) clearTimeout(resizeTimer)
-    void saveWindowState(appSettingsStore)
+  mainWindow.on("close", (event) => {
+    if (closePhase === "ready") {
+      return
+    }
+
+    event.preventDefault()
+    if (closePhase === "saving") {
+      return
+    }
+
+    closePhase = "saving"
+    if (resizeTimer) {
+      clearTimeout(resizeTimer)
+      resizeTimer = null
+    }
+
+    saveInFlight
+      .then(() => saveWindowState(appSettingsStore))
+      .catch(() => {
+        // Best-effort persistence on shutdown.
+      })
+      .finally(() => {
+        closePhase = "ready"
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.close()
+        }
+        if (quitRequested) {
+          app.quit()
+        }
+      })
   })
 
   if (!desktopRouter) {
@@ -584,6 +615,10 @@ if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {
     storageRootPath = resolveStorageRootPath()
     bindUpdaterMenu()
+
+    app.on("before-quit", () => {
+      quitRequested = true
+    })
 
     const seededFixture =
       await seedDesktopFixtureFromEnvironment(storageRootPath)

@@ -30,7 +30,7 @@ function deferred<T>() {
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: courseId,
     displayName: "Test Course",
@@ -38,6 +38,12 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
     gitConnectionId: "git-main",
     organization: null,
     lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 1,
+      nextGroupSetSeq: 1,
+      nextMemberSeq: 2,
+      nextAssignmentSeq: 1,
+    },
     roster: {
       connection: null,
       students: [

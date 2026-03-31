@@ -47,6 +47,8 @@ function inferMediaType(format: FileFormat | null): string | null {
       return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     case "yaml":
       return "application/yaml"
+    case "txt":
+      return "text/plain"
     default:
       return "text/plain"
   }
@@ -103,6 +105,9 @@ function inferFormatFromFile(file: MockReadableFile): FileFormat | null {
   }
   if (loweredName.endsWith(".yaml") || loweredName.endsWith(".yml")) {
     return "yaml"
+  }
+  if (loweredName.endsWith(".txt") || file.mediaType === "text/plain") {
+    return "txt"
   }
   return null
 }

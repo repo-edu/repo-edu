@@ -200,18 +200,20 @@ describe("createCanvasClient", () => {
     const client = createCanvasClient(http)
     const result = await client.fetchRoster(baseDraft, "course-1")
 
-    assert.equal(result.students.length, 1)
-    assert.equal(result.students[0].enrollmentType, "student")
+    const students = result.filter(
+      (member) => member.enrollmentType === "student",
+    )
+    const staff = result.filter((member) => member.enrollmentType !== "student")
+    assert.equal(students.length, 1)
+    assert.equal(students[0]?.lmsUserId, "10")
+    assert.equal(students[0]?.id, "remote-10")
+    assert.equal(students[0]?.enrollmentType, "student")
 
-    assert.equal(result.staff.length, 2)
-    assert.equal(result.staff[0].name, "Turing, Alan")
-    assert.equal(result.staff[0].enrollmentType, "teacher")
-    assert.equal(result.staff[1].name, "Hopper, Grace")
-    assert.equal(result.staff[1].enrollmentType, "ta")
-
-    assert.equal(result.connection?.kind, "canvas")
-    assert.equal(result.connection?.courseId, "course-1")
-    assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
+    assert.equal(staff.length, 2)
+    assert.equal(staff[0]?.name, "Turing, Alan")
+    assert.equal(staff[0]?.enrollmentType, "teacher")
+    assert.equal(staff[1]?.name, "Hopper, Grace")
+    assert.equal(staff[1]?.enrollmentType, "ta")
   })
 
   it("emits detailed progress while fetching a roster", async () => {
@@ -387,37 +389,13 @@ describe("createCanvasClient", () => {
       {
         id: "201",
         name: "Group A",
-        memberIds: ["10", "11"],
-        origin: "lms",
-        lmsGroupId: "201",
+        memberLmsUserIds: ["10", "11"],
       },
     ])
     assert.deepStrictEqual(result.groupSet, {
       id: "group-set-1",
       name: "Lab Groups",
-      groupIds: ["201"],
-      connection: {
-        kind: "canvas",
-        courseId: "course-1",
-        groupSetId: "group-set-1",
-        lastUpdated:
-          result.groupSet.connection?.kind === "canvas"
-            ? result.groupSet.connection.lastUpdated
-            : "",
-      },
-      groupSelection: {
-        kind: "all",
-        excludedGroupIds: [],
-      },
-      repoNameTemplate: null,
     })
-    assert.equal(result.groupSet.connection?.kind, "canvas")
-    assert.equal(result.groupSet.connection?.courseId, "course-1")
-    assert.equal(result.groupSet.connection?.groupSetId, "group-set-1")
-    assert.match(
-      result.groupSet.connection?.lastUpdated ?? "",
-      /^\d{4}-\d{2}-\d{2}T/,
-    )
   })
 
   it("emits detailed progress while fetching a group set", async () => {
@@ -510,12 +488,10 @@ describe("createCanvasClient", () => {
       {
         id: "201",
         name: "Group A",
-        memberIds: ["10"],
-        origin: "lms",
-        lmsGroupId: "201",
+        memberLmsUserIds: ["10"],
       },
     ])
-    assert.deepStrictEqual(result.groupSet.groupIds, ["201"])
+    assert.equal(result.groupSet.id, "group-set-1")
   })
 
   it("resolves group set name from fallback summaries when direct name endpoint is forbidden", async () => {

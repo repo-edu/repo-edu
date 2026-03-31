@@ -31,6 +31,7 @@ export function StudentSyncDialog() {
   const lmsConnectionName = loadedCourse?.lmsConnectionName ?? null
 
   const setRoster = useCourseStore((state) => state.setRoster)
+  const setIdSequences = useCourseStore((state) => state.setIdSequences)
   const setLmsImportConflicts = useUiStore(
     (state) => state.setLmsImportConflicts,
   )
@@ -139,6 +140,7 @@ export function StudentSyncDialog() {
   const handleApply = () => {
     if (!preview) return
     setRoster(preview.roster, "Sync roster from LMS")
+    setIdSequences(preview.idSequences)
     setOpen(false)
     resetState()
   }

@@ -7,6 +7,11 @@ import {
   persistedCourseKind,
   type Roster,
 } from "@repo-edu/domain/types"
+import {
+  cleanupAtomicTempFiles,
+  createWriteQueue,
+  writeTextFileAtomic,
+} from "@repo-edu/host-node"
 import { desktopSeedCourseId } from "./course-ids"
 
 function createSeedRoster(): Roster {
@@ -14,7 +19,7 @@ function createSeedRoster(): Roster {
     connection: null,
     students: [
       {
-        id: "s1",
+        id: "m_0001",
         name: "Ada Lovelace",
         email: "",
         studentNumber: "1001",
@@ -30,7 +35,7 @@ function createSeedRoster(): Roster {
         source: "local",
       },
       {
-        id: "s2",
+        id: "m_0002",
         name: "Grace Hopper",
         email: "grace@example.com",
         studentNumber: "1002",
@@ -49,35 +54,35 @@ function createSeedRoster(): Roster {
     staff: [],
     groups: [
       {
-        id: "g-seed-alpha",
+        id: "g_0001",
         name: "Alpha",
-        memberIds: ["s1"],
+        memberIds: ["m_0001"],
         origin: "local",
         lmsGroupId: null,
       },
       {
-        id: "g-seed-empty",
+        id: "g_0002",
         name: "Empty Group",
         memberIds: [],
         origin: "local",
         lmsGroupId: null,
       },
       {
-        id: "g-system-s1",
+        id: "g_0003",
         name: "ada_lovelace",
-        memberIds: ["s1"],
+        memberIds: ["m_0001"],
         origin: "system",
         lmsGroupId: null,
       },
       {
-        id: "g-system-s2",
+        id: "g_0004",
         name: "grace_hopper",
-        memberIds: ["s2"],
+        memberIds: ["m_0002"],
         origin: "system",
         lmsGroupId: null,
       },
       {
-        id: "g-system-staff",
+        id: "g_0005",
         name: "staff",
         memberIds: [],
         origin: "system",
@@ -86,9 +91,9 @@ function createSeedRoster(): Roster {
     ],
     groupSets: [
       {
-        id: "gs-seed-projects",
+        id: "gs_0001",
         name: "Projects",
-        groupIds: ["g-seed-alpha", "g-seed-empty"],
+        groupIds: ["g_0001", "g_0002"],
         connection: null,
         groupSelection: {
           kind: "all",
@@ -97,9 +102,9 @@ function createSeedRoster(): Roster {
         repoNameTemplate: null,
       },
       {
-        id: "gs-system-individual",
+        id: "gs_0002",
         name: "Individual Students",
-        groupIds: ["g-system-s1", "g-system-s2"],
+        groupIds: ["g_0003", "g_0004"],
         connection: {
           kind: "system",
           systemType: "individual_students",
@@ -111,9 +116,9 @@ function createSeedRoster(): Roster {
         repoNameTemplate: null,
       },
       {
-        id: "gs-system-staff",
+        id: "gs_0003",
         name: "Staff",
-        groupIds: ["g-system-staff"],
+        groupIds: ["g_0005"],
         connection: {
           kind: "system",
           systemType: "staff",
@@ -127,9 +132,9 @@ function createSeedRoster(): Roster {
     ],
     assignments: [
       {
-        id: "a-seed-project-1",
+        id: "a_0001",
         name: "Project 1",
-        groupSetId: "gs-seed-projects",
+        groupSetId: "gs_0001",
       },
     ],
   }
@@ -140,7 +145,7 @@ function createSeedRoster(): Roster {
 function createSeedCourse(): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: desktopSeedCourseId,
     displayName: "Seed Course",
@@ -148,6 +153,12 @@ function createSeedCourse(): PersistedCourse {
     gitConnectionId: null,
     organization: null,
     lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 6,
+      nextGroupSetSeq: 4,
+      nextMemberSeq: 3,
+      nextAssignmentSeq: 2,
+    },
     roster: createSeedRoster(),
     repositoryTemplate: null,
     updatedAt: "2026-03-04T10:00:00Z",
@@ -267,6 +278,8 @@ async function resolveCoursePathForWrite(
 async function ensureSeedCourse(storageRoot: string): Promise<void> {
   const directory = resolveCoursesDirectory(storageRoot)
   await mkdir(directory, { recursive: true })
+  await removeInvalidSeedCourseFiles(storageRoot)
+
   const existingSeedPath = await findCoursePathById(
     storageRoot,
     desktopSeedCourseId,
@@ -282,6 +295,60 @@ async function ensureSeedCourse(storageRoot: string): Promise<void> {
     seed.displayName,
   )
   await writeFile(seedPath, JSON.stringify(seed, null, 2), "utf8")
+}
+
+async function removeInvalidSeedCourseFiles(
+  storageRoot: string,
+): Promise<void> {
+  const directory = resolveCoursesDirectory(storageRoot)
+  const entries = await readdir(directory, { withFileTypes: true }).catch(
+    (error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return []
+      }
+      throw error
+    },
+  )
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue
+    }
+
+    const coursePath = join(directory, entry.name)
+    const raw = await readFile(coursePath, "utf8").catch(
+      (error: unknown): null => {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return null
+        }
+        throw error
+      },
+    )
+    if (raw === null) {
+      continue
+    }
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      continue
+    }
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("id" in parsed) ||
+      parsed.id !== desktopSeedCourseId
+    ) {
+      continue
+    }
+
+    const validation = validatePersistedCourse(parsed)
+    if (!validation.ok) {
+      await rm(coursePath, { force: true })
+    }
+  }
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -308,20 +375,12 @@ async function readPersistedCourse(
 }
 
 export function createDesktopCourseStore(storageRoot: string): CourseStore {
-  let writeQueue: Promise<void> = Promise.resolve()
-
-  const enqueueWrite = <T>(task: () => Promise<T>): Promise<T> => {
-    const run = writeQueue.then(task, task)
-    writeQueue = run.then(
-      () => undefined,
-      () => undefined,
-    )
-    return run
-  }
+  const enqueueWrite = createWriteQueue()
 
   return {
     async listCourses(signal?: AbortSignal) {
       throwIfAborted(signal)
+      await cleanupAtomicTempFiles(resolveCoursesDirectory(storageRoot))
       await ensureSeedCourse(storageRoot)
       throwIfAborted(signal)
 
@@ -396,10 +455,10 @@ export function createDesktopCourseStore(storageRoot: string): CourseStore {
           savedCourse.displayName,
           signal,
         )
-        await writeFile(
+        await writeTextFileAtomic(
           coursePath,
           JSON.stringify(savedCourse, null, 2),
-          "utf8",
+          signal,
         )
         if (existingPath !== null && existingPath !== coursePath) {
           await rm(existingPath, { force: true })

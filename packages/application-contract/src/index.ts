@@ -2,6 +2,9 @@ import type {
   CourseSummary,
   FileFormat,
   GitProviderKind,
+  IdSequences,
+  GroupNameStrategy,
+  GroupSetImportFormat,
   GroupSet,
   GroupSetImportPreview,
   LmsProviderKind,
@@ -217,7 +220,13 @@ export type ConnectionVerificationResult = {
 export type LmsCourseSummary = LmsContractCourseSummary
 
 export type RosterImportFromFileInput = {
+  course: PersistedCourse
   file: UserFileRef
+}
+
+export type RosterImportFromFileResult = {
+  roster: Roster
+  idSequences: IdSequences
 }
 
 export type RosterExportMembersInput = {
@@ -253,17 +262,23 @@ export type GroupSetLmsSummary = LmsContractGroupSetSummary
 
 export type GroupSetLmsApplyResult = {
   roster: Roster
+  idSequences: IdSequences
 } & GroupSet
 
 export type GroupSetPreviewImportFromFileInput = {
   course: PersistedCourse
   file: UserFileRef
+  format: GroupSetImportFormat
+  targetGroupSetId: string | null
+  groupNameStrategy?: GroupNameStrategy
 }
 
-export type GroupSetPreviewReimportFromFileInput = {
+export type GroupSetImportFromFileInput = {
   course: PersistedCourse
-  groupSetId: string
   file: UserFileRef
+  format: GroupSetImportFormat
+  targetGroupSetId: string | null
+  groupNameStrategy?: GroupNameStrategy
 }
 
 export type GroupSetExportInput = {
@@ -404,7 +419,7 @@ export type WorkflowPayloads = {
     input: RosterImportFromFileInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: Roster
+    result: RosterImportFromFileResult
   }
   "roster.importFromLms": {
     input: RosterImportFromLmsInput
@@ -442,11 +457,11 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: GroupSetImportPreview
   }
-  "groupSet.previewReimportFromFile": {
-    input: GroupSetPreviewReimportFromFileInput
+  "groupSet.importFromFile": {
+    input: GroupSetImportFromFileInput
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: GroupSetImportPreview
+    result: PersistedCourse
   }
   "groupSet.export": {
     input: GroupSetExportInput
@@ -591,7 +606,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
-  "groupSet.previewReimportFromFile": {
+  "groupSet.importFromFile": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",

@@ -16,19 +16,43 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
+type GroupSetImportFormat = "group-set-csv" | "repobee-students"
+type GroupNameStrategy = "members" | "numbered"
+
+function inferFormatFromFileRef(file: {
+  displayName: string
+  mediaType: string | null
+}): GroupSetImportFormat | null {
+  const lowered = file.displayName.toLowerCase()
+  if (lowered.endsWith(".csv") || file.mediaType === "text/csv") {
+    return "group-set-csv"
+  }
+  if (lowered.endsWith(".txt") || file.mediaType === "text/plain") {
+    return "repobee-students"
+  }
+  return null
+}
+
 export function ImportGroupSetDialog() {
   const [fileName, setFileName] = useState("")
-  const [name, setName] = useState("")
+  const [fileRef, setFileRef] = useState<{
+    kind: "user-file-ref"
+    referenceId: string
+    displayName: string
+    mediaType: string | null
+    byteLength: number | null
+  } | null>(null)
+  const [format, setFormat] = useState<GroupSetImportFormat>("group-set-csv")
+  const [groupNameStrategy, setGroupNameStrategy] =
+    useState<GroupNameStrategy>("members")
   const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
-  const [selectionKind, setSelectionKind] = useState<"all" | "pattern">("all")
-  const [pattern, setPattern] = useState("")
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,66 +62,98 @@ export function ImportGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
+  const setRoster = useCourseStore((state) => state.setRoster)
+  const setIdSequences = useCourseStore((state) => state.setIdSequences)
 
-  const handleBrowse = async () => {
+  const canImport = preview !== null && fileRef !== null && !importing
+
+  const previewSummary = useMemo(() => {
+    if (!preview) return null
+    if (preview.mode === "import") {
+      return `Preview: ${preview.groups.length} groups`
+    }
+    return `Preview: +${preview.addedTeams.length} added, -${preview.removedTeams.length} removed, ${preview.changedTeams.length} changed`
+  }, [preview])
+
+  const runPreview = async (
+    nextFileRef: NonNullable<typeof fileRef>,
+    nextFormat: GroupSetImportFormat,
+    nextGroupNameStrategy = groupNameStrategy,
+  ) => {
+    if (!course) {
+      setError("No course loaded")
+      return
+    }
+
+    setLoading(true)
+    setError(null)
     try {
-      const host = getRendererHost()
-      const fileRef = await host.pickUserFile({
-        title: "Select CSV file to import",
-        acceptFormats: ["csv"],
-      })
-      if (!fileRef) return
-
-      setFileName(fileRef.displayName)
-      setError(null)
-
-      const defaultName = fileRef.displayName.replace(/\.csv$/i, "")
-      setName(defaultName)
-
-      if (!course) {
-        setError("No course loaded")
-        return
-      }
-
-      setLoading(true)
       const client = getWorkflowClient()
       const result = await client.run("groupSet.previewImportFromFile", {
         course,
-        file: fileRef,
+        file: nextFileRef,
+        format: nextFormat,
+        targetGroupSetId: null,
+        groupNameStrategy: nextGroupNameStrategy,
       })
-      if (result.mode === "import") {
-        setPreview(result)
-      } else {
-        setError("Unexpected preview mode")
-        setPreview(null)
-      }
-    } catch (e) {
-      setError(getErrorMessage(e))
+      setPreview(result)
+    } catch (cause) {
+      setPreview(null)
+      setError(getErrorMessage(cause))
     } finally {
       setLoading(false)
     }
   }
 
-  const canImport = preview !== null && name.trim().length > 0 && !importing
+  const handleBrowse = async () => {
+    try {
+      const host = getRendererHost()
+      const picked = await host.pickUserFile({
+        title: "Select group-set import file",
+        acceptFormats: ["csv", "txt"],
+      })
+      if (!picked) return
+
+      const inferred = inferFormatFromFileRef(picked) ?? "group-set-csv"
+      setFileRef(picked)
+      setFileName(picked.displayName)
+      setFormat(inferred)
+      await runPreview(picked, inferred, groupNameStrategy)
+    } catch (cause) {
+      setError(getErrorMessage(cause))
+    }
+  }
 
   const handleImport = async () => {
-    if (!canImport) return
+    if (!canImport || !course || !fileRef) return
+
     setImporting(true)
     setError(null)
     setGroupSetOperation({ kind: "import" })
 
     try {
-      // The preview contains the parsed groups. Apply via course store.
-      const groupSetName = name.trim()
-      const createLocalGroupSet = useCourseStore.getState().createLocalGroupSet
-      const id = createLocalGroupSet(groupSetName)
-      if (id) {
-        setSidebarSelection({ kind: "group-set", id })
+      const client = getWorkflowClient()
+      const nextCourse = await client.run("groupSet.importFromFile", {
+        course,
+        file: fileRef,
+        format,
+        targetGroupSetId: null,
+        groupNameStrategy,
+      })
+
+      setRoster(nextCourse.roster, "Import group set from file")
+      setIdSequences(nextCourse.idSequences)
+
+      const importedSet = [...nextCourse.roster.groupSets]
+        .reverse()
+        .find((groupSet) => groupSet.connection?.kind === "import")
+      if (importedSet) {
+        setSidebarSelection({ kind: "group-set", id: importedSet.id })
       }
+
       handleClose()
-    } catch (e) {
-      const message = getErrorMessage(e)
-      setError(message)
+    } catch (cause) {
+      setError(getErrorMessage(cause))
     } finally {
       setImporting(false)
       setGroupSetOperation(null)
@@ -108,9 +164,9 @@ export function ImportGroupSetDialog() {
     setOpen(false)
     setGroupSetOperation(null)
     setFileName("")
-    setName("")
-    setSelectionKind("all")
-    setPattern("")
+    setFileRef(null)
+    setFormat("group-set-csv")
+    setGroupNameStrategy("members")
     setPreview(null)
     setLoading(false)
     setImporting(false)
@@ -118,10 +174,10 @@ export function ImportGroupSetDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Import Group Set from CSV</DialogTitle>
+          <DialogTitle>Import Group Set</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
           {error && (
@@ -131,7 +187,7 @@ export function ImportGroupSetDialog() {
             </Alert>
           )}
 
-          <FormField label="CSV File">
+          <FormField label="Import File">
             <div className="flex gap-2">
               <Input
                 value={fileName}
@@ -151,17 +207,65 @@ export function ImportGroupSetDialog() {
             </div>
           </FormField>
 
-          {preview && (
-            <FormField label="Group Set Name" htmlFor="import-gs-name">
-              <Input
-                id="import-gs-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Project Teams"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && canImport) handleImport()
+          <FormField label="Format">
+            <RadioGroup
+              value={format}
+              onValueChange={(value) => {
+                const next = value as GroupSetImportFormat
+                setFormat(next)
+                if (fileRef) {
+                  void runPreview(fileRef, next, groupNameStrategy)
+                }
+              }}
+              className="space-y-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="group-set-csv" id="import-format-csv" />
+                <Label htmlFor="import-format-csv" className="text-sm">
+                  CSV (group_name,name,email)
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="repobee-students"
+                  id="import-format-repobee"
+                />
+                <Label htmlFor="import-format-repobee" className="text-sm">
+                  RepoBee students file (.txt)
+                </Label>
+              </div>
+            </RadioGroup>
+          </FormField>
+
+          {format === "repobee-students" && (
+            <FormField label="RepoBee group names">
+              <RadioGroup
+                value={groupNameStrategy}
+                onValueChange={(value) => {
+                  const next = value as GroupNameStrategy
+                  setGroupNameStrategy(next)
+                  if (fileRef) {
+                    void runPreview(fileRef, format, next)
+                  }
                 }}
-              />
+                className="space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="members" id="import-repobee-members" />
+                  <Label htmlFor="import-repobee-members" className="text-sm">
+                    Based on member usernames
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem
+                    value="numbered"
+                    id="import-repobee-numbered"
+                  />
+                  <Label htmlFor="import-repobee-numbered" className="text-sm">
+                    Numbered (group-1, group-2, ...)
+                  </Label>
+                </div>
+              </RadioGroup>
             </FormField>
           )}
 
@@ -171,73 +275,10 @@ export function ImportGroupSetDialog() {
             </Text>
           )}
 
-          {preview && preview.mode === "import" && (
-            <div className="space-y-2">
-              <Text className="text-sm font-medium">
-                Preview: {preview.groups.length} group
-                {preview.groups.length !== 1 ? "s" : ""}
-              </Text>
-              <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
-                {preview.groups.map((g) => (
-                  <div
-                    key={g.name}
-                    className="flex items-center justify-between px-3 py-1.5 text-sm"
-                  >
-                    <span className="truncate">{g.name}</span>
-                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                      {g.memberCount} member{g.memberCount !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {preview.totalMissing > 0 && (
-                <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <AlertTriangle className="size-3 shrink-0" />
-                  <span>
-                    {preview.totalMissing} member
-                    {preview.totalMissing !== 1 ? "s" : ""} not found in roster
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {preview && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Group selection</Label>
-              <RadioGroup
-                value={selectionKind}
-                onValueChange={(v) => setSelectionKind(v as "all" | "pattern")}
-                className="flex flex-col gap-2"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="all" id="import-gs-sel-all" />
-                  <Label htmlFor="import-gs-sel-all" className="text-sm">
-                    All groups
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="pattern" id="import-gs-sel-pattern" />
-                  <Label htmlFor="import-gs-sel-pattern" className="text-sm">
-                    Pattern filter
-                  </Label>
-                </div>
-              </RadioGroup>
-              {selectionKind === "pattern" && (
-                <div className="pl-6 space-y-1.5">
-                  <Input
-                    value={pattern}
-                    onChange={(e) => setPattern(e.target.value)}
-                    placeholder="e.g., 1D* or Team-*"
-                    className="h-7 text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Glob pattern matched against group names. Use * for
-                    wildcard.
-                  </p>
-                </div>
-              )}
-            </div>
+          {previewSummary && (
+            <Text className="text-sm text-muted-foreground">
+              {previewSummary}
+            </Text>
           )}
         </DialogBody>
         <DialogFooter>

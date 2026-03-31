@@ -13,14 +13,14 @@ export function createGroupSetWorkflowHandlers(
     | "groupSet.connectFromLms"
     | "groupSet.syncFromLms"
     | "groupSet.previewImportFromFile"
-    | "groupSet.previewReimportFromFile"
+    | "groupSet.importFromFile"
     | "groupSet.export"
   >,
   | "groupSet.fetchAvailableFromLms"
   | "groupSet.connectFromLms"
   | "groupSet.syncFromLms"
   | "groupSet.previewImportFromFile"
-  | "groupSet.previewReimportFromFile"
+  | "groupSet.importFromFile"
   | "groupSet.export"
 > {
   return {

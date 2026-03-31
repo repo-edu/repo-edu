@@ -42,6 +42,7 @@ export function ConnectLmsGroupSetDialog() {
   const course = useCourseStore((state) => state.course)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
   const setRoster = useCourseStore((state) => state.setRoster)
+  const setIdSequences = useCourseStore((state) => state.setIdSequences)
   const appSettings = useAppSettingsStore((state) => state.settings)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
@@ -165,6 +166,7 @@ export function ConnectLmsGroupSetDialog() {
       if (connectRequestIdRef.current !== requestId) return
 
       setRoster(result.roster, `Connect group set "${selectedGroupSet.name}"`)
+      setIdSequences(result.idSequences)
       setSidebarSelection({ kind: "group-set", id: result.id })
       handleClose()
     } catch (cause) {

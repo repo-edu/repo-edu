@@ -17,13 +17,10 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import {
-  type GroupSet,
-  ORIGIN_LMS,
-  type PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
+import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
@@ -104,6 +101,21 @@ function createMockLmsPorts(
   collaborativeGroupSet: GroupSet | null,
   lmsMemberIds: string[],
 ) {
+  const toRemoteMember = (
+    member: PersistedCourse["roster"]["students"][number],
+  ): RemoteLmsMember => ({
+    id: `remote-${member.id}`,
+    lmsUserId: member.lmsUserId ?? member.id,
+    name: member.name,
+    email: member.email || null,
+    studentNumber: member.studentNumber,
+    enrollmentType: member.enrollmentType,
+    enrollmentDisplay: member.enrollmentDisplay,
+    status: member.status,
+    lmsStatus: member.lmsStatus,
+    source: member.source,
+  })
+
   if (source === "file") {
     return {
       async verifyConnection() {
@@ -135,22 +147,9 @@ function createMockLmsPorts(
       ]
     },
     async fetchRoster() {
-      const connection =
-        source === "canvas"
-          ? {
-              kind: "canvas" as const,
-              courseId: seedCourseId,
-              lastUpdated: new Date().toISOString(),
-            }
-          : {
-              kind: "moodle" as const,
-              courseId: seedCourseId,
-              lastUpdated: new Date().toISOString(),
-            }
-      return {
-        ...seedCourse.roster,
-        connection,
-      }
+      return seedCourse.roster.students
+        .concat(seedCourse.roster.staff)
+        .map(toRemoteMember)
     },
     async listGroupSets() {
       return [
@@ -163,45 +162,21 @@ function createMockLmsPorts(
     },
     async fetchGroupSet(
       _draft: unknown,
-      courseId: string,
+      _courseId: string,
       groupSetId: string,
       _signal?: AbortSignal,
       _onProgress?: (message: string) => void,
     ) {
-      const connection =
-        source === "canvas"
-          ? {
-              kind: "canvas" as const,
-              courseId,
-              groupSetId,
-              lastUpdated: new Date().toISOString(),
-            }
-          : {
-              kind: "moodle" as const,
-              courseId,
-              groupingId: groupSetId,
-              lastUpdated: new Date().toISOString(),
-            }
-
       return {
         groupSet: {
           id: groupSetId,
           name: "LMS Teams",
-          groupIds: ["lms-group-1"],
-          connection,
-          groupSelection: {
-            kind: "all" as const,
-            excludedGroupIds: [],
-          },
-          repoNameTemplate: null,
         },
         groups: [
           {
             id: "lms-group-1",
             name: "lms-team-1",
-            memberIds: lmsMemberIds,
-            origin: ORIGIN_LMS,
-            lmsGroupId: "lms-group-1",
+            memberLmsUserIds: lmsMemberIds,
           },
         ],
       }

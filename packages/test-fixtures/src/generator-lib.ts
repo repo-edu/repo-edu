@@ -105,16 +105,17 @@ function fixtureSeed(tier: FixtureTier, preset: FixturePreset): number {
   return baseSeed + tierIndex * 1_000 + presetIndex * 100
 }
 
-function createStudents(count: number) {
+function createStudents(count: number, startMemberSeq: number) {
   return Array.from({ length: count }, (_, index) => {
     const ordinal = index + 1
+    const memberSeq = startMemberSeq + index
     const firstName = faker.person.firstName()
     const lastName = faker.person.lastName()
     const firstSlug = slugify(firstName) || `student${ordinal}`
     const lastSlug = slugify(lastName) || "member"
 
     return {
-      id: `s-${padNumber(ordinal, 4)}`,
+      id: `m_${padNumber(memberSeq, 4)}`,
       name: `${firstName} ${lastName}`,
       email: `${firstSlug}.${lastSlug}.${padNumber(ordinal, 4)}@example.edu`,
       studentNumber: `${100000 + ordinal}`,
@@ -132,16 +133,17 @@ function createStudents(count: number) {
   })
 }
 
-function createStaff(count: number) {
+function createStaff(count: number, startMemberSeq: number) {
   return Array.from({ length: count }, (_, index) => {
     const ordinal = index + 1
+    const memberSeq = startMemberSeq + index
     const firstName = faker.person.firstName()
     const lastName = faker.person.lastName()
     const firstSlug = slugify(firstName) || `staff${ordinal}`
     const lastSlug = slugify(lastName) || "member"
 
     return {
-      id: `t-${padNumber(ordinal, 4)}`,
+      id: `m_${padNumber(memberSeq, 4)}`,
       name: `${firstName} ${lastName}`,
       email: `${firstSlug}.${lastSlug}.${padNumber(ordinal, 4)}@example.edu`,
       studentNumber: null,
@@ -162,14 +164,16 @@ function createStaff(count: number) {
 function createSharedTeamsGroupModel(
   studentIds: readonly string[],
   sizes: readonly number[],
+  startGroupSeq: number,
+  startGroupSetSeq: number,
 ) {
   const groupedMembers = splitMembersBySizes(studentIds, sizes, 0)
+  const groupSetId = `gs_${padNumber(startGroupSetSeq, 4)}`
   const groups = groupedMembers.map((memberIds, index) => {
-    const groupOrdinal = index + 1
-    const suffix = padNumber(groupOrdinal, 2)
+    const groupSeq = startGroupSeq + index
     return {
-      id: `g-grp${suffix}`,
-      name: `grp${suffix}`,
+      id: `g_${padNumber(groupSeq, 4)}`,
+      name: `grp${padNumber(index + 1, 2)}`,
       memberIds,
       origin: "local" as const,
       lmsGroupId: null,
@@ -180,7 +184,7 @@ function createSharedTeamsGroupModel(
     groups,
     groupSets: [
       {
-        id: "gs-project-teams",
+        id: groupSetId,
         name: "Project Teams",
         groupIds: groups.map((group) => group.id),
         connection: null,
@@ -195,20 +199,24 @@ function createSharedTeamsGroupModel(
       {
         id: "a1",
         name: "assignment-1",
-        groupSetId: "gs-project-teams",
+        groupSetId,
       },
       {
         id: "a2",
         name: "assignment-2",
-        groupSetId: "gs-project-teams",
+        groupSetId,
       },
     ],
+    nextGroupSeq: startGroupSeq + groups.length,
+    nextGroupSetSeq: startGroupSetSeq + 1,
   }
 }
 
 function createAssignmentScopedGroupModel(
   studentIds: readonly string[],
   sizes: readonly number[],
+  startGroupSeq: number,
+  startGroupSetSeq: number,
 ) {
   const allGroups: Array<{
     id: string
@@ -230,6 +238,9 @@ function createAssignmentScopedGroupModel(
   const assignments: Array<{ id: string; name: string; groupSetId: string }> =
     []
 
+  let nextGroupSeq = startGroupSeq
+  let nextGroupSetSeq = startGroupSetSeq
+
   for (const assignmentNumber of [1, 2] as const) {
     const assignmentPrefix = `a${assignmentNumber}`
     const groupedMembers = splitMembersBySizes(
@@ -240,18 +251,22 @@ function createAssignmentScopedGroupModel(
 
     const assignmentGroups = groupedMembers.map((memberIds, index) => {
       const groupSuffix = padNumber(index + 1, 2)
+      const groupSeq = nextGroupSeq + index
       return {
-        id: `g-${assignmentPrefix}-grp${groupSuffix}`,
+        id: `g_${padNumber(groupSeq, 4)}`,
         name: `${assignmentPrefix}-grp${groupSuffix}`,
         memberIds,
         origin: "local" as const,
         lmsGroupId: null,
       }
     })
+    nextGroupSeq += assignmentGroups.length
 
     allGroups.push(...assignmentGroups)
+    const groupSetId = `gs_${padNumber(nextGroupSetSeq, 4)}`
+    nextGroupSetSeq += 1
     groupSets.push({
-      id: `gs-${assignmentPrefix}`,
+      id: groupSetId,
       name: `Assignment ${assignmentNumber} Teams`,
       groupIds: assignmentGroups.map((group) => group.id),
       connection: null,
@@ -264,7 +279,7 @@ function createAssignmentScopedGroupModel(
     assignments.push({
       id: assignmentPrefix,
       name: `assignment-${assignmentNumber}`,
-      groupSetId: `gs-${assignmentPrefix}`,
+      groupSetId,
     })
   }
 
@@ -272,6 +287,8 @@ function createAssignmentScopedGroupModel(
     groups: allGroups,
     groupSets,
     assignments,
+    nextGroupSeq,
+    nextGroupSetSeq,
   }
 }
 
@@ -280,17 +297,9 @@ function createArtifacts(
   preset: FixturePreset,
 ): FixtureArtifact[] {
   const studentsCsv = [
-    toCsvLine([
-      "id",
-      "name",
-      "email",
-      "student_number",
-      "git_username",
-      "status",
-    ]),
+    toCsvLine(["name", "email", "student_number", "git_username", "status"]),
     ...course.roster.students.map((student) =>
       toCsvLine([
-        student.id,
         student.name,
         student.email,
         student.studentNumber,
@@ -307,7 +316,12 @@ function createArtifacts(
   )
 
   const preferredGroupSetId =
-    preset === "assignment-scoped" ? "gs-a1" : "gs-project-teams"
+    preset === "assignment-scoped"
+      ? (course.roster.assignments.find((assignment) => assignment.id === "a1")
+          ?.groupSetId ?? null)
+      : (course.roster.groupSets.find(
+          (groupSet) => groupSet.name === "Project Teams",
+        )?.id ?? null)
   const fallbackGroupSet = course.roster.groupSets.find(
     (groupSet) => groupSet.connection === null,
   )
@@ -324,22 +338,17 @@ function createArtifacts(
 
   const groupsCsvRows = selectedGroups.flatMap((group) => {
     if (group.memberIds.length === 0) {
-      return [toCsvLine([group.name, group.id, "", ""])]
+      return [toCsvLine([group.name, "", ""])]
     }
 
     return group.memberIds.map((memberId) => {
       const member = memberById.get(memberId)
-      return toCsvLine([
-        group.name,
-        group.id,
-        member?.name ?? "",
-        member?.email ?? "",
-      ])
+      return toCsvLine([group.name, member?.name ?? "", member?.email ?? ""])
     })
   })
 
   const groupsCsv = [
-    toCsvLine(["group_name", "group_id", "name", "email"]),
+    toCsvLine(["group_name", "name", "email"]),
     ...groupsCsvRows,
   ].join("\n")
 
@@ -387,18 +396,32 @@ function createFixtureRecord(
   faker.seed(fixtureSeed(tier, preset))
 
   const counts = fixtureTierCounts[tier]
-  const students = createStudents(counts.students)
-  const staff = createStaff(counts.staff)
+  const students = createStudents(counts.students, 1)
+  const staff = createStaff(counts.staff, counts.students + 1)
   const studentIds = students.map((student) => student.id)
   const teamSizes = buildMixedTeamSizes(students.length)
+  let nextGroupSeq = 1
+  let nextGroupSetSeq = 1
 
   const userGroups =
     preset === "shared-teams"
-      ? createSharedTeamsGroupModel(studentIds, teamSizes)
-      : createAssignmentScopedGroupModel(studentIds, teamSizes)
+      ? createSharedTeamsGroupModel(
+          studentIds,
+          teamSizes,
+          nextGroupSeq,
+          nextGroupSetSeq,
+        )
+      : createAssignmentScopedGroupModel(
+          studentIds,
+          teamSizes,
+          nextGroupSeq,
+          nextGroupSetSeq,
+        )
+  nextGroupSeq = userGroups.nextGroupSeq
+  nextGroupSetSeq = userGroups.nextGroupSetSeq
 
   const individualGroups = students.map((student) => ({
-    id: `g-system-${student.id}`,
+    id: `g_${padNumber(nextGroupSeq++, 4)}`,
     name: student.id,
     memberIds: [student.id],
     origin: "system" as const,
@@ -406,7 +429,7 @@ function createFixtureRecord(
   }))
 
   const staffGroup = {
-    id: "g-system-staff",
+    id: `g_${padNumber(nextGroupSeq++, 4)}`,
     name: "staff",
     memberIds: staff.map((member) => member.id),
     origin: "system" as const,
@@ -421,7 +444,7 @@ function createFixtureRecord(
     groups: [...individualGroups, staffGroup, ...userGroups.groups],
     groupSets: [
       {
-        id: "gs-system-individual-students",
+        id: `gs_${padNumber(nextGroupSetSeq++, 4)}`,
         name: "Individual Students",
         groupIds: individualGroups.map((group) => group.id),
         connection: {
@@ -435,7 +458,7 @@ function createFixtureRecord(
         repoNameTemplate: null,
       },
       {
-        id: "gs-system-staff",
+        id: `gs_${padNumber(nextGroupSetSeq++, 4)}`,
         name: "Staff",
         groupIds: [staffGroup.id],
         connection: {
@@ -455,7 +478,7 @@ function createFixtureRecord(
 
   const course: PersistedCourse = {
     kind: persistedCourseKind,
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
@@ -463,6 +486,12 @@ function createFixtureRecord(
     gitConnectionId: "github-demo",
     organization: "fixture-org",
     lmsCourseId: courseId,
+    idSequences: {
+      nextGroupSeq,
+      nextGroupSetSeq,
+      nextMemberSeq: roster.students.length + roster.staff.length + 1,
+      nextAssignmentSeq: roster.assignments.length + 1,
+    },
     roster,
     repositoryTemplate: {
       kind: "remote",

@@ -9,8 +9,12 @@ import {
   createCancelledAppError,
   isAppError,
 } from "@repo-edu/application-contract"
-import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
-import { normalizeRoster } from "@repo-edu/domain/roster"
+import { allocateMemberId } from "@repo-edu/domain/id-allocator"
+import {
+  normalizeEmail,
+  normalizeMissingEmailStatus,
+  normalizeOptionalString,
+} from "@repo-edu/domain/roster"
 import {
   type GitUsernameImportRow,
   gitUsernameImportRowSchema,
@@ -23,9 +27,16 @@ import {
 import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
   enrollmentTypeKinds,
+  memberStatusKinds,
+  type EnrollmentType,
+  type GroupSetImportFormat,
   type GroupSetImportRow,
+  type IdSequences,
+  type MemberStatus,
   type PersistedAppSettings,
   type PersistedCourse,
+  type Roster,
+  type RosterMember,
 } from "@repo-edu/domain/types"
 import type { UserFileText } from "@repo-edu/host-runtime-contract"
 import type {
@@ -256,6 +267,19 @@ export function inferFileFormat(file: UserFileRef): "csv" | "xlsx" | null {
   return null
 }
 
+export function inferGroupSetImportFormat(
+  file: UserFileRef,
+): GroupSetImportFormat | null {
+  const loweredName = file.displayName.toLowerCase()
+  if (loweredName.endsWith(".csv") || file.mediaType === "text/csv") {
+    return "group-set-csv"
+  }
+  if (loweredName.endsWith(".txt") || file.mediaType === "text/plain") {
+    return "repobee-students"
+  }
+  return null
+}
+
 const ROLE_SYNONYMS: Record<string, string> = {
   instructor: "teacher",
   faculty: "teacher",
@@ -264,13 +288,22 @@ const ROLE_SYNONYMS: Record<string, string> = {
 }
 
 const ENROLLMENT_TYPE_SET = new Set<string>(enrollmentTypeKinds)
+const MEMBER_STATUS_SET = new Set<string>(memberStatusKinds)
 
-function resolveEnrollmentType(role: string | undefined): string | undefined {
+function resolveEnrollmentType(
+  role: string | undefined,
+): EnrollmentType | undefined {
   if (role === undefined) return undefined
   const normalized = role.trim().toLowerCase()
   if (normalized === "") return undefined
-  if (ENROLLMENT_TYPE_SET.has(normalized)) return normalized
-  return ROLE_SYNONYMS[normalized]
+  if (ENROLLMENT_TYPE_SET.has(normalized)) {
+    return normalized as EnrollmentType
+  }
+  const synonym = ROLE_SYNONYMS[normalized]
+  if (synonym === undefined) {
+    return undefined
+  }
+  return synonym as EnrollmentType
 }
 
 function toStudentImportRow(row: TabularRow): StudentImportRow {
@@ -361,9 +394,9 @@ export function parseGitUsernameRows(
 function toGroupSetImportRow(row: TabularRow): GroupSetImportRow {
   return {
     group_name: row.group_name ?? row.group ?? row.team ?? "",
-    group_id: row.group_id ?? row.id,
     name: row.name ?? row.member_name ?? row.student_name,
     email: row.email ?? row.student_email,
+    git_username: row.git_username ?? row.username,
   }
 }
 
@@ -397,36 +430,220 @@ export function parseGroupSetImportRows(
   return normalizedRows
 }
 
-function toRosterMemberInput(row: StudentImportRow, index: number) {
+type StudentImportPatch = {
+  name: string
+  email?: string
+  studentNumber?: string | null
+  gitUsername?: string | null
+  status?: MemberStatus
+  enrollmentType?: EnrollmentType
+}
+
+function normalizeMemberStatus(
+  value: string | undefined,
+): MemberStatus | undefined {
+  const normalized = normalizeOptionalString(value)?.toLowerCase()
+  if (!normalized || !MEMBER_STATUS_SET.has(normalized)) {
+    return undefined
+  }
+  return normalized as MemberStatus
+}
+
+function toStudentImportPatch(row: StudentImportRow): StudentImportPatch {
   return {
-    id: row.id ?? row.student_number ?? row.email ?? `imported-${index + 1}`,
-    nameCandidates: [row.name],
-    emailCandidates: row.email === undefined ? [] : [row.email],
-    studentNumber: row.student_number,
-    gitUsername: row.git_username,
-    status: row.status,
+    name: row.name.trim(),
+    email: row.email === undefined ? undefined : row.email.trim(),
+    studentNumber:
+      row.student_number === undefined
+        ? undefined
+        : normalizeOptionalString(row.student_number),
+    gitUsername:
+      row.git_username === undefined
+        ? undefined
+        : normalizeOptionalString(row.git_username),
+    status: normalizeMemberStatus(row.status),
     enrollmentType: resolveEnrollmentType(row.role),
+  }
+}
+
+function upsertMemberIndex(
+  index: Map<string, string | null>,
+  key: string,
+  memberId: string,
+) {
+  const existing = index.get(key)
+  if (existing === undefined) {
+    index.set(key, memberId)
+    return
+  }
+  if (existing !== memberId) {
+    index.set(key, null)
+  }
+}
+
+function buildRosterEmailIndex(
+  members: readonly RosterMember[],
+): Map<string, string | null> {
+  const index = new Map<string, string | null>()
+  for (const member of members) {
+    const key = normalizeEmail(member.email)
+    if (key.length === 0) {
+      continue
+    }
+    upsertMemberIndex(index, key, member.id)
+  }
+  return index
+}
+
+function buildRosterStudentNumberIndex(
+  members: readonly RosterMember[],
+): Map<string, string | null> {
+  const index = new Map<string, string | null>()
+  for (const member of members) {
+    const key = normalizeOptionalString(member.studentNumber)
+    if (key === null) {
+      continue
+    }
+    upsertMemberIndex(index, key, member.id)
+  }
+  return index
+}
+
+function applyStudentImportPatch(
+  member: RosterMember,
+  patch: StudentImportPatch,
+): RosterMember {
+  const nextEmail = patch.email === undefined ? member.email : patch.email
+  const nextStatus = normalizeMissingEmailStatus(
+    nextEmail,
+    patch.status ?? member.status,
+  )
+  const nextEnrollmentType = patch.enrollmentType ?? member.enrollmentType
+  const nextGitUsername =
+    patch.gitUsername === undefined ? member.gitUsername : patch.gitUsername
+
+  return {
+    ...member,
+    name: patch.name,
+    email: nextEmail,
+    studentNumber:
+      patch.studentNumber === undefined
+        ? member.studentNumber
+        : patch.studentNumber,
+    gitUsername: nextGitUsername,
+    gitUsernameStatus:
+      patch.gitUsername === undefined ? member.gitUsernameStatus : "unknown",
+    status: nextStatus,
+    enrollmentType: nextEnrollmentType,
+    enrollmentDisplay: member.enrollmentDisplay,
     source: "import",
   }
 }
 
-export function rosterFromStudentRows(rows: readonly StudentImportRow[]) {
-  const studentInputs: ReturnType<typeof toRosterMemberInput>[] = []
-  const staffInputs: ReturnType<typeof toRosterMemberInput>[] = []
+function createImportedMember(
+  id: string,
+  patch: StudentImportPatch,
+): RosterMember {
+  const email = patch.email ?? ""
+  return {
+    id,
+    name: patch.name,
+    email,
+    studentNumber: patch.studentNumber ?? null,
+    gitUsername: patch.gitUsername ?? null,
+    gitUsernameStatus: "unknown",
+    status: normalizeMissingEmailStatus(email, patch.status ?? "active"),
+    lmsStatus: null,
+    lmsUserId: null,
+    enrollmentType: patch.enrollmentType ?? "student",
+    enrollmentDisplay: null,
+    department: null,
+    institution: null,
+    source: "import",
+  }
+}
 
-  for (const [index, row] of rows.entries()) {
-    const input = toRosterMemberInput(row, index)
-    const enrollmentType = resolveEnrollmentType(row.role)
-    if (enrollmentType !== undefined && enrollmentType !== "student") {
-      staffInputs.push(input)
-    } else {
-      studentInputs.push(input)
+function matchExistingMemberId(
+  patch: StudentImportPatch,
+  emailIndex: ReadonlyMap<string, string | null>,
+  studentNumberIndex: ReadonlyMap<string, string | null>,
+): string | null {
+  if (patch.email !== undefined) {
+    const byEmail = emailIndex.get(normalizeEmail(patch.email))
+    if (byEmail !== undefined && byEmail !== null) {
+      return byEmail
     }
   }
 
-  const roster = normalizeRoster(studentInputs, staffInputs)
-  ensureSystemGroupSets(roster)
-  return roster
+  if (patch.studentNumber !== undefined && patch.studentNumber !== null) {
+    const byStudentNumber = studentNumberIndex.get(patch.studentNumber)
+    if (byStudentNumber !== undefined && byStudentNumber !== null) {
+      return byStudentNumber
+    }
+  }
+
+  return null
+}
+
+export function upsertRosterFromStudentRows(
+  roster: Roster,
+  rows: readonly StudentImportRow[],
+  sequences: IdSequences,
+): { roster: Roster; idSequences: IdSequences } {
+  const membersById = new Map(
+    roster.students.concat(roster.staff).map((member) => [member.id, member]),
+  )
+  let emailIndex = buildRosterEmailIndex([...membersById.values()])
+  let studentNumberIndex = buildRosterStudentNumberIndex([
+    ...membersById.values(),
+  ])
+  let seq = sequences
+
+  for (const row of rows) {
+    const patch = toStudentImportPatch(row)
+    const matchedMemberId = matchExistingMemberId(
+      patch,
+      emailIndex,
+      studentNumberIndex,
+    )
+
+    if (matchedMemberId !== null) {
+      const existing = membersById.get(matchedMemberId)
+      if (existing !== undefined) {
+        membersById.set(
+          matchedMemberId,
+          applyStudentImportPatch(existing, patch),
+        )
+      }
+    } else {
+      const alloc = allocateMemberId(seq)
+      seq = alloc.sequences
+      membersById.set(alloc.id, createImportedMember(alloc.id, patch))
+    }
+
+    const allMembers = [...membersById.values()]
+    emailIndex = buildRosterEmailIndex(allMembers)
+    studentNumberIndex = buildRosterStudentNumberIndex(allMembers)
+  }
+
+  const students: RosterMember[] = []
+  const staff: RosterMember[] = []
+  for (const member of membersById.values()) {
+    if (member.enrollmentType === "student") {
+      students.push(member)
+    } else {
+      staff.push(member)
+    }
+  }
+
+  return {
+    roster: {
+      ...roster,
+      students,
+      staff,
+    },
+    idSequences: seq,
+  }
 }
 
 export function normalizeRepositoryExecutionError(

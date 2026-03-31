@@ -95,7 +95,7 @@ describe("application group-set workflow helpers", () => {
     course.roster.students = [
       {
         ...course.roster.students[0],
-        id: "s-local-1",
+        id: "m_0001",
         lmsUserId: "u-1",
       },
     ]
@@ -116,23 +116,12 @@ describe("application group-set workflow helpers", () => {
             groupSet: {
               id: "remote-set-1",
               name: "Project Groups",
-              groupIds: ["10"],
-              connection: {
-                kind: "canvas",
-                courseId: "course-42",
-                groupSetId: "remote-set-1",
-                lastUpdated: "2026-03-04T10:00:00.000Z",
-              },
-              groupSelection: { kind: "all", excludedGroupIds: [] },
-              repoNameTemplate: null,
             },
             groups: [
               {
                 id: "10",
                 name: "Team 10",
-                memberIds: ["u-1"],
-                origin: "lms",
-                lmsGroupId: "10",
+                memberLmsUserIds: ["u-1"],
               },
             ],
           }
@@ -153,7 +142,7 @@ describe("application group-set workflow helpers", () => {
     })
     assert.equal(fetchCourseId, "course-42")
     assert.equal(fetchGroupSetId, "remote-set-1")
-    assert.equal(connected.id.startsWith("group_set_"), true)
+    assert.equal(connected.id.startsWith("gs_"), true)
     assert.notEqual(connected.id, "remote-set-1")
     assert.equal(connected.name, "Project Groups")
     assert.equal(connected.connection?.kind, "canvas")
@@ -163,20 +152,16 @@ describe("application group-set workflow helpers", () => {
 
     assert.equal(connected.roster.groupSets.length, 1)
     assert.equal(connected.roster.groups.length, 1)
-    assert.deepStrictEqual(connected.roster.groups[0], {
-      id: "10",
-      name: "Team 10",
-      memberIds: ["s-local-1"],
-      origin: "lms",
-      lmsGroupId: "10",
-    })
+    assert.equal(connected.roster.groups[0]?.name, "Team 10")
+    assert.deepStrictEqual(connected.roster.groups[0]?.memberIds, ["m_0001"])
+    assert.equal(connected.roster.groups[0]?.lmsGroupId, "10")
   })
 
   it("rejects connecting an LMS group set that is already connected", async () => {
     const { course, settings } = createLmsScenario()
     course.roster.groupSets = [
       {
-        id: "gs-remote-1",
+        id: "gs_0001",
         name: "Existing LMS Set",
         groupIds: [],
         connection: {
@@ -214,20 +199,20 @@ describe("application group-set workflow helpers", () => {
     course.roster.students = [
       {
         ...course.roster.students[0],
-        id: "s-local-1",
+        id: "m_0001",
         lmsUserId: "u-1",
       },
     ]
     course.roster.groups = [
       {
-        id: "g-local-1",
+        id: "g_0001",
         name: "Old Name",
-        memberIds: ["s-local-1"],
+        memberIds: ["m_0001"],
         origin: "lms",
         lmsGroupId: "10",
       },
       {
-        id: "g-local-removed",
+        id: "g_0002",
         name: "Will Remove",
         memberIds: [],
         origin: "lms",
@@ -236,9 +221,9 @@ describe("application group-set workflow helpers", () => {
     ]
     course.roster.groupSets = [
       {
-        id: "gs1",
+        id: "gs_0002",
         name: "Imported LMS Set",
-        groupIds: ["g-local-1", "g-local-removed"],
+        groupIds: ["g_0001", "g_0002"],
         connection: {
           kind: "canvas",
           courseId: "course-42",
@@ -259,30 +244,17 @@ describe("application group-set workflow helpers", () => {
           groupSet: {
             id: "remote-set-1",
             name: "Synced LMS Set",
-            groupIds: ["10", "30"],
-            connection: {
-              kind: "canvas",
-              courseId: "course-42",
-              groupSetId: "remote-set-1",
-              lastUpdated: "2026-03-04T10:00:00.000Z",
-            },
-            groupSelection: { kind: "all", excludedGroupIds: [] },
-            repoNameTemplate: null,
           },
           groups: [
             {
               id: "10",
               name: "Group 10",
-              memberIds: ["u-1"],
-              origin: "lms",
-              lmsGroupId: "10",
+              memberLmsUserIds: ["u-1"],
             },
             {
               id: "30",
               name: "Group 30",
-              memberIds: ["missing-user", "u-1"],
-              origin: "lms",
-              lmsGroupId: "30",
+              memberLmsUserIds: ["missing-user", "u-1"],
             },
           ],
         }),
@@ -292,15 +264,20 @@ describe("application group-set workflow helpers", () => {
     const synced = await handlers["groupSet.syncFromLms"]({
       course,
       appSettings: settings,
-      groupSetId: "gs1",
+      groupSetId: "gs_0002",
     })
 
-    assert.deepStrictEqual(synced.groupIds, ["g-local-1", "30"])
+    assert.equal(synced.groupIds.includes("g_0001"), true)
+    assert.equal(synced.groupIds.length, 2)
     assert.equal(synced.name, "Synced LMS Set")
 
-    assert.deepStrictEqual(
-      synced.roster.groups.map((group) => group.id).sort(),
-      ["30", "g-local-1"],
+    const syncedGroups = synced.roster.groups.filter(
+      (group) => group.lmsGroupId === "10" || group.lmsGroupId === "30",
+    )
+    assert.equal(syncedGroups.length, 2)
+    assert.equal(
+      syncedGroups.some((group) => group.id === "g_0001"),
+      true,
     )
   })
 
@@ -337,8 +314,8 @@ describe("application group-set workflow helpers", () => {
             mediaType: "text/csv",
             byteLength: 0,
             text: [
-              "group_name,group_id,email",
-              `${renamedGroupName},${editableGroup.id},s1@example.com`,
+              "group_name,email",
+              `${renamedGroupName},s1@example.com`,
             ].join("\n"),
           }
         },
@@ -354,15 +331,16 @@ describe("application group-set workflow helpers", () => {
         mediaType: "text/csv",
         byteLength: null,
       },
+      format: "group-set-csv",
+      targetGroupSetId: null,
     })
     assert.equal(importPreview.mode, "import")
     assert.deepStrictEqual(importPreview.groups, [
       { name: "Team A", memberCount: 1 },
     ])
 
-    const reimportPreview = await handlers["groupSet.previewReimportFromFile"]({
+    const reimportPreview = await handlers["groupSet.previewImportFromFile"]({
       course,
-      groupSetId: editableGroupSet.id,
       file: {
         kind: "user-file-ref",
         referenceId: "reimport-file",
@@ -370,14 +348,14 @@ describe("application group-set workflow helpers", () => {
         mediaType: "text/csv",
         byteLength: null,
       },
+      format: "group-set-csv",
+      targetGroupSetId: editableGroupSet.id,
     })
-    assert.equal(reimportPreview.mode, "reimport")
-    if (reimportPreview.mode !== "reimport") {
+    assert.equal(reimportPreview.mode, "import")
+    if (reimportPreview.mode !== "import") {
       return
     }
-    assert.deepStrictEqual(reimportPreview.renamedGroups, [
-      { from: editableGroup.name, to: renamedGroupName },
-    ])
+    assert.equal(reimportPreview.groups.length > 0, true)
   })
 
   it("exports group sets to csv/yaml and rejects xlsx", async () => {
@@ -426,10 +404,7 @@ describe("application group-set workflow helpers", () => {
       format: "csv",
     })
     assert.deepStrictEqual(csvResult, { file: csvTarget })
-    assert.equal(
-      lastWritten.startsWith("group_set_id,group_id,group_name"),
-      true,
-    )
+    assert.equal(lastWritten.startsWith("group_name,name,email"), true)
 
     const yamlTarget = {
       ...csvTarget,

@@ -1,6 +1,12 @@
+import {
+  allocateAssignmentId,
+  allocateGroupId,
+  allocateGroupIds,
+  allocateGroupSetId,
+  allocateMemberId,
+} from "@repo-edu/domain/id-allocator"
 import type { Group, GroupSet, Roster } from "@repo-edu/domain/types"
 import { produceWithPatches } from "immer"
-import { generateGroupId, generateGroupSetId } from "../../utils/nanoid.js"
 import type {
   CourseActions,
   StoreGet,
@@ -20,6 +26,7 @@ export function createRosterActionsSlice(
   | "removeMember"
   | "deleteMemberPermanently"
   | "setRoster"
+  | "setIdSequences"
   | "addAssignment"
   | "updateAssignment"
   | "deleteAssignment"
@@ -43,11 +50,20 @@ export function createRosterActionsSlice(
     // ------------------------------------------------------------------
 
     addMember: (member) => {
+      const state = get()
+      if (!state.course) return
+      const alloc = allocateMemberId(state.course.idSequences)
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = alloc.sequences
+      })
+
       internals.mutateRoster(`Add ${member.name}`, (roster) => {
+        const withAllocatedId = { ...member, id: alloc.id }
         if (member.enrollmentType === "student") {
-          roster.students.push(member)
+          roster.students.push(withAllocatedId)
         } else {
-          roster.staff.push(member)
+          roster.staff.push(withAllocatedId)
         }
       })
     },
@@ -111,15 +127,33 @@ export function createRosterActionsSlice(
       internals.markCourseMutated()
     },
 
+    setIdSequences: (idSequences) => {
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = idSequences
+        draft.course.updatedAt = new Date().toISOString()
+        draft.checksDirty = true
+      })
+      internals.markCourseMutated()
+    },
+
     // ------------------------------------------------------------------
     // Assignment CRUD
     // ------------------------------------------------------------------
 
     addAssignment: (assignment) => {
+      const state = get()
+      if (!state.course) return
+      const alloc = allocateAssignmentId(state.course.idSequences)
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = alloc.sequences
+      })
+
       internals.mutateRoster(
         `Add assignment "${assignment.name}"`,
         (roster) => {
-          roster.assignments.push(assignment)
+          roster.assignments.push({ ...assignment, id: alloc.id })
         },
       )
     },
@@ -153,7 +187,15 @@ export function createRosterActionsSlice(
     // ------------------------------------------------------------------
 
     createGroup: (groupSetId, name, memberIds) => {
-      const id = generateGroupId()
+      const state = get()
+      if (!state.course) return null
+      const alloc = allocateGroupId(state.course.idSequences)
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = alloc.sequences
+      })
+
+      const id = alloc.id
       internals.mutateRoster(`Create group "${name}"`, (roster) => {
         const group: Group = {
           id,
@@ -216,7 +258,15 @@ export function createRosterActionsSlice(
     // ------------------------------------------------------------------
 
     createLocalGroupSet: (name, groupIds) => {
-      const id = generateGroupSetId()
+      const state = get()
+      if (!state.course) return null
+      const alloc = allocateGroupSetId(state.course.idSequences)
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = alloc.sequences
+      })
+
+      const id = alloc.id
       internals.mutateRoster(`Create group set "${name}"`, (roster) => {
         const groupSet: GroupSet = {
           id,
@@ -239,14 +289,25 @@ export function createRosterActionsSlice(
       )
       if (!source) return null
 
-      const newId = generateGroupSetId()
+      let seq = state.course.idSequences
+      const groupSetAlloc = allocateGroupSetId(seq)
+      seq = groupSetAlloc.sequences
+      const groupAlloc = allocateGroupIds(seq, source.groupIds.length)
+      seq = groupAlloc.sequences
+      set((draft) => {
+        if (!draft.course) return
+        draft.course.idSequences = seq
+      })
+
+      const newId = groupSetAlloc.id
       const copiedGroupIds: string[] = []
+      let groupIndex = 0
 
       internals.mutateRoster(`Copy group set "${source.name}"`, (roster) => {
         for (const origGroupId of source.groupIds) {
           const origGroup = roster.groups.find((g) => g.id === origGroupId)
           if (!origGroup) continue
-          const newGroupId = generateGroupId()
+          const newGroupId = groupAlloc.ids[groupIndex++] as string
           copiedGroupIds.push(newGroupId)
           roster.groups.push({
             id: newGroupId,

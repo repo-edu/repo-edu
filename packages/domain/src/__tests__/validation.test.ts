@@ -6,9 +6,11 @@ import type {
   Assignment,
   Group,
   GroupSet,
+  IdSequences,
   Roster,
   RosterMember,
 } from "../types.js"
+import { initialIdSequences } from "../types.js"
 import {
   blockingIssues,
   hasBlockingIssues,
@@ -53,6 +55,10 @@ function makeRoster(overrides: Partial<Roster> = {}): Roster {
   }
 }
 
+function ensure(roster: Roster, sequences: IdSequences = initialIdSequences()) {
+  return ensureSystemGroupSets(roster, sequences)
+}
+
 describe("validateRoster", () => {
   it("detects missing system group sets", () => {
     const result = validateRoster(makeRoster())
@@ -65,7 +71,7 @@ describe("validateRoster", () => {
 
   it("passes the system-set check after ensureSystemGroupSets", () => {
     const roster = makeRoster()
-    ensureSystemGroupSets(roster)
+    ensure(roster)
 
     const result = validateRoster(roster)
 
@@ -85,7 +91,7 @@ describe("validateRoster", () => {
         }),
       ],
     })
-    ensureSystemGroupSets(roster)
+    ensure(roster)
 
     const result = validateRoster(roster)
     const kinds = result.issues.map((issue) => issue.kind)
@@ -121,7 +127,7 @@ describe("validateRoster", () => {
       groups: [group],
       groupSets: [groupSet],
     })
-    ensureSystemGroupSets(roster)
+    ensure(roster)
 
     const result = validateRoster(roster)
 

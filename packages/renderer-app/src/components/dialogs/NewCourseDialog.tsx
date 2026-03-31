@@ -2,6 +2,7 @@ import type { LmsCourseSummary } from "@repo-edu/application-contract"
 import { gitConnectionDisplayLabel } from "@repo-edu/domain/settings"
 import {
   type PersistedCourse,
+  initialIdSequences,
   persistedCourseKind,
   type Roster,
 } from "@repo-edu/domain/types"
@@ -237,7 +238,7 @@ export function NewCourseDialog() {
           : lmsCourseId.trim() || null
       const course: PersistedCourse = {
         kind: persistedCourseKind,
-        schemaVersion: 1,
+        schemaVersion: 2,
         revision: 0,
         id: generateCourseId(),
         displayName: courseName.trim(),
@@ -245,6 +246,7 @@ export function NewCourseDialog() {
         gitConnectionId: selectedGitConnection || null,
         organization: null,
         lmsCourseId: nextCourseId,
+        idSequences: initialIdSequences(),
         roster: EMPTY_ROSTER,
         repositoryTemplate: null,
         updatedAt: now,

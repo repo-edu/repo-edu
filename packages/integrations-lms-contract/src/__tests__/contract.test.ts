@@ -33,25 +33,14 @@ describe("integrations-lms-contract", () => {
     const client: LmsClient = {
       verifyConnection: async () => ({ verified: true }),
       listCourses: async () => [],
-      fetchRoster: async () => ({
-        connection: null,
-        students: [],
-        staff: [],
-        groups: [],
-        groupSets: [],
-        assignments: [],
-      }),
+      fetchRoster: async () => [],
       listGroupSets: async () => [],
       fetchGroupSet: async () => ({
         groupSet: {
           id: "gs1",
           name: "Groups",
-          groupIds: [],
-          connection: null,
-          groupSelection: { kind: "all", excludedGroupIds: [] },
-          repoNameTemplate: null,
         },
-        groups: [],
+        groups: [{ id: "g1", name: "Team 1", memberLmsUserIds: [] }],
       }),
     }
     assert.ok(client)

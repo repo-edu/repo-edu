@@ -1,15 +1,18 @@
+import { allocateMemberId } from "./id-allocator.js"
 import {
   normalizeEmail,
   normalizeMissingEmailStatus,
   normalizeOptionalString,
 } from "./roster.js"
 import type {
+  IdSequences,
   LmsImportConflict,
   MemberStatus,
   Roster,
   RosterImportFromLmsResult,
   RosterMember,
 } from "./types.js"
+import { initialIdSequences } from "./types.js"
 
 // ---------------------------------------------------------------------------
 // Private helpers (merge-only)
@@ -112,6 +115,7 @@ function isRosterMemberEquivalent(
 export function mergeRosterFromLmsWithConflicts(
   existing: Roster,
   incoming: Roster,
+  sequences: IdSequences = initialIdSequences(),
 ): RosterImportFromLmsResult {
   const allExisting = [...existing.students, ...existing.staff]
   const allIncoming = [...incoming.students, ...incoming.staff]
@@ -216,16 +220,6 @@ export function mergeRosterFromLmsWithConflicts(
     }
 
     if (matchedExistingId === null) {
-      const existingMember = existingById.get(incomingMember.id)
-      if (
-        existingMember !== undefined &&
-        !matchedExistingIds.has(existingMember.id)
-      ) {
-        matchedExistingId = existingMember.id
-      }
-    }
-
-    if (matchedExistingId === null) {
       unmatchedIncoming.push(incomingMember)
       continue
     }
@@ -317,10 +311,15 @@ export function mergeRosterFromLmsWithConflicts(
     }
   }
 
+  let seq = sequences
+
   // Add new incoming members that weren't matched
   for (const member of unmatchedIncoming) {
+    const alloc = allocateMemberId(seq)
+    seq = alloc.sequences
     merged.push({
       ...member,
+      id: alloc.id,
       status: normalizeMissingEmailStatus(member.email, member.status),
     })
     membersAdded += 1
@@ -348,6 +347,7 @@ export function mergeRosterFromLmsWithConflicts(
 
   return {
     roster,
+    idSequences: seq,
     summary: {
       membersAdded,
       membersUpdated,
@@ -359,6 +359,10 @@ export function mergeRosterFromLmsWithConflicts(
   }
 }
 
-export function mergeRosterFromLms(existing: Roster, incoming: Roster): Roster {
-  return mergeRosterFromLmsWithConflicts(existing, incoming).roster
+export function mergeRosterFromLms(
+  existing: Roster,
+  incoming: Roster,
+  sequences: IdSequences = initialIdSequences(),
+): Roster {
+  return mergeRosterFromLmsWithConflicts(existing, incoming, sequences).roster
 }

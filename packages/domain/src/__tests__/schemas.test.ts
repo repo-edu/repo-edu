@@ -129,7 +129,7 @@ describe("validatePersistedAppSettings", () => {
 describe("validatePersistedCourse", () => {
   const validProfile = {
     kind: "repo-edu.course.v1",
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: "prof-1",
     displayName: "Test Course",
@@ -137,6 +137,12 @@ describe("validatePersistedCourse", () => {
     gitConnectionId: null,
     organization: null,
     lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 1,
+      nextGroupSetSeq: 1,
+      nextMemberSeq: 1,
+      nextAssignmentSeq: 1,
+    },
     roster: {
       connection: null,
       students: [],
@@ -169,7 +175,7 @@ describe("validatePersistedCourse", () => {
         },
         students: [
           {
-            id: "s1",
+            id: "m_0001",
             name: "Alice",
             email: "alice@example.com",
             studentNumber: "12345",
@@ -187,7 +193,7 @@ describe("validatePersistedCourse", () => {
         ],
         staff: [
           {
-            id: "t1",
+            id: "m_0002",
             name: "Prof. Smith",
             email: "prof@example.com",
             studentNumber: null,
@@ -205,18 +211,18 @@ describe("validatePersistedCourse", () => {
         ],
         groups: [
           {
-            id: "g1",
+            id: "g_0001",
             name: "Alpha",
-            memberIds: ["s1"],
+            memberIds: ["m_0001"],
             origin: "lms",
             lmsGroupId: "canvas-group-1",
           },
         ],
         groupSets: [
           {
-            id: "gs1",
+            id: "gs_0001",
             name: "Teams",
-            groupIds: ["g1"],
+            groupIds: ["g_0001"],
             connection: {
               kind: "canvas",
               courseId: "course-1",
@@ -230,7 +236,7 @@ describe("validatePersistedCourse", () => {
             repoNameTemplate: null,
           },
         ],
-        assignments: [{ id: "a1", name: "HW1", groupSetId: "gs1" }],
+        assignments: [{ id: "a1", name: "HW1", groupSetId: "gs_0001" }],
       },
       repositoryTemplate: {
         kind: "remote",
@@ -250,7 +256,7 @@ describe("validatePersistedCourse", () => {
         ...validProfile.roster,
         groupSets: [
           {
-            id: "gs1",
+            id: "gs_0001",
             name: "Teams",
             groupIds: [],
             connection: null,
@@ -319,7 +325,7 @@ describe("validatePersistedCourse", () => {
         ...validProfile.roster,
         groupSets: [
           {
-            id: "gs1",
+            id: "gs_0001",
             name: "X",
             groupIds: [],
             connection: null,
@@ -359,7 +365,7 @@ describe("validatePersistedCourse", () => {
         ...validProfile.roster,
         groupSets: [
           {
-            id: "gs1",
+            id: "gs_0001",
             name: "Teams",
             groupIds: [],
             connection: null,
@@ -383,7 +389,7 @@ describe("validatePersistedCourse", () => {
         ...validProfile.roster,
         groupSets: [
           {
-            id: "gs1",
+            id: "gs_0001",
             name: "Teams",
             groupIds: [],
             connection: null,

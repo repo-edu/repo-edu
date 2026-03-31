@@ -156,18 +156,18 @@ describe("createMoodleClient", () => {
     const client = createMoodleClient(http)
     const result = await client.fetchRoster(baseDraft, "course-1")
 
-    assert.equal(result.students.length, 1)
-    assert.equal(result.students[0].enrollmentType, "student")
+    const students = result.filter(
+      (member) => member.enrollmentType === "student",
+    )
+    const staff = result.filter((member) => member.enrollmentType !== "student")
+    assert.equal(students.length, 1)
+    assert.equal(students[0]?.enrollmentType, "student")
 
-    assert.equal(result.staff.length, 2)
-    assert.equal(result.staff[0].name, "Alan Turing")
-    assert.equal(result.staff[0].enrollmentType, "teacher")
-    assert.equal(result.staff[1].name, "Grace Hopper")
-    assert.equal(result.staff[1].enrollmentType, "designer")
-
-    assert.equal(result.connection?.kind, "moodle")
-    assert.equal(result.connection?.courseId, "course-1")
-    assert.match(result.connection?.lastUpdated ?? "", /^\d{4}-\d{2}-\d{2}T/)
+    assert.equal(staff.length, 2)
+    assert.equal(staff[0]?.name, "Alan Turing")
+    assert.equal(staff[0]?.enrollmentType, "teacher")
+    assert.equal(staff[1]?.name, "Grace Hopper")
+    assert.equal(staff[1]?.enrollmentType, "designer")
   })
 
   it("emits progress while fetching a roster", async () => {
@@ -260,43 +260,17 @@ describe("createMoodleClient", () => {
       {
         id: "101",
         name: "Section A",
-        memberIds: ["11", "12"],
-        origin: "lms",
-        lmsGroupId: "101",
+        memberLmsUserIds: ["11", "12"],
       },
       {
         id: "102",
         name: "Section B",
-        memberIds: ["13"],
-        origin: "lms",
-        lmsGroupId: "102",
+        memberLmsUserIds: ["13"],
       },
     ])
     assert.deepStrictEqual(result.groupSet, {
       id: "30",
       name: "Lab Sections",
-      groupIds: ["101", "102"],
-      connection: {
-        kind: "moodle",
-        courseId: "course-1",
-        groupingId: "30",
-        lastUpdated:
-          result.groupSet.connection?.kind === "moodle"
-            ? result.groupSet.connection.lastUpdated
-            : "",
-      },
-      groupSelection: {
-        kind: "all",
-        excludedGroupIds: [],
-      },
-      repoNameTemplate: null,
     })
-    assert.equal(result.groupSet.connection?.kind, "moodle")
-    assert.equal(result.groupSet.connection?.courseId, "course-1")
-    assert.equal(result.groupSet.connection?.groupingId, "30")
-    assert.match(
-      result.groupSet.connection?.lastUpdated ?? "",
-      /^\d{4}-\d{2}-\d{2}T/,
-    )
   })
 })

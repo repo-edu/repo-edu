@@ -6,7 +6,7 @@ import type {
 export function makeCourseWithKnownValidationIssues(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: "course-1",
     displayName: "Course",
@@ -14,11 +14,17 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
     gitConnectionId: null,
     organization: null,
     lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 3,
+      nextGroupSetSeq: 2,
+      nextMemberSeq: 2,
+      nextAssignmentSeq: 2,
+    },
     roster: {
       connection: null,
       students: [
         {
-          id: "s1",
+          id: "m_0001",
           name: "Alice Smith",
           email: "",
           studentNumber: null,
@@ -37,25 +43,25 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
       staff: [],
       groups: [
         {
-          id: "g1",
+          id: "g_0001",
           name: "Alpha",
           memberIds: [],
           origin: "local",
           lmsGroupId: null,
         },
         {
-          id: "g2",
+          id: "g_0002",
           name: "Beta",
-          memberIds: ["s1"],
+          memberIds: ["m_0001"],
           origin: "local",
           lmsGroupId: null,
         },
       ],
       groupSets: [
         {
-          id: "gs1",
+          id: "gs_0001",
           name: "Projects",
-          groupIds: ["g1", "g2"],
+          groupIds: ["g_0001", "g_0002"],
           connection: null,
           groupSelection: {
             kind: "all",
@@ -68,7 +74,7 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
         {
           id: "a1",
           name: "Project 1",
-          groupSetId: "gs1",
+          groupSetId: "gs_0001",
         },
       ],
     },

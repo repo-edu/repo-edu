@@ -38,7 +38,7 @@ describe("docs runtime fixture selection", () => {
     assert.equal(course.roster.staff.length, 2)
     assert.equal(
       course.roster.assignments.every((assignment) =>
-        assignment.groupSetId.startsWith("gs-a"),
+        assignment.groupSetId.startsWith("gs_"),
       ),
       true,
     )

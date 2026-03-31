@@ -43,6 +43,7 @@ const openDialogFilterByFormat: Record<
   xlsx: { name: "Excel", extensions: ["xlsx"] },
   json: { name: "JSON", extensions: ["json"] },
   yaml: { name: "YAML", extensions: ["yaml", "yml"] },
+  txt: { name: "Text", extensions: ["txt"] },
 }
 
 const saveDialogFilterByFormat: Record<
@@ -53,6 +54,7 @@ const saveDialogFilterByFormat: Record<
   xlsx: { name: "Excel", extensions: ["xlsx"] },
   json: { name: "JSON", extensions: ["json"] },
   yaml: { name: "YAML", extensions: ["yaml"] },
+  txt: { name: "Text", extensions: ["txt"] },
 }
 
 function inferFormatFromPath(filePath: string): FileFormat | null {
@@ -70,6 +72,9 @@ function inferFormatFromPath(filePath: string): FileFormat | null {
   if (extension === ".yaml" || extension === ".yml") {
     return "yaml"
   }
+  if (extension === ".txt") {
+    return "txt"
+  }
 
   return null
 }
@@ -84,6 +89,8 @@ function mediaTypeForFormat(format: FileFormat | null): string | null {
       return "application/json"
     case "yaml":
       return "application/yaml"
+    case "txt":
+      return "text/plain"
     default:
       return null
   }

@@ -82,7 +82,7 @@ async function runCli(args: string[]): Promise<{
 function makeProfile(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     id: "seed-course",
     displayName: "Seed Course",
@@ -90,11 +90,17 @@ function makeProfile(): PersistedCourse {
     gitConnectionId: null,
     organization: null,
     lmsCourseId: "course-1",
+    idSequences: {
+      nextGroupSeq: 3,
+      nextGroupSetSeq: 2,
+      nextMemberSeq: 2,
+      nextAssignmentSeq: 2,
+    },
     roster: {
       connection: null,
       students: [
         {
-          id: "s1",
+          id: "m_0001",
           name: "Ada Lovelace",
           email: "",
           studentNumber: "1001",
@@ -113,25 +119,25 @@ function makeProfile(): PersistedCourse {
       staff: [],
       groups: [
         {
-          id: "g-empty",
+          id: "g_0001",
           name: "Alpha",
           memberIds: [],
           origin: "local",
           lmsGroupId: null,
         },
         {
-          id: "g-full",
+          id: "g_0002",
           name: "Beta",
-          memberIds: ["s1"],
+          memberIds: ["m_0001"],
           origin: "local",
           lmsGroupId: null,
         },
       ],
       groupSets: [
         {
-          id: "gs-local",
+          id: "gs_0001",
           name: "Projects",
-          groupIds: ["g-empty", "g-full"],
+          groupIds: ["g_0001", "g_0002"],
           connection: null,
           groupSelection: {
             kind: "all",
@@ -144,7 +150,7 @@ function makeProfile(): PersistedCourse {
         {
           id: "a1",
           name: "Project 1",
-          groupSetId: "gs-local",
+          groupSetId: "gs_0001",
         },
       ],
     },

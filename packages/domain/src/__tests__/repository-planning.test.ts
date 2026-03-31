@@ -325,6 +325,23 @@ describe("expandTemplate with surnames", () => {
   })
 })
 
+describe("expandTemplate with members", () => {
+  it("substitutes {members} placeholder", () => {
+    const assignment: Assignment = { id: "a1", name: "HW1", groupSetId: "gs1" }
+    const group: Group = {
+      id: "g1",
+      name: "101",
+      memberIds: [],
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }
+    const result = expandTemplate("{assignment}-{members}", assignment, group, {
+      members: "alice-bob",
+    })
+    assert.equal(result, "HW1-alice-bob")
+  })
+})
+
 describe("computeRepoName with surnames", () => {
   it("produces a slugified repo name from template + surnames", () => {
     const assignment: Assignment = { id: "a1", name: "HW 1", groupSetId: "gs1" }
@@ -342,5 +359,27 @@ describe("computeRepoName with surnames", () => {
       { surnames: "smith-jones" },
     )
     assert.equal(result, "hw-1-team-a-smith-jones")
+  })
+})
+
+describe("computeRepoName with members", () => {
+  it("produces a slugified repo name from template + members", () => {
+    const assignment: Assignment = { id: "a1", name: "HW 1", groupSetId: "gs1" }
+    const group: Group = {
+      id: "g1",
+      name: "Team A",
+      memberIds: [],
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }
+    const result = computeRepoName(
+      "{assignment}-{members}",
+      assignment,
+      group,
+      {
+        members: "alice-bob",
+      },
+    )
+    assert.equal(result, "hw-1-alice-bob")
   })
 })

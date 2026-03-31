@@ -1,9 +1,4 @@
-import type {
-  Group,
-  GroupSet,
-  LmsProviderKind,
-  Roster,
-} from "@repo-edu/domain/types"
+import type { LmsProviderKind } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/integrations-lms-contract"
 
@@ -28,9 +23,33 @@ export type LmsGroupSetSummary = {
   groupCount: number
 }
 
+export type RemoteLmsMember = {
+  id: string
+  lmsUserId: string
+  name: string
+  email: string | null
+  studentNumber: string | null
+  enrollmentType: string
+  enrollmentDisplay: string | null
+  status: "active" | "incomplete" | "dropped"
+  lmsStatus: "active" | "incomplete" | "dropped" | null
+  source: string
+}
+
+export type RemoteLmsGroupSet = {
+  id: string
+  name: string
+}
+
+export type RemoteLmsGroup = {
+  id: string
+  name: string
+  memberLmsUserIds: string[]
+}
+
 export type LmsFetchedGroupSet = {
-  groupSet: GroupSet
-  groups: Group[]
+  groupSet: RemoteLmsGroupSet
+  groups: RemoteLmsGroup[]
 }
 
 export type LmsClient = {
@@ -47,7 +66,7 @@ export type LmsClient = {
     courseId: string,
     signal?: AbortSignal,
     onProgress?: (message: string) => void,
-  ): Promise<Roster>
+  ): Promise<RemoteLmsMember[]>
   listGroupSets(
     draft: LmsConnectionDraft,
     courseId: string,

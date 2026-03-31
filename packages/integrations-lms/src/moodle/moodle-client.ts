@@ -1,9 +1,3 @@
-import { normalizeRoster } from "@repo-edu/domain/roster"
-import type {
-  Group,
-  Roster,
-  RosterMemberNormalizationInput,
-} from "@repo-edu/domain/types"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
   LmsClient,
@@ -11,6 +5,8 @@ import type {
   LmsCourseSummary,
   LmsFetchedGroupSet,
   LmsGroupSetSummary,
+  RemoteLmsGroup,
+  RemoteLmsMember,
 } from "@repo-edu/integrations-lms-contract"
 
 type MoodleFunction =
@@ -133,7 +129,7 @@ function moodleStaffEnrollmentType(user: unknown): string | null {
   return null
 }
 
-function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
+function toRemoteMember(user: unknown): RemoteLmsMember {
   const record = (user ?? {}) as {
     id?: unknown
     idnumber?: unknown
@@ -151,14 +147,20 @@ function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
           .filter((value) => typeof value === "string" && value.length > 0)
           .join(" ")
 
+  const lmsUserId = String(record.id ?? "")
+  const name = fullName || lmsUserId
+
   return {
-    id: record.id,
-    lmsUserId: record.id,
+    id: `remote-${lmsUserId}`,
+    lmsUserId,
+    name,
+    email: typeof record.email === "string" ? record.email : null,
+    studentNumber: typeof record.idnumber === "string" ? record.idnumber : null,
+    enrollmentType: "student",
+    enrollmentDisplay: null,
     source: "moodle",
-    studentNumber: record.idnumber,
-    displayNameCandidates: [record.fullname, fullName],
-    emailCandidates: [record.email],
-    gitUsername: null,
+    status: "active",
+    lmsStatus: "active",
   }
 }
 
@@ -209,7 +211,7 @@ function toGroupMemberIds(members: unknown): string[] {
   })
 }
 
-function toGroup(group: unknown): Group {
+function toGroup(group: unknown): RemoteLmsGroup {
   const record = (group ?? {}) as {
     id?: unknown
     name?: unknown
@@ -221,9 +223,7 @@ function toGroup(group: unknown): Group {
   return {
     id: lmsGroupId,
     name: typeof record.name === "string" ? record.name : "Untitled Group",
-    memberIds: toGroupMemberIds(record.members),
-    origin: "lms",
-    lmsGroupId,
+    memberLmsUserIds: toGroupMemberIds(record.members),
   }
 }
 
@@ -271,7 +271,7 @@ export function createMoodleClient(http: HttpPort): LmsClient {
       courseId: string,
       signal?: AbortSignal,
       onProgress?: (message: string) => void,
-    ): Promise<Roster> {
+    ): Promise<RemoteLmsMember[]> {
       onProgress?.("Fetching enrolled users from LMS.")
       const data = await moodleRequest(
         http,
@@ -283,39 +283,24 @@ export function createMoodleClient(http: HttpPort): LmsClient {
 
       if (!Array.isArray(data)) {
         onProgress?.("Loaded 0 enrolled users from LMS.")
-        return {
-          ...normalizeRoster([]),
-          connection: {
-            kind: "moodle",
-            courseId,
-            lastUpdated: new Date().toISOString(),
-          },
-        }
+        return []
       }
 
-      const staffInputs: ReturnType<typeof toRosterMemberInput>[] = []
-      const studentInputs: ReturnType<typeof toRosterMemberInput>[] = []
+      const staffInputs: RemoteLmsMember[] = []
+      const studentInputs: RemoteLmsMember[] = []
       for (const user of data) {
         const staffType = moodleStaffEnrollmentType(user)
         if (staffType !== null) {
           staffInputs.push({
-            ...toRosterMemberInput(user),
+            ...toRemoteMember(user),
             enrollmentType: staffType,
           })
         } else {
-          studentInputs.push(toRosterMemberInput(user))
+          studentInputs.push(toRemoteMember(user))
         }
       }
       onProgress?.(`Loaded ${data.length} enrolled users from LMS.`)
-
-      return {
-        ...normalizeRoster(studentInputs, staffInputs),
-        connection: {
-          kind: "moodle",
-          courseId,
-          lastUpdated: new Date().toISOString(),
-        },
-      }
+      return [...studentInputs, ...staffInputs]
     },
 
     async listGroupSets(
@@ -380,18 +365,6 @@ export function createMoodleClient(http: HttpPort): LmsClient {
             typeof grouping?.name === "string"
               ? grouping.name
               : `Group Set ${groupSetId}`,
-          groupIds: matchedGroups.map((group) => group.id),
-          connection: {
-            kind: "moodle",
-            courseId,
-            groupingId: groupSetId,
-            lastUpdated: new Date().toISOString(),
-          },
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
-          repoNameTemplate: null,
         },
         groups: matchedGroups,
       }

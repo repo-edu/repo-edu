@@ -21,7 +21,6 @@ import type {
   WorkflowInput,
 } from "@repo-edu/application-contract"
 import {
-  createCancelledAppError,
   isAppError,
   type workflowCatalog,
 } from "@repo-edu/application-contract"
@@ -96,22 +95,52 @@ function createWorkflowSubscriptionProcedure<
     .subscription(({ input }) =>
       observable<WorkflowEventFor<TWorkflowId>>((emit) => {
         const abortController = new AbortController()
+        const emitNext = (value: WorkflowEventFor<TWorkflowId>) => {
+          if (abortController.signal.aborted) {
+            return
+          }
+
+          try {
+            emit.next(value)
+          } catch {
+            // Stream can already be closed during shutdown races.
+          }
+        }
+        const emitComplete = () => {
+          if (abortController.signal.aborted) {
+            return
+          }
+
+          try {
+            emit.complete()
+          } catch {
+            // Stream can already be closed during shutdown races.
+          }
+        }
 
         handler(input, {
           signal: abortController.signal,
           onProgress(data) {
-            emit.next({ type: "progress", data })
+            emitNext({ type: "progress", data })
           },
           onOutput(data) {
-            emit.next({ type: "output", data })
+            emitNext({ type: "output", data })
           },
         })
           .then((result) => {
-            emit.next({ type: "completed", data: result })
-            emit.complete()
+            emitNext({ type: "completed", data: result })
+            emitComplete()
           })
           .catch((error) => {
-            emitFailure(emit, abortController.signal, error)
+            if (abortController.signal.aborted) {
+              return
+            }
+
+            emitNext({
+              type: "failed",
+              error: toAppError(error),
+            })
+            emitComplete()
           })
 
         return () => {
@@ -141,36 +170,16 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
   return t.router(procedures)
 }
 
-function emitFailure(
-  emit: {
-    next(value: { type: "failed"; error: AppError }): void
-    complete(): void
-  },
-  signal: AbortSignal,
-  error: unknown,
-) {
-  if (signal.aborted) {
-    emit.next({
-      type: "failed",
-      error: createCancelledAppError(),
-    })
-  } else if (isAppError(error)) {
-    emit.next({
-      type: "failed",
-      error,
-    })
-  } else {
-    emit.next({
-      type: "failed",
-      error: {
-        type: "unexpected",
-        message: error instanceof Error ? error.message : String(error),
-        retryable: false,
-      },
-    })
+function toAppError(error: unknown): AppError {
+  if (isAppError(error)) {
+    return error
   }
 
-  emit.complete()
+  return {
+    type: "unexpected",
+    message: error instanceof Error ? error.message : String(error),
+    retryable: false,
+  }
 }
 
 export type DesktopRouter = ReturnType<typeof createDesktopRouter>

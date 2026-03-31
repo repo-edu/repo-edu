@@ -5,9 +5,4 @@ const nanoid = customAlphabet(
   21,
 )
 
-export const generateMemberId = (): string => nanoid()
-export const generateAssignmentId = (): string => nanoid()
-export const generateGroupId = (): string => nanoid()
-export const generateGroupSetId = (): string => nanoid()
 export const generateCourseId = (): string => nanoid()
-export const generateProfileId = (): string => nanoid()

@@ -10,7 +10,11 @@ import type {
   PersistedAppSettings,
   PersistedCourse,
 } from "@repo-edu/domain/types"
-import { createWriteQueue, writeTextFileAtomic } from "@repo-edu/host-node"
+import {
+  cleanupAtomicTempFiles,
+  createWriteQueue,
+  writeTextFileAtomic,
+} from "@repo-edu/host-node"
 
 const cliDataDirEnv = "REPO_EDU_CLI_DATA_DIR"
 
@@ -65,7 +69,7 @@ export function createCliCourseStore(
   return {
     async listCourses(signal?: AbortSignal) {
       throwIfAborted(signal)
-
+      await cleanupAtomicTempFiles(resolveCoursesDirectory(storageRoot))
       const directory = resolveCoursesDirectory(storageRoot)
       const entries = await readdir(directory, { withFileTypes: true }).catch(
         (error: unknown) => {
@@ -177,7 +181,7 @@ export function createCliAppSettingsStore(
   return {
     async loadSettings(signal?: AbortSignal) {
       throwIfAborted(signal)
-
+      await cleanupAtomicTempFiles(join(storageRoot, "settings"))
       const settingsPath = resolveSettingsPath(storageRoot)
       try {
         const raw = await readFile(settingsPath, "utf8")

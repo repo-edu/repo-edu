@@ -3,7 +3,11 @@ import { join } from "node:path"
 import type { AppSettingsStore } from "@repo-edu/application"
 import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
 import type { PersistedAppSettings } from "@repo-edu/domain/types"
-import { createWriteQueue, writeTextFileAtomic } from "@repo-edu/host-node"
+import {
+  cleanupAtomicTempFiles,
+  createWriteQueue,
+  writeTextFileAtomic,
+} from "@repo-edu/host-node"
 
 function resolveSettingsPath(storageRoot: string): string {
   return join(storageRoot, "settings", "app-settings.json")
@@ -27,6 +31,7 @@ export function createDesktopAppSettingsStore(
   return {
     async loadSettings(signal?: AbortSignal) {
       throwIfAborted(signal)
+      await cleanupAtomicTempFiles(join(storageRoot, "settings"))
       const settingsPath = resolveSettingsPath(storageRoot)
 
       try {

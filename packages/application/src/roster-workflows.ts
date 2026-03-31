@@ -9,9 +9,13 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
+import { normalizeRoster } from "@repo-edu/domain/roster"
 import { mergeRosterFromLmsWithConflicts } from "@repo-edu/domain/roster-lms-merge"
 import type { UserFilePort } from "@repo-edu/host-runtime-contract"
-import type { LmsClient } from "@repo-edu/integrations-lms-contract"
+import type {
+  LmsClient,
+  RemoteLmsMember,
+} from "@repo-edu/integrations-lms-contract"
 import { parseCsv, serializeCsv } from "./adapters/tabular/index.js"
 import { createValidationAppError } from "./core.js"
 import {
@@ -22,8 +26,8 @@ import {
   resolveAppSettingsSnapshot,
   resolveCourseSnapshot,
   resolveLmsDraft,
-  rosterFromStudentRows,
   throwIfAborted,
+  upsertRosterFromStudentRows,
 } from "./workflow-helpers.js"
 
 export type RosterWorkflowPorts = {
@@ -32,7 +36,6 @@ export type RosterWorkflowPorts = {
 }
 
 const memberExportHeaders = [
-  "id",
   "name",
   "email",
   "student_number",
@@ -40,6 +43,51 @@ const memberExportHeaders = [
   "status",
   "enrollment_type",
 ] as const
+
+function rosterFromRemoteLmsMembers(
+  courseId: string,
+  provider: "canvas" | "moodle",
+  members: readonly RemoteLmsMember[],
+) {
+  const studentInputs = members
+    .filter((member) => member.enrollmentType === "student")
+    .map((member) => ({
+      id: member.id,
+      lmsUserId: member.lmsUserId,
+      nameCandidates: [member.name],
+      emailCandidates: member.email === null ? [] : [member.email],
+      studentNumber: member.studentNumber,
+      enrollmentType: member.enrollmentType,
+      enrollmentDisplay: member.enrollmentDisplay,
+      status: member.status,
+      lmsStatus: member.lmsStatus,
+      source: member.source,
+    }))
+
+  const staffInputs = members
+    .filter((member) => member.enrollmentType !== "student")
+    .map((member) => ({
+      id: member.id,
+      lmsUserId: member.lmsUserId,
+      nameCandidates: [member.name],
+      emailCandidates: member.email === null ? [] : [member.email],
+      studentNumber: member.studentNumber,
+      enrollmentType: member.enrollmentType,
+      enrollmentDisplay: member.enrollmentDisplay,
+      status: member.status,
+      lmsStatus: member.lmsStatus,
+      source: member.source,
+    }))
+
+  return {
+    ...normalizeRoster(studentInputs, staffInputs),
+    connection: {
+      kind: provider,
+      courseId,
+      lastUpdated: new Date().toISOString(),
+    } as const,
+  }
+}
 
 export function createRosterWorkflowHandlers(
   ports: RosterWorkflowPorts,
@@ -55,11 +103,12 @@ export function createRosterWorkflowHandlers(
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       const totalSteps = 3
+      const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps,
-        label: "Reading roster import file.",
+        label: "Reading roster import file and course snapshot.",
       })
       const fileText = await ports.userFile.readText(
         input.file,
@@ -87,12 +136,18 @@ export function createRosterWorkflowHandlers(
       })
       const parsed = parseCsv(fileText.text)
       const rows = parseStudentRows(parsed.rows)
-      const roster = rosterFromStudentRows(rows)
-      roster.connection = {
+      const result = upsertRosterFromStudentRows(
+        course.roster,
+        rows,
+        course.idSequences,
+      )
+      result.roster.connection = {
         kind: "import",
         sourceFilename: fileText.displayName,
         lastUpdated: new Date().toISOString(),
       }
+      const ensured = ensureSystemGroupSets(result.roster, result.idSequences)
+      result.idSequences = ensured.idSequences
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
@@ -102,9 +157,9 @@ export function createRosterWorkflowHandlers(
       })
       options?.onOutput?.({
         channel: "info",
-        message: `Imported ${roster.students.length} students from ${fileText.displayName}.`,
+        message: `Imported ${result.roster.students.length} students from ${fileText.displayName}.`,
       })
-      return roster
+      return result
     },
     "roster.importFromLms": async (
       input: RosterImportFromLmsInput,
@@ -135,7 +190,7 @@ export function createRosterWorkflowHandlers(
           channel: "info",
           message: `Fetching roster from ${draft.provider} course ${input.lmsCourseId}.`,
         })
-        const fetchedRoster = await ports.lms.fetchRoster(
+        const fetchedMembers = await ports.lms.fetchRoster(
           draft,
           input.lmsCourseId,
           options?.signal,
@@ -153,11 +208,18 @@ export function createRosterWorkflowHandlers(
           totalSteps,
           label: "Merging roster members.",
         })
+        const fetchedRoster = rosterFromRemoteLmsMembers(
+          input.lmsCourseId,
+          draft.provider,
+          fetchedMembers,
+        )
         const result = mergeRosterFromLmsWithConflicts(
           course.roster,
           fetchedRoster,
+          course.idSequences,
         )
-        ensureSystemGroupSets(result.roster)
+        const ensured = ensureSystemGroupSets(result.roster, result.idSequences)
+        result.idSequences = ensured.idSequences
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
@@ -204,7 +266,6 @@ export function createRosterWorkflowHandlers(
       })
       const allMembers = [...course.roster.students, ...course.roster.staff]
       const exportRows = allMembers.map((member) => ({
-        id: member.id,
         name: member.name,
         email: member.email,
         student_number: member.studentNumber ?? "",

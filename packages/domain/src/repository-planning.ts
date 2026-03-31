@@ -33,7 +33,7 @@ export function expandTemplate(
   template: string,
   assignment: Assignment | null,
   group: Group,
-  options?: { surnames?: string },
+  options?: { surnames?: string; members?: string },
 ): string {
   return template
     .replaceAll("{assignment}", assignment?.name ?? "")
@@ -41,15 +41,37 @@ export function expandTemplate(
     .replaceAll("{group_id}", group.id)
     .replaceAll("{initials}", "")
     .replaceAll("{surnames}", options?.surnames ?? "")
+    .replaceAll("{members}", options?.members ?? "")
 }
 
 export function computeRepoName(
   template: string,
   assignment: Assignment | null,
   group: Group,
-  options?: { surnames?: string },
+  options?: { surnames?: string; members?: string },
 ): string {
   return slugify(expandTemplate(template, assignment, group, options))
+}
+
+function activeGroupGitUsernameToken(
+  group: Group,
+  memberById: ReadonlyMap<string, Roster["students"][number]>,
+): string {
+  const usernames = [
+    ...new Set(
+      group.memberIds
+        .map((memberId) => memberById.get(memberId))
+        .filter(
+          (member): member is NonNullable<typeof member> =>
+            member !== undefined && member.status === "active",
+        )
+        .map((member) => member.gitUsername?.trim().toLowerCase() ?? "")
+        .filter((username) => username.length > 0),
+    ),
+  ]
+
+  usernames.sort((left, right) => left.localeCompare(right))
+  return usernames.join("-")
 }
 
 function findAssignment(
@@ -92,6 +114,11 @@ export function planRepositoryOperation(
   const skippedGroups: SkippedGroup[] = []
   const groups: PlannedRepositoryGroup[] = []
   const resolvedGroups = resolveAssignmentGroups(roster, assignment)
+  const memberById = new Map(
+    roster.students
+      .concat(roster.staff)
+      .map((member) => [member.id, member] as const),
+  )
 
   for (const group of resolvedGroups) {
     const activeIds = activeMemberIds(roster, group)
@@ -111,7 +138,9 @@ export function planRepositoryOperation(
       assignmentName: assignment.name,
       groupId: group.id,
       groupName: group.name,
-      repoName: computeRepoName(template, assignment, group),
+      repoName: computeRepoName(template, assignment, group, {
+        members: activeGroupGitUsernameToken(group, memberById),
+      }),
       activeMemberIds: activeIds,
     })
   }

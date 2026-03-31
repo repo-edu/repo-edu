@@ -1,9 +1,3 @@
-import { normalizeRoster } from "@repo-edu/domain/roster"
-import type {
-  Group,
-  Roster,
-  RosterMemberNormalizationInput,
-} from "@repo-edu/domain/types"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
   LmsClient,
@@ -11,6 +5,8 @@ import type {
   LmsCourseSummary,
   LmsFetchedGroupSet,
   LmsGroupSetSummary,
+  RemoteLmsGroup,
+  RemoteLmsMember,
 } from "@repo-edu/integrations-lms-contract"
 
 class CanvasRequestStatusError extends Error {
@@ -165,7 +161,7 @@ function resolveCanvasEnrollmentStatus(
   return "incomplete"
 }
 
-function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
+function toRemoteMember(user: unknown): RemoteLmsMember {
   const record = (user ?? {}) as {
     id?: unknown
     sis_user_id?: unknown
@@ -185,21 +181,28 @@ function toRosterMemberInput(user: unknown): RosterMemberNormalizationInput {
         : null
 
   const lmsStatus = resolveCanvasEnrollmentStatus(user)
+  const id = String(record.id ?? "")
+  const name =
+    typeof record.sortable_name === "string"
+      ? record.sortable_name
+      : typeof record.name === "string"
+        ? record.name
+        : typeof record.short_name === "string"
+          ? record.short_name
+          : id
 
   return {
-    id: record.id,
-    lmsUserId: record.id,
+    id: `remote-${id}`,
+    lmsUserId: id,
+    name,
+    email,
+    studentNumber:
+      typeof record.sis_user_id === "string" ? record.sis_user_id : null,
+    enrollmentType: "student",
+    enrollmentDisplay: null,
     source: "canvas",
     status: lmsStatus,
     lmsStatus,
-    studentNumber: record.sis_user_id,
-    displayNameCandidates: [
-      record.sortable_name,
-      record.name,
-      record.short_name,
-    ],
-    emailCandidates: [email],
-    gitUsername: null,
   }
 }
 
@@ -225,7 +228,7 @@ function toGroupSetSummary(groupSet: unknown): LmsGroupSetSummary {
   }
 }
 
-function toGroup(group: unknown, memberIds: string[]): Group {
+function toGroup(group: unknown, memberIds: string[]): RemoteLmsGroup {
   const record = (group ?? {}) as {
     id?: unknown
     name?: unknown
@@ -236,9 +239,7 @@ function toGroup(group: unknown, memberIds: string[]): Group {
   return {
     id: lmsGroupId,
     name: typeof record.name === "string" ? record.name : "Untitled Group",
-    memberIds,
-    origin: "lms",
-    lmsGroupId,
+    memberLmsUserIds: memberIds,
   }
 }
 
@@ -383,7 +384,7 @@ async function fetchGroupsForSet(
   groupSetId: string,
   signal?: AbortSignal,
   onProgress?: (message: string) => void,
-): Promise<Group[]> {
+): Promise<RemoteLmsGroup[]> {
   let groups: unknown[]
   try {
     groups = await fetchPaginatedArray(
@@ -414,7 +415,7 @@ async function fetchGroupsForSet(
     )
   }
 
-  const result: Group[] = []
+  const result: RemoteLmsGroup[] = []
   for (const group of groups) {
     const record = group as { id?: unknown; name?: unknown }
     const groupId = String(record.id ?? "")
@@ -471,7 +472,7 @@ export function createCanvasClient(http: HttpPort): LmsClient {
       courseId: string,
       signal?: AbortSignal,
       onProgress?: (message: string) => void,
-    ): Promise<Roster> {
+    ): Promise<RemoteLmsMember[]> {
       const encodedCourseId = encodeURIComponent(courseId)
       const [students, teacherStaff, taStaff, designerStaff, observerStaff] =
         await Promise.all([
@@ -532,36 +533,32 @@ export function createCanvasClient(http: HttpPort): LmsClient {
           ),
         ])
 
-      const staffInputs = [
+      const studentMembers = students.map((user) => ({
+        ...toRemoteMember(user),
+        enrollmentType: "student",
+      }))
+      const staffMembers = [
         ...teacherStaff.map((user) => ({
-          ...toRosterMemberInput(user),
-          enrollmentType: "teacher" as const,
+          ...toRemoteMember(user),
+          enrollmentType: "teacher",
         })),
         ...taStaff.map((user) => ({
-          ...toRosterMemberInput(user),
-          enrollmentType: "ta" as const,
+          ...toRemoteMember(user),
+          enrollmentType: "ta",
         })),
         ...designerStaff.map((user) => ({
-          ...toRosterMemberInput(user),
-          enrollmentType: "designer" as const,
+          ...toRemoteMember(user),
+          enrollmentType: "designer",
         })),
         ...observerStaff.map((user) => ({
-          ...toRosterMemberInput(user),
-          enrollmentType: "observer" as const,
+          ...toRemoteMember(user),
+          enrollmentType: "observer",
         })),
       ]
       onProgress?.(
-        `Loaded ${students.length} students and ${staffInputs.length} staff from LMS.`,
+        `Loaded ${studentMembers.length} students and ${staffMembers.length} staff from LMS.`,
       )
-
-      return {
-        ...normalizeRoster(students.map(toRosterMemberInput), staffInputs),
-        connection: {
-          kind: "canvas",
-          courseId,
-          lastUpdated: new Date().toISOString(),
-        },
-      }
+      return [...studentMembers, ...staffMembers]
     },
 
     async listGroupSets(
@@ -595,18 +592,6 @@ export function createCanvasClient(http: HttpPort): LmsClient {
         groupSet: {
           id: groupSetId,
           name,
-          groupIds: groups.map((group) => group.id),
-          connection: {
-            kind: "canvas",
-            courseId,
-            groupSetId,
-            lastUpdated: new Date().toISOString(),
-          },
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
-          repoNameTemplate: null,
         },
         groups,
       }

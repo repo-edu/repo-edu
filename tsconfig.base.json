@@ -28,9 +28,15 @@
       "@repo-edu/domain/roster-lms-merge": [
         "./packages/domain/src/roster-lms-merge.ts"
       ],
+      "@repo-edu/domain/roster-reconciliation": [
+        "./packages/domain/src/roster-reconciliation.ts"
+      ],
       "@repo-edu/domain/group-set": ["./packages/domain/src/group-set.ts"],
       "@repo-edu/domain/group-set-import-export": [
         "./packages/domain/src/group-set-import-export.ts"
+      ],
+      "@repo-edu/domain/id-allocator": [
+        "./packages/domain/src/id-allocator.ts"
       ],
       "@repo-edu/domain/group-selection": [
         "./packages/domain/src/group-selection.ts"

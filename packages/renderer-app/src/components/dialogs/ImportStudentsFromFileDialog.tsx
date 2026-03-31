@@ -11,7 +11,7 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { selectRoster, useCourseStore } from "../../stores/course-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -22,7 +22,8 @@ export function ImportStudentsFromFileDialog() {
   )
 
   const setRoster = useCourseStore((state) => state.setRoster)
-  const currentRoster = useCourseStore(selectRoster)
+  const setIdSequences = useCourseStore((state) => state.setIdSequences)
+  const course = useCourseStore((state) => state.course)
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -53,23 +54,22 @@ export function ImportStudentsFromFileDialog() {
 
   const handleImport = async () => {
     if (!fileRef) return
+    if (!course) {
+      setError("No course loaded")
+      return
+    }
 
     setImporting(true)
     setError(null)
 
     try {
       const client = getWorkflowClient()
-      const newRoster = await client.run("roster.importFromFile", {
+      const imported = await client.run("roster.importFromFile", {
+        course,
         file: fileRef,
       })
-      // Preserve existing groups, group sets, and assignments
-      // (roster import only updates members and connection)
-      if (currentRoster) {
-        newRoster.groups = currentRoster.groups
-        newRoster.groupSets = currentRoster.groupSets
-        newRoster.assignments = currentRoster.assignments
-      }
-      setRoster(newRoster, "Import students from file")
+      setRoster(imported.roster, "Import students from file")
+      setIdSequences(imported.idSequences)
       setImportFileDialogOpen(false)
       setFileName("")
       setFileRef(null)
@@ -108,7 +108,7 @@ export function ImportStudentsFromFileDialog() {
           <div className="text-sm">
             <p className="font-medium">Optional columns:</p>
             <p className="text-muted-foreground">
-              id, email, student_number, git_username, status, role
+              email, student_number, git_username, status, role
             </p>
           </div>
 
@@ -128,8 +128,8 @@ export function ImportStudentsFromFileDialog() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Existing students matched by id, email, or student number will be
-            updated. New students will be added.
+            Existing students are matched by email or student number. New
+            students are added with local IDs.
           </p>
         </div>
 

@@ -39,7 +39,11 @@ export function createLifecycleSlice(
         const client = getWorkflowClient()
         const loaded = await client.run("course.load", { courseId })
         const loadedCourse = loaded as PersistedCourse
-        ensureSystemGroupSets(loadedCourse.roster)
+        const sysResult = ensureSystemGroupSets(
+          loadedCourse.roster,
+          loadedCourse.idSequences,
+        )
+        loadedCourse.idSequences = sysResult.idSequences
         set((draft) => {
           draft.course = loadedCourse
           draft.status = "loaded"
@@ -70,7 +74,10 @@ export function createLifecycleSlice(
     ensureSystemGroupSets: () => {
       const state = get()
       if (!state.course) return
-      const result = ensureSystemGroupSets(state.course.roster)
+      const result = ensureSystemGroupSets(
+        state.course.roster,
+        state.course.idSequences,
+      )
 
       const hasChanges =
         result.groupsUpserted.length > 0 || result.deletedGroupIds.length > 0
@@ -102,6 +109,7 @@ export function createLifecycleSlice(
         )
         roster.groupSets.push(...(result.groupSets as GroupSet[]))
 
+        draft.course.idSequences = result.idSequences
         draft.course.updatedAt = new Date().toISOString()
         draft.systemSetsReady = true
         draft.checksDirty = true

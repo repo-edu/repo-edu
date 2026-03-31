@@ -19,6 +19,10 @@
       "types": "./dist/roster-lms-merge.d.ts",
       "default": "./dist/roster-lms-merge.js"
     },
+    "./roster-reconciliation": {
+      "types": "./dist/roster-reconciliation.d.ts",
+      "default": "./dist/roster-reconciliation.js"
+    },
     "./group-set": {
       "types": "./dist/group-set.d.ts",
       "default": "./dist/group-set.js"
@@ -30,6 +34,10 @@
     "./group-selection": {
       "types": "./dist/group-selection.d.ts",
       "default": "./dist/group-selection.js"
+    },
+    "./id-allocator": {
+      "types": "./dist/id-allocator.d.ts",
+      "default": "./dist/id-allocator.js"
     },
     "./repository-planning": {
       "types": "./dist/repository-planning.d.ts",

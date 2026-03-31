@@ -14,7 +14,7 @@ Each persisted document carries a `kind` discriminator and a `schemaVersion` fie
 | Document | Kind | Current version |
 |----------|------|-----------------|
 | App settings | `repo-edu.app-settings.v1` | `1` |
-| Course | `repo-edu.course.v1` | `1` |
+| Course | `repo-edu.course.v1` | `2` |
 
 These markers exist for future schema evolution. There is no migration layer — invalid documents are rejected at the boundary.
 
@@ -51,6 +51,7 @@ These markers exist for future schema evolution. There is no migration layer —
 | `gitConnectionId` | `string \| null` | References a Git connection in app settings by id |
 | `organization` | `string \| null` | Git organization/group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier |
+| `idSequences` | `{ nextGroupSeq; nextGroupSetSeq; nextMemberSeq }` | Monotonic local ID counters |
 | `roster` | `Roster` | Students, staff, groups, group sets, assignments |
 | `repositoryTemplate` | `RepositoryTemplate \| null` | Default template for repo creation |
 | `repositoryCloneTargetDirectory` | `string \| null` | Local directory for clone operations |
@@ -69,7 +70,7 @@ Each roster member (student or staff) has:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `string` | Unique within the roster |
+| `id` | `string` | Unique local ID (`m_####...`) |
 | `name` | `string` | Display name |
 | `email` | `string` | Primary email |
 | `studentNumber` | `string \| null` | Institution-specific ID |
@@ -93,6 +94,14 @@ Tracks how the roster was populated — a discriminated union on `kind`:
 A `Group` is a named collection of member IDs with an `origin` (`"system"`, `"lms"`, `"local"`). Two system group sets are always present: `individual_students` and `staff`.
 
 A `GroupSet` organizes groups for assignment purposes. It has a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`) and a `groupSelection` that controls which groups are active — either `"all"` with optional exclusions, or `"pattern"` with a filter string.
+
+Local ID policy:
+
+- Members: `m_0001`, `m_0002`, ...
+- Groups: `g_0001`, `g_0002`, ...
+- Group sets: `gs_0001`, `gs_0002`, ...
+
+LMS IDs are stored only in LMS fields (`lmsUserId`, `lmsGroupId`, group-set connection fields), never in local `id` fields.
 
 ### Assignments
 

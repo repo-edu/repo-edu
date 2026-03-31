@@ -13,7 +13,6 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
-import { generateAssignmentId } from "../../utils/nanoid.js"
 
 export function NewAssignmentDialog() {
   const [name, setName] = useState("")
@@ -69,7 +68,6 @@ export function NewAssignmentDialog() {
     if (!canCreate || !resolvedGroupSetId) return
 
     addAssignment({
-      id: generateAssignmentId(),
       name: name.trim(),
       groupSetId: resolvedGroupSetId,
     })

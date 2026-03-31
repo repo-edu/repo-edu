@@ -10,6 +10,9 @@ import {
   DialogTitle,
   FormField,
   Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
@@ -23,8 +26,35 @@ import {
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
+type GroupSetImportFormat = "group-set-csv" | "repobee-students"
+type GroupNameStrategy = "members" | "numbered"
+
+function inferFormatFromFileRef(file: {
+  displayName: string
+  mediaType: string | null
+}): GroupSetImportFormat | null {
+  const lowered = file.displayName.toLowerCase()
+  if (lowered.endsWith(".csv") || file.mediaType === "text/csv") {
+    return "group-set-csv"
+  }
+  if (lowered.endsWith(".txt") || file.mediaType === "text/plain") {
+    return "repobee-students"
+  }
+  return null
+}
+
 export function ReimportGroupSetDialog() {
   const [fileName, setFileName] = useState("")
+  const [fileRef, setFileRef] = useState<{
+    kind: "user-file-ref"
+    referenceId: string
+    displayName: string
+    mediaType: string | null
+    byteLength: number | null
+  } | null>(null)
+  const [format, setFormat] = useState<GroupSetImportFormat>("group-set-csv")
+  const [groupNameStrategy, setGroupNameStrategy] =
+    useState<GroupNameStrategy>("members")
   const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -36,54 +66,82 @@ export function ReimportGroupSetDialog() {
   const open = targetId !== null
   const course = useCourseStore((state) => state.course)
   const groupSet = useCourseStore(selectGroupSetById(targetId ?? ""))
+  const setRoster = useCourseStore((state) => state.setRoster)
+  const setIdSequences = useCourseStore((state) => state.setIdSequences)
+
+  const runPreview = async (
+    nextFileRef: NonNullable<typeof fileRef>,
+    nextFormat: GroupSetImportFormat,
+    nextGroupNameStrategy = groupNameStrategy,
+  ) => {
+    if (!targetId || !course) return
+
+    setLoading(true)
+    setError(null)
+    try {
+      const client = getWorkflowClient()
+      const result = await client.run("groupSet.previewImportFromFile", {
+        course,
+        file: nextFileRef,
+        format: nextFormat,
+        targetGroupSetId: targetId,
+        groupNameStrategy: nextGroupNameStrategy,
+      })
+      setPreview(result)
+    } catch (cause) {
+      setPreview(null)
+      setError(getErrorMessage(cause))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleBrowse = async () => {
     if (!targetId || !course) return
 
     try {
       const host = getRendererHost()
-      const fileRef = await host.pickUserFile({
-        title: "Select CSV file for import",
-        acceptFormats: ["csv"],
+      const picked = await host.pickUserFile({
+        title: "Select group-set import file",
+        acceptFormats: ["csv", "txt"],
       })
-      if (!fileRef) return
+      if (!picked) return
 
-      setFileName(fileRef.displayName)
-      setError(null)
-      setLoading(true)
-
-      const client = getWorkflowClient()
-      const result = await client.run("groupSet.previewReimportFromFile", {
-        course,
-        groupSetId: targetId,
-        file: fileRef,
-      })
-      if (result.mode === "reimport") {
-        setPreview(result)
-      } else {
-        setError("Unexpected preview mode")
-        setPreview(null)
-      }
-    } catch (e) {
-      setError(getErrorMessage(e))
-    } finally {
-      setLoading(false)
+      const inferred = inferFormatFromFileRef(picked) ?? "group-set-csv"
+      setFileRef(picked)
+      setFileName(picked.displayName)
+      setFormat(inferred)
+      await runPreview(picked, inferred, groupNameStrategy)
+    } catch (cause) {
+      setError(getErrorMessage(cause))
     }
   }
 
-  const canImport = preview !== null && !importing
+  const handleImport = async () => {
+    if (!targetId || !course || !fileRef || !preview) return
 
-  const handleReimport = async () => {
-    if (!canImport || !targetId) return
     setImporting(true)
     setError(null)
     setGroupSetOperation({ kind: "reimport", groupSetId: targetId })
 
     try {
+      const client = getWorkflowClient()
+      const nextCourse = await client.run("groupSet.importFromFile", {
+        course,
+        file: fileRef,
+        format,
+        targetGroupSetId: targetId,
+        groupNameStrategy,
+      })
+
+      setRoster(
+        nextCourse.roster,
+        `Import into group set "${groupSet?.name ?? ""}"`,
+      )
+      setIdSequences(nextCourse.idSequences)
       handleClose()
-    } catch (e) {
-      const message = getErrorMessage(e)
-      setError(message)
+    } catch (cause) {
+      setError(getErrorMessage(cause))
     } finally {
       setImporting(false)
       setGroupSetOperation(null)
@@ -94,21 +152,19 @@ export function ReimportGroupSetDialog() {
     setTargetId(null)
     setGroupSetOperation(null)
     setFileName("")
+    setFileRef(null)
+    setFormat("group-set-csv")
+    setGroupNameStrategy("members")
     setPreview(null)
     setLoading(false)
     setImporting(false)
     setError(null)
   }
 
-  const hasChanges =
-    preview &&
-    preview.mode === "reimport" &&
-    (preview.addedGroupNames.length > 0 ||
-      preview.removedGroupNames.length > 0 ||
-      preview.updatedGroupNames.length > 0)
+  const canImport = preview !== null && !importing
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Import: {groupSet?.name ?? "Group Set"}</DialogTitle>
@@ -121,19 +177,7 @@ export function ReimportGroupSetDialog() {
             </Alert>
           )}
 
-          <Alert>
-            <AlertTriangle className="size-4" />
-            <Text className="text-sm">
-              This will overwrite the current groups in this set.
-            </Text>
-          </Alert>
-
-          <Text className="text-xs text-muted-foreground">
-            If the CSV includes group_id, matching uses IDs. If not, matching
-            falls back to group name, so renames appear as remove + add.
-          </Text>
-
-          <FormField label="CSV File">
+          <FormField label="Import File">
             <div className="flex gap-2">
               <Input
                 value={fileName}
@@ -153,87 +197,102 @@ export function ReimportGroupSetDialog() {
             </div>
           </FormField>
 
+          <FormField label="Format">
+            <RadioGroup
+              value={format}
+              onValueChange={(value) => {
+                const next = value as GroupSetImportFormat
+                setFormat(next)
+                if (fileRef) {
+                  void runPreview(fileRef, next, groupNameStrategy)
+                }
+              }}
+              className="space-y-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="group-set-csv"
+                  id="reimport-format-csv"
+                />
+                <Label htmlFor="reimport-format-csv" className="text-sm">
+                  CSV (group_name,name,email)
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="repobee-students"
+                  id="reimport-format-repobee"
+                />
+                <Label htmlFor="reimport-format-repobee" className="text-sm">
+                  RepoBee students file (.txt)
+                </Label>
+              </div>
+            </RadioGroup>
+          </FormField>
+
+          {format === "repobee-students" && (
+            <FormField label="RepoBee group names">
+              <RadioGroup
+                value={groupNameStrategy}
+                onValueChange={(value) => {
+                  const next = value as GroupNameStrategy
+                  setGroupNameStrategy(next)
+                  if (fileRef) {
+                    void runPreview(fileRef, format, next)
+                  }
+                }}
+                className="space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem
+                    value="members"
+                    id="reimport-repobee-members"
+                  />
+                  <Label htmlFor="reimport-repobee-members" className="text-sm">
+                    Based on member usernames
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem
+                    value="numbered"
+                    id="reimport-repobee-numbered"
+                  />
+                  <Label
+                    htmlFor="reimport-repobee-numbered"
+                    className="text-sm"
+                  >
+                    Numbered (group-1, group-2, ...)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </FormField>
+          )}
+
           {loading && (
             <Text className="text-sm text-muted-foreground">
               Loading preview...
             </Text>
           )}
 
-          {preview && preview.mode === "reimport" && (
-            <div className="space-y-3">
-              <Text className="text-sm font-medium">Changes</Text>
+          {preview?.mode === "import" && (
+            <Text className="text-sm text-muted-foreground">
+              Preview: {preview.groups.length} groups
+            </Text>
+          )}
 
-              {!hasChanges && (
-                <Text className="text-sm text-muted-foreground">
-                  No changes detected.
-                </Text>
-              )}
-
-              {preview.addedGroupNames.length > 0 && (
-                <div className="space-y-1">
-                  <Text className="text-xs font-medium text-green-600 dark:text-green-400">
-                    Added ({preview.addedGroupNames.length})
-                  </Text>
-                  <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
-                    {preview.addedGroupNames.map((n) => (
-                      <div key={n} className="px-3 py-1 text-sm">
-                        {n}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.removedGroupNames.length > 0 && (
-                <div className="space-y-1">
-                  <Text className="text-xs font-medium text-destructive">
-                    Removed ({preview.removedGroupNames.length})
-                  </Text>
-                  <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
-                    {preview.removedGroupNames.map((n) => (
-                      <div
-                        key={n}
-                        className="px-3 py-1 text-sm text-muted-foreground line-through"
-                      >
-                        {n}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.updatedGroupNames.length > 0 && (
-                <div className="space-y-1">
-                  <Text className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Updated ({preview.updatedGroupNames.length})
-                  </Text>
-                  <div className="border rounded-md divide-y max-h-32 overflow-y-auto">
-                    {preview.updatedGroupNames.map((n) => (
-                      <div key={n} className="px-3 py-1 text-sm">
-                        {n}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.totalMissing > 0 && (
-                <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <AlertTriangle className="size-3 shrink-0" />
-                  <span>
-                    {preview.totalMissing} member
-                    {preview.totalMissing !== 1 ? "s" : ""} not found in roster
-                  </span>
-                </div>
-              )}
-            </div>
+          {preview?.mode === "replace" && (
+            <Text className="text-sm text-muted-foreground">
+              Preview: +{preview.addedTeams.length} added, -
+              {preview.removedTeams.length} removed,{" "}
+              {preview.changedTeams.length} changed
+            </Text>
           )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleReimport} disabled={!canImport}>
+          <Button onClick={handleImport} disabled={!canImport}>
             {importing ? "Importing..." : "Confirm Import"}
           </Button>
         </DialogFooter>

@@ -30,10 +30,11 @@ After connecting, click **Sync** on a group set to refresh its membership from t
 
 ### Local group sets
 
-Created within repo-edu, either manually or by importing a CSV file.
+Created within repo-edu, either manually or by importing files.
 
 - **Create manually** — use the dropdown menu to create an empty group set, then add groups and assign members
-- **Import from CSV** — upload a CSV file with group names and member emails (see [Output Formats](/repo-edu/reference/output-formats/) for the format). A preview shows groups to create, matched members, and any unmatched emails before you confirm.
+- **Import from CSV** — upload `group_name,name,email` rows (see [Output Formats](/repo-edu/reference/output-formats/) for the format). CSV import updates matching groups and appends new groups without deleting unmentioned groups.
+- **Import from RepoBee students file** — upload a `.txt` file with whitespace-separated Git usernames per line. RepoBee import uses full-replace semantics for the target imported group set.
 
 Local group sets can be freely renamed, edited, and deleted.
 
@@ -81,12 +82,15 @@ When repositories are created for an assignment, they are initialized with the t
 
 Select a group set and click **Export** to download it as:
 
-- **CSV** — one row per member per group, with group name, member name, and email columns
+- **CSV** — one row per member per group, with `group_name,name,email` columns
 - **YAML** — Repobee-compatible team list format, for use with the Repobee tool
 
 ## Reimporting a group set
 
-For local group sets imported from CSV, you can reimport to update the groups. The reimport shows a diff preview: groups added, removed, renamed, and members changed. Review the changes before confirming.
+For editable local/imported group sets, use **Import** again with a target group set:
+
+- **CSV reimport** keeps existing groups unless explicitly updated/added in the file.
+- **RepoBee reimport** replaces the target imported set and shows membership-based add/remove/change preview buckets.
 
 ## Validation
 

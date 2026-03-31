@@ -1,10 +1,12 @@
-import { generateEntityId, generateUniqueGroupName } from "./roster.js"
+import { allocateGroupId, allocateGroupSetId } from "./id-allocator.js"
+import { generateUniqueGroupName } from "./roster.js"
 import type {
   Group,
   GroupOrigin,
   GroupSelectionMode,
   GroupSet,
   GroupSetConnection,
+  IdSequences,
   ResolvedGitUsername,
   ResolveGitUsernamesResult,
   Roster,
@@ -62,20 +64,27 @@ export function systemSetsMissing(roster: Roster): boolean {
   )
 }
 
-function ensureIndividualStudentsSet(roster: Roster): {
+function ensureIndividualStudentsSet(
+  roster: Roster,
+  sequences: IdSequences,
+): {
   groupSet: GroupSet
   groupsUpserted: Group[]
   deletedGroupIds: string[]
+  sequences: IdSequences
 } {
   const groupsUpserted: Group[] = []
   const deletedGroupIds: string[] = []
+  let seq = sequences
 
   let setIndex = roster.groupSets.findIndex((groupSet) =>
     isSystemSet(groupSet, SYSTEM_TYPE_INDIVIDUAL_STUDENTS),
   )
   if (setIndex < 0) {
+    const alloc = allocateGroupSetId(seq)
+    seq = alloc.sequences
     roster.groupSets.push({
-      id: generateEntityId("group_set"),
+      id: alloc.id,
       name: "Individual Students",
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_INDIVIDUAL_STUDENTS),
@@ -128,8 +137,10 @@ function ensureIndividualStudentsSet(roster: Roster): {
       continue
     }
 
+    const alloc = allocateGroupId(seq)
+    seq = alloc.sequences
     const newGroup: Group = {
-      id: generateEntityId("group"),
+      id: alloc.id,
       name: generateUniqueGroupName([student], existingNames),
       memberIds: [student.id],
       origin: ORIGIN_SYSTEM,
@@ -170,22 +181,30 @@ function ensureIndividualStudentsSet(roster: Roster): {
     groupSet: { ...roster.groupSets[setIndex] },
     groupsUpserted,
     deletedGroupIds,
+    sequences: seq,
   }
 }
 
-function ensureStaffSet(roster: Roster): {
+function ensureStaffSet(
+  roster: Roster,
+  sequences: IdSequences,
+): {
   groupSet: GroupSet
   groupsUpserted: Group[]
   deletedGroupIds: string[]
+  sequences: IdSequences
 } {
   const groupsUpserted: Group[] = []
+  let seq = sequences
 
   let setIndex = roster.groupSets.findIndex((groupSet) =>
     isSystemSet(groupSet, SYSTEM_TYPE_STAFF),
   )
   if (setIndex < 0) {
+    const alloc = allocateGroupSetId(seq)
+    seq = alloc.sequences
     roster.groupSets.push({
-      id: generateEntityId("group_set"),
+      id: alloc.id,
       name: "Staff",
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_STAFF),
@@ -222,8 +241,10 @@ function ensureStaffSet(roster: Roster): {
       groupsUpserted.push({ ...existingGroup })
     }
   } else {
+    const alloc = allocateGroupId(seq)
+    seq = alloc.sequences
     const newGroup: Group = {
-      id: generateEntityId("group"),
+      id: alloc.id,
       name: STAFF_GROUP_NAME,
       memberIds: [...activeStaffIds],
       origin: ORIGIN_SYSTEM,
@@ -241,14 +262,16 @@ function ensureStaffSet(roster: Roster): {
     groupSet: { ...roster.groupSets[setIndex] },
     groupsUpserted,
     deletedGroupIds: [],
+    sequences: seq,
   }
 }
 
 export function ensureSystemGroupSets(
   roster: Roster,
+  sequences: IdSequences,
 ): SystemGroupSetEnsureResult {
-  const individualStudents = ensureIndividualStudentsSet(roster)
-  const staff = ensureStaffSet(roster)
+  const individualStudents = ensureIndividualStudentsSet(roster, sequences)
+  const staff = ensureStaffSet(roster, individualStudents.sequences)
 
   return {
     groupSets: [individualStudents.groupSet, staff.groupSet],
@@ -260,6 +283,7 @@ export function ensureSystemGroupSets(
       ...individualStudents.deletedGroupIds,
       ...staff.deletedGroupIds,
     ],
+    idSequences: staff.sequences,
   }
 }
 

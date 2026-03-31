@@ -9,13 +9,19 @@ import {
 
 describe("application roster workflow helpers", () => {
   it("imports students from CSV file and ensures system group sets", async () => {
-    const fixtureCourse = getCourseScenario({
-      tier: "small",
-      preset: "shared-teams",
-    })
+    const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
+    course.roster = {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    }
+
     const handlers = createRosterWorkflowHandlers({
       lms: {
-        fetchRoster: async () => fixtureCourse.roster,
+        fetchRoster: async () => [],
       },
       userFile: {
         readText: async () => ({
@@ -37,7 +43,8 @@ describe("application roster workflow helpers", () => {
       },
     })
 
-    const roster = await handlers["roster.importFromFile"]({
+    const imported = await handlers["roster.importFromFile"]({
+      course,
       file: {
         kind: "user-file-ref",
         referenceId: "file-1",
@@ -47,19 +54,78 @@ describe("application roster workflow helpers", () => {
       },
     })
 
-    assert.equal(roster.students.length, 2)
-    assert.equal(systemSetsMissing(roster), false)
-    assert.equal(roster.connection?.kind, "import")
+    assert.equal(imported.roster.students.length, 2)
+    assert.equal(systemSetsMissing(imported.roster), false)
+    assert.equal(imported.roster.connection?.kind, "import")
+    assert.equal(
+      imported.idSequences.nextMemberSeq > course.idSequences.nextMemberSeq,
+      true,
+    )
+  })
+
+  it("upserts matched members and allocates IDs only for new members", async () => {
+    const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
+    const existing = course.roster.students.find(
+      (member) => member.email.trim().length > 0,
+    )
+    assert.ok(existing)
+    const previousNextMemberSeq = course.idSequences.nextMemberSeq
+
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async () => [],
+      },
+      userFile: {
+        readText: async () => ({
+          displayName: "students.csv",
+          mediaType: "text/csv",
+          text: [
+            "name,email,student_number,git_username",
+            `Updated Name,${existing.email},7777,updated-user`,
+            "New Person,new-person@example.com,8888,new-user",
+          ].join("\n"),
+          byteLength: 0,
+        }),
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
+
+    const imported = await handlers["roster.importFromFile"]({
+      course,
+      file: {
+        kind: "user-file-ref",
+        referenceId: "file-upsert",
+        displayName: "students.csv",
+        mediaType: "text/csv",
+        byteLength: null,
+      },
+    })
+
+    const updatedMember = imported.roster.students.find(
+      (member) => member.id === existing.id,
+    )
+    assert.ok(updatedMember)
+    assert.equal(updatedMember.name, "Updated Name")
+    assert.equal(updatedMember.gitUsername, "updated-user")
+
+    const createdMember = imported.roster.students.find(
+      (member) => member.email === "new-person@example.com",
+    )
+    assert.ok(createdMember)
+    assert.equal(createdMember.id !== existing.id, true)
+    assert.equal(imported.idSequences.nextMemberSeq, previousNextMemberSeq + 1)
   })
 
   it("fails roster import when CSV rows violate student schema", async () => {
-    const fixtureCourse = getCourseScenario({
-      tier: "small",
-      preset: "shared-teams",
-    })
+    const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
     const handlers = createRosterWorkflowHandlers({
       lms: {
-        fetchRoster: async () => fixtureCourse.roster,
+        fetchRoster: async () => [],
       },
       userFile: {
         readText: async () => ({
@@ -80,6 +146,7 @@ describe("application roster workflow helpers", () => {
     await assert.rejects(
       () =>
         handlers["roster.importFromFile"]({
+          course,
           file: {
             kind: "user-file-ref",
             referenceId: "file-2",
@@ -124,31 +191,20 @@ describe("application roster workflow helpers", () => {
           receivedDraft = draft
           receivedCourseId = courseId
           onProgress?.("Loaded 1 enrolled users from LMS.")
-          return {
-            connection: null,
-            students: [
-              {
-                id: "s1",
-                name: "Ada",
-                email: "ada@example.com",
-                studentNumber: null,
-                gitUsername: null,
-                gitUsernameStatus: "unknown",
-                status: "active",
-                lmsStatus: null,
-                lmsUserId: null,
-                enrollmentType: "student",
-                enrollmentDisplay: null,
-                department: null,
-                institution: null,
-                source: "canvas",
-              },
-            ],
-            staff: [],
-            groups: [],
-            groupSets: [],
-            assignments: [],
-          }
+          return [
+            {
+              id: "remote-member-1",
+              lmsUserId: "u-1",
+              name: "Ada",
+              email: "ada@example.com",
+              studentNumber: null,
+              enrollmentType: "student",
+              enrollmentDisplay: null,
+              status: "active",
+              lmsStatus: null,
+              source: "canvas",
+            },
+          ]
         },
       },
       userFile: {
@@ -195,15 +251,11 @@ describe("application roster workflow helpers", () => {
       tier: "small",
       preset: "shared-teams",
     })
-    const rosterFixture = getCourseScenario({
-      tier: "small",
-      preset: "shared-teams",
-    }).roster
     let lastWrittenText = ""
 
     const handlers = createRosterWorkflowHandlers({
       lms: {
-        fetchRoster: async () => rosterFixture,
+        fetchRoster: async () => [],
       },
       userFile: {
         readText: async () => ({
@@ -236,7 +288,7 @@ describe("application roster workflow helpers", () => {
       format: "csv",
     })
     assert.deepStrictEqual(result, { file: target })
-    assert.equal(lastWrittenText.startsWith("id,name,email"), true)
+    assert.equal(lastWrittenText.startsWith("name,email"), true)
 
     await assert.rejects(
       handlers["roster.exportMembers"]({

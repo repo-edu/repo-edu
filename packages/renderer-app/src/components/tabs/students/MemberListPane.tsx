@@ -40,7 +40,6 @@ import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
-import { generateMemberId } from "../../../utils/nanoid.js"
 import {
   chainComparisons,
   compareText,
@@ -215,7 +214,7 @@ export function MemberListPane({
     if (!newMemberName.trim() || !newMemberEmail.trim()) return
 
     const member: RosterMember = {
-      id: generateMemberId(),
+      id: "",
       name: newMemberName.trim(),
       email: newMemberEmail.trim(),
       studentNumber: null,

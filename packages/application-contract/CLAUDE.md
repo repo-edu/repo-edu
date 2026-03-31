@@ -11,6 +11,7 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - `WorkflowClient` interface
 - shared `AppError` taxonomy and transport helpers
 - cross-surface file reference DTOs (`UserFileRef`, `UserSaveTargetRef`)
+- re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`, `GroupNameStrategy`)
 
 ## Rules
 

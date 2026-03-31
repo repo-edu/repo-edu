@@ -8,9 +8,10 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 
 - canonical persisted settings/course/roster/group/assignment types
 - zod validation for boundary payloads
-- roster normalization and validation
+- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`) from monotonic `IdSequences` on `PersistedCourse`
+- roster normalization, validation, and reconciliation (`roster-reconciliation.ts`: `reconcileRosterFromGitUsernames` for RepoBee import)
 - system group-set maintenance
-- group-set import/export semantics
+- group-set import/export semantics (CSV additive and RepoBee full-replace modes via `GroupSetImportFormat`)
 - repository planning and collision semantics
 
 ## Rules

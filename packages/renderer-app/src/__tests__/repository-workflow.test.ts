@@ -19,7 +19,7 @@ const template: RepositoryTemplate = {
 
 const course: PersistedCourse = {
   kind: "repo-edu.course.v1",
-  schemaVersion: 1,
+  schemaVersion: 2,
   revision: 0,
   id: "course-1",
   displayName: "Course 1",
@@ -27,6 +27,12 @@ const course: PersistedCourse = {
   gitConnectionId: "git-main",
   organization: null,
   lmsCourseId: null,
+  idSequences: {
+    nextGroupSeq: 1,
+    nextGroupSetSeq: 1,
+    nextMemberSeq: 1,
+    nextAssignmentSeq: 1,
+  },
   roster: {
     connection: null,
     students: [],

@@ -15,7 +15,7 @@ Implement Canvas and Moodle clients behind `LmsClient` from
 
 - No direct global `fetch`; use injected `HttpPort`.
 - Keep provider-specific HTTP/details inside this package.
-- Return contract/domain shapes only; do not leak provider SDK/API response types.
+- Return contract remote DTO shapes only (`RemoteLmsMember`, `RemoteLmsGroup`, `RemoteLmsGroupSet`, `LmsFetchedGroupSet` from `@repo-edu/integrations-lms-contract`); do not leak provider SDK/API response types or reuse domain entity types.
 - Keep business semantics in `@repo-edu/application` and `@repo-edu/domain`.
 
 ## Adding LMS Capabilities

@@ -41,8 +41,9 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
-| `schemaVersion` | `1` | Schema version |
+| `schemaVersion` | `2` | Schema version |
 | `id` | `string` | Unique course identifier |
+| `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`) |
 | `displayName` | `string` | Human-readable course name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References an LMS connection in app settings by name |

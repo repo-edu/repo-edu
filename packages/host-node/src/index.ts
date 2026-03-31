@@ -4,6 +4,7 @@ import {
   cp,
   mkdir,
   mkdtemp,
+  readdir,
   rename,
   rm,
   stat,
@@ -56,6 +57,14 @@ function resolveAtomicTempPath(path: string): string {
     dirname(path),
     `.${basename(path)}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`,
   )
+}
+
+export async function cleanupAtomicTempFiles(directory: string): Promise<void> {
+  const entries = await readdir(directory).catch(() => [])
+  const removals = entries
+    .filter((name) => name.startsWith(".") && name.endsWith(".tmp"))
+    .map((name) => rm(join(directory, name), { force: true }).catch(() => {}))
+  await Promise.all(removals)
 }
 
 export async function writeTextFileAtomic(

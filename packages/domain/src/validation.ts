@@ -1,5 +1,6 @@
 import { resolveAssignmentGroups } from "./group-selection.js"
 import { systemSetsMissing } from "./group-set.js"
+import { normalizeName } from "./name-normalization.js"
 import { computeRepoName, defaultRepoTemplate } from "./repository-planning.js"
 import { normalizeEmail } from "./roster.js"
 import type {
@@ -10,9 +11,7 @@ import type {
   RosterValidationResult,
 } from "./types.js"
 
-function normalizeName(value: string): string {
-  return value.trim().split(/\s+/).join(" ").toLowerCase()
-}
+export { normalizeName }
 
 function sortedStrings(values: readonly string[]): string[] {
   return [...values].sort()
@@ -88,6 +87,27 @@ function validateGroupSetOriginConsistency(
       context: `Group '${group.name}' has origin '${group.origin}' but group set '${groupSet.name}' expects different origin`,
     })
   }
+}
+
+function activeGroupGitUsernameToken(
+  groupMemberIds: readonly string[],
+  memberLookup: ReadonlyMap<string, Roster["students"][number]>,
+): string {
+  const usernames = [
+    ...new Set(
+      groupMemberIds
+        .map((memberId) => memberLookup.get(memberId))
+        .filter(
+          (member): member is NonNullable<typeof member> =>
+            member !== undefined && member.status === "active",
+        )
+        .map((member) => member.gitUsername?.trim().toLowerCase() ?? "")
+        .filter((username) => username.length > 0),
+    ),
+  ]
+
+  usernames.sort((left, right) => left.localeCompare(right))
+  return usernames.join("-")
 }
 
 export function validateRoster(roster: Roster): RosterValidationResult {
@@ -168,6 +188,35 @@ export function validateRoster(roster: Roster): RosterValidationResult {
       kind: "duplicate_group_id_in_assignment",
       affectedIds: duplicateGroupIds,
       context: "Duplicate group IDs in roster",
+    })
+  }
+
+  const duplicateGroupSetIds = findDuplicateStrings(
+    roster.groupSets.map((groupSet) => groupSet.id),
+  )
+  if (duplicateGroupSetIds.length > 0) {
+    issues.push({
+      kind: "duplicate_group_id_in_assignment",
+      affectedIds: duplicateGroupSetIds,
+      context: "Duplicate group set IDs in roster",
+    })
+  }
+
+  for (const groupSet of roster.groupSets) {
+    const names = groupSet.groupIds
+      .map((groupId) => roster.groups.find((group) => group.id === groupId))
+      .filter(
+        (group): group is NonNullable<typeof group> => group !== undefined,
+      )
+      .map((group) => normalizeName(group.name))
+    const duplicateNames = findDuplicateStrings(names)
+    if (duplicateNames.length === 0) {
+      continue
+    }
+    issues.push({
+      kind: "duplicate_group_name_in_assignment",
+      affectedIds: duplicateNames,
+      context: `Duplicate normalized group names in group set '${groupSet.name}'`,
     })
   }
 
@@ -359,7 +408,9 @@ export function validateAssignmentWithTemplate(
 
   const repoNameMap = new Map<string, string[]>()
   for (const group of groups) {
-    const repoName = computeRepoName(template, assignment, group)
+    const repoName = computeRepoName(template, assignment, group, {
+      members: activeGroupGitUsernameToken(group.memberIds, memberLookup),
+    })
     repoNameMap.set(repoName, [...(repoNameMap.get(repoName) ?? []), group.id])
   }
 

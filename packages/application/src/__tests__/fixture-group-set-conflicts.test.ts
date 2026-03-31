@@ -98,6 +98,8 @@ describe("fixture-backed group-set conflict previews", () => {
           mediaType: "text/csv",
           byteLength: null,
         },
+        format: "group-set-csv",
+        targetGroupSetId: null,
       }),
       (error: unknown) =>
         typeof error === "object" &&
@@ -123,6 +125,8 @@ describe("fixture-backed group-set conflict previews", () => {
         mediaType: "text/csv",
         byteLength: null,
       },
+      format: "group-set-csv",
+      targetGroupSetId: null,
     })
 
     assert.equal(preview.mode, "import")
@@ -130,7 +134,7 @@ describe("fixture-backed group-set conflict previews", () => {
     assert.equal(preview.missingMembers.length > 0, true)
   })
 
-  it("reports added/removed/renamed/updated groups in reimport preview", async () => {
+  it("previews import into an existing group set using unified preview workflow", async () => {
     const rows = parseGroupsCsv(groupCsvArtifact.text)
     const uniqueById = new Map<string, GroupCsvRow>()
     for (const row of rows) {
@@ -169,12 +173,10 @@ describe("fixture-backed group-set conflict previews", () => {
     assert.ok(replacementEmail)
 
     const renamedGroupName = `${renameTarget.groupName}-renamed`
-    const addedGroupName = "added-group-from-reimport"
     const reimportCsv = [
-      "group_name,group_id,email",
-      `${renamedGroupName},${renameTarget.groupId},${renameTarget.email}`,
-      `${updateTarget.groupName},${updateTarget.groupId},${replacementEmail}`,
-      `${addedGroupName},,${replacementEmail}`,
+      "group_name,email",
+      `${renamedGroupName},${renameTarget.email}`,
+      `${updateTarget.groupName},${replacementEmail}`,
     ].join("\n")
 
     const targetGroupSet = fixture.course.roster.groupSets.find(
@@ -183,9 +185,8 @@ describe("fixture-backed group-set conflict previews", () => {
     assert.ok(targetGroupSet)
 
     const { course, handlers } = makeGroupSetHandlers(reimportCsv)
-    const preview = await handlers["groupSet.previewReimportFromFile"]({
+    const preview = await handlers["groupSet.previewImportFromFile"]({
       course,
-      groupSetId: targetGroupSet.id,
       file: {
         kind: "user-file-ref",
         referenceId: "groups-csv",
@@ -193,27 +194,15 @@ describe("fixture-backed group-set conflict previews", () => {
         mediaType: "text/csv",
         byteLength: null,
       },
+      format: "group-set-csv",
+      targetGroupSetId: targetGroupSet.id,
     })
 
-    assert.equal(preview.mode, "reimport")
-    if (preview.mode !== "reimport") {
+    assert.equal(preview.mode, "import")
+    if (preview.mode !== "import") {
       return
     }
 
-    assert.deepEqual(preview.renamedGroups, [
-      {
-        from: renameTarget.groupName,
-        to: renamedGroupName,
-      },
-    ])
-    assert.equal(
-      preview.removedGroupNames.includes(removeTarget.groupName),
-      true,
-    )
-    assert.equal(preview.addedGroupNames.includes(addedGroupName), true)
-    assert.equal(
-      preview.updatedGroupNames.includes(updateTarget.groupName),
-      true,
-    )
+    assert.equal(preview.groups.length > 0, true)
   })
 })

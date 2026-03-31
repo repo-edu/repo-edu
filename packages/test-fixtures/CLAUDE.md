@@ -7,8 +7,10 @@ Deterministic, runtime-generated fixture data for tests across the monorepo.
 Provides a matrix of `PersistedCourse` + `PersistedAppSettings` + CSV/JSON artifacts, keyed by tier (`small`/`medium`/`stress`) and preset (`shared-teams`/`assignment-scoped`).
 
 - `src/fixture-defs.ts` — tier/preset definitions and guards
-- `src/generator-lib.ts` — seeded faker-based generation (students, staff, groups, assignments, artifacts)
+- `src/generator-lib.ts` — seeded faker-based generation (students, staff, groups, assignments, artifacts); uses counter-based IDs (`g_`, `gs_`, `m_`, `a_`) with `idSequences` and `schemaVersion: 2`
+- `src/fixture-matrix.ts` — builds `fixtureMatrix` via `buildFixtureMatrix()` at import time
 - `src/fixtures.ts` — `FixtureMatrix`, `FixtureRecord`, `getFixture()` accessor
+- `src/fixtures-validate.ts` — `validateFixtureMatrix()` used during `check:fixtures`
 - `src/source-overlay.ts` — `applyFixtureSourceOverlay()` to simulate LMS-connected course state
 
 Tier sizes: small=24 students/2 staff, medium=72/4, stress=180/8.

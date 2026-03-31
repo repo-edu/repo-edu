@@ -9,6 +9,7 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import { allocateGroupSetId } from "@repo-edu/domain/id-allocator"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createValidationAppError } from "../core.js"
 import {
@@ -23,7 +24,6 @@ import {
   applyFetchedGroupSetToCourse,
   connectedRemoteId,
   createConnectedGroupSet,
-  generateLocalGroupSetId,
   lmsGroupSetRemoteId,
 } from "./helpers.js"
 import type { GroupSetWorkflowPorts } from "./ports.js"
@@ -143,9 +143,11 @@ export function createLmsGroupSetHandlers(
           totalSteps,
           label: "Creating connected local group set.",
         })
-        const localGroupSetId = generateLocalGroupSetId(course)
+        const groupSetAlloc = allocateGroupSetId(course.idSequences)
+        const localGroupSetId = groupSetAlloc.id
         const courseWithConnectedSet: PersistedCourse = {
           ...course,
+          idSequences: groupSetAlloc.sequences,
           roster: {
             ...course.roster,
             groupSets: [
@@ -197,7 +199,11 @@ export function createLmsGroupSetHandlers(
           totalSteps,
           label: "LMS group-set connection complete.",
         })
-        return { ...nextGroupSet, roster: nextCourse.roster }
+        return {
+          ...nextGroupSet,
+          roster: nextCourse.roster,
+          idSequences: nextCourse.idSequences,
+        }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error
@@ -271,7 +277,11 @@ export function createLmsGroupSetHandlers(
           totalSteps,
           label: "LMS group-set sync complete.",
         })
-        return { ...nextGroupSet, roster: nextCourse.roster }
+        return {
+          ...nextGroupSet,
+          roster: nextCourse.roster,
+          idSequences: nextCourse.idSequences,
+        }
       } catch (error) {
         if (isSharedAppError(error)) {
           throw error

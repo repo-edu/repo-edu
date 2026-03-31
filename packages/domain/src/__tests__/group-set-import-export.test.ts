@@ -10,6 +10,7 @@ import {
   reimportGroupSet,
 } from "../group-set-import-export.js"
 import {
+  initialIdSequences,
   type Group,
   type GroupSet,
   ORIGIN_LOCAL,
@@ -46,12 +47,18 @@ function makeRoster(overrides: Partial<Roster> = {}): Roster {
   return {
     connection: null,
     students: [
-      makeMember("s1", "Alice Smith", "alice@example.com"),
-      makeMember("s2", "Bob Jones", "bob@example.com"),
-      makeMember("s3", "Carol Lee", "carol@example.com"),
+      makeMember("m_0001", "Alice Smith", "alice@example.com", {
+        gitUsername: "alice",
+      }),
+      makeMember("m_0002", "Bob Jones", "bob@example.com", {
+        gitUsername: "bob",
+      }),
+      makeMember("m_0003", "Carol Lee", "carol@example.com", {
+        gitUsername: "carol",
+      }),
     ],
     staff: [
-      makeMember("t1", "Prof X", "profx@example.com", {
+      makeMember("m_1001", "Prof X", "profx@example.com", {
         enrollmentType: "teacher",
       }),
     ],
@@ -85,7 +92,7 @@ describe("group-set import preview", () => {
     })
   })
 
-  it("rejects duplicate memberships and conflicting group ids", () => {
+  it("rejects duplicate memberships", () => {
     const duplicateMembership = previewImportGroupSet(makeRoster(), [
       { group_name: "Alpha", email: "same@example.com" },
       { group_name: "Alpha", email: "same@example.com" },
@@ -96,17 +103,28 @@ describe("group-set import preview", () => {
       duplicateMembership.issues[0]?.message ?? "",
       /Duplicate membership/,
     )
+  })
 
-    const conflictingIds = previewImportGroupSet(makeRoster(), [
-      { group_name: "Alpha", group_id: "g1" },
-      { group_name: "Beta", group_id: "g1" },
-    ])
-    assert.equal(conflictingIds.ok, false)
-    if (conflictingIds.ok) return
-    assert.match(
-      conflictingIds.issues[0]?.message ?? "",
-      /maps to multiple group names/,
+  it("supports git username member resolution", () => {
+    const roster = makeRoster()
+    const result = previewImportGroupSet(
+      roster,
+      [
+        { group_name: "Team A", git_username: "alice" },
+        { group_name: "Team A", git_username: "missing-user" },
+      ],
+      { memberKey: "gitUsername" },
     )
+
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+
+    assert.deepStrictEqual(result.value, {
+      mode: "import",
+      groups: [{ name: "Team A", memberCount: 1 }],
+      missingMembers: [{ groupName: "Team A", missingCount: 1 }],
+      totalMissing: 1,
+    })
   })
 })
 
@@ -125,13 +143,14 @@ describe("group-set import and reimport", () => {
         { group_name: "Alpha", email: "bob@example.com" },
         { group_name: "Mid", email: "carol@example.com" },
       ],
+      initialIdSequences(),
     )
 
     assert.equal(result.ok, true)
     if (!result.ok) return
 
     assert.equal(result.value.mode, "import")
-    assert.equal(result.value.groupSet.name, "groups.csv")
+    assert.equal(result.value.groupSet.name, "groups")
     assert.deepStrictEqual(
       result.value.groupsUpserted.map((group) => group.name),
       ["Zeta", "Alpha", "Mid"],
@@ -142,7 +161,7 @@ describe("group-set import and reimport", () => {
     )
     assert.deepStrictEqual(
       result.value.groupsUpserted.map((group) => group.memberIds),
-      [["s1"], ["s2"], ["s3"]],
+      [["m_0001"], ["m_0002"], ["m_0003"]],
     )
     assert.deepStrictEqual(result.value.groupSet.connection, {
       kind: "import",
@@ -150,34 +169,40 @@ describe("group-set import and reimport", () => {
       sourcePath: "/tmp/groups.csv",
       lastUpdated: "2026-03-04T10:00:00.000Z",
     })
+    assert.deepStrictEqual(result.value.idSequences, {
+      nextGroupSeq: 4,
+      nextGroupSetSeq: 2,
+      nextMemberSeq: 1,
+      nextAssignmentSeq: 1,
+    })
   })
 
-  it("previews reimport diffs and applies id/name matching with deletions", () => {
+  it("reimport wrappers use additive import semantics", () => {
     const groups: Group[] = [
       {
         id: "g-existing",
         name: "Original Name",
-        memberIds: ["s1"],
+        memberIds: ["m_0001"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
       {
         id: "g-by-name",
         name: "Team A",
-        memberIds: ["s1"],
+        memberIds: ["m_0001"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
       {
-        id: "g-removed",
-        name: "Will Remove",
-        memberIds: ["s3"],
+        id: "g-untouched",
+        name: "Will Stay",
+        memberIds: ["m_0003"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
     ]
     const groupSet: GroupSet = {
-      id: "gs1",
+      id: "gs-existing",
       name: "Imported",
       groupIds: groups.map((group) => group.id),
       connection: {
@@ -196,11 +221,6 @@ describe("group-set import and reimport", () => {
 
     const rows = [
       {
-        group_name: "Renamed",
-        group_id: "g-existing",
-        email: "bob@example.com",
-      },
-      {
         group_name: "Team A",
         email: "bob@example.com",
       },
@@ -210,50 +230,60 @@ describe("group-set import and reimport", () => {
       },
     ] as const
 
-    const preview = previewReimportGroupSet(roster, "gs1", rows)
+    const preview = previewReimportGroupSet(roster, "gs-existing", rows)
     assert.equal(preview.ok, true)
     if (!preview.ok) return
-    assert.equal(preview.value.mode, "reimport")
-    if (preview.value.mode !== "reimport") return
-
-    assert.deepStrictEqual(preview.value.addedGroupNames, ["Added"])
-    assert.deepStrictEqual(preview.value.removedGroupNames, ["Will Remove"])
-    assert.deepStrictEqual(preview.value.updatedGroupNames, [
-      "Renamed",
-      "Team A",
-    ])
-    assert.deepStrictEqual(preview.value.renamedGroups, [
-      { from: "Original Name", to: "Renamed" },
+    assert.equal(preview.value.mode, "import")
+    assert.deepStrictEqual(preview.value.groups, [
+      { name: "Team A", memberCount: 1 },
+      { name: "Added", memberCount: 1 },
     ])
 
     const applied = reimportGroupSet(
       roster,
-      "gs1",
+      "gs-existing",
       {
         sourceFilename: "new.csv",
         sourcePath: "/tmp/new.csv",
         lastUpdated: "2026-03-04T12:00:00.000Z",
       },
       rows,
+      {
+        nextGroupSeq: 10,
+        nextGroupSetSeq: 20,
+        nextMemberSeq: 30,
+        nextAssignmentSeq: 40,
+      },
     )
 
     assert.equal(applied.ok, true)
     if (!applied.ok) return
 
-    assert.equal(applied.value.mode, "reimport")
-    assert.deepStrictEqual(applied.value.deletedGroupIds, ["g-removed"])
+    assert.equal(applied.value.mode, "import")
+    assert.deepStrictEqual(applied.value.deletedGroupIds, [])
     assert.deepStrictEqual(
       applied.value.groupsUpserted.map((group) => group.id),
-      ["g-existing", "g-by-name", applied.value.groupsUpserted[2]?.id],
+      ["g-by-name", "g_0010"],
     )
-    assert.equal(applied.value.groupsUpserted[0]?.name, "Renamed")
-    assert.deepStrictEqual(applied.value.groupsUpserted[0]?.memberIds, ["s2"])
-    assert.deepStrictEqual(applied.value.groupsUpserted[1]?.memberIds, ["s2"])
+    assert.deepStrictEqual(applied.value.groupsUpserted[0]?.memberIds, [
+      "m_0002",
+    ])
+    assert.deepStrictEqual(applied.value.groupsUpserted[1]?.memberIds, [
+      "m_0003",
+    ])
     assert.equal(applied.value.groupSet.connection?.kind, "import")
-    assert.deepStrictEqual(applied.value.groupSet.groupIds.slice(0, 2), [
+    assert.deepStrictEqual(applied.value.groupSet.groupIds, [
       "g-existing",
       "g-by-name",
+      "g-untouched",
+      "g_0010",
     ])
+    assert.deepStrictEqual(applied.value.idSequences, {
+      nextGroupSeq: 11,
+      nextGroupSetSeq: 20,
+      nextMemberSeq: 30,
+      nextAssignmentSeq: 40,
+    })
   })
 })
 
@@ -271,7 +301,7 @@ describe("group-set export", () => {
       {
         id: "g1",
         name: "Team A",
-        memberIds: ["s1", "missing-member"],
+        memberIds: ["m_0001", "missing-member"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
@@ -294,22 +324,16 @@ describe("group-set export", () => {
 
     assert.deepStrictEqual(result.value, [
       {
-        group_set_id: "gs1",
-        group_id: "g1",
         group_name: "Team A",
         name: "Alice Smith",
         email: "alice@example.com",
       },
       {
-        group_set_id: "gs1",
-        group_id: "g1",
         group_name: "Team A",
         name: "",
         email: "",
       },
       {
-        group_set_id: "gs1",
-        group_id: "g2",
         group_name: "Empty Group",
         name: "",
         email: "",
@@ -318,58 +342,12 @@ describe("group-set export", () => {
   })
 })
 
-describe("exportRepoTeams", () => {
-  it("extracts teams with active member emails sorted by name", () => {
+describe("RepoBee export", () => {
+  it("exports active member emails grouped by team", () => {
     const groupSet: GroupSet = {
       id: "gs1",
-      name: "Projects",
-      groupIds: ["g2", "g1"],
-      connection: null,
-      groupSelection: selectionModeAll(),
-      repoNameTemplate: null,
-    }
-    const groups: Group[] = [
-      {
-        id: "g1",
-        name: "Zebra",
-        memberIds: ["s2", "s1"],
-        origin: ORIGIN_LOCAL,
-        lmsGroupId: null,
-      },
-      {
-        id: "g2",
-        name: "Alpha",
-        memberIds: ["s3"],
-        origin: ORIGIN_LOCAL,
-        lmsGroupId: null,
-      },
-    ]
-    const roster = makeRoster({ groups, groupSets: [groupSet] })
-
-    const result = exportRepoTeams(roster, "gs1")
-    assert.equal(result.ok, true)
-    if (!result.ok) return
-
-    assert.deepStrictEqual(result.value, [
-      { members: ["carol@example.com"], name: "Alpha" },
-      {
-        members: ["bob@example.com", "alice@example.com"],
-        name: "Zebra",
-      },
-    ])
-  })
-
-  it("returns error for unknown group set", () => {
-    const roster = makeRoster()
-    const result = exportRepoTeams(roster, "nonexistent")
-    assert.equal(result.ok, false)
-  })
-
-  it("excludes inactive members", () => {
-    const groupSet: GroupSet = {
-      id: "gs1",
-      name: "Projects",
-      groupIds: ["g1"],
+      name: "Repo teams",
+      groupIds: ["g1", "g2"],
       connection: null,
       groupSelection: selectionModeAll(),
       repoNameTemplate: null,
@@ -378,45 +356,14 @@ describe("exportRepoTeams", () => {
       {
         id: "g1",
         name: "Team A",
-        memberIds: ["s1", "inactive1"],
+        memberIds: ["m_0002", "m_0001"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
-    ]
-    const roster = makeRoster({
-      students: [
-        makeMember("s1", "Alice Smith", "alice@example.com"),
-        makeMember("inactive1", "Gone User", "gone@example.com", {
-          status: "dropped",
-        }),
-      ],
-      groups,
-      groupSets: [groupSet],
-    })
-
-    const result = exportRepoTeams(roster, "gs1")
-    assert.equal(result.ok, true)
-    if (!result.ok) return
-
-    assert.deepStrictEqual(result.value, [
-      { members: ["alice@example.com"], name: "Team A" },
-    ])
-  })
-
-  it("includes groups with no members as empty teams", () => {
-    const groupSet: GroupSet = {
-      id: "gs1",
-      name: "Projects",
-      groupIds: ["g1"],
-      connection: null,
-      groupSelection: selectionModeAll(),
-      repoNameTemplate: null,
-    }
-    const groups: Group[] = [
       {
-        id: "g1",
-        name: "Empty",
-        memberIds: [],
+        id: "g2",
+        name: "Team B",
+        memberIds: ["m_0003"],
         origin: ORIGIN_LOCAL,
         lmsGroupId: null,
       },
@@ -427,6 +374,12 @@ describe("exportRepoTeams", () => {
     assert.equal(result.ok, true)
     if (!result.ok) return
 
-    assert.deepStrictEqual(result.value, [{ members: [], name: "Empty" }])
+    assert.deepStrictEqual(result.value, [
+      {
+        members: ["bob@example.com", "alice@example.com"],
+        name: "Team A",
+      },
+      { members: ["carol@example.com"], name: "Team B" },
+    ])
   })
 })

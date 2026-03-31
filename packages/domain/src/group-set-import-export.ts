@@ -1,28 +1,60 @@
 import { selectionModeAll } from "./group-set.js"
 import {
-  generateEntityId,
-  normalizeEmail,
-  normalizeOptionalString,
-} from "./roster.js"
-import type {
-  Group,
-  GroupOrigin,
-  GroupSelectionMode,
-  GroupSetConnection,
-  GroupSetExportRow,
-  GroupSetImportMissingMember,
-  GroupSetImportPreview,
-  GroupSetImportResult,
-  GroupSetImportRow,
-  GroupSetImportSource,
-  GroupSetRenamedGroup,
-  RepoTeam,
-  Roster,
-  RosterMember,
-  ValidationResult,
+  allocateGroupId,
+  allocateGroupIds,
+  allocateGroupSetId,
+} from "./id-allocator.js"
+import { normalizeName } from "./name-normalization.js"
+import { normalizeEmail, normalizeOptionalString } from "./roster.js"
+import {
+  initialIdSequences,
+  type Group,
+  type GroupNameStrategy,
+  type GroupOrigin,
+  type GroupSelectionMode,
+  type GroupSet,
+  type GroupSetConnection,
+  type GroupSetExportRow,
+  type GroupSetImportMemberKey,
+  type GroupSetImportMissingMember,
+  type GroupSetImportPreview,
+  type GroupSetImportResult,
+  type GroupSetImportRow,
+  type GroupSetImportSource,
+  type IdSequences,
+  type RepoBeeTeamMembershipDiff,
+  type RepoTeam,
+  type Roster,
+  type RosterMember,
+  type ValidationResult,
 } from "./types.js"
 
 const ORIGIN_LOCAL: GroupOrigin = "local"
+const DEFAULT_REPOBEE_TEMPLATE = "{assignment}-{members}"
+const MAX_REPOBEE_GROUP_NAME_LENGTH = 100
+
+type ParsedGroupSetImportGroup = {
+  name: string
+  normalizedName: string
+  memberKeys: string[]
+}
+
+type GroupSetImportOptions = {
+  targetGroupSetId?: string | null
+  groupSetName?: string | null
+  memberKey?: GroupSetImportMemberKey
+}
+
+type RepoBeeApplyOptions = {
+  targetGroupSetId?: string | null
+  groupSetName?: string | null
+  groupNameStrategy?: GroupNameStrategy
+}
+
+type RepoBeeTeamInput = {
+  usernames: string[]
+  memberIds: string[]
+}
 
 // ---------------------------------------------------------------------------
 // Shared validation helper
@@ -39,110 +71,73 @@ export function importValidationError<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Private types
-// ---------------------------------------------------------------------------
-
-type ParsedGroupSetImportRow = {
-  groupId: string | null
-  groupName: string
-  email: string | null
-}
-
-type ParsedGroupSetImportGroup = {
-  groupId: string | null
-  name: string
-  memberEmails: string[]
-}
-
-// ---------------------------------------------------------------------------
-// Private helpers
+// CSV import helpers
 // ---------------------------------------------------------------------------
 
 function parseGroupSetImportRows(
   rows: readonly GroupSetImportRow[],
+  memberKey: GroupSetImportMemberKey,
 ): ValidationResult<ParsedGroupSetImportGroup[]> {
   if (rows.length === 0) {
     return importValidationError("$", "CSV file has no data rows")
   }
 
-  const parsedRows: ParsedGroupSetImportRow[] = []
+  const groupOrder: string[] = []
+  const groupsByNormalizedName = new Map<string, ParsedGroupSetImportGroup>()
+  const seenMemberships = new Set<string>()
+
   for (const [index, row] of rows.entries()) {
-    const groupName = row.group_name.trim()
-    if (groupName.length === 0) {
+    const rawGroupName = row.group_name.trim()
+    if (rawGroupName.length === 0) {
       return importValidationError(
         `rows.${index}.group_name`,
         `Line ${index + 2}: empty group_name`,
       )
     }
 
-    parsedRows.push({
-      groupName,
-      groupId: normalizeOptionalString(row.group_id),
-      email: normalizeOptionalString(row.email)?.toLowerCase() ?? null,
-    })
-  }
-
-  const idToName = new Map<string, string>()
-  for (const row of parsedRows) {
-    if (row.groupId === null) {
-      continue
-    }
-
-    const existingName = idToName.get(row.groupId)
-    if (existingName !== undefined && existingName !== row.groupName) {
-      return importValidationError(
-        "rows",
-        `group_id '${row.groupId}' maps to multiple group names: '${existingName}' and '${row.groupName}'`,
-      )
-    }
-    idToName.set(row.groupId, row.groupName)
-  }
-
-  const groupOrder: string[] = []
-  const groupsByName = new Map<string, ParsedGroupSetImportGroup>()
-  const seenMemberships = new Set<string>()
-
-  for (const row of parsedRows) {
-    let group = groupsByName.get(row.groupName)
+    const normalizedGroupName = normalizeName(rawGroupName)
+    let group = groupsByNormalizedName.get(normalizedGroupName)
     if (group === undefined) {
       group = {
-        groupId: row.groupId,
-        name: row.groupName,
-        memberEmails: [],
+        name: rawGroupName,
+        normalizedName: normalizedGroupName,
+        memberKeys: [],
       }
-      groupsByName.set(row.groupName, group)
-      groupOrder.push(row.groupName)
-    } else if (group.groupId === null && row.groupId !== null) {
-      group.groupId = row.groupId
+      groupsByNormalizedName.set(normalizedGroupName, group)
+      groupOrder.push(normalizedGroupName)
     }
 
-    if (row.email === null) {
+    const memberValue =
+      memberKey === "email"
+        ? (normalizeOptionalString(row.email)?.toLowerCase() ?? null)
+        : (normalizeOptionalString(row.git_username)?.toLowerCase() ?? null)
+
+    if (memberValue === null) {
       continue
     }
 
-    const membershipKey = `${row.groupName}\u0000${row.email}`
+    const membershipKey = `${normalizedGroupName}\u0000${memberValue}`
     if (seenMemberships.has(membershipKey)) {
+      const label = memberKey === "email" ? "email" : "git_username"
       return importValidationError(
         "rows",
-        `Duplicate membership: group '${row.groupName}', email '${row.email}'`,
+        `Duplicate membership: group '${rawGroupName}', ${label} '${memberValue}'`,
       )
     }
+
     seenMemberships.add(membershipKey)
-    group.memberEmails.push(row.email)
+    group.memberKeys.push(memberValue)
   }
 
   const groups: ParsedGroupSetImportGroup[] = []
-  for (const groupName of groupOrder) {
-    const group = groupsByName.get(groupName)
+  for (const normalizedGroupName of groupOrder) {
+    const group = groupsByNormalizedName.get(normalizedGroupName)
     if (group !== undefined) {
       groups.push(group)
     }
   }
 
-  return {
-    ok: true,
-    value: groups,
-  }
+  return { ok: true, value: groups }
 }
 
 function buildRosterEmailIndex(roster: Roster): Map<string, string | null> {
@@ -161,15 +156,42 @@ function buildRosterEmailIndex(roster: Roster): Map<string, string | null> {
   return index
 }
 
+export function buildRosterGitUsernameIndex(
+  roster: Roster,
+): Map<string, string | null> {
+  const index = new Map<string, string | null>()
+  for (const member of roster.students.concat(roster.staff)) {
+    const key = normalizeOptionalString(member.gitUsername)?.toLowerCase()
+    if (!key) {
+      continue
+    }
+    if (index.has(key)) {
+      index.set(key, null)
+      continue
+    }
+    index.set(key, member.id)
+  }
+  return index
+}
+
+function buildMemberIndex(
+  roster: Roster,
+  memberKey: GroupSetImportMemberKey,
+): Map<string, string | null> {
+  return memberKey === "email"
+    ? buildRosterEmailIndex(roster)
+    : buildRosterGitUsernameIndex(roster)
+}
+
 function resolveGroupMemberIds(
-  emails: readonly string[],
-  emailIndex: ReadonlyMap<string, string | null>,
+  keys: readonly string[],
+  index: ReadonlyMap<string, string | null>,
 ): string[] {
   const seen = new Set<string>()
   const memberIds: string[] = []
 
-  for (const email of emails) {
-    const memberId = emailIndex.get(email)
+  for (const key of keys) {
+    const memberId = index.get(key)
     if (memberId === null || memberId === undefined || seen.has(memberId)) {
       continue
     }
@@ -182,15 +204,15 @@ function resolveGroupMemberIds(
 
 function summarizeMissingMembers(
   groups: readonly ParsedGroupSetImportGroup[],
-  emailIndex: ReadonlyMap<string, string | null>,
+  index: ReadonlyMap<string, string | null>,
 ): { missingMembers: GroupSetImportMissingMember[]; totalMissing: number } {
   const missingMembers: GroupSetImportMissingMember[] = []
   let totalMissing = 0
 
   for (const group of groups) {
     let groupMissing = 0
-    for (const email of group.memberEmails) {
-      const matchedId = emailIndex.get(email)
+    for (const key of group.memberKeys) {
+      const matchedId = index.get(key)
       if (matchedId === null || matchedId === undefined) {
         groupMissing += 1
         totalMissing += 1
@@ -235,46 +257,77 @@ function createImportConnection(
   }
 }
 
-function compareMembershipSets(
-  currentMemberIds: readonly string[],
-  nextMemberIds: readonly string[],
-): boolean {
-  if (currentMemberIds.length !== nextMemberIds.length) {
-    return false
+function isEditableGroupSet(groupSet: GroupSet): boolean {
+  const kind = groupSet.connection?.kind
+  return kind !== "system" && kind !== "canvas" && kind !== "moodle"
+}
+
+function resolveTargetGroupSet(
+  roster: Roster,
+  targetGroupSetId: string | null,
+): ValidationResult<GroupSet | null> {
+  if (targetGroupSetId === null) {
+    return { ok: true, value: null }
   }
 
-  const currentSet = new Set(currentMemberIds)
-  const nextSet = new Set(nextMemberIds)
-  if (currentSet.size !== nextSet.size) {
-    return false
+  const target = roster.groupSets.find(
+    (groupSet) => groupSet.id === targetGroupSetId,
+  )
+  if (target === undefined) {
+    return importValidationError("targetGroupSetId", "Group set not found")
   }
 
-  for (const memberId of currentSet) {
-    if (!nextSet.has(memberId)) {
-      return false
-    }
+  if (!isEditableGroupSet(target)) {
+    return importValidationError(
+      "targetGroupSetId",
+      "Import into system or LMS-managed group sets is not allowed",
+    )
   }
 
-  return true
+  return { ok: true, value: target }
+}
+
+function resolveImportedGroupSetName(
+  source: GroupSetImportSource,
+  explicitName?: string | null,
+): string {
+  const override = explicitName?.trim()
+  if (override && override.length > 0) {
+    return override
+  }
+
+  const derived = source.sourceFilename.replace(/\.[^.]+$/, "").trim()
+  if (derived.length > 0) {
+    return derived
+  }
+
+  return source.sourceFilename
 }
 
 // ---------------------------------------------------------------------------
-// Import workflows
+// CSV import workflows
 // ---------------------------------------------------------------------------
 
 export function previewImportGroupSet(
   roster: Roster,
   rows: readonly GroupSetImportRow[],
+  options: GroupSetImportOptions = {},
 ): ValidationResult<GroupSetImportPreview> {
-  const parsed = parseGroupSetImportRows(rows)
+  const memberKey = options.memberKey ?? "email"
+  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  if (!target.ok) {
+    return target
+  }
+
+  const parsed = parseGroupSetImportRows(rows, memberKey)
   if (!parsed.ok) {
     return parsed
   }
 
-  const emailIndex = buildRosterEmailIndex(roster)
+  const index = buildMemberIndex(roster, memberKey)
   const { missingMembers, totalMissing } = summarizeMissingMembers(
     parsed.value,
-    emailIndex,
+    index,
   )
 
   return {
@@ -283,8 +336,7 @@ export function previewImportGroupSet(
       mode: "import",
       groups: parsed.value.map((group) => ({
         name: group.name,
-        memberCount: resolveGroupMemberIds(group.memberEmails, emailIndex)
-          .length,
+        memberCount: resolveGroupMemberIds(group.memberKeys, index).length,
       })),
       missingMembers,
       totalMissing,
@@ -296,42 +348,121 @@ export function importGroupSet(
   roster: Roster,
   source: GroupSetImportSource,
   rows: readonly GroupSetImportRow[],
+  sequences: IdSequences,
+  options: GroupSetImportOptions = {},
 ): ValidationResult<GroupSetImportResult> {
-  const parsed = parseGroupSetImportRows(rows)
+  const memberKey = options.memberKey ?? "email"
+  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  if (!target.ok) {
+    return target
+  }
+
+  const parsed = parseGroupSetImportRows(rows, memberKey)
   if (!parsed.ok) {
     return parsed
   }
 
-  const emailIndex = buildRosterEmailIndex(roster)
+  const index = buildMemberIndex(roster, memberKey)
   const { missingMembers, totalMissing } = summarizeMissingMembers(
     parsed.value,
-    emailIndex,
+    index,
   )
 
-  const groupsUpserted: Group[] = parsed.value.map((parsedGroup) => ({
-    id: generateEntityId("group"),
-    name: parsedGroup.name,
-    memberIds: resolveGroupMemberIds(parsedGroup.memberEmails, emailIndex),
-    origin: ORIGIN_LOCAL,
-    lmsGroupId: null,
-  }))
+  let seq = sequences
+
+  if (target.value === null) {
+    const groupAlloc = allocateGroupIds(seq, parsed.value.length)
+    seq = groupAlloc.sequences
+
+    const groupsUpserted: Group[] = parsed.value.map((group, idx) => ({
+      id: groupAlloc.ids[idx] as string,
+      name: group.name,
+      memberIds: resolveGroupMemberIds(group.memberKeys, index),
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }))
+
+    const groupSetAlloc = allocateGroupSetId(seq)
+    seq = groupSetAlloc.sequences
+
+    return {
+      ok: true,
+      value: {
+        mode: "import",
+        groupSet: {
+          id: groupSetAlloc.id,
+          name: resolveImportedGroupSetName(source, options.groupSetName),
+          groupIds: groupsUpserted.map((group) => group.id),
+          connection: createImportConnection(source),
+          groupSelection: selectionModeAll(),
+          repoNameTemplate: null,
+        },
+        groupsUpserted,
+        deletedGroupIds: [],
+        missingMembers,
+        totalMissing,
+        idSequences: seq,
+      },
+    }
+  }
+
+  const existingGroups = target.value.groupIds
+    .map((groupId) => roster.groups.find((group) => group.id === groupId))
+    .filter((group): group is Group => group !== undefined)
+
+  const existingByNormalizedName = new Map<string, Group>()
+  for (const group of existingGroups) {
+    const normalized = normalizeName(group.name)
+    if (!existingByNormalizedName.has(normalized)) {
+      existingByNormalizedName.set(normalized, group)
+    }
+  }
+
+  const groupsUpserted: Group[] = []
+  const appendedGroupIds: string[] = []
+
+  for (const parsedGroup of parsed.value) {
+    const memberIds = resolveGroupMemberIds(parsedGroup.memberKeys, index)
+    const existing = existingByNormalizedName.get(parsedGroup.normalizedName)
+
+    if (existing !== undefined) {
+      groupsUpserted.push({
+        ...existing,
+        name: parsedGroup.name,
+        memberIds,
+      })
+      continue
+    }
+
+    const alloc = allocateGroupId(seq)
+    seq = alloc.sequences
+    const created: Group = {
+      id: alloc.id,
+      name: parsedGroup.name,
+      memberIds,
+      origin: ORIGIN_LOCAL,
+      lmsGroupId: null,
+    }
+    groupsUpserted.push(created)
+    appendedGroupIds.push(created.id)
+  }
 
   return {
     ok: true,
     value: {
       mode: "import",
       groupSet: {
-        id: generateEntityId("group_set"),
-        name: source.sourceFilename,
-        groupIds: groupsUpserted.map((group) => group.id),
+        ...target.value,
+        name: resolveImportedGroupSetName(source, target.value.name),
+        groupIds: [...target.value.groupIds, ...appendedGroupIds],
         connection: createImportConnection(source),
-        groupSelection: selectionModeAll(),
-        repoNameTemplate: null,
+        groupSelection: cloneGroupSelectionMode(target.value.groupSelection),
       },
       groupsUpserted,
       deletedGroupIds: [],
       missingMembers,
       totalMissing,
+      idSequences: seq,
     },
   }
 }
@@ -341,93 +472,10 @@ export function previewReimportGroupSet(
   groupSetId: string,
   rows: readonly GroupSetImportRow[],
 ): ValidationResult<GroupSetImportPreview> {
-  const groupSet = roster.groupSets.find(
-    (candidate) => candidate.id === groupSetId,
-  )
-  if (groupSet === undefined) {
-    return importValidationError("groupSetId", "Group set not found")
-  }
-
-  const parsed = parseGroupSetImportRows(rows)
-  if (!parsed.ok) {
-    return parsed
-  }
-
-  const emailIndex = buildRosterEmailIndex(roster)
-  const { missingMembers, totalMissing } = summarizeMissingMembers(
-    parsed.value,
-    emailIndex,
-  )
-
-  const existingGroups = groupSet.groupIds
-    .map((groupId) =>
-      roster.groups.find((candidate) => candidate.id === groupId),
-    )
-    .filter((group): group is Group => group !== undefined)
-  const existingByName = new Map<string, Group>()
-  const existingById = new Map<string, Group>()
-  for (const group of existingGroups) {
-    if (!existingByName.has(group.name)) {
-      existingByName.set(group.name, group)
-    }
-    existingById.set(group.id, group)
-  }
-
-  const matchedExistingIds = new Set<string>()
-  const addedGroupNames: string[] = []
-  const updatedGroupNames: string[] = []
-  const renamedGroups: GroupSetRenamedGroup[] = []
-
-  for (const parsedGroup of parsed.value) {
-    const matched =
-      (parsedGroup.groupId === null
-        ? undefined
-        : existingById.get(parsedGroup.groupId)) ??
-      existingByName.get(parsedGroup.name)
-
-    if (matched === undefined) {
-      addedGroupNames.push(parsedGroup.name)
-      continue
-    }
-
-    matchedExistingIds.add(matched.id)
-    if (matched.name !== parsedGroup.name) {
-      renamedGroups.push({
-        from: matched.name,
-        to: parsedGroup.name,
-      })
-    }
-
-    const nextMemberIds = resolveGroupMemberIds(
-      parsedGroup.memberEmails,
-      emailIndex,
-    )
-    if (!compareMembershipSets(matched.memberIds, nextMemberIds)) {
-      updatedGroupNames.push(parsedGroup.name)
-    }
-  }
-
-  const removedGroupNames = existingGroups
-    .filter((group) => !matchedExistingIds.has(group.id))
-    .map((group) => group.name)
-
-  return {
-    ok: true,
-    value: {
-      mode: "reimport",
-      groups: parsed.value.map((group) => ({
-        name: group.name,
-        memberCount: resolveGroupMemberIds(group.memberEmails, emailIndex)
-          .length,
-      })),
-      missingMembers,
-      totalMissing,
-      addedGroupNames,
-      removedGroupNames,
-      updatedGroupNames,
-      renamedGroups,
-    },
-  }
+  return previewImportGroupSet(roster, rows, {
+    targetGroupSetId: groupSetId,
+    memberKey: "email",
+  })
 }
 
 export function reimportGroupSet(
@@ -435,93 +483,367 @@ export function reimportGroupSet(
   groupSetId: string,
   source: GroupSetImportSource,
   rows: readonly GroupSetImportRow[],
+  sequences: IdSequences = initialIdSequences(),
 ): ValidationResult<GroupSetImportResult> {
-  const groupSet = roster.groupSets.find(
-    (candidate) => candidate.id === groupSetId,
+  return importGroupSet(roster, source, rows, sequences, {
+    targetGroupSetId: groupSetId,
+    memberKey: "email",
+  })
+}
+
+// ---------------------------------------------------------------------------
+// RepoBee preview/apply helpers
+// ---------------------------------------------------------------------------
+
+function normalizeUsername(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function normalizeTeamUsernames(usernames: readonly string[]): string[] {
+  const normalized = usernames
+    .map(normalizeUsername)
+    .filter((username) => username.length > 0)
+  return [...new Set(normalized)].sort((left, right) =>
+    left.localeCompare(right),
   )
-  if (groupSet === undefined) {
-    return importValidationError("groupSetId", "Group set not found")
+}
+
+function canonicalTeamKey(usernames: readonly string[]): string {
+  return usernames.join("\u0000")
+}
+
+function jaccardScore(
+  left: readonly string[],
+  right: readonly string[],
+): number {
+  if (left.length === 0 && right.length === 0) {
+    return 1
   }
 
-  const parsed = parseGroupSetImportRows(rows)
-  if (!parsed.ok) {
-    return parsed
-  }
+  const leftSet = new Set(left)
+  const rightSet = new Set(right)
 
-  const emailIndex = buildRosterEmailIndex(roster)
-  const { missingMembers, totalMissing } = summarizeMissingMembers(
-    parsed.value,
-    emailIndex,
-  )
-
-  const existingGroups = groupSet.groupIds
-    .map((groupId) =>
-      roster.groups.find((candidate) => candidate.id === groupId),
-    )
-    .filter((group): group is Group => group !== undefined)
-  const existingByName = new Map<string, Group>()
-  const existingById = new Map<string, Group>()
-  for (const group of existingGroups) {
-    if (!existingByName.has(group.name)) {
-      existingByName.set(group.name, group)
+  let intersection = 0
+  for (const value of leftSet) {
+    if (rightSet.has(value)) {
+      intersection += 1
     }
-    existingById.set(group.id, group)
   }
 
-  const matchedExistingIds = new Set<string>()
-  const nextGroupIds: string[] = []
-  const groupsUpserted: Group[] = []
+  if (intersection === 0) {
+    return 0
+  }
 
-  for (const parsedGroup of parsed.value) {
-    const nextMemberIds = resolveGroupMemberIds(
-      parsedGroup.memberEmails,
-      emailIndex,
-    )
-    const matched =
-      (parsedGroup.groupId === null
-        ? undefined
-        : existingById.get(parsedGroup.groupId)) ??
-      existingByName.get(parsedGroup.name)
+  const union = new Set([...leftSet, ...rightSet]).size
+  return intersection / union
+}
 
-    if (matched !== undefined) {
-      matchedExistingIds.add(matched.id)
-      const updatedGroup: Group = {
-        ...matched,
-        name: parsedGroup.name,
-        memberIds: nextMemberIds,
-      }
-      nextGroupIds.push(updatedGroup.id)
-      groupsUpserted.push(updatedGroup)
+function buildTeamMembershipDiff(
+  previous: readonly string[],
+  next: readonly string[],
+): RepoBeeTeamMembershipDiff {
+  const previousSet = new Set(previous)
+  const nextSet = new Set(next)
+  const addedUsernames = next.filter((value) => !previousSet.has(value))
+  const removedUsernames = previous.filter((value) => !nextSet.has(value))
+
+  return {
+    previousUsernames: [...previous],
+    nextUsernames: [...next],
+    addedUsernames,
+    removedUsernames,
+  }
+}
+
+function compareNumberAscending(left: number, right: number): number {
+  return left - right
+}
+
+function previewRepoBeeTeamDiff(
+  previousTeams: readonly string[][],
+  nextTeams: readonly string[][],
+): Pick<
+  Extract<GroupSetImportPreview, { mode: "replace" }>,
+  "addedTeams" | "removedTeams" | "changedTeams" | "unchangedTeams"
+> {
+  const previousExactByKey = new Map<string, number[]>()
+  for (const [index, team] of previousTeams.entries()) {
+    const key = canonicalTeamKey(team)
+    const bucket = previousExactByKey.get(key)
+    if (bucket === undefined) {
+      previousExactByKey.set(key, [index])
+    } else {
+      bucket.push(index)
+    }
+  }
+
+  const matchedPrevious = new Set<number>()
+  const matchedNext = new Set<number>()
+  const unchangedTeams: string[][] = []
+
+  for (const [index, team] of nextTeams.entries()) {
+    const key = canonicalTeamKey(team)
+    const bucket = previousExactByKey.get(key)
+    if (bucket === undefined || bucket.length === 0) {
       continue
     }
 
-    const createdGroup: Group = {
-      id: generateEntityId("group"),
-      name: parsedGroup.name,
-      memberIds: nextMemberIds,
-      origin: ORIGIN_LOCAL,
-      lmsGroupId: null,
+    const previousIndex = bucket.shift()
+    if (previousIndex === undefined) {
+      continue
     }
-    nextGroupIds.push(createdGroup.id)
-    groupsUpserted.push(createdGroup)
+
+    matchedPrevious.add(previousIndex)
+    matchedNext.add(index)
+    unchangedTeams.push(team)
+  }
+
+  const unmatchedPrevious = previousTeams
+    .map((_, index) => index)
+    .filter((index) => !matchedPrevious.has(index))
+  const unmatchedNext = nextTeams
+    .map((_, index) => index)
+    .filter((index) => !matchedNext.has(index))
+
+  const changedTeams: RepoBeeTeamMembershipDiff[] = []
+
+  while (unmatchedPrevious.length > 0 && unmatchedNext.length > 0) {
+    let bestScore = 0
+    let bestPreviousIndex = -1
+    let bestNextIndex = -1
+
+    for (const previousIndex of unmatchedPrevious) {
+      for (const nextIndex of unmatchedNext) {
+        const score = jaccardScore(
+          previousTeams[previousIndex] as string[],
+          nextTeams[nextIndex] as string[],
+        )
+        if (score <= 0) {
+          continue
+        }
+
+        const better =
+          score > bestScore ||
+          (score === bestScore &&
+            (bestPreviousIndex < 0 ||
+              previousIndex < bestPreviousIndex ||
+              (previousIndex === bestPreviousIndex &&
+                nextIndex < bestNextIndex)))
+
+        if (!better) {
+          continue
+        }
+
+        bestScore = score
+        bestPreviousIndex = previousIndex
+        bestNextIndex = nextIndex
+      }
+    }
+
+    if (bestScore <= 0 || bestPreviousIndex < 0 || bestNextIndex < 0) {
+      break
+    }
+
+    changedTeams.push(
+      buildTeamMembershipDiff(
+        previousTeams[bestPreviousIndex] as string[],
+        nextTeams[bestNextIndex] as string[],
+      ),
+    )
+
+    unmatchedPrevious.splice(unmatchedPrevious.indexOf(bestPreviousIndex), 1)
+    unmatchedNext.splice(unmatchedNext.indexOf(bestNextIndex), 1)
+  }
+
+  const removedTeams = unmatchedPrevious
+    .sort(compareNumberAscending)
+    .map((index) => previousTeams[index] as string[])
+  const addedTeams = unmatchedNext
+    .sort(compareNumberAscending)
+    .map((index) => nextTeams[index] as string[])
+
+  return {
+    addedTeams,
+    removedTeams,
+    changedTeams,
+    unchangedTeams,
+  }
+}
+
+function buildMemberById(roster: Roster): Map<string, RosterMember> {
+  return new Map(
+    roster.students
+      .concat(roster.staff)
+      .map((member) => [member.id, member] as const),
+  )
+}
+
+function extractGroupSetTeamsByGitUsername(
+  roster: Roster,
+  groupSet: GroupSet,
+): string[][] {
+  const memberById = buildMemberById(roster)
+
+  return groupSet.groupIds
+    .map((groupId) => roster.groups.find((group) => group.id === groupId))
+    .filter((group): group is Group => group !== undefined)
+    .map((group) => {
+      const usernames = group.memberIds
+        .map((memberId) => memberById.get(memberId))
+        .filter((member): member is RosterMember => member !== undefined)
+        .map((member) => member.gitUsername)
+        .filter((value): value is string => value !== null)
+      return normalizeTeamUsernames(usernames)
+    })
+}
+
+function truncateForSuffix(base: string, suffix: string): string {
+  const maxBaseLength = Math.max(
+    1,
+    MAX_REPOBEE_GROUP_NAME_LENGTH - suffix.length,
+  )
+  const sliced = base.slice(0, maxBaseLength).replace(/-+$/g, "")
+  return sliced.length > 0 ? sliced : "group"
+}
+
+function slugifyGroupName(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+  return slug.length > 0 ? slug : "group"
+}
+
+function createUniqueRepoBeeGroupName(
+  baseName: string,
+  seenNames: Set<string>,
+): string {
+  let counter = 1
+  while (true) {
+    const suffix = counter === 1 ? "" : `-${counter}`
+    const candidate = `${truncateForSuffix(baseName, suffix)}${suffix}`
+    const normalized = normalizeName(candidate)
+    if (!seenNames.has(normalized)) {
+      seenNames.add(normalized)
+      return candidate
+    }
+    counter += 1
+  }
+}
+
+function generateRepoBeeGroupNames(
+  teams: readonly RepoBeeTeamInput[],
+  strategy: GroupNameStrategy,
+): string[] {
+  const seenNames = new Set<string>()
+  return teams.map((team, index) => {
+    const base =
+      strategy === "numbered"
+        ? `group-${index + 1}`
+        : slugifyGroupName(team.usernames.join("-"))
+    return createUniqueRepoBeeGroupName(base, seenNames)
+  })
+}
+
+export function previewReplaceGroupSetFromRepoBee(
+  roster: Roster,
+  targetGroupSetId: string,
+  nextTeams: readonly string[][],
+): ValidationResult<GroupSetImportPreview> {
+  const target = resolveTargetGroupSet(roster, targetGroupSetId)
+  if (!target.ok) {
+    return target
+  }
+  if (target.value === null) {
+    return importValidationError("targetGroupSetId", "Group set not found")
+  }
+
+  const normalizedNextTeams = nextTeams.map((team) =>
+    normalizeTeamUsernames(team),
+  )
+  const previousTeams = extractGroupSetTeamsByGitUsername(roster, target.value)
+  const diff = previewRepoBeeTeamDiff(previousTeams, normalizedNextTeams)
+
+  return {
+    ok: true,
+    value: {
+      mode: "replace",
+      ...diff,
+    },
+  }
+}
+
+export function replaceGroupSetFromRepoBee(
+  roster: Roster,
+  source: GroupSetImportSource,
+  teams: readonly RepoBeeTeamInput[],
+  sequences: IdSequences,
+  options: RepoBeeApplyOptions = {},
+): ValidationResult<GroupSetImportResult> {
+  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  if (!target.ok) {
+    return target
+  }
+
+  let seq = sequences
+  const strategy = options.groupNameStrategy ?? "members"
+  const normalizedTeams = teams.map((team) => ({
+    usernames: normalizeTeamUsernames(team.usernames),
+    memberIds: [...new Set(team.memberIds)],
+  }))
+  const groupNames = generateRepoBeeGroupNames(normalizedTeams, strategy)
+  const groupAlloc = allocateGroupIds(seq, normalizedTeams.length)
+  seq = groupAlloc.sequences
+
+  const groupsUpserted: Group[] = normalizedTeams.map((team, index) => ({
+    id: groupAlloc.ids[index] as string,
+    name: groupNames[index] as string,
+    memberIds: team.memberIds,
+    origin: ORIGIN_LOCAL,
+    lmsGroupId: null,
+  }))
+
+  if (target.value === null) {
+    const groupSetAlloc = allocateGroupSetId(seq)
+    seq = groupSetAlloc.sequences
+
+    return {
+      ok: true,
+      value: {
+        mode: "replace",
+        groupSet: {
+          id: groupSetAlloc.id,
+          name: resolveImportedGroupSetName(source, options.groupSetName),
+          groupIds: groupsUpserted.map((group) => group.id),
+          connection: createImportConnection(source),
+          groupSelection: selectionModeAll(),
+          repoNameTemplate: DEFAULT_REPOBEE_TEMPLATE,
+        },
+        groupsUpserted,
+        deletedGroupIds: [],
+        missingMembers: [],
+        totalMissing: 0,
+        idSequences: seq,
+      },
+    }
   }
 
   return {
     ok: true,
     value: {
-      mode: "reimport",
+      mode: "replace",
       groupSet: {
-        ...groupSet,
-        groupIds: nextGroupIds,
+        ...target.value,
+        groupIds: groupsUpserted.map((group) => group.id),
         connection: createImportConnection(source),
-        groupSelection: cloneGroupSelectionMode(groupSet.groupSelection),
+        groupSelection: cloneGroupSelectionMode(target.value.groupSelection),
       },
       groupsUpserted,
-      deletedGroupIds: existingGroups
-        .filter((group) => !matchedExistingIds.has(group.id))
-        .map((group) => group.id),
-      missingMembers,
-      totalMissing,
+      deletedGroupIds: [...target.value.groupIds],
+      missingMembers: [],
+      totalMissing: 0,
+      idSequences: seq,
     },
   }
 }
@@ -541,12 +863,9 @@ export function exportGroupSetRows(
     return importValidationError("groupSetId", "Group set not found")
   }
 
-  const memberById = new Map<string, RosterMember>()
-  for (const member of roster.students.concat(roster.staff)) {
-    memberById.set(member.id, member)
-  }
-
+  const memberById = buildMemberById(roster)
   const rows: GroupSetExportRow[] = []
+
   for (const groupId of groupSet.groupIds) {
     const group = roster.groups.find((candidate) => candidate.id === groupId)
     if (group === undefined) {
@@ -555,8 +874,6 @@ export function exportGroupSetRows(
 
     if (group.memberIds.length === 0) {
       rows.push({
-        group_set_id: groupSet.id,
-        group_id: group.id,
         group_name: group.name,
         name: "",
         email: "",
@@ -567,8 +884,6 @@ export function exportGroupSetRows(
     for (const memberId of group.memberIds) {
       const member = memberById.get(memberId)
       rows.push({
-        group_set_id: groupSet.id,
-        group_id: group.id,
         group_name: group.name,
         name: member?.name ?? "",
         email: member?.email ?? "",
@@ -576,10 +891,7 @@ export function exportGroupSetRows(
     }
   }
 
-  return {
-    ok: true,
-    value: rows,
-  }
+  return { ok: true, value: rows }
 }
 
 export function exportRepoTeams(
@@ -593,28 +905,27 @@ export function exportRepoTeams(
     return importValidationError("groupSetId", "Group set not found")
   }
 
-  const memberById = new Map<string, RosterMember>()
-  for (const member of roster.students.concat(roster.staff)) {
-    memberById.set(member.id, member)
-  }
-
+  const memberById = buildMemberById(roster)
   const teams: RepoTeam[] = []
+
   for (const groupId of groupSet.groupIds) {
     const group = roster.groups.find((candidate) => candidate.id === groupId)
-    if (group === undefined) continue
+    if (group === undefined) {
+      continue
+    }
 
     const members = group.memberIds
       .map((id) => memberById.get(id))
       .filter(
-        (m): m is RosterMember => m !== undefined && m.status === "active",
+        (member): member is RosterMember =>
+          member !== undefined && member.status === "active",
       )
-      .map((m) => m.email)
+      .map((member) => member.email)
       .filter((email) => email !== "")
 
     teams.push({ members, name: group.name })
   }
 
-  teams.sort((a, b) => a.name.localeCompare(b.name))
-
+  teams.sort((left, right) => left.name.localeCompare(right.name))
   return { ok: true, value: teams }
 }
