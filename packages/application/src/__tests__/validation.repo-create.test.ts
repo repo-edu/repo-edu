@@ -1,21 +1,45 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
+
+function planForAssignment(course: PersistedCourse, assignmentId: string) {
+  const assignment = course.roster.assignments.find(
+    (entry) => entry.id === assignmentId,
+  )
+  assert.ok(assignment)
+  const groupSet = course.roster.groupSets.find(
+    (entry) => entry.id === assignment.groupSetId,
+  )
+  const plan = planRepositoryOperation(
+    course.roster,
+    assignmentId,
+    groupSet?.repoNameTemplate ?? undefined,
+  )
+  assert.equal(plan.ok, true)
+  if (!plan.ok) {
+    throw new Error("Expected repository planning to succeed.")
+  }
+  return plan.value
+}
 
 describe("application repository create workflow helpers", () => {
   it("creates repositories from assignment planning output", async () => {
     let requestedOrganization = ""
     let requestedVisibility = ""
     let requestedAutoInit = false
-    let requestedRepositoryCount = 0
+    const requestedRepositoryNames = new Set<string>()
     const { course, settings, handlers } = createRepoHarness({
       git: {
         createRepositories: async (_draft, request) => {
           requestedOrganization = request.organization
           requestedVisibility = request.visibility
           requestedAutoInit = request.autoInit
-          requestedRepositoryCount = request.repositoryNames.length
+          for (const repositoryName of request.repositoryNames) {
+            requestedRepositoryNames.add(repositoryName)
+          }
           return {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -34,13 +58,17 @@ describe("application repository create workflow helpers", () => {
       assignmentId: "a1",
       template: null,
     })
+    const plan = planForAssignment(course, "a1")
+    const plannedRepositoryNames = new Set(
+      plan.groups.map((group) => group.repoName),
+    )
 
     assert.equal(requestedOrganization, "repo-edu")
     assert.equal(requestedVisibility, "private")
     assert.equal(requestedAutoInit, true)
-    assert.equal(requestedRepositoryCount > 0, true)
-    assert.equal(result.repositoriesPlanned >= requestedRepositoryCount, true)
-    assert.equal(result.repositoriesCreated, requestedRepositoryCount)
+    assert.deepStrictEqual(requestedRepositoryNames, plannedRepositoryNames)
+    assert.equal(result.repositoriesPlanned, plan.groups.length)
+    assert.equal(result.repositoriesCreated, plannedRepositoryNames.size)
     assert.equal(result.repositoriesAlreadyExisted, 0)
     assert.equal(result.repositoriesFailed, 0)
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
@@ -48,7 +76,7 @@ describe("application repository create workflow helpers", () => {
 
   it("creates repositories from hybrid fixture scenarios", async () => {
     let requestedOrganization = ""
-    let requestedRepositoryCount = 0
+    const requestedRepositoryNames = new Set<string>()
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course }) => {
@@ -60,7 +88,9 @@ describe("application repository create workflow helpers", () => {
       git: {
         createRepositories: async (_draft, request) => {
           requestedOrganization = request.organization
-          requestedRepositoryCount = request.repositoryNames.length
+          for (const repositoryName of request.repositoryNames) {
+            requestedRepositoryNames.add(repositoryName)
+          }
           return {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -79,11 +109,15 @@ describe("application repository create workflow helpers", () => {
       assignmentId: "a1",
       template: null,
     })
+    const plan = planForAssignment(course, "a1")
+    const plannedRepositoryNames = new Set(
+      plan.groups.map((group) => group.repoName),
+    )
 
     assert.equal(requestedOrganization, "hybrid-org")
-    assert.equal(requestedRepositoryCount > 0, true)
-    assert.equal(result.repositoriesPlanned, requestedRepositoryCount)
-    assert.equal(result.repositoriesCreated, requestedRepositoryCount)
+    assert.deepStrictEqual(requestedRepositoryNames, plannedRepositoryNames)
+    assert.equal(result.repositoriesPlanned, plan.groups.length)
+    assert.equal(result.repositoriesCreated, plannedRepositoryNames.size)
     assert.equal(result.repositoriesFailed, 0)
   })
 
@@ -116,64 +150,14 @@ describe("application repository create workflow helpers", () => {
     )
   })
 
-  it("filters repository planning to the selected group ids", async () => {
-    let requestedOrganization = ""
-    let requestedVisibility = ""
-    let requestedAutoInit = false
-    let requestedRepositoryCount = 0
-    const { course, settings, handlers } = createRepoHarness({
-      git: {
-        createRepositories: async (_draft, request) => {
-          requestedOrganization = request.organization
-          requestedVisibility = request.visibility
-          requestedAutoInit = request.autoInit
-          requestedRepositoryCount = request.repositoryNames.length
-          return {
-            created: request.repositoryNames.map((repositoryName) => ({
-              repositoryName,
-              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
-            })),
-            alreadyExisted: [],
-            failed: [],
-          }
-        },
-      },
-    })
-    const assignment = course.roster.assignments.find(
-      (item) => item.id === "a1",
-    )
-    assert.ok(assignment)
-    const assignmentGroupSet = course.roster.groupSets.find(
-      (groupSet) => groupSet.id === assignment.groupSetId,
-    )
-    assert.ok(assignmentGroupSet)
-    const selectedGroupId = assignmentGroupSet.groupIds[0]
-    assert.ok(selectedGroupId)
-
-    const result = await handlers["repo.create"]({
-      course,
-      appSettings: settings,
-      assignmentId: "a1",
-      template: null,
-      groupIds: [selectedGroupId],
-    })
-
-    assert.equal(requestedOrganization, "repo-edu")
-    assert.equal(requestedVisibility, "private")
-    assert.equal(requestedAutoInit, true)
-    assert.equal(requestedRepositoryCount, 1)
-    assert.equal(result.repositoriesPlanned, 1)
-    assert.equal(result.repositoriesCreated, 1)
-    assert.equal(result.repositoriesAlreadyExisted, 0)
-    assert.equal(result.repositoriesFailed, 0)
-  })
-
   it("reports alreadyExisted and failed buckets in repo.create result", async () => {
-    let requestedRepositoryCount = 0
+    const requestedRepositoryNames = new Set<string>()
     const { course, settings, handlers } = createRepoHarness({
       git: {
         createRepositories: async (_draft, request) => {
-          requestedRepositoryCount = request.repositoryNames.length
+          for (const repositoryName of request.repositoryNames) {
+            requestedRepositoryNames.add(repositoryName)
+          }
           return {
             created: [],
             alreadyExisted: request.repositoryNames.map((repositoryName) => ({
@@ -192,10 +176,15 @@ describe("application repository create workflow helpers", () => {
       assignmentId: "a1",
       template: null,
     })
+    const plan = planForAssignment(course, "a1")
+    const plannedRepositoryNames = new Set(
+      plan.groups.map((group) => group.repoName),
+    )
 
-    assert.equal(result.repositoriesPlanned > 0, true)
+    assert.deepStrictEqual(requestedRepositoryNames, plannedRepositoryNames)
+    assert.equal(result.repositoriesPlanned, plan.groups.length)
     assert.equal(result.repositoriesCreated, 0)
-    assert.equal(result.repositoriesAlreadyExisted, requestedRepositoryCount)
+    assert.equal(result.repositoriesAlreadyExisted, plannedRepositoryNames.size)
     assert.equal(result.repositoriesFailed, 0)
   })
 

@@ -76,11 +76,7 @@ export function createRepoCloneHandler(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(
-          course,
-          input.assignmentId,
-          input.groupIds,
-        )
+        const planned = collectRepositoryGroups(course, input.assignmentId)
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",

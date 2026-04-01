@@ -5,7 +5,6 @@ import {
   surnameSortKey,
 } from "@repo-edu/domain/roster"
 import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
-import { Checkbox } from "@repo-edu/ui"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { EditableGroupTarget } from "../../../../stores/course-store.js"
 import {
@@ -34,7 +33,6 @@ export type GroupRow = {
 // ---------------------------------------------------------------------------
 
 export const GROUPS_COLUMN_WIDTHS = {
-  select: 40,
   group: 150,
   members: 450,
   memberCount: 60,
@@ -42,7 +40,6 @@ export const GROUPS_COLUMN_WIDTHS = {
 } as const
 
 export const GROUPS_COLUMN_MIN_WIDTHS = {
-  select: 36,
   group: 100,
   members: 200,
   memberCount: 40,
@@ -126,46 +123,6 @@ export function createGroupColumns(
   } = params
 
   return [
-    {
-      id: "select",
-      size: GROUPS_COLUMN_WIDTHS.select,
-      minSize: GROUPS_COLUMN_MIN_WIDTHS.select,
-      enableSorting: false,
-      accessorFn: (row) => row.group.id,
-      header: ({ table }) => {
-        const visibleRows = table.getFilteredRowModel().rows
-        const selectedVisible = visibleRows.filter((row) =>
-          row.getIsSelected(),
-        ).length
-        const allSelected =
-          visibleRows.length > 0 && selectedVisible === visibleRows.length
-        const someSelected = selectedVisible > 0 && !allSelected
-
-        return (
-          <Checkbox
-            checked={
-              allSelected ? true : someSelected ? "indeterminate" : false
-            }
-            onCheckedChange={(checked) => {
-              const nextSelected = checked === true
-              for (const row of visibleRows) {
-                row.toggleSelected(nextSelected)
-              }
-            }}
-            aria-label="Select all visible groups"
-            size="sm"
-          />
-        )
-      },
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-          aria-label={`Select group ${row.original.group.name}`}
-          size="sm"
-        />
-      ),
-    },
     {
       id: "name",
       size: GROUPS_COLUMN_WIDTHS.group,
@@ -285,7 +242,6 @@ export function createGroupColumns(
 
 export function groupColumnLabel(columnId: string): string {
   const labels: Record<string, string> = {
-    select: "Selection",
     name: "Group Name",
     members: "Members",
     memberCount: "#",

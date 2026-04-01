@@ -21,7 +21,6 @@ export type BuildRepositoryWorkflowRequestArgs = {
   repositoryTemplate: RepositoryTemplate | null
   targetDirectory?: string
   directoryLayout?: CloneDirectoryLayout
-  groupIds?: string[]
 }
 
 export function resolveRepositoryWorkflowId(
@@ -40,7 +39,6 @@ export function buildRepositoryWorkflowRequest({
   repositoryTemplate,
   targetDirectory,
   directoryLayout,
-  groupIds,
 }: BuildRepositoryWorkflowRequestArgs): {
   workflowId: RepositoryWorkflowId
   input: RepositoryBatchInput | RepositoryUpdateInput
@@ -52,7 +50,6 @@ export function buildRepositoryWorkflowRequest({
     appSettings,
     assignmentId,
     template: repositoryTemplate,
-    groupIds,
   }
 
   if (operation === "update") {

@@ -1,17 +1,39 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
+function planForAssignment(course: PersistedCourse, assignmentId: string) {
+  const assignment = course.roster.assignments.find(
+    (entry) => entry.id === assignmentId,
+  )
+  assert.ok(assignment)
+  const groupSet = course.roster.groupSets.find(
+    (entry) => entry.id === assignment.groupSetId,
+  )
+  const plan = planRepositoryOperation(
+    course.roster,
+    assignmentId,
+    groupSet?.repoNameTemplate ?? undefined,
+  )
+  assert.equal(plan.ok, true)
+  if (!plan.ok) {
+    throw new Error("Expected repository planning to succeed.")
+  }
+  return plan.value
+}
+
 describe("application repository clone workflow helpers", () => {
-  it("clones repositories from selected group ids", async () => {
+  it("clones repositories from assignment planning output", async () => {
     const cloneCommands: string[][] = []
     const batchOperations: Array<Array<Record<string, string>>> = []
-    let requestedRepositoryName = ""
+    let requestedRepositoryNames: string[] = []
 
     const { course, settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async (_draft, request) => {
-          requestedRepositoryName = request.repositoryNames[0] ?? ""
+          requestedRepositoryNames = request.repositoryNames
           return {
             resolved: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -43,17 +65,6 @@ describe("application repository clone workflow helpers", () => {
         },
       },
     })
-    const assignment = course.roster.assignments.find(
-      (item) => item.id === "a1",
-    )
-    assert.ok(assignment)
-    const assignmentGroupSet = course.roster.groupSets.find(
-      (groupSet) => groupSet.id === assignment.groupSetId,
-    )
-    assert.ok(assignmentGroupSet)
-    const selectedGroupId = assignmentGroupSet.groupIds[0]
-    assert.ok(selectedGroupId)
-
     const cloneResult = await handlers["repo.clone"]({
       course,
       appSettings: settings,
@@ -61,48 +72,52 @@ describe("application repository clone workflow helpers", () => {
       template: null,
       targetDirectory: "/work/repos",
       directoryLayout: "flat",
-      groupIds: [selectedGroupId],
     })
-    assert.equal(cloneResult.repositoriesPlanned, 1)
-    assert.equal(cloneResult.repositoriesCloned, 1)
+    const plan = planForAssignment(course, "a1")
+    const plannedRepositoryNames = plan.groups.map((group) => group.repoName)
+    const plannedRepositorySet = new Set(plannedRepositoryNames)
+
+    assert.equal(cloneResult.repositoriesPlanned, plan.groups.length)
+    assert.equal(cloneResult.repositoriesCloned, plan.groups.length)
     assert.equal(cloneResult.repositoriesFailed, 0)
-    assert.deepStrictEqual(cloneCommands[0]?.slice(0, 1), ["init"])
-    assert.ok(
-      cloneCommands[0]?.[1]?.includes("/work/repos/.repo-edu-clone-tmp/"),
+
+    assert.deepStrictEqual(
+      new Set(requestedRepositoryNames),
+      plannedRepositorySet,
     )
-    assert.ok(cloneCommands[0]?.[1]?.endsWith("-0"))
-    const tempPath = cloneCommands[0]?.[1] ?? ""
-    assert.deepStrictEqual(cloneCommands[1], [
-      "pull",
-      `https://x-access-token:token-1@github.com/repo-edu/${requestedRepositoryName}.git`,
-    ])
-    assert.equal(cloneCommands[2]?.[0], "remote")
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "init").length,
+      plan.groups.length,
+    )
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "pull").length,
+      plan.groups.length,
+    )
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "remote").length,
+      plan.groups.length,
+    )
+
     const copyOperations = batchOperations.flat().filter((operation) => {
       return operation.kind === "copy-directory"
     })
-    assert.deepStrictEqual(copyOperations, [
-      {
-        kind: "copy-directory",
-        sourcePath: tempPath,
-        destinationPath: `/work/repos/${requestedRepositoryName}`,
-      },
-    ])
-    assert.deepStrictEqual(cloneCommands[2], [
-      "remote",
-      "add",
-      "origin",
-      `https://github.com/repo-edu/${requestedRepositoryName}.git`,
-    ])
+    assert.equal(copyOperations.length, plan.groups.length)
+    assert.deepStrictEqual(
+      new Set(copyOperations.map((operation) => operation.destinationPath)),
+      new Set(
+        plannedRepositoryNames.map((repository) => `/work/repos/${repository}`),
+      ),
+    )
   })
 
   it("treats empty remote repositories as successful clones", async () => {
     const cloneCommands: string[][] = []
-    let requestedRepositoryName = ""
+    let requestedRepositoryNames: string[] = []
 
     const { course, settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async (_draft, request) => {
-          requestedRepositoryName = request.repositoryNames[0] ?? ""
+          requestedRepositoryNames = request.repositoryNames
           return {
             resolved: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -136,17 +151,6 @@ describe("application repository clone workflow helpers", () => {
           request.paths.map((path) => ({ path, kind: "missing" as const })),
       },
     })
-    const assignment = course.roster.assignments.find(
-      (item) => item.id === "a1",
-    )
-    assert.ok(assignment)
-    const assignmentGroupSet = course.roster.groupSets.find(
-      (groupSet) => groupSet.id === assignment.groupSetId,
-    )
-    assert.ok(assignmentGroupSet)
-    const selectedGroupId = assignmentGroupSet.groupIds[0]
-    assert.ok(selectedGroupId)
-
     const cloneResult = await handlers["repo.clone"]({
       course,
       appSettings: settings,
@@ -154,25 +158,31 @@ describe("application repository clone workflow helpers", () => {
       template: null,
       targetDirectory: "/work/repos",
       directoryLayout: "flat",
-      groupIds: [selectedGroupId],
     })
+    const plan = planForAssignment(course, "a1")
+    const plannedRepositorySet = new Set(
+      plan.groups.map((group) => group.repoName),
+    )
 
-    assert.equal(cloneResult.repositoriesCloned, 1)
+    assert.equal(cloneResult.repositoriesPlanned, plan.groups.length)
+    assert.equal(cloneResult.repositoriesCloned, plan.groups.length)
     assert.equal(cloneResult.repositoriesFailed, 0)
-    assert.deepStrictEqual(cloneCommands[2], [
-      "remote",
-      "add",
-      "origin",
-      `https://github.com/repo-edu/${requestedRepositoryName}.git`,
-    ])
+    assert.deepStrictEqual(
+      new Set(requestedRepositoryNames),
+      plannedRepositorySet,
+    )
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "remote").length,
+      plan.groups.length,
+    )
   })
 
   it("errors when clone target clashes with non-git directories", async () => {
-    let requestedRepositoryName = ""
+    let requestedRepositoryNames: string[] = []
     const { course, settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async (_draft, request) => {
-          requestedRepositoryName = request.repositoryNames[0] ?? ""
+          requestedRepositoryNames = request.repositoryNames
           return {
             resolved: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -205,17 +215,6 @@ describe("application repository clone workflow helpers", () => {
           request.paths.map((path) => ({ path, kind: "directory" as const })),
       },
     })
-    const assignment = course.roster.assignments.find(
-      (item) => item.id === "a1",
-    )
-    assert.ok(assignment)
-    const assignmentGroupSet = course.roster.groupSets.find(
-      (groupSet) => groupSet.id === assignment.groupSetId,
-    )
-    assert.ok(assignmentGroupSet)
-    const selectedGroupId = assignmentGroupSet.groupIds[0]
-    assert.ok(selectedGroupId)
-
     await assert.rejects(
       async () =>
         handlers["repo.clone"]({
@@ -225,12 +224,15 @@ describe("application repository clone workflow helpers", () => {
           template: null,
           targetDirectory: "/work/repos",
           directoryLayout: "flat",
-          groupIds: [selectedGroupId],
         }),
       (error: unknown) => {
         const appError = error as { type?: string; message?: string }
+        const plan = planForAssignment(course, "a1")
         assert.equal(appError.type, "validation", "expected validation error")
-        assert.equal(requestedRepositoryName.length > 0, true)
+        assert.deepStrictEqual(
+          new Set(requestedRepositoryNames),
+          new Set(plan.groups.map((group) => group.repoName)),
+        )
         assert.match(
           appError.message ?? "",
           /non-git entries/,
@@ -244,12 +246,12 @@ describe("application repository clone workflow helpers", () => {
   it("does not copy into final destination when clone pull fails", async () => {
     const cloneCommands: string[][] = []
     const batchOperations: Array<Array<Record<string, string>>> = []
-    let requestedRepositoryName = ""
+    let requestedRepositoryNames: string[] = []
 
     const { course, settings, handlers } = createRepoHarness({
       git: {
         resolveRepositoryCloneUrls: async (_draft, request) => {
-          requestedRepositoryName = request.repositoryNames[0] ?? ""
+          requestedRepositoryNames = request.repositoryNames
           return {
             resolved: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
@@ -289,17 +291,6 @@ describe("application repository clone workflow helpers", () => {
         },
       },
     })
-    const assignment = course.roster.assignments.find(
-      (item) => item.id === "a1",
-    )
-    assert.ok(assignment)
-    const assignmentGroupSet = course.roster.groupSets.find(
-      (groupSet) => groupSet.id === assignment.groupSetId,
-    )
-    assert.ok(assignmentGroupSet)
-    const selectedGroupId = assignmentGroupSet.groupIds[0]
-    assert.ok(selectedGroupId)
-
     const cloneResult = await handlers["repo.clone"]({
       course,
       appSettings: settings,
@@ -307,19 +298,28 @@ describe("application repository clone workflow helpers", () => {
       template: null,
       targetDirectory: "/work/repos",
       directoryLayout: "flat",
-      groupIds: [selectedGroupId],
     })
+    const plan = planForAssignment(course, "a1")
 
+    assert.equal(cloneResult.repositoriesPlanned, plan.groups.length)
     assert.equal(cloneResult.repositoriesCloned, 0)
-    assert.equal(cloneResult.repositoriesFailed, 1)
-    assert.deepStrictEqual(cloneCommands[0]?.slice(0, 1), ["init"])
-    assert.ok(
-      cloneCommands[0]?.[1]?.includes("/work/repos/.repo-edu-clone-tmp/"),
+    assert.equal(cloneResult.repositoriesFailed, plan.groups.length)
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "init").length,
+      plan.groups.length,
     )
+    assert.equal(
+      cloneCommands.filter((args) => args[0] === "pull").length,
+      plan.groups.length,
+    )
+    assert.equal(cloneCommands.filter((args) => args[0] === "remote").length, 0)
     const copyOperations = batchOperations.flat().filter((operation) => {
       return operation.kind === "copy-directory"
     })
     assert.deepStrictEqual(copyOperations, [])
-    assert.equal(requestedRepositoryName.length > 0, true)
+    assert.deepStrictEqual(
+      new Set(requestedRepositoryNames),
+      new Set(plan.groups.map((group) => group.repoName)),
+    )
   })
 })

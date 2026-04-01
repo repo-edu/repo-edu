@@ -40,8 +40,8 @@ type OperationControlsProps = {
   hasUpdateOperationInputs: boolean
 
   // Counts
-  selectedNonEmptyCount: number
-  selectedEmptyCount: number
+  nonEmptyCount: number
+  emptyCount: number
 
   // Organization
   organization: string | null
@@ -83,8 +83,8 @@ export function OperationControls(props: OperationControlsProps) {
     gitConnectionId,
     hasBaseOperationInputs,
     hasUpdateOperationInputs,
-    selectedNonEmptyCount,
-    selectedEmptyCount,
+    nonEmptyCount,
+    emptyCount,
     organization,
     setOrganization,
     templateKind,
@@ -272,12 +272,12 @@ export function OperationControls(props: OperationControlsProps) {
                 )}
               </Button>
               <div className="text-sm text-muted-foreground">
-                Will create {selectedNonEmptyCount} repositor
-                {selectedNonEmptyCount === 1 ? "y" : "ies"}.
-                {selectedEmptyCount > 0 && (
+                Will create {nonEmptyCount} repositor
+                {nonEmptyCount === 1 ? "y" : "ies"}.
+                {emptyCount > 0 && (
                   <span className="ml-1">
-                    {selectedEmptyCount} empty group
-                    {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
+                    {emptyCount} empty group
+                    {emptyCount === 1 ? "" : "s"} will be skipped.
                   </span>
                 )}
               </div>
@@ -380,12 +380,12 @@ export function OperationControls(props: OperationControlsProps) {
                 )}
               </Button>
               <div className="text-sm text-muted-foreground">
-                Will clone {selectedNonEmptyCount} repositor
-                {selectedNonEmptyCount === 1 ? "y" : "ies"}.
-                {selectedEmptyCount > 0 && (
+                Will clone {nonEmptyCount} repositor
+                {nonEmptyCount === 1 ? "y" : "ies"}.
+                {emptyCount > 0 && (
                   <span className="ml-1">
-                    {selectedEmptyCount} empty group
-                    {selectedEmptyCount === 1 ? "" : "s"} will be skipped.
+                    {emptyCount} empty group
+                    {emptyCount === 1 ? "" : "s"} will be skipped.
                   </span>
                 )}
               </div>

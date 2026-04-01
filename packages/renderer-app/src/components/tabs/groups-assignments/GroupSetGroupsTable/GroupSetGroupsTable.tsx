@@ -1,3 +1,4 @@
+import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
 import {
   Button,
@@ -13,7 +14,6 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
-  type RowSelectionState,
   type SortingState,
   type Updater,
   useReactTable,
@@ -105,6 +105,7 @@ export function GroupsTable({
   const updateGroup = useCourseStore((s) => s.updateGroup)
   const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
   const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
+  const course = useCourseStore((s) => s.course)
 
   // Scroll state
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -141,7 +142,6 @@ export function GroupsTable({
 
   // Sorting
   const [sorting, setSorting] = useState<SortingState>([])
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const handleSort = useCallback((columnId: string) => {
     setSorting((current) => getNextProgressiveSorting(current, columnId))
@@ -251,13 +251,11 @@ export function GroupsTable({
     state: {
       sorting,
       globalFilter,
-      rowSelection,
       columnVisibility: groupsColumnVisibility,
       columnSizing: groupsColumnSizing,
     },
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
-    onRowSelectionChange: setRowSelection,
     onColumnSizingChange: (updater) => {
       const next =
         typeof updater === "function" ? updater(groupsColumnSizing) : updater
@@ -271,7 +269,6 @@ export function GroupsTable({
       setGroupsColumnVisibility(next)
       void saveAppSettings()
     },
-    enableRowSelection: true,
     getRowId: (row) => row.group.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -289,28 +286,6 @@ export function GroupsTable({
     },
   })
 
-  useEffect(() => {
-    const validGroupIds = new Set(rows.map((row) => row.group.id))
-    setRowSelection((current) => {
-      const next: RowSelectionState = {}
-      let changed = false
-      for (const [groupId, selected] of Object.entries(current)) {
-        if (!validGroupIds.has(groupId)) {
-          changed = true
-          continue
-        }
-        next[groupId] = selected
-      }
-      for (const row of rows) {
-        if (next[row.group.id] === undefined) {
-          next[row.group.id] = true
-          changed = true
-        }
-      }
-      return changed ? next : current
-    })
-  }, [rows])
-
   const totalColumnSize = table.getTotalSize()
   const toColumnWidth = (size: number): string | undefined =>
     totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
@@ -325,20 +300,34 @@ export function GroupsTable({
     }
   }, [isResizingColumn, saveAppSettings])
 
-  const selectedRows = table.getFilteredSelectedRowModel().rows
-  const selectedGroupIds = selectedRows.map((row) => row.original.group.id)
-  const selectedNonEmptyCount = selectedRows.filter(
-    (row) => row.original.memberCount > 0,
-  ).length
-  const selectedEmptyCount = selectedRows.length - selectedNonEmptyCount
-  const showingCount = table.getFilteredRowModel().rows.length
+  const visibleRows = table.getFilteredRowModel().rows
+  const showingCount = visibleRows.length
   const effectiveAssignmentId = effectiveAssignment?.id ?? null
+  const { nonEmptyCount, emptyCount } = useMemo(() => {
+    if (!course || effectiveAssignmentId === null) {
+      return { nonEmptyCount: 0, emptyCount: 0 }
+    }
+    const plan = planRepositoryOperation(
+      course.roster,
+      effectiveAssignmentId,
+      template,
+    )
+    if (!plan.ok) {
+      return { nonEmptyCount: 0, emptyCount: 0 }
+    }
+    const skippedEmptyCount = plan.value.skippedGroups.filter(
+      (group) => group.reason === "empty_group",
+    ).length
+    return {
+      nonEmptyCount: plan.value.groups.length,
+      emptyCount: skippedEmptyCount,
+    }
+  }, [course, effectiveAssignmentId, template])
 
   // Operations hook
   const ops = useRepoOperations({
     effectiveAssignmentId,
-    selectedGroupIds,
-    selectedNonEmptyCount,
+    nonEmptyCount,
     disabled,
   })
 
@@ -379,8 +368,8 @@ export function GroupsTable({
             gitConnectionId={ops.gitConnectionId}
             hasBaseOperationInputs={ops.hasBaseOperationInputs}
             hasUpdateOperationInputs={ops.hasUpdateOperationInputs}
-            selectedNonEmptyCount={selectedNonEmptyCount}
-            selectedEmptyCount={selectedEmptyCount}
+            nonEmptyCount={nonEmptyCount}
+            emptyCount={emptyCount}
             organization={ops.organization}
             setOrganization={ops.setOrganization}
             templateKind={ops.templateKind}
@@ -589,8 +578,7 @@ export function GroupsTable({
       </div>
       {showingCount < rows.length && (
         <div className="px-3 py-2 border-t text-sm text-muted-foreground">
-          Showing {showingCount} of {rows.length} groups · {selectedRows.length}{" "}
-          selected
+          Showing {showingCount} of {rows.length} groups
         </div>
       )}
     </>

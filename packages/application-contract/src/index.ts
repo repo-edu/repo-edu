@@ -310,7 +310,6 @@ export type RepositoryBatchInput = {
   template: RepositoryTemplate | null
   targetDirectory?: string
   directoryLayout?: "flat" | "by-team" | "by-task"
-  groupIds?: string[]
 }
 
 export type RepositoryUpdateInput = {

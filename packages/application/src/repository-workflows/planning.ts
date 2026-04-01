@@ -86,13 +86,11 @@ export function describeTemplate(template: RepositoryTemplate | null): string {
 export function collectRepositoryGroups(
   course: PersistedCourse,
   assignmentId: string | null,
-  groupIds?: readonly string[],
 ): ValidationResult<PlannedRepositoryGroup[]> {
   const assignmentIds =
     assignmentId === null
       ? course.roster.assignments.map((assignment) => assignment.id)
       : [assignmentId]
-  const selectedGroupIds = groupIds ? new Set(groupIds) : null
 
   const plannedGroups: PlannedRepositoryGroup[] = []
   for (const selectedAssignmentId of assignmentIds) {
@@ -108,13 +106,7 @@ export function collectRepositoryGroups(
     if (!plan.ok) {
       return plan
     }
-    const groups =
-      selectedGroupIds === null
-        ? plan.value.groups
-        : plan.value.groups.filter((group) =>
-            selectedGroupIds.has(group.groupId),
-          )
-    plannedGroups.push(...groups)
+    plannedGroups.push(...plan.value.groups)
   }
 
   return {

@@ -38,18 +38,12 @@ export type OperationStatus = "idle" | "running" | "success" | "error"
 
 type UseRepoOperationsParams = {
   effectiveAssignmentId: string | null
-  selectedGroupIds: string[]
-  selectedNonEmptyCount: number
+  nonEmptyCount: number
   disabled: boolean
 }
 
 export function useRepoOperations(params: UseRepoOperationsParams) {
-  const {
-    effectiveAssignmentId,
-    selectedGroupIds,
-    selectedNonEmptyCount,
-    disabled,
-  } = params
+  const { effectiveAssignmentId, nonEmptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
   const gitConnectionId = useCourseStore(selectGitConnectionId)
@@ -99,7 +93,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     !isRunning &&
     effectiveAssignmentId !== null &&
     gitConnectionId !== null &&
-    selectedNonEmptyCount > 0
+    nonEmptyCount > 0
   const hasUpdateOperationInputs =
     !disabled &&
     !isRunning &&
@@ -180,7 +174,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         repositoryTemplate,
         targetDirectory: cloneTargetDirectory,
         directoryLayout: cloneDirectoryLayout,
-        groupIds: selectedGroupIds,
       })
 
       try {
@@ -225,7 +218,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       course,
       effectiveAssignmentId,
       repositoryTemplate,
-      selectedGroupIds,
       updateAssignment,
     ],
   )

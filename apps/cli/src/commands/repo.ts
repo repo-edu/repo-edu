@@ -16,7 +16,6 @@ import { createCliWorkflowClient } from "../workflow-runtime.js"
 type RepoCreateOptions = {
   assignment?: string
   all?: boolean
-  groups?: string
   dryRun?: boolean
   templatePath?: string
 }
@@ -24,7 +23,6 @@ type RepoCreateOptions = {
 type RepoCloneOptions = {
   assignment?: string
   all?: boolean
-  groups?: string
   target?: string
   layout?: "flat" | "by-team" | "by-task"
 }
@@ -81,37 +79,6 @@ function resolveAssignmentSelection(
   return resolved
 }
 
-function resolveGroupIdsByName(
-  course: PersistedCourse,
-  groupsOption: string | undefined,
-): string[] | undefined {
-  if (!groupsOption) {
-    return undefined
-  }
-  const groupNames = groupsOption
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-  if (groupNames.length === 0) {
-    return undefined
-  }
-
-  const groupByNormalizedName = new Map(
-    course.roster.groups.map((group) => [group.name.toLowerCase(), group.id]),
-  )
-  const groupIds: string[] = []
-  for (const groupName of groupNames) {
-    const id = groupByNormalizedName.get(groupName.toLowerCase())
-    if (!id) {
-      throw new Error(
-        `Group '${groupName}' was not found in course '${course.id}'.`,
-      )
-    }
-    groupIds.push(id)
-  }
-  return groupIds
-}
-
 function applyTemplateCommitShas(
   course: PersistedCourse,
   templateCommitShas: Record<string, string>,
@@ -154,7 +121,6 @@ export function registerRepoCommands(parent: Command): void {
     .description("Create repositories")
     .option("--assignment <name>", "Assignment name or id")
     .option("--all", "Run across all assignments")
-    .option("--groups <name,...>", "Filter to groups by group name")
     .option("--dry-run", "Show what would be created")
     .option(
       "--template-path <dir>",
@@ -173,8 +139,6 @@ export function registerRepoCommands(parent: Command): void {
           options.assignment,
           options.all,
         )
-        const groupIds = resolveGroupIdsByName(course, options.groups)
-
         if (options.dryRun) {
           const assignments =
             assignment === null ? course.roster.assignments : [assignment]
@@ -196,22 +160,15 @@ export function registerRepoCommands(parent: Command): void {
               return
             }
 
-            const groups =
-              groupIds === undefined
-                ? planned.value.groups
-                : planned.value.groups.filter((group) =>
-                    groupIds.includes(group.groupId),
-                  )
-
             printRepositoryPlan(
               selectedAssignment.name,
               selectedAssignment.id,
               course.id,
             )
-            if (groups.length === 0) {
+            if (planned.value.groups.length === 0) {
               process.stdout.write("- No repositories planned.\n")
             }
-            for (const group of groups) {
+            for (const group of planned.value.groups) {
               process.stdout.write(
                 `- ${group.repoName}\tgroup=${group.groupName}\tassignment=${group.assignmentName}\n`,
               )
@@ -228,7 +185,6 @@ export function registerRepoCommands(parent: Command): void {
           appSettings: settings,
           assignmentId: assignment?.id ?? null,
           template,
-          groupIds,
         })
 
         const nextCourse = applyTemplateCommitShas(
@@ -252,7 +208,6 @@ export function registerRepoCommands(parent: Command): void {
     .description("Clone repositories")
     .option("--assignment <name>", "Assignment name or id")
     .option("--all", "Run across all assignments")
-    .option("--groups <name,...>", "Filter to groups by group name")
     .option("--target <dir>", "Target directory")
     .option("--layout <layout>", "Directory layout: flat, by-team, by-task")
     .action(async function (this: Command, options: RepoCloneOptions) {
@@ -268,8 +223,6 @@ export function registerRepoCommands(parent: Command): void {
           options.assignment,
           options.all,
         )
-        const groupIds = resolveGroupIdsByName(course, options.groups)
-
         if (
           options.layout !== undefined &&
           options.layout !== "flat" &&
@@ -288,7 +241,6 @@ export function registerRepoCommands(parent: Command): void {
           template: course.repositoryTemplate,
           targetDirectory: options.target,
           directoryLayout: options.layout,
-          groupIds,
         })
 
         process.stdout.write(

@@ -80,7 +80,6 @@ describe("repository workflow helpers", () => {
       assignmentId: "assignment-1",
       operation: "create",
       repositoryTemplate: template,
-      groupIds: ["g1", "g2"],
     })
 
     assert.deepStrictEqual(result, {
@@ -90,7 +89,6 @@ describe("repository workflow helpers", () => {
         appSettings,
         assignmentId: "assignment-1",
         template,
-        groupIds: ["g1", "g2"],
       },
     })
   })
@@ -104,7 +102,6 @@ describe("repository workflow helpers", () => {
       repositoryTemplate: template,
       targetDirectory: "/tmp/repos",
       directoryLayout: "by-team",
-      groupIds: ["g1"],
     })
 
     assert.deepStrictEqual(result, {
@@ -116,7 +113,6 @@ describe("repository workflow helpers", () => {
         template,
         targetDirectory: "/tmp/repos",
         directoryLayout: "by-team",
-        groupIds: ["g1"],
       },
     })
   })
@@ -128,7 +124,6 @@ describe("repository workflow helpers", () => {
       assignmentId: "assignment-1",
       operation: "update",
       repositoryTemplate: template,
-      groupIds: ["g1"],
       targetDirectory: "/tmp/repos",
       directoryLayout: "by-team",
     })
