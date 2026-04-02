@@ -121,7 +121,8 @@ export function applyFixtureSourceOverlay(
         if (groupSet.connection?.kind === "system") continue
         groupSet.connection = {
           kind: "import",
-          sourceFilename: "groups.csv",
+          sourceFilename:
+            groupSet.nameMode === "unnamed" ? "teams.txt" : "groups.csv",
           sourcePath: null,
           lastUpdated: now,
         }

@@ -3,11 +3,10 @@ import { describe, it } from "node:test"
 import { createDocsDemoRuntime, mountDocsDemoApp } from "../demo-runtime.js"
 
 describe("docs runtime fixture selection", () => {
-  it("defaults to medium/shared-teams/canvas fixtures", async () => {
+  it("defaults to medium/canvas fixtures", async () => {
     const runtime = createDocsDemoRuntime()
     assert.deepEqual(runtime.fixtureSelection, {
       tier: "medium",
-      preset: "shared-teams",
       source: "canvas",
     })
 
@@ -18,15 +17,13 @@ describe("docs runtime fixture selection", () => {
     assert.equal(course.roster.staff.length, 4)
   })
 
-  it("supports explicit tier/preset runtime options", async () => {
+  it("supports explicit tier runtime options and fixed task group layout", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "assignment-scoped",
     })
 
     assert.deepEqual(runtime.fixtureSelection, {
       tier: "small",
-      preset: "assignment-scoped",
       source: "canvas",
     })
 
@@ -36,21 +33,28 @@ describe("docs runtime fixture selection", () => {
 
     assert.equal(course.roster.students.length, 24)
     assert.equal(course.roster.staff.length, 2)
+    assert.deepEqual(
+      course.roster.assignments.map((assignment) => assignment.id),
+      ["task1a", "task1b", "task2"],
+    )
+    const [task1a, task1b, task2] = course.roster.assignments
+    assert.equal(task1a.groupSetId, task1b.groupSetId)
+    assert.notEqual(task1a.groupSetId, task2.groupSetId)
     assert.equal(
-      course.roster.assignments.every((assignment) =>
-        assignment.groupSetId.startsWith("gs_"),
-      ),
-      true,
+      course.roster.groupSets
+        .filter((groupSet) => groupSet.connection?.kind !== "system")
+        .map((groupSet) => groupSet.name)
+        .join("|"),
+      "Task 1 Teams|Task 2 Teams",
     )
   })
 
-  it("mount options thread tier/preset/source into runtime selection", () => {
+  it("mount options thread tier/source into runtime selection", () => {
     const fakeMountNode = { id: "app" }
     const runtime = mountDocsDemoApp({
       queryMountNode: () => fakeMountNode,
       appRootComponent: () => null,
       tier: "stress",
-      preset: "shared-teams",
       source: "moodle",
       createRoot() {
         return {
@@ -61,7 +65,6 @@ describe("docs runtime fixture selection", () => {
 
     assert.deepEqual(runtime.fixtureSelection, {
       tier: "stress",
-      preset: "shared-teams",
       source: "moodle",
     })
   })
@@ -129,19 +132,20 @@ describe("docs runtime fixture selection", () => {
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection?.kind, "import")
+    assert.equal(course.roster.students.length, 0)
+    assert.equal(course.roster.staff.length, 0)
+    assert.equal(course.roster.groups.length, 0)
+    assert.equal(course.roster.assignments.length > 0, true)
 
-    const nonSystemGroups = course.roster.groups.filter(
-      (g) => g.origin !== "system",
+    const importedRepoBeeSets = course.roster.groupSets.filter(
+      (groupSet) =>
+        groupSet.connection?.kind === "import" &&
+        groupSet.nameMode === "unnamed",
     )
-    assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((g) => g.origin === "local"))
-    assert.ok(nonSystemGroups.every((g) => g.lmsGroupId === null))
-
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (gs) => gs.connection?.kind !== "system",
-    )
-    assert.ok(
-      nonSystemGroupSets.every((gs) => gs.connection?.kind === "import"),
+    assert.equal(importedRepoBeeSets.length > 0, true)
+    assert.equal(
+      importedRepoBeeSets.every((groupSet) => groupSet.teams.length > 0),
+      true,
     )
   })
 })

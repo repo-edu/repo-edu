@@ -3,6 +3,7 @@ import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
   type PersistedAppSettings,
   type PersistedCourse,
+  type UsernameTeam,
   persistedCourseKind,
 } from "@repo-edu/domain/types"
 import type { FixturePreset, FixtureTier } from "./fixture-defs.js"
@@ -101,7 +102,8 @@ function splitMembersBySizes(
 function fixtureSeed(tier: FixtureTier, preset: FixturePreset): number {
   const tierIndex =
     tier === "small" ? 0 : tier === "medium" ? 1 : tier === "stress" ? 2 : 0
-  const presetIndex = preset === "shared-teams" ? 0 : 1
+  const presetIndex =
+    preset === "shared-teams" ? 0 : preset === "assignment-scoped" ? 1 : 2
   return baseSeed + tierIndex * 1_000 + presetIndex * 100
 }
 
@@ -292,6 +294,56 @@ function createAssignmentScopedGroupModel(
   }
 }
 
+function createRepobeeUsernames(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => {
+    const ordinal = index + 1
+    const firstName = faker.person.firstName()
+    const slug = slugify(firstName) || `student${ordinal}`
+    return `${slug}${padNumber(ordinal, 3)}`
+  })
+}
+
+function createRepobeeTeamsGroupModel(
+  studentCount: number,
+  sizes: readonly number[],
+  startGroupSetSeq: number,
+  startTeamSeq: number,
+) {
+  const gitUsernames = createRepobeeUsernames(studentCount)
+  const groupedUsernames = splitMembersBySizes(gitUsernames, sizes, 0)
+  const groupSetId = `gs_${padNumber(startGroupSetSeq, 4)}`
+
+  const teams: UsernameTeam[] = groupedUsernames.map((usernames, index) => ({
+    id: `ut_${padNumber(startTeamSeq + index, 4)}`,
+    gitUsernames: usernames,
+  }))
+
+  return {
+    teams,
+    groupSets: [
+      {
+        id: groupSetId,
+        nameMode: "unnamed" as const,
+        name: "RepoBee Teams",
+        teams,
+        connection: null,
+        repoNameTemplate: "{assignment}-{members}",
+        columnVisibility: {},
+        columnSizing: {},
+      },
+    ],
+    assignments: [
+      {
+        id: "a1",
+        name: "assignment-1",
+        groupSetId,
+      },
+    ],
+    nextGroupSetSeq: startGroupSetSeq + 1,
+    nextTeamSeq: startTeamSeq + teams.length,
+  }
+}
+
 function createArtifacts(
   course: PersistedCourse,
   preset: FixturePreset,
@@ -314,6 +366,24 @@ function createArtifacts(
       .concat(course.roster.staff)
       .map((member) => [member.id, member] as const),
   )
+
+  const unnamedGroupSet = course.roster.groupSets.find(
+    (gs) => gs.nameMode === "unnamed" && gs.connection?.kind !== "system",
+  )
+  if (unnamedGroupSet?.nameMode === "unnamed") {
+    const teamsTxt = unnamedGroupSet.teams
+      .map((team) => team.gitUsernames.join(" "))
+      .join("\n")
+
+    return [
+      {
+        artifactId: "teams-txt",
+        displayName: "teams.txt",
+        mediaType: "text/plain",
+        text: teamsTxt,
+      },
+    ]
+  }
 
   const preferredGroupSetId =
     preset === "assignment-scoped"
@@ -398,6 +468,72 @@ function createFixtureRecord(
   faker.seed(fixtureSeed(tier, preset))
 
   const counts = fixtureTierCounts[tier]
+  const isRepobeePreset = preset === "repobee-teams"
+
+  if (isRepobeePreset) {
+    const teamSizes = buildMixedTeamSizes(counts.students)
+    const repobeeGroups = createRepobeeTeamsGroupModel(
+      counts.students,
+      teamSizes,
+      1,
+      1,
+    )
+    const courseId = `fixture-${tier}-${preset}`
+    const roster = {
+      connection: null,
+      students: [] as ReturnType<typeof createStudents>,
+      staff: [] as ReturnType<typeof createStaff>,
+      groups: [] as PersistedCourse["roster"]["groups"],
+      groupSets: [...repobeeGroups.groupSets],
+      assignments: repobeeGroups.assignments,
+    }
+    const course: PersistedCourse = {
+      kind: persistedCourseKind,
+      schemaVersion: 2,
+      revision: 0,
+      id: courseId,
+      displayName: `Fixture (${tier}, ${preset})`,
+      lmsConnectionName: null,
+      gitConnectionId: "github-demo",
+      organization: "fixture-org",
+      lmsCourseId: null,
+      idSequences: {
+        nextGroupSeq: 1,
+        nextGroupSetSeq: repobeeGroups.nextGroupSetSeq,
+        nextMemberSeq: 1,
+        nextAssignmentSeq: roster.assignments.length + 1,
+        nextTeamSeq: repobeeGroups.nextTeamSeq,
+      },
+      roster,
+      repositoryTemplate: {
+        kind: "remote",
+        owner: "fixture-org",
+        name: "starter-template",
+        visibility: "private",
+      },
+      updatedAt: fixtureGeneratedAt,
+    }
+    const settings: PersistedAppSettings = {
+      ...defaultAppSettings,
+      activeCourseId: courseId,
+      lmsConnections: [],
+      gitConnections: [
+        {
+          id: "github-demo",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "demo-token",
+        },
+      ],
+      lastOpenedAt: fixtureGeneratedAt,
+    }
+    return {
+      course,
+      settings,
+      artifacts: createArtifacts(course, preset),
+    }
+  }
+
   const students = createStudents(counts.students, 1)
   const staff = createStaff(counts.staff, counts.students + 1)
   const studentIds = students.map((student) => student.id)
@@ -537,14 +673,17 @@ export function buildFixtureMatrix(): FixtureMatrix {
     small: {
       "shared-teams": createFixtureRecord("small", "shared-teams"),
       "assignment-scoped": createFixtureRecord("small", "assignment-scoped"),
+      "repobee-teams": createFixtureRecord("small", "repobee-teams"),
     },
     medium: {
       "shared-teams": createFixtureRecord("medium", "shared-teams"),
       "assignment-scoped": createFixtureRecord("medium", "assignment-scoped"),
+      "repobee-teams": createFixtureRecord("medium", "repobee-teams"),
     },
     stress: {
       "shared-teams": createFixtureRecord("stress", "shared-teams"),
       "assignment-scoped": createFixtureRecord("stress", "assignment-scoped"),
+      "repobee-teams": createFixtureRecord("stress", "repobee-teams"),
     },
   }
 }

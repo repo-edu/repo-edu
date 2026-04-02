@@ -11,8 +11,12 @@ import {
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopAppSettingsStore } from "./settings-store"
+
+const docsTaskGroupsPreset = "assignment-scoped" as const
+const docsReadableFilesPreset = "repobee-teams" as const
 
 export type DesktopFixtureSelection = {
   tier: FixtureTier
@@ -24,6 +28,74 @@ export type SeededDesktopFixture = {
   selection: DesktopFixtureSelection
   courseEntityId: string
   artifactPaths: string[]
+}
+
+function fixtureSourceToRosterConnectionKind(source: FixtureSource) {
+  if (source === "file") {
+    return "import"
+  }
+  return source
+}
+
+function applyDocsTaskGroupSetup(course: PersistedCourse): PersistedCourse {
+  const nonSystemGroupSets = course.roster.groupSets.filter(
+    (groupSet) => groupSet.connection?.kind !== "system",
+  )
+  if (nonSystemGroupSets.length < 2) {
+    return course
+  }
+
+  const [task1GroupSet, task2GroupSet] = nonSystemGroupSets
+  const assignments = [
+    { id: "task1a", name: "task1a", groupSetId: task1GroupSet.id },
+    { id: "task1b", name: "task1b", groupSetId: task1GroupSet.id },
+    { id: "task2", name: "task2", groupSetId: task2GroupSet.id },
+  ]
+
+  return {
+    ...course,
+    idSequences: {
+      ...course.idSequences,
+      nextAssignmentSeq: assignments.length + 1,
+    },
+    roster: {
+      ...course.roster,
+      groupSets: course.roster.groupSets.map((groupSet) => {
+        if (groupSet.id === task1GroupSet.id) {
+          return { ...groupSet, name: "Task 1 Teams" }
+        }
+        if (groupSet.id === task2GroupSet.id) {
+          return { ...groupSet, name: "Task 2 Teams" }
+        }
+        return groupSet
+      }),
+      assignments,
+    },
+  }
+}
+
+function normalizeFixtureCourseForDesktop(
+  selection: DesktopFixtureSelection,
+  course: PersistedCourse,
+): PersistedCourse {
+  if (selection.preset !== docsTaskGroupsPreset) {
+    return course
+  }
+
+  return applyDocsTaskGroupSetup(course)
+}
+
+function fixtureArtifactPresetForDesktop(selection: DesktopFixtureSelection) {
+  if (selection.preset === docsTaskGroupsPreset) {
+    return docsReadableFilesPreset
+  }
+  return selection.preset
+}
+
+function shouldAlwaysReseedDesktopFixture(selection: DesktopFixtureSelection) {
+  return (
+    selection.preset === docsTaskGroupsPreset && selection.source !== "file"
+  )
 }
 
 function cloneValue<TValue>(value: TValue): TValue {
@@ -113,7 +185,7 @@ async function writeFixtureArtifacts(
 ) {
   const fixture = getFixture({
     tier: selection.tier,
-    preset: selection.preset,
+    preset: fixtureArtifactPresetForDesktop(selection),
   })
   const artifactsDirectory = join(
     storageRoot,
@@ -147,7 +219,10 @@ export async function seedDesktopFixtureFromEnvironment(
     tier: selection.tier,
     preset: selection.preset,
   })
-  const course = cloneValue(fixture.course)
+  const course = normalizeFixtureCourseForDesktop(
+    selection,
+    cloneValue(fixture.course),
+  )
   const settings = cloneValue(fixture.settings)
   const courseId =
     course.lmsCourseId ?? `course-${selection.tier}-${selection.preset}`
@@ -156,18 +231,43 @@ export async function seedDesktopFixtureFromEnvironment(
 
   const courseStore = createDesktopCourseStore(storageRoot)
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
+  const existingCourse = await courseStore.loadCourse(course.id)
+  const requestedConnectionKind = fixtureSourceToRosterConnectionKind(
+    selection.source,
+  )
 
-  await courseStore.saveCourse(course)
+  let activeCourseId = course.id
+  if (existingCourse === null) {
+    const savedCourse = await courseStore.saveCourse(course)
+    activeCourseId = savedCourse.id
+  } else if (shouldAlwaysReseedDesktopFixture(selection)) {
+    const savedCourse = await courseStore.saveCourse({
+      ...course,
+      revision: existingCourse.revision,
+    })
+    activeCourseId = savedCourse.id
+  } else if (
+    existingCourse.roster.connection?.kind !== requestedConnectionKind
+  ) {
+    const savedCourse = await courseStore.saveCourse({
+      ...course,
+      revision: existingCourse.revision,
+    })
+    activeCourseId = savedCourse.id
+  } else {
+    activeCourseId = existingCourse.id
+  }
+
   await appSettingsStore.saveSettings({
     ...settings,
-    activeCourseId: course.id,
+    activeCourseId,
   })
 
   const artifactPaths = await writeFixtureArtifacts(storageRoot, selection)
 
   return {
     selection,
-    courseEntityId: course.id,
+    courseEntityId: activeCourseId,
     artifactPaths,
   }
 }

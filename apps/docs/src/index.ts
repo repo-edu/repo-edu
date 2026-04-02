@@ -24,10 +24,7 @@ export const workspaceDependencies = [
 
 export type { DocsDemoRuntimeOptions } from "./demo-runtime.js"
 export { createDocsDemoRuntime, mountDocsDemoApp } from "./demo-runtime.js"
-export type {
-  DocsFixturePreset,
-  DocsFixtureTier,
-} from "./fixtures/docs-fixtures.js"
+export type { DocsFixtureTier } from "./fixtures/docs-fixtures.js"
 
 if (typeof document !== "undefined") {
   mountDocsDemoApp({ appRootComponent: AppRoot })

@@ -25,7 +25,6 @@ import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
 import type {
-  DocsFixturePreset,
   DocsFixtureSource,
   DocsFixtureTier,
 } from "./fixtures/docs-fixtures.js"
@@ -42,7 +41,6 @@ export type DocsMountOptions = {
   queryMountNode?: () => unknown
   createRoot?: (mountNode: unknown) => DocsMountRoot
   tier?: DocsFixtureTier
-  preset?: DocsFixturePreset
   source?: DocsFixtureSource
   appRootComponent?: React.ComponentType<{
     workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
@@ -52,7 +50,6 @@ export type DocsMountOptions = {
 
 export type DocsDemoRuntimeOptions = {
   tier?: DocsFixtureTier
-  preset?: DocsFixturePreset
   source?: DocsFixtureSource
 }
 
@@ -198,8 +195,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const seedSettings = cloneValue(fixture.settings)
   const seedCourseEntityId = seedCourse.id
   const seedCourseId =
-    seedCourse.lmsCourseId ??
-    `course-${fixtureSelection.tier}-${fixtureSelection.preset}`
+    seedCourse.lmsCourseId ?? `course-${fixtureSelection.tier}-task-groups`
 
   applyFixtureSourceOverlay(
     seedCourse,
@@ -408,7 +404,6 @@ export function mountDocsDemoApp(options: DocsMountOptions = {}) {
 
   const runtime = createDocsDemoRuntime({
     tier: options.tier,
-    preset: options.preset,
     source: options.source,
   })
   const appRootComponent = options.appRootComponent

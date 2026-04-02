@@ -29,7 +29,6 @@ describe("docs fixture integration: source parity", () => {
   it("supports canvas source overlays and source-sensitive workflows", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "shared-teams",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -77,7 +76,6 @@ describe("docs fixture integration: source parity", () => {
   it("supports moodle source overlays and source-sensitive workflows", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "shared-teams",
       source: "moodle",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -132,7 +130,6 @@ describe("docs fixture integration: source parity", () => {
   it("rejects LMS workflows for file source overlays", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "shared-teams",
       source: "file",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -146,23 +143,21 @@ describe("docs fixture integration: source parity", () => {
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection?.kind, "import")
+    assert.equal(course.roster.students.length, 0)
+    assert.equal(course.roster.staff.length, 0)
+    assert.equal(course.roster.groups.length, 0)
+    assert.equal(course.roster.assignments.length > 0, true)
 
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (groupSet) => groupSet.connection?.kind !== "system",
+    const importedRepoBeeSets = course.roster.groupSets.filter(
+      (groupSet) =>
+        groupSet.connection?.kind === "import" &&
+        groupSet.nameMode === "unnamed",
     )
-    assert.ok(nonSystemGroupSets.length > 0)
-    assert.ok(
-      nonSystemGroupSets.every(
-        (groupSet) => groupSet.connection?.kind === "import",
-      ),
+    assert.equal(importedRepoBeeSets.length > 0, true)
+    assert.equal(
+      importedRepoBeeSets.every((groupSet) => groupSet.teams.length > 0),
+      true,
     )
-
-    const nonSystemGroups = course.roster.groups.filter(
-      (group) => group.origin !== "system",
-    )
-    assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((group) => group.origin === "local"))
-    assert.ok(nonSystemGroups.every((group) => group.lmsGroupId === null))
 
     await assert.rejects(
       runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
@@ -176,18 +171,17 @@ describe("docs fixture integration: source parity", () => {
       runtime.workflowClient.run("roster.importFromLms", {
         course,
         appSettings,
-        lmsCourseId: "course-small-shared-teams",
+        lmsCourseId: runtime.seedCourseId,
       }),
       (error: unknown) => isAppErrorWithType(error, "not-found"),
     )
   })
 })
 
-describe("docs fixture integration: repository planning by preset", () => {
-  it("shared-teams reuses assignment group populations and matches repo.create count", async () => {
+describe("docs fixture integration: repository planning by fixed task setup", () => {
+  it("task1a and task1b share one group set and match repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "shared-teams",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -198,35 +192,34 @@ describe("docs fixture integration: repository planning by preset", () => {
       undefined,
     )
 
-    const a1Plan = planRepositoryOperation(course.roster, "a1")
-    const a2Plan = planRepositoryOperation(course.roster, "a2")
+    const task1aPlan = planRepositoryOperation(course.roster, "task1a")
+    const task1bPlan = planRepositoryOperation(course.roster, "task1b")
 
-    const a1GroupIds = plannedGroupIds(a1Plan)
-    const a2GroupIds = plannedGroupIds(a2Plan)
-    assert.deepEqual(a1GroupIds, a2GroupIds)
-    assert.equal(a1GroupIds.length > 0, true)
+    const task1aGroupIds = plannedGroupIds(task1aPlan)
+    const task1bGroupIds = plannedGroupIds(task1bPlan)
+    assert.deepEqual(task1aGroupIds, task1bGroupIds)
+    assert.equal(task1aGroupIds.length > 0, true)
 
-    const a1Result = await runtime.workflowClient.run("repo.create", {
+    const task1aResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a1",
+      assignmentId: "task1a",
       template: null,
     })
-    assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
+    assert.equal(task1aResult.repositoriesPlanned, task1aGroupIds.length)
 
-    const a2Result = await runtime.workflowClient.run("repo.create", {
+    const task1bResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a2",
+      assignmentId: "task1b",
       template: null,
     })
-    assert.equal(a2Result.repositoriesPlanned, a2GroupIds.length)
+    assert.equal(task1bResult.repositoriesPlanned, task1bGroupIds.length)
   })
 
-  it("assignment-scoped isolates assignment group populations and matches repo.create count", async () => {
+  it("task2 isolates its group population from task1 and matches repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
       tier: "small",
-      preset: "assignment-scoped",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -237,30 +230,32 @@ describe("docs fixture integration: repository planning by preset", () => {
       undefined,
     )
 
-    const a1Plan = planRepositoryOperation(course.roster, "a1")
-    const a2Plan = planRepositoryOperation(course.roster, "a2")
+    const task1aPlan = planRepositoryOperation(course.roster, "task1a")
+    const task2Plan = planRepositoryOperation(course.roster, "task2")
 
-    const a1GroupIds = plannedGroupIds(a1Plan)
-    const a2GroupIds = plannedGroupIds(a2Plan)
-    const overlap = a1GroupIds.filter((groupId) => a2GroupIds.includes(groupId))
+    const task1aGroupIds = plannedGroupIds(task1aPlan)
+    const task2GroupIds = plannedGroupIds(task2Plan)
+    const overlap = task1aGroupIds.filter((groupId) =>
+      task2GroupIds.includes(groupId),
+    )
     assert.deepEqual(overlap, [])
-    assert.equal(a1GroupIds.length > 0, true)
-    assert.equal(a2GroupIds.length > 0, true)
+    assert.equal(task1aGroupIds.length > 0, true)
+    assert.equal(task2GroupIds.length > 0, true)
 
-    const a1Result = await runtime.workflowClient.run("repo.create", {
+    const task1aResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a1",
+      assignmentId: "task1a",
       template: null,
     })
-    assert.equal(a1Result.repositoriesPlanned, a1GroupIds.length)
+    assert.equal(task1aResult.repositoriesPlanned, task1aGroupIds.length)
 
-    const a2Result = await runtime.workflowClient.run("repo.create", {
+    const task2Result = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a2",
+      assignmentId: "task2",
       template: null,
     })
-    assert.equal(a2Result.repositoriesPlanned, a2GroupIds.length)
+    assert.equal(task2Result.repositoriesPlanned, task2GroupIds.length)
   })
 })

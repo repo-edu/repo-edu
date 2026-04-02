@@ -1,5 +1,9 @@
 export const fixtureTiers = ["small", "medium", "stress"] as const
-export const fixturePresets = ["shared-teams", "assignment-scoped"] as const
+export const fixturePresets = [
+  "shared-teams",
+  "assignment-scoped",
+  "repobee-teams",
+] as const
 
 export type FixtureTier = (typeof fixtureTiers)[number]
 export type FixturePreset = (typeof fixturePresets)[number]

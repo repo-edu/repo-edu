@@ -4,25 +4,19 @@ import type {
 } from "@repo-edu/domain/types"
 import {
   defaultFixtureSelection,
-  type FixturePreset,
-  type FixtureSelection,
   type FixtureSource,
   type FixtureTier,
-  fixturePresets,
   fixtureSources,
   fixtureTiers,
   getFixture,
-  isFixturePreset,
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
 
 export const docsFixtureTiers = fixtureTiers
-export const docsFixturePresets = fixturePresets
 export const docsFixtureSources = fixtureSources
 
 export type DocsFixtureTier = FixtureTier
-export type DocsFixturePreset = FixturePreset
 export type DocsFixtureSource = FixtureSource
 
 export type DocsReadableFileSeed = {
@@ -38,39 +32,32 @@ export type DocsFixtureRecord = {
   readableFiles: DocsReadableFileSeed[]
 }
 
-export type DocsFixtureMatrix = Record<
-  DocsFixtureTier,
-  Record<DocsFixturePreset, DocsFixtureRecord>
->
-
 export type DocsFixtureSelection = {
   tier: DocsFixtureTier
-  preset: DocsFixturePreset
   source: DocsFixtureSource
 }
 
 export const defaultDocsFixtureSelection: DocsFixtureSelection = {
   tier: defaultFixtureSelection.tier,
-  preset: defaultFixtureSelection.preset,
   source: "canvas",
 }
+
+const fixedDocsPreset = "assignment-scoped" as const
+const repobeeReadableFilesPreset = "repobee-teams" as const
 
 function queryFixtureSelection(search: string): Partial<DocsFixtureSelection> {
   const params = new URLSearchParams(search)
   const tierParam = params.get("tier")
-  const presetParam = params.get("preset")
   const sourceParam = params.get("source")
 
   return {
     tier: isFixtureTier(tierParam) ? tierParam : undefined,
-    preset: isFixturePreset(presetParam) ? presetParam : undefined,
     source: isFixtureSource(sourceParam) ? sourceParam : undefined,
   }
 }
 
 export function resolveDocsFixtureSelection(options?: {
   tier?: DocsFixtureTier
-  preset?: DocsFixturePreset
   source?: DocsFixtureSource
   search?: string
 }): DocsFixtureSelection {
@@ -81,34 +68,87 @@ export function resolveDocsFixtureSelection(options?: {
 
   return {
     tier: options?.tier ?? fromQuery.tier ?? defaultDocsFixtureSelection.tier,
-    preset:
-      options?.preset ?? fromQuery.preset ?? defaultDocsFixtureSelection.preset,
     source:
       options?.source ?? fromQuery.source ?? defaultDocsFixtureSelection.source,
   }
 }
 
-function toDocsFixtureRecord(
-  sharedSelection: FixtureSelection,
-): DocsFixtureRecord {
-  const shared = getFixture(sharedSelection)
+function applyFixedTaskGroupSetup(course: PersistedCourse): PersistedCourse {
+  const nonSystemGroupSets = course.roster.groupSets.filter(
+    (groupSet) => groupSet.connection?.kind !== "system",
+  )
+  if (nonSystemGroupSets.length < 2) {
+    return course
+  }
+
+  const [task1GroupSet, task2GroupSet] = nonSystemGroupSets
+  const assignments = [
+    { id: "task1a", name: "task1a", groupSetId: task1GroupSet.id },
+    { id: "task1b", name: "task1b", groupSetId: task1GroupSet.id },
+    { id: "task2", name: "task2", groupSetId: task2GroupSet.id },
+  ]
+
   return {
-    course: shared.course,
-    settings: shared.settings,
-    readableFiles: shared.artifacts.map((artifact) => ({
-      referenceId: artifact.artifactId,
-      displayName: artifact.displayName,
-      mediaType: artifact.mediaType,
-      text: artifact.text,
-    })),
+    ...course,
+    idSequences: {
+      ...course.idSequences,
+      nextAssignmentSeq: assignments.length + 1,
+    },
+    roster: {
+      ...course.roster,
+      groupSets: course.roster.groupSets.map((groupSet) => {
+        if (groupSet.id === task1GroupSet.id) {
+          return { ...groupSet, name: "Task 1 Teams" }
+        }
+        if (groupSet.id === task2GroupSet.id) {
+          return { ...groupSet, name: "Task 2 Teams" }
+        }
+        return groupSet
+      }),
+      assignments,
+    },
+  }
+}
+
+function toReadableFiles(
+  artifacts: ReturnType<typeof getFixture>["artifacts"],
+): DocsReadableFileSeed[] {
+  return artifacts.map((artifact) => ({
+    referenceId: artifact.artifactId,
+    displayName: artifact.displayName,
+    mediaType: artifact.mediaType,
+    text: artifact.text,
+  }))
+}
+
+function toDocsFixtureRecord(
+  tier: DocsFixtureTier,
+  source: DocsFixtureSource,
+): DocsFixtureRecord {
+  const fixedTaskLayoutFixture = getFixture({
+    tier,
+    preset: fixedDocsPreset,
+  })
+  const repobeeFixture = getFixture({
+    tier,
+    preset: repobeeReadableFilesPreset,
+  })
+  const baseFixture =
+    source === "file" ? repobeeFixture : fixedTaskLayoutFixture
+  const course =
+    source === "file"
+      ? baseFixture.course
+      : applyFixedTaskGroupSetup(baseFixture.course)
+
+  return {
+    course,
+    settings: baseFixture.settings,
+    readableFiles: toReadableFiles(repobeeFixture.artifacts),
   }
 }
 
 export function getDocsFixture(
   selection: DocsFixtureSelection,
 ): DocsFixtureRecord {
-  return toDocsFixtureRecord({
-    tier: selection.tier,
-    preset: selection.preset,
-  })
+  return toDocsFixtureRecord(selection.tier, selection.source)
 }

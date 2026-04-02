@@ -3,6 +3,7 @@ import {
   hasBlockingIssues,
   isBlockingValidationKind,
   validateAssignment,
+  validateAssignmentWithTemplate,
   validateRoster,
 } from "@repo-edu/domain/validation"
 import { fixturePresets, fixtureTiers } from "./fixture-defs.js"
@@ -88,16 +89,18 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
       const course = fixture.course
       const settings = fixture.settings
 
-      if (course.roster.students.length !== expectedCounts.students) {
-        fail(
-          `${tier}/${preset}: expected ${expectedCounts.students} students, got ${course.roster.students.length}`,
-        )
-      }
+      if (preset !== "repobee-teams") {
+        if (course.roster.students.length !== expectedCounts.students) {
+          fail(
+            `${tier}/${preset}: expected ${expectedCounts.students} students, got ${course.roster.students.length}`,
+          )
+        }
 
-      if (course.roster.staff.length !== expectedCounts.staff) {
-        fail(
-          `${tier}/${preset}: expected ${expectedCounts.staff} staff, got ${course.roster.staff.length}`,
-        )
+        if (course.roster.staff.length !== expectedCounts.staff) {
+          fail(
+            `${tier}/${preset}: expected ${expectedCounts.staff} staff, got ${course.roster.staff.length}`,
+          )
+        }
       }
 
       if (settings.activeCourseId !== course.id) {
@@ -121,6 +124,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         .map((member) => member.id)
       const memberEmails = course.roster.students
         .concat(course.roster.staff)
+        .filter((member) => member.email.trim().length > 0)
         .map((member) => member.email.trim().toLowerCase())
       const groupIds = course.roster.groups.map((group) => group.id)
       const groupSetIds = course.roster.groupSets.map((groupSet) => groupSet.id)
@@ -140,21 +144,34 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
       )
 
       const rosterValidation = validateRoster(course.roster)
-      if (hasBlockingIssues(rosterValidation)) {
-        const blockingKinds = rosterValidation.issues
-          .filter((issue) => isBlockingValidationKind(issue.kind))
-          .map((issue) => issue.kind)
+      const rosterBlockingKinds = rosterValidation.issues
+        .filter((issue) => isBlockingValidationKind(issue.kind))
+        .filter(
+          (issue) =>
+            !(
+              preset === "repobee-teams" &&
+              issue.kind === "system_group_sets_missing"
+            ),
+        )
+        .map((issue) => issue.kind)
+      if (rosterBlockingKinds.length > 0) {
         fail(
-          `${tier}/${preset}: blocking roster issues: ${formatIssueKinds(blockingKinds)}`,
+          `${tier}/${preset}: blocking roster issues: ${formatIssueKinds(rosterBlockingKinds)}`,
         )
       }
 
       for (const assignment of course.roster.assignments) {
-        const assignmentValidation = validateAssignment(
-          course.roster,
-          assignment.id,
-          "username",
+        const groupSet = course.roster.groupSets.find(
+          (gs) => gs.id === assignment.groupSetId,
         )
+        const assignmentValidation = groupSet?.repoNameTemplate
+          ? validateAssignmentWithTemplate(
+              course.roster,
+              assignment.id,
+              "username",
+              groupSet.repoNameTemplate,
+            )
+          : validateAssignment(course.roster, assignment.id, "username")
         if (hasBlockingIssues(assignmentValidation)) {
           const blockingKinds = assignmentValidation.issues
             .filter((issue) => isBlockingValidationKind(issue.kind))

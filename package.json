@@ -4,6 +4,7 @@
     "scripts": {
         "// ---- dev & build ----": "",
         "dev": "pnpm --filter @repo-edu/desktop run dev",
+        "dev:fixture": "pnpm exec tsx scripts/dev-fixture.ts",
         "build": "pnpm --filter @repo-edu/desktop run package:app",
         "build:cli": "bun build --compile --target=bun-darwin-arm64 apps/cli/src/main.ts --outfile apps/cli/dist/redu && printf 'Built CLI: %s\\n' \"$PWD\"/apps/cli/dist/redu",
         "redu": "./apps/cli/dist/redu",
