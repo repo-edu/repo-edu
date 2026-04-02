@@ -30,7 +30,6 @@ import {
   onAutoUpdaterStateChange,
   quitAndInstall,
 } from "./auto-updater"
-import { desktopSeedCourseId } from "./course-ids"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
@@ -63,7 +62,7 @@ let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
 let storageRootPath: string | null = null
-let validationCourseId: string = desktopSeedCourseId
+let validationCourseId = ""
 let updaterMenuBound = false
 let quitRequested = false
 

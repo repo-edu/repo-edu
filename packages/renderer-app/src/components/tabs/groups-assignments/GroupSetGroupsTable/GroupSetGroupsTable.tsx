@@ -48,13 +48,11 @@ import { useRepoOperations } from "./use-repo-operations.js"
 
 const SCROLL_TOP_THRESHOLD = 0.15
 const UNNAMED_COLUMN_WIDTHS = {
-  team: 220,
   usernames: 450,
   usernameCount: 60,
   repoName: 300,
 } as const
 const UNNAMED_COLUMN_MIN_WIDTHS = {
-  team: 130,
   usernames: 200,
   usernameCount: 40,
   repoName: 100,
@@ -62,7 +60,6 @@ const UNNAMED_COLUMN_MIN_WIDTHS = {
 
 type UnnamedTeamRow = {
   teamId: string
-  teamIndex: number
   gitUsernames: string[]
   usernameCount: number
   repoNamePreview: string
@@ -80,7 +77,6 @@ function tableRowMemberCount(row: TableRow): number {
 
 function unnamedColumnLabel(columnId: string): string {
   const labels: Record<string, string> = {
-    team: "Team",
     usernames: "Git Usernames",
     usernameCount: "#",
     repoName: "Repo Name",
@@ -90,21 +86,6 @@ function unnamedColumnLabel(columnId: string): string {
 
 function createUnnamedColumns(): ColumnDef<UnnamedTeamRow>[] {
   return [
-    {
-      id: "team",
-      size: UNNAMED_COLUMN_WIDTHS.team,
-      minSize: UNNAMED_COLUMN_MIN_WIDTHS.team,
-      accessorFn: (row) => row.teamId,
-      header: () => <span className="font-medium">Team</span>,
-      cell: ({ row }) => (
-        <div className="space-y-0.5">
-          <div className="font-medium">Team {row.original.teamIndex}</div>
-          <div className="text-xs text-muted-foreground">
-            {row.original.teamId}
-          </div>
-        </div>
-      ),
-    },
     {
       id: "repoName",
       size: UNNAMED_COLUMN_WIDTHS.repoName,
@@ -269,13 +250,12 @@ export function GroupsTable({
       origin: "local",
       lmsGroupId: null,
     }
-    return groupSet.teams.map((team, index) => {
+    return groupSet.teams.map((team) => {
       const gitUsernames = team.gitUsernames
         .map((username) => username.trim())
         .filter((username) => username.length > 0)
       return {
         teamId: team.id,
-        teamIndex: index + 1,
         gitUsernames,
         usernameCount: gitUsernames.length,
         repoNamePreview: computeRepoName(

@@ -37,6 +37,7 @@ type RepoNameTemplateBuilderProps = {
   template: string
   onTemplateChange: (template: string) => void
   disabled: boolean
+  hiddenSegments?: readonly SegmentId[]
 }
 
 function parseTemplate(template: string): SegmentState[] {
@@ -72,8 +73,16 @@ export function RepoNameTemplateBuilder({
   template,
   onTemplateChange,
   disabled,
+  hiddenSegments,
 }: RepoNameTemplateBuilderProps) {
-  const segments = useMemo(() => parseTemplate(template), [template])
+  const allSegments = useMemo(() => parseTemplate(template), [template])
+  const segments = useMemo(
+    () =>
+      hiddenSegments
+        ? allSegments.filter((s) => !hiddenSegments.includes(s.id))
+        : allSegments,
+    [allSegments, hiddenSegments],
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),

@@ -82,7 +82,10 @@ function normalizeFixtureCourseForDesktop(
     return course
   }
 
-  return applyDocsTaskGroupSetup(course)
+  const normalized = applyDocsTaskGroupSetup(course)
+  normalized.id = `fixture-${selection.tier}-${selection.source}`
+  normalized.displayName = `Fixture (${selection.tier}, ${selection.source})`
+  return normalized
 }
 
 function fixtureArtifactPresetForDesktop(selection: DesktopFixtureSelection) {

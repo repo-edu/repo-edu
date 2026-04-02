@@ -3,7 +3,6 @@ import { AppRoot } from "@repo-edu/renderer-app"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import "../../../packages/renderer-app/src/App.css"
-import { desktopSeedCourseId } from "./course-ids"
 import { createRendererHostFromBridge } from "./renderer-host-bridge"
 import { UpdateDialog } from "./UpdateDialog"
 import { createDesktopWorkflowClient } from "./workflow-client"
@@ -11,8 +10,7 @@ import { createDesktopWorkflowClient } from "./workflow-client"
 const trpcMarker = "repo-edu-desktop-trpc"
 const searchParams = new URLSearchParams(window.location.search)
 const isTRPCValidationMode = searchParams.get("mode") === "validate-trpc"
-const validationCourseId =
-  searchParams.get("courseId")?.trim() || desktopSeedCourseId
+const validationCourseId = searchParams.get("courseId")?.trim() ?? ""
 
 const mountNode = document.querySelector<HTMLDivElement>("#app")
 if (!mountNode) {

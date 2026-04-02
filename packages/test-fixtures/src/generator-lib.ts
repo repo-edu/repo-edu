@@ -335,7 +335,7 @@ function createRepobeeTeamsGroupModel(
     assignments: [
       {
         id: "a1",
-        name: "assignment-1",
+        name: "task1",
         groupSetId,
       },
     ],

@@ -130,6 +130,13 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
         template={template}
         onTemplateChange={(t) => updateGroupSetTemplate(groupSetId, t || null)}
         disabled={isOperationActive}
+        hiddenSegments={
+          groupSet.nameMode === "unnamed"
+            ? ["group", "surnames"]
+            : kind === "canvas" || kind === "moodle"
+              ? ["members"]
+              : undefined
+        }
       />
       <AssignmentChipsRow
         assignments={assignments}
