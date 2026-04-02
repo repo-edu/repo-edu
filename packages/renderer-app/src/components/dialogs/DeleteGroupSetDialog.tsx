@@ -43,7 +43,8 @@ export function DeleteGroupSetDialog() {
     const groupSetEntry = roster.groupSets.find(
       (entry) => entry.id === targetId,
     )
-    if (!groupSetEntry) return EMPTY_GROUPS
+    if (!groupSetEntry || groupSetEntry.nameMode !== "named")
+      return EMPTY_GROUPS
     const groupMap = new Map(roster.groups.map((group) => [group.id, group]))
     return groupSetEntry.groupIds
       .map((groupId) => groupMap.get(groupId))
@@ -54,8 +55,8 @@ export function DeleteGroupSetDialog() {
     if (!targetId) return 0
     let count = 0
     for (const group of groups) {
-      const refCount = allGroupSets.filter((gs) =>
-        gs.groupIds.includes(group.id),
+      const refCount = allGroupSets.filter(
+        (gs) => gs.nameMode === "named" && gs.groupIds.includes(group.id),
       ).length
       if (refCount <= 1) count++
     }

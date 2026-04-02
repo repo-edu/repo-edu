@@ -51,6 +51,9 @@ function validateFixtureReferences(
   }
 
   for (const groupSet of course.roster.groupSets) {
+    if (groupSet.nameMode !== "named") {
+      continue
+    }
     for (const groupId of groupSet.groupIds) {
       if (!groupIds.has(groupId)) {
         fail(

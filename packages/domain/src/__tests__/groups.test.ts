@@ -1,17 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  filterByPattern,
-  previewGroupSelection,
   resolveAssignmentGroups,
-  resolveGroupsFromSelection,
+  resolveGroupSetGroups,
 } from "../group-selection.js"
 import {
   activeMemberIds,
   ensureSystemGroupSets,
   findSystemSet,
-  selectionModeAll,
-  selectionModePattern,
   systemSetsMissing,
 } from "../group-set.js"
 import { generateGroupName, generateUniqueGroupName } from "../roster.js"
@@ -83,7 +79,7 @@ describe("group naming", () => {
   })
 })
 
-describe("group selection", () => {
+describe("group resolution", () => {
   const groups: Group[] = [
     {
       id: "g1",
@@ -111,10 +107,12 @@ describe("group selection", () => {
   const groupSet: GroupSet = {
     id: "gs1",
     name: "Labs",
+    nameMode: "named",
     groupIds: ["g1", "g2", "g3"],
     connection: null,
-    groupSelection: selectionModeAll(),
     repoNameTemplate: null,
+    columnVisibility: {},
+    columnSizing: {},
   }
 
   const assignment: Assignment = {
@@ -129,21 +127,8 @@ describe("group selection", () => {
     assignments: [assignment],
   })
 
-  it("filters groups by pattern and exclusions", () => {
-    const selected = resolveGroupsFromSelection(roster, groupSet, {
-      kind: "pattern",
-      pattern: "lab-*",
-      excludedGroupIds: ["g2"],
-    })
-
-    assert.deepStrictEqual(
-      selected.map((group) => group.id),
-      ["g1"],
-    )
-  })
-
-  it("resolves groups for an assignment from the group set selection", () => {
-    const selected = resolveAssignmentGroups(roster, assignment)
+  it("resolves all groups for a named group set", () => {
+    const selected = resolveGroupSetGroups(roster, groupSet)
 
     assert.deepStrictEqual(
       selected.map((group) => group.id),
@@ -151,34 +136,13 @@ describe("group selection", () => {
     )
   })
 
-  it("previews selection counts and empty groups", () => {
-    const preview = previewGroupSelection(
-      roster,
-      "gs1",
-      selectionModePattern("lab-*"),
+  it("resolves groups for an assignment from the group set", () => {
+    const selected = resolveAssignmentGroups(roster, assignment)
+
+    assert.deepStrictEqual(
+      selected.map((group) => group.id),
+      ["g1", "g2", "g3"],
     )
-
-    assert.deepStrictEqual(preview, {
-      valid: true,
-      error: null,
-      groupIds: ["g1", "g2"],
-      emptyGroupIds: ["g2"],
-      groupMemberCounts: [
-        { groupId: "g1", memberCount: 1 },
-        { groupId: "g2", memberCount: 0 },
-      ],
-      totalGroups: 3,
-      matchedGroups: 2,
-    })
-  })
-
-  it("reports invalid glob patterns", () => {
-    assert.deepStrictEqual(filterByPattern("**", ["lab-1a", "exam"]), {
-      valid: false,
-      error: "recursive glob '**' is not allowed",
-      matchedIndexes: [],
-      matchedCount: 0,
-    })
   })
 })
 
@@ -199,10 +163,11 @@ describe("system group sets", () => {
 
     const individualSet = findSystemSet(roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS)
     const staffSet = findSystemSet(roster, SYSTEM_TYPE_STAFF)
-    assert.ok(individualSet)
-    assert.ok(staffSet)
-    assert.equal(individualSet?.groupIds.length, 2)
-    assert.equal(staffSet?.groupIds.length, 1)
+    if (!individualSet || individualSet.nameMode !== "named")
+      return assert.fail()
+    if (!staffSet || staffSet.nameMode !== "named") return assert.fail()
+    assert.equal(individualSet.groupIds.length, 2)
+    assert.equal(staffSet.groupIds.length, 1)
 
     const staffGroup = roster.groups.find(
       (group) => group.name === STAFF_GROUP_NAME,
@@ -231,8 +196,10 @@ describe("system group sets", () => {
           name: "Projects",
           groupIds: ["g-local"],
           connection: null,
-          groupSelection: selectionModeAll(),
+          nameMode: "named",
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
       ],
     })
@@ -240,8 +207,9 @@ describe("system group sets", () => {
     ensureSystemGroupSets(roster, initialIdSequences())
 
     const individualSet = findSystemSet(roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS)
-    assert.ok(individualSet)
-    assert.equal(individualSet?.groupIds.length, 1)
+    if (!individualSet || individualSet.nameMode !== "named")
+      return assert.fail()
+    assert.equal(individualSet.groupIds.length, 1)
 
     const localGroup = roster.groups.find((group) => group.id === "g-local")
     assert.deepStrictEqual(localGroup?.memberIds, ["s1", "s2"])
@@ -269,8 +237,10 @@ describe("system group sets", () => {
             kind: "system",
             systemType: SYSTEM_TYPE_STAFF,
           },
-          groupSelection: selectionModeAll(),
+          nameMode: "named",
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
       ],
     })

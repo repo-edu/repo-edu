@@ -27,12 +27,12 @@ export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
 export type ActiveTab = "roster" | "groups-assignments"
-export type FileFormat = "csv" | "xlsx" | "yaml" | "json" | "txt"
+export type FileFormat = "csv" | "xlsx" | "json" | "txt"
 export type ThemePreference = "system" | "light" | "dark"
 export type WindowChromeMode = "system" | "hiddenInset"
 export type DateFormatPreference = "MDY" | "DMY"
 export type TimeFormatPreference = "12h" | "24h"
-export type ExportFormat = Extract<FileFormat, "csv" | "xlsx" | "yaml">
+export type ExportFormat = Extract<FileFormat, "csv" | "xlsx">
 
 export type PersistedLmsConnection = {
   name: string
@@ -73,8 +73,6 @@ export type PersistedAppSettings = {
   lastOpenedAt: string | null
   rosterColumnVisibility: Record<string, boolean>
   rosterColumnSizing: Record<string, number>
-  groupsColumnVisibility: Record<string, boolean>
-  groupsColumnSizing: Record<string, number>
 }
 
 export type RosterConnection =
@@ -149,16 +147,10 @@ export type Group = {
   lmsGroupId: string | null
 }
 
-export type GroupSelectionMode =
-  | {
-      kind: "all"
-      excludedGroupIds: string[]
-    }
-  | {
-      kind: "pattern"
-      pattern: string
-      excludedGroupIds: string[]
-    }
+export type UsernameTeam = {
+  id: string
+  gitUsernames: string[]
+}
 
 export type GroupSetConnection =
   | {
@@ -184,14 +176,26 @@ export type GroupSetConnection =
       lastUpdated: string
     }
 
-export type GroupSet = {
+export type GroupSetCommon = {
   id: string
   name: string
-  groupIds: string[]
   connection: GroupSetConnection | null
-  groupSelection: GroupSelectionMode
   repoNameTemplate: string | null
+  columnVisibility: Record<string, boolean>
+  columnSizing: Record<string, number>
 }
+
+export type NamedGroupSet = GroupSetCommon & {
+  nameMode: "named"
+  groupIds: string[]
+}
+
+export type UsernameGroupSet = GroupSetCommon & {
+  nameMode: "unnamed"
+  teams: UsernameTeam[]
+}
+
+export type GroupSet = NamedGroupSet | UsernameGroupSet
 
 export type Assignment = {
   id: string
@@ -225,6 +229,7 @@ export type IdSequences = {
   nextGroupSetSeq: number
   nextMemberSeq: number
   nextAssignmentSeq: number
+  nextTeamSeq: number
 }
 
 export type PersistedCourse = {
@@ -258,26 +263,6 @@ export type ValidationIssue = {
 export type ValidationResult<TValue> =
   | { ok: true; value: TValue }
   | { ok: false; issues: ValidationIssue[] }
-
-export type PatternFilterResult = {
-  valid: boolean
-  error: string | null
-  matchedIndexes: number[]
-  matchedCount: number
-}
-
-export type GroupSelectionPreview = {
-  valid: boolean
-  error: string | null
-  groupIds: string[]
-  emptyGroupIds: string[]
-  groupMemberCounts: Array<{
-    groupId: string
-    memberCount: number
-  }>
-  totalGroups: number
-  matchedGroups: number
-}
 
 export type SystemGroupSetEnsureResult = {
   groupSets: GroupSet[]
@@ -315,8 +300,6 @@ export type GroupSetRenamedGroup = {
 }
 
 export type GroupSetImportFormat = "group-set-csv" | "repobee-students"
-
-export type GroupNameStrategy = "numbered" | "members"
 
 export type GroupSetImportMemberKey = "email" | "gitUsername"
 
@@ -358,11 +341,6 @@ export type GroupSetExportRow = {
   email: string
 }
 
-export type RepoTeam = {
-  members: string[]
-  name: string
-}
-
 export type RepoOperationMode = "create" | "clone"
 
 export type RepoCollisionKind = "already_exists" | "not_found"
@@ -400,6 +378,7 @@ export type PlannedRepositoryGroup = {
   groupName: string
   repoName: string
   activeMemberIds: string[]
+  gitUsernames: string[]
 }
 
 export type RepositoryOperationPlan = {
@@ -471,6 +450,7 @@ export function initialIdSequences(): IdSequences {
     nextGroupSetSeq: 1,
     nextMemberSeq: 1,
     nextAssignmentSeq: 1,
+    nextTeamSeq: 1,
   }
 }
 

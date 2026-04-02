@@ -40,6 +40,7 @@ describe("allocateGroupId", () => {
       nextGroupSetSeq: 1,
       nextMemberSeq: 1,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     }
     const result = allocateGroupId(seq)
     assert.equal(result.id, "g_10000")
@@ -110,6 +111,7 @@ describe("allocateGroupIds (bulk)", () => {
       nextGroupSetSeq: 1,
       nextMemberSeq: 1,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     }
     const result = allocateGroupIds(seq, 2)
     assert.deepStrictEqual(result.ids, ["g_0005", "g_0006"])

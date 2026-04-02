@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { ensureSystemGroupSets, selectionModeAll } from "../group-set.js"
+import { ensureSystemGroupSets } from "../group-set.js"
 import { computeRepoName } from "../repository-planning.js"
 import type {
   Assignment,
@@ -112,6 +112,7 @@ describe("validateRoster", () => {
     const groupSet: GroupSet = {
       id: "gs1",
       name: "Canvas Set",
+      nameMode: "named",
       groupIds: ["g1", "missing-group"],
       connection: {
         kind: "canvas",
@@ -119,8 +120,9 @@ describe("validateRoster", () => {
         groupSetId: "set-1",
         lastUpdated: "2026-03-04T10:00:00Z",
       },
-      groupSelection: selectionModeAll(),
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const roster = makeRoster({
       students: [makeMember("s1")],
@@ -205,10 +207,12 @@ describe("validateAssignment", () => {
         {
           id: "gs1",
           name: "Projects",
+          nameMode: "named",
           groupIds: groups.map((group) => group.id),
           connection: null,
-          groupSelection: selectionModeAll(),
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
       ],
       assignments: [assignment],
@@ -260,5 +264,45 @@ describe("validateAssignment", () => {
     assert.equal(hasBlockingIssues(result), true)
     assert.ok(blockingIssues(result).length > 0)
     assert.ok(warningIssues(result).length > 0)
+  })
+
+  it("does not report duplicate repo names for unnamed sets using {group_id}", () => {
+    const assignment: Assignment = {
+      id: "a1",
+      name: "Project 1",
+      groupSetId: "gs-unnamed",
+    }
+    const roster = makeRoster({
+      groupSets: [
+        {
+          id: "gs-unnamed",
+          name: "RepoBee Teams",
+          nameMode: "unnamed",
+          teams: [
+            { id: "ut_0001", gitUsernames: ["alice"] },
+            { id: "ut_0002", gitUsernames: ["bob"] },
+          ],
+          connection: null,
+          repoNameTemplate: "{group_id}",
+          columnVisibility: {},
+          columnSizing: {},
+        },
+      ],
+      assignments: [assignment],
+    })
+
+    const result = validateAssignmentWithTemplate(
+      roster,
+      assignment.id,
+      "username",
+      "{group_id}",
+    )
+
+    assert.equal(
+      result.issues.some(
+        (issue) => issue.kind === "duplicate_repo_name_in_assignment",
+      ),
+      false,
+    )
   })
 })

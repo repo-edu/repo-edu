@@ -42,7 +42,6 @@ const openDialogFilterByFormat: Record<
   csv: { name: "CSV", extensions: ["csv"] },
   xlsx: { name: "Excel", extensions: ["xlsx"] },
   json: { name: "JSON", extensions: ["json"] },
-  yaml: { name: "YAML", extensions: ["yaml", "yml"] },
   txt: { name: "Text", extensions: ["txt"] },
 }
 
@@ -53,7 +52,6 @@ const saveDialogFilterByFormat: Record<
   csv: { name: "CSV", extensions: ["csv"] },
   xlsx: { name: "Excel", extensions: ["xlsx"] },
   json: { name: "JSON", extensions: ["json"] },
-  yaml: { name: "YAML", extensions: ["yaml"] },
   txt: { name: "Text", extensions: ["txt"] },
 }
 
@@ -68,9 +66,6 @@ function inferFormatFromPath(filePath: string): FileFormat | null {
   }
   if (extension === ".json") {
     return "json"
-  }
-  if (extension === ".yaml" || extension === ".yml") {
-    return "yaml"
   }
   if (extension === ".txt") {
     return "txt"
@@ -87,8 +82,6 @@ function mediaTypeForFormat(format: FileFormat | null): string | null {
       return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     case "json":
       return "application/json"
-    case "yaml":
-      return "application/yaml"
     case "txt":
       return "text/plain"
     default:

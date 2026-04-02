@@ -82,8 +82,8 @@ When repositories are created for an assignment, they are initialized with the t
 
 Select a group set and click **Export** to download it as:
 
-- **CSV** — one row per member per group, with `group_name,name,email` columns
-- **YAML** — Repobee-compatible team list format, for use with the Repobee tool
+- **CSV** — for named group sets; one row per member per group, with `group_name,name,email` columns
+- **TXT** — for unnamed group sets; RepoBee-compatible `students.txt` (one whitespace-separated username team per line)
 
 ## Reimporting a group set
 

@@ -170,11 +170,10 @@ describe("application group-set workflow helpers", () => {
           groupSetId: "remote-set-1",
           lastUpdated: "2026-03-04T10:00:00.000Z",
         },
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
+        nameMode: "named",
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ]
 
@@ -230,11 +229,10 @@ describe("application group-set workflow helpers", () => {
           groupSetId: "remote-set-1",
           lastUpdated: "2026-03-01T00:00:00.000Z",
         },
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
+        nameMode: "named",
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ]
 
@@ -267,6 +265,9 @@ describe("application group-set workflow helpers", () => {
       groupSetId: "gs_0002",
     })
 
+    if (synced.nameMode !== "named") {
+      return assert.fail("Expected LMS-synced group set to be named.")
+    }
     assert.equal(synced.groupIds.includes("g_0001"), true)
     assert.equal(synced.groupIds.length, 2)
     assert.equal(synced.name, "Synced LMS Set")
@@ -290,6 +291,9 @@ describe("application group-set workflow helpers", () => {
       (groupSet) => groupSet.connection === null,
     )
     assert.ok(editableGroupSet)
+    if (editableGroupSet.nameMode !== "named") {
+      return assert.fail("Expected editable local group set to be named.")
+    }
     const editableGroup = course.roster.groups.find(
       (group) => group.id === editableGroupSet.groupIds[0],
     )
@@ -358,7 +362,54 @@ describe("application group-set workflow helpers", () => {
     assert.equal(reimportPreview.groups.length > 0, true)
   })
 
-  it("exports group sets to csv/yaml and rejects xlsx", async () => {
+  it("imports RepoBee teams without mutating roster members", async () => {
+    const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
+    const initialStudentCount = course.roster.students.length
+    const initialNextMemberSeq = course.idSequences.nextMemberSeq
+    const studentsText = ["newuser1 newuser2", "newuser3"].join("\n")
+
+    const handlers = createGroupSetHarness({
+      lms: {},
+      userFile: {
+        readText: async () => ({
+          displayName: "students.txt",
+          mediaType: "text/plain",
+          byteLength: studentsText.length,
+          text: studentsText,
+        }),
+      },
+    })
+
+    const nextCourse = await handlers["groupSet.importFromFile"]({
+      course,
+      file: {
+        kind: "user-file-ref",
+        referenceId: "repobee-file",
+        displayName: "students.txt",
+        mediaType: "text/plain",
+        byteLength: null,
+      },
+      format: "repobee-students",
+      targetGroupSetId: null,
+    })
+
+    assert.equal(nextCourse.roster.students.length, initialStudentCount)
+    assert.equal(nextCourse.idSequences.nextMemberSeq, initialNextMemberSeq)
+    const importedSet = [...nextCourse.roster.groupSets]
+      .reverse()
+      .find((groupSet) => groupSet.connection?.kind === "import")
+    assert.ok(importedSet)
+    assert.equal(importedSet?.nameMode, "unnamed")
+    if (importedSet?.nameMode !== "unnamed") {
+      return
+    }
+    assert.deepStrictEqual(
+      importedSet.teams.map((team) => team.gitUsernames),
+      [["newuser1", "newuser2"], ["newuser3"]],
+    )
+  })
+
+  it("exports group sets to csv", async () => {
     const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
     const exportGroupSet = course.roster.groupSets.find(
       (groupSet) => groupSet.connection === null,
@@ -405,38 +456,5 @@ describe("application group-set workflow helpers", () => {
     })
     assert.deepStrictEqual(csvResult, { file: csvTarget })
     assert.equal(lastWritten.startsWith("group_name,name,email"), true)
-
-    const yamlTarget = {
-      ...csvTarget,
-      referenceId: "save-group-yaml",
-      displayName: "groups.yaml",
-      suggestedFormat: "yaml" as const,
-    }
-    await handlers["groupSet.export"]({
-      course,
-      groupSetId: exportGroupSet.id,
-      target: yamlTarget,
-      format: "yaml",
-    })
-    assert.equal(lastWritten.includes("\tmembers:["), true)
-
-    await assert.rejects(
-      handlers["groupSet.export"]({
-        course,
-        groupSetId: exportGroupSet.id,
-        target: {
-          ...csvTarget,
-          referenceId: "save-group-xlsx",
-          displayName: "groups.xlsx",
-          suggestedFormat: "xlsx",
-        },
-        format: "xlsx",
-      }),
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation",
-    )
   })
 })

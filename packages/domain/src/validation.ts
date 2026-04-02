@@ -4,11 +4,15 @@ import { normalizeName } from "./name-normalization.js"
 import { computeRepoName, defaultRepoTemplate } from "./repository-planning.js"
 import { normalizeEmail } from "./roster.js"
 import type {
+  Assignment,
   GitIdentityMode,
+  Group,
+  NamedGroupSet,
   Roster,
   RosterValidationIssue,
   RosterValidationKind,
   RosterValidationResult,
+  UsernameGroupSet,
 } from "./types.js"
 
 export { normalizeName }
@@ -50,11 +54,7 @@ function isValidEmail(email: string): boolean {
 
 function validateGroupSetOriginConsistency(
   roster: Roster,
-  groupSet: {
-    name: string
-    groupIds: string[]
-    connection: { kind: string } | null
-  },
+  groupSet: NamedGroupSet,
   issues: RosterValidationIssue[],
 ) {
   for (const groupId of groupSet.groupIds) {
@@ -108,6 +108,117 @@ function activeGroupGitUsernameToken(
 
   usernames.sort((left, right) => left.localeCompare(right))
   return usernames.join("-")
+}
+
+function normalizeGitUsernames(usernames: readonly string[]): string[] {
+  const normalized = usernames
+    .map((username) => username.trim().toLowerCase())
+    .filter((username) => username.length > 0)
+  const unique = [...new Set(normalized)]
+  unique.sort((left, right) => left.localeCompare(right))
+  return unique
+}
+
+function validateUnnamedAssignmentWithTemplate(
+  groupSet: UsernameGroupSet,
+  assignment: Assignment,
+  template: string,
+): RosterValidationIssue[] {
+  const issues: RosterValidationIssue[] = []
+  const repoNameMap = new Map<string, string[]>()
+
+  for (const team of groupSet.teams) {
+    const gitUsernames = normalizeGitUsernames(team.gitUsernames)
+    if (gitUsernames.length === 0) {
+      issues.push({
+        kind: "empty_group",
+        affectedIds: [team.id],
+        context: null,
+      })
+      continue
+    }
+
+    const templateGroup: Group = {
+      id: team.id,
+      name: "",
+      memberIds: [],
+      origin: "local",
+      lmsGroupId: null,
+    }
+    const repoName = computeRepoName(template, assignment, templateGroup, {
+      members: gitUsernames.join("-"),
+    })
+    repoNameMap.set(repoName, [...(repoNameMap.get(repoName) ?? []), team.id])
+  }
+
+  for (const [repoName, groupIds] of repoNameMap) {
+    if (groupIds.length <= 1) {
+      continue
+    }
+    issues.push({
+      kind: "duplicate_repo_name_in_assignment",
+      affectedIds: sortedStrings(groupIds),
+      context: repoName,
+    })
+  }
+
+  return issues
+}
+
+function validateNamedGroupSet(
+  roster: Roster,
+  groupSet: NamedGroupSet,
+  issues: RosterValidationIssue[],
+) {
+  const names = groupSet.groupIds
+    .map((groupId) => roster.groups.find((group) => group.id === groupId))
+    .filter((group): group is NonNullable<typeof group> => group !== undefined)
+    .map((group) => normalizeName(group.name))
+  const duplicateNames = findDuplicateStrings(names)
+  if (duplicateNames.length > 0) {
+    issues.push({
+      kind: "duplicate_group_name_in_assignment",
+      affectedIds: duplicateNames,
+      context: `Duplicate normalized group names in group set '${groupSet.name}'`,
+    })
+  }
+
+  const existingGroupIds = new Set(roster.groups.map((group) => group.id))
+  const orphanGroupRefs = groupSet.groupIds.filter(
+    (groupId) => !existingGroupIds.has(groupId),
+  )
+  if (orphanGroupRefs.length > 0) {
+    issues.push({
+      kind: "orphan_group_member",
+      affectedIds: orphanGroupRefs,
+      context: `Group set '${groupSet.name}' references non-existent groups`,
+    })
+  }
+}
+
+function validateUnnamedGroupSet(
+  groupSet: UsernameGroupSet,
+  issues: RosterValidationIssue[],
+) {
+  for (const team of groupSet.teams) {
+    if (team.gitUsernames.length === 0) {
+      issues.push({
+        kind: "empty_group",
+        affectedIds: [team.id],
+        context: `Team '${team.id}' in group set '${groupSet.name}' has no git usernames`,
+      })
+      continue
+    }
+
+    const duplicateUsernames = findDuplicateStrings(team.gitUsernames)
+    if (duplicateUsernames.length > 0) {
+      issues.push({
+        kind: "duplicate_group_id_in_assignment",
+        affectedIds: duplicateUsernames,
+        context: `Duplicate git usernames within team '${team.id}' in group set '${groupSet.name}'`,
+      })
+    }
+  }
 }
 
 export function validateRoster(roster: Roster): RosterValidationResult {
@@ -203,34 +314,10 @@ export function validateRoster(roster: Roster): RosterValidationResult {
   }
 
   for (const groupSet of roster.groupSets) {
-    const names = groupSet.groupIds
-      .map((groupId) => roster.groups.find((group) => group.id === groupId))
-      .filter(
-        (group): group is NonNullable<typeof group> => group !== undefined,
-      )
-      .map((group) => normalizeName(group.name))
-    const duplicateNames = findDuplicateStrings(names)
-    if (duplicateNames.length === 0) {
-      continue
-    }
-    issues.push({
-      kind: "duplicate_group_name_in_assignment",
-      affectedIds: duplicateNames,
-      context: `Duplicate normalized group names in group set '${groupSet.name}'`,
-    })
-  }
-
-  const existingGroupIds = new Set(roster.groups.map((group) => group.id))
-  for (const groupSet of roster.groupSets) {
-    const orphanGroupRefs = groupSet.groupIds.filter(
-      (groupId) => !existingGroupIds.has(groupId),
-    )
-    if (orphanGroupRefs.length > 0) {
-      issues.push({
-        kind: "orphan_group_member",
-        affectedIds: orphanGroupRefs,
-        context: `Group set '${groupSet.name}' references non-existent groups`,
-      })
+    if (groupSet.nameMode === "named") {
+      validateNamedGroupSet(roster, groupSet, issues)
+    } else {
+      validateUnnamedGroupSet(groupSet, issues)
     }
   }
 
@@ -271,7 +358,9 @@ export function validateRoster(roster: Roster): RosterValidationResult {
   }
 
   for (const groupSet of roster.groupSets) {
-    validateGroupSetOriginConsistency(roster, groupSet, issues)
+    if (groupSet.nameMode === "named") {
+      validateGroupSetOriginConsistency(roster, groupSet, issues)
+    }
   }
 
   return { issues }
@@ -301,6 +390,19 @@ export function validateAssignmentWithTemplate(
   )
   if (assignment === undefined) {
     return { issues: [] }
+  }
+
+  const groupSet = roster.groupSets.find(
+    (candidate) => candidate.id === assignment.groupSetId,
+  )
+  if (groupSet?.nameMode === "unnamed") {
+    return {
+      issues: validateUnnamedAssignmentWithTemplate(
+        groupSet,
+        assignment,
+        template,
+      ),
+    }
   }
 
   const groups = resolveAssignmentGroups(roster, assignment)

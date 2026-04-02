@@ -142,6 +142,7 @@ describe("validatePersistedCourse", () => {
       nextGroupSetSeq: 1,
       nextMemberSeq: 1,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     },
     roster: {
       connection: null,
@@ -229,11 +230,10 @@ describe("validatePersistedCourse", () => {
               groupSetId: "canvas-set-1",
               lastUpdated: "2026-03-04T10:00:00Z",
             },
-            groupSelection: {
-              kind: "all",
-              excludedGroupIds: [],
-            },
+            nameMode: "named",
             repoNameTemplate: null,
+            columnVisibility: {},
+            columnSizing: {},
           },
         ],
         assignments: [{ id: "a1", name: "HW1", groupSetId: "gs_0001" }],
@@ -249,7 +249,7 @@ describe("validatePersistedCourse", () => {
     assert.equal(result.ok, true)
   })
 
-  it("accepts pattern-based group selection", () => {
+  it("accepts named group set with groupIds", () => {
     const course = {
       ...validProfile,
       roster: {
@@ -258,14 +258,12 @@ describe("validatePersistedCourse", () => {
           {
             id: "gs_0001",
             name: "Teams",
+            nameMode: "named",
             groupIds: [],
             connection: null,
-            groupSelection: {
-              kind: "pattern",
-              pattern: "lab-*",
-              excludedGroupIds: ["g3"],
-            },
             repoNameTemplate: null,
+            columnVisibility: {},
+            columnSizing: {},
           },
         ],
       },
@@ -318,7 +316,7 @@ describe("validatePersistedCourse", () => {
     }
   })
 
-  it("rejects invalid group selection mode", () => {
+  it("rejects invalid nameMode", () => {
     const result = validatePersistedCourse({
       ...validProfile,
       roster: {
@@ -327,11 +325,9 @@ describe("validatePersistedCourse", () => {
           {
             id: "gs_0001",
             name: "X",
+            nameMode: "invalid",
             groupIds: [],
             connection: null,
-            groupSelection: {
-              kind: "invalid",
-            },
             repoNameTemplate: null,
           },
         ],
@@ -369,7 +365,9 @@ describe("validatePersistedCourse", () => {
             name: "Teams",
             groupIds: [],
             connection: null,
-            groupSelection: { kind: "all", excludedGroupIds: [] },
+            nameMode: "named",
+            columnVisibility: {},
+            columnSizing: {},
           },
         ],
       },
@@ -393,8 +391,10 @@ describe("validatePersistedCourse", () => {
             name: "Teams",
             groupIds: [],
             connection: null,
-            groupSelection: { kind: "all", excludedGroupIds: [] },
+            nameMode: "named",
             repoNameTemplate: "{assignment}-{group}-{surnames}",
+            columnVisibility: {},
+            columnSizing: {},
           },
         ],
       },
@@ -406,6 +406,34 @@ describe("validatePersistedCourse", () => {
       assert.equal(
         groupSet?.repoNameTemplate,
         "{assignment}-{group}-{surnames}",
+      )
+    }
+  })
+
+  it("rejects unnamed group sets with {group} in repoNameTemplate", () => {
+    const course = {
+      ...validProfile,
+      roster: {
+        ...validProfile.roster,
+        groupSets: [
+          {
+            id: "gs_0001",
+            name: "RepoBee Teams",
+            nameMode: "unnamed",
+            teams: [{ id: "ut_0001", gitUsernames: ["alice"] }],
+            connection: null,
+            repoNameTemplate: "{assignment}-{group}",
+            columnVisibility: {},
+            columnSizing: {},
+          },
+        ],
+      },
+    }
+    const result = validatePersistedCourse(course)
+    assert.equal(result.ok, false)
+    if (!result.ok) {
+      assert.ok(
+        result.issues.some((issue) => issue.path.includes("repoNameTemplate")),
       )
     }
   })

@@ -54,6 +54,17 @@ export function allocateAssignmentId(sequences: IdSequences): {
   }
 }
 
+export function allocateTeamId(sequences: IdSequences): {
+  id: string
+  sequences: IdSequences
+} {
+  const id = formatId("ut_", sequences.nextTeamSeq)
+  return {
+    id,
+    sequences: { ...sequences, nextTeamSeq: sequences.nextTeamSeq + 1 },
+  }
+}
+
 export function allocateGroupIds(
   sequences: IdSequences,
   count: number,
@@ -65,6 +76,19 @@ export function allocateGroupIds(
     seq += 1
   }
   return { ids, sequences: { ...sequences, nextGroupSeq: seq } }
+}
+
+export function allocateTeamIds(
+  sequences: IdSequences,
+  count: number,
+): { ids: string[]; sequences: IdSequences } {
+  const ids: string[] = []
+  let seq = sequences.nextTeamSeq
+  for (let i = 0; i < count; i++) {
+    ids.push(formatId("ut_", seq))
+    seq += 1
+  }
+  return { ids, sequences: { ...sequences, nextTeamSeq: seq } }
 }
 
 export function allocateMemberIds(

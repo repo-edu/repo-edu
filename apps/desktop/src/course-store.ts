@@ -92,42 +92,39 @@ function createSeedRoster(): Roster {
     groupSets: [
       {
         id: "gs_0001",
+        nameMode: "named",
         name: "Projects",
         groupIds: ["g_0001", "g_0002"],
         connection: null,
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
       {
         id: "gs_0002",
+        nameMode: "named",
         name: "Individual Students",
         groupIds: ["g_0003", "g_0004"],
         connection: {
           kind: "system",
           systemType: "individual_students",
         },
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
       {
         id: "gs_0003",
+        nameMode: "named",
         name: "Staff",
         groupIds: ["g_0005"],
         connection: {
           kind: "system",
           systemType: "staff",
         },
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ],
     assignments: [
@@ -158,6 +155,7 @@ function createSeedCourse(): PersistedCourse {
       nextGroupSetSeq: 4,
       nextMemberSeq: 3,
       nextAssignmentSeq: 2,
+      nextTeamSeq: 1,
     },
     roster: createSeedRoster(),
     repositoryTemplate: null,

@@ -9,13 +9,12 @@ import type {
 } from "@repo-edu/application-contract"
 import {
   exportGroupSetRows,
-  exportRepoTeams,
+  exportStudentsTxt,
   importGroupSet,
   previewImportGroupSet,
   previewReplaceGroupSetFromRepoBee,
   replaceGroupSetFromRepoBee,
 } from "@repo-edu/domain/group-set-import-export"
-import { reconcileRosterFromGitUsernames } from "@repo-edu/domain/roster-reconciliation"
 import type {
   Group,
   GroupSet,
@@ -32,7 +31,7 @@ import {
   resolveCourseSnapshot,
   throwIfAborted,
 } from "../workflow-helpers.js"
-import { groupSetExportHeaders, serializeRepobeeYaml } from "./helpers.js"
+import { groupSetExportHeaders } from "./helpers.js"
 import type { GroupSetWorkflowPorts } from "./ports.js"
 
 function applyImportResultToCourse(
@@ -68,12 +67,16 @@ function applyImportResultToCourse(
       continue
     }
 
-    nextGroupSets.push({
-      ...groupSet,
-      groupIds: groupSet.groupIds.filter(
-        (groupId) => !deletedGroupIdSet.has(groupId),
-      ),
-    })
+    if (groupSet.nameMode === "named") {
+      nextGroupSets.push({
+        ...groupSet,
+        groupIds: groupSet.groupIds.filter(
+          (groupId) => !deletedGroupIdSet.has(groupId),
+        ),
+      })
+    } else {
+      nextGroupSets.push(groupSet)
+    }
   }
 
   if (!replaced) {
@@ -107,10 +110,6 @@ function toValidationIssues(
     return []
   }
   return result.issues
-}
-
-function uniqueRepoBeeUsernames(teams: readonly string[][]): string[] {
-  return [...new Set(teams.flat())]
 }
 
 export function createFileGroupSetHandlers(
@@ -287,27 +286,13 @@ export function createFileGroupSetHandlers(
         )
       }
 
-      const reconciled = reconcileRosterFromGitUsernames(
-        course.roster,
-        uniqueRepoBeeUsernames(parsed.teams),
-        course.idSequences,
-      )
-
-      const teams = parsed.teams.map((team) => ({
-        usernames: team,
-        memberIds: team
-          .map((username) => reconciled.mapping[username])
-          .filter((memberId): memberId is string => memberId !== undefined),
-      }))
-
       const result = replaceGroupSetFromRepoBee(
-        reconciled.roster,
+        course.roster,
         source,
-        teams,
-        reconciled.idSequences,
+        parsed.teams,
+        course.idSequences,
         {
           targetGroupSetId: input.targetGroupSetId,
-          groupNameStrategy: input.groupNameStrategy,
         },
       )
       if (!result.ok) {
@@ -323,14 +308,7 @@ export function createFileGroupSetHandlers(
         label: "Applying course updates.",
       })
 
-      const nextCourse = applyImportResultToCourse(
-        {
-          ...course,
-          roster: reconciled.roster,
-          idSequences: reconciled.idSequences,
-        },
-        result.value,
-      )
+      const nextCourse = applyImportResultToCourse(course, result.value)
 
       options?.onProgress?.({
         step: 4,
@@ -353,49 +331,42 @@ export function createFileGroupSetHandlers(
       const course = resolveCourseSnapshot(input.course)
       throwIfAborted(options?.signal)
 
-      const exportedRows = exportGroupSetRows(course.roster, input.groupSetId)
-      if (!exportedRows.ok) {
-        throw createValidationAppError(
-          "Group-set export preparation failed.",
-          exportedRows.issues,
-        )
-      }
-
       options?.onProgress?.({
         step: 2,
         totalSteps,
         label: "Serializing group-set export payload.",
       })
-      let serialized = ""
+
+      let serialized: string
       switch (input.format) {
-        case "csv":
+        case "csv": {
+          const exportedRows = exportGroupSetRows(
+            course.roster,
+            input.groupSetId,
+          )
+          if (!exportedRows.ok) {
+            throw createValidationAppError(
+              "Group-set export preparation failed.",
+              exportedRows.issues,
+            )
+          }
           serialized = serializeCsv({
             headers: [...groupSetExportHeaders],
             rows: exportedRows.value,
           })
           break
-        case "yaml": {
-          const teams = exportRepoTeams(course.roster, input.groupSetId)
-          if (!teams.ok) {
+        }
+        case "txt": {
+          const txtResult = exportStudentsTxt(course.roster, input.groupSetId)
+          if (!txtResult.ok) {
             throw createValidationAppError(
-              "Repobee YAML export preparation failed.",
-              teams.issues,
+              "Group-set TXT export failed.",
+              txtResult.issues,
             )
           }
-          serialized = serializeRepobeeYaml(teams.value)
+          serialized = txtResult.value
           break
         }
-        case "xlsx":
-          throw createValidationAppError(
-            "Group-set export format is unsupported.",
-            [
-              {
-                path: "format",
-                message:
-                  "XLSX group-set export is unsupported with the current text-based file port.",
-              },
-            ],
-          )
       }
 
       await ports.userFile.writeText(input.target, serialized, options?.signal)

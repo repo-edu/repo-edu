@@ -185,9 +185,15 @@ export function MemberListPane({
     )
 
     const systemGroupIds = new Set(
-      roster.groupSets
-        .filter((gs) => gs.connection?.kind === "system")
-        .flatMap((gs) => gs.groupIds),
+      roster.groupSets.flatMap((groupSet) => {
+        if (
+          groupSet.connection?.kind !== "system" ||
+          groupSet.nameMode !== "named"
+        ) {
+          return []
+        }
+        return groupSet.groupIds
+      }),
     )
 
     for (const group of roster.groups) {

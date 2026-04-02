@@ -18,13 +18,14 @@ import { cn } from "@repo-edu/ui"
 import { GripHorizontal } from "@repo-edu/ui/components/icons"
 import { useCallback, useMemo } from "react"
 
-const knownSegments = ["assignment", "group", "surnames"] as const
+const knownSegments = ["assignment", "group", "surnames", "members"] as const
 type SegmentId = (typeof knownSegments)[number]
 
 const segmentLabels: Record<SegmentId, string> = {
   assignment: "assignment",
   group: "group",
-  surnames: "members",
+  surnames: "surnames",
+  members: "members",
 }
 
 type SegmentState = {
@@ -40,7 +41,7 @@ type RepoNameTemplateBuilderProps = {
 
 function parseTemplate(template: string): SegmentState[] {
   // Extract placeholders in order
-  const placeholderPattern = /\{(assignment|group|surnames)\}/g
+  const placeholderPattern = /\{(assignment|group|surnames|members)\}/g
   const found: SegmentId[] = []
   let match = placeholderPattern.exec(template)
   while (match !== null) {

@@ -5,7 +5,7 @@ import {
   allocateGroupSetId,
   allocateMemberId,
 } from "@repo-edu/domain/id-allocator"
-import type { Group, GroupSet, Roster } from "@repo-edu/domain/types"
+import type { Group, NamedGroupSet, Roster } from "@repo-edu/domain/types"
 import { produceWithPatches } from "immer"
 import type {
   CourseActions,
@@ -41,8 +41,9 @@ export function createRosterActionsSlice(
   | "renameGroupSet"
   | "deleteGroupSet"
   | "removeGroupFromSet"
-  | "updateGroupSetSelection"
   | "updateGroupSetTemplate"
+  | "updateGroupSetColumnVisibility"
+  | "updateGroupSetColumnSizing"
 > {
   return {
     // ------------------------------------------------------------------
@@ -189,6 +190,10 @@ export function createRosterActionsSlice(
     createGroup: (groupSetId, name, memberIds) => {
       const state = get()
       if (!state.course) return null
+      const targetGroupSet = state.course.roster.groupSets.find(
+        (gs) => gs.id === groupSetId,
+      )
+      if (targetGroupSet?.nameMode !== "named") return null
       const alloc = allocateGroupId(state.course.idSequences)
       set((draft) => {
         if (!draft.course) return
@@ -206,7 +211,7 @@ export function createRosterActionsSlice(
         }
         roster.groups.push(group)
         const groupSet = roster.groupSets.find((gs) => gs.id === groupSetId)
-        if (groupSet) {
+        if (groupSet?.nameMode === "named") {
           groupSet.groupIds.push(id)
         }
       })
@@ -226,7 +231,9 @@ export function createRosterActionsSlice(
       internals.mutateRoster("Delete group", (roster) => {
         roster.groups = roster.groups.filter((g) => g.id !== groupId)
         for (const gs of roster.groupSets) {
-          gs.groupIds = gs.groupIds.filter((gid) => gid !== groupId)
+          if (gs.nameMode === "named") {
+            gs.groupIds = gs.groupIds.filter((gid) => gid !== groupId)
+          }
         }
       })
     },
@@ -268,13 +275,15 @@ export function createRosterActionsSlice(
 
       const id = alloc.id
       internals.mutateRoster(`Create group set "${name}"`, (roster) => {
-        const groupSet: GroupSet = {
+        const groupSet: NamedGroupSet = {
           id,
           name,
+          nameMode: "named",
           groupIds: groupIds ?? [],
           connection: null,
-          groupSelection: { kind: "all", excludedGroupIds: [] },
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         }
         roster.groupSets.push(groupSet)
       })
@@ -287,7 +296,7 @@ export function createRosterActionsSlice(
       const source = state.course.roster.groupSets.find(
         (gs) => gs.id === groupSetId,
       )
-      if (!source) return null
+      if (!source || source.nameMode !== "named") return null
 
       let seq = state.course.idSequences
       const groupSetAlloc = allocateGroupSetId(seq)
@@ -318,14 +327,17 @@ export function createRosterActionsSlice(
           })
         }
 
-        roster.groupSets.push({
+        const copied: NamedGroupSet = {
           id: newId,
           name: `${source.name} (copy)`,
+          nameMode: "named",
           groupIds: copiedGroupIds,
           connection: null,
-          groupSelection: { kind: "all", excludedGroupIds: [] },
           repoNameTemplate: source.repoNameTemplate,
-        })
+          columnVisibility: { ...source.columnVisibility },
+          columnSizing: { ...source.columnSizing },
+        }
+        roster.groupSets.push(copied)
       })
 
       return newId
@@ -353,9 +365,11 @@ export function createRosterActionsSlice(
         // Remove the group set.
         roster.groupSets = roster.groupSets.filter((g) => g.id !== groupSetId)
 
-        // Remove orphaned groups that are no longer in any group set.
+        // Remove orphaned groups that are no longer in any named group set.
         const referencedGroupIds = new Set(
-          roster.groupSets.flatMap((g) => g.groupIds),
+          roster.groupSets.flatMap((g) =>
+            g.nameMode === "named" ? g.groupIds : [],
+          ),
         )
         roster.groups = roster.groups.filter((g) =>
           referencedGroupIds.has(g.id),
@@ -366,23 +380,34 @@ export function createRosterActionsSlice(
     removeGroupFromSet: (groupSetId, groupId) => {
       internals.mutateRoster("Remove group from set", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
-        if (gs) {
+        if (gs?.nameMode === "named") {
           gs.groupIds = gs.groupIds.filter((id) => id !== groupId)
         }
-      })
-    },
-
-    updateGroupSetSelection: (groupSetId, selection) => {
-      internals.mutateRoster("Update group set selection", (roster) => {
-        const gs = roster.groupSets.find((g) => g.id === groupSetId)
-        if (gs) gs.groupSelection = selection
       })
     },
 
     updateGroupSetTemplate: (groupSetId, template) => {
       internals.mutateRoster("Update group set template", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
-        if (gs) gs.repoNameTemplate = template
+        if (!gs) return
+        if (gs.nameMode === "unnamed" && template?.includes("{group}")) {
+          return
+        }
+        gs.repoNameTemplate = template
+      })
+    },
+
+    updateGroupSetColumnVisibility: (groupSetId, visibility) => {
+      internals.mutateRoster("Update group set column visibility", (roster) => {
+        const gs = roster.groupSets.find((g) => g.id === groupSetId)
+        if (gs) gs.columnVisibility = visibility
+      })
+    },
+
+    updateGroupSetColumnSizing: (groupSetId, sizing) => {
+      internals.mutateRoster("Update group set column sizing", (roster) => {
+        const gs = roster.groupSets.find((g) => g.id === groupSetId)
+        if (gs) gs.columnSizing = sizing
       })
     },
   }

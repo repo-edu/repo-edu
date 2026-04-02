@@ -32,6 +32,7 @@ const course: PersistedCourse = {
     nextGroupSetSeq: 1,
     nextMemberSeq: 1,
     nextAssignmentSeq: 1,
+    nextTeamSeq: 1,
   },
   roster: {
     connection: null,
@@ -62,8 +63,6 @@ const appSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
-  groupsColumnVisibility: {},
-  groupsColumnSizing: {},
 }
 
 describe("repository workflow helpers", () => {

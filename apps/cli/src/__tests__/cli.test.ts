@@ -95,6 +95,7 @@ function makeProfile(): PersistedCourse {
       nextGroupSetSeq: 2,
       nextMemberSeq: 2,
       nextAssignmentSeq: 2,
+      nextTeamSeq: 1,
     },
     roster: {
       connection: null,
@@ -137,13 +138,12 @@ function makeProfile(): PersistedCourse {
         {
           id: "gs_0001",
           name: "Projects",
+          nameMode: "named",
           groupIds: ["g_0001", "g_0002"],
           connection: null,
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
       ],
       assignments: [
@@ -177,8 +177,6 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
-    groupsColumnVisibility: {},
-    groupsColumnSizing: {},
   }
 }
 

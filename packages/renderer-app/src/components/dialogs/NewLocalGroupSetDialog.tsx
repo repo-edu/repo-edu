@@ -1,4 +1,3 @@
-import { filterByPattern } from "@repo-edu/domain/group-selection"
 import {
   Button,
   Checkbox,
@@ -21,6 +20,10 @@ import {
 } from "@repo-edu/ui"
 import { cn } from "@repo-edu/ui/lib/utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  globMatches,
+  validateGlobPattern,
+} from "@repo-edu/domain/group-selection"
 import {
   selectConnectedGroupSets,
   selectGroupsForGroupSet,
@@ -70,17 +73,24 @@ export function NewLocalGroupSetDialog() {
   }, [roster])
 
   const sortedConnected = useMemo(
-    () => [...connectedSets].sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      [...connectedSets]
+        .filter((gs) => gs.nameMode === "named")
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [connectedSets],
   )
   const sortedLocal = useMemo(
-    () => [...localSets].sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      [...localSets]
+        .filter((gs) => gs.nameMode === "named")
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [localSets],
   )
   const systemSets = useMemo(() => {
     const sets: typeof connectedSets = []
-    if (individualStudentsSet) sets.push(individualStudentsSet)
-    if (staffSet) sets.push(staffSet)
+    if (individualStudentsSet?.nameMode === "named")
+      sets.push(individualStudentsSet)
+    if (staffSet?.nameMode === "named") sets.push(staffSet)
     return sets
   }, [individualStudentsSet, staffSet])
 
@@ -119,19 +129,26 @@ export function NewLocalGroupSetDialog() {
     debounceRef.current = setTimeout(() => {
       const requestId = ++validationIdRef.current
       const groups = sourceGroupsRef.current
-      const groupNames = groups.map((g) => g.name)
-      const result = filterByPattern(value, groupNames)
+
+      const validation = validateGlobPattern(value)
       if (validationIdRef.current !== requestId) return
-      if (result.valid) {
-        setPatternError(null)
-        setMatchedIndexes(result.matchedIndexes)
-        setCheckedGroupIds(
-          new Set(result.matchedIndexes.map((index) => groups[index].id)),
-        )
-      } else {
-        setPatternError(result.error ?? "Invalid pattern")
+      if (!validation.ok) {
+        setPatternError(validation.issues[0]?.message ?? "Invalid pattern")
         setMatchedIndexes(null)
+        return
       }
+
+      const matched: number[] = []
+      for (let i = 0; i < groups.length; i++) {
+        const result = globMatches(value, groups[i].name)
+        if (result.ok && result.value) {
+          matched.push(i)
+        }
+      }
+
+      setPatternError(null)
+      setMatchedIndexes(matched)
+      setCheckedGroupIds(new Set(matched.map((index) => groups[index].id)))
     }, 400)
   }, [])
 

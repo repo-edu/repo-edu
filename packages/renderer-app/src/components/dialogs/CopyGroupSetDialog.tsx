@@ -43,7 +43,7 @@ export function CopyGroupSetDialog() {
     groupSet?.connection?.kind === "system"
 
   const trimmedName = name.trim()
-  const canCopy = trimmedName.length > 0
+  const canCopy = trimmedName.length > 0 && groupSet?.nameMode === "named"
 
   const handleCopy = () => {
     if (!canCopy || !sourceId) return
@@ -75,7 +75,7 @@ export function CopyGroupSetDialog() {
           <div className="rounded-md border px-3 py-2 space-y-1 text-xs text-muted-foreground">
             <p>This creates a new local group set that:</p>
             <ul className="list-disc ml-4 space-y-0.5">
-              <li>References the same groups (no duplication)</li>
+              <li>Duplicates groups into a new local set</li>
               {isLmsOrSystem && (
                 <li>Shared groups continue to update on sync</li>
               )}

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { selectionModeAll } from "../group-set.js"
 import {
   computeRepoName,
   expandTemplate,
@@ -80,8 +79,10 @@ describe("repository planning", () => {
       name: "Projects",
       groupIds: ["g1", "g2"],
       connection: null,
-      groupSelection: selectionModeAll(),
+      nameMode: "named",
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const roster = makeRoster(
       groups,
@@ -102,6 +103,7 @@ describe("repository planning", () => {
         groupName: "Team A",
         repoName: "team-a",
         activeMemberIds: ["s1"],
+        gitUsernames: [],
       },
     ])
     assert.deepStrictEqual(plan.value.skippedGroups, [
@@ -113,6 +115,43 @@ describe("repository planning", () => {
         context: null,
       },
     ])
+  })
+
+  it("uses unnamed team ids for {group_id} template expansion", () => {
+    const unnamedSet: GroupSet = {
+      id: "gs-unnamed",
+      name: "RepoBee Teams",
+      nameMode: "unnamed",
+      teams: [
+        { id: "ut_0001", gitUsernames: ["alice"] },
+        { id: "ut_0002", gitUsernames: ["bob"] },
+      ],
+      connection: null,
+      repoNameTemplate: "{group_id}",
+      columnVisibility: {},
+      columnSizing: {},
+    }
+    const roster = makeRoster(
+      [],
+      [unnamedSet],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs-unnamed" }],
+      [],
+    )
+
+    const plan = planRepositoryOperation(roster, "a1", "{group_id}")
+    assert.equal(plan.ok, true)
+    if (!plan.ok) return
+
+    assert.deepStrictEqual(
+      plan.value.groups.map((group) => ({
+        groupId: group.groupId,
+        repoName: group.repoName,
+      })),
+      [
+        { groupId: "ut_0001", repoName: "ut-0001" },
+        { groupId: "ut_0002", repoName: "ut-0002" },
+      ],
+    )
   })
 
   it("computes create and clone preflight collisions", () => {
@@ -137,8 +176,10 @@ describe("repository planning", () => {
       name: "Projects",
       groupIds: ["g1", "g2"],
       connection: null,
-      groupSelection: selectionModeAll(),
+      nameMode: "named",
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const roster = makeRoster(
       groups,
@@ -214,8 +255,10 @@ describe("repository planning", () => {
       name: "Projects",
       groupIds: ["g1"],
       connection: null,
-      groupSelection: selectionModeAll(),
+      nameMode: "named",
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const roster = makeRoster(
       groups,

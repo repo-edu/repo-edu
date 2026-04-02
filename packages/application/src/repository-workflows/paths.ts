@@ -46,7 +46,9 @@ export function repositoryCloneParentPath(
 
   const folderName =
     layout === "by-team"
-      ? sanitizePathSegment(group.groupName)
+      ? sanitizePathSegment(
+          group.groupName.trim().length > 0 ? group.groupName : group.groupId,
+        )
       : sanitizePathSegment(group.assignmentName)
   return joinPath(targetDirectory, folderName)
 }

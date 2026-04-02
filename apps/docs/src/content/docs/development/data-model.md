@@ -33,8 +33,6 @@ These markers exist for future schema evolution. There is no migration layer —
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
 | `rosterColumnSizing` | `Record<string, number>` | Per-column width for roster table |
-| `groupsColumnVisibility` | `Record<string, boolean>` | Per-column visibility for groups table |
-| `groupsColumnSizing` | `Record<string, number>` | Per-column width for groups table |
 
 `AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), and `timeFormat` (`"12h"`, `"24h"`).
 
@@ -51,7 +49,7 @@ These markers exist for future schema evolution. There is no migration layer —
 | `gitConnectionId` | `string \| null` | References a Git connection in app settings by id |
 | `organization` | `string \| null` | Git organization/group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier |
-| `idSequences` | `{ nextGroupSeq; nextGroupSetSeq; nextMemberSeq }` | Monotonic local ID counters |
+| `idSequences` | `{ nextGroupSeq; nextGroupSetSeq; nextMemberSeq; nextAssignmentSeq; nextTeamSeq }` | Monotonic local ID counters |
 | `roster` | `Roster` | Students, staff, groups, group sets, assignments |
 | `repositoryTemplate` | `RepositoryTemplate \| null` | Default template for repo creation |
 | `repositoryCloneTargetDirectory` | `string \| null` | Local directory for clone operations |
@@ -93,7 +91,7 @@ Tracks how the roster was populated — a discriminated union on `kind`:
 
 A `Group` is a named collection of member IDs with an `origin` (`"system"`, `"lms"`, `"local"`). Two system group sets are always present: `individual_students` and `staff`.
 
-A `GroupSet` organizes groups for assignment purposes. It has a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`) and a `groupSelection` that controls which groups are active — either `"all"` with optional exclusions, or `"pattern"` with a filter string.
+A `GroupSet` is a discriminated union on `nameMode`. A `NamedGroupSet` (`nameMode: "named"`) references `Group` objects via `groupIds`. A `UsernameGroupSet` (`nameMode: "unnamed"`) stores `UsernameTeam[]` inline in its `teams` field — each team has an `id` and `gitUsernames` array. Both modes share a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`), `repoNameTemplate`, `columnVisibility`, and `columnSizing`.
 
 Local ID policy:
 

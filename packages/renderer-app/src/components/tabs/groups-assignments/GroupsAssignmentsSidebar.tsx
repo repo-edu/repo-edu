@@ -64,8 +64,7 @@ function selectionToItemId(selection: SidebarSelection): string | null {
 }
 
 function buildGroupSetActions(
-  groupSetId: string,
-  connection: GroupSet["connection"],
+  groupSet: GroupSet,
   selectGroupSet: () => void,
   setters: {
     setRenameGroupSetTriggerId: (id: string | null) => void
@@ -78,6 +77,8 @@ function buildGroupSetActions(
     setPreSelectedGroupSetId: (id: string | null) => void
   },
 ) {
+  const groupSetId = groupSet.id
+  const connection = groupSet.connection
   const kind = connection ? connection.kind : "local"
   const isNameEditable = kind === "local" || kind === "import"
   const isLms = kind === "canvas" || kind === "moodle"
@@ -104,7 +105,10 @@ function buildGroupSetActions(
       ? withSelect(() => setters.setReimportGroupSetTargetId(groupSetId))
       : undefined,
     onExport: withSelect(() => setters.setExportGroupSetTriggerId(groupSetId)),
-    onCopy: withSelect(() => setters.setCopyGroupSetSourceId(groupSetId)),
+    onCopy:
+      groupSet.nameMode === "named"
+        ? withSelect(() => setters.setCopyGroupSetSourceId(groupSetId))
+        : undefined,
     onDelete: !isSystem
       ? withSelect(() => setters.setDeleteGroupSetTargetId(groupSetId))
       : undefined,
@@ -134,7 +138,7 @@ function GroupSetList({
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
   onRenameSubmit: (groupSetId: string, newName: string) => void
   onRenameCancel: () => void
-  actionSetters: Parameters<typeof buildGroupSetActions>[3]
+  actionSetters: Parameters<typeof buildGroupSetActions>[2]
 }) {
   return (
     <div className="space-y-0.5">
@@ -147,8 +151,7 @@ function GroupSetList({
           selection={selection}
           onSelect={onSelect}
           actions={buildGroupSetActions(
-            groupSet.id,
-            groupSet.connection,
+            groupSet,
             () => onSelect({ kind: "group-set", id: groupSet.id }),
             actionSetters,
           )}
@@ -270,10 +273,13 @@ export function GroupsAssignmentsSidebar({
     const knownGroupIds = new Set(roster?.groups.map((group) => group.id) ?? [])
 
     for (const groupSet of allGroupSets) {
-      const count = groupSet.groupIds.reduce(
-        (total, groupId) => total + (knownGroupIds.has(groupId) ? 1 : 0),
-        0,
-      )
+      const count =
+        groupSet.nameMode === "named"
+          ? groupSet.groupIds.reduce(
+              (total, groupId) => total + (knownGroupIds.has(groupId) ? 1 : 0),
+              0,
+            )
+          : groupSet.teams.length
       map.set(groupSet.id, count)
     }
 

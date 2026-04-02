@@ -156,7 +156,10 @@ function createMockLmsPorts(
         {
           id: "lms-group-set-1",
           name: "LMS Teams",
-          groupCount: collaborativeGroupSet?.groupIds.length ?? 1,
+          groupCount:
+            collaborativeGroupSet?.nameMode === "named"
+              ? collaborativeGroupSet.groupIds.length
+              : (collaborativeGroupSet?.teams.length ?? 1),
         },
       ]
     },

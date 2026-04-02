@@ -2,7 +2,6 @@ import type {
   Assignment,
   GitIdentityMode,
   Group,
-  GroupSelectionMode,
   IdSequences,
   PersistedCourse,
   Roster,
@@ -90,11 +89,15 @@ export type CourseActions = {
   renameGroupSet: (groupSetId: string, name: string) => void
   deleteGroupSet: (groupSetId: string) => void
   removeGroupFromSet: (groupSetId: string, groupId: string) => void
-  updateGroupSetSelection: (
-    groupSetId: string,
-    selection: GroupSelectionMode,
-  ) => void
   updateGroupSetTemplate: (groupSetId: string, template: string | null) => void
+  updateGroupSetColumnVisibility: (
+    groupSetId: string,
+    visibility: Record<string, boolean>,
+  ) => void
+  updateGroupSetColumnSizing: (
+    groupSetId: string,
+    sizing: Record<string, number>,
+  ) => void
 
   // Course metadata
   setCourseId: (courseId: string | null) => void

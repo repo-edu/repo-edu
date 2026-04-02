@@ -33,8 +33,6 @@ Both app settings and course documents are stored as JSON files and validated on
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Roster table column visibility |
 | `rosterColumnSizing` | `Record<string, number>` | Roster table column widths |
-| `groupsColumnVisibility` | `Record<string, boolean>` | Groups table column visibility |
-| `groupsColumnSizing` | `Record<string, number>` | Groups table column widths |
 
 ## Course (`repo-edu.course.v1`)
 
@@ -43,7 +41,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
 | `schemaVersion` | `2` | Schema version |
 | `id` | `string` | Unique course identifier |
-| `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`) |
+| `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References an LMS connection in app settings by name |

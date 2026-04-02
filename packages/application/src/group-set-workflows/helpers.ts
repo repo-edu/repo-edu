@@ -3,11 +3,7 @@ import type {
   VerifyLmsDraftInput,
 } from "@repo-edu/application-contract"
 import { allocateGroupId } from "@repo-edu/domain/id-allocator"
-import {
-  ORIGIN_LMS,
-  type PersistedCourse,
-  type RepoTeam,
-} from "@repo-edu/domain/types"
+import { ORIGIN_LMS, type PersistedCourse } from "@repo-edu/domain/types"
 import type { LmsFetchedGroupSet } from "@repo-edu/integrations-lms-contract"
 import { createValidationAppError } from "../core.js"
 
@@ -67,14 +63,13 @@ export function createConnectedGroupSet(
 
   return {
     id: localGroupSetId,
+    nameMode: "named",
     name: `Group Set ${remoteGroupSetId}`,
     groupIds: [],
     connection,
-    groupSelection: {
-      kind: "all",
-      excludedGroupIds: [],
-    },
     repoNameTemplate: null,
+    columnVisibility: {},
+    columnSizing: {},
   }
 }
 
@@ -103,6 +98,12 @@ export function applyFetchedGroupSetToCourse(
       message: `Group set '${localGroupSetId}' was not found.`,
       resource: "group-set",
     } satisfies AppError
+  }
+
+  if (currentGroupSet.nameMode !== "named") {
+    throw createValidationAppError("LMS sync requires a named group set.", [
+      { path: "groupSet.nameMode", message: "Expected named group set." },
+    ])
   }
 
   const currentSetGroupIds = new Set(currentGroupSet.groupIds)
@@ -158,7 +159,6 @@ export function applyFetchedGroupSetToCourse(
     name: fetched.groupSet.name,
     groupIds: syncedGroups.map((group) => group.id),
     connection: currentGroupSet.connection,
-    groupSelection: currentGroupSet.groupSelection,
   }
 
   const removedIdSet = new Set(removedGroupIds)
@@ -166,12 +166,15 @@ export function applyFetchedGroupSetToCourse(
     if (groupSet.id === currentGroupSet.id) {
       return nextGroupSet
     }
-    return {
-      ...groupSet,
-      groupIds: groupSet.groupIds.filter(
-        (groupId) => !removedIdSet.has(groupId),
-      ),
+    if (groupSet.nameMode === "named") {
+      return {
+        ...groupSet,
+        groupIds: groupSet.groupIds.filter(
+          (groupId) => !removedIdSet.has(groupId),
+        ),
+      }
     }
+    return groupSet
   })
 
   return {
@@ -215,10 +218,4 @@ function resolveLmsGroupMembers(
     resolved.push(rosterMemberId)
   }
   return resolved
-}
-
-export function serializeRepobeeYaml(teams: readonly RepoTeam[]): string {
-  return teams
-    .map((team) => `${team.name}:\n\tmembers:[${team.members.join(", ")}]`)
-    .join("\n")
 }

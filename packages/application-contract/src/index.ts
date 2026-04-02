@@ -1,12 +1,11 @@
 import type {
   CourseSummary,
-  FileFormat,
+  ExportFormat,
   GitProviderKind,
-  IdSequences,
-  GroupNameStrategy,
-  GroupSetImportFormat,
   GroupSet,
+  GroupSetImportFormat,
   GroupSetImportPreview,
+  IdSequences,
   LmsProviderKind,
   PersistedAppSettings,
   PersistedCourse,
@@ -232,7 +231,7 @@ export type RosterImportFromFileResult = {
 export type RosterExportMembersInput = {
   course: PersistedCourse
   target: UserSaveTargetRef
-  format: Extract<FileFormat, "csv" | "xlsx">
+  format: ExportFormat
 }
 
 export type RosterImportFromLmsInput = {
@@ -270,7 +269,6 @@ export type GroupSetPreviewImportFromFileInput = {
   file: UserFileRef
   format: GroupSetImportFormat
   targetGroupSetId: string | null
-  groupNameStrategy?: GroupNameStrategy
 }
 
 export type GroupSetImportFromFileInput = {
@@ -278,14 +276,13 @@ export type GroupSetImportFromFileInput = {
   file: UserFileRef
   format: GroupSetImportFormat
   targetGroupSetId: string | null
-  groupNameStrategy?: GroupNameStrategy
 }
 
 export type GroupSetExportInput = {
   course: PersistedCourse
   groupSetId: string
   target: UserSaveTargetRef
-  format: Extract<FileFormat, "csv" | "xlsx" | "yaml">
+  format: "csv" | "txt"
 }
 
 export type GitUsernameImportInput = {

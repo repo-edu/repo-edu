@@ -10,9 +10,8 @@ repo-edu supports several file formats for importing and exporting roster, group
 | Format | Extension | Import | Export | Used by |
 |--------|-----------|--------|--------|---------|
 | CSV | `.csv` | Yes | Yes | Roster import/export, group set import/export, Git username import |
-| TXT | `.txt` | Yes | No | RepoBee students group-set import |
+| TXT | `.txt` | Yes | Yes | RepoBee students group-set import/export |
 | XLSX | `.xlsx` | No | No | Unsupported |
-| YAML | `.yaml` | No | Yes | Group set export (Repobee-compatible) |
 | JSON | `.json` | — | — | Persisted settings and course files (internal) |
 
 Format support is validated at the workflow level — requesting an unsupported format produces a validation error.
@@ -41,7 +40,10 @@ Imported by the `roster.importFromFile` workflow. Internal IDs are never importe
 
 ### Group set export
 
-Exported by the `groupSet.export` workflow. One row per member per group.
+Exported by the `groupSet.export` workflow.
+
+- Named group sets export as CSV (one row per member per group).
+- Unnamed group sets export as RepoBee `students.txt` (`.txt`).
 
 | Column | Description |
 |--------|-------------|
@@ -65,7 +67,7 @@ Notes:
 - Group matching uses normalized `group_name` (trim + collapse whitespace + lowercase).
 - Empty-group rows (`group_name` with blank `name` and `email`) create/keep empty groups.
 
-Members are matched to the existing roster by email (or by Git username in RepoBee flows). Missing members are reported in preview.
+Members are matched to the existing roster by email. Missing members are reported in preview.
 
 ### RepoBee students import (`.txt`)
 
@@ -78,7 +80,7 @@ glennol
 
 - Import format: `repobee-students`
 - Semantics: full replace of the target imported group set
-- Reconciliation: usernames are matched to roster `gitUsername`; unknown usernames create active members
+- Reconciliation: usernames are normalized and stored directly in unnamed `UsernameTeam.gitUsernames` (no roster member creation)
 
 ### Git username import
 
@@ -90,12 +92,6 @@ Imported by the `gitUsernames.import` workflow. Maps email addresses to Git prov
 | `git_username` | Yes | Git provider username |
 
 After import, if a Git connection is configured, the workflow verifies each username against the Git provider and sets the status to `valid`, `invalid`, or `unknown`.
-
-## YAML format
-
-### Group set export (Repobee-compatible)
-
-The YAML export produces a team list compatible with [Repobee](https://repobee.readthedocs.io/), a tool for managing student repositories. This allows migration between repo-edu and Repobee workflows.
 
 ## XLSX format
 

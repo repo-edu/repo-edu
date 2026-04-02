@@ -19,6 +19,7 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
       nextGroupSetSeq: 2,
       nextMemberSeq: 2,
       nextAssignmentSeq: 2,
+      nextTeamSeq: 1,
     },
     roster: {
       connection: null,
@@ -63,11 +64,10 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
           name: "Projects",
           groupIds: ["g_0001", "g_0002"],
           connection: null,
-          groupSelection: {
-            kind: "all",
-            excludedGroupIds: [],
-          },
+          nameMode: "named",
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
       ],
       assignments: [

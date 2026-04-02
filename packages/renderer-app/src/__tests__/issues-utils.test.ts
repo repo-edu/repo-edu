@@ -63,11 +63,10 @@ function makeRoster(): Roster {
         name: "Project Teams",
         groupIds: ["g-1", "g-2"],
         connection: null,
-        groupSelection: {
-          kind: "all",
-          excludedGroupIds: [],
-        },
+        nameMode: "named",
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ],
     assignments: [

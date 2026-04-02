@@ -1,17 +1,15 @@
-import { selectionModeAll } from "./group-set.js"
 import {
   allocateGroupId,
   allocateGroupIds,
   allocateGroupSetId,
+  allocateTeamIds,
 } from "./id-allocator.js"
 import { normalizeName } from "./name-normalization.js"
 import { normalizeEmail, normalizeOptionalString } from "./roster.js"
 import {
   initialIdSequences,
   type Group,
-  type GroupNameStrategy,
   type GroupOrigin,
-  type GroupSelectionMode,
   type GroupSet,
   type GroupSetConnection,
   type GroupSetExportRow,
@@ -22,16 +20,17 @@ import {
   type GroupSetImportRow,
   type GroupSetImportSource,
   type IdSequences,
+  type NamedGroupSet,
   type RepoBeeTeamMembershipDiff,
-  type RepoTeam,
   type Roster,
   type RosterMember,
+  type UsernameGroupSet,
+  type UsernameTeam,
   type ValidationResult,
 } from "./types.js"
 
 const ORIGIN_LOCAL: GroupOrigin = "local"
 const DEFAULT_REPOBEE_TEMPLATE = "{assignment}-{members}"
-const MAX_REPOBEE_GROUP_NAME_LENGTH = 100
 
 type ParsedGroupSetImportGroup = {
   name: string
@@ -48,12 +47,6 @@ type GroupSetImportOptions = {
 type RepoBeeApplyOptions = {
   targetGroupSetId?: string | null
   groupSetName?: string | null
-  groupNameStrategy?: GroupNameStrategy
-}
-
-type RepoBeeTeamInput = {
-  usernames: string[]
-  memberIds: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -230,22 +223,6 @@ function summarizeMissingMembers(
   return { missingMembers, totalMissing }
 }
 
-function cloneGroupSelectionMode(
-  selection: GroupSelectionMode,
-): GroupSelectionMode {
-  if (selection.kind === "all") {
-    return {
-      kind: "all",
-      excludedGroupIds: [...selection.excludedGroupIds],
-    }
-  }
-  return {
-    kind: "pattern",
-    pattern: selection.pattern,
-    excludedGroupIds: [...selection.excludedGroupIds],
-  }
-}
-
 function createImportConnection(
   source: GroupSetImportSource,
 ): GroupSetConnection {
@@ -287,6 +264,38 @@ function resolveTargetGroupSet(
   return { ok: true, value: target }
 }
 
+function resolveNamedTargetGroupSet(
+  roster: Roster,
+  targetGroupSetId: string | null,
+): ValidationResult<NamedGroupSet | null> {
+  const result = resolveTargetGroupSet(roster, targetGroupSetId)
+  if (!result.ok) return result
+  if (result.value === null) return { ok: true, value: null }
+  if (result.value.nameMode !== "named") {
+    return importValidationError(
+      "targetGroupSetId",
+      "CSV import is only supported for named group sets",
+    )
+  }
+  return { ok: true, value: result.value }
+}
+
+function resolveUnnamedTargetGroupSet(
+  roster: Roster,
+  targetGroupSetId: string | null,
+): ValidationResult<UsernameGroupSet | null> {
+  const result = resolveTargetGroupSet(roster, targetGroupSetId)
+  if (!result.ok) return result
+  if (result.value === null) return { ok: true, value: null }
+  if (result.value.nameMode !== "unnamed") {
+    return importValidationError(
+      "targetGroupSetId",
+      "RepoBee import is only supported for unnamed group sets",
+    )
+  }
+  return { ok: true, value: result.value }
+}
+
 function resolveImportedGroupSetName(
   source: GroupSetImportSource,
   explicitName?: string | null,
@@ -314,7 +323,10 @@ export function previewImportGroupSet(
   options: GroupSetImportOptions = {},
 ): ValidationResult<GroupSetImportPreview> {
   const memberKey = options.memberKey ?? "email"
-  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  const target = resolveNamedTargetGroupSet(
+    roster,
+    options.targetGroupSetId ?? null,
+  )
   if (!target.ok) {
     return target
   }
@@ -352,7 +364,10 @@ export function importGroupSet(
   options: GroupSetImportOptions = {},
 ): ValidationResult<GroupSetImportResult> {
   const memberKey = options.memberKey ?? "email"
-  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  const target = resolveNamedTargetGroupSet(
+    roster,
+    options.targetGroupSetId ?? null,
+  )
   if (!target.ok) {
     return target
   }
@@ -391,11 +406,13 @@ export function importGroupSet(
         mode: "import",
         groupSet: {
           id: groupSetAlloc.id,
+          nameMode: "named",
           name: resolveImportedGroupSetName(source, options.groupSetName),
           groupIds: groupsUpserted.map((group) => group.id),
           connection: createImportConnection(source),
-          groupSelection: selectionModeAll(),
           repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
         },
         groupsUpserted,
         deletedGroupIds: [],
@@ -456,7 +473,6 @@ export function importGroupSet(
         name: resolveImportedGroupSetName(source, target.value.name),
         groupIds: [...target.value.groupIds, ...appendedGroupIds],
         connection: createImportConnection(source),
-        groupSelection: cloneGroupSelectionMode(target.value.groupSelection),
       },
       groupsUpserted,
       deletedGroupIds: [],
@@ -678,12 +694,17 @@ function buildMemberById(roster: Roster): Map<string, RosterMember> {
   )
 }
 
-function extractGroupSetTeamsByGitUsername(
+function extractGroupSetTeamUsernames(
   roster: Roster,
   groupSet: GroupSet,
 ): string[][] {
-  const memberById = buildMemberById(roster)
+  if (groupSet.nameMode === "unnamed") {
+    return groupSet.teams.map((team) =>
+      normalizeTeamUsernames(team.gitUsernames),
+    )
+  }
 
+  const memberById = buildMemberById(roster)
   return groupSet.groupIds
     .map((groupId) => roster.groups.find((group) => group.id === groupId))
     .filter((group): group is Group => group !== undefined)
@@ -697,61 +718,12 @@ function extractGroupSetTeamsByGitUsername(
     })
 }
 
-function truncateForSuffix(base: string, suffix: string): string {
-  const maxBaseLength = Math.max(
-    1,
-    MAX_REPOBEE_GROUP_NAME_LENGTH - suffix.length,
-  )
-  const sliced = base.slice(0, maxBaseLength).replace(/-+$/g, "")
-  return sliced.length > 0 ? sliced : "group"
-}
-
-function slugifyGroupName(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
-  return slug.length > 0 ? slug : "group"
-}
-
-function createUniqueRepoBeeGroupName(
-  baseName: string,
-  seenNames: Set<string>,
-): string {
-  let counter = 1
-  while (true) {
-    const suffix = counter === 1 ? "" : `-${counter}`
-    const candidate = `${truncateForSuffix(baseName, suffix)}${suffix}`
-    const normalized = normalizeName(candidate)
-    if (!seenNames.has(normalized)) {
-      seenNames.add(normalized)
-      return candidate
-    }
-    counter += 1
-  }
-}
-
-function generateRepoBeeGroupNames(
-  teams: readonly RepoBeeTeamInput[],
-  strategy: GroupNameStrategy,
-): string[] {
-  const seenNames = new Set<string>()
-  return teams.map((team, index) => {
-    const base =
-      strategy === "numbered"
-        ? `group-${index + 1}`
-        : slugifyGroupName(team.usernames.join("-"))
-    return createUniqueRepoBeeGroupName(base, seenNames)
-  })
-}
-
 export function previewReplaceGroupSetFromRepoBee(
   roster: Roster,
   targetGroupSetId: string,
   nextTeams: readonly string[][],
 ): ValidationResult<GroupSetImportPreview> {
-  const target = resolveTargetGroupSet(roster, targetGroupSetId)
+  const target = resolveUnnamedTargetGroupSet(roster, targetGroupSetId)
   if (!target.ok) {
     return target
   }
@@ -762,7 +734,7 @@ export function previewReplaceGroupSetFromRepoBee(
   const normalizedNextTeams = nextTeams.map((team) =>
     normalizeTeamUsernames(team),
   )
-  const previousTeams = extractGroupSetTeamsByGitUsername(roster, target.value)
+  const previousTeams = extractGroupSetTeamUsernames(roster, target.value)
   const diff = previewRepoBeeTeamDiff(previousTeams, normalizedNextTeams)
 
   return {
@@ -777,31 +749,26 @@ export function previewReplaceGroupSetFromRepoBee(
 export function replaceGroupSetFromRepoBee(
   roster: Roster,
   source: GroupSetImportSource,
-  teams: readonly RepoBeeTeamInput[],
+  nextTeams: readonly string[][],
   sequences: IdSequences,
   options: RepoBeeApplyOptions = {},
 ): ValidationResult<GroupSetImportResult> {
-  const target = resolveTargetGroupSet(roster, options.targetGroupSetId ?? null)
+  const target = resolveUnnamedTargetGroupSet(
+    roster,
+    options.targetGroupSetId ?? null,
+  )
   if (!target.ok) {
     return target
   }
 
   let seq = sequences
-  const strategy = options.groupNameStrategy ?? "members"
-  const normalizedTeams = teams.map((team) => ({
-    usernames: normalizeTeamUsernames(team.usernames),
-    memberIds: [...new Set(team.memberIds)],
-  }))
-  const groupNames = generateRepoBeeGroupNames(normalizedTeams, strategy)
-  const groupAlloc = allocateGroupIds(seq, normalizedTeams.length)
-  seq = groupAlloc.sequences
+  const normalizedTeams = nextTeams.map((team) => normalizeTeamUsernames(team))
+  const teamAlloc = allocateTeamIds(seq, normalizedTeams.length)
+  seq = teamAlloc.sequences
 
-  const groupsUpserted: Group[] = normalizedTeams.map((team, index) => ({
-    id: groupAlloc.ids[index] as string,
-    name: groupNames[index] as string,
-    memberIds: team.memberIds,
-    origin: ORIGIN_LOCAL,
-    lmsGroupId: null,
+  const teams: UsernameTeam[] = normalizedTeams.map((usernames, index) => ({
+    id: teamAlloc.ids[index] as string,
+    gitUsernames: usernames,
   }))
 
   if (target.value === null) {
@@ -814,13 +781,15 @@ export function replaceGroupSetFromRepoBee(
         mode: "replace",
         groupSet: {
           id: groupSetAlloc.id,
+          nameMode: "unnamed",
           name: resolveImportedGroupSetName(source, options.groupSetName),
-          groupIds: groupsUpserted.map((group) => group.id),
+          teams,
           connection: createImportConnection(source),
-          groupSelection: selectionModeAll(),
           repoNameTemplate: DEFAULT_REPOBEE_TEMPLATE,
+          columnVisibility: {},
+          columnSizing: {},
         },
-        groupsUpserted,
+        groupsUpserted: [],
         deletedGroupIds: [],
         missingMembers: [],
         totalMissing: 0,
@@ -835,12 +804,11 @@ export function replaceGroupSetFromRepoBee(
       mode: "replace",
       groupSet: {
         ...target.value,
-        groupIds: groupsUpserted.map((group) => group.id),
+        teams,
         connection: createImportConnection(source),
-        groupSelection: cloneGroupSelectionMode(target.value.groupSelection),
       },
-      groupsUpserted,
-      deletedGroupIds: [...target.value.groupIds],
+      groupsUpserted: [],
+      deletedGroupIds: [],
       missingMembers: [],
       totalMissing: 0,
       idSequences: seq,
@@ -861,6 +829,12 @@ export function exportGroupSetRows(
   )
   if (groupSet === undefined) {
     return importValidationError("groupSetId", "Group set not found")
+  }
+  if (groupSet.nameMode !== "named") {
+    return importValidationError(
+      "groupSetId",
+      "CSV export is only supported for named group sets",
+    )
   }
 
   const memberById = buildMemberById(roster)
@@ -894,38 +868,23 @@ export function exportGroupSetRows(
   return { ok: true, value: rows }
 }
 
-export function exportRepoTeams(
+export function exportStudentsTxt(
   roster: Roster,
   groupSetId: string,
-): ValidationResult<RepoTeam[]> {
+): ValidationResult<string> {
   const groupSet = roster.groupSets.find(
     (candidate) => candidate.id === groupSetId,
   )
   if (groupSet === undefined) {
     return importValidationError("groupSetId", "Group set not found")
   }
-
-  const memberById = buildMemberById(roster)
-  const teams: RepoTeam[] = []
-
-  for (const groupId of groupSet.groupIds) {
-    const group = roster.groups.find((candidate) => candidate.id === groupId)
-    if (group === undefined) {
-      continue
-    }
-
-    const members = group.memberIds
-      .map((id) => memberById.get(id))
-      .filter(
-        (member): member is RosterMember =>
-          member !== undefined && member.status === "active",
-      )
-      .map((member) => member.email)
-      .filter((email) => email !== "")
-
-    teams.push({ members, name: group.name })
+  if (groupSet.nameMode !== "unnamed") {
+    return importValidationError(
+      "groupSetId",
+      "TXT export is only supported for unnamed group sets",
+    )
   }
 
-  teams.sort((left, right) => left.name.localeCompare(right.name))
-  return { ok: true, value: teams }
+  const lines = groupSet.teams.map((team) => team.gitUsernames.join(" "))
+  return { ok: true, value: lines.join("\n") }
 }

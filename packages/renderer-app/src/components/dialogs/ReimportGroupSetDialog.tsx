@@ -27,7 +27,6 @@ import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 type GroupSetImportFormat = "group-set-csv" | "repobee-students"
-type GroupNameStrategy = "members" | "numbered"
 
 function inferFormatFromFileRef(file: {
   displayName: string
@@ -53,8 +52,6 @@ export function ReimportGroupSetDialog() {
     byteLength: number | null
   } | null>(null)
   const [format, setFormat] = useState<GroupSetImportFormat>("group-set-csv")
-  const [groupNameStrategy, setGroupNameStrategy] =
-    useState<GroupNameStrategy>("members")
   const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -72,7 +69,6 @@ export function ReimportGroupSetDialog() {
   const runPreview = async (
     nextFileRef: NonNullable<typeof fileRef>,
     nextFormat: GroupSetImportFormat,
-    nextGroupNameStrategy = groupNameStrategy,
   ) => {
     if (!targetId || !course) return
 
@@ -85,7 +81,6 @@ export function ReimportGroupSetDialog() {
         file: nextFileRef,
         format: nextFormat,
         targetGroupSetId: targetId,
-        groupNameStrategy: nextGroupNameStrategy,
       })
       setPreview(result)
     } catch (cause) {
@@ -111,7 +106,7 @@ export function ReimportGroupSetDialog() {
       setFileRef(picked)
       setFileName(picked.displayName)
       setFormat(inferred)
-      await runPreview(picked, inferred, groupNameStrategy)
+      await runPreview(picked, inferred)
     } catch (cause) {
       setError(getErrorMessage(cause))
     }
@@ -131,7 +126,6 @@ export function ReimportGroupSetDialog() {
         file: fileRef,
         format,
         targetGroupSetId: targetId,
-        groupNameStrategy,
       })
 
       setRoster(
@@ -154,7 +148,6 @@ export function ReimportGroupSetDialog() {
     setFileName("")
     setFileRef(null)
     setFormat("group-set-csv")
-    setGroupNameStrategy("members")
     setPreview(null)
     setLoading(false)
     setImporting(false)
@@ -204,7 +197,7 @@ export function ReimportGroupSetDialog() {
                 const next = value as GroupSetImportFormat
                 setFormat(next)
                 if (fileRef) {
-                  void runPreview(fileRef, next, groupNameStrategy)
+                  void runPreview(fileRef, next)
                 }
               }}
               className="space-y-2"
@@ -229,44 +222,6 @@ export function ReimportGroupSetDialog() {
               </div>
             </RadioGroup>
           </FormField>
-
-          {format === "repobee-students" && (
-            <FormField label="RepoBee group names">
-              <RadioGroup
-                value={groupNameStrategy}
-                onValueChange={(value) => {
-                  const next = value as GroupNameStrategy
-                  setGroupNameStrategy(next)
-                  if (fileRef) {
-                    void runPreview(fileRef, format, next)
-                  }
-                }}
-                className="space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value="members"
-                    id="reimport-repobee-members"
-                  />
-                  <Label htmlFor="reimport-repobee-members" className="text-sm">
-                    Based on member usernames
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value="numbered"
-                    id="reimport-repobee-numbered"
-                  />
-                  <Label
-                    htmlFor="reimport-repobee-numbered"
-                    className="text-sm"
-                  >
-                    Numbered (group-1, group-2, ...)
-                  </Label>
-                </div>
-              </RadioGroup>
-            </FormField>
-          )}
 
           {loading && (
             <Text className="text-sm text-muted-foreground">

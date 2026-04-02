@@ -1,9 +1,9 @@
-import { resolveAssignmentGroups } from "./group-selection.js"
-import { activeMemberIds } from "./group-set.js"
+import { activeMemberIds, resolveGitUsernames } from "./group-set.js"
 import { importValidationError } from "./group-set-import-export.js"
 import type {
   Assignment,
   Group,
+  NamedGroupSet,
   PlannedRepositoryGroup,
   RepoCollision,
   RepoCollisionKind,
@@ -12,6 +12,7 @@ import type {
   RepositoryOperationPlan,
   Roster,
   SkippedGroup,
+  UsernameGroupSet,
   ValidationResult,
 } from "./types.js"
 
@@ -101,19 +102,39 @@ function repoCollisionKindForMode(mode: RepoOperationMode): RepoCollisionKind {
   return mode === "create" ? "already_exists" : "not_found"
 }
 
-export function planRepositoryOperation(
+function resolveNamedGroupSetGroups(
   roster: Roster,
-  assignmentId: string,
-  template = defaultRepoTemplate,
-): ValidationResult<RepositoryOperationPlan> {
-  const assignment = findAssignment(roster, assignmentId)
-  if (assignment === undefined) {
-    return importValidationError("assignmentId", "Assignment not found")
-  }
+  groupSet: NamedGroupSet,
+): Group[] {
+  return groupSet.groupIds.flatMap((groupId) => {
+    const group = roster.groups.find((candidate) => candidate.id === groupId)
+    return group === undefined ? [] : [group]
+  })
+}
 
-  const skippedGroups: SkippedGroup[] = []
+function normalizeGitUsernames(usernames: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const raw of usernames) {
+    const normalized = raw.trim().toLowerCase()
+    if (normalized.length > 0 && !seen.has(normalized)) {
+      seen.add(normalized)
+      result.push(normalized)
+    }
+  }
+  result.sort((a, b) => a.localeCompare(b))
+  return result
+}
+
+function planNamedGroups(
+  roster: Roster,
+  assignment: Assignment,
+  groupSet: NamedGroupSet,
+  template: string,
+): { groups: PlannedRepositoryGroup[]; skippedGroups: SkippedGroup[] } {
   const groups: PlannedRepositoryGroup[] = []
-  const resolvedGroups = resolveAssignmentGroups(roster, assignment)
+  const skippedGroups: SkippedGroup[] = []
+  const resolvedGroups = resolveNamedGroupSetGroups(roster, groupSet)
   const memberById = new Map(
     roster.students
       .concat(roster.staff)
@@ -133,6 +154,11 @@ export function planRepositoryOperation(
       continue
     }
 
+    const { resolved } = resolveGitUsernames(roster, activeIds)
+    const gitUsernames = normalizeGitUsernames(
+      resolved.map((entry) => entry.gitUsername),
+    )
+
     groups.push({
       assignmentId: assignment.id,
       assignmentName: assignment.name,
@@ -142,8 +168,90 @@ export function planRepositoryOperation(
         members: activeGroupGitUsernameToken(group, memberById),
       }),
       activeMemberIds: activeIds,
+      gitUsernames,
     })
   }
+
+  return { groups, skippedGroups }
+}
+
+function planUnnamedTeams(
+  assignment: Assignment,
+  groupSet: UsernameGroupSet,
+  template: string,
+): { groups: PlannedRepositoryGroup[]; skippedGroups: SkippedGroup[] } {
+  const groups: PlannedRepositoryGroup[] = []
+  const skippedGroups: SkippedGroup[] = []
+
+  for (const team of groupSet.teams) {
+    const gitUsernames = normalizeGitUsernames(team.gitUsernames)
+    if (gitUsernames.length === 0) {
+      skippedGroups.push({
+        assignmentId: assignment.id,
+        groupId: team.id,
+        groupName: "",
+        reason: "empty_group",
+        context: null,
+      })
+      continue
+    }
+
+    const templateGroup: Group = {
+      id: team.id,
+      name: "",
+      memberIds: [],
+      origin: "local",
+      lmsGroupId: null,
+    }
+
+    groups.push({
+      assignmentId: assignment.id,
+      assignmentName: assignment.name,
+      groupId: team.id,
+      groupName: "",
+      repoName: computeRepoName(template, assignment, templateGroup, {
+        members: gitUsernames.join("-"),
+      }),
+      activeMemberIds: [],
+      gitUsernames,
+    })
+  }
+
+  return { groups, skippedGroups }
+}
+
+function templateUsesGroupToken(template: string): boolean {
+  return /\{group\}/.test(template)
+}
+
+export function planRepositoryOperation(
+  roster: Roster,
+  assignmentId: string,
+  template = defaultRepoTemplate,
+): ValidationResult<RepositoryOperationPlan> {
+  const assignment = findAssignment(roster, assignmentId)
+  if (assignment === undefined) {
+    return importValidationError("assignmentId", "Assignment not found")
+  }
+
+  const groupSet = roster.groupSets.find(
+    (candidate) => candidate.id === assignment.groupSetId,
+  )
+  if (groupSet === undefined) {
+    return importValidationError("groupSetId", "Group set not found")
+  }
+
+  if (groupSet.nameMode === "unnamed" && templateUsesGroupToken(template)) {
+    return importValidationError(
+      "template",
+      "The {group} token is not valid for unnamed group sets",
+    )
+  }
+
+  const { groups, skippedGroups } =
+    groupSet.nameMode === "named"
+      ? planNamedGroups(roster, assignment, groupSet, template)
+      : planUnnamedTeams(assignment, groupSet, template)
 
   return {
     ok: true,

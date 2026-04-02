@@ -105,7 +105,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const kind = getConnectionKind(connection)
   const isOperationActive = groupSetOperation !== null
   const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
-  const isSetEditable = !isReadOnly
+  const isSetEditable = !isReadOnly && groupSet.nameMode === "named"
 
   const template = groupSet.repoNameTemplate ?? defaultRepoTemplate
   const templateIncludesAssignment = template.includes("{assignment}")

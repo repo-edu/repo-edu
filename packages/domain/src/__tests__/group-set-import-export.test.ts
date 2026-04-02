@@ -1,18 +1,17 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { selectionModeAll } from "../group-set.js"
 import {
   exportGroupSetRows,
-  exportRepoTeams,
   importGroupSet,
   previewImportGroupSet,
+  previewReplaceGroupSetFromRepoBee,
   previewReimportGroupSet,
   reimportGroupSet,
 } from "../group-set-import-export.js"
 import {
-  initialIdSequences,
   type Group,
   type GroupSet,
+  initialIdSequences,
   ORIGIN_LOCAL,
   type Roster,
   type RosterMember,
@@ -126,6 +125,64 @@ describe("group-set import preview", () => {
       totalMissing: 1,
     })
   })
+
+  it("rejects CSV preview into unnamed group sets", () => {
+    const roster = makeRoster({
+      groupSets: [
+        {
+          id: "gs-unnamed",
+          name: "RepoBee Teams",
+          nameMode: "unnamed",
+          teams: [{ id: "ut_0001", gitUsernames: ["alice"] }],
+          connection: null,
+          repoNameTemplate: "{assignment}-{members}",
+          columnVisibility: {},
+          columnSizing: {},
+        },
+      ],
+    })
+    const result = previewImportGroupSet(
+      roster,
+      [{ group_name: "Team A", email: "alice@example.com" }],
+      {
+        targetGroupSetId: "gs-unnamed",
+      },
+    )
+
+    assert.equal(result.ok, false)
+    if (result.ok) return
+    assert.equal(
+      result.issues[0]?.message,
+      "CSV import is only supported for named group sets",
+    )
+  })
+
+  it("rejects RepoBee preview into named group sets", () => {
+    const roster = makeRoster({
+      groupSets: [
+        {
+          id: "gs-named",
+          name: "Named",
+          nameMode: "named",
+          groupIds: [],
+          connection: null,
+          repoNameTemplate: null,
+          columnVisibility: {},
+          columnSizing: {},
+        },
+      ],
+    })
+    const result = previewReplaceGroupSetFromRepoBee(roster, "gs-named", [
+      ["alice", "bob"],
+    ])
+
+    assert.equal(result.ok, false)
+    if (result.ok) return
+    assert.equal(
+      result.issues[0]?.message,
+      "RepoBee import is only supported for unnamed group sets",
+    )
+  })
 })
 
 describe("group-set import and reimport", () => {
@@ -174,6 +231,7 @@ describe("group-set import and reimport", () => {
       nextGroupSetSeq: 2,
       nextMemberSeq: 1,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     })
   })
 
@@ -204,6 +262,7 @@ describe("group-set import and reimport", () => {
     const groupSet: GroupSet = {
       id: "gs-existing",
       name: "Imported",
+      nameMode: "named",
       groupIds: groups.map((group) => group.id),
       connection: {
         kind: "import",
@@ -211,8 +270,9 @@ describe("group-set import and reimport", () => {
         sourcePath: null,
         lastUpdated: "2026-03-01T00:00:00.000Z",
       },
-      groupSelection: selectionModeAll(),
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const roster = makeRoster({
       groups,
@@ -253,6 +313,7 @@ describe("group-set import and reimport", () => {
         nextGroupSetSeq: 20,
         nextMemberSeq: 30,
         nextAssignmentSeq: 40,
+        nextTeamSeq: 1,
       },
     )
 
@@ -272,6 +333,8 @@ describe("group-set import and reimport", () => {
       "m_0003",
     ])
     assert.equal(applied.value.groupSet.connection?.kind, "import")
+    assert.equal(applied.value.groupSet.nameMode, "named")
+    if (applied.value.groupSet.nameMode !== "named") return
     assert.deepStrictEqual(applied.value.groupSet.groupIds, [
       "g-existing",
       "g-by-name",
@@ -283,6 +346,7 @@ describe("group-set import and reimport", () => {
       nextGroupSetSeq: 20,
       nextMemberSeq: 30,
       nextAssignmentSeq: 40,
+      nextTeamSeq: 1,
     })
   })
 })
@@ -292,10 +356,12 @@ describe("group-set export", () => {
     const groupSet: GroupSet = {
       id: "gs1",
       name: "Export",
+      nameMode: "named",
       groupIds: ["g1", "g2"],
       connection: null,
-      groupSelection: selectionModeAll(),
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     }
     const groups: Group[] = [
       {
@@ -338,48 +404,6 @@ describe("group-set export", () => {
         name: "",
         email: "",
       },
-    ])
-  })
-})
-
-describe("RepoBee export", () => {
-  it("exports active member emails grouped by team", () => {
-    const groupSet: GroupSet = {
-      id: "gs1",
-      name: "Repo teams",
-      groupIds: ["g1", "g2"],
-      connection: null,
-      groupSelection: selectionModeAll(),
-      repoNameTemplate: null,
-    }
-    const groups: Group[] = [
-      {
-        id: "g1",
-        name: "Team A",
-        memberIds: ["m_0002", "m_0001"],
-        origin: ORIGIN_LOCAL,
-        lmsGroupId: null,
-      },
-      {
-        id: "g2",
-        name: "Team B",
-        memberIds: ["m_0003"],
-        origin: ORIGIN_LOCAL,
-        lmsGroupId: null,
-      },
-    ]
-    const roster = makeRoster({ groups, groupSets: [groupSet] })
-
-    const result = exportRepoTeams(roster, "gs1")
-    assert.equal(result.ok, true)
-    if (!result.ok) return
-
-    assert.deepStrictEqual(result.value, [
-      {
-        members: ["bob@example.com", "alice@example.com"],
-        name: "Team A",
-      },
-      { members: ["carol@example.com"], name: "Team B" },
     ])
   })
 })

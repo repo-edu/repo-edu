@@ -169,8 +169,9 @@ export function registerRepoCommands(parent: Command): void {
               process.stdout.write("- No repositories planned.\n")
             }
             for (const group of planned.value.groups) {
+              const groupLabel = group.groupName || group.groupId
               process.stdout.write(
-                `- ${group.repoName}\tgroup=${group.groupName}\tassignment=${group.assignmentName}\n`,
+                `- ${group.repoName}\tgroup=${groupLabel}\tassignment=${group.assignmentName}\n`,
               )
             }
           }

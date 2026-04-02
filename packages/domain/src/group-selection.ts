@@ -1,11 +1,9 @@
 import type {
   Assignment,
   Group,
-  GroupSelectionMode,
-  GroupSelectionPreview,
   GroupSet,
-  PatternFilterResult,
   Roster,
+  UsernameTeam,
   ValidationResult,
 } from "./types.js"
 
@@ -207,53 +205,33 @@ export function globMatches(
   }
 }
 
-export function filterByPattern(
-  pattern: string,
-  values: readonly string[],
-): PatternFilterResult {
-  const validation = validateGlobPattern(pattern)
-  if (!validation.ok) {
-    return {
-      valid: false,
-      error: validation.issues[0]?.message ?? "Invalid glob pattern.",
-      matchedIndexes: [],
-      matchedCount: 0,
-    }
-  }
-
-  const matchedIndexes = values.flatMap((value, index) => {
-    const match = globMatches(pattern, value)
-    return match.ok && match.value ? [index] : []
-  })
-
-  return {
-    valid: true,
-    error: null,
-    matchedIndexes,
-    matchedCount: matchedIndexes.length,
-  }
-}
-
-export function resolveGroupsFromSelection(
-  roster: Roster,
-  groupSet: GroupSet,
-  selection: GroupSelectionMode,
-): Group[] {
-  const groups = groupSet.groupIds.flatMap((groupId) => {
+function resolveNamedGroups(roster: Roster, groupIds: string[]): Group[] {
+  return groupIds.flatMap((groupId) => {
     const group = roster.groups.find((candidate) => candidate.id === groupId)
     return group === undefined ? [] : [group]
   })
+}
 
-  const matched =
-    selection.kind === "pattern"
-      ? groups.filter((group) => {
-          const result = globMatches(selection.pattern, group.name)
-          return result.ok && result.value
-        })
-      : groups
+function resolveUnnamedTeams(teams: UsernameTeam[]): Group[] {
+  return teams.map((team) => ({
+    id: team.id,
+    name: team.gitUsernames.join("-"),
+    memberIds: [],
+    origin: "local" as const,
+    lmsGroupId: null,
+  }))
+}
 
-  const excludedIds = new Set(selection.excludedGroupIds)
-  return matched.filter((group) => !excludedIds.has(group.id))
+export function resolveGroupSetGroups(
+  roster: Roster,
+  groupSet: GroupSet,
+): Group[] {
+  switch (groupSet.nameMode) {
+    case "named":
+      return resolveNamedGroups(roster, groupSet.groupIds)
+    case "unnamed":
+      return resolveUnnamedTeams(groupSet.teams)
+  }
 }
 
 export function resolveAssignmentGroups(
@@ -267,71 +245,5 @@ export function resolveAssignmentGroups(
     return []
   }
 
-  return resolveGroupsFromSelection(roster, groupSet, groupSet.groupSelection)
-}
-
-export function previewGroupSelection(
-  roster: Roster,
-  groupSetId: string,
-  selection: GroupSelectionMode,
-): GroupSelectionPreview {
-  const groupSet = roster.groupSets.find(
-    (candidate) => candidate.id === groupSetId,
-  )
-  if (groupSet === undefined) {
-    return {
-      valid: false,
-      error: "Group set not found",
-      groupIds: [],
-      emptyGroupIds: [],
-      groupMemberCounts: [],
-      totalGroups: 0,
-      matchedGroups: 0,
-    }
-  }
-
-  const allGroups = groupSet.groupIds.flatMap((groupId) => {
-    const group = roster.groups.find((candidate) => candidate.id === groupId)
-    return group === undefined ? [] : [group]
-  })
-
-  if (selection.kind === "pattern") {
-    const validation = validateGlobPattern(selection.pattern)
-    if (!validation.ok) {
-      return {
-        valid: false,
-        error: validation.issues[0]?.message ?? "Invalid glob pattern.",
-        groupIds: [],
-        emptyGroupIds: [],
-        groupMemberCounts: [],
-        totalGroups: allGroups.length,
-        matchedGroups: 0,
-      }
-    }
-  }
-
-  const matchedBeforeExclusions =
-    selection.kind === "pattern"
-      ? allGroups.filter((group) => {
-          const result = globMatches(selection.pattern, group.name)
-          return result.ok && result.value
-        })
-      : allGroups
-
-  const resolvedGroups = resolveGroupsFromSelection(roster, groupSet, selection)
-
-  return {
-    valid: true,
-    error: null,
-    groupIds: resolvedGroups.map((group) => group.id),
-    emptyGroupIds: resolvedGroups
-      .filter((group) => group.memberIds.length === 0)
-      .map((group) => group.id),
-    groupMemberCounts: resolvedGroups.map((group) => ({
-      groupId: group.id,
-      memberCount: group.memberIds.length,
-    })),
-    totalGroups: allGroups.length,
-    matchedGroups: matchedBeforeExclusions.length,
-  }
+  return resolveGroupSetGroups(roster, groupSet)
 }

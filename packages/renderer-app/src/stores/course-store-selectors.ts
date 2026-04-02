@@ -133,6 +133,16 @@ export const selectGroupsForGroupSet = (groupSetId: string) => {
       return EMPTY_GROUPS
     }
 
+    if (groupSet.nameMode === "unnamed") {
+      return groupSet.teams.map((team) => ({
+        id: team.id,
+        name: team.gitUsernames.join("-"),
+        memberIds: [] as string[],
+        origin: "local" as const,
+        lmsGroupId: null,
+      }))
+    }
+
     const groupIds = new Set(groupSet.groupIds)
     const next = roster.groups.filter((group) => groupIds.has(group.id))
     return next.length > 0 ? next : EMPTY_GROUPS
@@ -154,11 +164,16 @@ export type EditableGroupTarget = {
   groupSetName: string
   groups: { id: string; name: string }[]
 }
+type NamedGroupSet = Extract<GroupSet, { nameMode: "named" }>
 
 export const selectEditableGroupTargets = makeRosterDerivedSelector(
   (roster) => {
     const next = roster.groupSets
-      .filter((gs) => gs.connection === null || gs.connection.kind === "import")
+      .filter(
+        (gs): gs is NamedGroupSet =>
+          gs.nameMode === "named" &&
+          (gs.connection === null || gs.connection.kind === "import"),
+      )
       .map((gs) => ({
         groupSetId: gs.id,
         groupSetName: gs.name,
@@ -181,6 +196,7 @@ export const selectOtherGroupSetNames = (
       .filter(
         (groupSet) =>
           groupSet.id !== currentGroupSetId &&
+          groupSet.nameMode === "named" &&
           groupSet.groupIds.includes(groupId),
       )
       .map((groupSet) => groupSet.name)
@@ -192,7 +208,9 @@ export const selectGroupReferenceCount =
   (groupId: string) => (state: CourseState) => {
     const roster = state.course?.roster
     if (!roster) return 0
-    return roster.groupSets.filter((gs) => gs.groupIds.includes(groupId)).length
+    return roster.groupSets.filter(
+      (gs) => gs.nameMode === "named" && gs.groupIds.includes(groupId),
+    ).length
   }
 
 export const selectCanUndo = (state: CourseState) => state.history.length > 0

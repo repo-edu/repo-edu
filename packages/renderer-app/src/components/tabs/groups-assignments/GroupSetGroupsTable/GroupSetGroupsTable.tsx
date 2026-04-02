@@ -1,4 +1,7 @@
-import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import {
+  computeRepoName,
+  planRepositoryOperation,
+} from "@repo-edu/domain/repository-planning"
 import type { Assignment, Group, RosterMember } from "@repo-edu/domain/types"
 import {
   Button,
@@ -10,6 +13,7 @@ import {
 } from "@repo-edu/ui"
 import { ArrowUp, Plus, Search } from "@repo-edu/ui/components/icons"
 import {
+  type ColumnDef,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -20,7 +24,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useAppSettingsStore } from "../../../../stores/app-settings-store.js"
 import {
   type EditableGroupTarget,
   useCourseStore,
@@ -33,6 +36,7 @@ import {
 import {
   buildGroupRows,
   createGroupColumns,
+  type GroupRow,
   groupColumnLabel,
 } from "./columns.js"
 import { OperationControls } from "./OperationControls.js"
@@ -43,6 +47,100 @@ import { useRepoOperations } from "./use-repo-operations.js"
 // ---------------------------------------------------------------------------
 
 const SCROLL_TOP_THRESHOLD = 0.15
+const UNNAMED_COLUMN_WIDTHS = {
+  team: 220,
+  usernames: 450,
+  usernameCount: 60,
+  repoName: 300,
+} as const
+const UNNAMED_COLUMN_MIN_WIDTHS = {
+  team: 130,
+  usernames: 200,
+  usernameCount: 40,
+  repoName: 100,
+} as const
+
+type UnnamedTeamRow = {
+  teamId: string
+  teamIndex: number
+  gitUsernames: string[]
+  usernameCount: number
+  repoNamePreview: string
+}
+
+type TableRow = GroupRow | UnnamedTeamRow
+
+function isUnnamedTeamRow(row: TableRow): row is UnnamedTeamRow {
+  return "teamId" in row
+}
+
+function tableRowMemberCount(row: TableRow): number {
+  return isUnnamedTeamRow(row) ? row.usernameCount : row.memberCount
+}
+
+function unnamedColumnLabel(columnId: string): string {
+  const labels: Record<string, string> = {
+    team: "Team",
+    usernames: "Git Usernames",
+    usernameCount: "#",
+    repoName: "Repo Name",
+  }
+  return labels[columnId] ?? columnId
+}
+
+function createUnnamedColumns(): ColumnDef<UnnamedTeamRow>[] {
+  return [
+    {
+      id: "team",
+      size: UNNAMED_COLUMN_WIDTHS.team,
+      minSize: UNNAMED_COLUMN_MIN_WIDTHS.team,
+      accessorFn: (row) => row.teamId,
+      header: () => <span className="font-medium">Team</span>,
+      cell: ({ row }) => (
+        <div className="space-y-0.5">
+          <div className="font-medium">Team {row.original.teamIndex}</div>
+          <div className="text-xs text-muted-foreground">
+            {row.original.teamId}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "repoName",
+      size: UNNAMED_COLUMN_WIDTHS.repoName,
+      minSize: UNNAMED_COLUMN_MIN_WIDTHS.repoName,
+      accessorFn: (row) => row.repoNamePreview,
+      header: () => <span className="font-medium">Repo Name</span>,
+      cell: ({ row }) => (
+        <span className="block text-sm text-muted-foreground">
+          {row.original.repoNamePreview}
+        </span>
+      ),
+    },
+    {
+      id: "usernames",
+      size: UNNAMED_COLUMN_WIDTHS.usernames,
+      minSize: UNNAMED_COLUMN_MIN_WIDTHS.usernames,
+      accessorFn: (row) => row.gitUsernames.join(" "),
+      header: () => <span className="font-medium">Git Usernames</span>,
+      cell: ({ row }) => (
+        <span className="block text-sm">
+          {row.original.gitUsernames.join(", ")}
+        </span>
+      ),
+    },
+    {
+      id: "usernameCount",
+      size: UNNAMED_COLUMN_WIDTHS.usernameCount,
+      minSize: UNNAMED_COLUMN_MIN_WIDTHS.usernameCount,
+      accessorFn: (row) => row.usernameCount,
+      header: () => <span className="font-medium">#</span>,
+      cell: ({ row }) => (
+        <span className="text-sm">{row.original.usernameCount}</span>
+      ),
+    },
+  ]
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -83,19 +181,18 @@ export function GroupsTable({
   template,
   effectiveAssignment,
 }: GroupsTableProps) {
-  const groupsColumnVisibility = useAppSettingsStore(
-    (s) => s.settings.groupsColumnVisibility,
+  const groupSet = useCourseStore(
+    (s) =>
+      s.course?.roster.groupSets.find((gs) => gs.id === groupSetId) ?? null,
   )
-  const setGroupsColumnVisibility = useAppSettingsStore(
-    (s) => s.setGroupsColumnVisibility,
+  const groupsColumnVisibility = groupSet?.columnVisibility ?? {}
+  const groupsColumnSizing = groupSet?.columnSizing ?? {}
+  const updateGroupSetColumnVisibility = useCourseStore(
+    (s) => s.updateGroupSetColumnVisibility,
   )
-  const groupsColumnSizing = useAppSettingsStore(
-    (s) => s.settings.groupsColumnSizing,
+  const updateGroupSetColumnSizing = useCourseStore(
+    (s) => s.updateGroupSetColumnSizing,
   )
-  const setGroupsColumnSizing = useAppSettingsStore(
-    (s) => s.setGroupsColumnSizing,
-  )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
 
   const groupCountFilterByGroupSet = useUiStore(
     (s) => s.groupCountFilterByGroupSet,
@@ -155,15 +252,51 @@ export function GroupsTable({
     )
   }, [])
 
-  // Pre-resolve group rows
-  const rows = useMemo(
+  const isUnnamedGroupSet = groupSet?.nameMode === "unnamed"
+
+  const namedRows = useMemo(
     () => buildGroupRows(groups, memberById, template, effectiveAssignment),
     [groups, memberById, template, effectiveAssignment],
+  )
+  const unnamedRows = useMemo(() => {
+    if (groupSet === null || groupSet.nameMode !== "unnamed") {
+      return [] as UnnamedTeamRow[]
+    }
+    const emptyGroup: Group = {
+      id: "",
+      name: "",
+      memberIds: [],
+      origin: "local",
+      lmsGroupId: null,
+    }
+    return groupSet.teams.map((team, index) => {
+      const gitUsernames = team.gitUsernames
+        .map((username) => username.trim())
+        .filter((username) => username.length > 0)
+      return {
+        teamId: team.id,
+        teamIndex: index + 1,
+        gitUsernames,
+        usernameCount: gitUsernames.length,
+        repoNamePreview: computeRepoName(
+          template,
+          effectiveAssignment,
+          emptyGroup,
+          {
+            members: gitUsernames.join("-"),
+          },
+        ),
+      }
+    })
+  }, [groupSet, template, effectiveAssignment])
+  const rows = useMemo<TableRow[]>(
+    () => (isUnnamedGroupSet ? unnamedRows : namedRows),
+    [isUnnamedGroupSet, namedRows, unnamedRows],
   )
 
   const memberCountValues = useMemo(
     () =>
-      Array.from(new Set(rows.map((row) => row.memberCount))).sort(
+      Array.from(new Set(rows.map((row) => tableRowMemberCount(row)))).sort(
         (a, b) => a - b,
       ),
     [rows],
@@ -199,7 +332,9 @@ export function GroupsTable({
 
   // Apply member-count filter.
   const filteredRows = useMemo(() => {
-    return rows.filter((row) => countFilter[String(row.memberCount)] ?? true)
+    return rows.filter(
+      (row) => countFilter[String(tableRowMemberCount(row))] ?? true,
+    )
   }, [countFilter, rows])
   const selectedCountFilterCount = useMemo(
     () =>
@@ -214,22 +349,11 @@ export function GroupsTable({
     selectedCountFilterCount > 0 && !allCountFiltersSelected
 
   // Column definitions
-  const columns = useMemo(
-    () =>
-      createGroupColumns({
-        groupSetId,
-        isSetEditable,
-        disabled,
-        staffIds,
-        editableTargets,
-        memberGroupIndex,
-        onDeleteGroup,
-        onSort: handleSort,
-        updateGroup,
-        moveMemberToGroup,
-        copyMemberToGroup,
-      }),
-    [
+  const columns = useMemo<ColumnDef<TableRow>[]>(() => {
+    if (isUnnamedGroupSet) {
+      return createUnnamedColumns() as unknown as ColumnDef<TableRow>[]
+    }
+    return createGroupColumns({
       groupSetId,
       isSetEditable,
       disabled,
@@ -237,14 +361,33 @@ export function GroupsTable({
       editableTargets,
       memberGroupIndex,
       onDeleteGroup,
-      handleSort,
+      onSort: handleSort,
       updateGroup,
       moveMemberToGroup,
       copyMemberToGroup,
-    ],
-  )
+    }) as unknown as ColumnDef<TableRow>[]
+  }, [
+    isUnnamedGroupSet,
+    groupSetId,
+    isSetEditable,
+    disabled,
+    staffIds,
+    editableTargets,
+    memberGroupIndex,
+    onDeleteGroup,
+    handleSort,
+    updateGroup,
+    moveMemberToGroup,
+    copyMemberToGroup,
+  ])
 
-  const table = useReactTable({
+  // Track sizing locally during drag, commit on resize-end.
+  const [localColumnSizing, setLocalColumnSizing] = useState(groupsColumnSizing)
+  useEffect(() => {
+    setLocalColumnSizing(groupsColumnSizing)
+  }, [groupsColumnSizing])
+
+  const table = useReactTable<TableRow>({
     data: filteredRows,
     columns,
     columnResizeMode: "onChange",
@@ -252,36 +395,43 @@ export function GroupsTable({
       sorting,
       globalFilter,
       columnVisibility: groupsColumnVisibility,
-      columnSizing: groupsColumnSizing,
+      columnSizing: localColumnSizing,
     },
     onSortingChange: handleSortingChange,
     onGlobalFilterChange: setGlobalFilter,
     onColumnSizingChange: (updater) => {
-      const next =
-        typeof updater === "function" ? updater(groupsColumnSizing) : updater
-      setGroupsColumnSizing(next)
+      setLocalColumnSizing((prev) =>
+        typeof updater === "function" ? updater(prev) : updater,
+      )
     },
     onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
       const next =
         typeof updater === "function"
           ? updater(groupsColumnVisibility)
           : updater
-      setGroupsColumnVisibility(next)
-      void saveAppSettings()
+      updateGroupSetColumnVisibility(groupSetId, next)
     },
-    getRowId: (row) => row.group.id,
+    getRowId: (row) => (isUnnamedTeamRow(row) ? row.teamId : row.group.id),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: (row, _columnId, filterValue: string) => {
       const query = filterValue.trim().toLowerCase()
       if (!query) return true
+      if (isUnnamedTeamRow(row.original)) {
+        if (row.original.teamId.toLowerCase().includes(query)) {
+          return true
+        }
+        return row.original.gitUsernames.some((username) =>
+          username.toLowerCase().includes(query),
+        )
+      }
       const { group, members } = row.original
       if (group.name.toLowerCase().includes(query)) return true
       return members.some(
-        (m) =>
-          m.name.toLowerCase().includes(query) ||
-          m.email.toLowerCase().includes(query),
+        (member) =>
+          member.name.toLowerCase().includes(query) ||
+          member.email.toLowerCase().includes(query),
       )
     },
   })
@@ -296,11 +446,17 @@ export function GroupsTable({
     const wasResizing = prevIsResizingRef.current
     prevIsResizingRef.current = isResizingColumn
     if (wasResizing && !isResizingColumn) {
-      void saveAppSettings()
+      updateGroupSetColumnSizing(groupSetId, localColumnSizing)
     }
-  }, [isResizingColumn, saveAppSettings])
+  }, [
+    isResizingColumn,
+    groupSetId,
+    localColumnSizing,
+    updateGroupSetColumnSizing,
+  ])
 
   const visibleRows = table.getFilteredRowModel().rows
+  const columnLabel = isUnnamedGroupSet ? unnamedColumnLabel : groupColumnLabel
   const showingCount = visibleRows.length
   const effectiveAssignmentId = effectiveAssignment?.id ?? null
   const { nonEmptyCount, emptyCount } = useMemo(() => {
@@ -336,11 +492,15 @@ export function GroupsTable({
     .filter((column) => column.getCanHide())
 
   // Empty state
-  if (groups.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="text-center py-8">
-          <p className="text-muted-foreground mb-3">No groups in this set.</p>
+          <p className="text-muted-foreground mb-3">
+            {isUnnamedGroupSet
+              ? "No teams in this set."
+              : "No groups in this set."}
+          </p>
           {isSetEditable && (
             <Button size="sm" variant="outline" onClick={onAddGroup}>
               <Plus className="size-4 mr-1" />
@@ -396,7 +556,11 @@ export function GroupsTable({
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 size-4" />
               <Input
-                placeholder="Search members and groups..."
+                placeholder={
+                  isUnnamedGroupSet
+                    ? "Search teams and usernames..."
+                    : "Search members and groups..."
+                }
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="pl-8"
@@ -422,7 +586,7 @@ export function GroupsTable({
               <DropdownMenuContent align="end">
                 {memberCountValues.length === 0 && (
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    No groups
+                    {isUnnamedGroupSet ? "No teams" : "No groups"}
                   </div>
                 )}
                 {memberCountValues.length > 0 && (
@@ -481,7 +645,7 @@ export function GroupsTable({
                     onCheckedChange={() => column.toggleVisibility()}
                     onSelect={(event) => event.preventDefault()}
                   >
-                    {groupColumnLabel(column.id)}
+                    {columnLabel(column.id)}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
@@ -553,8 +717,12 @@ export function GroupsTable({
                         className="p-4 text-center text-muted-foreground"
                       >
                         {globalFilter
-                          ? "No groups or members match search"
-                          : "No groups match the selected filters"}
+                          ? isUnnamedGroupSet
+                            ? "No teams or usernames match search"
+                            : "No groups or members match search"
+                          : isUnnamedGroupSet
+                            ? "No teams match the selected filters"
+                            : "No groups match the selected filters"}
                       </td>
                     </tr>
                   )}
@@ -578,7 +746,8 @@ export function GroupsTable({
       </div>
       {showingCount < rows.length && (
         <div className="px-3 py-2 border-t text-sm text-muted-foreground">
-          Showing {showingCount} of {rows.length} groups
+          Showing {showingCount} of {rows.length}{" "}
+          {isUnnamedGroupSet ? "teams" : "groups"}
         </div>
       )}
     </>

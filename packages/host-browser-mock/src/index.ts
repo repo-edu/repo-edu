@@ -45,8 +45,6 @@ function inferMediaType(format: FileFormat | null): string | null {
       return "application/json"
     case "xlsx":
       return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    case "yaml":
-      return "application/yaml"
     case "txt":
       return "text/plain"
     default:
@@ -102,9 +100,6 @@ function inferFormatFromFile(file: MockReadableFile): FileFormat | null {
   }
   if (loweredName.endsWith(".json") || file.mediaType === "application/json") {
     return "json"
-  }
-  if (loweredName.endsWith(".yaml") || loweredName.endsWith(".yml")) {
-    return "yaml"
   }
   if (loweredName.endsWith(".txt") || file.mediaType === "text/plain") {
     return "txt"

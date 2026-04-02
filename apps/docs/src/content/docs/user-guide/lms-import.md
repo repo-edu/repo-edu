@@ -90,7 +90,7 @@ Each row represents one member in one group. A group with three members appears 
 For updates to an existing group set, use import with a target group set:
 
 - CSV import is additive/update-only (unmentioned groups are kept).
-- RepoBee `.txt` students import is full-replace for the target imported set and supports naming strategies (`members` or `numbered`).
+- RepoBee `.txt` students import is full-replace for the target imported set.
 
 ## After import
 

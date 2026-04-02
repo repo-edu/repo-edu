@@ -8,7 +8,6 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { resolveGitUsernames } from "@repo-edu/domain/group-set"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import { createValidationAppError } from "../core.js"
 import {
@@ -332,23 +331,13 @@ export function createRepoCreateHandler(
         const teams = planTeamSetup(planned.value)
         const teamSlugByGroupId = new Map<string, string>()
         for (const team of teams) {
-          const usernames = resolveGitUsernames(course.roster, team.memberIds)
-          for (const missingMemberId of usernames.missing) {
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Skipping member '${missingMemberId}' for team '${team.teamName}' (missing Git username).`,
-            })
-          }
-
           try {
             const result = await ports.git.createTeam(
               gitDraft,
               {
                 organization,
                 teamName: team.teamName,
-                memberUsernames: usernames.resolved.map(
-                  (resolved) => resolved.gitUsername,
-                ),
+                memberUsernames: team.gitUsernames,
                 permission: "push",
               },
               options?.signal,

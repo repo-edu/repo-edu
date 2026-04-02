@@ -47,9 +47,9 @@ export function FileImportExportSheet() {
   const addToast = useToastStore((state) => state.addToast)
 
   const [selectedGroupSetId, setSelectedGroupSetId] = useState<string>("")
-  const [exportingFormat, setExportingFormat] = useState<
-    "csv" | "xlsx" | "yaml" | null
-  >(null)
+  const [exportingFormat, setExportingFormat] = useState<"csv" | "txt" | null>(
+    null,
+  )
 
   const open = fileImportExportOpen || exportGroupSetTriggerId !== null
 
@@ -87,7 +87,7 @@ export function FileImportExportSheet() {
     setExportingFormat(null)
   }
 
-  const handleExport = async (format: "csv" | "xlsx" | "yaml") => {
+  const handleExport = async (format: "csv" | "txt") => {
     if (!course || !selectedGroupSetId) return
 
     setExportingFormat(format)
@@ -182,27 +182,23 @@ export function FileImportExportSheet() {
               Export the selected group set for editing or repository tooling.
             </Text>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => void handleExport("csv")}
-                disabled={!selectedGroupSetId || exportingFormat !== null}
-              >
-                {exportingFormat === "csv" ? "Exporting..." : "CSV"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport("xlsx")}
-                disabled={!selectedGroupSetId || exportingFormat !== null}
-              >
-                {exportingFormat === "xlsx" ? "Exporting..." : "XLSX"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void handleExport("yaml")}
-                disabled={!selectedGroupSetId || exportingFormat !== null}
-              >
-                {exportingFormat === "yaml" ? "Exporting..." : "YAML"}
-              </Button>
+              {selectedGroupSet?.nameMode === "unnamed" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleExport("txt")}
+                  disabled={!selectedGroupSetId || exportingFormat !== null}
+                >
+                  {exportingFormat === "txt" ? "Exporting..." : "TXT"}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleExport("csv")}
+                  disabled={!selectedGroupSetId || exportingFormat !== null}
+                >
+                  {exportingFormat === "csv" ? "Exporting..." : "CSV"}
+                </Button>
+              )}
             </div>
           </section>
 

@@ -3,10 +3,10 @@ import { generateUniqueGroupName } from "./roster.js"
 import type {
   Group,
   GroupOrigin,
-  GroupSelectionMode,
   GroupSet,
   GroupSetConnection,
   IdSequences,
+  NamedGroupSet,
   ResolvedGitUsername,
   ResolveGitUsernamesResult,
   Roster,
@@ -17,21 +17,6 @@ const SYSTEM_TYPE_INDIVIDUAL_STUDENTS = "individual_students" as const
 const SYSTEM_TYPE_STAFF = "staff" as const
 const STAFF_GROUP_NAME = "staff" as const
 const ORIGIN_SYSTEM: GroupOrigin = "system"
-
-export function selectionModeAll(): GroupSelectionMode {
-  return {
-    kind: "all",
-    excludedGroupIds: [],
-  }
-}
-
-export function selectionModePattern(pattern: string): GroupSelectionMode {
-  return {
-    kind: "pattern",
-    pattern,
-    excludedGroupIds: [],
-  }
-}
 
 function isSystemSet(groupSet: GroupSet, systemType: string): boolean {
   return (
@@ -86,10 +71,12 @@ function ensureIndividualStudentsSet(
     roster.groupSets.push({
       id: alloc.id,
       name: "Individual Students",
+      nameMode: "named",
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_INDIVIDUAL_STUDENTS),
-      groupSelection: selectionModeAll(),
       repoNameTemplate: "{group}",
+      columnVisibility: {},
+      columnSizing: {},
     })
     setIndex = roster.groupSets.length - 1
   }
@@ -97,7 +84,8 @@ function ensureIndividualStudentsSet(
   const activeStudents = roster.students.filter(
     (student) => student.status === "active",
   )
-  const setGroupIds = new Set(roster.groupSets[setIndex].groupIds)
+  const set = roster.groupSets[setIndex] as NamedGroupSet
+  const setGroupIds = new Set(set.groupIds)
 
   const existingByMember = new Map<string, number>()
   roster.groups.forEach((group, index) => {
@@ -153,7 +141,7 @@ function ensureIndividualStudentsSet(
     neededGroupIdSet.add(newGroup.id)
   }
 
-  const previousGroupIds = [...roster.groupSets[setIndex].groupIds]
+  const previousGroupIds = [...set.groupIds]
   for (const groupId of previousGroupIds) {
     if (neededGroupIdSet.has(groupId)) {
       continue
@@ -169,13 +157,15 @@ function ensureIndividualStudentsSet(
     const [removedGroup] = roster.groups.splice(removedIndex, 1)
     deletedGroupIds.push(removedGroup.id)
     for (const groupSet of roster.groupSets) {
-      groupSet.groupIds = groupSet.groupIds.filter(
-        (candidate) => candidate !== removedGroup.id,
-      )
+      if (groupSet.nameMode === "named") {
+        groupSet.groupIds = groupSet.groupIds.filter(
+          (candidate) => candidate !== removedGroup.id,
+        )
+      }
     }
   }
 
-  roster.groupSets[setIndex].groupIds = neededGroupIds
+  set.groupIds = neededGroupIds
 
   return {
     groupSet: { ...roster.groupSets[setIndex] },
@@ -206,10 +196,12 @@ function ensureStaffSet(
     roster.groupSets.push({
       id: alloc.id,
       name: "Staff",
+      nameMode: "named",
       groupIds: [],
       connection: createSystemConnection(SYSTEM_TYPE_STAFF),
-      groupSelection: selectionModeAll(),
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     })
     setIndex = roster.groupSets.length - 1
   }
@@ -218,7 +210,8 @@ function ensureStaffSet(
     .filter((member) => member.status === "active")
     .map((member) => member.id)
 
-  const setGroupIds = new Set(roster.groupSets[setIndex].groupIds)
+  const set = roster.groupSets[setIndex] as NamedGroupSet
+  const setGroupIds = new Set(set.groupIds)
   const existingGroup = roster.groups.find(
     (group) =>
       group.origin === ORIGIN_SYSTEM &&
@@ -251,10 +244,7 @@ function ensureStaffSet(
       lmsGroupId: null,
     }
     roster.groups.push(newGroup)
-    roster.groupSets[setIndex].groupIds = [
-      ...roster.groupSets[setIndex].groupIds,
-      newGroup.id,
-    ]
+    set.groupIds = [...set.groupIds, newGroup.id]
     groupsUpserted.push({ ...newGroup })
   }
 

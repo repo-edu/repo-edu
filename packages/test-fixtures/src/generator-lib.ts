@@ -185,14 +185,13 @@ function createSharedTeamsGroupModel(
     groupSets: [
       {
         id: groupSetId,
+        nameMode: "named" as const,
         name: "Project Teams",
         groupIds: groups.map((group) => group.id),
         connection: null,
-        groupSelection: {
-          kind: "all" as const,
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ],
     assignments: [
@@ -228,11 +227,13 @@ function createAssignmentScopedGroupModel(
 
   const groupSets: Array<{
     id: string
+    nameMode: "named"
     name: string
     groupIds: string[]
     connection: null
-    groupSelection: { kind: "all"; excludedGroupIds: [] }
     repoNameTemplate: null
+    columnVisibility: Record<string, never>
+    columnSizing: Record<string, never>
   }> = []
 
   const assignments: Array<{ id: string; name: string; groupSetId: string }> =
@@ -267,14 +268,13 @@ function createAssignmentScopedGroupModel(
     nextGroupSetSeq += 1
     groupSets.push({
       id: groupSetId,
+      nameMode: "named",
       name: `Assignment ${assignmentNumber} Teams`,
       groupIds: assignmentGroups.map((group) => group.id),
       connection: null,
-      groupSelection: {
-        kind: "all",
-        excludedGroupIds: [],
-      },
       repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
     })
     assignments.push({
       id: assignmentPrefix,
@@ -330,7 +330,9 @@ function createArtifacts(
       (groupSet) => groupSet.id === preferredGroupSetId,
     ) ?? fallbackGroupSet
 
-  const selectedGroups = (selectedGroupSet?.groupIds ?? [])
+  const selectedGroupIds =
+    selectedGroupSet?.nameMode === "named" ? selectedGroupSet.groupIds : []
+  const selectedGroups = selectedGroupIds
     .map((groupId) =>
       course.roster.groups.find((group) => group.id === groupId),
     )
@@ -445,31 +447,29 @@ function createFixtureRecord(
     groupSets: [
       {
         id: `gs_${padNumber(nextGroupSetSeq++, 4)}`,
+        nameMode: "named" as const,
         name: "Individual Students",
         groupIds: individualGroups.map((group) => group.id),
         connection: {
           kind: "system" as const,
           systemType: "individual_students",
         },
-        groupSelection: {
-          kind: "all" as const,
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
       {
         id: `gs_${padNumber(nextGroupSetSeq++, 4)}`,
+        nameMode: "named" as const,
         name: "Staff",
         groupIds: [staffGroup.id],
         connection: {
           kind: "system" as const,
           systemType: "staff",
         },
-        groupSelection: {
-          kind: "all" as const,
-          excludedGroupIds: [],
-        },
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
       ...userGroups.groupSets,
     ],
@@ -491,6 +491,7 @@ function createFixtureRecord(
       nextGroupSetSeq,
       nextMemberSeq: roster.students.length + roster.staff.length + 1,
       nextAssignmentSeq: roster.assignments.length + 1,
+      nextTeamSeq: 1,
     },
     roster,
     repositoryTemplate: {

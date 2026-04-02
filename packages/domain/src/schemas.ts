@@ -59,8 +59,6 @@ export const persistedAppSettingsSchema = z.object({
   lastOpenedAt: z.string().nullable(),
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
-  groupsColumnVisibility: z.record(z.string(), z.boolean()).default({}),
-  groupsColumnSizing: z.record(z.string(), z.number()).default({}),
 })
 
 const memberStatusSchema = z.enum(memberStatusKinds)
@@ -116,17 +114,12 @@ const groupSchema = z.object({
   lmsGroupId: z.string().nullable(),
 })
 
-const groupSelectionModeSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("all"),
-    excludedGroupIds: z.array(z.string()),
-  }),
-  z.object({
-    kind: z.literal("pattern"),
-    pattern: z.string(),
-    excludedGroupIds: z.array(z.string()),
-  }),
-])
+const localTeamIdSchema = z.string().regex(/^ut_\d{4,}$/)
+
+const usernameTeamSchema = z.object({
+  id: localTeamIdSchema,
+  gitUsernames: z.array(z.string().trim().min(1)).nonempty(),
+})
 
 const groupSetConnectionSchema = z
   .discriminatedUnion("kind", [
@@ -177,14 +170,41 @@ const assignmentSchema = z.object({
   templateCommitSha: z.string().nullable().optional(),
 })
 
-const groupSetSchema = z.object({
+const groupSetCommon = {
   id: localGroupSetIdSchema,
   name: z.string(),
-  groupIds: z.array(localGroupIdSchema),
   connection: groupSetConnectionSchema,
-  groupSelection: groupSelectionModeSchema,
   repoNameTemplate: z.string().nullable().default(null),
+  columnVisibility: z.record(z.string(), z.boolean()).default({}),
+  columnSizing: z.record(z.string(), z.number()).default({}),
+}
+
+const namedGroupSetSchema = z.object({
+  ...groupSetCommon,
+  nameMode: z.literal("named"),
+  groupIds: z.array(localGroupIdSchema),
 })
+
+const unnamedGroupSetSchema = z.object({
+  ...groupSetCommon,
+  nameMode: z.literal("unnamed"),
+  teams: z.array(usernameTeamSchema),
+})
+
+const groupSetSchema = z
+  .discriminatedUnion("nameMode", [namedGroupSetSchema, unnamedGroupSetSchema])
+  .superRefine((groupSet, context) => {
+    if (
+      groupSet.nameMode === "unnamed" &&
+      groupSet.repoNameTemplate?.includes("{group}") === true
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["repoNameTemplate"],
+        message: "The {group} token is not valid for unnamed group sets.",
+      })
+    }
+  })
 
 const rosterSchema = z.object({
   connection: rosterConnectionSchema,
@@ -198,6 +218,7 @@ const rosterSchema = z.object({
 const idSequencesSchema = z.object({
   nextGroupSeq: z.number().int().positive(),
   nextGroupSetSeq: z.number().int().positive(),
+  nextTeamSeq: z.number().int().positive(),
   nextMemberSeq: z.number().int().positive(),
   nextAssignmentSeq: z.number().int().positive(),
 })

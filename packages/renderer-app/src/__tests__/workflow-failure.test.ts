@@ -36,6 +36,7 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
       nextGroupSetSeq: 1,
       nextMemberSeq: 1,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     },
     roster: {
       connection: null,

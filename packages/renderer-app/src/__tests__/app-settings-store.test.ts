@@ -144,22 +144,22 @@ describe("app settings store", () => {
     const firstSavePromise = useAppSettingsStore.getState().save()
     useAppSettingsStore
       .getState()
-      .setGroupsColumnVisibility({ repoName: false })
+      .setRosterColumnVisibility({ repoName: false })
     const secondSavePromise = useAppSettingsStore.getState().save()
 
     secondSaveGate.resolve(
-      makeSettings({ groupsColumnVisibility: { repoName: false } }),
+      makeSettings({ rosterColumnVisibility: { repoName: false } }),
     )
     await secondSavePromise
     assert.equal(
-      useAppSettingsStore.getState().settings.groupsColumnVisibility.repoName,
+      useAppSettingsStore.getState().settings.rosterColumnVisibility.repoName,
       false,
     )
 
-    firstSaveGate.resolve(makeSettings({ groupsColumnVisibility: {} }))
+    firstSaveGate.resolve(makeSettings({ rosterColumnVisibility: {} }))
     await firstSavePromise
     assert.equal(
-      useAppSettingsStore.getState().settings.groupsColumnVisibility.repoName,
+      useAppSettingsStore.getState().settings.rosterColumnVisibility.repoName,
       false,
     )
     assert.equal(useAppSettingsStore.getState().status, "loaded")

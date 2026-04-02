@@ -43,6 +43,7 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
       nextGroupSetSeq: 1,
       nextMemberSeq: 2,
       nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
     },
     roster: {
       connection: null,
@@ -199,6 +200,207 @@ describe("course store", () => {
     assert.equal(useCourseStore.getState().course?.roster.students.length, 1)
   })
 
+  it("undo/redo restores unnamed import snapshots and keeps team ids monotonic", async () => {
+    const course = makeProfile()
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    const baselineCourse = useCourseStore.getState().course
+    assert.ok(baselineCourse)
+    const baselineRoster = baselineCourse.roster
+    const baselineGroupSetIds = baselineRoster.groupSets
+      .map((groupSet) => groupSet.id)
+      .sort()
+
+    const importedGroupSet = {
+      id: "gs_9001",
+      name: "RepoBee Teams",
+      nameMode: "unnamed" as const,
+      teams: [
+        { id: "ut_0001", gitUsernames: ["alice", "bob"] },
+        { id: "ut_0002", gitUsernames: ["carol"] },
+      ],
+      connection: {
+        kind: "import" as const,
+        sourceFilename: "students.txt",
+        sourcePath: null,
+        lastUpdated: "2026-03-06T10:00:00.000Z",
+      },
+      repoNameTemplate: "{assignment}-{members}",
+      columnVisibility: {},
+      columnSizing: {},
+    }
+
+    const importedRoster: PersistedCourse["roster"] = {
+      ...baselineRoster,
+      groupSets: [...baselineRoster.groupSets, importedGroupSet],
+    }
+
+    useCourseStore
+      .getState()
+      .setRoster(importedRoster, "Import group set from file")
+    useCourseStore.getState().setIdSequences({
+      ...baselineCourse.idSequences,
+      nextTeamSeq: 3,
+    })
+
+    assert.equal(useCourseStore.getState().history.length, 1)
+    assert.equal(
+      useCourseStore.getState().course?.roster.groupSets.length,
+      baselineRoster.groupSets.length + 1,
+    )
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 3)
+
+    const undone = useCourseStore.getState().undo()
+    assert.equal(undone?.description, "Import group set from file")
+    const undoneGroupSetIds = (
+      useCourseStore.getState().course?.roster.groupSets ?? []
+    )
+      .map((groupSet) => groupSet.id)
+      .sort()
+    assert.deepStrictEqual(undoneGroupSetIds, baselineGroupSetIds)
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 3)
+
+    const redone = useCourseStore.getState().redo()
+    assert.equal(redone?.description, "Import group set from file")
+    const redoneSet = useCourseStore
+      .getState()
+      .course?.roster.groupSets.find((groupSet) => groupSet.id === "gs_9001")
+    assert.equal(redoneSet?.nameMode, "unnamed")
+    if (redoneSet?.nameMode === "unnamed") {
+      assert.deepStrictEqual(
+        redoneSet.teams.map((team) => team.gitUsernames),
+        [["alice", "bob"], ["carol"]],
+      )
+    }
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 3)
+  })
+
+  it("undo/redo restores unnamed reimport snapshots and keeps team ids monotonic", async () => {
+    const course = makeProfile()
+    course.roster.groupSets = [
+      {
+        id: "gs_0001",
+        name: "RepoBee Teams",
+        nameMode: "unnamed",
+        teams: [
+          { id: "ut_0001", gitUsernames: ["alice", "bob"] },
+          { id: "ut_0002", gitUsernames: ["carol"] },
+        ],
+        connection: {
+          kind: "import",
+          sourceFilename: "students.txt",
+          sourcePath: null,
+          lastUpdated: "2026-03-06T10:00:00.000Z",
+        },
+        repoNameTemplate: "{assignment}-{members}",
+        columnVisibility: {},
+        columnSizing: {},
+      },
+    ]
+    course.idSequences = {
+      ...course.idSequences,
+      nextGroupSetSeq: 2,
+      nextTeamSeq: 3,
+    }
+
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    const baselineCourse = useCourseStore.getState().course
+    assert.ok(baselineCourse)
+    const baselineRoster = baselineCourse.roster
+    const targetGroupSet = baselineRoster.groupSets.find(
+      (groupSet) => groupSet.id === "gs_0001",
+    )
+    assert.ok(targetGroupSet)
+    assert.equal(targetGroupSet?.nameMode, "unnamed")
+    if (!targetGroupSet || targetGroupSet.nameMode !== "unnamed") {
+      return
+    }
+
+    const reimportedRoster: PersistedCourse["roster"] = {
+      ...baselineRoster,
+      groupSets: baselineRoster.groupSets.map((groupSet) => {
+        if (
+          groupSet.id !== targetGroupSet.id ||
+          groupSet.nameMode !== "unnamed"
+        ) {
+          return groupSet
+        }
+        return {
+          ...groupSet,
+          teams: [
+            { id: "ut_0003", gitUsernames: ["zoe"] },
+            { id: "ut_0004", gitUsernames: ["yan", "xiu"] },
+          ],
+          connection: {
+            kind: "import",
+            sourceFilename: "students.txt",
+            sourcePath: null,
+            lastUpdated: "2026-03-06T11:00:00.000Z",
+          },
+        }
+      }),
+    }
+
+    useCourseStore
+      .getState()
+      .setRoster(reimportedRoster, 'Import into group set "RepoBee Teams"')
+    useCourseStore.getState().setIdSequences({
+      ...baselineCourse.idSequences,
+      nextTeamSeq: 5,
+    })
+
+    const afterApply = useCourseStore
+      .getState()
+      .course?.roster.groupSets.find((groupSet) => groupSet.id === "gs_0001")
+    assert.equal(afterApply?.nameMode, "unnamed")
+    if (afterApply?.nameMode === "unnamed") {
+      assert.deepStrictEqual(
+        afterApply.teams.map((team) => team.gitUsernames),
+        [["zoe"], ["yan", "xiu"]],
+      )
+    }
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 5)
+
+    const undone = useCourseStore.getState().undo()
+    assert.equal(undone?.description, 'Import into group set "RepoBee Teams"')
+    const afterUndo = useCourseStore
+      .getState()
+      .course?.roster.groupSets.find((groupSet) => groupSet.id === "gs_0001")
+    assert.equal(afterUndo?.nameMode, "unnamed")
+    if (afterUndo?.nameMode === "unnamed") {
+      assert.deepStrictEqual(
+        afterUndo.teams.map((team) => team.gitUsernames),
+        [["alice", "bob"], ["carol"]],
+      )
+    }
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 5)
+
+    const redone = useCourseStore.getState().redo()
+    assert.equal(redone?.description, 'Import into group set "RepoBee Teams"')
+    const afterRedo = useCourseStore
+      .getState()
+      .course?.roster.groupSets.find((groupSet) => groupSet.id === "gs_0001")
+    assert.equal(afterRedo?.nameMode, "unnamed")
+    if (afterRedo?.nameMode === "unnamed") {
+      assert.deepStrictEqual(
+        afterRedo.teams.map((team) => team.gitUsernames),
+        [["zoe"], ["yan", "xiu"]],
+      )
+    }
+    assert.equal(useCourseStore.getState().course?.idSequences.nextTeamSeq, 5)
+  })
+
   it("normalizes individual-student system group names during load", async () => {
     const course = makeProfile()
     course.roster.students = [makeStudent("s-1", "Berg, S.O.S. van den")]
@@ -220,8 +422,10 @@ describe("course store", () => {
           kind: "system",
           systemType: SYSTEM_TYPE_INDIVIDUAL_STUDENTS,
         },
-        groupSelection: { kind: "all", excludedGroupIds: [] },
+        nameMode: "named",
         repoNameTemplate: null,
+        columnVisibility: {},
+        columnSizing: {},
       },
     ]
 

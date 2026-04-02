@@ -1,8 +1,9 @@
-import { resolveGroupsFromSelection } from "@repo-edu/domain/group-selection"
 import { activeMemberIds } from "@repo-edu/domain/group-set"
 import type {
   Assignment,
+  Group,
   GroupSet,
+  NamedGroupSet,
   Roster,
   RosterMember,
   RosterValidationIssue,
@@ -93,11 +94,25 @@ export function buildIssueCards(
     (gs) => gs.connection?.kind !== "system",
   )
   for (const groupSet of candidateGroupSets) {
-    const resolvedGroups = resolveGroupsFromSelection(
-      roster,
-      groupSet,
-      groupSet.groupSelection,
-    )
+    if (groupSet.nameMode === "unnamed") {
+      const emptyTeams = groupSet.teams
+        .filter((team) => !teamHasUsernames(team.gitUsernames))
+        .map((team) => team.id)
+      if (emptyTeams.length > 0) {
+        issueCards.push({
+          id: `empty-${groupSet.id}`,
+          kind: "empty_groups",
+          groupSetId: groupSet.id,
+          title: `${emptyTeams.length} empty group${emptyTeams.length === 1 ? "" : "s"}`,
+          count: emptyTeams.length,
+          groupSetName: groupSet.name,
+          emptyGroupNames: emptyTeams,
+        })
+      }
+      continue
+    }
+
+    const resolvedGroups = resolveGroupsForIssues(roster, groupSet)
     const unknownGroups: { groupName: string; unknownIds: string[] }[] = []
     const emptyGroups: string[] = []
 
@@ -147,6 +162,10 @@ export function buildIssueCards(
   }
 
   return issueCards.sort((a, b) => b.count - a.count)
+}
+
+function teamHasUsernames(usernames: readonly string[]): boolean {
+  return usernames.some((username) => username.trim().length > 0)
 }
 
 function validationKindLabel(kind: RosterValidationKind): string {
@@ -231,6 +250,16 @@ function buildAssignmentIssueCard(
         ? [formatDetailsList(issue.affectedIds, 3)]
         : undefined,
   }
+}
+
+function resolveGroupsForIssues(
+  roster: Roster,
+  groupSet: NamedGroupSet,
+): Group[] {
+  return groupSet.groupIds.flatMap((gid) => {
+    const group = roster.groups.find((g) => g.id === gid)
+    return group ? [group] : []
+  })
 }
 
 function formatDetailsList(items: string[], maxShown: number): string {
