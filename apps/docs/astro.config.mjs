@@ -1,14 +1,74 @@
+import { readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import starlight from "@astrojs/starlight"
 import { defineConfig } from "astro/config"
 import react from "@astrojs/react"
 import tailwindcss from "@tailwindcss/vite"
 import starlightSidebarTopics from "starlight-sidebar-topics"
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function loadTsconfigPaths(tsconfigPath) {
+  try {
+    const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8"))
+    const paths = tsconfig.compilerOptions?.paths ?? {}
+    if (typeof paths !== "object" || paths === null || Array.isArray(paths)) {
+      throw new Error("compilerOptions.paths must be an object")
+    }
+    return paths
+  } catch (error) {
+    throw new Error(
+      `Failed to load workspace aliases from ${tsconfigPath}. Ensure the file exists and contains valid compilerOptions.paths JSON.`,
+      { cause: error },
+    )
+  }
+}
+
+function buildWorkspaceAliases() {
+  const configDir = dirname(fileURLToPath(import.meta.url))
+  const repoRoot = resolve(configDir, "../..")
+  const tsconfigPath = resolve(repoRoot, "tsconfig.base.json")
+  const paths = loadTsconfigPaths(tsconfigPath)
+
+  return Object.entries(paths).flatMap(([find, targets]) => {
+    const target = targets[0]
+    if (!target) {
+      return []
+    }
+
+    const normalizedTarget = target.startsWith("./") ? target.slice(2) : target
+
+    if (find.includes("*")) {
+      return [
+        {
+          find: new RegExp(`^${escapeRegex(find).replace("\\*", "(.+)")}$`),
+          replacement: resolve(repoRoot, normalizedTarget.replace("*", "$1")),
+        },
+      ]
+    }
+
+    return [
+      {
+        find: new RegExp(`^${escapeRegex(find)}$`),
+        replacement: resolve(repoRoot, normalizedTarget),
+      },
+    ]
+  })
+}
+
+const workspaceAliases = buildWorkspaceAliases()
+
 export default defineConfig({
   site: "https://repo-edu.github.io",
   base: "/repo-edu",
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      alias: workspaceAliases,
+    },
   },
   integrations: [
     react(),

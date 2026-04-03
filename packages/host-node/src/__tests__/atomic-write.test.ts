@@ -17,6 +17,16 @@ describe("writeTextFileAtomic", () => {
     assert.equal(saved, '{"theme":"dark"}')
   })
 
+  it("creates missing parent directories before writing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    const targetPath = join(root, "settings", "nested", "app-settings.json")
+
+    await writeTextFileAtomic(targetPath, '{"theme":"dark"}')
+
+    const saved = await readFile(targetPath, "utf8")
+    assert.equal(saved, '{"theme":"dark"}')
+  })
+
   it("cleans up temporary files when rename fails", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
     const targetPath = join(root, "app-settings.json")

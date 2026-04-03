@@ -73,6 +73,9 @@ export async function writeTextFileAtomic(
   signal?: AbortSignal,
 ): Promise<void> {
   throwIfAborted(signal)
+  const parentDirectory = dirname(path)
+  await mkdir(parentDirectory, { recursive: true })
+  throwIfAborted(signal)
   const temporaryPath = resolveAtomicTempPath(path)
   const existing = await stat(path).catch(() => null)
 

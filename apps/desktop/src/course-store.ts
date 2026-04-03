@@ -13,6 +13,10 @@ function resolveCoursesDirectory(storageRoot: string): string {
   return join(storageRoot, "courses")
 }
 
+async function ensureCoursesDirectory(coursesDirectory: string): Promise<void> {
+  await mkdir(coursesDirectory, { recursive: true })
+}
+
 function sanitizeCourseFileBaseName(displayName: string): string {
   const normalized = displayName.trim().replace(/\s+/g, " ")
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional range for filename sanitization
@@ -22,7 +26,7 @@ function sanitizeCourseFileBaseName(displayName: string): string {
 }
 
 function resolveCoursePathFromDisplayName(
-  storageRoot: string,
+  coursesDirectory: string,
   displayName: string,
   duplicateIndex = 0,
 ): string {
@@ -31,7 +35,7 @@ function resolveCoursePathFromDisplayName(
     duplicateIndex === 0
       ? `${baseName}.json`
       : `${baseName} (${duplicateIndex + 1}).json`
-  return join(resolveCoursesDirectory(storageRoot), fileName)
+  return join(coursesDirectory, fileName)
 }
 
 type CourseFileInspection =
@@ -96,7 +100,7 @@ async function findCoursePathById(
 }
 
 async function resolveCoursePathForWrite(
-  storageRoot: string,
+  coursesDirectory: string,
   courseId: string,
   displayName: string,
   signal?: AbortSignal,
@@ -104,7 +108,7 @@ async function resolveCoursePathForWrite(
   for (let duplicateIndex = 0; ; duplicateIndex += 1) {
     throwIfAborted(signal)
     const candidatePath = resolveCoursePathFromDisplayName(
-      storageRoot,
+      coursesDirectory,
       displayName,
       duplicateIndex,
     )
@@ -149,7 +153,7 @@ export function createDesktopCourseStore(storageRoot: string): CourseStore {
     async listCourses(signal?: AbortSignal) {
       throwIfAborted(signal)
       const directory = resolveCoursesDirectory(storageRoot)
-      await mkdir(directory, { recursive: true })
+      await ensureCoursesDirectory(directory)
       await cleanupAtomicTempFiles(directory)
       throwIfAborted(signal)
 
@@ -212,8 +216,11 @@ export function createDesktopCourseStore(storageRoot: string): CourseStore {
           revision: validation.value.revision + 1,
           updatedAt: new Date().toISOString(),
         }
+        const coursesDirectory = resolveCoursesDirectory(storageRoot)
+        await ensureCoursesDirectory(coursesDirectory)
+        throwIfAborted(signal)
         const coursePath = await resolveCoursePathForWrite(
-          storageRoot,
+          coursesDirectory,
           savedCourse.id,
           savedCourse.displayName,
           signal,
