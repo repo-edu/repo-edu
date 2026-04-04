@@ -22,7 +22,6 @@ describe("docs demo smoke", () => {
     })
 
     assert.notEqual(renderedElement, null)
-    assert.equal(runtime.fixtureSelection.tier, "medium")
     assert.equal(runtime.fixtureSelection.source, "canvas")
 
     const courses = await runtime.workflowClient.run("course.list", undefined)

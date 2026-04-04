@@ -1,17 +1,9 @@
 import { useCallback, useState } from "react"
 import {
   type DocsFixtureSource,
-  type DocsFixtureTier,
   docsFixtureSources,
-  docsFixtureTiers,
   resolveDocsFixtureSelection,
 } from "../fixtures/docs-fixtures.js"
-
-const tierDescriptions: Record<DocsFixtureTier, string> = {
-  small: "24 students, 2 staff",
-  medium: "72 students, 4 staff",
-  stress: "180 students, 8 staff",
-}
 
 const sourceDescriptions: Record<DocsFixtureSource, string> = {
   canvas: "Canvas LMS — synced roster and groups",
@@ -23,19 +15,16 @@ const docsBasePath = import.meta.env.BASE_URL.endsWith("/")
   ? import.meta.env.BASE_URL.slice(0, -1)
   : import.meta.env.BASE_URL
 
-function updateParentQuery(tier: DocsFixtureTier, source: DocsFixtureSource) {
+function updateParentQuery(source: DocsFixtureSource) {
   if (typeof window === "undefined") return
   const url = new URL(window.location.href)
-  url.searchParams.set("tier", tier)
   url.searchParams.set("source", source)
+  url.searchParams.delete("tier")
   window.history.replaceState(null, "", url)
 }
 
-function buildIframeSrc(tier: DocsFixtureTier, source: DocsFixtureSource) {
-  const params = new URLSearchParams({
-    tier,
-    source,
-  })
+function buildIframeSrc(source: DocsFixtureSource) {
+  const params = new URLSearchParams({ source })
   return `${docsBasePath}/demo-standalone?${params.toString()}`
 }
 
@@ -44,22 +33,11 @@ export default function DemoShell() {
     resolveDocsFixtureSelection(),
   )
 
-  const onTierChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const tier = event.currentTarget.value as DocsFixtureTier
-      setSelection((prev) => {
-        updateParentQuery(tier, prev.source)
-        return { ...prev, tier }
-      })
-    },
-    [],
-  )
-
   const onSourceChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const source = event.currentTarget.value as DocsFixtureSource
       setSelection((prev) => {
-        updateParentQuery(prev.tier, source)
+        updateParentQuery(source)
         return { ...prev, source }
       })
     },
@@ -69,24 +47,6 @@ export default function DemoShell() {
   return (
     <div style={styles.root}>
       <div style={styles.toolbar}>
-        <div style={styles.field}>
-          <label style={styles.fieldLabel} htmlFor="demo-tier">
-            Cohort size
-          </label>
-          <select
-            id="demo-tier"
-            value={selection.tier}
-            onChange={onTierChange}
-            style={styles.select}
-          >
-            {docsFixtureTiers.map((tier) => (
-              <option key={tier} value={tier}>
-                {tier} — {tierDescriptions[tier]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={styles.separator} />
         <div style={styles.field}>
           <label style={styles.fieldLabel} htmlFor="demo-source">
             Data source
@@ -106,7 +66,7 @@ export default function DemoShell() {
         </div>
       </div>
       <iframe
-        src={buildIframeSrc(selection.tier, selection.source)}
+        src={buildIframeSrc(selection.source)}
         style={styles.iframe}
         title="repo-edu interactive demo"
       />
@@ -152,12 +112,6 @@ const styles = {
     textTransform: "uppercase" as const,
     letterSpacing: "0.06em",
     whiteSpace: "nowrap" as const,
-  },
-  separator: {
-    width: 1,
-    height: 20,
-    background: "#374151",
-    flexShrink: 0,
   },
   select: {
     fontSize: 13,

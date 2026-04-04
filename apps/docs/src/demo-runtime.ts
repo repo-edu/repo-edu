@@ -24,10 +24,7 @@ import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
-import type {
-  DocsFixtureSource,
-  DocsFixtureTier,
-} from "./fixtures/docs-fixtures.js"
+import type { DocsFixtureSource } from "./fixtures/docs-fixtures.js"
 import {
   getDocsFixture,
   resolveDocsFixtureSelection,
@@ -40,7 +37,6 @@ export type DocsMountRoot = {
 export type DocsMountOptions = {
   queryMountNode?: () => unknown
   createRoot?: (mountNode: unknown) => DocsMountRoot
-  tier?: DocsFixtureTier
   source?: DocsFixtureSource
   appRootComponent?: React.ComponentType<{
     workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
@@ -49,7 +45,6 @@ export type DocsMountOptions = {
 }
 
 export type DocsDemoRuntimeOptions = {
-  tier?: DocsFixtureTier
   source?: DocsFixtureSource
 }
 
@@ -194,8 +189,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const seedCourse = cloneValue(fixture.course)
   const seedSettings = cloneValue(fixture.settings)
   const seedCourseEntityId = seedCourse.id
-  const seedCourseId =
-    seedCourse.lmsCourseId ?? `course-${fixtureSelection.tier}-task-groups`
+  const seedCourseId = seedCourse.lmsCourseId ?? "course-task-groups"
 
   applyFixtureSourceOverlay(
     seedCourse,
@@ -403,7 +397,6 @@ export function mountDocsDemoApp(options: DocsMountOptions = {}) {
   }
 
   const runtime = createDocsDemoRuntime({
-    tier: options.tier,
     source: options.source,
   })
   const appRootComponent = options.appRootComponent

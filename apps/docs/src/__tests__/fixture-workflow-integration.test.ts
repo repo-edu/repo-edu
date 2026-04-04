@@ -28,7 +28,6 @@ function plannedGroupIds(
 describe("docs fixture integration: source parity", () => {
   it("supports canvas source overlays and source-sensitive workflows", async () => {
     const runtime = createDocsDemoRuntime({
-      tier: "small",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -75,7 +74,6 @@ describe("docs fixture integration: source parity", () => {
 
   it("supports moodle source overlays and source-sensitive workflows", async () => {
     const runtime = createDocsDemoRuntime({
-      tier: "small",
       source: "moodle",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -129,7 +127,6 @@ describe("docs fixture integration: source parity", () => {
 
   it("rejects LMS workflows for file source overlays", async () => {
     const runtime = createDocsDemoRuntime({
-      tier: "small",
       source: "file",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -181,7 +178,6 @@ describe("docs fixture integration: source parity", () => {
 describe("docs fixture integration: repository planning by fixed task setup", () => {
   it("task1a and task1b share one group set and match repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
-      tier: "small",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {
@@ -219,7 +215,6 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
   it("task2 isolates its group population from task1 and matches repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
-      tier: "small",
       source: "canvas",
     })
     const course = await runtime.workflowClient.run("course.load", {

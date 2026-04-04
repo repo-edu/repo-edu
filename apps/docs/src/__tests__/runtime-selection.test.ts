@@ -3,36 +3,26 @@ import { describe, it } from "node:test"
 import { createDocsDemoRuntime, mountDocsDemoApp } from "../demo-runtime.js"
 
 describe("docs runtime fixture selection", () => {
-  it("defaults to medium/canvas fixtures", async () => {
+  it("defaults to canvas fixtures with 67 students", async () => {
     const runtime = createDocsDemoRuntime()
     assert.deepEqual(runtime.fixtureSelection, {
-      tier: "medium",
       source: "canvas",
     })
 
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.seedCourseEntityId,
     })
-    assert.equal(course.roster.students.length, 72)
-    assert.equal(course.roster.staff.length, 4)
+    assert.equal(course.roster.students.length, 67)
+    assert.equal(course.roster.staff.length, 3)
   })
 
-  it("supports explicit tier runtime options and fixed task group layout", async () => {
-    const runtime = createDocsDemoRuntime({
-      tier: "small",
-    })
-
-    assert.deepEqual(runtime.fixtureSelection, {
-      tier: "small",
-      source: "canvas",
-    })
+  it("applies fixed task group layout with asymmetric group counts", async () => {
+    const runtime = createDocsDemoRuntime()
 
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.seedCourseEntityId,
     })
 
-    assert.equal(course.roster.students.length, 24)
-    assert.equal(course.roster.staff.length, 2)
     assert.deepEqual(
       course.roster.assignments.map((assignment) => assignment.id),
       ["task1a", "task1b", "task2"],
@@ -40,21 +30,39 @@ describe("docs runtime fixture selection", () => {
     const [task1a, task1b, task2] = course.roster.assignments
     assert.equal(task1a.groupSetId, task1b.groupSetId)
     assert.notEqual(task1a.groupSetId, task2.groupSetId)
+
+    const nonSystemGroupSets = course.roster.groupSets.filter(
+      (groupSet) => groupSet.connection?.kind !== "system",
+    )
     assert.equal(
-      course.roster.groupSets
-        .filter((groupSet) => groupSet.connection?.kind !== "system")
-        .map((groupSet) => groupSet.name)
-        .join("|"),
+      nonSystemGroupSets.map((groupSet) => groupSet.name).join("|"),
       "Task 1 Teams|Task 2 Teams",
     )
+
+    const [task1Set, task2Set] = nonSystemGroupSets
+    assert.equal(task1Set.groupIds.length, 12)
+    assert.equal(task2Set.groupIds.length, 8)
   })
 
-  it("mount options thread tier/source into runtime selection", () => {
+  it("keeps nextGroupSeq ahead of all existing group ids", async () => {
+    const runtime = createDocsDemoRuntime()
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
+    })
+
+    const maxGroupSequence = course.roster.groups.reduce((max, group) => {
+      const sequence = Number.parseInt(group.id.replace(/^g_/, ""), 10)
+      return Number.isNaN(sequence) ? max : Math.max(max, sequence)
+    }, 0)
+
+    assert.equal(course.idSequences.nextGroupSeq > maxGroupSequence, true)
+  })
+
+  it("mount options thread source into runtime selection", () => {
     const fakeMountNode = { id: "app" }
     const runtime = mountDocsDemoApp({
       queryMountNode: () => fakeMountNode,
       appRootComponent: () => null,
-      tier: "stress",
       source: "moodle",
       createRoot() {
         return {
@@ -64,7 +72,6 @@ describe("docs runtime fixture selection", () => {
     })
 
     assert.deepEqual(runtime.fixtureSelection, {
-      tier: "stress",
       source: "moodle",
     })
   })
