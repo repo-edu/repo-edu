@@ -250,4 +250,46 @@ describe("application repository create workflow helpers", () => {
 
     assert.equal(receivedVisibility, assignmentTemplate.visibility)
   })
+
+  it("treats empty group-set template as explicit empty template in repo.create", async () => {
+    const { course, settings, handlers } = createRepoHarness()
+    const assignment = course.roster.assignments.find(
+      (item) => item.id === "a1",
+    )
+    assert.ok(assignment)
+    const groupSet = course.roster.groupSets.find(
+      (item) => item.id === assignment.groupSetId,
+    )
+    assert.ok(groupSet)
+    groupSet.repoNameTemplate = ""
+
+    await assert.rejects(
+      () =>
+        handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        }),
+      (error: unknown) => {
+        if (typeof error !== "object" || error === null) {
+          return false
+        }
+        if (!("type" in error) || error.type !== "validation") {
+          return false
+        }
+        if (!("issues" in error) || !Array.isArray(error.issues)) {
+          return false
+        }
+        return error.issues.some(
+          (issue) =>
+            typeof issue === "object" &&
+            issue !== null &&
+            "message" in issue &&
+            typeof issue.message === "string" &&
+            issue.message.includes("Repository name collision"),
+        )
+      },
+    )
+  })
 })

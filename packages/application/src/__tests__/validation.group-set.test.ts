@@ -409,6 +409,53 @@ describe("application group-set workflow helpers", () => {
     )
   })
 
+  it("rejects RepoBee import when teams include invalid usernames", async () => {
+    const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
+    const studentsText = ["valid-user invalid.user"].join("\n")
+
+    const handlers = createGroupSetHarness({
+      lms: {},
+      userFile: {
+        readText: async () => ({
+          displayName: "students.txt",
+          mediaType: "text/plain",
+          byteLength: studentsText.length,
+          text: studentsText,
+        }),
+      },
+    })
+
+    await assert.rejects(
+      handlers["groupSet.importFromFile"]({
+        course,
+        file: {
+          kind: "user-file-ref",
+          referenceId: "repobee-file-invalid",
+          displayName: "students.txt",
+          mediaType: "text/plain",
+          byteLength: null,
+        },
+        format: "repobee-students",
+        targetGroupSetId: null,
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation" &&
+        "issues" in error &&
+        Array.isArray(error.issues) &&
+        error.issues.some(
+          (issue) =>
+            typeof issue === "object" &&
+            issue !== null &&
+            "message" in issue &&
+            typeof issue.message === "string" &&
+            issue.message.includes("Invalid username 'invalid.user'"),
+        ),
+    )
+  })
+
   it("exports group sets to csv", async () => {
     const course = getCourseScenario({ tier: "small", preset: "shared-teams" })
     const exportGroupSet = course.roster.groupSets.find(

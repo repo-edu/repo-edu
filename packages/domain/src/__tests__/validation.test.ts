@@ -305,4 +305,44 @@ describe("validateAssignment", () => {
       false,
     )
   })
+
+  it("normalizes hyphenated usernames consistently for unnamed {members}", () => {
+    const assignment: Assignment = {
+      id: "a1",
+      name: "Project 1",
+      groupSetId: "gs-unnamed",
+    }
+    const roster = makeRoster({
+      groupSets: [
+        {
+          id: "gs-unnamed",
+          name: "RepoBee Teams",
+          nameMode: "unnamed",
+          teams: [
+            { id: "ut_0001", gitUsernames: ["a-b", "c"] },
+            { id: "ut_0002", gitUsernames: ["a", "b-c"] },
+          ],
+          connection: null,
+          repoNameTemplate: "{members}",
+          columnVisibility: {},
+          columnSizing: {},
+        },
+      ],
+      assignments: [assignment],
+    })
+
+    const result = validateAssignmentWithTemplate(
+      roster,
+      assignment.id,
+      "username",
+      "{members}",
+    )
+
+    assert.equal(
+      result.issues.some(
+        (issue) => issue.kind === "duplicate_repo_name_in_assignment",
+      ),
+      false,
+    )
+  })
 })
