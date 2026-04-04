@@ -13,7 +13,7 @@ Provides a matrix of `PersistedCourse` + `PersistedAppSettings` + CSV/JSON artif
 - `src/fixtures-validate.ts` — `validateFixtureMatrix()` used during `check:fixtures`
 - `src/source-overlay.ts` — `applyFixtureSourceOverlay()` to simulate LMS-connected course state
 
-Tier sizes: small=24 students/2 staff, medium=72/4, stress=180/8.
+Tier sizes: small=24 students/2 staff, medium=67/3, stress=180/8.
 
 ## Rules
 

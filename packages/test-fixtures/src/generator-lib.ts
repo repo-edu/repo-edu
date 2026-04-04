@@ -18,7 +18,7 @@ export const fixtureTierCounts: Record<
   { students: number; staff: number }
 > = {
   small: { students: 24, staff: 2 },
-  medium: { students: 72, staff: 4 },
+  medium: { students: 67, staff: 3 },
   stress: { students: 180, staff: 8 },
 }
 
@@ -36,6 +36,18 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+function generateGitUsername(firstSlug: string, lastSlug: string): string {
+  const suffix2 = faker.number.int({ min: 10, max: 99 })
+  return faker.helpers.weightedArrayElement([
+    { value: `${firstSlug}${lastSlug}`, weight: 3 },
+    { value: `${firstSlug}-${lastSlug}`, weight: 1 },
+    { value: `${firstSlug[0]}${lastSlug}`, weight: 2 },
+    { value: `${lastSlug}${firstSlug[0]}`, weight: 2 },
+    { value: `${firstSlug}${suffix2}`, weight: 3 },
+    { value: `${firstSlug}-${lastSlug}${suffix2}`, weight: 1 },
+  ])
 }
 
 function toCsvCell(value: string | null | undefined): string {
@@ -119,9 +131,9 @@ function createStudents(count: number, startMemberSeq: number) {
     return {
       id: `m_${padNumber(memberSeq, 4)}`,
       name: `${firstName} ${lastName}`,
-      email: `${firstSlug}.${lastSlug}.${padNumber(ordinal, 4)}@example.edu`,
+      email: `${firstSlug}.${lastSlug}@example.edu`,
       studentNumber: `${100000 + ordinal}`,
-      gitUsername: `${firstSlug}${padNumber(ordinal, 3)}`,
+      gitUsername: generateGitUsername(firstSlug, lastSlug),
       gitUsernameStatus: "unknown" as const,
       status: "active" as const,
       lmsStatus: "active" as const,
@@ -147,9 +159,9 @@ function createStaff(count: number, startMemberSeq: number) {
     return {
       id: `m_${padNumber(memberSeq, 4)}`,
       name: `${firstName} ${lastName}`,
-      email: `${firstSlug}.${lastSlug}.${padNumber(ordinal, 4)}@example.edu`,
+      email: `${firstSlug}.${lastSlug}@example.edu`,
       studentNumber: null,
-      gitUsername: `${firstSlug}-staff-${padNumber(ordinal, 2)}`,
+      gitUsername: generateGitUsername(firstSlug, lastSlug),
       gitUsernameStatus: "unknown" as const,
       status: "active" as const,
       lmsStatus: "active" as const,
@@ -298,8 +310,10 @@ function createRepobeeUsernames(count: number): string[] {
   return Array.from({ length: count }, (_, index) => {
     const ordinal = index + 1
     const firstName = faker.person.firstName()
-    const slug = slugify(firstName) || `student${ordinal}`
-    return `${slug}${padNumber(ordinal, 3)}`
+    const lastName = faker.person.lastName()
+    const firstSlug = slugify(firstName) || `student${ordinal}`
+    const lastSlug = slugify(lastName) || "user"
+    return generateGitUsername(firstSlug, lastSlug)
   })
 }
 
