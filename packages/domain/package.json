@@ -4,50 +4,62 @@
   "type": "module",
   "exports": {
     "./types": {
+      "source": "./src/types.ts",
       "types": "./dist/types.d.ts",
       "default": "./dist/types.js"
     },
     "./settings": {
+      "source": "./src/settings.ts",
       "types": "./dist/settings.d.ts",
       "default": "./dist/settings.js"
     },
     "./roster": {
+      "source": "./src/roster.ts",
       "types": "./dist/roster.d.ts",
       "default": "./dist/roster.js"
     },
     "./roster-lms-merge": {
+      "source": "./src/roster-lms-merge.ts",
       "types": "./dist/roster-lms-merge.d.ts",
       "default": "./dist/roster-lms-merge.js"
     },
     "./roster-reconciliation": {
+      "source": "./src/roster-reconciliation.ts",
       "types": "./dist/roster-reconciliation.d.ts",
       "default": "./dist/roster-reconciliation.js"
     },
     "./group-set": {
+      "source": "./src/group-set.ts",
       "types": "./dist/group-set.d.ts",
       "default": "./dist/group-set.js"
     },
     "./group-set-import-export": {
+      "source": "./src/group-set-import-export.ts",
       "types": "./dist/group-set-import-export.d.ts",
       "default": "./dist/group-set-import-export.js"
     },
     "./group-selection": {
+      "source": "./src/group-selection.ts",
       "types": "./dist/group-selection.d.ts",
       "default": "./dist/group-selection.js"
     },
     "./id-allocator": {
+      "source": "./src/id-allocator.ts",
       "types": "./dist/id-allocator.d.ts",
       "default": "./dist/id-allocator.js"
     },
     "./repository-planning": {
+      "source": "./src/repository-planning.ts",
       "types": "./dist/repository-planning.d.ts",
       "default": "./dist/repository-planning.js"
     },
     "./validation": {
+      "source": "./src/validation.ts",
       "types": "./dist/validation.d.ts",
       "default": "./dist/validation.js"
     },
     "./schemas": {
+      "source": "./src/schemas.ts",
       "types": "./dist/schemas.d.ts",
       "default": "./dist/schemas.js"
     }

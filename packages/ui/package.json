@@ -4,18 +4,22 @@
   "type": "module",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./components/ui/*": {
+      "source": "./src/components/ui/*.tsx",
       "types": "./dist/components/ui/*.d.ts",
       "default": "./dist/components/ui/*.js"
     },
     "./components/icons": {
+      "source": "./src/components/icons.ts",
       "types": "./dist/components/icons.d.ts",
       "default": "./dist/components/icons.js"
     },
     "./lib/*": {
+      "source": "./src/lib/*.ts",
       "types": "./dist/lib/*.d.ts",
       "default": "./dist/lib/*.js"
     }
