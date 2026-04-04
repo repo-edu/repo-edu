@@ -16,7 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "@repo-edu/ui"
 import { GripHorizontal } from "@repo-edu/ui/components/icons"
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 const knownSegments = ["assignment", "group", "surnames", "members"] as const
 type SegmentId = (typeof knownSegments)[number]
@@ -41,7 +41,6 @@ type RepoNameTemplateBuilderProps = {
 }
 
 function parseTemplate(template: string): SegmentState[] {
-  // Extract placeholders in order
   const placeholderPattern = /\{(assignment|group|surnames|members)\}/g
   const found: SegmentId[] = []
   let match = placeholderPattern.exec(template)
@@ -51,7 +50,6 @@ function parseTemplate(template: string): SegmentState[] {
     match = placeholderPattern.exec(template)
   }
 
-  // Build segments: found ones enabled, missing ones disabled at end
   const segments: SegmentState[] = found.map((id) => ({ id, enabled: true }))
   for (const id of knownSegments) {
     if (!found.includes(id)) {
@@ -75,7 +73,16 @@ export function RepoNameTemplateBuilder({
   disabled,
   hiddenSegments,
 }: RepoNameTemplateBuilderProps) {
-  const allSegments = useMemo(() => parseTemplate(template), [template])
+  const [allSegments, setAllSegments] = useState(() => parseTemplate(template))
+  const lastEmittedRef = useRef(template)
+
+  useEffect(() => {
+    if (template !== lastEmittedRef.current) {
+      setAllSegments(parseTemplate(template))
+      lastEmittedRef.current = template
+    }
+  }, [template])
+
   const segments = useMemo(
     () =>
       hiddenSegments
@@ -91,31 +98,46 @@ export function RepoNameTemplateBuilder({
     }),
   )
 
+  const emit = useCallback(
+    (next: SegmentState[]) => {
+      const t = buildTemplate(next)
+      lastEmittedRef.current = t
+      onTemplateChange(t)
+    },
+    [onTemplateChange],
+  )
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
       if (!over || active.id === over.id) return
 
-      const oldIndex = segments.findIndex((s) => s.id === active.id)
-      const newIndex = segments.findIndex((s) => s.id === over.id)
-      if (oldIndex === -1 || newIndex === -1) return
+      setAllSegments((prev) => {
+        const oldIndex = prev.findIndex((s) => s.id === active.id)
+        const newIndex = prev.findIndex((s) => s.id === over.id)
+        if (oldIndex === -1 || newIndex === -1) return prev
 
-      const next = [...segments]
-      const [moved] = next.splice(oldIndex, 1)
-      next.splice(newIndex, 0, moved)
-      onTemplateChange(buildTemplate(next))
+        const next = [...prev]
+        const [moved] = next.splice(oldIndex, 1)
+        next.splice(newIndex, 0, moved)
+        emit(next)
+        return next
+      })
     },
-    [segments, onTemplateChange],
+    [emit],
   )
 
   const toggleSegment = useCallback(
     (id: SegmentId) => {
-      const next = segments.map((s) =>
-        s.id === id ? { ...s, enabled: !s.enabled } : s,
-      )
-      onTemplateChange(buildTemplate(next))
+      setAllSegments((prev) => {
+        const next = prev.map((s) =>
+          s.id === id ? { ...s, enabled: !s.enabled } : s,
+        )
+        emit(next)
+        return next
+      })
     },
-    [segments, onTemplateChange],
+    [emit],
   )
 
   const sortableIds = segments.map((s) => s.id)

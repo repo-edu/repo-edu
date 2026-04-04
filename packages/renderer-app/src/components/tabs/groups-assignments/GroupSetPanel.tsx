@@ -107,7 +107,10 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const isReadOnly = kind === "system" || kind === "canvas" || kind === "moodle"
   const isSetEditable = !isReadOnly && groupSet.nameMode === "named"
 
-  const template = groupSet.repoNameTemplate ?? defaultRepoTemplate
+  const template =
+    groupSet.repoNameTemplate === null
+      ? defaultRepoTemplate
+      : groupSet.repoNameTemplate
   const templateIncludesAssignment = template.includes("{assignment}")
 
   // Derive effective selected assignment for preview
@@ -128,7 +131,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     <div className="px-4 py-2 space-y-2 border-b">
       <RepoNameTemplateBuilder
         template={template}
-        onTemplateChange={(t) => updateGroupSetTemplate(groupSetId, t || null)}
+        onTemplateChange={(t) => updateGroupSetTemplate(groupSetId, t)}
         disabled={isOperationActive}
         hiddenSegments={
           groupSet.nameMode === "unnamed"
