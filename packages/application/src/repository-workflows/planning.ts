@@ -45,10 +45,14 @@ function resolveGroupSetRepoNameTemplate(
   const groupSet = course.roster.groupSets.find(
     (candidate) => candidate.id === assignment.groupSetId,
   )
-  if (groupSet?.repoNameTemplate === null || groupSet === undefined) {
+  if (groupSet === undefined) {
     return undefined
   }
-  return groupSet.repoNameTemplate
+  const template = groupSet.repoNameTemplate
+  if (template === null) {
+    return undefined
+  }
+  return template
 }
 
 export function resolveAssignmentRepositoryTemplate(

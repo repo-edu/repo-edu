@@ -72,7 +72,7 @@ function activeGroupGitUsernameToken(
   ]
 
   usernames.sort((left, right) => left.localeCompare(right))
-  return usernames.join("-")
+  return usernames.map((u) => u.replaceAll("-", ".")).join("-")
 }
 
 function findAssignment(
@@ -210,7 +210,7 @@ function planUnnamedTeams(
       groupId: team.id,
       groupName: "",
       repoName: computeRepoName(template, assignment, templateGroup, {
-        members: gitUsernames.join("-"),
+        members: gitUsernames.map((u) => u.replaceAll("-", ".")).join("-"),
       }),
       activeMemberIds: [],
       gitUsernames,

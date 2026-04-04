@@ -107,7 +107,7 @@ function activeGroupGitUsernameToken(
   ]
 
   usernames.sort((left, right) => left.localeCompare(right))
-  return usernames.join("-")
+  return usernames.map((username) => username.replaceAll("-", ".")).join("-")
 }
 
 function normalizeGitUsernames(usernames: readonly string[]): string[] {
@@ -146,7 +146,9 @@ function validateUnnamedAssignmentWithTemplate(
       lmsGroupId: null,
     }
     const repoName = computeRepoName(template, assignment, templateGroup, {
-      members: gitUsernames.join("-"),
+      members: gitUsernames
+        .map((username) => username.replaceAll("-", "."))
+        .join("-"),
     })
     repoNameMap.set(repoName, [...(repoNameMap.get(repoName) ?? []), team.id])
   }

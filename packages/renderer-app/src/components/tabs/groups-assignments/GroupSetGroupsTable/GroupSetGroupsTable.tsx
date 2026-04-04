@@ -263,7 +263,9 @@ export function GroupsTable({
           effectiveAssignment,
           emptyGroup,
           {
-            members: gitUsernames.join("-"),
+            members: gitUsernames
+              .map((username) => username.replaceAll("-", "."))
+              .join("-"),
           },
         ),
       }
