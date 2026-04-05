@@ -1,4 +1,5 @@
 import { activeMemberIds, resolveGitUsernames } from "./group-set.js"
+import { slugifyToken } from "./roster.js"
 import { importValidationError } from "./group-set-import-export.js"
 import type {
   Assignment,
@@ -37,8 +38,8 @@ export function expandTemplate(
   options?: { surnames?: string; members?: string },
 ): string {
   return template
-    .replaceAll("{assignment}", assignment?.name ?? "")
-    .replaceAll("{group}", group.name)
+    .replaceAll("{assignment}", slugifyToken(assignment?.name ?? ""))
+    .replaceAll("{group}", slugifyToken(group.name))
     .replaceAll("{group_id}", group.id)
     .replaceAll("{initials}", "")
     .replaceAll("{surnames}", options?.surnames ?? "")
@@ -72,7 +73,7 @@ function activeGroupGitUsernameToken(
   ]
 
   usernames.sort((left, right) => left.localeCompare(right))
-  return usernames.map((u) => u.replaceAll("-", ".")).join("-")
+  return usernames.map(slugifyToken).join("-")
 }
 
 function findAssignment(

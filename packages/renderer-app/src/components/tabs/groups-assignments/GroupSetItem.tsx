@@ -182,7 +182,10 @@ export function GroupSetItem({
           <div className="flex items-center gap-1.5">
             {nameIcon}
             <span className="flex items-center gap-1.5 min-w-0">
-              <span className="truncate text-sm font-medium">
+              <span
+                className="truncate text-sm font-medium"
+                title={groupSet.name}
+              >
                 {groupSet.name}
               </span>
               <ConnectionBadge label={badge} />

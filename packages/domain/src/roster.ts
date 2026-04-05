@@ -68,8 +68,7 @@ function normalizeSlug(value: string): string {
     .replace(/-{2,}/g, "-")
 }
 
-/** Like normalizeSlug but uses `.` as the separator within a name part. */
-function normalizeNameSlug(value: string): string {
+export function slugifyToken(value: string): string {
   return value
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -277,7 +276,7 @@ export function computeMembersSurnamesSlug(
   return sorted
     .slice(0, limit)
     .map((name) => {
-      const slug = normalizeNameSlug(parseName(name).surname)
+      const slug = slugifyToken(parseName(name).surname)
       return slug.length > 0 ? slug : ""
     })
     .filter((s) => s.length > 0)
@@ -292,8 +291,8 @@ export function generateGroupName(members: readonly RosterMember[]): string {
   if (members.length === 1) {
     const member = members[0]
     const parsed = parseName(member.name)
-    const given = normalizeNameSlug(parsed.given)
-    const surname = normalizeNameSlug(parsed.surname)
+    const given = slugifyToken(parsed.given)
+    const surname = slugifyToken(parsed.surname)
     if (given.length === 0 && surname.length === 0) {
       return `member-${shortId(member.id)}`
     }
@@ -308,7 +307,7 @@ export function generateGroupName(members: readonly RosterMember[]): string {
 
   const memberLimit = 5
   const surnames = members.slice(0, memberLimit).map((member) => {
-    const surname = normalizeNameSlug(parseName(member.name).surname)
+    const surname = slugifyToken(parseName(member.name).surname)
     return surname.length > 0 ? surname : shortId(member.id)
   })
 

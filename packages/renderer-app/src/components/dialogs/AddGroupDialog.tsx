@@ -1,4 +1,4 @@
-import { slugify } from "@repo-edu/domain/repository-planning"
+import { slugifyToken } from "@repo-edu/domain/roster"
 import { generateGroupName } from "@repo-edu/domain/roster"
 import type { RosterMember } from "@repo-edu/domain/types"
 import {
@@ -69,7 +69,7 @@ export function AddGroupDialog() {
       return
     }
     normalizeTimerRef.current = setTimeout(() => {
-      setNormalizedPreview(slugify(trimmed))
+      setNormalizedPreview(slugifyToken(trimmed))
     }, 300)
     return () => {
       if (normalizeTimerRef.current) clearTimeout(normalizeTimerRef.current)

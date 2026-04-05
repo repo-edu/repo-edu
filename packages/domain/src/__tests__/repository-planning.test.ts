@@ -101,7 +101,7 @@ describe("repository planning", () => {
         assignmentName: "HW 1",
         groupId: "g1",
         groupName: "Team A",
-        repoName: "team-a",
+        repoName: "team.a",
         activeMemberIds: ["s1"],
         gitUsernames: [],
       },
@@ -284,13 +284,13 @@ describe("repository planning", () => {
       {
         groupId: "g1",
         groupName: "Team A",
-        repoName: "hw-1-team-a",
+        repoName: "hw.1-team.a",
         kind: "already_exists",
       },
       {
         groupId: "g2",
         groupName: "Team B",
-        repoName: "hw-1-team-b",
+        repoName: "hw.1-team.b",
         kind: "not_found",
       },
     ])
@@ -301,14 +301,14 @@ describe("repository planning", () => {
         groupId: "g1",
         groupName: "Team A",
         reason: "repo_exists",
-        context: "hw-1-team-a",
+        context: "hw.1-team.a",
       },
       {
         assignmentId: "a1",
         groupId: "g2",
         groupName: "Team B",
         reason: "repo_not_found",
-        context: "hw-1-team-b",
+        context: "hw.1-team.b",
       },
     ])
   })
@@ -364,7 +364,7 @@ describe("expandTemplate with surnames", () => {
       group,
       { surnames: "smith-jones" },
     )
-    assert.equal(result, "HW1-101-smith-jones")
+    assert.equal(result, "hw1-101-smith-jones")
   })
 })
 
@@ -381,7 +381,7 @@ describe("expandTemplate with members", () => {
     const result = expandTemplate("{assignment}-{members}", assignment, group, {
       members: "alice-bob",
     })
-    assert.equal(result, "HW1-alice-bob")
+    assert.equal(result, "hw1-alice-bob")
   })
 })
 
@@ -401,7 +401,7 @@ describe("computeRepoName with surnames", () => {
       group,
       { surnames: "smith-jones" },
     )
-    assert.equal(result, "hw-1-team-a-smith-jones")
+    assert.equal(result, "hw.1-team.a-smith-jones")
   })
 })
 
@@ -423,6 +423,6 @@ describe("computeRepoName with members", () => {
         members: "alice-bob",
       },
     )
-    assert.equal(result, "hw-1-alice-bob")
+    assert.equal(result, "hw.1-alice-bob")
   })
 })
