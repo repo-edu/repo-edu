@@ -189,7 +189,7 @@ function cloneValue<TValue>(value: TValue): TValue {
 
 function makeFixtureSeed(options?: {
   tier?: "small" | "medium"
-  preset?: "shared-teams" | "assignment-scoped"
+  preset?: "shared-teams" | "task-groups"
   source?: FixtureSource
 }): { course: PersistedCourse; settings: PersistedAppSettings } {
   const tier = options?.tier ?? "small"
@@ -332,28 +332,21 @@ describe("CLI fixture-backed integration", () => {
         true,
       )
 
-      const validate = await runCli([
-        "validate",
-        "--assignment",
-        "assignment-1",
-      ])
-      assert.equal(validate.exitCode, 0)
-      assert.match(
-        validate.stdout,
-        /Validation passed for assignment 'assignment-1'/,
-      )
+      const validate = await runCli(["validate", "--assignment", "lab01"])
+      assert.equal(validate.exitCode, 1)
+      assert.match(validate.stdout, /Validation found \d+ issue/)
 
       const repoDryRun = await runCli([
         "repo",
         "create",
         "--assignment",
-        "assignment-1",
+        "lab01",
         "--dry-run",
       ])
       assert.equal(repoDryRun.exitCode, 0)
       assert.match(
         repoDryRun.stdout,
-        /Planned repository operation for assignment 'assignment-1' \(a1\)/,
+        /Planned repository operation for assignment 'lab01' \(a1\)/,
       )
       assert.match(repoDryRun.stdout, /^- .+\tgroup=.+\tassignment=.+$/m)
     })

@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker"
 import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
+  type MemberStatus,
   type PersistedAppSettings,
   type PersistedCourse,
   type UsernameTeam,
@@ -115,7 +116,7 @@ function fixtureSeed(tier: FixtureTier, preset: FixturePreset): number {
   const tierIndex =
     tier === "small" ? 0 : tier === "medium" ? 1 : tier === "stress" ? 2 : 0
   const presetIndex =
-    preset === "shared-teams" ? 0 : preset === "assignment-scoped" ? 1 : 2
+    preset === "shared-teams" ? 0 : preset === "task-groups" ? 3 : 2
   return baseSeed + tierIndex * 1_000 + presetIndex * 100
 }
 
@@ -130,12 +131,12 @@ function createStudents(count: number, startMemberSeq: number) {
 
     return {
       id: `m_${padNumber(memberSeq, 4)}`,
-      name: `${firstName} ${lastName}`,
+      name: `${lastName}, ${firstName}`,
       email: `${firstSlug}.${lastSlug}@example.edu`,
       studentNumber: `${100000 + ordinal}`,
       gitUsername: generateGitUsername(firstSlug, lastSlug),
       gitUsernameStatus: "unknown" as const,
-      status: "active" as const,
+      status: "active" as MemberStatus,
       lmsStatus: "active" as const,
       lmsUserId: `lms-s-${padNumber(ordinal, 4)}`,
       enrollmentType: "student" as const,
@@ -158,7 +159,7 @@ function createStaff(count: number, startMemberSeq: number) {
 
     return {
       id: `m_${padNumber(memberSeq, 4)}`,
-      name: `${firstName} ${lastName}`,
+      name: `${lastName}, ${firstName}`,
       email: `${firstSlug}.${lastSlug}@example.edu`,
       studentNumber: null,
       gitUsername: generateGitUsername(firstSlug, lastSlug),
@@ -187,7 +188,7 @@ function createSharedTeamsGroupModel(
     const groupSeq = startGroupSeq + index
     return {
       id: `g_${padNumber(groupSeq, 4)}`,
-      name: `grp${padNumber(index + 1, 2)}`,
+      name: `Team ${index + 1}`,
       memberIds,
       origin: "local" as const,
       lmsGroupId: null,
@@ -211,12 +212,12 @@ function createSharedTeamsGroupModel(
     assignments: [
       {
         id: "a1",
-        name: "assignment-1",
+        name: "lab01",
         groupSetId,
       },
       {
         id: "a2",
-        name: "assignment-2",
+        name: "lab02",
         groupSetId,
       },
     ],
@@ -225,12 +226,37 @@ function createSharedTeamsGroupModel(
   }
 }
 
-function createAssignmentScopedGroupModel(
+function createTaskGroupsGroupModel(
   studentIds: readonly string[],
-  sizes: readonly number[],
   startGroupSeq: number,
   startGroupSetSeq: number,
 ) {
+  const total = studentIds.length
+  const task1StudentCount = Math.round(total * (2 / 3))
+  const task1Sizes = buildMixedTeamSizes(task1StudentCount)
+  const task2Sizes = buildMixedTeamSizes(total - task1StudentCount)
+
+  let nextGroupSeq = startGroupSeq
+  let nextGroupSetSeq = startGroupSetSeq
+
+  const taskDefs = [
+    {
+      name: "Web API Teams",
+      sizes: task1Sizes,
+      students: studentIds.slice(0, task1StudentCount),
+      assignments: [
+        { id: "a1", name: "api-design" },
+        { id: "a2", name: "api-implementation" },
+      ],
+    },
+    {
+      name: "Data Pipeline Teams",
+      sizes: task2Sizes,
+      students: studentIds.slice(task1StudentCount),
+      assignments: [{ id: "a3", name: "data-pipeline" }],
+    },
+  ]
+
   const allGroups: Array<{
     id: string
     name: string
@@ -253,48 +279,42 @@ function createAssignmentScopedGroupModel(
   const assignments: Array<{ id: string; name: string; groupSetId: string }> =
     []
 
-  let nextGroupSeq = startGroupSeq
-  let nextGroupSetSeq = startGroupSetSeq
+  for (const def of taskDefs) {
+    const groupedMembers = splitMembersBySizes(def.students, def.sizes, 0)
 
-  for (const assignmentNumber of [1, 2] as const) {
-    const assignmentPrefix = `a${assignmentNumber}`
-    const groupedMembers = splitMembersBySizes(
-      studentIds,
-      sizes,
-      (assignmentNumber - 1) * 3,
-    )
-
-    const assignmentGroups = groupedMembers.map((memberIds, index) => {
-      const groupSuffix = padNumber(index + 1, 2)
+    const taskGroups = groupedMembers.map((memberIds, index) => {
       const groupSeq = nextGroupSeq + index
       return {
         id: `g_${padNumber(groupSeq, 4)}`,
-        name: `${assignmentPrefix}-grp${groupSuffix}`,
+        name: `Group ${index + 1}`,
         memberIds,
         origin: "local" as const,
         lmsGroupId: null,
       }
     })
-    nextGroupSeq += assignmentGroups.length
+    nextGroupSeq += taskGroups.length
+    allGroups.push(...taskGroups)
 
-    allGroups.push(...assignmentGroups)
     const groupSetId = `gs_${padNumber(nextGroupSetSeq, 4)}`
     nextGroupSetSeq += 1
     groupSets.push({
       id: groupSetId,
       nameMode: "named",
-      name: `Assignment ${assignmentNumber} Teams`,
-      groupIds: assignmentGroups.map((group) => group.id),
+      name: def.name,
+      groupIds: taskGroups.map((g) => g.id),
       connection: null,
       repoNameTemplate: null,
       columnVisibility: {},
       columnSizing: {},
     })
-    assignments.push({
-      id: assignmentPrefix,
-      name: `assignment-${assignmentNumber}`,
-      groupSetId,
-    })
+
+    for (const assignment of def.assignments) {
+      assignments.push({
+        id: assignment.id,
+        name: assignment.name,
+        groupSetId,
+      })
+    }
   }
 
   return {
@@ -349,7 +369,7 @@ function createRepobeeTeamsGroupModel(
     assignments: [
       {
         id: "a1",
-        name: "task1",
+        name: "lab1",
         groupSetId,
       },
     ],
@@ -400,9 +420,8 @@ function createArtifacts(
   }
 
   const preferredGroupSetId =
-    preset === "assignment-scoped"
-      ? (course.roster.assignments.find((assignment) => assignment.id === "a1")
-          ?.groupSetId ?? null)
+    preset === "task-groups"
+      ? (course.roster.assignments[0]?.groupSetId ?? null)
       : (course.roster.groupSets.find(
           (groupSet) => groupSet.name === "Project Teams",
         )?.id ?? null)
@@ -549,6 +568,9 @@ function createFixtureRecord(
   }
 
   const students = createStudents(counts.students, 1)
+  students[3].email = ""
+  students[3].status = "incomplete"
+  students[6].status = "dropped"
   const staff = createStaff(counts.staff, counts.students + 1)
   const studentIds = students.map((student) => student.id)
   const teamSizes = buildMixedTeamSizes(students.length)
@@ -556,14 +578,9 @@ function createFixtureRecord(
   let nextGroupSetSeq = 1
 
   const userGroups =
-    preset === "shared-teams"
-      ? createSharedTeamsGroupModel(
-          studentIds,
-          teamSizes,
-          nextGroupSeq,
-          nextGroupSetSeq,
-        )
-      : createAssignmentScopedGroupModel(
+    preset === "task-groups"
+      ? createTaskGroupsGroupModel(studentIds, nextGroupSeq, nextGroupSetSeq)
+      : createSharedTeamsGroupModel(
           studentIds,
           teamSizes,
           nextGroupSeq,
@@ -686,17 +703,17 @@ export function buildFixtureMatrix(): FixtureMatrix {
   return {
     small: {
       "shared-teams": createFixtureRecord("small", "shared-teams"),
-      "assignment-scoped": createFixtureRecord("small", "assignment-scoped"),
+      "task-groups": createFixtureRecord("small", "task-groups"),
       "repobee-teams": createFixtureRecord("small", "repobee-teams"),
     },
     medium: {
       "shared-teams": createFixtureRecord("medium", "shared-teams"),
-      "assignment-scoped": createFixtureRecord("medium", "assignment-scoped"),
+      "task-groups": createFixtureRecord("medium", "task-groups"),
       "repobee-teams": createFixtureRecord("medium", "repobee-teams"),
     },
     stress: {
       "shared-teams": createFixtureRecord("stress", "shared-teams"),
-      "assignment-scoped": createFixtureRecord("stress", "assignment-scoped"),
+      "task-groups": createFixtureRecord("stress", "task-groups"),
       "repobee-teams": createFixtureRecord("stress", "repobee-teams"),
     },
   }

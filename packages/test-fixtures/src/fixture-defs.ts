@@ -1,7 +1,7 @@
 export const fixtureTiers = ["small", "medium", "stress"] as const
 export const fixturePresets = [
   "shared-teams",
-  "assignment-scoped",
+  "task-groups",
   "repobee-teams",
 ] as const
 

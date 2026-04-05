@@ -15,7 +15,7 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopAppSettingsStore } from "./settings-store"
 
-const docsTaskGroupsPreset = "assignment-scoped" as const
+const docsTaskGroupsPreset = "task-groups" as const
 const docsReadableFilesPreset = "repobee-teams" as const
 
 export type DesktopFixtureSelection = {
@@ -37,43 +37,6 @@ function fixtureSourceToRosterConnectionKind(source: FixtureSource) {
   return source
 }
 
-function applyDocsTaskGroupSetup(course: PersistedCourse): PersistedCourse {
-  const nonSystemGroupSets = course.roster.groupSets.filter(
-    (groupSet) => groupSet.connection?.kind !== "system",
-  )
-  if (nonSystemGroupSets.length < 2) {
-    return course
-  }
-
-  const [task1GroupSet, task2GroupSet] = nonSystemGroupSets
-  const assignments = [
-    { id: "task1a", name: "task1a", groupSetId: task1GroupSet.id },
-    { id: "task1b", name: "task1b", groupSetId: task1GroupSet.id },
-    { id: "task2", name: "task2", groupSetId: task2GroupSet.id },
-  ]
-
-  return {
-    ...course,
-    idSequences: {
-      ...course.idSequences,
-      nextAssignmentSeq: assignments.length + 1,
-    },
-    roster: {
-      ...course.roster,
-      groupSets: course.roster.groupSets.map((groupSet) => {
-        if (groupSet.id === task1GroupSet.id) {
-          return { ...groupSet, name: "Task 1 Teams" }
-        }
-        if (groupSet.id === task2GroupSet.id) {
-          return { ...groupSet, name: "Task 2 Teams" }
-        }
-        return groupSet
-      }),
-      assignments,
-    },
-  }
-}
-
 function normalizeFixtureCourseForDesktop(
   selection: DesktopFixtureSelection,
   course: PersistedCourse,
@@ -82,10 +45,9 @@ function normalizeFixtureCourseForDesktop(
     return course
   }
 
-  const normalized = applyDocsTaskGroupSetup(course)
-  normalized.id = `fixture-${selection.tier}-${selection.source}`
-  normalized.displayName = `Fixture (${selection.tier}, ${selection.source})`
-  return normalized
+  course.id = `fixture-${selection.tier}-${selection.source}`
+  course.displayName = `Fixture (${selection.tier}, ${selection.source})`
+  return course
 }
 
 function fixtureArtifactPresetForDesktop(selection: DesktopFixtureSelection) {

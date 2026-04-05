@@ -176,7 +176,7 @@ describe("docs fixture integration: source parity", () => {
 })
 
 describe("docs fixture integration: repository planning by fixed task setup", () => {
-  it("task1a and task1b share one group set and match repo.create count", async () => {
+  it("api-design and api-implementation share one group set and match repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
       source: "canvas",
     })
@@ -188,32 +188,32 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const task1aPlan = planRepositoryOperation(course.roster, "task1a")
-    const task1bPlan = planRepositoryOperation(course.roster, "task1b")
+    const designPlan = planRepositoryOperation(course.roster, "a1")
+    const implPlan = planRepositoryOperation(course.roster, "a2")
 
-    const task1aGroupIds = plannedGroupIds(task1aPlan)
-    const task1bGroupIds = plannedGroupIds(task1bPlan)
-    assert.deepEqual(task1aGroupIds, task1bGroupIds)
-    assert.equal(task1aGroupIds.length > 0, true)
+    const designGroupIds = plannedGroupIds(designPlan)
+    const implGroupIds = plannedGroupIds(implPlan)
+    assert.deepEqual(designGroupIds, implGroupIds)
+    assert.equal(designGroupIds.length > 0, true)
 
-    const task1aResult = await runtime.workflowClient.run("repo.create", {
+    const designResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "task1a",
+      assignmentId: "a1",
       template: null,
     })
-    assert.equal(task1aResult.repositoriesPlanned, task1aGroupIds.length)
+    assert.equal(designResult.repositoriesPlanned, designGroupIds.length)
 
-    const task1bResult = await runtime.workflowClient.run("repo.create", {
+    const implResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "task1b",
+      assignmentId: "a2",
       template: null,
     })
-    assert.equal(task1bResult.repositoriesPlanned, task1bGroupIds.length)
+    assert.equal(implResult.repositoriesPlanned, implGroupIds.length)
   })
 
-  it("task2 isolates its group population from task1 and matches repo.create count", async () => {
+  it("data-pipeline isolates its group population from web-api and matches repo.create count", async () => {
     const runtime = createDocsDemoRuntime({
       source: "canvas",
     })
@@ -225,32 +225,32 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const task1aPlan = planRepositoryOperation(course.roster, "task1a")
-    const task2Plan = planRepositoryOperation(course.roster, "task2")
+    const designPlan = planRepositoryOperation(course.roster, "a1")
+    const pipelinePlan = planRepositoryOperation(course.roster, "a3")
 
-    const task1aGroupIds = plannedGroupIds(task1aPlan)
-    const task2GroupIds = plannedGroupIds(task2Plan)
-    const overlap = task1aGroupIds.filter((groupId) =>
-      task2GroupIds.includes(groupId),
+    const designGroupIds = plannedGroupIds(designPlan)
+    const pipelineGroupIds = plannedGroupIds(pipelinePlan)
+    const overlap = designGroupIds.filter((groupId) =>
+      pipelineGroupIds.includes(groupId),
     )
     assert.deepEqual(overlap, [])
-    assert.equal(task1aGroupIds.length > 0, true)
-    assert.equal(task2GroupIds.length > 0, true)
+    assert.equal(designGroupIds.length > 0, true)
+    assert.equal(pipelineGroupIds.length > 0, true)
 
-    const task1aResult = await runtime.workflowClient.run("repo.create", {
+    const designResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "task1a",
+      assignmentId: "a1",
       template: null,
     })
-    assert.equal(task1aResult.repositoriesPlanned, task1aGroupIds.length)
+    assert.equal(designResult.repositoriesPlanned, designGroupIds.length)
 
-    const task2Result = await runtime.workflowClient.run("repo.create", {
+    const pipelineResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "task2",
+      assignmentId: "a3",
       template: null,
     })
-    assert.equal(task2Result.repositoriesPlanned, task2GroupIds.length)
+    assert.equal(pipelineResult.repositoriesPlanned, pipelineGroupIds.length)
   })
 })

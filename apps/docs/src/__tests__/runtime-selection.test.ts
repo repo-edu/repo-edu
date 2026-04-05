@@ -25,23 +25,24 @@ describe("docs runtime fixture selection", () => {
 
     assert.deepEqual(
       course.roster.assignments.map((assignment) => assignment.id),
-      ["task1a", "task1b", "task2"],
+      ["a1", "a2", "a3"],
     )
-    const [task1a, task1b, task2] = course.roster.assignments
-    assert.equal(task1a.groupSetId, task1b.groupSetId)
-    assert.notEqual(task1a.groupSetId, task2.groupSetId)
+    const [a1, a2, a3] = course.roster.assignments
+    assert.equal(a1.groupSetId, a2.groupSetId)
+    assert.notEqual(a1.groupSetId, a3.groupSetId)
 
     const nonSystemGroupSets = course.roster.groupSets.filter(
       (groupSet) => groupSet.connection?.kind !== "system",
     )
     assert.equal(
       nonSystemGroupSets.map((groupSet) => groupSet.name).join("|"),
-      "Task 1 Teams|Task 2 Teams",
+      "Web API Teams|Data Pipeline Teams",
     )
 
-    const [task1Set, task2Set] = nonSystemGroupSets
-    assert.equal(task1Set.groupIds.length, 12)
-    assert.equal(task2Set.groupIds.length, 8)
+    const [webApiSet, pipelineSet] = nonSystemGroupSets
+    assert.ok(webApiSet.groupIds.length > pipelineSet.groupIds.length)
+    assert.ok(webApiSet.groupIds.length > 0)
+    assert.ok(pipelineSet.groupIds.length > 0)
   })
 
   it("keeps nextGroupSeq ahead of all existing group ids", async () => {

@@ -77,7 +77,7 @@ function cleanFixtureData() {
 }
 
 function toFixturePreset(source: string) {
-  return source === "file" ? "repobee-teams" : "assignment-scoped"
+  return source === "file" ? "repobee-teams" : "task-groups"
 }
 
 const { values } = parseCliArgs(process.argv.slice(2))

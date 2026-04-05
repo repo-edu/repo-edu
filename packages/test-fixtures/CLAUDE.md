@@ -4,7 +4,7 @@ Deterministic, runtime-generated fixture data for tests across the monorepo.
 
 ## Purpose
 
-Provides a matrix of `PersistedCourse` + `PersistedAppSettings` + CSV/JSON artifacts, keyed by tier (`small`/`medium`/`stress`) and preset (`shared-teams`/`assignment-scoped`).
+Provides a matrix of `PersistedCourse` + `PersistedAppSettings` + CSV/JSON artifacts, keyed by tier (`small`/`medium`/`stress`) and preset (`shared-teams`/`task-groups`/`repobee-teams`).
 
 - `src/fixture-defs.ts` — tier/preset definitions and guards
 - `src/generator-lib.ts` — seeded faker-based generation (students, staff, groups, assignments, artifacts); uses counter-based IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) with `idSequences` and `schemaVersion: 2`
