@@ -41,6 +41,7 @@ type AppSettingsActions = {
 
   setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
   setRosterColumnSizing: (sizing: Record<string, number>) => void
+  setGroupsSidebarSize: (size: number) => void
 
   reset: () => void
 }
@@ -233,6 +234,11 @@ export const useAppSettingsStore = create<
     setRosterColumnSizing: (sizing) =>
       set((state) => ({
         settings: { ...state.settings, rosterColumnSizing: sizing },
+      })),
+
+    setGroupsSidebarSize: (size) =>
+      set((state) => ({
+        settings: { ...state.settings, groupsSidebarSize: size },
       })),
 
     reset: () => set(initialState),

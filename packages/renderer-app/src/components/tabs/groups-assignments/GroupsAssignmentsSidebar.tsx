@@ -431,10 +431,7 @@ export function GroupsAssignmentsSidebar({
   )
 
   return (
-    <div
-      ref={sidebarRef}
-      className="flex flex-col h-full border-r w-64 overflow-y-auto"
-    >
+    <div ref={sidebarRef} className="flex flex-col h-full overflow-y-auto">
       {hasSystemGroups && (
         <div className="px-1">
           <SectionHeader>System Group Sets</SectionHeader>

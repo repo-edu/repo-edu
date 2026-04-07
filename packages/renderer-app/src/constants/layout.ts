@@ -3,3 +3,6 @@ export const WINDOW_MIN_SIZE = 100
 export const RESIZE_DEBOUNCE_MS = 300
 export const TAB_MIN_WIDTH = 400
 export const SUCCESS_FLASH_MS = 500
+export const GROUPS_SIDEBAR_DEFAULT_WIDTH_PX = 250
+export const GROUPS_SIDEBAR_MIN_WIDTH_PX = 220
+export const GROUPS_SIDEBAR_MAX_WIDTH_PX = 450

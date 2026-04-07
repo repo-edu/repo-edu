@@ -50,4 +50,5 @@ export const defaultAppSettings: PersistedAppSettings = {
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},
+  groupsSidebarSize: null,
 }
