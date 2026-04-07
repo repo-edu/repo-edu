@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  Users,
 } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -142,8 +143,9 @@ export function GroupSetItem({
     onRenameCancel?.()
   }, [groupSet.name, onRenameCancel])
 
+  const IconComponent = groupSet.nameMode === "named" ? Layers : Users
   const nameIcon = (
-    <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+    <IconComponent className="size-3.5 shrink-0 text-muted-foreground" />
   )
 
   return (
