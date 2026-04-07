@@ -185,6 +185,7 @@ function ensureStaffSet(
   sequences: IdSequences
 } {
   const groupsUpserted: Group[] = []
+  const deletedGroupIds: string[] = []
   let seq = sequences
 
   let setIndex = roster.groupSets.findIndex((groupSet) =>
@@ -219,7 +220,16 @@ function ensureStaffSet(
       setGroupIds.has(group.id),
   )
 
-  if (existingGroup !== undefined) {
+  if (activeStaffIds.length === 0) {
+    // No active staff — remove the staff group if it exists
+    if (existingGroup !== undefined) {
+      roster.groups = roster.groups.filter(
+        (group) => group.id !== existingGroup.id,
+      )
+      set.groupIds = set.groupIds.filter((id) => id !== existingGroup.id)
+      deletedGroupIds.push(existingGroup.id)
+    }
+  } else if (existingGroup !== undefined) {
     const nameChanged = existingGroup.name !== STAFF_GROUP_NAME
     if (nameChanged) {
       existingGroup.name = STAFF_GROUP_NAME
@@ -251,7 +261,7 @@ function ensureStaffSet(
   return {
     groupSet: { ...roster.groupSets[setIndex] },
     groupsUpserted,
-    deletedGroupIds: [],
+    deletedGroupIds,
     sequences: seq,
   }
 }

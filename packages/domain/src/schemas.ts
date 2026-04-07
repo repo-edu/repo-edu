@@ -10,7 +10,6 @@ import {
   gitProviderKinds,
   gitUsernameStatusKinds,
   groupOriginKinds,
-  lmsProviderKinds,
   memberStatusKinds,
   persistedAppSettingsKind,
   persistedCourseKind,
@@ -22,7 +21,7 @@ import {
 
 const persistedLmsConnectionSchema = z.object({
   name: z.string(),
-  provider: z.enum(lmsProviderKinds),
+  provider: z.enum(["canvas", "moodle"]),
   baseUrl: z.string(),
   token: z.string(),
   userAgent: z.string().optional(),

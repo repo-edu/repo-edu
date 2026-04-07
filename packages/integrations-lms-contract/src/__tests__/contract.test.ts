@@ -1,16 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { lmsProviderKinds } from "@repo-edu/domain/types"
 import type { LmsClient } from "../index.js"
 import { packageId, supportedLmsProviders } from "../index.js"
 
 describe("integrations-lms-contract", () => {
   it("exports the correct packageId", () => {
     assert.equal(packageId, "@repo-edu/integrations-lms-contract")
-  })
-
-  it("supportedLmsProviders matches domain lmsProviderKinds", () => {
-    assert.deepEqual([...supportedLmsProviders], [...lmsProviderKinds])
   })
 
   it("supportedLmsProviders contains canvas and moodle", () => {

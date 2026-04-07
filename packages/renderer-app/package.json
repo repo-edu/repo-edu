@@ -12,6 +12,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
+    "@repo-edu/integrations-lms-contract": "workspace:*",
     "@repo-edu/renderer-host-contract": "workspace:*",
     "@repo-edu/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",

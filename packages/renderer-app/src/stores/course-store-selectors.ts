@@ -6,6 +6,7 @@ import type {
   RosterMember,
 } from "@repo-edu/domain/types"
 import type { CourseState } from "./slices/types.js"
+import { isLmsGroupSetConnection } from "../utils/lms-provider.js"
 
 // Selectors
 // ---------------------------------------------------------------------------
@@ -110,9 +111,8 @@ export const selectSystemGroupSet =
     ) ?? null
 
 export const selectConnectedGroupSets = makeRosterDerivedSelector((roster) => {
-  const next = roster.groupSets.filter(
-    (gs) =>
-      gs.connection?.kind === "canvas" || gs.connection?.kind === "moodle",
+  const next = roster.groupSets.filter((gs) =>
+    isLmsGroupSetConnection(gs.connection),
   )
   return next.length > 0 ? next : EMPTY_GROUP_SETS
 }, EMPTY_GROUP_SETS)

@@ -3,7 +3,6 @@ export const packageId = "@repo-edu/domain"
 export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
 export const persistedCourseKind = "repo-edu.course.v1" as const
 
-export const lmsProviderKinds = ["canvas", "moodle"] as const
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
 export const gitUsernameStatusKinds = ["unknown", "valid", "invalid"] as const
 export const memberStatusKinds = ["active", "incomplete", "dropped"] as const
@@ -17,7 +16,7 @@ export const enrollmentTypeKinds = [
 ] as const
 export const groupOriginKinds = ["system", "lms", "local"] as const
 
-export type LmsProviderKind = (typeof lmsProviderKinds)[number]
+export type LmsProviderKind = "canvas" | "moodle"
 export type GitProviderKind = (typeof gitProviderKinds)[number]
 export type ProviderKind = LmsProviderKind | GitProviderKind | "git"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]

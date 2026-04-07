@@ -19,6 +19,10 @@ import {
 import { useToastStore } from "../../../stores/toast-store.js"
 import { exportGroupSet } from "../../../utils/export-group-set.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
+import {
+  isLmsGroupSetConnection,
+  isLmsRosterConnection,
+} from "../../../utils/lms-provider.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupSetItem } from "./GroupSetItem.js"
 
@@ -84,7 +88,7 @@ function buildGroupSetActions(
   const connection = groupSet.connection
   const kind = connection ? connection.kind : "local"
   const isNameEditable = kind === "local" || kind === "import"
-  const isLms = kind === "canvas" || kind === "moodle"
+  const isLms = isLmsGroupSetConnection(connection)
   const isImported = kind === "import"
   const isSystem = kind === "system"
 
@@ -189,6 +193,9 @@ export function GroupsAssignmentsSidebar({
   const localSets = useCourseStore(selectLocalGroupSets)
   const allGroupSets = useCourseStore(selectGroupSets)
   const roster = useCourseStore((s) => s.course?.roster ?? null)
+  const hasLmsConnection = useCourseStore((s) =>
+    isLmsRosterConnection(s.course?.roster?.connection),
+  )
   const renameGroupSet = useCourseStore((s) => s.renameGroupSet)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
@@ -279,6 +286,15 @@ export function GroupsAssignmentsSidebar({
     return sets
   }, [individualStudentsSet, staffSet])
 
+  const hasSystemGroups = useMemo(() => {
+    const knownGroupIds = new Set(roster?.groups.map((g) => g.id) ?? [])
+    return systemSets.some((set) =>
+      set.nameMode === "named"
+        ? set.groupIds.some((id) => knownGroupIds.has(id))
+        : set.teams.length > 0,
+    )
+  }, [systemSets, roster])
+
   const hasAnyGroupSets = allGroupSets.length > 0
 
   const groupCountByGroupSetId = useMemo(() => {
@@ -348,11 +364,11 @@ export function GroupsAssignmentsSidebar({
       }
     }
 
-    appendRows(systemRows)
-    appendRows(connectedRows)
+    if (hasSystemGroups) appendRows(systemRows)
+    if (hasLmsConnection || connectedRows.length > 0) appendRows(connectedRows)
     appendRows(localRows)
     return items
-  }, [systemRows, connectedRows, localRows])
+  }, [systemRows, connectedRows, localRows, hasSystemGroups, hasLmsConnection])
 
   const activeItemId = useMemo(() => {
     const selectedItemId = selectionToItemId(selection)
@@ -419,9 +435,9 @@ export function GroupsAssignmentsSidebar({
       ref={sidebarRef}
       className="flex flex-col h-full border-r w-64 overflow-y-auto"
     >
-      <div className="px-1">
-        <SectionHeader>System Group Sets</SectionHeader>
-        {systemRows.length > 0 && (
+      {hasSystemGroups && (
+        <div className="px-1">
+          <SectionHeader>System Group Sets</SectionHeader>
           <GroupSetList
             rows={systemRows}
             selection={selection}
@@ -435,45 +451,47 @@ export function GroupsAssignmentsSidebar({
             onRenameCancel={handleRenameCancel}
             actionSetters={actionSetters}
           />
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="px-1">
-        <SectionHeader
-          action={
-            <button
-              type="button"
-              className={cn(
-                "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
-                "text-muted-foreground hover:bg-muted/50 transition-colors",
-              )}
-              onClick={onConnectGroupSet}
+      {(hasLmsConnection || connectedRows.length > 0) && (
+        <div className="px-1">
+          <SectionHeader
+            action={
+              <button
+                type="button"
+                className={cn(
+                  "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
+                  "text-muted-foreground hover:bg-muted/50 transition-colors",
+                )}
+                onClick={onConnectGroupSet}
+                disabled={isOperationActive}
+                aria-label="Add LMS group set"
+                title="Add LMS group set"
+              >
+                <Plus className="size-3.5" />
+              </button>
+            }
+          >
+            LMS Group Sets
+          </SectionHeader>
+          {connectedRows.length > 0 && (
+            <GroupSetList
+              rows={connectedRows}
+              selection={selection}
+              activeItemId={activeItemId}
+              editingGroupSetId={editingGroupSetId}
+              busyGroupSetId={busyGroupSetId}
               disabled={isOperationActive}
-              aria-label="Add LMS group set"
-              title="Add LMS group set"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          }
-        >
-          LMS Group Sets
-        </SectionHeader>
-        {connectedRows.length > 0 && (
-          <GroupSetList
-            rows={connectedRows}
-            selection={selection}
-            activeItemId={activeItemId}
-            editingGroupSetId={editingGroupSetId}
-            busyGroupSetId={busyGroupSetId}
-            disabled={isOperationActive}
-            onSelect={onSelect}
-            onKeyDown={handleKeyDown}
-            onRenameSubmit={handleRenameSubmit}
-            onRenameCancel={handleRenameCancel}
-            actionSetters={actionSetters}
-          />
-        )}
-      </div>
+              onSelect={onSelect}
+              onKeyDown={handleKeyDown}
+              onRenameSubmit={handleRenameSubmit}
+              onRenameCancel={handleRenameCancel}
+              actionSetters={actionSetters}
+            />
+          )}
+        </div>
+      )}
 
       <div className="px-1">
         <SectionHeader
