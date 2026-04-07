@@ -1,3 +1,4 @@
+import type { GroupSetImportFormat } from "@repo-edu/domain/types"
 import { useCallback, useRef } from "react"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
@@ -18,9 +19,7 @@ export function GroupsAssignmentsTab() {
   const setConnectLmsGroupSetDialogOpen = useUiStore(
     (s) => s.setConnectLmsGroupSetDialogOpen,
   )
-  const setImportGroupSetDialogOpen = useUiStore(
-    (s) => s.setImportGroupSetDialogOpen,
-  )
+  const setImportGroupSetFormat = useUiStore((s) => s.setImportGroupSetFormat)
 
   const handleCreateLocalGroupSet = useCallback(() => {
     setNewLocalGroupSetDialogOpen(true)
@@ -30,9 +29,12 @@ export function GroupsAssignmentsTab() {
     setConnectLmsGroupSetDialogOpen(true)
   }, [setConnectLmsGroupSetDialogOpen])
 
-  const handleImportGroupSet = useCallback(() => {
-    setImportGroupSetDialogOpen(true)
-  }, [setImportGroupSetDialogOpen])
+  const handleImportGroupSet = useCallback(
+    (format: GroupSetImportFormat) => {
+      setImportGroupSetFormat(format)
+    },
+    [setImportGroupSetFormat],
+  )
 
   const handleRequestFocusPanel = useCallback(() => {
     if (!panelRef.current) return

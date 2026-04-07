@@ -1,4 +1,7 @@
-import type { CourseSummary } from "@repo-edu/domain/types"
+import type {
+  CourseSummary,
+  GroupSetImportFormat,
+} from "@repo-edu/domain/types"
 import { create } from "zustand"
 import type { ActiveTab } from "../types/index.js"
 
@@ -44,7 +47,6 @@ type UiState = {
   importGitUsernamesDialogOpen: boolean
   usernameVerificationDialogOpen: boolean
   newAssignmentDialogOpen: boolean
-  fileImportExportOpen: boolean
   issuesSheetOpen: boolean
   validationDialogOpen: boolean
   preflightDialogOpen: boolean
@@ -52,7 +54,7 @@ type UiState = {
   // Group set dialogs
   connectLmsGroupSetDialogOpen: boolean
   newLocalGroupSetDialogOpen: boolean
-  importGroupSetDialogOpen: boolean
+  importGroupSetFormat: GroupSetImportFormat | null
   reimportGroupSetTargetId: string | null
   copyGroupSetSourceId: string | null
   deleteGroupSetTargetId: string | null
@@ -74,7 +76,6 @@ type UiState = {
 
   // Sidebar action triggers
   renameGroupSetTriggerId: string | null
-  exportGroupSetTriggerId: string | null
   syncGroupSetTriggerId: string | null
 
   // Course list cache
@@ -97,14 +98,13 @@ type UiActions = {
   setImportGitUsernamesDialogOpen: (open: boolean) => void
   setUsernameVerificationDialogOpen: (open: boolean) => void
   setNewAssignmentDialogOpen: (open: boolean) => void
-  setFileImportExportOpen: (open: boolean) => void
   setIssuesSheetOpen: (open: boolean) => void
   setValidationDialogOpen: (open: boolean) => void
   setPreflightDialogOpen: (open: boolean) => void
 
   setConnectLmsGroupSetDialogOpen: (open: boolean) => void
   setNewLocalGroupSetDialogOpen: (open: boolean) => void
-  setImportGroupSetDialogOpen: (open: boolean) => void
+  setImportGroupSetFormat: (format: GroupSetImportFormat | null) => void
   setReimportGroupSetTargetId: (id: string | null) => void
   setCopyGroupSetSourceId: (id: string | null) => void
   setDeleteGroupSetTargetId: (id: string | null) => void
@@ -130,7 +130,6 @@ type UiActions = {
   ) => void
 
   setRenameGroupSetTriggerId: (id: string | null) => void
-  setExportGroupSetTriggerId: (id: string | null) => void
   setSyncGroupSetTriggerId: (id: string | null) => void
 
   setCourseList: (list: CourseSummary[]) => void
@@ -154,14 +153,13 @@ const initialState: UiState = {
   importGitUsernamesDialogOpen: false,
   usernameVerificationDialogOpen: false,
   newAssignmentDialogOpen: false,
-  fileImportExportOpen: false,
   issuesSheetOpen: false,
   validationDialogOpen: false,
   preflightDialogOpen: false,
 
   connectLmsGroupSetDialogOpen: false,
   newLocalGroupSetDialogOpen: false,
-  importGroupSetDialogOpen: false,
+  importGroupSetFormat: null,
   reimportGroupSetTargetId: null,
   copyGroupSetSourceId: null,
   deleteGroupSetTargetId: null,
@@ -178,7 +176,6 @@ const initialState: UiState = {
   groupOperationSectionByGroupSet: {},
 
   renameGroupSetTriggerId: null,
-  exportGroupSetTriggerId: null,
   syncGroupSetTriggerId: null,
 
   courseList: [],
@@ -238,8 +235,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "usernameVerificationDialogOpen", open)),
   setNewAssignmentDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newAssignmentDialogOpen", open)),
-  setFileImportExportOpen: (open) =>
-    set((state) => setIfChanged(state, "fileImportExportOpen", open)),
   setIssuesSheetOpen: (open) =>
     set((state) => setIfChanged(state, "issuesSheetOpen", open)),
   setValidationDialogOpen: (open) =>
@@ -251,8 +246,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "connectLmsGroupSetDialogOpen", open)),
   setNewLocalGroupSetDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newLocalGroupSetDialogOpen", open)),
-  setImportGroupSetDialogOpen: (open) =>
-    set((state) => setIfChanged(state, "importGroupSetDialogOpen", open)),
+  setImportGroupSetFormat: (format) =>
+    set((state) => setIfChanged(state, "importGroupSetFormat", format)),
   setReimportGroupSetTargetId: (id) =>
     set((state) => setIfChanged(state, "reimportGroupSetTargetId", id)),
   setCopyGroupSetSourceId: (id) =>
@@ -332,8 +327,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 
   setRenameGroupSetTriggerId: (id) =>
     set((state) => setIfChanged(state, "renameGroupSetTriggerId", id)),
-  setExportGroupSetTriggerId: (id) =>
-    set((state) => setIfChanged(state, "exportGroupSetTriggerId", id)),
   setSyncGroupSetTriggerId: (id) =>
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 

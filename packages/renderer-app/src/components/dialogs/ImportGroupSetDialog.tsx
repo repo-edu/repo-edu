@@ -1,4 +1,7 @@
-import type { GroupSetImportPreview } from "@repo-edu/domain/types"
+import type {
+  GroupSetImportFormat,
+  GroupSetImportPreview,
+} from "@repo-edu/domain/types"
 import {
   Alert,
   Button,
@@ -10,34 +13,27 @@ import {
   DialogTitle,
   FormField,
   Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
   Text,
 } from "@repo-edu/ui"
 
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useCourseStore } from "../../stores/course-store.js"
+import {
+  selectGroupSetById,
+  useCourseStore,
+} from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
-type GroupSetImportFormat = "group-set-csv" | "repobee-students"
+const FORMAT_HINTS: Record<GroupSetImportFormat, string> = {
+  "group-set-csv": "CSV — named groups with member emails",
+  "repobee-students": "TXT — unnamed teams with usernames",
+}
 
-function inferFormatFromFileRef(file: {
-  displayName: string
-  mediaType: string | null
-}): GroupSetImportFormat | null {
-  const lowered = file.displayName.toLowerCase()
-  if (lowered.endsWith(".csv") || file.mediaType === "text/csv") {
-    return "group-set-csv"
-  }
-  if (lowered.endsWith(".txt") || file.mediaType === "text/plain") {
-    return "repobee-students"
-  }
-  return null
+function nameModeToFormat(nameMode: "named" | "unnamed"): GroupSetImportFormat {
+  return nameMode === "named" ? "group-set-csv" : "repobee-students"
 }
 
 export function ImportGroupSetDialog() {
@@ -49,21 +45,57 @@ export function ImportGroupSetDialog() {
     mediaType: string | null
     byteLength: number | null
   } | null>(null)
-  const [format, setFormat] = useState<GroupSetImportFormat>("group-set-csv")
   const [preview, setPreview] = useState<GroupSetImportPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const open = useUiStore((state) => state.importGroupSetDialogOpen)
-  const setOpen = useUiStore((state) => state.setImportGroupSetDialogOpen)
+  // New-import trigger
+  const newImportFormat = useUiStore((state) => state.importGroupSetFormat)
+  const setNewImportFormat = useUiStore(
+    (state) => state.setImportGroupSetFormat,
+  )
+
+  // Reimport trigger
+  const reimportTargetId = useUiStore((state) => state.reimportGroupSetTargetId)
+  const setReimportTargetId = useUiStore(
+    (state) => state.setReimportGroupSetTargetId,
+  )
+
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
   const setRoster = useCourseStore((state) => state.setRoster)
   const setIdSequences = useCourseStore((state) => state.setIdSequences)
 
-  const canImport = preview !== null && fileRef !== null && !importing
+  const reimportGroupSet = useCourseStore(
+    selectGroupSetById(reimportTargetId ?? ""),
+  )
+
+  // Clear stale reimport target when the group set no longer exists
+  useEffect(() => {
+    if (reimportTargetId !== null && !reimportGroupSet) {
+      setReimportTargetId(null)
+    }
+  }, [reimportTargetId, reimportGroupSet, setReimportTargetId])
+
+  // Derived state — isReimport requires the target group set to exist
+  const isReimport = reimportTargetId !== null && reimportGroupSet !== null
+  const format: GroupSetImportFormat | null = isReimport
+    ? nameModeToFormat(reimportGroupSet.nameMode)
+    : newImportFormat
+  const open = format !== null
+
+  const canImport =
+    preview !== null && fileRef !== null && format !== null && !importing
+
+  const title = isReimport
+    ? `Import: ${reimportGroupSet?.name ?? "Group Set"}`
+    : format === "group-set-csv"
+      ? "Import Named Groups"
+      : "Import Unnamed Teams"
+
+  const targetGroupSetId = isReimport ? reimportTargetId : null
 
   const previewSummary = useMemo(() => {
     if (!preview) return null
@@ -90,7 +122,7 @@ export function ImportGroupSetDialog() {
         course,
         file: nextFileRef,
         format: nextFormat,
-        targetGroupSetId: null,
+        targetGroupSetId,
       })
       setPreview(result)
     } catch (cause) {
@@ -102,30 +134,35 @@ export function ImportGroupSetDialog() {
   }
 
   const handleBrowse = async () => {
+    if (!format) return
     try {
       const host = getRendererHost()
+      const acceptFormats =
+        format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
       const picked = await host.pickUserFile({
         title: "Select group-set import file",
-        acceptFormats: ["csv", "txt"],
+        acceptFormats,
       })
       if (!picked) return
 
-      const inferred = inferFormatFromFileRef(picked) ?? "group-set-csv"
       setFileRef(picked)
       setFileName(picked.displayName)
-      setFormat(inferred)
-      await runPreview(picked, inferred)
+      await runPreview(picked, format)
     } catch (cause) {
       setError(getErrorMessage(cause))
     }
   }
 
   const handleImport = async () => {
-    if (!canImport || !course || !fileRef) return
+    if (!canImport || !course || !fileRef || !format) return
 
     setImporting(true)
     setError(null)
-    setGroupSetOperation({ kind: "import" })
+    setGroupSetOperation(
+      isReimport
+        ? { kind: "reimport", groupSetId: reimportTargetId as string }
+        : { kind: "import" },
+    )
 
     try {
       const client = getWorkflowClient()
@@ -133,17 +170,22 @@ export function ImportGroupSetDialog() {
         course,
         file: fileRef,
         format,
-        targetGroupSetId: null,
+        targetGroupSetId,
       })
 
-      setRoster(nextCourse.roster, "Import group set from file")
+      const actionLabel = isReimport
+        ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
+        : "Import group set from file"
+      setRoster(nextCourse.roster, actionLabel)
       setIdSequences(nextCourse.idSequences)
 
-      const importedSet = [...nextCourse.roster.groupSets]
-        .reverse()
-        .find((groupSet) => groupSet.connection?.kind === "import")
-      if (importedSet) {
-        setSidebarSelection({ kind: "group-set", id: importedSet.id })
+      if (!isReimport) {
+        const importedSet = [...nextCourse.roster.groupSets]
+          .reverse()
+          .find((groupSet) => groupSet.connection?.kind === "import")
+        if (importedSet) {
+          setSidebarSelection({ kind: "group-set", id: importedSet.id })
+        }
       }
 
       handleClose()
@@ -156,11 +198,11 @@ export function ImportGroupSetDialog() {
   }
 
   const handleClose = () => {
-    setOpen(false)
+    setNewImportFormat(null)
+    setReimportTargetId(null)
     setGroupSetOperation(null)
     setFileName("")
     setFileRef(null)
-    setFormat("group-set-csv")
     setPreview(null)
     setLoading(false)
     setImporting(false)
@@ -171,7 +213,7 @@ export function ImportGroupSetDialog() {
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Import Group Set</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
           {error && (
@@ -199,36 +241,11 @@ export function ImportGroupSetDialog() {
                 Browse
               </Button>
             </div>
-          </FormField>
-
-          <FormField label="Format">
-            <RadioGroup
-              value={format}
-              onValueChange={(value) => {
-                const next = value as GroupSetImportFormat
-                setFormat(next)
-                if (fileRef) {
-                  void runPreview(fileRef, next)
-                }
-              }}
-              className="space-y-2"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="group-set-csv" id="import-format-csv" />
-                <Label htmlFor="import-format-csv" className="text-sm">
-                  CSV (group_name,name,email)
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem
-                  value="repobee-students"
-                  id="import-format-repobee"
-                />
-                <Label htmlFor="import-format-repobee" className="text-sm">
-                  RepoBee students file (.txt)
-                </Label>
-              </div>
-            </RadioGroup>
+            {format && (
+              <Text className="text-xs text-muted-foreground mt-1">
+                Format: {FORMAT_HINTS[format]}
+              </Text>
+            )}
           </FormField>
 
           {loading && (
@@ -248,7 +265,11 @@ export function ImportGroupSetDialog() {
             Cancel
           </Button>
           <Button onClick={handleImport} disabled={!canImport}>
-            {importing ? "Importing..." : "Import"}
+            {importing
+              ? "Importing..."
+              : isReimport
+                ? "Confirm Import"
+                : "Import"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,4 @@
-import type { GroupSet } from "@repo-edu/domain/types"
+import type { GroupSet, GroupSetImportFormat } from "@repo-edu/domain/types"
 import {
   cn,
   DropdownMenu,
@@ -16,6 +16,9 @@ import {
   selectSystemGroupSet,
   useCourseStore,
 } from "../../../stores/course-store.js"
+import { useToastStore } from "../../../stores/toast-store.js"
+import { exportGroupSet } from "../../../utils/export-group-set.js"
+import { getErrorMessage } from "../../../utils/error-message.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupSetItem } from "./GroupSetItem.js"
 
@@ -26,7 +29,7 @@ type GroupsAssignmentsSidebarProps = {
   onSelect: (selection: SidebarSelection) => void
   onConnectGroupSet: () => void
   onCreateLocalGroupSet: () => void
-  onImportGroupSet: () => void
+  onImportGroupSet: (format: GroupSetImportFormat) => void
   onRequestFocusPanel?: () => void
 }
 
@@ -70,7 +73,7 @@ function buildGroupSetActions(
     setRenameGroupSetTriggerId: (id: string | null) => void
     setSyncGroupSetTriggerId: (id: string | null) => void
     setReimportGroupSetTargetId: (id: string | null) => void
-    setExportGroupSetTriggerId: (id: string | null) => void
+    onExportGroupSet: (groupSet: GroupSet) => void
     setCopyGroupSetSourceId: (id: string | null) => void
     setDeleteGroupSetTargetId: (id: string | null) => void
     setNewAssignmentDialogOpen: (open: boolean) => void
@@ -104,7 +107,7 @@ function buildGroupSetActions(
     onReimport: isImported
       ? withSelect(() => setters.setReimportGroupSetTargetId(groupSetId))
       : undefined,
-    onExport: withSelect(() => setters.setExportGroupSetTriggerId(groupSetId)),
+    onExport: withSelect(() => setters.onExportGroupSet(groupSet)),
     onCopy:
       groupSet.nameMode === "named"
         ? withSelect(() => setters.setCopyGroupSetSourceId(groupSetId))
@@ -201,9 +204,6 @@ export function GroupsAssignmentsSidebar({
   const setReimportGroupSetTargetId = useUiStore(
     (s) => s.setReimportGroupSetTargetId,
   )
-  const setExportGroupSetTriggerId = useUiStore(
-    (s) => s.setExportGroupSetTriggerId,
-  )
   const setCopyGroupSetSourceId = useUiStore((s) => s.setCopyGroupSetSourceId)
   const setDeleteGroupSetTargetId = useUiStore(
     (s) => s.setDeleteGroupSetTargetId,
@@ -213,12 +213,25 @@ export function GroupsAssignmentsSidebar({
   )
   const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
 
+  const course = useCourseStore((s) => s.course)
+  const addToast = useToastStore((s) => s.addToast)
+
+  const onExportGroupSet = useCallback(
+    (groupSet: GroupSet) => {
+      if (!course) return
+      exportGroupSet(course, groupSet).catch((cause) => {
+        addToast(`Export failed: ${getErrorMessage(cause)}`, { tone: "error" })
+      })
+    },
+    [course, addToast],
+  )
+
   const actionSetters = useMemo(
     () => ({
       setRenameGroupSetTriggerId,
       setSyncGroupSetTriggerId,
       setReimportGroupSetTargetId,
-      setExportGroupSetTriggerId,
+      onExportGroupSet,
       setCopyGroupSetSourceId,
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
@@ -228,7 +241,7 @@ export function GroupsAssignmentsSidebar({
       setRenameGroupSetTriggerId,
       setSyncGroupSetTriggerId,
       setReimportGroupSetTargetId,
-      setExportGroupSetTriggerId,
+      onExportGroupSet,
       setCopyGroupSetSourceId,
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
@@ -490,10 +503,17 @@ export function GroupsAssignmentsSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={isOperationActive}
-                  onClick={onImportGroupSet}
+                  onClick={() => onImportGroupSet("group-set-csv")}
                 >
                   <Download className="size-3.5 mr-2" />
-                  Import from CSV
+                  Import named groups (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isOperationActive}
+                  onClick={() => onImportGroupSet("repobee-students")}
+                >
+                  <Download className="size-3.5 mr-2" />
+                  Import unnamed teams (TXT)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -520,7 +540,7 @@ export function GroupsAssignmentsSidebar({
 
       {!hasAnyGroupSets && (
         <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-          Create a local group set, import from CSV, or sync from LMS.
+          Create a local group set, import from file, or sync from LMS.
         </div>
       )}
     </div>

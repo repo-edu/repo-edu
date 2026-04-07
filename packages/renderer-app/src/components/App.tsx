@@ -51,7 +51,6 @@ import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
 import { NewCourseDialog } from "./dialogs/NewCourseDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
 import { PreflightDialog } from "./dialogs/PreflightDialog.js"
-import { ReimportGroupSetDialog } from "./dialogs/ReimportGroupSetDialog.js"
 import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
@@ -59,7 +58,6 @@ import { IssuesButton } from "./IssuesButton.js"
 import { SettingsButton } from "./SettingsButton.js"
 import { SyncErrorBanner } from "./SyncErrorBanner.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
-import { FileImportExportSheet } from "./sheets/FileImportExportSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
 import { ToastStack } from "./ToastStack.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
@@ -273,7 +271,6 @@ function AppShell() {
       <ConnectLmsGroupSetDialog />
       <NewLocalGroupSetDialog />
       <ImportGroupSetDialog />
-      <ReimportGroupSetDialog />
       <CopyGroupSetDialog />
       <DeleteGroupSetDialog />
       <DeleteGroupDialog />
@@ -292,7 +289,6 @@ function AppShell() {
       <LmsImportConflictDialog />
 
       {/* Sheets */}
-      <FileImportExportSheet />
       <IssuesSheet />
       <SettingsSheet />
 
