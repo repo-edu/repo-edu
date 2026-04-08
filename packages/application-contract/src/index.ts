@@ -1,4 +1,12 @@
 import type {
+  AnalysisBlameConfig,
+  AnalysisConfig,
+  AnalysisResult,
+  AnalysisRosterContext,
+  BlameResult,
+  PersonDbSnapshot,
+} from "@repo-edu/domain/analysis"
+import type {
   CourseSummary,
   ExportFormat,
   GitProviderKind,
@@ -356,6 +364,35 @@ export type UserFileExportPreviewResult = {
   savedAt: string
 }
 
+export type AnalysisProgress = {
+  phase: string
+  label: string
+  processedFiles: number
+  totalFiles: number
+  processedCommits?: number
+  totalCommits?: number
+  currentFile?: string
+}
+
+export type AnalysisRepositoryInput = {
+  course: PersistedCourse
+  repositoryRelativePath: string
+}
+
+export type AnalysisRunInput = AnalysisRepositoryInput & {
+  config: AnalysisConfig
+  rosterContext?: AnalysisRosterContext
+  asOfCommit?: string
+}
+
+export type AnalysisBlameInput = AnalysisRepositoryInput & {
+  config: AnalysisBlameConfig
+  personDbBaseline: PersonDbSnapshot
+  personDbOverlay?: PersonDbSnapshot
+  files: string[]
+  asOfCommit: string
+}
+
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -513,6 +550,18 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: UserFileExportPreviewResult
   }
+  "analysis.run": {
+    input: AnalysisRunInput
+    progress: AnalysisProgress
+    output: DiagnosticOutput
+    result: AnalysisResult
+  }
+  "analysis.blame": {
+    input: AnalysisBlameInput
+    progress: AnalysisProgress
+    output: DiagnosticOutput
+    result: BlameResult
+  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -650,6 +699,16 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   "userFile.exportPreview": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "analysis.run": {
+    delivery: ["desktop", "docs"],
+    progress: "granular",
+    cancellation: "cooperative",
+  },
+  "analysis.blame": {
+    delivery: ["desktop", "docs"],
+    progress: "granular",
     cancellation: "cooperative",
   },
 }

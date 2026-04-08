@@ -1,4 +1,5 @@
 import {
+  createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
@@ -361,6 +362,9 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       git: gitPorts,
       gitCommand: gitCommandPort,
       fileSystem: fileSystemPort,
+    }),
+    ...createAnalysisWorkflowHandlers({
+      gitCommand: gitCommandPort,
     }),
     "userFile.inspectSelection": (
       input: UserFileRef,

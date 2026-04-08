@@ -1,6 +1,7 @@
 import {
   type AppSettingsStore,
   type CourseStore,
+  createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
@@ -75,6 +76,9 @@ function createDesktopWorkflowRegistry(
       git,
       gitCommand: ports.gitCommand,
       fileSystem: ports.fileSystem,
+    }),
+    ...createAnalysisWorkflowHandlers({
+      gitCommand: ports.gitCommand,
     }),
     "userFile.inspectSelection": (input, options) =>
       runInspectUserFileWorkflow(ports.userFile, input, options),

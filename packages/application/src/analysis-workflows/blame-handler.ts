@@ -1,0 +1,496 @@
+import type {
+  AnalysisBlameConfig,
+  BlameAuthorSummary,
+  BlameResult,
+  FileBlame,
+  PersonDbDelta,
+} from "@repo-edu/domain/analysis"
+import {
+  applyBlameToPersonDb,
+  classifyCommentLines,
+  clonePersonDbSnapshot,
+  extensionToLanguage,
+  validateAnalysisBlameConfig,
+} from "@repo-edu/domain/analysis"
+import type {
+  AnalysisBlameInput,
+  AnalysisProgress,
+  AppError,
+  DiagnosticOutput,
+  WorkflowCallOptions,
+  WorkflowHandlerMap,
+} from "@repo-edu/application-contract"
+import { createValidationAppError } from "../core.js"
+import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
+import type { AnalysisWorkflowPorts } from "./ports.js"
+import { parseBlameOutput } from "./blame-parser.js"
+import { fnmatchFilter } from "./filter-utils.js"
+import { resolveAnalysisRepoRoot } from "./repo-root.js"
+import { resolveSnapshotHead } from "./snapshot-engine.js"
+
+// ---------------------------------------------------------------------------
+// Bounded concurrent execution
+// ---------------------------------------------------------------------------
+
+async function mapBounded<T, R>(
+  items: T[],
+  maxConcurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await fn(items[index])
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(maxConcurrency, items.length) },
+    () => worker(),
+  )
+  await Promise.all(workers)
+  return results
+}
+
+// ---------------------------------------------------------------------------
+// Git blame command construction
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy-move flag mapping (Python parity):
+ * 0 = no detection, 1 = -M, 2 = -C, 3 = -C -C, 4 = -C -C -C
+ */
+const COPY_MOVE_FLAGS: Record<number, string[]> = {
+  0: [],
+  1: ["-M"],
+  2: ["-C"],
+  3: ["-C", "-C"],
+  4: ["-C", "-C", "-C"],
+}
+
+function buildBlameArgs(
+  commitOid: string,
+  filePath: string,
+  config: AnalysisBlameConfig,
+  hasIgnoreRevsFile: boolean,
+): string[] {
+  const args = ["blame", "--follow", "--porcelain"]
+
+  const copyMoveLevel = config.copyMove ?? 1
+  const flags = COPY_MOVE_FLAGS[copyMoveLevel] ?? COPY_MOVE_FLAGS[1]
+  args.push(...flags)
+
+  if (!config.whitespace) {
+    args.push("-w")
+  }
+
+  if (hasIgnoreRevsFile && (config.ignoreRevsFile ?? true)) {
+    args.push("--ignore-revs-file=_git-blame-ignore-revs.txt")
+  }
+
+  args.push(commitOid, "--", filePath)
+
+  return args
+}
+
+// ---------------------------------------------------------------------------
+// Line exclusion
+// ---------------------------------------------------------------------------
+
+function getFileExtension(path: string): string {
+  const dotIndex = path.lastIndexOf(".")
+  if (dotIndex === -1) return ""
+  return path.slice(dotIndex + 1).toLowerCase()
+}
+
+function normalizeAuthorName(value: string): string {
+  return value.trim().split(/\s+/).join(" ")
+}
+
+function normalizeAuthorEmail(value: string): string {
+  return value.trim()
+}
+
+function toPersonDbIdentityKey(name: string, email: string): string {
+  return `${normalizeAuthorEmail(email).toLowerCase()}\0${normalizeAuthorName(name).toLowerCase()}`
+}
+
+type BlameFileTarget = {
+  repoPath: string
+  displayPath: string
+}
+
+function normalizeInputFilePath(path: string, index: number): string {
+  const normalized = path.trim().replace(/\\/g, "/")
+  if (normalized.length === 0) {
+    throw {
+      type: "validation",
+      message: "Blame file path must not be empty.",
+      issues: [
+        { path: `files.${index}`, message: "File path must not be empty." },
+      ],
+    } satisfies AppError
+  }
+  if (
+    normalized.startsWith("/") ||
+    /^[a-zA-Z]:\//.test(normalized) ||
+    normalized.split("/").some((segment) => segment === "." || segment === "..")
+  ) {
+    throw {
+      type: "validation",
+      message: "Blame file path must be a safe repository-relative path.",
+      issues: [
+        {
+          path: `files.${index}`,
+          message: "Absolute paths and '..' segments are not allowed.",
+        },
+      ],
+    } satisfies AppError
+  }
+  return normalized.replace(/\/+/g, "/")
+}
+
+function normalizeSubfolderPrefix(subfolder: string | undefined): string {
+  if (!subfolder) return ""
+  return subfolder.endsWith("/") ? subfolder : `${subfolder}/`
+}
+
+function buildBlameTargets(
+  files: readonly string[],
+  config: AnalysisBlameConfig,
+): BlameFileTarget[] {
+  const subfolderPrefix = normalizeSubfolderPrefix(config.subfolder)
+  const includeFiles = config.includeFiles ?? ["*"]
+  const excludeFiles = config.excludeFiles ?? []
+  const extensions = config.extensions ?? []
+  const extensionSet =
+    extensions.length > 0 && !extensions.includes("*")
+      ? new Set(extensions.map((extension) => extension.toLowerCase()))
+      : null
+
+  const dedupedTargets = new Map<string, BlameFileTarget>()
+  for (let index = 0; index < files.length; index++) {
+    const normalized = normalizeInputFilePath(files[index], index)
+    const repoPath =
+      subfolderPrefix.length > 0 && !normalized.startsWith(subfolderPrefix)
+        ? `${subfolderPrefix}${normalized}`
+        : normalized
+    const displayPath =
+      subfolderPrefix.length > 0 && repoPath.startsWith(subfolderPrefix)
+        ? repoPath.slice(subfolderPrefix.length)
+        : repoPath
+
+    // Keep stable first-in path shape after normalization.
+    if (!dedupedTargets.has(repoPath)) {
+      dedupedTargets.set(repoPath, { repoPath, displayPath })
+    }
+  }
+
+  let targets = [...dedupedTargets.values()]
+
+  if (extensionSet) {
+    targets = targets.filter((target) =>
+      extensionSet.has(getFileExtension(target.repoPath)),
+    )
+  }
+
+  if (excludeFiles.length > 0) {
+    targets = targets.filter(
+      (target) => !fnmatchFilter(target.displayPath, excludeFiles),
+    )
+  }
+
+  if (!(includeFiles.length === 1 && includeFiles[0] === "*")) {
+    targets = targets.filter((target) =>
+      fnmatchFilter(target.displayPath, includeFiles),
+    )
+  }
+
+  targets.sort((left, right) => left.repoPath.localeCompare(right.repoPath))
+  return targets
+}
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
+export function createAnalysisBlameHandler(
+  ports: AnalysisWorkflowPorts,
+): Pick<WorkflowHandlerMap<"analysis.blame">, "analysis.blame"> {
+  return {
+    "analysis.blame": async (
+      input: AnalysisBlameInput,
+      options?: WorkflowCallOptions<AnalysisProgress, DiagnosticOutput>,
+    ): Promise<BlameResult> => {
+      try {
+        // Phase 1: Validate config
+        throwIfAborted(options?.signal)
+        const validation = validateAnalysisBlameConfig(input.config)
+        if (!validation.ok) {
+          throw createValidationAppError(
+            "Blame config validation failed.",
+            validation.issues,
+          )
+        }
+        const config = validation.value
+
+        const repoRoot = resolveAnalysisRepoRoot(input)
+
+        throwIfAborted(options?.signal)
+        const gitCheckResult = await ports.gitCommand.run({
+          args: ["rev-parse", "--git-dir"],
+          cwd: repoRoot,
+          signal: options?.signal,
+        })
+        if (gitCheckResult.exitCode !== 0) {
+          throw {
+            type: "provider",
+            message: `'${repoRoot}' is not a git repository.`,
+            provider: "git",
+            operation: "rev-parse",
+            retryable: false,
+          } satisfies AppError
+        }
+
+        throwIfAborted(options?.signal)
+        const commitOid = await resolveSnapshotHead(
+          ports.gitCommand,
+          repoRoot,
+          input.asOfCommit,
+          undefined,
+          options?.signal,
+        )
+
+        const targets = buildBlameTargets(input.files, config)
+
+        if (targets.length === 0) {
+          const snapshot = input.personDbOverlay
+            ? clonePersonDbSnapshot(input.personDbOverlay)
+            : clonePersonDbSnapshot(input.personDbBaseline)
+          return {
+            fileBlames: [],
+            authorSummaries: [],
+            personDbOverlay: snapshot,
+            delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
+          }
+        }
+
+        options?.onProgress?.({
+          phase: "init",
+          label: "Preparing blame analysis.",
+          processedFiles: 0,
+          totalFiles: targets.length,
+        })
+
+        // Probe for _git-blame-ignore-revs.txt
+        throwIfAborted(options?.signal)
+        const ignoreRevsResult = await ports.gitCommand.run({
+          args: ["cat-file", "-t", `${commitOid}:_git-blame-ignore-revs.txt`],
+          cwd: repoRoot,
+          signal: options?.signal,
+        })
+        const hasIgnoreRevsFile =
+          ignoreRevsResult.exitCode === 0 &&
+          ignoreRevsResult.stdout.trim() === "blob"
+
+        // Phase 2: Per-file blame with bounded concurrency
+        options?.onProgress?.({
+          phase: "blame",
+          label: "Running per-file blame.",
+          processedFiles: 0,
+          totalFiles: targets.length,
+        })
+
+        const maxConcurrency = config.maxConcurrency ?? 1
+        let processedFiles = 0
+
+        const rawBlames = await mapBounded(
+          targets,
+          maxConcurrency,
+          async ({ repoPath, displayPath }) => {
+            throwIfAborted(options?.signal)
+
+            const args = buildBlameArgs(
+              commitOid,
+              repoPath,
+              config,
+              hasIgnoreRevsFile,
+            )
+
+            const result = await ports.gitCommand.run({
+              args,
+              cwd: repoRoot,
+              signal: options?.signal,
+            })
+
+            processedFiles++
+            options?.onProgress?.({
+              phase: "blame",
+              label: "Running per-file blame.",
+              processedFiles,
+              totalFiles: targets.length,
+              currentFile: displayPath,
+            })
+
+            if (result.exitCode !== 0) {
+              throw {
+                type: "provider",
+                message: `git blame failed for '${repoPath}': ${result.stderr.trim()}`,
+                provider: "git",
+                operation: "blame",
+                retryable: false,
+              } satisfies AppError
+            }
+
+            return parseBlameOutput(displayPath, result.stdout)
+          },
+        )
+
+        // Phase 3: Apply line exclusions and build enriched PersonDB
+        // Process in deterministic sorted file order
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          phase: "enrich",
+          label: "Enriching person database from blame.",
+          processedFiles: targets.length,
+          totalFiles: targets.length,
+        })
+
+        let personDb = input.personDbOverlay
+          ? clonePersonDbSnapshot(input.personDbOverlay)
+          : clonePersonDbSnapshot(input.personDbBaseline)
+
+        const excludeAuthors = config.excludeAuthors ?? []
+        const excludeEmails = config.excludeEmails ?? []
+        const includeEmptyLines = config.includeEmptyLines ?? false
+        const includeComments = config.includeComments ?? false
+
+        const accumulatedDelta: PersonDbDelta = {
+          newPersons: [],
+          newAliases: [],
+          relinkedIdentities: [],
+        }
+
+        const fileBlames: FileBlame[] = []
+
+        for (const blame of rawBlames) {
+          if (blame.lines.length === 0) {
+            fileBlames.push(blame)
+            continue
+          }
+
+          // Classify comment lines
+          const ext = getFileExtension(blame.path)
+          const language = extensionToLanguage(ext)
+          let commentLineIndices = new Set<number>()
+          if (language && !includeComments) {
+            const codeLines = blame.lines.map((l) => l.content)
+            commentLineIndices = classifyCommentLines(codeLines, language)
+          }
+
+          // Filter lines based on exclusion config
+          const filteredLines = blame.lines.filter((line, index) => {
+            // Author exclusion
+            if (
+              excludeAuthors.length > 0 &&
+              fnmatchFilter(line.authorName, excludeAuthors)
+            ) {
+              return false
+            }
+            if (
+              excludeEmails.length > 0 &&
+              fnmatchFilter(line.authorEmail, excludeEmails)
+            ) {
+              return false
+            }
+
+            // Empty line exclusion
+            if (!includeEmptyLines && line.content.trim().length === 0) {
+              return false
+            }
+
+            // Comment line exclusion
+            if (!includeComments && commentLineIndices.has(index)) {
+              return false
+            }
+
+            return true
+          })
+
+          fileBlames.push({
+            path: blame.path,
+            lines: filteredLines,
+          })
+
+          // Enrich PersonDB (deterministic file order)
+          const blameResult = applyBlameToPersonDb(personDb, filteredLines)
+          personDb = blameResult.snapshot
+          accumulatedDelta.newPersons.push(...blameResult.delta.newPersons)
+          accumulatedDelta.newAliases.push(...blameResult.delta.newAliases)
+          accumulatedDelta.relinkedIdentities.push(
+            ...blameResult.delta.relinkedIdentities,
+          )
+        }
+
+        // Phase 4: Compute author summaries from blame
+        const authorLineMap = new Map<
+          string,
+          { name: string; email: string; lines: number }
+        >()
+
+        let totalLines = 0
+        for (const blame of fileBlames) {
+          for (const line of blame.lines) {
+            const key = `${line.authorName}\0${line.authorEmail}`
+            const existing = authorLineMap.get(key)
+            if (existing) {
+              existing.lines++
+            } else {
+              authorLineMap.set(key, {
+                name: line.authorName,
+                email: line.authorEmail,
+                lines: 1,
+              })
+            }
+            totalLines++
+          }
+        }
+
+        const authorSummaries: BlameAuthorSummary[] = [
+          ...authorLineMap.entries(),
+        ].map(([, stat]) => ({
+          personId:
+            personDb.identityIndex.get(
+              toPersonDbIdentityKey(stat.name, stat.email),
+            ) ?? "",
+          canonicalName: stat.name,
+          canonicalEmail: stat.email,
+          lines: stat.lines,
+          linesPercent: totalLines > 0 ? (100 * stat.lines) / totalLines : 0,
+        }))
+
+        options?.onProgress?.({
+          phase: "done",
+          label: "Blame analysis complete.",
+          processedFiles: targets.length,
+          totalFiles: targets.length,
+        })
+
+        return {
+          fileBlames,
+          authorSummaries,
+          personDbOverlay: personDb,
+          delta: accumulatedDelta,
+        }
+      } catch (error) {
+        if (typeof error === "object" && error !== null && "type" in error) {
+          throw error
+        }
+        throw normalizeProviderError(error, "git", "analysis.blame")
+      }
+    },
+  }
+}

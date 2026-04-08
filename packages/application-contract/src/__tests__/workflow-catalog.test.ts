@@ -50,6 +50,8 @@ describe("application-contract workflow catalog", () => {
       "repo.update",
       "userFile.inspectSelection",
       "userFile.exportPreview",
+      "analysis.run",
+      "analysis.blame",
     ]
 
     assert.equal(
@@ -145,6 +147,28 @@ describe("application-contract workflow catalog", () => {
       assert.ok(
         !meta.delivery.includes("cli"),
         `File-dependent workflow '${id}' should not include CLI delivery`,
+      )
+    }
+  })
+
+  it("analysis workflows exclude CLI delivery and use granular progress", () => {
+    const analysisWorkflows: WorkflowId[] = ["analysis.run", "analysis.blame"]
+
+    for (const id of analysisWorkflows) {
+      const meta = workflowCatalog[id]
+      assert.ok(
+        !meta.delivery.includes("cli"),
+        `Analysis workflow '${id}' should not include CLI delivery`,
+      )
+      assert.equal(
+        meta.progress,
+        "granular",
+        `Analysis workflow '${id}' should use granular progress`,
+      )
+      assert.equal(
+        meta.cancellation,
+        "cooperative",
+        `Analysis workflow '${id}' should be cooperatively cancellable`,
       )
     }
   })
