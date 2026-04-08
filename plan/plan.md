@@ -89,7 +89,7 @@ New directory `analysis/` with barrel re-export (`index.ts`):
   - `maxConcurrency?` — bounded worker pool size (default `1`)
   - `blameSkip?` — skip blame analysis entirely (default `false`). When true,
     the UI does not offer blame sub-tab and `analysis.blame` is not invoked.
-  `AnalysisBlameConfig` fields (shared subset + blame-specific):
+    `AnalysisBlameConfig` fields (shared subset + blame-specific):
   - `subfolder?`, `extensions?`, `includeFiles?`, `excludeFiles?` — same file
     selection semantics as `AnalysisConfig`
   - `excludeAuthors?`, `excludeEmails?` — same author exclusion semantics
@@ -115,13 +115,13 @@ New directory `analysis/` with barrel re-export (`index.ts`):
     `_git-blame-ignore-revs.txt` in the repository root and passes it as
     `--ignore-revs-file` to `git blame` if present (Python parity). When
     `false`, the file is ignored even if it exists.
-  Intentionally excluded from `AnalysisBlameConfig`: `since`/`until` (date
-  range is a log concern), `excludeRevisions`/`excludeMessages` (commit-level
-  filtering is log-only).
-  Note: Python also passes per-SHA `--ignore-rev` flags from `excludeRevisions`
-  to blame. repo-edu intentionally does NOT do this — `excludeRevisions` is a
-  log-only concern, and blame-level revision exclusion is handled solely through
-  `_git-blame-ignore-revs.txt`. This is a documented deviation.
+    Intentionally excluded from `AnalysisBlameConfig`: `since`/`until` (date
+    range is a log concern), `excludeRevisions`/`excludeMessages` (commit-level
+    filtering is log-only).
+    Note: Python also passes per-SHA `--ignore-rev` flags from `excludeRevisions`
+    to blame. repo-edu intentionally does NOT do this — `excludeRevisions` is a
+    log-only concern, and blame-level revision exclusion is handled solely through
+    `_git-blame-ignore-revs.txt`. This is a documented deviation.
 - **`analysis/schemas.ts`** — Domain-level Zod schema and pure validator for
   `AnalysisConfig` and `AnalysisBlameConfig`:
   - strict `YYYY-MM-DD` validation for `since`/`until` (calendar-valid date),
@@ -181,8 +181,8 @@ New directory `analysis/` with barrel re-export (`index.ts`):
     `tooldef`.
   - **Without comment support**: any extension not in the above list. Files
     with unsupported extensions are treated as having no comment lines.
-  Default extensions (when `extensions` config field is omitted):
-  `c, cc, cif, cpp, glsl, h, hh, hpp, java, js, py, rb, sql, ts`.
+    Default extensions (when `extensions` config field is omitted):
+    `c, cc, cif, cpp, glsl, h, hh, hpp, java, js, py, rb, sql, ts`.
 - **`analysis/index.ts`** — Barrel re-export of all analysis modules.
 
 New tests:
@@ -973,7 +973,7 @@ with Tauri's interactive filtering and charting improvements.
 
 Each phase:
 
-- `pnpm fmt && pnpm fix`
+- `pnpm fix`
 - `pnpm check` (full workspace: lint + typecheck + build:types +
   check:fixtures + check:architecture)
 
