@@ -4,8 +4,8 @@ import {
   type MemberStatus,
   type PersistedAppSettings,
   type PersistedCourse,
-  type UsernameTeam,
   persistedCourseKind,
+  type UsernameTeam,
 } from "@repo-edu/domain/types"
 import type { FixturePreset, FixtureTier } from "./fixture-defs.js"
 import type {

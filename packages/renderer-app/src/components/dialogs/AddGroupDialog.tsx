@@ -1,5 +1,4 @@
-import { slugifyToken } from "@repo-edu/domain/roster"
-import { generateGroupName } from "@repo-edu/domain/roster"
+import { generateGroupName, slugifyToken } from "@repo-edu/domain/roster"
 import type { RosterMember } from "@repo-edu/domain/types"
 import {
   Button,

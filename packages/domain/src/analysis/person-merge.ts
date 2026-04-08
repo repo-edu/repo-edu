@@ -1,7 +1,7 @@
 import type {
   GitAuthorIdentity,
-  MergeEvidence,
   MergedPerson,
+  MergeEvidence,
   PersonAlias,
   PersonMergeResult,
 } from "./types.js"

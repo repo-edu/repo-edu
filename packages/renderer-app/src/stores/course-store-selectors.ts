@@ -5,8 +5,8 @@ import type {
   Roster,
   RosterMember,
 } from "@repo-edu/domain/types"
-import type { CourseState } from "./slices/types.js"
 import { isLmsGroupSetConnection } from "../utils/lms-provider.js"
+import type { CourseState } from "./slices/types.js"
 
 // Selectors
 // ---------------------------------------------------------------------------

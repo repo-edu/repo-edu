@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  validateAnalysisConfig,
   validateAnalysisBlameConfig,
+  validateAnalysisConfig,
 } from "../../analysis/schemas.js"
 
 describe("validateAnalysisConfig", () => {

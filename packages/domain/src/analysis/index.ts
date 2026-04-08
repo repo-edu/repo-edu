@@ -1,31 +1,15 @@
-export type {
-  AuthorDailyActivity,
-  AnalysisBlameConfig,
-  AnalysisCommit,
-  AnalysisConfig,
-  AnalysisResult,
-  AnalysisRosterContext,
-  AuthorStats,
-  BlameLine,
-  BlameAuthorSummary,
-  BlameExclusionMode,
-  BlameResult,
-  FileBlame,
-  FileStats,
-  GitAuthorIdentity,
-  IdentityBridgeResult,
-  IdentityConfidence,
-  IdentityMatch,
-  MergeEvidence,
-  MergedPerson,
-  PersonAlias,
-  PersonDbDelta,
-  PersonDbSnapshot,
-  PersonMergeResult,
-  PersonRecord,
-  SupportedLanguage,
-} from "./types.js"
-
+export {
+  classifyCommentLines,
+  extensionToLanguage,
+} from "./comment-detector.js"
+export { bridgeAuthorsToRoster } from "./identity-bridge.js"
+export {
+  applyBlameToPersonDb,
+  clonePersonDbSnapshot,
+  createPersonDbFromLog,
+  lookupPerson,
+} from "./person-db.js"
+export { mergePersonIdentities } from "./person-merge.js"
 export {
   analysisBlameConfigSchema,
   analysisConfigSchema,
@@ -34,19 +18,30 @@ export {
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "./schemas.js"
-
-export { mergePersonIdentities } from "./person-merge.js"
-
-export {
-  applyBlameToPersonDb,
-  clonePersonDbSnapshot,
-  createPersonDbFromLog,
-  lookupPerson,
-} from "./person-db.js"
-
-export { bridgeAuthorsToRoster } from "./identity-bridge.js"
-
-export {
-  classifyCommentLines,
-  extensionToLanguage,
-} from "./comment-detector.js"
+export type {
+  AnalysisBlameConfig,
+  AnalysisCommit,
+  AnalysisConfig,
+  AnalysisResult,
+  AnalysisRosterContext,
+  AuthorDailyActivity,
+  AuthorStats,
+  BlameAuthorSummary,
+  BlameExclusionMode,
+  BlameLine,
+  BlameResult,
+  FileBlame,
+  FileStats,
+  GitAuthorIdentity,
+  IdentityBridgeResult,
+  IdentityConfidence,
+  IdentityMatch,
+  MergedPerson,
+  MergeEvidence,
+  PersonAlias,
+  PersonDbDelta,
+  PersonDbSnapshot,
+  PersonMergeResult,
+  PersonRecord,
+  SupportedLanguage,
+} from "./types.js"

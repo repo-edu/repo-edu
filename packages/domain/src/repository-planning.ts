@@ -1,6 +1,6 @@
 import { activeMemberIds, resolveGitUsernames } from "./group-set.js"
-import { slugifyToken } from "./roster.js"
 import { importValidationError } from "./group-set-import-export.js"
+import { slugifyToken } from "./roster.js"
 import type {
   Assignment,
   Group,

@@ -1,5 +1,5 @@
-import os from "node:os"
 import { createRequire } from "node:module"
+import os from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -17,9 +17,9 @@ import {
   dialog,
   ipcMain,
   Menu,
+  type MenuItemConstructorOptions,
   nativeTheme,
   shell,
-  type MenuItemConstructorOptions,
 } from "electron"
 import {
   bindAutoUpdaterWindow,

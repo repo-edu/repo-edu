@@ -1,4 +1,12 @@
 import type {
+  AnalysisProgress,
+  AnalysisRunInput,
+  AppError,
+  DiagnosticOutput,
+  WorkflowCallOptions,
+  WorkflowHandlerMap,
+} from "@repo-edu/application-contract"
+import type {
   AnalysisCommit,
   AnalysisConfig,
   AnalysisResult,
@@ -12,29 +20,21 @@ import {
   createPersonDbFromLog,
   validateAnalysisConfig,
 } from "@repo-edu/domain/analysis"
-import type {
-  AnalysisProgress,
-  AnalysisRunInput,
-  AppError,
-  DiagnosticOutput,
-  WorkflowCallOptions,
-  WorkflowHandlerMap,
-} from "@repo-edu/application-contract"
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
+import { fnmatchFilter } from "./filter-utils.js"
+import { parseLogOutput } from "./log-parser.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot } from "./repo-root.js"
-import { parseLogOutput } from "./log-parser.js"
-import { fnmatchFilter } from "./filter-utils.js"
 import {
   applyCommitExclusions,
   buildCommitGroups,
   buildPerFileLogArgs,
+  type CommitGroup,
   filterFileCandidates,
   listSnapshotFiles,
   reduceCommitGroupOverlap,
   resolveSnapshotHead,
-  type CommitGroup,
 } from "./snapshot-engine.js"
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,8 @@
-import { supportedLmsProviders } from "@repo-edu/integrations-lms-contract"
 import type {
   GroupSetConnection,
   RosterConnection,
 } from "@repo-edu/domain/types"
+import { supportedLmsProviders } from "@repo-edu/integrations-lms-contract"
 
 const lmsProviderKindSet = new Set<string>(supportedLmsProviders)
 

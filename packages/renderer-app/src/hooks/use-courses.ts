@@ -1,6 +1,6 @@
 import {
-  type PersistedCourse,
   initialIdSequences,
+  type PersistedCourse,
   persistedCourseKind,
   type Roster,
 } from "@repo-edu/domain/types"

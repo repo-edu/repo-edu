@@ -17,13 +17,13 @@ import {
   useCourseStore,
 } from "../../../stores/course-store.js"
 import { useToastStore } from "../../../stores/toast-store.js"
-import { exportGroupSet } from "../../../utils/export-group-set.js"
+import { useUiStore } from "../../../stores/ui-store.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
+import { exportGroupSet } from "../../../utils/export-group-set.js"
 import {
   isLmsGroupSetConnection,
   isLmsRosterConnection,
 } from "../../../utils/lms-provider.js"
-import { useUiStore } from "../../../stores/ui-store.js"
 import { GroupSetItem } from "./GroupSetItem.js"
 
 type SidebarSelection = { kind: "group-set"; id: string } | null

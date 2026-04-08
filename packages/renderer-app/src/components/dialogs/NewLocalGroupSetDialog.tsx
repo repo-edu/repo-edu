@@ -1,4 +1,8 @@
 import {
+  globMatches,
+  validateGlobPattern,
+} from "@repo-edu/domain/group-selection"
+import {
   Button,
   Checkbox,
   Dialog,
@@ -20,10 +24,6 @@ import {
 } from "@repo-edu/ui"
 import { cn } from "@repo-edu/ui/lib/utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  globMatches,
-  validateGlobPattern,
-} from "@repo-edu/domain/group-selection"
 import {
   selectConnectedGroupSets,
   selectGroupsForGroupSet,

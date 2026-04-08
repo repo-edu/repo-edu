@@ -26,13 +26,13 @@ import {
 } from "@repo-edu/domain/schemas"
 import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
-  enrollmentTypeKinds,
-  memberStatusKinds,
   type EnrollmentType,
+  enrollmentTypeKinds,
   type GroupSetImportFormat,
   type GroupSetImportRow,
   type IdSequences,
   type MemberStatus,
+  memberStatusKinds,
   type PersistedAppSettings,
   type PersistedCourse,
   type Roster,

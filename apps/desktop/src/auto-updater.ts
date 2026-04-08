@@ -1,7 +1,7 @@
-import { app, type BrowserWindow, dialog } from "electron"
-import { autoUpdater } from "electron-updater"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
+import { app, type BrowserWindow, dialog } from "electron"
+import { autoUpdater } from "electron-updater"
 import { desktopRendererHostChannels } from "./renderer-host-bridge"
 
 const updateCheckIntervalMs = 4 * 60 * 60 * 1000

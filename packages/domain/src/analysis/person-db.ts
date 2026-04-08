@@ -1,3 +1,4 @@
+import { mergePersonIdentities } from "./person-merge.js"
 import type {
   BlameLine,
   GitAuthorIdentity,
@@ -6,7 +7,6 @@ import type {
   PersonDbSnapshot,
   PersonRecord,
 } from "./types.js"
-import { mergePersonIdentities } from "./person-merge.js"
 
 // ---------------------------------------------------------------------------
 // Normalization

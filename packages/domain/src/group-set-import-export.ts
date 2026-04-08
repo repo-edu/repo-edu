@@ -7,7 +7,6 @@ import {
 import { normalizeName } from "./name-normalization.js"
 import { normalizeEmail, normalizeOptionalString } from "./roster.js"
 import {
-  initialIdSequences,
   type Group,
   type GroupOrigin,
   type GroupSet,
@@ -20,6 +19,7 @@ import {
   type GroupSetImportRow,
   type GroupSetImportSource,
   type IdSequences,
+  initialIdSequences,
   type NamedGroupSet,
   type RepoBeeTeamMembershipDiff,
   type Roster,

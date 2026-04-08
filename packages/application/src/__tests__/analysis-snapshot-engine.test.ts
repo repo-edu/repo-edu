@@ -3,10 +3,11 @@ import { describe, it } from "node:test"
 import {
   applyCommitExclusions,
   buildCommitGroups,
+  type CommitGroup,
   filterFileCandidates,
   reduceCommitGroupOverlap,
-  type CommitGroup,
 } from "../analysis-workflows/snapshot-engine.js"
+
 type AnalysisCommit = {
   sha: string
   authorName: string

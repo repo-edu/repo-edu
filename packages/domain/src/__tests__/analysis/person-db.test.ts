@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  createPersonDbFromLog,
-  lookupPerson,
   applyBlameToPersonDb,
   clonePersonDbSnapshot,
+  createPersonDbFromLog,
+  lookupPerson,
 } from "../../analysis/person-db.js"
-import type { GitAuthorIdentity, BlameLine } from "../../analysis/types.js"
+import type { BlameLine, GitAuthorIdentity } from "../../analysis/types.js"
 
 function makeIdentities(): GitAuthorIdentity[] {
   return [

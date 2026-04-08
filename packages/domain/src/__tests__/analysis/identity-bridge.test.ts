@@ -2,8 +2,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { bridgeAuthorsToRoster } from "../../analysis/identity-bridge.js"
 import { createPersonDbFromLog } from "../../analysis/person-db.js"
-import type { RosterMember } from "../../types.js"
 import type { PersonDbSnapshot } from "../../analysis/types.js"
+import type { RosterMember } from "../../types.js"
 
 function makeMember(
   overrides: Partial<RosterMember> & {

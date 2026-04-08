@@ -3,10 +3,10 @@ import { readdirSync, rmSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 import { parseArgs } from "node:util"
 import {
-  fixtureTiers,
   fixtureSources,
-  isFixtureTier,
+  fixtureTiers,
   isFixtureSource,
+  isFixtureTier,
 } from "@repo-edu/test-fixtures"
 
 const storageRoot = join(

@@ -29,8 +29,8 @@ import {
 } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
-import { FileFilterControls } from "./FileFilterControls.js"
 import { FileCharts } from "./charts/FileCharts.js"
+import { FileFilterControls } from "./FileFilterControls.js"
 
 export function FilePanel() {
   const result = useAnalysisStore((s) => s.result)

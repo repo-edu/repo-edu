@@ -8,8 +8,8 @@ import type {
 import { isAppError } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
-import { COMMIT_DELIMITER } from "../analysis-workflows/log-parser.js"
 import { createAnalysisWorkflowHandlers } from "../analysis-workflows/analysis-workflows.js"
+import { COMMIT_DELIMITER } from "../analysis-workflows/log-parser.js"
 
 // ---------------------------------------------------------------------------
 // Mock helpers

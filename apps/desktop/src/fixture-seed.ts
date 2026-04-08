@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   applyFixtureSourceOverlay,
   defaultFixtureSelection,
@@ -11,7 +12,6 @@ import {
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
-import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopAppSettingsStore } from "./settings-store"
 
