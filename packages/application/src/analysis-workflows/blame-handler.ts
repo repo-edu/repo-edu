@@ -375,6 +375,11 @@ export function createAnalysisBlameHandler(
         }
 
         const fileBlames: FileBlame[] = []
+        const authorLineMap = new Map<
+          string,
+          { name: string; email: string; lines: number }
+        >()
+        let totalLines = 0
 
         for (const blame of rawBlames) {
           if (blame.lines.length === 0) {
@@ -420,9 +425,10 @@ export function createAnalysisBlameHandler(
             return true
           })
 
+          // Keep original blame lines for UI display modes (hide/show/remove).
           fileBlames.push({
             path: blame.path,
-            lines: filteredLines,
+            lines: blame.lines,
           })
 
           // Enrich PersonDB (deterministic file order)
@@ -433,17 +439,8 @@ export function createAnalysisBlameHandler(
           accumulatedDelta.relinkedIdentities.push(
             ...blameResult.delta.relinkedIdentities,
           )
-        }
 
-        // Phase 4: Compute author summaries from blame
-        const authorLineMap = new Map<
-          string,
-          { name: string; email: string; lines: number }
-        >()
-
-        let totalLines = 0
-        for (const blame of fileBlames) {
-          for (const line of blame.lines) {
+          for (const line of filteredLines) {
             const key = `${line.authorName}\0${line.authorEmail}`
             const existing = authorLineMap.get(key)
             if (existing) {
@@ -459,6 +456,7 @@ export function createAnalysisBlameHandler(
           }
         }
 
+        // Phase 4: Compute author summaries from blame
         const authorSummaries: BlameAuthorSummary[] = [
           ...authorLineMap.entries(),
         ].map(([, stat]) => ({

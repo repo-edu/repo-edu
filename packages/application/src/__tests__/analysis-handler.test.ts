@@ -436,6 +436,55 @@ describe("analysis.blame handler", () => {
     assert.equal(result.authorSummaries[0].linesPercent, 100)
   })
 
+  it("keeps full blame lines for display while summaries honor exclusion config", async () => {
+    const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    const blameOutput = [
+      `${oid} 1 1 2`,
+      "author Alice",
+      "author-mail <alice@example.com>",
+      "author-time 1700000000",
+      "author-tz +0000",
+      "committer Alice",
+      "committer-mail <alice@example.com>",
+      "committer-time 1700000000",
+      "committer-tz +0000",
+      "summary Init",
+      "filename src/main.ts",
+      "\t// comment",
+      `${oid} 2 2`,
+      "filename src/main.ts",
+      "\tconst y = 2",
+    ].join("\n")
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({
+        "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
+        "rev-parse --verify": {
+          exitCode: 0,
+          stdout: "resolved-oid",
+          stderr: "",
+        },
+        "cat-file": { exitCode: 1, stdout: "", stderr: "" },
+        blame: { exitCode: 0, stdout: blameOutput, stderr: "" },
+      }),
+    })
+
+    const result = await handlers["analysis.blame"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: {},
+      personDbBaseline: { persons: [], identityIndex: new Map() },
+      files: ["src/main.ts"],
+      asOfCommit: "abc123",
+    })
+
+    assert.equal(result.fileBlames.length, 1)
+    assert.equal(result.fileBlames[0].lines.length, 2)
+    assert.equal(result.authorSummaries.length, 1)
+    assert.equal(result.authorSummaries[0].lines, 1)
+    assert.equal(result.authorSummaries[0].linesPercent, 100)
+  })
+
   it("rejects invalid asOfCommit", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({

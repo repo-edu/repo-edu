@@ -1,9 +1,9 @@
+import type { AnalysisProgress } from "@repo-edu/application-contract"
+import type { AnalysisResult } from "@repo-edu/domain/analysis"
 import {
   defaultRepoTemplate,
   planRepositoryOperation,
 } from "@repo-edu/domain/repository-planning"
-import type { AnalysisResult } from "@repo-edu/domain/analysis"
-import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   Button,
@@ -165,6 +165,18 @@ function ProgressDisplay({ progress }: { progress: AnalysisProgress }) {
 }
 
 // ---------------------------------------------------------------------------
+// Copy-move detection level descriptions
+// ---------------------------------------------------------------------------
+
+const COPY_MOVE_LABELS: Record<number, string> = {
+  0: "None",
+  1: "Within file (-M)",
+  2: "Across files (-C)",
+  3: "Across commits (-C -C)",
+  4: "All commits (-C -C -C)",
+}
+
+// ---------------------------------------------------------------------------
 // Main sidebar
 // ---------------------------------------------------------------------------
 
@@ -184,6 +196,13 @@ export function AnalysisSidebar() {
   const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
   const setProgress = useAnalysisStore((s) => s.setProgress)
   const setErrorMessage = useAnalysisStore((s) => s.setErrorMessage)
+
+  const blameConfig = useAnalysisStore((s) => s.blameConfig)
+  const setBlameConfig = useAnalysisStore((s) => s.setBlameConfig)
+  const asOfCommit = useAnalysisStore((s) => s.asOfCommit)
+  const setAsOfCommit = useAnalysisStore((s) => s.setAsOfCommit)
+  const result = useAnalysisStore((s) => s.result)
+  const blameResult = useAnalysisStore((s) => s.blameResult)
 
   const repoOptions = useMemo(
     () => (course ? deriveRepoOptions(course) : []),
@@ -252,6 +271,11 @@ export function AnalysisSidebar() {
   }, [])
 
   const isRunning = workflowStatus === "running"
+  const blameSkip = config.blameSkip ?? false
+
+  const baselineCount = result?.personDbBaseline.persons.length ?? 0
+  const overlayCount = blameResult?.personDbOverlay.persons.length
+  const delta = blameResult?.delta
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3 gap-4">
@@ -470,6 +494,134 @@ export function AnalysisSidebar() {
             Include whitespace changes
           </Label>
         </div>
+      </SidebarSection>
+
+      <Separator />
+
+      {/* Blame config */}
+      <SidebarSection title="Blame">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="blameSkip"
+            checked={blameSkip}
+            onCheckedChange={(checked) =>
+              setConfig({ blameSkip: checked === true })
+            }
+          />
+          <Label htmlFor="blameSkip" className="text-xs">
+            Skip blame analysis
+          </Label>
+        </div>
+
+        {!blameSkip && (
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Copy/Move Detection (0-4)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={4}
+                step={1}
+                value={blameConfig.copyMove ?? 1}
+                onChange={(e) => {
+                  const v = Math.min(
+                    4,
+                    Math.max(0, Number(e.target.value) || 0),
+                  )
+                  setBlameConfig({ copyMove: v })
+                }}
+              />
+              <Text className="text-xs text-muted-foreground">
+                {COPY_MOVE_LABELS[blameConfig.copyMove ?? 1]}
+              </Text>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="includeEmptyLines"
+                checked={blameConfig.includeEmptyLines ?? false}
+                onCheckedChange={(checked) =>
+                  setBlameConfig({ includeEmptyLines: checked === true })
+                }
+              />
+              <Label htmlFor="includeEmptyLines" className="text-xs">
+                Include empty lines
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="includeComments"
+                checked={blameConfig.includeComments ?? false}
+                onCheckedChange={(checked) =>
+                  setBlameConfig({ includeComments: checked === true })
+                }
+              />
+              <Label htmlFor="includeComments" className="text-xs">
+                Include comments
+              </Label>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Excluded line display</Label>
+              <Select
+                value={blameConfig.blameExclusions ?? "hide"}
+                onValueChange={(v) =>
+                  setBlameConfig({
+                    blameExclusions: v as "hide" | "show" | "remove",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hide">Hide (uncolored)</SelectItem>
+                  <SelectItem value="show">Show (colored)</SelectItem>
+                  <SelectItem value="remove">Remove (omit)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">As-of commit</Label>
+              <Input
+                type="text"
+                placeholder="HEAD"
+                value={asOfCommit}
+                onChange={(e) => setAsOfCommit(e.target.value)}
+              />
+            </div>
+
+            {/* PersonDB state indicator */}
+            {result && (
+              <div className="rounded border bg-muted/50 p-2 space-y-0.5">
+                <Text className="text-xs text-muted-foreground">
+                  Baseline: {baselineCount} person
+                  {baselineCount !== 1 ? "s" : ""}
+                </Text>
+                {overlayCount !== undefined && (
+                  <Text className="text-xs text-muted-foreground">
+                    Overlay: {overlayCount} person
+                    {overlayCount !== 1 ? "s" : ""}
+                    {delta &&
+                      (delta.newPersons.length > 0 ||
+                        delta.newAliases.length > 0 ||
+                        delta.relinkedIdentities.length > 0) && (
+                        <span>
+                          {" "}
+                          (+{delta.newPersons.length} new, +
+                          {delta.newAliases.length} alias
+                          {delta.newAliases.length !== 1 ? "es" : ""}, +
+                          {delta.relinkedIdentities.length} relinked)
+                        </span>
+                      )}
+                  </Text>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </SidebarSection>
 
       <Separator />

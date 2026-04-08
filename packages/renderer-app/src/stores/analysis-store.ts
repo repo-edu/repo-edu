@@ -1,11 +1,13 @@
+import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type {
+  AnalysisBlameConfig,
   AnalysisConfig,
   AnalysisResult,
   AuthorStats,
   BlameResult,
+  FileBlame,
   FileStats,
 } from "@repo-edu/domain/analysis"
-import type { AnalysisProgress } from "@repo-edu/application-contract"
 import { create } from "zustand"
 
 export type AnalysisActiveMetric =
@@ -21,8 +23,15 @@ export type AnalysisView =
   | "authors-files"
   | "files-authors"
   | "files"
+  | "blame"
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
+
+export type FileBlameEntry = {
+  status: "pending" | "loaded" | "error"
+  fileBlame: FileBlame | null
+  errorMessage: string | null
+}
 
 type AnalysisState = {
   // Config state
@@ -36,6 +45,23 @@ type AnalysisState = {
   workflowStatus: AnalysisWorkflowStatus
   progress: AnalysisProgress | null
   errorMessage: string | null
+
+  // Blame config (sent to analysis.blame workflow)
+  blameConfig: AnalysisBlameConfig
+  asOfCommit: string
+
+  // Per-file blame tracking
+  blameFileResults: Map<string, FileBlameEntry>
+  activeBlameFile: string | null
+  blameWorkflowStatus: AnalysisWorkflowStatus
+  blameProgress: AnalysisProgress | null
+  blameErrorMessage: string | null
+
+  // Blame display toggles (client-side only)
+  blameShowMetadata: boolean
+  blameColorize: boolean
+  blameHideEmpty: boolean
+  blameHideComments: boolean
 
   // Filter state (post-analysis, client-side)
   selectedAuthors: Set<string>
@@ -62,6 +88,24 @@ type AnalysisActions = {
   setWorkflowStatus: (status: AnalysisWorkflowStatus) => void
   setProgress: (progress: AnalysisProgress | null) => void
   setErrorMessage: (message: string | null) => void
+
+  // Blame config
+  setBlameConfig: (patch: Partial<AnalysisBlameConfig>) => void
+  setAsOfCommit: (oid: string) => void
+
+  // Per-file blame tracking
+  setActiveBlameFile: (path: string | null) => void
+  setBlameFileResult: (path: string, entry: FileBlameEntry) => void
+  clearBlameFileResults: () => void
+  setBlameWorkflowStatus: (status: AnalysisWorkflowStatus) => void
+  setBlameProgress: (progress: AnalysisProgress | null) => void
+  setBlameErrorMessage: (message: string | null) => void
+
+  // Blame display toggles
+  setBlameShowMetadata: (show: boolean) => void
+  setBlameColorize: (colorize: boolean) => void
+  setBlameHideEmpty: (hide: boolean) => void
+  setBlameHideComments: (hide: boolean) => void
 
   setSelectedAuthors: (authors: Set<string>) => void
   toggleAuthor: (personId: string) => void
@@ -94,6 +138,20 @@ const initialState: AnalysisState = {
   progress: null,
   errorMessage: null,
 
+  blameConfig: { copyMove: 1, blameExclusions: "hide" },
+  asOfCommit: "",
+
+  blameFileResults: new Map(),
+  activeBlameFile: null,
+  blameWorkflowStatus: "idle",
+  blameProgress: null,
+  blameErrorMessage: null,
+
+  blameShowMetadata: true,
+  blameColorize: true,
+  blameHideEmpty: false,
+  blameHideComments: false,
+
   selectedAuthors: new Set(),
   selectedFiles: new Set(),
 
@@ -110,7 +168,29 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     ...initialState,
 
     setConfig: (patch) =>
-      set((state) => ({ config: { ...state.config, ...patch } })),
+      set((state) => {
+        const nextConfig = { ...state.config, ...patch }
+        const enablingBlameSkip =
+          patch.blameSkip === true &&
+          (state.config.blameSkip ?? false) === false
+
+        if (!enablingBlameSkip) {
+          return { config: nextConfig }
+        }
+
+        return {
+          config: nextConfig,
+          blameResult: null,
+          blameTargetFiles: [],
+          blameFileResults: new Map(),
+          activeBlameFile: null,
+          blameWorkflowStatus: "idle",
+          blameProgress: null,
+          blameErrorMessage: null,
+          activeView:
+            state.activeView === "blame" ? "authors" : state.activeView,
+        }
+      }),
 
     setSelectedRepoPath: (path) => set({ selectedRepoPath: path }),
 
@@ -119,25 +199,81 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         result,
         blameResult: null,
         blameTargetFiles: [],
+        blameFileResults: new Map(),
+        activeBlameFile: null,
+        blameWorkflowStatus: "idle",
+        blameProgress: null,
+        blameErrorMessage: null,
         selectedAuthors: new Set(),
         selectedFiles: new Set(),
+        asOfCommit: result?.resolvedAsOfOid ?? "",
       }),
     setBlameResult: (blameResult) => set({ blameResult }),
     openFileForBlame: (path) =>
       set((state) => {
-        if (state.blameTargetFiles.includes(path)) {
+        if (state.config.blameSkip ?? false) {
           return state
         }
-        return { blameTargetFiles: [...state.blameTargetFiles, path] }
+        const alreadyOpen = state.blameTargetFiles.includes(path)
+        return {
+          blameTargetFiles: alreadyOpen
+            ? state.blameTargetFiles
+            : [...state.blameTargetFiles, path],
+          activeBlameFile: path,
+          activeView: "blame",
+        }
       }),
     closeBlameTargetFile: (path) =>
-      set((state) => ({
-        blameTargetFiles: state.blameTargetFiles.filter((p) => p !== path),
-      })),
-    clearBlameTargetFiles: () => set({ blameTargetFiles: [] }),
+      set((state) => {
+        const next = state.blameTargetFiles.filter((p) => p !== path)
+        const nextResults = new Map(state.blameFileResults)
+        nextResults.delete(path)
+        const nextActive =
+          state.activeBlameFile === path
+            ? (next[next.length - 1] ?? null)
+            : state.activeBlameFile
+        return {
+          blameTargetFiles: next,
+          blameFileResults: nextResults,
+          activeBlameFile: nextActive,
+        }
+      }),
+    clearBlameTargetFiles: () =>
+      set({
+        blameTargetFiles: [],
+        blameFileResults: new Map(),
+        activeBlameFile: null,
+      }),
     setWorkflowStatus: (workflowStatus) => set({ workflowStatus }),
     setProgress: (progress) => set({ progress }),
     setErrorMessage: (errorMessage) => set({ errorMessage }),
+
+    // Blame config
+    setBlameConfig: (patch) =>
+      set((state) => ({
+        blameConfig: { ...state.blameConfig, ...patch },
+      })),
+    setAsOfCommit: (asOfCommit) => set({ asOfCommit }),
+
+    // Per-file blame tracking
+    setActiveBlameFile: (activeBlameFile) => set({ activeBlameFile }),
+    setBlameFileResult: (path, entry) =>
+      set((state) => {
+        const next = new Map(state.blameFileResults)
+        next.set(path, entry)
+        return { blameFileResults: next }
+      }),
+    clearBlameFileResults: () => set({ blameFileResults: new Map() }),
+    setBlameWorkflowStatus: (blameWorkflowStatus) =>
+      set({ blameWorkflowStatus }),
+    setBlameProgress: (blameProgress) => set({ blameProgress }),
+    setBlameErrorMessage: (blameErrorMessage) => set({ blameErrorMessage }),
+
+    // Blame display toggles
+    setBlameShowMetadata: (blameShowMetadata) => set({ blameShowMetadata }),
+    setBlameColorize: (blameColorize) => set({ blameColorize }),
+    setBlameHideEmpty: (blameHideEmpty) => set({ blameHideEmpty }),
+    setBlameHideComments: (blameHideComments) => set({ blameHideComments }),
 
     setSelectedAuthors: (selectedAuthors) => set({ selectedAuthors }),
     toggleAuthor: (personId) =>
@@ -213,6 +349,21 @@ export const selectFilteredFileStats = (
   if (state.selectedFiles.size === 0) return fileStats
   return fileStats.filter((f) => state.selectedFiles.has(f.path))
 }
+
+export const buildEffectiveBlameWorkflowConfig = (
+  config: AnalysisConfig,
+  blameConfig: AnalysisBlameConfig,
+): AnalysisBlameConfig => ({
+  ...blameConfig,
+  subfolder: config.subfolder,
+  extensions: config.extensions,
+  includeFiles: config.includeFiles,
+  excludeFiles: config.excludeFiles,
+  excludeAuthors: config.excludeAuthors,
+  excludeEmails: config.excludeEmails,
+  whitespace: config.whitespace,
+  maxConcurrency: config.maxConcurrency,
+})
 
 export type AuthorDisplayIdentity = {
   name: string

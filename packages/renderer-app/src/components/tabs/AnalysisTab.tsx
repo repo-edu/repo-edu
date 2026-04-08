@@ -7,18 +7,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
   RESIZE_DEBOUNCE_MS,
 } from "../../constants/layout.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import {
   type AnalysisView,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { debounceAsync } from "../../utils/debounce.js"
@@ -26,6 +26,7 @@ import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorFilesPanel } from "./analysis/AuthorFilesPanel.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
+import { BlamePanel } from "./analysis/BlamePanel.js"
 import { FileAuthorsPanel } from "./analysis/FileAuthorsPanel.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 
@@ -56,6 +57,13 @@ export function AnalysisTab() {
 
   const activeView = useAnalysisStore((s) => s.activeView)
   const setActiveView = useAnalysisStore((s) => s.setActiveView)
+  const blameSkip = useAnalysisStore((s) => s.config.blameSkip)
+
+  useEffect(() => {
+    if (blameSkip && activeView === "blame") {
+      setActiveView("authors")
+    }
+  }, [blameSkip, activeView, setActiveView])
 
   const handleSidebarResize = useCallback(
     (
@@ -100,6 +108,7 @@ export function AnalysisTab() {
               <TabsTrigger value="authors-files">Authors-Files</TabsTrigger>
               <TabsTrigger value="files-authors">Files-Authors</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
+              {!blameSkip && <TabsTrigger value="blame">Blame</TabsTrigger>}
             </TabsList>
           </div>
           <TabsContent value="authors" className="flex-1 min-h-0 overflow-auto">
@@ -120,6 +129,11 @@ export function AnalysisTab() {
           <TabsContent value="files" className="flex-1 min-h-0 overflow-auto">
             <FilePanel />
           </TabsContent>
+          {!blameSkip && (
+            <TabsContent value="blame" className="flex-1 min-h-0 overflow-auto">
+              <BlamePanel />
+            </TabsContent>
+          )}
         </Tabs>
       </ResizablePanel>
     </ResizablePanelGroup>
