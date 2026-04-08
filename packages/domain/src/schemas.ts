@@ -50,7 +50,9 @@ export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
   schemaVersion: z.literal(1),
   activeCourseId: z.string().nullable(),
-  activeTab: z.enum(["roster", "groups-assignments"]).default("roster"),
+  activeTab: z
+    .enum(["roster", "groups-assignments", "analysis"])
+    .default("roster"),
   appearance: appAppearanceSchema,
   window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
   lmsConnections: z.array(persistedLmsConnectionSchema),

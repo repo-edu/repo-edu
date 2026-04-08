@@ -48,6 +48,9 @@
         "./packages/domain/src/validation.ts"
       ],
       "@repo-edu/domain/schemas": ["./packages/domain/src/schemas.ts"],
+      "@repo-edu/domain/analysis": [
+        "./packages/domain/src/analysis/index.ts"
+      ],
       "@repo-edu/application-contract": [
         "./packages/application-contract/src/index.ts"
       ],

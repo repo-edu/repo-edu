@@ -25,7 +25,7 @@ export type EnrollmentType = (typeof enrollmentTypeKinds)[number]
 export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
-export type ActiveTab = "roster" | "groups-assignments"
+export type ActiveTab = "roster" | "groups-assignments" | "analysis"
 export type FileFormat = "csv" | "xlsx" | "json" | "txt"
 export type ThemePreference = "system" | "light" | "dark"
 export type WindowChromeMode = "system" | "hiddenInset"

@@ -62,13 +62,18 @@
       "source": "./src/schemas.ts",
       "types": "./dist/schemas.d.ts",
       "default": "./dist/schemas.js"
+    },
+    "./analysis": {
+      "source": "./src/analysis/index.ts",
+      "types": "./dist/analysis/index.d.ts",
+      "default": "./dist/analysis/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
-    "test": "node --import tsx --test src/__tests__/*.test.ts"
+    "test": "node --import tsx --test src/__tests__/*.test.ts src/__tests__/**/*.test.ts"
   },
   "dependencies": {
     "zod": "^4.3.6"
