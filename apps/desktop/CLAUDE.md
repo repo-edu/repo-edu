@@ -13,6 +13,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
 - `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores
+- Analysis workflow wiring in `trpc.ts`: `createAnalysisWorkflowHandlers` with `GitCommandPort` + LRU `AnalysisResultCache`
 
 ## Notes
 

@@ -18,10 +18,11 @@ It consumes:
 
 - `src/configure-app.ts`: app wiring and dependency injection
 - `src/contexts/*`: workflow and renderer-host providers
-- `src/stores/*`: Zustand stores (course, settings, operations, ui, toasts, connections)
+- `src/stores/*`: Zustand stores (course, settings, operations, ui, toasts, connections, analysis)
 - `src/stores/slices/*`: course store slices (`roster-actions.ts`, `lifecycle.ts`, `autosave.ts`, `history.ts`, `metadata-actions.ts`); roster-actions uses domain `id-allocator` for group/member creation
 - `src/components/*`: tabs, dialogs, sheets, settings panes
 - `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, etc.)
+- `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls
 - `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained only for course ID generation (`generateCourseId`)
 
 ## Rules

@@ -14,7 +14,7 @@ It is a validation target for:
 
 ## Structure
 
-- `src/demo-runtime.ts`: in-browser workflow runtime wiring
+- `src/demo-runtime.ts`: in-browser workflow runtime wiring (includes browser-safe mock `GitCommandPort` for analysis workflows, no cache)
 - `src/components/DemoApp.tsx`: React host component for docs demo runtime
 - `src/pages/demo-standalone.astro`: standalone page embedding the React demo
 - `src/content/docs/*`: Starlight documentation content

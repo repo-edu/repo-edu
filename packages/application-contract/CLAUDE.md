@@ -12,6 +12,7 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - shared `AppError` taxonomy and transport helpers
 - cross-surface file reference DTOs (`UserFileRef`, `UserSaveTargetRef`)
 - re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`)
+- analysis workflow entries: `analysis.run` (log-based stats + PersonDB baseline) and `analysis.blame` (per-file blame + PersonDB overlay), both with `delivery: ["desktop", "docs"]`, `progress: "granular"`, and cooperative cancellation
 
 ## Rules
 
