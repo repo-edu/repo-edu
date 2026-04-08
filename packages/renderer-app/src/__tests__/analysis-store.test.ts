@@ -3,6 +3,9 @@ import { beforeEach, describe, it } from "node:test"
 import type { AnalysisResult } from "@repo-edu/domain/analysis"
 import {
   buildEffectiveBlameWorkflowConfig,
+  selectAuthorDisplayByPersonId,
+  selectFilteredAuthorStats,
+  selectFilteredFileStats,
   selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../stores/analysis-store.js"
@@ -234,5 +237,59 @@ describe("selectRosterMatchByPersonId", () => {
     assert.equal(map.size, 1)
     assert.equal(map.has("p_0000"), true)
     assert.equal(map.has("p_0001"), false)
+  })
+})
+
+describe("analysis selectors", () => {
+  it("returns stable references for unchanged empty snapshots", () => {
+    const state = useAnalysisStore.getState()
+
+    assert.equal(
+      selectFilteredAuthorStats(state),
+      selectFilteredAuthorStats(state),
+    )
+    assert.equal(selectFilteredFileStats(state), selectFilteredFileStats(state))
+    assert.equal(
+      selectAuthorDisplayByPersonId(state),
+      selectAuthorDisplayByPersonId(state),
+    )
+    assert.equal(
+      selectRosterMatchByPersonId(state),
+      selectRosterMatchByPersonId(state),
+    )
+  })
+
+  it("returns stable references for unchanged populated snapshots", () => {
+    const result = makeBaseResult()
+    result.rosterMatches = {
+      matches: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          memberId: "m_001",
+          memberName: "Alice Smith",
+          confidence: "exact-email",
+        },
+      ],
+      unmatchedPersonIds: ["p_0001"],
+      unmatchedMemberIds: [],
+    }
+    useAnalysisStore.getState().setResult(result)
+
+    const state = useAnalysisStore.getState()
+    assert.equal(
+      selectFilteredAuthorStats(state),
+      selectFilteredAuthorStats(state),
+    )
+    assert.equal(selectFilteredFileStats(state), selectFilteredFileStats(state))
+    assert.equal(
+      selectAuthorDisplayByPersonId(state),
+      selectAuthorDisplayByPersonId(state),
+    )
+    assert.equal(
+      selectRosterMatchByPersonId(state),
+      selectRosterMatchByPersonId(state),
+    )
   })
 })

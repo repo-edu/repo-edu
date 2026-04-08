@@ -333,23 +333,72 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
 // Selectors
 // ---------------------------------------------------------------------------
 
-export const selectFilteredAuthorStats = (
-  state: AnalysisState & AnalysisActions,
-): AuthorStats[] => {
-  if (!state.result) return []
-  const { authorStats } = state.result
-  if (state.selectedAuthors.size === 0) return authorStats
-  return authorStats.filter((a) => state.selectedAuthors.has(a.personId))
-}
+export const selectFilteredAuthorStats = (() => {
+  const EMPTY_AUTHOR_STATS: AuthorStats[] = []
+  let previousResult: AnalysisResult | null = null
+  let previousSelectedAuthors: Set<string> | null = null
+  let previousValue: AuthorStats[] = EMPTY_AUTHOR_STATS
 
-export const selectFilteredFileStats = (
-  state: AnalysisState & AnalysisActions,
-): FileStats[] => {
-  if (!state.result) return []
-  const { fileStats } = state.result
-  if (state.selectedFiles.size === 0) return fileStats
-  return fileStats.filter((f) => state.selectedFiles.has(f.path))
-}
+  return (state: AnalysisState & AnalysisActions): AuthorStats[] => {
+    const result = state.result
+    const selectedAuthors = state.selectedAuthors
+    if (
+      result === previousResult &&
+      selectedAuthors === previousSelectedAuthors
+    ) {
+      return previousValue
+    }
+
+    previousResult = result
+    previousSelectedAuthors = selectedAuthors
+
+    if (!result) {
+      previousValue = EMPTY_AUTHOR_STATS
+      return previousValue
+    }
+
+    const { authorStats } = result
+    if (selectedAuthors.size === 0) {
+      previousValue = authorStats
+      return previousValue
+    }
+
+    previousValue = authorStats.filter((a) => selectedAuthors.has(a.personId))
+    return previousValue
+  }
+})()
+
+export const selectFilteredFileStats = (() => {
+  const EMPTY_FILE_STATS: FileStats[] = []
+  let previousResult: AnalysisResult | null = null
+  let previousSelectedFiles: Set<string> | null = null
+  let previousValue: FileStats[] = EMPTY_FILE_STATS
+
+  return (state: AnalysisState & AnalysisActions): FileStats[] => {
+    const result = state.result
+    const selectedFiles = state.selectedFiles
+    if (result === previousResult && selectedFiles === previousSelectedFiles) {
+      return previousValue
+    }
+
+    previousResult = result
+    previousSelectedFiles = selectedFiles
+
+    if (!result) {
+      previousValue = EMPTY_FILE_STATS
+      return previousValue
+    }
+
+    const { fileStats } = result
+    if (selectedFiles.size === 0) {
+      previousValue = fileStats
+      return previousValue
+    }
+
+    previousValue = fileStats.filter((f) => selectedFiles.has(f.path))
+    return previousValue
+  }
+})()
 
 export const buildEffectiveBlameWorkflowConfig = (
   config: AnalysisConfig,
@@ -385,52 +434,91 @@ function uniqueNormalized(values: readonly string[]): string[] {
   return out
 }
 
-export const selectAuthorDisplayByPersonId = (
-  state: AnalysisState & AnalysisActions,
-): Map<string, AuthorDisplayIdentity> => {
-  const map = new Map<string, AuthorDisplayIdentity>()
-  if (!state.result) return map
+export const selectAuthorDisplayByPersonId = (() => {
+  const EMPTY_AUTHOR_DISPLAY_BY_PERSON_ID = new Map<
+    string,
+    AuthorDisplayIdentity
+  >()
+  let previousResult: AnalysisResult | null = null
+  let previousShowRenames: boolean | null = null
+  let previousValue = EMPTY_AUTHOR_DISPLAY_BY_PERSON_ID
 
-  const personById = new Map(
-    state.result.personDbBaseline.persons.map((person) => [person.id, person]),
-  )
-  const showRenames = state.showRenames
-
-  for (const stat of state.result.authorStats) {
-    const person = personById.get(stat.personId)
-    if (!person || !showRenames) {
-      map.set(stat.personId, {
-        name: stat.canonicalName,
-        email: stat.canonicalEmail,
-      })
-      continue
+  return (
+    state: AnalysisState & AnalysisActions,
+  ): Map<string, AuthorDisplayIdentity> => {
+    const result = state.result
+    const showRenames = state.showRenames
+    if (result === previousResult && showRenames === previousShowRenames) {
+      return previousValue
     }
 
-    const names = uniqueNormalized([
-      person.canonicalName,
-      ...person.aliases.map((alias) => alias.name),
-    ])
-    const emails = uniqueNormalized([
-      person.canonicalEmail,
-      ...person.aliases.map((alias) => alias.email),
-    ])
+    previousResult = result
+    previousShowRenames = showRenames
 
-    map.set(stat.personId, {
-      name: names.join(" | "),
-      email: emails.join(" | "),
-    })
+    if (!result) {
+      previousValue = EMPTY_AUTHOR_DISPLAY_BY_PERSON_ID
+      return previousValue
+    }
+
+    const personById = new Map(
+      result.personDbBaseline.persons.map((person) => [person.id, person]),
+    )
+
+    const nextValue = new Map<string, AuthorDisplayIdentity>()
+    for (const stat of result.authorStats) {
+      const person = personById.get(stat.personId)
+      if (!person || !showRenames) {
+        nextValue.set(stat.personId, {
+          name: stat.canonicalName,
+          email: stat.canonicalEmail,
+        })
+        continue
+      }
+
+      const names = uniqueNormalized([
+        person.canonicalName,
+        ...person.aliases.map((alias) => alias.name),
+      ])
+      const emails = uniqueNormalized([
+        person.canonicalEmail,
+        ...person.aliases.map((alias) => alias.email),
+      ])
+
+      nextValue.set(stat.personId, {
+        name: names.join(" | "),
+        email: emails.join(" | "),
+      })
+    }
+
+    previousValue = nextValue
+    return previousValue
   }
+})()
 
-  return map
-}
+export const selectRosterMatchByPersonId = (() => {
+  const EMPTY_ROSTER_MATCH_BY_PERSON_ID = new Map<string, IdentityMatch>()
+  let previousRosterMatches: AnalysisResult["rosterMatches"] | undefined
+  let previousValue = EMPTY_ROSTER_MATCH_BY_PERSON_ID
 
-export const selectRosterMatchByPersonId = (
-  state: AnalysisState & AnalysisActions,
-): Map<string, IdentityMatch> => {
-  const map = new Map<string, IdentityMatch>()
-  if (!state.result?.rosterMatches) return map
-  for (const match of state.result.rosterMatches.matches) {
-    map.set(match.personId, match)
+  return (
+    state: AnalysisState & AnalysisActions,
+  ): Map<string, IdentityMatch> => {
+    const rosterMatches = state.result?.rosterMatches
+    if (rosterMatches === previousRosterMatches) {
+      return previousValue
+    }
+
+    previousRosterMatches = rosterMatches
+    if (!rosterMatches) {
+      previousValue = EMPTY_ROSTER_MATCH_BY_PERSON_ID
+      return previousValue
+    }
+
+    const nextValue = new Map<string, IdentityMatch>()
+    for (const match of rosterMatches.matches) {
+      nextValue.set(match.personId, match)
+    }
+    previousValue = nextValue
+    return previousValue
   }
-  return map
-}
+})()
