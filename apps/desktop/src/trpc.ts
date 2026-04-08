@@ -6,6 +6,7 @@ import {
   createCourseWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
+  createLruAnalysisCache,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
@@ -79,6 +80,7 @@ function createDesktopWorkflowRegistry(
     }),
     ...createAnalysisWorkflowHandlers({
       gitCommand: ports.gitCommand,
+      cache: createLruAnalysisCache(32),
     }),
     "userFile.inspectSelection": (input, options) =>
       runInspectUserFileWorkflow(ports.userFile, input, options),
