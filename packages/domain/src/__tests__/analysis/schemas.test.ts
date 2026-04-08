@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  DEFAULT_EXTENSIONS,
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "../../analysis/schemas.js"
@@ -15,6 +16,7 @@ describe("validateAnalysisConfig", () => {
     assert.equal(result.value.maxConcurrency, 1)
     assert.equal(result.value.blameSkip, false)
     assert.deepStrictEqual(result.value.includeFiles, ["*"])
+    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
   })
 
   it("accepts valid date range", () => {
@@ -58,6 +60,15 @@ describe("validateAnalysisConfig", () => {
     assert.equal(result.ok, true)
     if (!result.ok) return
     assert.deepStrictEqual(result.value.extensions, ["ts", "js", "py"])
+  })
+
+  it("falls back to default extensions when provided list normalizes to empty", () => {
+    const result = validateAnalysisConfig({
+      extensions: ["", " . ", "   "],
+    })
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
   })
 
   it("normalizes pattern arrays with trim and dedup", () => {
@@ -172,6 +183,7 @@ describe("validateAnalysisBlameConfig", () => {
     assert.equal(result.value.whitespace, false)
     assert.equal(result.value.maxConcurrency, 1)
     assert.deepStrictEqual(result.value.includeFiles, ["*"])
+    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
   })
 
   it("rejects date-range keys (since)", () => {

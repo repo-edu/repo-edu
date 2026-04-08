@@ -21,7 +21,7 @@ export const COMMIT_DELIMITER = "---commit-boundary---"
  * Combined with `-z` (which NUL-terminates each numstat path), this gives
  * fully unambiguous parsing regardless of filenames.
  */
-export const LOG_PRETTY_FORMAT = `${COMMIT_DELIMITER}%x00%h%x00%ct%x00%aN%x00%aE%x00%B`
+export const LOG_PRETTY_FORMAT = `${COMMIT_DELIMITER}%x00%h%x00%ct%x00%aN%x00%aE%x00%B%x00`
 
 // ---------------------------------------------------------------------------
 // Rename resolution
@@ -86,65 +86,45 @@ export function parseLogOutput(stdout: string): AnalysisCommit[] {
       continue
     }
 
-    // Each chunk starts with \0 then fields separated by \0:
-    // \0<sha>\0<timestamp>\0<authorName>\0<authorEmail>\0<message>
-    // followed by numstat lines (each path NUL-terminated by -z)
-    const parts = chunk.split("\0")
+    let cursor = chunk.startsWith("\0") ? 1 : 0
 
-    // parts[0] is empty (before first \0), then sha, ct, aN, aE, message
-    if (parts.length < 6) {
+    const shaResult = readNulField(chunk, cursor)
+    if (!shaResult) {
       continue
     }
+    const sha = shaResult.value.trim()
+    cursor = shaResult.next
 
-    const sha = parts[1].trim()
-    const timestamp = Number.parseInt(parts[2], 10)
-    const authorName = parts[3]
-    const authorEmail = parts[4]
-    const message = parts[5]
+    const timestampResult = readNulField(chunk, cursor)
+    if (!timestampResult) {
+      continue
+    }
+    const timestamp = Number.parseInt(timestampResult.value, 10)
+    cursor = timestampResult.next
+
+    const authorNameResult = readNulField(chunk, cursor)
+    if (!authorNameResult) {
+      continue
+    }
+    const authorName = authorNameResult.value
+    cursor = authorNameResult.next
+
+    const authorEmailResult = readNulField(chunk, cursor)
+    if (!authorEmailResult) {
+      continue
+    }
+    const authorEmail = authorEmailResult.value
+    cursor = authorEmailResult.next
 
     if (!sha || Number.isNaN(timestamp)) {
       continue
     }
 
-    const files: AnalysisCommit["files"] = []
-
-    // The format after the message is alternating "ins\tdel" and "path".
-    const numstatParts = parts.slice(6)
-
-    // Parse numstat entries: alternating pattern of "ins\tdel" and "path"
-    let i = 0
-    while (i < numstatParts.length) {
-      const current = numstatParts[i]
-
-      // Look for numstat pattern: digits/dash TAB digits/dash
-      const numstatMatch = /(-?\d+|-)\t(-?\d+|-)\s*$/.exec(current)
-      if (numstatMatch && i + 1 < numstatParts.length) {
-        const rawInsertions = numstatMatch[1]
-        const rawDeletions = numstatMatch[2]
-
-        // Binary files use "-" for both insertions and deletions
-        const insertions =
-          rawInsertions === "-" ? 0 : Number.parseInt(rawInsertions, 10)
-        const deletions =
-          rawDeletions === "-" ? 0 : Number.parseInt(rawDeletions, 10)
-
-        const rawPath = numstatParts[i + 1]
-        const path = resolveRenamedPath(rawPath.trim())
-
-        if (path.length > 0) {
-          files.push({
-            path,
-            insertions: Number.isNaN(insertions) ? 0 : insertions,
-            deletions: Number.isNaN(deletions) ? 0 : deletions,
-          })
-        }
-
-        i += 2
-      } else {
-        // Skip parts that don't match numstat pattern
-        i++
-      }
-    }
+    const remainder = chunk.slice(cursor)
+    const { message: rawMessage, numstatRaw } =
+      splitMessageAndNumstat(remainder)
+    const message = rawMessage.replace(/\n+$/, "")
+    const files = parseNumstatFiles(numstatRaw)
 
     commits.push({
       sha,
@@ -157,4 +137,129 @@ export function parseLogOutput(stdout: string): AnalysisCommit[] {
   }
 
   return commits
+}
+
+function readNulField(
+  value: string,
+  start: number,
+): { value: string; next: number } | null {
+  const separator = value.indexOf("\0", start)
+  if (separator === -1) {
+    return null
+  }
+  return {
+    value: value.slice(start, separator),
+    next: separator + 1,
+  }
+}
+
+function isLikelyNumstatStart(value: string): boolean {
+  const candidate = value.replace(/^\n+/, "")
+  return /^(-?\d+|-)\t(-?\d+|-)(\t|\0|$)/.test(candidate)
+}
+
+function splitMessageAndNumstat(raw: string): {
+  message: string
+  numstatRaw: string
+} {
+  if (raw.length === 0) {
+    return { message: "", numstatRaw: "" }
+  }
+
+  const newlineIndex = raw.indexOf("\n")
+  const nulIndex = raw.indexOf("\0")
+  const separatorCandidates = [newlineIndex, nulIndex]
+    .filter((index) => index !== -1)
+    .sort((a, b) => a - b)
+
+  for (const separatorIndex of separatorCandidates) {
+    const after = raw.slice(separatorIndex + 1)
+    if (after.length === 0 || isLikelyNumstatStart(after)) {
+      return {
+        message: raw.slice(0, separatorIndex),
+        numstatRaw: after,
+      }
+    }
+  }
+
+  return { message: raw, numstatRaw: "" }
+}
+
+function parseNumstatFiles(numstatRaw: string): AnalysisCommit["files"] {
+  if (numstatRaw.trim().length === 0) {
+    return []
+  }
+
+  const files: AnalysisCommit["files"] = []
+  const parts = numstatRaw.split("\0")
+  let index = 0
+
+  while (index < parts.length) {
+    let current = parts[index]
+    if (current.length === 0) {
+      index++
+      continue
+    }
+
+    current = current.replace(/^\n+/, "").trimEnd()
+    if (current.length === 0) {
+      index++
+      continue
+    }
+
+    const inlinePathMatch = /^(-?\d+|-)\t(-?\d+|-)\t(.*)$/.exec(current)
+    if (inlinePathMatch) {
+      const rawInsertions = inlinePathMatch[1]
+      const rawDeletions = inlinePathMatch[2]
+      let rawPath = inlinePathMatch[3].trim()
+
+      if (rawPath.length === 0) {
+        const oldPath = (parts[index + 1] ?? "").trim()
+        const newPath = (parts[index + 2] ?? "").trim()
+        rawPath = newPath || oldPath
+        index += 3
+      } else {
+        index += 1
+      }
+
+      const path = resolveRenamedPath(rawPath)
+      if (path.length > 0) {
+        files.push({
+          path,
+          insertions: parseNumstatNumber(rawInsertions),
+          deletions: parseNumstatNumber(rawDeletions),
+        })
+      }
+      continue
+    }
+
+    const splitPathMatch = /^(-?\d+|-)\t(-?\d+|-)$/.exec(current)
+    if (splitPathMatch) {
+      const rawInsertions = splitPathMatch[1]
+      const rawDeletions = splitPathMatch[2]
+      const rawPath = (parts[index + 1] ?? "").trim()
+      const path = resolveRenamedPath(rawPath)
+      if (path.length > 0) {
+        files.push({
+          path,
+          insertions: parseNumstatNumber(rawInsertions),
+          deletions: parseNumstatNumber(rawDeletions),
+        })
+      }
+      index += 2
+      continue
+    }
+
+    index += 1
+  }
+
+  return files
+}
+
+function parseNumstatNumber(value: string): number {
+  if (value === "-") {
+    return 0
+  }
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) ? 0 : parsed
 }

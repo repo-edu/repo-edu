@@ -3,7 +3,8 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 
 type AnalysisRepositoryInputLike = {
   course: Pick<PersistedCourse, "repositoryCloneTargetDirectory">
-  repositoryRelativePath: string
+  repositoryRelativePath?: string
+  repositoryAbsolutePath?: string
 }
 
 function validationError(message: string, path: string): AppError {
@@ -49,9 +50,37 @@ function normalizeRepositoryRelativePath(relativePath: string): string {
   return segments.join("/")
 }
 
+function normalizeAbsolutePath(absolutePath: string): string {
+  const normalized = absolutePath.trim().replace(/\\/g, "/").replace(/\/+$/, "")
+  if (normalized.length === 0) {
+    throw validationError(
+      "Repository absolute path is required.",
+      "repositoryAbsolutePath",
+    )
+  }
+  if (!normalized.startsWith("/") && !/^[a-zA-Z]:\//.test(normalized)) {
+    throw validationError(
+      "Repository absolute path must be an absolute path.",
+      "repositoryAbsolutePath",
+    )
+  }
+  return normalized
+}
+
 export function resolveAnalysisRepoRoot(
   input: AnalysisRepositoryInputLike,
 ): string {
+  if (input.repositoryAbsolutePath) {
+    return normalizeAbsolutePath(input.repositoryAbsolutePath)
+  }
+
+  if (!input.repositoryRelativePath) {
+    throw validationError(
+      "Either repositoryRelativePath or repositoryAbsolutePath is required.",
+      "repositoryRelativePath",
+    )
+  }
+
   const cloneTarget = input.course.repositoryCloneTargetDirectory
   if (!cloneTarget) {
     throw validationError(

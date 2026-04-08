@@ -60,6 +60,20 @@ describe("log-parser parseLogOutput", () => {
     assert.equal(commits[0].files[0].deletions, 5)
   })
 
+  it("parses git --numstat -z output with inline file path", () => {
+    const stdout = [
+      `${COMMIT_DELIMITER}`,
+      "\0abc1234\x001700000000\0Alice\0alice@example.com\0Initial commit\n10\t5\tsrc/main.ts\0",
+    ].join("")
+
+    const commits = parseLogOutput(stdout)
+    assert.equal(commits.length, 1)
+    assert.equal(commits[0].files.length, 1)
+    assert.equal(commits[0].files[0].path, "src/main.ts")
+    assert.equal(commits[0].files[0].insertions, 10)
+    assert.equal(commits[0].files[0].deletions, 5)
+  })
+
   it("handles binary numstat lines gracefully (insertions=-/deletions=-)", () => {
     const stdout = [
       `${COMMIT_DELIMITER}`,
@@ -112,6 +126,20 @@ describe("log-parser parseLogOutput", () => {
     const commits = parseLogOutput(stdout)
     assert.equal(commits.length, 1)
     assert.equal(commits[0].files[0].path, "src/new.ts")
+  })
+
+  it("handles git --numstat -z rename output with old/new NUL paths", () => {
+    const stdout = [
+      `${COMMIT_DELIMITER}`,
+      "\0ddd4444\x001700000300\0Dave\0dave@example.com\0Rename file\n8\t2\t\0src/old.ts\0src/new.ts\0",
+    ].join("")
+
+    const commits = parseLogOutput(stdout)
+    assert.equal(commits.length, 1)
+    assert.equal(commits[0].files.length, 1)
+    assert.equal(commits[0].files[0].path, "src/new.ts")
+    assert.equal(commits[0].files[0].insertions, 8)
+    assert.equal(commits[0].files[0].deletions, 2)
   })
 
   it("parses full commit messages with embedded newlines", () => {

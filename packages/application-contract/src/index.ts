@@ -376,8 +376,10 @@ export type AnalysisProgress = {
 
 export type AnalysisRepositoryInput = {
   course: PersistedCourse
-  repositoryRelativePath: string
-}
+} & (
+  | { repositoryRelativePath: string; repositoryAbsolutePath?: undefined }
+  | { repositoryAbsolutePath: string; repositoryRelativePath?: undefined }
+)
 
 export type AnalysisRunInput = AnalysisRepositoryInput & {
   config: AnalysisConfig

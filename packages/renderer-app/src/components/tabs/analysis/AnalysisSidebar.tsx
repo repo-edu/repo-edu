@@ -1,11 +1,6 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisResult } from "@repo-edu/domain/analysis"
 import {
-  defaultRepoTemplate,
-  planRepositoryOperation,
-} from "@repo-edu/domain/repository-planning"
-import type { PersistedCourse } from "@repo-edu/domain/types"
-import {
   Button,
   Checkbox,
   Input,
@@ -18,102 +13,18 @@ import {
   Separator,
   Text,
 } from "@repo-edu/ui"
-import { Loader2, Play, Square } from "@repo-edu/ui/components/icons"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import {
+  FolderOpen,
+  Loader2,
+  Play,
+  Square,
+} from "@repo-edu/ui/components/icons"
+import { useCallback, useRef } from "react"
+import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
-
-// ---------------------------------------------------------------------------
-// Repo list derivation
-// ---------------------------------------------------------------------------
-
-type RepoOption = {
-  label: string
-  relativePath: string
-}
-
-type CloneDirectoryLayout = "flat" | "by-team" | "by-task"
-
-function normalizeDirectoryLayout(
-  value: PersistedCourse["repositoryCloneDirectoryLayout"],
-): CloneDirectoryLayout {
-  if (value === "by-team" || value === "by-task") {
-    return value
-  }
-  return "flat"
-}
-
-function sanitizePathSegment(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed === "") {
-    return "unnamed"
-  }
-  return trimmed.replace(/[\\/]/g, "_")
-}
-
-function toRepositoryRelativePath(
-  layout: CloneDirectoryLayout,
-  group: {
-    assignmentName: string
-    groupName: string
-    groupId: string
-    repoName: string
-  },
-): string {
-  const repoName = sanitizePathSegment(group.repoName)
-  if (layout === "flat") {
-    return repoName
-  }
-  if (layout === "by-team") {
-    const teamFolder = sanitizePathSegment(
-      group.groupName.trim().length > 0 ? group.groupName : group.groupId,
-    )
-    return `${teamFolder}/${repoName}`
-  }
-  return `${sanitizePathSegment(group.assignmentName)}/${repoName}`
-}
-
-function deriveRepoOptions(course: PersistedCourse): RepoOption[] {
-  const options: RepoOption[] = []
-  const { roster } = course
-  const layout = normalizeDirectoryLayout(course.repositoryCloneDirectoryLayout)
-  const seen = new Set<string>()
-
-  for (const assignment of roster.assignments) {
-    const groupSet = roster.groupSets.find(
-      (gs) => gs.id === assignment.groupSetId,
-    )
-    if (!groupSet) continue
-
-    const template = groupSet.repoNameTemplate?.trim()
-    const plan = planRepositoryOperation(
-      roster,
-      assignment.id,
-      template && template.length > 0 ? template : defaultRepoTemplate,
-    )
-    if (!plan.ok) continue
-
-    for (const group of plan.value.groups) {
-      const relativePath = toRepositoryRelativePath(layout, group)
-      if (seen.has(relativePath)) continue
-      seen.add(relativePath)
-      const groupLabel =
-        group.groupName.trim().length > 0 ? group.groupName : group.groupId
-      options.push({
-        label: `${group.assignmentName} / ${groupLabel}`,
-        relativePath,
-      })
-    }
-  }
-
-  return options.sort(
-    (a, b) =>
-      a.label.localeCompare(b.label) ||
-      a.relativePath.localeCompare(b.relativePath),
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Sidebar sections
@@ -205,19 +116,14 @@ export function AnalysisSidebar() {
   const result = useAnalysisStore((s) => s.result)
   const blameResult = useAnalysisStore((s) => s.blameResult)
 
-  const repoOptions = useMemo(
-    () => (course ? deriveRepoOptions(course) : []),
-    [course],
-  )
-  useEffect(() => {
-    if (selectedRepoPath === null) return
-    const isValid = repoOptions.some(
-      (option) => option.relativePath === selectedRepoPath,
-    )
-    if (!isValid) {
-      setSelectedRepoPath(null)
-    }
-  }, [repoOptions, selectedRepoPath, setSelectedRepoPath])
+  const rendererHost = useRendererHost()
+
+  const handleBrowse = useCallback(async () => {
+    const dir = await rendererHost.pickDirectory({
+      title: "Select repository",
+    })
+    if (dir) setSelectedRepoPath(dir)
+  }, [rendererHost, setSelectedRepoPath])
 
   const handleRun = useCallback(async () => {
     if (!course || !selectedRepoPath) return
@@ -236,7 +142,7 @@ export function AnalysisSidebar() {
         "analysis.run",
         {
           course,
-          repositoryRelativePath: selectedRepoPath,
+          repositoryAbsolutePath: selectedRepoPath,
           config,
           ...(rosterContext ? { rosterContext } : {}),
         },
@@ -252,7 +158,16 @@ export function AnalysisSidebar() {
         setWorkflowStatus("idle")
       } else {
         setWorkflowStatus("error")
-        setErrorMessage(err instanceof Error ? err.message : "Analysis failed")
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" &&
+                err !== null &&
+                "message" in err &&
+                typeof (err as { message: unknown }).message === "string"
+              ? (err as { message: string }).message
+              : "Analysis failed",
+        )
       }
     } finally {
       setProgress(null)
@@ -284,21 +199,14 @@ export function AnalysisSidebar() {
     <div className="flex h-full flex-col overflow-y-auto p-3 gap-4">
       {/* Repo selection */}
       <SidebarSection title="Repository">
-        <Select
-          value={selectedRepoPath ?? ""}
-          onValueChange={(v) => setSelectedRepoPath(v || null)}
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2"
+          onClick={handleBrowse}
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Select repository..." />
-          </SelectTrigger>
-          <SelectContent>
-            {repoOptions.map((opt) => (
-              <SelectItem key={opt.relativePath} value={opt.relativePath}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <FolderOpen className="size-4 shrink-0" />
+          <span className="truncate">{selectedRepoPath ?? "Browse\u2026"}</span>
+        </Button>
       </SidebarSection>
 
       <Separator />
@@ -345,8 +253,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="ts,tsx,js"
-            value={config.extensions?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.extensions?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 extensions: raw
@@ -364,8 +272,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="*.ts"
-            value={config.includeFiles?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.includeFiles?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 includeFiles: raw
@@ -383,8 +291,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="*.test.ts"
-            value={config.excludeFiles?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.excludeFiles?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 excludeFiles: raw
@@ -408,8 +316,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="bot*"
-            value={config.excludeAuthors?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.excludeAuthors?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 excludeAuthors: raw
@@ -427,8 +335,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="noreply@*"
-            value={config.excludeEmails?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.excludeEmails?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 excludeEmails: raw
@@ -446,8 +354,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="abc1234"
-            value={config.excludeRevisions?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.excludeRevisions?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 excludeRevisions: raw
@@ -465,8 +373,8 @@ export function AnalysisSidebar() {
           <Input
             type="text"
             placeholder="merge*"
-            value={config.excludeMessages?.join(", ") ?? ""}
-            onChange={(e) => {
+            defaultValue={config.excludeMessages?.join(", ") ?? ""}
+            onBlur={(e) => {
               const raw = e.target.value
               setConfig({
                 excludeMessages: raw

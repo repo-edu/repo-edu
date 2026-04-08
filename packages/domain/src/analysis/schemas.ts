@@ -29,6 +29,10 @@ export const DEFAULT_N_FILES = 5
 // Helpers
 // ---------------------------------------------------------------------------
 
+function defaultExtensions(): string[] {
+  return [...DEFAULT_EXTENSIONS]
+}
+
 const strictDateRegex = /^\d{4}-\d{2}-\d{2}$/
 
 function isValidCalendarDate(value: string): boolean {
@@ -66,7 +70,8 @@ function extensionsSchema() {
     const normalized = exts
       .map((e) => e.trim().toLowerCase().replace(/^\./, ""))
       .filter((e) => e.length > 0)
-    return [...new Set(normalized)]
+    const deduped = [...new Set(normalized)]
+    return deduped.length > 0 ? deduped : defaultExtensions()
   })
 }
 
@@ -97,7 +102,9 @@ export const analysisConfigSchema = z
     since: yyyymmddSchema.optional(),
     until: yyyymmddSchema.optional(),
     subfolder: subfolderSchema().optional(),
-    extensions: extensionsSchema().optional(),
+    extensions: extensionsSchema()
+      .optional()
+      .transform((v) => v ?? defaultExtensions()),
     includeFiles: patternArraySchema()
       .optional()
       .transform((v) => v ?? ["*"]),
@@ -133,7 +140,9 @@ const FORBIDDEN_BLAME_KEYS = [
 
 const analysisBlameConfigInnerSchema = z.object({
   subfolder: subfolderSchema().optional(),
-  extensions: extensionsSchema().optional(),
+  extensions: extensionsSchema()
+    .optional()
+    .transform((v) => v ?? defaultExtensions()),
   includeFiles: patternArraySchema()
     .optional()
     .transform((v) => v ?? ["*"]),

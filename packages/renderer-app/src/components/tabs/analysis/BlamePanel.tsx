@@ -121,7 +121,7 @@ export function BlamePanel() {
           "analysis.blame",
           {
             course,
-            repositoryRelativePath: selectedRepoPath,
+            repositoryAbsolutePath: selectedRepoPath,
             config: effectiveBlameConfig,
             personDbBaseline: result.personDbBaseline,
             personDbOverlay:
