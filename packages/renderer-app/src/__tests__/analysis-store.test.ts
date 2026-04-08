@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
+import type { AnalysisResult } from "@repo-edu/domain/analysis"
 import {
   buildEffectiveBlameWorkflowConfig,
+  selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 
@@ -96,5 +98,141 @@ describe("analysis store", () => {
     assert.equal(state.blameProgress, null)
     assert.equal(state.blameErrorMessage, null)
     assert.equal(state.activeView, "authors")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Roster match selector
+// ---------------------------------------------------------------------------
+
+function makeBaseResult(): AnalysisResult {
+  return {
+    resolvedAsOfOid: "abc123",
+    authorStats: [
+      {
+        personId: "p_0000",
+        canonicalName: "Alice",
+        canonicalEmail: "alice@uni.edu",
+        commits: 10,
+        insertions: 100,
+        deletions: 20,
+        lines: 80,
+        linesPercent: 60,
+        insertionsPercent: 70,
+        stability: 80,
+        age: 90,
+        commitShas: new Set(["sha1"]),
+      },
+      {
+        personId: "p_0001",
+        canonicalName: "Bob",
+        canonicalEmail: "bob@uni.edu",
+        commits: 5,
+        insertions: 50,
+        deletions: 10,
+        lines: 40,
+        linesPercent: 40,
+        insertionsPercent: 30,
+        stability: 90,
+        age: 60,
+        commitShas: new Set(["sha2"]),
+      },
+    ],
+    fileStats: [],
+    authorDailyActivity: [],
+    personDbBaseline: {
+      persons: [
+        {
+          id: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          aliases: [],
+          commitCount: 10,
+        },
+        {
+          id: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          aliases: [],
+          commitCount: 5,
+        },
+      ],
+      identityIndex: new Map(),
+    },
+  }
+}
+
+describe("selectRosterMatchByPersonId", () => {
+  it("returns empty map when no result", () => {
+    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
+    assert.equal(map.size, 0)
+  })
+
+  it("returns empty map when result has no rosterMatches", () => {
+    useAnalysisStore.getState().setResult(makeBaseResult())
+    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
+    assert.equal(map.size, 0)
+  })
+
+  it("indexes matches by personId", () => {
+    const result = makeBaseResult()
+    result.rosterMatches = {
+      matches: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          memberId: "m_001",
+          memberName: "Alice Smith",
+          confidence: "exact-email",
+        },
+        {
+          personId: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          memberId: "m_002",
+          memberName: "Robert Jones",
+          confidence: "fuzzy-name",
+        },
+      ],
+      unmatchedPersonIds: [],
+      unmatchedMemberIds: [],
+    }
+    useAnalysisStore.getState().setResult(result)
+
+    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
+    assert.equal(map.size, 2)
+
+    const alice = map.get("p_0000")
+    assert.equal(alice?.memberName, "Alice Smith")
+    assert.equal(alice?.confidence, "exact-email")
+
+    const bob = map.get("p_0001")
+    assert.equal(bob?.memberName, "Robert Jones")
+    assert.equal(bob?.confidence, "fuzzy-name")
+  })
+
+  it("omits unmatched persons from the map", () => {
+    const result = makeBaseResult()
+    result.rosterMatches = {
+      matches: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          memberId: "m_001",
+          memberName: "Alice Smith",
+          confidence: "exact-email",
+        },
+      ],
+      unmatchedPersonIds: ["p_0001"],
+      unmatchedMemberIds: [],
+    }
+    useAnalysisStore.getState().setResult(result)
+
+    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
+    assert.equal(map.size, 1)
+    assert.equal(map.has("p_0000"), true)
+    assert.equal(map.has("p_0001"), false)
   })
 })

@@ -7,6 +7,7 @@ import type {
   BlameResult,
   FileBlame,
   FileStats,
+  IdentityMatch,
 } from "@repo-edu/domain/analysis"
 import { create } from "zustand"
 
@@ -420,5 +421,16 @@ export const selectAuthorDisplayByPersonId = (
     })
   }
 
+  return map
+}
+
+export const selectRosterMatchByPersonId = (
+  state: AnalysisState & AnalysisActions,
+): Map<string, IdentityMatch> => {
+  const map = new Map<string, IdentityMatch>()
+  if (!state.result?.rosterMatches) return map
+  for (const match of state.result.rosterMatches.matches) {
+    map.set(match.personId, match)
+  }
   return map
 }

@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
+import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 
 // ---------------------------------------------------------------------------
 // Repo list derivation
@@ -220,6 +221,7 @@ export function AnalysisSidebar() {
 
   const handleRun = useCallback(async () => {
     if (!course || !selectedRepoPath) return
+    const rosterContext = buildAnalysisRosterContext(course)
 
     const ac = new AbortController()
     abortRef.current = ac
@@ -236,6 +238,7 @@ export function AnalysisSidebar() {
           course,
           repositoryRelativePath: selectedRepoPath,
           config,
+          ...(rosterContext ? { rosterContext } : {}),
         },
         {
           onProgress: (p: AnalysisProgress) => setProgress(p),

@@ -1,4 +1,8 @@
-import type { AuthorStats } from "@repo-edu/domain/analysis"
+import type {
+  AuthorStats,
+  IdentityConfidence,
+  IdentityMatch,
+} from "@repo-edu/domain/analysis"
 import {
   DataTable,
   DataTableBody,
@@ -21,6 +25,7 @@ import { useMemo, useState } from "react"
 import {
   selectAuthorDisplayByPersonId,
   selectFilteredAuthorStats,
+  selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import {
@@ -34,6 +39,53 @@ import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { AuthorFilterControls } from "./AuthorFilterControls.js"
 import { AuthorCharts } from "./charts/AuthorCharts.js"
 
+export const confidenceStyles: Record<IdentityConfidence, string> = {
+  "exact-email": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  "fuzzy-name": "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  unmatched: "",
+}
+
+const confidenceLabels: Record<IdentityConfidence, string> = {
+  "exact-email": "email",
+  "fuzzy-name": "fuzzy",
+  unmatched: "",
+}
+
+export function getConfidenceBadgeLabel(
+  confidence: IdentityConfidence,
+): string | null {
+  return confidenceLabels[confidence] || null
+}
+
+export function getRosterMatchCell(match?: IdentityMatch): {
+  memberName: string | null
+  confidence: IdentityConfidence | null
+} {
+  if (!match) {
+    return { memberName: null, confidence: null }
+  }
+  return {
+    memberName: match.memberName,
+    confidence: match.confidence,
+  }
+}
+
+export function ConfidenceBadge({
+  confidence,
+}: {
+  confidence: IdentityConfidence
+}) {
+  const label = getConfidenceBadgeLabel(confidence)
+  if (!label) return null
+  return (
+    <span
+      className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium leading-none ${confidenceStyles[confidence]}`}
+    >
+      {label}
+    </span>
+  )
+}
+
 export function AuthorPanel() {
   const result = useAnalysisStore((s) => s.result)
   const authorStats = useAnalysisStore(selectFilteredAuthorStats)
@@ -42,11 +94,14 @@ export function AuthorPanel() {
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
   const scaledPercentages = useAnalysisStore((s) => s.scaledPercentages)
   const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
+  const rosterMatchById = useAnalysisStore(selectRosterMatchByPersonId)
   const toggleAuthor = useAnalysisStore((s) => s.toggleAuthor)
 
   const [sorting, setSorting] = useState<SortingState>([
     { id: "commits", desc: true },
   ])
+
+  const hasRosterMatches = result?.rosterMatches != null
 
   const allAuthorIds = useMemo(
     () => (result?.authorStats ?? []).map((a) => a.personId),
@@ -123,6 +178,39 @@ export function AuthorPanel() {
           </span>
         ),
       },
+    ]
+
+    if (hasRosterMatches) {
+      cols.push({
+        id: "rosterMatch",
+        accessorFn: (row) =>
+          rosterMatchById.get(row.personId)?.memberName ?? "",
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Roster Match"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => column.toggleSorting()}
+          />
+        ),
+        cell: ({ row }) => {
+          const cell = getRosterMatchCell(
+            rosterMatchById.get(row.original.personId),
+          )
+          if (!cell.memberName || !cell.confidence) {
+            return <span className="text-muted-foreground">—</span>
+          }
+          return (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="truncate">{cell.memberName}</span>
+              <ConfidenceBadge confidence={cell.confidence} />
+            </div>
+          )
+        },
+      })
+    }
+
+    cols.push(
       {
         id: "commits",
         accessorFn: (row) => row.commits,
@@ -153,7 +241,7 @@ export function AuthorPanel() {
             ? formatPercent(row.original.insertionsPercent)
             : formatCount(row.original.insertions),
       },
-    ]
+    )
 
     if (showDeletions) {
       cols.push({
@@ -267,7 +355,9 @@ export function AuthorPanel() {
   }, [
     authorDisplayById,
     colors,
+    hasRosterMatches,
     isPercent,
+    rosterMatchById,
     scaledPercentages,
     showDeletions,
     totalDeletions,
