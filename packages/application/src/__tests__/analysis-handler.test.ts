@@ -120,6 +120,7 @@ describe("analysis.run handler", () => {
 
     assert.equal(result.authorStats.length, 0)
     assert.equal(result.fileStats.length, 0)
+    assert.equal(result.authorDailyActivity.length, 0)
     assert.equal(result.resolvedAsOfOid, "abc123def456")
   })
 
@@ -321,6 +322,13 @@ describe("analysis.run handler", () => {
     assert.equal(result.fileStats.length, 1)
     assert.equal(result.fileStats[0].insertions, 3)
     assert.equal(result.fileStats[0].commits, 1)
+    assert.equal(result.fileStats[0].lastModified, 1700000200)
+    assert.equal(result.authorDailyActivity.length, 1)
+    assert.equal(
+      result.authorDailyActivity[0].personId,
+      result.authorStats[0].personId,
+    )
+    assert.equal(result.authorDailyActivity[0].insertions, 3)
   })
 })
 

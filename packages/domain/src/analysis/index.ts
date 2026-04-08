@@ -1,4 +1,5 @@
 export type {
+  AuthorDailyActivity,
   AnalysisBlameConfig,
   AnalysisCommit,
   AnalysisConfig,

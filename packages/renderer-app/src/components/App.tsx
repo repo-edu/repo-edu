@@ -60,6 +60,7 @@ import { SyncErrorBanner } from "./SyncErrorBanner.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
 import { ToastStack } from "./ToastStack.js"
+import { AnalysisTab } from "./tabs/AnalysisTab.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { StudentsTab } from "./tabs/StudentsTab.js"
 
@@ -206,6 +207,7 @@ function AppShell() {
           <TabsList className="app-no-drag">
             <TabsTrigger value="roster">Roster</TabsTrigger>
             <TabsTrigger value="groups-assignments">Groups</TabsTrigger>
+            <TabsTrigger value="analysis">Analysis</TabsTrigger>
           </TabsList>
           <div className="flex-1" />
           <div className="app-no-drag flex items-center gap-1 pr-2">
@@ -263,6 +265,12 @@ function AppShell() {
           className="flex-1 min-h-0 overflow-hidden"
         >
           <GroupsAssignmentsTab />
+        </TabsContent>
+        <TabsContent
+          value="analysis"
+          className="flex-1 min-h-0 overflow-hidden"
+        >
+          <AnalysisTab />
         </TabsContent>
       </Tabs>
 

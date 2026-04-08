@@ -2,6 +2,7 @@ import type {
   AnalysisCommit,
   AnalysisConfig,
   AnalysisResult,
+  AuthorDailyActivity,
   AuthorStats,
   FileStats,
   GitAuthorIdentity,
@@ -150,6 +151,10 @@ function aggregateStats(
       // File aggregation
       fileStat.insertions += group.insertions
       fileStat.deletions += group.deletions
+      fileStat.lastModified = Math.max(
+        fileStat.lastModified,
+        group.latestTimestamp ?? 0,
+      )
       for (const sha of group.shas) {
         fileStat.commitShas.add(sha)
       }
@@ -372,6 +377,76 @@ function applyAuthorExclusions(
   return { authorStats: filteredAuthorStats, fileStats: filteredFileStats }
 }
 
+function toUtcDay(timestamp: number): string {
+  return new Date(timestamp * 1000).toISOString().slice(0, 10)
+}
+
+function buildAuthorDailyActivity(
+  fileGroupsMap: Map<string, CommitGroup[]>,
+  personDb: AnalysisResult["personDbBaseline"],
+): AuthorDailyActivity[] {
+  const rowsByKey = new Map<
+    string,
+    {
+      date: string
+      personId: string
+      commits: Set<string>
+      insertions: number
+      deletions: number
+      netLines: number
+    }
+  >()
+
+  const sortedPaths = [...fileGroupsMap.keys()].sort()
+  for (const filePath of sortedPaths) {
+    const groups = fileGroupsMap.get(filePath)
+    if (!groups) continue
+
+    for (const group of groups) {
+      const [name = "", email = ""] = group.author.split("\0")
+      const personId = personDb.identityIndex.get(
+        toPersonDbIdentityKey(name, email),
+      )
+      if (!personId) continue
+
+      for (const entry of group.commitEntries ?? []) {
+        const date = toUtcDay(entry.timestamp)
+        const key = `${date}\0${personId}`
+        const existing = rowsByKey.get(key)
+        if (existing) {
+          existing.commits.add(entry.sha)
+          existing.insertions += entry.insertions
+          existing.deletions += entry.deletions
+          existing.netLines += entry.insertions - entry.deletions
+          continue
+        }
+        rowsByKey.set(key, {
+          date,
+          personId,
+          commits: new Set([entry.sha]),
+          insertions: entry.insertions,
+          deletions: entry.deletions,
+          netLines: entry.insertions - entry.deletions,
+        })
+      }
+    }
+  }
+
+  return [...rowsByKey.values()]
+    .map((row) => ({
+      date: row.date,
+      personId: row.personId,
+      commits: row.commits.size,
+      insertions: row.insertions,
+      deletions: row.deletions,
+      netLines: row.netLines,
+    }))
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) || a.personId.localeCompare(b.personId),
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -459,6 +534,7 @@ export function createAnalysisRunHandler(
             resolvedAsOfOid,
             authorStats: [],
             fileStats: [],
+            authorDailyActivity: [],
             personDbBaseline: emptyPersonDb,
           }
         }
@@ -591,6 +667,13 @@ export function createAnalysisRunHandler(
           personDbBaseline,
           config,
         )
+        const visibleAuthorIds = new Set(
+          filteredStats.authorStats.map((author) => author.personId),
+        )
+        const authorDailyActivity = buildAuthorDailyActivity(
+          fileCommitGroupsMap,
+          personDbBaseline,
+        ).filter((row) => visibleAuthorIds.has(row.personId))
 
         // Phase 8: Optional roster bridging
         let rosterMatches: AnalysisResult["rosterMatches"]
@@ -612,6 +695,7 @@ export function createAnalysisRunHandler(
           resolvedAsOfOid,
           authorStats: filteredStats.authorStats,
           fileStats: filteredStats.fileStats,
+          authorDailyActivity,
           personDbBaseline,
           rosterMatches,
         }

@@ -216,6 +216,7 @@ export type AnalysisResult = {
   resolvedAsOfOid: string
   authorStats: AuthorStats[]
   fileStats: FileStats[]
+  authorDailyActivity: AuthorDailyActivity[]
   personDbBaseline: PersonDbSnapshot
   rosterMatches?: IdentityBridgeResult
 }
@@ -225,6 +226,15 @@ export type BlameResult = {
   authorSummaries: BlameAuthorSummary[]
   personDbOverlay: PersonDbSnapshot
   delta: PersonDbDelta
+}
+
+export type AuthorDailyActivity = {
+  date: string
+  personId: string
+  commits: number
+  insertions: number
+  deletions: number
+  netLines: number
 }
 
 // ---------------------------------------------------------------------------

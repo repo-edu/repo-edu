@@ -309,6 +309,13 @@ export type CommitGroup = {
   deletions: number
   dateSum: number
   shas: Set<string>
+  latestTimestamp?: number
+  commitEntries?: {
+    sha: string
+    timestamp: number
+    insertions: number
+    deletions: number
+  }[]
 }
 
 /**
@@ -333,6 +340,17 @@ export function buildCommitGroups(
       last.deletions += fileEntry.deletions
       last.dateSum += commit.timestamp * fileEntry.insertions
       last.shas.add(commit.sha)
+      last.latestTimestamp = Math.max(
+        last.latestTimestamp ?? 0,
+        commit.timestamp,
+      )
+      last.commitEntries ??= []
+      last.commitEntries.push({
+        sha: commit.sha,
+        timestamp: commit.timestamp,
+        insertions: fileEntry.insertions,
+        deletions: fileEntry.deletions,
+      })
     } else {
       groups.push({
         author: authorKey,
@@ -341,6 +359,15 @@ export function buildCommitGroups(
         deletions: fileEntry.deletions,
         dateSum: commit.timestamp * fileEntry.insertions,
         shas: new Set([commit.sha]),
+        latestTimestamp: commit.timestamp,
+        commitEntries: [
+          {
+            sha: commit.sha,
+            timestamp: commit.timestamp,
+            insertions: fileEntry.insertions,
+            deletions: fileEntry.deletions,
+          },
+        ],
       })
     }
   }

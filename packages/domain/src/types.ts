@@ -73,6 +73,7 @@ export type PersistedAppSettings = {
   rosterColumnVisibility: Record<string, boolean>
   rosterColumnSizing: Record<string, number>
   groupsSidebarSize: number | null
+  analysisSidebarSize: number | null
 }
 
 export type RosterConnection =

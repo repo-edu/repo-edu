@@ -61,6 +61,7 @@ export const persistedAppSettingsSchema = z.object({
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
   groupsSidebarSize: z.number().nullable().default(null),
+  analysisSidebarSize: z.number().nullable().default(null),
 })
 
 const memberStatusSchema = z.enum(memberStatusKinds)
