@@ -55,26 +55,26 @@ describe("analysis store", () => {
     assert.equal(merged.ignoreRevsFile, false)
   })
 
-  it("removes closed blame files from targets and cached per-file results", () => {
+  it("keeps a single active blame target while retaining cached results", () => {
     const store = useAnalysisStore.getState()
     store.openFileForBlame("src/a.ts")
-    store.openFileForBlame("src/b.ts")
     store.setBlameFileResult("src/a.ts", {
       status: "loaded",
       fileBlame: { path: "src/a.ts", lines: [] },
       errorMessage: null,
     })
+    store.openFileForBlame("src/b.ts")
     store.setBlameFileResult("src/b.ts", {
       status: "loaded",
       fileBlame: { path: "src/b.ts", lines: [] },
       errorMessage: null,
     })
 
-    store.closeBlameTargetFile("src/b.ts")
     const state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, ["src/a.ts"])
-    assert.equal(state.activeBlameFile, "src/a.ts")
-    assert.equal(state.blameFileResults.has("src/b.ts"), false)
+    assert.deepEqual(state.blameTargetFiles, ["src/b.ts"])
+    assert.equal(state.activeBlameFile, "src/b.ts")
+    assert.equal(state.blameFileResults.has("src/a.ts"), true)
+    assert.equal(state.blameFileResults.has("src/b.ts"), true)
   })
 
   it("clears blame state when blameSkip is enabled", () => {
@@ -101,6 +101,67 @@ describe("analysis store", () => {
     assert.equal(state.blameProgress, null)
     assert.equal(state.blameErrorMessage, null)
     assert.equal(state.activeView, "authors")
+  })
+
+  it("tracks file filtering mode separately from selected file paths", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = [
+      {
+        path: "src/a.ts",
+        commits: 1,
+        insertions: 10,
+        deletions: 2,
+        lines: 8,
+        stability: 75,
+        lastModified: 1_700_000_000,
+        commitShas: new Set(["sha-a"]),
+        authorBreakdown: new Map(),
+      },
+      {
+        path: "src/b.ts",
+        commits: 1,
+        insertions: 12,
+        deletions: 3,
+        lines: 9,
+        stability: 70,
+        lastModified: 1_700_000_100,
+        commitShas: new Set(["sha-b"]),
+        authorBreakdown: new Map(),
+      },
+    ]
+
+    store.setResult(result)
+    let state = useAnalysisStore.getState()
+    assert.equal(state.fileSelectionMode, "all")
+    assert.deepEqual(
+      selectFilteredFileStats(state).map((f) => f.path),
+      ["src/a.ts", "src/b.ts"],
+    )
+
+    store.setSelectedFiles(new Set(["src/a.ts"]))
+    state = useAnalysisStore.getState()
+    assert.equal(state.fileSelectionMode, "subset")
+    assert.deepEqual(
+      selectFilteredFileStats(state).map((f) => f.path),
+      ["src/a.ts"],
+    )
+
+    store.setSelectedFiles(new Set())
+    state = useAnalysisStore.getState()
+    assert.equal(state.fileSelectionMode, "subset")
+    assert.deepEqual(
+      selectFilteredFileStats(state).map((f) => f.path),
+      [],
+    )
+
+    store.clearFileSelection()
+    state = useAnalysisStore.getState()
+    assert.equal(state.fileSelectionMode, "all")
+    assert.deepEqual(
+      selectFilteredFileStats(state).map((f) => f.path),
+      ["src/a.ts", "src/b.ts"],
+    )
   })
 })
 

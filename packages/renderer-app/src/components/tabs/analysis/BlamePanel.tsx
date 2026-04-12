@@ -1,27 +1,14 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { BlameResult } from "@repo-edu/domain/analysis"
-import {
-  Button,
-  EmptyState,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo-edu/ui"
-import { Loader2, Plus, Trash2, X } from "@repo-edu/ui/components/icons"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { EmptyState } from "@repo-edu/ui"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import {
   buildEffectiveBlameWorkflowConfig,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
-import { BlameFilePickerDialog } from "./BlameFilePickerDialog.js"
 import { BlameTab } from "./BlameTab.js"
-
-function basename(path: string): string {
-  const i = path.lastIndexOf("/")
-  return i >= 0 ? path.slice(i + 1) : path
-}
 
 export function BlamePanel() {
   const course = useCourseStore((s) => s.course)
@@ -35,16 +22,18 @@ export function BlamePanel() {
   const blameProgress = useAnalysisStore((s) => s.blameProgress)
   const blameErrorMessage = useAnalysisStore((s) => s.blameErrorMessage)
 
-  const setActiveBlameFile = useAnalysisStore((s) => s.setActiveBlameFile)
-  const closeBlameTargetFile = useAnalysisStore((s) => s.closeBlameTargetFile)
-  const clearBlameTargetFiles = useAnalysisStore((s) => s.clearBlameTargetFiles)
   const setBlameResult = useAnalysisStore((s) => s.setBlameResult)
   const setBlameFileResult = useAnalysisStore((s) => s.setBlameFileResult)
+  const clearBlameFileResults = useAnalysisStore((s) => s.clearBlameFileResults)
   const setBlameWorkflowStatus = useAnalysisStore(
     (s) => s.setBlameWorkflowStatus,
   )
   const setBlameProgress = useAnalysisStore((s) => s.setBlameProgress)
   const setBlameErrorMessage = useAnalysisStore((s) => s.setBlameErrorMessage)
+  const blameContextSnapshot = useAnalysisStore((s) => s.blameContextSnapshot)
+  const setBlameContextSnapshot = useAnalysisStore(
+    (s) => s.setBlameContextSnapshot,
+  )
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const config = useAnalysisStore((s) => s.config)
@@ -55,27 +44,43 @@ export function BlamePanel() {
     () => buildEffectiveBlameWorkflowConfig(config, blameConfig),
     [config, blameConfig],
   )
+  const effectiveBlameConfigSnapshot = useMemo(
+    () => JSON.stringify(effectiveBlameConfig),
+    [effectiveBlameConfig],
+  )
 
-  const [pickerOpen, setPickerOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const contextVersionRef = useRef(0)
-  const contextSnapshotRef = useRef("")
-  const contextSnapshot = `${course?.id ?? ""}\0${selectedRepoPath ?? ""}\0${result?.resolvedAsOfOid ?? ""}\0${blameSkip ? "1" : "0"}`
+  const contextSnapshot = `${course?.id ?? ""}\0${selectedRepoPath ?? ""}\0${result?.resolvedAsOfOid ?? ""}\0${asOfCommit}\0${blameSkip ? "1" : "0"}\0${effectiveBlameConfigSnapshot}`
 
   useEffect(() => {
-    if (contextSnapshotRef.current === contextSnapshot) {
+    if (blameContextSnapshot === null) {
+      setBlameContextSnapshot(contextSnapshot)
       return
     }
-    contextSnapshotRef.current = contextSnapshot
+    if (blameContextSnapshot === contextSnapshot) {
+      return
+    }
+    setBlameContextSnapshot(contextSnapshot)
     contextVersionRef.current += 1
-    const hadInFlightRun = abortRef.current !== null
     abortRef.current?.abort()
     abortRef.current = null
-    if (hadInFlightRun) {
-      setBlameWorkflowStatus("idle")
-      setBlameProgress(null)
-    }
-  })
+    // Blame results are context-dependent; invalidate cache when context changes.
+    setBlameResult(null)
+    clearBlameFileResults()
+    setBlameWorkflowStatus("idle")
+    setBlameProgress(null)
+    setBlameErrorMessage(null)
+  }, [
+    blameContextSnapshot,
+    clearBlameFileResults,
+    contextSnapshot,
+    setBlameContextSnapshot,
+    setBlameErrorMessage,
+    setBlameProgress,
+    setBlameResult,
+    setBlameWorkflowStatus,
+  ])
 
   useEffect(
     () => () => {
@@ -194,19 +199,6 @@ export function BlamePanel() {
     ],
   )
 
-  const handleCloseFile = useCallback(
-    (path: string) => {
-      abortRef.current?.abort()
-      closeBlameTargetFile(path)
-    },
-    [closeBlameTargetFile],
-  )
-
-  const handleCloseAll = useCallback(() => {
-    abortRef.current?.abort()
-    clearBlameTargetFiles()
-  }, [clearBlameTargetFiles])
-
   // Auto-trigger blame for newly added files
   useEffect(() => {
     if (blameSkip) return
@@ -228,19 +220,8 @@ export function BlamePanel() {
 
   if (blameTargetFiles.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
-        <EmptyState message="Click a file in the Files tab to start blame analysis." />
-        {result && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPickerOpen(true)}
-          >
-            <Plus className="mr-1 size-4" />
-            Add Files
-          </Button>
-        )}
-        <BlameFilePickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
+      <div className="flex h-full flex-col items-center justify-center p-8">
+        <EmptyState message="Select a file in the sidebar to start blame analysis." />
       </div>
     )
   }
@@ -249,66 +230,6 @@ export function BlamePanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b px-2 py-1 overflow-x-auto">
-        {blameTargetFiles.map((path) => {
-          const isActive = path === activeBlameFile
-          const entry = blameFileResults.get(path)
-          const isLoading = !entry || entry.status === "pending"
-          return (
-            <div key={path} className="flex items-center gap-0.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className={`flex items-center gap-1 rounded px-2 py-1 text-xs whitespace-nowrap transition-colors ${
-                      isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-muted"
-                    }`}
-                    onClick={() => setActiveBlameFile(path)}
-                  >
-                    {isLoading && (
-                      <Loader2 className="size-3 animate-spin shrink-0" />
-                    )}
-                    <span className="truncate max-w-32">{basename(path)}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{path}</TooltipContent>
-              </Tooltip>
-              <button
-                type="button"
-                className="rounded p-0.5 hover:bg-muted-foreground/20"
-                onClick={() => handleCloseFile(path)}
-                aria-label={`Close ${path}`}
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          )
-        })}
-
-        <div className="ml-auto flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => setPickerOpen(true)}
-          >
-            <Plus className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-muted-foreground"
-            onClick={handleCloseAll}
-          >
-            <Trash2 className="mr-1 size-3.5" />
-            Close All
-          </Button>
-        </div>
-      </div>
-
       {/* Progress bar */}
       {isRunning && blameProgress && (
         <div className="border-b px-3 py-1.5">
@@ -342,12 +263,10 @@ export function BlamePanel() {
           <BlameTab filePath={activeBlameFile} />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <EmptyState message="Select a file tab above." />
+            <EmptyState message="Select a file in the sidebar." />
           </div>
         )}
       </div>
-
-      <BlameFilePickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
     </div>
   )
 }

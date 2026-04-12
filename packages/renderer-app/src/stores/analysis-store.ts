@@ -30,6 +30,7 @@ export type AnalysisView =
   | "blame"
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
+export type AnalysisFileSelectionMode = "all" | "subset"
 
 export type FileBlameEntry = {
   status: "pending" | "loaded" | "error"
@@ -68,6 +69,7 @@ type AnalysisState = {
   blameWorkflowStatus: AnalysisWorkflowStatus
   blameProgress: AnalysisProgress | null
   blameErrorMessage: string | null
+  blameContextSnapshot: string | null
 
   // Blame display toggles (client-side only)
   blameShowMetadata: boolean
@@ -77,7 +79,9 @@ type AnalysisState = {
 
   // Filter state (post-analysis, client-side)
   selectedAuthors: Set<string>
+  fileSelectionMode: AnalysisFileSelectionMode
   selectedFiles: Set<string>
+  focusedFilePath: string | null
 
   // Display state
   displayMode: AnalysisDisplayMode
@@ -103,8 +107,6 @@ type AnalysisActions = {
   setResult: (result: AnalysisResult | null) => void
   setBlameResult: (result: BlameResult | null) => void
   openFileForBlame: (path: string) => void
-  closeBlameTargetFile: (path: string) => void
-  clearBlameTargetFiles: () => void
   setWorkflowStatus: (status: AnalysisWorkflowStatus) => void
   setProgress: (progress: AnalysisProgress | null) => void
   setErrorMessage: (message: string | null) => void
@@ -114,12 +116,12 @@ type AnalysisActions = {
   setAsOfCommit: (oid: string) => void
 
   // Per-file blame tracking
-  setActiveBlameFile: (path: string | null) => void
   setBlameFileResult: (path: string, entry: FileBlameEntry) => void
   clearBlameFileResults: () => void
   setBlameWorkflowStatus: (status: AnalysisWorkflowStatus) => void
   setBlameProgress: (progress: AnalysisProgress | null) => void
   setBlameErrorMessage: (message: string | null) => void
+  setBlameContextSnapshot: (snapshot: string | null) => void
 
   // Blame display toggles
   setBlameShowMetadata: (show: boolean) => void
@@ -132,6 +134,7 @@ type AnalysisActions = {
   selectAllAuthors: () => void
   clearAuthorSelection: () => void
 
+  setFocusedFilePath: (path: string | null) => void
   setSelectedFiles: (files: Set<string>) => void
   toggleFile: (path: string) => void
   selectAllFiles: () => void
@@ -173,6 +176,7 @@ const initialState: AnalysisState = {
   blameWorkflowStatus: "idle",
   blameProgress: null,
   blameErrorMessage: null,
+  blameContextSnapshot: null,
 
   blameShowMetadata: true,
   blameColorize: true,
@@ -180,7 +184,9 @@ const initialState: AnalysisState = {
   blameHideComments: false,
 
   selectedAuthors: new Set(),
+  fileSelectionMode: "all",
   selectedFiles: new Set(),
+  focusedFilePath: null,
 
   displayMode: "absolute",
   activeMetric: "commits",
@@ -214,6 +220,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           blameWorkflowStatus: "idle",
           blameProgress: null,
           blameErrorMessage: null,
+          blameContextSnapshot: null,
           activeView:
             state.activeView === "blame" ? "authors" : state.activeView,
         }
@@ -240,8 +247,11 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         blameWorkflowStatus: "idle",
         blameProgress: null,
         blameErrorMessage: null,
+        blameContextSnapshot: null,
         selectedAuthors: new Set(),
+        fileSelectionMode: "all",
         selectedFiles: new Set(),
+        focusedFilePath: null,
         asOfCommit: result?.resolvedAsOfOid ?? "",
       }),
     setBlameResult: (blameResult) => set({ blameResult }),
@@ -250,35 +260,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         if (state.config.blameSkip ?? false) {
           return state
         }
-        const alreadyOpen = state.blameTargetFiles.includes(path)
         return {
-          blameTargetFiles: alreadyOpen
-            ? state.blameTargetFiles
-            : [...state.blameTargetFiles, path],
+          // Single-file blame selection; previous file results remain cached.
+          blameTargetFiles: [path],
           activeBlameFile: path,
+          focusedFilePath: path,
           activeView: "blame",
         }
-      }),
-    closeBlameTargetFile: (path) =>
-      set((state) => {
-        const next = state.blameTargetFiles.filter((p) => p !== path)
-        const nextResults = new Map(state.blameFileResults)
-        nextResults.delete(path)
-        const nextActive =
-          state.activeBlameFile === path
-            ? (next[next.length - 1] ?? null)
-            : state.activeBlameFile
-        return {
-          blameTargetFiles: next,
-          blameFileResults: nextResults,
-          activeBlameFile: nextActive,
-        }
-      }),
-    clearBlameTargetFiles: () =>
-      set({
-        blameTargetFiles: [],
-        blameFileResults: new Map(),
-        activeBlameFile: null,
       }),
     setWorkflowStatus: (workflowStatus) => set({ workflowStatus }),
     setProgress: (progress) => set({ progress }),
@@ -292,7 +280,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setAsOfCommit: (asOfCommit) => set({ asOfCommit }),
 
     // Per-file blame tracking
-    setActiveBlameFile: (activeBlameFile) => set({ activeBlameFile }),
     setBlameFileResult: (path, entry) =>
       set((state) => {
         const next = new Map(state.blameFileResults)
@@ -304,6 +291,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({ blameWorkflowStatus }),
     setBlameProgress: (blameProgress) => set({ blameProgress }),
     setBlameErrorMessage: (blameErrorMessage) => set({ blameErrorMessage }),
+    setBlameContextSnapshot: (blameContextSnapshot) =>
+      set({ blameContextSnapshot }),
 
     // Blame display toggles
     setBlameShowMetadata: (blameShowMetadata) => set({ blameShowMetadata }),
@@ -333,25 +322,53 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
     clearAuthorSelection: () => set({ selectedAuthors: new Set() }),
 
-    setSelectedFiles: (selectedFiles) => set({ selectedFiles }),
+    setFocusedFilePath: (focusedFilePath) => set({ focusedFilePath }),
+    setSelectedFiles: (selectedFiles) =>
+      set({
+        fileSelectionMode: "subset",
+        selectedFiles,
+      }),
     toggleFile: (path) =>
       set((state) => {
-        const next = new Set(state.selectedFiles)
+        const allPaths = state.result?.fileStats.map((f) => f.path) ?? []
+        const next =
+          state.fileSelectionMode === "all"
+            ? new Set(allPaths)
+            : new Set(state.selectedFiles)
         if (next.has(path)) {
           next.delete(path)
         } else {
           next.add(path)
         }
-        return { selectedFiles: next }
-      }),
-    selectAllFiles: () =>
-      set((state) => {
-        if (!state.result) return state
+
+        if (
+          allPaths.length > 0 &&
+          next.size >= allPaths.length &&
+          allPaths.every((filePath) => next.has(filePath))
+        ) {
+          return {
+            fileSelectionMode: "all",
+            selectedFiles: new Set<string>(),
+          }
+        }
+
         return {
-          selectedFiles: new Set(state.result.fileStats.map((f) => f.path)),
+          fileSelectionMode: "subset",
+          selectedFiles: next,
         }
       }),
-    clearFileSelection: () => set({ selectedFiles: new Set() }),
+    selectAllFiles: () =>
+      set(() => {
+        return {
+          fileSelectionMode: "all",
+          selectedFiles: new Set<string>(),
+        }
+      }),
+    clearFileSelection: () =>
+      set({
+        fileSelectionMode: "all",
+        selectedFiles: new Set<string>(),
+      }),
 
     setDisplayMode: (displayMode) => set({ displayMode }),
     setActiveMetric: (activeMetric) => set({ activeMetric }),
@@ -406,17 +423,24 @@ export const selectFilteredAuthorStats = (() => {
 export const selectFilteredFileStats = (() => {
   const EMPTY_FILE_STATS: FileStats[] = []
   let previousResult: AnalysisResult | null = null
+  let previousFileSelectionMode: AnalysisFileSelectionMode | null = null
   let previousSelectedFiles: Set<string> | null = null
   let previousValue: FileStats[] = EMPTY_FILE_STATS
 
   return (state: AnalysisState & AnalysisActions): FileStats[] => {
     const result = state.result
+    const fileSelectionMode = state.fileSelectionMode
     const selectedFiles = state.selectedFiles
-    if (result === previousResult && selectedFiles === previousSelectedFiles) {
+    if (
+      result === previousResult &&
+      fileSelectionMode === previousFileSelectionMode &&
+      selectedFiles === previousSelectedFiles
+    ) {
       return previousValue
     }
 
     previousResult = result
+    previousFileSelectionMode = fileSelectionMode
     previousSelectedFiles = selectedFiles
 
     if (!result) {
@@ -425,7 +449,7 @@ export const selectFilteredFileStats = (() => {
     }
 
     const { fileStats } = result
-    if (selectedFiles.size === 0) {
+    if (fileSelectionMode === "all") {
       previousValue = fileStats
       return previousValue
     }

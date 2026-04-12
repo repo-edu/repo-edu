@@ -27,6 +27,7 @@ function parentFolder(path: string): string {
 
 export function FileFilterControls() {
   const result = useAnalysisStore((s) => s.result)
+  const fileSelectionMode = useAnalysisStore((s) => s.fileSelectionMode)
   const selectedFiles = useAnalysisStore((s) => s.selectedFiles)
   const setSelectedFiles = useAnalysisStore((s) => s.setSelectedFiles)
   const clearFileSelection = useAnalysisStore((s) => s.clearFileSelection)
@@ -56,11 +57,11 @@ export function FileFilterControls() {
   }, [allFilePaths])
 
   const effectiveSelection = useMemo(() => {
-    if (selectedFiles.size === 0) {
+    if (fileSelectionMode === "all") {
       return new Set(allFilePaths)
     }
     return selectedFiles
-  }, [allFilePaths, selectedFiles])
+  }, [allFilePaths, fileSelectionMode, selectedFiles])
 
   const commitSelection = useCallback(
     (next: Set<string>) => {
