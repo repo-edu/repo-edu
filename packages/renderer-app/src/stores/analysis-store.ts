@@ -48,6 +48,7 @@ type AnalysisState = {
   discoveredRepos: DiscoveredRepo[]
   discoveryStatus: "idle" | "loading" | "error"
   discoveryError: string | null
+  lastDiscoveryOutcome: "none" | "completed" | "cancelled"
 
   // Result state
   result: AnalysisResult | null
@@ -97,6 +98,7 @@ type AnalysisActions = {
   setDiscoveredRepos: (repos: DiscoveredRepo[]) => void
   setDiscoveryStatus: (status: "idle" | "loading" | "error") => void
   setDiscoveryError: (error: string | null) => void
+  setLastDiscoveryOutcome: (outcome: "none" | "completed" | "cancelled") => void
 
   setResult: (result: AnalysisResult | null) => void
   setBlameResult: (result: BlameResult | null) => void
@@ -154,6 +156,7 @@ const initialState: AnalysisState = {
   discoveredRepos: [],
   discoveryStatus: "idle",
   discoveryError: null,
+  lastDiscoveryOutcome: "none",
 
   result: null,
   blameResult: null,
@@ -224,6 +227,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setDiscoveredRepos: (discoveredRepos) => set({ discoveredRepos }),
     setDiscoveryStatus: (discoveryStatus) => set({ discoveryStatus }),
     setDiscoveryError: (discoveryError) => set({ discoveryError }),
+    setLastDiscoveryOutcome: (lastDiscoveryOutcome) =>
+      set({ lastDiscoveryOutcome }),
 
     setResult: (result) =>
       set({

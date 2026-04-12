@@ -23,7 +23,6 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  FolderOpen,
   GitBranch,
   Loader2,
   Play,
@@ -145,6 +144,7 @@ export function AnalysisSidebar() {
   const course = useCourseStore((s) => s.course)
   const client = useWorkflowClient()
   const abortRef = useRef<AbortController | null>(null)
+  const discoveryAbortRef = useRef<AbortController | null>(null)
 
   const config = useAnalysisStore((s) => s.config)
   const setConfig = useAnalysisStore((s) => s.setConfig)
@@ -173,13 +173,16 @@ export function AnalysisSidebar() {
   const setDiscoveryStatus = useAnalysisStore((s) => s.setDiscoveryStatus)
   const discoveryError = useAnalysisStore((s) => s.discoveryError)
   const setDiscoveryError = useAnalysisStore((s) => s.setDiscoveryError)
+  const lastDiscoveryOutcome = useAnalysisStore((s) => s.lastDiscoveryOutcome)
+  const setLastDiscoveryOutcome = useAnalysisStore(
+    (s) => s.setLastDiscoveryOutcome,
+  )
 
   const rendererHost = useRendererHost()
 
   // Section open/close state
   const [sections, setSections] =
     useState<Record<SectionKey, boolean>>(allSectionsOpen)
-
   const handleSectionChange = useCallback((key: SectionKey, open: boolean) => {
     setSections((prev) => ({ ...prev, [key]: open }))
   }, [])
@@ -228,7 +231,11 @@ export function AnalysisSidebar() {
             signal: ac.signal,
           },
         )
-        if (ac.signal.aborted || !isCurrentRun()) {
+        if (!isCurrentRun()) {
+          return
+        }
+        if (ac.signal.aborted) {
+          setWorkflowStatus("idle")
           return
         }
         setResult(result)
@@ -270,6 +277,66 @@ export function AnalysisSidebar() {
     ],
   )
 
+  const runRepoDiscovery = useCallback(
+    async (folder: string) => {
+      if (!folder) return
+      discoveryAbortRef.current?.abort()
+      const ac = new AbortController()
+      discoveryAbortRef.current = ac
+      setLastDiscoveryOutcome("none")
+      setDiscoveryStatus("loading")
+      setDiscoveryError(null)
+      setDiscoveredRepos([])
+      try {
+        const result = await client.run(
+          "analysis.discoverRepos",
+          { searchFolder: folder, maxDepth: searchDepth },
+          { signal: ac.signal },
+        )
+        if (discoveryAbortRef.current !== ac) return
+        if (ac.signal.aborted) {
+          setLastDiscoveryOutcome("cancelled")
+          setDiscoveryStatus("idle")
+          return
+        }
+        setSelectedRepoPath(null)
+        setDiscoveredRepos(result.repos)
+        setLastDiscoveryOutcome("completed")
+        setDiscoveryStatus("idle")
+        if (result.repos.length === 1) {
+          setSelectedRepoPath(result.repos[0].path)
+          runAnalysis(result.repos[0].path)
+        }
+      } catch (err) {
+        if (discoveryAbortRef.current !== ac) return
+        if (ac.signal.aborted) {
+          setLastDiscoveryOutcome("cancelled")
+          setDiscoveryStatus("idle")
+          return
+        }
+        setLastDiscoveryOutcome("none")
+        setDiscoveryStatus("error")
+        setDiscoveryError(
+          err instanceof Error ? err.message : "Discovery failed",
+        )
+      } finally {
+        if (discoveryAbortRef.current === ac) {
+          discoveryAbortRef.current = null
+        }
+      }
+    },
+    [
+      client,
+      runAnalysis,
+      searchDepth,
+      setSelectedRepoPath,
+      setDiscoveryStatus,
+      setDiscoveryError,
+      setDiscoveredRepos,
+      setLastDiscoveryOutcome,
+    ],
+  )
+
   const handleBrowseSearchFolder = useCallback(async () => {
     const dir = await rendererHost.pickDirectory({
       title: "Open repository search folder",
@@ -277,35 +344,17 @@ export function AnalysisSidebar() {
     if (!dir) return
     setSearchFolder(dir)
     setSelectedRepoPath(null)
-    setDiscoveryStatus("loading")
-    setDiscoveryError(null)
-    setDiscoveredRepos([])
-    try {
-      const result = await client.run("analysis.discoverRepos", {
-        searchFolder: dir,
-        maxDepth: searchDepth,
-      })
-      setDiscoveredRepos(result.repos)
-      setDiscoveryStatus("idle")
-      if (result.repos.length === 1) {
-        setSelectedRepoPath(result.repos[0].path)
-        runAnalysis(result.repos[0].path)
-      }
-    } catch (err) {
-      setDiscoveryStatus("error")
-      setDiscoveryError(err instanceof Error ? err.message : "Discovery failed")
-    }
-  }, [
-    rendererHost,
-    client,
-    searchDepth,
-    runAnalysis,
-    setSearchFolder,
-    setSelectedRepoPath,
-    setDiscoveryStatus,
-    setDiscoveryError,
-    setDiscoveredRepos,
-  ])
+    void runRepoDiscovery(dir)
+  }, [rendererHost, runRepoDiscovery, setSearchFolder, setSelectedRepoPath])
+
+  const handleSearchRepos = useCallback(() => {
+    if (!searchFolder) return
+    void runRepoDiscovery(searchFolder)
+  }, [searchFolder, runRepoDiscovery])
+
+  const handleCancelDiscovery = useCallback(() => {
+    discoveryAbortRef.current?.abort()
+  }, [])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
@@ -324,6 +373,8 @@ export function AnalysisSidebar() {
   }, [])
 
   const isRunning = workflowStatus === "running"
+  const isDiscovering = discoveryStatus === "loading"
+  const hasDiscoveredRepos = discoveredRepos.length > 0
   const blameSkip = config.blameSkip ?? false
 
   const baselineCount = result?.personDbBaseline.persons.length ?? 0
@@ -344,7 +395,16 @@ export function AnalysisSidebar() {
               <Square className="mr-1 size-4" />
               Cancel
             </Button>
-          ) : (
+          ) : isDiscovering ? (
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleCancelDiscovery}
+            >
+              <Square className="mr-1 size-4" />
+              Cancel Search
+            </Button>
+          ) : hasDiscoveredRepos ? (
             <Button
               className="flex-1"
               disabled={!selectedRepoPath}
@@ -352,6 +412,15 @@ export function AnalysisSidebar() {
             >
               <Play className="mr-1 size-4" />
               Run Analysis
+            </Button>
+          ) : (
+            <Button
+              className="flex-1"
+              disabled={!searchFolder}
+              onClick={handleSearchRepos}
+            >
+              <Play className="mr-1 size-4" />
+              Search Repos
             </Button>
           )}
           <Tooltip>
@@ -396,31 +465,20 @@ export function AnalysisSidebar() {
         open={sections.repositories}
         onOpenChange={handleSectionChange}
       >
-        <div className="flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={(event) => {
-                  event.currentTarget.blur()
-                  void handleBrowseSearchFolder()
-                }}
-              >
-                <FolderOpen className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              Open repository search folder
-            </TooltipContent>
-          </Tooltip>
+        <div>
           <Input
             readOnly
             value={searchFolder ?? ""}
             placeholder="Select search folder…"
-            className="text-xs truncate cursor-pointer !text-foreground !bg-transparent"
+            className="text-xs truncate cursor-pointer !text-foreground !bg-transparent placeholder:!text-primary placeholder:font-medium"
+            aria-label="Open repository search folder"
             onClick={handleBrowseSearchFolder}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                void handleBrowseSearchFolder()
+              }
+            }}
           />
         </div>
 
@@ -457,6 +515,7 @@ export function AnalysisSidebar() {
 
         {discoveryStatus === "idle" &&
           searchFolder !== null &&
+          lastDiscoveryOutcome === "completed" &&
           discoveredRepos.length === 0 && (
             <Text className="text-xs text-muted-foreground">
               No repositories found.
