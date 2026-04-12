@@ -12,6 +12,7 @@
 :root,
 .theme-light,
 .theme-system {
+  color-scheme: light;
   --radius: 0.25rem;
   --background: #f5f5f5;
   --foreground: #1f1f1f;
@@ -56,6 +57,7 @@
 
 /* Dark theme */
 .theme-dark {
+  color-scheme: dark;
   --radius: 0.25rem;
   --background: #141414;
   --foreground: #e5e5e5;
@@ -101,6 +103,7 @@
 /* System preference (when .theme-system is set) */
 @media (prefers-color-scheme: dark) {
   .theme-system {
+    color-scheme: dark;
     --background: #141414;
     --foreground: #e5e5e5;
     --card: #1f1f1f;
@@ -141,6 +144,7 @@
     --checkbox-checked-border: #1463d4;
     --selection: rgb(29 78 216 / 0.6);
   }
+
 }
 
 /* ===== Tailwind Theme Mapping ===== */
@@ -237,6 +241,12 @@
 
 [data-slot="card-content"] {
   padding: 6px 8px;
+}
+
+/* Always show number input spinners (don't hide until hover) */
+[data-slot="input"][type="number"]::-webkit-inner-spin-button,
+[data-slot="input"][type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
 }
 
 [data-slot="input"],

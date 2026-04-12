@@ -84,7 +84,7 @@ function CollapsibleSection({
           <ChevronRight className="size-3.5" />
         )}
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-2 pt-1">
+      <CollapsibleContent className="space-y-1.5 pt-1">
         {children}
       </CollapsibleContent>
     </Collapsible>
@@ -382,7 +382,7 @@ export function AnalysisSidebar() {
   const delta = blameResult?.delta
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-3 gap-4">
+    <div className="flex h-full flex-col overflow-y-auto p-2 gap-3">
       {/* Run / Cancel + Expand / Collapse all */}
       <div className="space-y-2">
         <div className="flex items-center gap-1">
@@ -496,7 +496,7 @@ export function AnalysisSidebar() {
         )}
 
         {discoveryStatus === "idle" && discoveredRepos.length > 0 && (
-          <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto">
+          <div className="flex flex-col gap-0.5">
             {discoveredRepos.map((repo) => (
               <button
                 key={repo.path}
@@ -522,13 +522,14 @@ export function AnalysisSidebar() {
             </Text>
           )}
 
-        <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
           <Label className="text-xs">Search depth</Label>
           <Input
             type="number"
             min={1}
             max={9}
             step={1}
+            className="w-20"
             value={searchDepth}
             onChange={(e) => {
               const v = Math.min(9, Math.max(1, Number(e.target.value) || 1))
@@ -545,7 +546,21 @@ export function AnalysisSidebar() {
         open={sections.fileSelection}
         onOpenChange={handleSectionChange}
       >
-        <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-xs">N files</Label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            className="w-20"
+            value={config.nFiles ?? 5}
+            onChange={(e) => {
+              const v = Math.max(0, Number(e.target.value) || 0)
+              setConfig({ nFiles: v })
+            }}
+          />
+        </div>
+        <div className="space-y-1">
           <Label className="text-xs">Subfolder</Label>
           <Input
             type="text"
@@ -556,20 +571,7 @@ export function AnalysisSidebar() {
             }
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">N files</Label>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={config.nFiles ?? 5}
-            onChange={(e) => {
-              const v = Math.max(0, Number(e.target.value) || 0)
-              setConfig({ nFiles: v })
-            }}
-          />
-        </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label className="text-xs">File patterns</Label>
           <Input
             type="text"
@@ -588,8 +590,8 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Extensions (comma-separated)</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Extensions</Label>
           <Input
             type="text"
             placeholder="ts,tsx,js"
@@ -616,23 +618,29 @@ export function AnalysisSidebar() {
         open={sections.dateRange}
         onOpenChange={handleSectionChange}
       >
-        <div className="space-y-1.5">
-          <Label className="text-xs">Since</Label>
-          <Input
-            type="text"
-            placeholder="YYYY-MM-DD"
-            value={config.since ?? ""}
-            onChange={(e) => setConfig({ since: e.target.value || undefined })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Until</Label>
-          <Input
-            type="text"
-            placeholder="YYYY-MM-DD"
-            value={config.until ?? ""}
-            onChange={(e) => setConfig({ until: e.target.value || undefined })}
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Since</Label>
+            <Input
+              type="text"
+              placeholder="YYYY-MM-DD"
+              value={config.since ?? ""}
+              onChange={(e) =>
+                setConfig({ since: e.target.value || undefined })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Until</Label>
+            <Input
+              type="text"
+              placeholder="YYYY-MM-DD"
+              value={config.until ?? ""}
+              onChange={(e) =>
+                setConfig({ until: e.target.value || undefined })
+              }
+            />
+          </div>
         </div>
       </CollapsibleSection>
 
@@ -657,23 +665,26 @@ export function AnalysisSidebar() {
         </div>
 
         {!blameSkip && (
-          <div className="space-y-3 pt-1">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Copy/Move Detection (0-4)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={4}
-                step={1}
-                value={blameConfig.copyMove ?? 1}
-                onChange={(e) => {
-                  const v = Math.min(
-                    4,
-                    Math.max(0, Number(e.target.value) || 0),
-                  )
-                  setBlameConfig({ copyMove: v })
-                }}
-              />
+          <div className="space-y-2 pt-1">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Copy/Move</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={4}
+                  step={1}
+                  className="w-20"
+                  value={blameConfig.copyMove ?? 1}
+                  onChange={(e) => {
+                    const v = Math.min(
+                      4,
+                      Math.max(0, Number(e.target.value) || 0),
+                    )
+                    setBlameConfig({ copyMove: v })
+                  }}
+                />
+              </div>
               <Text className="text-xs text-muted-foreground">
                 {COPY_MOVE_LABELS[blameConfig.copyMove ?? 1]}
               </Text>
@@ -705,8 +716,8 @@ export function AnalysisSidebar() {
               </Label>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Excluded line display</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Excluded lines</Label>
               <Select
                 value={blameConfig.blameExclusions ?? "hide"}
                 onValueChange={(v) =>
@@ -785,8 +796,8 @@ export function AnalysisSidebar() {
         open={sections.exclusions}
         onOpenChange={handleSectionChange}
       >
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude files</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Files</Label>
           <Input
             type="text"
             placeholder="*.test.ts"
@@ -804,8 +815,8 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude authors</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Authors</Label>
           <Input
             type="text"
             placeholder="bot*"
@@ -823,8 +834,8 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude emails</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Emails</Label>
           <Input
             type="text"
             placeholder="noreply@*"
@@ -842,8 +853,8 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude revisions</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Revisions</Label>
           <Input
             type="text"
             placeholder="abc1234"
@@ -861,8 +872,8 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude messages</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Messages</Label>
           <Input
             type="text"
             placeholder="merge*"
