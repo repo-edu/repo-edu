@@ -3,6 +3,9 @@ import type { AnalysisResult } from "@repo-edu/domain/analysis"
 import {
   Button,
   Checkbox,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Input,
   Label,
   Select,
@@ -10,20 +13,23 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
   Text,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   FolderOpen,
   GitBranch,
   Loader2,
   Play,
   Square,
 } from "@repo-edu/ui/components/icons"
-import { useCallback, useRef } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
@@ -31,25 +37,64 @@ import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 
 // ---------------------------------------------------------------------------
-// Sidebar sections
+// Section keys
 // ---------------------------------------------------------------------------
 
-function SidebarSection({
+const SECTION_KEYS = [
+  "repositories",
+  "fileSelection",
+  "dateRange",
+  "blame",
+  "options",
+  "exclusions",
+] as const
+
+type SectionKey = (typeof SECTION_KEYS)[number]
+
+function allSectionsOpen(): Record<SectionKey, boolean> {
+  return Object.fromEntries(SECTION_KEYS.map((k) => [k, true])) as Record<
+    SectionKey,
+    boolean
+  >
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible section
+// ---------------------------------------------------------------------------
+
+function CollapsibleSection({
   title,
+  sectionKey,
+  open,
+  onOpenChange,
   children,
 }: {
   title: string
+  sectionKey: SectionKey
+  open: boolean
+  onOpenChange: (key: SectionKey, open: boolean) => void
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-2">
-      <Text className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+    <Collapsible open={open} onOpenChange={(v) => onOpenChange(sectionKey, v)}>
+      <CollapsibleTrigger className="w-full justify-between text-xs font-semibold uppercase text-muted-foreground tracking-wider py-1">
         {title}
-      </Text>
-      {children}
-    </div>
+        {open ? (
+          <ChevronDown className="size-3.5" />
+        ) : (
+          <ChevronRight className="size-3.5" />
+        )}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 pt-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Progress display
+// ---------------------------------------------------------------------------
 
 function ProgressDisplay({ progress }: { progress: AnalysisProgress }) {
   const percent =
@@ -115,13 +160,13 @@ export function AnalysisSidebar() {
 
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const setBlameConfig = useAnalysisStore((s) => s.setBlameConfig)
-  const asOfCommit = useAnalysisStore((s) => s.asOfCommit)
-  const setAsOfCommit = useAnalysisStore((s) => s.setAsOfCommit)
   const result = useAnalysisStore((s) => s.result)
   const blameResult = useAnalysisStore((s) => s.blameResult)
 
   const searchFolder = useAnalysisStore((s) => s.searchFolder)
   const setSearchFolder = useAnalysisStore((s) => s.setSearchFolder)
+  const searchDepth = useAnalysisStore((s) => s.searchDepth)
+  const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
@@ -130,6 +175,26 @@ export function AnalysisSidebar() {
   const setDiscoveryError = useAnalysisStore((s) => s.setDiscoveryError)
 
   const rendererHost = useRendererHost()
+
+  // Section open/close state
+  const [sections, setSections] =
+    useState<Record<SectionKey, boolean>>(allSectionsOpen)
+
+  const handleSectionChange = useCallback((key: SectionKey, open: boolean) => {
+    setSections((prev) => ({ ...prev, [key]: open }))
+  }, [])
+
+  const expandAll = useCallback(() => setSections(allSectionsOpen()), [])
+  const collapseAll = useCallback(
+    () =>
+      setSections(
+        Object.fromEntries(SECTION_KEYS.map((k) => [k, false])) as Record<
+          SectionKey,
+          boolean
+        >,
+      ),
+    [],
+  )
 
   const runAnalysis = useCallback(
     async (repoPath: string) => {
@@ -218,6 +283,7 @@ export function AnalysisSidebar() {
     try {
       const result = await client.run("analysis.discoverRepos", {
         searchFolder: dir,
+        maxDepth: searchDepth,
       })
       setDiscoveredRepos(result.repos)
       setDiscoveryStatus("idle")
@@ -232,6 +298,7 @@ export function AnalysisSidebar() {
   }, [
     rendererHost,
     client,
+    searchDepth,
     runAnalysis,
     setSearchFolder,
     setSelectedRepoPath,
@@ -265,8 +332,70 @@ export function AnalysisSidebar() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3 gap-4">
-      {/* Search folder + repo list */}
-      <SidebarSection title="Repository">
+      {/* Run / Cancel + Expand / Collapse all */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1">
+          {isRunning ? (
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleCancel}
+            >
+              <Square className="mr-1 size-4" />
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              className="flex-1"
+              disabled={!selectedRepoPath}
+              onClick={handleRun}
+            >
+              <Play className="mr-1 size-4" />
+              Run Analysis
+            </Button>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={expandAll}
+              >
+                <ChevronsUpDown className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Expand all</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={collapseAll}
+              >
+                <ChevronsDownUp className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Collapse all</TooltipContent>
+          </Tooltip>
+        </div>
+        {progress && <ProgressDisplay progress={progress} />}
+        {errorMessage && (
+          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
+            {errorMessage}
+          </div>
+        )}
+      </div>
+
+      {/* A. Repositories */}
+      <CollapsibleSection
+        title="Repositories"
+        sectionKey="repositories"
+        open={sections.repositories}
+        onOpenChange={handleSectionChange}
+      >
         <div className="flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -289,7 +418,7 @@ export function AnalysisSidebar() {
           <Input
             readOnly
             value={searchFolder ?? ""}
-            placeholder="Select search folder\u2026"
+            placeholder="Select search folder…"
             className="text-xs truncate cursor-pointer !text-foreground !bg-transparent"
             onClick={handleBrowseSearchFolder}
           />
@@ -298,7 +427,7 @@ export function AnalysisSidebar() {
         {discoveryStatus === "loading" && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />
-            <span>Scanning\u2026</span>
+            <span>Scanning…</span>
           </div>
         )}
 
@@ -333,36 +462,30 @@ export function AnalysisSidebar() {
               No repositories found.
             </Text>
           )}
-      </SidebarSection>
 
-      <Separator />
-
-      {/* Date range */}
-      <SidebarSection title="Date Range">
         <div className="space-y-1.5">
-          <Label className="text-xs">Since</Label>
+          <Label className="text-xs">Search depth</Label>
           <Input
-            type="text"
-            placeholder="YYYY-MM-DD"
-            value={config.since ?? ""}
-            onChange={(e) => setConfig({ since: e.target.value || undefined })}
+            type="number"
+            min={1}
+            max={9}
+            step={1}
+            value={searchDepth}
+            onChange={(e) => {
+              const v = Math.min(9, Math.max(1, Number(e.target.value) || 1))
+              setSearchDepth(v)
+            }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Until</Label>
-          <Input
-            type="text"
-            placeholder="YYYY-MM-DD"
-            value={config.until ?? ""}
-            onChange={(e) => setConfig({ until: e.target.value || undefined })}
-          />
-        </div>
-      </SidebarSection>
+      </CollapsibleSection>
 
-      <Separator />
-
-      {/* File filters */}
-      <SidebarSection title="File Filters">
+      {/* B. File Selection */}
+      <CollapsibleSection
+        title="File Selection"
+        sectionKey="fileSelection"
+        open={sections.fileSelection}
+        onOpenChange={handleSectionChange}
+      >
         <div className="space-y-1.5">
           <Label className="text-xs">Subfolder</Label>
           <Input
@@ -372,6 +495,38 @@ export function AnalysisSidebar() {
             onChange={(e) =>
               setConfig({ subfolder: e.target.value || undefined })
             }
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">N files</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={config.nFiles ?? 5}
+            onChange={(e) => {
+              const v = Math.max(0, Number(e.target.value) || 0)
+              setConfig({ nFiles: v })
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">File patterns</Label>
+          <Input
+            type="text"
+            placeholder="*.ts"
+            defaultValue={config.includeFiles?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                includeFiles: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
           />
         </div>
         <div className="space-y-1.5">
@@ -393,150 +548,42 @@ export function AnalysisSidebar() {
             }}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Include patterns</Label>
-          <Input
-            type="text"
-            placeholder="*.ts"
-            defaultValue={config.includeFiles?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                includeFiles: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude patterns</Label>
-          <Input
-            type="text"
-            placeholder="*.test.ts"
-            defaultValue={config.excludeFiles?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                excludeFiles: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-          />
-        </div>
-      </SidebarSection>
+      </CollapsibleSection>
 
-      <Separator />
-
-      {/* Author/Email exclusion */}
-      <SidebarSection title="Exclusions">
+      {/* C. Date Range */}
+      <CollapsibleSection
+        title="Date Range"
+        sectionKey="dateRange"
+        open={sections.dateRange}
+        onOpenChange={handleSectionChange}
+      >
         <div className="space-y-1.5">
-          <Label className="text-xs">Exclude authors</Label>
+          <Label className="text-xs">Since</Label>
           <Input
             type="text"
-            placeholder="bot*"
-            defaultValue={config.excludeAuthors?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                excludeAuthors: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
+            placeholder="YYYY-MM-DD"
+            value={config.since ?? ""}
+            onChange={(e) => setConfig({ since: e.target.value || undefined })}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Exclude emails</Label>
+          <Label className="text-xs">Until</Label>
           <Input
             type="text"
-            placeholder="noreply@*"
-            defaultValue={config.excludeEmails?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                excludeEmails: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
+            placeholder="YYYY-MM-DD"
+            value={config.until ?? ""}
+            onChange={(e) => setConfig({ until: e.target.value || undefined })}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude revisions</Label>
-          <Input
-            type="text"
-            placeholder="abc1234"
-            defaultValue={config.excludeRevisions?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                excludeRevisions: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Exclude messages</Label>
-          <Input
-            type="text"
-            placeholder="merge*"
-            defaultValue={config.excludeMessages?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfig({
-                excludeMessages: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-          />
-        </div>
-      </SidebarSection>
+      </CollapsibleSection>
 
-      <Separator />
-
-      {/* Options */}
-      <SidebarSection title="Options">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="whitespace"
-            checked={config.whitespace ?? false}
-            onCheckedChange={(checked) =>
-              setConfig({ whitespace: checked === true })
-            }
-          />
-          <Label htmlFor="whitespace" className="text-xs">
-            Include whitespace changes
-          </Label>
-        </div>
-      </SidebarSection>
-
-      <Separator />
-
-      {/* Blame config */}
-      <SidebarSection title="Blame">
+      {/* D. Blame */}
+      <CollapsibleSection
+        title="Blame"
+        sectionKey="blame"
+        open={sections.blame}
+        onOpenChange={handleSectionChange}
+      >
         <div className="flex items-center gap-2">
           <Checkbox
             id="blameSkip"
@@ -620,16 +667,6 @@ export function AnalysisSidebar() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">As-of commit</Label>
-              <Input
-                type="text"
-                placeholder="HEAD"
-                value={asOfCommit}
-                onChange={(e) => setAsOfCommit(e.target.value)}
-              />
-            </div>
-
             {/* PersonDB state indicator */}
             {result && (
               <div className="rounded border bg-muted/50 p-2 space-y-0.5">
@@ -659,42 +696,132 @@ export function AnalysisSidebar() {
             )}
           </div>
         )}
-      </SidebarSection>
+      </CollapsibleSection>
 
-      <Separator />
+      {/* E. Options */}
+      <CollapsibleSection
+        title="Options"
+        sectionKey="options"
+        open={sections.options}
+        onOpenChange={handleSectionChange}
+      >
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="whitespace"
+            checked={config.whitespace ?? false}
+            onCheckedChange={(checked) =>
+              setConfig({ whitespace: checked === true })
+            }
+          />
+          <Label htmlFor="whitespace" className="text-xs">
+            Include whitespace changes
+          </Label>
+        </div>
+      </CollapsibleSection>
 
-      {/* Run / Cancel */}
-      <div className="space-y-2">
-        {isRunning ? (
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={handleCancel}
-          >
-            <Square className="mr-1 size-4" />
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            className="w-full"
-            disabled={!selectedRepoPath}
-            onClick={handleRun}
-          >
-            {isRunning ? (
-              <Loader2 className="mr-1 size-4 animate-spin" />
-            ) : (
-              <Play className="mr-1 size-4" />
-            )}
-            Run Analysis
-          </Button>
-        )}
-        {progress && <ProgressDisplay progress={progress} />}
-        {errorMessage && (
-          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
-            {errorMessage}
-          </div>
-        )}
-      </div>
+      {/* F. Exclusions */}
+      <CollapsibleSection
+        title="Exclusions"
+        sectionKey="exclusions"
+        open={sections.exclusions}
+        onOpenChange={handleSectionChange}
+      >
+        <div className="space-y-1.5">
+          <Label className="text-xs">Exclude files</Label>
+          <Input
+            type="text"
+            placeholder="*.test.ts"
+            defaultValue={config.excludeFiles?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                excludeFiles: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Exclude authors</Label>
+          <Input
+            type="text"
+            placeholder="bot*"
+            defaultValue={config.excludeAuthors?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                excludeAuthors: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Exclude emails</Label>
+          <Input
+            type="text"
+            placeholder="noreply@*"
+            defaultValue={config.excludeEmails?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                excludeEmails: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Exclude revisions</Label>
+          <Input
+            type="text"
+            placeholder="abc1234"
+            defaultValue={config.excludeRevisions?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                excludeRevisions: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Exclude messages</Label>
+          <Input
+            type="text"
+            placeholder="merge*"
+            defaultValue={config.excludeMessages?.join(", ") ?? ""}
+            onBlur={(e) => {
+              const raw = e.target.value
+              setConfig({
+                excludeMessages: raw
+                  ? raw
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : undefined,
+              })
+            }}
+          />
+        </div>
+      </CollapsibleSection>
     </div>
   )
 }

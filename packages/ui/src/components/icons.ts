@@ -8,6 +8,7 @@ export {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
   ChevronsUpDown,
   ChevronUp,
   Circle,

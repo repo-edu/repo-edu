@@ -44,6 +44,7 @@ type AnalysisState = {
 
   // Repo discovery state
   searchFolder: string | null
+  searchDepth: number
   discoveredRepos: DiscoveredRepo[]
   discoveryStatus: "idle" | "loading" | "error"
   discoveryError: string | null
@@ -92,6 +93,7 @@ type AnalysisActions = {
 
   // Repo discovery
   setSearchFolder: (folder: string | null) => void
+  setSearchDepth: (depth: number) => void
   setDiscoveredRepos: (repos: DiscoveredRepo[]) => void
   setDiscoveryStatus: (status: "idle" | "loading" | "error") => void
   setDiscoveryError: (error: string | null) => void
@@ -148,6 +150,7 @@ const initialState: AnalysisState = {
   selectedRepoPath: null,
 
   searchFolder: null,
+  searchDepth: 5,
   discoveredRepos: [],
   discoveryStatus: "idle",
   discoveryError: null,
@@ -217,6 +220,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
 
     // Repo discovery
     setSearchFolder: (searchFolder) => set({ searchFolder }),
+    setSearchDepth: (searchDepth) => set({ searchDepth }),
     setDiscoveredRepos: (discoveredRepos) => set({ discoveredRepos }),
     setDiscoveryStatus: (discoveryStatus) => set({ discoveryStatus }),
     setDiscoveryError: (discoveryError) => set({ discoveryError }),
