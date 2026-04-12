@@ -1,4 +1,7 @@
-import type { AnalysisProgress } from "@repo-edu/application-contract"
+import type {
+  AnalysisProgress,
+  DiscoveredRepo,
+} from "@repo-edu/application-contract"
 import type {
   AnalysisBlameConfig,
   AnalysisConfig,
@@ -38,6 +41,12 @@ type AnalysisState = {
   // Config state
   config: AnalysisConfig
   selectedRepoPath: string | null
+
+  // Repo discovery state
+  searchFolder: string | null
+  discoveredRepos: DiscoveredRepo[]
+  discoveryStatus: "idle" | "loading" | "error"
+  discoveryError: string | null
 
   // Result state
   result: AnalysisResult | null
@@ -80,6 +89,12 @@ type AnalysisState = {
 type AnalysisActions = {
   setConfig: (patch: Partial<AnalysisConfig>) => void
   setSelectedRepoPath: (path: string | null) => void
+
+  // Repo discovery
+  setSearchFolder: (folder: string | null) => void
+  setDiscoveredRepos: (repos: DiscoveredRepo[]) => void
+  setDiscoveryStatus: (status: "idle" | "loading" | "error") => void
+  setDiscoveryError: (error: string | null) => void
 
   setResult: (result: AnalysisResult | null) => void
   setBlameResult: (result: BlameResult | null) => void
@@ -131,6 +146,11 @@ type AnalysisActions = {
 const initialState: AnalysisState = {
   config: {},
   selectedRepoPath: null,
+
+  searchFolder: null,
+  discoveredRepos: [],
+  discoveryStatus: "idle",
+  discoveryError: null,
 
   result: null,
   blameResult: null,
@@ -194,6 +214,12 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
 
     setSelectedRepoPath: (path) => set({ selectedRepoPath: path }),
+
+    // Repo discovery
+    setSearchFolder: (searchFolder) => set({ searchFolder }),
+    setDiscoveredRepos: (discoveredRepos) => set({ discoveredRepos }),
+    setDiscoveryStatus: (discoveryStatus) => set({ discoveryStatus }),
+    setDiscoveryError: (discoveryError) => set({ discoveryError }),
 
     setResult: (result) =>
       set({

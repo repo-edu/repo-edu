@@ -381,6 +381,20 @@ export type AnalysisRepositoryInput = {
   | { repositoryAbsolutePath: string; repositoryRelativePath?: undefined }
 )
 
+export type AnalysisDiscoverReposInput = {
+  searchFolder: string
+  maxDepth?: number
+}
+
+export type DiscoveredRepo = {
+  name: string
+  path: string
+}
+
+export type AnalysisDiscoverReposResult = {
+  repos: DiscoveredRepo[]
+}
+
 export type AnalysisRunInput = AnalysisRepositoryInput & {
   config: AnalysisConfig
   rosterContext?: AnalysisRosterContext
@@ -564,6 +578,12 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: BlameResult
   }
+  "analysis.discoverRepos": {
+    input: AnalysisDiscoverReposInput
+    progress: never
+    output: never
+    result: AnalysisDiscoverReposResult
+  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -712,6 +732,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "granular",
     cancellation: "cooperative",
+  },
+  "analysis.discoverRepos": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "best-effort",
   },
 }
 

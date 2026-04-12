@@ -146,8 +146,21 @@ export type FileSystemBatchResult = {
   completed: FileSystemBatchOperation[]
 }
 
+export type FileSystemListDirectoryRequest = {
+  path: string
+  signal?: AbortSignal
+}
+
+export type FileSystemDirectoryEntry = {
+  name: string
+  kind: "file" | "directory"
+}
+
 export type FileSystemPort = {
   inspect(request: FileSystemInspectRequest): Promise<FileSystemEntryStatus[]>
   applyBatch(request: FileSystemBatchRequest): Promise<FileSystemBatchResult>
   createTempDirectory(prefix: string): Promise<string>
+  listDirectory(
+    request: FileSystemListDirectoryRequest,
+  ): Promise<FileSystemDirectoryEntry[]>
 }

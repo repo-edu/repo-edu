@@ -201,7 +201,7 @@ function parseNumstatFiles(numstatRaw: string): AnalysisCommit["files"] {
       continue
     }
 
-    current = current.replace(/^\n+/, "").trimEnd()
+    current = current.replace(/^\n+/, "").replace(/[\r\n ]+$/, "")
     if (current.length === 0) {
       index++
       continue

@@ -101,6 +101,7 @@ describe("application repository update workflow helpers", () => {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",
+        listDirectory: async () => [],
       },
     })
 
@@ -195,6 +196,7 @@ describe("application repository update workflow helpers", () => {
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",
+        listDirectory: async () => [],
       },
     })
 

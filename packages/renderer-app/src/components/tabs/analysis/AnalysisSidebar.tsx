@@ -12,9 +12,13 @@ import {
   SelectValue,
   Separator,
   Text,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@repo-edu/ui"
 import {
   FolderOpen,
+  GitBranch,
   Loader2,
   Play,
   Square,
@@ -116,73 +120,137 @@ export function AnalysisSidebar() {
   const result = useAnalysisStore((s) => s.result)
   const blameResult = useAnalysisStore((s) => s.blameResult)
 
+  const searchFolder = useAnalysisStore((s) => s.searchFolder)
+  const setSearchFolder = useAnalysisStore((s) => s.setSearchFolder)
+  const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
+  const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
+  const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
+  const setDiscoveryStatus = useAnalysisStore((s) => s.setDiscoveryStatus)
+  const discoveryError = useAnalysisStore((s) => s.discoveryError)
+  const setDiscoveryError = useAnalysisStore((s) => s.setDiscoveryError)
+
   const rendererHost = useRendererHost()
 
-  const handleBrowse = useCallback(async () => {
-    const dir = await rendererHost.pickDirectory({
-      title: "Select repository",
-    })
-    if (dir) setSelectedRepoPath(dir)
-  }, [rendererHost, setSelectedRepoPath])
+  const runAnalysis = useCallback(
+    async (repoPath: string) => {
+      if (!course) return
+      const rosterContext = buildAnalysisRosterContext(course)
 
-  const handleRun = useCallback(async () => {
-    if (!course || !selectedRepoPath) return
-    const rosterContext = buildAnalysisRosterContext(course)
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      const isCurrentRun = () => abortRef.current === ac
 
-    const ac = new AbortController()
-    abortRef.current = ac
-
-    setWorkflowStatus("running")
-    setProgress(null)
-    setErrorMessage(null)
-    setResult(null)
-
-    try {
-      const result: AnalysisResult = await client.run(
-        "analysis.run",
-        {
-          course,
-          repositoryAbsolutePath: selectedRepoPath,
-          config,
-          ...(rosterContext ? { rosterContext } : {}),
-        },
-        {
-          onProgress: (p: AnalysisProgress) => setProgress(p),
-          signal: ac.signal,
-        },
-      )
-      setResult(result)
-      setWorkflowStatus("idle")
-    } catch (err) {
-      if (ac.signal.aborted) {
-        setWorkflowStatus("idle")
-      } else {
-        setWorkflowStatus("error")
-        setErrorMessage(
-          err instanceof Error
-            ? err.message
-            : typeof err === "object" &&
-                err !== null &&
-                "message" in err &&
-                typeof (err as { message: unknown }).message === "string"
-              ? (err as { message: string }).message
-              : "Analysis failed",
-        )
-      }
-    } finally {
+      setWorkflowStatus("running")
       setProgress(null)
-      abortRef.current = null
+      setErrorMessage(null)
+      setResult(null)
+
+      try {
+        const result: AnalysisResult = await client.run(
+          "analysis.run",
+          {
+            course,
+            repositoryAbsolutePath: repoPath,
+            config,
+            ...(rosterContext ? { rosterContext } : {}),
+          },
+          {
+            onProgress: (p: AnalysisProgress) => {
+              if (!isCurrentRun()) return
+              setProgress(p)
+            },
+            signal: ac.signal,
+          },
+        )
+        if (ac.signal.aborted || !isCurrentRun()) {
+          return
+        }
+        setResult(result)
+        setWorkflowStatus("idle")
+      } catch (err) {
+        if (!isCurrentRun()) {
+          return
+        }
+        if (ac.signal.aborted) {
+          setWorkflowStatus("idle")
+        } else {
+          setWorkflowStatus("error")
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : typeof err === "object" &&
+                  err !== null &&
+                  "message" in err &&
+                  typeof (err as { message: unknown }).message === "string"
+                ? (err as { message: string }).message
+                : "Analysis failed",
+          )
+        }
+      } finally {
+        if (isCurrentRun()) {
+          setProgress(null)
+          abortRef.current = null
+        }
+      }
+    },
+    [
+      client,
+      config,
+      course,
+      setErrorMessage,
+      setProgress,
+      setResult,
+      setWorkflowStatus,
+    ],
+  )
+
+  const handleBrowseSearchFolder = useCallback(async () => {
+    const dir = await rendererHost.pickDirectory({
+      title: "Open repository search folder",
+    })
+    if (!dir) return
+    setSearchFolder(dir)
+    setSelectedRepoPath(null)
+    setDiscoveryStatus("loading")
+    setDiscoveryError(null)
+    setDiscoveredRepos([])
+    try {
+      const result = await client.run("analysis.discoverRepos", {
+        searchFolder: dir,
+      })
+      setDiscoveredRepos(result.repos)
+      setDiscoveryStatus("idle")
+      if (result.repos.length === 1) {
+        setSelectedRepoPath(result.repos[0].path)
+        runAnalysis(result.repos[0].path)
+      }
+    } catch (err) {
+      setDiscoveryStatus("error")
+      setDiscoveryError(err instanceof Error ? err.message : "Discovery failed")
     }
   }, [
+    rendererHost,
     client,
-    config,
-    course,
-    selectedRepoPath,
-    setErrorMessage,
-    setProgress,
-    setResult,
-    setWorkflowStatus,
+    runAnalysis,
+    setSearchFolder,
+    setSelectedRepoPath,
+    setDiscoveryStatus,
+    setDiscoveryError,
+    setDiscoveredRepos,
   ])
+
+  const handleRun = useCallback(() => {
+    if (selectedRepoPath) runAnalysis(selectedRepoPath)
+  }, [selectedRepoPath, runAnalysis])
+
+  const handleSelectRepo = useCallback(
+    (path: string) => {
+      setSelectedRepoPath(path)
+      runAnalysis(path)
+    },
+    [setSelectedRepoPath, runAnalysis],
+  )
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort()
@@ -197,16 +265,74 @@ export function AnalysisSidebar() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3 gap-4">
-      {/* Repo selection */}
+      {/* Search folder + repo list */}
       <SidebarSection title="Repository">
-        <Button
-          variant="outline"
-          className="w-full justify-start gap-2"
-          onClick={handleBrowse}
-        >
-          <FolderOpen className="size-4 shrink-0" />
-          <span className="truncate">{selectedRepoPath ?? "Browse\u2026"}</span>
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={(event) => {
+                  event.currentTarget.blur()
+                  void handleBrowseSearchFolder()
+                }}
+              >
+                <FolderOpen className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Open repository search folder
+            </TooltipContent>
+          </Tooltip>
+          <Input
+            readOnly
+            value={searchFolder ?? ""}
+            placeholder="Select search folder\u2026"
+            className="text-xs truncate cursor-pointer !text-foreground !bg-transparent"
+            onClick={handleBrowseSearchFolder}
+          />
+        </div>
+
+        {discoveryStatus === "loading" && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            <span>Scanning\u2026</span>
+          </div>
+        )}
+
+        {discoveryStatus === "error" && discoveryError && (
+          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
+            {discoveryError}
+          </div>
+        )}
+
+        {discoveryStatus === "idle" && discoveredRepos.length > 0 && (
+          <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto">
+            {discoveredRepos.map((repo) => (
+              <button
+                key={repo.path}
+                type="button"
+                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent ${
+                  selectedRepoPath === repo.path ? "bg-accent font-medium" : ""
+                }`}
+                onClick={() => handleSelectRepo(repo.path)}
+              >
+                <GitBranch className="size-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{repo.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {discoveryStatus === "idle" &&
+          searchFolder !== null &&
+          discoveredRepos.length === 0 && (
+            <Text className="text-xs text-muted-foreground">
+              No repositories found.
+            </Text>
+          )}
       </SidebarSection>
 
       <Separator />

@@ -94,6 +94,7 @@ export function createRepoHarness(options?: {
       applyBatch:
         options?.fileSystem?.applyBatch ?? (async () => ({ completed: [] })),
       createTempDirectory: async () => "/tmp/repo-edu-test",
+      listDirectory: async () => [],
     },
   })
 

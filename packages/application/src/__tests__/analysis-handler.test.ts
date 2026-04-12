@@ -7,7 +7,10 @@ import type {
 } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
+import type {
+  FileSystemPort,
+  GitCommandPort,
+} from "@repo-edu/host-runtime-contract"
 import { createAnalysisWorkflowHandlers } from "../analysis-workflows/analysis-workflows.js"
 import { createLruAnalysisCache } from "../analysis-workflows/cache.js"
 import { COMMIT_DELIMITER } from "../analysis-workflows/log-parser.js"
@@ -55,6 +58,24 @@ function createMockGitCommandPort(
   }
 }
 
+const stubFileSystem: FileSystemPort = {
+  async inspect(request) {
+    return request.paths.map((path) => ({
+      path,
+      kind: "missing" as const,
+    }))
+  },
+  async applyBatch(request) {
+    return { completed: request.operations }
+  },
+  async createTempDirectory() {
+    return "/tmp/test"
+  },
+  async listDirectory() {
+    return []
+  },
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -63,6 +84,7 @@ describe("analysis.run handler", () => {
   it("validates config and rejects invalid input", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     const input: AnalysisRunInput = {
@@ -85,6 +107,7 @@ describe("analysis.run handler", () => {
   it("rejects missing repositoryCloneTargetDirectory", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     const input: AnalysisRunInput = {
@@ -111,7 +134,10 @@ describe("analysis.run handler", () => {
       "ls-tree": { exitCode: 0, stdout: "", stderr: "" },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
 
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
@@ -153,6 +179,7 @@ describe("analysis.run handler", () => {
 
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand,
+      fileSystem: stubFileSystem,
       cache: createLruAnalysisCache(8),
     })
 
@@ -193,7 +220,10 @@ describe("analysis.run handler", () => {
       },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
     const phases: string[] = []
 
     await handlers["analysis.run"](
@@ -220,6 +250,7 @@ describe("analysis.run handler", () => {
 
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     try {
@@ -249,7 +280,10 @@ describe("analysis.run handler", () => {
       "ls-tree": { exitCode: 0, stdout: "", stderr: "" },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
 
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
@@ -281,7 +315,10 @@ describe("analysis.run handler", () => {
       },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
 
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
@@ -316,6 +353,7 @@ describe("analysis.run handler", () => {
   it("rejects repositoryRelativePath path traversal", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     try {
@@ -357,7 +395,10 @@ describe("analysis.run handler", () => {
       },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
@@ -392,6 +433,7 @@ describe("analysis.blame handler", () => {
           stderr: "",
         },
       }),
+      fileSystem: stubFileSystem,
     })
 
     const result = await handlers["analysis.blame"]({
@@ -414,6 +456,7 @@ describe("analysis.blame handler", () => {
 
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     try {
@@ -466,7 +509,10 @@ describe("analysis.blame handler", () => {
       blame: { exitCode: 0, stdout: blameOutput, stderr: "" },
     })
 
-    const handlers = createAnalysisWorkflowHandlers({ gitCommand })
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
 
     const result = await handlers["analysis.blame"]({
       course: createMockCourse(),
@@ -516,6 +562,7 @@ describe("analysis.blame handler", () => {
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
         blame: { exitCode: 0, stdout: blameOutput, stderr: "" },
       }),
+      fileSystem: stubFileSystem,
     })
 
     const result = await handlers["analysis.blame"]({
@@ -544,6 +591,7 @@ describe("analysis.blame handler", () => {
           stderr: "unknown revision",
         },
       }),
+      fileSystem: stubFileSystem,
     })
 
     try {
@@ -565,6 +613,7 @@ describe("analysis.blame handler", () => {
   it("rejects repositoryRelativePath path traversal", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
     })
 
     try {
@@ -611,6 +660,7 @@ describe("analysis.blame handler", () => {
         },
         "src/main.ts": { exitCode: 0, stdout: blameOutput, stderr: "" },
       }),
+      fileSystem: stubFileSystem,
     })
 
     const result = await handlers["analysis.blame"]({
@@ -642,6 +692,7 @@ describe("analysis.blame handler", () => {
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
         blame: { exitCode: 1, stdout: "", stderr: "fatal: failed" },
       }),
+      fileSystem: stubFileSystem,
     })
 
     try {

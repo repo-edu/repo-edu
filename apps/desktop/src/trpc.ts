@@ -80,6 +80,7 @@ function createDesktopWorkflowRegistry(
     }),
     ...createAnalysisWorkflowHandlers({
       gitCommand: ports.gitCommand,
+      fileSystem: ports.fileSystem,
       cache: createLruAnalysisCache(32),
     }),
     "userFile.inspectSelection": (input, options) =>

@@ -336,6 +336,13 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     async createTempDirectory(_prefix) {
       return "/tmp/repo-edu-demo"
     },
+    async listDirectory(_request) {
+      return [
+        { name: "team-alpha-project", kind: "directory" as const },
+        { name: "team-beta-project", kind: "directory" as const },
+        { name: "README.md", kind: "file" as const },
+      ]
+    },
   }
 
   const workflowHandlers = {
@@ -365,6 +372,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     }),
     ...createAnalysisWorkflowHandlers({
       gitCommand: gitCommandPort,
+      fileSystem: fileSystemPort,
     }),
     "userFile.inspectSelection": (
       input: UserFileRef,

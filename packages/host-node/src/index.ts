@@ -16,8 +16,10 @@ import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
   FileSystemBatchResult,
+  FileSystemDirectoryEntry,
   FileSystemEntryStatus,
   FileSystemInspectRequest,
+  FileSystemListDirectoryRequest,
   FileSystemPort,
   GitCommandPort,
   GitCommandRequest,
@@ -299,6 +301,21 @@ export function createNodeFileSystemPort(): FileSystemPort {
 
     async createTempDirectory(prefix: string): Promise<string> {
       return mkdtemp(join(tmpdir(), prefix))
+    },
+
+    async listDirectory(
+      request: FileSystemListDirectoryRequest,
+    ): Promise<FileSystemDirectoryEntry[]> {
+      throwIfAborted(request.signal)
+      const entries = await readdir(request.path, { withFileTypes: true })
+      return entries
+        .filter((entry) => entry.isFile() || entry.isDirectory())
+        .map((entry) => ({
+          name: entry.name,
+          kind: entry.isDirectory()
+            ? ("directory" as const)
+            : ("file" as const),
+        }))
     },
   }
 }
