@@ -8,14 +8,7 @@ import {
   extensionToLanguage,
   lookupPerson,
 } from "@repo-edu/domain/analysis"
-import {
-  Button,
-  EmptyState,
-  Text,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo-edu/ui"
+import { Button, EmptyState, Text } from "@repo-edu/ui"
 import { Eye, EyeOff, Loader2, Palette } from "@repo-edu/ui/components/icons"
 import { useMemo } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
@@ -331,7 +324,7 @@ function BlameGrid({
         className="grid text-xs font-mono min-w-max"
         style={{
           gridTemplateColumns: showMetadata
-            ? "auto auto auto minmax(80px, 1fr) auto auto auto 1fr"
+            ? "auto auto auto fit-content(12rem) auto auto auto 1fr"
             : "auto 1fr",
         }}
       >
@@ -410,24 +403,10 @@ function BlameGrid({
                   {p.isFirstInGroup ? date : ""}
                 </div>
                 <div
-                  className="px-2 py-px truncate max-w-48 text-muted-foreground"
+                  className="px-2 py-px max-w-48 text-muted-foreground truncate cursor-default hover:whitespace-normal"
                   style={bgStyle}
                 >
-                  {p.isFirstInGroup ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-default">{p.line.message}</span>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="bottom"
-                        className="max-w-sm break-words"
-                      >
-                        {p.line.message}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    ""
-                  )}
+                  {p.isFirstInGroup ? p.line.message : ""}
                 </div>
                 <div
                   className="px-2 py-px text-muted-foreground"
@@ -526,7 +505,12 @@ export function BlameTab({ filePath }: { filePath: string }) {
       lines = lines.filter((p) => !p.isComment)
     }
 
-    return lines
+    if (lines === processed) return lines
+
+    return lines.map((p, i) => ({
+      ...p,
+      isFirstInGroup: i === 0 || lines[i - 1].line.sha !== p.line.sha,
+    }))
   }, [processed, blameExclusions, hideEmpty, hideComments])
 
   const contributions = useMemo(() => {
