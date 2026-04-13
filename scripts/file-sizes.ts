@@ -36,11 +36,12 @@ type CliOptions = {
   showFiles: boolean
   sortMode: SortMode
   subdirLevel: number
+  topFiles: number | undefined
 }
 
 function parseCliOptions(args: string[]): CliOptions {
   const usage =
-    "Usage: pnpm file-sizes [<directory>] [--dir-level=<N> | -d=<N>] [--sort-numeric | -n] [--files | -f] [--include-lock | -l] [--extensions | -x] [--help | -h]"
+    "Usage: pnpm file-sizes [<directory>] [options]  (default: current directory)"
   const helpText = [
     usage,
     "",
@@ -48,6 +49,7 @@ function parseCliOptions(args: string[]): CliOptions {
     "  -d, --dir-level <N>  Show subfolders up to depth N (default: 2, 0 = all depths).",
     "  -x, --extensions     Show file extension analysis section.",
     "  -f, --files          Show per-file line counts in addition to per-folder sums.",
+    "  -t, --top <N>        Show the N biggest files sorted by line count.",
     "  -l, --include-lock   Include pnpm-lock.yaml in counts and output.",
     "  -n, --sort-numeric   Sort folders by total number of lines.",
     "  -h, --help           Show this help message.",
@@ -61,6 +63,7 @@ function parseCliOptions(args: string[]): CliOptions {
     help: boolean
     "include-lock": boolean
     "sort-numeric": boolean
+    top: string | undefined
   }
   let positionals: string[] = []
 
@@ -89,6 +92,10 @@ function parseCliOptions(args: string[]): CliOptions {
           short: "f",
           default: false,
         },
+        top: {
+          type: "string",
+          short: "t",
+        },
         "include-lock": {
           type: "boolean",
           short: "l",
@@ -111,6 +118,7 @@ function parseCliOptions(args: string[]): CliOptions {
       help: parsed.values.help,
       "include-lock": parsed.values["include-lock"],
       "sort-numeric": parsed.values["sort-numeric"],
+      top: parsed.values.top,
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -124,24 +132,20 @@ function parseCliOptions(args: string[]): CliOptions {
     process.exit(0)
   }
 
-  if (positionals.length === 0) {
-    console.log(helpText)
-    process.exit(0)
-  }
-
   if (positionals.length > 1) {
     throw new Error(
-      `Expected exactly one root-folder argument, received ${positionals.length}\n${usage}`,
+      `Expected at most one root-folder argument, received ${positionals.length}\n${usage}`,
     )
   }
 
-  const rootDirPath = path.resolve(process.cwd(), positionals[0])
+  const dirArg = positionals[0] ?? "."
+  const rootDirPath = path.resolve(process.cwd(), dirArg)
   if (!fs.existsSync(rootDirPath) || !fs.statSync(rootDirPath).isDirectory()) {
     throw new Error(
-      `Root folder does not exist or is not a directory: ${positionals[0]}`,
+      `Root folder does not exist or is not a directory: ${dirArg}`,
     )
   }
-  const normalizedLabel = positionals[0].trim()
+  const normalizedLabel = dirArg.trim()
   const rootLabel = normalizedLabel === "" ? "." : normalizedLabel
 
   return {
@@ -152,6 +156,9 @@ function parseCliOptions(args: string[]): CliOptions {
     showFiles: values.files,
     sortMode: values["sort-numeric"] ? "size" : "alphabetical",
     subdirLevel: parseSubdirLevelValue(values["dir-level"], "--dir-level"),
+    topFiles: values.top
+      ? parsePositiveIntValue(values.top, "--top")
+      : undefined,
   }
 }
 
@@ -161,6 +168,15 @@ function parseSubdirLevelValue(value: string, flagName: string): number {
   }
   const parsed = Number.parseInt(value, 10)
   return parsed === 0 ? UNBOUNDED_SUBDIR_LEVEL : parsed
+}
+
+function parsePositiveIntValue(value: string, flagName: string): number {
+  if (!/^\d+$/.test(value) || value === "0") {
+    throw new Error(
+      `Invalid value for ${flagName}: ${value} (expected positive integer)`,
+    )
+  }
+  return Number.parseInt(value, 10)
 }
 
 function listFilesWithFd(dirPath: string, includeLock: boolean): string[] {
@@ -332,8 +348,8 @@ function printRow(entry: LineCount, widths: ColumnWidths): void {
   console.log(`${name}  ${totalLn}  ${totalFl}`)
 }
 
-function printHeader(widths: ColumnWidths): void {
-  const nameHeader = "Folder".padEnd(widths.name, " ")
+function printHeader(widths: ColumnWidths, nameLabel: string = "Folder"): void {
+  const nameHeader = nameLabel.padEnd(widths.name, " ")
   const totalGroupWidth = widths.lines + 2 + widths.files
   const totalGroup = "── Total ──".padStart(Math.max(11, totalGroupWidth))
   console.log(`${nameHeader}  ${totalGroup}`)
@@ -629,6 +645,7 @@ function main(): void {
     showFiles,
     subdirLevel,
     sortMode,
+    topFiles,
   } = parseCliOptions(process.argv.slice(2))
   const extensionTotals = new Map<string, Totals>()
   const rootCount = countLinesForDir(
@@ -640,7 +657,25 @@ function main(): void {
     sortMode,
   )
   const allCounts = [rootCount]
-  if (showFiles) {
+  if (topFiles !== undefined) {
+    const sorted = [...rootCount.fileEntries]
+      .sort((left, right) => right.lines - left.lines)
+      .slice(0, topFiles)
+    const rows: LineCount[] = sorted.map((entry) => ({
+      name: entry.name,
+      lines: entry.lines,
+      files: 1,
+    }))
+    const widths: ColumnWidths = {
+      name: Math.max(6, ...rows.map((entry) => entry.name.length)),
+      lines: Math.max(5, ...rows.map((entry) => String(entry.lines).length)),
+      files: Math.max(5, ...rows.map((entry) => String(entry.files).length)),
+    }
+    printHeader(widths, "File")
+    for (const row of rows) {
+      printRow(row, widths)
+    }
+  } else if (showFiles) {
     const sections = buildDisplayRowsWithFiles(allCounts, subdirLevel, sortMode)
     const displayRows = sections.flat()
     const widths: ColumnWidths = {
