@@ -473,7 +473,9 @@ export function AnalysisSidebar() {
       >
         {sortedFilePaths.length === 0 ? (
           <Text className="text-xs text-muted-foreground">
-            Run analysis to see files.
+            {result
+              ? "No files in analysis result."
+              : "Run analysis to see files."}
           </Text>
         ) : (
           <>
