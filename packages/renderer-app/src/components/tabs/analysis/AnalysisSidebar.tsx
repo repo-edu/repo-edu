@@ -1,5 +1,5 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
-import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
+import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import {
   Button,
@@ -25,8 +25,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   FileCode,
-  Folder,
-  FolderOpen,
   FolderTree,
   GitBranch,
   List,
@@ -37,12 +35,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
-import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
-import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import { debounceAsync } from "../../../utils/debounce.js"
+import { buildFileTree, collectFolderPaths, FolderNode } from "./file-tree.js"
+import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
 
 // ---------------------------------------------------------------------------
 // Section keys
@@ -153,182 +150,12 @@ const COPY_MOVE_LABELS: Record<number, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// File tree helpers
-// ---------------------------------------------------------------------------
-
-const ROOT_FOLDER = "(root)"
-
-type FileTreeNode = {
-  name: string
-  path: string
-  files: string[]
-  children: FileTreeNode[]
-}
-
-function buildFileTree(paths: string[]): FileTreeNode {
-  const root: FileTreeNode = {
-    name: ROOT_FOLDER,
-    path: ROOT_FOLDER,
-    files: [],
-    children: [],
-  }
-  for (const filePath of paths) {
-    const segments = filePath.split("/")
-    segments.pop()
-    let current = root
-    let currentPath = ""
-    for (const segment of segments) {
-      currentPath = currentPath ? `${currentPath}/${segment}` : segment
-      let child = current.children.find((c) => c.name === segment)
-      if (!child) {
-        child = { name: segment, path: currentPath, files: [], children: [] }
-        current.children.push(child)
-      }
-      current = child
-    }
-    current.files.push(filePath)
-  }
-  const sortNode = (node: FileTreeNode) => {
-    node.children.sort((a, b) => a.name.localeCompare(b.name))
-    node.files.sort()
-    for (const child of node.children) sortNode(child)
-  }
-  sortNode(root)
-  const compact = (node: FileTreeNode) => {
-    for (const child of node.children) compact(child)
-    while (
-      node.children.length === 1 &&
-      node.files.length === 0 &&
-      node.path !== ROOT_FOLDER
-    ) {
-      const only = node.children[0]
-      node.name = `${node.name}/${only.name}`
-      node.path = only.path
-      node.files = only.files
-      node.children = only.children
-    }
-  }
-  compact(root)
-  return root
-}
-
-function collectFolderPaths(node: FileTreeNode): string[] {
-  const result: string[] = []
-  if (node.files.length > 0) result.push(node.path)
-  for (const child of node.children) {
-    result.push(child.path)
-    result.push(...collectFolderPaths(child))
-  }
-  return result
-}
-
-function countSelected(
-  node: FileTreeNode,
-  selection: Set<string>,
-): { selected: number; total: number } {
-  let selected = 0
-  let total = node.files.length
-  for (const f of node.files) {
-    if (selection.has(f)) selected++
-  }
-  for (const child of node.children) {
-    const c = countSelected(child, selection)
-    selected += c.selected
-    total += c.total
-  }
-  return { selected, total }
-}
-
-// ---------------------------------------------------------------------------
-// Recursive folder node
-// ---------------------------------------------------------------------------
-
-function FolderNode({
-  node,
-  openFolders,
-  toggleFolderOpen,
-  effectiveFileSelection,
-  focusedFilePath,
-  handleFileClick,
-}: {
-  node: FileTreeNode
-  openFolders: Set<string>
-  toggleFolderOpen: (folder: string) => void
-  effectiveFileSelection: Set<string>
-  focusedFilePath: string | null
-  handleFileClick: (path: string) => void
-}) {
-  const isOpen = openFolders.has(node.path)
-  const { selected, total } = countSelected(node, effectiveFileSelection)
-
-  return (
-    <div>
-      <button
-        type="button"
-        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
-        onClick={() => toggleFolderOpen(node.path)}
-      >
-        {isOpen ? (
-          <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-        )}
-        {isOpen ? (
-          <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <Folder className="size-3 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate font-medium">{node.name}</span>
-        <span className="shrink-0 text-muted-foreground">
-          {selected}/{total}
-        </span>
-      </button>
-      {isOpen && (
-        <div className="ml-4 flex flex-col gap-0.5 pt-0.5">
-          {node.children.map((child) => (
-            <FolderNode
-              key={child.path}
-              node={child}
-              openFolders={openFolders}
-              toggleFolderOpen={toggleFolderOpen}
-              effectiveFileSelection={effectiveFileSelection}
-              focusedFilePath={focusedFilePath}
-              handleFileClick={handleFileClick}
-            />
-          ))}
-          {node.files.map((filePath) => {
-            const basename = filePath.slice(filePath.lastIndexOf("/") + 1)
-            return (
-              <button
-                key={filePath}
-                type="button"
-                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent ${
-                  focusedFilePath === filePath ? "bg-accent font-medium" : ""
-                }`}
-                onClick={() => handleFileClick(filePath)}
-              >
-                <FileCode className="size-3 shrink-0 text-muted-foreground" />
-                <span className="truncate" title={filePath}>
-                  {basename}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Main sidebar
 // ---------------------------------------------------------------------------
 
 export function AnalysisSidebar() {
-  const course = useCourseStore((s) => s.course)
-  const client = useWorkflowClient()
-  const abortRef = useRef<AbortController | null>(null)
-  const discoveryAbortRef = useRef<AbortController | null>(null)
+  const { runAnalysis, runRepoDiscovery, handleCancel, handleCancelDiscovery } =
+    useAnalysisWorkflows()
 
   const config = useAnalysisStore((s) => s.config)
   const setConfig = useAnalysisStore((s) => s.setConfig)
@@ -337,10 +164,6 @@ export function AnalysisSidebar() {
   const workflowStatus = useAnalysisStore((s) => s.workflowStatus)
   const progress = useAnalysisStore((s) => s.progress)
   const errorMessage = useAnalysisStore((s) => s.errorMessage)
-  const setResult = useAnalysisStore((s) => s.setResult)
-  const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
-  const setProgress = useAnalysisStore((s) => s.setProgress)
-  const setErrorMessage = useAnalysisStore((s) => s.setErrorMessage)
 
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const setBlameConfig = useAnalysisStore((s) => s.setBlameConfig)
@@ -359,15 +182,9 @@ export function AnalysisSidebar() {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
-  const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
-  const setDiscoveryStatus = useAnalysisStore((s) => s.setDiscoveryStatus)
   const discoveryError = useAnalysisStore((s) => s.discoveryError)
-  const setDiscoveryError = useAnalysisStore((s) => s.setDiscoveryError)
   const lastDiscoveryOutcome = useAnalysisStore((s) => s.lastDiscoveryOutcome)
-  const setLastDiscoveryOutcome = useAnalysisStore(
-    (s) => s.setLastDiscoveryOutcome,
-  )
 
   const rendererHost = useRendererHost()
 
@@ -522,147 +339,6 @@ export function AnalysisSidebar() {
   )
   const collapseAllFolders = useCallback(() => setOpenFolders(new Set()), [])
 
-  const runAnalysis = useCallback(
-    async (repoPath: string, configOverride?: AnalysisConfig) => {
-      if (!course) return
-      const rosterContext = buildAnalysisRosterContext(course)
-
-      abortRef.current?.abort()
-      const ac = new AbortController()
-      abortRef.current = ac
-      const isCurrentRun = () => abortRef.current === ac
-
-      setWorkflowStatus("running")
-      setProgress(null)
-      setErrorMessage(null)
-      setResult(null)
-
-      try {
-        const result: AnalysisResult = await client.run(
-          "analysis.run",
-          {
-            course,
-            repositoryAbsolutePath: repoPath,
-            config: configOverride ?? config,
-            ...(rosterContext ? { rosterContext } : {}),
-          },
-          {
-            onProgress: (p: AnalysisProgress) => {
-              if (!isCurrentRun()) return
-              setProgress(p)
-            },
-            signal: ac.signal,
-          },
-        )
-        if (!isCurrentRun()) {
-          return
-        }
-        if (ac.signal.aborted) {
-          setWorkflowStatus("idle")
-          return
-        }
-        setResult(result)
-        const paths = result.fileStats.map((f) => f.path).sort()
-        setFocusedFilePath(paths[0] ?? null)
-        setWorkflowStatus("idle")
-      } catch (err) {
-        if (!isCurrentRun()) {
-          return
-        }
-        if (ac.signal.aborted) {
-          setWorkflowStatus("idle")
-        } else {
-          setWorkflowStatus("error")
-          setErrorMessage(
-            err instanceof Error
-              ? err.message
-              : typeof err === "object" &&
-                  err !== null &&
-                  "message" in err &&
-                  typeof (err as { message: unknown }).message === "string"
-                ? (err as { message: string }).message
-                : "Analysis failed",
-          )
-        }
-      } finally {
-        if (isCurrentRun()) {
-          setProgress(null)
-          abortRef.current = null
-        }
-      }
-    },
-    [
-      client,
-      config,
-      course,
-      setErrorMessage,
-      setProgress,
-      setResult,
-      setFocusedFilePath,
-      setWorkflowStatus,
-    ],
-  )
-
-  const runRepoDiscovery = useCallback(
-    async (folder: string) => {
-      if (!folder) return
-      discoveryAbortRef.current?.abort()
-      const ac = new AbortController()
-      discoveryAbortRef.current = ac
-      setLastDiscoveryOutcome("none")
-      setDiscoveryStatus("loading")
-      setDiscoveryError(null)
-      setDiscoveredRepos([])
-      try {
-        const result = await client.run(
-          "analysis.discoverRepos",
-          { searchFolder: folder, maxDepth: searchDepth },
-          { signal: ac.signal },
-        )
-        if (discoveryAbortRef.current !== ac) return
-        if (ac.signal.aborted) {
-          setLastDiscoveryOutcome("cancelled")
-          setDiscoveryStatus("idle")
-          return
-        }
-        setSelectedRepoPath(null)
-        setDiscoveredRepos(result.repos)
-        setLastDiscoveryOutcome("completed")
-        setDiscoveryStatus("idle")
-        if (result.repos.length === 1) {
-          setSelectedRepoPath(result.repos[0].path)
-          runAnalysis(result.repos[0].path)
-        }
-      } catch (err) {
-        if (discoveryAbortRef.current !== ac) return
-        if (ac.signal.aborted) {
-          setLastDiscoveryOutcome("cancelled")
-          setDiscoveryStatus("idle")
-          return
-        }
-        setLastDiscoveryOutcome("none")
-        setDiscoveryStatus("error")
-        setDiscoveryError(
-          err instanceof Error ? err.message : "Discovery failed",
-        )
-      } finally {
-        if (discoveryAbortRef.current === ac) {
-          discoveryAbortRef.current = null
-        }
-      }
-    },
-    [
-      client,
-      runAnalysis,
-      searchDepth,
-      setSelectedRepoPath,
-      setDiscoveryStatus,
-      setDiscoveryError,
-      setDiscoveredRepos,
-      setLastDiscoveryOutcome,
-    ],
-  )
-
   const handleBrowseSearchFolder = useCallback(async () => {
     const dir = await rendererHost.pickDirectory({
       title: "Open repository search folder",
@@ -678,10 +354,6 @@ export function AnalysisSidebar() {
     void runRepoDiscovery(searchFolder)
   }, [searchFolder, runRepoDiscovery])
 
-  const handleCancelDiscovery = useCallback(() => {
-    discoveryAbortRef.current?.abort()
-  }, [])
-
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
   }, [selectedRepoPath, runAnalysis])
@@ -693,10 +365,6 @@ export function AnalysisSidebar() {
     },
     [setSelectedRepoPath, runAnalysis],
   )
-
-  const handleCancel = useCallback(() => {
-    abortRef.current?.abort()
-  }, [])
 
   const setConfigAndRerun = useCallback(
     (patch: Partial<AnalysisConfig>) => {
