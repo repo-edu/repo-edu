@@ -1,6 +1,6 @@
 import { z } from "zod"
 import type { ValidationResult } from "../types.js"
-import type { AnalysisBlameConfig, AnalysisConfig } from "./types.js"
+import type { AnalysisBlameConfig, AnalysisConfig } from "./config-types.js"
 
 // ---------------------------------------------------------------------------
 // Constants

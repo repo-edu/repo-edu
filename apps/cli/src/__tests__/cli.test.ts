@@ -3,10 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
-import type {
-  PersistedAppSettings,
-  PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   applyFixtureSourceOverlay,
   type FixtureSource,

@@ -24,7 +24,10 @@ import {
   validatePersistedAppSettings,
   validatePersistedCourse,
 } from "@repo-edu/domain/schemas"
-import { defaultAppSettings } from "@repo-edu/domain/settings"
+import {
+  defaultAppSettings,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import {
   type EnrollmentType,
   enrollmentTypeKinds,
@@ -33,7 +36,6 @@ import {
   type IdSequences,
   type MemberStatus,
   memberStatusKinds,
-  type PersistedAppSettings,
   type PersistedCourse,
   type Roster,
   type RosterMember,

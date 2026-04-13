@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type {
-  PersistedAppSettings,
   PersistedCourse,
   RepositoryTemplate,
 } from "@repo-edu/domain/types"
@@ -65,6 +65,7 @@ const appSettings: PersistedAppSettings = {
   rosterColumnSizing: {},
   groupsSidebarSize: null,
   analysisSidebarSize: null,
+  analysisSidebar: null,
 }
 
 describe("repository workflow helpers", () => {

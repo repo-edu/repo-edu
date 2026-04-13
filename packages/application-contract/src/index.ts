@@ -6,6 +6,7 @@ import type {
   BlameResult,
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   ExportFormat,
@@ -15,7 +16,6 @@ import type {
   GroupSetImportPreview,
   IdSequences,
   LmsProviderKind,
-  PersistedAppSettings,
   PersistedCourse,
   RepositoryTemplate,
   Roster,

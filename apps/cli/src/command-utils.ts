@@ -1,9 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import type {
-  Assignment,
-  PersistedAppSettings,
-  PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
 import type { Command } from "commander"
 
 export function emitCommandError(message: string): void {

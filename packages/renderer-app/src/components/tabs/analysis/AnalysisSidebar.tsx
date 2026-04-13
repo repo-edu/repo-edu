@@ -1,5 +1,6 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
+import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import {
   Button,
   Checkbox,
@@ -34,11 +35,14 @@ import {
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
+import { debounceAsync } from "../../../utils/debounce.js"
 
 // ---------------------------------------------------------------------------
 // Section keys
@@ -61,6 +65,12 @@ function allSectionsOpen(): Record<SectionKey, boolean> {
     SectionKey,
     boolean
   >
+}
+
+function serializeSidebarSettings(
+  settings: PersistedAnalysisSidebarSettings | null,
+): string {
+  return JSON.stringify(settings)
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +371,19 @@ export function AnalysisSidebar() {
 
   const rendererHost = useRendererHost()
 
+  // Persistence
+  const settingsStatus = useAppSettingsStore((s) => s.status)
+  const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
+  const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const hydrateFromPersistedSettings = useAnalysisStore(
+    (s) => s.hydrateFromPersistedSettings,
+  )
+  const saveDebounced = useMemo(
+    () => debounceAsync(saveAppSettings, SETTINGS_SAVE_DEBOUNCE_MS),
+    [saveAppSettings],
+  )
+
   // Section open/close state
   const [sections, setSections] =
     useState<Record<SectionKey, boolean>>(allSectionsOpen)
@@ -383,6 +406,74 @@ export function AnalysisSidebar() {
   // File list view state
   const [fileViewMode, setFileViewMode] = useState<"list" | "tree">("list")
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set())
+
+  // Hydrate from persisted sidebar settings (once, after app settings load)
+  const hydratedRef = useRef(false)
+  const lastPersistedSnapshotRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (hydratedRef.current) return
+    if (settingsStatus !== "loaded") return
+    hydratedRef.current = true
+    if (!analysisSidebar) return
+    lastPersistedSnapshotRef.current = serializeSidebarSettings(analysisSidebar)
+    hydrateFromPersistedSettings(analysisSidebar)
+    setSections({ ...allSectionsOpen(), ...analysisSidebar.sectionState })
+    setFileViewMode(analysisSidebar.fileViewMode)
+  }, [settingsStatus, analysisSidebar, hydrateFromPersistedSettings])
+
+  // Persist sidebar settings on change (debounced save coalesces with hydration)
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    const snapshot: PersistedAnalysisSidebarSettings = {
+      searchFolder,
+      searchDepth,
+      sectionState: sections,
+      fileViewMode,
+      config: (() => {
+        const { maxConcurrency: _, ...persistedConfig } = config
+        return persistedConfig
+      })(),
+      blameConfig: {
+        copyMove: blameConfig.copyMove,
+        includeEmptyLines: blameConfig.includeEmptyLines,
+        includeComments: blameConfig.includeComments,
+        blameExclusions: blameConfig.blameExclusions,
+      },
+    }
+    const snapshotSerialized = serializeSidebarSettings(snapshot)
+    if (snapshotSerialized === lastPersistedSnapshotRef.current) {
+      return
+    }
+    setAnalysisSidebar(snapshot)
+    lastPersistedSnapshotRef.current = snapshotSerialized
+    saveDebounced()
+  }, [
+    searchFolder,
+    searchDepth,
+    sections,
+    fileViewMode,
+    config,
+    blameConfig,
+    setAnalysisSidebar,
+    saveDebounced,
+  ])
+
+  const configInputResetKey = useMemo(
+    () =>
+      JSON.stringify({
+        subfolder: config.subfolder ?? "",
+        includeFiles: config.includeFiles ?? [],
+        extensions: config.extensions ?? [],
+        since: config.since ?? "",
+        until: config.until ?? "",
+        excludeFiles: config.excludeFiles ?? [],
+        excludeAuthors: config.excludeAuthors ?? [],
+        excludeEmails: config.excludeEmails ?? [],
+        excludeRevisions: config.excludeRevisions ?? [],
+        excludeMessages: config.excludeMessages ?? [],
+      }),
+    [config],
+  )
 
   const sortedFilePaths = useMemo(
     () => (result?.fileStats ?? []).map((f) => f.path).sort(),
@@ -945,6 +1036,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Subfolder</Label>
           <Input
+            key={`subfolder-${configInputResetKey}`}
             type="text"
             placeholder="src/"
             defaultValue={config.subfolder ?? ""}
@@ -956,6 +1048,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">File patterns</Label>
           <Input
+            key={`include-files-${configInputResetKey}`}
             type="text"
             placeholder="*.ts"
             defaultValue={config.includeFiles?.join(", ") ?? ""}
@@ -975,6 +1068,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Extensions</Label>
           <Input
+            key={`extensions-${configInputResetKey}`}
             type="text"
             placeholder="ts,tsx,js"
             defaultValue={config.extensions?.join(", ") ?? ""}
@@ -1004,6 +1098,7 @@ export function AnalysisSidebar() {
           <div className="space-y-1">
             <Label className="text-xs">Since</Label>
             <Input
+              key={`since-${configInputResetKey}`}
               type="text"
               placeholder="YYYY-MM-DD"
               defaultValue={config.since ?? ""}
@@ -1015,6 +1110,7 @@ export function AnalysisSidebar() {
           <div className="space-y-1">
             <Label className="text-xs">Until</Label>
             <Input
+              key={`until-${configInputResetKey}`}
               type="text"
               placeholder="YYYY-MM-DD"
               defaultValue={config.until ?? ""}
@@ -1181,6 +1277,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Files</Label>
           <Input
+            key={`exclude-files-${configInputResetKey}`}
             type="text"
             placeholder="*.test.ts"
             defaultValue={config.excludeFiles?.join(", ") ?? ""}
@@ -1200,6 +1297,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Authors</Label>
           <Input
+            key={`exclude-authors-${configInputResetKey}`}
             type="text"
             placeholder="bot*"
             defaultValue={config.excludeAuthors?.join(", ") ?? ""}
@@ -1219,6 +1317,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Emails</Label>
           <Input
+            key={`exclude-emails-${configInputResetKey}`}
             type="text"
             placeholder="noreply@*"
             defaultValue={config.excludeEmails?.join(", ") ?? ""}
@@ -1238,6 +1337,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Revisions</Label>
           <Input
+            key={`exclude-revisions-${configInputResetKey}`}
             type="text"
             placeholder="abc1234"
             defaultValue={config.excludeRevisions?.join(", ") ?? ""}
@@ -1257,6 +1357,7 @@ export function AnalysisSidebar() {
         <div className="space-y-1">
           <Label className="text-xs">Messages</Label>
           <Input
+            key={`exclude-messages-${configInputResetKey}`}
             type="text"
             placeholder="merge*"
             defaultValue={config.excludeMessages?.join(", ") ?? ""}

@@ -5,7 +5,7 @@ description: Persisted settings, course schema, roster entities, and boundary va
 
 The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, which means it runs identically in the Electron desktop app, the CLI, and the browser-based docs demo.
 
-Domain types — the TypeScript interfaces that describe settings, courses, rosters, and every other entity — live in `packages/domain/src/types.ts`. Companion [Zod](https://zod.dev/) schemas in `packages/domain/src/schemas.ts` validate data at boundaries: the points where the application reads or writes JSON files. When a persisted file is loaded from disk, the schema checks that its shape matches what the code expects. If it doesn't, the load fails with structured, path-level error messages rather than producing subtle runtime bugs.
+Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppSettings`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion Zod schemas in `packages/domain/src/schemas.ts` validate course data at boundaries: the points where the application reads or writes JSON files. When a persisted file is loaded from disk, the schema checks that its shape matches what the code expects. If it doesn't, the load fails with structured, path-level error messages rather than producing subtle runtime bugs.
 
 ## Schema versioning
 
@@ -117,7 +117,7 @@ Two functions validate persisted documents at load boundaries:
 
 Both use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each `ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid files are rejected — there is no partial-load or best-effort parsing.
 
-Compile-time drift guards in `schemas.ts` ensure the Zod inferred types stay in sync with the hand-authored TypeScript types.
+Settings-persistence types use `z.infer` in `settings.ts` (no drift guard needed). A compile-time drift guard in `schemas.ts` ensures the `PersistedCourse` Zod inferred type stays in sync with its hand-authored TypeScript type.
 
 ## Roster validation
 

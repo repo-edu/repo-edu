@@ -54,7 +54,7 @@ Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contr
 
 ### Persistence schema changes
 
-`PersistedAppSettings` and `PersistedCourse` are serialized to disk. Changing field names, removing fields, or altering types will break existing saved files. Compile-time drift guards in `schemas.ts` ensure Zod schemas stay in sync with TypeScript types — a mismatch is a build error.
+`PersistedAppSettings` and `PersistedCourse` are serialized to disk. Changing field names, removing fields, or altering types will break existing saved files. `PersistedAppSettings` types are derived from schemas via `z.infer` in `settings.ts`. `PersistedCourse` retains a compile-time drift guard in `schemas.ts` — a mismatch is a build error.
 
 ### Cross-surface behavior mismatches
 

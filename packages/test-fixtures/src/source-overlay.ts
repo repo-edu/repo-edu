@@ -1,7 +1,7 @@
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
   ORIGIN_LMS,
   ORIGIN_LOCAL,
-  type PersistedAppSettings,
   type PersistedCourse,
 } from "@repo-edu/domain/types"
 

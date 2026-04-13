@@ -4,10 +4,8 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { after, before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import type {
-  PersistedAppSettings,
-  PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,

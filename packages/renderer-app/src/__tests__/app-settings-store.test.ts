@@ -4,11 +4,11 @@ import {
   createWorkflowClient,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
-import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
+  defaultAppSettings,
   type PersistedAppSettings,
-  persistedAppSettingsKind,
-} from "@repo-edu/domain/types"
+} from "@repo-edu/domain/settings"
+import { persistedAppSettingsKind } from "@repo-edu/domain/types"
 import {
   clearWorkflowClient,
   setWorkflowClient,

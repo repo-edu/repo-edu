@@ -1,7 +1,7 @@
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type {
   GitProviderKind,
-  PersistedAppSettings,
   PersistedCourse,
   PlannedRepositoryGroup,
 } from "@repo-edu/domain/types"

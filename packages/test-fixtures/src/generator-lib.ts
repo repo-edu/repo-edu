@@ -1,8 +1,10 @@
 import { faker } from "@faker-js/faker"
-import { defaultAppSettings } from "@repo-edu/domain/settings"
+import {
+  defaultAppSettings,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import {
   type MemberStatus,
-  type PersistedAppSettings,
   type PersistedCourse,
   persistedCourseKind,
   type UsernameTeam,

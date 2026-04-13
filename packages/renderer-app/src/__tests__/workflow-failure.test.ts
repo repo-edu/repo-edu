@@ -5,9 +5,11 @@ import {
   createWorkflowClient,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
-import { defaultAppSettings } from "@repo-edu/domain/settings"
 import {
+  defaultAppSettings,
   type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
+import {
   type PersistedCourse,
   persistedAppSettingsKind,
   persistedCourseKind,

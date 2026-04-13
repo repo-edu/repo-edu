@@ -12,7 +12,11 @@ import type {
   FileStats,
   IdentityMatch,
 } from "@repo-edu/domain/analysis"
+import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import { create } from "zustand"
+
+const DEFAULT_BLAME_COPY_MOVE = 1
+const DEFAULT_BLAME_EXCLUSIONS = "hide" as const
 
 export type AnalysisActiveMetric =
   | "commits"
@@ -147,6 +151,9 @@ type AnalysisActions = {
   setShowRenames: (show: boolean) => void
   setScaledPercentages: (scaled: boolean) => void
 
+  hydrateFromPersistedSettings: (
+    settings: PersistedAnalysisSidebarSettings,
+  ) => void
   reset: () => void
 }
 
@@ -168,7 +175,10 @@ const initialState: AnalysisState = {
   progress: null,
   errorMessage: null,
 
-  blameConfig: { copyMove: 1, blameExclusions: "hide" },
+  blameConfig: {
+    copyMove: DEFAULT_BLAME_COPY_MOVE,
+    blameExclusions: DEFAULT_BLAME_EXCLUSIONS,
+  },
   asOfCommit: "",
 
   blameFileResults: new Map(),
@@ -376,6 +386,20 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setShowDeletions: (showDeletions) => set({ showDeletions }),
     setShowRenames: (showRenames) => set({ showRenames }),
     setScaledPercentages: (scaledPercentages) => set({ scaledPercentages }),
+
+    hydrateFromPersistedSettings: (settings) =>
+      set({
+        searchFolder: settings.searchFolder,
+        searchDepth: settings.searchDepth,
+        config: settings.config,
+        blameConfig: {
+          copyMove: settings.blameConfig.copyMove ?? DEFAULT_BLAME_COPY_MOVE,
+          blameExclusions:
+            settings.blameConfig.blameExclusions ?? DEFAULT_BLAME_EXCLUSIONS,
+          includeEmptyLines: settings.blameConfig.includeEmptyLines,
+          includeComments: settings.blameConfig.includeComments,
+        },
+      }),
 
     reset: () => set(initialState),
   }),

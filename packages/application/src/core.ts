@@ -4,10 +4,10 @@ import type {
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
 import { formatSmokeWorkflowMessage } from "@repo-edu/domain/schemas"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
   packageId as domainPackageId,
   type GitIdentityMode,
-  type PersistedAppSettings,
   type PersistedCourse,
   type RosterValidationResult,
 } from "@repo-edu/domain/types"

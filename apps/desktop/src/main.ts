@@ -4,8 +4,10 @@ import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { AppSettingsStore } from "@repo-edu/application"
-import { defaultAppSettings } from "@repo-edu/domain/settings"
-import type { PersistedAppSettings } from "@repo-edu/domain/types"
+import {
+  defaultAppSettings,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,

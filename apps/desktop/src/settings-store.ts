@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { AppSettingsStore } from "@repo-edu/application"
 import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
-import type { PersistedAppSettings } from "@repo-edu/domain/types"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
   cleanupAtomicTempFiles,
   createWriteQueue,

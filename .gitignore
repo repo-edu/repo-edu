@@ -16,7 +16,7 @@
 
 # Planning files and notes
 .claude/plan
-# plan/
+plan/
 
 # Binding generation cache
 .bindings-hash

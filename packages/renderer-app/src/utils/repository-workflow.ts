@@ -2,8 +2,8 @@ import type {
   RepositoryBatchInput,
   RepositoryUpdateInput,
 } from "@repo-edu/application-contract"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type {
-  PersistedAppSettings,
   PersistedCourse,
   RepositoryTemplate,
 } from "@repo-edu/domain/types"

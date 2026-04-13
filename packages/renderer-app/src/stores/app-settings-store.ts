@@ -1,10 +1,13 @@
-import { defaultAppSettings } from "@repo-edu/domain/settings"
+import {
+  defaultAppSettings,
+  type PersistedAnalysisSidebarSettings,
+  type PersistedAppSettings,
+  type PersistedGitConnection,
+  type PersistedLmsConnection,
+} from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
   DateFormatPreference,
-  PersistedAppSettings,
-  PersistedGitConnection,
-  PersistedLmsConnection,
   ThemePreference,
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
@@ -43,6 +46,7 @@ type AppSettingsActions = {
   setRosterColumnSizing: (sizing: Record<string, number>) => void
   setGroupsSidebarSize: (size: number) => void
   setAnalysisSidebarSize: (size: number) => void
+  setAnalysisSidebar: (sidebar: PersistedAnalysisSidebarSettings | null) => void
 
   reset: () => void
 }
@@ -245,6 +249,11 @@ export const useAppSettingsStore = create<
     setAnalysisSidebarSize: (size) =>
       set((state) => ({
         settings: { ...state.settings, analysisSidebarSize: size },
+      })),
+
+    setAnalysisSidebar: (sidebar) =>
+      set((state) => ({
+        settings: { ...state.settings, analysisSidebar: sidebar },
       })),
 
     reset: () => set(initialState),

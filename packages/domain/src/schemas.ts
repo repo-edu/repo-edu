@@ -1,68 +1,24 @@
 import { z } from "zod"
+import {
+  type PersistedAppSettings,
+  persistedAppSettingsSchema,
+} from "./settings.js"
 import type {
-  PersistedAppSettings,
   PersistedCourse,
   ValidationIssue,
   ValidationResult,
 } from "./types.js"
 import {
   enrollmentTypeKinds,
-  gitProviderKinds,
   gitUsernameStatusKinds,
   groupOriginKinds,
   memberStatusKinds,
-  persistedAppSettingsKind,
   persistedCourseKind,
 } from "./types.js"
 
 // ---------------------------------------------------------------------------
 // Internal zod schema definitions
 // ---------------------------------------------------------------------------
-
-const persistedLmsConnectionSchema = z.object({
-  name: z.string(),
-  provider: z.enum(["canvas", "moodle"]),
-  baseUrl: z.string(),
-  token: z.string(),
-  userAgent: z.string().optional(),
-})
-
-const persistedGitConnectionSchema = z.object({
-  id: z.string(),
-  provider: z.enum(gitProviderKinds),
-  baseUrl: z.string(),
-  token: z.string(),
-})
-
-const appAppearanceSchema = z.object({
-  theme: z.enum(["system", "light", "dark"]),
-  windowChrome: z.enum(["system", "hiddenInset"]),
-  dateFormat: z.enum(["MDY", "DMY"]),
-  timeFormat: z.enum(["12h", "24h"]),
-})
-
-const persistedWindowStateSchema = z.object({
-  width: z.number(),
-  height: z.number(),
-})
-
-export const persistedAppSettingsSchema = z.object({
-  kind: z.literal(persistedAppSettingsKind),
-  schemaVersion: z.literal(1),
-  activeCourseId: z.string().nullable(),
-  activeTab: z
-    .enum(["roster", "groups-assignments", "analysis"])
-    .default("roster"),
-  appearance: appAppearanceSchema,
-  window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
-  lmsConnections: z.array(persistedLmsConnectionSchema),
-  gitConnections: z.array(persistedGitConnectionSchema),
-  lastOpenedAt: z.string().nullable(),
-  rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
-  rosterColumnSizing: z.record(z.string(), z.number()).default({}),
-  groupsSidebarSize: z.number().nullable().default(null),
-  analysisSidebarSize: z.number().nullable().default(null),
-})
 
 const memberStatusSchema = z.enum(memberStatusKinds)
 const gitUsernameStatusSchema = z.enum(gitUsernameStatusKinds)
@@ -247,16 +203,7 @@ export const persistedCourseSchema = z.object({
   updatedAt: z.string(),
 })
 
-// Compile-time drift guards: ensure zod inferred types match hand-authored types
-type _AppSettingsCheck =
-  z.infer<typeof persistedAppSettingsSchema> extends PersistedAppSettings
-    ? PersistedAppSettings extends z.infer<typeof persistedAppSettingsSchema>
-      ? true
-      : never
-    : never
-const _appSettingsGuard: _AppSettingsCheck = true
-void _appSettingsGuard
-
+// Compile-time drift guard: ensure zod inferred type matches hand-authored type
 type _CourseCheck =
   z.infer<typeof persistedCourseSchema> extends PersistedCourse
     ? PersistedCourse extends z.infer<typeof persistedCourseSchema>

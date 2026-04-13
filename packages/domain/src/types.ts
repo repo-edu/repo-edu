@@ -33,49 +33,6 @@ export type DateFormatPreference = "MDY" | "DMY"
 export type TimeFormatPreference = "12h" | "24h"
 export type ExportFormat = Extract<FileFormat, "csv" | "xlsx">
 
-export type PersistedLmsConnection = {
-  name: string
-  provider: LmsProviderKind
-  baseUrl: string
-  token: string
-  userAgent?: string
-}
-
-export type PersistedGitConnection = {
-  id: string
-  provider: GitProviderKind
-  baseUrl: string
-  token: string
-}
-
-export type AppAppearance = {
-  theme: ThemePreference
-  windowChrome: WindowChromeMode
-  dateFormat: DateFormatPreference
-  timeFormat: TimeFormatPreference
-}
-
-export type PersistedWindowState = {
-  width: number
-  height: number
-}
-
-export type PersistedAppSettings = {
-  kind: typeof persistedAppSettingsKind
-  schemaVersion: 1
-  activeCourseId: string | null
-  activeTab: ActiveTab
-  appearance: AppAppearance
-  window: PersistedWindowState
-  lmsConnections: PersistedLmsConnection[]
-  gitConnections: PersistedGitConnection[]
-  lastOpenedAt: string | null
-  rosterColumnVisibility: Record<string, boolean>
-  rosterColumnSizing: Record<string, number>
-  groupsSidebarSize: number | null
-  analysisSidebarSize: number | null
-}
-
 export type RosterConnection =
   | {
       kind: "canvas"

@@ -6,10 +6,8 @@ import {
   validatePersistedAppSettings,
   validatePersistedCourse,
 } from "@repo-edu/domain/schemas"
-import type {
-  PersistedAppSettings,
-  PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   cleanupAtomicTempFiles,
   createWriteQueue,

@@ -2,6 +2,11 @@ export {
   classifyCommentLines,
   extensionToLanguage,
 } from "./comment-detector.js"
+export type {
+  AnalysisBlameConfig,
+  AnalysisConfig,
+  BlameExclusionMode,
+} from "./config-types.js"
 export { bridgeAuthorsToRoster } from "./identity-bridge.js"
 export {
   applyBlameToPersonDb,
@@ -19,15 +24,12 @@ export {
   validateAnalysisConfig,
 } from "./schemas.js"
 export type {
-  AnalysisBlameConfig,
   AnalysisCommit,
-  AnalysisConfig,
   AnalysisResult,
   AnalysisRosterContext,
   AuthorDailyActivity,
   AuthorStats,
   BlameAuthorSummary,
-  BlameExclusionMode,
   BlameLine,
   BlameResult,
   FileBlame,
