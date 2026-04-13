@@ -35,6 +35,8 @@ export function BlamePanel() {
     (s) => s.setBlameContextSnapshot,
   )
 
+  const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
+  const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const config = useAnalysisStore((s) => s.config)
   const blameSkip = useAnalysisStore((s) => s.config.blameSkip ?? false)
@@ -198,6 +200,21 @@ export function BlamePanel() {
       setBlameWorkflowStatus,
     ],
   )
+
+  // Auto-open focused file when blame tab is shown with no targets
+  useEffect(() => {
+    if (blameSkip) return
+    if (!result) return
+    if (blameTargetFiles.length > 0) return
+    if (!focusedFilePath) return
+    openFileForBlame(focusedFilePath)
+  }, [
+    blameSkip,
+    blameTargetFiles.length,
+    focusedFilePath,
+    openFileForBlame,
+    result,
+  ])
 
   // Auto-trigger blame for newly added files
   useEffect(() => {

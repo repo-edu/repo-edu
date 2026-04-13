@@ -132,13 +132,14 @@ export function useAnalysisWorkflows() {
           setDiscoveryStatus("idle")
           return
         }
-        setSelectedRepoPath(null)
         setDiscoveredRepos(result.repos)
         setLastDiscoveryOutcome("completed")
         setDiscoveryStatus("idle")
         if (result.repos.length === 1) {
           setSelectedRepoPath(result.repos[0].path)
           runAnalysis(result.repos[0].path)
+        } else {
+          setSelectedRepoPath(result.repos[0]?.path ?? null)
         }
       } catch (err) {
         if (discoveryAbortRef.current !== ac) return

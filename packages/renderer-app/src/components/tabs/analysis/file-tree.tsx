@@ -156,8 +156,10 @@ export function FolderNode({
               <button
                 key={filePath}
                 type="button"
-                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent ${
-                  focusedFilePath === filePath ? "bg-accent font-medium" : ""
+                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
+                  focusedFilePath === filePath
+                    ? "bg-selection font-medium"
+                    : "hover:bg-accent"
                 }`}
                 onClick={() => handleFileClick(filePath)}
               >

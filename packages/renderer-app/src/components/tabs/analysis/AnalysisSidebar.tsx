@@ -30,6 +30,7 @@ import {
   List,
   Loader2,
   Play,
+  RefreshCw,
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -410,14 +411,26 @@ export function AnalysisSidebar() {
               Cancel Search
             </Button>
           ) : hasDiscoveredRepos ? (
-            <Button
-              className="flex-1"
-              disabled={!selectedRepoPath}
-              onClick={handleRun}
-            >
-              <Play className="mr-1 size-4" />
-              Run Analysis
-            </Button>
+            result ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={!selectedRepoPath}
+                onClick={handleRun}
+              >
+                <RefreshCw className="mr-1 size-4" />
+                Re-run Analysis
+              </Button>
+            ) : (
+              <Button
+                className="flex-1"
+                disabled={!selectedRepoPath}
+                onClick={handleRun}
+              >
+                <Play className="mr-1 size-4" />
+                Run Analysis
+              </Button>
+            )
           ) : (
             <Button
               className="flex-1"
@@ -506,8 +519,10 @@ export function AnalysisSidebar() {
               <button
                 key={repo.path}
                 type="button"
-                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent ${
-                  selectedRepoPath === repo.path ? "bg-accent font-medium" : ""
+                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
+                  selectedRepoPath === repo.path
+                    ? "bg-selection font-medium"
+                    : "hover:bg-accent"
                 }`}
                 onClick={() => handleSelectRepo(repo.path)}
               >
@@ -631,8 +646,10 @@ export function AnalysisSidebar() {
                     <button
                       key={path}
                       type="button"
-                      className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent ${
-                        focusedFilePath === path ? "bg-accent font-medium" : ""
+                      className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
+                        focusedFilePath === path
+                          ? "bg-selection font-medium"
+                          : "hover:bg-accent"
                       }`}
                       onClick={() => handleFileClick(path)}
                       title={path}
