@@ -206,6 +206,13 @@ const initialState: AnalysisState = {
   scaledPercentages: false,
 }
 
+// Abort controllers are coordination primitives, not UI state — kept outside
+// Zustand so components cannot accidentally subscribe to them.
+export const analysisStoreInternals = {
+  analysisAbort: null as AbortController | null,
+  discoveryAbort: null as AbortController | null,
+}
+
 export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
   (set) => ({
     ...initialState,
@@ -401,7 +408,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         },
       }),
 
-    reset: () => set(initialState),
+    reset: () => {
+      analysisStoreInternals.analysisAbort?.abort()
+      analysisStoreInternals.discoveryAbort?.abort()
+      analysisStoreInternals.analysisAbort = null
+      analysisStoreInternals.discoveryAbort = null
+      set(initialState)
+    },
   }),
 )
 

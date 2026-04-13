@@ -1,10 +1,14 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
-import { useCallback, useRef } from "react"
+import { useCallback } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  analysisStoreInternals,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
+import { getErrorMessage } from "../../../utils/error-message.js"
 
 export function useAnalysisWorkflows() {
   const course = useCourseStore((s) => s.course)
@@ -26,18 +30,15 @@ export function useAnalysisWorkflows() {
     (s) => s.setLastDiscoveryOutcome,
   )
 
-  const abortRef = useRef<AbortController | null>(null)
-  const discoveryAbortRef = useRef<AbortController | null>(null)
-
   const runAnalysis = useCallback(
     async (repoPath: string, configOverride?: AnalysisConfig) => {
       if (!course) return
       const rosterContext = buildAnalysisRosterContext(course)
 
-      abortRef.current?.abort()
+      analysisStoreInternals.analysisAbort?.abort()
       const ac = new AbortController()
-      abortRef.current = ac
-      const isCurrentRun = () => abortRef.current === ac
+      analysisStoreInternals.analysisAbort = ac
+      const isCurrentRun = () => analysisStoreInternals.analysisAbort === ac
 
       setWorkflowStatus("running")
       setProgress(null)
@@ -80,21 +81,12 @@ export function useAnalysisWorkflows() {
           setWorkflowStatus("idle")
         } else {
           setWorkflowStatus("error")
-          setErrorMessage(
-            err instanceof Error
-              ? err.message
-              : typeof err === "object" &&
-                  err !== null &&
-                  "message" in err &&
-                  typeof (err as { message: unknown }).message === "string"
-                ? (err as { message: string }).message
-                : "Analysis failed",
-          )
+          setErrorMessage(getErrorMessage(err, "Analysis failed"))
         }
       } finally {
         if (isCurrentRun()) {
           setProgress(null)
-          abortRef.current = null
+          analysisStoreInternals.analysisAbort = null
         }
       }
     },
@@ -113,9 +105,9 @@ export function useAnalysisWorkflows() {
   const runRepoDiscovery = useCallback(
     async (folder: string) => {
       if (!folder) return
-      discoveryAbortRef.current?.abort()
+      analysisStoreInternals.discoveryAbort?.abort()
       const ac = new AbortController()
-      discoveryAbortRef.current = ac
+      analysisStoreInternals.discoveryAbort = ac
       setLastDiscoveryOutcome("none")
       setDiscoveryStatus("loading")
       setDiscoveryError(null)
@@ -126,7 +118,7 @@ export function useAnalysisWorkflows() {
           { searchFolder: folder, maxDepth: searchDepth },
           { signal: ac.signal },
         )
-        if (discoveryAbortRef.current !== ac) return
+        if (analysisStoreInternals.discoveryAbort !== ac) return
         if (ac.signal.aborted) {
           setLastDiscoveryOutcome("cancelled")
           setDiscoveryStatus("idle")
@@ -135,14 +127,12 @@ export function useAnalysisWorkflows() {
         setDiscoveredRepos(result.repos)
         setLastDiscoveryOutcome("completed")
         setDiscoveryStatus("idle")
-        if (result.repos.length === 1) {
+        if (result.repos.length > 0) {
           setSelectedRepoPath(result.repos[0].path)
           runAnalysis(result.repos[0].path)
-        } else {
-          setSelectedRepoPath(result.repos[0]?.path ?? null)
         }
       } catch (err) {
-        if (discoveryAbortRef.current !== ac) return
+        if (analysisStoreInternals.discoveryAbort !== ac) return
         if (ac.signal.aborted) {
           setLastDiscoveryOutcome("cancelled")
           setDiscoveryStatus("idle")
@@ -150,12 +140,10 @@ export function useAnalysisWorkflows() {
         }
         setLastDiscoveryOutcome("none")
         setDiscoveryStatus("error")
-        setDiscoveryError(
-          err instanceof Error ? err.message : "Discovery failed",
-        )
+        setDiscoveryError(getErrorMessage(err, "Discovery failed"))
       } finally {
-        if (discoveryAbortRef.current === ac) {
-          discoveryAbortRef.current = null
+        if (analysisStoreInternals.discoveryAbort === ac) {
+          analysisStoreInternals.discoveryAbort = null
         }
       }
     },
@@ -172,11 +160,11 @@ export function useAnalysisWorkflows() {
   )
 
   const handleCancel = useCallback(() => {
-    abortRef.current?.abort()
+    analysisStoreInternals.analysisAbort?.abort()
   }, [])
 
   const handleCancelDiscovery = useCallback(() => {
-    discoveryAbortRef.current?.abort()
+    analysisStoreInternals.discoveryAbort?.abort()
   }, [])
 
   return {

@@ -26,20 +26,23 @@ import {
   ChevronsUpDown,
   FileCode,
   FolderTree,
-  GitBranch,
   List,
-  Loader2,
   Play,
   RefreshCw,
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
-import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
-import { buildFileTree, collectFolderPaths, FolderNode } from "./file-tree.js"
+import {
+  buildFileTree,
+  collectFolderPaths,
+  FileTreeProvider,
+  FolderNode,
+} from "./analysis-tree.js"
+import { RepositoriesSection } from "./RepositoriesSection.js"
 import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
 
 // ---------------------------------------------------------------------------
@@ -161,7 +164,6 @@ export function AnalysisSidebar() {
   const config = useAnalysisStore((s) => s.config)
   const setConfig = useAnalysisStore((s) => s.setConfig)
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
-  const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const workflowStatus = useAnalysisStore((s) => s.workflowStatus)
   const progress = useAnalysisStore((s) => s.progress)
   const errorMessage = useAnalysisStore((s) => s.errorMessage)
@@ -179,15 +181,9 @@ export function AnalysisSidebar() {
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const searchFolder = useAnalysisStore((s) => s.searchFolder)
-  const setSearchFolder = useAnalysisStore((s) => s.setSearchFolder)
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
-  const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
-  const discoveryError = useAnalysisStore((s) => s.discoveryError)
-  const lastDiscoveryOutcome = useAnalysisStore((s) => s.lastDiscoveryOutcome)
-
-  const rendererHost = useRendererHost()
 
   // Persistence
   const settingsStatus = useAppSettingsStore((s) => s.status)
@@ -340,16 +336,6 @@ export function AnalysisSidebar() {
   )
   const collapseAllFolders = useCallback(() => setOpenFolders(new Set()), [])
 
-  const handleBrowseSearchFolder = useCallback(async () => {
-    const dir = await rendererHost.pickDirectory({
-      title: "Open repository search folder",
-    })
-    if (!dir) return
-    setSearchFolder(dir)
-    setSelectedRepoPath(null)
-    void runRepoDiscovery(dir)
-  }, [rendererHost, runRepoDiscovery, setSearchFolder, setSelectedRepoPath])
-
   const handleSearchRepos = useCallback(() => {
     if (!searchFolder) return
     void runRepoDiscovery(searchFolder)
@@ -358,14 +344,6 @@ export function AnalysisSidebar() {
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
   }, [selectedRepoPath, runAnalysis])
-
-  const handleSelectRepo = useCallback(
-    (path: string) => {
-      setSelectedRepoPath(path)
-      runAnalysis(path)
-    },
-    [setSelectedRepoPath, runAnalysis],
-  )
 
   const setConfigAndRerun = useCallback(
     (patch: Partial<AnalysisConfig>) => {
@@ -483,80 +461,7 @@ export function AnalysisSidebar() {
         open={sections.repositories}
         onOpenChange={handleSectionChange}
       >
-        <div>
-          <Input
-            readOnly
-            value={searchFolder ?? ""}
-            placeholder="Select search folder…"
-            className="text-xs truncate cursor-pointer !text-foreground !bg-transparent placeholder:!text-primary placeholder:font-medium"
-            aria-label="Open repository search folder"
-            onClick={handleBrowseSearchFolder}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault()
-                void handleBrowseSearchFolder()
-              }
-            }}
-          />
-        </div>
-
-        {discoveryStatus === "loading" && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            <span>Scanning…</span>
-          </div>
-        )}
-
-        {discoveryStatus === "error" && discoveryError && (
-          <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
-            {discoveryError}
-          </div>
-        )}
-
-        {discoveryStatus === "idle" && discoveredRepos.length > 0 && (
-          <div className="flex flex-col gap-0.5">
-            {discoveredRepos.map((repo) => (
-              <button
-                key={repo.path}
-                type="button"
-                className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                  selectedRepoPath === repo.path
-                    ? "bg-selection font-medium"
-                    : "hover:bg-accent"
-                }`}
-                onClick={() => handleSelectRepo(repo.path)}
-              >
-                <GitBranch className="size-3 shrink-0 text-muted-foreground" />
-                <span className="truncate">{repo.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {discoveryStatus === "idle" &&
-          searchFolder !== null &&
-          lastDiscoveryOutcome === "completed" &&
-          discoveredRepos.length === 0 && (
-            <Text className="text-xs text-muted-foreground">
-              No repositories found.
-            </Text>
-          )}
-
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-xs">Search depth</Label>
-          <Input
-            type="number"
-            min={1}
-            max={9}
-            step={1}
-            className="w-20"
-            value={searchDepth}
-            onChange={(e) => {
-              const v = Math.min(9, Math.max(1, Number(e.target.value) || 1))
-              setSearchDepth(v)
-            }}
-          />
-        </div>
+        <RepositoriesSection />
       </CollapsibleSection>
 
       {/* B. Files */}
@@ -668,30 +573,25 @@ export function AnalysisSidebar() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col gap-0.5">
-                {fileTree.files.length > 0 ? (
-                  <FolderNode
-                    node={fileTree}
-                    openFolders={openFolders}
-                    toggleFolderOpen={toggleFolderOpen}
-                    effectiveFileSelection={effectiveFileSelection}
-                    focusedFilePath={focusedFilePath}
-                    handleFileClick={handleFileClick}
-                  />
-                ) : (
-                  fileTree.children.map((child) => (
-                    <FolderNode
-                      key={child.path}
-                      node={child}
-                      openFolders={openFolders}
-                      toggleFolderOpen={toggleFolderOpen}
-                      effectiveFileSelection={effectiveFileSelection}
-                      focusedFilePath={focusedFilePath}
-                      handleFileClick={handleFileClick}
-                    />
-                  ))
-                )}
-              </div>
+              <FileTreeProvider
+                value={{
+                  openFolders,
+                  toggleFolderOpen,
+                  effectiveFileSelection,
+                  focusedFilePath,
+                  onFileClick: handleFileClick,
+                }}
+              >
+                <div className="flex flex-col gap-0.5">
+                  {fileTree.files.length > 0 ? (
+                    <FolderNode node={fileTree} />
+                  ) : (
+                    fileTree.children.map((child) => (
+                      <FolderNode key={child.path} node={child} />
+                    ))
+                  )}
+                </div>
+              </FileTreeProvider>
             )}
           </>
         )}

@@ -1,4 +1,8 @@
 import { z } from "zod"
+import type {
+  AnalysisBlameConfig,
+  AnalysisConfig,
+} from "./analysis/config-types.js"
 import type { GitProviderKind } from "./types.js"
 import { gitProviderKinds, persistedAppSettingsKind } from "./types.js"
 
@@ -126,6 +130,19 @@ export type PersistedAnalysisSidebarSettings = z.infer<
   typeof persistedAnalysisSidebarSettingsSchema
 >
 export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
+
+// Drift guards: persisted config/blame schemas must stay a subset of their
+// runtime counterparts. A compile error here means a field was added to the
+// persisted schema without a matching field in AnalysisConfig / AnalysisBlameConfig.
+type AssertSubset<_T extends Partial<_U>, _U> = true
+type _ConfigDriftGuard = AssertSubset<
+  z.infer<typeof persistedAnalysisConfigSchema>,
+  AnalysisConfig
+>
+type _BlameDriftGuard = AssertSubset<
+  z.infer<typeof persistedBlameConfigSchema>,
+  AnalysisBlameConfig
+>
 
 // ---------------------------------------------------------------------------
 // Default settings

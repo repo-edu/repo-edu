@@ -4,7 +4,26 @@ import {
   FileCode,
   Folder,
   FolderOpen,
+  GitBranch,
 } from "@repo-edu/ui/components/icons"
+import { createContext, type ReactNode, useContext } from "react"
+
+// ---------------------------------------------------------------------------
+// Generic tree context factory
+// ---------------------------------------------------------------------------
+
+function createTreeContext<T>(displayName: string) {
+  const Ctx = createContext<T | null>(null)
+  const useCtx = () => {
+    const v = useContext(Ctx)
+    if (!v) throw new Error(`Missing ${displayName}`)
+    return v
+  }
+  const Provider = ({ value, children }: { value: T; children: ReactNode }) => (
+    <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  )
+  return [Provider, useCtx] as const
+}
 
 // ---------------------------------------------------------------------------
 // File tree data structure
@@ -94,24 +113,34 @@ export function countSelected(
 }
 
 // ---------------------------------------------------------------------------
-// Recursive folder node component
+// File tree context
 // ---------------------------------------------------------------------------
 
-export function FolderNode({
-  node,
-  openFolders,
-  toggleFolderOpen,
-  effectiveFileSelection,
-  focusedFilePath,
-  handleFileClick,
-}: {
-  node: FileTreeNode
+type FileTreeContextValue = {
   openFolders: Set<string>
   toggleFolderOpen: (folder: string) => void
   effectiveFileSelection: Set<string>
   focusedFilePath: string | null
-  handleFileClick: (path: string) => void
-}) {
+  onFileClick: (path: string) => void
+}
+
+const [FileTreeProvider, useFileTreeContext] =
+  createTreeContext<FileTreeContextValue>("FileTreeProvider")
+
+export { FileTreeProvider }
+
+// ---------------------------------------------------------------------------
+// Recursive folder node component
+// ---------------------------------------------------------------------------
+
+export function FolderNode({ node }: { node: FileTreeNode }) {
+  const {
+    openFolders,
+    toggleFolderOpen,
+    effectiveFileSelection,
+    focusedFilePath,
+    onFileClick,
+  } = useFileTreeContext()
   const isOpen = openFolders.has(node.path)
   const { selected, total } = countSelected(node, effectiveFileSelection)
 
@@ -140,15 +169,7 @@ export function FolderNode({
       {isOpen && (
         <div className="ml-4 flex flex-col gap-0.5 pt-0.5">
           {node.children.map((child) => (
-            <FolderNode
-              key={child.path}
-              node={child}
-              openFolders={openFolders}
-              toggleFolderOpen={toggleFolderOpen}
-              effectiveFileSelection={effectiveFileSelection}
-              focusedFilePath={focusedFilePath}
-              handleFileClick={handleFileClick}
-            />
+            <FolderNode key={child.path} node={child} />
           ))}
           {node.files.map((filePath) => {
             const basename = filePath.slice(filePath.lastIndexOf("/") + 1)
@@ -161,7 +182,7 @@ export function FolderNode({
                     ? "bg-selection font-medium"
                     : "hover:bg-accent"
                 }`}
-                onClick={() => handleFileClick(filePath)}
+                onClick={() => onFileClick(filePath)}
               >
                 <FileCode className="size-3 shrink-0 text-muted-foreground" />
                 <span className="truncate" title={filePath}>
@@ -170,6 +191,90 @@ export function FolderNode({
               </button>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Repo tree context
+// ---------------------------------------------------------------------------
+
+type RepoTreeContextValue = {
+  openFolders: Set<string>
+  toggleFolderOpen: (folder: string) => void
+  selectedRepoPath: string | null
+  repoPathByRelative: Map<string, string>
+  onRepoClick: (absolutePath: string) => void
+}
+
+const [RepoTreeProvider, useRepoTreeContext] =
+  createTreeContext<RepoTreeContextValue>("RepoTreeProvider")
+
+export { RepoTreeProvider }
+
+// ---------------------------------------------------------------------------
+// Repo leaf button (single repo entry in the tree)
+// ---------------------------------------------------------------------------
+
+export function RepoLeafButton({ relativePath }: { relativePath: string }) {
+  const { selectedRepoPath, repoPathByRelative, onRepoClick } =
+    useRepoTreeContext()
+  const absolutePath = repoPathByRelative.get(relativePath)
+  if (!absolutePath) throw new Error(`Unknown repo path: ${relativePath}`)
+  const selected = selectedRepoPath === absolutePath
+  const basename = relativePath.slice(relativePath.lastIndexOf("/") + 1)
+
+  return (
+    <button
+      type="button"
+      className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
+        selected ? "bg-selection font-medium" : "hover:bg-accent"
+      }`}
+      onClick={() => onRepoClick(absolutePath)}
+    >
+      <GitBranch className="size-3 shrink-0 text-muted-foreground" />
+      <span className="truncate">{basename}</span>
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Recursive repo folder node component
+// ---------------------------------------------------------------------------
+
+export function RepoFolderNode({ node }: { node: FileTreeNode }) {
+  const { openFolders, toggleFolderOpen } = useRepoTreeContext()
+  const isOpen = openFolders.has(node.path)
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
+        onClick={() => toggleFolderOpen(node.path)}
+      >
+        {isOpen ? (
+          <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        {isOpen ? (
+          <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+        ) : (
+          <Folder className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        <span className="truncate font-medium">{node.name}</span>
+      </button>
+      {isOpen && (
+        <div className="ml-4 flex flex-col gap-0.5 pt-0.5">
+          {node.children.map((child) => (
+            <RepoFolderNode key={child.path} node={child} />
+          ))}
+          {node.files.map((relativePath) => (
+            <RepoLeafButton key={relativePath} relativePath={relativePath} />
+          ))}
         </div>
       )}
     </div>
