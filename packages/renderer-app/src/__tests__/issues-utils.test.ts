@@ -74,6 +74,7 @@ function makeRoster(): Roster {
         id: "a-1",
         name: "Project 1",
         groupSetId: "gs-1",
+        repositories: {},
       },
     ],
   }

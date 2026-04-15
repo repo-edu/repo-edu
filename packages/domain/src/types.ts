@@ -161,6 +161,7 @@ export type Assignment = {
   groupSetId: string
   repositoryTemplate?: RepositoryTemplate | null
   templateCommitSha?: string | null
+  repositories: Record<string /* groupId */, string /* repoName */>
 }
 
 export type RepositoryTemplateVisibility = "private" | "internal" | "public"
@@ -298,7 +299,7 @@ export type GroupSetExportRow = {
   email: string
 }
 
-export type RepoOperationMode = "create" | "clone"
+export type RepoOperationMode = "create" | "clone" | "update"
 
 export type RepoCollisionKind = "already_exists" | "not_found"
 
@@ -319,6 +320,7 @@ export type SkippedGroupReason =
   | "all_members_skipped"
   | "repo_exists"
   | "repo_not_found"
+  | "no_record_no_members"
 
 export type SkippedGroup = {
   assignmentId: string
@@ -336,6 +338,7 @@ export type PlannedRepositoryGroup = {
   repoName: string
   activeMemberIds: string[]
   gitUsernames: string[]
+  isRecorded: boolean
 }
 
 export type RepositoryOperationPlan = {

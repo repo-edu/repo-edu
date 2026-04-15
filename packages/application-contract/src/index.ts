@@ -317,12 +317,55 @@ export type RepositoryUpdateInput = {
   templateOverride?: RepositoryTemplate | null
 }
 
+export type RepositoryListNamespaceInput = {
+  appSettings: PersistedAppSettings
+  namespace: string
+  filter?: string
+  includeArchived?: boolean
+}
+
+export type RepositoryListNamespaceEntry = {
+  /** Leaf repository name (final path segment), suitable for display and local folder names. */
+  name: string
+  /**
+   * Path identifier relative to the requested namespace, used for clone URL
+   * resolution. Equals `name` on providers without nested namespaces (GitHub,
+   * Gitea). On GitLab, may include subgroup segments, e.g. `team-101/lab-1`.
+   */
+  identifier: string
+  archived: boolean
+}
+
+export type RepositoryListNamespaceResult = {
+  repositories: RepositoryListNamespaceEntry[]
+}
+
+export type RepositoryBulkCloneEntry = {
+  /** Leaf repository name; becomes the local folder name. */
+  name: string
+  /** Namespace-relative path used to resolve the clone URL (see ListedRepository.identifier). */
+  identifier: string
+}
+
+export type RepositoryBulkCloneInput = {
+  appSettings: PersistedAppSettings
+  namespace: string
+  repositories: RepositoryBulkCloneEntry[]
+  targetDirectory: string
+}
+
+export type RecordedRepositoriesByAssignment = Record<
+  string /* assignmentId */,
+  Record<string /* groupId */, string /* repoName */>
+>
+
 export type RepositoryCreateResult = {
   repositoriesPlanned: number
   repositoriesCreated: number
-  repositoriesAlreadyExisted: number
+  repositoriesAdopted: number
   repositoriesFailed: number
   templateCommitShas: Record<string, string>
+  recordedRepositories: RecordedRepositoriesByAssignment
   completedAt: string
 }
 
@@ -330,6 +373,7 @@ export type RepositoryCloneResult = {
   repositoriesPlanned: number
   repositoriesCloned: number
   repositoriesFailed: number
+  recordedRepositories: RecordedRepositoriesByAssignment
   completedAt: string
 }
 
@@ -339,6 +383,7 @@ export type RepositoryUpdateResult = {
   prsSkipped: number
   prsFailed: number
   templateCommitSha: string | null
+  recordedRepositories: RecordedRepositoriesByAssignment
   completedAt: string
 }
 
@@ -547,6 +592,18 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: RepositoryUpdateResult
   }
+  "repo.listNamespace": {
+    input: RepositoryListNamespaceInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: RepositoryListNamespaceResult
+  }
+  "repo.bulkClone": {
+    input: RepositoryBulkCloneInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: RepositoryCloneResult
+  }
   "userFile.inspectSelection": {
     input: UserFileRef
     progress: MilestoneProgress
@@ -702,6 +759,16 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "repo.update": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "repo.listNamespace": {
+    delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "repo.bulkClone": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "best-effort",

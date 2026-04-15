@@ -12,6 +12,7 @@ export type RepositoryWorkflowId = "repo.create" | "repo.clone" | "repo.update"
 
 export type CloneDirectoryLayout = "flat" | "by-team" | "by-task"
 export type RepositoryOperationMode = "create" | "clone" | "update"
+export type OperationModeKey = RepositoryOperationMode | "clone-all"
 
 export type BuildRepositoryWorkflowRequestArgs = {
   course: PersistedCourse

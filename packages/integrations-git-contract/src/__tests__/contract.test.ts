@@ -51,8 +51,9 @@ describe("integrations-git-contract", () => {
       "createBranch",
       "createPullRequest",
       "resolveRepositoryCloneUrls",
+      "listRepositories",
     ]
-    assert.equal(methodNames.length, 10)
+    assert.equal(methodNames.length, 11)
 
     // Verify the interface is structurally implementable
     const client: GitProviderClient = {
@@ -77,6 +78,9 @@ describe("integrations-git-contract", () => {
       resolveRepositoryCloneUrls: async () => ({
         resolved: [],
         missing: [],
+      }),
+      listRepositories: async () => ({
+        repositories: [],
       }),
     }
     assert.ok(client)

@@ -127,6 +127,7 @@ const assignmentSchema = z.object({
   groupSetId: localGroupSetIdSchema,
   repositoryTemplate: repositoryTemplateSchema.nullable().optional(),
   templateCommitSha: z.string().nullable().optional(),
+  repositories: z.record(z.string(), z.string()).default({}),
 })
 
 const groupSetCommon = {

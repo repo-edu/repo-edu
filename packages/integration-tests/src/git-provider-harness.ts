@@ -22,6 +22,7 @@ export type GitProviderHarness = {
     repoName: string,
     options?: { autoInit?: boolean },
   ): Promise<void>
+  deleteOrganizationRepository(orgName: string, repoName: string): Promise<void>
   verifyRepositoriesExist(orgName: string, names: string[]): Promise<string[]>
   verifyTeams(orgName: string): Promise<IntegrationTeam[]>
   verifyTeamMembers(orgName: string, team: IntegrationTeam): Promise<string[]>

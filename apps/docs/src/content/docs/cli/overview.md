@@ -22,7 +22,7 @@ The `--course` flag selects which course to operate on. If omitted, the active c
 | `course` | `list`, `active`, `show`, `load` | Browse and select courses |
 | `lms` | `verify` | Test LMS connection credentials |
 | `git` | `verify` | Test Git provider credentials |
-| `repo` | `create`, `clone`, `update` | Create, clone, and update assignment repositories |
+| `repo` | `create`, `clone`, `update`, `discover` | Create, clone, and update assignment repositories; discover and bulk-clone repositories by namespace |
 | `validate` | — | Check roster and assignment readiness |
 
 ## Getting help

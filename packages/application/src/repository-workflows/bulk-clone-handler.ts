@@ -3,8 +3,7 @@ import type {
   AppValidationIssue,
   DiagnosticOutput,
   MilestoneProgress,
-  RecordedRepositoriesByAssignment,
-  RepositoryBatchInput,
+  RepositoryBulkCloneInput,
   RepositoryCloneResult,
   VerifyGitDraftInput,
   WorkflowCallOptions,
@@ -16,39 +15,37 @@ import {
   isSharedAppError,
   normalizeProviderError,
   resolveAppSettingsSnapshot,
-  resolveCourseSnapshot,
   resolveGitDraft,
   throwIfAborted,
 } from "../workflow-helpers.js"
-import {
-  normalizeRepositoryExecutionError,
-  requireGitOrganization,
-} from "./common.js"
+import { normalizeRepositoryExecutionError } from "./common.js"
 import {
   initPullClone,
   isGitRepositoryPath,
   mapConcurrent,
 } from "./git-helpers.js"
 import {
-  normalizeDirectoryLayout,
   normalizeTargetDirectory,
-  repositoryCloneParentPath,
-  repositoryClonePath,
   repositoryCloneTempPath,
   repositoryCloneTempRoot,
 } from "./paths.js"
-import { collectRepositoryGroups, uniqueRepositoryNames } from "./planning.js"
 import type { RepositoryWorkflowPorts } from "./ports.js"
 
-export function createRepoCloneHandler(
+function sanitizeRepoName(name: string): string {
+  // Leaf repo names returned from a provider are already safe slugs, but guard
+  // against separators to prevent path traversal.
+  return name.replaceAll(/[\\/]/g, "_")
+}
+
+export function createRepoBulkCloneHandler(
   ports: RepositoryWorkflowPorts,
-): Pick<WorkflowHandlerMap<"repo.clone">, "repo.clone"> {
+): Pick<WorkflowHandlerMap<"repo.bulkClone">, "repo.bulkClone"> {
   return {
-    "repo.clone": async (
-      input: RepositoryBatchInput,
+    "repo.bulkClone": async (
+      input: RepositoryBulkCloneInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<RepositoryCloneResult> => {
-      const totalSteps = 5
+      const totalSteps = 4
       let providerForError: VerifyGitDraftInput["provider"] = "github"
 
       try {
@@ -56,11 +53,9 @@ export function createRepoCloneHandler(
         options?.onProgress?.({
           step: 1,
           totalSteps,
-          label: "Reading course and app settings snapshots.",
+          label: "Reading app settings snapshot.",
         })
-        const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
-        throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
           throw {
@@ -70,11 +65,11 @@ export function createRepoCloneHandler(
           } satisfies AppError
         }
         providerForError = gitDraft.provider
-        const organization = requireGitOrganization(course, "repo.clone")
+
         const targetDirectory = normalizeTargetDirectory(input.targetDirectory)
         if (targetDirectory === null) {
           throw createValidationAppError(
-            "Repository clone requires an absolute target directory.",
+            "Repository bulk clone requires an absolute target directory.",
             [
               {
                 path: "targetDirectory",
@@ -85,27 +80,11 @@ export function createRepoCloneHandler(
           )
         }
 
-        options?.onProgress?.({
-          step: 2,
-          totalSteps,
-          label: "Planning repositories from roster assignments.",
-        })
-        const planned = collectRepositoryGroups(
-          course,
-          input.assignmentId,
-          "clone",
-        )
-        if (!planned.ok) {
-          throw createValidationAppError(
-            "Repository planning failed.",
-            planned.issues,
-          )
-        }
-        if (planned.value.length === 0) {
+        if (input.repositories.length === 0) {
           options?.onProgress?.({
-            step: 5,
+            step: totalSteps,
             totalSteps,
-            label: "Repository clone workflow complete.",
+            label: "Repository bulk clone workflow complete.",
           })
           return {
             repositoriesPlanned: 0,
@@ -116,67 +95,78 @@ export function createRepoCloneHandler(
           }
         }
 
+        // Detect folder-name collisions up-front: entries whose leaf names
+        // collapse to the same local path would otherwise race into the same
+        // directory. We surface them as a validation error.
+        const folderCollisionsByPath = new Map<string, string[]>()
+        for (const entry of input.repositories) {
+          const folderPath = `${targetDirectory}/${sanitizeRepoName(entry.name)}`
+          const existing = folderCollisionsByPath.get(folderPath)
+          if (existing === undefined) {
+            folderCollisionsByPath.set(folderPath, [entry.identifier])
+          } else {
+            existing.push(entry.identifier)
+          }
+        }
+        const collisionIssues: AppValidationIssue[] = []
+        for (const [folderPath, identifiers] of folderCollisionsByPath) {
+          if (identifiers.length > 1) {
+            collisionIssues.push({
+              path: "repositories",
+              message: `Multiple repositories would clone into '${folderPath}': ${identifiers.join(", ")}.`,
+            })
+          }
+        }
+        if (collisionIssues.length > 0) {
+          throw createValidationAppError(
+            "Repository bulk clone would produce colliding local folder names.",
+            collisionIssues,
+          )
+        }
+
         options?.onProgress?.({
-          step: 3,
+          step: 2,
           totalSteps,
-          label: "Resolving repository clone URLs with provider.",
+          label: "Resolving repository clone URLs.",
         })
-        const repositoryNames = uniqueRepositoryNames(planned.value)
         const resolved = await ports.git.resolveRepositoryCloneUrls(
           gitDraft,
           {
-            organization,
-            repositoryNames,
+            organization: input.namespace,
+            repositoryNames: input.repositories.map(
+              (entry) => entry.identifier,
+            ),
           },
           options?.signal,
         )
-        const cloneUrlByRepoName = new Map(
+        const cloneUrlByIdentifier = new Map(
           resolved.resolved.map((entry) => [
             entry.repositoryName,
             entry.cloneUrl,
           ]),
         )
-        const layout = normalizeDirectoryLayout(input.directoryLayout)
+
         const tempCloneRoot = repositoryCloneTempRoot(targetDirectory)
-        const parentDirectories = new Set<string>([
-          targetDirectory,
-          tempCloneRoot,
-        ])
-        const cloneTargets: Array<{
-          repoName: string
-          cloneUrl: string
-          path: string
-          assignmentId: string
-          groupId: string
-          isRecorded: boolean
-        }> = []
-        for (const group of planned.value) {
-          const cloneUrl = cloneUrlByRepoName.get(group.repoName)
-          if (cloneUrl === undefined) {
-            continue
-          }
-          const parentPath = repositoryCloneParentPath(
-            targetDirectory,
-            layout,
-            group,
-          )
-          parentDirectories.add(parentPath)
-          cloneTargets.push({
-            repoName: group.repoName,
-            cloneUrl,
-            path: repositoryClonePath(targetDirectory, layout, group),
-            assignmentId: group.assignmentId,
-            groupId: group.groupId,
-            isRecorded: group.isRecorded,
+        const cloneTargets = input.repositories
+          .map((entry) => {
+            const cloneUrl = cloneUrlByIdentifier.get(entry.identifier)
+            if (cloneUrl === undefined) return null
+            return {
+              repoName: entry.name,
+              cloneUrl,
+              path: `${targetDirectory}/${sanitizeRepoName(entry.name)}`,
+            }
           })
-        }
+          .filter(
+            (target): target is NonNullable<typeof target> => target !== null,
+          )
 
         try {
           await ports.fileSystem.applyBatch({
-            operations: Array.from(parentDirectories).map((path) => ({
-              kind: "ensure-directory" as const,
-              path,
-            })),
+            operations: [
+              { kind: "ensure-directory", path: targetDirectory },
+              { kind: "ensure-directory", path: tempCloneRoot },
+            ],
             signal: options?.signal,
           })
         } catch (error) {
@@ -192,19 +182,16 @@ export function createRepoCloneHandler(
         } catch (error) {
           throw normalizeRepositoryExecutionError(error, "inspectCloneTargets")
         }
+
         const targetByPath = new Map(
           cloneTargets.map((target) => [target.path, target]),
         )
         const clashIssues: AppValidationIssue[] = []
         const existingDirectoryPaths: string[] = []
         for (const entry of inspected) {
-          if (entry.kind === "missing") {
-            continue
-          }
+          if (entry.kind === "missing") continue
           const target = targetByPath.get(entry.path)
-          if (target === undefined) {
-            continue
-          }
+          if (target === undefined) continue
           if (entry.kind === "file") {
             clashIssues.push({
               path: "targetDirectory",
@@ -214,6 +201,7 @@ export function createRepoCloneHandler(
           }
           existingDirectoryPaths.push(entry.path)
         }
+
         const existingGitRepoPaths = new Set<string>()
         const existingDirectoryChecks = await mapConcurrent(
           existingDirectoryPaths,
@@ -229,9 +217,7 @@ export function createRepoCloneHandler(
         )
         for (const check of existingDirectoryChecks) {
           const target = targetByPath.get(check.path)
-          if (target === undefined) {
-            continue
-          }
+          if (target === undefined) continue
           if (check.isGitRepo) {
             existingGitRepoPaths.add(check.path)
             continue
@@ -243,40 +229,21 @@ export function createRepoCloneHandler(
         }
         if (clashIssues.length > 0) {
           throw createValidationAppError(
-            "Repository clone target paths conflict with existing non-git entries.",
+            "Repository bulk clone target paths conflict with existing non-git entries.",
             clashIssues,
           )
         }
 
         options?.onProgress?.({
-          step: 4,
+          step: 3,
           totalSteps,
           label: "Cloning repositories via system git.",
         })
         let cloned = 0
         let failed = 0
-        const skippedExistingNames: string[] = []
-        const recordedRepositories: RecordedRepositoriesByAssignment = {}
-        const stageRecord = (target: {
-          assignmentId: string
-          groupId: string
-          repoName: string
-          isRecorded: boolean
-        }) => {
-          if (target.isRecorded) return
-          const existing = recordedRepositories[target.assignmentId] ?? {}
-          existing[target.groupId] = target.repoName
-          recordedRepositories[target.assignmentId] = existing
-        }
-
-        const toClone = cloneTargets.filter((target) => {
-          if (existingGitRepoPaths.has(target.path)) {
-            skippedExistingNames.push(target.repoName)
-            stageRecord(target)
-            return false
-          }
-          return true
-        })
+        const toClone = cloneTargets.filter(
+          (target) => !existingGitRepoPaths.has(target.path),
+        )
         const cloneItems = toClone.map((target, index) => ({
           ...target,
           tempPath: repositoryCloneTempPath(
@@ -338,30 +305,26 @@ export function createRepoCloneHandler(
           },
           8,
         )
-        for (let index = 0; index < cloneResults.length; index += 1) {
-          if (cloneResults[index] === "cloned") {
-            cloned += 1
-            stageRecord(cloneItems[index])
-          } else {
-            failed += 1
-          }
+        for (const result of cloneResults) {
+          if (result === "cloned") cloned += 1
+          else failed += 1
         }
         options?.onOutput?.({
           channel: "info",
-          message: `Repository clone summary: planned ${planned.value.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${skippedExistingNames.length}${skippedExistingNames.length > 0 ? ` (${skippedExistingNames.join(", ")})` : ""}, failed ${failed}.`,
+          message: `Bulk clone summary: planned ${input.repositories.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${existingGitRepoPaths.size}, failed ${failed}.`,
         })
 
         throwIfAborted(options?.signal)
         options?.onProgress?.({
-          step: 5,
+          step: 4,
           totalSteps,
-          label: "Repository clone workflow complete.",
+          label: "Repository bulk clone workflow complete.",
         })
         return {
-          repositoriesPlanned: planned.value.length,
+          repositoriesPlanned: input.repositories.length,
           repositoriesCloned: cloned,
           repositoriesFailed: failed + resolved.missing.length,
-          recordedRepositories,
+          recordedRepositories: {},
           completedAt: new Date().toISOString(),
         }
       } catch (error) {

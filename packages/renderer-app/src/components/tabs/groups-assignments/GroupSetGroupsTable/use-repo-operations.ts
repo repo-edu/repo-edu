@@ -1,8 +1,13 @@
 import type {
+  RecordedRepositoriesByAssignment,
   RepositoryCloneResult,
   RepositoryCreateResult,
   RepositoryUpdateResult,
 } from "@repo-edu/application-contract"
+import {
+  gitNamespaceTerminology,
+  normalizeGitNamespaceInput,
+} from "@repo-edu/domain/settings"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
 import {
@@ -36,6 +41,11 @@ export type OperationResult =
 
 export type OperationStatus = "idle" | "running" | "success" | "error"
 
+export type OperationReadiness = {
+  readonly canRun: boolean
+  readonly blockers: readonly string[]
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -43,11 +53,12 @@ export type OperationStatus = "idle" | "running" | "success" | "error"
 type UseRepoOperationsParams = {
   effectiveAssignmentId: string | null
   nonEmptyCount: number
+  emptyCount: number
   disabled: boolean
 }
 
 export function useRepoOperations(params: UseRepoOperationsParams) {
-  const { effectiveAssignmentId, nonEmptyCount, disabled } = params
+  const { effectiveAssignmentId, nonEmptyCount, emptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
   const gitConnections = useAppSettingsStore(selectGitConnections)
@@ -57,7 +68,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     (s) => s.setActiveGitConnectionId,
   )
   const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const gitConnectionResolvedId = activeGitConnection?.id ?? null
   const organization = useCourseStore(selectOrganization)
   const setOrganization = useCourseStore((s) => s.setOrganization)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
@@ -75,7 +85,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     (s) => s.setRepositoryCloneDirectoryLayout,
   )
   const updateAssignment = useCourseStore((s) => s.updateAssignment)
-
   const appSettings = useAppSettingsStore((s) => s.settings)
 
   const [operationStatus, setOperationStatus] =
@@ -98,18 +107,71 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     repositoryTemplate?.kind === "local" ? (repositoryTemplate.path ?? "") : ""
   const templateVisibility = repositoryTemplate?.visibility ?? "private"
 
+  // Per-operation readiness
+  const hasOrganization =
+    organization !== null && normalizeGitNamespaceInput(organization) !== ""
+  const hasTargetDirectory = cloneTargetDirectory.trim().length > 0
   const isRunning = operationStatus === "running"
-  const hasBaseOperationInputs =
-    !disabled &&
-    !isRunning &&
-    effectiveAssignmentId !== null &&
-    gitConnectionResolvedId !== null &&
-    nonEmptyCount > 0
-  const hasUpdateOperationInputs =
-    !disabled &&
-    !isRunning &&
-    effectiveAssignmentId !== null &&
-    gitConnectionResolvedId !== null
+  const { label: namespaceLabel } = gitNamespaceTerminology(
+    activeGitConnection?.provider,
+  )
+
+  const computeReadiness = (
+    operation: RepositoryOperationMode,
+  ): OperationReadiness => {
+    if (disabled) {
+      return {
+        canRun: false,
+        blockers: ["This group set is not editable."],
+      }
+    }
+    if (isRunning) {
+      return {
+        canRun: false,
+        blockers: ["Wait for the current operation to finish."],
+      }
+    }
+
+    const blockers: string[] = []
+
+    if (effectiveAssignmentId === null) {
+      blockers.push("Select an assignment.")
+    }
+    if (activeGitConnection === null) {
+      blockers.push("Configure a Git connection in Settings.")
+    }
+    if (!hasOrganization) {
+      blockers.push(`Enter the ${namespaceLabel.toLowerCase()} name or URL.`)
+    }
+
+    // Group-count is only meaningful once an assignment is chosen; otherwise
+    // the planner short-circuits to zero and the message would be misleading.
+    // The blocker applies to Create only: Update/Clone iterate stored records
+    // and derive-by-roster fallbacks, so empty groups aren't a hard block.
+    if (
+      effectiveAssignmentId !== null &&
+      operation === "create" &&
+      nonEmptyCount === 0
+    ) {
+      blockers.push(
+        emptyCount > 0
+          ? `All ${emptyCount} group${emptyCount === 1 ? "" : "s"} in this set are empty — add members to at least one.`
+          : "This set has no groups to operate on.",
+      )
+    }
+
+    if (operation === "clone" && !hasTargetDirectory) {
+      blockers.push("Enter a target folder.")
+    }
+
+    return { canRun: blockers.length === 0, blockers }
+  }
+
+  const readiness: Record<RepositoryOperationMode, OperationReadiness> = {
+    create: computeReadiness("create"),
+    update: computeReadiness("update"),
+    clone: computeReadiness("clone"),
+  }
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
@@ -166,6 +228,50 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     ],
   )
 
+  const applyRecordedRepositories = useCallback(
+    (recorded: RecordedRepositoriesByAssignment) => {
+      const latestCourse = useCourseStore.getState().course
+      if (!latestCourse) return
+      const assignmentsById = new Map(
+        latestCourse.roster.assignments.map(
+          (assignment) => [assignment.id, assignment] as const,
+        ),
+      )
+      const groupSetsById = new Map(
+        latestCourse.roster.groupSets.map(
+          (groupSet) => [groupSet.id, groupSet] as const,
+        ),
+      )
+      for (const [assignmentId, groupMap] of Object.entries(recorded)) {
+        const assignment = assignmentsById.get(assignmentId)
+        if (!assignment) continue
+        const groupSet = groupSetsById.get(assignment.groupSetId)
+        const validGroupIds = new Set<string>(
+          groupSet === undefined
+            ? []
+            : groupSet.nameMode === "named"
+              ? groupSet.groupIds
+              : groupSet.teams.map((team) => team.id),
+        )
+        const merged: Record<string, string> = {}
+        for (const [groupId, repoName] of Object.entries(
+          assignment.repositories ?? {},
+        )) {
+          if (validGroupIds.has(groupId)) {
+            merged[groupId] = repoName
+          }
+        }
+        for (const [groupId, repoName] of Object.entries(groupMap)) {
+          if (validGroupIds.has(groupId)) {
+            merged[groupId] = repoName
+          }
+        }
+        updateAssignment(assignmentId, { repositories: merged })
+      }
+    },
+    [updateAssignment],
+  )
+
   const handleRunOperation = useCallback(
     async (operation: RepositoryOperationMode) => {
       if (!course || !effectiveAssignmentId) {
@@ -192,28 +298,22 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         const result = await client.run(workflowId, input)
         setOperationStatus("success")
         if (operation === "create") {
-          setLastResult({
-            operation: "create",
-            result: result as RepositoryCreateResult,
-          })
-        } else {
-          if (operation === "update") {
-            const typed = result as RepositoryUpdateResult
-            setLastResult({
-              operation: "update",
-              result: typed,
+          const typed = result as RepositoryCreateResult
+          setLastResult({ operation: "create", result: typed })
+          applyRecordedRepositories(typed.recordedRepositories)
+        } else if (operation === "update") {
+          const typed = result as RepositoryUpdateResult
+          setLastResult({ operation: "update", result: typed })
+          if (typed.templateCommitSha) {
+            updateAssignment(effectiveAssignmentId, {
+              templateCommitSha: typed.templateCommitSha,
             })
-            if (effectiveAssignmentId && typed.templateCommitSha) {
-              updateAssignment(effectiveAssignmentId, {
-                templateCommitSha: typed.templateCommitSha,
-              })
-            }
-            return
           }
-          setLastResult({
-            operation: "clone",
-            result: result as RepositoryCloneResult,
-          })
+          applyRecordedRepositories(typed.recordedRepositories)
+        } else {
+          const typed = result as RepositoryCloneResult
+          setLastResult({ operation: "clone", result: typed })
+          applyRecordedRepositories(typed.recordedRepositories)
         }
       } catch (error) {
         setOperationStatus("error")
@@ -224,6 +324,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     },
     [
       appSettings,
+      applyRecordedRepositories,
       cloneDirectoryLayout,
       cloneTargetDirectory,
       course,
@@ -249,9 +350,8 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     lastResult,
     handleRunOperation,
 
-    // Readiness flags
-    hasBaseOperationInputs,
-    hasUpdateOperationInputs,
+    // Per-operation readiness (canRun + human-readable blockers)
+    readiness,
 
     // Git connection binding (profile-level)
     gitConnections,

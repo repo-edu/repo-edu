@@ -140,6 +140,22 @@ export function createGitHubHarness(): GitProviderHarness {
         )
       }
     },
+    async deleteOrganizationRepository(
+      orgName: string,
+      repoName: string,
+    ): Promise<void> {
+      const remove = await githubFetch(
+        apiBase,
+        token,
+        `/repos/${orgName}/${repoName}`,
+        { method: "DELETE" },
+      )
+      if (remove.status !== 204 && remove.status !== 404) {
+        throw new Error(
+          `Failed to delete GitHub repository '${orgName}/${repoName}' (${remove.status}): ${JSON.stringify(remove.data)}`,
+        )
+      }
+    },
     async verifyRepositoriesExist(
       orgName: string,
       names: string[],

@@ -121,6 +121,28 @@ export type ResolveRepositoryCloneUrlsRequest = {
   repositoryNames: string[]
 }
 
+export type ListRepositoriesRequest = {
+  namespace: string
+  filter?: string
+  includeArchived?: boolean
+}
+
+export type ListedRepository = {
+  /** Leaf repository name (final path segment), suitable for display and local folder names. */
+  name: string
+  /**
+   * Path identifier relative to the requested namespace, used for clone URL
+   * resolution. Equals `name` on providers without nested namespaces (GitHub,
+   * Gitea). On GitLab, may include subgroup segments, e.g. `team-101/lab-1`.
+   */
+  identifier: string
+  archived: boolean
+}
+
+export type ListRepositoriesResult = {
+  repositories: ListedRepository[]
+}
+
 export type ResolvedRepositoryCloneUrl = {
   repositoryName: string
   cloneUrl: string
@@ -181,4 +203,9 @@ export type GitProviderClient = {
     request: ResolveRepositoryCloneUrlsRequest,
     signal?: AbortSignal,
   ): Promise<ResolveRepositoryCloneUrlsResult>
+  listRepositories(
+    draft: GitConnectionDraft,
+    request: ListRepositoriesRequest,
+    signal?: AbortSignal,
+  ): Promise<ListRepositoriesResult>
 }

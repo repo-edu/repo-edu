@@ -15,6 +15,7 @@ export type RepositoryWorkflowPorts = {
     | "createBranch"
     | "createPullRequest"
     | "resolveRepositoryCloneUrls"
+    | "listRepositories"
   >
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort

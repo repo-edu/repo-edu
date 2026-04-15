@@ -2,6 +2,7 @@ import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type {
   PersistedCourse,
   PlannedRepositoryGroup,
+  RepoOperationMode,
   RepositoryTemplate,
   ValidationResult,
 } from "@repo-edu/domain/types"
@@ -32,27 +33,6 @@ export function resolveAssignment(
       (assignment) => assignment.id === assignmentId,
     ) ?? null
   )
-}
-
-function resolveGroupSetRepoNameTemplate(
-  course: PersistedCourse,
-  assignmentId: string,
-): string | undefined {
-  const assignment = resolveAssignment(course, assignmentId)
-  if (assignment === null) {
-    return undefined
-  }
-  const groupSet = course.roster.groupSets.find(
-    (candidate) => candidate.id === assignment.groupSetId,
-  )
-  if (groupSet === undefined) {
-    return undefined
-  }
-  const template = groupSet.repoNameTemplate
-  if (template === null) {
-    return undefined
-  }
-  return template
 }
 
 export function resolveAssignmentRepositoryTemplate(
@@ -90,6 +70,7 @@ export function describeTemplate(template: RepositoryTemplate | null): string {
 export function collectRepositoryGroups(
   course: PersistedCourse,
   assignmentId: string | null,
+  mode: RepoOperationMode,
 ): ValidationResult<PlannedRepositoryGroup[]> {
   const assignmentIds =
     assignmentId === null
@@ -98,15 +79,7 @@ export function collectRepositoryGroups(
 
   const plannedGroups: PlannedRepositoryGroup[] = []
   for (const selectedAssignmentId of assignmentIds) {
-    const repoNameTemplate = resolveGroupSetRepoNameTemplate(
-      course,
-      selectedAssignmentId,
-    )
-    const plan = planRepositoryOperation(
-      course.roster,
-      selectedAssignmentId,
-      repoNameTemplate,
-    )
+    const plan = planRepositoryOperation(course, selectedAssignmentId, mode)
     if (!plan.ok) {
       return plan
     }

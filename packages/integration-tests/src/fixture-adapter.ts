@@ -73,7 +73,7 @@ export function collectExpectedRepoNames(
   groupNames: string[]
   groups: PlannedRepositoryGroup[]
 } {
-  const plan = planRepositoryOperation(course.roster, assignmentId)
+  const plan = planRepositoryOperation(course, assignmentId, "create")
   if (!plan.ok) {
     throw new Error(
       `planRepositoryOperation failed: ${plan.issues.map((issue) => issue.message).join(", ")}`,

@@ -2,6 +2,7 @@ import type {
   AppError,
   DiagnosticOutput,
   MilestoneProgress,
+  RecordedRepositoriesByAssignment,
   RepositoryUpdateInput,
   RepositoryUpdateResult,
   VerifyGitDraftInput,
@@ -114,7 +115,7 @@ export function createRepoUpdateHandler(
           totalSteps,
           label: "Planning repositories from assignment groups.",
         })
-        const planned = collectRepositoryGroups(course, assignment.id)
+        const planned = collectRepositoryGroups(course, assignment.id, "update")
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -122,6 +123,29 @@ export function createRepoUpdateHandler(
           )
         }
         const plannedRepositoryNames = uniqueRepositoryNames(planned.value)
+        const recordedRepositories: RecordedRepositoriesByAssignment = {}
+        const stageRecord = (
+          assignmentIdToRecord: string,
+          groupId: string,
+          repoName: string,
+        ) => {
+          const existing = recordedRepositories[assignmentIdToRecord] ?? {}
+          existing[groupId] = repoName
+          recordedRepositories[assignmentIdToRecord] = existing
+        }
+        const unrecordedGroupsByRepoName = new Map<
+          string,
+          Array<(typeof planned.value)[number]>
+        >()
+        for (const group of planned.value) {
+          if (group.isRecorded) continue
+          const existing = unrecordedGroupsByRepoName.get(group.repoName)
+          if (existing) {
+            existing.push(group)
+            continue
+          }
+          unrecordedGroupsByRepoName.set(group.repoName, [group])
+        }
         if (plannedRepositoryNames.length === 0) {
           options?.onProgress?.({
             step: totalSteps,
@@ -134,6 +158,7 @@ export function createRepoUpdateHandler(
             prsSkipped: 0,
             prsFailed: 0,
             templateCommitSha: assignment.templateCommitSha ?? null,
+            recordedRepositories,
             completedAt: new Date().toISOString(),
           }
         }
@@ -205,6 +230,7 @@ export function createRepoUpdateHandler(
               prsSkipped: plannedRepositoryNames.length,
               prsFailed: 0,
               templateCommitSha: currentSha,
+              recordedRepositories,
               completedAt: new Date().toISOString(),
             }
           }
@@ -225,6 +251,7 @@ export function createRepoUpdateHandler(
               prsSkipped: plannedRepositoryNames.length,
               prsFailed: 0,
               templateCommitSha: currentSha,
+              recordedRepositories,
               completedAt: new Date().toISOString(),
             }
           }
@@ -275,6 +302,7 @@ export function createRepoUpdateHandler(
               prsSkipped: plannedRepositoryNames.length,
               prsFailed: 0,
               templateCommitSha: currentSha,
+              recordedRepositories,
               completedAt: new Date().toISOString(),
             }
           }
@@ -295,6 +323,7 @@ export function createRepoUpdateHandler(
               prsSkipped: plannedRepositoryNames.length,
               prsFailed: 0,
               templateCommitSha: currentSha,
+              recordedRepositories,
               completedAt: new Date().toISOString(),
             }
           }
@@ -340,6 +369,7 @@ export function createRepoUpdateHandler(
             prsSkipped: plannedRepositoryNames.length,
             prsFailed: 0,
             templateCommitSha: currentSha,
+            recordedRepositories,
             completedAt: new Date().toISOString(),
           }
         }
@@ -380,6 +410,11 @@ export function createRepoUpdateHandler(
               message: `Repository '${repositoryName}' was not found.`,
             })
             continue
+          }
+          const groupsForRepository =
+            unrecordedGroupsByRepoName.get(repositoryName) ?? []
+          for (const group of groupsForRepository) {
+            stageRecord(group.assignmentId, group.groupId, group.repoName)
           }
 
           try {
@@ -466,6 +501,7 @@ export function createRepoUpdateHandler(
           prsSkipped,
           prsFailed,
           templateCommitSha: currentSha,
+          recordedRepositories,
           completedAt: new Date().toISOString(),
         }
       } catch (error) {

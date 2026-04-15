@@ -323,6 +323,7 @@ export function GitConnectionsPane() {
           </Button>
           <Button
             size="sm"
+            variant="commit"
             onClick={() => void handleSave()}
             disabled={!canSubmit}
           >

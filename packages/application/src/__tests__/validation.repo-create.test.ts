@@ -6,18 +6,7 @@ import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
 function planForAssignment(course: PersistedCourse, assignmentId: string) {
-  const assignment = course.roster.assignments.find(
-    (entry) => entry.id === assignmentId,
-  )
-  assert.ok(assignment)
-  const groupSet = course.roster.groupSets.find(
-    (entry) => entry.id === assignment.groupSetId,
-  )
-  const plan = planRepositoryOperation(
-    course.roster,
-    assignmentId,
-    groupSet?.repoNameTemplate ?? undefined,
-  )
+  const plan = planRepositoryOperation(course, assignmentId, "create")
   assert.equal(plan.ok, true)
   if (!plan.ok) {
     throw new Error("Expected repository planning to succeed.")
@@ -69,7 +58,7 @@ describe("application repository create workflow helpers", () => {
     assert.deepStrictEqual(requestedRepositoryNames, plannedRepositoryNames)
     assert.equal(result.repositoriesPlanned, plan.groups.length)
     assert.equal(result.repositoriesCreated, plannedRepositoryNames.size)
-    assert.equal(result.repositoriesAlreadyExisted, 0)
+    assert.equal(result.repositoriesAdopted, 0)
     assert.equal(result.repositoriesFailed, 0)
     assert.equal(Number.isNaN(Date.parse(result.completedAt)), false)
   })
@@ -184,7 +173,7 @@ describe("application repository create workflow helpers", () => {
     assert.deepStrictEqual(requestedRepositoryNames, plannedRepositoryNames)
     assert.equal(result.repositoriesPlanned, plan.groups.length)
     assert.equal(result.repositoriesCreated, 0)
-    assert.equal(result.repositoriesAlreadyExisted, plannedRepositoryNames.size)
+    assert.equal(result.repositoriesAdopted, plannedRepositoryNames.size)
     assert.equal(result.repositoriesFailed, 0)
   })
 

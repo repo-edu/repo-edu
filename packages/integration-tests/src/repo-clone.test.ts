@@ -86,8 +86,7 @@ for (const harness of harnesses) {
           template: null,
         })
         assert.ok(
-          createResult.repositoriesCreated +
-            createResult.repositoriesAlreadyExisted >
+          createResult.repositoriesCreated + createResult.repositoriesAdopted >
             0,
           "setup: should provision repositories",
         )
@@ -381,6 +380,117 @@ for (const harness of harnesses) {
           assert.ok(
             config.includes('[remote "origin"]'),
             "cloned repo should have an origin remote",
+          )
+        } finally {
+          await rm(targetDirectory, { recursive: true, force: true })
+        }
+      })
+    })
+
+    it("adopts externally-created repositories by recording their names on the result", async () => {
+      await withIsolatedOrg(async ({ organization, course, settings }) => {
+        const expected = collectExpectedRepoNames(course, "a1")
+        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
+
+        // Simulate a RepoBee-style setup: repositories already exist on the
+        // server, but the course has no repository records for them.
+        for (const repoName of expected.repoNames) {
+          await harness.seedOrganizationRepository(organization, repoName, {
+            autoInit: false,
+          })
+        }
+
+        const targetDirectory = path.join(
+          tmpdir(),
+          `repo-edu-clone-adopt-${Date.now()}`,
+        )
+
+        try {
+          const cloneResult = await handlers["repo.clone"]({
+            course,
+            appSettings: settings,
+            assignmentId: "a1",
+            template: null,
+            targetDirectory,
+            directoryLayout: "flat",
+          })
+
+          assert.equal(
+            cloneResult.repositoriesCloned,
+            expected.repoNames.length,
+            "all externally-created repositories should be cloned",
+          )
+          assert.equal(
+            cloneResult.repositoriesFailed,
+            0,
+            "no failures expected",
+          )
+
+          const recorded = cloneResult.recordedRepositories?.a1 ?? {}
+          const recordedNames = Object.values(recorded).sort()
+          assert.deepEqual(
+            recordedNames,
+            [...expected.repoNames].sort(),
+            "every adopted clone should record its repo name keyed by groupId",
+          )
+
+          for (const group of expected.groups) {
+            assert.equal(
+              recorded[group.groupId],
+              group.repoName,
+              `record for group ${group.groupId} should match the derived name`,
+            )
+          }
+        } finally {
+          await rm(targetDirectory, { recursive: true, force: true })
+        }
+      })
+    })
+
+    it("does not re-record entries that already match recorded names", async () => {
+      await withIsolatedOrg(async ({ course, settings }) => {
+        const expected = collectExpectedRepoNames(course, "a1")
+        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
+
+        // Create repositories and set records on the course by hand.
+        await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+        const assignment = course.roster.assignments.find((a) => a.id === "a1")
+        assert.ok(assignment)
+        assignment.repositories = Object.fromEntries(
+          expected.groups.map((group) => [group.groupId, group.repoName]),
+        )
+
+        const targetDirectory = path.join(
+          tmpdir(),
+          `repo-edu-clone-recorded-${Date.now()}`,
+        )
+
+        try {
+          const cloneResult = await handlers["repo.clone"]({
+            course,
+            appSettings: settings,
+            assignmentId: "a1",
+            template: null,
+            targetDirectory,
+            directoryLayout: "flat",
+          })
+          assert.equal(
+            cloneResult.repositoriesCloned,
+            expected.repoNames.length,
+          )
+
+          // Already-recorded entries should not be staged again — stageRecord
+          // skips when isRecorded is true.
+          const recorded = cloneResult.recordedRepositories?.a1 ?? {}
+          assert.deepEqual(
+            recorded,
+            {},
+            "already-recorded names should not be re-staged in the result",
           )
         } finally {
           await rm(targetDirectory, { recursive: true, force: true })

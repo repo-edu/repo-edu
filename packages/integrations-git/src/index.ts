@@ -100,5 +100,12 @@ export function createGitProviderDispatch(http: HttpPort): GitProviderClient {
         signal,
       )
     },
+    listRepositories(draft, request, signal) {
+      return resolveClient(draft.provider).listRepositories(
+        draft,
+        request,
+        signal,
+      )
+    },
   }
 }

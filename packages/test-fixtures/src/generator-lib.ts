@@ -216,11 +216,13 @@ function createSharedTeamsGroupModel(
         id: "a1",
         name: "lab01",
         groupSetId,
+        repositories: {},
       },
       {
         id: "a2",
         name: "lab02",
         groupSetId,
+        repositories: {},
       },
     ],
     nextGroupSeq: startGroupSeq + groups.length,
@@ -278,8 +280,12 @@ function createTaskGroupsGroupModel(
     columnSizing: Record<string, never>
   }> = []
 
-  const assignments: Array<{ id: string; name: string; groupSetId: string }> =
-    []
+  const assignments: Array<{
+    id: string
+    name: string
+    groupSetId: string
+    repositories: Record<string, string>
+  }> = []
 
   for (const def of taskDefs) {
     const groupedMembers = splitMembersBySizes(def.students, def.sizes, 0)
@@ -315,6 +321,7 @@ function createTaskGroupsGroupModel(
         id: assignment.id,
         name: assignment.name,
         groupSetId,
+        repositories: {},
       })
     }
   }
@@ -373,6 +380,7 @@ function createRepobeeTeamsGroupModel(
         id: "a1",
         name: "lab1",
         groupSetId,
+        repositories: {},
       },
     ],
     nextGroupSetSeq: startGroupSetSeq + 1,

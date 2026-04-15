@@ -1,10 +1,10 @@
-import { basename, resolve as resolvePath } from "node:path"
 import type {
   DiscoveredRepo,
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
+import { basename, joinPath } from "../path-utils.js"
 import { isGitRepositoryPath } from "../repository-workflows/git-helpers.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
@@ -41,7 +41,7 @@ async function discoverRepos(
 
   for (const dir of directories) {
     throwIfAborted(signal)
-    const fullPath = resolvePath(searchFolder, dir.name)
+    const fullPath = joinPath(searchFolder, dir.name)
     if (await isGitRepositoryPath(ports.gitCommand, fullPath, signal)) {
       repos.push({ name: dir.name, path: fullPath })
     } else {

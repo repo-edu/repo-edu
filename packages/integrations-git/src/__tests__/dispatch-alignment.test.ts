@@ -15,6 +15,7 @@ const expectedDispatchMethods: Record<keyof GitProviderClient, true> = {
   createBranch: true,
   createPullRequest: true,
   resolveRepositoryCloneUrls: true,
+  listRepositories: true,
 }
 
 const fakeHttpPort: HttpPort = {

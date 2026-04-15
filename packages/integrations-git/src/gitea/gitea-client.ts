@@ -13,12 +13,15 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
   GitUsernameStatus,
+  ListRepositoriesRequest,
+  ListRepositoriesResult,
   PatchFile,
   RepositoryHead,
   RepositoryHeadRequest,
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
+import { matchesGlob } from "../glob-match.js"
 import { withGiteaToken } from "./auth.js"
 import {
   isAlreadyExists,
@@ -644,6 +647,64 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
         url: "",
         created: false,
       }
+    },
+    async listRepositories(
+      draft: GitConnectionDraft,
+      request: ListRepositoriesRequest,
+      signal?: AbortSignal,
+    ): Promise<ListRepositoriesResult> {
+      if (!resolveApiBase(draft) || !request.namespace) {
+        return { repositories: [] }
+      }
+      const repositories: ListRepositoriesResult["repositories"] = []
+      const namespace = encodeURIComponent(request.namespace)
+      let page = 1
+      const perPage = 50
+      let tryingOrg = true
+      while (true) {
+        if (signal?.aborted) break
+        const route = tryingOrg
+          ? `/orgs/${namespace}/repos?limit=${perPage}&page=${page}`
+          : `/users/${namespace}/repos?limit=${perPage}&page=${page}`
+        let response: Awaited<ReturnType<typeof giteaRequest>>
+        try {
+          response = await giteaRequest(
+            http,
+            draft,
+            "GET",
+            route,
+            undefined,
+            signal,
+          )
+        } catch {
+          if (tryingOrg && page === 1) {
+            tryingOrg = false
+            page = 1
+            continue
+          }
+          break
+        }
+        if (response.status === 404 && tryingOrg && page === 1) {
+          tryingOrg = false
+          page = 1
+          continue
+        }
+        if (response.status < 200 || response.status >= 300) break
+        const data = response.data
+        if (!Array.isArray(data) || data.length === 0) break
+        for (const entry of data) {
+          if (entry === null || typeof entry !== "object") continue
+          const record = entry as Record<string, unknown>
+          const name = typeof record.name === "string" ? record.name : ""
+          if (!name || !matchesGlob(name, request.filter)) continue
+          const archived = Boolean(record.archived)
+          if (archived && !request.includeArchived) continue
+          repositories.push({ name, identifier: name, archived })
+        }
+        if (data.length < perPage) break
+        page += 1
+      }
+      return { repositories }
     },
     async resolveRepositoryCloneUrls(
       draft: GitConnectionDraft,

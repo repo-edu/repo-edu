@@ -1,7 +1,14 @@
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
 import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
+import { isAbsolutePath, joinPath } from "../path-utils.js"
 
 export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
+type RuntimeEnv = {
+  HOME?: string
+  USERPROFILE?: string
+  HOMEDRIVE?: string
+  HOMEPATH?: string
+}
 
 export function normalizeDirectoryLayout(
   value: RepositoryBatchInput["directoryLayout"],
@@ -12,9 +19,66 @@ export function normalizeDirectoryLayout(
   return "flat"
 }
 
-export function normalizeTargetDirectory(value: string | undefined): string {
+export function normalizeTargetDirectory(
+  value: string | undefined,
+  env: RuntimeEnv = resolveRuntimeEnv(),
+): string | null {
   const normalized = value?.trim()
-  return normalized === undefined || normalized === "" ? "." : normalized
+  if (normalized === undefined || normalized === "") {
+    return null
+  }
+  const expanded = expandHomeDirectory(normalized, env)
+  return isAbsolutePath(expanded) ? expanded : null
+}
+
+function resolveRuntimeEnv(): RuntimeEnv {
+  if (typeof globalThis !== "object" || globalThis === null) {
+    return {}
+  }
+  const runtime = globalThis as {
+    process?: { env?: Record<string, string | undefined> }
+  }
+  const env = runtime.process?.env
+  return env ?? {}
+}
+
+function resolveHomeDirectory(env: RuntimeEnv): string | null {
+  const home = env.HOME?.trim()
+  if (home) return home
+  const userProfile = env.USERPROFILE?.trim()
+  if (userProfile) return userProfile
+
+  const homeDrive = env.HOMEDRIVE?.trim() ?? ""
+  const homePath = env.HOMEPATH?.trim() ?? ""
+  if (homeDrive !== "" && homePath !== "") {
+    return `${homeDrive}${homePath}`
+  }
+  return null
+}
+
+function joinToHome(home: string, suffix: string): string {
+  const separator = home.includes("\\") && !home.includes("/") ? "\\" : "/"
+  const normalizedHome = home.replace(/[\\/]+$/g, "")
+  const normalizedSuffix = suffix.replace(/^[\\/]+/g, "")
+  if (normalizedSuffix === "") {
+    return normalizedHome
+  }
+  return `${normalizedHome}${separator}${normalizedSuffix}`
+}
+
+function expandHomeDirectory(value: string, env: RuntimeEnv): string {
+  if (value === "~") {
+    return resolveHomeDirectory(env) ?? value
+  }
+  if (!value.startsWith("~/") && !value.startsWith("~\\")) {
+    return value
+  }
+
+  const home = resolveHomeDirectory(env)
+  if (home === null) {
+    return value
+  }
+  return joinToHome(home, value.slice(2))
 }
 
 function sanitizePathSegment(value: string): string {
@@ -23,16 +87,6 @@ function sanitizePathSegment(value: string): string {
     return "unnamed"
   }
   return trimmed.replace(/[\\/]/g, "_")
-}
-
-function joinPath(base: string, segment: string): string {
-  const separator = base.includes("\\") && !base.includes("/") ? "\\" : "/"
-  const normalizedBase = base.replace(/[\\/]+$/g, "")
-  const normalizedSegment = segment.replace(/^[\\/]+/g, "")
-  if (normalizedBase === "") {
-    return normalizedSegment
-  }
-  return `${normalizedBase}${separator}${normalizedSegment}`
 }
 
 export function repositoryCloneParentPath(

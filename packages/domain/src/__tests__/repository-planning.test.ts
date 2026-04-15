@@ -12,7 +12,10 @@ import {
   type Assignment,
   type Group,
   type GroupSet,
+  initialIdSequences,
   ORIGIN_LOCAL,
+  type PersistedCourse,
+  persistedCourseKind,
   type Roster,
   type RosterMember,
 } from "../types.js"
@@ -40,24 +43,37 @@ function makeMember(
   }
 }
 
-function makeRoster(
+function makeCourse(
   groups: Group[],
   groupSets: GroupSet[],
   assignments: Roster["assignments"],
   students: Roster["students"],
-): Roster {
+): PersistedCourse {
   return {
-    connection: null,
-    students,
-    staff: [],
-    groups,
-    groupSets,
-    assignments,
+    kind: persistedCourseKind,
+    schemaVersion: 2,
+    revision: 0,
+    id: "test",
+    displayName: "Test",
+    lmsConnectionName: null,
+    organization: null,
+    lmsCourseId: null,
+    idSequences: initialIdSequences(),
+    roster: {
+      connection: null,
+      students,
+      staff: [],
+      groups,
+      groupSets,
+      assignments,
+    },
+    repositoryTemplate: null,
+    updatedAt: "2026-01-01T00:00:00.000Z",
   }
 }
 
 describe("repository planning", () => {
-  it("plans active groups and skips empty groups", () => {
+  it("plans active groups and skips empty groups on create", () => {
     const groups: Group[] = [
       {
         id: "g1",
@@ -84,14 +100,14 @@ describe("repository planning", () => {
       columnVisibility: {},
       columnSizing: {},
     }
-    const roster = makeRoster(
+    const course = makeCourse(
       groups,
       [groupSet],
-      [{ id: "a1", name: "HW 1", groupSetId: "gs1" }],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs1", repositories: {} }],
       [makeMember("s1", "Alice"), makeMember("s2", "Bob", "dropped")],
     )
 
-    const plan = planRepositoryOperation(roster, "a1")
+    const plan = planRepositoryOperation(course, "a1", "create")
     assert.equal(plan.ok, true)
     if (!plan.ok) return
 
@@ -104,6 +120,7 @@ describe("repository planning", () => {
         repoName: "team.a",
         activeMemberIds: ["s1"],
         gitUsernames: [],
+        isRecorded: false,
       },
     ])
     assert.deepStrictEqual(plan.value.skippedGroups, [
@@ -115,6 +132,107 @@ describe("repository planning", () => {
         context: null,
       },
     ])
+  })
+
+  it("skips empty unrecorded groups with no_record_no_members on clone", () => {
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Team A",
+        memberIds: ["s1"],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+    ]
+    const groupSet: GroupSet = {
+      id: "gs1",
+      name: "Projects",
+      groupIds: ["g1"],
+      connection: null,
+      nameMode: "named",
+      repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
+    }
+    const course = makeCourse(
+      groups,
+      [groupSet],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs1", repositories: {} }],
+      [makeMember("s1", "Alice", "dropped")],
+    )
+
+    const plan = planRepositoryOperation(course, "a1", "clone")
+    assert.equal(plan.ok, true)
+    if (!plan.ok) return
+
+    assert.deepStrictEqual(plan.value.groups, [])
+    assert.deepStrictEqual(plan.value.skippedGroups, [
+      {
+        assignmentId: "a1",
+        groupId: "g1",
+        groupName: "Team A",
+        reason: "no_record_no_members",
+        context: null,
+      },
+    ])
+  })
+
+  it("prefers recorded names over derived names", () => {
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Team A",
+        memberIds: ["s1"],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+      {
+        id: "g2",
+        name: "Team B",
+        memberIds: [],
+        origin: ORIGIN_LOCAL,
+        lmsGroupId: null,
+      },
+    ]
+    const groupSet: GroupSet = {
+      id: "gs1",
+      name: "Projects",
+      groupIds: ["g1", "g2"],
+      connection: null,
+      nameMode: "named",
+      repoNameTemplate: null,
+      columnVisibility: {},
+      columnSizing: {},
+    }
+    const course = makeCourse(
+      groups,
+      [groupSet],
+      [
+        {
+          id: "a1",
+          name: "HW 1",
+          groupSetId: "gs1",
+          repositories: { g1: "recorded-repo-a", g2: "recorded-repo-b" },
+        },
+      ],
+      [makeMember("s1", "Alice")],
+    )
+
+    const plan = planRepositoryOperation(course, "a1", "clone")
+    assert.equal(plan.ok, true)
+    if (!plan.ok) return
+
+    assert.deepStrictEqual(
+      plan.value.groups.map((group) => ({
+        groupId: group.groupId,
+        repoName: group.repoName,
+        isRecorded: group.isRecorded,
+      })),
+      [
+        { groupId: "g1", repoName: "recorded-repo-a", isRecorded: true },
+        { groupId: "g2", repoName: "recorded-repo-b", isRecorded: true },
+      ],
+    )
   })
 
   it("uses unnamed team ids for {group_id} template expansion", () => {
@@ -131,14 +249,14 @@ describe("repository planning", () => {
       columnVisibility: {},
       columnSizing: {},
     }
-    const roster = makeRoster(
+    const course = makeCourse(
       [],
       [unnamedSet],
-      [{ id: "a1", name: "HW 1", groupSetId: "gs-unnamed" }],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs-unnamed", repositories: {} }],
       [],
     )
 
-    const plan = planRepositoryOperation(roster, "a1", "{group_id}")
+    const plan = planRepositoryOperation(course, "a1", "create")
     assert.equal(plan.ok, true)
     if (!plan.ok) return
 
@@ -181,14 +299,14 @@ describe("repository planning", () => {
       columnVisibility: {},
       columnSizing: {},
     }
-    const roster = makeRoster(
+    const course = makeCourse(
       groups,
       [groupSet],
-      [{ id: "a1", name: "HW 1", groupSetId: "gs1" }],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs1", repositories: {} }],
       [makeMember("s1", "Alice"), makeMember("s2", "Bob")],
     )
 
-    const planResult = planRepositoryOperation(roster, "a1")
+    const planResult = planRepositoryOperation(course, "a1", "create")
     assert.equal(planResult.ok, true)
     if (!planResult.ok) return
 
@@ -235,8 +353,12 @@ describe("repository planning", () => {
   })
 
   it("returns validation errors for missing assignment or lookup entries", () => {
-    const emptyRoster = makeRoster([], [], [], [])
-    const missingAssignment = planRepositoryOperation(emptyRoster, "a1")
+    const emptyCourse = makeCourse([], [], [], [])
+    const missingAssignment = planRepositoryOperation(
+      emptyCourse,
+      "a1",
+      "create",
+    )
     assert.equal(missingAssignment.ok, false)
     if (missingAssignment.ok) return
     assert.equal(missingAssignment.issues[0]?.message, "Assignment not found")
@@ -260,13 +382,13 @@ describe("repository planning", () => {
       columnVisibility: {},
       columnSizing: {},
     }
-    const roster = makeRoster(
+    const course = makeCourse(
       groups,
       [groupSet],
-      [{ id: "a1", name: "HW 1", groupSetId: "gs1" }],
+      [{ id: "a1", name: "HW 1", groupSetId: "gs1", repositories: {} }],
       [makeMember("s1", "Alice")],
     )
-    const plan = planRepositoryOperation(roster, "a1")
+    const plan = planRepositoryOperation(course, "a1", "create")
     assert.equal(plan.ok, true)
     if (!plan.ok) return
 
@@ -350,7 +472,12 @@ describe("computeMembersSurnamesSlug", () => {
 
 describe("expandTemplate with surnames", () => {
   it("substitutes {surnames} placeholder", () => {
-    const assignment: Assignment = { id: "a1", name: "HW1", groupSetId: "gs1" }
+    const assignment: Assignment = {
+      id: "a1",
+      name: "HW1",
+      groupSetId: "gs1",
+      repositories: {},
+    }
     const group: Group = {
       id: "g1",
       name: "101",
@@ -370,7 +497,12 @@ describe("expandTemplate with surnames", () => {
 
 describe("expandTemplate with members", () => {
   it("substitutes {members} placeholder", () => {
-    const assignment: Assignment = { id: "a1", name: "HW1", groupSetId: "gs1" }
+    const assignment: Assignment = {
+      id: "a1",
+      name: "HW1",
+      groupSetId: "gs1",
+      repositories: {},
+    }
     const group: Group = {
       id: "g1",
       name: "101",
@@ -387,7 +519,12 @@ describe("expandTemplate with members", () => {
 
 describe("computeRepoName with surnames", () => {
   it("produces a slugified repo name from template + surnames", () => {
-    const assignment: Assignment = { id: "a1", name: "HW 1", groupSetId: "gs1" }
+    const assignment: Assignment = {
+      id: "a1",
+      name: "HW 1",
+      groupSetId: "gs1",
+      repositories: {},
+    }
     const group: Group = {
       id: "g1",
       name: "Team A",
@@ -407,7 +544,12 @@ describe("computeRepoName with surnames", () => {
 
 describe("computeRepoName with members", () => {
   it("produces a slugified repo name from template + members", () => {
-    const assignment: Assignment = { id: "a1", name: "HW 1", groupSetId: "gs1" }
+    const assignment: Assignment = {
+      id: "a1",
+      name: "HW 1",
+      groupSetId: "gs1",
+      repositories: {},
+    }
     const group: Group = {
       id: "g1",
       name: "Team A",

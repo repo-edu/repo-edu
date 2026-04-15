@@ -160,6 +160,7 @@ function makeProfile(): PersistedCourse {
           id: "a1",
           name: "Project 1",
           groupSetId: "gs_0001",
+          repositories: {},
         },
       ],
     },

@@ -40,7 +40,6 @@ import {
   groupColumnLabel,
 } from "./columns.js"
 import { OperationControls } from "./OperationControls.js"
-import { useRepoOperations } from "./use-repo-operations.js"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -446,9 +445,9 @@ export function GroupsTable({
       return { nonEmptyCount: 0, emptyCount: 0 }
     }
     const plan = planRepositoryOperation(
-      course.roster,
+      course,
       effectiveAssignmentId,
-      template,
+      "create",
     )
     if (!plan.ok) {
       return { nonEmptyCount: 0, emptyCount: 0 }
@@ -460,14 +459,7 @@ export function GroupsTable({
       nonEmptyCount: plan.value.groups.length,
       emptyCount: skippedEmptyCount,
     }
-  }, [course, effectiveAssignmentId, template])
-
-  // Operations hook
-  const ops = useRepoOperations({
-    effectiveAssignmentId,
-    nonEmptyCount,
-    disabled,
-  })
+  }, [course, effectiveAssignmentId])
 
   const hideableColumns = table
     .getAllLeafColumns()
@@ -502,37 +494,9 @@ export function GroupsTable({
           <OperationControls
             groupSetId={groupSetId}
             disabled={disabled}
-            operationStatus={ops.operationStatus}
-            runningOperation={ops.runningOperation}
-            operationError={ops.operationError}
-            lastResult={ops.lastResult}
-            handleRunOperation={ops.handleRunOperation}
-            gitConnections={ops.gitConnections}
-            activeGitConnection={ops.activeGitConnection}
-            activeGitConnectionId={ops.activeGitConnectionId}
-            handleSelectActiveGitConnection={
-              ops.handleSelectActiveGitConnection
-            }
-            hasBaseOperationInputs={ops.hasBaseOperationInputs}
-            hasUpdateOperationInputs={ops.hasUpdateOperationInputs}
+            effectiveAssignmentId={effectiveAssignmentId}
             nonEmptyCount={nonEmptyCount}
             emptyCount={emptyCount}
-            organization={ops.organization}
-            setOrganization={ops.setOrganization}
-            templateKind={ops.templateKind}
-            templateOwner={ops.templateOwner}
-            templateLocalPath={ops.templateLocalPath}
-            setTemplateKind={ops.setTemplateKind}
-            setTemplateOwner={ops.setTemplateOwner}
-            setTemplateLocalPath={ops.setTemplateLocalPath}
-            cloneTargetDirectory={ops.cloneTargetDirectory}
-            cloneDirectoryLayout={ops.cloneDirectoryLayout}
-            setRepositoryCloneTargetDirectory={
-              ops.setRepositoryCloneTargetDirectory
-            }
-            setRepositoryCloneDirectoryLayout={
-              ops.setRepositoryCloneDirectoryLayout
-            }
           />
 
           {/* Template + Assignments (scrolls away) */}

@@ -5,18 +5,7 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
 function planForAssignment(course: PersistedCourse, assignmentId: string) {
-  const assignment = course.roster.assignments.find(
-    (entry) => entry.id === assignmentId,
-  )
-  assert.ok(assignment)
-  const groupSet = course.roster.groupSets.find(
-    (entry) => entry.id === assignment.groupSetId,
-  )
-  const plan = planRepositoryOperation(
-    course.roster,
-    assignmentId,
-    groupSet?.repoNameTemplate ?? undefined,
-  )
+  const plan = planRepositoryOperation(course, assignmentId, "clone")
   assert.equal(plan.ok, true)
   if (!plan.ok) {
     throw new Error("Expected repository planning to succeed.")
@@ -320,6 +309,33 @@ describe("application repository clone workflow helpers", () => {
     assert.deepStrictEqual(
       new Set(requestedRepositoryNames),
       new Set(plan.groups.map((group) => group.repoName)),
+    )
+  })
+
+  it("rejects relative target directories", async () => {
+    const { course, settings, handlers } = createRepoHarness()
+
+    await assert.rejects(
+      async () =>
+        handlers["repo.clone"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+          targetDirectory: "./repos",
+          directoryLayout: "flat",
+        }),
+      (error: unknown) => {
+        const appError = error as {
+          type?: string
+          message?: string
+          issues?: Array<{ path?: string }>
+        }
+        assert.equal(appError.type, "validation")
+        assert.match(appError.message ?? "", /absolute target directory/i)
+        assert.equal(appError.issues?.[0]?.path, "targetDirectory")
+        return true
+      },
     )
   })
 })

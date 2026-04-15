@@ -55,6 +55,7 @@ export default defineConfig({
                   items: [
                     { label: "LMS Import", slug: "user-guide/lms-import" },
                     { label: "Repository Setup", slug: "user-guide/repository-setup" },
+                    { label: "Coming from RepoBee", slug: "user-guide/from-repobee" },
                     { label: "Settings & Courses", slug: "user-guide/settings" },
                   ],
                 },
@@ -94,6 +95,7 @@ export default defineConfig({
                     { label: "Renderer App", slug: "development/renderer-app" },
                     { label: "CLI-GUI Parity", slug: "development/cli-gui-parity" },
                     { label: "Data Model", slug: "development/data-model" },
+                    { label: "Repository Records", slug: "development/repository-records" },
                   ],
                 },
                 {

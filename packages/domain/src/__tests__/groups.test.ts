@@ -119,6 +119,7 @@ describe("group resolution", () => {
     id: "a1",
     name: "Assignment",
     groupSetId: "gs1",
+    repositories: {},
   }
 
   const roster = makeRoster({

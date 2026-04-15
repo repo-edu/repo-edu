@@ -77,6 +77,11 @@ export function createRepoHarness(options?: {
           resolved: [],
           missing: [],
         })),
+      listRepositories:
+        options?.git?.listRepositories ??
+        (async () => ({
+          repositories: [],
+        })),
     },
     gitCommand: {
       cancellation: "best-effort",

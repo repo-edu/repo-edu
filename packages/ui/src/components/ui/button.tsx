@@ -11,6 +11,18 @@ const buttonVariants = cva(
       variant: {
         default:
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+        /**
+         * Semantic call-to-action variant for the button that finishes the
+         * pending edit in a panel or dialog — Save, Create N, Clone N, etc.
+         * Renders a flat primary fill (no gradient) so the appearance stays
+         * uniform across panels regardless of button width or surrounding
+         * container. The `btn-commit` marker class opts this variant out of
+         * the global `bg-primary` gradient rule in App.css; the gradient
+         * remains on the unmarked `default` variant for contexts that still
+         * want it.
+         */
+        commit:
+          "btn-commit bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20",
         outline:

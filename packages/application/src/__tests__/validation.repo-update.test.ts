@@ -87,6 +87,9 @@ describe("application repository update workflow helpers", () => {
           resolved: [],
           missing: [],
         }),
+        listRepositories: async () => ({
+          repositories: [],
+        }),
       },
       gitCommand: {
         cancellation: "best-effort",
@@ -181,6 +184,9 @@ describe("application repository update workflow helpers", () => {
         resolveRepositoryCloneUrls: async () => ({
           resolved: [],
           missing: [],
+        }),
+        listRepositories: async () => ({
+          repositories: [],
         }),
       },
       gitCommand: {

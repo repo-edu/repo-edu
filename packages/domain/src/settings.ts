@@ -30,6 +30,30 @@ export function gitConnectionDisplayLabel(
   return `${label} · ${shortUrl}`
 }
 
+/**
+ * Provider-specific terminology for the repository-namespace concept. GitHub
+ * and Gitea call this an "Organization"; GitLab calls it a "Group".
+ */
+export function gitNamespaceTerminology(
+  provider: GitProviderKind | null | undefined,
+): { readonly label: string; readonly sampleSlug: string } {
+  if (provider === "gitlab") {
+    return { label: "GitLab Group", sampleSlug: "course-group" }
+  }
+  return { label: "Organization", sampleSlug: "course-org" }
+}
+
+/**
+ * Accepts either a bare namespace path (e.g. `course-org`, `parent/sub`) or a
+ * provider URL (e.g. `https://github.com/course-org`) and returns the path the
+ * API expects. Leading/trailing slashes are stripped.
+ */
+export function normalizeGitNamespaceInput(input: string): string {
+  const trimmed = input.trim()
+  const withoutScheme = trimmed.replace(/^https?:\/\/[^/]+\/?/, "")
+  return withoutScheme.replace(/^\/+/, "").replace(/\/+$/, "")
+}
+
 // ---------------------------------------------------------------------------
 // App-settings Zod schemas (single source of truth for persistence types)
 // ---------------------------------------------------------------------------

@@ -13,12 +13,15 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
   GitUsernameStatus,
+  ListRepositoriesRequest,
+  ListRepositoriesResult,
   PatchFile,
   RepositoryHead,
   RepositoryHeadRequest,
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
+import { matchesGlob } from "../glob-match.js"
 import { withGitHubToken } from "./auth.js"
 import {
   isAlreadyExistsError,
@@ -441,6 +444,58 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
           created: false,
         }
       }
+    },
+    async listRepositories(
+      draft: GitConnectionDraft,
+      request: ListRepositoriesRequest,
+      signal?: AbortSignal,
+    ): Promise<ListRepositoriesResult> {
+      const octokit = createOctokit(http, draft)
+      const repositories: ListRepositoriesResult["repositories"] = []
+      try {
+        const iterator = octokit.paginate.iterator(octokit.repos.listForOrg, {
+          org: request.namespace,
+          per_page: 100,
+          request: { signal },
+        })
+        for await (const page of iterator) {
+          if (signal?.aborted) break
+          for (const repo of page.data) {
+            if (!matchesGlob(repo.name, request.filter)) continue
+            const archived = Boolean(repo.archived)
+            if (archived && !request.includeArchived) continue
+            repositories.push({
+              name: repo.name,
+              identifier: repo.name,
+              archived,
+            })
+          }
+        }
+        return { repositories }
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error
+        }
+      }
+      const iterator = octokit.paginate.iterator(octokit.repos.listForUser, {
+        username: request.namespace,
+        per_page: 100,
+        request: { signal },
+      })
+      for await (const page of iterator) {
+        if (signal?.aborted) break
+        for (const repo of page.data) {
+          if (!matchesGlob(repo.name, request.filter)) continue
+          const archived = Boolean(repo.archived)
+          if (archived && !request.includeArchived) continue
+          repositories.push({
+            name: repo.name,
+            identifier: repo.name,
+            archived,
+          })
+        }
+      }
+      return { repositories }
     },
     async resolveRepositoryCloneUrls(
       draft: GitConnectionDraft,

@@ -1,4 +1,5 @@
 import path from "node:path"
+import type { RecordedRepositoriesByAssignment } from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type {
   PersistedCourse,
@@ -32,6 +33,14 @@ type RepoUpdateOptions = {
   templatePath?: string
 }
 
+type RepoDiscoverOptions = {
+  namespace?: string
+  filter?: string
+  includeArchived?: boolean
+  target?: string
+  yes?: boolean
+}
+
 function resolveLocalTemplateOverride(
   templatePath: string | undefined,
   course: PersistedCourse,
@@ -42,6 +51,21 @@ function resolveLocalTemplateOverride(
     path: path.resolve(templatePath),
     visibility: course.repositoryTemplate?.visibility ?? "private",
   }
+}
+
+function normalizeCliTargetDirectory(rawInput: string): string {
+  const trimmed = rawInput.trim()
+  if (
+    trimmed === "~" ||
+    trimmed.startsWith("~/") ||
+    trimmed.startsWith("~\\")
+  ) {
+    return trimmed
+  }
+  if (path.isAbsolute(trimmed)) {
+    return trimmed
+  }
+  return path.resolve(process.cwd(), trimmed)
 }
 
 function printRepositoryPlan(
@@ -113,6 +137,109 @@ function applyTemplateCommitShas(
   }
 }
 
+function mergeAssignmentRepositories(
+  course: PersistedCourse,
+  assignmentId: string,
+  incoming: Record<string, string>,
+): Record<string, string> | null {
+  const assignment = course.roster.assignments.find(
+    (candidate) => candidate.id === assignmentId,
+  )
+  if (!assignment) return null
+  const groupSet = course.roster.groupSets.find(
+    (candidate) => candidate.id === assignment.groupSetId,
+  )
+  const validGroupIds = new Set<string>(
+    groupSet === undefined
+      ? []
+      : groupSet.nameMode === "named"
+        ? groupSet.groupIds
+        : groupSet.teams.map((team) => team.id),
+  )
+  const merged: Record<string, string> = {}
+  for (const [groupId, repoName] of Object.entries(
+    assignment.repositories ?? {},
+  )) {
+    if (validGroupIds.has(groupId)) {
+      merged[groupId] = repoName
+    }
+  }
+  for (const [groupId, repoName] of Object.entries(incoming)) {
+    if (validGroupIds.has(groupId)) {
+      merged[groupId] = repoName
+    }
+  }
+  const existingEntries = Object.entries(assignment.repositories ?? {}).sort()
+  const mergedEntries = Object.entries(merged).sort()
+  const unchanged =
+    existingEntries.length === mergedEntries.length &&
+    existingEntries.every(
+      ([key, value], index) =>
+        mergedEntries[index]?.[0] === key &&
+        mergedEntries[index]?.[1] === value,
+    )
+  return unchanged ? null : merged
+}
+
+function applyRecordedRepositories(
+  course: PersistedCourse,
+  recordedRepositories: RecordedRepositoriesByAssignment,
+): PersistedCourse {
+  if (Object.keys(recordedRepositories).length === 0) {
+    return course
+  }
+  let changed = false
+  const assignments = course.roster.assignments.map((assignment) => {
+    const incoming = recordedRepositories[assignment.id]
+    if (!incoming) return assignment
+    const merged = mergeAssignmentRepositories(course, assignment.id, incoming)
+    if (merged === null) return assignment
+    changed = true
+    return {
+      ...assignment,
+      repositories: merged,
+    }
+  })
+  if (!changed) return course
+  return {
+    ...course,
+    roster: {
+      ...course.roster,
+      assignments,
+    },
+  }
+}
+
+function countRecordedRepositories(
+  recorded: RecordedRepositoriesByAssignment,
+): number {
+  let count = 0
+  for (const groupMap of Object.values(recorded)) {
+    count += Object.keys(groupMap).length
+  }
+  return count
+}
+
+async function promptConfirmation(message: string): Promise<boolean> {
+  process.stdout.write(`${message} [y/N] `)
+  return new Promise((resolve) => {
+    let buffer = ""
+    const stdin = process.stdin
+    stdin.setEncoding("utf8")
+    const onData = (chunk: string) => {
+      buffer += chunk
+      if (buffer.includes("\n")) {
+        stdin.removeListener("data", onData)
+        stdin.pause()
+        const answer = buffer.trim().toLowerCase()
+        resolve(answer === "y" || answer === "yes")
+      }
+    }
+    stdin.resume()
+    stdin.on("data", onData)
+  })
+}
+
 export function registerRepoCommands(parent: Command): void {
   const repo = parent.command("repo").description("Repository operations")
 
@@ -143,13 +270,10 @@ export function registerRepoCommands(parent: Command): void {
           const assignments =
             assignment === null ? course.roster.assignments : [assignment]
           for (const selectedAssignment of assignments) {
-            const groupSet = course.roster.groupSets.find(
-              (candidate) => candidate.id === selectedAssignment.groupSetId,
-            )
             const planned = planRepositoryOperation(
-              course.roster,
+              course,
               selectedAssignment.id,
-              groupSet?.repoNameTemplate ?? undefined,
+              "create",
             )
             if (!planned.ok) {
               process.stdout.write("Repository plan is invalid:\n")
@@ -188,17 +312,29 @@ export function registerRepoCommands(parent: Command): void {
           template,
         })
 
-        const nextCourse = applyTemplateCommitShas(
+        let nextCourse = applyTemplateCommitShas(
           course,
           result.templateCommitShas,
+        )
+        nextCourse = applyRecordedRepositories(
+          nextCourse,
+          result.recordedRepositories,
         )
         if (nextCourse !== course) {
           await workflowClient.run("course.save", nextCourse)
         }
 
-        process.stdout.write(
-          `Repository create complete: planned=${result.repositoriesPlanned} created=${result.repositoriesCreated} existing=${result.repositoriesAlreadyExisted} failed=${result.repositoriesFailed} completedAt=${result.completedAt}\n`,
+        const recordedCount = countRecordedRepositories(
+          result.recordedRepositories,
         )
+        process.stdout.write(
+          `Repository create complete: planned=${result.repositoriesPlanned} created=${result.repositoriesCreated} adopted=${result.repositoriesAdopted} failed=${result.repositoriesFailed} completedAt=${result.completedAt}\n`,
+        )
+        if (recordedCount > 0) {
+          process.stdout.write(
+            `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
+          )
+        }
       } catch (error) {
         emitCommandError(toErrorMessage(error))
       }
@@ -240,13 +376,29 @@ export function registerRepoCommands(parent: Command): void {
           appSettings: settings,
           assignmentId: assignment?.id ?? null,
           template: course.repositoryTemplate,
-          targetDirectory: options.target,
+          targetDirectory: normalizeCliTargetDirectory(options.target ?? "."),
           directoryLayout: options.layout,
         })
 
+        const nextCourse = applyRecordedRepositories(
+          course,
+          result.recordedRepositories,
+        )
+        if (nextCourse !== course) {
+          await workflowClient.run("course.save", nextCourse)
+        }
+
+        const recordedCount = countRecordedRepositories(
+          result.recordedRepositories,
+        )
         process.stdout.write(
           `Repository clone complete: planned=${result.repositoriesPlanned} cloned=${result.repositoriesCloned} failed=${result.repositoriesFailed} completedAt=${result.completedAt}\n`,
         )
+        if (recordedCount > 0) {
+          process.stdout.write(
+            `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
+          )
+        }
       } catch (error) {
         emitCommandError(toErrorMessage(error))
       }
@@ -291,12 +443,13 @@ export function registerRepoCommands(parent: Command): void {
           ...(templateOverride ? { templateOverride } : {}),
         })
 
+        let nextCourse = course
         if (result.templateCommitSha) {
-          const updatedCourse: PersistedCourse = {
-            ...course,
+          nextCourse = {
+            ...nextCourse,
             roster: {
-              ...course.roster,
-              assignments: course.roster.assignments.map((entry) =>
+              ...nextCourse.roster,
+              assignments: nextCourse.roster.assignments.map((entry) =>
                 entry.id === assignment.id
                   ? {
                       ...entry,
@@ -306,11 +459,112 @@ export function registerRepoCommands(parent: Command): void {
               ),
             },
           }
-          await workflowClient.run("course.save", updatedCourse)
+        }
+        nextCourse = applyRecordedRepositories(
+          nextCourse,
+          result.recordedRepositories,
+        )
+        if (nextCourse !== course) {
+          await workflowClient.run("course.save", nextCourse)
         }
 
+        const recordedCount = countRecordedRepositories(
+          result.recordedRepositories,
+        )
         process.stdout.write(
           `Repository update complete: planned=${result.repositoriesPlanned} prsCreated=${result.prsCreated} prsSkipped=${result.prsSkipped} prsFailed=${result.prsFailed} completedAt=${result.completedAt}\n`,
+        )
+        if (recordedCount > 0) {
+          process.stdout.write(
+            `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
+          )
+        }
+      } catch (error) {
+        emitCommandError(toErrorMessage(error))
+      }
+    })
+
+  repo
+    .command("discover")
+    .description(
+      "List repositories in a namespace by pattern and clone them to a folder",
+    )
+    .requiredOption("--namespace <name>", "Namespace (org or user) to list")
+    .option("--filter <pattern>", "Glob pattern to filter repo names")
+    .option("--include-archived", "Include archived repositories")
+    .requiredOption("--target <dir>", "Target directory for clones")
+    .option("--yes", "Skip interactive confirmation")
+    .action(async function (this: Command, options: RepoDiscoverOptions) {
+      const workflowClient = createCliWorkflowClient()
+      try {
+        const settings = await workflowClient.run("settings.loadApp", undefined)
+
+        if (!options.namespace) {
+          throw new Error("--namespace is required")
+        }
+        if (!options.target) {
+          throw new Error("--target is required")
+        }
+        const targetDirectory = normalizeCliTargetDirectory(options.target)
+
+        const listResult = await workflowClient.run("repo.listNamespace", {
+          appSettings: settings,
+          namespace: options.namespace,
+          filter: options.filter,
+          includeArchived: options.includeArchived,
+        })
+
+        process.stdout.write(
+          `Found ${listResult.repositories.length} repositor${
+            listResult.repositories.length === 1 ? "y" : "ies"
+          } in '${options.namespace}'.\n`,
+        )
+        for (const entry of listResult.repositories) {
+          const subgroup =
+            entry.identifier !== entry.name &&
+            entry.identifier.endsWith(`/${entry.name}`)
+              ? entry.identifier.slice(0, -`/${entry.name}`.length)
+              : ""
+          const subgroupAnnotation = subgroup ? `\t(${subgroup})` : ""
+          const archivedAnnotation = entry.archived ? "\t(archived)" : ""
+          process.stdout.write(
+            `- ${entry.name}${subgroupAnnotation}${archivedAnnotation}\n`,
+          )
+        }
+
+        if (listResult.repositories.length === 0) {
+          return
+        }
+
+        const nonInteractive = !process.stdin.isTTY
+        if (!options.yes) {
+          if (nonInteractive) {
+            throw new Error(
+              "Pass --yes to clone non-interactively (stdin is not a TTY).",
+            )
+          }
+          const confirmed = await promptConfirmation(
+            `Clone ${listResult.repositories.length} repositor${
+              listResult.repositories.length === 1 ? "y" : "ies"
+            } to '${targetDirectory}'?`,
+          )
+          if (!confirmed) {
+            process.stdout.write("Aborted.\n")
+            return
+          }
+        }
+
+        const cloneResult = await workflowClient.run("repo.bulkClone", {
+          appSettings: settings,
+          namespace: options.namespace,
+          repositories: listResult.repositories.map(({ name, identifier }) => ({
+            name,
+            identifier,
+          })),
+          targetDirectory,
+        })
+        process.stdout.write(
+          `Cloned ${cloneResult.repositoriesCloned} / failed ${cloneResult.repositoriesFailed} completedAt=${cloneResult.completedAt}\n`,
         )
       } catch (error) {
         emitCommandError(toErrorMessage(error))

@@ -307,6 +307,9 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
         missing: [],
       }
     },
+    async listRepositories() {
+      return { repositories: [] }
+    },
   }
 
   const gitCommandPort = {

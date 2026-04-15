@@ -41,11 +41,19 @@ redu repo create --assignment "Project 1" --course <course-id>
 
 This creates one repository per active group in the assignment's group set. For each group, the workflow:
 
-1. Generates the repository name from the group name and assignment.
-2. Checks if a repository with that name already exists (skips if so).
-3. Creates the repository in the organization with the configured visibility (private, internal, or public).
-4. Pushes template content if a template is configured.
-5. Adds team members as collaborators.
+1. Uses the repository name recorded on the assignment if one exists; otherwise derives it from the naming template, the current roster, and the assignment.
+2. Calls the Git provider's create endpoint. Fresh repositories are counted as **created**; existing ones come back as **adopted**.
+3. For fresh repositories only, pushes template content and configures visibility (private, internal, or public).
+4. Adds team members as collaborators.
+5. Records the accepted name on the assignment so future Update/Clone runs use the recorded name instead of re-deriving it.
+
+Re-running Create after repositories exist is idempotent by construction: every recorded name is sent back to the provider, which returns `alreadyExisted`. If a server repo was deleted out-of-band, Create notices the miss and creates it fresh, refreshing the record in the process — no manual intervention is needed.
+
+### Adopting externally-created repositories
+
+If repositories for the assignment already exist on the server (for example, you created them by hand), set the group set's naming template to match the existing names and run Create or Clone. Every repository whose derived name matches an existing server repo is adopted into the assignment's records as a side effect. Mismatches show up as failures and can be resolved by adjusting the template and re-running.
+
+If you are moving a course over from RepoBee, [Coming from RepoBee](/repo-edu/user-guide/from-repobee/) walks through the concrete steps — importing `students.txt`, matching the naming template, and letting Clone or Create record the existing repositories.
 
 ### Dry-run mode
 
@@ -131,9 +139,24 @@ Repository operations skip groups that cannot produce a valid repository:
 
 | Reason | Description |
 |--------|-------------|
-| `empty_group` | Group has no members |
-| `all_members_skipped` | All members lack Git usernames or are inactive |
-| `repo_exists` | Repository already exists (create only) |
-| `repo_not_found` | Repository doesn't exist (clone/update only) |
+| `empty_group` | Create only: the group has no active members, so no name can be derived. |
+| `all_members_skipped` | All members lack Git usernames or are inactive. |
+| `no_record_no_members` | Clone/Update only: the group has no recorded repository name *and* no active members to derive one from. |
+| `repo_exists` | Repository already exists (create only). |
+| `repo_not_found` | Repository doesn't exist (clone/update only). |
+
+Clone and Update no longer skip groups just because their members were all marked inactive — as long as a repository name has been recorded for the group, the operation runs against that name regardless of current roster state. This is what makes Update and Clone stable across roster edits and `{members}`-parameterized templates.
 
 Skipped groups are reported in the output so you can investigate and fix the underlying issue.
+
+## Discovering repositories by namespace
+
+For cases where you want a local copy of every repository in a Git organization (or a pattern-matched subset) without setting up an assignment — for example, a migration from another tool — use the namespace-scoped bulk clone:
+
+```bash
+redu repo discover --namespace my-org --filter "project-*" --target ./repos
+```
+
+This lists every repository in the namespace matching the optional glob, prompts for confirmation, then clones them flat into the target folder. It does not touch course state, does not match repositories to groups or assignments, and does not write any records.
+
+In the desktop app, the same flow is available as the **Clone All Repos** button in the Groups & Assignments operations bar.

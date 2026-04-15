@@ -434,7 +434,9 @@ describe("mergeRosterFromLms", () => {
           connection: null,
         },
       ],
-      assignments: [{ id: "a1", name: "Assignment 1", groupSetId: "gs1" }],
+      assignments: [
+        { id: "a1", name: "Assignment 1", groupSetId: "gs1", repositories: {} },
+      ],
     })
     const incoming = makeRoster({
       connection: { kind: "canvas", courseId: "c1", lastUpdated: "2026-03-11" },

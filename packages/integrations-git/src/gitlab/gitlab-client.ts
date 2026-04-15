@@ -13,12 +13,15 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
   GitUsernameStatus,
+  ListRepositoriesRequest,
+  ListRepositoriesResult,
   PatchFile,
   RepositoryHead,
   RepositoryHeadRequest,
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
+import { matchesGlob } from "../glob-match.js"
 import { withGitLabToken } from "./auth.js"
 import {
   gitLabDataMessage,
@@ -43,6 +46,39 @@ import {
   sleep,
 } from "./transport.js"
 import { isActiveExactMatch, resolveGitLabUserId } from "./users.js"
+
+function normalizeNamespacePath(namespace: string): string {
+  return namespace.trim().replace(/^\/+|\/+$/g, "")
+}
+
+function resolveListedRepositoryIdentity(
+  project: { path?: unknown; name?: unknown; path_with_namespace?: unknown },
+  namespace: string,
+): { name: string; identifier: string } | null {
+  const leafName =
+    typeof project.path === "string" && project.path.length > 0
+      ? project.path
+      : String(project.name ?? "")
+  if (leafName === "") {
+    return null
+  }
+  const fullPath =
+    typeof project.path_with_namespace === "string"
+      ? project.path_with_namespace
+      : ""
+  if (fullPath === "") {
+    return { name: leafName, identifier: leafName }
+  }
+  const normalizedNamespace = normalizeNamespacePath(namespace)
+  const namespacePrefix = `${normalizedNamespace}/`
+  const identifier =
+    normalizedNamespace.length > 0 &&
+    fullPath.startsWith(namespacePrefix) &&
+    fullPath.length > namespacePrefix.length
+      ? fullPath.slice(namespacePrefix.length)
+      : leafName
+  return { name: leafName, identifier }
+}
 
 export function createGitLabClient(http: HttpPort): GitProviderClient {
   const recentlyCreatedProjectAtMs = new Map<string, number>()
@@ -616,6 +652,78 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
         url: "",
         created: false,
       }
+    },
+    async listRepositories(
+      draft: GitConnectionDraft,
+      request: ListRepositoriesRequest,
+      signal?: AbortSignal,
+    ): Promise<ListRepositoriesResult> {
+      if (!request.namespace) {
+        return { repositories: [] }
+      }
+      const api = createGitLabApi(http, draft)
+      let groupId: number | null = null
+      try {
+        groupId = await resolveGroupId(api, request.namespace)
+      } catch {
+        groupId = null
+      }
+      const repositories: ListRepositoriesResult["repositories"] = []
+      if (groupId !== null) {
+        const projects = await api.Groups.allProjects(groupId, {
+          perPage: 100,
+          includeSubgroups: true,
+        })
+        for (const project of projects) {
+          if (signal?.aborted) break
+          const identity = resolveListedRepositoryIdentity(
+            project as {
+              path?: unknown
+              name?: unknown
+              path_with_namespace?: unknown
+            },
+            request.namespace,
+          )
+          if (identity === null) continue
+          // Filter matches the leaf name that the user sees in the preview,
+          // never the subgroup-qualified identifier. A leaf that doesn't match
+          // the pattern must not appear in the results.
+          if (!matchesGlob(identity.name, request.filter)) continue
+          const archived = Boolean((project as { archived?: unknown }).archived)
+          if (archived && !request.includeArchived) continue
+          repositories.push({ ...identity, archived })
+        }
+        return { repositories }
+      }
+      try {
+        const userId = await resolveGitLabUserId(api, request.namespace)
+        if (userId !== null) {
+          const projects = await api.Users.allProjects(userId, {
+            perPage: 100,
+          })
+          for (const project of projects) {
+            if (signal?.aborted) break
+            const identity = resolveListedRepositoryIdentity(
+              project as {
+                path?: unknown
+                name?: unknown
+                path_with_namespace?: unknown
+              },
+              request.namespace,
+            )
+            if (identity === null) continue
+            if (!matchesGlob(identity.name, request.filter)) continue
+            const archived = Boolean(
+              (project as { archived?: unknown }).archived,
+            )
+            if (archived && !request.includeArchived) continue
+            repositories.push({ ...identity, archived })
+          }
+        }
+      } catch {
+        // Swallow: namespace simply unresolvable, return empty list.
+      }
+      return { repositories }
     },
     async resolveRepositoryCloneUrls(
       draft: GitConnectionDraft,

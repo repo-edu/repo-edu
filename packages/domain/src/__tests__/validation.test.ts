@@ -198,6 +198,7 @@ describe("validateAssignment", () => {
       id: "a1",
       name: "Project 1",
       groupSetId: "gs1",
+      repositories: {},
     }
 
     const roster = makeRoster({
@@ -271,6 +272,7 @@ describe("validateAssignment", () => {
       id: "a1",
       name: "Project 1",
       groupSetId: "gs-unnamed",
+      repositories: {},
     }
     const roster = makeRoster({
       groupSets: [
@@ -311,6 +313,7 @@ describe("validateAssignment", () => {
       id: "a1",
       name: "Project 1",
       groupSetId: "gs-unnamed",
+      repositories: {},
     }
     const roster = makeRoster({
       groupSets: [

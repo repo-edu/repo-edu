@@ -109,7 +109,7 @@ for (const harness of harnesses) {
         })
 
         assert.ok(
-          result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+          result.repositoriesCreated + result.repositoriesAdopted > 0,
           "should create or discover repositories",
         )
         assert.equal(result.repositoriesFailed, 0, "no failures expected")
@@ -142,6 +142,36 @@ for (const harness of harnesses) {
       })
     })
 
+    it("records accepted repository names on the create result", async () => {
+      await withIsolatedOrg(async ({ course, settings }) => {
+        const expected = collectExpectedRepoNames(course, "a1")
+        assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
+
+        const result = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+
+        const recorded = result.recordedRepositories?.a1 ?? {}
+        const recordedNames = Object.values(recorded).sort()
+        assert.deepEqual(
+          recordedNames,
+          [...expected.repoNames].sort(),
+          "every accepted name should be recorded under its groupId on the result",
+        )
+
+        for (const group of expected.groups) {
+          assert.equal(
+            recorded[group.groupId],
+            group.repoName,
+            `record for group ${group.groupId} should match planner's repo name`,
+          )
+        }
+      })
+    })
+
     it("reports existing repositories on idempotent re-run", async () => {
       await withIsolatedOrg(async ({ course, settings }) => {
         const firstResult = await handlers["repo.create"]({
@@ -151,9 +181,7 @@ for (const harness of harnesses) {
           template: null,
         })
         assert.ok(
-          firstResult.repositoriesCreated +
-            firstResult.repositoriesAlreadyExisted >
-            0,
+          firstResult.repositoriesCreated + firstResult.repositoriesAdopted > 0,
           "first run should process planned repositories",
         )
 
@@ -169,10 +197,87 @@ for (const harness of harnesses) {
           "second run should create nothing",
         )
         assert.ok(
-          secondResult.repositoriesAlreadyExisted > 0,
+          secondResult.repositoriesAdopted > 0,
           "second run should report existing",
         )
         assert.equal(secondResult.repositoriesFailed, 0, "no failures expected")
+      })
+    })
+
+    it("self-heals when a recorded repository was deleted out-of-band", async () => {
+      await withIsolatedOrg(async ({ organization, course, settings }) => {
+        const expected = collectExpectedRepoNames(course, "a1")
+        assert.ok(
+          expected.repoNames.length >= 2,
+          "fixture should plan at least two repos",
+        )
+
+        // First run: creates every repo and populates records.
+        const firstResult = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+        assert.equal(
+          firstResult.repositoriesCreated,
+          expected.repoNames.length,
+          "first run should create every planned repo fresh",
+        )
+        assert.equal(firstResult.repositoriesFailed, 0)
+
+        // Apply the records onto the course exactly as the renderer/CLI
+        // would after a successful run.
+        const assignment = course.roster.assignments.find((a) => a.id === "a1")
+        assert.ok(assignment)
+        const recordedAfterFirst = firstResult.recordedRepositories?.a1 ?? {}
+        assignment.repositories = { ...recordedAfterFirst }
+
+        // Delete one server repo out-of-band, leaving the stale record in place.
+        const victimName = expected.repoNames[0]
+        assert.ok(victimName)
+        await harness.deleteOrganizationRepository(organization, victimName)
+
+        // Second run: the victim should be re-created fresh, and the record
+        // for its group should still point at the same name.
+        const secondResult = await handlers["repo.create"]({
+          course,
+          appSettings: settings,
+          assignmentId: "a1",
+          template: null,
+        })
+        assert.equal(
+          secondResult.repositoriesCreated,
+          1,
+          "only the deleted repo should be re-created on the second run",
+        )
+        assert.equal(
+          secondResult.repositoriesAdopted,
+          expected.repoNames.length - 1,
+          "all other repos should come back as adopted",
+        )
+        assert.equal(secondResult.repositoriesFailed, 0)
+
+        const recordedAfterSecond = secondResult.recordedRepositories?.a1 ?? {}
+        const victimGroup = expected.groups.find(
+          (group) => group.repoName === victimName,
+        )
+        assert.ok(victimGroup)
+        assert.equal(
+          recordedAfterSecond[victimGroup.groupId],
+          victimName,
+          "record for the recreated group should be refreshed to the same name",
+        )
+
+        // Confirm the victim actually came back on the server.
+        const existing = await harness.verifyRepositoriesExist(organization, [
+          victimName,
+        ])
+        assert.deepEqual(
+          existing,
+          [victimName],
+          "deleted repo should exist on the server again after self-heal",
+        )
       })
     })
 
@@ -196,7 +301,7 @@ for (const harness of harnesses) {
         })
 
         assert.ok(
-          result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+          result.repositoriesCreated + result.repositoriesAdopted > 0,
           "should process repos from template",
         )
         assert.equal(result.repositoriesFailed, 0, "no failures expected")
@@ -259,7 +364,7 @@ for (const harness of harnesses) {
           })
 
           assert.ok(
-            result.repositoriesCreated + result.repositoriesAlreadyExisted > 0,
+            result.repositoriesCreated + result.repositoriesAdopted > 0,
             "should process repos from local template",
           )
           assert.equal(result.repositoriesFailed, 0, "no failures expected")

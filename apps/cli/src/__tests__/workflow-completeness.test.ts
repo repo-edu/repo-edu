@@ -41,6 +41,8 @@ const workflowToCommandMatrix: Record<
   "repo.create": { kind: "direct", commands: ["repo create"] },
   "repo.clone": { kind: "direct", commands: ["repo clone"] },
   "repo.update": { kind: "direct", commands: ["repo update"] },
+  "repo.listNamespace": { kind: "composite", commands: ["repo discover"] },
+  "repo.bulkClone": { kind: "composite", commands: ["repo discover"] },
 }
 
 describe("CLI workflow-to-command completeness", () => {

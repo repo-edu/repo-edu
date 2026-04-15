@@ -188,8 +188,8 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const designPlan = planRepositoryOperation(course.roster, "a1")
-    const implPlan = planRepositoryOperation(course.roster, "a2")
+    const designPlan = planRepositoryOperation(course, "a1", "create")
+    const implPlan = planRepositoryOperation(course, "a2", "create")
 
     const designGroupIds = plannedGroupIds(designPlan)
     const implGroupIds = plannedGroupIds(implPlan)
@@ -225,8 +225,8 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const designPlan = planRepositoryOperation(course.roster, "a1")
-    const pipelinePlan = planRepositoryOperation(course.roster, "a3")
+    const designPlan = planRepositoryOperation(course, "a1", "create")
+    const pipelinePlan = planRepositoryOperation(course, "a3", "create")
 
     const designGroupIds = plannedGroupIds(designPlan)
     const pipelineGroupIds = plannedGroupIds(pipelinePlan)

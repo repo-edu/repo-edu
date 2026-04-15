@@ -48,6 +48,8 @@ describe("application-contract workflow catalog", () => {
       "repo.create",
       "repo.clone",
       "repo.update",
+      "repo.listNamespace",
+      "repo.bulkClone",
       "userFile.inspectSelection",
       "userFile.exportPreview",
       "analysis.run",

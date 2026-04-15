@@ -383,6 +383,16 @@ input.password-input[type="password"][data-slot="input"] {
   border: 1px solid var(--primary-border);
 }
 
+/* Semantic CTA variant (`<Button variant="commit">`) opts out of the gradient
+   so Save, Create N, Clone N, etc. render with a flat primary fill that looks
+   identical regardless of button width or container. Keep the primary border
+   so the shape still reads as a loud action. Rule comes after the gradient
+   rule above, so same-specificity cascade picks this one for .btn-commit. */
+[data-slot="button"].btn-commit {
+  background: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
 [data-slot="button"][class*="variant-outline"],
 [data-slot="button"].border {
   background: var(--secondary-gradient);

@@ -1,4 +1,3 @@
-import { isAbsolute, resolve as resolvePath } from "node:path"
 import type {
   AnalysisProgress,
   AnalysisRunInput,
@@ -22,6 +21,7 @@ import {
   validateAnalysisConfig,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
+import { isAbsolutePath, joinPath } from "../path-utils.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
 import { buildAnalysisCacheKey } from "./cache.js"
 import {
@@ -513,9 +513,9 @@ export function createAnalysisRunHandler(
             retryable: false,
           } satisfies AppError
         }
-        const repoGitDir = isAbsolute(repoGitDirRaw)
+        const repoGitDir = isAbsolutePath(repoGitDirRaw)
           ? repoGitDirRaw
-          : resolvePath(repoRoot, repoGitDirRaw)
+          : joinPath(repoRoot, repoGitDirRaw)
 
         throwIfAborted(options?.signal)
         const resolvedAsOfOid = await resolveSnapshotHead(

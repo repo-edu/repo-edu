@@ -102,10 +102,19 @@ LMS IDs are stored only in LMS fields (`lmsUserId`, `lmsGroupId`, group-set conn
 
 ### Assignments
 
-An `Assignment` links a `groupSetId` to an optional `RepositoryTemplate`. The template is a discriminated union:
+An `Assignment` links a `groupSetId` to an optional `RepositoryTemplate`, and records two operation artifacts produced by repository workflows:
 
-- `"remote"` — `owner` + `name` on the Git provider, with `visibility`
-- `"local"` — local file `path`, with `visibility`
+- `repositoryTemplate` — per-assignment override for the course-level template. Discriminated union:
+  - `"remote"` — `owner` + `name` on the Git provider, with `visibility`
+  - `"local"` — local file `path`, with `visibility`
+- `templateCommitSha` — the template HEAD that was last pushed to each repo. Used by Update to compute the diff for pull-request creation.
+- `repositories` — `Record<groupId, repoName>` mapping each group in the assignment's group set to the repository name that was accepted by the Git provider (either freshly created or adopted from an existing server-side repo). Defaults to `{}`.
+
+The `repositories` map is the source of truth for Clone and Update: they iterate recorded entries rather than re-deriving names from the current roster and naming template. This decouples Update/Clone from roster edits (`{members}`-parameterized templates don't drift after a member is removed) and makes adoption of externally-created repos (e.g. from RepoBee) a side effect of running Create or Clone with a matching template. Entries whose `groupId` is no longer in the assignment's group set are pruned at the next successful operation.
+
+Derivation from the template is still used by Create for every group (records are not consulted for skip decisions — the Git provider's `alreadyExisted` response is authoritative), and by Clone/Update as a fallback for groups that don't yet have a recorded name but have active members.
+
+See [Repository Records](/repo-edu/development/repository-records/) for the full design rationale, the options that were considered and rejected, and a comparison with RepoBee.
 
 ## Boundary validation
 

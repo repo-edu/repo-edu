@@ -2,6 +2,7 @@ import type {
   AppError,
   DiagnosticOutput,
   MilestoneProgress,
+  RecordedRepositoriesByAssignment,
   RepositoryBatchInput,
   RepositoryCreateResult,
   VerifyGitDraftInput,
@@ -73,7 +74,11 @@ export function createRepoCreateHandler(
           totalSteps,
           label: "Planning repositories from roster assignments.",
         })
-        const planned = collectRepositoryGroups(course, input.assignmentId)
+        const planned = collectRepositoryGroups(
+          course,
+          input.assignmentId,
+          "create",
+        )
         if (!planned.ok) {
           throw createValidationAppError(
             "Repository planning failed.",
@@ -101,9 +106,10 @@ export function createRepoCreateHandler(
           return {
             repositoriesPlanned: 0,
             repositoriesCreated: 0,
-            repositoriesAlreadyExisted: 0,
+            repositoriesAdopted: 0,
             repositoriesFailed: 0,
             templateCommitShas: {},
+            recordedRepositories: {},
             completedAt: new Date().toISOString(),
           }
         }
@@ -155,6 +161,31 @@ export function createRepoCreateHandler(
             channel: "warn",
             message: `Repository '${repository.repositoryName}' failed: ${repository.reason}`,
           })
+        }
+
+        const recordedRepositories: RecordedRepositoriesByAssignment = {}
+        const stageRecord = (
+          assignmentId: string,
+          groupId: string,
+          repoName: string,
+        ) => {
+          const existing = recordedRepositories[assignmentId] ?? {}
+          existing[groupId] = repoName
+          recordedRepositories[assignmentId] = existing
+        }
+        const acceptedRepoNames = new Set(
+          created
+            .concat(alreadyExisted)
+            .map((repository) => repository.repositoryName),
+        )
+        for (const entry of plannedWithTemplates.value) {
+          if (acceptedRepoNames.has(entry.group.repoName)) {
+            stageRecord(
+              entry.group.assignmentId,
+              entry.group.groupId,
+              entry.group.repoName,
+            )
+          }
         }
 
         const successfulRepositoryNames = new Set(
@@ -410,15 +441,16 @@ export function createRepoCreateHandler(
 
         options?.onOutput?.({
           channel: "info",
-          message: `Repository create summary: planned ${planned.value.length}, created ${created.length}, existing ${alreadyExisted.length}, failed ${failed.length}.`,
+          message: `Repository create summary: planned ${planned.value.length}, created ${created.length}, adopted ${alreadyExisted.length}, failed ${failed.length}.`,
         })
 
         return {
           repositoriesPlanned: planned.value.length,
           repositoriesCreated: created.length,
-          repositoriesAlreadyExisted: alreadyExisted.length,
+          repositoriesAdopted: alreadyExisted.length,
           repositoriesFailed: failed.length,
           templateCommitShas,
+          recordedRepositories,
           completedAt: new Date().toISOString(),
         }
       } catch (error) {

@@ -1,13 +1,23 @@
 import type { AppError } from "@repo-edu/application-contract"
+import { normalizeGitNamespaceInput } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createValidationAppError } from "../core.js"
 import { isSharedAppError, toCancelledAppError } from "../workflow-helpers.js"
 
+/**
+ * Returns the API-ready namespace path for this course. The stored value may
+ * be a bare path (`course-org`, `parent/sub`) or a provider URL pasted by the
+ * user (`https://github.com/course-org`); both normalize to the same path.
+ */
 export function requireGitOrganization(
   course: PersistedCourse,
   operation: "repo.create" | "repo.clone" | "repo.update",
 ): string {
-  if (course.organization === null || course.organization.trim() === "") {
+  const normalized =
+    course.organization === null
+      ? ""
+      : normalizeGitNamespaceInput(course.organization)
+  if (normalized === "") {
     throw createValidationAppError(
       "Course is missing organization for repository workflows.",
       [
@@ -18,7 +28,7 @@ export function requireGitOrganization(
       ],
     )
   }
-  return course.organization
+  return normalized
 }
 
 export function normalizeRepositoryExecutionError(

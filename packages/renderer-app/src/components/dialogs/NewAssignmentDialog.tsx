@@ -70,6 +70,7 @@ export function NewAssignmentDialog() {
     addAssignment({
       name: name.trim(),
       groupSetId: resolvedGroupSetId,
+      repositories: {},
     })
     handleClose()
   }
