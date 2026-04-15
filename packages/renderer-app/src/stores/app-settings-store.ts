@@ -4,6 +4,7 @@ import {
   type PersistedAppSettings,
   type PersistedGitConnection,
   type PersistedLmsConnection,
+  resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
@@ -29,6 +30,7 @@ type AppSettingsActions = {
 
   setActiveCourseId: (courseId: string | null) => void
   setActiveTab: (tab: ActiveTab) => void
+  setActiveGitConnectionId: (id: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
   setDateFormat: (dateFormat: DateFormatPreference) => void
@@ -138,6 +140,14 @@ export const useAppSettingsStore = create<
         },
       })),
 
+    setActiveGitConnectionId: (id) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          activeGitConnectionId: id,
+        },
+      })),
+
     setTheme: (theme) =>
       set((state) => ({
         settings: {
@@ -226,6 +236,10 @@ export const useAppSettingsStore = create<
           gitConnections: state.settings.gitConnections.filter(
             (gc) => gc.id !== id,
           ),
+          activeGitConnectionId:
+            state.settings.activeGitConnectionId === id
+              ? null
+              : state.settings.activeGitConnectionId,
         },
       }))
       useConnectionsStore.getState().removeGitStatus(id)
@@ -272,6 +286,10 @@ export const selectGitConnections = (state: AppSettingsState) =>
   state.settings.gitConnections
 export const selectGitConnection = (id: string) => (state: AppSettingsState) =>
   state.settings.gitConnections.find((gc) => gc.id === id) ?? null
+export const selectActiveGitConnectionId = (state: AppSettingsState) =>
+  state.settings.activeGitConnectionId
+export const selectActiveGitConnection = (state: AppSettingsState) =>
+  resolveActiveGitConnection(state.settings)
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>

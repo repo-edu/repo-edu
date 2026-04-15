@@ -189,7 +189,6 @@ export const persistedCourseSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   lmsConnectionName: z.string().nullable(),
-  gitConnectionId: z.string().nullable(),
   organization: z.string().nullable(),
   lmsCourseId: z.string().nullable(),
   idSequences: idSequencesSchema,

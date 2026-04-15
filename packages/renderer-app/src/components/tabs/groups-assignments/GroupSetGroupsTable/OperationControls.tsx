@@ -1,3 +1,5 @@
+import type { PersistedGitConnection } from "@repo-edu/domain/settings"
+import { gitConnectionDisplayLabel } from "@repo-edu/domain/settings"
 import {
   Button,
   Collapsible,
@@ -35,7 +37,10 @@ type OperationControlsProps = {
   handleRunOperation: (operation: RepositoryOperationMode) => Promise<void>
 
   // Readiness
-  gitConnectionId: string | null
+  gitConnections: readonly PersistedGitConnection[]
+  activeGitConnection: PersistedGitConnection | null
+  activeGitConnectionId: string | null
+  handleSelectActiveGitConnection: (id: string | null) => Promise<void>
   hasBaseOperationInputs: boolean
   hasUpdateOperationInputs: boolean
 
@@ -80,7 +85,10 @@ export function OperationControls(props: OperationControlsProps) {
     operationError,
     lastResult,
     handleRunOperation,
-    gitConnectionId,
+    gitConnections,
+    activeGitConnection,
+    activeGitConnectionId,
+    handleSelectActiveGitConnection,
     hasBaseOperationInputs,
     hasUpdateOperationInputs,
     nonEmptyCount,
@@ -394,12 +402,42 @@ export function OperationControls(props: OperationControlsProps) {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Status messages */}
-      {gitConnectionId === null && openSection !== null && (
+      {/* Git-connection binding (profile-level) */}
+      {openSection !== null && gitConnections.length === 0 && (
         <p className="text-sm text-destructive">
-          Configure a Git connection for this course before running repository
-          operations.
+          No Git connection is configured. Add one in Settings before running
+          repository operations.
         </p>
+      )}
+      {openSection !== null && gitConnections.length > 1 && (
+        <div className="flex items-center gap-2 text-sm">
+          <Label htmlFor={`git-connection-${groupSetId}`}>Git connection</Label>
+          <Select
+            value={activeGitConnection?.id ?? ""}
+            onValueChange={(value) => {
+              void handleSelectActiveGitConnection(value || null)
+            }}
+          >
+            <SelectTrigger
+              id={`git-connection-${groupSetId}`}
+              className="w-auto"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gitConnections.map((connection) => (
+                <SelectItem key={connection.id} value={connection.id}>
+                  {gitConnectionDisplayLabel(connection)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeGitConnectionId === null && activeGitConnection && (
+            <span className="text-xs text-muted-foreground">
+              Using {gitConnectionDisplayLabel(activeGitConnection)} by default.
+            </span>
+          )}
+        </div>
       )}
       {operationError && (
         <p className="text-sm text-destructive">{operationError}</p>

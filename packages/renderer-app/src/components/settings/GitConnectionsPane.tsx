@@ -1,3 +1,4 @@
+import { normalizeUserAgent } from "@repo-edu/domain/connection"
 import {
   gitConnectionDisplayLabel,
   gitProviderDefaultBaseUrls,
@@ -36,6 +37,7 @@ import {
   INVALID_REQUIRED_URL_MESSAGE,
   normalizeHttpUrl,
   type PersistedGitConnection,
+  toGitDraft,
   VERIFY_FAILED_MESSAGE,
   type VerificationStatus,
   VerificationStatusIcon,
@@ -92,11 +94,13 @@ export function GitConnectionsPane() {
       allowImplicitHttps: true,
     })
     const nextBaseUrl = normalizedBaseUrl ?? draft.baseUrl.trim()
+    const nextUserAgent = normalizeUserAgent(draft.userAgent)
 
     return (
       current.provider !== draft.provider ||
       current.baseUrl !== nextBaseUrl ||
-      current.token !== draft.token.trim()
+      current.token !== draft.token.trim() ||
+      current.userAgent !== nextUserAgent
     )
   }, [editing, gitConnections, draft, editorOriginalId])
 
@@ -131,6 +135,7 @@ export function GitConnectionsPane() {
         provider: d.provider,
         baseUrl,
         token,
+        userAgent: normalizeUserAgent(d.userAgent),
       })
       if (result.verified) {
         setEditorStatus("connected")
@@ -163,6 +168,7 @@ export function GitConnectionsPane() {
       provider: draft.provider,
       baseUrl: normalizedBaseUrl,
       token: draft.token.trim(),
+      userAgent: normalizeUserAgent(draft.userAgent),
     }
 
     if (editorOriginalId === null) {
@@ -196,6 +202,7 @@ export function GitConnectionsPane() {
         provider: connection.provider,
         baseUrl: normalizedBaseUrl,
         token: connection.token,
+        userAgent: connection.userAgent,
       })
       setGitStatus(
         connection.id,
@@ -256,6 +263,25 @@ export function GitConnectionsPane() {
                 token: event.target.value,
               }))
             }
+          />
+        </FormField>
+        <FormField
+          label="User-Agent (optional)"
+          htmlFor="settings-git-user-agent"
+          title="Identifies this application to the Git API."
+          description="Identifies you to Git administrators. Recommended format: Name / Organization / email"
+        >
+          <Input
+            id="settings-git-user-agent"
+            value={draft.userAgent}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                userAgent: event.target.value,
+              }))
+            }
+            placeholder="Your Name / Organization / email@university.edu"
+            title="Identifies this application to the Git API."
           />
         </FormField>
 
@@ -379,11 +405,7 @@ export function GitConnectionsPane() {
                         view: "editor",
                         originalId: connection.id,
                       })
-                      setDraft({
-                        provider: connection.provider,
-                        baseUrl: connection.baseUrl,
-                        token: connection.token,
-                      })
+                      setDraft(toGitDraft(connection))
                       setEditorStatus("disconnected")
                       setEditorError(null)
                     }}

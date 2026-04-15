@@ -1,5 +1,8 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  type PersistedAppSettings,
+  resolveActiveGitConnection,
+} from "@repo-edu/domain/settings"
 import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
 import type { Command } from "commander"
 
@@ -104,23 +107,10 @@ export function requireLmsConnection(
   return connection
 }
 
-export function requireGitConnection(
-  course: PersistedCourse,
-  settings: PersistedAppSettings,
-) {
-  if (course.gitConnectionId === null) {
-    throw new Error("Selected course does not reference a Git connection.")
+export function requireGitConnection(settings: PersistedAppSettings) {
+  const connection = resolveActiveGitConnection(settings)
+  if (connection === null) {
+    throw new Error("No Git connection is configured in settings.")
   }
-
-  const connection = settings.gitConnections.find(
-    (candidate) => candidate.id === course.gitConnectionId,
-  )
-
-  if (!connection) {
-    throw new Error(
-      `Git connection '${course.gitConnectionId}' was not found in app settings.`,
-    )
-  }
-
   return connection
 }

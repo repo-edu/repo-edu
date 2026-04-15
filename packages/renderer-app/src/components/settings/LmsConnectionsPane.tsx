@@ -1,3 +1,4 @@
+import { normalizeUserAgent } from "@repo-edu/domain/connection"
 import {
   Button,
   FormField,
@@ -33,7 +34,6 @@ import {
   normalizeHttpUrl,
   type PersistedLmsConnection,
   toLmsDraft,
-  toOptionalUserAgent,
   VERIFY_FAILED_MESSAGE,
   type VerificationStatus,
   VerificationStatusIcon,
@@ -99,7 +99,7 @@ export function LmsConnectionsPane() {
       allowImplicitHttps: true,
     })
     const nextBaseUrl = normalizedBaseUrl ?? draft.baseUrl.trim()
-    const nextUserAgent = toOptionalUserAgent(draft.userAgent)
+    const nextUserAgent = normalizeUserAgent(draft.userAgent)
 
     return (
       current.name !== draft.name.trim() ||
@@ -125,7 +125,7 @@ export function LmsConnectionsPane() {
     })
     const baseUrl = normalizedBaseUrl ?? d.baseUrl.trim()
     const token = d.token.trim()
-    const userAgent = toOptionalUserAgent(d.userAgent)
+    const userAgent = normalizeUserAgent(d.userAgent)
     const urlError =
       normalizedBaseUrl === null ? INVALID_REQUIRED_URL_MESSAGE : null
     if (urlError) {
@@ -175,7 +175,7 @@ export function LmsConnectionsPane() {
       provider: draft.provider,
       baseUrl: normalizedBaseUrl,
       token: draft.token.trim(),
-      userAgent: toOptionalUserAgent(draft.userAgent),
+      userAgent: normalizeUserAgent(draft.userAgent),
     }
 
     if (editorIndex === null) {

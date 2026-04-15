@@ -46,7 +46,6 @@ These markers exist for future schema evolution. There is no migration layer —
 | `displayName` | `string` | Human-readable name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References a connection in app settings by name |
-| `gitConnectionId` | `string \| null` | References a Git connection in app settings by id |
 | `organization` | `string \| null` | Git organization/group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier |
 | `idSequences` | `{ nextGroupSeq; nextGroupSetSeq; nextMemberSeq; nextAssignmentSeq; nextTeamSeq }` | Monotonic local ID counters |

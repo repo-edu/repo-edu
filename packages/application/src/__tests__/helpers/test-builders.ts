@@ -9,7 +9,6 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
     id: "course-1",
     displayName: "Course",
     lmsConnectionName: null,
-    gitConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {

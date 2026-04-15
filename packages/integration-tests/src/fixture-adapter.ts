@@ -59,7 +59,7 @@ export function createGitFixture(input: {
       token: input.token,
     },
   ]
-  course.gitConnectionId = connectionId
+  settings.activeGitConnectionId = connectionId
   course.organization = input.organization
 
   return { course, settings }

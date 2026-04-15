@@ -9,7 +9,6 @@ describe("application git username workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.gitConnectionId = "main-git"
         course.organization = "repo-edu"
         course.roster.students = [
           {
@@ -24,8 +23,10 @@ describe("application git username workflow helpers", () => {
             provider: "github",
             baseUrl: "https://github.com",
             token: "token-1",
+            userAgent: "  Name / Organization / email@example.edu  ",
           },
         ]
+        settings.activeGitConnectionId = "main-git"
       },
     )
     let receivedDraft: unknown = null
@@ -75,6 +76,7 @@ describe("application git username workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
     })
     assert.deepStrictEqual(receivedUsernames, ["ada-l"])
     assert.equal(roster.students[0]?.gitUsername, "ada-l")
@@ -117,7 +119,6 @@ describe("application git username workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.gitConnectionId = "main-git"
         course.organization = "repo-edu"
         settings.activeCourseId = course.id
         settings.gitConnections = [
@@ -128,6 +129,7 @@ describe("application git username workflow helpers", () => {
             token: "token-1",
           },
         ]
+        settings.activeGitConnectionId = "main-git"
       },
     )
     const handlers = createGitUsernameWorkflowHandlers({

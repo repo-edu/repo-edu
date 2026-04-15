@@ -1,3 +1,4 @@
+import type { ConnectionBase } from "@repo-edu/domain/connection"
 import type {
   GitProviderKind,
   RepositoryTemplateVisibility,
@@ -7,10 +8,8 @@ export const packageId = "@repo-edu/integrations-git-contract"
 
 export const supportedGitProviders = ["github", "gitlab", "gitea"] as const
 
-export type GitConnectionDraft = {
+export type GitConnectionDraft = ConnectionBase & {
   provider: GitProviderKind
-  baseUrl: string
-  token: string
 }
 
 export type GitUsernameStatus = {

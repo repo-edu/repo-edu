@@ -13,7 +13,6 @@ export function createMetadataActionsSlice(
   CourseActions,
   | "setCourseId"
   | "setLmsConnectionName"
-  | "setGitConnectionId"
   | "setOrganization"
   | "setRepositoryTemplate"
   | "setRepositoryCloneTargetDirectory"
@@ -31,13 +30,6 @@ export function createMetadataActionsSlice(
     setLmsConnectionName: (name) => {
       _set((draft) => {
         if (draft.course) draft.course.lmsConnectionName = name
-      })
-      internals.markCourseMutated()
-    },
-
-    setGitConnectionId: (id) => {
-      _set((draft) => {
-        if (draft.course) draft.course.gitConnectionId = id
       })
       internals.markCourseMutated()
     },

@@ -507,7 +507,12 @@ export function GroupsTable({
             operationError={ops.operationError}
             lastResult={ops.lastResult}
             handleRunOperation={ops.handleRunOperation}
-            gitConnectionId={ops.gitConnectionId}
+            gitConnections={ops.gitConnections}
+            activeGitConnection={ops.activeGitConnection}
+            activeGitConnectionId={ops.activeGitConnectionId}
+            handleSelectActiveGitConnection={
+              ops.handleSelectActiveGitConnection
+            }
             hasBaseOperationInputs={ops.hasBaseOperationInputs}
             hasUpdateOperationInputs={ops.hasUpdateOperationInputs}
             nonEmptyCount={nonEmptyCount}

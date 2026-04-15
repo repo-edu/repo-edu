@@ -1,4 +1,5 @@
 import { GitbeakerRequestError, Gitlab } from "@gitbeaker/rest"
+import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 
@@ -152,6 +153,7 @@ function createErrorDescription(response: {
 async function executeRequest<T extends ResponseBody>(
   http: HttpPort,
   resourceOptions: ResourceOptions,
+  resolvedUserAgent: string,
   method: RequestMethod,
   endpoint: string,
   options?: RequestOptions,
@@ -165,7 +167,14 @@ async function executeRequest<T extends ResponseBody>(
     url.search = query
   }
 
-  const headers: Record<string, string> = { ...resourceOptions.headers }
+  const headers: Record<string, string> = {}
+  for (const [key, value] of Object.entries(resourceOptions.headers)) {
+    if (key.toLowerCase() === "user-agent") {
+      continue
+    }
+    headers[key] = value
+  }
+  headers["User-Agent"] = resolvedUserAgent
   if (options?.sudo !== undefined) {
     headers.sudo = String(options.sudo)
   }
@@ -221,25 +230,46 @@ async function executeRequest<T extends ResponseBody>(
   }
 }
 
-function createGitLabRequester(http: HttpPort) {
+function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
   return (resourceOptions: ResourceOptions) => ({
     get<T extends ResponseBody = ResponseBody>(
       endpoint: string,
       options?: RequestOptions,
     ): Promise<FormattedResponse<T>> {
-      return executeRequest<T>(http, resourceOptions, "GET", endpoint, options)
+      return executeRequest<T>(
+        http,
+        resourceOptions,
+        resolvedUserAgent,
+        "GET",
+        endpoint,
+        options,
+      )
     },
     post<T extends ResponseBody = ResponseBody>(
       endpoint: string,
       options?: RequestOptions,
     ): Promise<FormattedResponse<T>> {
-      return executeRequest<T>(http, resourceOptions, "POST", endpoint, options)
+      return executeRequest<T>(
+        http,
+        resourceOptions,
+        resolvedUserAgent,
+        "POST",
+        endpoint,
+        options,
+      )
     },
     put<T extends ResponseBody = ResponseBody>(
       endpoint: string,
       options?: RequestOptions,
     ): Promise<FormattedResponse<T>> {
-      return executeRequest<T>(http, resourceOptions, "PUT", endpoint, options)
+      return executeRequest<T>(
+        http,
+        resourceOptions,
+        resolvedUserAgent,
+        "PUT",
+        endpoint,
+        options,
+      )
     },
     patch<T extends ResponseBody = ResponseBody>(
       endpoint: string,
@@ -248,6 +278,7 @@ function createGitLabRequester(http: HttpPort) {
       return executeRequest<T>(
         http,
         resourceOptions,
+        resolvedUserAgent,
         "PATCH",
         endpoint,
         options,
@@ -260,6 +291,7 @@ function createGitLabRequester(http: HttpPort) {
       return executeRequest<T>(
         http,
         resourceOptions,
+        resolvedUserAgent,
         "DELETE",
         endpoint,
         options,
@@ -272,10 +304,13 @@ export function createGitLabApi(
   http: HttpPort,
   draft: GitConnectionDraft,
 ): Gitlab {
+  // Frozen per createGitLabApi call: if we ever cache the Gitlab client, we must
+  // invalidate whenever the draft (specifically its user-agent) changes.
+  const resolvedUserAgent = resolveUserAgent(draft)
   return new Gitlab({
     host: resolveHost(draft),
     token: draft.token,
-    requesterFn: createGitLabRequester(http) as never,
+    requesterFn: createGitLabRequester(http, resolvedUserAgent) as never,
   })
 }
 
@@ -291,6 +326,7 @@ async function gitLabRestRequest(
     url: `${toApiBaseUrl(draft)}${path}`,
     method,
     headers: {
+      "User-Agent": resolveUserAgent(draft),
       "PRIVATE-TOKEN": draft.token,
       accept: "application/json",
       ...(body === undefined ? {} : { "content-type": "application/json" }),

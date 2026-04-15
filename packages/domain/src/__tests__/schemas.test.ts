@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  DEFAULT_USER_AGENT,
+  normalizeUserAgent,
+  resolveUserAgent,
+} from "../connection.js"
+import {
   gitUsernameImportRowSchema,
   groupEditImportRowSchema,
   studentImportRowSchema,
@@ -38,11 +43,74 @@ describe("validatePersistedAppSettings", () => {
           provider: "github",
           baseUrl: "https://github.com",
           token: "ghp_abc",
+          userAgent: "Name / Organization / email@example.edu",
         },
       ],
     }
     const result = validatePersistedAppSettings(settings)
     assert.equal(result.ok, true)
+  })
+
+  it("roundtrips the userAgent field on both persisted connection schemas", () => {
+    for (const userAgent of [
+      "Name / Organization / email@example.edu",
+      "",
+      "   ",
+    ]) {
+      const result = validatePersistedAppSettings({
+        ...defaultAppSettings,
+        lmsConnections: [
+          {
+            name: "Canvas",
+            provider: "canvas",
+            baseUrl: "https://canvas.example.com",
+            token: "tok",
+            userAgent,
+          },
+        ],
+        gitConnections: [
+          {
+            id: "gh-1",
+            provider: "github",
+            baseUrl: "https://github.com",
+            token: "ghp",
+            userAgent,
+          },
+        ],
+      })
+      assert.equal(result.ok, true, `user-agent "${userAgent}" must parse`)
+      if (result.ok) {
+        assert.equal(result.value.lmsConnections[0]?.userAgent, userAgent)
+        assert.equal(result.value.gitConnections[0]?.userAgent, userAgent)
+      }
+    }
+  })
+
+  it("accepts persisted connections with omitted userAgent", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      lmsConnections: [
+        {
+          name: "Canvas",
+          provider: "canvas",
+          baseUrl: "https://canvas.example.com",
+          token: "tok",
+        },
+      ],
+      gitConnections: [
+        {
+          id: "gh-1",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "ghp",
+        },
+      ],
+    })
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.equal(result.value.lmsConnections[0]?.userAgent, undefined)
+      assert.equal(result.value.gitConnections[0]?.userAgent, undefined)
+    }
   })
 
   it("rejects non-object input", () => {
@@ -134,7 +202,6 @@ describe("validatePersistedCourse", () => {
     id: "prof-1",
     displayName: "Test Course",
     lmsConnectionName: null,
-    gitConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {
@@ -436,6 +503,46 @@ describe("validatePersistedCourse", () => {
         result.issues.some((issue) => issue.path.includes("repoNameTemplate")),
       )
     }
+  })
+})
+
+describe("normalizeUserAgent", () => {
+  it("returns trimmed value when non-empty", () => {
+    assert.equal(normalizeUserAgent("  Name  "), "Name")
+  })
+
+  it("returns undefined for empty and whitespace-only values", () => {
+    assert.equal(normalizeUserAgent(""), undefined)
+    assert.equal(normalizeUserAgent("   "), undefined)
+  })
+
+  it("returns undefined for null and undefined inputs", () => {
+    assert.equal(normalizeUserAgent(null), undefined)
+    assert.equal(normalizeUserAgent(undefined), undefined)
+  })
+})
+
+describe("resolveUserAgent", () => {
+  it("returns the normalized user-agent when provided", () => {
+    assert.equal(
+      resolveUserAgent({
+        baseUrl: "",
+        token: "",
+        userAgent: "  Custom Agent  ",
+      }),
+      "Custom Agent",
+    )
+  })
+
+  it("falls back to the default when user-agent is empty or missing", () => {
+    assert.equal(
+      resolveUserAgent({ baseUrl: "", token: "" }),
+      DEFAULT_USER_AGENT,
+    )
+    assert.equal(
+      resolveUserAgent({ baseUrl: "", token: "", userAgent: "   " }),
+      DEFAULT_USER_AGENT,
+    )
   })
 })
 

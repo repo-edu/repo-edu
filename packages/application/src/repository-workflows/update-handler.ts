@@ -97,11 +97,11 @@ export function createRepoUpdateHandler(
         const course = resolveCourseSnapshot(input.course)
         const settings = resolveAppSettingsSnapshot(input.appSettings)
         throwIfAborted(options?.signal)
-        const gitDraft = resolveGitDraft(course, settings)
+        const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
           throw {
             type: "not-found",
-            message: "Course does not reference a Git connection.",
+            message: "No Git connection is configured in settings.",
             resource: "connection",
           } satisfies AppError
         }

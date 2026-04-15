@@ -1,5 +1,4 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import { gitConnectionDisplayLabel } from "@repo-edu/domain/settings"
 import {
   initialIdSequences,
   type PersistedCourse,
@@ -72,12 +71,10 @@ export function NewCourseDialog() {
     useState<CourseFetchStatus>("idle")
   const [courseFetchError, setCourseFetchError] = useState<string | null>(null)
   const [selectedLmsConnection, setSelectedLmsConnection] = useState<string>("")
-  const [selectedGitConnection, setSelectedGitConnection] = useState<string>("")
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const lmsConnections = settings.lmsConnections
-  const gitConnections = settings.gitConnections
 
   const selectedLmsDraft = useMemo(
     () =>
@@ -195,7 +192,6 @@ export function NewCourseDialog() {
     setCourseFetchStatus("idle")
     setCourseFetchError(null)
     setSelectedLmsConnection(lmsConnections[0]?.name ?? "")
-    setSelectedGitConnection("")
     setCreating(false)
     setError(null)
   }, [lmsConnections])
@@ -243,7 +239,6 @@ export function NewCourseDialog() {
         id: generateCourseId(),
         displayName: courseName.trim(),
         lmsConnectionName: selectedLmsConnection || null,
-        gitConnectionId: selectedGitConnection || null,
         organization: null,
         lmsCourseId: nextCourseId,
         idSequences: initialIdSequences(),
@@ -466,30 +461,6 @@ export function NewCourseDialog() {
               />
             </FormField>
           )}
-
-          <FormField
-            label="Git connection (optional)"
-            htmlFor="new-course-git-connection"
-          >
-            <Select
-              value={selectedGitConnection || NONE_VALUE}
-              onValueChange={(value) =>
-                setSelectedGitConnection(value === NONE_VALUE ? "" : value)
-              }
-            >
-              <SelectTrigger id="new-course-git-connection">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE}>None</SelectItem>
-                {gitConnections.map((connection) => (
-                  <SelectItem key={connection.id} value={connection.id}>
-                    {gitConnectionDisplayLabel(connection)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
 
           {error && <Text className="text-sm text-destructive">{error}</Text>}
         </DialogBody>

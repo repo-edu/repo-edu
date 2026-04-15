@@ -3,7 +3,7 @@ import {
   type PersistedGitConnection,
   type PersistedLmsConnection,
 } from "@repo-edu/domain/settings"
-import type { GitProviderKind, LmsProviderKind } from "@repo-edu/domain/types"
+import type { LmsProviderKind } from "@repo-edu/domain/types"
 import { Check, Loader2, X } from "@repo-edu/ui/components/icons"
 import type { ConnectionStatus } from "../../types/index.js"
 
@@ -13,10 +13,8 @@ export type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
   userAgent: string
 }
 
-export type GitDraft = {
-  provider: GitProviderKind
-  baseUrl: string
-  token: string
+export type GitDraft = Omit<PersistedGitConnection, "id" | "userAgent"> & {
+  userAgent: string
 }
 
 export const INVALID_REQUIRED_URL_MESSAGE =
@@ -98,17 +96,22 @@ export function emptyGitDraft(): GitDraft {
     provider: "github",
     baseUrl: gitProviderDefaultBaseUrls.github,
     token: "",
+    userAgent: "",
   }
-}
-
-export function toOptionalUserAgent(value: string): string | undefined {
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : undefined
 }
 
 export function toLmsDraft(connection: PersistedLmsConnection): LmsDraft {
   return {
     ...connection,
+    userAgent: connection.userAgent ?? "",
+  }
+}
+
+export function toGitDraft(connection: PersistedGitConnection): GitDraft {
+  return {
+    provider: connection.provider,
+    baseUrl: connection.baseUrl,
+    token: connection.token,
     userAgent: connection.userAgent ?? "",
   }
 }

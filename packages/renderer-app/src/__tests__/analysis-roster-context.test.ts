@@ -41,7 +41,6 @@ function makeCourse(
     id: "course-1",
     displayName: "Course 1",
     lmsConnectionName: connection ? "LMS" : null,
-    gitConnectionId: "git-main",
     organization: null,
     lmsCourseId: connection ? "course-1" : null,
     idSequences: {

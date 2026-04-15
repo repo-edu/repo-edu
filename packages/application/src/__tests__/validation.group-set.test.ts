@@ -139,6 +139,7 @@ describe("application group-set workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: undefined,
     })
     assert.equal(fetchCourseId, "course-42")
     assert.equal(fetchGroupSetId, "remote-set-1")

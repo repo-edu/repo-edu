@@ -1,3 +1,4 @@
+import type { WorkflowClient } from "@repo-edu/application-contract"
 import { Command } from "commander"
 import pkg from "../package.json" with { type: "json" }
 import { registerCourseCommands } from "./commands/course.js"
@@ -7,7 +8,11 @@ import { registerRepoCommands } from "./commands/repo.js"
 import { registerUpdateCommand } from "./commands/update.js"
 import { registerValidateCommand } from "./commands/validate.js"
 
-export function createProgram(): Command {
+export type CreateProgramOptions = {
+  createWorkflowClient?: () => WorkflowClient
+}
+
+export function createProgram(options?: CreateProgramOptions): Command {
   const program = new Command()
   program
     .name("redu")
@@ -20,7 +25,7 @@ export function createProgram(): Command {
 
   registerCourseCommands(program)
   registerLmsCommands(program)
-  registerGitCommands(program)
+  registerGitCommands(program, options?.createWorkflowClient)
   registerRepoCommands(program)
   registerUpdateCommand(program, pkg.version)
   registerValidateCommand(program)

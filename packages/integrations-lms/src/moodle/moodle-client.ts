@@ -1,3 +1,4 @@
+import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import type {
   LmsClient,
@@ -15,8 +16,6 @@ type MoodleFunction =
   | "core_enrol_get_enrolled_users"
   | "core_group_get_course_groupings"
   | "core_group_get_course_groups"
-
-const DEFAULT_USER_AGENT = "repo-edu"
 
 function resolveEndpoint(draft: LmsConnectionDraft): string {
   const base = draft.baseUrl.replace(/\/+$/, "")
@@ -67,13 +66,12 @@ async function moodleRequest(
   params: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<unknown> {
-  const userAgent = draft.userAgent?.trim() || DEFAULT_USER_AGENT
   const response = await http.fetch({
     url: buildMoodleUrl(draft, fn, params),
     method: "GET",
     headers: {
       Accept: "application/json",
-      "User-Agent": userAgent,
+      "User-Agent": resolveUserAgent(draft),
     },
     signal,
   })

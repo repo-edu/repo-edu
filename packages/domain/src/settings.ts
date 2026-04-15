@@ -34,19 +34,22 @@ export function gitConnectionDisplayLabel(
 // App-settings Zod schemas (single source of truth for persistence types)
 // ---------------------------------------------------------------------------
 
-const persistedLmsConnectionSchema = z.object({
-  name: z.string(),
-  provider: z.enum(["canvas", "moodle"]),
+const persistedConnectionFields = {
   baseUrl: z.string(),
   token: z.string(),
   userAgent: z.string().optional(),
+} as const
+
+const persistedLmsConnectionSchema = z.object({
+  name: z.string(),
+  provider: z.enum(["canvas", "moodle"]),
+  ...persistedConnectionFields,
 })
 
 const persistedGitConnectionSchema = z.object({
   id: z.string(),
   provider: z.enum(gitProviderKinds),
-  baseUrl: z.string(),
-  token: z.string(),
+  ...persistedConnectionFields,
 })
 
 const appAppearanceSchema = z.object({
@@ -104,6 +107,7 @@ export const persistedAppSettingsSchema = z.object({
   window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
   lmsConnections: z.array(persistedLmsConnectionSchema),
   gitConnections: z.array(persistedGitConnectionSchema),
+  activeGitConnectionId: z.string().nullable().default(null),
   lastOpenedAt: z.string().nullable(),
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
@@ -130,6 +134,38 @@ export type PersistedAnalysisSidebarSettings = z.infer<
   typeof persistedAnalysisSidebarSettingsSchema
 >
 export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
+
+// ---------------------------------------------------------------------------
+// Active-Git-connection resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the Git connection used for repo operations. Git credentials are a
+ * profile-level resource (one teacher → one provider, usually): when exactly
+ * one connection is configured it is used transparently; when multiple are
+ * configured the user picks an `activeGitConnectionId`. Returns `null` when no
+ * connection is configured or the saved active id is stale.
+ */
+export function resolveActiveGitConnection(
+  settings: Pick<
+    PersistedAppSettings,
+    "gitConnections" | "activeGitConnectionId"
+  >,
+): PersistedGitConnection | null {
+  const { gitConnections, activeGitConnectionId } = settings
+  if (gitConnections.length === 0) {
+    return null
+  }
+  if (activeGitConnectionId !== null) {
+    const match = gitConnections.find(
+      (connection) => connection.id === activeGitConnectionId,
+    )
+    if (match !== undefined) {
+      return match
+    }
+  }
+  return gitConnections[0] ?? null
+}
 
 // Drift guards: persisted config/blame schemas must stay a subset of their
 // runtime counterparts. A compile error here means a field was added to the
@@ -165,6 +201,7 @@ export const defaultAppSettings: PersistedAppSettings = {
   },
   lmsConnections: [],
   gitConnections: [],
+  activeGitConnectionId: null,
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},

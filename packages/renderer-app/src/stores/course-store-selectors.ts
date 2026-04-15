@@ -71,8 +71,6 @@ export const selectAssignmentById =
 
 export const selectCourseId = (state: CourseState) =>
   state.course?.lmsCourseId ?? null
-export const selectGitConnectionId = (state: CourseState) =>
-  state.course?.gitConnectionId ?? null
 export const selectOrganization = (state: CourseState) =>
   state.course?.organization ?? null
 export const selectLmsConnectionName = (state: CourseState) =>

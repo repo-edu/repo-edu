@@ -80,6 +80,52 @@ describe("createGiteaClient", () => {
 
       assert.deepStrictEqual(result, { verified: false })
     })
+
+    it("sends the default user-agent when draft has none", async () => {
+      let capturedHeaders: Record<string, string> | undefined
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedHeaders = request.headers
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ username: "test-user" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      await client.verifyConnection(baseDraft)
+
+      assert.equal(capturedHeaders?.["User-Agent"], "repo-edu")
+    })
+
+    it("sends the configured user-agent when draft sets one", async () => {
+      let capturedHeaders: Record<string, string> | undefined
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedHeaders = request.headers
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ username: "test-user" }),
+          }
+        },
+      }
+
+      const client = createGiteaClient(http)
+      await client.verifyConnection({
+        ...baseDraft,
+        userAgent: "Name / Organization / email@example.edu",
+      })
+
+      assert.equal(
+        capturedHeaders?.["User-Agent"],
+        "Name / Organization / email@example.edu",
+      )
+    })
   })
 
   describe("verifyGitUsernames", () => {

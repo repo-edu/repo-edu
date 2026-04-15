@@ -6,6 +6,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
@@ -32,6 +38,9 @@ export function StudentSyncDialog() {
 
   const setRoster = useCourseStore((state) => state.setRoster)
   const setIdSequences = useCourseStore((state) => state.setIdSequences)
+  const setLmsConnectionName = useCourseStore(
+    (state) => state.setLmsConnectionName,
+  )
   const setLmsImportConflicts = useUiStore(
     (state) => state.setLmsImportConflicts,
   )
@@ -157,6 +166,36 @@ export function StudentSyncDialog() {
             Sync imports all enrollment types from LMS and updates both students
             and staff.
           </Text>
+
+          {loadedCourse && appSettings.lmsConnections.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <Label htmlFor="student-sync-lms-connection">
+                LMS connection
+              </Label>
+              <Select
+                value={lmsConnectionName ?? ""}
+                onValueChange={(value) => {
+                  setLmsConnectionName(value || null)
+                  hasAutoPreviewedRef.current = false
+                  resetState()
+                }}
+              >
+                <SelectTrigger
+                  id="student-sync-lms-connection"
+                  className="w-auto"
+                >
+                  <SelectValue placeholder="Select a connection" />
+                </SelectTrigger>
+                <SelectContent>
+                  {appSettings.lmsConnections.map((connection) => (
+                    <SelectItem key={connection.name} value={connection.name}>
+                      {connection.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {loadingPreview && (
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">

@@ -529,7 +529,6 @@ function createFixtureRecord(
       id: courseId,
       displayName: `Fixture (${tier}, ${preset})`,
       lmsConnectionName: null,
-      gitConnectionId: "github-demo",
       organization: "fixture-org",
       lmsCourseId: null,
       idSequences: {
@@ -560,6 +559,7 @@ function createFixtureRecord(
           token: "demo-token",
         },
       ],
+      activeGitConnectionId: "github-demo",
       lastOpenedAt: fixtureGeneratedAt,
     }
     return {
@@ -652,7 +652,6 @@ function createFixtureRecord(
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
     lmsConnectionName: "Canvas Demo",
-    gitConnectionId: "github-demo",
     organization: "fixture-org",
     lmsCourseId: courseId,
     idSequences: {
@@ -691,6 +690,7 @@ function createFixtureRecord(
         token: "demo-token",
       },
     ],
+    activeGitConnectionId: "github-demo",
     lastOpenedAt: fixtureGeneratedAt,
   }
 

@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/rest"
+import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 import { createHttpPortFetch } from "./http-port-fetch.js"
@@ -21,6 +22,7 @@ export function createOctokit(
   return new Octokit({
     auth: draft.token,
     baseUrl: resolveApiBaseUrl(draft),
+    userAgent: resolveUserAgent(draft),
     request: {
       fetch: createHttpPortFetch(http),
     },

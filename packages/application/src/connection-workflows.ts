@@ -9,13 +9,10 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import { normalizeUserAgent } from "@repo-edu/domain/connection"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
 import type { LmsClient } from "@repo-edu/integrations-lms-contract"
-import {
-  normalizeProviderError,
-  optionalUserAgent,
-  throwIfAborted,
-} from "./workflow-helpers.js"
+import { normalizeProviderError, throwIfAborted } from "./workflow-helpers.js"
 
 export type ConnectionVerificationPorts = {
   lms: Pick<LmsClient, "verifyConnection" | "listCourses">
@@ -52,7 +49,7 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
-          ...optionalUserAgent(input.userAgent),
+          userAgent: normalizeUserAgent(input.userAgent),
         }
 
         options?.onOutput?.({
@@ -99,7 +96,7 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
-          ...optionalUserAgent(input.userAgent),
+          userAgent: normalizeUserAgent(input.userAgent),
         }
 
         options?.onOutput?.({
@@ -143,6 +140,7 @@ export function createConnectionWorkflowHandlers(
           provider: input.provider,
           baseUrl: input.baseUrl,
           token: input.token,
+          userAgent: normalizeUserAgent(input.userAgent),
         }
 
         options?.onOutput?.({

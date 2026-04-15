@@ -21,7 +21,6 @@ export function createRepoHarness(options?: {
   const { course, settings } = getCourseAndSettingsScenario(
     { tier: "small", preset: "shared-teams" },
     ({ course, settings }) => {
-      course.gitConnectionId = "main-git"
       course.organization = "repo-edu"
       settings.activeCourseId = course.id
       settings.gitConnections = [
@@ -32,6 +31,7 @@ export function createRepoHarness(options?: {
           token: "token-1",
         },
       ]
+      settings.activeGitConnectionId = "main-git"
     },
   )
 

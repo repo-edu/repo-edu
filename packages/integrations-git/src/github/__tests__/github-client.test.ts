@@ -21,6 +21,18 @@ type MockRoute = {
   body: unknown
 }
 
+function findUserAgent(
+  headers: Record<string, string> | undefined,
+): string | undefined {
+  if (!headers) return undefined
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === "user-agent") {
+      return value
+    }
+  }
+  return undefined
+}
+
 function createMockHttpPort(routes: MockRoute[]): HttpPort {
   return {
     async fetch(request: HttpRequest): Promise<HttpResponse> {
@@ -83,6 +95,57 @@ describe("createGitHubClient", () => {
       const client = createGitHubClient(http)
       const result = await client.verifyConnection(baseDraft)
       assert.deepStrictEqual(result, { verified: false })
+    })
+
+    it("sends the default user-agent when draft has none", async () => {
+      let capturedHeaders: Record<string, string> | undefined
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedHeaders = request.headers
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ login: "test-user", id: 1 }),
+          }
+        },
+      }
+
+      const client = createGitHubClient(http)
+      await client.verifyConnection(baseDraft)
+
+      const userAgent = findUserAgent(capturedHeaders)
+      assert.ok(
+        userAgent?.startsWith("repo-edu"),
+        `expected user-agent to start with "repo-edu", got: ${userAgent}`,
+      )
+    })
+
+    it("sends the configured user-agent when draft sets one", async () => {
+      let capturedHeaders: Record<string, string> | undefined
+      const http: HttpPort = {
+        async fetch(request: HttpRequest): Promise<HttpResponse> {
+          capturedHeaders = request.headers
+          return {
+            status: 200,
+            statusText: "OK",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ login: "test-user", id: 1 }),
+          }
+        },
+      }
+
+      const client = createGitHubClient(http)
+      await client.verifyConnection({
+        ...baseDraft,
+        userAgent: "Name / Organization / email@example.edu",
+      })
+
+      const userAgent = findUserAgent(capturedHeaders)
+      assert.ok(
+        userAgent?.startsWith("Name / Organization / email@example.edu"),
+        `expected user-agent to start with the configured value, got: ${userAgent}`,
+      )
     })
   })
 

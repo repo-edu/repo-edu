@@ -24,7 +24,6 @@ const course: PersistedCourse = {
   id: "course-1",
   displayName: "Course 1",
   lmsConnectionName: null,
-  gitConnectionId: "git-main",
   organization: null,
   lmsCourseId: null,
   idSequences: {
@@ -60,6 +59,7 @@ const appSettings: PersistedAppSettings = {
   window: { width: 1180, height: 760 },
   lmsConnections: [],
   gitConnections: [],
+  activeGitConnectionId: null,
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},

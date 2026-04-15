@@ -111,7 +111,7 @@ export function createGitUsernameWorkflowHandlers(
           matched += 1
         }
 
-        const gitDraft = resolveGitDraft(course, settings)
+        const gitDraft = resolveGitDraft(settings)
         if (gitDraft !== null) {
           providerForError = gitDraft.provider
           options?.onProgress?.({

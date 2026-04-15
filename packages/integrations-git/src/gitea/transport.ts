@@ -1,3 +1,4 @@
+import { resolveUserAgent } from "@repo-edu/domain/connection"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 
@@ -20,6 +21,7 @@ function createHeaders(draft: GitConnectionDraft): Record<string, string> {
     Authorization: `token ${draft.token}`,
     Accept: "application/json",
     "Content-Type": "application/json",
+    "User-Agent": resolveUserAgent(draft),
   }
 }
 

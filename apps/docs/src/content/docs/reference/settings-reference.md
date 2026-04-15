@@ -30,6 +30,8 @@ Both app settings and course documents are stored as JSON files and validated on
 | `gitConnections[].provider` | `"github" \| "gitlab" \| "gitea"` | Git provider |
 | `gitConnections[].baseUrl` | `string` | Provider API base URL |
 | `gitConnections[].token` | `string` | Personal access token |
+| `gitConnections[].userAgent` | `string?` | Optional custom user agent |
+| `activeGitConnectionId` | `string \| null` | Active Git connection id. When `null` and exactly one connection is configured, that connection is used; otherwise `gitConnections[0]` is the fallback. |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Roster table column visibility |
 | `rosterColumnSizing` | `Record<string, number>` | Roster table column widths |
@@ -45,7 +47,6 @@ Both app settings and course documents are stored as JSON files and validated on
 | `displayName` | `string` | Human-readable course name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References an LMS connection in app settings by name |
-| `gitConnectionId` | `string \| null` | References a Git connection in app settings by ID |
 | `organization` | `string \| null` | Git organization or group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier for imports |
 | `roster` | `Roster` | Students, staff, groups, group sets, assignments (see below) |

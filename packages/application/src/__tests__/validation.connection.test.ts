@@ -67,6 +67,7 @@ describe("application connection verification workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-2",
+      userAgent: "  Name / Organization / email@example.edu  ",
     })
     assert.equal(gitResult.verified, false)
     assertValidTimestamp(gitResult.checkedAt)
@@ -74,6 +75,54 @@ describe("application connection verification workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-2",
+      userAgent: "Name / Organization / email@example.edu",
+    })
+  })
+
+  it("drops empty and whitespace user-agent values when normalizing drafts", async () => {
+    let lmsDraft: unknown = null
+    let gitDraft: unknown = null
+
+    const handlers = createConnectionWorkflowHandlers({
+      lms: {
+        verifyConnection: async (draft) => {
+          lmsDraft = draft
+          return { verified: true }
+        },
+        listCourses: async () => [],
+      },
+      git: {
+        verifyConnection: async (draft) => {
+          gitDraft = draft
+          return { verified: true }
+        },
+      },
+    })
+
+    await handlers["connection.verifyLmsDraft"]({
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "token-1",
+      userAgent: "   ",
+    })
+    assert.deepStrictEqual(lmsDraft, {
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "token-1",
+      userAgent: undefined,
+    })
+
+    await handlers["connection.verifyGitDraft"]({
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "token-2",
+      userAgent: "",
+    })
+    assert.deepStrictEqual(gitDraft, {
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "token-2",
+      userAgent: undefined,
     })
   })
 

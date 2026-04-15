@@ -198,7 +198,6 @@ describe("application repository create workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.gitConnectionId = "main-git"
         course.organization = "repo-edu"
         course.repositoryTemplate = {
           kind: "remote",
@@ -221,6 +220,7 @@ describe("application repository create workflow helpers", () => {
             token: "token-1",
           },
         ]
+        settings.activeGitConnectionId = "main-git"
       },
     )
     let receivedVisibility: unknown = null
@@ -249,6 +249,57 @@ describe("application repository create workflow helpers", () => {
     })
 
     assert.equal(receivedVisibility, assignmentTemplate.visibility)
+  })
+
+  it("forwards the normalized user-agent from git connection into the adapter draft", async () => {
+    let receivedDraft: unknown = null
+    const { course, settings } = getCourseAndSettingsScenario(
+      { tier: "small", preset: "shared-teams" },
+      ({ course, settings }) => {
+        course.organization = "repo-edu"
+        settings.activeCourseId = course.id
+        settings.gitConnections = [
+          {
+            id: "main-git",
+            provider: "github",
+            baseUrl: "https://github.com",
+            token: "token-1",
+            userAgent: "  Name / Organization / email@example.edu  ",
+          },
+        ]
+        settings.activeGitConnectionId = "main-git"
+      },
+    )
+
+    const { handlers } = createRepoHarness({
+      git: {
+        createRepositories: async (draft, request) => {
+          receivedDraft = draft
+          return {
+            created: request.repositoryNames.map((repositoryName) => ({
+              repositoryName,
+              repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            })),
+            alreadyExisted: [],
+            failed: [],
+          }
+        },
+      },
+    })
+
+    await handlers["repo.create"]({
+      course,
+      appSettings: settings,
+      assignmentId: "a1",
+      template: null,
+    })
+
+    assert.deepStrictEqual(receivedDraft, {
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
+    })
   })
 
   it("treats empty group-set template as explicit empty template in repo.create", async () => {

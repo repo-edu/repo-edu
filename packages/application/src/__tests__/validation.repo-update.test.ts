@@ -8,7 +8,6 @@ describe("application repository update workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.gitConnectionId = "main-git"
         course.organization = "repo-edu"
         course.repositoryTemplate = {
           kind: "remote",
@@ -31,6 +30,7 @@ describe("application repository update workflow helpers", () => {
             token: "token-1",
           },
         ]
+        settings.activeGitConnectionId = "main-git"
       },
     )
     const createdBranches: string[] = []
@@ -124,7 +124,6 @@ describe("application repository update workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.gitConnectionId = "main-git"
         course.organization = "repo-edu"
         course.repositoryTemplate = {
           kind: "remote",
@@ -147,6 +146,7 @@ describe("application repository update workflow helpers", () => {
             token: "token-1",
           },
         ]
+        settings.activeGitConnectionId = "main-git"
       },
     )
     let getTemplateDiffCalls = 0

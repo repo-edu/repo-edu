@@ -24,6 +24,9 @@
       "@repo-edu/renderer-app": ["./packages/renderer-app/src/index.ts"],
       "@repo-edu/domain/types": ["./packages/domain/src/types.ts"],
       "@repo-edu/domain/settings": ["./packages/domain/src/settings.ts"],
+      "@repo-edu/domain/connection": [
+        "./packages/domain/src/connection.ts"
+      ],
       "@repo-edu/domain/roster": ["./packages/domain/src/roster.ts"],
       "@repo-edu/domain/roster-lms-merge": [
         "./packages/domain/src/roster-lms-merge.ts"

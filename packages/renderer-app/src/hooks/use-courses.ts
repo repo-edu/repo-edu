@@ -79,7 +79,6 @@ export function useCourses() {
           id: generateCourseId(),
           displayName,
           lmsConnectionName: source.lmsConnectionName,
-          gitConnectionId: source.gitConnectionId,
           organization: source.organization,
           lmsCourseId: source.lmsCourseId,
           idSequences: initialIdSequences(),

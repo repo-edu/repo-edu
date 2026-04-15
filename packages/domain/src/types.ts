@@ -197,7 +197,6 @@ export type PersistedCourse = {
   id: string
   displayName: string
   lmsConnectionName: string | null
-  gitConnectionId: string | null
   organization: string | null
   lmsCourseId: string | null
   idSequences: IdSequences

@@ -9,6 +9,7 @@ import {
   createCancelledAppError,
   isAppError,
 } from "@repo-edu/application-contract"
+import { normalizeUserAgent } from "@repo-edu/domain/connection"
 import { allocateMemberId } from "@repo-edu/domain/id-allocator"
 import {
   normalizeEmail,
@@ -27,6 +28,7 @@ import {
 import {
   defaultAppSettings,
   type PersistedAppSettings,
+  resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import {
   type EnrollmentType,
@@ -138,17 +140,6 @@ export function resolveAppSettingsSnapshot(
   return validation.value
 }
 
-export function optionalUserAgent(value: string | null | undefined): {
-  userAgent?: string
-} {
-  const normalized = value?.trim()
-  if (!normalized) {
-    return {}
-  }
-
-  return { userAgent: normalized }
-}
-
 export function resolveLmsDraft(
   course: PersistedCourse,
   settings: PersistedAppSettings,
@@ -176,33 +167,23 @@ export function resolveLmsDraft(
     provider: connection.provider,
     baseUrl: connection.baseUrl,
     token: connection.token,
-    ...optionalUserAgent(connection.userAgent),
+    userAgent: normalizeUserAgent(connection.userAgent),
   }
 }
 
 export function resolveGitDraft(
-  course: PersistedCourse,
   settings: PersistedAppSettings,
 ): GitConnectionDraft | null {
-  if (course.gitConnectionId === null) {
+  const connection = resolveActiveGitConnection(settings)
+  if (connection === null) {
     return null
-  }
-
-  const connection = settings.gitConnections.find(
-    (candidate) => candidate.id === course.gitConnectionId,
-  )
-  if (connection === undefined) {
-    throw {
-      type: "not-found",
-      message: `Git connection '${course.gitConnectionId}' was not found.`,
-      resource: "connection",
-    } satisfies AppError
   }
 
   return {
     provider: connection.provider,
     baseUrl: connection.baseUrl,
     token: connection.token,
+    userAgent: normalizeUserAgent(connection.userAgent),
   }
 }
 

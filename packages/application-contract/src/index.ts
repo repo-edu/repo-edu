@@ -6,6 +6,7 @@ import type {
   BlameResult,
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
+import type { ConnectionBase } from "@repo-edu/domain/connection"
 import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
@@ -199,24 +200,16 @@ export type WorkflowCallOptions<TProgress, TOutput> = {
   signal?: AbortSignal
 }
 
-export type VerifyLmsDraftInput = {
+export type VerifyLmsDraftInput = ConnectionBase & {
   provider: LmsProviderKind
-  baseUrl: string
-  token: string
-  userAgent?: string
 }
 
-export type ListLmsCoursesDraftInput = {
+export type ListLmsCoursesDraftInput = ConnectionBase & {
   provider: LmsProviderKind
-  baseUrl: string
-  token: string
-  userAgent?: string
 }
 
-export type VerifyGitDraftInput = {
+export type VerifyGitDraftInput = ConnectionBase & {
   provider: GitProviderKind
-  baseUrl: string
-  token: string
 }
 
 export type ConnectionVerificationResult = {

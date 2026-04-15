@@ -1,14 +1,12 @@
+import type { ConnectionBase } from "@repo-edu/domain/connection"
 import type { LmsProviderKind } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/integrations-lms-contract"
 
 export const supportedLmsProviders = ["canvas", "moodle"] as const
 
-export type LmsConnectionDraft = {
+export type LmsConnectionDraft = ConnectionBase & {
   provider: LmsProviderKind
-  baseUrl: string
-  token: string
-  userAgent?: string
 }
 
 export type LmsCourseSummary = {

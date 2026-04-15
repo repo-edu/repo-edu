@@ -237,6 +237,7 @@ describe("application roster workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
+      userAgent: undefined,
     })
     assert.equal(receivedCourseId, "course-42")
     assert.equal(

@@ -3,6 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
+import type {
+  WorkflowClient,
+  WorkflowHandlerMap,
+} from "@repo-edu/application-contract"
+import { createWorkflowClient } from "@repo-edu/application-contract"
 import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
@@ -28,12 +33,19 @@ function normalize(text: string): string {
   return text.replace(/\r\n/g, "\n").trimEnd()
 }
 
-async function runCli(args: string[]): Promise<{
+async function runCli(
+  args: string[],
+  options?: { workflowClient?: WorkflowClient },
+): Promise<{
   exitCode: number
   stdout: string
   stderr: string
 }> {
-  const program = createProgram()
+  const program = createProgram(
+    options?.workflowClient
+      ? { createWorkflowClient: () => options.workflowClient as WorkflowClient }
+      : undefined,
+  )
   program.exitOverride()
 
   let stdout = ""
@@ -85,7 +97,6 @@ function makeProfile(): PersistedCourse {
     id: "seed-course",
     displayName: "Seed Course",
     lmsConnectionName: null,
-    gitConnectionId: null,
     organization: null,
     lmsCourseId: "course-1",
     idSequences: {
@@ -172,6 +183,7 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
     window: { width: 1180, height: 760 },
     lmsConnections: [],
     gitConnections: [],
+    activeGitConnectionId: null,
     lastOpenedAt: null,
     rosterColumnVisibility: {},
     rosterColumnSizing: {},
@@ -294,6 +306,40 @@ describe("CLI workflow-backed behaviors", () => {
     })
   })
 
+  it("git verify forwards the configured user-agent into the workflow input", async () => {
+    const settings: PersistedAppSettings = {
+      ...makeSettings(null),
+      gitConnections: [
+        {
+          id: "main-git",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "token-1",
+          userAgent: "Name / Organization / email@example.edu",
+        },
+      ],
+    }
+
+    let verifyInput: unknown = null
+    const handlers: Partial<WorkflowHandlerMap> = {
+      "settings.loadApp": async () => settings,
+      "connection.verifyGitDraft": async (input) => {
+        verifyInput = input
+        return { verified: true, checkedAt: "2026-03-04T10:00:00.000Z" }
+      },
+    }
+    const workflowClient = createWorkflowClient(handlers as WorkflowHandlerMap)
+
+    const result = await runCli(["git", "verify"], { workflowClient })
+    assert.equal(result.exitCode, 0)
+    assert.deepStrictEqual(verifyInput, {
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "token-1",
+      userAgent: "Name / Organization / email@example.edu",
+    })
+  })
+
   it("repo create fails when selected course has no git connection", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
       const course = makeProfile()
@@ -309,7 +355,7 @@ describe("CLI workflow-backed behaviors", () => {
         "Project 1",
       ])
       assert.equal(result.exitCode, 1)
-      assert.match(result.stderr, /does not reference a Git connection/)
+      assert.match(result.stderr, /No Git connection is configured/)
     })
   })
 })

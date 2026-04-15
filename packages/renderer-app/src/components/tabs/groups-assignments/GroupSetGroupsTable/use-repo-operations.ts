@@ -5,9 +5,13 @@ import type {
 } from "@repo-edu/application-contract"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../../../stores/app-settings-store.js"
 import {
-  selectGitConnectionId,
+  selectActiveGitConnection,
+  selectActiveGitConnectionId,
+  selectGitConnections,
+  useAppSettingsStore,
+} from "../../../../stores/app-settings-store.js"
+import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
   selectRepositoryCloneTargetDirectory,
@@ -46,7 +50,14 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   const { effectiveAssignmentId, nonEmptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
-  const gitConnectionId = useCourseStore(selectGitConnectionId)
+  const gitConnections = useAppSettingsStore(selectGitConnections)
+  const activeGitConnection = useAppSettingsStore(selectActiveGitConnection)
+  const activeGitConnectionId = useAppSettingsStore(selectActiveGitConnectionId)
+  const setActiveGitConnectionId = useAppSettingsStore(
+    (s) => s.setActiveGitConnectionId,
+  )
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const gitConnectionResolvedId = activeGitConnection?.id ?? null
   const organization = useCourseStore(selectOrganization)
   const setOrganization = useCourseStore((s) => s.setOrganization)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
@@ -92,13 +103,13 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     !disabled &&
     !isRunning &&
     effectiveAssignmentId !== null &&
-    gitConnectionId !== null &&
+    gitConnectionResolvedId !== null &&
     nonEmptyCount > 0
   const hasUpdateOperationInputs =
     !disabled &&
     !isRunning &&
     effectiveAssignmentId !== null &&
-    gitConnectionId !== null
+    gitConnectionResolvedId !== null
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
@@ -222,6 +233,14 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     ],
   )
 
+  const handleSelectActiveGitConnection = useCallback(
+    async (id: string | null) => {
+      setActiveGitConnectionId(id)
+      await saveAppSettings()
+    },
+    [setActiveGitConnectionId, saveAppSettings],
+  )
+
   return {
     // Operation state
     operationStatus,
@@ -231,9 +250,14 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     handleRunOperation,
 
     // Readiness flags
-    gitConnectionId,
     hasBaseOperationInputs,
     hasUpdateOperationInputs,
+
+    // Git connection binding (profile-level)
+    gitConnections,
+    activeGitConnection,
+    activeGitConnectionId,
+    handleSelectActiveGitConnection,
 
     // Organization
     organization,
