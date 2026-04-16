@@ -13,7 +13,7 @@ import {
   FolderOpen,
   Loader2,
 } from "@repo-edu/ui/components/icons"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import {
@@ -49,7 +49,10 @@ export function RepositoriesSection() {
     collapseAllRepoFolders,
   } = useRepoTree()
 
+  const [browseTooltipKey, setBrowseTooltipKey] = useState(0)
+
   const handleBrowseSearchFolder = useCallback(async () => {
+    setBrowseTooltipKey((k) => k + 1)
     const dir = await rendererHost.pickDirectory({
       title: "Open repository search folder",
     })
@@ -98,6 +101,19 @@ export function RepositoriesSection() {
             </TooltipTrigger>
             <TooltipContent side="bottom">Collapse all</TooltipContent>
           </Tooltip>
+          <Tooltip key={`browse-toolbar-${browseTooltipKey}`}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={handleBrowseSearchFolder}
+              >
+                <FolderOpen className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Change search folder</TooltipContent>
+          </Tooltip>
           <div className="flex-1" />
           <span className="text-xs text-muted-foreground">
             {discoveredRepos.length}
@@ -108,14 +124,19 @@ export function RepositoriesSection() {
       {/* Search folder root + repo tree */}
       {discoveredRepos.length > 0 ? (
         <div className="flex flex-col gap-0.5">
-          <button
-            type="button"
-            className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
-            onClick={handleBrowseSearchFolder}
-          >
-            <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{searchFolderName}</span>
-          </button>
+          <Tooltip key={`browse-folder-${browseTooltipKey}`}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
+                onClick={handleBrowseSearchFolder}
+              >
+                <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+                <span className="truncate font-medium">{searchFolderName}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Change search folder</TooltipContent>
+          </Tooltip>
           <RepoTreeProvider
             value={{
               openFolders: openRepoFolders,

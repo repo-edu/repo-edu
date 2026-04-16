@@ -11,13 +11,17 @@ export function useRepoTree() {
   const repoPathByRelative = useMemo(() => {
     if (!searchFolder) return new Map<string, string>()
     const normalized = searchFolder.replaceAll("\\", "/")
-    const prefix = normalized.endsWith("/") ? normalized : `${normalized}/`
+    const base = normalized.endsWith("/") ? normalized.slice(0, -1) : normalized
+    const prefix = `${base}/`
     const map = new Map<string, string>()
     for (const repo of discoveredRepos) {
       const repoNormalized = repo.path.replaceAll("\\", "/")
-      const relative = repoNormalized.startsWith(prefix)
-        ? repoNormalized.slice(prefix.length)
-        : repoNormalized
+      const relative =
+        repoNormalized === base
+          ? repo.name
+          : repoNormalized.startsWith(prefix)
+            ? repoNormalized.slice(prefix.length)
+            : repoNormalized
       map.set(relative, repo.path)
     }
     return map
