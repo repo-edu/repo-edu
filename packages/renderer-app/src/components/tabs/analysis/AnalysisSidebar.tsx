@@ -177,7 +177,7 @@ export function AnalysisSidebar() {
   const setFocusedFilePath = useAnalysisStore((s) => s.setFocusedFilePath)
   const fileSelectionMode = useAnalysisStore((s) => s.fileSelectionMode)
   const selectedFiles = useAnalysisStore((s) => s.selectedFiles)
-  const activeView = useAnalysisStore((s) => s.activeView)
+
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const searchFolder = useAnalysisStore((s) => s.searchFolder)
@@ -301,10 +301,10 @@ export function AnalysisSidebar() {
 
   const allFolderNames = useMemo(() => collectFolderPaths(fileTree), [fileTree])
 
-  // Default to all folders expanded when results change
+  // Default to all folders collapsed when results change
   useEffect(() => {
-    setOpenFolders(new Set(allFolderNames))
-  }, [allFolderNames])
+    if (result) setOpenFolders(new Set())
+  }, [result])
 
   const effectiveFileSelection = useMemo(() => {
     if (fileSelectionMode === "all") return new Set(sortedFilePaths)
@@ -323,11 +323,9 @@ export function AnalysisSidebar() {
   const handleFileClick = useCallback(
     (path: string) => {
       setFocusedFilePath(path)
-      if (activeView === "blame") {
-        openFileForBlame(path)
-      }
+      openFileForBlame(path)
     },
-    [activeView, openFileForBlame, setFocusedFilePath],
+    [openFileForBlame, setFocusedFilePath],
   )
 
   const expandAllFolders = useCallback(

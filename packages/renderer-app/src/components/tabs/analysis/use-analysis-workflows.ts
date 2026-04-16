@@ -20,7 +20,6 @@ export function useAnalysisWorkflows() {
   const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
   const setProgress = useAnalysisStore((s) => s.setProgress)
   const setErrorMessage = useAnalysisStore((s) => s.setErrorMessage)
-  const setFocusedFilePath = useAnalysisStore((s) => s.setFocusedFilePath)
 
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
@@ -70,8 +69,6 @@ export function useAnalysisWorkflows() {
           return
         }
         setResult(result)
-        const paths = result.fileStats.map((f) => f.path).sort()
-        setFocusedFilePath(paths[0] ?? null)
         setWorkflowStatus("idle")
       } catch (err) {
         if (!isCurrentRun()) {
@@ -97,7 +94,6 @@ export function useAnalysisWorkflows() {
       setErrorMessage,
       setProgress,
       setResult,
-      setFocusedFilePath,
       setWorkflowStatus,
     ],
   )
