@@ -78,17 +78,6 @@ export function FileCharts({
 
   const colors = useMemo(() => authorColorMap(authorIds), [authorIds])
 
-  const authorKeyToId = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const author of authorStats) {
-      map.set(
-        `${author.canonicalName}\0${author.canonicalEmail}`,
-        author.personId,
-      )
-    }
-    return map
-  }, [authorStats])
-
   const nameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const author of authorStats) {
@@ -112,9 +101,7 @@ export function FileCharts({
         fullPath: file.path,
       }
 
-      for (const [authorKey, breakdown] of file.authorBreakdown) {
-        const personId = authorKeyToId.get(authorKey)
-        if (!personId) continue
+      for (const [personId, breakdown] of file.authorBreakdown) {
         let value = metricValueFromBreakdown(breakdown, activeMetric)
 
         // Keep line segments non-negative for stacked rendering.
@@ -138,7 +125,7 @@ export function FileCharts({
 
       return row
     })
-  }, [activeMetric, authorKeyToId, fileStats])
+  }, [activeMetric, fileStats])
 
   if (chartData.length === 0) return null
 

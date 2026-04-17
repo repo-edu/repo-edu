@@ -28,6 +28,7 @@ import {
   RESIZE_DEBOUNCE_MS,
 } from "../../../constants/layout.js"
 import {
+  selectAuthorDisplayByPersonId,
   selectFilteredFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
@@ -44,7 +45,6 @@ import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 type FileAuthorRow = {
-  authorKey: string
   personId: string
   name: string
   commits: number
@@ -56,21 +56,19 @@ type FileAuthorRow = {
 
 function fileAuthorBreakdown(
   file: FileStats,
-  authorKeyToId: Map<string, string>,
-  authorKeyToAge: Map<string, number>,
+  personIdToName: Map<string, string>,
+  personIdToAge: Map<string, number>,
 ): FileAuthorRow[] {
   const rows: FileAuthorRow[] = []
-  for (const [key, breakdown] of file.authorBreakdown) {
-    const name = key.split("\0")[0] ?? key
+  for (const [personId, breakdown] of file.authorBreakdown) {
     rows.push({
-      authorKey: key,
-      personId: authorKeyToId.get(key) ?? "",
-      name,
+      personId,
+      name: personIdToName.get(personId) ?? personId,
       commits: breakdown.commits,
       insertions: breakdown.insertions,
       deletions: breakdown.deletions,
       lines: breakdown.insertions - breakdown.deletions,
-      age: authorKeyToAge.get(key) ?? 0,
+      age: personIdToAge.get(personId) ?? 0,
     })
   }
   return rows
@@ -108,19 +106,23 @@ export function FileAuthorsPanel() {
     return stats ? stats.map((a) => a.personId) : []
   }, [result])
   const colors = useMemo(() => authorColorMap(allAuthorIds), [allAuthorIds])
+  const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
 
-  const authorKeyToId = useMemo(() => {
+  const personIdToName = useMemo(() => {
     const map = new Map<string, string>()
     for (const a of result?.authorStats ?? []) {
-      map.set(`${a.canonicalName}\0${a.canonicalEmail}`, a.personId)
+      map.set(
+        a.personId,
+        authorDisplayById.get(a.personId)?.name ?? a.canonicalName,
+      )
     }
     return map
-  }, [result])
+  }, [result, authorDisplayById])
 
-  const authorKeyToAge = useMemo(() => {
+  const personIdToAge = useMemo(() => {
     const map = new Map<string, number>()
     for (const a of result?.authorStats ?? []) {
-      map.set(`${a.canonicalName}\0${a.canonicalEmail}`, a.age)
+      map.set(a.personId, a.age)
     }
     return map
   }, [result])
@@ -139,9 +141,9 @@ export function FileAuthorsPanel() {
   const breakdownRows = useMemo(
     () =>
       selectedFile
-        ? fileAuthorBreakdown(selectedFile, authorKeyToId, authorKeyToAge)
+        ? fileAuthorBreakdown(selectedFile, personIdToName, personIdToAge)
         : [],
-    [selectedFile, authorKeyToId, authorKeyToAge],
+    [selectedFile, personIdToName, personIdToAge],
   )
 
   const isPercent = displayMode === "percentage"
@@ -222,7 +224,7 @@ export function FileAuthorsPanel() {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getRowId: (row) => row.authorKey,
+    getRowId: (row) => row.personId,
   })
 
   const handleListResize = useCallback(

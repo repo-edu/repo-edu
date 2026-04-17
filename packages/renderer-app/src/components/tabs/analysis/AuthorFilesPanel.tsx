@@ -58,10 +58,9 @@ function authorFileBreakdown(
   author: AuthorStats,
   fileStats: FileStats[],
 ): AuthorFileRow[] {
-  const key = `${author.canonicalName}\0${author.canonicalEmail}`
   const rows: AuthorFileRow[] = []
   for (const file of fileStats) {
-    const breakdown = file.authorBreakdown.get(key)
+    const breakdown = file.authorBreakdown.get(author.personId)
     if (!breakdown) continue
     rows.push({
       path: file.path,

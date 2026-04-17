@@ -14,6 +14,7 @@ import type {
   AuthorStats,
   FileStats,
   GitAuthorIdentity,
+  PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
 import {
   bridgeAuthorsToRoster,
@@ -86,7 +87,7 @@ function aggregateStats(
       email: string
       insertions: number
       deletions: number
-      dateSum: number
+      ageInsertionsSum: number
       commitShas: Set<string>
     }
   >()
@@ -235,6 +236,116 @@ function aggregateStats(
 }
 
 // ---------------------------------------------------------------------------
+// Collapse per-identity stats by personId (after PersonDB merge)
+// ---------------------------------------------------------------------------
+
+function collapseStatsByPerson(
+  rawAuthorStats: AuthorStats[],
+  rawFileStats: FileStats[],
+  personDb: PersonDbSnapshot,
+): { authorStats: AuthorStats[]; fileStats: FileStats[] } {
+  const personById = new Map(personDb.persons.map((p) => [p.id, p]))
+
+  const resolvePersonId = (name: string, email: string): string => {
+    const id = personDb.identityIndex.get(toPersonDbIdentityKey(name, email))
+    if (!id) {
+      throw new Error(
+        `PersonDB missing identity for ${name} <${email}> — invariant violated`,
+      )
+    }
+    return id
+  }
+
+  const mergedAuthors = new Map<
+    string,
+    {
+      personId: string
+      canonicalName: string
+      canonicalEmail: string
+      commitShas: Set<string>
+      insertions: number
+      deletions: number
+      ageInsertionsSum: number
+    }
+  >()
+
+  for (const stat of rawAuthorStats) {
+    const personId = resolvePersonId(stat.canonicalName, stat.canonicalEmail)
+    const person = personById.get(personId)
+    const existing = mergedAuthors.get(personId)
+    if (existing) {
+      for (const sha of stat.commitShas) existing.commitShas.add(sha)
+      existing.insertions += stat.insertions
+      existing.deletions += stat.deletions
+      existing.ageInsertionsSum += stat.age * stat.insertions
+      continue
+    }
+    mergedAuthors.set(personId, {
+      personId,
+      canonicalName: person?.canonicalName ?? stat.canonicalName,
+      canonicalEmail: person?.canonicalEmail ?? stat.canonicalEmail,
+      commitShas: new Set(stat.commitShas),
+      insertions: stat.insertions,
+      deletions: stat.deletions,
+      ageInsertionsSum: stat.age * stat.insertions,
+    })
+  }
+
+  const totalInsertions = [...mergedAuthors.values()].reduce(
+    (sum, a) => sum + a.insertions,
+    0,
+  )
+
+  const authorStats: AuthorStats[] = [...mergedAuthors.values()].map((a) => ({
+    personId: a.personId,
+    canonicalName: a.canonicalName,
+    canonicalEmail: a.canonicalEmail,
+    commits: a.commitShas.size,
+    insertions: a.insertions,
+    deletions: a.deletions,
+    lines: 0,
+    linesPercent: 0,
+    insertionsPercent:
+      totalInsertions > 0 ? (100 * a.insertions) / totalInsertions : 0,
+    age: a.insertions > 0 ? a.ageInsertionsSum / a.insertions : 0,
+    commitShas: a.commitShas,
+  }))
+
+  const fileStats: FileStats[] = rawFileStats.map((file) => {
+    const collapsed = new Map<
+      string,
+      {
+        insertions: number
+        deletions: number
+        commits: number
+        commitShas: Set<string>
+      }
+    >()
+    for (const [rawKey, breakdown] of file.authorBreakdown) {
+      const [name = "", email = ""] = rawKey.split("\0")
+      const personId = resolvePersonId(name, email)
+      const existing = collapsed.get(personId)
+      if (existing) {
+        existing.insertions += breakdown.insertions
+        existing.deletions += breakdown.deletions
+        for (const sha of breakdown.commitShas) existing.commitShas.add(sha)
+        existing.commits = existing.commitShas.size
+        continue
+      }
+      collapsed.set(personId, {
+        insertions: breakdown.insertions,
+        deletions: breakdown.deletions,
+        commits: breakdown.commitShas.size,
+        commitShas: new Set(breakdown.commitShas),
+      })
+    }
+    return { ...file, authorBreakdown: collapsed }
+  })
+
+  return { authorStats, fileStats }
+}
+
+// ---------------------------------------------------------------------------
 // Author exclusion (post-merge, Python parity)
 // ---------------------------------------------------------------------------
 
@@ -341,12 +452,8 @@ function applyAuthorExclusions(
     let insertions = 0
     let deletions = 0
 
-    for (const [authorKey, breakdown] of fileStat.authorBreakdown) {
-      const [name = "", email = ""] = authorKey.split("\0")
-      const personId = personDb.identityIndex.get(
-        toPersonDbIdentityKey(name, email),
-      )
-      if (personId && excludedPersonIds.has(personId)) {
+    for (const [personId, breakdown] of fileStat.authorBreakdown) {
+      if (excludedPersonIds.has(personId)) {
         continue
       }
 
@@ -356,7 +463,7 @@ function applyAuthorExclusions(
         commits: breakdown.commitShas.size,
         commitShas: new Set(breakdown.commitShas),
       }
-      authorBreakdown.set(authorKey, nextBreakdown)
+      authorBreakdown.set(personId, nextBreakdown)
       insertions += nextBreakdown.insertions
       deletions += nextBreakdown.deletions
       for (const sha of nextBreakdown.commitShas) {
@@ -674,16 +781,14 @@ export function createAnalysisRunHandler(
           totalFiles,
         })
 
-        const { authorStats, fileStats } = aggregateStats(
-          fileCommitGroupsMap,
-          fileToSubfolderedPath,
-        )
+        const { authorStats: rawAuthorStats, fileStats: rawFileStats } =
+          aggregateStats(fileCommitGroupsMap, fileToSubfolderedPath)
 
         // Phase 7: Build PersonDB from log identities
         const identities: GitAuthorIdentity[] = []
         const commitCounts = new Map<string, number>()
 
-        for (const stat of authorStats) {
+        for (const stat of rawAuthorStats) {
           const key = toPersonDbIdentityKey(
             stat.canonicalName,
             stat.canonicalEmail,
@@ -697,14 +802,13 @@ export function createAnalysisRunHandler(
 
         const personDbBaseline = createPersonDbFromLog(identities, commitCounts)
 
-        // Update personId on author stats
-        for (const stat of authorStats) {
-          const key = toPersonDbIdentityKey(
-            stat.canonicalName,
-            stat.canonicalEmail,
-          )
-          stat.personId = personDbBaseline.identityIndex.get(key) ?? ""
-        }
+        // Collapse per-identity author stats and file breakdowns into one row
+        // per merged person, and re-key breakdowns by personId.
+        const { authorStats, fileStats } = collapseStatsByPerson(
+          rawAuthorStats,
+          rawFileStats,
+          personDbBaseline,
+        )
 
         // Apply author exclusions after merge using canonical + alias matching.
         const filteredStats = applyAuthorExclusions(

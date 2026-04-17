@@ -4,7 +4,7 @@ import type { AnalysisResult } from "@repo-edu/domain/analysis"
 // Schema version — bump to invalidate all cached entries
 // ---------------------------------------------------------------------------
 
-export const ANALYSIS_SCHEMA_VERSION = 1
+export const ANALYSIS_SCHEMA_VERSION = 2
 
 // ---------------------------------------------------------------------------
 // Public interface
