@@ -1,9 +1,15 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
-import type { AnalysisResult } from "@repo-edu/domain/analysis"
+import type {
+  AnalysisResult,
+  BlameResult,
+  FileStats,
+} from "@repo-edu/domain/analysis"
 import {
   buildEffectiveBlameWorkflowConfig,
   selectAuthorDisplayByPersonId,
+  selectBlameMergedAuthorStats,
+  selectBlameMergedFileStats,
   selectFilteredAuthorStats,
   selectFilteredFileStats,
   selectRosterMatchByPersonId,
@@ -276,6 +282,205 @@ function makeBaseResult(): AnalysisResult {
     },
   }
 }
+
+describe("blame-merged selectors", () => {
+  function makeFileStatsWithBreakdown(): FileStats[] {
+    return [
+      {
+        path: "src/a.ts",
+        commits: 2,
+        insertions: 10,
+        deletions: 2,
+        lines: 0,
+        lastModified: 1_700_000_000,
+        commitShas: new Set(["sha-a"]),
+        authorBreakdown: new Map([
+          [
+            "p_0000",
+            {
+              insertions: 7,
+              deletions: 1,
+              commits: 1,
+              lines: 0,
+              commitShas: new Set(["sha-a1"]),
+            },
+          ],
+          [
+            "p_0001",
+            {
+              insertions: 3,
+              deletions: 1,
+              commits: 1,
+              lines: 0,
+              commitShas: new Set(["sha-a2"]),
+            },
+          ],
+        ]),
+      },
+    ]
+  }
+
+  function makeBlameResult(): BlameResult {
+    return {
+      fileBlames: [],
+      authorSummaries: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          lines: 60,
+          linesPercent: 75,
+        },
+        {
+          personId: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          lines: 20,
+          linesPercent: 25,
+        },
+      ],
+      fileSummaries: [
+        {
+          path: "src/a.ts",
+          lines: 80,
+          authorLines: new Map([
+            ["p_0000", 60],
+            ["p_0001", 20],
+          ]),
+        },
+      ],
+      personDbOverlay: { persons: [], identityIndex: new Map() },
+      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
+    }
+  }
+
+  it("passes raw stats through when blameResult is null", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+    store.setResult(result)
+
+    const state = useAnalysisStore.getState()
+    const authors = selectBlameMergedAuthorStats(state)
+    const files = selectBlameMergedFileStats(state)
+
+    assert.equal(authors, result.authorStats)
+    assert.equal(files, result.fileStats)
+  })
+
+  it("fills author and file LOC from blame summaries", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+    store.setResult(result)
+    store.setBlameResult(makeBlameResult())
+
+    const state = useAnalysisStore.getState()
+    const authors = selectBlameMergedAuthorStats(state)
+    const files = selectBlameMergedFileStats(state)
+
+    const alice = authors.find((a) => a.personId === "p_0000")
+    const bob = authors.find((a) => a.personId === "p_0001")
+    assert.equal(alice?.lines, 60)
+    assert.equal(alice?.linesPercent, 75)
+    assert.equal(bob?.lines, 20)
+    assert.equal(bob?.linesPercent, 25)
+
+    const file = files[0]
+    assert.equal(file.lines, 80)
+    assert.equal(file.authorBreakdown.get("p_0000")?.lines, 60)
+    assert.equal(file.authorBreakdown.get("p_0001")?.lines, 20)
+  })
+
+  it("does not mutate source FileStats or its authorBreakdown map", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    const sourceFiles = makeFileStatsWithBreakdown()
+    const retainedFile = sourceFiles[0]
+    const retainedBreakdown = retainedFile.authorBreakdown
+    const retainedEntry = retainedBreakdown.get("p_0000")
+    result.fileStats = sourceFiles
+    store.setResult(result)
+    store.setBlameResult(makeBlameResult())
+
+    const files = selectBlameMergedFileStats(useAnalysisStore.getState())
+    assert.notEqual(files[0], retainedFile)
+    assert.notEqual(files[0].authorBreakdown, retainedBreakdown)
+    assert.notEqual(files[0].authorBreakdown.get("p_0000"), retainedEntry)
+    assert.equal(retainedFile.lines, 0)
+    assert.equal(retainedBreakdown.get("p_0000")?.lines, 0)
+  })
+
+  it("sums author lines across alias entries sharing one personId", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+    store.setResult(result)
+    store.setBlameResult({
+      fileBlames: [],
+      authorSummaries: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          lines: 40,
+          linesPercent: 50,
+        },
+        {
+          personId: "p_0000",
+          canonicalName: "Alice Smith",
+          canonicalEmail: "alice@work.edu",
+          lines: 20,
+          linesPercent: 25,
+        },
+        {
+          personId: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          lines: 20,
+          linesPercent: 25,
+        },
+      ],
+      fileSummaries: [],
+      personDbOverlay: { persons: [], identityIndex: new Map() },
+      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
+    })
+
+    const authors = selectBlameMergedAuthorStats(useAnalysisStore.getState())
+    const alice = authors.find((a) => a.personId === "p_0000")
+    const bob = authors.find((a) => a.personId === "p_0001")
+    assert.equal(alice?.lines, 60)
+    assert.equal(bob?.lines, 20)
+    assert.equal(alice?.linesPercent, 75)
+  })
+
+  it("memoizes on (result, blameResult) and invalidates when blame changes", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+    store.setResult(result)
+    store.setBlameResult(makeBlameResult())
+
+    const first = selectBlameMergedFileStats(useAnalysisStore.getState())
+    const firstAuthors = selectBlameMergedAuthorStats(
+      useAnalysisStore.getState(),
+    )
+    const second = selectBlameMergedFileStats(useAnalysisStore.getState())
+    const secondAuthors = selectBlameMergedAuthorStats(
+      useAnalysisStore.getState(),
+    )
+    assert.equal(first, second)
+    assert.equal(firstAuthors, secondAuthors)
+
+    store.setBlameResult(makeBlameResult())
+    const third = selectBlameMergedFileStats(useAnalysisStore.getState())
+    const thirdAuthors = selectBlameMergedAuthorStats(
+      useAnalysisStore.getState(),
+    )
+    assert.notEqual(first, third)
+    assert.notEqual(firstAuthors, thirdAuthors)
+  })
+})
 
 describe("selectRosterMatchByPersonId", () => {
   it("returns empty map when no result", () => {

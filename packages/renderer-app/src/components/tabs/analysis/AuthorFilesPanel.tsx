@@ -67,7 +67,7 @@ function authorFileBreakdown(
       commits: breakdown.commits,
       insertions: breakdown.insertions,
       deletions: breakdown.deletions,
-      lines: breakdown.insertions - breakdown.deletions,
+      lines: breakdown.lines,
       lastModified: file.lastModified,
     })
   }

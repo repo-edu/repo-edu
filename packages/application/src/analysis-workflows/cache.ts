@@ -43,6 +43,7 @@ type SerializableAuthorBreakdown = {
   insertions: number
   deletions: number
   commits: number
+  lines: number
   commitShas: string[]
 }
 

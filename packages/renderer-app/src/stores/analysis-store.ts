@@ -449,76 +449,178 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
 // Selectors
 // ---------------------------------------------------------------------------
 
+export const selectBlameMergedAuthorStats = (() => {
+  const EMPTY: AuthorStats[] = []
+  let previousResult: AnalysisResult | null = null
+  let previousBlame: BlameResult | null = null
+  let previousValue: AuthorStats[] = EMPTY
+
+  return (state: AnalysisState & AnalysisActions): AuthorStats[] => {
+    const result = state.result
+    const blameResult = state.blameResult
+    if (result === previousResult && blameResult === previousBlame) {
+      return previousValue
+    }
+
+    previousResult = result
+    previousBlame = blameResult
+
+    if (!result) {
+      previousValue = EMPTY
+      return previousValue
+    }
+
+    if (!blameResult) {
+      previousValue = result.authorStats
+      return previousValue
+    }
+
+    const linesByPerson = new Map<string, number>()
+    let totalLines = 0
+    for (const summary of blameResult.authorSummaries) {
+      if (!summary.personId) continue
+      linesByPerson.set(
+        summary.personId,
+        (linesByPerson.get(summary.personId) ?? 0) + summary.lines,
+      )
+      totalLines += summary.lines
+    }
+
+    previousValue = result.authorStats.map((stat) => {
+      const lines = linesByPerson.get(stat.personId) ?? 0
+      const linesPercent = totalLines > 0 ? (100 * lines) / totalLines : 0
+      return { ...stat, lines, linesPercent }
+    })
+    return previousValue
+  }
+})()
+
+export const selectBlameMergedFileStats = (() => {
+  const EMPTY: FileStats[] = []
+  let previousResult: AnalysisResult | null = null
+  let previousBlame: BlameResult | null = null
+  let previousValue: FileStats[] = EMPTY
+
+  return (state: AnalysisState & AnalysisActions): FileStats[] => {
+    const result = state.result
+    const blameResult = state.blameResult
+    if (result === previousResult && blameResult === previousBlame) {
+      return previousValue
+    }
+
+    previousResult = result
+    previousBlame = blameResult
+
+    if (!result) {
+      previousValue = EMPTY
+      return previousValue
+    }
+
+    if (!blameResult) {
+      previousValue = result.fileStats
+      return previousValue
+    }
+
+    const summaryByPath = new Map(
+      blameResult.fileSummaries.map((summary) => [summary.path, summary]),
+    )
+
+    previousValue = result.fileStats.map((file) => {
+      const summary = summaryByPath.get(file.path)
+      const fileLines = summary?.lines ?? 0
+      const authorLines = summary?.authorLines
+
+      const clonedBreakdown = new Map<
+        string,
+        {
+          insertions: number
+          deletions: number
+          commits: number
+          lines: number
+          commitShas: Set<string>
+        }
+      >()
+      for (const [personId, breakdown] of file.authorBreakdown) {
+        clonedBreakdown.set(personId, {
+          ...breakdown,
+          lines: authorLines?.get(personId) ?? 0,
+        })
+      }
+
+      return { ...file, lines: fileLines, authorBreakdown: clonedBreakdown }
+    })
+    return previousValue
+  }
+})()
+
 export const selectFilteredAuthorStats = (() => {
   const EMPTY_AUTHOR_STATS: AuthorStats[] = []
-  let previousResult: AnalysisResult | null = null
+  let previousMerged: AuthorStats[] | null = null
   let previousSelectedAuthors: Set<string> | null = null
   let previousValue: AuthorStats[] = EMPTY_AUTHOR_STATS
 
   return (state: AnalysisState & AnalysisActions): AuthorStats[] => {
-    const result = state.result
+    const merged = selectBlameMergedAuthorStats(state)
     const selectedAuthors = state.selectedAuthors
     if (
-      result === previousResult &&
+      merged === previousMerged &&
       selectedAuthors === previousSelectedAuthors
     ) {
       return previousValue
     }
 
-    previousResult = result
+    previousMerged = merged
     previousSelectedAuthors = selectedAuthors
 
-    if (!result) {
+    if (merged.length === 0) {
       previousValue = EMPTY_AUTHOR_STATS
       return previousValue
     }
 
-    const { authorStats } = result
     if (selectedAuthors.size === 0) {
-      previousValue = authorStats
+      previousValue = merged
       return previousValue
     }
 
-    previousValue = authorStats.filter((a) => selectedAuthors.has(a.personId))
+    previousValue = merged.filter((a) => selectedAuthors.has(a.personId))
     return previousValue
   }
 })()
 
 export const selectFilteredFileStats = (() => {
   const EMPTY_FILE_STATS: FileStats[] = []
-  let previousResult: AnalysisResult | null = null
+  let previousMerged: FileStats[] | null = null
   let previousFileSelectionMode: AnalysisFileSelectionMode | null = null
   let previousSelectedFiles: Set<string> | null = null
   let previousValue: FileStats[] = EMPTY_FILE_STATS
 
   return (state: AnalysisState & AnalysisActions): FileStats[] => {
-    const result = state.result
+    const merged = selectBlameMergedFileStats(state)
     const fileSelectionMode = state.fileSelectionMode
     const selectedFiles = state.selectedFiles
     if (
-      result === previousResult &&
+      merged === previousMerged &&
       fileSelectionMode === previousFileSelectionMode &&
       selectedFiles === previousSelectedFiles
     ) {
       return previousValue
     }
 
-    previousResult = result
+    previousMerged = merged
     previousFileSelectionMode = fileSelectionMode
     previousSelectedFiles = selectedFiles
 
-    if (!result) {
+    if (merged.length === 0) {
       previousValue = EMPTY_FILE_STATS
       return previousValue
     }
 
-    const { fileStats } = result
     if (fileSelectionMode === "all") {
-      previousValue = fileStats
+      previousValue = merged
       return previousValue
     }
 
-    previousValue = fileStats.filter((f) => selectedFiles.has(f.path))
+    previousValue = merged.filter((f) => selectedFiles.has(f.path))
     return previousValue
   }
 })()

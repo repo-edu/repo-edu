@@ -9,6 +9,7 @@ import type {
 import type {
   AnalysisBlameConfig,
   BlameAuthorSummary,
+  BlameFileSummary,
   BlameResult,
   FileBlame,
   PersonDbDelta,
@@ -273,6 +274,7 @@ export function createAnalysisBlameHandler(
           return {
             fileBlames: [],
             authorSummaries: [],
+            fileSummaries: [],
             personDbOverlay: snapshot,
             delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
           }
@@ -379,11 +381,18 @@ export function createAnalysisBlameHandler(
           string,
           { name: string; email: string; lines: number }
         >()
+        const fileLineMap = new Map<string, number>()
+        const fileAuthorLineMap = new Map<
+          string,
+          Map<string, { name: string; email: string; lines: number }>
+        >()
         let totalLines = 0
 
         for (const blame of rawBlames) {
           if (blame.lines.length === 0) {
             fileBlames.push(blame)
+            fileLineMap.set(blame.path, 0)
+            fileAuthorLineMap.set(blame.path, new Map())
             continue
           }
 
@@ -440,6 +449,13 @@ export function createAnalysisBlameHandler(
             ...blameResult.delta.relinkedIdentities,
           )
 
+          let fileAuthors = fileAuthorLineMap.get(blame.path)
+          if (!fileAuthors) {
+            fileAuthors = new Map()
+            fileAuthorLineMap.set(blame.path, fileAuthors)
+          }
+          let fileLineTotal = fileLineMap.get(blame.path) ?? 0
+
           for (const line of filteredLines) {
             const key = `${line.authorName}\0${line.authorEmail}`
             const existing = authorLineMap.get(key)
@@ -452,8 +468,22 @@ export function createAnalysisBlameHandler(
                 lines: 1,
               })
             }
+
+            const fileAuthorEntry = fileAuthors.get(key)
+            if (fileAuthorEntry) {
+              fileAuthorEntry.lines++
+            } else {
+              fileAuthors.set(key, {
+                name: line.authorName,
+                email: line.authorEmail,
+                lines: 1,
+              })
+            }
+            fileLineTotal++
             totalLines++
           }
+
+          fileLineMap.set(blame.path, fileLineTotal)
         }
 
         // Phase 4: Compute author summaries from blame
@@ -470,6 +500,26 @@ export function createAnalysisBlameHandler(
           linesPercent: totalLines > 0 ? (100 * stat.lines) / totalLines : 0,
         }))
 
+        const fileSummaries: BlameFileSummary[] = [
+          ...fileLineMap.entries(),
+        ].map(([path, lines]) => {
+          const authorLines = new Map<string, number>()
+          const rawAuthorLines = fileAuthorLineMap.get(path)
+          if (rawAuthorLines) {
+            for (const stat of rawAuthorLines.values()) {
+              const personId = personDb.identityIndex.get(
+                toPersonDbIdentityKey(stat.name, stat.email),
+              )
+              if (!personId) continue
+              authorLines.set(
+                personId,
+                (authorLines.get(personId) ?? 0) + stat.lines,
+              )
+            }
+          }
+          return { path, lines, authorLines }
+        })
+
         options?.onProgress?.({
           phase: "done",
           label: "Blame analysis complete.",
@@ -480,6 +530,7 @@ export function createAnalysisBlameHandler(
         return {
           fileBlames,
           authorSummaries,
+          fileSummaries,
           personDbOverlay: personDb,
           delta: accumulatedDelta,
         }

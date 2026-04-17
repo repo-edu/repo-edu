@@ -22,16 +22,18 @@ import {
   selectFilteredFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import { formatAge, formatCount } from "../../../utils/analysis-format.js"
+import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { FileCharts } from "./charts/FileCharts.js"
 import { FileFilterControls } from "./FileFilterControls.js"
+import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 export function FilePanel() {
   const result = useAnalysisStore((s) => s.result)
   const fileStats = useAnalysisStore(selectFilteredFileStats)
   const authorStats = result?.authorStats ?? []
+  const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
   const showInsertions = useAnalysisStore((s) => s.showInsertions)
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
@@ -41,9 +43,30 @@ export function FilePanel() {
   const activeBlameFile = useAnalysisStore((s) => s.activeBlameFile)
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
+  const isPercent = displayMode === "percentage"
+
+  const totals = useMemo<MetricTotals>(
+    () => ({
+      commits: fileStats.reduce((sum, f) => sum + f.commits, 0),
+      insertions: fileStats.reduce((sum, f) => sum + f.insertions, 0),
+      deletions: fileStats.reduce((sum, f) => sum + f.deletions, 0),
+      linesOfCode: fileStats.reduce((sum, f) => sum + f.lines, 0),
+    }),
+    [fileStats],
+  )
+
   const [sorting, setSorting] = useState<SortingState>([
     { id: "linesOfCode", desc: true },
   ])
+
+  const metricColumns = useMetricColumns<FileStats>({
+    totals,
+    isPercent,
+    showLinesOfCode,
+    showCommits,
+    showInsertions,
+    showDeletions,
+  })
 
   const columns = useMemo<ColumnDef<FileStats>[]>(() => {
     const cols: ColumnDef<FileStats>[] = [
@@ -62,71 +85,8 @@ export function FilePanel() {
           <span className="truncate text-xs">{row.original.path}</span>
         ),
       },
+      ...metricColumns,
     ]
-
-    if (showLinesOfCode) {
-      cols.push({
-        id: "linesOfCode",
-        accessorFn: (row) => row.lines,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Lines of Code"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatCount(row.original.lines),
-      })
-    }
-
-    if (showCommits) {
-      cols.push({
-        id: "commits",
-        accessorFn: (row) => row.commits,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Commits"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatCount(row.original.commits),
-      })
-    }
-
-    if (showInsertions) {
-      cols.push({
-        id: "insertions",
-        accessorFn: (row) => row.insertions,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Insertions"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatCount(row.original.insertions),
-      })
-    }
-
-    if (showDeletions) {
-      cols.push({
-        id: "deletions",
-        accessorFn: (row) => row.deletions,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Deletions"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatCount(row.original.deletions),
-      })
-    }
 
     if (showAge) {
       cols.push({
@@ -146,7 +106,7 @@ export function FilePanel() {
     }
 
     return cols
-  }, [showAge, showCommits, showInsertions, showDeletions, showLinesOfCode])
+  }, [metricColumns, showAge])
 
   const table = useReactTable({
     data: fileStats,
@@ -185,41 +145,59 @@ export function FilePanel() {
             ))}
           </DataTableHeader>
           <DataTableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {fileStats.length === 0 ? (
               <DataTableEmptyRow
                 colSpan={columns.length}
                 message="No file data."
               />
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <DataTableRow
-                  key={row.id}
-                  className={`group cursor-pointer ${
-                    activeBlameFile === row.original.path ? "bg-primary/5" : ""
-                  }`}
-                  onClick={() => openFileForBlame(row.original.path)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <DataTableCell
-                      key={cell.id}
-                      className={
-                        cell.column.id === "path"
-                          ? `sticky left-0 z-10 ${
-                              activeBlameFile === row.original.path
-                                ? "bg-primary/5"
-                                : "bg-background group-hover:bg-muted/50"
-                            }`
-                          : ""
-                      }
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+              <>
+                <MetricTotalsRow
+                  leading={
+                    <DataTableCell className="sticky left-0 z-10 bg-background">
+                      All files
                     </DataTableCell>
-                  ))}
-                </DataTableRow>
-              ))
+                  }
+                  trailing={showAge ? <DataTableCell /> : null}
+                  totals={totals}
+                  isPercent={isPercent}
+                  showCommits={showCommits}
+                  showInsertions={showInsertions}
+                  showDeletions={showDeletions}
+                  showLinesOfCode={showLinesOfCode}
+                />
+                {table.getRowModel().rows.map((row) => (
+                  <DataTableRow
+                    key={row.id}
+                    className={`group cursor-pointer ${
+                      activeBlameFile === row.original.path
+                        ? "bg-primary/5"
+                        : ""
+                    }`}
+                    onClick={() => openFileForBlame(row.original.path)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <DataTableCell
+                        key={cell.id}
+                        className={
+                          cell.column.id === "path"
+                            ? `sticky left-0 z-10 ${
+                                activeBlameFile === row.original.path
+                                  ? "bg-primary/5"
+                                  : "bg-background group-hover:bg-muted/50"
+                              }`
+                            : ""
+                        }
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </DataTableCell>
+                    ))}
+                  </DataTableRow>
+                ))}
+              </>
             )}
           </DataTableBody>
         </DataTable>

@@ -87,7 +87,7 @@ function aggregateStats(
       email: string
       insertions: number
       deletions: number
-      ageInsertionsSum: number
+      dateSum: number
       commitShas: Set<string>
     }
   >()
@@ -106,6 +106,7 @@ function aggregateStats(
           insertions: number
           deletions: number
           commits: number
+          lines: number
           commitShas: Set<string>
         }
       >
@@ -172,6 +173,7 @@ function aggregateStats(
           insertions: 0,
           deletions: 0,
           commits: 0,
+          lines: 0,
           commitShas: new Set(),
         })
       }
@@ -203,8 +205,8 @@ function aggregateStats(
         commits: stat.commitShas.size,
         insertions: stat.insertions,
         deletions: stat.deletions,
-        lines: 0, // filled from blame
-        linesPercent: 0, // filled from blame
+        lines: 0,
+        linesPercent: 0,
         insertionsPercent:
           totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
         age,
@@ -225,7 +227,7 @@ function aggregateStats(
       commits: stat.commitShas.size,
       insertions: stat.insertions,
       deletions: stat.deletions,
-      lines: 0, // filled from blame
+      lines: 0,
       lastModified: stat.lastModified,
       commitShas: stat.commitShas,
       authorBreakdown: stat.authorBreakdown,
@@ -318,6 +320,7 @@ function collapseStatsByPerson(
         insertions: number
         deletions: number
         commits: number
+        lines: number
         commitShas: Set<string>
       }
     >()
@@ -336,6 +339,7 @@ function collapseStatsByPerson(
         insertions: breakdown.insertions,
         deletions: breakdown.deletions,
         commits: breakdown.commitShas.size,
+        lines: 0,
         commitShas: new Set(breakdown.commitShas),
       })
     }
@@ -445,6 +449,7 @@ function applyAuthorExclusions(
         insertions: number
         deletions: number
         commits: number
+        lines: number
         commitShas: Set<string>
       }
     >()
@@ -461,6 +466,7 @@ function applyAuthorExclusions(
         insertions: breakdown.insertions,
         deletions: breakdown.deletions,
         commits: breakdown.commitShas.size,
+        lines: 0,
         commitShas: new Set(breakdown.commitShas),
       }
       authorBreakdown.set(personId, nextBreakdown)

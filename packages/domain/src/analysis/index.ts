@@ -30,6 +30,7 @@ export type {
   AuthorDailyActivity,
   AuthorStats,
   BlameAuthorSummary,
+  BlameFileSummary,
   BlameLine,
   BlameResult,
   FileBlame,

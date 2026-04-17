@@ -680,6 +680,121 @@ describe("analysis.blame handler", () => {
     assert.equal(result.fileBlames[0].path, "main.ts")
   })
 
+  it("builds per-file summaries with per-author line counts resolved through personDb", async () => {
+    const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    const blameMain = [
+      `${oid} 1 1 2`,
+      "author Alice",
+      "author-mail <alice@example.com>",
+      "author-time 1700000000",
+      "author-tz +0000",
+      "committer Alice",
+      "committer-mail <alice@example.com>",
+      "committer-time 1700000000",
+      "committer-tz +0000",
+      "summary Init",
+      "filename src/main.ts",
+      "\tconst x = 1",
+      `${oid} 2 2`,
+      "filename src/main.ts",
+      "\tconst y = 2",
+    ].join("\n")
+
+    const bobOid = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    const blameUtil = [
+      `${oid} 1 1 1`,
+      "author Alice",
+      "author-mail <alice@example.com>",
+      "author-time 1700000000",
+      "author-tz +0000",
+      "committer Alice",
+      "committer-mail <alice@example.com>",
+      "committer-time 1700000000",
+      "committer-tz +0000",
+      "summary Init",
+      "filename src/util.ts",
+      "\tconst a = 1",
+      `${bobOid} 2 2 2`,
+      "author Bob",
+      "author-mail <bob@example.com>",
+      "author-time 1700000100",
+      "author-tz +0000",
+      "committer Bob",
+      "committer-mail <bob@example.com>",
+      "committer-time 1700000100",
+      "committer-tz +0000",
+      "summary More",
+      "filename src/util.ts",
+      "\tconst b = 2",
+      `${bobOid} 3 3`,
+      "filename src/util.ts",
+      "\tconst c = 3",
+    ].join("\n")
+
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        const args = request.args.join(" ")
+        if (args.startsWith("rev-parse --git-dir")) {
+          return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
+        }
+        if (args.startsWith("rev-parse --verify")) {
+          return {
+            exitCode: 0,
+            stdout: "resolved-oid",
+            stderr: "",
+            signal: null,
+          }
+        }
+        if (args.startsWith("cat-file")) {
+          return { exitCode: 1, stdout: "", stderr: "", signal: null }
+        }
+        if (args.includes("src/main.ts")) {
+          return { exitCode: 0, stdout: blameMain, stderr: "", signal: null }
+        }
+        if (args.includes("src/util.ts")) {
+          return { exitCode: 0, stdout: blameUtil, stderr: "", signal: null }
+        }
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.blame"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: {},
+      personDbBaseline: { persons: [], identityIndex: new Map() },
+      files: ["src/main.ts", "src/util.ts"],
+      asOfCommit: "abc123",
+    })
+
+    assert.equal(result.fileSummaries.length, 2)
+
+    const main = result.fileSummaries.find((f) => f.path === "src/main.ts")
+    const util = result.fileSummaries.find((f) => f.path === "src/util.ts")
+    assert.ok(main)
+    assert.ok(util)
+    assert.equal(main.lines, 2)
+    assert.equal(util.lines, 3)
+
+    const alice = result.authorSummaries.find(
+      (s) => s.canonicalName === "Alice",
+    )
+    const bob = result.authorSummaries.find((s) => s.canonicalName === "Bob")
+    assert.ok(alice && alice.personId.length > 0)
+    assert.ok(bob && bob.personId.length > 0)
+
+    assert.equal(main.authorLines.get(alice.personId), 2)
+    assert.equal(main.authorLines.has(bob.personId), false)
+    assert.equal(util.authorLines.get(alice.personId), 1)
+    assert.equal(util.authorLines.get(bob.personId), 2)
+  })
+
   it("fails instead of silently swallowing git blame command errors", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({

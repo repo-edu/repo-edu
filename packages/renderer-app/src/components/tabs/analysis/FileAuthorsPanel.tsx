@@ -67,7 +67,7 @@ function fileAuthorBreakdown(
       commits: breakdown.commits,
       insertions: breakdown.insertions,
       deletions: breakdown.deletions,
-      lines: breakdown.insertions - breakdown.deletions,
+      lines: breakdown.lines,
       age: personIdToAge.get(personId) ?? 0,
     })
   }

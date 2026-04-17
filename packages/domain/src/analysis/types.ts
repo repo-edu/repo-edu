@@ -54,6 +54,7 @@ export type FileStats = {
       insertions: number
       deletions: number
       commits: number
+      lines: number
       commitShas: Set<string>
     }
   >
@@ -84,6 +85,12 @@ export type BlameAuthorSummary = {
   canonicalEmail: string
   lines: number
   linesPercent: number
+}
+
+export type BlameFileSummary = {
+  path: string
+  lines: number
+  authorLines: Map<string, number>
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +190,7 @@ export type AnalysisResult = {
 export type BlameResult = {
   fileBlames: FileBlame[]
   authorSummaries: BlameAuthorSummary[]
+  fileSummaries: BlameFileSummary[]
   personDbOverlay: PersonDbSnapshot
   delta: PersonDbDelta
 }
