@@ -38,7 +38,7 @@ export function FilePanel() {
   const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
   const showAge = useAnalysisStore((s) => s.showAge)
   const chartMetric = useAnalysisStore((s) => s.chartMetric)
-  const blameTargetFiles = useAnalysisStore((s) => s.blameTargetFiles)
+  const activeBlameFile = useAnalysisStore((s) => s.activeBlameFile)
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const [sorting, setSorting] = useState<SortingState>([
@@ -195,9 +195,7 @@ export function FilePanel() {
                 <DataTableRow
                   key={row.id}
                   className={`group cursor-pointer ${
-                    blameTargetFiles.includes(row.original.path)
-                      ? "bg-primary/5"
-                      : ""
+                    activeBlameFile === row.original.path ? "bg-primary/5" : ""
                   }`}
                   onClick={() => openFileForBlame(row.original.path)}
                 >
@@ -207,7 +205,7 @@ export function FilePanel() {
                       className={
                         cell.column.id === "path"
                           ? `sticky left-0 z-10 ${
-                              blameTargetFiles.includes(row.original.path)
+                              activeBlameFile === row.original.path
                                 ? "bg-primary/5"
                                 : "bg-background group-hover:bg-muted/50"
                             }`

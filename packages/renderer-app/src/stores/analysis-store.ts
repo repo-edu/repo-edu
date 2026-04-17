@@ -235,27 +235,33 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setConfig: (patch) =>
       set((state) => {
         const nextConfig = { ...state.config, ...patch }
-        const enablingBlameSkip =
-          patch.blameSkip === true &&
-          (state.config.blameSkip ?? false) === false
+        const previousBlameSkip = state.config.blameSkip ?? false
+        const nextBlameSkip = nextConfig.blameSkip ?? false
 
-        if (!enablingBlameSkip) {
-          return { config: nextConfig }
+        if (!previousBlameSkip && nextBlameSkip) {
+          return {
+            config: nextConfig,
+            blameResult: null,
+            blameTargetFiles: [],
+            blameFileResults: new Map(),
+            activeBlameFile: null,
+            blameWorkflowStatus: "idle",
+            blameProgress: null,
+            blameErrorMessage: null,
+            blameContextSnapshot: null,
+            activeView:
+              state.activeView === "blame" ? "authors" : state.activeView,
+          }
         }
 
-        return {
-          config: nextConfig,
-          blameResult: null,
-          blameTargetFiles: [],
-          blameFileResults: new Map(),
-          activeBlameFile: null,
-          blameWorkflowStatus: "idle",
-          blameProgress: null,
-          blameErrorMessage: null,
-          blameContextSnapshot: null,
-          activeView:
-            state.activeView === "blame" ? "authors" : state.activeView,
+        if (previousBlameSkip && !nextBlameSkip && state.result) {
+          return {
+            config: nextConfig,
+            blameTargetFiles: state.result.fileStats.map((f) => f.path),
+          }
         }
+
+        return { config: nextConfig }
       }),
 
     setSelectedRepoPath: (path) => set({ selectedRepoPath: path }),
@@ -270,10 +276,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({ lastDiscoveryOutcome }),
 
     setResult: (result) =>
-      set({
+      set((state) => ({
         result,
         blameResult: null,
-        blameTargetFiles: [],
+        blameTargetFiles:
+          result && !(state.config.blameSkip ?? false)
+            ? result.fileStats.map((f) => f.path)
+            : [],
         blameFileResults: new Map(),
         activeBlameFile: null,
         blameWorkflowStatus: "idle",
@@ -285,7 +294,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         selectedFiles: new Set(),
         focusedFilePath: null,
         asOfCommit: result?.resolvedAsOfOid ?? "",
-      }),
+      })),
     setBlameResult: (blameResult) => set({ blameResult }),
     openFileForBlame: (path) =>
       set((state) => {
@@ -293,8 +302,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           return state
         }
         return {
-          // Single-file blame selection; previous file results remain cached.
-          blameTargetFiles: [path],
           activeBlameFile: path,
           focusedFilePath: path,
           activeView: "blame",

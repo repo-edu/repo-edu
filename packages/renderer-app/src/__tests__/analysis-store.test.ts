@@ -55,8 +55,37 @@ describe("analysis store", () => {
     assert.equal(merged.ignoreRevsFile, false)
   })
 
-  it("keeps a single active blame target while retaining cached results", () => {
+  it("seeds blame queue from result and focuses active file on click", () => {
     const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = [
+      {
+        path: "src/a.ts",
+        commits: 1,
+        insertions: 10,
+        deletions: 2,
+        lines: 8,
+        lastModified: 1_700_000_000,
+        commitShas: new Set(["sha-a"]),
+        authorBreakdown: new Map(),
+      },
+      {
+        path: "src/b.ts",
+        commits: 1,
+        insertions: 12,
+        deletions: 3,
+        lines: 9,
+        lastModified: 1_700_000_100,
+        commitShas: new Set(["sha-b"]),
+        authorBreakdown: new Map(),
+      },
+    ]
+    store.setResult(result)
+
+    let state = useAnalysisStore.getState()
+    assert.deepEqual(state.blameTargetFiles, ["src/a.ts", "src/b.ts"])
+    assert.equal(state.activeBlameFile, null)
+
     store.openFileForBlame("src/a.ts")
     store.setBlameFileResult("src/a.ts", {
       status: "loaded",
@@ -70,11 +99,37 @@ describe("analysis store", () => {
       errorMessage: null,
     })
 
-    const state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, ["src/b.ts"])
+    state = useAnalysisStore.getState()
+    assert.deepEqual(state.blameTargetFiles, ["src/a.ts", "src/b.ts"])
     assert.equal(state.activeBlameFile, "src/b.ts")
     assert.equal(state.blameFileResults.has("src/a.ts"), true)
     assert.equal(state.blameFileResults.has("src/b.ts"), true)
+  })
+
+  it("seeds blame queue when blameSkip is disabled after a result", () => {
+    const store = useAnalysisStore.getState()
+    store.setConfig({ blameSkip: true })
+    const result = makeBaseResult()
+    result.fileStats = [
+      {
+        path: "src/a.ts",
+        commits: 1,
+        insertions: 10,
+        deletions: 2,
+        lines: 8,
+        lastModified: 1_700_000_000,
+        commitShas: new Set(["sha-a"]),
+        authorBreakdown: new Map(),
+      },
+    ]
+    store.setResult(result)
+
+    let state = useAnalysisStore.getState()
+    assert.deepEqual(state.blameTargetFiles, [])
+
+    store.setConfig({ blameSkip: false })
+    state = useAnalysisStore.getState()
+    assert.deepEqual(state.blameTargetFiles, ["src/a.ts"])
   })
 
   it("clears blame state when blameSkip is enabled", () => {

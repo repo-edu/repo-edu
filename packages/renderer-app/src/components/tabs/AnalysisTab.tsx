@@ -29,6 +29,7 @@ import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
 import { FileAuthorsPanel } from "./analysis/FileAuthorsPanel.js"
 import { FilePanel } from "./analysis/FilePanel.js"
+import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
   const value = size ?? ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX
@@ -64,6 +65,8 @@ export function AnalysisTab() {
       setActiveView("authors")
     }
   }, [blameSkip, activeView, setActiveView])
+
+  useBlameAutoRun()
 
   const handleSidebarResize = useCallback(
     (

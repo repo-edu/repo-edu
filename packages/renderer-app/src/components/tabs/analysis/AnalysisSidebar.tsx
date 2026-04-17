@@ -335,6 +335,14 @@ export function AnalysisSidebar() {
     if (result) setOpenFolders(new Set())
   }, [result])
 
+  useEffect(() => {
+    if (activeView !== "blame") return
+    setSections((prev) => (prev.files ? prev : { ...prev, files: true }))
+    if (fileViewMode === "tree") {
+      setOpenFolders(new Set(allFolderNames))
+    }
+  }, [activeView, fileViewMode, allFolderNames])
+
   const effectiveFileSelection = useMemo(() => {
     if (fileSelectionMode === "all") return new Set(sortedFilePaths)
     return selectedFiles
