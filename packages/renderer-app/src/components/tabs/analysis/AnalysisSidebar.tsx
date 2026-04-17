@@ -268,7 +268,11 @@ export function AnalysisSidebar() {
     if (!analysisSidebar) return
     lastPersistedSnapshotRef.current = serializeSidebarSettings(analysisSidebar)
     hydrateFromPersistedSettings(analysisSidebar)
-    setSections({ ...allSectionsOpen(), ...analysisSidebar.sectionState })
+    setSections({
+      ...allSectionsOpen(),
+      ...analysisSidebar.sectionState,
+      repositories: true,
+    })
     setFileViewMode(analysisSidebar.fileViewMode)
     setFileSortMode(analysisSidebar.fileSortMode)
   }, [settingsStatus, analysisSidebar, hydrateFromPersistedSettings])
@@ -363,14 +367,6 @@ export function AnalysisSidebar() {
     if (result) setOpenFolders(new Set())
   }, [result])
 
-  useEffect(() => {
-    if (activeView !== "blame") return
-    setSections((prev) => (prev.files ? prev : { ...prev, files: true }))
-    if (fileViewMode === "tree") {
-      setOpenFolders(new Set(allFolderNames))
-    }
-  }, [activeView, fileViewMode, allFolderNames])
-
   const effectiveFileSelection = useMemo(() => {
     if (fileSelectionMode === "all") return new Set(sortedFilePaths)
     return selectedFiles
@@ -392,6 +388,28 @@ export function AnalysisSidebar() {
     },
     [openFileForBlame, setFocusedFilePath],
   )
+
+  useEffect(() => {
+    if (activeView !== "blame") return
+    setSections((prev) => (prev.files ? prev : { ...prev, files: true }))
+    if (fileViewMode === "tree") {
+      setOpenFolders(new Set(allFolderNames))
+    }
+    if (
+      fileViewMode === "list" &&
+      !focusedFilePath &&
+      listFilePaths.length > 0
+    ) {
+      handleFileClick(listFilePaths[0])
+    }
+  }, [
+    activeView,
+    fileViewMode,
+    allFolderNames,
+    focusedFilePath,
+    listFilePaths,
+    handleFileClick,
+  ])
 
   const expandAllFolders = useCallback(
     () => setOpenFolders(new Set(allFolderNames)),

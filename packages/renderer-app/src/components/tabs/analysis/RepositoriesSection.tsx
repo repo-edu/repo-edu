@@ -37,6 +37,7 @@ export function RepositoriesToolbar({
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
+  const searchFolder = useAnalysisStore((s) => s.searchFolder)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
 
   return (
@@ -69,20 +70,22 @@ export function RepositoriesToolbar({
             </TooltipTrigger>
             <TooltipContent side="bottom">Collapse all</TooltipContent>
           </Tooltip>
-          <Tooltip key={`browse-toolbar-${browseTooltipKey}`}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6 shrink-0"
-                onClick={onBrowse}
-              >
-                <FolderOpen className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Change search folder</TooltipContent>
-          </Tooltip>
         </>
+      )}
+      {searchFolder !== null && (
+        <Tooltip key={`browse-toolbar-${browseTooltipKey}`}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0"
+              onClick={onBrowse}
+            >
+              <FolderOpen className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Change search folder</TooltipContent>
+        </Tooltip>
       )}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -146,7 +149,7 @@ export function RepositoriesSection({
 
   return (
     <>
-      {discoveredRepos.length > 0 ? (
+      {searchFolder !== null ? (
         <div className="flex flex-col gap-0.5">
           <Tooltip key={`browse-folder-${browseTooltipKey}`}>
             <TooltipTrigger asChild>
@@ -154,6 +157,7 @@ export function RepositoriesSection({
                 type="button"
                 className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
                 onClick={onBrowse}
+                title={searchFolder}
               >
                 <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
                 <span className="truncate font-medium">{searchFolderName}</span>
@@ -161,27 +165,29 @@ export function RepositoriesSection({
             </TooltipTrigger>
             <TooltipContent side="bottom">Change search folder</TooltipContent>
           </Tooltip>
-          <RepoTreeProvider
-            value={{
-              openFolders: openRepoFolders,
-              toggleFolderOpen: toggleRepoFolderOpen,
-              selectedRepoPath,
-              repoPathByRelative,
-              onRepoClick: handleSelectRepo,
-            }}
-          >
-            <div className="ml-4 flex flex-col gap-0.5">
-              {repoTree.children.map((child) => (
-                <RepoFolderNode key={child.path} node={child} />
-              ))}
-              {repoTree.files.map((relativePath) => (
-                <RepoLeafButton
-                  key={relativePath}
-                  relativePath={relativePath}
-                />
-              ))}
-            </div>
-          </RepoTreeProvider>
+          {discoveredRepos.length > 0 && (
+            <RepoTreeProvider
+              value={{
+                openFolders: openRepoFolders,
+                toggleFolderOpen: toggleRepoFolderOpen,
+                selectedRepoPath,
+                repoPathByRelative,
+                onRepoClick: handleSelectRepo,
+              }}
+            >
+              <div className="ml-4 flex flex-col gap-0.5">
+                {repoTree.children.map((child) => (
+                  <RepoFolderNode key={child.path} node={child} />
+                ))}
+                {repoTree.files.map((relativePath) => (
+                  <RepoLeafButton
+                    key={relativePath}
+                    relativePath={relativePath}
+                  />
+                ))}
+              </div>
+            </RepoTreeProvider>
+          )}
         </div>
       ) : (
         <button
