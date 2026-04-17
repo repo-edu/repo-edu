@@ -36,7 +36,6 @@ export type AuthorStats = {
   lines: number
   linesPercent: number
   insertionsPercent: number
-  stability: number
   age: number
   commitShas: Set<string>
 }
@@ -47,7 +46,6 @@ export type FileStats = {
   insertions: number
   deletions: number
   lines: number
-  stability: number
   lastModified: number
   commitShas: Set<string>
   authorBreakdown: Map<

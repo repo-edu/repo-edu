@@ -159,7 +159,11 @@ export function FileFilterControls() {
                     )}
                     <span className="truncate">{group.folder}</span>
                     <span className="text-muted-foreground">
-                      ({selectedCount}/{group.paths.length})
+                      (
+                      {selectedCount === group.paths.length
+                        ? group.paths.length
+                        : `${selectedCount}/${group.paths.length}`}
+                      )
                     </span>
                   </CollapsibleTrigger>
                   <Button

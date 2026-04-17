@@ -22,11 +22,7 @@ import {
   selectFilteredFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import {
-  formatCount,
-  formatPercent,
-  formatRelativeTime,
-} from "../../../utils/analysis-format.js"
+import { formatAge, formatCount } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { FileCharts } from "./charts/FileCharts.js"
@@ -36,13 +32,17 @@ export function FilePanel() {
   const result = useAnalysisStore((s) => s.result)
   const fileStats = useAnalysisStore(selectFilteredFileStats)
   const authorStats = result?.authorStats ?? []
-  const activeMetric = useAnalysisStore((s) => s.activeMetric)
+  const showCommits = useAnalysisStore((s) => s.showCommits)
+  const showInsertions = useAnalysisStore((s) => s.showInsertions)
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
+  const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
+  const showAge = useAnalysisStore((s) => s.showAge)
+  const chartMetric = useAnalysisStore((s) => s.chartMetric)
   const blameTargetFiles = useAnalysisStore((s) => s.blameTargetFiles)
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "lines", desc: true },
+    { id: "linesOfCode", desc: true },
   ])
 
   const columns = useMemo<ColumnDef<FileStats>[]>(() => {
@@ -62,7 +62,26 @@ export function FilePanel() {
           <span className="truncate text-xs">{row.original.path}</span>
         ),
       },
-      {
+    ]
+
+    if (showLinesOfCode) {
+      cols.push({
+        id: "linesOfCode",
+        accessorFn: (row) => row.lines,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Lines of Code"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => column.toggleSorting()}
+          />
+        ),
+        cell: ({ row }) => formatCount(row.original.lines),
+      })
+    }
+
+    if (showCommits) {
+      cols.push({
         id: "commits",
         accessorFn: (row) => row.commits,
         header: ({ column }) => (
@@ -74,8 +93,11 @@ export function FilePanel() {
           />
         ),
         cell: ({ row }) => formatCount(row.original.commits),
-      },
-      {
+      })
+    }
+
+    if (showInsertions) {
+      cols.push({
         id: "insertions",
         accessorFn: (row) => row.insertions,
         header: ({ column }) => (
@@ -87,8 +109,8 @@ export function FilePanel() {
           />
         ),
         cell: ({ row }) => formatCount(row.original.insertions),
-      },
-    ]
+      })
+    }
 
     if (showDeletions) {
       cols.push({
@@ -106,54 +128,25 @@ export function FilePanel() {
       })
     }
 
-    cols.push(
-      {
-        id: "lines",
-        accessorFn: (row) => row.lines,
+    if (showAge) {
+      cols.push({
+        id: "age",
+        accessorFn: (row) => -row.lastModified,
         header: ({ column }) => (
           <SortHeaderButton
-            label="Lines"
+            label="Age"
             canSort={column.getCanSort()}
             sorted={column.getIsSorted()}
             onToggle={() => column.toggleSorting()}
           />
         ),
-        cell: ({ row }) => formatCount(row.original.lines),
-      },
-      {
-        id: "stability",
-        accessorFn: (row) => row.stability,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Stability"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatPercent(row.original.stability),
-      },
-      {
-        id: "lastModified",
-        accessorFn: (row) => row.lastModified,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Last Modified"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-xs">
-            {formatRelativeTime(row.original.lastModified)}
-          </span>
-        ),
-      },
-    )
+        cell: ({ row }) =>
+          formatAge(Date.now() / 1000 - row.original.lastModified),
+      })
+    }
 
     return cols
-  }, [showDeletions])
+  }, [showAge, showCommits, showInsertions, showDeletions, showLinesOfCode])
 
   const table = useReactTable({
     data: fileStats,
@@ -179,7 +172,7 @@ export function FilePanel() {
       <div className="flex-1 min-h-0 overflow-auto">
         <DataTable stickyHeader>
           <DataTableHeader>
-            {table.getHeaderGroups()[0].headers.map((header) => (
+            {(table.getHeaderGroups()[0]?.headers ?? []).map((header) => (
               <DataTableHead
                 key={header.id}
                 className={header.id === "path" ? "sticky left-0 z-20" : ""}
@@ -235,7 +228,7 @@ export function FilePanel() {
         <FileCharts
           fileStats={fileStats}
           authorStats={authorStats}
-          activeMetric={activeMetric}
+          activeMetric={chartMetric}
         />
       </div>
       <FileFilterControls />

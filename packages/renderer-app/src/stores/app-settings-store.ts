@@ -48,6 +48,7 @@ type AppSettingsActions = {
   setRosterColumnSizing: (sizing: Record<string, number>) => void
   setGroupsSidebarSize: (size: number) => void
   setAnalysisSidebarSize: (size: number) => void
+  setAnalysisDetailListSize: (size: number) => void
   setAnalysisSidebar: (sidebar: PersistedAnalysisSidebarSettings | null) => void
 
   reset: () => void
@@ -263,6 +264,11 @@ export const useAppSettingsStore = create<
     setAnalysisSidebarSize: (size) =>
       set((state) => ({
         settings: { ...state.settings, analysisSidebarSize: size },
+      })),
+
+    setAnalysisDetailListSize: (size) =>
+      set((state) => ({
+        settings: { ...state.settings, analysisDetailListSize: size },
       })),
 
     setAnalysisSidebar: (sidebar) =>

@@ -151,14 +151,17 @@ export function AuthorCharts({
   if (authorStats.length === 0) return null
 
   return (
-    <div className="space-y-4 p-3">
+    <div className="space-y-4 p-3 text-foreground">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="min-h-[260px]">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={dailyBarData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: "currentColor" }}
+              />
+              <YAxis tick={{ fontSize: 11, fill: "currentColor" }} />
               <Tooltip
                 formatter={(value, key) => [
                   formatCount(Number(value)),
@@ -225,8 +228,11 @@ export function AuthorCharts({
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={linesHistoryData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: "currentColor" }}
+              />
+              <YAxis tick={{ fontSize: 11, fill: "currentColor" }} />
               <Tooltip
                 formatter={(value, key) => [
                   formatCount(Number(value)),

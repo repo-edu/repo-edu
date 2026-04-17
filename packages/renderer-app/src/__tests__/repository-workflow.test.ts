@@ -65,6 +65,7 @@ const appSettings: PersistedAppSettings = {
   rosterColumnSizing: {},
   groupsSidebarSize: null,
   analysisSidebarSize: null,
+  analysisDetailListSize: null,
   analysisSidebar: null,
 }
 

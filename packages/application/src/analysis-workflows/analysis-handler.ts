@@ -206,7 +206,6 @@ function aggregateStats(
         linesPercent: 0, // filled from blame
         insertionsPercent:
           totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
-        stability: 0, // filled from blame
         age,
         commitShas: stat.commitShas,
       }
@@ -226,7 +225,6 @@ function aggregateStats(
       insertions: stat.insertions,
       deletions: stat.deletions,
       lines: 0, // filled from blame
-      stability: 0, // filled from blame
       lastModified: stat.lastModified,
       commitShas: stat.commitShas,
       authorBreakdown: stat.authorBreakdown,

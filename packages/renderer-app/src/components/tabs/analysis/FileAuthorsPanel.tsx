@@ -8,107 +8,100 @@ import {
   DataTableHeader,
   DataTableRow,
   EmptyState,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
 } from "@repo-edu/ui"
-import { ChevronDown, ChevronRight } from "@repo-edu/ui/components/icons"
-import { Fragment, useCallback, useMemo, useState } from "react"
 import {
-  type AnalysisActiveMetric,
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table"
+import { useCallback, useMemo, useState } from "react"
+import {
+  ANALYSIS_DETAIL_LIST_DEFAULT_WIDTH_PX,
+  ANALYSIS_DETAIL_LIST_MAX_WIDTH_PX,
+  ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX,
+  RESIZE_DEBOUNCE_MS,
+} from "../../../constants/layout.js"
+import {
   selectFilteredFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import { formatCount, formatPercent } from "../../../utils/analysis-format.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import {
+  formatAge,
+  formatCount,
+  type MetricTotals,
+} from "../../../utils/analysis-format.js"
 import { authorColorMap } from "../../../utils/author-colors.js"
+import { debounceAsync } from "../../../utils/debounce.js"
+import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
+import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 type FileAuthorRow = {
   authorKey: string
+  personId: string
   name: string
   commits: number
   insertions: number
   deletions: number
   lines: number
+  age: number
 }
 
-type MetricTotals = {
-  commits: number
-  insertions: number
-  deletions: number
-  linesOfCode: number
-}
-
-function metricLabel(metric: AnalysisActiveMetric): string {
-  switch (metric) {
-    case "commits":
-      return "Commits"
-    case "insertions":
-      return "Insertions"
-    case "deletions":
-      return "Deletions"
-    case "linesOfCode":
-      return "Lines"
-  }
-}
-
-function metricValue(
-  metric: AnalysisActiveMetric,
-  values: {
-    commits: number
-    insertions: number
-    deletions: number
-    lines: number
-  },
-): number {
-  switch (metric) {
-    case "commits":
-      return values.commits
-    case "insertions":
-      return values.insertions
-    case "deletions":
-      return values.deletions
-    case "linesOfCode":
-      return values.lines
-  }
-}
-
-function formatMaybePercent(
-  value: number,
-  total: number,
-  isPercent: boolean,
-): string {
-  if (!isPercent) {
-    return formatCount(value)
-  }
-  if (total <= 0) {
-    return "0.0%"
-  }
-  return formatPercent((100 * value) / total)
-}
-
-function fileAuthorBreakdown(file: FileStats): FileAuthorRow[] {
+function fileAuthorBreakdown(
+  file: FileStats,
+  authorKeyToId: Map<string, string>,
+  authorKeyToAge: Map<string, number>,
+): FileAuthorRow[] {
   const rows: FileAuthorRow[] = []
   for (const [key, breakdown] of file.authorBreakdown) {
     const name = key.split("\0")[0] ?? key
     rows.push({
       authorKey: key,
+      personId: authorKeyToId.get(key) ?? "",
       name,
       commits: breakdown.commits,
       insertions: breakdown.insertions,
       deletions: breakdown.deletions,
-      // Exact per-file-per-author line counts arrive in Phase 4 blame output.
       lines: breakdown.insertions - breakdown.deletions,
+      age: authorKeyToAge.get(key) ?? 0,
     })
   }
   return rows
 }
 
+function clampListWidth(size: number | null | undefined): number {
+  const value = size ?? ANALYSIS_DETAIL_LIST_DEFAULT_WIDTH_PX
+  return Math.min(
+    ANALYSIS_DETAIL_LIST_MAX_WIDTH_PX,
+    Math.max(ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX, value),
+  )
+}
+
 export function FileAuthorsPanel() {
   const result = useAnalysisStore((s) => s.result)
   const fileStats = useAnalysisStore(selectFilteredFileStats)
-  const showDeletions = useAnalysisStore((s) => s.showDeletions)
-  const activeMetric = useAnalysisStore((s) => s.activeMetric)
   const displayMode = useAnalysisStore((s) => s.displayMode)
+  const showCommits = useAnalysisStore((s) => s.showCommits)
+  const showInsertions = useAnalysisStore((s) => s.showInsertions)
+  const showDeletions = useAnalysisStore((s) => s.showDeletions)
+  const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
+  const showAge = useAnalysisStore((s) => s.showAge)
 
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const listSize = useAppSettingsStore((s) => s.settings.analysisDetailListSize)
+  const setListSize = useAppSettingsStore((s) => s.setAnalysisDetailListSize)
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const listWidthPx = clampListWidth(listSize)
+  const saveDebounced = useMemo(
+    () => debounceAsync(saveAppSettings, RESIZE_DEBOUNCE_MS),
+    [saveAppSettings],
+  )
 
   const allAuthorIds = useMemo(() => {
     const stats = result?.authorStats
@@ -124,29 +117,126 @@ export function FileAuthorsPanel() {
     return map
   }, [result])
 
-  const totals = useMemo<MetricTotals>(
-    () => ({
-      commits: fileStats.reduce((sum, row) => sum + row.commits, 0),
-      insertions: fileStats.reduce((sum, row) => sum + row.insertions, 0),
-      deletions: fileStats.reduce((sum, row) => sum + row.deletions, 0),
-      linesOfCode: fileStats.reduce((sum, row) => sum + row.lines, 0),
-    }),
-    [fileStats],
+  const authorKeyToAge = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const a of result?.authorStats ?? []) {
+      map.set(`${a.canonicalName}\0${a.canonicalEmail}`, a.age)
+    }
+    return map
+  }, [result])
+
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const effectiveSelectedPath =
+    selectedPath && fileStats.some((f) => f.path === selectedPath)
+      ? selectedPath
+      : (fileStats[0]?.path ?? null)
+
+  const selectedFile = useMemo(
+    () => fileStats.find((f) => f.path === effectiveSelectedPath) ?? null,
+    [fileStats, effectiveSelectedPath],
   )
-  const metricTotal = totals[activeMetric]
+
+  const breakdownRows = useMemo(
+    () =>
+      selectedFile
+        ? fileAuthorBreakdown(selectedFile, authorKeyToId, authorKeyToAge)
+        : [],
+    [selectedFile, authorKeyToId, authorKeyToAge],
+  )
+
   const isPercent = displayMode === "percentage"
 
-  const toggleExpand = useCallback((path: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
-      }
-      return next
-    })
-  }, [])
+  const totals = useMemo<MetricTotals>(
+    () => ({
+      commits: breakdownRows.reduce((sum, r) => sum + r.commits, 0),
+      insertions: breakdownRows.reduce((sum, r) => sum + r.insertions, 0),
+      deletions: breakdownRows.reduce((sum, r) => sum + r.deletions, 0),
+      linesOfCode: breakdownRows.reduce((sum, r) => sum + r.lines, 0),
+    }),
+    [breakdownRows],
+  )
+
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "linesOfCode", desc: true },
+  ])
+
+  const metricColumns = useMetricColumns<FileAuthorRow>({
+    totals,
+    isPercent,
+    showLinesOfCode,
+    showCommits,
+    showInsertions,
+    showDeletions,
+  })
+
+  const columns = useMemo<ColumnDef<FileAuthorRow>[]>(() => {
+    const cols: ColumnDef<FileAuthorRow>[] = [
+      {
+        id: "author",
+        accessorFn: (row) => row.name,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Author"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => column.toggleSorting()}
+          />
+        ),
+        cell: ({ row }) => {
+          const color = colors.get(row.original.personId) ?? "#888"
+          return (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                className="inline-block size-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: color }}
+              />
+              <span className="truncate">{row.original.name}</span>
+            </div>
+          )
+        },
+      },
+      ...metricColumns,
+    ]
+    if (showAge) {
+      cols.push({
+        id: "age",
+        accessorFn: (row) => row.age,
+        header: ({ column }) => (
+          <SortHeaderButton
+            label="Age"
+            canSort={column.getCanSort()}
+            sorted={column.getIsSorted()}
+            onToggle={() => column.toggleSorting()}
+          />
+        ),
+        cell: ({ row }) => formatAge(row.original.age),
+      })
+    }
+    return cols
+  }, [colors, metricColumns, showAge])
+
+  const table = useReactTable({
+    data: breakdownRows,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => row.authorKey,
+  })
+
+  const handleListResize = useCallback(
+    (
+      panelSize: { inPixels: number },
+      _id: string | number | undefined,
+      previousPanelSize: { inPixels: number } | undefined,
+    ) => {
+      if (!previousPanelSize) return
+      setListSize(clampListWidth(panelSize.inPixels))
+      saveDebounced()
+    },
+    [saveDebounced, setListSize],
+  )
 
   if (!result) {
     return (
@@ -156,158 +246,108 @@ export function FileAuthorsPanel() {
     )
   }
 
-  const colCount = 4 + (showDeletions ? 1 : 0)
-
   return (
     <div className="flex flex-col h-full min-h-0">
-      <AnalysisDisplayControls />
-      <div className="flex-1 min-h-0 overflow-auto">
-        <DataTable stickyHeader>
-          <DataTableHeader>
-            <DataTableHead className="sticky left-0 z-20">
-              File / Author
-            </DataTableHead>
-            <DataTableHead>{metricLabel(activeMetric)}</DataTableHead>
-            <DataTableHead>Commits</DataTableHead>
-            <DataTableHead>Insertions</DataTableHead>
-            {showDeletions && <DataTableHead>Deletions</DataTableHead>}
-          </DataTableHeader>
-          <DataTableBody>
-            {fileStats.length === 0 ? (
-              <DataTableEmptyRow colSpan={colCount} message="No file data." />
-            ) : (
-              fileStats
-                .map((file) => ({
-                  file,
-                  value: metricValue(activeMetric, {
-                    commits: file.commits,
-                    insertions: file.insertions,
-                    deletions: file.deletions,
-                    lines: file.lines,
-                  }),
-                }))
-                .sort((a, b) => b.value - a.value)
-                .map(({ file, value }) => {
-                  const isOpen = expanded.has(file.path)
-                  const authorRows = isOpen
-                    ? fileAuthorBreakdown(file)
-                        .map((row) => ({
-                          row,
-                          metric: metricValue(activeMetric, {
-                            commits: row.commits,
-                            insertions: row.insertions,
-                            deletions: row.deletions,
-                            lines: row.lines,
-                          }),
-                        }))
-                        .sort((a, b) => b.metric - a.metric)
-                    : []
-
-                  return (
-                    <Fragment key={file.path}>
-                      <DataTableRow
-                        className="group cursor-pointer font-medium"
-                        onClick={() => toggleExpand(file.path)}
-                      >
-                        <DataTableCell className="sticky left-0 z-10 bg-background group-hover:bg-muted/50">
-                          <div className="flex items-center gap-1.5">
-                            {isOpen ? (
-                              <ChevronDown className="size-3.5 shrink-0" />
-                            ) : (
-                              <ChevronRight className="size-3.5 shrink-0" />
-                            )}
-                            <span className="truncate text-xs">
-                              {file.path}
-                            </span>
-                          </div>
-                        </DataTableCell>
-                        <DataTableCell>
-                          {formatMaybePercent(value, metricTotal, isPercent)}
-                        </DataTableCell>
-                        <DataTableCell>
-                          {formatMaybePercent(
-                            file.commits,
-                            totals.commits,
-                            isPercent,
-                          )}
-                        </DataTableCell>
-                        <DataTableCell>
-                          {formatMaybePercent(
-                            file.insertions,
-                            totals.insertions,
-                            isPercent,
-                          )}
-                        </DataTableCell>
-                        {showDeletions && (
-                          <DataTableCell>
-                            {formatMaybePercent(
-                              file.deletions,
-                              totals.deletions,
-                              isPercent,
-                            )}
+      <AnalysisDisplayControls showChartMetric={false} />
+      <div className="flex-1 min-h-0">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
+          <ResizablePanel
+            id="file-authors-list"
+            defaultSize={`${listWidthPx}px`}
+            minSize={`${ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX}px`}
+            maxSize={`${ANALYSIS_DETAIL_LIST_MAX_WIDTH_PX}px`}
+            groupResizeBehavior="preserve-pixel-size"
+            onResize={handleListResize}
+            className="min-w-0"
+          >
+            <div className="h-full overflow-y-auto border-r">
+              {fileStats.map((file) => {
+                const isSelected = file.path === effectiveSelectedPath
+                return (
+                  <button
+                    key={file.path}
+                    type="button"
+                    className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-sm ${isSelected ? "bg-selection font-medium" : "hover:bg-accent"}`}
+                    onClick={() => setSelectedPath(file.path)}
+                  >
+                    <span className="truncate min-w-0 flex-1 text-xs">
+                      {file.path}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {formatCount(file.lines)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle className="aria-[orientation=vertical]:w-px aria-[orientation=vertical]:after:absolute aria-[orientation=vertical]:after:inset-y-0 aria-[orientation=vertical]:after:-left-1 aria-[orientation=vertical]:after:w-2" />
+          <ResizablePanel className="min-w-0">
+            <div className="h-full overflow-auto">
+              <DataTable stickyHeader>
+                <DataTableHeader>
+                  {(table.getHeaderGroups()[0]?.headers ?? []).map((header) => (
+                    <DataTableHead
+                      key={header.id}
+                      className={
+                        header.id === "author" ? "sticky left-0 z-20" : ""
+                      }
+                    >
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                    </DataTableHead>
+                  ))}
+                </DataTableHeader>
+                <DataTableBody>
+                  {breakdownRows.length === 0 ? (
+                    <DataTableEmptyRow
+                      colSpan={columns.length}
+                      message="No author data for this file."
+                    />
+                  ) : (
+                    <>
+                      <MetricTotalsRow
+                        leading={
+                          <DataTableCell className="sticky left-0 z-10 bg-background">
+                            All authors
                           </DataTableCell>
-                        )}
-                      </DataTableRow>
-                      {isOpen &&
-                        authorRows.map(({ row, metric }) => {
-                          const personId =
-                            authorKeyToId.get(row.authorKey) ?? ""
-                          const color = colors.get(personId) ?? "#888"
-                          return (
-                            <DataTableRow
-                              key={`${file.path}-${row.authorKey}`}
-                              className="group bg-muted/30"
+                        }
+                        trailing={showAge ? <DataTableCell /> : null}
+                        totals={totals}
+                        isPercent={isPercent}
+                        showCommits={showCommits}
+                        showInsertions={showInsertions}
+                        showDeletions={showDeletions}
+                        showLinesOfCode={showLinesOfCode}
+                      />
+                      {table.getRowModel().rows.map((row) => (
+                        <DataTableRow key={row.id} className="group">
+                          {row.getVisibleCells().map((cell) => (
+                            <DataTableCell
+                              key={cell.id}
+                              className={
+                                cell.column.id === "author"
+                                  ? "sticky left-0 z-10 bg-background group-hover:bg-muted/50"
+                                  : ""
+                              }
                             >
-                              <DataTableCell className="sticky left-0 z-10 bg-muted/30 group-hover:bg-muted/50">
-                                <div className="flex items-center gap-1.5 pl-8">
-                                  <span
-                                    className="inline-block size-2.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: color }}
-                                  />
-                                  <span className="text-muted-foreground text-xs">
-                                    {row.name}
-                                  </span>
-                                </div>
-                              </DataTableCell>
-                              <DataTableCell>
-                                {formatMaybePercent(
-                                  metric,
-                                  metricTotal,
-                                  isPercent,
-                                )}
-                              </DataTableCell>
-                              <DataTableCell>
-                                {formatMaybePercent(
-                                  row.commits,
-                                  totals.commits,
-                                  isPercent,
-                                )}
-                              </DataTableCell>
-                              <DataTableCell>
-                                {formatMaybePercent(
-                                  row.insertions,
-                                  totals.insertions,
-                                  isPercent,
-                                )}
-                              </DataTableCell>
-                              {showDeletions && (
-                                <DataTableCell>
-                                  {formatMaybePercent(
-                                    row.deletions,
-                                    totals.deletions,
-                                    isPercent,
-                                  )}
-                                </DataTableCell>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
                               )}
-                            </DataTableRow>
-                          )
-                        })}
-                    </Fragment>
-                  )
-                })
-            )}
-          </DataTableBody>
-        </DataTable>
+                            </DataTableCell>
+                          ))}
+                        </DataTableRow>
+                      ))}
+                    </>
+                  )}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   )

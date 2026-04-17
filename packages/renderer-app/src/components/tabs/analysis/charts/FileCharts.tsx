@@ -143,7 +143,7 @@ export function FileCharts({
   if (chartData.length === 0) return null
 
   return (
-    <div className="p-3">
+    <div className="p-3 text-foreground">
       <div className="mb-1 text-xs text-muted-foreground">
         {chartData.length}/{fileStats.length} files shown
       </div>
@@ -153,11 +153,11 @@ export function FileCharts({
       >
         <BarChart data={chartData} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" tick={{ fontSize: 11 }} />
+          <XAxis type="number" tick={{ fontSize: 11, fill: "currentColor" }} />
           <YAxis
             dataKey="name"
             type="category"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: "currentColor" }}
             width={180}
           />
           <Tooltip

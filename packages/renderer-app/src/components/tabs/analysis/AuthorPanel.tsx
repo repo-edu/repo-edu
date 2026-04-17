@@ -28,16 +28,13 @@ import {
   selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import {
-  formatAge,
-  formatCount,
-  formatPercent,
-} from "../../../utils/analysis-format.js"
+import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { authorColorMap } from "../../../utils/author-colors.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { AuthorFilterControls } from "./AuthorFilterControls.js"
 import { AuthorCharts } from "./charts/AuthorCharts.js"
+import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 export const confidenceStyles: Record<IdentityConfidence, string> = {
   "exact-email": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
@@ -89,39 +86,40 @@ export function ConfidenceBadge({
 export function AuthorPanel() {
   const result = useAnalysisStore((s) => s.result)
   const authorStats = useAnalysisStore(selectFilteredAuthorStats)
-  const activeMetric = useAnalysisStore((s) => s.activeMetric)
   const displayMode = useAnalysisStore((s) => s.displayMode)
+  const showCommits = useAnalysisStore((s) => s.showCommits)
+  const showInsertions = useAnalysisStore((s) => s.showInsertions)
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
-  const scaledPercentages = useAnalysisStore((s) => s.scaledPercentages)
+  const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
+  const chartMetric = useAnalysisStore((s) => s.chartMetric)
   const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
   const rosterMatchById = useAnalysisStore(selectRosterMatchByPersonId)
+  const showEmail = useAnalysisStore((s) => s.showEmail)
+  const showRosterMatch = useAnalysisStore((s) => s.showRosterMatch)
+  const showAge = useAnalysisStore((s) => s.showAge)
   const toggleAuthor = useAnalysisStore((s) => s.toggleAuthor)
 
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "commits", desc: true },
-  ])
-
   const hasRosterMatches = result?.rosterMatches != null
+  const rosterMatchColumnVisible = hasRosterMatches && showRosterMatch
 
   const allAuthorIds = useMemo(
     () => (result?.authorStats ?? []).map((a) => a.personId),
     [result],
   )
   const colors = useMemo(() => authorColorMap(allAuthorIds), [allAuthorIds])
-  const totalDeletions = useMemo(
-    () => authorStats.reduce((sum, author) => sum + author.deletions, 0),
-    [authorStats],
-  )
-  const totalLines = useMemo(
-    () => authorStats.reduce((sum, author) => sum + author.lines, 0),
-    [authorStats],
-  )
-  const totalInsertions = useMemo(
-    () => authorStats.reduce((sum, author) => sum + author.insertions, 0),
+
+  const isPercent = displayMode === "percentage"
+
+  const totals = useMemo<MetricTotals>(
+    () => ({
+      commits: authorStats.reduce((sum, a) => sum + a.commits, 0),
+      insertions: authorStats.reduce((sum, a) => sum + a.insertions, 0),
+      deletions: authorStats.reduce((sum, a) => sum + a.deletions, 0),
+      linesOfCode: authorStats.reduce((sum, a) => sum + a.lines, 0),
+    }),
     [authorStats],
   )
 
-  const isPercent = displayMode === "percentage"
   const dailyActivity = useMemo(() => {
     const visibleAuthorIds = new Set(
       authorStats.map((author) => author.personId),
@@ -130,6 +128,19 @@ export function AuthorPanel() {
       visibleAuthorIds.has(row.personId),
     )
   }, [authorStats, result])
+
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "linesOfCode", desc: true },
+  ])
+
+  const metricColumns = useMetricColumns<AuthorStats>({
+    totals,
+    isPercent,
+    showLinesOfCode,
+    showCommits,
+    showInsertions,
+    showDeletions,
+  })
 
   const columns = useMemo<ColumnDef<AuthorStats>[]>(() => {
     const cols: ColumnDef<AuthorStats>[] = [
@@ -160,7 +171,10 @@ export function AuthorPanel() {
           )
         },
       },
-      {
+    ]
+
+    if (showEmail) {
+      cols.push({
         id: "email",
         accessorFn: (row) => row.canonicalEmail,
         header: ({ column }) => (
@@ -172,15 +186,15 @@ export function AuthorPanel() {
           />
         ),
         cell: ({ row }) => (
-          <span className="truncate text-muted-foreground block max-w-80">
+          <span className="block max-w-80 truncate text-muted-foreground">
             {authorDisplayById.get(row.original.personId)?.email ??
               row.original.canonicalEmail}
           </span>
         ),
-      },
-    ]
+      })
+    }
 
-    if (hasRosterMatches) {
+    if (rosterMatchColumnVisible) {
       cols.push({
         id: "rosterMatch",
         accessorFn: (row) =>
@@ -210,92 +224,10 @@ export function AuthorPanel() {
       })
     }
 
-    cols.push(
-      {
-        id: "commits",
-        accessorFn: (row) => row.commits,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Commits"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatCount(row.original.commits),
-      },
-      {
-        id: "insertions",
-        accessorFn: (row) =>
-          isPercent ? row.insertionsPercent : row.insertions,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label={isPercent ? "Ins %" : "Insertions"}
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) =>
-          isPercent
-            ? formatPercent(row.original.insertionsPercent)
-            : formatCount(row.original.insertions),
-      },
-    )
+    cols.push(...metricColumns)
 
-    if (showDeletions) {
+    if (showAge) {
       cols.push({
-        id: "deletions",
-        accessorFn: (row) =>
-          isPercent && totalDeletions > 0
-            ? (100 * row.deletions) / totalDeletions
-            : row.deletions,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label={isPercent ? "Del %" : "Deletions"}
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) =>
-          isPercent && totalDeletions > 0
-            ? formatPercent((100 * row.original.deletions) / totalDeletions)
-            : formatCount(row.original.deletions),
-      })
-    }
-
-    cols.push(
-      {
-        id: "lines",
-        accessorFn: (row) => (isPercent ? row.linesPercent : row.lines),
-        header: ({ column }) => (
-          <SortHeaderButton
-            label={isPercent ? "Lines %" : "Lines"}
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) =>
-          isPercent
-            ? formatPercent(row.original.linesPercent)
-            : formatCount(row.original.lines),
-      },
-      {
-        id: "stability",
-        accessorFn: (row) => row.stability,
-        header: ({ column }) => (
-          <SortHeaderButton
-            label="Stability %"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
-        ),
-        cell: ({ row }) => formatPercent(row.original.stability),
-      },
-      {
         id: "age",
         accessorFn: (row) => row.age,
         header: ({ column }) => (
@@ -307,62 +239,18 @@ export function AuthorPanel() {
           />
         ),
         cell: ({ row }) => formatAge(row.original.age),
-      },
-    )
-
-    if (scaledPercentages) {
-      cols.push(
-        {
-          id: "scaledLinesPercent",
-          accessorFn: (row) =>
-            totalLines > 0 ? (100 * row.lines) / totalLines : 0,
-          header: ({ column }) => (
-            <SortHeaderButton
-              label="Scaled Lines %"
-              canSort={column.getCanSort()}
-              sorted={column.getIsSorted()}
-              onToggle={() => column.toggleSorting()}
-            />
-          ),
-          cell: ({ row }) =>
-            formatPercent(
-              totalLines > 0 ? (100 * row.original.lines) / totalLines : 0,
-            ),
-        },
-        {
-          id: "scaledInsertionsPercent",
-          accessorFn: (row) =>
-            totalInsertions > 0 ? (100 * row.insertions) / totalInsertions : 0,
-          header: ({ column }) => (
-            <SortHeaderButton
-              label="Scaled Ins %"
-              canSort={column.getCanSort()}
-              sorted={column.getIsSorted()}
-              onToggle={() => column.toggleSorting()}
-            />
-          ),
-          cell: ({ row }) =>
-            formatPercent(
-              totalInsertions > 0
-                ? (100 * row.original.insertions) / totalInsertions
-                : 0,
-            ),
-        },
-      )
+      })
     }
 
     return cols
   }, [
     authorDisplayById,
     colors,
-    hasRosterMatches,
-    isPercent,
+    metricColumns,
     rosterMatchById,
-    scaledPercentages,
-    showDeletions,
-    totalDeletions,
-    totalInsertions,
-    totalLines,
+    rosterMatchColumnVisible,
+    showAge,
+    showEmail,
   ])
 
   const table = useReactTable({
@@ -385,11 +273,11 @@ export function AuthorPanel() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <AnalysisDisplayControls />
+      <AnalysisDisplayControls showIdentityToggles />
       <div className="flex-1 min-h-0 overflow-auto">
         <DataTable stickyHeader>
           <DataTableHeader>
-            {table.getHeaderGroups()[0].headers.map((header) => (
+            {(table.getHeaderGroups()[0]?.headers ?? []).map((header) => (
               <DataTableHead
                 key={header.id}
                 className={header.id === "author" ? "sticky left-0 z-20" : ""}
@@ -402,42 +290,65 @@ export function AuthorPanel() {
             ))}
           </DataTableHeader>
           <DataTableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {authorStats.length === 0 ? (
               <DataTableEmptyRow
                 colSpan={columns.length}
                 message="No author data."
               />
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <DataTableRow
-                  key={row.id}
-                  className="group cursor-pointer"
-                  onClick={() => toggleAuthor(row.original.personId)}
-                >
-                  {row.getVisibleCells().map((cell) => (
+              <>
+                <MetricTotalsRow
+                  leading={
                     <DataTableCell
-                      key={cell.id}
-                      className={
-                        cell.column.id === "author"
-                          ? "sticky left-0 z-10 bg-background group-hover:bg-muted/50"
-                          : ""
+                      colSpan={
+                        1 +
+                        (showEmail ? 1 : 0) +
+                        (rosterMatchColumnVisible ? 1 : 0)
                       }
+                      className="sticky left-0 z-10 bg-background"
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+                      All authors
                     </DataTableCell>
-                  ))}
-                </DataTableRow>
-              ))
+                  }
+                  trailing={showAge ? <DataTableCell /> : null}
+                  totals={totals}
+                  isPercent={isPercent}
+                  showCommits={showCommits}
+                  showInsertions={showInsertions}
+                  showDeletions={showDeletions}
+                  showLinesOfCode={showLinesOfCode}
+                />
+                {table.getRowModel().rows.map((row) => (
+                  <DataTableRow
+                    key={row.id}
+                    className="group cursor-pointer"
+                    onClick={() => toggleAuthor(row.original.personId)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <DataTableCell
+                        key={cell.id}
+                        className={
+                          cell.column.id === "author"
+                            ? "sticky left-0 z-10 bg-background group-hover:bg-muted/50"
+                            : ""
+                        }
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </DataTableCell>
+                    ))}
+                  </DataTableRow>
+                ))}
+              </>
             )}
           </DataTableBody>
         </DataTable>
         <AuthorCharts
           authorStats={authorStats}
           dailyActivity={dailyActivity}
-          activeMetric={activeMetric}
+          activeMetric={chartMetric}
         />
       </div>
       <AuthorFilterControls />

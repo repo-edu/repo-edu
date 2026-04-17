@@ -14,6 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Separator,
   Text,
   Tooltip,
   TooltipContent,
@@ -33,6 +34,7 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
+import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
@@ -42,8 +44,12 @@ import {
   FileTreeProvider,
   FolderNode,
 } from "./analysis-tree.js"
-import { RepositoriesSection } from "./RepositoriesSection.js"
+import {
+  RepositoriesSection,
+  RepositoriesToolbar,
+} from "./RepositoriesSection.js"
 import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
+import { useRepoTree } from "./use-repo-tree.js"
 
 // ---------------------------------------------------------------------------
 // Section keys
@@ -83,28 +89,47 @@ function CollapsibleSection({
   sectionKey,
   open,
   onOpenChange,
+  toolbar,
+  badge,
+  showSeparator,
   children,
 }: {
   title: string
   sectionKey: SectionKey
   open: boolean
   onOpenChange: (key: SectionKey, open: boolean) => void
+  toolbar?: React.ReactNode
+  badge?: React.ReactNode
+  showSeparator?: boolean
   children: React.ReactNode
 }) {
   return (
-    <Collapsible open={open} onOpenChange={(v) => onOpenChange(sectionKey, v)}>
-      <CollapsibleTrigger className="w-full justify-between text-xs font-semibold uppercase text-muted-foreground tracking-wider py-1">
-        {title}
-        {open ? (
-          <ChevronDown className="size-3.5" />
-        ) : (
-          <ChevronRight className="size-3.5" />
-        )}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-1.5 pt-1">
-        {children}
-      </CollapsibleContent>
-    </Collapsible>
+    <>
+      {showSeparator && <Separator className="my-1" />}
+      <Collapsible
+        open={open}
+        onOpenChange={(v) => onOpenChange(sectionKey, v)}
+      >
+        <div className="flex items-center py-1">
+          <CollapsibleTrigger className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+            {open ? (
+              <ChevronDown className="size-3.5" />
+            ) : (
+              <ChevronRight className="size-3.5" />
+            )}
+            {title}
+          </CollapsibleTrigger>
+          {badge}
+          <div className="flex-1" />
+          {open && toolbar && (
+            <div className="flex items-center gap-1">{toolbar}</div>
+          )}
+        </div>
+        <CollapsibleContent className="space-y-1.5 pt-1">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </>
   )
 }
 
@@ -160,10 +185,13 @@ const COPY_MOVE_LABELS: Record<number, string> = {
 export function AnalysisSidebar() {
   const { runAnalysis, runRepoDiscovery, handleCancel, handleCancelDiscovery } =
     useAnalysisWorkflows()
+  const rendererHost = useRendererHost()
 
   const config = useAnalysisStore((s) => s.config)
   const setConfig = useAnalysisStore((s) => s.setConfig)
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
+  const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
+  const setSearchFolder = useAnalysisStore((s) => s.setSearchFolder)
   const workflowStatus = useAnalysisStore((s) => s.workflowStatus)
   const progress = useAnalysisStore((s) => s.progress)
   const errorMessage = useAnalysisStore((s) => s.errorMessage)
@@ -173,6 +201,7 @@ export function AnalysisSidebar() {
   const result = useAnalysisStore((s) => s.result)
   const blameResult = useAnalysisStore((s) => s.blameResult)
 
+  const activeView = useAnalysisStore((s) => s.activeView)
   const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
   const setFocusedFilePath = useAnalysisStore((s) => s.setFocusedFilePath)
   const fileSelectionMode = useAnalysisStore((s) => s.fileSelectionMode)
@@ -339,6 +368,21 @@ export function AnalysisSidebar() {
     void runRepoDiscovery(searchFolder)
   }, [searchFolder, runRepoDiscovery])
 
+  const repoTree = useRepoTree()
+  const { expandAllRepoFolders, collapseAllRepoFolders } = repoTree
+  const [browseTooltipKey, setBrowseTooltipKey] = useState(0)
+
+  const handleBrowseSearchFolder = useCallback(async () => {
+    setBrowseTooltipKey((k) => k + 1)
+    const dir = await rendererHost.pickDirectory({
+      title: "Open repository search folder",
+    })
+    if (!dir) return
+    setSearchFolder(dir)
+    setSelectedRepoPath(null)
+    void runRepoDiscovery(dir)
+  }, [rendererHost, runRepoDiscovery, setSearchFolder, setSelectedRepoPath])
+
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
   }, [selectedRepoPath, runAnalysis])
@@ -458,8 +502,34 @@ export function AnalysisSidebar() {
         sectionKey="repositories"
         open={sections.repositories}
         onOpenChange={handleSectionChange}
+        toolbar={
+          <RepositoriesToolbar
+            expandAllRepoFolders={expandAllRepoFolders}
+            collapseAllRepoFolders={collapseAllRepoFolders}
+            onBrowse={handleBrowseSearchFolder}
+            browseTooltipKey={browseTooltipKey}
+          />
+        }
+        badge={
+          discoveredRepos.length > 0 ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  {discoveredRepos.length}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {discoveredRepos.length} repositories found
+              </TooltipContent>
+            </Tooltip>
+          ) : undefined
+        }
       >
-        <RepositoriesSection />
+        <RepositoriesSection
+          tree={repoTree}
+          onBrowse={handleBrowseSearchFolder}
+          browseTooltipKey={browseTooltipKey}
+        />
       </CollapsibleSection>
 
       {/* B. Files */}
@@ -468,17 +538,29 @@ export function AnalysisSidebar() {
         sectionKey="files"
         open={sections.files}
         onOpenChange={handleSectionChange}
-      >
-        {sortedFilePaths.length === 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {result
-              ? "No files in analysis result."
-              : "Run analysis to see files."}
-          </Text>
-        ) : (
-          <>
-            {/* Toolbar */}
-            <div className="flex items-center gap-1">
+        showSeparator
+        badge={
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                size="xs"
+                className="ml-1.5 w-10"
+                value={config.nFiles ?? 5}
+                onChange={(e) => {
+                  const v = Math.max(0, Number(e.target.value) || 0)
+                  setConfigAndRerun({ nFiles: v })
+                }}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">N files</TooltipContent>
+          </Tooltip>
+        }
+        toolbar={
+          sortedFilePaths.length > 0 && (
+            <>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -533,13 +615,23 @@ export function AnalysisSidebar() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Collapse all</TooltipContent>
               </Tooltip>
-
-              <div className="flex-1" />
               <span className="text-xs text-muted-foreground">
-                {effectiveFileSelection.size}/{sortedFilePaths.length}
+                {effectiveFileSelection.size === sortedFilePaths.length
+                  ? sortedFilePaths.length
+                  : `${effectiveFileSelection.size}/${sortedFilePaths.length}`}
               </span>
-            </div>
-
+            </>
+          )
+        }
+      >
+        {sortedFilePaths.length === 0 ? (
+          <Text className="text-xs text-muted-foreground">
+            {result
+              ? "No files in analysis result."
+              : "Run analysis to see files."}
+          </Text>
+        ) : (
+          <>
             {/* File list */}
             {fileViewMode === "list" ? (
               <div className="flex flex-col gap-0.5">
@@ -552,7 +644,7 @@ export function AnalysisSidebar() {
                       key={path}
                       type="button"
                       className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                        focusedFilePath === path
+                        focusedFilePath === path && activeView === "blame"
                           ? "bg-selection font-medium"
                           : "hover:bg-accent"
                       }`}
@@ -579,6 +671,7 @@ export function AnalysisSidebar() {
                   toggleFolderOpen,
                   effectiveFileSelection,
                   focusedFilePath,
+                  highlightFocused: activeView === "blame",
                   onFileClick: handleFileClick,
                 }}
               >
@@ -603,21 +696,8 @@ export function AnalysisSidebar() {
         sectionKey="fileSelection"
         open={sections.fileSelection}
         onOpenChange={handleSectionChange}
+        showSeparator
       >
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-xs">N files</Label>
-          <Input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className="w-20"
-            value={config.nFiles ?? 5}
-            onChange={(e) => {
-              const v = Math.max(0, Number(e.target.value) || 0)
-              setConfigAndRerun({ nFiles: v })
-            }}
-          />
-        </div>
         <div className="space-y-1">
           <Label className="text-xs">Subfolder</Label>
           <Input
@@ -678,6 +758,7 @@ export function AnalysisSidebar() {
         sectionKey="dateRange"
         open={sections.dateRange}
         onOpenChange={handleSectionChange}
+        showSeparator
       >
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
@@ -713,6 +794,7 @@ export function AnalysisSidebar() {
         sectionKey="blame"
         open={sections.blame}
         onOpenChange={handleSectionChange}
+        showSeparator
       >
         <div className="flex items-center gap-2">
           <Checkbox
@@ -837,6 +919,7 @@ export function AnalysisSidebar() {
         sectionKey="options"
         open={sections.options}
         onOpenChange={handleSectionChange}
+        showSeparator
       >
         <div className="flex items-center gap-2">
           <Checkbox
@@ -858,6 +941,7 @@ export function AnalysisSidebar() {
         sectionKey="exclusions"
         open={sections.exclusions}
         onOpenChange={handleSectionChange}
+        showSeparator
       >
         <div className="space-y-1">
           <Label className="text-xs">Files</Label>

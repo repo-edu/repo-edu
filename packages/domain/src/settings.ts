@@ -137,6 +137,7 @@ export const persistedAppSettingsSchema = z.object({
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
   groupsSidebarSize: z.number().nullable().default(null),
   analysisSidebarSize: z.number().nullable().default(null),
+  analysisDetailListSize: z.number().nullable().default(null),
   analysisSidebar: persistedAnalysisSidebarSettingsSchema
     .nullable()
     .default(null),
@@ -231,5 +232,6 @@ export const defaultAppSettings: PersistedAppSettings = {
   rosterColumnSizing: {},
   groupsSidebarSize: null,
   analysisSidebarSize: null,
+  analysisDetailListSize: null,
   analysisSidebar: null,
 }

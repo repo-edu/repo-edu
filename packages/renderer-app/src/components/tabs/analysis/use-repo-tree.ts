@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { buildFileTree, collectFolderPaths } from "./analysis-tree.js"
 
+export type RepoTree = ReturnType<typeof useRepoTree>
+
 export function useRepoTree() {
   const searchFolder = useAnalysisStore((s) => s.searchFolder)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)

@@ -12,9 +12,14 @@ const inputVariants = cva(
         sm: "h-8 px-3 py-1 file:h-6",
         xs: "h-6 px-2 py-0.5 text-xs file:text-xs file:h-5",
       },
+      variant: {
+        default: "",
+        borderless: "",
+      },
     },
     defaultVariants: {
       size: "default",
+      variant: "default",
     },
   },
 )
@@ -23,12 +28,13 @@ interface InputProps
   extends Omit<React.ComponentProps<"input">, "size">,
     VariantProps<typeof inputVariants> {}
 
-function Input({ className, type, size, ...props }: InputProps) {
+function Input({ className, type, size, variant, ...props }: InputProps) {
   return (
     <input
       type={type}
       data-slot="input"
-      className={cn(inputVariants({ size, className }))}
+      data-variant={variant ?? "default"}
+      className={cn(inputVariants({ size, variant, className }))}
       {...props}
     />
   )

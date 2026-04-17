@@ -89,11 +89,16 @@ type AnalysisState = {
 
   // Display state
   displayMode: AnalysisDisplayMode
-  activeMetric: AnalysisActiveMetric
   activeView: AnalysisView
+  chartMetric: AnalysisActiveMetric
+  showCommits: boolean
+  showInsertions: boolean
   showDeletions: boolean
+  showLinesOfCode: boolean
   showRenames: boolean
-  scaledPercentages: boolean
+  showEmail: boolean
+  showRosterMatch: boolean
+  showAge: boolean
 }
 
 type AnalysisActions = {
@@ -145,11 +150,16 @@ type AnalysisActions = {
   clearFileSelection: () => void
 
   setDisplayMode: (mode: AnalysisDisplayMode) => void
-  setActiveMetric: (metric: AnalysisActiveMetric) => void
   setActiveView: (view: AnalysisView) => void
+  setChartMetric: (metric: AnalysisActiveMetric) => void
+  setShowCommits: (show: boolean) => void
+  setShowInsertions: (show: boolean) => void
   setShowDeletions: (show: boolean) => void
+  setShowLinesOfCode: (show: boolean) => void
   setShowRenames: (show: boolean) => void
-  setScaledPercentages: (scaled: boolean) => void
+  setShowEmail: (show: boolean) => void
+  setShowRosterMatch: (show: boolean) => void
+  setShowAge: (show: boolean) => void
 
   hydrateFromPersistedSettings: (
     settings: PersistedAnalysisSidebarSettings,
@@ -199,11 +209,16 @@ const initialState: AnalysisState = {
   focusedFilePath: null,
 
   displayMode: "absolute",
-  activeMetric: "commits",
   activeView: "authors",
-  showDeletions: true,
+  chartMetric: "linesOfCode",
+  showCommits: true,
+  showInsertions: true,
+  showDeletions: false,
+  showLinesOfCode: true,
   showRenames: true,
-  scaledPercentages: false,
+  showEmail: true,
+  showRosterMatch: true,
+  showAge: false,
 }
 
 // Abort controllers are coordination primitives, not UI state — kept outside
@@ -388,11 +403,16 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
 
     setDisplayMode: (displayMode) => set({ displayMode }),
-    setActiveMetric: (activeMetric) => set({ activeMetric }),
     setActiveView: (activeView) => set({ activeView }),
+    setChartMetric: (chartMetric) => set({ chartMetric }),
+    setShowCommits: (showCommits) => set({ showCommits }),
+    setShowInsertions: (showInsertions) => set({ showInsertions }),
     setShowDeletions: (showDeletions) => set({ showDeletions }),
+    setShowLinesOfCode: (showLinesOfCode) => set({ showLinesOfCode }),
     setShowRenames: (showRenames) => set({ showRenames }),
-    setScaledPercentages: (scaledPercentages) => set({ scaledPercentages }),
+    setShowEmail: (showEmail) => set({ showEmail }),
+    setShowRosterMatch: (showRosterMatch) => set({ showRosterMatch }),
+    setShowAge: (showAge) => set({ showAge }),
 
     hydrateFromPersistedSettings: (settings) =>
       set({

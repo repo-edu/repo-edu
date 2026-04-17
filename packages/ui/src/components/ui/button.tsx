@@ -31,6 +31,13 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
         ghost:
           "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+        /**
+         * Toggle/selection state — matches the `bg-selection` treatment used
+         * by focused list rows. Use for the active option in an inline
+         * segmented toggle (e.g. Absolute / Percentage).
+         */
+        selection:
+          "bg-selection text-foreground font-medium hover:bg-selection",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

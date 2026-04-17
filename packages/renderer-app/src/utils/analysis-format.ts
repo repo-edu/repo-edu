@@ -1,5 +1,7 @@
 /**
- * Format an age in seconds to a human-readable Y-M-D string.
+ * Format an age in seconds to a human-readable string using the two most
+ * significant non-zero units from years / months / days (e.g. `2y 3m`,
+ * `4m 12d`, `18d`).
  */
 export function formatAge(seconds: number): string {
   if (seconds <= 0) return "0d"
@@ -10,8 +12,8 @@ export function formatAge(seconds: number): string {
   const parts: string[] = []
   if (years > 0) parts.push(`${years}y`)
   if (months > 0) parts.push(`${months}m`)
-  parts.push(`${remainingDays}d`)
-  return parts.join(" ")
+  if (remainingDays > 0 || parts.length === 0) parts.push(`${remainingDays}d`)
+  return parts.slice(0, 2).join(" ")
 }
 
 /**
@@ -36,4 +38,29 @@ export function formatPercent(value: number, decimals = 1): string {
  */
 export function formatCount(value: number): string {
   return value.toLocaleString()
+}
+
+export type MetricTotals = {
+  commits: number
+  insertions: number
+  deletions: number
+  linesOfCode: number
+}
+
+/**
+ * Format a value as a plain count, or as `value / total` expressed as a
+ * percentage when `isPercent` is true.
+ */
+export function formatMaybePercent(
+  value: number,
+  total: number,
+  isPercent: boolean,
+): string {
+  if (!isPercent) {
+    return formatCount(value)
+  }
+  if (total <= 0) {
+    return "0.0%"
+  }
+  return formatPercent((100 * value) / total)
 }

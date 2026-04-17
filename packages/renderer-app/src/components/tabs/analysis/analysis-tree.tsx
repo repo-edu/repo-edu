@@ -121,6 +121,7 @@ type FileTreeContextValue = {
   toggleFolderOpen: (folder: string) => void
   effectiveFileSelection: Set<string>
   focusedFilePath: string | null
+  highlightFocused: boolean
   onFileClick: (path: string) => void
 }
 
@@ -139,6 +140,7 @@ export function FolderNode({ node }: { node: FileTreeNode }) {
     toggleFolderOpen,
     effectiveFileSelection,
     focusedFilePath,
+    highlightFocused,
     onFileClick,
   } = useFileTreeContext()
   const isOpen = openFolders.has(node.path)
@@ -163,7 +165,7 @@ export function FolderNode({ node }: { node: FileTreeNode }) {
         )}
         <span className="truncate font-medium">{node.name}</span>
         <span className="shrink-0 text-muted-foreground">
-          {selected}/{total}
+          {selected === total ? total : `${selected}/${total}`}
         </span>
       </button>
       {isOpen && (
@@ -178,7 +180,7 @@ export function FolderNode({ node }: { node: FileTreeNode }) {
                 key={filePath}
                 type="button"
                 className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                  focusedFilePath === filePath
+                  focusedFilePath === filePath && highlightFocused
                     ? "bg-selection font-medium"
                     : "hover:bg-accent"
                 }`}
