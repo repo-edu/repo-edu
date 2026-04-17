@@ -67,6 +67,7 @@ describe("analysis store", () => {
     result.fileStats = [
       {
         path: "src/a.ts",
+        bytes: 0,
         commits: 1,
         insertions: 10,
         deletions: 2,
@@ -77,6 +78,7 @@ describe("analysis store", () => {
       },
       {
         path: "src/b.ts",
+        bytes: 0,
         commits: 1,
         insertions: 12,
         deletions: 3,
@@ -119,6 +121,7 @@ describe("analysis store", () => {
     result.fileStats = [
       {
         path: "src/a.ts",
+        bytes: 0,
         commits: 1,
         insertions: 10,
         deletions: 2,
@@ -170,6 +173,7 @@ describe("analysis store", () => {
     result.fileStats = [
       {
         path: "src/a.ts",
+        bytes: 0,
         commits: 1,
         insertions: 10,
         deletions: 2,
@@ -180,6 +184,7 @@ describe("analysis store", () => {
       },
       {
         path: "src/b.ts",
+        bytes: 0,
         commits: 1,
         insertions: 12,
         deletions: 3,
@@ -288,6 +293,7 @@ describe("blame-merged selectors", () => {
     return [
       {
         path: "src/a.ts",
+        bytes: 0,
         commits: 2,
         insertions: 10,
         deletions: 2,

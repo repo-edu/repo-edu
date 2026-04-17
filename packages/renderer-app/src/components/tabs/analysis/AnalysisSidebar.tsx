@@ -21,10 +21,12 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import {
+  ArrowDownAZ,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  ChevronUp,
   FileCode,
   FolderTree,
   List,
@@ -35,7 +37,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectBlameMergedFileStats,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
 import {
@@ -248,6 +253,9 @@ export function AnalysisSidebar() {
 
   // File list view state
   const [fileViewMode, setFileViewMode] = useState<"list" | "tree">("list")
+  const [fileSortMode, setFileSortMode] = useState<
+    "lines-desc" | "lines-asc" | "alpha"
+  >("lines-desc")
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set())
 
   // Hydrate from persisted sidebar settings (once, after app settings load)
@@ -262,6 +270,7 @@ export function AnalysisSidebar() {
     hydrateFromPersistedSettings(analysisSidebar)
     setSections({ ...allSectionsOpen(), ...analysisSidebar.sectionState })
     setFileViewMode(analysisSidebar.fileViewMode)
+    setFileSortMode(analysisSidebar.fileSortMode)
   }, [settingsStatus, analysisSidebar, hydrateFromPersistedSettings])
 
   // Persist sidebar settings on change (debounced save coalesces with hydration)
@@ -272,6 +281,7 @@ export function AnalysisSidebar() {
       searchDepth,
       sectionState: sections,
       fileViewMode,
+      fileSortMode,
       config: (() => {
         const { maxConcurrency: _, ...persistedConfig } = config
         return persistedConfig
@@ -295,6 +305,7 @@ export function AnalysisSidebar() {
     searchDepth,
     sections,
     fileViewMode,
+    fileSortMode,
     config,
     blameConfig,
     setAnalysisSidebar,
@@ -318,10 +329,27 @@ export function AnalysisSidebar() {
     [config],
   )
 
+  const mergedFileStats = useAnalysisStore(selectBlameMergedFileStats)
+
   const sortedFilePaths = useMemo(
-    () => (result?.fileStats ?? []).map((f) => f.path).sort(),
-    [result],
+    () => mergedFileStats.map((f) => f.path).sort(),
+    [mergedFileStats],
   )
+
+  const listFilePaths = useMemo(() => {
+    if (fileSortMode === "alpha") return sortedFilePaths
+    const hasBlame = blameResult !== null
+    const sized = mergedFileStats.map((f) => ({
+      path: f.path,
+      metric: hasBlame ? f.lines : f.bytes,
+    }))
+    sized.sort((a, b) => {
+      const diff = b.metric - a.metric
+      if (diff !== 0) return fileSortMode === "lines-desc" ? diff : -diff
+      return a.path.localeCompare(b.path)
+    })
+    return sized.map((f) => f.path)
+  }, [mergedFileStats, blameResult, fileSortMode, sortedFilePaths])
 
   const fileTree = useMemo(
     () => buildFileTree(sortedFilePaths),
@@ -623,6 +651,40 @@ export function AnalysisSidebar() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Collapse all</TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 shrink-0"
+                    disabled={fileViewMode !== "list"}
+                    onClick={() =>
+                      setFileSortMode((prev) =>
+                        prev === "lines-desc"
+                          ? "lines-asc"
+                          : prev === "lines-asc"
+                            ? "alpha"
+                            : "lines-desc",
+                      )
+                    }
+                  >
+                    {fileSortMode === "lines-desc" ? (
+                      <ChevronDown className="size-3.5" />
+                    ) : fileSortMode === "lines-asc" ? (
+                      <ChevronUp className="size-3.5" />
+                    ) : (
+                      <ArrowDownAZ className="size-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {fileSortMode === "lines-desc"
+                    ? "Sort: lines (high to low)"
+                    : fileSortMode === "lines-asc"
+                      ? "Sort: lines (low to high)"
+                      : "Sort: alphabetical"}
+                </TooltipContent>
+              </Tooltip>
               <span className="text-xs text-muted-foreground">
                 {effectiveFileSelection.size === sortedFilePaths.length
                   ? sortedFilePaths.length
@@ -643,7 +705,7 @@ export function AnalysisSidebar() {
             {/* File list */}
             {fileViewMode === "list" ? (
               <div className="flex flex-col gap-0.5">
-                {sortedFilePaths.map((path) => {
+                {listFilePaths.map((path) => {
                   const slashIdx = path.lastIndexOf("/")
                   const dir = slashIdx >= 0 ? `${path.slice(0, slashIdx)}/` : ""
                   const file = slashIdx >= 0 ? path.slice(slashIdx + 1) : path

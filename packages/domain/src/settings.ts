@@ -115,7 +115,10 @@ const persistedAnalysisSidebarSettingsSchema = z.object({
   searchFolder: z.string().nullable(),
   searchDepth: z.number().int().min(1).max(9),
   sectionState: z.record(z.string(), z.boolean()),
-  fileViewMode: z.enum(["list", "tree"]),
+  fileViewMode: z.enum(["list", "tree"]).default("list"),
+  fileSortMode: z
+    .enum(["lines-desc", "lines-asc", "alpha"])
+    .default("lines-desc"),
   config: persistedAnalysisConfigSchema,
   blameConfig: persistedBlameConfigSchema,
 })

@@ -42,6 +42,7 @@ export type AuthorStats = {
 
 export type FileStats = {
   path: string
+  bytes: number
   commits: number
   insertions: number
   deletions: number

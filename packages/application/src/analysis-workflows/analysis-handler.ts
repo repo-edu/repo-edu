@@ -78,6 +78,7 @@ async function mapBounded<T, R>(
 function aggregateStats(
   fileGroupsMap: Map<string, CommitGroup[]>,
   fileToSubfolderedPath: (path: string) => string,
+  fileBytes: Map<string, number>,
 ): { authorStats: AuthorStats[]; fileStats: FileStats[] } {
   // Per-author aggregation
   const authorMap = new Map<
@@ -224,6 +225,7 @@ function aggregateStats(
 
     return {
       path,
+      bytes: fileBytes.get(path) ?? 0,
       commits: stat.commitShas.size,
       insertions: stat.insertions,
       deletions: stat.deletions,
@@ -719,6 +721,10 @@ export function createAnalysisRunHandler(
             ? path.slice(subfolderPrefix.length)
             : path
 
+        const fileBytes = new Map<string, number>(
+          treeEntries.map((e) => [fileToSubfolderedPath(e.path), e.size]),
+        )
+
         let processedFiles = 0
         const fileCommitGroupsMap = new Map<string, CommitGroup[]>()
 
@@ -788,7 +794,7 @@ export function createAnalysisRunHandler(
         })
 
         const { authorStats: rawAuthorStats, fileStats: rawFileStats } =
-          aggregateStats(fileCommitGroupsMap, fileToSubfolderedPath)
+          aggregateStats(fileCommitGroupsMap, fileToSubfolderedPath, fileBytes)
 
         // Phase 7: Build PersonDB from log identities
         const identities: GitAuthorIdentity[] = []
