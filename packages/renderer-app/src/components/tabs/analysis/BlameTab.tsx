@@ -108,6 +108,24 @@ function matchesAnyPattern(
   return patterns.some((pattern) => matchesPattern(value, pattern))
 }
 
+const TAB_WIDTH = 4
+
+function preserveLeadingIndent(content: string): string {
+  let leadingEnd = 0
+  while (
+    leadingEnd < content.length &&
+    (content[leadingEnd] === " " || content[leadingEnd] === "\t")
+  ) {
+    leadingEnd++
+  }
+  if (leadingEnd === 0) return content
+  let expanded = ""
+  for (let i = 0; i < leadingEnd; i++) {
+    expanded += content[i] === "\t" ? "\u00A0".repeat(TAB_WIDTH) : "\u00A0"
+  }
+  return expanded + content.slice(leadingEnd)
+}
+
 function processBlameLines(
   fileBlame: FileBlame,
   personDb: PersonDbSnapshot,
@@ -430,7 +448,7 @@ function BlameGrid({
                   className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
                   style={bgStyle}
                 >
-                  {p.isEmpty ? "\u00A0" : p.line.content}
+                  {p.isEmpty ? "\u00A0" : preserveLeadingIndent(p.line.content)}
                 </div>
               </div>
             )
@@ -448,7 +466,7 @@ function BlameGrid({
                 className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
                 style={bgStyle}
               >
-                {p.isEmpty ? "\u00A0" : p.line.content}
+                {p.isEmpty ? "\u00A0" : preserveLeadingIndent(p.line.content)}
               </div>
             </div>
           )
