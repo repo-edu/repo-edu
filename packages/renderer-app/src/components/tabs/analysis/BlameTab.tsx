@@ -441,7 +441,7 @@ function BlameGrid({
           const excluded = isExcluded && blameExclusions === "hide"
           const bgStyle =
             colorize && !excluded
-              ? { backgroundColor: `${color}66` }
+              ? { backgroundColor: `${color}59` }
               : undefined
           const borderStyle =
             colorize && !excluded

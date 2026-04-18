@@ -170,6 +170,8 @@
     --color-input: var(--input);
     --color-ring: var(--ring);
     --color-selection: var(--selection);
+    --font-mono: Menlo, Monaco, Consolas, "Droid Sans Mono", "Liberation Mono",
+        "Courier New", monospace;
 }
 
 /* ===== Base Styles ===== */
@@ -184,7 +186,7 @@
     }
 
     body.repo-edu-shell-body {
-        @apply bg-background text-foreground text-sm antialiased;
+        @apply bg-background text-foreground text-sm;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
             Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
         overflow: hidden;
