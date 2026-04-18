@@ -76,11 +76,22 @@ const persistedGitConnectionSchema = z.object({
   ...persistedConnectionFields,
 })
 
+export const syntaxThemeIds = [
+  "plus",
+  "github",
+  "github-dimmed",
+  "everforest",
+  "nord",
+  "min",
+] as const
+export type SyntaxThemeId = (typeof syntaxThemeIds)[number]
+
 const appAppearanceSchema = z.object({
   theme: z.enum(["system", "light", "dark"]),
   windowChrome: z.enum(["system", "hiddenInset"]),
   dateFormat: z.enum(["MDY", "DMY"]),
   timeFormat: z.enum(["12h", "24h"]),
+  syntaxTheme: z.enum(syntaxThemeIds).default("plus"),
 })
 
 const persistedWindowStateSchema = z.object({
@@ -222,6 +233,7 @@ export const defaultAppSettings: PersistedAppSettings = {
     windowChrome: "system",
     dateFormat: "DMY",
     timeFormat: "24h",
+    syntaxTheme: "plus",
   },
   window: {
     width: 1180,

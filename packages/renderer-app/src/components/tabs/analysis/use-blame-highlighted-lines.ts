@@ -1,4 +1,5 @@
 import type { FileBlame } from "@repo-edu/domain/analysis"
+import type { SyntaxThemeId } from "@repo-edu/domain/settings"
 import { useEffect, useRef, useState } from "react"
 import type { ThemedToken } from "shiki/types"
 import {
@@ -17,11 +18,13 @@ function getFileExtension(path: string): string {
   return dot >= 0 ? path.slice(dot + 1) : ""
 }
 
-type LangCache = Map<ShikiLangId, ThemedToken[][]>
+type CacheKey = `${ShikiLangId}:${SyntaxThemeId}`
+type LangCache = Map<CacheKey, ThemedToken[][]>
 
 export function useBlameHighlightedLines(
   fileBlame: FileBlame | null,
   syntaxColorize: boolean,
+  themeId: SyntaxThemeId,
 ): ThemedToken[][] | null {
   const cacheRef = useRef<WeakMap<FileBlame, LangCache>>(new WeakMap())
   const versionRef = useRef(0)
@@ -47,7 +50,8 @@ export function useBlameHighlightedLines(
       return
     }
 
-    const cached = cacheRef.current.get(fileBlame)?.get(langId)
+    const cacheKey: CacheKey = `${langId}:${themeId}`
+    const cached = cacheRef.current.get(fileBlame)?.get(cacheKey)
     if (cached) {
       setTokens(cached)
       return
@@ -67,7 +71,7 @@ export function useBlameHighlightedLines(
         return
       }
 
-      const result = tokenizeLines(source, langId)
+      const result = tokenizeLines(source, langId, themeId)
       if (versionRef.current !== localVersion) return
 
       let langCache = cacheRef.current.get(fileBlame)
@@ -75,10 +79,10 @@ export function useBlameHighlightedLines(
         langCache = new Map()
         cacheRef.current.set(fileBlame, langCache)
       }
-      langCache.set(langId, result)
+      langCache.set(cacheKey, result)
       setTokens(result)
     })()
-  }, [fileBlame, syntaxColorize])
+  }, [fileBlame, syntaxColorize, themeId])
 
   return tokens
 }

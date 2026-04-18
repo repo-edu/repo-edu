@@ -1,3 +1,4 @@
+import { type SyntaxThemeId, syntaxThemeIds } from "@repo-edu/domain/settings"
 import type {
   DateFormatPreference,
   ThemePreference,
@@ -14,6 +15,7 @@ import {
 } from "@repo-edu/ui"
 import { useState } from "react"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { SYNTAX_THEMES } from "../../utils/blame-highlighter.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 const THEMES: Array<{ value: ThemePreference; label: string }> = [
@@ -48,9 +50,13 @@ export function DisplayPane() {
   const timeFormat = useAppSettingsStore(
     (state) => state.settings.appearance.timeFormat,
   )
+  const syntaxTheme = useAppSettingsStore(
+    (state) => state.settings.appearance.syntaxTheme,
+  )
   const setTheme = useAppSettingsStore((state) => state.setTheme)
   const setDateFormat = useAppSettingsStore((state) => state.setDateFormat)
   const setTimeFormat = useAppSettingsStore((state) => state.setTimeFormat)
+  const setSyntaxTheme = useAppSettingsStore((state) => state.setSyntaxTheme)
   const saveAppSettings = useAppSettingsStore((state) => state.save)
 
   const [saving, setSaving] = useState(false)
@@ -84,8 +90,32 @@ export function DisplayPane() {
     void persist()
   }
 
+  const handleSyntaxThemeChange = (value: SyntaxThemeId) => {
+    setSyntaxTheme(value)
+    void persist()
+  }
+
   return (
     <div className="space-y-6">
+      <FormField
+        label="Syntax theme"
+        htmlFor="display-syntax-theme"
+        description="Colour scheme used for the Blame code column."
+      >
+        <Select value={syntaxTheme} onValueChange={handleSyntaxThemeChange}>
+          <SelectTrigger id="display-syntax-theme" className="w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {syntaxThemeIds.map((id) => (
+              <SelectItem key={id} value={id}>
+                {SYNTAX_THEMES[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
       <FormField
         label="Theme"
         htmlFor="display-theme"

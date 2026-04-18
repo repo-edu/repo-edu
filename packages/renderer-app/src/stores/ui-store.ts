@@ -146,7 +146,7 @@ const initialState: UiState = {
   activeCourseId: null,
 
   settingsDialogOpen: false,
-  settingsCategory: "lms-connections",
+  settingsCategory: "display",
   newCourseDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
@@ -214,7 +214,7 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
   openSettings: (category) =>
     set((state) => {
-      const nextCategory = category ?? "lms-connections"
+      const nextCategory = category ?? state.settingsCategory
       if (state.settingsDialogOpen && state.settingsCategory === nextCategory) {
         return state
       }

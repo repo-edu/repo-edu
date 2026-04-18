@@ -1,3 +1,4 @@
+import type { SyntaxThemeId } from "@repo-edu/domain/settings"
 import {
   defaultAppSettings,
   type PersistedAnalysisSidebarSettings,
@@ -35,6 +36,7 @@ type AppSettingsActions = {
   setTheme: (theme: ThemePreference) => void
   setDateFormat: (dateFormat: DateFormatPreference) => void
   setTimeFormat: (timeFormat: TimeFormatPreference) => void
+  setSyntaxTheme: (syntaxTheme: SyntaxThemeId) => void
 
   setLmsConnection: (index: number, connection: PersistedLmsConnection) => void
   addLmsConnection: (connection: PersistedLmsConnection) => void
@@ -170,6 +172,14 @@ export const useAppSettingsStore = create<
         settings: {
           ...state.settings,
           appearance: { ...state.settings.appearance, timeFormat },
+        },
+      })),
+
+    setSyntaxTheme: (syntaxTheme) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          appearance: { ...state.settings.appearance, syntaxTheme },
         },
       })),
 

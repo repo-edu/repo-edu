@@ -31,6 +31,11 @@ type CategoryItem = {
 
 const categories: CategoryItem[] = [
   {
+    id: "display",
+    label: "Display",
+    icon: <Monitor className="size-4" />,
+  },
+  {
     id: "lms-connections",
     label: "LMS Connections",
     icon: <GraduationCap className="size-4" />,
@@ -39,11 +44,6 @@ const categories: CategoryItem[] = [
     id: "git-connections",
     label: "Git Connections",
     icon: <GitBranch className="size-4" />,
-  },
-  {
-    id: "display",
-    label: "Display",
-    icon: <Monitor className="size-4" />,
   },
   {
     id: "shortcuts",

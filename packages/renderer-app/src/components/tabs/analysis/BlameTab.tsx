@@ -20,6 +20,7 @@ import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { authorColorMap } from "../../../utils/author-colors.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { useBlameHighlightedLines } from "./use-blame-highlighted-lines.js"
@@ -550,9 +551,13 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const setBlameHideEmpty = useAnalysisStore((s) => s.setBlameHideEmpty)
   const setBlameHideComments = useAnalysisStore((s) => s.setBlameHideComments)
 
+  const syntaxTheme = useAppSettingsStore(
+    (s) => s.settings.appearance.syntaxTheme,
+  )
   const highlightedTokens = useBlameHighlightedLines(
     entry?.fileBlame ?? null,
     syntaxColorize,
+    syntaxTheme,
   )
 
   const personDb = blameResult?.personDbOverlay ?? result?.personDbBaseline

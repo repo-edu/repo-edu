@@ -1,5 +1,14 @@
+import type { SyntaxThemeId } from "@repo-edu/domain/settings"
 import darkPlus from "@shikijs/themes/dark-plus"
+import everforestDark from "@shikijs/themes/everforest-dark"
+import everforestLight from "@shikijs/themes/everforest-light"
+import githubDark from "@shikijs/themes/github-dark"
+import githubDarkDimmed from "@shikijs/themes/github-dark-dimmed"
+import githubLight from "@shikijs/themes/github-light"
 import lightPlus from "@shikijs/themes/light-plus"
+import minDark from "@shikijs/themes/min-dark"
+import minLight from "@shikijs/themes/min-light"
+import nord from "@shikijs/themes/nord"
 import { createHighlighterCore, type HighlighterCore } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 import type { LanguageRegistration, ThemedToken } from "shiki/types"
@@ -7,6 +16,30 @@ import type { ShikiLangId } from "./blame-language-map.js"
 
 export const MAX_HIGHLIGHT_LINES = 5000
 export const MAX_HIGHLIGHT_BYTES = 250_000
+
+export const SYNTAX_THEMES: Record<
+  SyntaxThemeId,
+  { readonly label: string; readonly light: string; readonly dark: string }
+> = {
+  plus: {
+    label: "Plus (VSCode default)",
+    light: "light-plus",
+    dark: "dark-plus",
+  },
+  github: { label: "GitHub", light: "github-light", dark: "github-dark" },
+  "github-dimmed": {
+    label: "GitHub (dimmed dark)",
+    light: "github-light",
+    dark: "github-dark-dimmed",
+  },
+  everforest: {
+    label: "Everforest",
+    light: "everforest-light",
+    dark: "everforest-dark",
+  },
+  nord: { label: "Nord", light: "min-light", dark: "nord" },
+  min: { label: "Min", light: "min-light", dark: "min-dark" },
+}
 
 type LangModule = { default: LanguageRegistration[] }
 
@@ -59,7 +92,18 @@ async function getHighlighter(): Promise<HighlighterCore> {
   if (highlighterRef) return highlighterRef
   if (!highlighterPromise) {
     highlighterPromise = createHighlighterCore({
-      themes: [darkPlus, lightPlus],
+      themes: [
+        darkPlus,
+        lightPlus,
+        githubDark,
+        githubDarkDimmed,
+        githubLight,
+        everforestDark,
+        everforestLight,
+        nord,
+        minDark,
+        minLight,
+      ],
       engine: createJavaScriptRegexEngine(),
     })
   }
@@ -85,15 +129,17 @@ export async function ensureLanguage(langId: ShikiLangId): Promise<boolean> {
 export function tokenizeLines(
   source: string,
   langId: ShikiLangId,
+  themeId: SyntaxThemeId,
 ): ThemedToken[][] {
   if (!highlighterRef) {
     throw new Error(
       "blame-highlighter: ensureLanguage must be awaited before tokenizeLines",
     )
   }
+  const pair = SYNTAX_THEMES[themeId]
   const result = highlighterRef.codeToTokens(source, {
     lang: langId,
-    themes: { light: "light-plus", dark: "dark-plus" },
+    themes: { light: pair.light, dark: pair.dark },
     defaultColor: false,
   })
   return result.tokens
