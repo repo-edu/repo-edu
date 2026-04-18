@@ -498,3 +498,20 @@ input.password-input[type="password"][data-slot="input"] {
 [data-slot="dialog-description"] {
     color: var(--muted-foreground);
 }
+
+/* ===== Shiki syntax tokens (Blame code column) ===== */
+/* defaultColor: false → tokens carry only --shiki-light/--shiki-dark vars; bind explicitly per theme. */
+
+.shiki-token {
+    color: var(--shiki-light);
+}
+
+.theme-dark .shiki-token {
+    color: var(--shiki-dark);
+}
+
+@media (prefers-color-scheme: dark) {
+    .theme-system .shiki-token {
+        color: var(--shiki-dark);
+    }
+}

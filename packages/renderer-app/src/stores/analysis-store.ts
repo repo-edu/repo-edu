@@ -78,6 +78,7 @@ type AnalysisState = {
   // Blame display toggles (client-side only)
   blameShowMetadata: boolean
   blameColorize: boolean
+  blameSyntaxColorize: boolean
   blameHideEmpty: boolean
   blameHideComments: boolean
 
@@ -135,6 +136,7 @@ type AnalysisActions = {
   // Blame display toggles
   setBlameShowMetadata: (show: boolean) => void
   setBlameColorize: (colorize: boolean) => void
+  setBlameSyntaxColorize: (colorize: boolean) => void
   setBlameHideEmpty: (hide: boolean) => void
   setBlameHideComments: (hide: boolean) => void
 
@@ -200,6 +202,7 @@ const initialState: AnalysisState = {
 
   blameShowMetadata: true,
   blameColorize: true,
+  blameSyntaxColorize: true,
   blameHideEmpty: false,
   blameHideComments: false,
 
@@ -336,6 +339,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     // Blame display toggles
     setBlameShowMetadata: (blameShowMetadata) => set({ blameShowMetadata }),
     setBlameColorize: (blameColorize) => set({ blameColorize }),
+    setBlameSyntaxColorize: (blameSyntaxColorize) =>
+      set({ blameSyntaxColorize }),
     setBlameHideEmpty: (blameHideEmpty) => set({ blameHideEmpty }),
     setBlameHideComments: (blameHideComments) => set({ blameHideComments }),
 

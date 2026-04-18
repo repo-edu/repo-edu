@@ -9,10 +9,20 @@ import {
   lookupPerson,
 } from "@repo-edu/domain/analysis"
 import { Button, EmptyState, Text } from "@repo-edu/ui"
-import { Eye, EyeOff, Loader2, Palette } from "@repo-edu/ui/components/icons"
+import {
+  Eye,
+  EyeOff,
+  FileCode,
+  Loader2,
+  Palette,
+} from "@repo-edu/ui/components/icons"
+import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
+import type { ThemedToken } from "shiki/types"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { authorColorMap } from "../../../utils/author-colors.js"
+import { splitOffLeading } from "../../../utils/blame-highlighter.js"
+import { useBlameHighlightedLines } from "./use-blame-highlighted-lines.js"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -110,20 +120,57 @@ function matchesAnyPattern(
 
 const TAB_WIDTH = 4
 
-function preserveLeadingIndent(content: string): string {
-  let leadingEnd = 0
-  while (
-    leadingEnd < content.length &&
-    (content[leadingEnd] === " " || content[leadingEnd] === "\t")
-  ) {
-    leadingEnd++
+function countLeadingIndent(content: string): number {
+  let i = 0
+  while (i < content.length && (content[i] === " " || content[i] === "\t")) {
+    i++
   }
-  if (leadingEnd === 0) return content
+  return i
+}
+
+function expandLeadingIndent(content: string, leadingCount: number): string {
+  if (leadingCount === 0) return ""
   let expanded = ""
-  for (let i = 0; i < leadingEnd; i++) {
+  for (let i = 0; i < leadingCount; i++) {
     expanded += content[i] === "\t" ? "\u00A0".repeat(TAB_WIDTH) : "\u00A0"
   }
-  return expanded + content.slice(leadingEnd)
+  return expanded
+}
+
+function preserveLeadingIndent(content: string): string {
+  const leadingCount = countLeadingIndent(content)
+  if (leadingCount === 0) return content
+  return (
+    expandLeadingIndent(content, leadingCount) + content.slice(leadingCount)
+  )
+}
+
+function renderCodeCell(
+  p: ProcessedLine,
+  lineTokens: ThemedToken[] | undefined,
+): ReactNode {
+  if (p.isEmpty) return "\u00A0"
+  if (!lineTokens) return preserveLeadingIndent(p.line.content)
+
+  const leadingCount = countLeadingIndent(p.line.content)
+  const remaining = splitOffLeading(lineTokens, leadingCount)
+  const indent = expandLeadingIndent(p.line.content, leadingCount)
+
+  return (
+    <>
+      {indent && <span>{indent}</span>}
+      {remaining.map((token, i) => (
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: token order is stable per render
+          key={i}
+          className="shiki-token"
+          style={token.htmlStyle as CSSProperties | undefined}
+        >
+          {token.content}
+        </span>
+      ))}
+    </>
+  )
 }
 
 function processBlameLines(
@@ -329,12 +376,14 @@ function BlameGrid({
   showMetadata,
   colorize,
   blameExclusions,
+  tokens,
 }: {
   processed: ProcessedLine[]
   colorMap: Map<string, string>
   showMetadata: boolean
   colorize: boolean
   blameExclusions: string
+  tokens: ThemedToken[][] | null
 }) {
   return (
     <div className="overflow-auto flex-1 min-h-0">
@@ -448,7 +497,7 @@ function BlameGrid({
                   className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
                   style={bgStyle}
                 >
-                  {p.isEmpty ? "\u00A0" : preserveLeadingIndent(p.line.content)}
+                  {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
                 </div>
               </div>
             )
@@ -466,7 +515,7 @@ function BlameGrid({
                 className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
                 style={bgStyle}
               >
-                {p.isEmpty ? "\u00A0" : preserveLeadingIndent(p.line.content)}
+                {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
               </div>
             </div>
           )
@@ -488,14 +537,23 @@ export function BlameTab({ filePath }: { filePath: string }) {
 
   const showMetadata = useAnalysisStore((s) => s.blameShowMetadata)
   const colorize = useAnalysisStore((s) => s.blameColorize)
+  const syntaxColorize = useAnalysisStore((s) => s.blameSyntaxColorize)
   const hideEmpty = useAnalysisStore((s) => s.blameHideEmpty)
   const hideComments = useAnalysisStore((s) => s.blameHideComments)
   const blameExclusions = blameConfig.blameExclusions ?? "hide"
 
   const setBlameShowMetadata = useAnalysisStore((s) => s.setBlameShowMetadata)
   const setBlameColorize = useAnalysisStore((s) => s.setBlameColorize)
+  const setBlameSyntaxColorize = useAnalysisStore(
+    (s) => s.setBlameSyntaxColorize,
+  )
   const setBlameHideEmpty = useAnalysisStore((s) => s.setBlameHideEmpty)
   const setBlameHideComments = useAnalysisStore((s) => s.setBlameHideComments)
+
+  const highlightedTokens = useBlameHighlightedLines(
+    entry?.fileBlame ?? null,
+    syntaxColorize,
+  )
 
   const personDb = blameResult?.personDbOverlay ?? result?.personDbBaseline
 
@@ -595,6 +653,15 @@ export function BlameTab({ filePath }: { filePath: string }) {
           Colorize
         </Button>
         <Button
+          variant={syntaxColorize ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 gap-1 text-xs"
+          onClick={() => setBlameSyntaxColorize(!syntaxColorize)}
+        >
+          <FileCode className="size-3.5" />
+          Syntax
+        </Button>
+        <Button
           variant={hideEmpty ? "secondary" : "ghost"}
           size="sm"
           className="h-7 gap-1 text-xs"
@@ -624,6 +691,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
         showMetadata={showMetadata}
         colorize={colorize}
         blameExclusions={blameExclusions}
+        tokens={highlightedTokens}
       />
 
       {/* PersonDB delta */}

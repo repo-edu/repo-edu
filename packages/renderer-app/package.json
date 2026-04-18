@@ -15,10 +15,13 @@
     "@repo-edu/integrations-lms-contract": "workspace:*",
     "@repo-edu/renderer-host-contract": "workspace:*",
     "@repo-edu/ui": "workspace:*",
+    "@shikijs/langs": "^4.0.2",
+    "@shikijs/themes": "^4.0.2",
     "@tanstack/react-table": "^8.21.3",
     "immer": "^11.1.4",
     "nanoid": "^5.1.7",
     "recharts": "^3.8.1",
+    "shiki": "^4.0.2",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
