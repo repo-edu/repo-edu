@@ -2,17 +2,17 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  type ResizablePanelHandle,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
-  RESIZE_DEBOUNCE_MS,
 } from "../../constants/layout.js"
 import {
   type AnalysisView,
@@ -21,7 +21,6 @@ import {
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
-import { debounceAsync } from "../../utils/debounce.js"
 import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorFilesPanel } from "./analysis/AuthorFilesPanel.js"
@@ -44,18 +43,12 @@ export function AnalysisTab() {
   const activeCourseId = useUiStore((s) => s.activeCourseId)
   const course = useCourseStore((s) => s.course)
 
-  const analysisSidebarSize = useAppSettingsStore(
-    (s) => s.settings.analysisSidebarSize,
+  const initialSidebarWidthPxRef = useRef(
+    clampSidebarWidthPx(
+      useAppSettingsStore.getState().settings.analysisSidebarSize,
+    ),
   )
-  const setAnalysisSidebarSize = useAppSettingsStore(
-    (s) => s.setAnalysisSidebarSize,
-  )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const sidebarWidthPx = clampSidebarWidthPx(analysisSidebarSize)
-  const saveAppSettingsDebounced = useMemo(
-    () => debounceAsync(saveAppSettings, RESIZE_DEBOUNCE_MS),
-    [saveAppSettings],
-  )
+  const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
 
   const activeView = useAnalysisStore((s) => s.activeView)
   const setActiveView = useAnalysisStore((s) => s.setActiveView)
@@ -89,32 +82,31 @@ export function AnalysisTab() {
 
   useBlameAutoRun()
 
-  const handleSidebarResize = useCallback(
-    (
-      panelSize: { inPixels: number },
-      _id: string | number | undefined,
-      previousPanelSize: { inPixels: number } | undefined,
-    ) => {
-      if (!previousPanelSize) return
-      setAnalysisSidebarSize(clampSidebarWidthPx(panelSize.inPixels))
-      saveAppSettingsDebounced()
-    },
-    [saveAppSettingsDebounced, setAnalysisSidebarSize],
-  )
+  const handleLayoutChanged = useCallback(() => {
+    const panel = sidebarPanelRef.current
+    if (!panel) return
+    const { setAnalysisSidebarSize, save } = useAppSettingsStore.getState()
+    setAnalysisSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
+    void save()
+  }, [])
 
   if (!activeCourseId || !course) {
     return <NoCourseEmptyState tabLabel="analysis" />
   }
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="h-full min-h-0"
+      onLayoutChanged={handleLayoutChanged}
+    >
       <ResizablePanel
         id="analysis-sidebar"
-        defaultSize={`${sidebarWidthPx}px`}
+        panelRef={sidebarPanelRef}
+        defaultSize={`${initialSidebarWidthPxRef.current}px`}
         minSize={`${ANALYSIS_SIDEBAR_MIN_WIDTH_PX}px`}
         maxSize={`${ANALYSIS_SIDEBAR_MAX_WIDTH_PX}px`}
         groupResizeBehavior="preserve-pixel-size"
-        onResize={handleSidebarResize}
         className="min-w-0"
       >
         <AnalysisSidebar />

@@ -11,6 +11,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  type ResizablePanelHandle,
 } from "@repo-edu/ui"
 import {
   type ColumnDef,
@@ -20,12 +21,11 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import {
   ANALYSIS_DETAIL_LIST_DEFAULT_WIDTH_PX,
   ANALYSIS_DETAIL_LIST_MAX_WIDTH_PX,
   ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX,
-  RESIZE_DEBOUNCE_MS,
 } from "../../../constants/layout.js"
 import {
   selectAuthorDisplayByPersonId,
@@ -40,7 +40,6 @@ import {
   type MetricTotals,
 } from "../../../utils/analysis-format.js"
 import { authorColorMap } from "../../../utils/author-colors.js"
-import { debounceAsync } from "../../../utils/debounce.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
@@ -94,14 +93,12 @@ export function AuthorFilesPanel() {
   const showAge = useAnalysisStore((s) => s.showAge)
   const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
 
-  const listSize = useAppSettingsStore((s) => s.settings.analysisDetailListSize)
-  const setListSize = useAppSettingsStore((s) => s.setAnalysisDetailListSize)
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const listWidthPx = clampListWidth(listSize)
-  const saveDebounced = useMemo(
-    () => debounceAsync(saveAppSettings, RESIZE_DEBOUNCE_MS),
-    [saveAppSettings],
+  const initialListWidthPxRef = useRef(
+    clampListWidth(
+      useAppSettingsStore.getState().settings.analysisDetailListSize,
+    ),
   )
+  const listPanelRef = useRef<ResizablePanelHandle | null>(null)
 
   const allAuthorIds = useMemo(
     () => (result?.authorStats ?? []).map((a) => a.personId),
@@ -199,18 +196,13 @@ export function AuthorFilesPanel() {
     getRowId: (row) => row.path,
   })
 
-  const handleListResize = useCallback(
-    (
-      panelSize: { inPixels: number },
-      _id: string | number | undefined,
-      previousPanelSize: { inPixels: number } | undefined,
-    ) => {
-      if (!previousPanelSize) return
-      setListSize(clampListWidth(panelSize.inPixels))
-      saveDebounced()
-    },
-    [saveDebounced, setListSize],
-  )
+  const handleLayoutChanged = useCallback(() => {
+    const panel = listPanelRef.current
+    if (!panel) return
+    const { setAnalysisDetailListSize, save } = useAppSettingsStore.getState()
+    setAnalysisDetailListSize(clampListWidth(panel.getSize().inPixels))
+    void save()
+  }, [])
 
   if (!result) {
     return (
@@ -224,14 +216,18 @@ export function AuthorFilesPanel() {
     <div className="flex flex-col h-full min-h-0">
       <AnalysisDisplayControls showChartMetric={false} />
       <div className="flex-1 min-h-0">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="h-full"
+          onLayoutChanged={handleLayoutChanged}
+        >
           <ResizablePanel
             id="author-files-list"
-            defaultSize={`${listWidthPx}px`}
+            panelRef={listPanelRef}
+            defaultSize={`${initialListWidthPxRef.current}px`}
             minSize={`${ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX}px`}
             maxSize={`${ANALYSIS_DETAIL_LIST_MAX_WIDTH_PX}px`}
             groupResizeBehavior="preserve-pixel-size"
-            onResize={handleListResize}
             className="min-w-0"
           >
             <div className="h-full overflow-y-auto border-r">

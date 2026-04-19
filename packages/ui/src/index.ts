@@ -77,6 +77,7 @@ export {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  type ResizablePanelHandle,
 } from "./components/ui/resizable"
 export {
   Select,

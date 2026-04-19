@@ -3,18 +3,17 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  type ResizablePanelHandle,
 } from "@repo-edu/ui"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useRef } from "react"
 import {
   GROUPS_SIDEBAR_DEFAULT_WIDTH_PX,
   GROUPS_SIDEBAR_MAX_WIDTH_PX,
   GROUPS_SIDEBAR_MIN_WIDTH_PX,
-  RESIZE_DEBOUNCE_MS,
 } from "../../constants/layout.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
-import { debounceAsync } from "../../utils/debounce.js"
 import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
@@ -42,18 +41,12 @@ export function GroupsAssignmentsTab() {
   )
   const setImportGroupSetFormat = useUiStore((s) => s.setImportGroupSetFormat)
 
-  const groupsSidebarSize = useAppSettingsStore(
-    (s) => s.settings.groupsSidebarSize,
+  const initialSidebarWidthPxRef = useRef(
+    clampSidebarWidthPx(
+      useAppSettingsStore.getState().settings.groupsSidebarSize,
+    ),
   )
-  const setGroupsSidebarSize = useAppSettingsStore(
-    (s) => s.setGroupsSidebarSize,
-  )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const sidebarWidthPx = clampSidebarWidthPx(groupsSidebarSize)
-  const saveAppSettingsDebounced = useMemo(
-    () => debounceAsync(saveAppSettings, RESIZE_DEBOUNCE_MS),
-    [saveAppSettings],
-  )
+  const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
 
   const handleCreateLocalGroupSet = useCallback(() => {
     setNewLocalGroupSetDialogOpen(true)
@@ -70,18 +63,13 @@ export function GroupsAssignmentsTab() {
     [setImportGroupSetFormat],
   )
 
-  const handleSidebarResize = useCallback(
-    (
-      panelSize: { inPixels: number },
-      _id: string | number | undefined,
-      previousPanelSize: { inPixels: number } | undefined,
-    ) => {
-      if (!previousPanelSize) return
-      setGroupsSidebarSize(clampSidebarWidthPx(panelSize.inPixels))
-      saveAppSettingsDebounced()
-    },
-    [saveAppSettingsDebounced, setGroupsSidebarSize],
-  )
+  const handleLayoutChanged = useCallback(() => {
+    const panel = sidebarPanelRef.current
+    if (!panel) return
+    const { setGroupsSidebarSize, save } = useAppSettingsStore.getState()
+    setGroupsSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
+    void save()
+  }, [])
 
   const handleRequestFocusPanel = useCallback(() => {
     if (!panelRef.current) return
@@ -96,14 +84,18 @@ export function GroupsAssignmentsTab() {
   }
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0">
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="h-full min-h-0"
+      onLayoutChanged={handleLayoutChanged}
+    >
       <ResizablePanel
         id="sidebar"
-        defaultSize={`${sidebarWidthPx}px`}
+        panelRef={sidebarPanelRef}
+        defaultSize={`${initialSidebarWidthPxRef.current}px`}
         minSize={`${GROUPS_SIDEBAR_MIN_WIDTH_PX}px`}
         maxSize={`${GROUPS_SIDEBAR_MAX_WIDTH_PX}px`}
         groupResizeBehavior="preserve-pixel-size"
-        onResize={handleSidebarResize}
         className="min-w-0"
       >
         <GroupsAssignmentsSidebar
