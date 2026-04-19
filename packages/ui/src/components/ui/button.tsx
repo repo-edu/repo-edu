@@ -38,6 +38,16 @@ const buttonVariants = cva(
          */
         selection:
           "bg-selection text-foreground font-medium hover:bg-selection",
+        /**
+         * Boolean-toggle state for stand-alone toggles (e.g.
+         * Metadata/Colorize/Syntax in the Blame toolbar). Drive via
+         * `aria-pressed={on}`. Mirrors shadcn's Toggle primitive:
+         * hover fills the subtler `bg-muted`, the pressed state fills the
+         * more prominent `bg-accent`, so selecting never darkens below
+         * hover.
+         */
+        toggle:
+          "text-muted-foreground hover:bg-muted hover:text-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:hover:bg-accent",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

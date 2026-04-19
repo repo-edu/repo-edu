@@ -299,6 +299,74 @@ function computeAuthorContributions(
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ContributionsPie({
+  contributions,
+  colorMap,
+  size = 20,
+}: {
+  contributions: AuthorContribution[]
+  colorMap: Map<string, string>
+  size?: number
+}) {
+  const total = contributions.reduce((sum, c) => sum + c.lines, 0)
+  if (total === 0) return null
+
+  const radius = size / 2
+  const nonZero = contributions.filter((c) => c.lines > 0)
+
+  if (nonZero.length === 1) {
+    const only = nonZero[0]
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label="Author contributions"
+      >
+        <circle
+          cx={radius}
+          cy={radius}
+          r={radius}
+          fill={colorMap.get(only.personId) ?? "#888"}
+        />
+      </svg>
+    )
+  }
+
+  let startAngle = -Math.PI / 2
+  const segments = nonZero.map((c) => {
+    const angle = (c.lines / total) * Math.PI * 2
+    const endAngle = startAngle + angle
+    const x1 = radius + radius * Math.cos(startAngle)
+    const y1 = radius + radius * Math.sin(startAngle)
+    const x2 = radius + radius * Math.cos(endAngle)
+    const y2 = radius + radius * Math.sin(endAngle)
+    const largeArc = angle > Math.PI ? 1 : 0
+    const path = `M ${radius} ${radius} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`
+    startAngle = endAngle
+    return { personId: c.personId, path }
+  })
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="Author contributions"
+    >
+      {segments.map((s) => (
+        <path
+          key={s.personId}
+          d={s.path}
+          fill={colorMap.get(s.personId) ?? "#888"}
+        />
+      ))}
+    </svg>
+  )
+}
+
 function AuthorSummary({
   contributions,
   colorMap,
@@ -311,7 +379,12 @@ function AuthorSummary({
   onToggle: (personId: string) => void
 }) {
   return (
-    <div className="flex flex-wrap gap-2 px-3 py-2 border-b">
+    <div className="flex flex-wrap items-center gap-4 pl-2 pr-3 py-1 border-b">
+      <ContributionsPie
+        contributions={contributions}
+        colorMap={colorMap}
+        size={24}
+      />
       {contributions.map((c) => {
         const color = colorMap.get(c.personId) ?? "#888"
         const checked =
@@ -329,9 +402,7 @@ function AuthorSummary({
               style={{ backgroundColor: color }}
             />
             <span className="truncate max-w-24">{c.name}</span>
-            <span className="text-muted-foreground">
-              {c.lines} ({c.percent.toFixed(1)}%)
-            </span>
+            <span className="text-muted-foreground">{c.lines}</span>
           </button>
         )
       })}
@@ -393,124 +464,97 @@ function BlameGrid({
   tokens: ThemedToken[][] | null
 }) {
   return (
-    <div className="overflow-auto flex-1 min-h-0">
-      <div
-        className="grid text-xs font-mono min-w-max"
-        style={{
-          gridTemplateColumns: showMetadata
-            ? "auto auto auto fit-content(12rem) auto auto auto 1fr"
-            : "auto 1fr",
-        }}
-      >
-        {/* Header */}
-        {showMetadata ? (
-          <>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              ID
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Author
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Date
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Message
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              SHA
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Commit#
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground text-right">
-              Line#
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Code
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground text-right">
-              Line#
-            </div>
-            <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
-              Code
-            </div>
-          </>
-        )}
+    <div
+      className="grid text-xs font-mono min-w-max"
+      style={{
+        gridTemplateColumns: showMetadata
+          ? "auto auto auto fit-content(12rem) auto auto auto 1fr"
+          : "auto 1fr",
+      }}
+    >
+      {/* Header */}
+      {showMetadata ? (
+        <>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            ID
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Author
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Date
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Message
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            SHA
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Commit#
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground text-right">
+            Line#
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Code
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground text-right">
+            Line#
+          </div>
+          <div className="sticky top-0 z-10 bg-background border-b px-2 py-1 font-sans font-medium text-muted-foreground">
+            Code
+          </div>
+        </>
+      )}
 
-        {/* Rows */}
-        {processed.map((p) => {
-          const color = colorMap.get(p.personId) ?? "#888"
-          const bgStyle = colorize
-            ? { backgroundColor: `${color}59` }
-            : undefined
-          const borderStyle = colorize
-            ? { borderLeft: `2px solid ${color}` }
-            : { borderLeft: "2px solid transparent" }
-          const date = new Date(p.line.timestamp * 1000)
-            .toISOString()
-            .slice(0, 10)
+      {/* Rows */}
+      {processed.map((p) => {
+        const color = colorMap.get(p.personId) ?? "#888"
+        const bgStyle = colorize ? { backgroundColor: `${color}59` } : undefined
+        const borderStyle = colorize
+          ? { borderLeft: `2px solid ${color}` }
+          : { borderLeft: "2px solid transparent" }
+        const date = new Date(p.line.timestamp * 1000)
+          .toISOString()
+          .slice(0, 10)
 
-          if (showMetadata) {
-            return (
-              <div key={p.line.lineNumber} className="contents">
-                <div
-                  className="px-2 py-px text-muted-foreground text-center"
-                  style={{ ...borderStyle, ...bgStyle }}
-                >
-                  {p.isFirstInGroup ? p.authorRank : ""}
-                </div>
-                <div className="px-2 py-px truncate max-w-32" style={bgStyle}>
-                  {p.isFirstInGroup ? p.line.authorName : ""}
-                </div>
-                <div
-                  className="px-2 py-px text-muted-foreground"
-                  style={bgStyle}
-                >
-                  {p.isFirstInGroup ? date : ""}
-                </div>
-                <div
-                  className="px-2 py-px max-w-48 text-muted-foreground truncate cursor-default hover:whitespace-normal"
-                  style={bgStyle}
-                >
-                  {p.isFirstInGroup ? p.line.message : ""}
-                </div>
-                <div
-                  className="px-2 py-px text-muted-foreground"
-                  style={bgStyle}
-                >
-                  {p.isFirstInGroup ? p.line.sha.slice(0, 7) : ""}
-                </div>
-                <div
-                  className="px-2 py-px text-muted-foreground text-center"
-                  style={bgStyle}
-                >
-                  {p.isFirstInGroup ? p.commitNumber : ""}
-                </div>
-                <div
-                  className="px-2 py-px text-muted-foreground text-right"
-                  style={bgStyle}
-                >
-                  {p.line.lineNumber}
-                </div>
-                <div
-                  className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
-                  style={bgStyle}
-                >
-                  {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
-                </div>
-              </div>
-            )
-          }
-
+        if (showMetadata) {
           return (
             <div key={p.line.lineNumber} className="contents">
               <div
-                className="px-2 py-px text-muted-foreground text-right"
+                className="px-2 py-px text-muted-foreground text-center"
                 style={{ ...borderStyle, ...bgStyle }}
+              >
+                {p.isFirstInGroup ? p.authorRank : ""}
+              </div>
+              <div className="px-2 py-px truncate max-w-32" style={bgStyle}>
+                {p.isFirstInGroup ? p.line.authorName : ""}
+              </div>
+              <div className="px-2 py-px text-muted-foreground" style={bgStyle}>
+                {p.isFirstInGroup ? date : ""}
+              </div>
+              <div
+                className="px-2 py-px max-w-48 text-muted-foreground truncate cursor-default hover:whitespace-normal"
+                style={bgStyle}
+              >
+                {p.isFirstInGroup ? p.line.message : ""}
+              </div>
+              <div className="px-2 py-px text-muted-foreground" style={bgStyle}>
+                {p.isFirstInGroup ? p.line.sha.slice(0, 7) : ""}
+              </div>
+              <div
+                className="px-2 py-px text-muted-foreground text-center"
+                style={bgStyle}
+              >
+                {p.isFirstInGroup ? p.commitNumber : ""}
+              </div>
+              <div
+                className="px-2 py-px text-muted-foreground text-right"
+                style={bgStyle}
               >
                 {p.line.lineNumber}
               </div>
@@ -522,8 +566,25 @@ function BlameGrid({
               </div>
             </div>
           )
-        })}
-      </div>
+        }
+
+        return (
+          <div key={p.line.lineNumber} className="contents">
+            <div
+              className="px-2 py-px text-muted-foreground text-right"
+              style={{ ...borderStyle, ...bgStyle }}
+            >
+              {p.line.lineNumber}
+            </div>
+            <div
+              className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
+              style={bgStyle}
+            >
+              {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -573,7 +634,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
     })
   }, [entry?.fileBlame, personDb, blameConfig])
 
-  const filteredLines = useMemo(() => {
+  const lineFilteredLines = useMemo(() => {
     let lines = processed
 
     if (hideEmpty) {
@@ -582,9 +643,6 @@ export function BlameTab({ filePath }: { filePath: string }) {
     if (hideComments) {
       lines = lines.filter((p) => !p.isComment)
     }
-    if (visibleAuthors !== null) {
-      lines = lines.filter((p) => visibleAuthors.has(p.personId))
-    }
 
     if (lines === processed) return lines
 
@@ -592,30 +650,23 @@ export function BlameTab({ filePath }: { filePath: string }) {
       ...p,
       isFirstInGroup: i === 0 || lines[i - 1].line.sha !== p.line.sha,
     }))
-  }, [processed, hideEmpty, hideComments, visibleAuthors])
+  }, [processed, hideEmpty, hideComments])
+
+  const filteredLines = useMemo(() => {
+    if (visibleAuthors === null) return lineFilteredLines
+    const lines = lineFilteredLines.filter((p) =>
+      visibleAuthors.has(p.personId),
+    )
+    return lines.map((p, i) => ({
+      ...p,
+      isFirstInGroup: i === 0 || lines[i - 1].line.sha !== p.line.sha,
+    }))
+  }, [lineFilteredLines, visibleAuthors])
 
   const contributions = useMemo(() => {
     if (!personDb) return []
-    const visibleContribs = computeAuthorContributions(filteredLines, personDb)
-    const visibleByPerson = new Map(visibleContribs.map((c) => [c.personId, c]))
-    // Keep all authors who appear in this file visible in the legend so the
-    // per-author visibility toggle remains reversible; numbers reflect the
-    // currently filtered lines.
-    const allPersonIds = new Set(processed.map((p) => p.personId))
-    const extras: AuthorContribution[] = []
-    for (const personId of allPersonIds) {
-      if (visibleByPerson.has(personId)) continue
-      const person = personDb.persons.find((p) => p.id === personId)
-      const sampleLine = processed.find((p) => p.personId === personId)
-      extras.push({
-        personId,
-        name: person?.canonicalName ?? sampleLine?.line.authorName ?? "Unknown",
-        lines: 0,
-        percent: 0,
-      })
-    }
-    return [...visibleContribs, ...extras].sort((a, b) => b.lines - a.lines)
-  }, [filteredLines, processed, personDb])
+    return computeAuthorContributions(lineFilteredLines, personDb)
+  }, [lineFilteredLines, personDb])
 
   const colorMap = useMemo(
     () => authorColorMap(contributions.map((c) => c.personId)),
@@ -654,9 +705,10 @@ export function BlameTab({ filePath }: { filePath: string }) {
       {/* Toolbar */}
       <div className="flex items-center gap-1 border-b px-3 py-1.5">
         <Button
-          variant={showMetadata ? "secondary" : "ghost"}
+          variant="toggle"
           size="sm"
           className="h-7 gap-1 text-xs"
+          aria-pressed={showMetadata}
           onClick={() => setBlameShowMetadata(!showMetadata)}
         >
           {showMetadata ? (
@@ -667,64 +719,69 @@ export function BlameTab({ filePath }: { filePath: string }) {
           Metadata
         </Button>
         <Button
-          variant={colorize ? "secondary" : "ghost"}
+          variant="toggle"
           size="sm"
           className="h-7 gap-1 text-xs"
+          aria-pressed={colorize}
           onClick={() => setBlameColorize(!colorize)}
         >
           <Palette className="size-3.5" />
           Colorize
         </Button>
         <Button
-          variant={syntaxColorize ? "secondary" : "ghost"}
+          variant="toggle"
           size="sm"
           className="h-7 gap-1 text-xs"
+          aria-pressed={syntaxColorize}
           onClick={() => setBlameSyntaxColorize(!syntaxColorize)}
         >
           <FileCode className="size-3.5" />
           Syntax
         </Button>
         <Button
-          variant={hideEmpty ? "secondary" : "ghost"}
+          variant="toggle"
           size="sm"
           className="h-7 gap-1 text-xs"
+          aria-pressed={hideEmpty}
           onClick={() => setBlameHideEmpty(!hideEmpty)}
         >
           Hide Empty
         </Button>
         <Button
-          variant={hideComments ? "secondary" : "ghost"}
+          variant="toggle"
           size="sm"
           className="h-7 gap-1 text-xs"
+          aria-pressed={hideComments}
           onClick={() => setBlameHideComments(!hideComments)}
         >
           Hide Comments
         </Button>
       </div>
 
-      {/* Author contributions */}
-      {colorize && contributions.length > 0 && (
-        <AuthorSummary
-          contributions={contributions}
-          colorMap={colorMap}
-          visibleAuthors={visibleAuthors}
-          onToggle={(personId) =>
-            toggleAuthor(
-              personId,
-              contributions.map((c) => c.personId),
-            )
-          }
-        />
-      )}
+      {/* Scroll region: author summary scrolls away, grid header stays sticky */}
+      <div className="overflow-auto flex-1 min-h-0">
+        {colorize && contributions.length > 0 && (
+          <AuthorSummary
+            contributions={contributions}
+            colorMap={colorMap}
+            visibleAuthors={visibleAuthors}
+            onToggle={(personId) =>
+              toggleAuthor(
+                personId,
+                contributions.map((c) => c.personId),
+              )
+            }
+          />
+        )}
 
-      {/* Blame grid */}
-      <BlameGrid
-        processed={filteredLines}
-        colorMap={colorMap}
-        showMetadata={showMetadata}
-        colorize={colorize}
-        tokens={highlightedTokens}
-      />
+        <BlameGrid
+          processed={filteredLines}
+          colorMap={colorMap}
+          showMetadata={showMetadata}
+          colorize={colorize}
+          tokens={highlightedTokens}
+        />
+      </div>
 
       {/* PersonDB delta */}
       <PersonDbDeltaDisplay />
