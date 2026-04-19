@@ -10,6 +10,9 @@
 # Test artifacts
 .test-config/
 
+# Generated student fixture repos (each is its own git init)
+.student-repos/
+
 # AI assistants
 .claude/settings.local.json
 .gemini-clipboard/
