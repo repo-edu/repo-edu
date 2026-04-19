@@ -39,6 +39,7 @@ function createStubFileSystemPort(
   listDirectory: FileSystemPort["listDirectory"],
 ): FileSystemPort {
   return {
+    userHomeSystemDirectories: [],
     async inspect(request) {
       return request.paths.map((path) => ({ path, kind: "missing" as const }))
     },

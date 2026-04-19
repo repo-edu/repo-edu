@@ -7,7 +7,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
@@ -29,6 +29,7 @@ import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
 import { FileAuthorsPanel } from "./analysis/FileAuthorsPanel.js"
 import { FilePanel } from "./analysis/FilePanel.js"
+import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
@@ -65,6 +66,26 @@ export function AnalysisTab() {
       setActiveView("authors")
     }
   }, [blameSkip, activeView, setActiveView])
+
+  const { runRepoDiscovery } = useAnalysisWorkflows()
+  const searchFolder = course?.searchFolder ?? null
+  const hasDiscoveredRepos = useAnalysisStore(
+    (s) => s.discoveredRepos.length > 0,
+  )
+  const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
+  const settingsStatus = useAppSettingsStore((s) => s.status)
+  const didAutoDiscoverRef = useRef(false)
+  const runRepoDiscoveryRef = useRef(runRepoDiscovery)
+  runRepoDiscoveryRef.current = runRepoDiscovery
+  useEffect(() => {
+    if (didAutoDiscoverRef.current) return
+    if (settingsStatus !== "loaded") return
+    if (!searchFolder) return
+    if (hasDiscoveredRepos) return
+    if (discoveryStatus === "loading") return
+    didAutoDiscoverRef.current = true
+    void runRepoDiscoveryRef.current(searchFolder)
+  }, [settingsStatus, searchFolder, hasDiscoveredRepos, discoveryStatus])
 
   useBlameAutoRun()
 

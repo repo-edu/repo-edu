@@ -59,6 +59,7 @@ function createMockGitCommandPort(
 }
 
 const stubFileSystem: FileSystemPort = {
+  userHomeSystemDirectories: [],
   async inspect(request) {
     return request.paths.map((path) => ({
       path,

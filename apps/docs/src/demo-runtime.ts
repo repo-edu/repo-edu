@@ -325,6 +325,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   }
 
   const fileSystemPort: FileSystemPort = {
+    userHomeSystemDirectories: [],
     async inspect(request) {
       return request.paths.map((path) => ({
         path,

@@ -95,6 +95,7 @@ export function createRepoHarness(options?: {
         })),
     },
     fileSystem: {
+      userHomeSystemDirectories: [],
       inspect: options?.fileSystem?.inspect ?? (async () => []),
       applyBatch:
         options?.fileSystem?.applyBatch ?? (async () => ({ completed: [] })),

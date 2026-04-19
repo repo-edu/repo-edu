@@ -130,6 +130,9 @@ export function RepositoriesSection({
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
   const discoveryError = useAnalysisStore((s) => s.discoveryError)
+  const discoveryCurrentFolder = useAnalysisStore(
+    (s) => s.discoveryCurrentFolder,
+  )
   const lastDiscoveryOutcome = useAnalysisStore((s) => s.lastDiscoveryOutcome)
 
   const {
@@ -201,9 +204,14 @@ export function RepositoriesSection({
       )}
 
       {discoveryStatus === "loading" && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" />
-          <span>Scanning…</span>
+        <div
+          className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
+          title={discoveryCurrentFolder ?? undefined}
+        >
+          <Loader2 className="size-3 shrink-0 animate-spin" />
+          <span className="min-w-0 truncate">
+            {discoveryCurrentFolder ?? "Scanning…"}
+          </span>
         </div>
       )}
 

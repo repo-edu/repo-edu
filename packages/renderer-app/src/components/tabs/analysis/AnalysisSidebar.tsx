@@ -464,6 +464,13 @@ export function AnalysisSidebar() {
   const hasDiscoveredRepos = discoveredRepos.length > 0
   const blameSkip = config.blameSkip ?? false
 
+  const blurOnEnter = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") e.currentTarget.blur()
+    },
+    [],
+  )
+
   const baselineCount = result?.personDbBaseline.persons.length ?? 0
   const overlayCount = blameResult?.personDbOverlay.persons.length
   const delta = blameResult?.delta
@@ -474,20 +481,12 @@ export function AnalysisSidebar() {
       <div className="space-y-2">
         <div className="flex items-center gap-1">
           {isRunning ? (
-            <Button
-              variant="destructive"
-              className="flex-1"
-              onClick={handleCancel}
-            >
+            <Button variant="destructive" onClick={handleCancel}>
               <Square className="mr-1 size-4" />
               Cancel
             </Button>
           ) : isDiscovering ? (
-            <Button
-              variant="destructive"
-              className="flex-1"
-              onClick={handleCancelDiscovery}
-            >
+            <Button variant="destructive" onClick={handleCancelDiscovery}>
               <Square className="mr-1 size-4" />
               Cancel Search
             </Button>
@@ -495,7 +494,6 @@ export function AnalysisSidebar() {
             result ? (
               <Button
                 variant="outline"
-                className="flex-1"
                 disabled={!selectedRepoPath}
                 onClick={handleRun}
               >
@@ -503,21 +501,13 @@ export function AnalysisSidebar() {
                 Re-run Analysis
               </Button>
             ) : (
-              <Button
-                className="flex-1"
-                disabled={!selectedRepoPath}
-                onClick={handleRun}
-              >
+              <Button disabled={!selectedRepoPath} onClick={handleRun}>
                 <Play className="mr-1 size-4" />
                 Run Analysis
               </Button>
             )
           ) : (
-            <Button
-              className="flex-1"
-              disabled={!searchFolder}
-              onClick={handleSearchRepos}
-            >
+            <Button disabled={!searchFolder} onClick={handleSearchRepos}>
               <Play className="mr-1 size-4" />
               Search Repos
             </Button>
@@ -527,7 +517,7 @@ export function AnalysisSidebar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-6 shrink-0"
+                className="ml-auto size-6 shrink-0"
                 onClick={expandAll}
               >
                 <ChevronsUpDown className="size-3.5" />
@@ -798,11 +788,13 @@ export function AnalysisSidebar() {
           <Input
             key={`subfolder-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="src/"
             defaultValue={config.subfolder ?? ""}
             onBlur={(e) =>
               setConfigAndRerun({ subfolder: e.target.value || undefined })
             }
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -810,6 +802,7 @@ export function AnalysisSidebar() {
           <Input
             key={`include-files-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="*.ts"
             defaultValue={config.includeFiles?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -823,6 +816,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -830,6 +824,7 @@ export function AnalysisSidebar() {
           <Input
             key={`extensions-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="ts,tsx,js"
             defaultValue={config.extensions?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -843,6 +838,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
       </CollapsibleSection>
@@ -861,11 +857,13 @@ export function AnalysisSidebar() {
             <Input
               key={`since-${configInputResetKey}`}
               type="text"
+              size="xs"
               placeholder="YYYY-MM-DD"
               defaultValue={config.since ?? ""}
               onBlur={(e) =>
                 setConfigAndRerun({ since: e.target.value || undefined })
               }
+              onKeyDown={blurOnEnter}
             />
           </div>
           <div className="space-y-1">
@@ -873,11 +871,13 @@ export function AnalysisSidebar() {
             <Input
               key={`until-${configInputResetKey}`}
               type="text"
+              size="xs"
               placeholder="YYYY-MM-DD"
               defaultValue={config.until ?? ""}
               onBlur={(e) =>
                 setConfigAndRerun({ until: e.target.value || undefined })
               }
+              onKeyDown={blurOnEnter}
             />
           </div>
         </div>
@@ -911,6 +911,7 @@ export function AnalysisSidebar() {
                 <Label className="text-xs">Copy/Move</Label>
                 <Input
                   type="number"
+                  size="xs"
                   min={0}
                   max={4}
                   step={1}
@@ -996,6 +997,7 @@ export function AnalysisSidebar() {
           <Input
             key={`exclude-files-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="*.test.ts"
             defaultValue={config.excludeFiles?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -1009,6 +1011,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -1016,6 +1019,7 @@ export function AnalysisSidebar() {
           <Input
             key={`exclude-authors-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="bot*"
             defaultValue={config.excludeAuthors?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -1029,6 +1033,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -1036,6 +1041,7 @@ export function AnalysisSidebar() {
           <Input
             key={`exclude-emails-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="noreply@*"
             defaultValue={config.excludeEmails?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -1049,6 +1055,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -1056,6 +1063,7 @@ export function AnalysisSidebar() {
           <Input
             key={`exclude-revisions-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="abc1234"
             defaultValue={config.excludeRevisions?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -1069,6 +1077,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
         <div className="space-y-1">
@@ -1076,6 +1085,7 @@ export function AnalysisSidebar() {
           <Input
             key={`exclude-messages-${configInputResetKey}`}
             type="text"
+            size="xs"
             placeholder="merge*"
             defaultValue={config.excludeMessages?.join(", ") ?? ""}
             onBlur={(e) => {
@@ -1089,6 +1099,7 @@ export function AnalysisSidebar() {
                   : undefined,
               })
             }}
+            onKeyDown={blurOnEnter}
           />
         </div>
       </CollapsibleSection>

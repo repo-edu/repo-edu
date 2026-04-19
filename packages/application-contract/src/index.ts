@@ -433,6 +433,10 @@ export type AnalysisDiscoverReposResult = {
   repos: DiscoveredRepo[]
 }
 
+export type DiscoverReposProgress = {
+  currentFolder: string
+}
+
 export type AnalysisRunInput = AnalysisRepositoryInput & {
   config: AnalysisConfig
   rosterContext?: AnalysisRosterContext
@@ -630,7 +634,7 @@ export type WorkflowPayloads = {
   }
   "analysis.discoverRepos": {
     input: AnalysisDiscoverReposInput
-    progress: never
+    progress: DiscoverReposProgress
     output: never
     result: AnalysisDiscoverReposResult
   }
@@ -795,7 +799,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   },
   "analysis.discoverRepos": {
     delivery: ["desktop", "docs"],
-    progress: "none",
+    progress: "granular",
     cancellation: "best-effort",
   },
 }

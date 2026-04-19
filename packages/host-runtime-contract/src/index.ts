@@ -163,4 +163,5 @@ export type FileSystemPort = {
   listDirectory(
     request: FileSystemListDirectoryRequest,
   ): Promise<FileSystemDirectoryEntry[]>
+  readonly userHomeSystemDirectories: readonly string[]
 }

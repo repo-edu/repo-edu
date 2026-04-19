@@ -101,6 +101,7 @@ describe("application repository update workflow helpers", () => {
         }),
       },
       fileSystem: {
+        userHomeSystemDirectories: [],
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",
@@ -199,6 +200,7 @@ describe("application repository update workflow helpers", () => {
         }),
       },
       fileSystem: {
+        userHomeSystemDirectories: [],
         inspect: async () => [],
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",

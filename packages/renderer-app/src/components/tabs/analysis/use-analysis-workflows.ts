@@ -1,4 +1,7 @@
-import type { AnalysisProgress } from "@repo-edu/application-contract"
+import type {
+  AnalysisProgress,
+  DiscoverReposProgress,
+} from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
 import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import { useCallback } from "react"
@@ -25,10 +28,12 @@ export function useAnalysisWorkflows() {
   const setProgress = useAnalysisStore((s) => s.setProgress)
   const setErrorMessage = useAnalysisStore((s) => s.setErrorMessage)
 
-  const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
   const setDiscoveryStatus = useAnalysisStore((s) => s.setDiscoveryStatus)
   const setDiscoveryError = useAnalysisStore((s) => s.setDiscoveryError)
+  const setDiscoveryCurrentFolder = useAnalysisStore(
+    (s) => s.setDiscoveryCurrentFolder,
+  )
   const setLastDiscoveryOutcome = useAnalysisStore(
     (s) => s.setLastDiscoveryOutcome,
   )
@@ -113,22 +118,34 @@ export function useAnalysisWorkflows() {
       setLastDiscoveryOutcome("none")
       setDiscoveryStatus("loading")
       setDiscoveryError(null)
+      setDiscoveryCurrentFolder(null)
       setDiscoveredRepos([])
       try {
         const result = await client.run(
           "analysis.discoverRepos",
-          { searchFolder: folder, maxDepth: searchDepth },
-          { signal: ac.signal },
+          {
+            searchFolder: folder,
+            maxDepth: useAnalysisStore.getState().searchDepth,
+          },
+          {
+            signal: ac.signal,
+            onProgress: (p: DiscoverReposProgress) => {
+              if (analysisStoreInternals.discoveryAbort !== ac) return
+              setDiscoveryCurrentFolder(p.currentFolder)
+            },
+          },
         )
         if (analysisStoreInternals.discoveryAbort !== ac) return
         if (ac.signal.aborted) {
           setLastDiscoveryOutcome("cancelled")
           setDiscoveryStatus("idle")
+          setDiscoveryCurrentFolder(null)
           return
         }
         setDiscoveredRepos(result.repos)
         setLastDiscoveryOutcome("completed")
         setDiscoveryStatus("idle")
+        setDiscoveryCurrentFolder(null)
         if (result.repos.length > 0) {
           setSelectedRepoPath(result.repos[0].path)
           runAnalysis(result.repos[0].path)
@@ -138,10 +155,12 @@ export function useAnalysisWorkflows() {
         if (ac.signal.aborted) {
           setLastDiscoveryOutcome("cancelled")
           setDiscoveryStatus("idle")
+          setDiscoveryCurrentFolder(null)
           return
         }
         setLastDiscoveryOutcome("none")
         setDiscoveryStatus("error")
+        setDiscoveryCurrentFolder(null)
         setDiscoveryError(getErrorMessage(err, "Discovery failed"))
       } finally {
         if (analysisStoreInternals.discoveryAbort === ac) {
@@ -152,10 +171,10 @@ export function useAnalysisWorkflows() {
     [
       client,
       runAnalysis,
-      searchDepth,
       setSelectedRepoPath,
       setDiscoveryStatus,
       setDiscoveryError,
+      setDiscoveryCurrentFolder,
       setDiscoveredRepos,
       setLastDiscoveryOutcome,
     ],

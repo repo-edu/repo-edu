@@ -10,7 +10,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { homedir, tmpdir } from "node:os"
 import { basename, dirname, join } from "node:path"
 import type {
   FileSystemBatchOperation,
@@ -266,8 +266,22 @@ async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
 // NodeFileSystemPort — explicit filesystem primitives for repo workflows (§3)
 // ---------------------------------------------------------------------------
 
+function resolveUserHomeSystemDirectories(): readonly string[] {
+  const home = homedir()
+  switch (process.platform) {
+    case "darwin":
+      return [join(home, "Library"), join(home, "Applications")]
+    case "win32":
+      return [join(home, "AppData")]
+    default:
+      return []
+  }
+}
+
 export function createNodeFileSystemPort(): FileSystemPort {
   return {
+    userHomeSystemDirectories: resolveUserHomeSystemDirectories(),
+
     async inspect(
       request: FileSystemInspectRequest,
     ): Promise<FileSystemEntryStatus[]> {
