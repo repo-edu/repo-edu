@@ -12,7 +12,7 @@ import {
   FolderOpen,
   Loader2,
 } from "@repo-edu/ui/components/icons"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import {
@@ -40,6 +40,17 @@ export function RepositoriesToolbar({
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
   const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
+
+  const [depthDraft, setDepthDraft] = useState<string | null>(null)
+  const commitDepthDraft = useCallback(() => {
+    if (depthDraft === null) return
+    const parsed = Number(depthDraft)
+    const v = Number.isFinite(parsed)
+      ? Math.min(9, Math.max(1, Math.trunc(parsed)))
+      : 1
+    setSearchDepth(v)
+    setDepthDraft(null)
+  }, [depthDraft, setSearchDepth])
 
   return (
     <>
@@ -98,10 +109,11 @@ export function RepositoriesToolbar({
             size="xs"
             variant="borderless"
             className="w-12"
-            value={searchDepth}
-            onChange={(e) => {
-              const v = Math.min(9, Math.max(1, Number(e.target.value) || 1))
-              setSearchDepth(v)
+            value={depthDraft ?? String(searchDepth)}
+            onChange={(e) => setDepthDraft(e.target.value)}
+            onBlur={commitDepthDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur()
             }}
           />
         </TooltipTrigger>

@@ -471,9 +471,16 @@ export function AnalysisSidebar() {
     [],
   )
 
-  const baselineCount = result?.personDbBaseline.persons.length ?? 0
-  const overlayCount = blameResult?.personDbOverlay.persons.length
-  const delta = blameResult?.delta
+  const [copyMoveDraft, setCopyMoveDraft] = useState<string | null>(null)
+  const commitCopyMoveDraft = useCallback(() => {
+    if (copyMoveDraft === null) return
+    const parsed = Number(copyMoveDraft)
+    const v = Number.isFinite(parsed)
+      ? Math.min(4, Math.max(0, Math.trunc(parsed)))
+      : 0
+    setBlameConfig({ copyMove: v })
+    setCopyMoveDraft(null)
+  }, [copyMoveDraft, setBlameConfig])
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-2 gap-3">
@@ -591,23 +598,32 @@ export function AnalysisSidebar() {
         onOpenChange={handleSectionChange}
         showSeparator
         badge={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                size="xs"
-                className="ml-1.5 w-10"
-                value={config.nFiles ?? 5}
-                onChange={(e) => {
-                  const v = Math.max(0, Number(e.target.value) || 0)
-                  setConfigAndRerun({ nFiles: v })
-                }}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="bottom">N files</TooltipContent>
-          </Tooltip>
+          <div className="ml-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>
+              {effectiveFileSelection.size === sortedFilePaths.length
+                ? sortedFilePaths.length
+                : `${effectiveFileSelection.size}/${sortedFilePaths.length}`}
+            </span>
+            <span>max</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  size="xs"
+                  className="w-10"
+                  value={config.nFiles ?? 5}
+                  onChange={(e) => {
+                    const v = Math.max(0, Number(e.target.value) || 0)
+                    setConfigAndRerun({ nFiles: v })
+                  }}
+                  onKeyDown={blurOnEnter}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">N files</TooltipContent>
+            </Tooltip>
+          </div>
         }
         toolbar={
           sortedFilePaths.length > 0 && (
@@ -700,11 +716,6 @@ export function AnalysisSidebar() {
                       : "Sort: alphabetical"}
                 </TooltipContent>
               </Tooltip>
-              <span className="text-xs text-muted-foreground">
-                {effectiveFileSelection.size === sortedFilePaths.length
-                  ? sortedFilePaths.length
-                  : `${effectiveFileSelection.size}/${sortedFilePaths.length}`}
-              </span>
             </>
           )
         }
@@ -915,49 +926,17 @@ export function AnalysisSidebar() {
                   min={0}
                   max={4}
                   step={1}
-                  className="w-20"
-                  value={blameConfig.copyMove ?? 1}
-                  onChange={(e) => {
-                    const v = Math.min(
-                      4,
-                      Math.max(0, Number(e.target.value) || 0),
-                    )
-                    setBlameConfig({ copyMove: v })
-                  }}
+                  className="w-12"
+                  value={copyMoveDraft ?? String(blameConfig.copyMove ?? 1)}
+                  onChange={(e) => setCopyMoveDraft(e.target.value)}
+                  onBlur={commitCopyMoveDraft}
+                  onKeyDown={blurOnEnter}
                 />
               </div>
               <Text className="text-xs text-muted-foreground">
                 {COPY_MOVE_LABELS[blameConfig.copyMove ?? 1]}
               </Text>
             </div>
-
-            {/* PersonDB state indicator */}
-            {result && (
-              <div className="rounded border bg-muted/50 p-2 space-y-0.5">
-                <Text className="text-xs text-muted-foreground">
-                  Baseline: {baselineCount} person
-                  {baselineCount !== 1 ? "s" : ""}
-                </Text>
-                {overlayCount !== undefined && (
-                  <Text className="text-xs text-muted-foreground">
-                    Overlay: {overlayCount} person
-                    {overlayCount !== 1 ? "s" : ""}
-                    {delta &&
-                      (delta.newPersons.length > 0 ||
-                        delta.newAliases.length > 0 ||
-                        delta.relinkedIdentities.length > 0) && (
-                        <span>
-                          {" "}
-                          (+{delta.newPersons.length} new, +
-                          {delta.newAliases.length} alias
-                          {delta.newAliases.length !== 1 ? "es" : ""}, +
-                          {delta.relinkedIdentities.length} relinked)
-                        </span>
-                      )}
-                  </Text>
-                )}
-              </div>
-            )}
           </div>
         )}
       </CollapsibleSection>
