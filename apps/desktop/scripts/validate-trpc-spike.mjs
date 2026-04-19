@@ -163,12 +163,6 @@ async function main() {
       throw new Error(`unexpected settingsKind: ${String(marker.settingsKind)}`);
     }
 
-    if (marker.settingsSchemaVersion !== 1) {
-      throw new Error(
-        `unexpected settingsSchemaVersion: ${String(marker.settingsSchemaVersion)}`,
-      );
-    }
-
     if (!Array.isArray(marker.rosterIssueKinds)) {
       throw new Error("rosterIssueKinds was not an array.");
     }

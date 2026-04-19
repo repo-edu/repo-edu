@@ -14,6 +14,7 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useCallback } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useCourseStore } from "../../../stores/course-store.js"
 import {
   RepoFolderNode,
   RepoLeafButton,
@@ -37,7 +38,7 @@ export function RepositoriesToolbar({
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
-  const searchFolder = useAnalysisStore((s) => s.searchFolder)
+  const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
 
   return (
@@ -125,7 +126,7 @@ export function RepositoriesSection({
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-  const searchFolder = useAnalysisStore((s) => s.searchFolder)
+  const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
   const discoveryError = useAnalysisStore((s) => s.discoveryError)

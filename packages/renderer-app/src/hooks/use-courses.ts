@@ -74,7 +74,6 @@ export function useCourses() {
 
         const duplicate: PersistedCourse = {
           kind: persistedCourseKind,
-          schemaVersion: 2,
           revision: 0,
           id: generateCourseId(),
           displayName,
@@ -84,6 +83,8 @@ export function useCourses() {
           idSequences: initialIdSequences(),
           roster: EMPTY_ROSTER,
           repositoryTemplate: source.repositoryTemplate,
+          searchFolder: source.searchFolder,
+          analysisInputs: { ...source.analysisInputs },
           updatedAt: new Date().toISOString(),
         }
 

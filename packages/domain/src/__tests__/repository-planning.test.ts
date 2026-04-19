@@ -51,7 +51,6 @@ function makeCourse(
 ): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    schemaVersion: 2,
     revision: 0,
     id: "test",
     displayName: "Test",
@@ -68,6 +67,8 @@ function makeCourse(
       assignments,
     },
     repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: "2026-01-01T00:00:00.000Z",
   }
 }

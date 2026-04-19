@@ -16,6 +16,22 @@ import {
   persistedCourseKind,
 } from "./types.js"
 
+const persistedCourseAnalysisInputsSchema = z.object({
+  since: z.string().optional(),
+  until: z.string().optional(),
+  subfolder: z.string().optional(),
+  extensions: z.array(z.string()).optional(),
+  includeFiles: z.array(z.string()).optional(),
+  excludeFiles: z.array(z.string()).optional(),
+  excludeAuthors: z.array(z.string()).optional(),
+  excludeEmails: z.array(z.string()).optional(),
+  excludeRevisions: z.array(z.string()).optional(),
+  excludeMessages: z.array(z.string()).optional(),
+  nFiles: z.number().int().min(0).optional(),
+  whitespace: z.boolean().optional(),
+  blameSkip: z.boolean().optional(),
+})
+
 // ---------------------------------------------------------------------------
 // Internal zod schema definitions
 // ---------------------------------------------------------------------------
@@ -185,7 +201,6 @@ const idSequencesSchema = z.object({
 
 export const persistedCourseSchema = z.object({
   kind: z.literal(persistedCourseKind),
-  schemaVersion: z.literal(2),
   revision: z.number().int().nonnegative(),
   id: z.string(),
   displayName: z.string(),
@@ -200,6 +215,8 @@ export const persistedCourseSchema = z.object({
     .enum(["flat", "by-team", "by-task"])
     .nullable()
     .optional(),
+  searchFolder: z.string().nullable(),
+  analysisInputs: persistedCourseAnalysisInputsSchema,
   updatedAt: z.string(),
 })
 

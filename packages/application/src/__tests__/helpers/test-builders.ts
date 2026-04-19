@@ -4,7 +4,6 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 export function makeCourseWithKnownValidationIssues(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    schemaVersion: 2,
     revision: 0,
     id: "course-1",
     displayName: "Course",
@@ -77,6 +76,8 @@ export function makeCourseWithKnownValidationIssues(): PersistedCourse {
       ],
     },
     repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: "2026-03-04T10:00:00Z",
   }
 }

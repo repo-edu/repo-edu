@@ -8,7 +8,7 @@ import {
   extensionToLanguage,
   lookupPerson,
 } from "@repo-edu/domain/analysis"
-import { Button, EmptyState, Text } from "@repo-edu/ui"
+import { Button, Checkbox, EmptyState, Text } from "@repo-edu/ui"
 import {
   Eye,
   EyeOff,
@@ -37,7 +37,6 @@ type ProcessedLine = {
   commitNumber: number
   isComment: boolean
   isEmpty: boolean
-  isExcludedByConfig: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -180,13 +179,24 @@ function processBlameLines(
   options: {
     excludeAuthors: readonly string[]
     excludeEmails: readonly string[]
-    includeEmptyLines: boolean
-    includeComments: boolean
   },
 ): ProcessedLine[] {
-  const lines = fileBlame.lines
+  const lines = fileBlame.lines.filter((line) => {
+    if (
+      options.excludeAuthors.length > 0 &&
+      matchesAnyPattern(line.authorName, options.excludeAuthors)
+    ) {
+      return false
+    }
+    if (
+      options.excludeEmails.length > 0 &&
+      matchesAnyPattern(line.authorEmail, options.excludeEmails)
+    ) {
+      return false
+    }
+    return true
+  })
 
-  // Detect comment lines
   const ext = getFileExtension(fileBlame.path)
   const language = extensionToLanguage(ext)
   const commentSet = language
@@ -196,7 +206,6 @@ function processBlameLines(
       )
     : new Set<number>()
 
-  // Map lines to personIds and compute per-author line counts
   const authorLineCounts = new Map<string, number>()
   const linePersonIds: string[] = []
 
@@ -207,7 +216,6 @@ function processBlameLines(
     authorLineCounts.set(pid, (authorLineCounts.get(pid) ?? 0) + 1)
   }
 
-  // Author rank: sorted by line count descending, most lines = rank 1
   const sortedAuthors = [...authorLineCounts.entries()].sort(
     (a, b) => b[1] - a[1],
   )
@@ -216,7 +224,6 @@ function processBlameLines(
     authorRankMap.set(sortedAuthors[i][0], i + 1)
   }
 
-  // Commit numbering: unique SHAs ordered by earliest timestamp
   const shaTimestamps = new Map<string, number>()
   for (const line of lines) {
     const existing = shaTimestamps.get(line.sha)
@@ -230,7 +237,6 @@ function processBlameLines(
     commitNumberMap.set(sortedShas[i][0], i + 1)
   }
 
-  // Build processed lines with commit grouping
   const processed: ProcessedLine[] = []
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -238,15 +244,6 @@ function processBlameLines(
     const isFirstInGroup = i === 0 || lines[i - 1].sha !== line.sha
     const isComment = commentSet.has(i)
     const isEmpty = line.content.trim().length === 0
-    const isExcludedByIdentity =
-      (options.excludeAuthors.length > 0 &&
-        matchesAnyPattern(line.authorName, options.excludeAuthors)) ||
-      (options.excludeEmails.length > 0 &&
-        matchesAnyPattern(line.authorEmail, options.excludeEmails))
-    const isExcludedByConfig =
-      isExcludedByIdentity ||
-      (!options.includeEmptyLines && isEmpty) ||
-      (!options.includeComments && isComment)
 
     processed.push({
       line,
@@ -256,7 +253,6 @@ function processBlameLines(
       commitNumber: commitNumberMap.get(line.sha) ?? 0,
       isComment,
       isEmpty,
-      isExcludedByConfig,
     })
   }
 
@@ -306,16 +302,28 @@ function computeAuthorContributions(
 function AuthorSummary({
   contributions,
   colorMap,
+  visibleAuthors,
+  onToggle,
 }: {
   contributions: AuthorContribution[]
   colorMap: Map<string, string>
+  visibleAuthors: Set<string> | null
+  onToggle: (personId: string) => void
 }) {
   return (
     <div className="flex flex-wrap gap-2 px-3 py-2 border-b">
       {contributions.map((c) => {
         const color = colorMap.get(c.personId) ?? "#888"
+        const checked =
+          visibleAuthors === null || visibleAuthors.has(c.personId)
         return (
-          <div key={c.personId} className="flex items-center gap-1.5 text-xs">
+          <button
+            key={c.personId}
+            type="button"
+            onClick={() => onToggle(c.personId)}
+            className="flex items-center gap-1.5 text-xs cursor-pointer"
+          >
+            <Checkbox checked={checked} tabIndex={-1} />
             <div
               className="size-3 rounded-sm shrink-0"
               style={{ backgroundColor: color }}
@@ -324,7 +332,7 @@ function AuthorSummary({
             <span className="text-muted-foreground">
               {c.lines} ({c.percent.toFixed(1)}%)
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -376,14 +384,12 @@ function BlameGrid({
   colorMap,
   showMetadata,
   colorize,
-  blameExclusions,
   tokens,
 }: {
   processed: ProcessedLine[]
   colorMap: Map<string, string>
   showMetadata: boolean
   colorize: boolean
-  blameExclusions: string
   tokens: ThemedToken[][] | null
 }) {
   return (
@@ -438,16 +444,12 @@ function BlameGrid({
         {/* Rows */}
         {processed.map((p) => {
           const color = colorMap.get(p.personId) ?? "#888"
-          const isExcluded = p.isExcludedByConfig
-          const excluded = isExcluded && blameExclusions === "hide"
-          const bgStyle =
-            colorize && !excluded
-              ? { backgroundColor: `${color}59` }
-              : undefined
-          const borderStyle =
-            colorize && !excluded
-              ? { borderLeft: `2px solid ${color}` }
-              : { borderLeft: "2px solid transparent" }
+          const bgStyle = colorize
+            ? { backgroundColor: `${color}59` }
+            : undefined
+          const borderStyle = colorize
+            ? { borderLeft: `2px solid ${color}` }
+            : { borderLeft: "2px solid transparent" }
           const date = new Date(p.line.timestamp * 1000)
             .toISOString()
             .slice(0, 10)
@@ -541,7 +543,8 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const syntaxColorize = useAnalysisStore((s) => s.blameSyntaxColorize)
   const hideEmpty = useAnalysisStore((s) => s.blameHideEmpty)
   const hideComments = useAnalysisStore((s) => s.blameHideComments)
-  const blameExclusions = blameConfig.blameExclusions ?? "hide"
+  const visibleAuthors = useAnalysisStore((s) => s.blameVisibleAuthors)
+  const toggleAuthor = useAnalysisStore((s) => s.toggleBlameAuthorVisible)
 
   const setBlameShowMetadata = useAnalysisStore((s) => s.setBlameShowMetadata)
   const setBlameColorize = useAnalysisStore((s) => s.setBlameColorize)
@@ -567,23 +570,20 @@ export function BlameTab({ filePath }: { filePath: string }) {
     return processBlameLines(entry.fileBlame, personDb, {
       excludeAuthors: blameConfig.excludeAuthors ?? [],
       excludeEmails: blameConfig.excludeEmails ?? [],
-      includeEmptyLines: blameConfig.includeEmptyLines ?? false,
-      includeComments: blameConfig.includeComments ?? false,
     })
   }, [entry?.fileBlame, personDb, blameConfig])
 
   const filteredLines = useMemo(() => {
     let lines = processed
 
-    if (blameExclusions === "remove") {
-      lines = lines.filter((p) => !p.isExcludedByConfig)
-    }
-
     if (hideEmpty) {
       lines = lines.filter((p) => !p.isEmpty)
     }
     if (hideComments) {
       lines = lines.filter((p) => !p.isComment)
+    }
+    if (visibleAuthors !== null) {
+      lines = lines.filter((p) => visibleAuthors.has(p.personId))
     }
 
     if (lines === processed) return lines
@@ -592,12 +592,30 @@ export function BlameTab({ filePath }: { filePath: string }) {
       ...p,
       isFirstInGroup: i === 0 || lines[i - 1].line.sha !== p.line.sha,
     }))
-  }, [processed, blameExclusions, hideEmpty, hideComments])
+  }, [processed, hideEmpty, hideComments, visibleAuthors])
 
   const contributions = useMemo(() => {
     if (!personDb) return []
-    return computeAuthorContributions(filteredLines, personDb)
-  }, [filteredLines, personDb])
+    const visibleContribs = computeAuthorContributions(filteredLines, personDb)
+    const visibleByPerson = new Map(visibleContribs.map((c) => [c.personId, c]))
+    // Keep all authors who appear in this file visible in the legend so the
+    // per-author visibility toggle remains reversible; numbers reflect the
+    // currently filtered lines.
+    const allPersonIds = new Set(processed.map((p) => p.personId))
+    const extras: AuthorContribution[] = []
+    for (const personId of allPersonIds) {
+      if (visibleByPerson.has(personId)) continue
+      const person = personDb.persons.find((p) => p.id === personId)
+      const sampleLine = processed.find((p) => p.personId === personId)
+      extras.push({
+        personId,
+        name: person?.canonicalName ?? sampleLine?.line.authorName ?? "Unknown",
+        lines: 0,
+        percent: 0,
+      })
+    }
+    return [...visibleContribs, ...extras].sort((a, b) => b.lines - a.lines)
+  }, [filteredLines, processed, personDb])
 
   const colorMap = useMemo(
     () => authorColorMap(contributions.map((c) => c.personId)),
@@ -623,7 +641,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
     )
   }
 
-  if (!entry.fileBlame || filteredLines.length === 0) {
+  if (!entry.fileBlame || processed.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <EmptyState message="No blame data for this file." />
@@ -686,7 +704,17 @@ export function BlameTab({ filePath }: { filePath: string }) {
 
       {/* Author contributions */}
       {colorize && contributions.length > 0 && (
-        <AuthorSummary contributions={contributions} colorMap={colorMap} />
+        <AuthorSummary
+          contributions={contributions}
+          colorMap={colorMap}
+          visibleAuthors={visibleAuthors}
+          onToggle={(personId) =>
+            toggleAuthor(
+              personId,
+              contributions.map((c) => c.personId),
+            )
+          }
+        />
       )}
 
       {/* Blame grid */}
@@ -695,7 +723,6 @@ export function BlameTab({ filePath }: { filePath: string }) {
         colorMap={colorMap}
         showMetadata={showMetadata}
         colorize={colorize}
-        blameExclusions={blameExclusions}
         tokens={highlightedTokens}
       />
 

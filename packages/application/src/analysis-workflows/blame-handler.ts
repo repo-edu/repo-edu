@@ -16,9 +16,7 @@ import type {
 } from "@repo-edu/domain/analysis"
 import {
   applyBlameToPersonDb,
-  classifyCommentLines,
   clonePersonDbSnapshot,
-  extensionToLanguage,
   validateAnalysisBlameConfig,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
@@ -367,8 +365,6 @@ export function createAnalysisBlameHandler(
 
         const excludeAuthors = config.excludeAuthors ?? []
         const excludeEmails = config.excludeEmails ?? []
-        const includeEmptyLines = config.includeEmptyLines ?? false
-        const includeComments = config.includeComments ?? false
 
         const accumulatedDelta: PersonDbDelta = {
           newPersons: [],
@@ -396,18 +392,7 @@ export function createAnalysisBlameHandler(
             continue
           }
 
-          // Classify comment lines
-          const ext = getFileExtension(blame.path)
-          const language = extensionToLanguage(ext)
-          let commentLineIndices = new Set<number>()
-          if (language && !includeComments) {
-            const codeLines = blame.lines.map((l) => l.content)
-            commentLineIndices = classifyCommentLines(codeLines, language)
-          }
-
-          // Filter lines based on exclusion config
-          const filteredLines = blame.lines.filter((line, index) => {
-            // Author exclusion
+          const filteredLines = blame.lines.filter((line) => {
             if (
               excludeAuthors.length > 0 &&
               fnmatchFilter(line.authorName, excludeAuthors)
@@ -420,21 +405,9 @@ export function createAnalysisBlameHandler(
             ) {
               return false
             }
-
-            // Empty line exclusion
-            if (!includeEmptyLines && line.content.trim().length === 0) {
-              return false
-            }
-
-            // Comment line exclusion
-            if (!includeComments && commentLineIndices.has(index)) {
-              return false
-            }
-
             return true
           })
 
-          // Keep original blame lines for UI display modes (hide/show/remove).
           fileBlames.push({
             path: blame.path,
             lines: blame.lines,

@@ -532,9 +532,10 @@ describe("analysis.blame handler", () => {
   })
 
   it("keeps full blame lines for display while summaries honor exclusion config", async () => {
-    const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    const aliceOid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    const bobOid = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     const blameOutput = [
-      `${oid} 1 1 2`,
+      `${aliceOid} 1 1 1`,
       "author Alice",
       "author-mail <alice@example.com>",
       "author-time 1700000000",
@@ -543,10 +544,19 @@ describe("analysis.blame handler", () => {
       "committer-mail <alice@example.com>",
       "committer-time 1700000000",
       "committer-tz +0000",
-      "summary Init",
+      "summary Skeleton",
       "filename src/main.ts",
-      "\t// comment",
-      `${oid} 2 2`,
+      "\tconst x = 1",
+      `${bobOid} 2 2 1`,
+      "author Bob",
+      "author-mail <bob@example.com>",
+      "author-time 1700000001",
+      "author-tz +0000",
+      "committer Bob",
+      "committer-mail <bob@example.com>",
+      "committer-time 1700000001",
+      "committer-tz +0000",
+      "summary Student work",
       "filename src/main.ts",
       "\tconst y = 2",
     ].join("\n")
@@ -568,7 +578,7 @@ describe("analysis.blame handler", () => {
     const result = await handlers["analysis.blame"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
-      config: {},
+      config: { excludeAuthors: ["Alice"] },
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts"],
       asOfCommit: "abc123",
@@ -577,6 +587,7 @@ describe("analysis.blame handler", () => {
     assert.equal(result.fileBlames.length, 1)
     assert.equal(result.fileBlames[0].lines.length, 2)
     assert.equal(result.authorSummaries.length, 1)
+    assert.equal(result.authorSummaries[0].canonicalName, "Bob")
     assert.equal(result.authorSummaries[0].lines, 1)
     assert.equal(result.authorSummaries[0].linesPercent, 100)
   })

@@ -58,7 +58,7 @@ export function AnalysisTab() {
 
   const activeView = useAnalysisStore((s) => s.activeView)
   const setActiveView = useAnalysisStore((s) => s.setActiveView)
-  const blameSkip = useAnalysisStore((s) => s.config.blameSkip)
+  const blameSkip = course?.analysisInputs.blameSkip ?? false
 
   useEffect(() => {
     if (blameSkip && activeView === "blame") {

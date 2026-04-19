@@ -1,5 +1,6 @@
 import type {
   Assignment,
+  CourseAnalysisInputs,
   GitIdentityMode,
   Group,
   IdSequences,
@@ -113,6 +114,8 @@ export type CourseActions = {
     layout: PersistedCourse["repositoryCloneDirectoryLayout"],
   ) => void
   setDisplayName: (name: string) => void
+  setSearchFolder: (folder: string | null) => void
+  setAnalysisInputs: (patch: Partial<CourseAnalysisInputs>) => void
 
   // System sets
   ensureSystemGroupSets: () => void

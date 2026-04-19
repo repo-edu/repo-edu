@@ -30,7 +30,6 @@ function deferred<T>() {
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    schemaVersion: 2,
     revision: 0,
     id: courseId,
     displayName: "Test Course",
@@ -75,6 +74,8 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
       name: "starter",
       visibility: "private",
     },
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: "2026-03-05T00:00:00.000Z",
   }
 }

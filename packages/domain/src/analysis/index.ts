@@ -5,7 +5,6 @@ export {
 export type {
   AnalysisBlameConfig,
   AnalysisConfig,
-  BlameExclusionMode,
 } from "./config-types.js"
 export { bridgeAuthorsToRoster } from "./identity-bridge.js"
 export {

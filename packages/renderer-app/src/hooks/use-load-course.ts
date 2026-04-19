@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 
 /**
@@ -9,6 +10,7 @@ export function useLoadCourse(courseId: string | null): void {
   const loadIdRef = useRef<string | null>(null)
 
   useEffect(() => {
+    useAnalysisStore.getState().resetAnalysisContext()
     if (!courseId) {
       useCourseStore.getState().clear()
       loadIdRef.current = null

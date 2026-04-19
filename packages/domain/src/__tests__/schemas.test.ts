@@ -133,18 +133,6 @@ describe("validatePersistedAppSettings", () => {
     }
   })
 
-  it("rejects wrong schemaVersion", () => {
-    const result = validatePersistedAppSettings({
-      ...defaultAppSettings,
-      schemaVersion: 2,
-    })
-    assert.equal(result.ok, false)
-    if (!result.ok) {
-      const issue = result.issues.find((i) => i.path === "schemaVersion")
-      assert.ok(issue, "Expected an issue at path 'schemaVersion'")
-    }
-  })
-
   it("rejects invalid LMS connection provider", () => {
     const result = validatePersistedAppSettings({
       ...defaultAppSettings,
@@ -197,7 +185,8 @@ describe("validatePersistedAppSettings", () => {
 describe("validatePersistedCourse", () => {
   const validProfile = {
     kind: "repo-edu.course.v1",
-    schemaVersion: 2,
+    searchFolder: null,
+    analysisInputs: {},
     revision: 0,
     id: "prof-1",
     displayName: "Test Course",

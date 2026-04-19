@@ -13,7 +13,6 @@ describe("application settings workflow helpers", () => {
 
     const loadedDefault = await handlers["settings.loadApp"](undefined)
     assert.equal(loadedDefault.kind, "repo-edu.app-settings.v1")
-    assert.equal(loadedDefault.schemaVersion, 1)
 
     const saved = await handlers["settings.saveApp"]({
       ...getSettingsScenario({ tier: "small", preset: "shared-teams" }),

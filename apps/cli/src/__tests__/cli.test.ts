@@ -92,7 +92,6 @@ async function runCli(
 function makeProfile(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    schemaVersion: 2,
     revision: 0,
     id: "seed-course",
     displayName: "Seed Course",
@@ -165,6 +164,8 @@ function makeProfile(): PersistedCourse {
       ],
     },
     repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: "2026-03-04T10:00:00Z",
   }
 }
@@ -172,7 +173,6 @@ function makeProfile(): PersistedCourse {
 function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
-    schemaVersion: 1,
     activeCourseId,
     activeTab: "roster",
     appearance: {
@@ -180,6 +180,7 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
       windowChrome: "system",
       dateFormat: "DMY",
       timeFormat: "24h",
+      syntaxTheme: "plus",
     },
     window: { width: 1180, height: 760 },
     lmsConnections: [],

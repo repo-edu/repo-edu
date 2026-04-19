@@ -532,7 +532,6 @@ function createFixtureRecord(
     }
     const course: PersistedCourse = {
       kind: persistedCourseKind,
-      schemaVersion: 2,
       revision: 0,
       id: courseId,
       displayName: `Fixture (${tier}, ${preset})`,
@@ -553,6 +552,8 @@ function createFixtureRecord(
         name: "starter-template",
         visibility: "private",
       },
+      searchFolder: null,
+      analysisInputs: {},
       updatedAt: fixtureGeneratedAt,
     }
     const settings: PersistedAppSettings = {
@@ -655,7 +656,6 @@ function createFixtureRecord(
 
   const course: PersistedCourse = {
     kind: persistedCourseKind,
-    schemaVersion: 2,
     revision: 0,
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
@@ -676,6 +676,8 @@ function createFixtureRecord(
       name: "starter-template",
       visibility: "private",
     },
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: fixtureGeneratedAt,
   }
 

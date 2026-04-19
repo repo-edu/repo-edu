@@ -3,8 +3,6 @@
 // `analysis/types.ts` and the top-level `types.ts` can import without cycles.
 // ---------------------------------------------------------------------------
 
-export type BlameExclusionMode = "hide" | "show" | "remove"
-
 export type AnalysisConfig = {
   since?: string
   until?: string
@@ -32,8 +30,5 @@ export type AnalysisBlameConfig = {
   whitespace?: boolean
   maxConcurrency?: number
   copyMove?: number
-  includeEmptyLines?: boolean
-  includeComments?: boolean
-  blameExclusions?: BlameExclusionMode
   ignoreRevsFile?: boolean
 }

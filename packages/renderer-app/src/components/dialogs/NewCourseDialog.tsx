@@ -234,7 +234,6 @@ export function NewCourseDialog() {
           : lmsCourseId.trim() || null
       const course: PersistedCourse = {
         kind: persistedCourseKind,
-        schemaVersion: 2,
         revision: 0,
         id: generateCourseId(),
         displayName: courseName.trim(),
@@ -244,6 +243,8 @@ export function NewCourseDialog() {
         idSequences: initialIdSequences(),
         roster: EMPTY_ROSTER,
         repositoryTemplate: null,
+        searchFolder: null,
+        analysisInputs: {},
         updatedAt: now,
       }
 

@@ -18,6 +18,8 @@ export function createMetadataActionsSlice(
   | "setRepositoryCloneTargetDirectory"
   | "setRepositoryCloneDirectoryLayout"
   | "setDisplayName"
+  | "setSearchFolder"
+  | "setAnalysisInputs"
 > {
   return {
     setCourseId: (courseId) => {
@@ -69,6 +71,33 @@ export function createMetadataActionsSlice(
     setDisplayName: (name) => {
       _set((draft) => {
         if (draft.course) draft.course.displayName = name
+      })
+      internals.markCourseMutated()
+    },
+
+    setSearchFolder: (folder) => {
+      _set((draft) => {
+        if (draft.course) draft.course.searchFolder = folder
+      })
+      internals.markCourseMutated()
+    },
+
+    setAnalysisInputs: (patch) => {
+      _set((draft) => {
+        if (!draft.course) return
+        const next = { ...draft.course.analysisInputs }
+        for (const [key, value] of Object.entries(patch) as [
+          keyof typeof next,
+          unknown,
+        ][]) {
+          if (value === undefined) {
+            delete next[key]
+          } else {
+            // biome-ignore lint/suspicious/noExplicitAny: narrow union on key
+            ;(next as any)[key] = value
+          }
+        }
+        draft.course.analysisInputs = next
       })
       internals.markCourseMutated()
     },

@@ -25,7 +25,6 @@ import { useCourseStore } from "../stores/course-store.js"
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    schemaVersion: 2,
     revision: 0,
     id: courseId,
     displayName: "Test Course",
@@ -48,6 +47,8 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
       assignments: [],
     },
     repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: {},
     updatedAt: "2026-01-01T00:00:00Z",
   }
 }
@@ -58,7 +59,6 @@ function makeSettings(
   return {
     ...defaultAppSettings,
     kind: persistedAppSettingsKind,
-    schemaVersion: 1,
     ...overrides,
   }
 }

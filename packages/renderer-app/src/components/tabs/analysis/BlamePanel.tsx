@@ -1,6 +1,7 @@
 import { EmptyState } from "@repo-edu/ui"
 import { useEffect } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useCourseStore } from "../../../stores/course-store.js"
 import { BlameTab } from "./BlameTab.js"
 
 export function BlamePanel() {
@@ -11,7 +12,8 @@ export function BlamePanel() {
   const blameErrorMessage = useAnalysisStore((s) => s.blameErrorMessage)
   const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
-  const blameSkip = useAnalysisStore((s) => s.config.blameSkip ?? false)
+  const blameSkip =
+    useCourseStore((s) => s.course?.analysisInputs.blameSkip) ?? false
 
   useEffect(() => {
     if (blameSkip) return
