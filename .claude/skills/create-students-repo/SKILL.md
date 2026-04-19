@@ -37,9 +37,9 @@ PHASE 1 — PLANNING
   "name": "directory-name",
   "assignment": "One-paragraph assignment description the team will realistically work from",
   "team": [
-    {"name": "Full Name", "email": "user@example.com", "area": "parsing and input"},
-    {"name": "Full Name", "email": "user@example.com", "area": "core logic"},
-    {"name": "Full Name", "email": "user@example.com", "area": "output and CLI"}
+    {"name": "Full Name", "email": "user@example.com", "area": "parsing and input", "module": "parser.py"},
+    {"name": "Full Name", "email": "user@example.com", "area": "core logic", "module": "core.py"},
+    {"name": "Full Name", "email": "user@example.com", "area": "output and CLI", "module": "cli.py"}
   ],
   "commits": [
     {
@@ -58,6 +58,7 @@ PLAN RULES:
 - Dates spread realistically across 1–2 weeks ending on or before today.
 - `author_index` rotates across 0/1/2 but not mechanically — real teams are uneven. Aim for each author appearing at least once when `N >= 3`.
 - `team[i].area` is a rough, deliberately vague remit per author. Keep areas coarse; overlap is fine.
+- `team[i].module` is the author's **primary** Python module within the project — the file they mostly work in. Invent module names that fit the assignment (e.g. `lexer.py`, `parser.py`, `renderer.py` for a markdown parser; `storage.py`, `streaks.py`, `cli.py` for a habit tracker). Ownership is not exclusive: teammates touch other modules when a change genuinely belongs there, but the team should not end up with every commit editing the same single file.
 - `note` is the round goal in the planner's voice, NOT the Coder's prompt. You will rewrite it into a student-voice prompt at run time.
 - `message` is a fallback only. The Coder's self-reported one-liner wins at commit time.
 - No file lists, no file-count caps, no planned error/fix pairs. Clean output is expected.
@@ -74,6 +75,12 @@ Let `DIR` be `_plan.json.name`. Create it and initialise:
 mkdir -p DIR
 git -C DIR init --template=''
 ```
+
+The shared working-agreements file lives alongside this skill at
+`.claude/skills/create-students-repo/CODER.md`. It is source-controlled and
+the same for every run and every persona — per-round instructions (who does
+what this commit) come through the prompt. The Coordinator does not write
+or copy it; the Coder reads it directly from its checked-in location.
 
 Initialise `_state.json`:
 
@@ -96,8 +103,10 @@ For each commit `i` in `_plan.json.commits`, in order:
 
 1. Gather context for the Coder prompt (no source reading):
    - `abs_path` — absolute path to `DIR`.
+   - `coder_md` — absolute path to `.claude/skills/create-students-repo/CODER.md` (resolve once at start of Phase 2 via `realpath`; reuse across rounds).
    - `round_goal` — `commits[i].note`, rephrased by you into student voice.
    - `area_hint` — `team[commits[i].author_index].area`.
+   - `module` — `team[commits[i].author_index].module` (the author's primary file).
    - `persona` — `team[commits[i].author_index]` (name + email).
    - `date` — `commits[i].date` (ISO-8601 local, no timezone).
 
@@ -107,7 +116,9 @@ For each commit `i` in `_plan.json.commits`, in order:
 
    > I'm {persona.name} <{persona.email}>, working on a small Python assignment with two teammates: {assignment}. The repo is at {abs_path}.
    >
-   > I'm on the {area_hint} side of this. Right now I want to {round_goal}.
+   > Please read `{coder_md}` first — it's the working agreement we all share.
+   >
+   > I'm on the {area_hint} side of this, so I mostly work in `{module}`. Touch other files if it genuinely makes sense for this change, but don't rewrite someone else's module. Right now I want to {round_goal}.
    >
    > Please edit the files and make it work. Keep it simple — this is a student project, don't over-engineer. {occasional: can you add a comment explaining what you did.}
    >
@@ -115,7 +126,9 @@ For each commit `i` in `_plan.json.commits`, in order:
    >
    > ```bash
    > git -C {abs_path} add -A
-   > git -C {abs_path} commit --author="{persona.name} <{persona.email}>" --date="{date}" -m "<your one-line message>"
+   > GIT_AUTHOR_NAME="{persona.name}" GIT_AUTHOR_EMAIL="{persona.email}" GIT_AUTHOR_DATE="{date}" \
+   > GIT_COMMITTER_NAME="{persona.name}" GIT_COMMITTER_EMAIL="{persona.email}" GIT_COMMITTER_DATE="{date}" \
+   > git -C {abs_path} commit -m "<your one-line message>"
    > ```
    >
    > Use a short, imperative-mood subject line (≤ 72 chars, no trailing period), like you'd write for a real git commit. If there's nothing to commit, just say so and stop.

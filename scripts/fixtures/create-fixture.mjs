@@ -11,6 +11,7 @@ const REPO_ROOT = resolve(__dirname, "../..")
 const STUDENT_REPOS = resolve(REPO_ROOT, ".student-repos")
 
 const DEFAULT_ROUNDS = 3
+const DEFAULT_MODEL = "sonnet"
 const SKILL = "/create-students-repo"
 
 function printHelp() {
@@ -24,11 +25,13 @@ function printHelp() {
       "",
       "Options:",
       `  -r, --rounds=N   Number of commits to produce (positive integer, default: ${DEFAULT_ROUNDS})`,
+      `  -m, --model=ID   Coordinator model alias or id (default: ${DEFAULT_MODEL})`,
       "  -h, --help       Show this help and exit",
       "",
       "Examples:",
       "  node scripts/fixtures/create-fixture.mjs --help",
       "  node scripts/fixtures/create-fixture.mjs --rounds=5",
+      "  node scripts/fixtures/create-fixture.mjs --model=haiku",
       "  pnpm create:fixture -r 4",
       "",
     ].join("\n"),
@@ -42,7 +45,7 @@ function fail(msg) {
 }
 
 function parseArgs(argv) {
-  const opts = { rounds: DEFAULT_ROUNDS, help: false }
+  const opts = { rounds: DEFAULT_ROUNDS, model: DEFAULT_MODEL, help: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === "-h" || a === "--help") {
@@ -53,6 +56,12 @@ function parseArgs(argv) {
       const v = argv[++i]
       if (v === undefined) fail(`${a} requires a value`)
       opts.rounds = Number(v)
+    } else if (a.startsWith("--model=")) {
+      opts.model = a.slice("--model=".length)
+    } else if (a === "-m" || a === "--model") {
+      const v = argv[++i]
+      if (v === undefined) fail(`${a} requires a value`)
+      opts.model = v
     } else {
       fail(`unknown argument: ${a}`)
     }
@@ -60,6 +69,7 @@ function parseArgs(argv) {
   if (!Number.isInteger(opts.rounds) || opts.rounds < 1) {
     fail(`--rounds must be a positive integer, got "${opts.rounds}"`)
   }
+  if (!opts.model) fail("--model must be a non-empty string")
   return opts
 }
 
@@ -78,6 +88,8 @@ const claude = spawnSync(
   "claude",
   [
     "--dangerously-skip-permissions",
+    "--model",
+    opts.model,
     "--settings",
     '{"sandbox":{"enabled":false}}',
     `${SKILL} --rounds=${opts.rounds}`,
