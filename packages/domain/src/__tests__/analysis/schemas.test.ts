@@ -1,10 +1,15 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  DEFAULT_EXTENSIONS,
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "../../analysis/schemas.js"
+import {
+  initialIdSequences,
+  type PersistedCourse,
+  persistedCourseKind,
+  resolveCourseAnalysisConfig,
+} from "../../types.js"
 
 describe("validateAnalysisConfig", () => {
   it("accepts empty config with defaults", () => {
@@ -16,7 +21,14 @@ describe("validateAnalysisConfig", () => {
     assert.equal(result.value.maxConcurrency, 1)
     assert.equal(result.value.blameSkip, false)
     assert.deepStrictEqual(result.value.includeFiles, ["*"])
-    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
+    assert.equal(result.value.extensions, undefined)
+  })
+
+  it("preserves an explicit empty extensions array as no filter", () => {
+    const result = validateAnalysisConfig({ extensions: [] })
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+    assert.deepStrictEqual(result.value.extensions, [])
   })
 
   it("accepts valid date range", () => {
@@ -62,13 +74,13 @@ describe("validateAnalysisConfig", () => {
     assert.deepStrictEqual(result.value.extensions, ["ts", "js", "py"])
   })
 
-  it("falls back to default extensions when provided list normalizes to empty", () => {
+  it("normalizes an all-empty extensions list to an empty array (no filter)", () => {
     const result = validateAnalysisConfig({
       extensions: ["", " . ", "   "],
     })
     assert.equal(result.ok, true)
     if (!result.ok) return
-    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
+    assert.deepStrictEqual(result.value.extensions, [])
   })
 
   it("normalizes pattern arrays with trim and dedup", () => {
@@ -176,14 +188,18 @@ describe("validateAnalysisBlameConfig", () => {
     assert.equal(result.ok, true)
     if (!result.ok) return
     assert.equal(result.value.copyMove, 1)
-    assert.equal(result.value.includeEmptyLines, false)
-    assert.equal(result.value.includeComments, false)
-    assert.equal(result.value.blameExclusions, "hide")
     assert.equal(result.value.ignoreRevsFile, true)
     assert.equal(result.value.whitespace, false)
     assert.equal(result.value.maxConcurrency, 1)
     assert.deepStrictEqual(result.value.includeFiles, ["*"])
-    assert.deepStrictEqual(result.value.extensions, [...DEFAULT_EXTENSIONS])
+    assert.equal(result.value.extensions, undefined)
+  })
+
+  it("preserves an explicit empty extensions array as no filter", () => {
+    const result = validateAnalysisBlameConfig({ extensions: [] })
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+    assert.deepStrictEqual(result.value.extensions, [])
   })
 
   it("rejects date-range keys (since)", () => {
@@ -224,15 +240,6 @@ describe("validateAnalysisBlameConfig", () => {
     assert.equal(result.ok, false)
   })
 
-  it("accepts blameExclusions enum values", () => {
-    for (const mode of ["hide", "show", "remove"] as const) {
-      const result = validateAnalysisBlameConfig({ blameExclusions: mode })
-      assert.equal(result.ok, true)
-      if (!result.ok) return
-      assert.equal(result.value.blameExclusions, mode)
-    }
-  })
-
   it("shares excludeAuthors/excludeEmails normalization with AnalysisConfig", () => {
     const result = validateAnalysisBlameConfig({
       excludeAuthors: ["  Alice  ", "Bob", "Alice"],
@@ -242,5 +249,53 @@ describe("validateAnalysisBlameConfig", () => {
     if (!result.ok) return
     assert.deepStrictEqual(result.value.excludeAuthors, ["Alice", "Bob"])
     assert.deepStrictEqual(result.value.excludeEmails, ["alice@test.com"])
+  })
+})
+
+describe("resolveCourseAnalysisConfig", () => {
+  function makeCourse(
+    inputs: PersistedCourse["analysisInputs"],
+  ): PersistedCourse {
+    return {
+      kind: persistedCourseKind,
+      revision: 0,
+      id: "c1",
+      displayName: "Course",
+      lmsConnectionName: null,
+      organization: null,
+      lmsCourseId: null,
+      idSequences: initialIdSequences(),
+      roster: {
+        connection: null,
+        students: [],
+        staff: [],
+        groups: [],
+        groupSets: [],
+        assignments: [],
+      },
+      repositoryTemplate: null,
+      searchFolder: null,
+      analysisInputs: inputs,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }
+  }
+
+  it("substitutes the default extensions when the course value is undefined", () => {
+    const course = makeCourse({})
+    const config = resolveCourseAnalysisConfig(course, ["ts", "js"], 2)
+    assert.deepStrictEqual(config.extensions, ["ts", "js"])
+    assert.equal(config.maxConcurrency, 2)
+  })
+
+  it("passes an explicit empty extensions array through unchanged (no filter)", () => {
+    const course = makeCourse({ extensions: [] })
+    const config = resolveCourseAnalysisConfig(course, ["ts"], 1)
+    assert.deepStrictEqual(config.extensions, [])
+  })
+
+  it("preserves a non-empty course extensions value", () => {
+    const course = makeCourse({ extensions: ["py"] })
+    const config = resolveCourseAnalysisConfig(course, ["ts"], 1)
+    assert.deepStrictEqual(config.extensions, ["py"])
   })
 })

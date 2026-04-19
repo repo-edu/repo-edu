@@ -6,6 +6,7 @@ import {
   buildEffectiveBlameWorkflowConfig,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 
 export function useBlameAutoRun() {
@@ -31,13 +32,23 @@ export function useBlameAutoRun() {
   )
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
-  const config = useAnalysisStore((s) => s.config)
-  const blameSkip = useAnalysisStore((s) => s.config.blameSkip ?? false)
+  const blameSkip = course?.analysisInputs.blameSkip ?? false
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const asOfCommit = useAnalysisStore((s) => s.asOfCommit)
+  const defaultExtensions = useAppSettingsStore(
+    (s) => s.settings.defaultExtensions,
+  )
   const effectiveBlameConfig = useMemo(
-    () => buildEffectiveBlameWorkflowConfig(config, blameConfig),
-    [config, blameConfig],
+    () =>
+      course
+        ? buildEffectiveBlameWorkflowConfig(
+            course,
+            blameConfig,
+            defaultExtensions,
+            1,
+          )
+        : blameConfig,
+    [course, blameConfig, defaultExtensions],
   )
   const effectiveBlameConfigSnapshot = useMemo(
     () => JSON.stringify(effectiveBlameConfig),

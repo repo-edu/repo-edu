@@ -4,7 +4,7 @@ import type {
   AnalysisConfig,
   AnalysisRosterContext,
 } from "@repo-edu/domain/analysis"
-import { DEFAULT_EXTENSIONS, DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
+import { DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
 import type { RosterMember } from "@repo-edu/domain/types"
 import {
   buildAnalysisCacheKey,
@@ -50,7 +50,7 @@ describe("normalizeAnalysisConfigForCache", () => {
       whitespace: false,
       blameSkip: false,
       includeFiles: ["*"],
-      extensions: [...DEFAULT_EXTENSIONS],
+      extensions: [],
     }
     const implicit: AnalysisConfig = {}
 

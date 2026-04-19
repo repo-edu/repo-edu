@@ -4,7 +4,6 @@ import type {
 } from "@repo-edu/application-contract"
 import type {
   AnalysisBlameConfig,
-  AnalysisConfig,
   AnalysisResult,
   AuthorStats,
   BlameResult,
@@ -13,10 +12,11 @@ import type {
   IdentityMatch,
 } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
+import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import { create } from "zustand"
 
 const DEFAULT_BLAME_COPY_MOVE = 1
-const DEFAULT_BLAME_EXCLUSIONS = "hide" as const
 
 export type AnalysisActiveMetric =
   | "commits"
@@ -43,12 +43,9 @@ export type FileBlameEntry = {
 }
 
 type AnalysisState = {
-  // Config state
-  config: AnalysisConfig
   selectedRepoPath: string | null
 
   // Repo discovery state
-  searchFolder: string | null
   searchDepth: number
   discoveredRepos: DiscoveredRepo[]
   discoveryStatus: "idle" | "loading" | "error"
@@ -81,6 +78,7 @@ type AnalysisState = {
   blameSyntaxColorize: boolean
   blameHideEmpty: boolean
   blameHideComments: boolean
+  blameVisibleAuthors: Set<string> | null
 
   // Filter state (post-analysis, client-side)
   selectedAuthors: Set<string>
@@ -103,11 +101,9 @@ type AnalysisState = {
 }
 
 type AnalysisActions = {
-  setConfig: (patch: Partial<AnalysisConfig>) => void
   setSelectedRepoPath: (path: string | null) => void
 
   // Repo discovery
-  setSearchFolder: (folder: string | null) => void
   setSearchDepth: (depth: number) => void
   setDiscoveredRepos: (repos: DiscoveredRepo[]) => void
   setDiscoveryStatus: (status: "idle" | "loading" | "error") => void
@@ -139,6 +135,7 @@ type AnalysisActions = {
   setBlameSyntaxColorize: (colorize: boolean) => void
   setBlameHideEmpty: (hide: boolean) => void
   setBlameHideComments: (hide: boolean) => void
+  toggleBlameAuthorVisible: (personId: string, allPersonIds: string[]) => void
 
   setSelectedAuthors: (authors: Set<string>) => void
   toggleAuthor: (personId: string) => void
@@ -166,14 +163,13 @@ type AnalysisActions = {
   hydrateFromPersistedSettings: (
     settings: PersistedAnalysisSidebarSettings,
   ) => void
+  resetAnalysisContext: () => void
   reset: () => void
 }
 
 const initialState: AnalysisState = {
-  config: {},
   selectedRepoPath: null,
 
-  searchFolder: null,
   searchDepth: 5,
   discoveredRepos: [],
   discoveryStatus: "idle",
@@ -189,7 +185,6 @@ const initialState: AnalysisState = {
 
   blameConfig: {
     copyMove: DEFAULT_BLAME_COPY_MOVE,
-    blameExclusions: DEFAULT_BLAME_EXCLUSIONS,
   },
   asOfCommit: "",
 
@@ -205,6 +200,7 @@ const initialState: AnalysisState = {
   blameSyntaxColorize: true,
   blameHideEmpty: false,
   blameHideComments: false,
+  blameVisibleAuthors: null,
 
   selectedAuthors: new Set(),
   fileSelectionMode: "all",
@@ -235,42 +231,9 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
   (set) => ({
     ...initialState,
 
-    setConfig: (patch) =>
-      set((state) => {
-        const nextConfig = { ...state.config, ...patch }
-        const previousBlameSkip = state.config.blameSkip ?? false
-        const nextBlameSkip = nextConfig.blameSkip ?? false
-
-        if (!previousBlameSkip && nextBlameSkip) {
-          return {
-            config: nextConfig,
-            blameResult: null,
-            blameTargetFiles: [],
-            blameFileResults: new Map(),
-            activeBlameFile: null,
-            blameWorkflowStatus: "idle",
-            blameProgress: null,
-            blameErrorMessage: null,
-            blameContextSnapshot: null,
-            activeView:
-              state.activeView === "blame" ? "authors" : state.activeView,
-          }
-        }
-
-        if (previousBlameSkip && !nextBlameSkip && state.result) {
-          return {
-            config: nextConfig,
-            blameTargetFiles: state.result.fileStats.map((f) => f.path),
-          }
-        }
-
-        return { config: nextConfig }
-      }),
-
     setSelectedRepoPath: (path) => set({ selectedRepoPath: path }),
 
     // Repo discovery
-    setSearchFolder: (searchFolder) => set({ searchFolder }),
     setSearchDepth: (searchDepth) => set({ searchDepth }),
     setDiscoveredRepos: (discoveredRepos) => set({ discoveredRepos }),
     setDiscoveryStatus: (discoveryStatus) => set({ discoveryStatus }),
@@ -279,13 +242,10 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({ lastDiscoveryOutcome }),
 
     setResult: (result) =>
-      set((state) => ({
+      set({
         result,
         blameResult: null,
-        blameTargetFiles:
-          result && !(state.config.blameSkip ?? false)
-            ? result.fileStats.map((f) => f.path)
-            : [],
+        blameTargetFiles: result ? result.fileStats.map((f) => f.path) : [],
         blameFileResults: new Map(),
         activeBlameFile: null,
         blameWorkflowStatus: "idle",
@@ -293,22 +253,18 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         blameErrorMessage: null,
         blameContextSnapshot: null,
         selectedAuthors: new Set(),
+        blameVisibleAuthors: null,
         fileSelectionMode: "all",
         selectedFiles: new Set(),
         focusedFilePath: null,
         asOfCommit: result?.resolvedAsOfOid ?? "",
-      })),
+      }),
     setBlameResult: (blameResult) => set({ blameResult }),
     openFileForBlame: (path) =>
-      set((state) => {
-        if (state.config.blameSkip ?? false) {
-          return state
-        }
-        return {
-          activeBlameFile: path,
-          focusedFilePath: path,
-          activeView: "blame",
-        }
+      set({
+        activeBlameFile: path,
+        focusedFilePath: path,
+        activeView: "blame",
       }),
     setWorkflowStatus: (workflowStatus) => set({ workflowStatus }),
     setProgress: (progress) => set({ progress }),
@@ -343,6 +299,21 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({ blameSyntaxColorize }),
     setBlameHideEmpty: (blameHideEmpty) => set({ blameHideEmpty }),
     setBlameHideComments: (blameHideComments) => set({ blameHideComments }),
+    toggleBlameAuthorVisible: (personId, allPersonIds) =>
+      set((state) => {
+        const current = state.blameVisibleAuthors ?? new Set(allPersonIds)
+        const next = new Set(current)
+        if (next.has(personId)) {
+          next.delete(personId)
+        } else {
+          next.add(personId)
+        }
+        const allVisible =
+          allPersonIds.length > 0 &&
+          next.size === allPersonIds.length &&
+          allPersonIds.every((id) => next.has(id))
+        return { blameVisibleAuthors: allVisible ? null : next }
+      }),
 
     setSelectedAuthors: (selectedAuthors) => set({ selectedAuthors }),
     toggleAuthor: (personId) =>
@@ -428,17 +399,43 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
 
     hydrateFromPersistedSettings: (settings) =>
       set({
-        searchFolder: settings.searchFolder,
         searchDepth: settings.searchDepth,
-        config: settings.config,
         blameConfig: {
           copyMove: settings.blameConfig.copyMove ?? DEFAULT_BLAME_COPY_MOVE,
-          blameExclusions:
-            settings.blameConfig.blameExclusions ?? DEFAULT_BLAME_EXCLUSIONS,
-          includeEmptyLines: settings.blameConfig.includeEmptyLines,
-          includeComments: settings.blameConfig.includeComments,
         },
       }),
+
+    resetAnalysisContext: () => {
+      analysisStoreInternals.analysisAbort?.abort()
+      analysisStoreInternals.discoveryAbort?.abort()
+      analysisStoreInternals.analysisAbort = null
+      analysisStoreInternals.discoveryAbort = null
+      set({
+        selectedRepoPath: null,
+        discoveredRepos: [],
+        discoveryStatus: "idle",
+        discoveryError: null,
+        lastDiscoveryOutcome: "none",
+        result: null,
+        blameResult: null,
+        blameTargetFiles: [],
+        blameFileResults: new Map(),
+        activeBlameFile: null,
+        workflowStatus: "idle",
+        progress: null,
+        errorMessage: null,
+        blameWorkflowStatus: "idle",
+        blameProgress: null,
+        blameErrorMessage: null,
+        blameContextSnapshot: null,
+        asOfCommit: "",
+        selectedAuthors: new Set(),
+        blameVisibleAuthors: null,
+        fileSelectionMode: "all",
+        selectedFiles: new Set(),
+        focusedFilePath: null,
+      })
+    },
 
     reset: () => {
       analysisStoreInternals.analysisAbort?.abort()
@@ -631,19 +628,28 @@ export const selectFilteredFileStats = (() => {
 })()
 
 export const buildEffectiveBlameWorkflowConfig = (
-  config: AnalysisConfig,
+  course: PersistedCourse,
   blameConfig: AnalysisBlameConfig,
-): AnalysisBlameConfig => ({
-  ...blameConfig,
-  subfolder: config.subfolder,
-  extensions: config.extensions,
-  includeFiles: config.includeFiles,
-  excludeFiles: config.excludeFiles,
-  excludeAuthors: config.excludeAuthors,
-  excludeEmails: config.excludeEmails,
-  whitespace: config.whitespace,
-  maxConcurrency: config.maxConcurrency,
-})
+  defaultExtensions: string[],
+  maxConcurrency: number,
+): AnalysisBlameConfig => {
+  const config = resolveCourseAnalysisConfig(
+    course,
+    defaultExtensions,
+    maxConcurrency,
+  )
+  return {
+    ...blameConfig,
+    subfolder: config.subfolder,
+    extensions: config.extensions,
+    includeFiles: config.includeFiles,
+    excludeFiles: config.excludeFiles,
+    excludeAuthors: config.excludeAuthors,
+    excludeEmails: config.excludeEmails,
+    whitespace: config.whitespace,
+    maxConcurrency: config.maxConcurrency,
+  }
+}
 
 export type AuthorDisplayIdentity = {
   name: string

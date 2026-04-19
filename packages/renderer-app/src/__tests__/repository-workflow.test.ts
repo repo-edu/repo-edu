@@ -19,7 +19,6 @@ const template: RepositoryTemplate = {
 
 const course: PersistedCourse = {
   kind: "repo-edu.course.v1",
-  schemaVersion: 2,
   revision: 0,
   id: "course-1",
   displayName: "Course 1",
@@ -42,12 +41,13 @@ const course: PersistedCourse = {
     assignments: [],
   },
   repositoryTemplate: null,
+  searchFolder: null,
+  analysisInputs: {},
   updatedAt: "2026-03-11T00:00:00.000Z",
 }
 
 const appSettings: PersistedAppSettings = {
   kind: "repo-edu.app-settings.v1",
-  schemaVersion: 1,
   activeCourseId: course.id,
   activeTab: "roster",
   appearance: {
@@ -55,6 +55,7 @@ const appSettings: PersistedAppSettings = {
     windowChrome: "system",
     dateFormat: "DMY",
     timeFormat: "24h",
+    syntaxTheme: "plus",
   },
   window: { width: 1180, height: 760 },
   lmsConnections: [],
@@ -67,6 +68,7 @@ const appSettings: PersistedAppSettings = {
   analysisSidebarSize: null,
   analysisDetailListSize: null,
   analysisSidebar: null,
+  defaultExtensions: [],
 }
 
 describe("repository workflow helpers", () => {

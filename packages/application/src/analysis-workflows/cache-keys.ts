@@ -2,7 +2,7 @@ import type {
   AnalysisConfig,
   AnalysisRosterContext,
 } from "@repo-edu/domain/analysis"
-import { DEFAULT_EXTENSIONS, DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
+import { DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
 
 // ---------------------------------------------------------------------------
 // Stable-key JSON serialization
@@ -65,7 +65,7 @@ export function normalizeAnalysisConfigForCache(
   config: AnalysisConfig,
 ): string {
   const extensions = canonicalizeStringArray(
-    (config.extensions ?? [...DEFAULT_EXTENSIONS]).map((e) =>
+    (config.extensions ?? []).map((e) =>
       e.trim().toLowerCase().replace(/^\./, ""),
     ),
     { sorted: true },

@@ -1,6 +1,8 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
+import type { CourseAnalysisInputs } from "@repo-edu/domain/types"
+import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
   Checkbox,
@@ -9,11 +11,6 @@ import {
   CollapsibleTrigger,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Separator,
   Text,
   Tooltip,
@@ -42,6 +39,7 @@ import {
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import { useCourseStore } from "../../../stores/course-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
 import {
   buildFileTree,
@@ -192,11 +190,14 @@ export function AnalysisSidebar() {
     useAnalysisWorkflows()
   const rendererHost = useRendererHost()
 
-  const config = useAnalysisStore((s) => s.config)
-  const setConfig = useAnalysisStore((s) => s.setConfig)
+  const course = useCourseStore((s) => s.course)
+  const setAnalysisInputs = useCourseStore((s) => s.setAnalysisInputs)
+  const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
+  const config = course?.analysisInputs ?? ({} as CourseAnalysisInputs)
+  const searchFolder = course?.searchFolder ?? null
+
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-  const setSearchFolder = useAnalysisStore((s) => s.setSearchFolder)
   const workflowStatus = useAnalysisStore((s) => s.workflowStatus)
   const progress = useAnalysisStore((s) => s.progress)
   const errorMessage = useAnalysisStore((s) => s.errorMessage)
@@ -214,13 +215,15 @@ export function AnalysisSidebar() {
 
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
-  const searchFolder = useAnalysisStore((s) => s.searchFolder)
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
 
   // Persistence
   const settingsStatus = useAppSettingsStore((s) => s.status)
+  const defaultExtensions = useAppSettingsStore(
+    (s) => s.settings.defaultExtensions,
+  )
   const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
   const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
   const saveAppSettings = useAppSettingsStore((s) => s.save)
@@ -281,20 +284,12 @@ export function AnalysisSidebar() {
   useEffect(() => {
     if (!hydratedRef.current) return
     const snapshot: PersistedAnalysisSidebarSettings = {
-      searchFolder,
       searchDepth,
       sectionState: sections,
       fileViewMode,
       fileSortMode,
-      config: (() => {
-        const { maxConcurrency: _, ...persistedConfig } = config
-        return persistedConfig
-      })(),
       blameConfig: {
         copyMove: blameConfig.copyMove,
-        includeEmptyLines: blameConfig.includeEmptyLines,
-        includeComments: blameConfig.includeComments,
-        blameExclusions: blameConfig.blameExclusions,
       },
     }
     const snapshotSerialized = serializeSidebarSettings(snapshot)
@@ -305,12 +300,10 @@ export function AnalysisSidebar() {
     lastPersistedSnapshotRef.current = snapshotSerialized
     saveDebounced()
   }, [
-    searchFolder,
     searchDepth,
     sections,
     fileViewMode,
     fileSortMode,
-    config,
     blameConfig,
     setAnalysisSidebar,
     saveDebounced,
@@ -442,14 +435,28 @@ export function AnalysisSidebar() {
   }, [selectedRepoPath, runAnalysis])
 
   const setConfigAndRerun = useCallback(
-    (patch: Partial<AnalysisConfig>) => {
-      const nextConfig: AnalysisConfig = { ...config, ...patch }
-      setConfig(patch)
-      if (selectedRepoPath) {
+    (patch: Partial<CourseAnalysisInputs>) => {
+      setAnalysisInputs(patch)
+      if (selectedRepoPath && course) {
+        const nextCourse = {
+          ...course,
+          analysisInputs: { ...course.analysisInputs, ...patch },
+        }
+        const nextConfig: AnalysisConfig = resolveCourseAnalysisConfig(
+          nextCourse,
+          defaultExtensions,
+          1,
+        )
         void runAnalysis(selectedRepoPath, nextConfig)
       }
     },
-    [config, runAnalysis, selectedRepoPath, setConfig],
+    [
+      course,
+      defaultExtensions,
+      runAnalysis,
+      selectedRepoPath,
+      setAnalysisInputs,
+    ],
   )
 
   const isRunning = workflowStatus === "running"
@@ -889,7 +896,7 @@ export function AnalysisSidebar() {
             id="blameSkip"
             checked={blameSkip}
             onCheckedChange={(checked) =>
-              setConfig({ blameSkip: checked === true })
+              setAnalysisInputs({ blameSkip: checked === true })
             }
           />
           <Label htmlFor="blameSkip" className="text-xs">
@@ -921,53 +928,6 @@ export function AnalysisSidebar() {
               <Text className="text-xs text-muted-foreground">
                 {COPY_MOVE_LABELS[blameConfig.copyMove ?? 1]}
               </Text>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="includeEmptyLines"
-                checked={blameConfig.includeEmptyLines ?? false}
-                onCheckedChange={(checked) =>
-                  setBlameConfig({ includeEmptyLines: checked === true })
-                }
-              />
-              <Label htmlFor="includeEmptyLines" className="text-xs">
-                Include empty lines
-              </Label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="includeComments"
-                checked={blameConfig.includeComments ?? false}
-                onCheckedChange={(checked) =>
-                  setBlameConfig({ includeComments: checked === true })
-                }
-              />
-              <Label htmlFor="includeComments" className="text-xs">
-                Include comments
-              </Label>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Excluded lines</Label>
-              <Select
-                value={blameConfig.blameExclusions ?? "hide"}
-                onValueChange={(v) =>
-                  setBlameConfig({
-                    blameExclusions: v as "hide" | "show" | "remove",
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hide">Hide (uncolored)</SelectItem>
-                  <SelectItem value="show">Show (colored)</SelectItem>
-                  <SelectItem value="remove">Remove (omit)</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* PersonDB state indicator */}
@@ -1014,7 +974,7 @@ export function AnalysisSidebar() {
             id="whitespace"
             checked={config.whitespace ?? false}
             onCheckedChange={(checked) =>
-              setConfig({ whitespace: checked === true })
+              setAnalysisInputs({ whitespace: checked === true })
             }
           />
           <Label htmlFor="whitespace" className="text-xs">
@@ -1040,7 +1000,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeFiles?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setConfig({
+              setAnalysisInputs({
                 excludeFiles: raw
                   ? raw
                       .split(",")
@@ -1060,7 +1020,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeAuthors?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setConfig({
+              setAnalysisInputs({
                 excludeAuthors: raw
                   ? raw
                       .split(",")
@@ -1080,7 +1040,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeEmails?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setConfig({
+              setAnalysisInputs({
                 excludeEmails: raw
                   ? raw
                       .split(",")
@@ -1100,7 +1060,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeRevisions?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setConfig({
+              setAnalysisInputs({
                 excludeRevisions: raw
                   ? raw
                       .split(",")
@@ -1120,7 +1080,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeMessages?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setConfig({
+              setAnalysisInputs({
                 excludeMessages: raw
                   ? raw
                       .split(",")

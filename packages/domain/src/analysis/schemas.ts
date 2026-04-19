@@ -29,10 +29,6 @@ export const DEFAULT_N_FILES = 5
 // Helpers
 // ---------------------------------------------------------------------------
 
-function defaultExtensions(): string[] {
-  return [...DEFAULT_EXTENSIONS]
-}
-
 const strictDateRegex = /^\d{4}-\d{2}-\d{2}$/
 
 function isValidCalendarDate(value: string): boolean {
@@ -65,13 +61,12 @@ function patternArraySchema() {
     .transform((patterns) => [...new Set(patterns)])
 }
 
-function extensionsSchema() {
+export function extensionsSchema() {
   return z.array(z.string()).transform((exts) => {
     const normalized = exts
       .map((e) => e.trim().toLowerCase().replace(/^\./, ""))
       .filter((e) => e.length > 0)
-    const deduped = [...new Set(normalized)]
-    return deduped.length > 0 ? deduped : defaultExtensions()
+    return [...new Set(normalized)]
   })
 }
 
@@ -102,9 +97,7 @@ export const analysisConfigSchema = z
     since: yyyymmddSchema.optional(),
     until: yyyymmddSchema.optional(),
     subfolder: subfolderSchema().optional(),
-    extensions: extensionsSchema()
-      .optional()
-      .transform((v) => v ?? defaultExtensions()),
+    extensions: extensionsSchema().optional(),
     includeFiles: patternArraySchema()
       .optional()
       .transform((v) => v ?? ["*"]),
@@ -140,9 +133,7 @@ const FORBIDDEN_BLAME_KEYS = [
 
 const analysisBlameConfigInnerSchema = z.object({
   subfolder: subfolderSchema().optional(),
-  extensions: extensionsSchema()
-    .optional()
-    .transform((v) => v ?? defaultExtensions()),
+  extensions: extensionsSchema().optional(),
   includeFiles: patternArraySchema()
     .optional()
     .transform((v) => v ?? ["*"]),
@@ -152,12 +143,6 @@ const analysisBlameConfigInnerSchema = z.object({
   whitespace: z.boolean().optional().default(false),
   maxConcurrency: z.number().int().min(1).max(16).optional().default(1),
   copyMove: z.number().int().min(0).max(4).optional().default(1),
-  includeEmptyLines: z.boolean().optional().default(false),
-  includeComments: z.boolean().optional().default(false),
-  blameExclusions: z
-    .enum(["hide", "show", "remove"])
-    .optional()
-    .default("hide"),
   ignoreRevsFile: z.boolean().optional().default(true),
 })
 

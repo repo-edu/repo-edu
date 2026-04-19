@@ -5,6 +5,7 @@ import type {
   BlameResult,
   FileStats,
 } from "@repo-edu/domain/analysis"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   buildEffectiveBlameWorkflowConfig,
   selectAuthorDisplayByPersonId,
@@ -16,14 +17,52 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 
+function makeCourse(
+  inputs: PersistedCourse["analysisInputs"],
+): PersistedCourse {
+  return {
+    kind: "repo-edu.course.v1",
+    revision: 0,
+    id: "c1",
+    displayName: "Course",
+    lmsConnectionName: null,
+    organization: null,
+    lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 1,
+      nextGroupSetSeq: 1,
+      nextMemberSeq: 1,
+      nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
+    },
+    roster: {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    },
+    repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: inputs,
+    updatedAt: "2026-04-08T00:00:00Z",
+  }
+}
+
 beforeEach(() => {
   useAnalysisStore.getState().reset()
 })
 
 describe("analysis store", () => {
-  it("builds blame workflow config from shared + blame-specific fields", () => {
+  it("builds blame workflow config from course inputs + blame-specific fields", () => {
     const store = useAnalysisStore.getState()
-    store.setConfig({
+    store.setBlameConfig({
+      copyMove: 3,
+      ignoreRevsFile: false,
+    })
+
+    const course = makeCourse({
       subfolder: "src",
       extensions: ["ts", "tsx"],
       includeFiles: ["*.ts"],
@@ -31,20 +70,14 @@ describe("analysis store", () => {
       excludeAuthors: ["bot*"],
       excludeEmails: ["noreply@*"],
       whitespace: true,
-      maxConcurrency: 4,
-    })
-    store.setBlameConfig({
-      copyMove: 3,
-      includeComments: true,
-      includeEmptyLines: true,
-      blameExclusions: "show",
-      ignoreRevsFile: false,
     })
 
     const state = useAnalysisStore.getState()
     const merged = buildEffectiveBlameWorkflowConfig(
-      state.config,
+      course,
       state.blameConfig,
+      ["py"],
+      4,
     )
     assert.equal(merged.subfolder, "src")
     assert.deepEqual(merged.extensions, ["ts", "tsx"])
@@ -55,10 +88,31 @@ describe("analysis store", () => {
     assert.equal(merged.whitespace, true)
     assert.equal(merged.maxConcurrency, 4)
     assert.equal(merged.copyMove, 3)
-    assert.equal(merged.includeComments, true)
-    assert.equal(merged.includeEmptyLines, true)
-    assert.equal(merged.blameExclusions, "show")
     assert.equal(merged.ignoreRevsFile, false)
+  })
+
+  it("sources blame extensions from the app default when the course leaves it unset", () => {
+    const store = useAnalysisStore.getState()
+    const course = makeCourse({})
+    const merged = buildEffectiveBlameWorkflowConfig(
+      course,
+      store.blameConfig,
+      ["py", "rb"],
+      1,
+    )
+    assert.deepEqual(merged.extensions, ["py", "rb"])
+  })
+
+  it("sources blame extensions from the course when it is set", () => {
+    const store = useAnalysisStore.getState()
+    const course = makeCourse({ extensions: ["java"] })
+    const merged = buildEffectiveBlameWorkflowConfig(
+      course,
+      store.blameConfig,
+      ["py"],
+      1,
+    )
+    assert.deepEqual(merged.extensions, ["java"])
   })
 
   it("seeds blame queue from result and focuses active file on click", () => {
@@ -114,57 +168,21 @@ describe("analysis store", () => {
     assert.equal(state.blameFileResults.has("src/b.ts"), true)
   })
 
-  it("seeds blame queue when blameSkip is disabled after a result", () => {
+  it("resetAnalysisContext clears runtime state while preserving display toggles", () => {
     const store = useAnalysisStore.getState()
-    store.setConfig({ blameSkip: true })
-    const result = makeBaseResult()
-    result.fileStats = [
-      {
-        path: "src/a.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 10,
-        deletions: 2,
-        lines: 8,
-        lastModified: 1_700_000_000,
-        commitShas: new Set(["sha-a"]),
-        authorBreakdown: new Map(),
-      },
-    ]
-    store.setResult(result)
-
-    let state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, [])
-
-    store.setConfig({ blameSkip: false })
-    state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, ["src/a.ts"])
-  })
-
-  it("clears blame state when blameSkip is enabled", () => {
-    const store = useAnalysisStore.getState()
+    store.setSelectedRepoPath("/repo")
     store.openFileForBlame("src/a.ts")
-    store.setBlameWorkflowStatus("running")
-    store.setBlameProgress({
-      phase: "blame",
-      label: "Running per-file blame.",
-      processedFiles: 0,
-      totalFiles: 1,
-      currentFile: "src/a.ts",
-    })
-    store.setBlameErrorMessage("x")
-    store.setActiveView("blame")
+    store.setBlameShowMetadata(false)
+    store.setBlameColorize(false)
 
-    store.setConfig({ blameSkip: true })
+    store.resetAnalysisContext()
 
     const state = useAnalysisStore.getState()
-    assert.equal(state.config.blameSkip, true)
-    assert.deepEqual(state.blameTargetFiles, [])
+    assert.equal(state.selectedRepoPath, null)
     assert.equal(state.activeBlameFile, null)
-    assert.equal(state.blameWorkflowStatus, "idle")
-    assert.equal(state.blameProgress, null)
-    assert.equal(state.blameErrorMessage, null)
-    assert.equal(state.activeView, "authors")
+    assert.equal(state.focusedFilePath, null)
+    assert.equal(state.blameShowMetadata, false)
+    assert.equal(state.blameColorize, false)
   })
 
   it("tracks file filtering mode separately from selected file paths", () => {

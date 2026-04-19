@@ -1,9 +1,7 @@
 import { z } from "zod"
-import type {
-  AnalysisBlameConfig,
-  AnalysisConfig,
-} from "./analysis/config-types.js"
-import type { GitProviderKind } from "./types.js"
+import type { AnalysisBlameConfig } from "./analysis/config-types.js"
+import { DEFAULT_EXTENSIONS, extensionsSchema } from "./analysis/schemas.js"
+import type { CourseAnalysisInputs, GitProviderKind } from "./types.js"
 import { gitProviderKinds, persistedAppSettingsKind } from "./types.js"
 
 export const gitProviderDefaultBaseUrls: Record<GitProviderKind, string> = {
@@ -99,44 +97,22 @@ const persistedWindowStateSchema = z.object({
   height: z.number(),
 })
 
-const persistedAnalysisConfigSchema = z.object({
-  since: z.string().optional(),
-  until: z.string().optional(),
-  subfolder: z.string().optional(),
-  extensions: z.array(z.string()).optional(),
-  includeFiles: z.array(z.string()).optional(),
-  excludeFiles: z.array(z.string()).optional(),
-  excludeAuthors: z.array(z.string()).optional(),
-  excludeEmails: z.array(z.string()).optional(),
-  excludeRevisions: z.array(z.string()).optional(),
-  excludeMessages: z.array(z.string()).optional(),
-  nFiles: z.number().int().min(0).optional(),
-  whitespace: z.boolean().optional(),
-  blameSkip: z.boolean().optional(),
-})
-
 const persistedBlameConfigSchema = z.object({
   copyMove: z.number().int().min(0).max(4).optional(),
-  includeEmptyLines: z.boolean().optional(),
-  includeComments: z.boolean().optional(),
-  blameExclusions: z.enum(["hide", "show", "remove"]).optional(),
 })
 
 const persistedAnalysisSidebarSettingsSchema = z.object({
-  searchFolder: z.string().nullable(),
   searchDepth: z.number().int().min(1).max(9),
   sectionState: z.record(z.string(), z.boolean()),
   fileViewMode: z.enum(["list", "tree"]).default("list"),
   fileSortMode: z
     .enum(["lines-desc", "lines-asc", "alpha"])
     .default("lines-desc"),
-  config: persistedAnalysisConfigSchema,
   blameConfig: persistedBlameConfigSchema,
 })
 
 export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
-  schemaVersion: z.literal(1),
   activeCourseId: z.string().nullable(),
   activeTab: z
     .enum(["roster", "groups-assignments", "analysis"])
@@ -155,6 +131,7 @@ export const persistedAppSettingsSchema = z.object({
   analysisSidebar: persistedAnalysisSidebarSettingsSchema
     .nullable()
     .default(null),
+  defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
 })
 
 // ---------------------------------------------------------------------------
@@ -206,18 +183,22 @@ export function resolveActiveGitConnection(
   return gitConnections[0] ?? null
 }
 
-// Drift guards: persisted config/blame schemas must stay a subset of their
-// runtime counterparts. A compile error here means a field was added to the
-// persisted schema without a matching field in AnalysisConfig / AnalysisBlameConfig.
+// Drift guards: persisted blame schema must stay a subset of its runtime
+// counterpart. A compile error here means a field was added to the persisted
+// schema without a matching field in AnalysisBlameConfig. Additionally, course
+// analysis-input keys and sidebar UI-state keys must be disjoint so any new
+// field lands in exactly one bucket.
 type AssertSubset<_T extends Partial<_U>, _U> = true
-type _ConfigDriftGuard = AssertSubset<
-  z.infer<typeof persistedAnalysisConfigSchema>,
-  AnalysisConfig
->
+type AssertDisjoint<A, B> = [A & B] extends [never] ? true : false
 type _BlameDriftGuard = AssertSubset<
   z.infer<typeof persistedBlameConfigSchema>,
   AnalysisBlameConfig
 >
+const _scopeDisjointGuard: AssertDisjoint<
+  keyof CourseAnalysisInputs,
+  keyof PersistedAnalysisSidebarSettings
+> = true
+void _scopeDisjointGuard
 
 // ---------------------------------------------------------------------------
 // Default settings
@@ -225,7 +206,6 @@ type _BlameDriftGuard = AssertSubset<
 
 export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
-  schemaVersion: 1,
   activeCourseId: null,
   activeTab: "roster",
   appearance: {
@@ -249,4 +229,5 @@ export const defaultAppSettings: PersistedAppSettings = {
   analysisSidebarSize: null,
   analysisDetailListSize: null,
   analysisSidebar: null,
+  defaultExtensions: [...DEFAULT_EXTENSIONS],
 }

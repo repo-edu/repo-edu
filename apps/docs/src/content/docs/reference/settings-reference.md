@@ -10,7 +10,6 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.app-settings.v1"` | Schema discriminator |
-| `schemaVersion` | `1` | Schema version |
 | `activeCourseId` | `string \| null` | Currently selected course |
 | `activeTab` | `"roster" \| "groups-assignments"` | Last active UI tab (default: `"roster"`) |
 | `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
@@ -35,13 +34,13 @@ Both app settings and course documents are stored as JSON files and validated on
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Roster table column visibility |
 | `rosterColumnSizing` | `Record<string, number>` | Roster table column widths |
+| `defaultExtensions` | `string[]` | Fallback file-extension allowlist used when a course leaves `analysisInputs.extensions` `undefined`. Normalized on write (lowercase, dot stripped, deduplicated). `[]` means "no extension filter". |
 
 ## Course (`repo-edu.course.v1`)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
-| `schemaVersion` | `2` | Schema version |
 | `id` | `string` | Unique course identifier |
 | `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |

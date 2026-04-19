@@ -32,7 +32,6 @@ function makeSettings(
   return {
     ...defaultAppSettings,
     kind: persistedAppSettingsKind,
-    schemaVersion: 1,
     ...overrides,
   }
 }
@@ -98,6 +97,7 @@ describe("app settings store", () => {
           windowChrome: "system",
           dateFormat: "DMY",
           timeFormat: "24h",
+          syntaxTheme: "plus",
         },
       }),
     )
@@ -105,6 +105,30 @@ describe("app settings store", () => {
 
     assert.equal(useAppSettingsStore.getState().status, "loaded")
     assert.equal(useAppSettingsStore.getState().error, null)
+  })
+
+  it("round-trips a defaultExtensions update through the store with normalization", async () => {
+    const client = createWorkflowClient({
+      "settings.loadApp": async () => makeSettings(),
+      "settings.saveApp": async (settings) => settings,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+
+    await useAppSettingsStore.getState().load()
+    useAppSettingsStore
+      .getState()
+      .setDefaultExtensions([".TS", "Js", " py ", "ts", ""])
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.defaultExtensions,
+      ["ts", "js", "py"],
+    )
+
+    await useAppSettingsStore.getState().save()
+    assert.equal(useAppSettingsStore.getState().status, "loaded")
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.defaultExtensions,
+      ["ts", "js", "py"],
+    )
   })
 
   it("captures save errors in state", async () => {

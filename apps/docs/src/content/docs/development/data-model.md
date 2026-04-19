@@ -7,16 +7,16 @@ The `@repo-edu/domain` package is where every data structure in the system is de
 
 Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppSettings`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion Zod schemas in `packages/domain/src/schemas.ts` validate course data at boundaries: the points where the application reads or writes JSON files. When a persisted file is loaded from disk, the schema checks that its shape matches what the code expects. If it doesn't, the load fails with structured, path-level error messages rather than producing subtle runtime bugs.
 
-## Schema versioning
+## Schema discriminators
 
-Each persisted document carries a `kind` discriminator and a `schemaVersion` field:
+Each persisted document carries a `kind` discriminator:
 
-| Document | Kind | Current version |
-|----------|------|-----------------|
-| App settings | `repo-edu.app-settings.v1` | `1` |
-| Course | `repo-edu.course.v1` | `2` |
+| Document | Kind |
+|----------|------|
+| App settings | `repo-edu.app-settings.v1` |
+| Course | `repo-edu.course.v1` |
 
-These markers exist for future schema evolution. There is no migration layer — invalid documents are rejected at the boundary.
+There is no migration layer — invalid documents are rejected at the boundary.
 
 ## Persisted settings
 
@@ -33,6 +33,7 @@ These markers exist for future schema evolution. There is no migration layer —
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
 | `rosterColumnSizing` | `Record<string, number>` | Per-column width for roster table |
+| `defaultExtensions` | `string[]` | Global fallback for the per-course `analysisInputs.extensions` field. `undefined` on a course means "inherit this default"; `[]` on a course means "no extension filter". Resolution is one level — course → global — with no per-repo layer. |
 
 `AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), and `timeFormat` (`"12h"`, `"24h"`).
 

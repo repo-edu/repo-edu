@@ -1,11 +1,13 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
+import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import { useCallback } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import {
   analysisStoreInternals,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
@@ -13,8 +15,10 @@ import { getErrorMessage } from "../../../utils/error-message.js"
 export function useAnalysisWorkflows() {
   const course = useCourseStore((s) => s.course)
   const client = useWorkflowClient()
+  const defaultExtensions = useAppSettingsStore(
+    (s) => s.settings.defaultExtensions,
+  )
 
-  const config = useAnalysisStore((s) => s.config)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const setResult = useAnalysisStore((s) => s.setResult)
   const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
@@ -50,7 +54,9 @@ export function useAnalysisWorkflows() {
           {
             course,
             repositoryAbsolutePath: repoPath,
-            config: configOverride ?? config,
+            config:
+              configOverride ??
+              resolveCourseAnalysisConfig(course, defaultExtensions, 1),
             ...(rosterContext ? { rosterContext } : {}),
           },
           {
@@ -89,8 +95,8 @@ export function useAnalysisWorkflows() {
     },
     [
       client,
-      config,
       course,
+      defaultExtensions,
       setErrorMessage,
       setProgress,
       setResult,

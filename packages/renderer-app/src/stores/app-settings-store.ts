@@ -37,6 +37,7 @@ type AppSettingsActions = {
   setDateFormat: (dateFormat: DateFormatPreference) => void
   setTimeFormat: (timeFormat: TimeFormatPreference) => void
   setSyntaxTheme: (syntaxTheme: SyntaxThemeId) => void
+  setDefaultExtensions: (extensions: string[]) => void
 
   setLmsConnection: (index: number, connection: PersistedLmsConnection) => void
   addLmsConnection: (connection: PersistedLmsConnection) => void
@@ -182,6 +183,20 @@ export const useAppSettingsStore = create<
           appearance: { ...state.settings.appearance, syntaxTheme },
         },
       })),
+
+    setDefaultExtensions: (extensions) =>
+      set((state) => {
+        const normalized = [
+          ...new Set(
+            extensions
+              .map((e) => e.trim().toLowerCase().replace(/^\./, ""))
+              .filter((e) => e.length > 0),
+          ),
+        ]
+        return {
+          settings: { ...state.settings, defaultExtensions: normalized },
+        }
+      }),
 
     setLmsConnection: (index, connection) =>
       set((state) => {

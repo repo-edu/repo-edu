@@ -1,3 +1,5 @@
+import type { AnalysisConfig } from "./analysis/config-types.js"
+
 export const packageId = "@repo-edu/domain"
 
 export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
@@ -191,9 +193,10 @@ export type IdSequences = {
   nextTeamSeq: number
 }
 
+export type CourseAnalysisInputs = Omit<AnalysisConfig, "maxConcurrency">
+
 export type PersistedCourse = {
   kind: typeof persistedCourseKind
-  schemaVersion: 2
   revision: number
   id: string
   displayName: string
@@ -205,7 +208,18 @@ export type PersistedCourse = {
   repositoryTemplate: RepositoryTemplate | null
   repositoryCloneTargetDirectory?: string | null
   repositoryCloneDirectoryLayout?: "flat" | "by-team" | "by-task" | null
+  searchFolder: string | null
+  analysisInputs: CourseAnalysisInputs
   updatedAt: string
+}
+
+export function resolveCourseAnalysisConfig(
+  course: PersistedCourse,
+  defaultExtensions: string[],
+  maxConcurrency: number,
+): AnalysisConfig {
+  const extensions = course.analysisInputs.extensions ?? defaultExtensions
+  return { ...course.analysisInputs, extensions, maxConcurrency }
 }
 
 export type CourseSummary = Pick<
