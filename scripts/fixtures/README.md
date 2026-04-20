@@ -1,28 +1,30 @@
 # Fixture generation
 
 AI-driven generator that produces realistic student-repo fixtures for the
-grading tool. Not conventional TS code — it's a Claude Code skill plus a
-small Node wrapper.
+grading tool. A TypeScript orchestrator owns the plan and the loop; Claude
+is only called for the parts that need creative judgement.
 
 ## Pieces
 
-- `create-fixture.mjs` — Node entry point. Ensures `.student-repos/` exists,
-  then launches `claude` with the `/create-students-repo` skill, forwarding
-  `--rounds=N` and `--model=ID` from its CLI flags. The Coordinator defaults
-  to Sonnet; the Coder sub-agent's model is set inside the skill itself.
-- `.claude/skills/create-students-repo/SKILL.md` — the skill itself
-  (Coordinator + per-commit Coder sub-agent). Invoked by `pnpm create:fixture`.
-- `plan-multi-agent.md` — background design document for the skill.
+- `create-fixture.ts` — TypeScript orchestrator. Parses flags, runs one
+  planner turn via the Claude Agent SDK (assignment, team personas,
+  per-commit goals), then one Coder agent per commit (Read/Write/Edit/Bash
+  tools enabled, permissions bypassed) to do the actual work.
+- `coder-agreement.md` — shared working agreement the Coder reads at the
+  start of every round (team norms, commit conventions, review-round
+  behaviour).
+- `plan-multi-agent.md` — background design document.
 
 ## Output
 
 Generated repos land in `.student-repos/` at the repo root (gitignored,
-each is its own `git init`).
+each is its own `git init`). Every run also writes `_plan.json`,
+`_state.json`, and `_review.md` alongside the repo folder; the orchestrator
+clears those three files at the start of the next run.
 
-## Entry points
+## Entry point
 
-- `pnpm create:fixture` — wraps `scripts/fixtures/create-fixture.mjs`.
-  Pass `--help` (or `-h`) for usage, `--rounds=N` (or `-r N`) to override
-  the commit count, and `--model=ID` (or `-m ID`) to override the
-  Coordinator model (default `sonnet`). The script is also runnable
-  directly as `node scripts/fixtures/create-fixture.mjs`.
+`pnpm create:fixture` — run `--help` for the full option list. Flags:
+`-r/--rounds`, `-c/--complexity` (1–4), `-s/--students` (1–10),
+`-m/--model` (planner model), `-u/--until-done` (soft-target mode, stops
+early when the Coder reports the assignment is done).

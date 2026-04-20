@@ -7,5 +7,5 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "fixtures/*.ts"]
 }
