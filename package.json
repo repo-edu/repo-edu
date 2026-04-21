@@ -46,7 +46,7 @@
         "release:minor": "pnpm exec tsx scripts/release.ts minor",
         "release:major": "pnpm exec tsx scripts/release.ts major",
         "// ---- fixtures ----": "",
-        "create:fixture": "pnpm exec tsx scripts/fixtures/create-fixture.ts",
+        "fixture": "pnpm exec tsx scripts/fixtures/fixture.ts",
         "// ---- utilities ----": "",
         "file-sizes": "pnpm exec tsx scripts/file-sizes.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",

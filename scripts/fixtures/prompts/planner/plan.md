@@ -1,15 +1,20 @@
-You are generating a plan for a synthetic student-team software
-assignment. A TypeScript orchestrator will use your plan to drive one
-Coder sub-agent per commit.
+You are planning a team and commit timeline for a synthetic student-team
+software assignment. A TypeScript orchestrator will drive one Coder
+sub-agent per commit using your output.
 
 Output EXACTLY ONE JSON object and nothing else — no prose, no markdown
 fences.
+
+Project:
+
+- name: {{project_name}}
+- complexity (C 1-4): {{complexity}}
+- assignment: {{assignment}}
 
 Parameters:
 
 - N (build commits): {{rounds}}
 - planned commit count: {{planned_count}} (exact; includes both build and review commits)
-- C (complexity 1-4): {{complexity}}
 - S (students): {{students}}
 - today: {{today}}
 
@@ -17,30 +22,10 @@ Kind sequence (use verbatim, in order; do not change any kind):
 
 {{kind_sequence}}
 
-Assignment scope tiers:
-
-- C=1: tiny CLI / parser / single-file utility. 2-3 modules, no tests, no
-  packaging.
-- C=2: small app with a bit of structure. 3-5 modules, small data/config
-  allowed, maybe a handful of pytest cases.
-- C=3: multi-module project with real internal boundaries. 5-7 modules
-  possibly grouped into a package, persistence or external I/O, a proper
-  test file, short README.
-- C=4: ambitious student project. Nested package (src/<pkg>/...), 7+
-  modules across subpackages, meaningful tests, config loading, CLI entry
-  point, README. Includes at least one non-trivial technical concern
-  (an algorithm, a concurrency or scheduling problem, a parsing or
-  matching task, or an external integration) — not just CRUD + config +
-  tests. Still a student codebase — no frameworks, no heavy abstractions.
-
-Avoid these existing directory names: {{existing_dirs}}.
-
 Output JSON shape (comments are for YOU, do not include them in output):
 
 ```text
 {
-  "name": "kebab-case-dir-name",
-  "assignment": "One-paragraph assignment description the team will realistically work from",
   "team": [ // exactly {{students}} entries
     {
       "name": "Full Name",
@@ -64,8 +49,7 @@ Output JSON shape (comments are for YOU, do not include them in output):
 Rules:
 
 - team has exactly {{students}} entries with distinct areas and primary
-  modules that together cover the assignment's surface. The example above
-  shows S=3 illustration only.
+  modules that together cover the assignment's surface.
 - S=1: solo student, every commit has author_index 0.
 - Each author appears at least once when N >= S. Distribution is uneven
   but bounded: no author owns more than ~50% of build commits, none owns
@@ -73,8 +57,6 @@ Rules:
 - Commit dates spread realistically across 1-2 weeks ending on or before
   today. Pacing is uneven: some days have no commits, some have 2-3,
   weekends are plausible but lighter. Avoid exactly one commit per day.
-  Pace them against the planned count so an early stop still leaves
-  realistic density.
 - Each commit is one coherent change. If a note reads "X and Y" where X
   and Y are different concerns, split them into two commits.
 - The "kind" field of each commit is fixed by the Kind sequence above;

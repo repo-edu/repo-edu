@@ -16,15 +16,14 @@ export interface PlannedCommit {
 }
 
 export interface Plan {
-  name: string
-  assignment: string
   team: TeamMember[]
   commits: PlannedCommit[]
 }
 
 export interface PlanMeta {
+  project: string
+  planner: string
   rounds: number
-  complexity: number
   students: number
   reviewFrequency: number
 }
@@ -37,12 +36,12 @@ export interface PlanFile {
 export function planToMarkdown(file: PlanFile): string {
   const { meta, plan } = file
   const lines: string[] = []
-  lines.push(`# ${plan.name}`, "")
-  lines.push(`Complexity: ${meta.complexity}`)
-  lines.push(`Students: ${meta.students}`)
+  lines.push(`# ${meta.project}`, "")
+  lines.push(`Planner: ${meta.planner}`)
   lines.push(`Rounds: ${meta.rounds}`)
+  lines.push(`Students: ${meta.students}`)
   lines.push(`Review-frequency: ${meta.reviewFrequency}`)
-  lines.push("", "## Assignment", "", plan.assignment, "", "## Team", "")
+  lines.push("", "## Team", "")
   plan.team.forEach((m, i) => {
     lines.push(
       `${i + 1}. **${m.name}** \`<${m.email}>\` — ${m.area} · primary module \`${m.module}\``,
@@ -71,20 +70,20 @@ export function markdownToPlan(md: string): PlanFile {
 
   skipBlank()
   const slugMatch = lines[i]?.match(/^#\s+(.+)$/)
-  if (!slugMatch) throw new Error("expected '# <slug>' as first heading")
-  const name = slugMatch[1].trim()
+  if (!slugMatch) throw new Error("expected '# <project>' as first heading")
+  const project = slugMatch[1].trim()
   i++
   skipBlank()
 
-  const meta: Partial<PlanMeta> = {}
+  const meta: Partial<PlanMeta> = { project }
   while (i < lines.length && lines[i].trim() && !lines[i].startsWith("##")) {
     const line = lines[i].trim()
     const kv = line.match(/^([A-Za-z-]+):\s*(.+)$/)
     if (!kv) throw new Error(`expected 'Key: value' meta line, got: ${line}`)
     const [, key, value] = kv
     switch (key) {
-      case "Complexity":
-        meta.complexity = Number(value)
+      case "Planner":
+        meta.planner = value
         break
       case "Students":
         meta.students = Number(value)
@@ -96,18 +95,18 @@ export function markdownToPlan(md: string): PlanFile {
         meta.reviewFrequency = Number(value)
         break
       default:
-        throw new Error(`unknown meta key: ${key}`)
+        throw new Error(`unknown plan meta key: ${key}`)
     }
     i++
   }
   if (
-    meta.complexity === undefined ||
+    meta.planner === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
     meta.reviewFrequency === undefined
   ) {
     throw new Error(
-      "missing meta fields (need Complexity, Students, Rounds, Review-frequency)",
+      "missing plan meta fields (need Planner, Students, Rounds, Review-frequency)",
     )
   }
 
@@ -118,14 +117,6 @@ export function markdownToPlan(md: string): PlanFile {
     }
     i++
   }
-
-  expectHeading("## Assignment")
-  const assignmentLines: string[] = []
-  while (i < lines.length && !lines[i].startsWith("##")) {
-    assignmentLines.push(lines[i])
-    i++
-  }
-  const assignment = assignmentLines.join("\n").trim()
 
   expectHeading("## Team")
   const team: TeamMember[] = []
@@ -181,5 +172,5 @@ export function markdownToPlan(md: string): PlanFile {
     })
   }
 
-  return { meta: meta as PlanMeta, plan: { name, assignment, team, commits } }
+  return { meta: meta as PlanMeta, plan: { team, commits } }
 }
