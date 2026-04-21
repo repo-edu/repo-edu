@@ -31,6 +31,20 @@ export async function isGitRepositoryPath(
   return result.exitCode === 0
 }
 
+export async function resolveGitRepositoryRoot(
+  gitCommand: GitCommandPort,
+  path: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const result = await gitCommand.run({
+    args: ["-C", path, "rev-parse", "--show-toplevel"],
+    signal,
+  })
+  if (result.exitCode !== 0) return null
+  const root = result.stdout.trim()
+  return root.length > 0 ? root : null
+}
+
 export async function initPullClone(
   gitCommand: GitCommandPort,
   authUrl: string,

@@ -11,23 +11,33 @@ export function useRepoTree() {
 
   const [openRepoFolders, setOpenRepoFolders] = useState<Set<string>>(new Set())
 
-  const repoPathByRelative = useMemo(() => {
-    if (!searchFolder) return new Map<string, string>()
+  const { repoPathByRelative, searchFolderIsRepo } = useMemo(() => {
+    if (!searchFolder) {
+      return {
+        repoPathByRelative: new Map<string, string>(),
+        searchFolderIsRepo: false,
+      }
+    }
     const normalized = searchFolder.replaceAll("\\", "/")
     const base = normalized.endsWith("/") ? normalized.slice(0, -1) : normalized
     const prefix = `${base}/`
     const map = new Map<string, string>()
+    let isRepo = false
     for (const repo of discoveredRepos) {
       const repoNormalized = repo.path.replaceAll("\\", "/")
-      const relative =
-        repoNormalized === base
-          ? repo.name
-          : repoNormalized.startsWith(prefix)
-            ? repoNormalized.slice(prefix.length)
-            : repoNormalized
+      const isSelf = repoNormalized === base
+      if (isSelf) isRepo = true
+      const relative = isSelf
+        ? repo.name
+        : repoNormalized.startsWith(prefix)
+          ? repoNormalized.slice(prefix.length)
+          : repoNormalized
       map.set(relative, repo.path)
     }
-    return map
+    return {
+      repoPathByRelative: map,
+      searchFolderIsRepo: isRepo && discoveredRepos.length === 1,
+    }
   }, [searchFolder, discoveredRepos])
 
   const repoTree = useMemo(
@@ -77,6 +87,7 @@ export function useRepoTree() {
     repoPathByRelative,
     openRepoFolders,
     searchFolderName,
+    searchFolderIsRepo,
     toggleRepoFolderOpen,
     expandAllRepoFolders,
     collapseAllRepoFolders,

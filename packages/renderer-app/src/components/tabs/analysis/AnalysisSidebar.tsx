@@ -25,6 +25,7 @@ import {
   ChevronsUpDown,
   ChevronUp,
   FileCode,
+  FolderOpen,
   FolderTree,
   List,
   Play,
@@ -93,6 +94,7 @@ function CollapsibleSection({
   open,
   onOpenChange,
   toolbar,
+  leading,
   badge,
   showSeparator,
   children,
@@ -102,6 +104,7 @@ function CollapsibleSection({
   open: boolean
   onOpenChange: (key: SectionKey, open: boolean) => void
   toolbar?: React.ReactNode
+  leading?: React.ReactNode
   badge?: React.ReactNode
   showSeparator?: boolean
   children: React.ReactNode
@@ -114,12 +117,15 @@ function CollapsibleSection({
         onOpenChange={(v) => onOpenChange(sectionKey, v)}
       >
         <div className="flex items-center py-1">
-          <CollapsibleTrigger className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+          <CollapsibleTrigger>
             {open ? (
               <ChevronDown className="size-3.5" />
             ) : (
               <ChevronRight className="size-3.5" />
             )}
+          </CollapsibleTrigger>
+          {leading}
+          <CollapsibleTrigger className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             {title}
           </CollapsibleTrigger>
           {badge}
@@ -404,6 +410,13 @@ export function AnalysisSidebar() {
     handleFileClick,
   ])
 
+  useEffect(() => {
+    if (!result) return
+    if (focusedFilePath) return
+    if (listFilePaths.length === 0) return
+    setFocusedFilePath(listFilePaths[0])
+  }, [result, focusedFilePath, listFilePaths, setFocusedFilePath])
+
   const expandAllFolders = useCallback(
     () => setOpenFolders(new Set(allFolderNames)),
     [allFolderNames],
@@ -427,6 +440,7 @@ export function AnalysisSidebar() {
     if (!dir) return
     setSearchFolder(dir)
     setSelectedRepoPath(null)
+    setSections((prev) => ({ ...prev, repositories: true }))
     void runRepoDiscovery(dir)
   }, [rendererHost, runRepoDiscovery, setSearchFolder, setSelectedRepoPath])
 
@@ -564,9 +578,28 @@ export function AnalysisSidebar() {
           <RepositoriesToolbar
             expandAllRepoFolders={expandAllRepoFolders}
             collapseAllRepoFolders={collapseAllRepoFolders}
-            onBrowse={handleBrowseSearchFolder}
-            browseTooltipKey={browseTooltipKey}
+            onSearchRepos={handleSearchRepos}
+            searchReposDisabled={!searchFolder || isRunning || isDiscovering}
           />
+        }
+        leading={
+          searchFolder !== null && (
+            <Tooltip key={`browse-badge-${browseTooltipKey}`}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="mr-1 size-6 shrink-0"
+                  onClick={handleBrowseSearchFolder}
+                >
+                  <FolderOpen className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Change search folder
+              </TooltipContent>
+            </Tooltip>
+          )
         }
         badge={
           discoveredRepos.length > 0 ? (
@@ -740,7 +773,7 @@ export function AnalysisSidebar() {
                       key={path}
                       type="button"
                       className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                        focusedFilePath === path && activeView === "blame"
+                        focusedFilePath === path
                           ? "bg-selection font-medium"
                           : "hover:bg-accent"
                       }`}
@@ -767,7 +800,7 @@ export function AnalysisSidebar() {
                   toggleFolderOpen,
                   effectiveFileSelection,
                   focusedFilePath,
-                  highlightFocused: activeView === "blame",
+                  highlightFocused: true,
                   onFileClick: handleFileClick,
                 }}
               >

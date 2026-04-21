@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   FolderOpen,
   Loader2,
+  RefreshCw,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
@@ -26,19 +27,18 @@ import type { RepoTree } from "./use-repo-tree.js"
 type RepositoriesToolbarProps = {
   expandAllRepoFolders: () => void
   collapseAllRepoFolders: () => void
-  onBrowse: () => void
-  browseTooltipKey: number
+  onSearchRepos: () => void
+  searchReposDisabled: boolean
 }
 
 export function RepositoriesToolbar({
   expandAllRepoFolders,
   collapseAllRepoFolders,
-  onBrowse,
-  browseTooltipKey,
+  onSearchRepos,
+  searchReposDisabled,
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
-  const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
 
   const [depthDraft, setDepthDraft] = useState<string | null>(null)
@@ -54,6 +54,20 @@ export function RepositoriesToolbar({
 
   return (
     <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6 shrink-0"
+            disabled={searchReposDisabled}
+            onClick={onSearchRepos}
+          >
+            <RefreshCw className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Re-search repositories</TooltipContent>
+      </Tooltip>
       {discoveredRepos.length > 0 && (
         <>
           <Tooltip>
@@ -83,21 +97,6 @@ export function RepositoriesToolbar({
             <TooltipContent side="bottom">Collapse all</TooltipContent>
           </Tooltip>
         </>
-      )}
-      {searchFolder !== null && (
-        <Tooltip key={`browse-toolbar-${browseTooltipKey}`}>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6 shrink-0"
-              onClick={onBrowse}
-            >
-              <FolderOpen className="size-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Change search folder</TooltipContent>
-        </Tooltip>
       )}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -152,35 +151,43 @@ export function RepositoriesSection({
     repoPathByRelative,
     openRepoFolders,
     searchFolderName,
+    searchFolderIsRepo,
     toggleRepoFolderOpen,
   } = tree
 
   const handleSelectRepo = useCallback(
     (path: string) => {
+      if (path === selectedRepoPath) return
       setSelectedRepoPath(path)
       runAnalysis(path)
     },
-    [setSelectedRepoPath, runAnalysis],
+    [selectedRepoPath, setSelectedRepoPath, runAnalysis],
   )
 
   return (
     <>
       {searchFolder !== null ? (
         <div className="flex flex-col gap-0.5">
-          <Tooltip key={`browse-folder-${browseTooltipKey}`}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
-                onClick={onBrowse}
-                title={searchFolder}
-              >
-                <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
-                <span className="truncate font-medium">{searchFolderName}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Change search folder</TooltipContent>
-          </Tooltip>
+          {!searchFolderIsRepo && (
+            <Tooltip key={`browse-folder-${browseTooltipKey}`}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors hover:bg-accent"
+                  onClick={onBrowse}
+                  title={searchFolder}
+                >
+                  <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">
+                    {searchFolderName}
+                  </span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Change search folder
+              </TooltipContent>
+            </Tooltip>
+          )}
           {discoveredRepos.length > 0 && (
             <RepoTreeProvider
               value={{
@@ -188,10 +195,12 @@ export function RepositoriesSection({
                 toggleFolderOpen: toggleRepoFolderOpen,
                 selectedRepoPath,
                 repoPathByRelative,
-                onRepoClick: handleSelectRepo,
+                onRepoClick: searchFolderIsRepo ? onBrowse : handleSelectRepo,
               }}
             >
-              <div className="ml-4 flex flex-col gap-0.5">
+              <div
+                className={`flex flex-col gap-0.5 ${searchFolderIsRepo ? "" : "ml-4"}`}
+              >
                 {repoTree.children.map((child) => (
                   <RepoFolderNode key={child.path} node={child} />
                 ))}

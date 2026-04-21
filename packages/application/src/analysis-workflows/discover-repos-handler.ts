@@ -6,9 +6,13 @@ import type {
 } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
 import { basename, joinPath } from "../path-utils.js"
-import { isGitRepositoryPath } from "../repository-workflows/git-helpers.js"
+import { resolveGitRepositoryRoot } from "../repository-workflows/git-helpers.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
+
+function normalizePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/\/+$/, "")
+}
 
 function isCancellationError(error: unknown): boolean {
   return (
@@ -28,8 +32,13 @@ async function discoverRepos(
 
   onProgress?.({ currentFolder: searchFolder })
 
-  if (await isGitRepositoryPath(ports.gitCommand, searchFolder, signal)) {
-    return [{ name: basename(searchFolder), path: searchFolder }]
+  const toplevel = await resolveGitRepositoryRoot(
+    ports.gitCommand,
+    searchFolder,
+    signal,
+  )
+  if (toplevel !== null) {
+    return [{ name: basename(toplevel), path: toplevel }]
   }
 
   if (maxDepth <= 0) return []
@@ -50,9 +59,17 @@ async function discoverRepos(
     throwIfAborted(signal)
     const fullPath = joinPath(searchFolder, dir.name)
     if (systemDirectories.has(fullPath)) continue
-    if (await isGitRepositoryPath(ports.gitCommand, fullPath, signal)) {
+    const dirToplevel = await resolveGitRepositoryRoot(
+      ports.gitCommand,
+      fullPath,
+      signal,
+    )
+    if (
+      dirToplevel !== null &&
+      normalizePath(dirToplevel) === normalizePath(fullPath)
+    ) {
       repos.push({ name: dir.name, path: fullPath })
-    } else {
+    } else if (dirToplevel === null) {
       nonRepoDirs.push(fullPath)
     }
   }

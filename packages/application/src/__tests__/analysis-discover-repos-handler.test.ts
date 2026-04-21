@@ -20,11 +20,34 @@ function createMockGitCommandPort(
       if (request.signal?.aborted) {
         throw Object.assign(new DOMException("Aborted", "AbortError"))
       }
+      const queryPath = request.args[1] ?? ""
+      const isRevParse =
+        request.args[0] === "-C" && request.args[2] === "rev-parse"
+      if (isRevParse && request.args[3] === "--show-toplevel") {
+        const match = repos.has(queryPath)
+          ? queryPath
+          : [...repos].find(
+              (r) => queryPath === r || queryPath.startsWith(`${r}/`),
+            )
+        if (match) {
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: `${match}\n`,
+            stderr: "",
+          }
+        }
+        return {
+          exitCode: 128,
+          signal: null,
+          stdout: "",
+          stderr: "fatal: not a git repository",
+        }
+      }
       const isRepo =
-        request.args[0] === "-C" &&
-        request.args[2] === "rev-parse" &&
+        isRevParse &&
         request.args[3] === "--is-inside-work-tree" &&
-        repos.has(request.args[1] ?? "")
+        repos.has(queryPath)
       return {
         exitCode: isRepo ? 0 : 128,
         signal: null,
@@ -87,6 +110,20 @@ describe("analysis.discoverRepos handler", () => {
       { name: "repo-a", path: "/root/repo-a" },
       { name: "repo-b", path: "/root/nested/repo-b" },
     ])
+  })
+
+  it("returns the enclosing repo root when the search folder is inside a repo", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort(["/root/repo-a"]),
+      fileSystem: createStubFileSystemPort(async () => []),
+    })
+
+    const result = await handlers["analysis.discoverRepos"]({
+      searchFolder: "/root/repo-a/src/nested",
+      maxDepth: 2,
+    })
+
+    assert.deepEqual(result.repos, [{ name: "repo-a", path: "/root/repo-a" }])
   })
 
   it("rethrows cancellation instead of swallowing it", async () => {

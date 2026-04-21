@@ -22,6 +22,7 @@ export function useAnalysisWorkflows() {
     (s) => s.settings.defaultExtensions,
   )
 
+  const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const setResult = useAnalysisStore((s) => s.setResult)
   const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
@@ -147,8 +148,17 @@ export function useAnalysisWorkflows() {
         setDiscoveryStatus("idle")
         setDiscoveryCurrentFolder(null)
         if (result.repos.length > 0) {
-          setSelectedRepoPath(result.repos[0].path)
-          runAnalysis(result.repos[0].path)
+          const firstRepoPath = result.repos[0].path
+          const normalizedFolder = folder.replaceAll("\\", "/")
+          const normalizedRepo = firstRepoPath.replaceAll("\\", "/")
+          if (
+            result.repos.length === 1 &&
+            normalizedFolder.startsWith(`${normalizedRepo}/`)
+          ) {
+            setSearchFolder(firstRepoPath)
+          }
+          setSelectedRepoPath(firstRepoPath)
+          runAnalysis(firstRepoPath)
         }
       } catch (err) {
         if (analysisStoreInternals.discoveryAbort !== ac) return
@@ -171,6 +181,7 @@ export function useAnalysisWorkflows() {
     [
       client,
       runAnalysis,
+      setSearchFolder,
       setSelectedRepoPath,
       setDiscoveryStatus,
       setDiscoveryError,
