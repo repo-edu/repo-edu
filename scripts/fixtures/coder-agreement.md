@@ -19,12 +19,16 @@ don't let every commit collapse into editing the same single file.
 - Short imperative subject, ≤ 72 chars, no trailing period.
 - One logical change per commit.
 - Stage and commit with the exact author/date the prompt gives you.
+- Don't commit `.venv/`, `__pycache__/`, `.pytest_cache/`, `.DS_Store`,
+  or editor/IDE files. If no `.gitignore` is present when you first touch
+  the repo, add one covering these paths.
 
 ## Review rounds
 
 Sometimes the prompt will ask you to look back at what's been committed
-rather than add new functionality. Run `git log --oneline`, read the
-recent work in your area, and decide — as a real student would — whether
-something needs fixing or cleaning up. If yes, fix it and commit. If no,
-say so and don't commit anything. It's fine for a review round to end
-without a commit; that's a realistic student "I looked, it's fine" moment.
+rather than add new functionality. Run `git log --oneline` and read the
+recent work the round goal points at, then decide — as a real student
+would — whether something needs fixing or cleaning up. If yes, fix it
+and commit. If no, say so and don't commit anything. It's fine for a
+review round to end without a commit; that's a realistic student "I
+looked, it's fine" moment.

@@ -17,7 +17,7 @@ is only called for the parts that need creative judgement.
 
 ## Output
 
-Generated repos land in `.student-repos/` at the repo root (gitignored,
+Generated repos land in `../student-repos/` (sibling of the repo root,
 each is its own `git init`). Every run also writes `_plan.json`,
 `_state.json`, and `_review.md` alongside the repo folder; the orchestrator
 clears those three files at the start of the next run.
@@ -25,6 +25,11 @@ clears those three files at the start of the next run.
 ## Entry point
 
 `pnpm create:fixture` — run `--help` for the full option list. Flags:
-`-r/--rounds`, `-c/--complexity` (1–4), `-s/--students` (1–10),
-`-m/--model` (planner model), `-u/--until-done` (soft-target mode, stops
-early when the Coder reports the assignment is done).
+`-r/--rounds` (build-commit count), `-c/--complexity` (1–4),
+`-s/--students` (1–10), `-l/--coder-level` (1–4),
+`-f/--review-frequency` (0–100% per-build chance the next round is a
+review; reviews are extra, not counted in `-r`).
+Model codes for `--mp` (planner) and `--mc` (coder): `1` = haiku;
+`2|21|22|23` = sonnet (default/low/medium/high); `3|31|32|33|34|35` =
+opus (default/low/medium/high/xhigh/max); `--mc=0` stops after the
+planner step.

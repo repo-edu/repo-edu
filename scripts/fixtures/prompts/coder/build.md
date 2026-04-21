@@ -10,6 +10,10 @@ change{{ownership_suffix}}.
 
 Right now I want to {{round_goal}}.
 
+If that goal bundles multiple unrelated changes (e.g. "add X and expand
+Y" where X and Y are different concerns), do the one that best fits a
+single focused commit and note in your reply what you deferred.
+
 Please edit the files and make it work.
 
 Code style: {{coder_level_rules}}
@@ -26,4 +30,4 @@ git -C {{abs_path}} commit -m "<your one-line message>"
 ```
 
 Use a short, imperative-mood subject line (≤ 72 chars, no trailing
-period). If there's nothing to commit, just say so and stop.{{progress_block}}
+period). If there's nothing to commit, just say so and stop.

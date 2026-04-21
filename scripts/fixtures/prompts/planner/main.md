@@ -7,12 +7,15 @@ fences.
 
 Parameters:
 
-- N (target rounds): {{rounds}}
-- until-done mode: {{until_done}}
-- planned commit count: {{count_explanation}}
+- N (build commits): {{rounds}}
+- planned commit count: {{planned_count}} (exact; includes both build and review commits)
 - C (complexity 1-4): {{complexity}}
 - S (students): {{students}}
 - today: {{today}}
+
+Kind sequence (use verbatim, in order; do not change any kind):
+
+{{kind_sequence}}
 
 Assignment scope tiers:
 
@@ -25,8 +28,10 @@ Assignment scope tiers:
   test file, short README.
 - C=4: ambitious student project. Nested package (src/<pkg>/...), 7+
   modules across subpackages, meaningful tests, config loading, CLI entry
-  point, README. Still a student codebase — no frameworks, no heavy
-  abstractions.
+  point, README. Includes at least one non-trivial technical concern
+  (an algorithm, a concurrency or scheduling problem, a parsing or
+  matching task, or an external integration) — not just CRUD + config +
+  tests. Still a student codebase — no frameworks, no heavy abstractions.
 
 Avoid these existing directory names: {{existing_dirs}}.
 
@@ -62,21 +67,29 @@ Rules:
   modules that together cover the assignment's surface. The example above
   shows S=3 illustration only.
 - S=1: solo student, every commit has author_index 0.
-- author_index rotates across 0..{{max_author}} unevenly (real teams are
-  uneven); when N >= S, aim for each author appearing at least once.
+- Each author appears at least once when N >= S. Distribution is uneven
+  but bounded: no author owns more than ~50% of build commits, none owns
+  fewer than ~15%. A typical S=3/N=10 split is 4/3/3 or 4/4/2, not 7/2/1.
 - Commit dates spread realistically across 1-2 weeks ending on or before
-  today; pace them against the planned count so an early stop still
-  leaves realistic density.
-- Most commits are "build". Sprinkle "review" commits when C >= 2 and
-  planned count >= 4 — roughly 10-20% of the list, never the first
-  commit, never two in a row. "review" rounds re-examine recent work
-  rather than add features; the note should reflect that ("take another
-  look at the parser, clean up rough edges", "look over the CSV import
-  and fix anything that feels off"). At C=1 or very short runs, skip
-  review commits entirely.
+  today. Pacing is uneven: some days have no commits, some have 2-3,
+  weekends are plausible but lighter. Avoid exactly one commit per day.
+  Pace them against the planned count so an early stop still leaves
+  realistic density.
+- Each commit is one coherent change. If a note reads "X and Y" where X
+  and Y are different concerns, split them into two commits.
+- The "kind" field of each commit is fixed by the Kind sequence above;
+  emit the commits in that exact order with those exact kinds. Do not
+  reorder, merge, split, or change any kind.
+- For each "review" commit, the note re-examines recent work rather than
+  adds a feature ("take another look at the parser, clean up rough
+  edges", "look over the CSV import and fix anything that feels off").
+  Assign every review commit to an author different from the one who
+  wrote the immediately preceding build commit — a teammate looking over
+  someone else's work, not the original author.
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.
-- No file lists, no file-count caps, no planned error/fix pairs.
+- No file lists, no file-count caps, no planned error/fix pairs: the
+  Coder decides file structure, and planted errors harm realism.
 
 Output only the JSON object.

@@ -3,6 +3,9 @@
 Explicit code-style directives per skill level, passed into the Coder
 prompt as `{{coder_level_rules}}`.
 
+All tiers: use 4-space indentation consistently across every file in
+the project.
+
 ## 1
 
 Procedural style, short main block. Functions only when repetition forces

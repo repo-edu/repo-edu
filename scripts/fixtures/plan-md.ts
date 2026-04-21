@@ -26,8 +26,7 @@ export interface PlanMeta {
   rounds: number
   complexity: number
   students: number
-  untilDone: boolean
-  ceiling?: number
+  reviewFrequency: number
 }
 
 export interface PlanFile {
@@ -42,11 +41,7 @@ export function planToMarkdown(file: PlanFile): string {
   lines.push(`Complexity: ${meta.complexity}`)
   lines.push(`Students: ${meta.students}`)
   lines.push(`Rounds: ${meta.rounds}`)
-  lines.push(
-    meta.untilDone
-      ? `Until-done: yes (ceiling ${meta.ceiling ?? plan.commits.length})`
-      : "Until-done: no",
-  )
+  lines.push(`Review-frequency: ${meta.reviewFrequency}`)
   lines.push("", "## Assignment", "", plan.assignment, "", "## Team", "")
   plan.team.forEach((m, i) => {
     lines.push(
@@ -97,12 +92,9 @@ export function markdownToPlan(md: string): PlanFile {
       case "Rounds":
         meta.rounds = Number(value)
         break
-      case "Until-done": {
-        meta.untilDone = value.toLowerCase().startsWith("yes")
-        const ceiling = value.match(/ceiling\s+(\d+)/)
-        if (ceiling) meta.ceiling = Number(ceiling[1])
+      case "Review-frequency":
+        meta.reviewFrequency = Number(value)
         break
-      }
       default:
         throw new Error(`unknown meta key: ${key}`)
     }
@@ -112,10 +104,10 @@ export function markdownToPlan(md: string): PlanFile {
     meta.complexity === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
-    meta.untilDone === undefined
+    meta.reviewFrequency === undefined
   ) {
     throw new Error(
-      "missing meta fields (need Complexity, Students, Rounds, Until-done)",
+      "missing meta fields (need Complexity, Students, Rounds, Review-frequency)",
     )
   }
 
@@ -190,10 +182,4 @@ export function markdownToPlan(md: string): PlanFile {
   }
 
   return { meta: meta as PlanMeta, plan: { name, assignment, team, commits } }
-}
-
-export function planFilename(meta: PlanMeta, slug: string): string {
-  const ts = new Date().toISOString().replace(/[:-]/g, "").replace(/\..+$/, "Z")
-  const u = meta.untilDone ? "u" : ""
-  return `c${meta.complexity}-s${meta.students}-r${meta.rounds}${u}-${slug}-${ts}.md`
 }

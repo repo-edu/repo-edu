@@ -8,12 +8,12 @@ I'm on the {{area}} side of this, so I mostly work in `{{module}}`. Touch
 other files if it genuinely makes sense for this
 change{{ownership_suffix}}.
 
-Right now I want to take another look at what we've committed so far. Run
-`git -C {{abs_path}} log --oneline` and inspect recent work in my area.
-If something is rough — a bug, a messy bit, an inconsistency — fix it and
-commit. If everything looks fine, say so and don't commit anything.
-
 Round goal: {{round_goal}}
+
+Run `git -C {{abs_path}} log --oneline` and inspect the work the round
+goal points at — it may be my own area or a teammate's. If something is
+rough — a bug, a messy bit, an inconsistency — fix it and commit. If
+everything looks fine, say so and don't commit anything.
 
 Code style: {{coder_level_rules}}
 
@@ -29,4 +29,4 @@ git -C {{abs_path}} commit -m "<your one-line message>"
 ```
 
 Use a short, imperative-mood subject line (≤ 72 chars, no trailing
-period). If there's nothing to commit, just say so and stop.{{progress_block}}
+period). If there's nothing to commit, just say so and stop.
