@@ -28,6 +28,7 @@ import {
   ANALYSIS_DETAIL_LIST_MIN_WIDTH_PX,
 } from "../../../constants/layout.js"
 import {
+  selectAuthorColorsByPersonId,
   selectAuthorDisplayByPersonId,
   selectFilteredAuthorStats,
   selectFilteredFileStats,
@@ -39,7 +40,6 @@ import {
   formatCount,
   type MetricTotals,
 } from "../../../utils/analysis-format.js"
-import { authorColorMap } from "../../../utils/author-colors.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
@@ -91,6 +91,7 @@ export function AuthorFilesPanel() {
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
   const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
   const showAge = useAnalysisStore((s) => s.showAge)
+  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
   const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
 
   const initialListWidthPxRef = useRef(
@@ -99,12 +100,6 @@ export function AuthorFilesPanel() {
     ),
   )
   const listPanelRef = useRef<ResizablePanelHandle | null>(null)
-
-  const allAuthorIds = useMemo(
-    () => (result?.authorStats ?? []).map((a) => a.personId),
-    [result],
-  )
-  const colors = useMemo(() => authorColorMap(allAuthorIds), [allAuthorIds])
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const effectiveSelectedId =

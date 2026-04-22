@@ -1,7 +1,8 @@
 import { Button, Checkbox, Label } from "@repo-edu/ui"
-import { useMemo } from "react"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
-import { authorColorMap } from "../../../utils/author-colors.js"
+import {
+  selectAuthorColorsByPersonId,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 
 export function AuthorFilterControls() {
   const result = useAnalysisStore((s) => s.result)
@@ -9,14 +10,9 @@ export function AuthorFilterControls() {
   const setSelectedAuthors = useAnalysisStore((s) => s.setSelectedAuthors)
   const selectAllAuthors = useAnalysisStore((s) => s.selectAllAuthors)
   const clearAuthorSelection = useAnalysisStore((s) => s.clearAuthorSelection)
+  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
 
   const authorStats = result?.authorStats ?? []
-  const authorIds = useMemo(
-    () => authorStats.map((author) => author.personId),
-    [authorStats],
-  )
-
-  const colors = useMemo(() => authorColorMap(authorIds), [authorIds])
 
   if (authorStats.length === 0) return null
 
@@ -25,7 +21,7 @@ export function AuthorFilterControls() {
 
   const handleToggleAuthor = (personId: string) => {
     if (noneSelected) {
-      const next = new Set(authorIds)
+      const next = new Set(authorStats.map((a) => a.personId))
       next.delete(personId)
       setSelectedAuthors(next)
       return

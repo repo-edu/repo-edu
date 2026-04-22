@@ -9,9 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import type { AnalysisActiveMetric } from "../../../../stores/analysis-store.js"
+import {
+  type AnalysisActiveMetric,
+  selectAuthorColorsByPersonId,
+  useAnalysisStore,
+} from "../../../../stores/analysis-store.js"
 import { formatCount } from "../../../../utils/analysis-format.js"
-import { authorColorMap } from "../../../../utils/author-colors.js"
 
 type FileChartsProps = {
   fileStats: FileStats[]
@@ -51,7 +54,12 @@ function metricValueFromFile(
 }
 
 function metricValueFromBreakdown(
-  values: { commits: number; insertions: number; deletions: number },
+  values: {
+    commits: number
+    insertions: number
+    deletions: number
+    lines: number
+  },
   metric: AnalysisActiveMetric,
 ): number {
   switch (metric) {
@@ -62,7 +70,7 @@ function metricValueFromBreakdown(
     case "deletions":
       return values.deletions
     case "linesOfCode":
-      return values.insertions - values.deletions
+      return values.lines
   }
 }
 
@@ -71,12 +79,11 @@ export function FileCharts({
   authorStats,
   activeMetric,
 }: FileChartsProps) {
+  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
   const authorIds = useMemo(
     () => authorStats.map((author) => author.personId),
     [authorStats],
   )
-
-  const colors = useMemo(() => authorColorMap(authorIds), [authorIds])
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -102,23 +109,7 @@ export function FileCharts({
       }
 
       for (const [personId, breakdown] of file.authorBreakdown) {
-        let value = metricValueFromBreakdown(breakdown, activeMetric)
-
-        // Keep line segments non-negative for stacked rendering.
-        if (activeMetric === "linesOfCode") {
-          if (file.lines > 0) {
-            const totalInsertions = [...file.authorBreakdown.values()].reduce(
-              (sum, item) => sum + item.insertions,
-              0,
-            )
-            value =
-              totalInsertions > 0
-                ? (file.lines * breakdown.insertions) / totalInsertions
-                : 0
-          } else {
-            value = Math.max(0, value)
-          }
-        }
+        const value = metricValueFromBreakdown(breakdown, activeMetric)
 
         row[personId] = ((row[personId] as number | undefined) ?? 0) + value
       }

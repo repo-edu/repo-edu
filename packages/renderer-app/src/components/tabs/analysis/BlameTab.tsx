@@ -19,9 +19,11 @@ import {
 import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectAuthorColorsByPersonId,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { authorColorMap } from "../../../utils/author-colors.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { useBlameHighlightedLines } from "./use-blame-highlighted-lines.js"
 
@@ -668,10 +670,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
     return computeAuthorContributions(lineFilteredLines, personDb)
   }, [lineFilteredLines, personDb])
 
-  const colorMap = useMemo(
-    () => authorColorMap(contributions.map((c) => c.personId)),
-    [contributions],
-  )
+  const colorMap = useAnalysisStore(selectAuthorColorsByPersonId)
 
   if (!entry || entry.status === "pending") {
     return (

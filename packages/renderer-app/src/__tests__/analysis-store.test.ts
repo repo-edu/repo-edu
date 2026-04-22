@@ -8,6 +8,7 @@ import type {
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   buildEffectiveBlameWorkflowConfig,
+  selectAuthorColorsByPersonId,
   selectAuthorDisplayByPersonId,
   selectBlameMergedAuthorStats,
   selectBlameMergedFileStats,
@@ -16,6 +17,7 @@ import {
   selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../stores/analysis-store.js"
+import { authorColor } from "../utils/author-colors.js"
 
 function makeCourse(
   inputs: PersistedCourse["analysisInputs"],
@@ -582,6 +584,52 @@ describe("selectRosterMatchByPersonId", () => {
 })
 
 describe("analysis selectors", () => {
+  it("assigns author colors by merged LOC ranking", () => {
+    const result = makeBaseResult()
+    useAnalysisStore.getState().setResult(result)
+
+    let colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
+    assert.equal(colors.get("p_0000"), authorColor(0))
+    assert.equal(colors.get("p_0001"), authorColor(1))
+
+    useAnalysisStore.getState().setBlameResult({
+      fileBlames: [],
+      authorSummaries: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          lines: 25,
+          linesPercent: 20,
+        },
+        {
+          personId: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          lines: 100,
+          linesPercent: 80,
+        },
+      ],
+      fileSummaries: [],
+      personDbOverlay: { persons: [], identityIndex: new Map() },
+      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
+    })
+
+    colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
+    assert.equal(colors.get("p_0001"), authorColor(0))
+    assert.equal(colors.get("p_0000"), authorColor(1))
+  })
+
+  it("keeps author color ranking based on unfiltered authors", () => {
+    const result = makeBaseResult()
+    useAnalysisStore.getState().setResult(result)
+    useAnalysisStore.getState().setSelectedAuthors(new Set(["p_0001"]))
+
+    const colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
+    assert.equal(colors.get("p_0000"), authorColor(0))
+    assert.equal(colors.get("p_0001"), authorColor(1))
+  })
+
   it("returns stable references for unchanged empty snapshots", () => {
     const state = useAnalysisStore.getState()
 
@@ -597,6 +645,10 @@ describe("analysis selectors", () => {
     assert.equal(
       selectRosterMatchByPersonId(state),
       selectRosterMatchByPersonId(state),
+    )
+    assert.equal(
+      selectAuthorColorsByPersonId(state),
+      selectAuthorColorsByPersonId(state),
     )
   })
 
@@ -631,6 +683,10 @@ describe("analysis selectors", () => {
     assert.equal(
       selectRosterMatchByPersonId(state),
       selectRosterMatchByPersonId(state),
+    )
+    assert.equal(
+      selectAuthorColorsByPersonId(state),
+      selectAuthorColorsByPersonId(state),
     )
   })
 })

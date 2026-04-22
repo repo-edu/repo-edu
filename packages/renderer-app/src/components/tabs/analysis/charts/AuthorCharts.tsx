@@ -18,9 +18,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import type { AnalysisActiveMetric } from "../../../../stores/analysis-store.js"
+import {
+  type AnalysisActiveMetric,
+  selectAuthorColorsByPersonId,
+  useAnalysisStore,
+} from "../../../../stores/analysis-store.js"
 import { formatCount } from "../../../../utils/analysis-format.js"
-import { authorColorMap } from "../../../../utils/author-colors.js"
 
 type AuthorChartsProps = {
   authorStats: AuthorStats[]
@@ -75,11 +78,11 @@ export function AuthorCharts({
   dailyActivity,
   activeMetric,
 }: AuthorChartsProps) {
+  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
   const authorIds = useMemo(
     () => authorStats.map((author) => author.personId),
     [authorStats],
   )
-  const colors = useMemo(() => authorColorMap(authorIds), [authorIds])
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>()

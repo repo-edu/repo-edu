@@ -23,13 +23,13 @@ import {
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
 import {
+  selectAuthorColorsByPersonId,
   selectAuthorDisplayByPersonId,
   selectFilteredAuthorStats,
   selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
-import { authorColorMap } from "../../../utils/author-colors.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
 import { AuthorFilterControls } from "./AuthorFilterControls.js"
@@ -98,15 +98,10 @@ export function AuthorPanel() {
   const showRosterMatch = useAnalysisStore((s) => s.showRosterMatch)
   const showAge = useAnalysisStore((s) => s.showAge)
   const toggleAuthor = useAnalysisStore((s) => s.toggleAuthor)
+  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
 
   const hasRosterMatches = result?.rosterMatches != null
   const rosterMatchColumnVisible = hasRosterMatches && showRosterMatch
-
-  const allAuthorIds = useMemo(
-    () => (result?.authorStats ?? []).map((a) => a.personId),
-    [result],
-  )
-  const colors = useMemo(() => authorColorMap(allAuthorIds), [allAuthorIds])
 
   const isPercent = displayMode === "percentage"
 

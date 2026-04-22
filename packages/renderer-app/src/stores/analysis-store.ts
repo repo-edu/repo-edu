@@ -15,6 +15,7 @@ import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import { create } from "zustand"
+import { authorColorMap } from "../utils/author-colors.js"
 
 const DEFAULT_BLAME_COPY_MOVE = 1
 
@@ -591,6 +592,29 @@ export const selectFilteredAuthorStats = (() => {
     }
 
     previousValue = merged.filter((a) => selectedAuthors.has(a.personId))
+    return previousValue
+  }
+})()
+
+export const selectAuthorColorsByPersonId = (() => {
+  const EMPTY_AUTHOR_COLORS_BY_PERSON_ID = new Map<string, string>()
+  let previousMerged: AuthorStats[] | null = null
+  let previousValue = EMPTY_AUTHOR_COLORS_BY_PERSON_ID
+
+  return (state: AnalysisState & AnalysisActions): Map<string, string> => {
+    const merged = selectBlameMergedAuthorStats(state)
+    if (merged === previousMerged) {
+      return previousValue
+    }
+
+    previousMerged = merged
+
+    if (merged.length === 0) {
+      previousValue = EMPTY_AUTHOR_COLORS_BY_PERSON_ID
+      return previousValue
+    }
+
+    previousValue = authorColorMap(merged)
     return previousValue
   }
 })()
