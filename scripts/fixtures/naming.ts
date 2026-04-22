@@ -9,7 +9,7 @@ export interface PlanNameOpts {
   complexity: number
   students: number
   rounds: number
-  reviewFrequency: number
+  interaction: number
 }
 
 export interface RepoNameOpts extends PlanNameOpts {
@@ -46,19 +46,15 @@ export function parseSpec(spec: string): {
   }
 }
 
-function reviewSuffix(reviewFrequency: number): string[] {
-  return reviewFrequency > 0 ? [`f${reviewFrequency}`] : []
-}
-
 export function planPostfix(opts: PlanNameOpts): string {
   const parts = [
     `mp${modelCode(opts.plannerModel, opts.plannerEffort)}`,
     `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
-    ...reviewSuffix(opts.reviewFrequency),
+    `i${opts.interaction}`,
   ]
-  return `-${parts.join("-")}`
+  return parts.join("-")
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
@@ -69,9 +65,9 @@ export function repoPostfix(opts: RepoNameOpts): string {
     `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
-    ...reviewSuffix(opts.reviewFrequency),
+    `i${opts.interaction}`,
   ]
-  return `-${parts.join("-")}`
+  return parts.join("-")
 }
 
 export function nextAvailable(dir: string, base: string, ext = ""): string {

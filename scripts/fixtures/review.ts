@@ -48,23 +48,37 @@ export function writeReview(
     `- Dir: ${dirName}/`,
     `- Wall time: ${formatSeconds(runMs)}`,
     `- Tokens in/out: ${totalIn} / ${totalOut}`,
+    ...(state.stopped
+      ? [`- Stopped early after ${state.rounds.length} commit(s)`]
+      : []),
     "",
     "## Per-round usage",
     "",
-    "| # | kind | author | wall_ms | in | out | summary |",
+    "| # | kind | author | wall_s | in_k | out_k | summary |",
     "| --- | --- | --- | --- | --- | --- | --- |",
   ]
+  let totalWallMs = 0
+  let totalRoundIn = 0
+  let totalRoundOut = 0
   for (const r of state.rounds) {
     const summary = r.coder_summary.split("\n")[0].slice(0, 80)
+    const wallS = Math.round(r.usage.wall_ms / 1000)
+    totalWallMs += r.usage.wall_ms
+    totalRoundIn += r.usage.input_tokens
+    totalRoundOut += r.usage.output_tokens
     lines.push(
-      `| ${r.commit_index} | ${r.kind} | ${r.author_index} | ${r.usage.wall_ms} | ${r.usage.input_tokens} | ${r.usage.output_tokens} | ${summary} |`,
+      `| ${r.commit_index + 1} | ${r.kind} | ${r.author_index + 1} | ${wallS} | ${(r.usage.input_tokens / 1000).toFixed(1)} | ${(r.usage.output_tokens / 1000).toFixed(1)} | ${summary} |`,
     )
   }
+  lines.push(
+    `| **total** |  |  | **${Math.round(totalWallMs / 1000)}** | **${(totalRoundIn / 1000).toFixed(1)}** | **${(totalRoundOut / 1000).toFixed(1)}** |  |`,
+  )
   lines.push("")
 
   writeFileSync(resolve(STUDENT_REPOS, "_review.md"), lines.join("\n"))
+  const stoppedSuffix = state.stopped ? " (stopped early)" : ""
   process.stdout.write(
-    `Wrote ${dirName}/ (see git log for contents). Review: ${dirName}/_review.md\n`,
+    `Wrote ${dirName}/${stoppedSuffix} (see git log for contents). Review: ${dirName}/_review.md\n`,
   )
   process.stdout.write(
     `Wall time: ${formatSeconds(runMs)} | tokens in/out: ${totalIn} / ${totalOut}\n`,

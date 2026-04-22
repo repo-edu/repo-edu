@@ -4,9 +4,7 @@ I'm {{persona_name}} <{{persona_email}}>, working on a Python assignment
 Please read `{{coder_agreement_path}}` first — it's the working agreement
 we all share.
 
-I'm on the {{area}} side of this, so I mostly work in `{{module}}`. Touch
-other files if it genuinely makes sense for this
-change{{ownership_suffix}}.
+{{ownership_directive}}
 
 Round goal: {{round_goal}}
 

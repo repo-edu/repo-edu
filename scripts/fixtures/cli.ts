@@ -1,26 +1,21 @@
 import { parseArgs as nodeParseArgs } from "node:util"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import {
-  DEFAULT_CODER_LEVEL,
-  DEFAULT_COMMENTS,
-  DEFAULT_COMPLEXITY,
-  DEFAULT_MC,
-  DEFAULT_MP,
-  DEFAULT_REVIEW_FREQUENCY,
-  DEFAULT_ROUNDS,
-  DEFAULT_STUDENTS,
   MAX_CODER_LEVEL,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
+  MAX_INTERACTION,
   MAX_REVIEW_FREQUENCY,
   MAX_STUDENTS,
   MIN_CODER_LEVEL,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
+  MIN_INTERACTION,
   MIN_REVIEW_FREQUENCY,
   MIN_STUDENTS,
   type ModelName,
 } from "./constants"
+import { DEFAULTS } from "./defaults"
 import { fail } from "./log"
 
 export type Subcommand = "project" | "plan" | "repo" | "all"
@@ -33,6 +28,7 @@ export interface CommonOpts {
 export interface ProjectOpts extends CommonOpts {
   subcommand: "project"
   complexity: number
+  coderLevel: number
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
 }
@@ -42,7 +38,9 @@ export interface PlanOpts extends CommonOpts {
   fromPath: string
   rounds: number
   students: number
+  interaction: number
   reviewFrequency: number
+  coderLevel: number
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
 }
@@ -63,6 +61,7 @@ export interface AllOpts extends CommonOpts {
   students: number
   coderLevel: number
   comments: number
+  interaction: number
   reviewFrequency: number
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
@@ -117,13 +116,16 @@ export function printTopHelp(): void {
       "Usage: fixture <subcommand> [options]",
       "",
       "Generate synthetic student-repo fixtures under ../student-repos/ in",
-      "three stages, each independently invocable:",
+      "three stages, each independently invocable. Each (complexity, project)",
+      "gets one folder: c<N>-<name>/ holds project.md, plan-<postfix>.md,",
+      "and <postfix>/ repos. A .fixture-state.json in ../student-repos/",
+      "remembers the last project/plan so plan/repo can skip --from.",
       "",
-      "  project   Generate _projects/<name>.md (name + assignment).",
-      "  plan      Generate _plans/<postfix>-<name>.md (team + commits) for a",
+      "  project   Generate c<N>-<name>/project.md (name + assignment).",
+      "  plan      Generate c<N>-<name>/<postfix>.md (team + commits) for a",
       "            given project.",
       "  repo      Run one Coder sub-agent per commit against a plan to produce",
-      "            a git repo under ../student-repos/<name>-<postfix>/.",
+      "            a git repo under c<N>-<name>/<postfix>/.",
       "  all       Run project, plan, and repo in sequence.",
       "",
       "Run 'fixture <subcommand> --help' for subcommand-specific options.",
@@ -219,6 +221,13 @@ function validateComments(n: number): void {
     )
   }
 }
+function validateInteraction(n: number): void {
+  if (!Number.isInteger(n) || n < MIN_INTERACTION || n > MAX_INTERACTION) {
+    fail(
+      `--interaction must be an integer ${MIN_INTERACTION}-${MAX_INTERACTION}, got "${n}"`,
+    )
+  }
+}
 function validateReviewFrequency(n: number): void {
   if (
     !Number.isInteger(n) ||
@@ -230,30 +239,34 @@ function validateReviewFrequency(n: number): void {
     )
   }
 }
-function validateFromPath(v: string | undefined, subcommand: string): string {
-  if (!v) fail(`${subcommand} requires --from=PATH`)
-  return v
-}
-
 function parseProject(argv: string[]): ProjectOpts {
   const { values: v } = runNodeParseArgs(argv, {
     complexity: { type: "string", short: "c" },
+    "coder-level": { type: "string", short: "l" },
     model: { type: "string", short: "m" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v, false)
   const complexity =
-    v.complexity !== undefined ? Number(v.complexity) : DEFAULT_COMPLEXITY
+    v.complexity !== undefined ? Number(v.complexity) : DEFAULTS.complexity
+  const coderLevel =
+    v["coder-level"] !== undefined
+      ? Number(v["coder-level"])
+      : DEFAULTS.coderLevel
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULT_MP,
+    (v.model as string | undefined) ?? DEFAULTS.mp,
     "-m/--model",
   )
-  if (!common.help) validateComplexity(complexity)
+  if (!common.help) {
+    validateComplexity(complexity)
+    validateCoderLevel(coderLevel)
+  }
   return {
     ...common,
     subcommand: "project",
     complexity,
+    coderLevel,
     plannerModel: m.model,
     plannerEffort: m.effort,
   }
@@ -264,28 +277,37 @@ function parsePlan(argv: string[]): PlanOpts {
     from: { type: "string" },
     rounds: { type: "string", short: "r" },
     students: { type: "string", short: "s" },
+    interaction: { type: "string", short: "i" },
     "review-frequency": { type: "string", short: "f" },
+    "coder-level": { type: "string", short: "l" },
     model: { type: "string", short: "m" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v, false)
-  const rounds = v.rounds !== undefined ? Number(v.rounds) : DEFAULT_ROUNDS
+  const rounds = v.rounds !== undefined ? Number(v.rounds) : DEFAULTS.rounds
   const students =
-    v.students !== undefined ? Number(v.students) : DEFAULT_STUDENTS
+    v.students !== undefined ? Number(v.students) : DEFAULTS.students
+  const interaction =
+    v.interaction !== undefined ? Number(v.interaction) : DEFAULTS.interaction
   const reviewFrequency =
     v["review-frequency"] !== undefined
       ? Number(v["review-frequency"])
-      : DEFAULT_REVIEW_FREQUENCY
+      : DEFAULTS.reviewFrequency
+  const coderLevel =
+    v["coder-level"] !== undefined
+      ? Number(v["coder-level"])
+      : DEFAULTS.coderLevel
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULT_MP,
+    (v.model as string | undefined) ?? DEFAULTS.mp,
     "-m/--model",
   )
   if (!common.help) {
-    validateFromPath(v.from as string | undefined, "plan")
     validateRounds(rounds)
     validateStudents(students)
+    validateInteraction(interaction)
     validateReviewFrequency(reviewFrequency)
+    validateCoderLevel(coderLevel)
   }
   return {
     ...common,
@@ -293,7 +315,9 @@ function parsePlan(argv: string[]): PlanOpts {
     fromPath: (v.from as string | undefined) ?? "",
     rounds,
     students,
+    interaction,
     reviewFrequency,
+    coderLevel,
     plannerModel: m.model,
     plannerEffort: m.effort,
   }
@@ -312,15 +336,14 @@ function parseRepo(argv: string[]): RepoOpts {
   const coderLevel =
     v["coder-level"] !== undefined
       ? Number(v["coder-level"])
-      : DEFAULT_CODER_LEVEL
+      : DEFAULTS.coderLevel
   const comments =
-    v.comments !== undefined ? Number(v.comments) : DEFAULT_COMMENTS
+    v.comments !== undefined ? Number(v.comments) : DEFAULTS.comments
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULT_MC,
+    (v.model as string | undefined) ?? DEFAULTS.mc,
     "-m/--model",
   )
   if (!common.help) {
-    validateFromPath(v.from as string | undefined, "repo")
     validateCoderLevel(coderLevel)
     validateComments(comments)
   }
@@ -341,6 +364,7 @@ function parseAll(argv: string[]): AllOpts {
     complexity: { type: "string", short: "c" },
     students: { type: "string", short: "s" },
     "coder-level": { type: "string", short: "l" },
+    interaction: { type: "string", short: "i" },
     "review-frequency": { type: "string", short: "f" },
     comments: { type: "string" },
     mp: { type: "string" },
@@ -349,29 +373,32 @@ function parseAll(argv: string[]): AllOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v, false)
-  const rounds = v.rounds !== undefined ? Number(v.rounds) : DEFAULT_ROUNDS
+  const rounds = v.rounds !== undefined ? Number(v.rounds) : DEFAULTS.rounds
   const complexity =
-    v.complexity !== undefined ? Number(v.complexity) : DEFAULT_COMPLEXITY
+    v.complexity !== undefined ? Number(v.complexity) : DEFAULTS.complexity
   const students =
-    v.students !== undefined ? Number(v.students) : DEFAULT_STUDENTS
+    v.students !== undefined ? Number(v.students) : DEFAULTS.students
   const coderLevel =
     v["coder-level"] !== undefined
       ? Number(v["coder-level"])
-      : DEFAULT_CODER_LEVEL
+      : DEFAULTS.coderLevel
   const comments =
-    v.comments !== undefined ? Number(v.comments) : DEFAULT_COMMENTS
+    v.comments !== undefined ? Number(v.comments) : DEFAULTS.comments
+  const interaction =
+    v.interaction !== undefined ? Number(v.interaction) : DEFAULTS.interaction
   const reviewFrequency =
     v["review-frequency"] !== undefined
       ? Number(v["review-frequency"])
-      : DEFAULT_REVIEW_FREQUENCY
-  const mp = parseModelCode((v.mp as string | undefined) ?? DEFAULT_MP, "--mp")
-  const mc = parseModelCode((v.mc as string | undefined) ?? DEFAULT_MC, "--mc")
+      : DEFAULTS.reviewFrequency
+  const mp = parseModelCode((v.mp as string | undefined) ?? DEFAULTS.mp, "--mp")
+  const mc = parseModelCode((v.mc as string | undefined) ?? DEFAULTS.mc, "--mc")
   if (!common.help) {
     validateRounds(rounds)
     validateComplexity(complexity)
     validateStudents(students)
     validateCoderLevel(coderLevel)
     validateComments(comments)
+    validateInteraction(interaction)
     validateReviewFrequency(reviewFrequency)
   }
   return {
@@ -382,6 +409,7 @@ function parseAll(argv: string[]): AllOpts {
     students,
     coderLevel,
     comments,
+    interaction,
     reviewFrequency,
     plannerModel: mp.model,
     plannerEffort: mp.effort,
@@ -400,38 +428,52 @@ export function printSubcommandHelp(sub: Subcommand): void {
     lines.push(
       "Usage: fixture project [options]",
       "",
-      "Generate a project (name + assignment) under _projects/.",
+      "Generate a project (name + assignment) at c<N>-<name>/project.md.",
       "",
       "Options:",
-      `  -c, --complexity=N   ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULT_COMPLEXITY})`,
-      `  -m, --model=CODE     Planner model (default: ${DEFAULT_MP})`,
+      `  -c, --complexity=N   ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULTS.complexity})`,
+      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULTS.coderLevel}); 0 = AI-coders mode (no student framing)`,
+      `  -m, --model=CODE     Planner model (default: ${DEFAULTS.mp})`,
       ...common,
     )
   } else if (sub === "plan") {
     lines.push(
-      "Usage: fixture plan --from=<project.md> [options]",
+      "Usage: fixture plan [--from=<project.md>] [options]",
       "",
-      "Generate a plan (team + commits) for a project under _plans/.",
+      "Generate a plan (team + commits) next to the project file, as",
+      "c<N>-<name>/plan-<postfix>.md. Without --from, falls back to the",
+      "project recorded in ../student-repos/.fixture-state.json (set by the",
+      "most recent `fixture project` or `fixture plan`).",
       "",
       "Options:",
-      "      --from=PATH      Project .md file (required)",
-      `  -r, --rounds=N       Build-commit count (default: ${DEFAULT_ROUNDS})`,
-      `  -s, --students=N     ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${DEFAULT_STUDENTS})`,
-      `  -f, --review-frequency=N  ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${DEFAULT_REVIEW_FREQUENCY})`,
-      `  -m, --model=CODE     Planner model (default: ${DEFAULT_MP})`,
+      "      --from=PATH      Project .md file or c<N>-<name>/ dir (absolute,",
+      "                       or relative to ../student-repos/). Optional if",
+      "                       .fixture-state.json has a project.",
+      `  -r, --rounds=N       Build-commit count (default: ${DEFAULTS.rounds})`,
+      `  -s, --students=N     ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${DEFAULTS.students})`,
+      `  -i, --interaction=N  ${MIN_INTERACTION}-${MAX_INTERACTION} (default: ${DEFAULTS.interaction}) — cross-module editing (ignored at -l 0)`,
+      `  -f, --review-frequency=N  ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${DEFAULTS.reviewFrequency})`,
+      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULTS.coderLevel}); 0 = AI-coders mode`,
+      `  -m, --model=CODE     Planner model (default: ${DEFAULTS.mp})`,
       ...common,
     )
   } else if (sub === "repo") {
     lines.push(
-      "Usage: fixture repo --from=<plan.md> [options]",
+      "Usage: fixture repo [--from=<plan.md>] [options]",
       "",
-      "Run Coder sub-agents against a plan to produce a git repo.",
+      "Run Coder sub-agents against a plan to produce a git repo at",
+      "c<N>-<name>/<postfix>/. --from can also point at a c<N>-<name>/",
+      "directory when it contains exactly one plan-*.md file. Without --from,",
+      "falls back to the plan recorded in ../student-repos/.fixture-state.json",
+      "(set by the most recent `fixture plan`).",
       "",
       "Options:",
-      "      --from=PATH      Plan .md file (required)",
-      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULT_CODER_LEVEL})`,
-      `      --comments=N     ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULT_COMMENTS})`,
-      `  -m, --model=CODE     Coder model (default: ${DEFAULT_MC})`,
+      "      --from=PATH      Plan .md file or c<N>-<name>/ dir (absolute,",
+      "                       or relative to ../student-repos/). Optional if",
+      "                       .fixture-state.json has a plan.",
+      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULTS.coderLevel}); must match plan's level`,
+      `      --comments=N     ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULTS.comments}) (ignored at -l 0)`,
+      `  -m, --model=CODE     Coder model (default: ${DEFAULTS.mc})`,
       ...common,
     )
   } else {
@@ -441,14 +483,15 @@ export function printSubcommandHelp(sub: Subcommand): void {
       "Generate project + plan + repo in one go.",
       "",
       "Options:",
-      `  -r, --rounds=N       Build-commit count (default: ${DEFAULT_ROUNDS})`,
-      `  -c, --complexity=N   ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULT_COMPLEXITY})`,
-      `  -s, --students=N     ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${DEFAULT_STUDENTS})`,
-      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULT_CODER_LEVEL})`,
-      `  -f, --review-frequency=N  ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% (default: ${DEFAULT_REVIEW_FREQUENCY})`,
-      `      --mp=CODE        Planner model (default: ${DEFAULT_MP})`,
-      `      --mc=CODE        Coder model (default: ${DEFAULT_MC})`,
-      `      --comments=N     ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULT_COMMENTS})`,
+      `  -r, --rounds=N       Build-commit count (default: ${DEFAULTS.rounds})`,
+      `  -c, --complexity=N   ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULTS.complexity})`,
+      `  -s, --students=N     ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${DEFAULTS.students})`,
+      `  -l, --coder-level=N  ${MIN_CODER_LEVEL}-${MAX_CODER_LEVEL} (default: ${DEFAULTS.coderLevel}); 0 = AI-coders mode (no student framing)`,
+      `  -i, --interaction=N  ${MIN_INTERACTION}-${MAX_INTERACTION} (default: ${DEFAULTS.interaction}) — cross-module editing (ignored at -l 0)`,
+      `  -f, --review-frequency=N  ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${DEFAULTS.reviewFrequency})`,
+      `      --mp=CODE        Planner model (default: ${DEFAULTS.mp})`,
+      `      --mc=CODE        Coder model (default: ${DEFAULTS.mc})`,
+      `      --comments=N     ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULTS.comments}) (ignored at -l 0)`,
       ...common,
     )
   }

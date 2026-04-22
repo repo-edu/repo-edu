@@ -22,10 +22,13 @@ export interface Plan {
 
 export interface PlanMeta {
   project: string
+  projectFile: string
   planner: string
   rounds: number
   students: number
   reviewFrequency: number
+  interaction: number
+  coderLevel: number
 }
 
 export interface PlanFile {
@@ -37,10 +40,13 @@ export function planToMarkdown(file: PlanFile): string {
   const { meta, plan } = file
   const lines: string[] = []
   lines.push(`# ${meta.project}`, "")
+  lines.push(`Project-file: ${meta.projectFile}`)
   lines.push(`Planner: ${meta.planner}`)
   lines.push(`Rounds: ${meta.rounds}`)
   lines.push(`Students: ${meta.students}`)
   lines.push(`Review-frequency: ${meta.reviewFrequency}`)
+  lines.push(`Interaction: ${meta.interaction}`)
+  lines.push(`Coder-level: ${meta.coderLevel}`)
   lines.push("", "## Team", "")
   plan.team.forEach((m, i) => {
     lines.push(
@@ -82,6 +88,9 @@ export function markdownToPlan(md: string): PlanFile {
     if (!kv) throw new Error(`expected 'Key: value' meta line, got: ${line}`)
     const [, key, value] = kv
     switch (key) {
+      case "Project-file":
+        meta.projectFile = value
+        break
       case "Planner":
         meta.planner = value
         break
@@ -94,19 +103,28 @@ export function markdownToPlan(md: string): PlanFile {
       case "Review-frequency":
         meta.reviewFrequency = Number(value)
         break
+      case "Interaction":
+        meta.interaction = Number(value)
+        break
+      case "Coder-level":
+        meta.coderLevel = Number(value)
+        break
       default:
         throw new Error(`unknown plan meta key: ${key}`)
     }
     i++
   }
   if (
+    meta.projectFile === undefined ||
     meta.planner === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
-    meta.reviewFrequency === undefined
+    meta.reviewFrequency === undefined ||
+    meta.interaction === undefined ||
+    meta.coderLevel === undefined
   ) {
     throw new Error(
-      "missing plan meta fields (need Planner, Students, Rounds, Review-frequency)",
+      "missing plan meta fields (need Project-file, Planner, Students, Rounds, Review-frequency, Interaction, Coder-level)",
     )
   }
 

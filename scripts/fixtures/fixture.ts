@@ -2,11 +2,13 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs"
-import { dirname, resolve } from "node:path"
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
 import type { Usage } from "./agent"
 import {
   type AllOpts,
@@ -16,13 +18,7 @@ import {
   type RepoOpts,
 } from "./cli"
 import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
-import {
-  LOG_BASENAME,
-  PLANS_SUBDIR,
-  PROJECTS_SUBDIR,
-  STALE_FILES,
-  STUDENT_REPOS,
-} from "./constants"
+import { LOG_BASENAME, STALE_FILES, STUDENT_REPOS } from "./constants"
 import { emit, fail, formatSeconds, setEmitState, withTicker } from "./log"
 import {
   formatSpec,
@@ -54,6 +50,7 @@ import {
 } from "./project-md"
 import { type ReviewSummaryOpts, writeReview } from "./review"
 import { sampleKindSequence } from "./sampler"
+import { readState, writeState } from "./state"
 
 function setupRun(verbosity: number): void {
   mkdirSync(STUDENT_REPOS, { recursive: true })
@@ -65,46 +62,106 @@ function setupRun(verbosity: number): void {
   setEmitState(verbosity, logPath)
 }
 
-function archiveProject(project: Project): void {
-  const dir = resolve(STUDENT_REPOS, PROJECTS_SUBDIR)
-  mkdirSync(dir, { recursive: true })
-  const file = resolve(dir, `${project.name}.md`)
-  if (existsSync(file)) fail(`project file already exists: ${file}`)
-  writeFileSync(file, projectToMarkdown(project))
-  process.stderr.write(`fixture: archived project to ${file}\n`)
+function projectDir(project: Project): string {
+  return resolve(STUDENT_REPOS, `c${project.complexity}-${project.name}`)
 }
 
-function archivePlan(project: Project, plan: Plan, opts: PlanNameOpts): string {
+function resolveFrom(path: string): string {
+  return isAbsolute(path) ? path : resolve(STUDENT_REPOS, path)
+}
+
+function isDir(path: string): boolean {
+  return existsSync(path) && statSync(path).isDirectory()
+}
+
+function latestVersion(dir: string, base: string, ext: string): string | null {
+  let latest: string | null = null
+  if (existsSync(resolve(dir, `${base}${ext}`))) {
+    latest = resolve(dir, `${base}${ext}`)
+  }
+  let n = 2
+  while (existsSync(resolve(dir, `${base}-v${n}${ext}`))) {
+    latest = resolve(dir, `${base}-v${n}${ext}`)
+    n++
+  }
+  return latest
+}
+
+function resolveSinglePlan(dir: string): string {
+  const plans = readdirSync(dir).filter(
+    (n) => n.startsWith("plan-") && n.endsWith(".md"),
+  )
+  if (plans.length === 0) fail(`no plan-*.md found in directory: ${dir}`)
+  if (plans.length > 1) {
+    fail(
+      `multiple plan files in ${dir}; pass one explicitly:\n  ${plans.sort().join("\n  ")}`,
+    )
+  }
+  return resolve(dir, plans[0])
+}
+
+function archiveProject(project: Project): string {
+  const dir = projectDir(project)
+  mkdirSync(dir, { recursive: true })
+  const name = nextAvailable(dir, "project", ".md")
+  const path = resolve(dir, name)
+  writeFileSync(path, projectToMarkdown(project))
+  process.stderr.write(`fixture: archived project to ${path}\n`)
+  writeState({ project: relative(STUDENT_REPOS, path), plan: null })
+  return name
+}
+
+function archivePlan(
+  project: Project,
+  plan: Plan,
+  opts: PlanNameOpts,
+  projectFile: string,
+  coderLevel: number,
+  reviewFrequency: number,
+): string {
   const meta: PlanMeta = {
     project: project.name,
+    projectFile,
     planner: formatSpec(opts.plannerModel, opts.plannerEffort),
     rounds: opts.rounds,
     students: opts.students,
-    reviewFrequency: opts.reviewFrequency,
+    reviewFrequency,
+    interaction: opts.interaction,
+    coderLevel,
   }
-  const dir = resolve(STUDENT_REPOS, PLANS_SUBDIR)
+  const dir = projectDir(project)
   mkdirSync(dir, { recursive: true })
-  const name = nextAvailable(
-    dir,
-    `${planPostfix(opts).slice(1)}-${project.name}`,
-    ".md",
-  )
+  const name = nextAvailable(dir, `plan-${planPostfix(opts)}`, ".md")
   const path = resolve(dir, name)
   writeFileSync(path, planToMarkdown({ meta, plan }))
   process.stderr.write(`fixture: archived plan to ${path}\n`)
+  writeState({
+    project: relative(STUDENT_REPOS, resolve(dir, projectFile)),
+    plan: relative(STUDENT_REPOS, path),
+  })
   return path
 }
 
-function emitPlan(project: Project, plan: Plan, opts: PlanNameOpts): void {
+function emitPlan(
+  project: Project,
+  plan: Plan,
+  opts: PlanNameOpts,
+  projectFile: string,
+  coderLevel: number,
+  reviewFrequency: number,
+): void {
   emit(
     1,
     planToMarkdown({
       meta: {
         project: project.name,
+        projectFile,
         planner: formatSpec(opts.plannerModel, opts.plannerEffort),
         rounds: opts.rounds,
         students: opts.students,
-        reviewFrequency: opts.reviewFrequency,
+        reviewFrequency,
+        interaction: opts.interaction,
+        coderLevel,
       },
       plan,
     }),
@@ -157,12 +214,7 @@ function loadPlanFrom(path: string): {
 } {
   if (!existsSync(path)) fail(`plan file not found: ${path}`)
   const pf = markdownToPlan(readFileSync(path, "utf8"))
-  const projectPath = resolve(
-    dirname(path),
-    "..",
-    PROJECTS_SUBDIR,
-    `${pf.meta.project}.md`,
-  )
+  const projectPath = resolve(dirname(path), pf.meta.projectFile)
   const project = loadProjectFrom(projectPath)
   const kindSequence = pf.plan.commits.map((c) => c.kind)
   validatePlan(pf.plan, pf.meta.students, kindSequence)
@@ -172,7 +224,12 @@ function loadPlanFrom(path: string): {
 async function runCoderStage(
   project: Project,
   plan: Plan,
-  planMeta: { rounds: number; students: number; reviewFrequency: number },
+  planMeta: {
+    rounds: number
+    students: number
+    interaction: number
+    reviewFrequency: number
+  },
   coderOpts: CoderRunOpts & {
     plannerModel: RepoNameOpts["plannerModel"]
     plannerEffort: RepoNameOpts["plannerEffort"]
@@ -189,13 +246,12 @@ async function runCoderStage(
     complexity: project.complexity,
     students: planMeta.students,
     rounds: planMeta.rounds,
-    reviewFrequency: planMeta.reviewFrequency,
+    interaction: planMeta.interaction,
   }
-  const dirName = nextAvailable(
-    STUDENT_REPOS,
-    `${project.name}${repoPostfix(nameOpts)}`,
-  )
-  const dir = resolve(STUDENT_REPOS, dirName)
+  const parentDir = projectDir(project)
+  mkdirSync(parentDir, { recursive: true })
+  const dirName = nextAvailable(parentDir, repoPostfix(nameOpts))
+  const dir = resolve(parentDir, dirName)
   mkdirSync(dir, { recursive: true })
   initRepo(dir)
 
@@ -211,13 +267,14 @@ async function runCoderStage(
     coderModel: coderOpts.coderModel,
     coderEffort: coderOpts.coderEffort,
   }
+  const displayDir = `c${project.complexity}-${project.name}/${dirName}`
   writeReview(
     project,
     state,
     reviewOpts,
     plannerUsage,
     Date.now() - runStart,
-    dirName,
+    displayDir,
   )
   for (const name of STALE_FILES) {
     const src = resolve(STUDENT_REPOS, name)
@@ -238,9 +295,21 @@ async function handleProject(
 }
 
 async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
-  const project = loadProjectFrom(opts.fromPath)
+  const rawFrom =
+    opts.fromPath ||
+    readState().project ||
+    fail(
+      "plan requires --from=PATH or a project in .fixture-state.json (run `fixture project` first)",
+    )
+  const resolved = resolveFrom(rawFrom)
+  const fromPath = isDir(resolved)
+    ? (latestVersion(resolved, "project", ".md") ??
+      fail(`no project.md found in directory: ${resolved}`))
+    : resolved
+  const project = loadProjectFrom(fromPath)
+  const projectFile = basename(fromPath)
   process.stderr.write(
-    `fixture: loaded project "${project.name}" from ${opts.fromPath}\n`,
+    `fixture: loaded project "${project.name}" from ${fromPath}\n`,
   )
   const { plan, usage } = await producePlan(project, opts, runStart)
   const planNameOpts: PlanNameOpts = {
@@ -249,10 +318,24 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     complexity: project.complexity,
     students: opts.students,
     rounds: opts.rounds,
-    reviewFrequency: opts.reviewFrequency,
+    interaction: opts.interaction,
   }
-  emitPlan(project, plan, planNameOpts)
-  const archivePath = archivePlan(project, plan, planNameOpts)
+  emitPlan(
+    project,
+    plan,
+    planNameOpts,
+    projectFile,
+    opts.coderLevel,
+    opts.reviewFrequency,
+  )
+  const archivePath = archivePlan(
+    project,
+    plan,
+    planNameOpts,
+    projectFile,
+    opts.coderLevel,
+    opts.reviewFrequency,
+  )
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Plan archived: ${archivePath}\nWall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
@@ -260,10 +343,23 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
 }
 
 async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
-  const { meta, plan, project } = loadPlanFrom(opts.fromPath)
+  const rawFrom =
+    opts.fromPath ||
+    readState().plan ||
+    fail(
+      "repo requires --from=PATH or a plan in .fixture-state.json (run `fixture plan` first)",
+    )
+  const resolved = resolveFrom(rawFrom)
+  const fromPath = isDir(resolved) ? resolveSinglePlan(resolved) : resolved
+  const { meta, plan, project } = loadPlanFrom(fromPath)
   process.stderr.write(
-    `fixture: loaded plan for project "${project.name}" from ${opts.fromPath}\n`,
+    `fixture: loaded plan for project "${project.name}" from ${fromPath}\n`,
   )
+  if (opts.coderLevel !== meta.coderLevel) {
+    fail(
+      `repo --coder-level=${opts.coderLevel} does not match plan coder-level=${meta.coderLevel}; pass -l ${meta.coderLevel} or regenerate the plan`,
+    )
+  }
   const planner = parseSpec(meta.planner)
   const planNameOpts: PlanNameOpts = {
     plannerModel: planner.model,
@@ -271,9 +367,16 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     complexity: project.complexity,
     students: meta.students,
     rounds: meta.rounds,
-    reviewFrequency: meta.reviewFrequency,
+    interaction: meta.interaction,
   }
-  emitPlan(project, plan, planNameOpts)
+  emitPlan(
+    project,
+    plan,
+    planNameOpts,
+    meta.projectFile,
+    meta.coderLevel,
+    meta.reviewFrequency,
+  )
   const zero: Usage = { input_tokens: 0, output_tokens: 0, wall_ms: 0 }
   await runCoderStage(
     project,
@@ -281,6 +384,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     {
       rounds: meta.rounds,
       students: meta.students,
+      interaction: meta.interaction,
       reviewFrequency: meta.reviewFrequency,
     },
     {
@@ -289,6 +393,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       coderLevel: opts.coderLevel,
       comments: opts.comments,
       students: meta.students,
+      interaction: meta.interaction,
       plannerModel: planner.model,
       plannerEffort: planner.effort,
     },
@@ -300,7 +405,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
 async function handleAll(opts: AllOpts, runStart: number): Promise<void> {
   const projectRes = await produceProject(opts, runStart)
   const project = projectRes.project
-  archiveProject(project)
+  const projectFile = archiveProject(project)
 
   const planRes = await producePlan(project, opts, runStart)
   const plan = planRes.plan
@@ -311,10 +416,24 @@ async function handleAll(opts: AllOpts, runStart: number): Promise<void> {
     complexity: project.complexity,
     students: opts.students,
     rounds: opts.rounds,
-    reviewFrequency: opts.reviewFrequency,
+    interaction: opts.interaction,
   }
-  emitPlan(project, plan, planNameOpts)
-  archivePlan(project, plan, planNameOpts)
+  emitPlan(
+    project,
+    plan,
+    planNameOpts,
+    projectFile,
+    opts.coderLevel,
+    opts.reviewFrequency,
+  )
+  archivePlan(
+    project,
+    plan,
+    planNameOpts,
+    projectFile,
+    opts.coderLevel,
+    opts.reviewFrequency,
+  )
 
   const plannerUsage: Usage = {
     input_tokens: projectRes.usage.input_tokens + planRes.usage.input_tokens,
@@ -327,6 +446,7 @@ async function handleAll(opts: AllOpts, runStart: number): Promise<void> {
     {
       rounds: opts.rounds,
       students: opts.students,
+      interaction: opts.interaction,
       reviewFrequency: opts.reviewFrequency,
     },
     {
@@ -335,6 +455,7 @@ async function handleAll(opts: AllOpts, runStart: number): Promise<void> {
       coderLevel: opts.coderLevel,
       comments: opts.comments,
       students: opts.students,
+      interaction: opts.interaction,
       plannerModel: opts.plannerModel,
       plannerEffort: opts.plannerEffort,
     },

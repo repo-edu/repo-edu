@@ -11,6 +11,7 @@ export interface ProjectGenOpts {
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
   complexity: number
+  coderLevel: number
 }
 
 export interface PlanGenOpts {
@@ -18,6 +19,7 @@ export interface PlanGenOpts {
   plannerEffort: EffortLevel | "none"
   rounds: number
   students: number
+  coderLevel: number
 }
 
 function today(): string {
@@ -26,9 +28,14 @@ function today(): string {
 
 export function existingDirs(): string[] {
   if (!existsSync(STUDENT_REPOS)) return []
-  return readdirSync(STUDENT_REPOS).filter(
-    (n) => !n.startsWith(".") && !n.startsWith("_"),
-  )
+  const names = new Set<string>()
+  for (const entry of readdirSync(STUDENT_REPOS, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    if (entry.name.startsWith(".") || entry.name.startsWith("_")) continue
+    const stripped = entry.name.replace(/^c\d+-/, "")
+    names.add(stripped)
+  }
+  return [...names]
 }
 
 function stripJsonFences(text: string): string {
@@ -41,7 +48,9 @@ function stripJsonFences(text: string): string {
 }
 
 function projectPrompt(opts: ProjectGenOpts, existing: string[]): string {
-  return loadPrompt("planner/project", {
+  const template =
+    opts.coderLevel === 0 ? "planner/project-l0" : "planner/project"
+  return loadPrompt(template, {
     complexity: String(opts.complexity),
     today: today(),
     existing_dirs: JSON.stringify(existing),
@@ -56,7 +65,8 @@ function planPrompt(
   const sequenceLines = kindSequence
     .map((kind, i) => `${i + 1}. ${kind}`)
     .join("\n")
-  return loadPrompt("planner/plan", {
+  const template = opts.coderLevel === 0 ? "planner/plan-l0" : "planner/plan"
+  const ctx: Record<string, string> = {
     project_name: project.name,
     assignment: project.assignment,
     complexity: String(project.complexity),
@@ -64,9 +74,10 @@ function planPrompt(
     planned_count: String(kindSequence.length),
     kind_sequence: sequenceLines,
     students: String(opts.students),
-    max_author: String(opts.students - 1),
     today: today(),
-  })
+  }
+  if (opts.coderLevel !== 0) ctx.max_author = String(opts.students - 1)
+  return loadPrompt(template, ctx)
 }
 
 function validateProject(project: Project, complexity: number): void {

@@ -5,6 +5,7 @@ import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import { effortOption, runAgent, type Usage } from "./agent"
 import {
   CODER_AGREEMENT,
+  CODER_AGREEMENT_L0,
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
   type ModelName,
@@ -21,6 +22,7 @@ export interface CoderRunOpts {
   coderLevel: number
   comments: number
   students: number
+  interaction: number
 }
 
 export interface RoundRecord {
@@ -34,6 +36,7 @@ export interface RoundRecord {
 export interface State {
   commit_index: number
   rounds: RoundRecord[]
+  stopped: boolean
 }
 
 function teamPhrase(s: number): string {
@@ -52,11 +55,35 @@ function composeCoderPrompt(
   absPath: string,
 ): string {
   const persona = plan.team[commit.author_index]
+
+  if (opts.coderLevel === 0) {
+    return loadPrompt(
+      commit.kind === "review" ? "coder/review-l0" : "coder/build-l0",
+      {
+        persona_name: persona.name,
+        persona_email: persona.email,
+        assignment: project.assignment,
+        abs_path: absPath,
+        coder_agreement_path: CODER_AGREEMENT_L0,
+        round_goal: commit.note,
+        commit_date: commit.date,
+      },
+    )
+  }
+
   const coderLevelRules = loadSection("coder/level", String(opts.coderLevel))
   const commentsDirective =
     opts.comments === COMMENTS_FREE_TIER
       ? ""
       : loadSection("coder/comments", String(opts.comments))
+
+  const ownershipDirective =
+    opts.students === 1
+      ? loadSection("coder/interaction", "solo")
+      : loadSection("coder/interaction", String(opts.interaction), {
+          area: persona.area,
+          module: persona.module,
+        })
 
   const ctx: Record<string, string> = {
     persona_name: persona.name,
@@ -65,10 +92,7 @@ function composeCoderPrompt(
     assignment: project.assignment,
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
-    area: persona.area,
-    module: persona.module,
-    ownership_suffix:
-      opts.students > 1 ? ", but don't rewrite someone else's module" : "",
+    ownership_directive: ownershipDirective,
     round_goal: commit.note,
     coder_level_rules: coderLevelRules,
     comments_directive: commentsDirective,
@@ -102,51 +126,73 @@ export async function runCoderLoop(
   dir: string,
   runStart: number,
 ): Promise<State> {
-  const state: State = { commit_index: 0, rounds: [] }
-  const coderPersona = loadPrompt("coder/persona").trim()
+  const state: State = { commit_index: 0, rounds: [], stopped: false }
+  const coderPersona = loadPrompt(
+    opts.coderLevel === 0 ? "coder/persona-l0" : "coder/persona",
+  ).trim()
 
-  for (let i = 0; i < plan.commits.length; i++) {
-    const commit = plan.commits[i]
-    const prompt = composeCoderPrompt(project, plan, commit, opts, dir)
-    emit(
-      2,
-      `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}\n\n### Prompt\n\n${prompt}`,
-    )
-    const { reply, usage } = await withTicker(
-      `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
-      () =>
-        runAgent(prompt, {
-          model: opts.coderModel,
-          ...effortOption(opts.coderEffort),
-          cwd: dir,
-          permissionMode: "bypassPermissions",
-          allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-          systemPrompt: {
-            type: "preset",
-            preset: "claude_code",
-            append: coderPersona,
-          },
-        }),
-    )
-    emit(
-      2,
-      `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`,
-    )
-    state.rounds.push({
-      commit_index: i,
-      author_index: commit.author_index,
-      kind: commit.kind,
-      coder_summary: firstParagraph(reply),
-      usage,
-    })
-    state.commit_index = i + 1
-    writeFileSync(
-      resolve(STUDENT_REPOS, "_state.json"),
-      `${JSON.stringify(state, null, 2)}\n`,
-    )
-    process.stderr.write(
-      `fixture: round ${i + 1} done (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})\n`,
-    )
+  let sigintCount = 0
+  const onSigint = () => {
+    sigintCount++
+    if (sigintCount === 1) {
+      state.stopped = true
+      process.stderr.write(
+        "\nfixture: stop requested — finishing current round, then writing summary. Press Ctrl+C again to force exit.\n",
+      )
+      return
+    }
+    process.stderr.write("\nfixture: force exit\n")
+    process.exit(130)
+  }
+  process.on("SIGINT", onSigint)
+
+  try {
+    for (let i = 0; i < plan.commits.length; i++) {
+      const commit = plan.commits[i]
+      const prompt = composeCoderPrompt(project, plan, commit, opts, dir)
+      emit(
+        2,
+        `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}\n\n### Prompt\n\n${prompt}`,
+      )
+      const { reply, usage } = await withTicker(
+        `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
+        () =>
+          runAgent(prompt, {
+            model: opts.coderModel,
+            ...effortOption(opts.coderEffort),
+            cwd: dir,
+            permissionMode: "bypassPermissions",
+            allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+            systemPrompt: {
+              type: "preset",
+              preset: "claude_code",
+              append: coderPersona,
+            },
+          }),
+      )
+      emit(
+        2,
+        `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`,
+      )
+      state.rounds.push({
+        commit_index: i,
+        author_index: commit.author_index,
+        kind: commit.kind,
+        coder_summary: firstParagraph(reply),
+        usage,
+      })
+      state.commit_index = i + 1
+      writeFileSync(
+        resolve(STUDENT_REPOS, "_state.json"),
+        `${JSON.stringify(state, null, 2)}\n`,
+      )
+      process.stderr.write(
+        `fixture: round ${i + 1} done (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})\n`,
+      )
+      if (state.stopped) break
+    }
+  } finally {
+    process.off("SIGINT", onSigint)
   }
 
   return state
