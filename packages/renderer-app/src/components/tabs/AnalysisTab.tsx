@@ -23,10 +23,8 @@ import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
-import { AuthorFilesPanel } from "./analysis/AuthorFilesPanel.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
-import { FileAuthorsPanel } from "./analysis/FileAuthorsPanel.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
@@ -121,26 +119,12 @@ export function AnalysisTab() {
           <div className="flex items-center border-b px-3">
             <TabsList>
               <TabsTrigger value="authors">Authors</TabsTrigger>
-              <TabsTrigger value="authors-files">Authors-Files</TabsTrigger>
-              <TabsTrigger value="files-authors">Files-Authors</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               {!blameSkip && <TabsTrigger value="blame">Blame</TabsTrigger>}
             </TabsList>
           </div>
           <TabsContent value="authors" className="flex-1 min-h-0 overflow-auto">
             <AuthorPanel />
-          </TabsContent>
-          <TabsContent
-            value="authors-files"
-            className="flex-1 min-h-0 overflow-auto"
-          >
-            <AuthorFilesPanel />
-          </TabsContent>
-          <TabsContent
-            value="files-authors"
-            className="flex-1 min-h-0 overflow-auto"
-          >
-            <FileAuthorsPanel />
           </TabsContent>
           <TabsContent value="files" className="flex-1 min-h-0 overflow-auto">
             <FilePanel />

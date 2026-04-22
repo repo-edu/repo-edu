@@ -27,12 +27,7 @@ export type AnalysisActiveMetric =
 
 export type AnalysisDisplayMode = "absolute" | "percentage"
 
-export type AnalysisView =
-  | "authors"
-  | "authors-files"
-  | "files-authors"
-  | "files"
-  | "blame"
+export type AnalysisView = "authors" | "files" | "blame"
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
 export type AnalysisFileSelectionMode = "all" | "subset"
