@@ -4,6 +4,7 @@ import {
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
+  createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
   createLruAnalysisCache,
@@ -30,6 +31,7 @@ import type {
   FileSystemPort,
   GitCommandPort,
   HttpPort,
+  LlmPort,
   UserFilePort,
 } from "@repo-edu/host-runtime-contract"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
@@ -48,6 +50,7 @@ export type DesktopRouterPorts = {
   userFile: UserFilePort
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
+  llm: LlmPort
 }
 
 function createDesktopWorkflowRegistry(
@@ -82,6 +85,9 @@ function createDesktopWorkflowRegistry(
       gitCommand: ports.gitCommand,
       fileSystem: ports.fileSystem,
       cache: createLruAnalysisCache(32),
+    }),
+    ...createExaminationWorkflowHandlers({
+      llm: ports.llm,
     }),
     "userFile.inspectSelection": (input, options) =>
       runInspectUserFileWorkflow(ports.userFile, input, options),

@@ -12,6 +12,7 @@ import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
+  createNodeLlmPort,
 } from "@repo-edu/host-node"
 import {
   app,
@@ -60,6 +61,7 @@ const desktopHost = createDesktopHostEnvironment()
 const nodeHttpPort = createNodeHttpPort()
 const nodeGitCommandPort = createNodeGitCommandPort()
 const nodeFileSystemPort = createNodeFileSystemPort()
+const nodeLlmPort = createNodeLlmPort()
 let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
@@ -518,6 +520,7 @@ async function createWindow(): Promise<BrowserWindow> {
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,
+      llm: nodeLlmPort,
     })
   }
 

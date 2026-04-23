@@ -55,6 +55,7 @@ describe("application-contract workflow catalog", () => {
       "analysis.run",
       "analysis.blame",
       "analysis.discoverRepos",
+      "examination.generateQuestions",
     ]
 
     assert.equal(

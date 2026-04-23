@@ -115,7 +115,7 @@ export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
   activeCourseId: z.string().nullable(),
   activeTab: z
-    .enum(["roster", "groups-assignments", "analysis"])
+    .enum(["roster", "groups-assignments", "analysis", "examination"])
     .default("roster"),
   appearance: appAppearanceSchema,
   window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),

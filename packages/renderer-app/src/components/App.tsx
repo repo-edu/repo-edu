@@ -61,6 +61,7 @@ import { SettingsSheet } from "./settings/SettingsSheet.js"
 import { IssuesSheet } from "./sheets/IssuesSheet.js"
 import { ToastStack } from "./ToastStack.js"
 import { AnalysisTab } from "./tabs/AnalysisTab.js"
+import { ExaminationTab } from "./tabs/ExaminationTab.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { StudentsTab } from "./tabs/StudentsTab.js"
 
@@ -208,6 +209,7 @@ function AppShell() {
             <TabsTrigger value="roster">Roster</TabsTrigger>
             <TabsTrigger value="groups-assignments">Groups</TabsTrigger>
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            <TabsTrigger value="examination">Examination</TabsTrigger>
           </TabsList>
           <div className="flex-1" />
           <div className="app-no-drag flex items-center gap-1 pr-2">
@@ -271,6 +273,12 @@ function AppShell() {
           className="flex-1 min-h-0 overflow-hidden"
         >
           <AnalysisTab />
+        </TabsContent>
+        <TabsContent
+          value="examination"
+          className="flex-1 min-h-0 overflow-hidden"
+        >
+          <ExaminationTab />
         </TabsContent>
       </Tabs>
 

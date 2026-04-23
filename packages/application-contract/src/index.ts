@@ -110,7 +110,7 @@ export type AppError =
   | {
       type: "provider"
       message: string
-      provider: LmsProviderKind | GitProviderKind | "git"
+      provider: LmsProviderKind | GitProviderKind | "git" | "llm"
       operation: string
       retryable: boolean
     }
@@ -451,6 +451,43 @@ export type AnalysisBlameInput = AnalysisRepositoryInput & {
   asOfCommit: string
 }
 
+export type ExaminationCodeExcerpt = {
+  filePath: string
+  startLine: number
+  lines: string[]
+}
+
+export type ExaminationGenerateQuestionsInput = {
+  memberName: string
+  memberEmail: string
+  excerpts: ExaminationCodeExcerpt[]
+  questionCount: number
+  assignmentContext?: string
+}
+
+export type ExaminationLineRange = {
+  start: number
+  end: number
+}
+
+export type ExaminationQuestion = {
+  question: string
+  answer: string
+  filePath: string | null
+  lineRange: ExaminationLineRange | null
+}
+
+export type ExaminationUsage = {
+  inputTokens: number
+  outputTokens: number
+  wallMs: number
+}
+
+export type ExaminationGenerateQuestionsResult = {
+  questions: ExaminationQuestion[]
+  usage: ExaminationUsage
+}
+
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -638,6 +675,12 @@ export type WorkflowPayloads = {
     output: never
     result: AnalysisDiscoverReposResult
   }
+  "examination.generateQuestions": {
+    input: ExaminationGenerateQuestionsInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationGenerateQuestionsResult
+  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -801,6 +844,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "granular",
     cancellation: "best-effort",
+  },
+  "examination.generateQuestions": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
   },
 }
 

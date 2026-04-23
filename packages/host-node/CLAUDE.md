@@ -10,6 +10,7 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `createNodeProcessPort()` — `child_process.spawn`-based `ProcessPort` with SIGTERM cancellation
 - `createNodeGitCommandPort(processPort?)` — `GitCommandPort` wrapping `ProcessPort`, calls system `git`
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises` (inspect, batch operations, temp directories)
+- `createNodeLlmPort()` — `LlmPort` backed by `@anthropic-ai/claude-agent-sdk`; API key sourced from the SDK's environment/OAuth resolution
 
 ## Rules
 

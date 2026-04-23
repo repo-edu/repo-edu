@@ -165,3 +165,28 @@ export type FileSystemPort = {
   ): Promise<FileSystemDirectoryEntry[]>
   readonly userHomeSystemDirectories: readonly string[]
 }
+
+export type LlmEffortLevel = "none" | "low" | "medium" | "high"
+
+export type LlmRunRequest = {
+  prompt: string
+  model?: string
+  effort?: LlmEffortLevel
+  maxTurns?: number
+  signal?: AbortSignal
+}
+
+export type LlmUsage = {
+  inputTokens: number
+  outputTokens: number
+  wallMs: number
+}
+
+export type LlmRunResult = {
+  reply: string
+  usage: LlmUsage
+}
+
+export type LlmPort = {
+  run(request: LlmRunRequest): Promise<LlmRunResult>
+}

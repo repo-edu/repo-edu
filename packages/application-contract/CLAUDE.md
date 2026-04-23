@@ -13,6 +13,7 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - cross-surface file reference DTOs (`UserFileRef`, `UserSaveTargetRef`)
 - re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`)
 - analysis workflow entries: `analysis.run` (log-based stats + PersonDB baseline) and `analysis.blame` (per-file blame + PersonDB overlay), both with `delivery: ["desktop", "docs"]`, `progress: "granular"`, and cooperative cancellation
+- examination workflow entry: `examination.generateQuestions` (LLM-generated oral exam questions per member from blame-attributed code), `delivery: ["desktop", "docs"]`, `progress: "milestone"`, cooperative cancellation (docs runtime binds a stub that errors because no LLM is reachable in-browser)
 
 ## Rules
 

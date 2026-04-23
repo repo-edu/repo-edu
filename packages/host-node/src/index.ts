@@ -12,6 +12,10 @@ import {
 } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
 import { basename, dirname, join } from "node:path"
+import {
+  type EffortLevel as ClaudeAgentEffortLevel,
+  query as claudeAgentQuery,
+} from "@anthropic-ai/claude-agent-sdk"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -26,6 +30,10 @@ import type {
   HttpPort,
   HttpRequest,
   HttpResponse,
+  LlmEffortLevel,
+  LlmPort,
+  LlmRunRequest,
+  LlmRunResult,
   ProcessPort,
   ProcessRequest,
   ProcessResult,
@@ -330,6 +338,75 @@ export function createNodeFileSystemPort(): FileSystemPort {
             ? ("directory" as const)
             : ("file" as const),
         }))
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NodeLlmPort — Claude Agent SDK-backed single-turn generation
+// ---------------------------------------------------------------------------
+
+function toClaudeAgentEffort(effort: LlmEffortLevel | undefined): {
+  effort?: ClaudeAgentEffortLevel
+} {
+  if (!effort || effort === "none") return {}
+  return { effort: effort as ClaudeAgentEffortLevel }
+}
+
+export function createNodeLlmPort(): LlmPort {
+  return {
+    async run(request: LlmRunRequest): Promise<LlmRunResult> {
+      throwIfAborted(request.signal)
+
+      const start = Date.now()
+      let reply = ""
+      let inputTokens = 0
+      let outputTokens = 0
+
+      const queryOptions = {
+        ...(request.model ? { model: request.model } : {}),
+        ...toClaudeAgentEffort(request.effort),
+        ...(request.maxTurns ? { maxTurns: request.maxTurns } : {}),
+      }
+
+      for await (const message of claudeAgentQuery({
+        prompt: request.prompt,
+        options: queryOptions,
+      })) {
+        throwIfAborted(request.signal)
+
+        if (message.type === "assistant" && message.message?.content) {
+          reply = message.message.content
+            .map((block: { type: string; text?: string }) =>
+              block.type === "text" ? (block.text ?? "") : "",
+            )
+            .join("")
+        } else if (message.type === "result") {
+          if (message.subtype !== "success") {
+            const detail =
+              "result" in message && typeof message.result === "string"
+                ? `: ${message.result}`
+                : ""
+            throw new Error(
+              `LLM turn ended with subtype "${message.subtype}"${detail}`,
+            )
+          }
+          inputTokens = message.usage?.input_tokens ?? 0
+          outputTokens = message.usage?.output_tokens ?? 0
+          if ("result" in message && typeof message.result === "string") {
+            reply = message.result
+          }
+        }
+      }
+
+      return {
+        reply,
+        usage: {
+          inputTokens,
+          outputTokens,
+          wallMs: Date.now() - start,
+        },
+      }
     },
   }
 }

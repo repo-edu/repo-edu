@@ -281,6 +281,9 @@ importers:
 
   packages/host-node:
     dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.2.114
+        version: 0.2.114(zod@4.3.6)
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../host-runtime-contract

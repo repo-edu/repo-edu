@@ -11,6 +11,7 @@ Defines the interfaces and request/result shapes for:
 - `GitCommandPort` — git CLI invocation
 - `FileSystemPort` — inspect, batch operations (ensure-directory, copy-directory, delete-path), temp directories
 - `UserFilePort` — user file read/write via `UserFileRef` / `UserSaveTargetRef`
+- `LlmPort` — single-turn text generation backed by an LLM agent SDK
 
 ## Rules
 

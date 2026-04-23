@@ -21,6 +21,7 @@ It composes:
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`; `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Group-set workflows are split into `src/group-set-workflows/` (`file-handlers.ts`, `lms-handlers.ts`, `helpers.ts`, `ports.ts`). CSV import produces `NamedGroupSet`; RepoBee import produces `UsernameGroupSet`. Export dispatches by `nameMode` (CSV for named, TXT for unnamed).
 - Analysis workflows are in `src/analysis-workflows/`: `analysis-handler.ts` (`analysis.run`), `blame-handler.ts` (`analysis.blame`), `log-parser.ts`, `blame-parser.ts`, `snapshot-engine.ts`, `filter-utils.ts`, `repo-root.ts`, `ports.ts` (`AnalysisWorkflowPorts`), `cache.ts` (LRU `AnalysisResultCache`), `cache-keys.ts` (config canonicalization for stable cache keys). Handlers use `GitCommandPort` via ports; desktop injects a cache, docs does not.
+- Examination workflows are in `src/examination-workflows/`: `examination-workflows.ts` (`examination.generateQuestions`), `prompt-builder.ts` (prompt construction + JSON-fence stripping), `ports.ts` (`ExaminationWorkflowPorts` wrapping `LlmPort`). Handler builds a prompt from blame-attributed code excerpts, calls `LlmPort`, parses strict JSON into `ExaminationQuestion[]`.
 
 ## Rules
 

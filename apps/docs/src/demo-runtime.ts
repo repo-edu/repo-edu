@@ -2,6 +2,7 @@ import {
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
+  createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
   createInMemoryAppSettingsStore,
@@ -14,6 +15,7 @@ import {
   runUserFileExportPreviewWorkflow,
 } from "@repo-edu/application"
 import type {
+  AppError,
   UserFileRef,
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
@@ -377,6 +379,20 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     ...createAnalysisWorkflowHandlers({
       gitCommand: gitCommandPort,
       fileSystem: fileSystemPort,
+    }),
+    ...createExaminationWorkflowHandlers({
+      llm: {
+        async run() {
+          throw {
+            type: "provider",
+            message:
+              "LLM calls are not available in the docs demo. Run the desktop app to generate examination questions.",
+            provider: "llm",
+            operation: "examination.generateQuestions",
+            retryable: false,
+          } satisfies AppError
+        },
+      },
     }),
     "userFile.inspectSelection": (
       input: UserFileRef,

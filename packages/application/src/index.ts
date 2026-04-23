@@ -10,6 +10,8 @@ export {
   packageId,
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
+export { createExaminationWorkflowHandlers } from "./examination-workflows/examination-workflows.js"
+export type { ExaminationWorkflowPorts } from "./examination-workflows/ports.js"
 export { createGitUsernameWorkflowHandlers } from "./git-username-workflows.js"
 export { createGroupSetWorkflowHandlers } from "./group-set-workflows.js"
 export { createRepositoryWorkflowHandlers } from "./repository-workflows.js"
