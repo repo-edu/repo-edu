@@ -17,7 +17,10 @@ const DISPLAY_MODE_OPTIONS: { value: AnalysisDisplayMode; label: string }[] = [
   { value: "percentage", label: "Percentage" },
 ]
 
-const CHART_METRIC_OPTIONS: { value: AnalysisActiveMetric; label: string }[] = [
+const CHART_METRIC_OPTIONS: {
+  value: AnalysisActiveMetric
+  label: string
+}[] = [
   { value: "linesOfCode", label: "Lines of Code" },
   { value: "commits", label: "Commits" },
   { value: "insertions", label: "Insertions" },
@@ -59,7 +62,13 @@ export function AnalysisDisplayControls({
   const setChartMetric = useAnalysisStore((s) => s.setChartMetric)
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-3 border-b bg-muted px-3 py-2 text-sm">
+      <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+        Table
+      </span>
+
+      <Separator orientation="vertical" className="h-5" />
+
       {/* Display mode */}
       <div className="flex items-center gap-1">
         {DISPLAY_MODE_OPTIONS.map((opt) => (
@@ -197,6 +206,35 @@ export function AnalysisDisplayControls({
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+export function AnalysisChartMetricControls() {
+  const chartMetric = useAnalysisStore((s) => s.chartMetric)
+  const setChartMetric = useAnalysisStore((s) => s.setChartMetric)
+
+  return (
+    <div className="flex items-center gap-3 border-t border-b bg-muted px-3 py-2 text-sm">
+      <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+        Charts
+      </span>
+
+      <Separator orientation="vertical" className="h-5" />
+
+      <div className="flex items-center gap-1">
+        {CHART_METRIC_OPTIONS.map((opt) => (
+          <Button
+            key={opt.value}
+            variant={chartMetric === opt.value ? "selection" : "ghost"}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setChartMetric(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
     </div>
   )
 }

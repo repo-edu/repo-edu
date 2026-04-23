@@ -24,7 +24,10 @@ import {
 } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
-import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
+import {
+  AnalysisChartMetricControls,
+  AnalysisDisplayControls,
+} from "./AnalysisDisplayControls.js"
 import { FileCharts } from "./charts/FileCharts.js"
 import { FileFilterControls } from "./FileFilterControls.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
@@ -128,7 +131,7 @@ export function FilePanel() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <AnalysisDisplayControls />
+      <AnalysisDisplayControls showChartMetric={false} />
       <div className="flex-1 min-h-0 overflow-auto">
         <DataTable stickyHeader>
           <DataTableHeader>
@@ -201,6 +204,7 @@ export function FilePanel() {
             )}
           </DataTableBody>
         </DataTable>
+        <AnalysisChartMetricControls />
         <FileCharts
           fileStats={fileStats}
           authorStats={authorStats}

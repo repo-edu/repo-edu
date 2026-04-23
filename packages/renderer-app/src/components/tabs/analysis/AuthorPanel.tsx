@@ -31,7 +31,10 @@ import {
 } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
-import { AnalysisDisplayControls } from "./AnalysisDisplayControls.js"
+import {
+  AnalysisChartMetricControls,
+  AnalysisDisplayControls,
+} from "./AnalysisDisplayControls.js"
 import { AuthorFilterControls } from "./AuthorFilterControls.js"
 import { AuthorCharts } from "./charts/AuthorCharts.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
@@ -268,7 +271,7 @@ export function AuthorPanel() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <AnalysisDisplayControls showIdentityToggles />
+      <AnalysisDisplayControls showIdentityToggles showChartMetric={false} />
       <div className="flex-1 min-h-0 overflow-auto">
         <DataTable stickyHeader>
           <DataTableHeader>
@@ -340,6 +343,7 @@ export function AuthorPanel() {
             )}
           </DataTableBody>
         </DataTable>
+        <AnalysisChartMetricControls />
         <AuthorCharts
           authorStats={authorStats}
           dailyActivity={dailyActivity}

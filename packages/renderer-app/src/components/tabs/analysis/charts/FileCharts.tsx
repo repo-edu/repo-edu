@@ -24,19 +24,6 @@ type FileChartsProps = {
 
 const MAX_FILES_SHOWN = 25
 
-function metricLabel(metric: AnalysisActiveMetric): string {
-  switch (metric) {
-    case "commits":
-      return "Commits"
-    case "insertions":
-      return "Insertions"
-    case "deletions":
-      return "Deletions"
-    case "linesOfCode":
-      return "Lines of Code"
-  }
-}
-
 function metricValueFromFile(
   file: FileStats,
   metric: AnalysisActiveMetric,
@@ -122,9 +109,11 @@ export function FileCharts({
 
   return (
     <div className="p-3 text-foreground">
-      <div className="mb-1 text-xs text-muted-foreground">
-        {chartData.length}/{fileStats.length} files shown
-      </div>
+      {chartData.length < fileStats.length && (
+        <div className="mb-1 text-xs text-muted-foreground">
+          {chartData.length}/{fileStats.length} files shown
+        </div>
+      )}
       <ResponsiveContainer
         width="100%"
         height={Math.max(280, chartData.length * 26)}
@@ -136,7 +125,7 @@ export function FileCharts({
             dataKey="name"
             type="category"
             tick={{ fontSize: 11, fill: "currentColor" }}
-            width={180}
+            width="auto"
           />
           <Tooltip
             labelFormatter={(_, payload) => payload[0]?.payload?.fullPath ?? ""}
@@ -157,9 +146,6 @@ export function FileCharts({
           ))}
         </BarChart>
       </ResponsiveContainer>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Metric: {metricLabel(activeMetric)}
-      </div>
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { schemeSet3 } from "d3-scale-chromatic"
 
 const AUTHOR_PALETTE = [
-  "#4e79a7", // blue
   "#76b7b2", // teal
+  "#4e79a7", // blue
   "#af7aaa", // purple
   "#59a14f", // green
   "#ff9da7", // pink
