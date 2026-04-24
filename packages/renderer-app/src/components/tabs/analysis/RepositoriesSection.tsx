@@ -1,3 +1,5 @@
+import { getAnalysisConfigFingerprint } from "@repo-edu/application"
+import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
   Input,
@@ -13,9 +15,11 @@ import {
   Loader2,
   RefreshCw,
 } from "@repo-edu/ui/components/icons"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
+import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import {
   RepoFolderNode,
   RepoLeafButton,
@@ -137,7 +141,14 @@ export function RepositoriesSection({
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
+  const course = useCourseStore((s) => s.course)
   const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
+  const defaultExtensions = useAppSettingsStore(
+    (s) => s.settings.defaultExtensions,
+  )
+  const filesPerRepo = useAppSettingsStore(
+    (s) => s.settings.analysisConcurrency.filesPerRepo,
+  )
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
   const discoveryError = useAnalysisStore((s) => s.discoveryError)
@@ -154,14 +165,41 @@ export function RepositoriesSection({
     searchFolderIsRepo,
     toggleRepoFolderOpen,
   } = tree
+  const currentConfigFingerprint = useMemo(() => {
+    if (!course) return null
+    const config = resolveCourseAnalysisConfig(
+      course,
+      defaultExtensions,
+      filesPerRepo,
+    )
+    const rosterContext = buildAnalysisRosterContext(course)
+    return getAnalysisConfigFingerprint(config, rosterContext)
+  }, [course, defaultExtensions, filesPerRepo])
 
   const handleSelectRepo = useCallback(
     (path: string) => {
       if (path === selectedRepoPath) return
       setSelectedRepoPath(path)
-      runAnalysis(path)
+      // Only kick off analysis when we don't already have a result for this
+      // repo. `setSelectedRepoPath` restores the cached per-repo entry, so
+      // switching back to a previously-analysed repo must not re-run — doing
+      // so would wipe the restored blame/filter state and flash the Cancel
+      // button. An explicit "Re-run Analysis" click bypasses this check.
+      const entry = useAnalysisStore.getState().repoStates.get(path)
+      const cached =
+        entry !== undefined &&
+        currentConfigFingerprint !== null &&
+        entry.configFingerprint === currentConfigFingerprint
+      if (!cached) {
+        runAnalysis(path)
+      }
     },
-    [selectedRepoPath, setSelectedRepoPath, runAnalysis],
+    [
+      currentConfigFingerprint,
+      selectedRepoPath,
+      setSelectedRepoPath,
+      runAnalysis,
+    ],
   )
 
   return (

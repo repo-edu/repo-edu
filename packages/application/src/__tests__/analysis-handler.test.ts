@@ -12,7 +12,7 @@ import type {
   GitCommandPort,
 } from "@repo-edu/host-runtime-contract"
 import { createAnalysisWorkflowHandlers } from "../analysis-workflows/analysis-workflows.js"
-import { createLruAnalysisCache } from "../analysis-workflows/cache.js"
+import { createInMemoryAnalysisCache } from "../analysis-workflows/cache.js"
 import { COMMIT_DELIMITER } from "../analysis-workflows/log-parser.js"
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ describe("analysis.run handler", () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand,
       fileSystem: stubFileSystem,
-      cache: createLruAnalysisCache(8),
+      cache: createInMemoryAnalysisCache(),
     })
 
     const input: AnalysisRunInput = {

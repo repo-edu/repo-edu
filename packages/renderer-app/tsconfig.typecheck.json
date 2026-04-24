@@ -10,9 +10,12 @@
     "../ui/src/**/*.ts",
     "../ui/src/**/*.tsx",
     "../domain/src/**/*.ts",
+    "../application/src/**/*.ts",
     "../application-contract/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
     "../renderer-host-contract/src/**/*.ts",
-    "../integrations-lms-contract/src/**/*.ts"
+    "../integrations-git-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts",
+    "../test-fixtures/src/**/*.ts"
   ]
 }

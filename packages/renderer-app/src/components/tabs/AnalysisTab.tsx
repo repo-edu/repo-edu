@@ -28,6 +28,7 @@ import { BlamePanel } from "./analysis/BlamePanel.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
+import { ExaminationTab } from "./ExaminationTab.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
   const value = size ?? ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX
@@ -54,6 +55,11 @@ export function AnalysisTab() {
 
   useEffect(() => {
     if (blameSkip && activeView === "blame") {
+      setActiveView("authors")
+    }
+    // Examination depends on blame attribution — if blame is skipped, it has
+    // nothing to work with.
+    if (blameSkip && activeView === "examination") {
       setActiveView("authors")
     }
   }, [blameSkip, activeView, setActiveView])
@@ -121,6 +127,9 @@ export function AnalysisTab() {
               <TabsTrigger value="authors">Authors</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               {!blameSkip && <TabsTrigger value="blame">Blame</TabsTrigger>}
+              {!blameSkip && (
+                <TabsTrigger value="examination">Examination</TabsTrigger>
+              )}
             </TabsList>
           </div>
           <TabsContent value="authors" className="flex-1 min-h-0 overflow-auto">
@@ -132,6 +141,14 @@ export function AnalysisTab() {
           {!blameSkip && (
             <TabsContent value="blame" className="flex-1 min-h-0 overflow-auto">
               <BlamePanel />
+            </TabsContent>
+          )}
+          {!blameSkip && (
+            <TabsContent
+              value="examination"
+              className="flex-1 min-h-0 overflow-hidden"
+            >
+              <ExaminationTab />
             </TabsContent>
           )}
         </Tabs>

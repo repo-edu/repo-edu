@@ -26,6 +26,7 @@ type SettingsCategory =
   | "git-connections"
   | "display"
   | "shortcuts"
+  | "storage"
 
 export type LmsImportConflict = {
   matchKey: string

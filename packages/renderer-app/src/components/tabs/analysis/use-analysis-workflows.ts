@@ -1,10 +1,11 @@
+import { getAnalysisConfigFingerprint } from "@repo-edu/application"
 import type {
   AnalysisProgress,
   DiscoverReposProgress,
 } from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
 import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
-import { useCallback } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import {
   analysisStoreInternals,
@@ -14,6 +15,30 @@ import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
+import { resolveRunCompletionAction } from "./run-analysis-state.js"
+
+async function mapBounded<T, R>(
+  items: readonly T[],
+  maxConcurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await fn(items[index])
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(maxConcurrency, items.length)) },
+    () => worker(),
+  )
+  await Promise.all(workers)
+  return results
+}
 
 export function useAnalysisWorkflows() {
   const course = useCourseStore((s) => s.course)
@@ -21,13 +46,23 @@ export function useAnalysisWorkflows() {
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
+  const analysisConcurrency = useAppSettingsStore(
+    (s) => s.settings.analysisConcurrency,
+  )
 
   const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-  const setResult = useAnalysisStore((s) => s.setResult)
-  const setWorkflowStatus = useAnalysisStore((s) => s.setWorkflowStatus)
-  const setProgress = useAnalysisStore((s) => s.setProgress)
-  const setErrorMessage = useAnalysisStore((s) => s.setErrorMessage)
+  const setResultForRepo = useAnalysisStore((s) => s.setResultForRepo)
+  const pruneStaleResultsByFingerprint = useAnalysisStore(
+    (s) => s.pruneStaleResultsByFingerprint,
+  )
+  const setWorkflowStatusForRepo = useAnalysisStore(
+    (s) => s.setWorkflowStatusForRepo,
+  )
+  const setProgressForRepo = useAnalysisStore((s) => s.setProgressForRepo)
+  const setErrorMessageForRepo = useAnalysisStore(
+    (s) => s.setErrorMessageForRepo,
+  )
 
   const setDiscoveredRepos = useAnalysisStore((s) => s.setDiscoveredRepos)
   const setDiscoveryStatus = useAnalysisStore((s) => s.setDiscoveryStatus)
@@ -39,20 +74,40 @@ export function useAnalysisWorkflows() {
     (s) => s.setLastDiscoveryOutcome,
   )
 
+  const currentConfigFingerprint = useMemo(() => {
+    if (!course) return null
+    const config = resolveCourseAnalysisConfig(
+      course,
+      defaultExtensions,
+      analysisConcurrency.filesPerRepo,
+    )
+    const rosterContext = buildAnalysisRosterContext(course)
+    return getAnalysisConfigFingerprint(config, rosterContext)
+  }, [analysisConcurrency.filesPerRepo, course, defaultExtensions])
+
+  useEffect(() => {
+    if (!currentConfigFingerprint) return
+    pruneStaleResultsByFingerprint(currentConfigFingerprint)
+  }, [currentConfigFingerprint, pruneStaleResultsByFingerprint])
+
   const runAnalysis = useCallback(
     async (repoPath: string, configOverride?: AnalysisConfig) => {
       if (!course) return
       const rosterContext = buildAnalysisRosterContext(course)
 
-      analysisStoreInternals.analysisAbort?.abort()
+      const existing = analysisStoreInternals.analysisAborts.get(repoPath)
+      existing?.abort()
       const ac = new AbortController()
-      analysisStoreInternals.analysisAbort = ac
-      const isCurrentRun = () => analysisStoreInternals.analysisAbort === ac
+      analysisStoreInternals.analysisAborts.set(repoPath, ac)
 
-      setWorkflowStatus("running")
-      setProgress(null)
-      setErrorMessage(null)
-      setResult(null)
+      const isCurrentRun = () =>
+        analysisStoreInternals.analysisAborts.get(repoPath) === ac
+
+      setWorkflowStatusForRepo(repoPath, "running")
+      setProgressForRepo(repoPath, null)
+      setErrorMessageForRepo(repoPath, null)
+
+      const filesPerRepo = analysisConcurrency.filesPerRepo
 
       try {
         const result: AnalysisResult = await client.run(
@@ -62,51 +117,68 @@ export function useAnalysisWorkflows() {
             repositoryAbsolutePath: repoPath,
             config:
               configOverride ??
-              resolveCourseAnalysisConfig(course, defaultExtensions, 1),
+              resolveCourseAnalysisConfig(
+                course,
+                defaultExtensions,
+                filesPerRepo,
+              ),
             ...(rosterContext ? { rosterContext } : {}),
           },
           {
             onProgress: (p: AnalysisProgress) => {
               if (!isCurrentRun()) return
-              setProgress(p)
+              setProgressForRepo(repoPath, p)
             },
             signal: ac.signal,
           },
         )
-        if (!isCurrentRun()) {
+        const action = resolveRunCompletionAction(
+          isCurrentRun(),
+          ac.signal.aborted,
+        )
+        if (action === "ignore") {
           return
         }
-        if (ac.signal.aborted) {
-          setWorkflowStatus("idle")
+        if (action === "set-idle") {
+          setWorkflowStatusForRepo(repoPath, "idle")
           return
         }
-        setResult(result)
-        setWorkflowStatus("idle")
+        const effectiveConfig =
+          configOverride ??
+          resolveCourseAnalysisConfig(course, defaultExtensions, filesPerRepo)
+        const fingerprint = getAnalysisConfigFingerprint(
+          effectiveConfig,
+          rosterContext,
+        )
+        setResultForRepo(repoPath, result, fingerprint)
+        setWorkflowStatusForRepo(repoPath, "idle")
       } catch (err) {
-        if (!isCurrentRun()) {
-          return
-        }
+        if (!isCurrentRun()) return
         if (ac.signal.aborted) {
-          setWorkflowStatus("idle")
+          setWorkflowStatusForRepo(repoPath, "idle")
         } else {
-          setWorkflowStatus("error")
-          setErrorMessage(getErrorMessage(err, "Analysis failed"))
+          setWorkflowStatusForRepo(repoPath, "error")
+          setErrorMessageForRepo(
+            repoPath,
+            getErrorMessage(err, "Analysis failed"),
+          )
         }
       } finally {
         if (isCurrentRun()) {
-          setProgress(null)
-          analysisStoreInternals.analysisAbort = null
+          setProgressForRepo(repoPath, null)
+          analysisStoreInternals.analysisAborts.delete(repoPath)
         }
       }
     },
     [
+      analysisConcurrency,
       client,
       course,
       defaultExtensions,
-      setErrorMessage,
-      setProgress,
-      setResult,
-      setWorkflowStatus,
+      setErrorMessageForRepo,
+      setProgressForRepo,
+      setResultForRepo,
+      setWorkflowStatusForRepo,
     ],
   )
 
@@ -114,6 +186,7 @@ export function useAnalysisWorkflows() {
     async (folder: string) => {
       if (!folder) return
       analysisStoreInternals.discoveryAbort?.abort()
+      analysisStoreInternals.cancelAll()
       const ac = new AbortController()
       analysisStoreInternals.discoveryAbort = ac
       setLastDiscoveryOutcome("none")
@@ -157,8 +230,19 @@ export function useAnalysisWorkflows() {
           ) {
             setSearchFolder(firstRepoPath)
           }
+          // Select the first repo immediately so the UI shows something;
+          // background repos surface via per-repo status badges.
           setSelectedRepoPath(firstRepoPath)
-          runAnalysis(firstRepoPath)
+          const repoPaths = result.repos.map((r) => r.path)
+          // Fan out: analyse every discovered repo with bounded concurrency.
+          // Warm launches hit the disk cache and resolve near-instantly;
+          // cold launches avoid thrashing a full cohort's worth of git
+          // subprocess pipelines simultaneously.
+          void mapBounded(
+            repoPaths,
+            analysisConcurrency.repoParallelism,
+            (path) => runAnalysis(path),
+          )
         }
       } catch (err) {
         if (analysisStoreInternals.discoveryAbort !== ac) return
@@ -179,6 +263,7 @@ export function useAnalysisWorkflows() {
       }
     },
     [
+      analysisConcurrency,
       client,
       runAnalysis,
       setSearchFolder,
@@ -192,7 +277,7 @@ export function useAnalysisWorkflows() {
   )
 
   const handleCancel = useCallback(() => {
-    analysisStoreInternals.analysisAbort?.abort()
+    analysisStoreInternals.cancelAll()
   }, [])
 
   const handleCancelDiscovery = useCallback(() => {

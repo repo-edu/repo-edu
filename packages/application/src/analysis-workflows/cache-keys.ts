@@ -1,8 +1,10 @@
 import type {
+  AnalysisBlameConfig,
   AnalysisConfig,
   AnalysisRosterContext,
 } from "@repo-edu/domain/analysis"
 import { DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
+import { fnv1a32Hex, hashCacheKey } from "../cache/layered-cache.js"
 
 // ---------------------------------------------------------------------------
 // Stable-key JSON serialization
@@ -22,15 +24,6 @@ function stableStringify(value: unknown): string {
     )
     .join(",")
   return `{${entries}}`
-}
-
-function fnv1a32Hex(input: string): string {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +116,88 @@ export function normalizeAnalysisConfigForCache(
 
 function normalizeForBridge(value: string): string {
   return value.trim().split(/\s+/).join(" ").toLowerCase()
+}
+
+// ---------------------------------------------------------------------------
+// Blame cache key builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy-move flag mapping (must match `blame-handler.ts::COPY_MOVE_FLAGS`).
+ */
+const BLAME_COPY_MOVE_FLAGS: Record<number, string[]> = {
+  0: [],
+  1: ["-M"],
+  2: ["-C"],
+  3: ["-C", "-C"],
+  4: ["-C", "-C", "-C"],
+}
+
+/**
+ * Produces the blame `git` argv for a given `(config, OID sentinel, path
+ * sentinel)` tuple. The argv shape is canonical cache-key material: any
+ * future flag added to blame automatically participates in the key, and
+ * removed flags stop participating. Kept in sync with `buildBlameArgs`
+ * (see comment in `blame-handler.ts`).
+ *
+ * The real commit OID and file path contribute to the key separately, so
+ * we substitute sentinels here to avoid double-counting and to keep the
+ * canonical form stable across different OID/path values.
+ */
+export function buildBlameKeyArgv(
+  config: AnalysisBlameConfig,
+  hasIgnoreRevsFile: boolean,
+): string[] {
+  const args = ["blame", "--follow", "--porcelain"]
+  const copyMoveLevel = config.copyMove ?? 1
+  const flags = BLAME_COPY_MOVE_FLAGS[copyMoveLevel] ?? BLAME_COPY_MOVE_FLAGS[1]
+  args.push(...flags)
+  if (!config.whitespace) args.push("-w")
+  if (hasIgnoreRevsFile && (config.ignoreRevsFile ?? true)) {
+    args.push("--ignore-revs-file=_git-blame-ignore-revs.txt")
+  }
+  args.push("<OID>", "--", "<FILE>")
+  return args
+}
+
+/**
+ * Blame output is a deterministic function of `(resolved OID, file path,
+ * git argv, working-tree ignore-revs file)`. `repoGitDir` deliberately does
+ * NOT participate: two clones of the same origin at the same OID produce
+ * byte-identical blame, so keying by path would lose the entire win of the
+ * cold cache for cohorts of student forks.
+ */
+export function buildBlameCacheKey(parts: {
+  resolvedOid: string
+  filePath: string
+  config: AnalysisBlameConfig
+  hasIgnoreRevsFile: boolean
+  ignoreRevsFingerprint: string | null
+}): string {
+  const argv = buildBlameKeyArgv(parts.config, parts.hasIgnoreRevsFile)
+  const raw = [
+    "blame",
+    parts.resolvedOid,
+    parts.filePath,
+    parts.ignoreRevsFingerprint ?? "no-ignore-revs",
+    JSON.stringify(argv),
+  ].join("\0")
+  return hashCacheKey(raw)
+}
+
+/**
+ * Fingerprint of the full analysis cache key — exposed so the renderer can
+ * detect whether a per-repo cached result was computed under the same
+ * (config, roster, OID) tuple as the current run without duplicating the
+ * normalization logic.
+ */
+export function getAnalysisConfigFingerprint(
+  config: AnalysisConfig,
+  rosterContext: AnalysisRosterContext | undefined,
+): string {
+  return `${normalizeAnalysisConfigForCache(config)}\0${
+    normalizeRosterContextForCache(rosterContext) ?? "no-roster"
+  }`
 }
 
 /**

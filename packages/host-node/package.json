@@ -11,6 +11,16 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./cache": {
+      "source": "./src/cache/index.ts",
+      "types": "./dist/cache/index.d.ts",
+      "default": "./dist/cache/index.js"
+    },
+    "./examination-archive": {
+      "source": "./src/examination-archive/index.ts",
+      "types": "./dist/examination-archive/index.d.ts",
+      "default": "./dist/examination-archive/index.js"
     }
   },
   "scripts": {

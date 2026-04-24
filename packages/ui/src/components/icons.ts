@@ -29,6 +29,7 @@ export {
   GitBranch,
   GraduationCap,
   GripHorizontal,
+  HardDrive,
   HelpCircle,
   Info,
   Layers,

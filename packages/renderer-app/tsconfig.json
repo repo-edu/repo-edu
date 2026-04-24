@@ -21,6 +21,9 @@
       "path": "../domain"
     },
     {
+      "path": "../application"
+    },
+    {
       "path": "../application-contract"
     },
     {

@@ -3,6 +3,7 @@ import {
   Command,
   GitBranch,
   GraduationCap,
+  HardDrive,
   Monitor,
   X,
 } from "@repo-edu/ui/components/icons"
@@ -16,12 +17,14 @@ import { DisplayPane } from "./DisplayPane.js"
 import { GitConnectionsPane } from "./GitConnectionsPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
 import { LmsConnectionsPane } from "./LmsConnectionsPane.js"
+import { StoragePane } from "./StoragePane.js"
 
 type SettingsCategory =
   | "lms-connections"
   | "git-connections"
   | "display"
   | "shortcuts"
+  | "storage"
 
 type CategoryItem = {
   id: SettingsCategory
@@ -44,6 +47,11 @@ const categories: CategoryItem[] = [
     id: "git-connections",
     label: "Git Connections",
     icon: <GitBranch className="size-4" />,
+  },
+  {
+    id: "storage",
+    label: "Storage",
+    icon: <HardDrive className="size-4" />,
   },
   {
     id: "shortcuts",
@@ -128,6 +136,12 @@ export function SettingsSheet() {
               aria-hidden={activeCategory !== "display"}
             >
               <DisplayPane />
+            </div>
+            <div
+              className={cn(activeCategory === "storage" ? "block" : "hidden")}
+              aria-hidden={activeCategory !== "storage"}
+            >
+              <StoragePane />
             </div>
             <div
               className={cn(

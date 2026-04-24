@@ -7,6 +7,7 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
+  analysisStoreInternals,
   buildEffectiveBlameWorkflowConfig,
   selectAuthorColorsByPersonId,
   selectAuthorDisplayByPersonId,
@@ -54,6 +55,8 @@ function makeCourse(
 
 beforeEach(() => {
   useAnalysisStore.getState().reset()
+  analysisStoreInternals.analysisAborts.clear()
+  analysisStoreInternals.discoveryAbort = null
 })
 
 describe("analysis store", () => {
@@ -187,6 +190,20 @@ describe("analysis store", () => {
     assert.equal(state.blameColorize, false)
   })
 
+  it("cancelAll aborts every active run without dropping handles eagerly", () => {
+    const acA = new AbortController()
+    const acB = new AbortController()
+    analysisStoreInternals.analysisAborts.set("/repo-a", acA)
+    analysisStoreInternals.analysisAborts.set("/repo-b", acB)
+
+    analysisStoreInternals.cancelAll()
+
+    assert.equal(acA.signal.aborted, true)
+    assert.equal(acB.signal.aborted, true)
+    assert.equal(analysisStoreInternals.analysisAborts.get("/repo-a"), acA)
+    assert.equal(analysisStoreInternals.analysisAborts.get("/repo-b"), acB)
+  })
+
   it("tracks file filtering mode separately from selected file paths", () => {
     const store = useAnalysisStore.getState()
     const result = makeBaseResult()
@@ -246,6 +263,33 @@ describe("analysis store", () => {
       selectFilteredFileStats(state).map((f) => f.path),
       ["src/a.ts", "src/b.ts"],
     )
+  })
+
+  it("clears selected repo when fingerprint pruning removes the active entry", () => {
+    const store = useAnalysisStore.getState()
+    const repoPath = "/tmp/repo-a"
+    store.setSelectedRepoPath(repoPath)
+    store.setResultForRepo(repoPath, makeBaseResult(), "fingerprint-old")
+    store.setWorkflowStatusForRepo(repoPath, "running")
+    store.setProgressForRepo(repoPath, {
+      phase: "log",
+      label: "Collecting",
+      processedFiles: 1,
+      totalFiles: 2,
+    })
+    store.setErrorMessageForRepo(repoPath, "old-error")
+
+    store.pruneStaleResultsByFingerprint("fingerprint-new")
+
+    const state = useAnalysisStore.getState()
+    assert.equal(state.selectedRepoPath, null)
+    assert.equal(state.repoStates.has(repoPath), false)
+    assert.equal(state.repoWorkflowStatus.has(repoPath), false)
+    assert.equal(state.repoProgress.has(repoPath), false)
+    assert.equal(state.repoErrorMessage.has(repoPath), false)
+    assert.equal(state.workflowStatus, "idle")
+    assert.equal(state.progress, null)
+    assert.equal(state.errorMessage, null)
   })
 })
 

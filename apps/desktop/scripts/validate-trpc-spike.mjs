@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { packageManagerCommand } from "./package-manager-command.mjs";
 
 const desktopDir = resolve(import.meta.dirname, "..");
@@ -28,6 +29,44 @@ function emitFailure(error) {
   const message = errorText(error);
   process.stderr.write("FAIL desktop runtime (trpc fixture)\n");
   process.stderr.write(`  ${message}\n`);
+}
+
+function isRetriableCleanupError(error) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = error.code;
+  return (
+    code === "ENOTEMPTY" ||
+    code === "EBUSY" ||
+    code === "EPERM" ||
+    code === "EMFILE" ||
+    code === "ENFILE"
+  );
+}
+
+async function cleanupTemporaryStorageRoot(path) {
+  const attempts = 6;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await rm(path, {
+        recursive: true,
+        force: true,
+        maxRetries: 4,
+        retryDelay: 50,
+      });
+      return;
+    } catch (error) {
+      if (!isRetriableCleanupError(error) || attempt === attempts) {
+        process.stderr.write(
+          `WARN desktop runtime (trpc fixture)\n  cleanup failed for ${path}: ${errorText(error)}\n`,
+        );
+        return;
+      }
+      await delay(attempt * 50);
+    }
+  }
 }
 
 async function main() {
@@ -57,6 +96,7 @@ async function main() {
 
     let marker;
     let stderr = "";
+    let stdoutBuffer = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
     }, 15000);
@@ -65,8 +105,13 @@ async function main() {
     child.stderr.setEncoding("utf8");
 
     child.stdout.on("data", (chunk) => {
-      for (const line of chunk.split("\n")) {
+      stdoutBuffer += chunk;
+      let newlineIndex = stdoutBuffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = stdoutBuffer.slice(0, newlineIndex);
+        stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
         if (!line.trim()) {
+          newlineIndex = stdoutBuffer.indexOf("\n");
           continue;
         }
 
@@ -79,6 +124,7 @@ async function main() {
         } catch {
           // Ignore unrelated stdout from Electron startup.
         }
+        newlineIndex = stdoutBuffer.indexOf("\n");
       }
     });
 
@@ -86,8 +132,21 @@ async function main() {
       stderr += chunk;
     });
 
-    const [exitCode] = await once(child, "exit");
+    // `close` guarantees stdio is drained, preventing marker races.
+    const [exitCode] = await once(child, "close");
     clearTimeout(timeout);
+
+    const trailingLine = stdoutBuffer.trim();
+    if (trailingLine.length > 0) {
+      try {
+        const parsed = JSON.parse(trailingLine);
+        if (parsed.marker === trpcMarker) {
+          marker = parsed;
+        }
+      } catch {
+        // Ignore trailing non-marker output.
+      }
+    }
 
     if (exitCode !== 0) {
       throw new Error(`Electron exited with code ${exitCode}\n${stderr}`.trim());
@@ -189,7 +248,7 @@ async function main() {
 
     emitSuccess(marker);
   } finally {
-    await rm(temporaryStorageRoot, { recursive: true, force: true });
+    await cleanupTemporaryStorageRoot(temporaryStorageRoot);
   }
 }
 

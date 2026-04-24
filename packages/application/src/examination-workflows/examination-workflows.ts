@@ -1,9 +1,13 @@
 import type {
   AppError,
   DiagnosticOutput,
+  ExaminationArchivedProvenance,
+  ExaminationArchiveKey,
+  ExaminationArchiveRecord,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
   ExaminationLineRange,
+  ExaminationProvenanceDrift,
   ExaminationQuestion,
   MilestoneProgress,
   WorkflowCallOptions,
@@ -11,6 +15,10 @@ import type {
 } from "@repo-edu/application-contract"
 import { createValidationAppError } from "../core.js"
 import { throwIfAborted } from "../workflow-helpers.js"
+import {
+  buildExaminationExcerptsFingerprint,
+  canonicalizeExaminationExcerpts,
+} from "./archive-key.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
 import { buildExaminationPrompt, stripJsonFences } from "./prompt-builder.js"
 
@@ -36,7 +44,31 @@ export function createExaminationWorkflowHandlers(
         label: "Building prompt.",
       })
 
-      const prompt = buildExaminationPrompt(input)
+      const canonicalExcerpts = canonicalizeExaminationExcerpts(input.excerpts)
+      const excerptsFingerprint =
+        buildExaminationExcerptsFingerprint(canonicalExcerpts)
+      const archiveKey: ExaminationArchiveKey = {
+        groupSetId: input.groupSetId,
+        memberId: input.memberId,
+        commitOid: input.commitOid,
+        questionCount: input.questionCount,
+        excerptsFingerprint,
+      }
+
+      if (!input.regenerate) {
+        const hit = ports.archive.get(archiveKey)
+        if (hit) {
+          options?.onProgress?.({
+            step: 3,
+            totalSteps: 3,
+            label: "Returning archived questions.",
+          })
+          return toResult(hit, {
+            fromArchive: true,
+            drift: computeDrift(hit.provenance, input),
+          })
+        }
+      }
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
@@ -45,6 +77,7 @@ export function createExaminationWorkflowHandlers(
         label: "Generating questions via LLM.",
       })
 
+      const prompt = buildExaminationPrompt(input)
       const { reply, usage } = await ports.llm.run({
         prompt,
         model: DEFAULT_EXAMINATION_MODEL,
@@ -62,20 +95,107 @@ export function createExaminationWorkflowHandlers(
 
       const questions = parseQuestions(reply, input.questionCount)
 
-      return {
-        questions,
+      const provenance: ExaminationArchivedProvenance = {
+        memberName: input.memberName,
+        memberEmail: input.memberEmail,
+        repoGitDir: input.repoGitDir,
+        assignmentContext: input.assignmentContext ?? null,
+        model: DEFAULT_EXAMINATION_MODEL,
+        effort: DEFAULT_EXAMINATION_EFFORT,
+        questionCount: input.questionCount,
         usage: {
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
           wallMs: usage.wallMs,
         },
+        createdAtMs: Date.now(),
+        excerpts: canonicalExcerpts,
       }
+
+      const record: ExaminationArchiveRecord = {
+        key: archiveKey,
+        questions,
+        provenance,
+      }
+
+      ports.archive.put(record)
+
+      return toResult(record, { fromArchive: false, drift: null })
     },
   }
 }
 
+function toResult(
+  record: ExaminationArchiveRecord,
+  meta: { fromArchive: boolean; drift: ExaminationProvenanceDrift | null },
+): ExaminationGenerateQuestionsResult {
+  return {
+    questions: record.questions,
+    usage: record.provenance.usage,
+    fromArchive: meta.fromArchive,
+    archivedProvenance: record.provenance,
+    provenanceDrift: meta.drift,
+  }
+}
+
+function computeDrift(
+  stored: ExaminationArchivedProvenance,
+  input: ExaminationGenerateQuestionsInput,
+): ExaminationProvenanceDrift | null {
+  const currentAssignmentContext = input.assignmentContext ?? null
+  const drift: ExaminationProvenanceDrift = {
+    memberNameChanged:
+      stored.memberName !== input.memberName
+        ? { from: stored.memberName, to: input.memberName }
+        : null,
+    memberEmailChanged:
+      stored.memberEmail !== input.memberEmail
+        ? { from: stored.memberEmail, to: input.memberEmail }
+        : null,
+    repoGitDirChanged:
+      stored.repoGitDir !== input.repoGitDir
+        ? { from: stored.repoGitDir, to: input.repoGitDir }
+        : null,
+    assignmentContextChanged:
+      stored.assignmentContext !== currentAssignmentContext
+        ? {
+            from: stored.assignmentContext ?? "",
+            to: currentAssignmentContext ?? "",
+          }
+        : null,
+    modelChanged:
+      stored.model !== DEFAULT_EXAMINATION_MODEL
+        ? { from: stored.model, to: DEFAULT_EXAMINATION_MODEL }
+        : null,
+    effortChanged:
+      stored.effort !== DEFAULT_EXAMINATION_EFFORT
+        ? { from: stored.effort, to: DEFAULT_EXAMINATION_EFFORT }
+        : null,
+  }
+  const anyChanged =
+    drift.memberNameChanged !== null ||
+    drift.memberEmailChanged !== null ||
+    drift.repoGitDirChanged !== null ||
+    drift.assignmentContextChanged !== null ||
+    drift.modelChanged !== null ||
+    drift.effortChanged !== null
+  return anyChanged ? drift : null
+}
+
 function validateInput(input: ExaminationGenerateQuestionsInput): void {
   const issues: { path: string; message: string }[] = []
+  if (input.groupSetId.trim().length === 0) {
+    issues.push({ path: "groupSetId", message: "groupSetId is required." })
+  }
+  if (input.memberId.trim().length === 0) {
+    issues.push({ path: "memberId", message: "memberId is required." })
+  }
+  if (input.commitOid.trim().length === 0) {
+    issues.push({ path: "commitOid", message: "commitOid is required." })
+  }
+  if (input.repoGitDir.trim().length === 0) {
+    issues.push({ path: "repoGitDir", message: "repoGitDir is required." })
+  }
   if (input.memberName.trim().length === 0) {
     issues.push({ path: "memberName", message: "Member name is required." })
   }

@@ -9,6 +9,20 @@ import {
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 
+function stableStringify(value: unknown): string {
+  if (value === null || value === undefined) return "null"
+  if (typeof value !== "object") return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`
+  }
+  const record = value as Record<string, unknown>
+  const keys = Object.keys(record).sort()
+  const entries = keys
+    .map((k) => `${JSON.stringify(k)}:${stableStringify(record[k])}`)
+    .join(",")
+  return `{${entries}}`
+}
+
 export function useBlameAutoRun() {
   const course = useCourseStore((s) => s.course)
   const client = useWorkflowClient()
@@ -38,6 +52,9 @@ export function useBlameAutoRun() {
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
+  const filesPerRepo = useAppSettingsStore(
+    (s) => s.settings.analysisConcurrency.filesPerRepo,
+  )
   const effectiveBlameConfig = useMemo(
     () =>
       course
@@ -45,19 +62,23 @@ export function useBlameAutoRun() {
             course,
             blameConfig,
             defaultExtensions,
-            1,
+            filesPerRepo,
           )
         : blameConfig,
-    [course, blameConfig, defaultExtensions],
+    [course, blameConfig, defaultExtensions, filesPerRepo],
   )
   const effectiveBlameConfigSnapshot = useMemo(
-    () => JSON.stringify(effectiveBlameConfig),
+    () => stableStringify(effectiveBlameConfig),
     [effectiveBlameConfig],
   )
 
   const abortRef = useRef<AbortController | null>(null)
   const contextVersionRef = useRef(0)
-  const contextSnapshot = `${course?.id ?? ""}\0${selectedRepoPath ?? ""}\0${result?.resolvedAsOfOid ?? ""}\0${asOfCommit}\0${blameSkip ? "1" : "0"}\0${effectiveBlameConfigSnapshot}`
+  // Blame context excludes `selectedRepoPath` deliberately: repo switches
+  // must re-point the selectors at the stored per-repo entry without
+  // clearing anything. Changes to `asOfCommit`, `blameConfig`, or
+  // `blameSkip` for the currently selected repo still trigger abort+clear.
+  const contextSnapshot = `${course?.id ?? ""}\0${result?.resolvedAsOfOid ?? ""}\0${asOfCommit}\0${blameSkip ? "1" : "0"}\0${effectiveBlameConfigSnapshot}`
 
   useEffect(() => {
     if (blameContextSnapshot === null) {

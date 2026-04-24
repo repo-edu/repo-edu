@@ -22,6 +22,7 @@ import {
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
 import { parseBlameOutput } from "./blame-parser.js"
+import { buildBlameCacheKey } from "./cache-keys.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot } from "./repo-root.js"
@@ -70,6 +71,12 @@ const COPY_MOVE_FLAGS: Record<number, string[]> = {
   4: ["-C", "-C", "-C"],
 }
 
+/**
+ * Builds the `git blame` argv for a given `(OID, file, config)` triple.
+ * Kept in lock-step with `buildBlameKeyArgv` in `./cache-keys.ts` — any
+ * flag added here must be reflected there, or the blame cache will
+ * silently miss on the new flag.
+ */
 function buildBlameArgs(
   commitOid: string,
   filePath: string,
@@ -285,18 +292,28 @@ export function createAnalysisBlameHandler(
           totalFiles: targets.length,
         })
 
-        // Probe for _git-blame-ignore-revs.txt
-        throwIfAborted(options?.signal)
-        const ignoreRevsResult = await ports.gitCommand.run({
-          args: ["cat-file", "-t", `${commitOid}:_git-blame-ignore-revs.txt`],
-          cwd: repoRoot,
-          signal: options?.signal,
-        })
-        const hasIgnoreRevsFile =
-          ignoreRevsResult.exitCode === 0 &&
-          ignoreRevsResult.stdout.trim() === "blob"
+        // Probe + fingerprint _git-blame-ignore-revs.txt from the working tree.
+        // `git blame --ignore-revs-file=<path>` reads this file from disk, so
+        // local edits must participate in keying or cache hits can go stale.
+        let hasIgnoreRevsFile = false
+        let ignoreRevsFingerprint: string | null = null
+        if (config.ignoreRevsFile ?? true) {
+          throwIfAborted(options?.signal)
+          const ignoreRevsHashResult = await ports.gitCommand.run({
+            args: ["hash-object", "--", "_git-blame-ignore-revs.txt"],
+            cwd: repoRoot,
+            signal: options?.signal,
+          })
+          if (ignoreRevsHashResult.exitCode === 0) {
+            const fingerprint = ignoreRevsHashResult.stdout.trim()
+            if (fingerprint.length > 0) {
+              hasIgnoreRevsFile = true
+              ignoreRevsFingerprint = fingerprint
+            }
+          }
+        }
 
-        // Phase 2: Per-file blame with bounded concurrency
+        // Phase 2: Per-file blame with bounded concurrency — cache-first
         options?.onProgress?.({
           phase: "blame",
           label: "Running per-file blame.",
@@ -305,13 +322,50 @@ export function createAnalysisBlameHandler(
         })
 
         const maxConcurrency = config.maxConcurrency ?? 1
-        let processedFiles = 0
 
-        const rawBlames = await mapBounded(
-          targets,
+        const blameCache = ports.blameCache
+        const cacheKeys = blameCache
+          ? targets.map(({ repoPath }) =>
+              buildBlameCacheKey({
+                resolvedOid: commitOid,
+                filePath: repoPath,
+                config,
+                hasIgnoreRevsFile,
+                ignoreRevsFingerprint,
+              }),
+            )
+          : null
+
+        const cachedHits =
+          blameCache && cacheKeys ? blameCache.getMany(cacheKeys) : null
+
+        const rawBlames: FileBlame[] = new Array(targets.length)
+        const missIndexes: number[] = []
+        for (let i = 0; i < targets.length; i++) {
+          const cached = cachedHits?.[i]
+          if (cached) {
+            rawBlames[i] = cached
+          } else {
+            missIndexes.push(i)
+          }
+        }
+
+        let processedFiles = targets.length - missIndexes.length
+        if (processedFiles > 0) {
+          options?.onProgress?.({
+            phase: "blame",
+            label: "Running per-file blame.",
+            processedFiles,
+            totalFiles: targets.length,
+          })
+        }
+
+        const computed = await mapBounded(
+          missIndexes,
           maxConcurrency,
-          async ({ repoPath, displayPath }) => {
+          async (index) => {
             throwIfAborted(options?.signal)
+            const { repoPath, displayPath } = targets[index]
 
             const args = buildBlameArgs(
               commitOid,
@@ -345,9 +399,25 @@ export function createAnalysisBlameHandler(
               } satisfies AppError
             }
 
-            return parseBlameOutput(displayPath, result.stdout)
+            return {
+              index,
+              blame: parseBlameOutput(displayPath, result.stdout),
+            }
           },
         )
+
+        for (const { index, blame } of computed) {
+          rawBlames[index] = blame
+        }
+
+        if (blameCache && cacheKeys && computed.length > 0) {
+          blameCache.setMany(
+            computed.map(({ index, blame }) => ({
+              key: cacheKeys[index],
+              value: blame,
+            })),
+          )
+        }
 
         // Phase 3: Apply line exclusions and build enriched PersonDB
         // Process in deterministic sorted file order

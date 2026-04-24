@@ -8,9 +8,10 @@ import { DEFAULT_N_FILES } from "@repo-edu/domain/analysis"
 import type { RosterMember } from "@repo-edu/domain/types"
 import {
   buildAnalysisCacheKey,
-  createLruAnalysisCache,
+  createInMemoryAnalysisCache,
 } from "../analysis-workflows/cache.js"
 import {
+  buildBlameCacheKey,
   normalizeAnalysisConfigForCache,
   normalizeRosterContextForCache,
 } from "../analysis-workflows/cache-keys.js"
@@ -266,45 +267,108 @@ describe("normalizeRosterContextForCache", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildAnalysisCacheKey", () => {
-  it("includes all key components", () => {
-    const key = buildAnalysisCacheKey({
+  it("produces a stable compact hash for the same inputs", () => {
+    const parts = {
       repoGitDir: "/repos/test/.git",
       resolvedAsOfOid: "abc123",
       normalizedConfigJson: '{"nFiles":5}',
       normalizedRosterFingerprint: null,
-    })
-
-    assert.ok(key.includes("/repos/test/.git"))
-    assert.ok(key.includes("abc123"))
-    assert.ok(key.includes('{"nFiles":5}'))
-    assert.ok(key.includes("no-roster"))
+    }
+    const a = buildAnalysisCacheKey(parts)
+    const b = buildAnalysisCacheKey(parts)
+    assert.equal(a, b)
+    assert.match(a, /^[0-9a-f]+$/)
   })
 
-  it("differs when roster fingerprint is present vs absent", () => {
+  it("changes when any component changes", () => {
     const base = {
       repoGitDir: "/repos/test/.git",
       resolvedAsOfOid: "abc123",
-      normalizedConfigJson: "{}",
+      normalizedConfigJson: '{"nFiles":5}',
+      normalizedRosterFingerprint: null,
     }
 
-    const withRoster = buildAnalysisCacheKey({
-      ...base,
-      normalizedRosterFingerprint: '[{"id":"m_1"}]',
-    })
-    const withoutRoster = buildAnalysisCacheKey({
-      ...base,
-      normalizedRosterFingerprint: null,
-    })
-
-    assert.notEqual(withRoster, withoutRoster)
+    const baseline = buildAnalysisCacheKey(base)
+    assert.notEqual(
+      baseline,
+      buildAnalysisCacheKey({ ...base, repoGitDir: "/repos/other/.git" }),
+    )
+    assert.notEqual(
+      baseline,
+      buildAnalysisCacheKey({ ...base, resolvedAsOfOid: "def456" }),
+    )
+    assert.notEqual(
+      baseline,
+      buildAnalysisCacheKey({ ...base, normalizedConfigJson: "{}" }),
+    )
+    assert.notEqual(
+      baseline,
+      buildAnalysisCacheKey({
+        ...base,
+        normalizedRosterFingerprint: '[{"id":"m_1"}]',
+      }),
+    )
   })
 })
 
 // ---------------------------------------------------------------------------
-// LRU cache
+// buildBlameCacheKey
 // ---------------------------------------------------------------------------
 
-describe("createLruAnalysisCache", () => {
+describe("buildBlameCacheKey", () => {
+  it("changes when ignore-revs fingerprint changes", () => {
+    const base = {
+      resolvedOid: "abc123",
+      filePath: "src/main.ts",
+      config: {},
+      hasIgnoreRevsFile: true,
+      ignoreRevsFingerprint: "hash-a",
+    }
+
+    const a = buildBlameCacheKey(base)
+    const b = buildBlameCacheKey({ ...base, ignoreRevsFingerprint: "hash-b" })
+    assert.notEqual(a, b)
+  })
+
+  it("changes when ignore-revs usage toggles", () => {
+    const base = {
+      resolvedOid: "abc123",
+      filePath: "src/main.ts",
+      config: {},
+      ignoreRevsFingerprint: null,
+    }
+
+    const withoutIgnoreRevs = buildBlameCacheKey({
+      ...base,
+      hasIgnoreRevsFile: false,
+    })
+    const withIgnoreRevs = buildBlameCacheKey({
+      ...base,
+      hasIgnoreRevsFile: true,
+      ignoreRevsFingerprint: "hash-a",
+    })
+
+    assert.notEqual(withoutIgnoreRevs, withIgnoreRevs)
+  })
+
+  it("produces identical output across different repoGitDir values", () => {
+    // Two clones of the same origin at the same OID must share a cache hit.
+    const shared = {
+      resolvedOid: "abc123",
+      filePath: "src/main.ts",
+      config: {},
+      hasIgnoreRevsFile: false,
+      ignoreRevsFingerprint: null,
+    }
+    assert.equal(buildBlameCacheKey(shared), buildBlameCacheKey(shared))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// In-memory layered cache (hot layer only; cold is a no-op)
+// ---------------------------------------------------------------------------
+
+describe("createInMemoryAnalysisCache", () => {
   const dummyResult = {
     resolvedAsOfOid: "abc123",
     authorStats: [],
@@ -317,12 +381,12 @@ describe("createLruAnalysisCache", () => {
   }
 
   it("returns undefined for cache miss", () => {
-    const cache = createLruAnalysisCache(4)
+    const cache = createInMemoryAnalysisCache(1024)
     assert.equal(cache.get("nonexistent"), undefined)
   })
 
   it("returns cached result on hit", () => {
-    const cache = createLruAnalysisCache(4)
+    const cache = createInMemoryAnalysisCache(1024)
     cache.set("key1", dummyResult)
 
     const cached = cache.get("key1")
@@ -330,8 +394,8 @@ describe("createLruAnalysisCache", () => {
     assert.equal(cached.resolvedAsOfOid, "abc123")
   })
 
-  it("returns deep copy with restored Set/Map types", () => {
-    const cache = createLruAnalysisCache(4)
+  it("preserves Map instances inside personDbBaseline across hot hits", () => {
+    const cache = createInMemoryAnalysisCache(1024)
     const result = {
       ...dummyResult,
       personDbBaseline: {
@@ -345,35 +409,5 @@ describe("createLruAnalysisCache", () => {
     assert.ok(cached)
     assert.ok(cached.personDbBaseline.identityIndex instanceof Map)
     assert.equal(cached.personDbBaseline.identityIndex.get("foo"), "bar")
-  })
-
-  it("evicts least recently used entry when capacity is exceeded", () => {
-    const cache = createLruAnalysisCache(2)
-
-    cache.set("a", { ...dummyResult, resolvedAsOfOid: "a" })
-    cache.set("b", { ...dummyResult, resolvedAsOfOid: "b" })
-    cache.set("c", { ...dummyResult, resolvedAsOfOid: "c" })
-
-    // "a" should be evicted
-    assert.equal(cache.get("a"), undefined)
-    assert.ok(cache.get("b"))
-    assert.ok(cache.get("c"))
-  })
-
-  it("access refreshes LRU order", () => {
-    const cache = createLruAnalysisCache(2)
-
-    cache.set("a", { ...dummyResult, resolvedAsOfOid: "a" })
-    cache.set("b", { ...dummyResult, resolvedAsOfOid: "b" })
-
-    // Access "a" to make it recently used
-    cache.get("a")
-
-    // Insert "c" — should evict "b" (now LRU), not "a"
-    cache.set("c", { ...dummyResult, resolvedAsOfOid: "c" })
-
-    assert.ok(cache.get("a"))
-    assert.equal(cache.get("b"), undefined)
-    assert.ok(cache.get("c"))
   })
 })

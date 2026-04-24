@@ -1,8 +1,10 @@
 import type { SyntaxThemeId } from "@repo-edu/domain/settings"
 import {
   defaultAppSettings,
+  type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppSettings,
+  type PersistedCacheSizeBudgets,
   type PersistedGitConnection,
   type PersistedLmsConnection,
   resolveActiveGitConnection,
@@ -53,6 +55,10 @@ type AppSettingsActions = {
   setAnalysisSidebarSize: (size: number) => void
   setAnalysisDetailListSize: (size: number) => void
   setAnalysisSidebar: (sidebar: PersistedAnalysisSidebarSettings | null) => void
+
+  setCacheEnabled: (enabled: boolean) => void
+  setCacheSizeBudgetMB: (budgets: PersistedCacheSizeBudgets) => void
+  setAnalysisConcurrency: (concurrency: PersistedAnalysisConcurrency) => void
 
   reset: () => void
 }
@@ -299,6 +305,21 @@ export const useAppSettingsStore = create<
     setAnalysisSidebar: (sidebar) =>
       set((state) => ({
         settings: { ...state.settings, analysisSidebar: sidebar },
+      })),
+
+    setCacheEnabled: (enabled) =>
+      set((state) => ({
+        settings: { ...state.settings, cacheEnabled: enabled },
+      })),
+
+    setCacheSizeBudgetMB: (budgets) =>
+      set((state) => ({
+        settings: { ...state.settings, cacheSizeBudgetMB: budgets },
+      })),
+
+    setAnalysisConcurrency: (concurrency) =>
+      set((state) => ({
+        settings: { ...state.settings, analysisConcurrency: concurrency },
       })),
 
     reset: () => set(initialState),

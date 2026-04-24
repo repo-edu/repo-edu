@@ -1,7 +1,25 @@
 export { createAnalysisWorkflowHandlers } from "./analysis-workflows/analysis-workflows.js"
-export type { AnalysisResultCache } from "./analysis-workflows/cache.js"
-export { createLruAnalysisCache } from "./analysis-workflows/cache.js"
+export type {
+  AnalysisResultCache,
+  BlameFileCache,
+} from "./analysis-workflows/cache.js"
+export {
+  createAnalysisCaches,
+  createInMemoryAnalysisCache,
+} from "./analysis-workflows/cache.js"
+export {
+  getAnalysisConfigFingerprint,
+  normalizeAnalysisConfigForCache,
+  normalizeRosterContextForCache,
+} from "./analysis-workflows/cache-keys.js"
 export type { AnalysisWorkflowPorts } from "./analysis-workflows/ports.js"
+export { hashCacheKey } from "./cache/layered-cache.js"
+export type { CacheStats } from "./cache-workflows.js"
+export {
+  CACHE_TYPES,
+  type CacheType,
+  createCacheWorkflowHandlers,
+} from "./cache-workflows.js"
 export { createConnectionWorkflowHandlers } from "./connection-workflows.js"
 export type { AppSettingsStore, CourseStore } from "./core.js"
 export {
@@ -10,6 +28,18 @@ export {
   packageId,
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
+export {
+  buildExaminationExcerptsFingerprint,
+  canonicalizeExaminationExcerpts,
+} from "./examination-workflows/archive-key.js"
+export type { ExaminationArchivePort } from "./examination-workflows/archive-port.js"
+export {
+  createExaminationArchive,
+  createInMemoryExaminationArchive,
+  createInMemoryExaminationArchiveStorage,
+} from "./examination-workflows/archive-port.js"
+export type { ExaminationArchiveWorkflowPorts } from "./examination-workflows/archive-workflows.js"
+export { createExaminationArchiveWorkflowHandlers } from "./examination-workflows/archive-workflows.js"
 export { createExaminationWorkflowHandlers } from "./examination-workflows/examination-workflows.js"
 export type { ExaminationWorkflowPorts } from "./examination-workflows/ports.js"
 export { createGitUsernameWorkflowHandlers } from "./git-username-workflows.js"

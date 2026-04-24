@@ -111,11 +111,32 @@ const persistedAnalysisSidebarSettingsSchema = z.object({
   blameConfig: persistedBlameConfigSchema,
 })
 
+const persistedCacheSizeBudgetsSchema = z
+  .object({
+    analysisMB: z.number().int().min(0).default(5000),
+    blameMB: z.number().int().min(0).default(10000),
+  })
+  .default({ analysisMB: 5000, blameMB: 10000 })
+
+const persistedCacheHotBudgetsSchema = z
+  .object({
+    analysisMB: z.number().int().min(0).default(200),
+    blameMB: z.number().int().min(0).default(500),
+  })
+  .default({ analysisMB: 200, blameMB: 500 })
+
+const persistedAnalysisConcurrencySchema = z
+  .object({
+    repoParallelism: z.number().int().min(1).max(8).default(3),
+    filesPerRepo: z.number().int().min(1).max(16).default(4),
+  })
+  .default({ repoParallelism: 3, filesPerRepo: 4 })
+
 export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
   activeCourseId: z.string().nullable(),
   activeTab: z
-    .enum(["roster", "groups-assignments", "analysis", "examination"])
+    .enum(["roster", "groups-assignments", "analysis"])
     .default("roster"),
   appearance: appAppearanceSchema,
   window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
@@ -132,6 +153,10 @@ export const persistedAppSettingsSchema = z.object({
     .nullable()
     .default(null),
   defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
+  cacheEnabled: z.boolean().default(true),
+  cacheSizeBudgetMB: persistedCacheSizeBudgetsSchema,
+  cacheHotBudgetMB: persistedCacheHotBudgetsSchema,
+  analysisConcurrency: persistedAnalysisConcurrencySchema,
 })
 
 // ---------------------------------------------------------------------------
@@ -148,6 +173,15 @@ export type AppAppearance = z.infer<typeof appAppearanceSchema>
 export type PersistedWindowState = z.infer<typeof persistedWindowStateSchema>
 export type PersistedAnalysisSidebarSettings = z.infer<
   typeof persistedAnalysisSidebarSettingsSchema
+>
+export type PersistedCacheSizeBudgets = z.infer<
+  typeof persistedCacheSizeBudgetsSchema
+>
+export type PersistedCacheHotBudgets = z.infer<
+  typeof persistedCacheHotBudgetsSchema
+>
+export type PersistedAnalysisConcurrency = z.infer<
+  typeof persistedAnalysisConcurrencySchema
 >
 export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
 
@@ -230,4 +264,17 @@ export const defaultAppSettings: PersistedAppSettings = {
   analysisDetailListSize: null,
   analysisSidebar: null,
   defaultExtensions: [...DEFAULT_EXTENSIONS],
+  cacheEnabled: true,
+  cacheSizeBudgetMB: {
+    analysisMB: 5000,
+    blameMB: 10000,
+  },
+  cacheHotBudgetMB: {
+    analysisMB: 200,
+    blameMB: 500,
+  },
+  analysisConcurrency: {
+    repoParallelism: 3,
+    filesPerRepo: 4,
+  },
 }

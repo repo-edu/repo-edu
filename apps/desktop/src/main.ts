@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs"
 import { createRequire } from "node:module"
 import os from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
@@ -14,6 +15,20 @@ import {
   createNodeHttpPort,
   createNodeLlmPort,
 } from "@repo-edu/host-node"
+import {
+  type CacheDatabaseHandle,
+  createSqliteCache,
+  openCacheDatabase,
+} from "@repo-edu/host-node/cache"
+import {
+  createExaminationArchiveStorage,
+  type ExaminationArchiveDatabaseHandle,
+  openExaminationArchiveDatabase,
+} from "@repo-edu/host-node/examination-archive"
+import type {
+  ExaminationArchiveStoragePort,
+  PersistentCache,
+} from "@repo-edu/host-runtime-contract"
 import {
   app,
   BrowserWindow,
@@ -35,6 +50,7 @@ import {
 } from "./auto-updater"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import { envDisableCache } from "./env-flags"
 import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
 import {
   type DesktopRendererHostBridge,
@@ -69,6 +85,174 @@ let storageRootPath: string | null = null
 let validationCourseId = ""
 let updaterMenuBound = false
 let quitRequested = false
+let cacheDatabaseHandle: CacheDatabaseHandle | null = null
+let cacheDatabaseClosed = false
+let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
+let examinationArchiveClosed = false
+export const shutdownController = new AbortController()
+export type DesktopCacheSet = {
+  analysisCache: PersistentCache
+  blameCache: PersistentCache
+}
+let desktopCacheSet: DesktopCacheSet | null = null
+let desktopExaminationArchive: ExaminationArchiveStoragePort | null = null
+let inFlightWorkflowCount = 0
+const inFlightDrainWaiters = new Set<() => void>()
+
+const MB = 1024 * 1024
+
+type EffectiveCacheBudgets = {
+  sizeMB: { analysisMB: number; blameMB: number }
+  hotMB: { analysisMB: number; blameMB: number }
+  enabled: boolean
+}
+
+function resolveEffectiveCacheBudgets(
+  settings: PersistedAppSettings | null,
+): EffectiveCacheBudgets {
+  const base = settings ?? defaultAppSettings
+  return {
+    sizeMB: {
+      analysisMB: base.cacheSizeBudgetMB.analysisMB,
+      blameMB: base.cacheSizeBudgetMB.blameMB,
+    },
+    hotMB: {
+      analysisMB: base.cacheHotBudgetMB.analysisMB,
+      blameMB: base.cacheHotBudgetMB.blameMB,
+    },
+    enabled: base.cacheEnabled && !envDisableCache(),
+  }
+}
+
+function openCacheSetOnce(
+  storageRoot: string,
+  settings: PersistedAppSettings | null,
+): DesktopCacheSet {
+  if (desktopCacheSet) return desktopCacheSet
+  const budgets = resolveEffectiveCacheBudgets(settings)
+
+  const cacheDir = join(storageRoot, "cache")
+  mkdirSync(cacheDir, { recursive: true })
+
+  const handle = openCacheDatabase({ dbPath: join(cacheDir, "cache.db") })
+  cacheDatabaseHandle = handle
+
+  const analysisCache = createSqliteCache({
+    handle,
+    table: "analysis_cache",
+    maxBytes: budgets.sizeMB.analysisMB * MB,
+  })
+  const blameCache = createSqliteCache({
+    handle,
+    table: "blame_cache",
+    maxBytes: budgets.sizeMB.blameMB * MB,
+  })
+
+  desktopCacheSet = { analysisCache, blameCache }
+  return desktopCacheSet
+}
+
+function openExaminationArchiveOnce(
+  storageRoot: string,
+): ExaminationArchiveStoragePort {
+  if (desktopExaminationArchive) return desktopExaminationArchive
+  const archiveDir = join(storageRoot, "examinations")
+  mkdirSync(archiveDir, { recursive: true })
+  const handle = openExaminationArchiveDatabase({
+    dbPath: join(archiveDir, "archive.db"),
+  })
+  examinationArchiveHandle = handle
+  const archive = createExaminationArchiveStorage({ handle })
+  desktopExaminationArchive = archive
+  return archive
+}
+
+function closeCacheDatabase() {
+  if (cacheDatabaseClosed) return
+  cacheDatabaseClosed = true
+  const caches = desktopCacheSet
+  if (caches) {
+    for (const cache of [caches.analysisCache, caches.blameCache]) {
+      try {
+        cache.close()
+      } catch {
+        // Best-effort — each cache flushes independent touch metadata.
+      }
+    }
+  }
+  const handle = cacheDatabaseHandle
+  desktopCacheSet = null
+  if (!handle) return
+  try {
+    handle.close()
+  } catch {
+    // Best-effort — WAL durability survives close failures.
+  }
+  cacheDatabaseHandle = null
+}
+
+function closeExaminationArchiveDatabase() {
+  if (examinationArchiveClosed) return
+  examinationArchiveClosed = true
+  const handle = examinationArchiveHandle
+  if (!handle) return
+  try {
+    handle.close()
+  } catch {
+    // Best-effort — WAL durability survives close failures.
+  }
+  examinationArchiveHandle = null
+  desktopExaminationArchive = null
+}
+
+function markWorkflowInvocationStarted(): () => void {
+  inFlightWorkflowCount += 1
+  let settled = false
+  return () => {
+    if (settled) return
+    settled = true
+    inFlightWorkflowCount = Math.max(0, inFlightWorkflowCount - 1)
+    if (inFlightWorkflowCount === 0) {
+      for (const resolve of inFlightDrainWaiters) {
+        resolve()
+      }
+      inFlightDrainWaiters.clear()
+    }
+  }
+}
+
+function waitForInFlightWorkflows(timeoutMs: number): Promise<boolean> {
+  if (inFlightWorkflowCount === 0) {
+    return Promise.resolve(true)
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const onDrained = () => {
+      finish(true)
+    }
+    const finish = (drained: boolean) => {
+      if (settled) return
+      settled = true
+      inFlightDrainWaiters.delete(onDrained)
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+      resolve(drained)
+    }
+
+    inFlightDrainWaiters.add(onDrained)
+    timeoutId = setTimeout(() => {
+      finish(false)
+    }, timeoutMs)
+
+    // Handle a settle race between the initial count check and waiter registration.
+    if (inFlightWorkflowCount === 0) {
+      finish(true)
+    }
+  })
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
@@ -513,6 +697,8 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   if (!desktopRouter) {
+    const caches = openCacheSetOnce(storageRoot, appSettings)
+    const examinationArchive = openExaminationArchiveOnce(storageRoot)
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       courseStore: createDesktopCourseStore(storageRoot),
@@ -521,6 +707,11 @@ async function createWindow(): Promise<BrowserWindow> {
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,
       llm: nodeLlmPort,
+      caches,
+      examinationArchive,
+      cacheBudgets: resolveEffectiveCacheBudgets(appSettings),
+      parentAbortSignal: shutdownController.signal,
+      onWorkflowInvocationStart: markWorkflowInvocationStarted,
     })
   }
 
@@ -620,8 +811,44 @@ if (hasSingleInstanceLock) {
     storageRootPath = resolveStorageRootPath()
     bindUpdaterMenu()
 
-    app.on("before-quit", () => {
+    let shutdownPhase: "idle" | "draining" | "ready" = "idle"
+    app.on("before-quit", (event) => {
       quitRequested = true
+      if (shutdownPhase === "ready") return
+      // Shutdown: signal in-flight workflows to abort, give them a bounded
+      // grace period so mid-commit cache writes complete, then close the DB.
+      const gracePeriodMs = 5_000
+      event.preventDefault()
+      if (shutdownPhase === "draining") return
+      shutdownPhase = "draining"
+      if (!shutdownController.signal.aborted) {
+        try {
+          shutdownController.abort()
+        } catch {
+          // Node ignores abort on already-aborted signals; swallow other errors.
+        }
+      }
+      void (async () => {
+        await waitForInFlightWorkflows(gracePeriodMs)
+        // Both databases run in WAL mode: closing checkpoints the WAL and any
+        // acknowledged write is already on disk. Close even on a forced quit
+        // so the archive (where data is not regenerable) never stays open.
+        closeCacheDatabase()
+        closeExaminationArchiveDatabase()
+      })()
+        .catch((error) => {
+          // Close paths already catch internally; anything reaching here is
+          // unexpected. Surface it to stderr so the quit still completes.
+          const text =
+            error instanceof Error
+              ? (error.stack ?? error.message)
+              : String(error)
+          process.stderr.write(`[desktop] shutdown-drain-failed ${text}\n`)
+        })
+        .finally(() => {
+          shutdownPhase = "ready"
+          app.quit()
+        })
     })
 
     const seededFixture =

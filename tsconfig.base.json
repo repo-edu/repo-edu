@@ -71,6 +71,12 @@
         "./packages/integrations-git-contract/src/index.ts"
       ],
       "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
+      "@repo-edu/host-node/cache": [
+        "./packages/host-node/src/cache/index.ts"
+      ],
+      "@repo-edu/host-node/examination-archive": [
+        "./packages/host-node/src/examination-archive/index.ts"
+      ],
       "@repo-edu/host-browser-mock": [
         "./packages/host-browser-mock/src/index.ts"
       ],

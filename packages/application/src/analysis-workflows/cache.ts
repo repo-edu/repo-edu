@@ -1,19 +1,20 @@
-import type { AnalysisResult } from "@repo-edu/domain/analysis"
+import type { AnalysisResult, FileBlame } from "@repo-edu/domain/analysis"
+import type { PersistentCache } from "@repo-edu/host-runtime-contract"
+import {
+  createByteBudgetedLru,
+  createLayeredCache,
+  hashCacheKey,
+  type LayeredCache,
+  noopPersistentCache,
+  structuredJsonSerde,
+} from "../cache/layered-cache.js"
 
 // ---------------------------------------------------------------------------
-// Schema version — bump to invalidate all cached entries
+// Public types
 // ---------------------------------------------------------------------------
 
-export const ANALYSIS_SCHEMA_VERSION = 2
-
-// ---------------------------------------------------------------------------
-// Public interface
-// ---------------------------------------------------------------------------
-
-export type AnalysisResultCache = {
-  get(key: string): AnalysisResult | undefined
-  set(key: string, value: AnalysisResult): void
-}
+export type AnalysisResultCache = LayeredCache<AnalysisResult>
+export type BlameFileCache = LayeredCache<FileBlame>
 
 // ---------------------------------------------------------------------------
 // Cache key builder
@@ -25,137 +26,60 @@ export function buildAnalysisCacheKey(parts: {
   normalizedConfigJson: string
   normalizedRosterFingerprint: string | null
 }): string {
-  const segments = [
-    `v${ANALYSIS_SCHEMA_VERSION}`,
+  const raw = [
+    "analysis",
     parts.repoGitDir,
     parts.resolvedAsOfOid,
     parts.normalizedConfigJson,
     parts.normalizedRosterFingerprint ?? "no-roster",
-  ]
-  return segments.join("\0")
+  ].join("\0")
+  return hashCacheKey(raw)
 }
 
 // ---------------------------------------------------------------------------
-// Serializable result helpers
+// Factories — produce hot/cold layered caches for analysis and blame
 // ---------------------------------------------------------------------------
 
-type SerializableAuthorBreakdown = {
-  insertions: number
-  deletions: number
-  commits: number
-  lines: number
-  commitShas: string[]
+export type AnalysisCachesOptions = {
+  cache: PersistentCache
+  blameCache: PersistentCache
+  hotAnalysisBytes: number
+  hotBlameBytes: number
+  disabled?: boolean
 }
 
-type SerializableFileStats = Omit<
-  AnalysisResult["fileStats"][number],
-  "commitShas" | "authorBreakdown"
-> & {
-  commitShas: string[]
-  authorBreakdown: [string, SerializableAuthorBreakdown][]
+export function createAnalysisCaches(options: AnalysisCachesOptions): {
+  analysis: AnalysisResultCache
+  blame: BlameFileCache
+} {
+  const analysis = createLayeredCache<AnalysisResult>({
+    hot: createByteBudgetedLru(options.hotAnalysisBytes),
+    cold: options.cache,
+    serde: structuredJsonSerde<AnalysisResult>(),
+    disabled: options.disabled,
+  })
+
+  const blame = createLayeredCache<FileBlame>({
+    hot: createByteBudgetedLru(options.hotBlameBytes),
+    cold: options.blameCache,
+    serde: structuredJsonSerde<FileBlame>(),
+    disabled: options.disabled,
+  })
+
+  return { analysis, blame }
 }
 
-type SerializableAuthorStats = Omit<
-  AnalysisResult["authorStats"][number],
-  "commitShas"
-> & {
-  commitShas: string[]
-}
-
-type SerializablePersonDbSnapshot = Omit<
-  AnalysisResult["personDbBaseline"],
-  "identityIndex"
-> & {
-  identityIndex: [string, string][]
-}
-
-type SerializableAnalysisResult = Omit<
-  AnalysisResult,
-  "authorStats" | "fileStats" | "personDbBaseline"
-> & {
-  authorStats: SerializableAuthorStats[]
-  fileStats: SerializableFileStats[]
-  personDbBaseline: SerializablePersonDbSnapshot
-}
-
-function toSerializable(result: AnalysisResult): SerializableAnalysisResult {
-  return {
-    ...result,
-    authorStats: result.authorStats.map((s) => ({
-      ...s,
-      commitShas: [...s.commitShas],
-    })),
-    fileStats: result.fileStats.map((f) => ({
-      ...f,
-      commitShas: [...f.commitShas],
-      authorBreakdown: [...f.authorBreakdown.entries()].map(([k, v]) => [
-        k,
-        { ...v, commitShas: [...v.commitShas] },
-      ]),
-    })),
-    personDbBaseline: {
-      ...result.personDbBaseline,
-      identityIndex: [...result.personDbBaseline.identityIndex.entries()],
-    },
-  }
-}
-
-function fromSerializable(s: SerializableAnalysisResult): AnalysisResult {
-  return {
-    ...s,
-    authorStats: s.authorStats.map((a) => ({
-      ...a,
-      commitShas: new Set(a.commitShas),
-    })),
-    fileStats: s.fileStats.map((f) => ({
-      ...f,
-      commitShas: new Set(f.commitShas),
-      authorBreakdown: new Map(
-        f.authorBreakdown.map(([k, v]) => [
-          k,
-          { ...v, commitShas: new Set(v.commitShas) },
-        ]),
-      ),
-    })),
-    personDbBaseline: {
-      ...s.personDbBaseline,
-      identityIndex: new Map(s.personDbBaseline.identityIndex),
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// LRU cache implementation
-// ---------------------------------------------------------------------------
-
-export function createLruAnalysisCache(
-  maxEntries: number,
+/**
+ * In-memory-only analysis cache for environments that don't wire a
+ * persistent store (CLI/docs). Shares the layered surface so handler
+ * wiring is uniform.
+ */
+export function createInMemoryAnalysisCache(
+  hotBytes = 200 * 1024 * 1024,
 ): AnalysisResultCache {
-  const entries = new Map<string, SerializableAnalysisResult>()
-
-  return {
-    get(key) {
-      const serialized = entries.get(key)
-      if (!serialized) return undefined
-
-      // Move to end (most recently used)
-      entries.delete(key)
-      entries.set(key, serialized)
-
-      return fromSerializable(serialized)
-    },
-
-    set(key, value) {
-      // Delete first so re-insertion moves to end
-      entries.delete(key)
-
-      if (entries.size >= maxEntries) {
-        // Evict least recently used (first entry)
-        const oldest = entries.keys().next().value
-        if (oldest !== undefined) entries.delete(oldest)
-      }
-
-      entries.set(key, toSerializable(value))
-    },
-  }
+  return createLayeredCache<AnalysisResult>({
+    hot: createByteBudgetedLru(hotBytes),
+    cold: noopPersistentCache,
+    serde: structuredJsonSerde<AnalysisResult>(),
+  })
 }

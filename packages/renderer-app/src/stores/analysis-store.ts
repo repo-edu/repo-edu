@@ -27,7 +27,7 @@ export type AnalysisActiveMetric =
 
 export type AnalysisDisplayMode = "absolute" | "percentage"
 
-export type AnalysisView = "authors" | "files" | "blame"
+export type AnalysisView = "authors" | "files" | "blame" | "examination"
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
 export type AnalysisFileSelectionMode = "all" | "subset"
@@ -36,6 +36,29 @@ export type FileBlameEntry = {
   status: "pending" | "loaded" | "error"
   fileBlame: FileBlame | null
   errorMessage: string | null
+}
+
+type PerRepoBlameState = {
+  blameResult: BlameResult | null
+  blameTargetFiles: string[]
+  blameFileResults: Map<string, FileBlameEntry>
+  activeBlameFile: string | null
+  blameWorkflowStatus: AnalysisWorkflowStatus
+  blameProgress: AnalysisProgress | null
+  blameErrorMessage: string | null
+  blameContextSnapshot: string | null
+  blameVisibleAuthors: Set<string> | null
+  asOfCommit: string
+  selectedAuthors: Set<string>
+  fileSelectionMode: AnalysisFileSelectionMode
+  selectedFiles: Set<string>
+  focusedFilePath: string | null
+  activeView: AnalysisView
+}
+
+type PerRepoEntry = PerRepoBlameState & {
+  result: AnalysisResult
+  configFingerprint: string
 }
 
 type AnalysisState = {
@@ -49,7 +72,14 @@ type AnalysisState = {
   discoveryCurrentFolder: string | null
   lastDiscoveryOutcome: "none" | "completed" | "cancelled"
 
-  // Result state
+  // Per-repo in-flight status — separate from `repoStates` so errors and
+  // progress surface for repos that have never completed successfully.
+  repoWorkflowStatus: Map<string, AnalysisWorkflowStatus>
+  repoProgress: Map<string, AnalysisProgress | null>
+  repoErrorMessage: Map<string, string | null>
+  repoStates: Map<string, PerRepoEntry>
+
+  // Currently-selected repo flat view (derived from repoStates/repo*)
   result: AnalysisResult | null
   blameResult: BlameResult | null
   blameTargetFiles: string[]
@@ -61,7 +91,7 @@ type AnalysisState = {
   blameConfig: AnalysisBlameConfig
   asOfCommit: string
 
-  // Per-file blame tracking
+  // Per-file blame tracking (currently selected repo)
   blameFileResults: Map<string, FileBlameEntry>
   activeBlameFile: string | null
   blameWorkflowStatus: AnalysisWorkflowStatus
@@ -69,7 +99,7 @@ type AnalysisState = {
   blameErrorMessage: string | null
   blameContextSnapshot: string | null
 
-  // Blame display toggles (client-side only)
+  // Blame display toggles (client-side only, shared across repos)
   blameShowMetadata: boolean
   blameColorize: boolean
   blameSyntaxColorize: boolean
@@ -77,13 +107,13 @@ type AnalysisState = {
   blameHideComments: boolean
   blameVisibleAuthors: Set<string> | null
 
-  // Filter state (post-analysis, client-side)
+  // Filter state (post-analysis, client-side, currently selected repo)
   selectedAuthors: Set<string>
   fileSelectionMode: AnalysisFileSelectionMode
   selectedFiles: Set<string>
   focusedFilePath: string | null
 
-  // Display state
+  // Display state (shared across repos)
   displayMode: AnalysisDisplayMode
   activeView: AnalysisView
   chartMetric: AnalysisActiveMetric
@@ -108,12 +138,29 @@ type AnalysisActions = {
   setDiscoveryCurrentFolder: (folder: string | null) => void
   setLastDiscoveryOutcome: (outcome: "none" | "completed" | "cancelled") => void
 
-  setResult: (result: AnalysisResult | null) => void
+  setResult: (result: AnalysisResult | null, configFingerprint?: string) => void
+  setResultForRepo: (
+    repoPath: string,
+    result: AnalysisResult,
+    configFingerprint: string,
+  ) => void
+  pruneStaleResultsByFingerprint: (currentFingerprint: string) => void
   setBlameResult: (result: BlameResult | null) => void
   openFileForBlame: (path: string) => void
   setWorkflowStatus: (status: AnalysisWorkflowStatus) => void
+  setWorkflowStatusForRepo: (
+    repoPath: string,
+    status: AnalysisWorkflowStatus,
+  ) => void
   setProgress: (progress: AnalysisProgress | null) => void
+  setProgressForRepo: (
+    repoPath: string,
+    progress: AnalysisProgress | null,
+  ) => void
   setErrorMessage: (message: string | null) => void
+  setErrorMessageForRepo: (repoPath: string, message: string | null) => void
+
+  clearAllRepoStates: () => void
 
   // Blame config
   setBlameConfig: (patch: Partial<AnalysisBlameConfig>) => void
@@ -165,6 +212,24 @@ type AnalysisActions = {
   reset: () => void
 }
 
+const DEFAULT_BLAME_STATE: PerRepoBlameState = {
+  blameResult: null,
+  blameTargetFiles: [],
+  blameFileResults: new Map(),
+  activeBlameFile: null,
+  blameWorkflowStatus: "idle",
+  blameProgress: null,
+  blameErrorMessage: null,
+  blameContextSnapshot: null,
+  blameVisibleAuthors: null,
+  asOfCommit: "",
+  selectedAuthors: new Set(),
+  fileSelectionMode: "all",
+  selectedFiles: new Set(),
+  focusedFilePath: null,
+  activeView: "authors",
+}
+
 const initialState: AnalysisState = {
   selectedRepoPath: null,
 
@@ -174,6 +239,11 @@ const initialState: AnalysisState = {
   discoveryError: null,
   discoveryCurrentFolder: null,
   lastDiscoveryOutcome: "none",
+
+  repoWorkflowStatus: new Map(),
+  repoProgress: new Map(),
+  repoErrorMessage: new Map(),
+  repoStates: new Map(),
 
   result: null,
   blameResult: null,
@@ -219,18 +289,113 @@ const initialState: AnalysisState = {
   showAge: false,
 }
 
+/**
+ * Snapshot the currently-selected repo's per-repo state into `repoStates`
+ * so that switching away and back restores it (Phase D1/D2). Updates in
+ * place — the existing entry's `result` and `configFingerprint` are
+ * preserved, only the blame/filter/focus state is captured.
+ */
+function snapshotActiveBlameState(
+  state: AnalysisState,
+): Map<string, PerRepoEntry> {
+  const repoPath = state.selectedRepoPath
+  if (!repoPath) return state.repoStates
+  const existing = state.repoStates.get(repoPath)
+  if (!existing) return state.repoStates
+  const next = new Map(state.repoStates)
+  next.set(repoPath, {
+    ...existing,
+    blameResult: state.blameResult,
+    blameTargetFiles: state.blameTargetFiles,
+    blameFileResults: state.blameFileResults,
+    activeBlameFile: state.activeBlameFile,
+    blameWorkflowStatus: state.blameWorkflowStatus,
+    blameProgress: state.blameProgress,
+    blameErrorMessage: state.blameErrorMessage,
+    blameContextSnapshot: state.blameContextSnapshot,
+    blameVisibleAuthors: state.blameVisibleAuthors,
+    asOfCommit: state.asOfCommit,
+    selectedAuthors: state.selectedAuthors,
+    fileSelectionMode: state.fileSelectionMode,
+    selectedFiles: state.selectedFiles,
+    focusedFilePath: state.focusedFilePath,
+    activeView: state.activeView,
+  })
+  return next
+}
+
 // Abort controllers are coordination primitives, not UI state — kept outside
 // Zustand so components cannot accidentally subscribe to them.
 export const analysisStoreInternals = {
-  analysisAbort: null as AbortController | null,
+  analysisAborts: new Map<string, AbortController>(),
   discoveryAbort: null as AbortController | null,
+  cancelAll(): void {
+    for (const controller of analysisStoreInternals.analysisAborts.values()) {
+      controller.abort()
+    }
+    // Keep handles until each run settles and removes itself. Clearing here
+    // breaks `isCurrentRun()` guards and can leave stale UI status.
+  },
 }
 
 export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
   (set) => ({
     ...initialState,
 
-    setSelectedRepoPath: (path) => set({ selectedRepoPath: path }),
+    setSelectedRepoPath: (path) =>
+      set((state) => {
+        if (state.selectedRepoPath === path) return state
+        const snapshot = snapshotActiveBlameState(state)
+        if (path === null) {
+          return {
+            selectedRepoPath: null,
+            repoStates: snapshot,
+            result: null,
+            workflowStatus: "idle",
+            progress: null,
+            errorMessage: null,
+            ...DEFAULT_BLAME_STATE,
+          }
+        }
+        const nextEntry = snapshot.get(path)
+        const nextStatus = state.repoWorkflowStatus.get(path) ?? "idle"
+        const nextProgress = state.repoProgress.get(path) ?? null
+        const nextError = state.repoErrorMessage.get(path) ?? null
+        if (nextEntry) {
+          return {
+            selectedRepoPath: path,
+            repoStates: snapshot,
+            result: nextEntry.result,
+            workflowStatus: nextStatus,
+            progress: nextProgress,
+            errorMessage: nextError,
+            blameResult: nextEntry.blameResult,
+            blameTargetFiles: nextEntry.blameTargetFiles,
+            blameFileResults: nextEntry.blameFileResults,
+            activeBlameFile: nextEntry.activeBlameFile,
+            blameWorkflowStatus: nextEntry.blameWorkflowStatus,
+            blameProgress: nextEntry.blameProgress,
+            blameErrorMessage: nextEntry.blameErrorMessage,
+            blameContextSnapshot: nextEntry.blameContextSnapshot,
+            blameVisibleAuthors: nextEntry.blameVisibleAuthors,
+            asOfCommit: nextEntry.asOfCommit,
+            selectedAuthors: nextEntry.selectedAuthors,
+            fileSelectionMode: nextEntry.fileSelectionMode,
+            selectedFiles: nextEntry.selectedFiles,
+            focusedFilePath: nextEntry.focusedFilePath,
+            activeView: nextEntry.activeView,
+          }
+        }
+        return {
+          selectedRepoPath: path,
+          repoStates: snapshot,
+          result: null,
+          workflowStatus: nextStatus,
+          progress: nextProgress,
+          errorMessage: nextError,
+          ...DEFAULT_BLAME_STATE,
+        }
+      }),
 
     // Repo discovery
     setSearchDepth: (searchDepth) => set({ searchDepth }),
@@ -242,24 +407,164 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setLastDiscoveryOutcome: (lastDiscoveryOutcome) =>
       set({ lastDiscoveryOutcome }),
 
-    setResult: (result) =>
-      set({
-        result,
-        blameResult: null,
-        blameTargetFiles: result ? result.fileStats.map((f) => f.path) : [],
-        blameFileResults: new Map(),
-        activeBlameFile: null,
-        blameWorkflowStatus: "idle",
-        blameProgress: null,
-        blameErrorMessage: null,
-        blameContextSnapshot: null,
-        selectedAuthors: new Set(),
-        blameVisibleAuthors: null,
-        fileSelectionMode: "all",
-        selectedFiles: new Set(),
-        focusedFilePath: null,
-        asOfCommit: result?.resolvedAsOfOid ?? "",
+    setResult: (result, configFingerprint) =>
+      set((state) => {
+        const repoPath = state.selectedRepoPath
+        const nextFlat = {
+          result,
+          blameResult: null,
+          blameTargetFiles: result ? result.fileStats.map((f) => f.path) : [],
+          blameFileResults: new Map(),
+          activeBlameFile: null,
+          blameWorkflowStatus: "idle" as AnalysisWorkflowStatus,
+          blameProgress: null,
+          blameErrorMessage: null,
+          blameContextSnapshot: null,
+          selectedAuthors: new Set<string>(),
+          blameVisibleAuthors: null,
+          fileSelectionMode: "all" as AnalysisFileSelectionMode,
+          selectedFiles: new Set<string>(),
+          focusedFilePath: null,
+          asOfCommit: result?.resolvedAsOfOid ?? "",
+        }
+        if (!repoPath) {
+          return nextFlat
+        }
+        const repoStates = new Map(state.repoStates)
+        if (result && configFingerprint !== undefined) {
+          repoStates.set(repoPath, {
+            result,
+            configFingerprint,
+            blameResult: null,
+            blameTargetFiles: result.fileStats.map((f) => f.path),
+            blameFileResults: new Map(),
+            activeBlameFile: null,
+            blameWorkflowStatus: "idle",
+            blameProgress: null,
+            blameErrorMessage: null,
+            blameContextSnapshot: null,
+            blameVisibleAuthors: null,
+            asOfCommit: result.resolvedAsOfOid,
+            selectedAuthors: new Set<string>(),
+            fileSelectionMode: "all",
+            selectedFiles: new Set<string>(),
+            focusedFilePath: null,
+            activeView: state.activeView,
+          })
+        } else if (result === null) {
+          repoStates.delete(repoPath)
+        }
+        return { ...nextFlat, repoStates }
       }),
+
+    setResultForRepo: (repoPath, result, configFingerprint) =>
+      set((state) => {
+        const repoStates = new Map(state.repoStates)
+        const previous = state.repoStates.get(repoPath)
+        const preservedActiveView =
+          state.selectedRepoPath === repoPath
+            ? state.activeView
+            : (previous?.activeView ?? "authors")
+        repoStates.set(repoPath, {
+          result,
+          configFingerprint,
+          blameResult: null,
+          blameTargetFiles: result.fileStats.map((f) => f.path),
+          blameFileResults: new Map(),
+          activeBlameFile: null,
+          blameWorkflowStatus: "idle",
+          blameProgress: null,
+          blameErrorMessage: null,
+          blameContextSnapshot: null,
+          blameVisibleAuthors: null,
+          asOfCommit: result.resolvedAsOfOid,
+          selectedAuthors: new Set<string>(),
+          fileSelectionMode: "all",
+          selectedFiles: new Set<string>(),
+          focusedFilePath: null,
+          activeView: preservedActiveView,
+        })
+        // Mirror into flat fields if this is the selected repo.
+        if (state.selectedRepoPath === repoPath) {
+          return {
+            repoStates,
+            result,
+            blameResult: null,
+            blameTargetFiles: result.fileStats.map((f) => f.path),
+            blameFileResults: new Map(),
+            activeBlameFile: null,
+            blameWorkflowStatus: "idle" as AnalysisWorkflowStatus,
+            blameProgress: null,
+            blameErrorMessage: null,
+            blameContextSnapshot: null,
+            selectedAuthors: new Set<string>(),
+            blameVisibleAuthors: null,
+            fileSelectionMode: "all" as AnalysisFileSelectionMode,
+            selectedFiles: new Set<string>(),
+            focusedFilePath: null,
+            asOfCommit: result.resolvedAsOfOid,
+          }
+        }
+        return { repoStates }
+      }),
+
+    pruneStaleResultsByFingerprint: (currentFingerprint) =>
+      set((state) => {
+        let changed = false
+        const next = new Map(state.repoStates)
+        const removedRepoPaths = new Set<string>()
+        for (const [path, entry] of next) {
+          if (entry.configFingerprint !== currentFingerprint) {
+            next.delete(path)
+            removedRepoPaths.add(path)
+            changed = true
+          }
+        }
+        if (!changed) return state
+        const nextRepoWorkflowStatus = new Map(state.repoWorkflowStatus)
+        const nextRepoProgress = new Map(state.repoProgress)
+        const nextRepoErrorMessage = new Map(state.repoErrorMessage)
+        for (const path of removedRepoPaths) {
+          nextRepoWorkflowStatus.delete(path)
+          nextRepoProgress.delete(path)
+          nextRepoErrorMessage.delete(path)
+        }
+        const selectedStillPresent =
+          state.selectedRepoPath !== null && next.has(state.selectedRepoPath)
+        if (selectedStillPresent) {
+          return {
+            repoStates: next,
+            repoWorkflowStatus: nextRepoWorkflowStatus,
+            repoProgress: nextRepoProgress,
+            repoErrorMessage: nextRepoErrorMessage,
+          }
+        }
+        return {
+          selectedRepoPath: null,
+          repoStates: next,
+          repoWorkflowStatus: nextRepoWorkflowStatus,
+          repoProgress: nextRepoProgress,
+          repoErrorMessage: nextRepoErrorMessage,
+          result: null,
+          blameResult: null,
+          blameTargetFiles: [],
+          blameFileResults: new Map(),
+          activeBlameFile: null,
+          blameWorkflowStatus: "idle",
+          blameProgress: null,
+          blameErrorMessage: null,
+          blameContextSnapshot: null,
+          workflowStatus: "idle",
+          progress: null,
+          errorMessage: null,
+          selectedAuthors: new Set(),
+          blameVisibleAuthors: null,
+          fileSelectionMode: "all",
+          selectedFiles: new Set(),
+          focusedFilePath: null,
+        }
+      }),
+
     setBlameResult: (blameResult) => set({ blameResult }),
     openFileForBlame: (path) =>
       set({
@@ -267,9 +572,83 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         focusedFilePath: path,
         activeView: "blame",
       }),
-    setWorkflowStatus: (workflowStatus) => set({ workflowStatus }),
-    setProgress: (progress) => set({ progress }),
-    setErrorMessage: (errorMessage) => set({ errorMessage }),
+    setWorkflowStatus: (workflowStatus) =>
+      set((state) => {
+        const next = new Map(state.repoWorkflowStatus)
+        if (state.selectedRepoPath) {
+          next.set(state.selectedRepoPath, workflowStatus)
+        }
+        return { workflowStatus, repoWorkflowStatus: next }
+      }),
+    setWorkflowStatusForRepo: (repoPath, status) =>
+      set((state) => {
+        const next = new Map(state.repoWorkflowStatus)
+        next.set(repoPath, status)
+        if (state.selectedRepoPath === repoPath) {
+          return { repoWorkflowStatus: next, workflowStatus: status }
+        }
+        return { repoWorkflowStatus: next }
+      }),
+    setProgress: (progress) =>
+      set((state) => {
+        const next = new Map(state.repoProgress)
+        if (state.selectedRepoPath) {
+          next.set(state.selectedRepoPath, progress)
+        }
+        return { progress, repoProgress: next }
+      }),
+    setProgressForRepo: (repoPath, progress) =>
+      set((state) => {
+        const next = new Map(state.repoProgress)
+        next.set(repoPath, progress)
+        if (state.selectedRepoPath === repoPath) {
+          return { repoProgress: next, progress }
+        }
+        return { repoProgress: next }
+      }),
+    setErrorMessage: (errorMessage) =>
+      set((state) => {
+        const next = new Map(state.repoErrorMessage)
+        if (state.selectedRepoPath) {
+          next.set(state.selectedRepoPath, errorMessage)
+        }
+        return { errorMessage, repoErrorMessage: next }
+      }),
+    setErrorMessageForRepo: (repoPath, message) =>
+      set((state) => {
+        const next = new Map(state.repoErrorMessage)
+        next.set(repoPath, message)
+        if (state.selectedRepoPath === repoPath) {
+          return { repoErrorMessage: next, errorMessage: message }
+        }
+        return { repoErrorMessage: next }
+      }),
+
+    clearAllRepoStates: () =>
+      set({
+        selectedRepoPath: null,
+        repoStates: new Map(),
+        repoWorkflowStatus: new Map(),
+        repoProgress: new Map(),
+        repoErrorMessage: new Map(),
+        result: null,
+        blameResult: null,
+        blameTargetFiles: [],
+        blameFileResults: new Map(),
+        activeBlameFile: null,
+        blameWorkflowStatus: "idle",
+        blameProgress: null,
+        blameErrorMessage: null,
+        blameContextSnapshot: null,
+        workflowStatus: "idle",
+        progress: null,
+        errorMessage: null,
+        selectedAuthors: new Set(),
+        blameVisibleAuthors: null,
+        fileSelectionMode: "all",
+        selectedFiles: new Set(),
+        focusedFilePath: null,
+      }),
 
     // Blame config
     setBlameConfig: (patch) =>
@@ -407,9 +786,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
 
     resetAnalysisContext: () => {
-      analysisStoreInternals.analysisAbort?.abort()
+      analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
-      analysisStoreInternals.analysisAbort = null
       analysisStoreInternals.discoveryAbort = null
       set({
         selectedRepoPath: null,
@@ -418,6 +796,10 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         discoveryError: null,
         discoveryCurrentFolder: null,
         lastDiscoveryOutcome: "none",
+        repoStates: new Map(),
+        repoWorkflowStatus: new Map(),
+        repoProgress: new Map(),
+        repoErrorMessage: new Map(),
         result: null,
         blameResult: null,
         blameTargetFiles: [],
@@ -440,9 +822,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     },
 
     reset: () => {
-      analysisStoreInternals.analysisAbort?.abort()
+      analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
-      analysisStoreInternals.analysisAbort = null
       analysisStoreInternals.discoveryAbort = null
       set(initialState)
     },

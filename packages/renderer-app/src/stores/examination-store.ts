@@ -1,4 +1,5 @@
 import type {
+  ExaminationProvenanceDrift,
   ExaminationQuestion,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
@@ -12,21 +13,24 @@ export type ExaminationEntry = {
   usage: ExaminationUsage | null
   errorMessage: string | null
   generatedAt: string | null
+  fromArchive: boolean
+  provenanceDrift: ExaminationProvenanceDrift | null
+  archivedQuestionCount: number | null
 }
 
 type ExaminationState = {
   selectedPersonId: string | null
   questionCount: number
   showAnswers: boolean
-  entriesByPersonId: Map<string, ExaminationEntry>
+  entriesByKey: Map<string, ExaminationEntry>
 }
 
 type ExaminationActions = {
   setSelectedPersonId: (personId: string | null) => void
   setQuestionCount: (count: number) => void
   setShowAnswers: (show: boolean) => void
-  setEntry: (personId: string, entry: ExaminationEntry) => void
-  clearEntry: (personId: string) => void
+  setEntry: (key: string, entry: ExaminationEntry) => void
+  clearEntry: (key: string) => void
   reset: () => void
 }
 
@@ -34,11 +38,11 @@ const initialState: ExaminationState = {
   selectedPersonId: null,
   questionCount: 8,
   showAnswers: false,
-  entriesByPersonId: new Map(),
+  entriesByKey: new Map(),
 }
 
 export const examinationStoreInternals = {
-  abortByPersonId: new Map<string, AbortController>(),
+  abortByEntryKey: new Map<string, AbortController>(),
 }
 
 export const useExaminationStore = create<
@@ -50,24 +54,24 @@ export const useExaminationStore = create<
   setQuestionCount: (questionCount) =>
     set({ questionCount: clampQuestionCount(questionCount) }),
   setShowAnswers: (showAnswers) => set({ showAnswers }),
-  setEntry: (personId, entry) =>
+  setEntry: (key, entry) =>
     set((state) => {
-      const next = new Map(state.entriesByPersonId)
-      next.set(personId, entry)
-      return { entriesByPersonId: next }
+      const next = new Map(state.entriesByKey)
+      next.set(key, entry)
+      return { entriesByKey: next }
     }),
-  clearEntry: (personId) =>
+  clearEntry: (key) =>
     set((state) => {
-      if (!state.entriesByPersonId.has(personId)) return state
-      const next = new Map(state.entriesByPersonId)
-      next.delete(personId)
-      return { entriesByPersonId: next }
+      if (!state.entriesByKey.has(key)) return state
+      const next = new Map(state.entriesByKey)
+      next.delete(key)
+      return { entriesByKey: next }
     }),
   reset: () => {
-    for (const controller of examinationStoreInternals.abortByPersonId.values()) {
+    for (const controller of examinationStoreInternals.abortByEntryKey.values()) {
       controller.abort()
     }
-    examinationStoreInternals.abortByPersonId.clear()
+    examinationStoreInternals.abortByEntryKey.clear()
     set(initialState)
   },
 }))

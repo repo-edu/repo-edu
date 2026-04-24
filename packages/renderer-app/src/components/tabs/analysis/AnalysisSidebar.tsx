@@ -230,6 +230,9 @@ export function AnalysisSidebar() {
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
+  const filesPerRepo = useAppSettingsStore(
+    (s) => s.settings.analysisConcurrency.filesPerRepo,
+  )
   const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
   const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
   const saveAppSettings = useAppSettingsStore((s) => s.save)
@@ -459,7 +462,7 @@ export function AnalysisSidebar() {
         const nextConfig: AnalysisConfig = resolveCourseAnalysisConfig(
           nextCourse,
           defaultExtensions,
-          1,
+          filesPerRepo,
         )
         void runAnalysis(selectedRepoPath, nextConfig)
       }
@@ -467,6 +470,7 @@ export function AnalysisSidebar() {
     [
       course,
       defaultExtensions,
+      filesPerRepo,
       runAnalysis,
       selectedRepoPath,
       setAnalysisInputs,

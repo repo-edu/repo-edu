@@ -2,11 +2,13 @@ import {
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
+  createExaminationArchiveWorkflowHandlers,
   createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
+  createInMemoryExaminationArchive,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
@@ -380,20 +382,32 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       gitCommand: gitCommandPort,
       fileSystem: fileSystemPort,
     }),
-    ...createExaminationWorkflowHandlers({
-      llm: {
-        async run() {
-          throw {
-            type: "provider",
-            message:
-              "LLM calls are not available in the docs demo. Run the desktop app to generate examination questions.",
-            provider: "llm",
-            operation: "examination.generateQuestions",
-            retryable: false,
-          } satisfies AppError
-        },
-      },
-    }),
+    ...(() => {
+      const archive = createInMemoryExaminationArchive()
+      return {
+        ...createExaminationWorkflowHandlers({
+          llm: {
+            async run() {
+              throw {
+                type: "provider",
+                message:
+                  "LLM calls are not available in the docs demo. Run the desktop app to generate examination questions.",
+                provider: "llm",
+                operation: "examination.generateQuestions",
+                retryable: false,
+              } satisfies AppError
+            },
+          },
+          archive,
+        }),
+        ...createExaminationArchiveWorkflowHandlers({
+          archive,
+          userFile: browserMockHost.userFilePort,
+        }),
+      }
+    })(),
+    "cache.getStats": async () => ({ caches: [] }),
+    "cache.clearAll": async () => ({ cleared: [] }),
     "userFile.inspectSelection": (
       input: UserFileRef,
       options: Parameters<typeof runInspectUserFileWorkflow>[2],

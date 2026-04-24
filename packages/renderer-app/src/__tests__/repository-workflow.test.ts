@@ -69,6 +69,10 @@ const appSettings: PersistedAppSettings = {
   analysisDetailListSize: null,
   analysisSidebar: null,
   defaultExtensions: [],
+  cacheEnabled: true,
+  cacheSizeBudgetMB: { analysisMB: 5000, blameMB: 10000 },
+  cacheHotBudgetMB: { analysisMB: 200, blameMB: 500 },
+  analysisConcurrency: { repoParallelism: 3, filesPerRepo: 1 },
 }
 
 describe("repository workflow helpers", () => {

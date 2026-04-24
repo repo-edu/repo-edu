@@ -26,6 +26,8 @@ import type {
   ValidationIssue,
 } from "@repo-edu/domain/types"
 import type {
+  ExaminationArchiveKey,
+  ExaminationArchiveImportSummary as HostExaminationArchiveImportSummary,
   UserFileRef,
   UserSaveTargetRef,
 } from "@repo-edu/host-runtime-contract"
@@ -458,11 +460,21 @@ export type ExaminationCodeExcerpt = {
 }
 
 export type ExaminationGenerateQuestionsInput = {
+  groupSetId: string
+  memberId: string
+  commitOid: string
+  repoGitDir: string
   memberName: string
   memberEmail: string
   excerpts: ExaminationCodeExcerpt[]
   questionCount: number
   assignmentContext?: string
+  /**
+   * When true, skip the archive read and always call the LLM. The fresh
+   * result overwrites any matching archived entry on success. Errors never
+   * populate the archive. Graders trigger this via a "Regenerate" action.
+   */
+  regenerate?: boolean
 }
 
 export type ExaminationLineRange = {
@@ -483,9 +495,82 @@ export type ExaminationUsage = {
   wallMs: number
 }
 
+export type ExaminationProvenanceFieldDrift<T> = {
+  from: T
+  to: T
+} | null
+
+export type ExaminationProvenanceDrift = {
+  memberNameChanged: ExaminationProvenanceFieldDrift<string>
+  memberEmailChanged: ExaminationProvenanceFieldDrift<string>
+  repoGitDirChanged: ExaminationProvenanceFieldDrift<string>
+  assignmentContextChanged: ExaminationProvenanceFieldDrift<string>
+  modelChanged: ExaminationProvenanceFieldDrift<string>
+  effortChanged: ExaminationProvenanceFieldDrift<string>
+}
+
+export type ExaminationArchivedProvenance = {
+  memberName: string
+  memberEmail: string
+  repoGitDir: string
+  assignmentContext: string | null
+  model: string
+  effort: string
+  questionCount: number
+  usage: ExaminationUsage
+  createdAtMs: number
+  excerpts: ExaminationCodeExcerpt[]
+}
+
 export type ExaminationGenerateQuestionsResult = {
   questions: ExaminationQuestion[]
   usage: ExaminationUsage
+  fromArchive: boolean
+  archivedProvenance: ExaminationArchivedProvenance
+  provenanceDrift: ExaminationProvenanceDrift | null
+}
+
+export type { ExaminationArchiveKey }
+
+export type ExaminationArchiveRecord = {
+  key: ExaminationArchiveKey
+  questions: ExaminationQuestion[]
+  provenance: ExaminationArchivedProvenance
+}
+
+export const EXAMINATION_ARCHIVE_BUNDLE_FORMAT =
+  "repo-edu-examination-archive" as const
+export const EXAMINATION_ARCHIVE_BUNDLE_VERSION = 1 as const
+
+export type ExaminationArchiveBundle = {
+  format: typeof EXAMINATION_ARCHIVE_BUNDLE_FORMAT
+  bundleVersion: typeof EXAMINATION_ARCHIVE_BUNDLE_VERSION
+  exportedAt: string
+  records: ExaminationArchiveRecord[]
+}
+
+export type ExaminationArchiveExportResult = {
+  file: UserSaveTargetRef
+  recordCount: number
+}
+
+export type ExaminationArchiveImportSummary =
+  HostExaminationArchiveImportSummary
+
+export type CacheTypeId = "analysis" | "blame"
+
+export type CacheTypeStats = {
+  type: CacheTypeId
+  coldBytes: number
+  coldEntries: number
+}
+
+export type CacheStatsResult = {
+  caches: CacheTypeStats[]
+}
+
+export type CacheClearAllResult = {
+  cleared: CacheTypeId[]
 }
 
 export type WorkflowPayloads = {
@@ -681,6 +766,30 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: ExaminationGenerateQuestionsResult
   }
+  "examination.archive.export": {
+    input: UserSaveTargetRef
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationArchiveExportResult
+  }
+  "examination.archive.import": {
+    input: UserFileRef
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationArchiveImportSummary
+  }
+  "cache.getStats": {
+    input: undefined
+    progress: never
+    output: never
+    result: CacheStatsResult
+  }
+  "cache.clearAll": {
+    input: undefined
+    progress: never
+    output: never
+    result: CacheClearAllResult
+  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -849,6 +958,26 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",
+  },
+  "examination.archive.export": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "examination.archive.import": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "cache.getStats": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "non-cancellable",
+  },
+  "cache.clearAll": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "non-cancellable",
   },
 }
 
