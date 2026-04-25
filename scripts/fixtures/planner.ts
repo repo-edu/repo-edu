@@ -5,21 +5,21 @@ import { type ModelName, REPO_ROOT, STUDENT_REPOS } from "./constants"
 import { fail } from "./log"
 import type { CommitKind, Plan } from "./plan-md"
 import type { Project } from "./project-md"
-import { loadPrompt } from "./prompt-loader"
+import { loadPrompt, loadSection } from "./prompt-loader"
 
 export interface ProjectGenOpts {
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
   complexity: number
-  coderLevel: number
 }
 
 export interface PlanGenOpts {
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
+  aiCoders: boolean
   rounds: number
   students: number
-  coderLevel: number
+  coderInteraction: number
 }
 
 function today(): string {
@@ -47,10 +47,20 @@ function stripJsonFences(text: string): string {
     .trim()
 }
 
+function parseJsonOrFail<T>(reply: string, label: string): T {
+  const stripped = stripJsonFences(reply)
+  try {
+    return JSON.parse(stripped) as T
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    const snippet =
+      stripped.length > 400 ? `${stripped.slice(0, 400)}…` : stripped
+    fail(`${label}: invalid JSON (${detail})\n--- agent reply ---\n${snippet}`)
+  }
+}
+
 function projectPrompt(opts: ProjectGenOpts, existing: string[]): string {
-  const template =
-    opts.coderLevel === 0 ? "planner/project-l0" : "planner/project"
-  return loadPrompt(template, {
+  return loadPrompt("planner/project", {
     complexity: String(opts.complexity),
     today: today(),
     existing_dirs: JSON.stringify(existing),
@@ -65,7 +75,11 @@ function planPrompt(
   const sequenceLines = kindSequence
     .map((kind, i) => `${i + 1}. ${kind}`)
     .join("\n")
-  const template = opts.coderLevel === 0 ? "planner/plan-l0" : "planner/plan"
+  const template = opts.aiCoders ? "planner/plan-l0" : "planner/plan"
+  const interactionGuidance =
+    opts.students === 1
+      ? loadSection("planner/interaction", "solo")
+      : loadSection("planner/interaction", String(opts.coderInteraction))
   const ctx: Record<string, string> = {
     project_name: project.name,
     assignment: project.assignment,
@@ -75,8 +89,9 @@ function planPrompt(
     kind_sequence: sequenceLines,
     students: String(opts.students),
     today: today(),
+    interaction_guidance: interactionGuidance,
   }
-  if (opts.coderLevel !== 0) ctx.max_author = String(opts.students - 1)
+  if (!opts.aiCoders) ctx.max_author = String(opts.students - 1)
   return loadPrompt(template, ctx)
 }
 
@@ -134,10 +149,10 @@ export async function generateProject(
     allowedTools: [],
     permissionMode: "bypassPermissions",
   })
-  const parsed = JSON.parse(stripJsonFences(reply)) as Omit<
-    Project,
-    "complexity"
-  >
+  const parsed = parseJsonOrFail<Omit<Project, "complexity">>(
+    reply,
+    "planner project reply",
+  )
   const project: Project = { ...parsed, complexity: opts.complexity }
   validateProject(project, opts.complexity)
   return { project, usage }
@@ -157,7 +172,7 @@ export async function generatePlan(
     allowedTools: [],
     permissionMode: "bypassPermissions",
   })
-  const plan = JSON.parse(stripJsonFences(reply)) as Plan
+  const plan = parseJsonOrFail<Plan>(reply, "planner plan reply")
   validatePlan(plan, opts.students, kindSequence)
   return { plan, usage }
 }

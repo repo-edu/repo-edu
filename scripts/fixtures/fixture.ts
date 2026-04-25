@@ -9,16 +9,22 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
+import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import type { Usage } from "./agent"
 import {
-  type AllOpts,
   type PlanOpts,
   type ProjectOpts,
   parseArgs,
   type RepoOpts,
 } from "./cli"
 import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
-import { LOG_BASENAME, STALE_FILES, STUDENT_REPOS } from "./constants"
+import {
+  LOG_BASENAME,
+  type ModelName,
+  STALE_FILES,
+  STUDENT_REPOS,
+  TRACE_BASENAME,
+} from "./constants"
 import { emit, fail, formatSeconds, setEmitState, withTicker } from "./log"
 import {
   formatSpec,
@@ -58,8 +64,10 @@ function setupRun(verbosity: number): void {
     rmSync(resolve(STUDENT_REPOS, name), { force: true })
   }
   const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
+  const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
   writeFileSync(logPath, "")
-  setEmitState(verbosity, logPath)
+  writeFileSync(tracePath, "")
+  setEmitState(verbosity, logPath, tracePath)
 }
 
 function projectDir(project: Project): string {
@@ -116,18 +124,17 @@ function archivePlan(
   plan: Plan,
   opts: PlanNameOpts,
   projectFile: string,
-  coderLevel: number,
   reviewFrequency: number,
 ): string {
   const meta: PlanMeta = {
     project: project.name,
     projectFile,
     planner: formatSpec(opts.plannerModel, opts.plannerEffort),
+    aiCoders: opts.aiCoders,
     rounds: opts.rounds,
     students: opts.students,
     reviewFrequency,
-    interaction: opts.interaction,
-    coderLevel,
+    coderInteraction: opts.coderInteraction,
   }
   const dir = projectDir(project)
   mkdirSync(dir, { recursive: true })
@@ -147,7 +154,6 @@ function emitPlan(
   plan: Plan,
   opts: PlanNameOpts,
   projectFile: string,
-  coderLevel: number,
   reviewFrequency: number,
 ): void {
   emit(
@@ -157,11 +163,11 @@ function emitPlan(
         project: project.name,
         projectFile,
         planner: formatSpec(opts.plannerModel, opts.plannerEffort),
+        aiCoders: opts.aiCoders,
         rounds: opts.rounds,
         students: opts.students,
         reviewFrequency,
-        interaction: opts.interaction,
-        coderLevel,
+        coderInteraction: opts.coderInteraction,
       },
       plan,
     }),
@@ -227,26 +233,24 @@ async function runCoderStage(
   planMeta: {
     rounds: number
     students: number
-    interaction: number
     reviewFrequency: number
   },
   coderOpts: CoderRunOpts & {
-    plannerModel: RepoNameOpts["plannerModel"]
-    plannerEffort: RepoNameOpts["plannerEffort"]
+    plannerModel: ModelName
+    plannerEffort: EffortLevel | "none"
   },
   runStart: number,
   plannerUsage: Usage,
 ): Promise<void> {
   const nameOpts: RepoNameOpts = {
-    plannerModel: coderOpts.plannerModel,
-    plannerEffort: coderOpts.plannerEffort,
     coderModel: coderOpts.coderModel,
     coderEffort: coderOpts.coderEffort,
-    coderLevel: coderOpts.coderLevel,
+    aiCoders: coderOpts.aiCoders,
+    coderExperience: coderOpts.coderExperience,
+    reviewFrequency: planMeta.reviewFrequency,
     complexity: project.complexity,
     students: planMeta.students,
     rounds: planMeta.rounds,
-    interaction: planMeta.interaction,
   }
   const parentDir = projectDir(project)
   mkdirSync(parentDir, { recursive: true })
@@ -315,25 +319,18 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
   const planNameOpts: PlanNameOpts = {
     plannerModel: opts.plannerModel,
     plannerEffort: opts.plannerEffort,
+    aiCoders: opts.aiCoders,
     complexity: project.complexity,
     students: opts.students,
     rounds: opts.rounds,
-    interaction: opts.interaction,
+    coderInteraction: opts.coderInteraction,
   }
-  emitPlan(
-    project,
-    plan,
-    planNameOpts,
-    projectFile,
-    opts.coderLevel,
-    opts.reviewFrequency,
-  )
+  emitPlan(project, plan, planNameOpts, projectFile, opts.reviewFrequency)
   const archivePath = archivePlan(
     project,
     plan,
     planNameOpts,
     projectFile,
-    opts.coderLevel,
     opts.reviewFrequency,
   )
   const runMs = Date.now() - runStart
@@ -355,28 +352,17 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   process.stderr.write(
     `fixture: loaded plan for project "${project.name}" from ${fromPath}\n`,
   )
-  if (opts.coderLevel !== meta.coderLevel) {
-    fail(
-      `repo --coder-level=${opts.coderLevel} does not match plan coder-level=${meta.coderLevel}; pass -l ${meta.coderLevel} or regenerate the plan`,
-    )
-  }
   const planner = parseSpec(meta.planner)
   const planNameOpts: PlanNameOpts = {
     plannerModel: planner.model,
     plannerEffort: planner.effort,
+    aiCoders: meta.aiCoders,
     complexity: project.complexity,
     students: meta.students,
     rounds: meta.rounds,
-    interaction: meta.interaction,
+    coderInteraction: meta.coderInteraction,
   }
-  emitPlan(
-    project,
-    plan,
-    planNameOpts,
-    meta.projectFile,
-    meta.coderLevel,
-    meta.reviewFrequency,
-  )
+  emitPlan(project, plan, planNameOpts, meta.projectFile, meta.reviewFrequency)
   const zero: Usage = { input_tokens: 0, output_tokens: 0, wall_ms: 0 }
   await runCoderStage(
     project,
@@ -384,83 +370,20 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     {
       rounds: meta.rounds,
       students: meta.students,
-      interaction: meta.interaction,
       reviewFrequency: meta.reviewFrequency,
     },
     {
       coderModel: opts.coderModel,
       coderEffort: opts.coderEffort,
-      coderLevel: opts.coderLevel,
+      aiCoders: meta.aiCoders,
+      coderExperience: opts.coderExperience,
       comments: opts.comments,
       students: meta.students,
-      interaction: meta.interaction,
       plannerModel: planner.model,
       plannerEffort: planner.effort,
     },
     runStart,
     zero,
-  )
-}
-
-async function handleAll(opts: AllOpts, runStart: number): Promise<void> {
-  const projectRes = await produceProject(opts, runStart)
-  const project = projectRes.project
-  const projectFile = archiveProject(project)
-
-  const planRes = await producePlan(project, opts, runStart)
-  const plan = planRes.plan
-
-  const planNameOpts: PlanNameOpts = {
-    plannerModel: opts.plannerModel,
-    plannerEffort: opts.plannerEffort,
-    complexity: project.complexity,
-    students: opts.students,
-    rounds: opts.rounds,
-    interaction: opts.interaction,
-  }
-  emitPlan(
-    project,
-    plan,
-    planNameOpts,
-    projectFile,
-    opts.coderLevel,
-    opts.reviewFrequency,
-  )
-  archivePlan(
-    project,
-    plan,
-    planNameOpts,
-    projectFile,
-    opts.coderLevel,
-    opts.reviewFrequency,
-  )
-
-  const plannerUsage: Usage = {
-    input_tokens: projectRes.usage.input_tokens + planRes.usage.input_tokens,
-    output_tokens: projectRes.usage.output_tokens + planRes.usage.output_tokens,
-    wall_ms: projectRes.usage.wall_ms + planRes.usage.wall_ms,
-  }
-  await runCoderStage(
-    project,
-    plan,
-    {
-      rounds: opts.rounds,
-      students: opts.students,
-      interaction: opts.interaction,
-      reviewFrequency: opts.reviewFrequency,
-    },
-    {
-      coderModel: opts.coderModel,
-      coderEffort: opts.coderEffort,
-      coderLevel: opts.coderLevel,
-      comments: opts.comments,
-      students: opts.students,
-      interaction: opts.interaction,
-      plannerModel: opts.plannerModel,
-      plannerEffort: opts.plannerEffort,
-    },
-    runStart,
-    plannerUsage,
   )
 }
 
@@ -477,9 +400,6 @@ async function main(): Promise<void> {
       break
     case "repo":
       await handleRepo(opts, runStart)
-      break
-    case "all":
-      await handleAll(opts, runStart)
       break
   }
 }

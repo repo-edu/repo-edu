@@ -10,6 +10,8 @@ fits a single focused commit and note what you deferred in your reply.
 
 Edit the files and make it work.
 
+{{comments_directive}}
+
 When you're done, stage and commit with:
 
 ```bash

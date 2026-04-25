@@ -4,8 +4,6 @@ I'm {{persona_name}} <{{persona_email}}>, working on a Python assignment
 Please read `{{coder_agreement_path}}` first — it's the working agreement
 we all share.
 
-{{ownership_directive}}
-
 Right now I want to {{round_goal}}.
 
 If that goal bundles multiple unrelated changes (e.g. "add X and expand
@@ -14,7 +12,7 @@ single focused commit and note in your reply what you deferred.
 
 Please edit the files and make it work.
 
-Code style: {{coder_level_rules}}
+Code style: {{coder_experience_rules}}
 
 {{comments_directive}}
 

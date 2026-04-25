@@ -1,25 +1,26 @@
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import {
-  DEFAULT_CODER_LEVEL,
+  DEFAULT_AI_CODERS,
+  DEFAULT_CODER_EXPERIENCE,
+  DEFAULT_CODER_INTERACTION,
   DEFAULT_COMMENTS,
   DEFAULT_COMPLEXITY,
-  DEFAULT_INTERACTION,
   DEFAULT_MC,
   DEFAULT_MP,
   DEFAULT_REVIEW_FREQUENCY,
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
-  MAX_CODER_LEVEL,
+  MAX_CODER_EXPERIENCE,
+  MAX_CODER_INTERACTION,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
-  MAX_INTERACTION,
   MAX_REVIEW_FREQUENCY,
   MAX_STUDENTS,
-  MIN_CODER_LEVEL,
+  MIN_CODER_EXPERIENCE,
+  MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
-  MIN_INTERACTION,
   MIN_REVIEW_FREQUENCY,
   MIN_STUDENTS,
   STUDENT_REPOS,
@@ -32,27 +33,29 @@ export const FIXTURE_DEFAULTS_FILE = resolve(
 )
 
 export interface Defaults {
+  mp: string
+  mc: string
+  aiCoders: boolean
+  coderExperience: number
+  coderInteraction: number
   complexity: number
   students: number
   rounds: number
-  coderLevel: number
   comments: number
-  interaction: number
   reviewFrequency: number
-  mp: string
-  mc: string
 }
 
 export const HARDCODED_DEFAULTS: Defaults = {
+  mp: DEFAULT_MP,
+  mc: DEFAULT_MC,
+  aiCoders: DEFAULT_AI_CODERS,
+  coderExperience: DEFAULT_CODER_EXPERIENCE,
+  coderInteraction: DEFAULT_CODER_INTERACTION,
   complexity: DEFAULT_COMPLEXITY,
   students: DEFAULT_STUDENTS,
   rounds: DEFAULT_ROUNDS,
-  coderLevel: DEFAULT_CODER_LEVEL,
   comments: DEFAULT_COMMENTS,
-  interaction: DEFAULT_INTERACTION,
   reviewFrequency: DEFAULT_REVIEW_FREQUENCY,
-  mp: DEFAULT_MP,
-  mc: DEFAULT_MC,
 }
 
 interface Spec {
@@ -60,20 +63,24 @@ interface Spec {
   max: number
 }
 
-const NUMERIC_SPECS: Record<keyof Omit<Defaults, "mp" | "mc">, Spec> = {
+const NUMERIC_SPECS: Record<
+  keyof Omit<Defaults, "mp" | "mc" | "aiCoders">,
+  Spec
+> = {
+  coderExperience: { min: MIN_CODER_EXPERIENCE, max: MAX_CODER_EXPERIENCE },
+  coderInteraction: { min: MIN_CODER_INTERACTION, max: MAX_CODER_INTERACTION },
   complexity: { min: MIN_COMPLEXITY, max: MAX_COMPLEXITY },
   students: { min: MIN_STUDENTS, max: MAX_STUDENTS },
   rounds: { min: 1, max: Number.MAX_SAFE_INTEGER },
-  coderLevel: { min: MIN_CODER_LEVEL, max: MAX_CODER_LEVEL },
   comments: { min: MIN_COMMENTS, max: MAX_COMMENTS },
-  interaction: { min: MIN_INTERACTION, max: MAX_INTERACTION },
   reviewFrequency: { min: MIN_REVIEW_FREQUENCY, max: MAX_REVIEW_FREQUENCY },
 }
 
 const KNOWN_KEYS = new Set<keyof Defaults>([
-  ...(Object.keys(NUMERIC_SPECS) as (keyof Defaults)[]),
   "mp",
   "mc",
+  "aiCoders",
+  ...(Object.keys(NUMERIC_SPECS) as (keyof Defaults)[]),
 ])
 
 function parseFile(): Partial<Defaults> {
@@ -127,6 +134,14 @@ function parseFile(): Partial<Defaults> {
       )
     }
     out[key] = v
+  }
+  if (obj.aiCoders !== undefined) {
+    if (typeof obj.aiCoders !== "boolean") {
+      fail(
+        `${FIXTURE_DEFAULTS_FILE}: "aiCoders" must be a boolean, got ${JSON.stringify(obj.aiCoders)}`,
+      )
+    }
+    out.aiCoders = obj.aiCoders
   }
 
   return out

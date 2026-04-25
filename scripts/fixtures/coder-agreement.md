@@ -20,8 +20,9 @@ don't let every commit collapse into editing the same single file.
 - One logical change per commit.
 - Stage and commit with the exact author/date the prompt gives you.
 - Don't commit `.venv/`, `__pycache__/`, `.pytest_cache/`, `.DS_Store`,
-  or editor/IDE files. If no `.gitignore` is present when you first touch
-  the repo, add one covering these paths.
+  or editor/IDE files. The repo already has a `.gitignore` for
+  fixture-system files; extend it to cover these Python paths if they're
+  not yet listed.
 
 ## Review rounds
 

@@ -10,7 +10,9 @@ and what goal to work toward.
 - One logical change per commit.
 - Stage and commit with the exact author/date the prompt gives you.
 - Don't commit `.venv/`, `__pycache__/`, `.pytest_cache/`, `.DS_Store`,
-  or editor/IDE files. Add a `.gitignore` covering these if none exists.
+  or editor/IDE files. The repo already has a `.gitignore` for
+  fixture-system files; extend it to cover these Python paths if they're
+  not yet listed.
 
 ## Review rounds
 

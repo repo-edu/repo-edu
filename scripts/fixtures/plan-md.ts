@@ -24,11 +24,11 @@ export interface PlanMeta {
   project: string
   projectFile: string
   planner: string
+  aiCoders: boolean
   rounds: number
   students: number
   reviewFrequency: number
-  interaction: number
-  coderLevel: number
+  coderInteraction: number
 }
 
 export interface PlanFile {
@@ -42,11 +42,11 @@ export function planToMarkdown(file: PlanFile): string {
   lines.push(`# ${meta.project}`, "")
   lines.push(`Project-file: ${meta.projectFile}`)
   lines.push(`Planner: ${meta.planner}`)
+  lines.push(`Ai-coders: ${meta.aiCoders}`)
   lines.push(`Rounds: ${meta.rounds}`)
   lines.push(`Students: ${meta.students}`)
   lines.push(`Review-frequency: ${meta.reviewFrequency}`)
-  lines.push(`Interaction: ${meta.interaction}`)
-  lines.push(`Coder-level: ${meta.coderLevel}`)
+  lines.push(`Coder-interaction: ${meta.coderInteraction}`)
   lines.push("", "## Team", "")
   plan.team.forEach((m, i) => {
     lines.push(
@@ -94,6 +94,12 @@ export function markdownToPlan(md: string): PlanFile {
       case "Planner":
         meta.planner = value
         break
+      case "Ai-coders":
+        if (value !== "true" && value !== "false") {
+          throw new Error(`Ai-coders must be true|false, got: ${value}`)
+        }
+        meta.aiCoders = value === "true"
+        break
       case "Students":
         meta.students = Number(value)
         break
@@ -103,11 +109,8 @@ export function markdownToPlan(md: string): PlanFile {
       case "Review-frequency":
         meta.reviewFrequency = Number(value)
         break
-      case "Interaction":
-        meta.interaction = Number(value)
-        break
-      case "Coder-level":
-        meta.coderLevel = Number(value)
+      case "Coder-interaction":
+        meta.coderInteraction = Number(value)
         break
       default:
         throw new Error(`unknown plan meta key: ${key}`)
@@ -117,14 +120,14 @@ export function markdownToPlan(md: string): PlanFile {
   if (
     meta.projectFile === undefined ||
     meta.planner === undefined ||
+    meta.aiCoders === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
     meta.reviewFrequency === undefined ||
-    meta.interaction === undefined ||
-    meta.coderLevel === undefined
+    meta.coderInteraction === undefined
   ) {
     throw new Error(
-      "missing plan meta fields (need Project-file, Planner, Students, Rounds, Review-frequency, Interaction, Coder-level)",
+      "missing plan meta fields (need Project-file, Planner, Ai-coders, Students, Rounds, Review-frequency, Coder-interaction)",
     )
   }
 

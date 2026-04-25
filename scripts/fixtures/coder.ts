@@ -19,10 +19,10 @@ import { loadPrompt, loadSection } from "./prompt-loader"
 export interface CoderRunOpts {
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
-  coderLevel: number
+  aiCoders: boolean
+  coderExperience: number
   comments: number
   students: number
-  interaction: number
 }
 
 export interface RoundRecord {
@@ -55,8 +55,12 @@ function composeCoderPrompt(
   absPath: string,
 ): string {
   const persona = plan.team[commit.author_index]
+  const commentsDirective =
+    opts.comments === COMMENTS_FREE_TIER
+      ? ""
+      : loadSection("coder/comments", String(opts.comments))
 
-  if (opts.coderLevel === 0) {
+  if (opts.aiCoders) {
     return loadPrompt(
       commit.kind === "review" ? "coder/review-l0" : "coder/build-l0",
       {
@@ -66,24 +70,16 @@ function composeCoderPrompt(
         abs_path: absPath,
         coder_agreement_path: CODER_AGREEMENT_L0,
         round_goal: commit.note,
+        comments_directive: commentsDirective,
         commit_date: commit.date,
       },
     )
   }
 
-  const coderLevelRules = loadSection("coder/level", String(opts.coderLevel))
-  const commentsDirective =
-    opts.comments === COMMENTS_FREE_TIER
-      ? ""
-      : loadSection("coder/comments", String(opts.comments))
-
-  const ownershipDirective =
-    opts.students === 1
-      ? loadSection("coder/interaction", "solo")
-      : loadSection("coder/interaction", String(opts.interaction), {
-          area: persona.area,
-          module: persona.module,
-        })
+  const coderExperienceRules = loadSection(
+    "coder/experience",
+    String(opts.coderExperience),
+  )
 
   const ctx: Record<string, string> = {
     persona_name: persona.name,
@@ -92,9 +88,8 @@ function composeCoderPrompt(
     assignment: project.assignment,
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
-    ownership_directive: ownershipDirective,
     round_goal: commit.note,
-    coder_level_rules: coderLevelRules,
+    coder_experience_rules: coderExperienceRules,
     comments_directive: commentsDirective,
     commit_date: commit.date,
   }
@@ -128,7 +123,7 @@ export async function runCoderLoop(
 ): Promise<State> {
   const state: State = { commit_index: 0, rounds: [], stopped: false }
   const coderPersona = loadPrompt(
-    opts.coderLevel === 0 ? "coder/persona-l0" : "coder/persona",
+    opts.aiCoders ? "coder/persona-l0" : "coder/persona",
   ).trim()
 
   let sigintCount = 0

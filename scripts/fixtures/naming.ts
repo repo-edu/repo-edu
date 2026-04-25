@@ -6,16 +6,22 @@ import { EFFORT_DIGIT, MODEL_DIGIT, type ModelName } from "./constants"
 export interface PlanNameOpts {
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
+  aiCoders: boolean
   complexity: number
   students: number
   rounds: number
-  interaction: number
+  coderInteraction: number
 }
 
-export interface RepoNameOpts extends PlanNameOpts {
+export interface RepoNameOpts {
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
-  coderLevel: number
+  aiCoders: boolean
+  coderExperience: number
+  reviewFrequency: number
+  complexity: number
+  students: number
+  rounds: number
 }
 
 export function modelCode(
@@ -47,26 +53,26 @@ export function parseSpec(spec: string): {
 }
 
 export function planPostfix(opts: PlanNameOpts): string {
-  const parts = [
-    `mp${modelCode(opts.plannerModel, opts.plannerEffort)}`,
+  const parts: string[] = []
+  if (opts.aiCoders) parts.push("ai")
+  parts.push(
     `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
-    `i${opts.interaction}`,
-  ]
+    `i${opts.coderInteraction}`,
+  )
   return parts.join("-")
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  const parts = [
-    `mp${modelCode(opts.plannerModel, opts.plannerEffort)}`,
-    `mc${modelCode(opts.coderModel, opts.coderEffort)}`,
-    `l${opts.coderLevel}`,
+  const parts = [`m${modelCode(opts.coderModel, opts.coderEffort)}`]
+  parts.push(opts.aiCoders ? "ai" : `x${opts.coderExperience}`)
+  parts.push(
+    `f${opts.reviewFrequency}`,
     `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
-    `i${opts.interaction}`,
-  ]
+  )
   return parts.join("-")
 }
 

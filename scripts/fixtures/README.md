@@ -46,28 +46,35 @@ and the generated repos:
 
 The postfixes encode run parameters:
 
-- plan: `mp<code>-c<N>-s<N>-r<N>-i<N>`
-- repo: `mp<code>-mc<code>-l<N>-c<N>-s<N>-r<N>-i<N>`
+- plan: `[ai-]c<N>-s<N>-r<N>-i<N>`
+- repo: `m<code>-{x<N>|ai}-f<N>-c<N>-s<N>-r<N>`
 
-`i<N>` is the interaction level: it governs cross-module editing only
-(1 = stay in your module, 2 = moderate cross-module work, 3 =
-frequent cross-module work). Review-commit frequency is independent —
-set it with `-f / --review-frequency` (percent, 0-100). `-i` is
-ignored at `-l 0`; `-f` applies at every level.
+`i<N>` is the coder-interaction level — a planner concern that shapes
+how the planner mixes `author_index` across modules (1 = each module
+has a primary owner, 2 = moderate cross-module mixing, 3 = constant
+cross-module mixing). `x<N>` is the coder-experience level — a coder
+concern that picks a code-style tier. Review-commit frequency is
+independent (`-f / --review-frequency`, percent 0-100) and is sampled
+into the plan's kind sequence by the planner.
 
-`-l 0` switches the whole pipeline into **AI-coders mode**: the planner
-and coder prompts drop all student-team framing, and quality differences
-come from model choice (`--mp` / `--mc`) instead. L0 prompts live in
-bespoke files (`planner/project-l0.md`, `planner/plan-l0.md`,
-`coder/build-l0.md`, `coder/review-l0.md`, `coder/persona-l0.md`,
-`coder-agreement-l0.md`) to keep the L1-4 prompts unchanged. `-i` and
-`--comments` are silently ignored at L0. The `repo` stage requires
-`-l 0` when the plan was generated at L0 (the plan meta records
-`Coder-level:`), and vice versa.
+`--ai-coders` (`-a`) on `plan` switches into **AI-coders mode**: the
+planner drops student-team framing, and downstream the coder runs
+without an experience tier. AI-mode prompts live in bespoke files
+(`planner/plan-l0.md`, `coder/build-l0.md`, `coder/review-l0.md`,
+`coder/persona-l0.md`, `coder-agreement-l0.md`) to keep the
+student-mode prompts unchanged. `-x` on `repo` is silently ignored when
+the plan is in AI-coders mode (experience tiers simulate student-skill
+levels, which don't apply to AI coders). `--comments` still applies in
+both modes — it's a pure output-style knob. The `project` subcommand
+is mode-agnostic — its output is the same regardless. The `repo` stage
+reads the mode from the plan's `Ai-coders:` meta line; it has no
+`--ai-coders` flag of its own.
 
-Per-run scratch files (`_state.json`, `_review.md`, `_log.md`) are
-written at the `../student-repos/` root, cleared at the start of each
-subsequent run, and copied into the finished repo.
+Per-run scratch files (`_state.json`, `_review.md`, `_log.md`,
+`_trace.md`) are written at the `../student-repos/` root, cleared at
+the start of each subsequent run, and copied into the finished repo.
+`_log.md` mirrors the stdout summary (the archived plan); `_trace.md`
+holds full Coder prompts and replies regardless of `-v`/`-vv`.
 
 ## Defaults
 
@@ -84,15 +91,16 @@ to override any subset of the defaults without editing source:
 
 ```json
 {
+  "mp": "33",
+  "mc": "23",
+  "aiCoders": true,
+  "coderExperience": 3,
+  "coderInteraction": 3,
   "complexity": 3,
   "students": 4,
   "rounds": 5,
-  "coderLevel": 3,
   "comments": 2,
-  "interaction": 3,
-  "reviewFrequency": 30,
-  "mp": "33",
-  "mc": "23"
+  "reviewFrequency": 30
 }
 ```
 
@@ -111,17 +119,16 @@ edit the file to reset or point at specific artifacts.
 
 ## Entry point
 
-`pnpm fixture` has four subcommands; run `pnpm fixture <sub> --help` for
-the flags that apply to each.
+`pnpm fixture` has three subcommands; run `pnpm fixture <sub> --help`
+for the flags that apply to each.
 
 | subcommand | produces | key flags |
 |---|---|---|
-| `project` | `c<N>-<name>/project.md` | `-c`, `--mp` |
-| `plan --from=<project.md>` | `c<N>-<name>/plan-<postfix>.md` | `-r`, `-s`, `-i`, `-f`, `--mp` |
-| `repo --from=<plan.md>` | `c<N>-<name>/<postfix>/` git repo | `-l`, `--mc`, `--comments` |
-| `all` | all three in sequence | union of the above |
+| `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
+| `plan --from=<project.md>` | `c<N>-<name>/plan-<postfix>.md` | `-m`, `-s`, `-r`, `-i`, `-f`, `-a` |
+| `repo --from=<plan.md>` | `c<N>-<name>/<postfix>/` git repo | `-m`, `-x`, `--comments` |
 
-Model codes for `--mp` / `--mc`: `1` = haiku; `2|21|22|23` = sonnet
+Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet
 (default/low/medium/high); `3|31|32|33|34|35` = opus
 (default/low/medium/high/xhigh/max).
 
@@ -132,16 +139,15 @@ successful `project` and `plan` run — so the typical sequence reads
 naturally without any `--from` flags:
 
 ```bash
-pnpm fixture project -c 3         # archives project, updates state
-pnpm fixture plan -s 4 -r 5 -i 3  # uses state.project, updates state.plan
-pnpm fixture repo -l 4            # uses state.plan
+pnpm fixture project -c 3                  # archives project, updates state
+pnpm fixture plan -s 4 -r 5 -i 3 --no-ai-coders  # uses state.project, updates state.plan
+pnpm fixture repo -x 4                     # uses state.plan
 ```
 
 Explicit paths still work and override the state:
 
 ```bash
-pnpm fixture all -c 3 -s 3 -r 3 -i 2
 pnpm fixture plan --from=c3-NAME/project.md -s 4 -r 5 -i 3
-pnpm fixture repo --from=c3-NAME -l 4      # auto-picks single plan-*.md
-pnpm fixture repo --from=c3-NAME/plan-mp33-c4-s3-r3-i2.md -l 4
+pnpm fixture repo --from=c3-NAME -x 4      # auto-picks single plan-*.md
+pnpm fixture repo --from=c3-NAME/plan-c4-s3-r3-i2.md -x 4
 ```

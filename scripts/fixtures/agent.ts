@@ -23,25 +23,18 @@ export async function runAgent(
   let outputTokens = 0
 
   for await (const message of query({ prompt, options })) {
-    if (message.type === "assistant" && message.message?.content) {
-      reply = message.message.content
-        .map((block: { type: string; text?: string }) =>
-          block.type === "text" ? (block.text ?? "") : "",
-        )
-        .join("")
-    } else if (message.type === "result") {
-      if (message.subtype !== "success") {
-        const detail =
-          "result" in message && typeof message.result === "string"
-            ? `: ${message.result}`
-            : ""
-        fail(`agent turn ended with subtype "${message.subtype}"${detail}`)
-      }
-      inputTokens = message.usage?.input_tokens ?? 0
-      outputTokens = message.usage?.output_tokens ?? 0
-      if ("result" in message && typeof message.result === "string") {
-        reply = message.result
-      }
+    if (message.type !== "result") continue
+    if (message.subtype !== "success") {
+      const detail =
+        "result" in message && typeof message.result === "string"
+          ? `: ${message.result}`
+          : ""
+      fail(`agent turn ended with subtype "${message.subtype}"${detail}`)
+    }
+    inputTokens = message.usage?.input_tokens ?? 0
+    outputTokens = message.usage?.output_tokens ?? 0
+    if ("result" in message && typeof message.result === "string") {
+      reply = message.result
     }
   }
 

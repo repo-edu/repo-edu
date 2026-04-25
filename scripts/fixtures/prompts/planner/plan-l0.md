@@ -52,6 +52,7 @@ Rules:
   and email. S=1: all commits have author_index 0.
 - Commits are distributed across authors; natural distribution, no hard
   caps.
+- Cross-module author mixing: {{interaction_guidance}}
 - Dates span 1-2 weeks ending on or before today, uneven pacing.
 - Each commit is one coherent change. If a note bundles unrelated
   concerns, split them.

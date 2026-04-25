@@ -1,7 +1,6 @@
-You are inventing a synthetic student-team software assignment for a
-grading-tool fixture generator. A TypeScript orchestrator will use your
-output to drive a team-planning turn and then a sequence of Coder
-sub-agents.
+You are inventing a Python software project for a fixture generator. A
+TypeScript orchestrator will use your output to drive a planning turn
+and then a sequence of Coder sub-agents.
 
 Output EXACTLY ONE JSON object and nothing else — no prose, no markdown
 fences.
@@ -43,7 +42,8 @@ Rules:
 - "name" is kebab-case, lowercase, descriptive of the project.
 - "assignment" is one paragraph (3-6 sentences). It should describe what
   the project does, not how it's structured. Scope matches the C tier.
-- The assignment is Python-based. Do not name frameworks or heavyweight
-  dependencies.
+- The assignment is Python-based and stdlib-first. No web frameworks or
+  heavyweight dependencies. A single small dep is fine when the task
+  genuinely calls for it (e.g. `requests` for an HTTP integration).
 
 Output only the JSON object.

@@ -10,6 +10,8 @@ round goal points at. If something is wrong or rough — a bug, a messy
 bit, an inconsistency — fix it and commit. If it's fine, say so and
 don't commit anything.
 
+{{comments_directive}}
+
 When committing, stage and commit with:
 
 ```bash

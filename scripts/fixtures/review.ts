@@ -61,7 +61,10 @@ export function writeReview(
   let totalRoundIn = 0
   let totalRoundOut = 0
   for (const r of state.rounds) {
-    const summary = r.coder_summary.split("\n")[0].slice(0, 80)
+    const summary = r.coder_summary
+      .split("\n")[0]
+      .slice(0, 80)
+      .replace(/\|/g, "\\|")
     const wallS = Math.round(r.usage.wall_ms / 1000)
     totalWallMs += r.usage.wall_ms
     totalRoundIn += r.usage.input_tokens

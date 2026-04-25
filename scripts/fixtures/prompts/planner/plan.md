@@ -52,8 +52,10 @@ Rules:
   modules that together cover the assignment's surface.
 - S=1: solo student, every commit has author_index 0.
 - Each author appears at least once when N >= S. Distribution is uneven
-  but bounded: no author owns more than ~50% of build commits, none owns
-  fewer than ~15%. A typical S=3/N=10 split is 4/3/3 or 4/4/2, not 7/2/1.
+  but no single author dominates: keep the most-active author at roughly
+  half the build commits or fewer. A typical S=3/N=10 split is 4/3/3 or
+  4/4/2, not 7/2/1.
+- Cross-module author mixing: {{interaction_guidance}}
 - Commit dates spread realistically across 1-2 weeks ending on or before
   today. Pacing is uneven: some days have no commits, some have 2-3,
   weekends are plausible but lighter. Avoid exactly one commit per day.

@@ -4,8 +4,6 @@ I'm {{persona_name}} <{{persona_email}}>, working on a Python assignment
 Please read `{{coder_agreement_path}}` first — it's the working agreement
 we all share.
 
-{{ownership_directive}}
-
 Round goal: {{round_goal}}
 
 Run `git -C {{abs_path}} log --oneline` and inspect the work the round
@@ -13,7 +11,7 @@ goal points at — it may be my own area or a teammate's. If something is
 rough — a bug, a messy bit, an inconsistency — fix it and commit. If
 everything looks fine, say so and don't commit anything.
 
-Code style: {{coder_level_rules}}
+Code style: {{coder_experience_rules}}
 
 {{comments_directive}}
 
