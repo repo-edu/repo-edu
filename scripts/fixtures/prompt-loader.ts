@@ -24,7 +24,7 @@ function substitute(
       `prompt "${ref}" has unresolved placeholder: ${leftover[0]}`,
     )
   }
-  return resolved
+  return resolved.replace(/\n{3,}/g, "\n\n")
 }
 
 function readPromptFile(name: string): string {

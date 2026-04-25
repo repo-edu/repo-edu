@@ -1,6 +1,7 @@
 import { parseArgs as nodeParseArgs } from "node:util"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import {
+  COMMENTS_FREE_TIER,
   MAX_CODER_EXPERIENCE,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
@@ -48,6 +49,7 @@ export interface RepoOpts extends CommonOpts {
   subcommand: "repo"
   fromPath: string
   coderExperience: number
+  coderExperienceExplicit: boolean
   comments: number
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
@@ -94,48 +96,57 @@ const MODEL_CODE_HELP = [
   "  haiku = 1 (no thinking modes)",
 ]
 
+const TOP_OVERVIEW_LINES = [
+  "Usage: fixture <subcommand> [options]",
+  "",
+  "Generate synthetic coder-team repo fixtures with AI agents:",
+  "",
+  "  project   Invent a project (name + assignment) → project.md.",
+  "  plan      Generate a team and commit timeline for a given",
+  "            project → plan-<postfix>.md.",
+  "  repo      Run one Coder sub-agent per planned commit against a",
+  "            plan → a git repo.",
+  "",
+  "Options:",
+  "  -h, --help                         Show this top-level help and exit",
+  "  -hh                                Show the full help (every subcommand)",
+  "                                     and exit",
+  "",
+  "Output layout under ../student-repos/ for the example session below:",
+  "",
+  "  c2-flash-card-quiz/               # one folder per project",
+  "    project.md                      # from `fixture project`",
+  "    plan-ai-c2-s3-r6-i2.md          # from `fixture plan`",
+  "    m23-ai-f30-c2-s3-r6/            # git repo from `fixture repo`",
+  "",
+  "The folder is named c<N>-<name>, where <N> is the project's",
+  "complexity tier (1-4) and <name> is the kebab-case name the",
+  "planner invented. Plan and repo names encode their run parameters",
+  "as a <postfix>, so one project folder can hold multiple plans and",
+  "repos generated from different settings.",
+  "",
+  "../student-repos/.fixture-state.json caches the most recent",
+  "project and plan, so a typical session needs no --from flags:",
+  "",
+  "  fixture project -c 2",
+  "  fixture plan -s 3 -r 6",
+  "  fixture repo",
+  "",
+  "Run 'fixture <subcommand> --help' for a single subcommand's options.",
+]
+
 export function printTopHelp(): void {
-  process.stdout.write(
-    [
-      "Usage: fixture <subcommand> [options]",
-      "",
-      "Generate synthetic coder-team repo fixtures with AI agents:",
-      "",
-      "  project   Invent a project (name + assignment) → project.md.",
-      "  plan      Generate a team and commit timeline for a given",
-      "            project → plan-<postfix>.md.",
-      "  repo      Run one Coder sub-agent per planned commit against a",
-      "            plan → a git repo.",
-      "",
-      "Run 'fixture <subcommand> --help' for subcommand-specific options.",
-      "",
-      "Output layout under ../student-repos/:",
-      "",
-      "  c2-flash-card-quiz/               # one folder per project",
-      "    project.md                      # from `fixture project`",
-      "    plan-c2-s3-r6-i2.md             # from `fixture plan`",
-      "    m22-x2-f30-c2-s3-r6/            # git repo from `fixture repo`",
-      "",
-      "The folder is named c<N>-<name>, where <N> is the project's",
-      "complexity tier (1-4) and <name> is the kebab-case name the",
-      "planner invented. Plan and repo names encode their run parameters",
-      "as a <postfix>, so one project folder can hold multiple plans and",
-      "repos generated from different settings.",
-      "",
-      "../student-repos/.fixture-state.json caches the most recent",
-      "project and plan, so a typical session needs no --from flags:",
-      "",
-      "  fixture project -c 2",
-      "  fixture plan -s 3 -r 6",
-      "  fixture repo -x 2",
-      "",
-      "Common options:",
-      "  -v, --verbose        Print the plan to stdout. -vv additionally prints",
-      "                       each Coder prompt and reply.",
-      "  -h, --help           Show this help and exit.",
-      "",
-    ].join("\n"),
-  )
+  process.stdout.write(`${TOP_OVERVIEW_LINES.join("\n")}\n`)
+}
+
+export function printFullHelp(): void {
+  const sections = [
+    subcommandHelpBody("project").join("\n"),
+    subcommandHelpBody("plan").join("\n"),
+    subcommandHelpBody("repo").join("\n"),
+    MODEL_CODE_HELP.join("\n"),
+  ]
+  process.stdout.write(`${sections.join("\n\n")}\n`)
 }
 
 function commonOptsFrom(
@@ -345,10 +356,10 @@ function parseRepo(argv: string[]): RepoOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v, false)
-  const coderExperience =
-    v["coder-experience"] !== undefined
-      ? Number(v["coder-experience"])
-      : DEFAULTS.coderExperience
+  const coderExperienceExplicit = v["coder-experience"] !== undefined
+  const coderExperience = coderExperienceExplicit
+    ? Number(v["coder-experience"])
+    : DEFAULTS.coderExperience
   const comments =
     v.comments !== undefined ? Number(v.comments) : DEFAULTS.comments
   const m = parseModelCode(
@@ -364,6 +375,7 @@ function parseRepo(argv: string[]): RepoOpts {
     subcommand: "repo",
     fromPath: (v.from as string | undefined) ?? "",
     coderExperience,
+    coderExperienceExplicit,
     comments,
     coderModel: m.model,
     coderEffort: m.effort,
@@ -371,16 +383,13 @@ function parseRepo(argv: string[]): RepoOpts {
 }
 
 const aiCodersHelp = (): string =>
-  `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${DEFAULTS.aiCoders})`
+  `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${DEFAULTS.aiCoders ? "--ai-coders" : "--no-ai-coders"})`
 
-export function printSubcommandHelp(sub: Subcommand): void {
-  const common = [
-    "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
-    "  -h, --help                         Show this help and exit",
-  ]
-  const lines: string[] = []
+function subcommandHelpBody(sub: Subcommand): string[] {
+  const helpLine =
+    "  -h, --help                         Show this help and exit"
   if (sub === "project") {
-    lines.push(
+    return [
       "Usage: fixture project [options]",
       "",
       "Generate a project (name + assignment) at c<N>-<name>/project.md.",
@@ -388,10 +397,12 @@ export function printSubcommandHelp(sub: Subcommand): void {
       "Options:",
       `  -m, --model=CODE                   Planner model (default: ${DEFAULTS.mp})`,
       `  -c, --complexity=N                 ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULTS.complexity})`,
-      ...common,
-    )
-  } else if (sub === "plan") {
-    lines.push(
+      "  -v, --verbose                      Print project to stdout; -vv also prints Planner prompt/reply",
+      helpLine,
+    ]
+  }
+  if (sub === "plan") {
+    return [
       "Usage: fixture plan [--from=<project.md>] [options]",
       "",
       "Generate a plan (team + commits) next to the project file, as",
@@ -409,34 +420,42 @@ export function printSubcommandHelp(sub: Subcommand): void {
       `  -i, --coder-interaction=N          ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${DEFAULTS.coderInteraction}) — cross-module author mixing`,
       `  -f, --review-frequency=N           ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${DEFAULTS.reviewFrequency})`,
       aiCodersHelp(),
-      ...common,
-    )
-  } else {
-    lines.push(
-      "Usage: fixture repo [--from=<plan.md>] [options]",
-      "",
-      "Run Coder sub-agents against a plan to produce a git repo at",
-      "c<N>-<name>/<postfix>/. --from can also point at a c<N>-<name>/",
-      "directory when it contains exactly one plan-*.md file. Without --from,",
-      "falls back to the plan recorded in ../student-repos/.fixture-state.json",
-      "(set by the most recent `fixture plan`).",
-      "",
-      "Options:",
-      "      --from=PATH                    Plan .md file or c<N>-<name>/ dir (absolute,",
-      "                                     or relative to ../student-repos/). Optional if",
-      "                                     .fixture-state.json has a plan.",
-      `  -m, --model=CODE                   Coder model (default: ${DEFAULTS.mc})`,
-      `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${DEFAULTS.coderExperience}); ignored when the plan is in AI-coders mode`,
-      `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULTS.comments})`,
-      ...common,
-    )
+      "  -v, --verbose                      Print plan to stdout; -vv also prints Planner prompt/reply",
+      helpLine,
+    ]
   }
-  lines.push("", ...MODEL_CODE_HELP, "")
+  return [
+    "Usage: fixture repo [--from=<plan.md>] [options]",
+    "",
+    "Run Coder sub-agents against a plan to produce a git repo at",
+    "c<N>-<name>/<postfix>/. --from can also point at a c<N>-<name>/",
+    "directory when it contains exactly one plan-*.md file. Without --from,",
+    "falls back to the plan recorded in ../student-repos/.fixture-state.json",
+    "(set by the most recent `fixture plan`).",
+    "",
+    "Options:",
+    "      --from=PATH                    Plan .md file or c<N>-<name>/ dir (absolute,",
+    "                                     or relative to ../student-repos/). Optional if",
+    "                                     .fixture-state.json has a plan.",
+    `  -m, --model=CODE                   Coder model (default: ${DEFAULTS.mc})`,
+    `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${DEFAULTS.coderExperience}); ignored when the plan is in AI-coders mode`,
+    `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULTS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
+    "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
+    helpLine,
+  ]
+}
+
+export function printSubcommandHelp(sub: Subcommand): void {
+  const lines = [...subcommandHelpBody(sub), "", ...MODEL_CODE_HELP, ""]
   process.stdout.write(lines.join("\n"))
 }
 
 export function parseArgs(argv: string[]): Opts {
   const [sub, ...rest] = argv
+  if (sub === "-hh") {
+    printFullHelp()
+    process.exit(0)
+  }
   if (!sub || sub === "-h" || sub === "--help") {
     printTopHelp()
     process.exit(0)

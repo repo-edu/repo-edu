@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import { effortOption, runAgent, type Usage } from "./agent"
 import { type ModelName, REPO_ROOT, STUDENT_REPOS } from "./constants"
-import { fail } from "./log"
+import { emit, fail } from "./log"
 import type { CommitKind, Plan } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
@@ -136,6 +136,19 @@ export function validatePlan(
   }
 }
 
+function emitPlannerTrace(
+  stage: "project" | "plan",
+  prompt: string,
+  reply: string,
+  usage: Usage,
+): void {
+  emit(2, `\n## Planner · ${stage}\n\n### Prompt\n\n${prompt}`)
+  emit(
+    2,
+    `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`,
+  )
+}
+
 export async function generateProject(
   opts: ProjectGenOpts,
   existing: string[],
@@ -149,6 +162,7 @@ export async function generateProject(
     allowedTools: [],
     permissionMode: "bypassPermissions",
   })
+  emitPlannerTrace("project", prompt, reply, usage)
   const parsed = parseJsonOrFail<Omit<Project, "complexity">>(
     reply,
     "planner project reply",
@@ -172,6 +186,7 @@ export async function generatePlan(
     allowedTools: [],
     permissionMode: "bypassPermissions",
   })
+  emitPlannerTrace("plan", prompt, reply, usage)
   const plan = parseJsonOrFail<Plan>(reply, "planner plan reply")
   validatePlan(plan, opts.students, kindSequence)
   return { plan, usage }

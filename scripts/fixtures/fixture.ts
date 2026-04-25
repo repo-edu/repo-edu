@@ -25,7 +25,14 @@ import {
   STUDENT_REPOS,
   TRACE_BASENAME,
 } from "./constants"
-import { emit, fail, formatSeconds, setEmitState, withTicker } from "./log"
+import {
+  emit,
+  fail,
+  formatSeconds,
+  progress,
+  setEmitState,
+  withTicker,
+} from "./log"
 import {
   formatSpec,
   nextAvailable,
@@ -114,7 +121,7 @@ function archiveProject(project: Project): string {
   const name = nextAvailable(dir, "project", ".md")
   const path = resolve(dir, name)
   writeFileSync(path, projectToMarkdown(project))
-  process.stderr.write(`fixture: archived project to ${path}\n`)
+  progress(`archived project to ${path}`)
   writeState({ project: relative(STUDENT_REPOS, path), plan: null })
   return name
 }
@@ -141,7 +148,7 @@ function archivePlan(
   const name = nextAvailable(dir, `plan-${planPostfix(opts)}`, ".md")
   const path = resolve(dir, name)
   writeFileSync(path, planToMarkdown({ meta, plan }))
-  process.stderr.write(`fixture: archived plan to ${path}\n`)
+  progress(`archived plan to ${path}`)
   writeState({
     project: relative(STUDENT_REPOS, resolve(dir, projectFile)),
     plan: relative(STUDENT_REPOS, path),
@@ -183,8 +190,8 @@ async function produceProject(
     "fixture: generating project…",
     () => generateProject(opts, existing),
   )
-  process.stderr.write(
-    `fixture: project ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})\n`,
+  progress(
+    `project ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
   )
   return { project, usage }
 }
@@ -196,14 +203,14 @@ async function producePlan(
 ): Promise<{ plan: Plan; usage: Usage }> {
   const kindSequence = sampleKindSequence(opts.rounds, opts.reviewFrequency)
   const reviewCount = kindSequence.length - opts.rounds
-  process.stderr.write(
-    `fixture: sampled kind sequence (${opts.rounds} builds + ${reviewCount} reviews)\n`,
+  progress(
+    `sampled kind sequence (${opts.rounds} builds + ${reviewCount} reviews)`,
   )
   const { plan, usage } = await withTicker("fixture: generating plan…", () =>
     generatePlan(project, opts, kindSequence),
   )
-  process.stderr.write(
-    `fixture: plan ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})\n`,
+  progress(
+    `plan ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
   )
   return { plan, usage }
 }
@@ -292,6 +299,7 @@ async function handleProject(
 ): Promise<void> {
   const { project, usage } = await produceProject(opts, runStart)
   archiveProject(project)
+  emit(1, projectToMarkdown(project))
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
@@ -312,9 +320,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     : resolved
   const project = loadProjectFrom(fromPath)
   const projectFile = basename(fromPath)
-  process.stderr.write(
-    `fixture: loaded project "${project.name}" from ${fromPath}\n`,
-  )
+  progress(`loaded project "${project.name}" from ${fromPath}`)
   const { plan, usage } = await producePlan(project, opts, runStart)
   const planNameOpts: PlanNameOpts = {
     plannerModel: opts.plannerModel,
@@ -349,9 +355,12 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const resolved = resolveFrom(rawFrom)
   const fromPath = isDir(resolved) ? resolveSinglePlan(resolved) : resolved
   const { meta, plan, project } = loadPlanFrom(fromPath)
-  process.stderr.write(
-    `fixture: loaded plan for project "${project.name}" from ${fromPath}\n`,
-  )
+  progress(`loaded plan for project "${project.name}" from ${fromPath}`)
+  if (meta.aiCoders && opts.coderExperienceExplicit) {
+    progress(
+      `warning: --coder-experience=${opts.coderExperience} ignored — plan is in AI-coders mode`,
+    )
+  }
   const planner = parseSpec(meta.planner)
   const planNameOpts: PlanNameOpts = {
     plannerModel: planner.model,

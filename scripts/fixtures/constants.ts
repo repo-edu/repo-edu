@@ -2,29 +2,38 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 
-export const DEFAULT_ROUNDS = 3
+// Models
+export const DEFAULT_MP = "33"
+export const DEFAULT_MC = "23"
+
+// Mode
+export const DEFAULT_AI_CODERS = true
+
+// Project (planner)
 export const DEFAULT_COMPLEXITY = 2
 export const MIN_COMPLEXITY = 1
 export const MAX_COMPLEXITY = 4
+
+// Plan (planner)
 export const DEFAULT_STUDENTS = 3
 export const MIN_STUDENTS = 1
 export const MAX_STUDENTS = 10
-export const DEFAULT_CODER_EXPERIENCE = 0
-export const MIN_CODER_EXPERIENCE = 0
-export const MAX_CODER_EXPERIENCE = 4
-export const DEFAULT_COMMENTS = 1
-export const MIN_COMMENTS = 0
-export const MAX_COMMENTS = 3
-export const COMMENTS_FREE_TIER = 3
+export const DEFAULT_ROUNDS = 3
 export const DEFAULT_CODER_INTERACTION = 2
 export const MIN_CODER_INTERACTION = 1
 export const MAX_CODER_INTERACTION = 3
 export const DEFAULT_REVIEW_FREQUENCY = 30
 export const MIN_REVIEW_FREQUENCY = 0
 export const MAX_REVIEW_FREQUENCY = 100
-export const DEFAULT_AI_CODERS = true
-export const DEFAULT_MP = "33"
-export const DEFAULT_MC = "23"
+
+// Repo (coder)
+export const DEFAULT_CODER_EXPERIENCE = 3
+export const MIN_CODER_EXPERIENCE = 1
+export const MAX_CODER_EXPERIENCE = 4
+export const DEFAULT_COMMENTS = 1
+export const MIN_COMMENTS = 0
+export const MAX_COMMENTS = 3
+export const COMMENTS_FREE_TIER = 3
 
 export const MODEL_EFFORTS = {
   haiku: [] as readonly EffortLevel[],
@@ -49,12 +58,7 @@ export const EFFORT_DIGIT: Record<EffortLevel | "none", number> = {
 
 export const LOG_BASENAME = "_log.md"
 export const TRACE_BASENAME = "_trace.md"
-export const STALE_FILES = [
-  "_state.json",
-  "_review.md",
-  "_log.md",
-  "_trace.md",
-]
+export const STALE_FILES = ["_state.json", "_review.md", "_log.md", "_trace.md"]
 export const GITIGNORE_LINES = [
   "_log.md",
   "_trace.md",

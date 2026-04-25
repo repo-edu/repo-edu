@@ -95,14 +95,18 @@ to override any subset of the defaults without editing source:
   "mc": "23",
   "aiCoders": true,
   "coderExperience": 3,
-  "coderInteraction": 3,
-  "complexity": 3,
-  "students": 4,
-  "rounds": 5,
-  "comments": 2,
+  "coderInteraction": 2,
+  "complexity": 2,
+  "students": 3,
+  "rounds": 3,
+  "comments": 1,
   "reviewFrequency": 30
 }
 ```
+
+The keys above are exhaustive and the values shown are the current
+hardcoded defaults from `constants.ts`. Drop the file in to lock in
+those values, or edit individual keys to override.
 
 All keys are optional. Values are validated against the same ranges
 as the CLI flags; unknown keys or out-of-range values fail fast with

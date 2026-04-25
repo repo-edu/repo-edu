@@ -201,14 +201,12 @@ describe("examination archive adapter", () => {
       bundleVersion: 1,
       records: [baseRecord],
     })
-    assert.deepEqual(summary, {
-      totalInBundle: 0,
-      inserted: 0,
-      updated: 0,
-      skipped: 0,
-      rejected: 0,
-      rejections: [],
-    })
+    assert.equal(summary.totalInBundle, 0)
+    assert.equal(summary.inserted, 0)
+    assert.equal(summary.updated, 0)
+    assert.equal(summary.skipped, 0)
+    assert.equal(summary.rejected, 1)
+    assert.match(summary.rejections[0], /Bundle header/)
   })
 
   it("importBundle counts malformed records as rejected", () => {

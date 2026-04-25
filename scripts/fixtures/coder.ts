@@ -11,7 +11,7 @@ import {
   type ModelName,
   STUDENT_REPOS,
 } from "./constants"
-import { emit, fail, formatSeconds, withTicker } from "./log"
+import { emit, fail, formatSeconds, progress, withTicker } from "./log"
 import type { Plan, PlannedCommit } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
@@ -181,8 +181,8 @@ export async function runCoderLoop(
         resolve(STUDENT_REPOS, "_state.json"),
         `${JSON.stringify(state, null, 2)}\n`,
       )
-      process.stderr.write(
-        `fixture: round ${i + 1} done (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})\n`,
+      progress(
+        `round ${i + 1} done (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
       )
       if (state.stopped) break
     }

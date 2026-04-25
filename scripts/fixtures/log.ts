@@ -44,6 +44,10 @@ export function emit(level: 1 | 2, text: string): void {
   appendFileSync(path, block)
 }
 
+export function progress(msg: string): void {
+  process.stderr.write(`fixture: ${msg}\n`)
+}
+
 export async function withTicker<T>(
   label: string,
   fn: () => Promise<T>,
