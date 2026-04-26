@@ -62,6 +62,8 @@ redu course load <course-id>      # Set the active course
 
 Both surfaces store settings and courses as JSON files that are validated on every read and write. Files that fail validation are rejected — there is no partial-load or best-effort parsing.
 
+The desktop app additionally keeps an analysis and blame result cache in the same data directory (`cache/cache.db`). It accumulates as you analyze repositories and is shared across courses; the **Storage** pane lets you set per-type size budgets, see hit-rate statistics, or clear the cache. See [Analysis Caching](/repo-edu/development/analysis-caching/) for the underlying behavior.
+
 ## Undo and redo
 
 In the desktop app, roster edits (adding members, moving groups, editing fields) support undo and redo. Each change is recorded as a patch. Undo reverses the most recent patch; redo reapplies it. The undo history has a fixed size limit and is cleared when you load a different course.

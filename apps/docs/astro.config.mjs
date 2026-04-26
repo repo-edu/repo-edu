@@ -96,6 +96,7 @@ export default defineConfig({
                     { label: "CLI-GUI Parity", slug: "development/cli-gui-parity" },
                     { label: "Data Model", slug: "development/data-model" },
                     { label: "Repository Records", slug: "development/repository-records" },
+                    { label: "Analysis Caching", slug: "development/analysis-caching" },
                   ],
                 },
                 {
