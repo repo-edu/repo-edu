@@ -307,9 +307,7 @@ async function runCoderStage(
     coderEffort: coderOpts.coderEffort,
     aiCoders: coderOpts.aiCoders,
     coderExperience: coderOpts.coderExperience,
-    complexity: project.complexity,
-    students: planMeta.students,
-    rounds: planMeta.rounds,
+    comments: coderOpts.comments,
   }
   const dirName = nextAvailable(planDir, repoPostfix(nameOpts))
   const dir = resolve(planDir, dirName)

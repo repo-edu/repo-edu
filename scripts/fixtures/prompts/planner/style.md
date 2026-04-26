@@ -48,3 +48,53 @@ return values that capture the user-facing surface area. Later
 rounds replace those stubs with real implementations and pull in
 helpers as needed. The first commit defines the public surface;
 inner workings come later.
+
+## test-driven
+
+Tests are written before the code that satisfies them. Each
+behaviour-adding round splits across two commits: first a `test_*.py`
+introducing failing assertions for the new capability, then the
+production code that turns those tests green. File pairs grow in
+lockstep (`foo.py` is preceded by `test_foo.py`). Notes use
+"add tests for X" / "implement X" language. The first commit is a
+test file, not production code or scaffolding.
+
+## walking-skeleton
+
+Round 1 wires every `team[i].module` together end-to-end with
+placeholder bodies — every module file exists, imports resolve,
+the entry point runs, but each function returns dummy values
+(`return None`, hard-coded constants, `pass`). Subsequent rounds
+deepen one module at a time in place, replacing dummies with real
+behaviour without adding new modules. The system runs from round 1
+onward; it just doesn't do anything useful until later rounds.
+
+## spike-and-stabilize
+
+Round 1 is a rough working prototype concentrated in one or two
+files — usually a single `main.py` or `prototype.py` that does the
+end-to-end task crudely (long functions, hard-coded values,
+duplication). The next 1-2 rounds also pile on capability in those
+same files. The remaining rounds split, rename, extract helpers,
+and move logic into the proper `team[i].module` files. Notes shift
+from "add X" / "make Y work" early to "extract Y into module",
+"split X into helpers", "clean up Z" later.
+
+## demo-driven
+
+Each build round adds one user-visible capability and ends with
+the project runnable from the command line — typically by growing
+a `demo.py` or `main.py` script that exercises the new feature.
+Commits are aligned to demo-able milestones rather than module
+boundaries; one commit may touch several modules to make the new
+demo work. Notes read like demo descriptions ("demo: load a CSV
+and print summary", "demo: filter rides by date").
+
+## refactor-heavy
+
+Build rounds alternate between adding capability and refactoring
+recent work in place. Roughly half the build commits add new
+behaviour; the other half rename, extract helpers, split modules,
+or move responsibilities without changing observable behaviour.
+Refactor notes use "extract X", "rename Y", "split Z into ...",
+"move W to ..." language and don't introduce new features.

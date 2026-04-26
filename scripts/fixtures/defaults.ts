@@ -214,7 +214,7 @@ type SettingItem =
       key: keyof Settings
       value: (s: Settings) => string
       comment: string
-      cont?: string
+      cont?: string[]
     }
   | { kind: "header"; text: string }
 
@@ -256,7 +256,11 @@ const SETTING_ITEMS: SettingItem[] = [
     key: "style",
     value: (s) => `"${s.style}"`,
     comment: `one of: ${STYLES.slice(0, 3).join(" | ")} |`,
-    cont: `        ${STYLES.slice(3).join(" | ")}`,
+    cont: [
+      `        ${STYLES.slice(3, 6).join(" | ")} |`,
+      `        ${STYLES.slice(6, 8).join(" | ")} |`,
+      `        ${STYLES.slice(8).join(" | ")}`,
+    ],
   },
   {
     kind: "row",
@@ -316,7 +320,7 @@ export function settingsRowsForHelp(s: Settings): string[] {
     const isLast = i === lastRowIdx
     const prefix = `    "${item.key}": ${item.value(s)}${isLast ? "" : ","}`
     lines.push(row(prefix, item.comment))
-    if (item.cont) lines.push(continuation(item.cont))
+    if (item.cont) for (const c of item.cont) lines.push(continuation(c))
   }
   return lines
 }

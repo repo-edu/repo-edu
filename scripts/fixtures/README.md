@@ -56,30 +56,38 @@ plan folder:
 
 ### Postfix encoding
 
-**Plan postfix** — `[ai-]<style>-c<N>-s<N>-r<N>-w<N>-i<N>`
+**Plan postfix** — `[ai-]i<N>-<style>-s<N>-r<N>-w<N>`
+
+Segments follow `fixture plan -h` flag order; complexity is omitted
+because the parent `c<N>-<name>/` folder already carries it.
 
 - `ai-` *(optional)* — present iff `--ai-coders 1` (planner drops
   student-team framing).
-- `<style>` — 2-letter code from `--style`: `bb` big-bang, `in`
-  incremental, `vs` vertical-slice, `bu` bottom-up, `td` top-down.
-- `c<N>` — project complexity tier (1-4).
-- `s<N>` — team size (`--students`, 1-10).
-- `r<N>` — build-commit count (`--rounds`, ≥1).
-- `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
-  a uniformly-chosen subset of build slots).
 - `i<N>` — coder-interaction level (`--coder-interaction`, 1-3): how
   aggressively the planner mixes `author_index` across modules. 1 =
   each module has a primary owner; 2 = moderate cross-module mixing;
   3 = constant cross-module mixing.
+- `<style>` — short code from `--style`: `bb` big-bang, `inc`
+  incremental, `vs` vertical-slice, `bu` bottom-up, `topd`
+  top-down, `tdd` test-driven, `walk` walking-skeleton, `spik`
+  spike-and-stabilize, `demo` demo-driven, `rfct` refactor-heavy.
+- `s<N>` — team size (`--students`, 1-10).
+- `r<N>` — build-commit count (`--rounds`, ≥1).
+- `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
+  a uniformly-chosen subset of build slots).
 
-**Repo postfix** — `m<code>-{ai|x<N>}-c<N>-s<N>-r<N>`
+**Repo postfix** — `m<code>[-x<N>]-o<N>`
+
+Segments follow `fixture repo -h` flag order; everything inherited
+from the parent project/plan folders is omitted.
 
 - `m<code>` — coder model + effort (e.g. `m22` = sonnet medium; see
   the model-code table in `fixture -hh`).
-- `ai` or `x<N>` — in AI-coders mode, literally `ai`; otherwise
-  `x<N>` is the coder-experience level (`--coder-experience`, 1-4).
-- `c<N>`, `s<N>`, `r<N>` — copied from the parent plan for
-  at-a-glance disambiguation.
+- `x<N>` *(optional)* — coder-experience level
+  (`--coder-experience`, 1-4); omitted in AI-coders mode where `-x`
+  is silently ignored.
+- `o<N>` — comment-density tier (`-o, --comments`, 0-3); 0 leaves
+  commenting to the coder.
 
 ### AI-coders mode
 
@@ -151,7 +159,9 @@ same ranges as the CLI flags):
     "aiCoders": true,       // AI-coders mode vs student framing
     "coderInteraction": 2,  // integer 1-3, cross-module author mixing
     "style": "big-bang",    // one of: big-bang | incremental | vertical-slice |
-                            //         bottom-up | top-down
+                            //         bottom-up | top-down | test-driven |
+                            //         walking-skeleton | spike-and-stabilize |
+                            //         demo-driven | refactor-heavy
     "students": 3,          // integer 1-10, team size
     "rounds": 3,            // integer ≥1, build-commit count
     "reviews": 1,           // integer 0..rounds, review-commit count
@@ -210,15 +220,15 @@ File shape:
   "entries": [
     {
       "mp": "33", "mc": "22", "aiCoders": true,
-      "coderExperience": 3, "coderInteraction": 3,
+      "coderInteraction": 3, "style": "incremental",
       "students": 3, "rounds": 6, "reviews": 2,
-      "comments": 1, "style": "incremental"
+      "coderExperience": 3, "comments": 1
     },
     {
       "mp": "33", "mc": "22", "aiCoders": true,
-      "coderExperience": 3, "coderInteraction": 3,
+      "coderInteraction": 3, "style": "vertical-slice",
       "students": 3, "rounds": 6, "reviews": 2,
-      "comments": 1, "style": "vertical-slice"
+      "coderExperience": 3, "comments": 1
     }
   ]
 }
@@ -242,7 +252,7 @@ reference (every subcommand plus the model-code table and
 | `init` | `.fixture-settings.jsonc` (scaffold) | `-f` |
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
-| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `--comments` |
+| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `-o` |
 | `batch <list.json>` | one plan+repo per entry under one shared project | — (entry fields) |
 
 Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet

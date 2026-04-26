@@ -32,15 +32,25 @@ export const STYLES = [
   "vertical-slice",
   "bottom-up",
   "top-down",
+  "test-driven",
+  "walking-skeleton",
+  "spike-and-stabilize",
+  "demo-driven",
+  "refactor-heavy",
 ] as const
 export type Style = (typeof STYLES)[number]
 export const DEFAULT_STYLE: Style = "big-bang"
 export const STYLE_CODE: Record<Style, string> = {
   "big-bang": "bb",
-  incremental: "in",
+  incremental: "inc",
   "vertical-slice": "vs",
   "bottom-up": "bu",
-  "top-down": "td",
+  "top-down": "topd",
+  "test-driven": "tdd",
+  "walking-skeleton": "walk",
+  "spike-and-stabilize": "spik",
+  "demo-driven": "demo",
+  "refactor-heavy": "rfct",
 }
 
 // Repo (coder)

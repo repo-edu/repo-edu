@@ -26,9 +26,7 @@ export interface RepoNameOpts {
   coderEffort: EffortLevel | "none"
   aiCoders: boolean
   coderExperience: number
-  complexity: number
-  students: number
-  rounds: number
+  comments: number
 }
 
 export function modelCode(
@@ -63,20 +61,19 @@ export function planPostfix(opts: PlanNameOpts): string {
   const parts: string[] = []
   if (opts.aiCoders) parts.push("ai")
   parts.push(
+    `i${opts.coderInteraction}`,
     STYLE_CODE[opts.style],
-    `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
     `w${opts.reviews}`,
-    `i${opts.coderInteraction}`,
   )
   return parts.join("-")
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
   const parts = [`m${modelCode(opts.coderModel, opts.coderEffort)}`]
-  parts.push(opts.aiCoders ? "ai" : `x${opts.coderExperience}`)
-  parts.push(`c${opts.complexity}`, `s${opts.students}`, `r${opts.rounds}`)
+  if (!opts.aiCoders) parts.push(`x${opts.coderExperience}`)
+  parts.push(`o${opts.comments}`)
   return parts.join("-")
 }
 
