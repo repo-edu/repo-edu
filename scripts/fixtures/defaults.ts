@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import {
+  COMMENTS_FREE_TIER,
   DEFAULT_AI_CODERS,
   DEFAULT_CODER_EXPERIENCE,
   DEFAULT_CODER_INTERACTION,
@@ -86,14 +87,56 @@ const KNOWN_KEYS = new Set<keyof Settings>([
   ...(Object.keys(NUMERIC_SPECS) as (keyof Settings)[]),
 ])
 
+function stripJsoncComments(text: string): string {
+  let out = ""
+  let i = 0
+  while (i < text.length) {
+    const c = text[i]
+    if (c === '"') {
+      out += c
+      i++
+      while (i < text.length) {
+        const ch = text[i]
+        out += ch
+        if (ch === "\\" && i + 1 < text.length) {
+          out += text[i + 1]
+          i += 2
+          continue
+        }
+        i++
+        if (ch === '"') break
+      }
+      continue
+    }
+    if (c === "/" && text[i + 1] === "/") {
+      while (i < text.length && text[i] !== "\n") i++
+      continue
+    }
+    if (c === "/" && text[i + 1] === "*") {
+      i += 2
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++
+      i += 2
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+function parseJsonc(text: string): unknown {
+  const stripped = stripJsoncComments(text).replace(/,(\s*[\]}])/g, "$1")
+  return JSON.parse(stripped)
+}
+
 function parseSettingsFile(path: string): Partial<Settings> {
   if (!existsSync(path)) return {}
   let raw: unknown
   try {
-    raw = JSON.parse(readFileSync(path, "utf8"))
+    raw = parseJsonc(readFileSync(path, "utf8"))
   } catch (err) {
     fail(
-      `${path}: invalid JSON (${err instanceof Error ? err.message : String(err)})`,
+      `${path}: invalid JSONC (${err instanceof Error ? err.message : String(err)})`,
     )
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -163,11 +206,136 @@ export const SETTINGS: Settings = {
   ...parseSettingsFile(FIXTURE_SETTINGS_FILE),
 }
 
-export function writeSettings(dir: string, settings: Settings): void {
-  writeFileSync(
-    resolve(dir, SETTINGS_BASENAME),
-    `${JSON.stringify(settings, null, 2)}\n`,
+export const SETTINGS_COMMENT_COL = 28
+
+type SettingItem =
+  | {
+      kind: "row"
+      key: keyof Settings
+      value: (s: Settings) => string
+      comment: string
+      cont?: string
+    }
+  | { kind: "header"; text: string }
+
+const SETTING_ITEMS: SettingItem[] = [
+  {
+    kind: "row",
+    key: "mp",
+    value: (s) => `"${s.mp}"`,
+    comment: "project and planner model CODE",
+  },
+  {
+    kind: "row",
+    key: "mc",
+    value: (s) => `"${s.mc}"`,
+    comment: "coder model CODE",
+  },
+  { kind: "header", text: "fixture project" },
+  {
+    kind: "row",
+    key: "complexity",
+    value: (s) => String(s.complexity),
+    comment: `integer ${MIN_COMPLEXITY}-${MAX_COMPLEXITY}, project tier`,
+  },
+  { kind: "header", text: "fixture plan" },
+  {
+    kind: "row",
+    key: "aiCoders",
+    value: (s) => String(s.aiCoders),
+    comment: "AI-coders mode vs student framing",
+  },
+  {
+    kind: "row",
+    key: "coderInteraction",
+    value: (s) => String(s.coderInteraction),
+    comment: `integer ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION}, cross-module author mixing`,
+  },
+  {
+    kind: "row",
+    key: "style",
+    value: (s) => `"${s.style}"`,
+    comment: `one of: ${STYLES.slice(0, 3).join(" | ")} |`,
+    cont: `        ${STYLES.slice(3).join(" | ")}`,
+  },
+  {
+    kind: "row",
+    key: "students",
+    value: (s) => String(s.students),
+    comment: `integer ${MIN_STUDENTS}-${MAX_STUDENTS}, team size`,
+  },
+  {
+    kind: "row",
+    key: "rounds",
+    value: (s) => String(s.rounds),
+    comment: "integer ≥1, build-commit count",
+  },
+  {
+    kind: "row",
+    key: "reviews",
+    value: (s) => String(s.reviews),
+    comment: `integer ${MIN_REVIEWS}..rounds, review-commit count`,
+  },
+  { kind: "header", text: "fixture repo" },
+  {
+    kind: "row",
+    key: "coderExperience",
+    value: (s) => String(s.coderExperience),
+    comment: `integer ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE}, ignored when aiCoders=true`,
+  },
+  {
+    kind: "row",
+    key: "comments",
+    value: (s) => String(s.comments),
+    comment: `integer ${MIN_COMMENTS}-${MAX_COMMENTS}, ${COMMENTS_FREE_TIER}=leave to coder`,
+  },
+]
+
+function row(prefix: string, comment: string): string {
+  const pad = Math.max(2, SETTINGS_COMMENT_COL - prefix.length)
+  return `${prefix}${" ".repeat(pad)}// ${comment}`
+}
+
+function continuation(comment: string): string {
+  return `${" ".repeat(SETTINGS_COMMENT_COL)}// ${comment}`
+}
+
+export function settingsRowsForHelp(s: Settings): string[] {
+  const lastRowIdx = SETTING_ITEMS.reduce(
+    (acc, item, i) => (item.kind === "row" ? i : acc),
+    -1,
   )
+  const lines: string[] = []
+  for (let i = 0; i < SETTING_ITEMS.length; i++) {
+    const item = SETTING_ITEMS[i]
+    if (item.kind === "header") {
+      lines.push("")
+      lines.push(`    // ${item.text}`)
+      continue
+    }
+    const isLast = i === lastRowIdx
+    const prefix = `    "${item.key}": ${item.value(s)}${isLast ? "" : ","}`
+    lines.push(row(prefix, item.comment))
+    if (item.cont) lines.push(continuation(item.cont))
+  }
+  return lines
+}
+
+export const SETTINGS_PREAMBLE = [
+  "Holds the resolved values from the most recent run; supplies CLI",
+  "defaults for the next run (CLI flags override file values). A frozen",
+  "copy is also written into each plan folder. All keys optional;",
+  "unknown keys or out-of-range values fail fast.",
+]
+
+export function settingsToJsonc(s: Settings): string {
+  const lines = SETTINGS_PREAMBLE.map((l) => `// ${l}`)
+  lines.push("", "{", ...settingsRowsForHelp(s), "}", "")
+  return lines.join("\n")
+}
+
+export function writeSettings(dir: string, settings: Settings): void {
+  writeFileSync(resolve(dir, SETTINGS_BASENAME), settingsToJsonc(settings))
 }
 
 export function readSettings(dir: string): Settings {

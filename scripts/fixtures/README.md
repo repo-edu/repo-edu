@@ -10,7 +10,7 @@ is only called for the parts that need creative judgement.
   per-stage flow. The modules below own the individual phases.
 - `cli.ts` — argument parsing, help, `Opts` type, model-code resolution.
 - `constants.ts` — hardcoded defaults, bounds, paths, model/effort tables.
-- `defaults.ts` — merges `constants.ts` with `.fixture-settings.json`
+- `defaults.ts` — merges `constants.ts` with `.fixture-settings.jsonc`
   (see [Settings](#settings) below).
 - `state.ts` — reads/writes `.fixture-state.json` (last project + plan
   pointers, so `plan` / `repo` can skip `--from`).
@@ -39,68 +39,88 @@ plan folder:
 
 ```text
 ../student-repos/
-  .fixture-settings.json     # actual values from the most recent run
-  .fixture-state.json        # last project + plan pointers (auto-managed)
-  c<N>-<name>/
-    project.md               # first; later regenerations → project-v2.md, ...
-    <plan-postfix>/          # plan; re-runs → <plan-postfix>-v2/, ...
-      plan.md                # plan content + meta
-      .fixture-settings.json # snapshot of settings used for this plan/repo
-      _log.md  _trace.md     # run log + trace
-      _review.md             # repo run summary
-      _state.json            # per-round coder state
-      <repo-postfix>/        # git repo; re-runs → <repo-postfix>-v2/, ...
+├─ .fixture-settings.jsonc          # actual values from the most recent run
+├─ .fixture-state.json              # last project + plan pointers (auto-managed)
+└─ c<N>-<name>/                     # one folder per project
+   ├─ project.md                    # first; regenerations → project-v2.md, ...
+   └─ <plan-postfix>/               # plan; re-runs → <plan-postfix>-v2/, ...
+      ├─ plan.md                    # plan content + meta
+      ├─ .fixture-settings.jsonc    # snapshot of settings used for this plan/repo
+      ├─ _log.md                    # run log (high-level summary)
+      ├─ _trace.md                  # per-round Planner/Coder prompts + replies
+      ├─ _xtrace.md                 # full agent turn log
+      ├─ _review.md                 # repo run summary
+      ├─ _state.json                # per-round coder state
+      └─ <repo-postfix>/            # git repo; re-runs → <repo-postfix>-v2/, ...
 ```
 
-The postfixes encode run parameters:
+### Postfix encoding
 
-- plan: `[ai-]c<N>-s<N>-r<N>-w<N>-i<N>`
-- repo: `m<code>-{x<N>|ai}-c<N>-s<N>-r<N>`
+**Plan postfix** — `[ai-]<style>-c<N>-s<N>-r<N>-w<N>-i<N>`
 
-`w<N>` is the review-commit count (0..rounds): `--reviews` reviews are
-placed after a uniformly-chosen subset of build slots.
+- `ai-` *(optional)* — present iff `--ai-coders 1` (planner drops
+  student-team framing).
+- `<style>` — 2-letter code from `--style`: `bb` big-bang, `in`
+  incremental, `vs` vertical-slice, `bu` bottom-up, `td` top-down.
+- `c<N>` — project complexity tier (1-4).
+- `s<N>` — team size (`--students`, 1-10).
+- `r<N>` — build-commit count (`--rounds`, ≥1).
+- `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
+  a uniformly-chosen subset of build slots).
+- `i<N>` — coder-interaction level (`--coder-interaction`, 1-3): how
+  aggressively the planner mixes `author_index` across modules. 1 =
+  each module has a primary owner; 2 = moderate cross-module mixing;
+  3 = constant cross-module mixing.
 
-`i<N>` is the coder-interaction level — a planner concern that shapes
-how the planner mixes `author_index` across modules (1 = each module
-has a primary owner, 2 = moderate cross-module mixing, 3 = constant
-cross-module mixing). `x<N>` is the coder-experience level — a coder
-concern that picks a code-style tier. The review-commit count is set
-directly via `--reviews` (0 ≤ reviews ≤ rounds) and placed at uniformly
-random build slots in the plan's kind sequence.
+**Repo postfix** — `m<code>-{ai|x<N>}-c<N>-s<N>-r<N>`
 
-`--ai-coders` (`-a`) on `plan` switches into **AI-coders mode**: the
-planner drops student-team framing, and downstream the coder runs
-without an experience tier. AI-mode prompts live in bespoke files
-(`planner/plan-l0.md`, `coder/build-l0.md`, `coder/review-l0.md`,
-`coder/persona-l0.md`, `coder-agreement-l0.md`) to keep the
-student-mode prompts unchanged. `-x` on `repo` is silently ignored when
-the plan is in AI-coders mode (experience tiers simulate student-skill
-levels, which don't apply to AI coders). `--comments` still applies in
-both modes — it's a pure output-style knob. The `project` subcommand
-is mode-agnostic — its output is the same regardless. The `repo` stage
-reads the mode from the plan's `Ai-coders:` meta line; it has no
-`--ai-coders` flag of its own.
+- `m<code>` — coder model + effort (e.g. `m22` = sonnet medium; see
+  the model-code table in `fixture -hh`).
+- `ai` or `x<N>` — in AI-coders mode, literally `ai`; otherwise
+  `x<N>` is the coder-experience level (`--coder-experience`, 1-4).
+- `c<N>`, `s<N>`, `r<N>` — copied from the parent plan for
+  at-a-glance disambiguation.
 
-Per-run scratch files (`_log.md`, `_trace.md`, `_xtrace.md`,
-`_review.md`, `_state.json`) live inside the plan folder for `plan`
-and `repo` runs, so a subsequent run against a different plan never
-overwrites them. For a `project` run (no plan exists yet), the log
-files stay at the `../student-repos/` root. All three log files are
-always written; `-v`/`-vv`/`-vvv` only gate which level streams to
-stdout:
+### AI-coders mode
+
+`-a 1` (or `--ai-coders 1`) on `plan` switches into **AI-coders mode**:
+
+- Planner drops student-team framing.
+- Coder runs without an experience tier; `-x` on `repo` is silently
+  ignored (experience tiers simulate student skill, which doesn't
+  apply to AI coders).
+- AI-mode prompts live in bespoke files (`planner/plan-l0.md`,
+  `coder/build-l0.md`, `coder/review-l0.md`, `coder/persona-l0.md`,
+  `coder-agreement-l0.md`) so student-mode prompts stay unchanged.
+- `--comments` still applies in both modes — it's a pure
+  output-style knob.
+- `project` is mode-agnostic — its output is the same either way.
+- `repo` reads the mode from the plan's `Ai-coders:` meta line; it
+  has no `--ai-coders` flag of its own.
+
+### Per-run scratch files
+
+`_log.md`, `_trace.md`, `_xtrace.md`, `_review.md`, and `_state.json`
+live **inside the plan folder** for `plan` and `repo` runs, so a
+subsequent run against a different plan never overwrites them. For a
+`project` run (no plan exists yet), the log files stay at the
+`../student-repos/` root.
+
+All three log files are always written; `-v`/`-vv`/`-vvv` only gate
+which level streams to stdout:
 
 - `_log.md` — high-level summary (archived plan).
 - `_trace.md` — per-round Planner/Coder prompts and final replies.
 - `_xtrace.md` — full agent turn log (every assistant message,
-  tool_use, and tool_result). File contents read/written by Read,
-  Write, and Edit are elided to a one-line summary.
+  `tool_use`, and `tool_result`). File contents read/written by
+  `Read`, `Write`, and `Edit` are elided to a one-line summary.
 
 ## Settings
 
 Every CLI option has a default resolved in this precedence order:
 
 1. Explicit CLI flag (e.g. `-c 3`) — wins when supplied.
-2. `../student-repos/.fixture-settings.json` — actual values from the
+2. `../student-repos/.fixture-settings.jsonc` — actual values from the
    most recent run, automatically rewritten on every successful
    `project` / `plan` / `repo`. Edit by hand to lock in different
    defaults.
@@ -108,27 +128,37 @@ Every CLI option has a default resolved in this precedence order:
    the single source of truth for shipped defaults; edit here to
    change what's baked in.
 
-A copy of `.fixture-settings.json` is also written inside the plan
+A copy of `.fixture-settings.jsonc` is also written inside the plan
 folder, capturing the settings that produced that specific
 plan/repo. The top-level file evolves with each run; the per-plan
 copy is frozen alongside the artifacts it describes.
 
-Schema (all keys optional; values are validated against the same
-ranges as the CLI flags):
+Format is JSONC (JSON with `//` comments and trailing commas). Run
+`fixture init` to scaffold a freshly-commented file before editing,
+or just run any subcommand and the file is auto-created on first
+use. Schema (all keys optional; values are validated against the
+same ranges as the CLI flags):
 
-```json
+```jsonc
 {
-  "mp": "33",
-  "mc": "23",
-  "aiCoders": true,
-  "coderExperience": 3,
-  "coderInteraction": 2,
-  "complexity": 2,
-  "students": 3,
-  "rounds": 3,
-  "comments": 1,
-  "reviews": 1,
-  "style": "big-bang"
+    "mp": "33",             // project and planner model CODE
+    "mc": "23",             // coder model CODE
+
+    // fixture project
+    "complexity": 2,        // integer 1-4, project tier
+
+    // fixture plan
+    "aiCoders": true,       // AI-coders mode vs student framing
+    "coderInteraction": 2,  // integer 1-3, cross-module author mixing
+    "style": "big-bang",    // one of: big-bang | incremental | vertical-slice |
+                            //         bottom-up | top-down
+    "students": 3,          // integer 1-10, team size
+    "rounds": 3,            // integer ≥1, build-commit count
+    "reviews": 1,           // integer 0..rounds, review-commit count
+
+    // fixture repo
+    "coderExperience": 3,   // integer 1-4, ignored when aiCoders=true
+    "comments": 1           // integer 0-3, 3=leave to coder
 }
 ```
 
@@ -197,16 +227,19 @@ File shape:
 `project` is either a path to an existing project (`project.md` file
 or a `c<N>-<name>/` directory) or a generation spec
 `{ "complexity": N, "mp": "CODE" }` to generate a fresh one. Each
-entry's keys mirror `.fixture-settings.json`; missing fields fall
-back to the top-level `.fixture-settings.json` snapshot.
+entry's keys mirror `.fixture-settings.jsonc`; missing fields fall
+back to the top-level `.fixture-settings.jsonc` snapshot.
 
 ## Entry point
 
-`pnpm fixture` has four subcommands; run `pnpm fixture <sub> --help`
-for the flags that apply to each.
+`pnpm fixture` has five subcommands; run `pnpm fixture <sub> -h`
+for the flags that apply to each, or `pnpm fixture -hh` for the full
+reference (every subcommand plus the model-code table and
+`.fixture-settings.jsonc` schema).
 
 | subcommand | produces | key flags |
 |---|---|---|
+| `init` | `.fixture-settings.jsonc` (scaffold) | `-f` |
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
 | `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `--comments` |
@@ -224,7 +257,7 @@ naturally without any `--from` flags:
 
 ```bash
 pnpm fixture project -c 3                  # archives project, updates state
-pnpm fixture plan -s 4 -r 5 -i 3 --no-ai-coders  # uses state.project, updates state.plan
+pnpm fixture plan -s 4 -r 5 -i 3 -a 0            # uses state.project, updates state.plan
 pnpm fixture repo -x 4                     # uses state.plan
 ```
 

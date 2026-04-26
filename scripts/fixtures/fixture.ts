@@ -13,6 +13,7 @@ import type { Usage } from "./agent"
 import { type BatchEntry, loadBatch, mergeEntry, saveBatch } from "./batch"
 import {
   type BatchOpts,
+  type InitOpts,
   type PlanOpts,
   type ProjectOpts,
   parseArgs,
@@ -29,6 +30,8 @@ import {
   XTRACE_BASENAME,
 } from "./constants"
 import {
+  FIXTURE_SETTINGS_FILE,
+  HARDCODED_SETTINGS,
   readSettings,
   SETTINGS,
   type Settings,
@@ -77,6 +80,10 @@ import { readState, writeState } from "./state"
 
 function setupRun(verbosity: number): void {
   mkdirSync(STUDENT_REPOS, { recursive: true })
+  if (!existsSync(FIXTURE_SETTINGS_FILE)) {
+    writeSettings(STUDENT_REPOS, HARDCODED_SETTINGS)
+    progress(`scaffolded ${FIXTURE_SETTINGS_FILE}`)
+  }
   const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
   const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
   const xtracePath = resolve(STUDENT_REPOS, XTRACE_BASENAME)
@@ -192,6 +199,7 @@ function archivePlan(
     students: opts.students,
     reviews: opts.reviews,
     coderInteraction: opts.coderInteraction,
+    style: opts.style,
   }
   writeFileSync(planPath, planToMarkdown({ meta, plan }))
   progress(`archived plan to ${planPath}`)
@@ -220,6 +228,7 @@ function emitPlan(
         students: opts.students,
         reviews: opts.reviews,
         coderInteraction: opts.coderInteraction,
+        style: opts.style,
       },
       plan,
     }),
@@ -603,8 +612,23 @@ async function handleBatch(opts: BatchOpts, runStart: number): Promise<void> {
   )
 }
 
+function handleInit(opts: InitOpts): void {
+  mkdirSync(STUDENT_REPOS, { recursive: true })
+  if (existsSync(FIXTURE_SETTINGS_FILE) && !opts.force) {
+    fail(
+      `${FIXTURE_SETTINGS_FILE} already exists; pass -f / --force to overwrite`,
+    )
+  }
+  writeSettings(STUDENT_REPOS, HARDCODED_SETTINGS)
+  process.stdout.write(`Wrote ${FIXTURE_SETTINGS_FILE}\n`)
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2))
+  if (opts.subcommand === "init") {
+    handleInit(opts)
+    return
+  }
   setupRun(opts.verbosity)
   const runStart = Date.now()
   switch (opts.subcommand) {

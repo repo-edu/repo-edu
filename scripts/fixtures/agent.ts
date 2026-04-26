@@ -110,8 +110,9 @@ export async function runAgent(
 
   for await (const message of query({ prompt, options })) {
     if (message.type === "assistant") {
-      const blocks = (message as { message: { content: AssistantContentBlock[] } })
-        .message.content
+      const blocks = (
+        message as { message: { content: AssistantContentBlock[] } }
+      ).message.content
       for (const block of blocks) {
         if (block.type === "text" && block.text) {
           emit(3, `\n#### Assistant\n\n${block.text}`)

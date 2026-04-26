@@ -17,10 +17,10 @@ import {
   STYLES,
   type Style,
 } from "./constants"
-import { SETTINGS } from "./defaults"
+import { SETTINGS, SETTINGS_PREAMBLE, settingsRowsForHelp } from "./defaults"
 import { fail } from "./log"
 
-export type Subcommand = "project" | "plan" | "repo" | "batch"
+export type Subcommand = "init" | "project" | "plan" | "repo" | "batch"
 
 export interface CommonOpts {
   verbosity: number
@@ -52,6 +52,11 @@ export interface BatchOpts extends CommonOpts {
   listPath: string
 }
 
+export interface InitOpts extends CommonOpts {
+  subcommand: "init"
+  force: boolean
+}
+
 export interface RepoOpts extends CommonOpts {
   subcommand: "repo"
   fromPath: string
@@ -62,7 +67,7 @@ export interface RepoOpts extends CommonOpts {
   coderEffort: EffortLevel | "none"
 }
 
-export type Opts = ProjectOpts | PlanOpts | RepoOpts | BatchOpts
+export type Opts = ProjectOpts | PlanOpts | RepoOpts | BatchOpts | InitOpts
 
 const MODEL_CODES: Record<
   string,
@@ -103,12 +108,24 @@ const MODEL_CODE_HELP = [
   "  haiku = 1 (no thinking modes)",
 ]
 
+const OPT_DESC_COL = 31
+
+const SETTINGS_BODY = [
+  ...SETTINGS_PREAMBLE,
+  "Format: JSONC (JSON with // comments and trailing commas).",
+  "",
+  "{",
+  ...settingsRowsForHelp(SETTINGS),
+  "}",
+]
+
 const TOP_OVERVIEW_LINES = [
   "Usage: fixture <subcommand> [options]",
   "",
   "Generate synthetic coder-team repo fixtures with AI agents through",
   "these subcommands:",
   "",
+  "  init      Scaffold a default .fixture-settings.jsonc for editing.",
   "  project   Invent a project (name + assignment) → project.md.",
   "  plan      Generate a team and commit timeline for a given",
   "            project → <plan-postfix>/plan.md.",
@@ -129,8 +146,9 @@ const TOP_OVERVIEW_LINES = [
   "    ai-bb-c2-s3-r6-w2-i2/           # one folder per plan",
   "      plan.md                       # from `fixture plan`",
   "      m23-ai-c2-s3-r6/              # git repo from `fixture repo`",
-  "      .fixture-settings.json        # snapshot of settings used",
-  "      _log.md  _trace.md            # run log + trace",
+  "      .fixture-settings.jsonc       # snapshot of settings used",
+  "      _log.md  _trace.md            # run log + per-round prompts/replies",
+  "      _xtrace.md                    # full agent turn log",
   "      _review.md  _state.json       # review summary + per-round state",
   "",
   "The project folder is named c<N>-<name>, where <N> is the project's",
@@ -147,7 +165,10 @@ const TOP_OVERVIEW_LINES = [
   "  fixture plan -s 3 -r 6",
   "  fixture repo",
   "",
-  "Run 'fixture <subcommand> --help' for a single subcommand's options.",
+  "Run 'fixture <subcommand> -h' for a single subcommand's options;",
+  "'fixture init -h' shows the .fixture-settings.jsonc schema. Run",
+  "'fixture -hh' for the full reference (every subcommand and the",
+  "model-code table).",
 ]
 
 export function printTopHelp(): void {
@@ -160,6 +181,7 @@ function indentBody(lines: string[], indent: string): string[] {
 
 export function printFullHelp(): void {
   const sections = [
+    indentBody(subcommandHelpBody("init"), "  ").join("\n"),
     indentBody(subcommandHelpBody("project"), "  ").join("\n"),
     indentBody(subcommandHelpBody("plan"), "  ").join("\n"),
     indentBody(subcommandHelpBody("repo"), "  ").join("\n"),
@@ -218,9 +240,11 @@ function runNodeParseArgs(
 function resolveAiCoders(
   v: Record<string, string | boolean | boolean[] | undefined>,
 ): boolean {
-  if (v["ai-coders"] === true) return true
-  if (v["no-ai-coders"] === true) return false
-  return SETTINGS.aiCoders
+  const raw = v["ai-coders"]
+  if (raw === undefined) return SETTINGS.aiCoders
+  if (raw === "1") return true
+  if (raw === "0") return false
+  fail(`-a/--ai-coders must be 0 or 1, got "${String(raw)}"`)
 }
 
 function validateComplexity(n: number): void {
@@ -285,8 +309,7 @@ function validateStyle(s: string): void {
 }
 
 const aiCodersFlag = {
-  "ai-coders": { type: "boolean" as const, short: "a" },
-  "no-ai-coders": { type: "boolean" as const },
+  "ai-coders": { type: "string" as const, short: "a" },
 }
 
 function parseProject(argv: string[]): ProjectOpts {
@@ -401,8 +424,34 @@ function parseRepo(argv: string[]): RepoOpts {
   }
 }
 
-const aiCodersHelp = (): string =>
-  `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${SETTINGS.aiCoders ? "--ai-coders" : "--no-ai-coders"})`
+function opt(spec: string, ...descLines: string[]): string[] {
+  const pad = Math.max(2, OPT_DESC_COL - spec.length)
+  const out: string[] = [`${spec}${" ".repeat(pad)}${descLines[0]}`]
+  for (const line of descLines.slice(1)) {
+    out.push(`${" ".repeat(OPT_DESC_COL)}${line}`)
+  }
+  return out
+}
+
+const aiCodersHelp = (): string[] =>
+  opt(
+    "  -a, --ai-coders=0|1",
+    `AI-coders mode (no student framing) (default: ${SETTINGS.aiCoders ? 1 : 0})`,
+  )
+
+function parseInit(argv: string[]): InitOpts {
+  const { values: v } = runNodeParseArgs(argv, {
+    force: { type: "boolean", short: "f" },
+    verbose: { type: "boolean", short: "v", multiple: true },
+    help: { type: "boolean", short: "h" },
+  })
+  const common = commonOptsFrom(v)
+  return {
+    ...common,
+    subcommand: "init",
+    force: v.force === true,
+  }
+}
 
 function parseBatch(argv: string[]): BatchOpts {
   let listPath: string | undefined
@@ -427,8 +476,24 @@ function parseBatch(argv: string[]): BatchOpts {
 }
 
 function subcommandHelpBody(sub: Subcommand): string[] {
-  const helpLine =
-    "  -h, --help                         Show this help and exit"
+  const helpLine = opt("  -h, --help", "Show this help and exit")
+  if (sub === "init") {
+    return [
+      "Usage: fixture init [-f]",
+      "",
+      "Write a default ../student-repos/.fixture-settings.jsonc with all keys",
+      "and inline JSONC comments. Refuses to overwrite an existing file",
+      "unless -f / --force is given. Settings is also auto-created on the",
+      "first project / plan / repo / batch run, so this subcommand is",
+      "mainly useful to scaffold the file ahead of editing it.",
+      "",
+      ...SETTINGS_BODY,
+      "",
+      "Options:",
+      ...opt("  -f, --force", "Overwrite an existing .fixture-settings.jsonc"),
+      ...helpLine,
+    ]
+  }
   if (sub === "project") {
     return [
       "Usage: fixture project [options]",
@@ -436,11 +501,17 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "Generate a project (name + assignment) at c<N>-<name>/project.md.",
       "",
       "Options:",
-      `  -m, --model=CODE                   Planner model (default: ${SETTINGS.mp})`,
-      `  -c, --complexity=N                 ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS.complexity})`,
-      "  -v, --verbose                      Print project to stdout; -vv adds Planner",
-      "                                     prompt/reply; -vvv adds full agent turns",
-      helpLine,
+      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS.mp})`),
+      ...opt(
+        "  -c, --complexity=N",
+        `${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS.complexity})`,
+      ),
+      ...opt(
+        "  -v, --verbose",
+        "Print project to stdout; -vv adds Planner",
+        "prompt/reply; -vvv adds full agent turns",
+      ),
+      ...helpLine,
     ]
   }
   if (sub === "plan") {
@@ -453,21 +524,54 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "most recent `fixture project` or `fixture plan`).",
       "",
       "Options:",
-      "      --from=PATH                    Project .md file or c<N>-<name>/ dir (absolute,",
-      "                                     or relative to ../student-repos/). Optional if",
-      "                                     .fixture-state.json has a project.",
-      `  -m, --model=CODE                   Planner model (default: ${SETTINGS.mp})`,
-      `  -s, --students=N                   ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS.students})`,
-      `  -r, --rounds=N                     Build-commit count (default: ${SETTINGS.rounds})`,
-      `  -i, --coder-interaction=N          ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS.coderInteraction}) — cross-module author mixing`,
-      `  -w, --reviews=N                    ${MIN_REVIEWS}..--rounds (default: ${SETTINGS.reviews}) — review-commit`,
-      "                                     count, placed at random build slots",
-      `  -y, --style=NAME                   one of ${STYLES.join("|")}`,
-      `                                     (default: ${SETTINGS.style}) — structural shape of the commit timeline`,
-      aiCodersHelp(),
-      "  -v, --verbose                      Print plan to stdout; -vv adds Planner",
-      "                                     prompt/reply; -vvv adds full agent turns",
-      helpLine,
+      ...opt(
+        "      --from=PATH",
+        "Project .md file or c<N>-<name>/ dir (absolute,",
+        "or relative to ../student-repos/). Optional if",
+        ".fixture-state.json has a project.",
+      ),
+      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS.mp})`),
+      ...aiCodersHelp(),
+      ...opt(
+        "  -i, --coder-interaction=N",
+        `${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS.coderInteraction}) — cross-module author mixing`,
+      ),
+      ...opt(
+        "  -y, --style=NAME",
+        `one of ${STYLES.join("|")}`,
+        `(default: ${SETTINGS.style}) — structural shape of the commit timeline`,
+      ),
+      ...opt(
+        "  -s, --students=N",
+        `${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS.students})`,
+      ),
+      ...opt(
+        "  -r, --rounds=N",
+        `Build-commit count (default: ${SETTINGS.rounds})`,
+      ),
+      ...opt(
+        "  -w, --reviews=N",
+        `${MIN_REVIEWS}..--rounds (default: ${SETTINGS.reviews}) — review-commit`,
+        "count, placed at random build slots",
+      ),
+      ...opt(
+        "  -v, --verbose",
+        "Print plan to stdout; -vv adds Planner",
+        "prompt/reply; -vvv adds full agent turns",
+      ),
+      ...helpLine,
+      "",
+      "Style values:",
+      "  big-bang        Round 1 scaffolds every module; later rounds add",
+      "                  content inside those modules.",
+      "  incremental     One module at round 1; new modules introduced one",
+      "                  per round until all exist, then content fills in.",
+      "  vertical-slice  Every commit touches multiple modules in thin",
+      "                  end-to-end slices; modules grow in lockstep.",
+      "  bottom-up       Utilities, types, and primitives first; higher-level",
+      "                  features appear in the second half.",
+      "  top-down        Public surface stubbed in early rounds; real",
+      "                  implementations replace stubs later.",
     ]
   }
   if (sub === "repo") {
@@ -482,15 +586,27 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "(set by the most recent `fixture plan`).",
       "",
       "Options:",
-      "      --from=PATH                    Plan .md file, plan dir, or project dir",
-      "                                     (absolute, or relative to ../student-repos/).",
-      "                                     Optional if .fixture-state.json has a plan.",
-      `  -m, --model=CODE                   Coder model (default: ${SETTINGS.mc})`,
-      `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
-      `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
-      "  -v, --verbose                      Print plan to stdout; -vv adds Coder",
-      "                                     prompts/replies; -vvv adds full agent turns",
-      helpLine,
+      ...opt(
+        "      --from=PATH",
+        "Plan .md file, plan dir, or project dir",
+        "(absolute, or relative to ../student-repos/).",
+        "Optional if .fixture-state.json has a plan.",
+      ),
+      ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS.mc})`),
+      ...opt(
+        "  -x, --coder-experience=N",
+        `${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
+      ),
+      ...opt(
+        "      --comments=N",
+        `${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
+      ),
+      ...opt(
+        "  -v, --verbose",
+        "Print plan to stdout; -vv adds Coder",
+        "prompts/replies; -vvv adds full agent turns",
+      ),
+      ...helpLine,
     ]
   }
   return [
@@ -512,12 +628,15 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "",
     "`project` is either a path to an existing project.md (or project dir)",
     'or `{ complexity: N, mp: "CODE" }` to generate a fresh project. Each',
-    "entry's keys match `.fixture-settings.json` plus `style`.",
+    "entry's keys match `.fixture-settings.jsonc` plus `style`.",
     "",
     "Options:",
-    "  -v, --verbose                      Print plan to stdout; -vv adds Planner/Coder",
-    "                                     prompts/replies; -vvv adds full agent turns",
-    helpLine,
+    ...opt(
+      "  -v, --verbose",
+      "Print plan to stdout; -vv adds Planner/Coder",
+      "prompts/replies; -vvv adds full agent turns",
+    ),
+    ...helpLine,
   ]
 }
 
@@ -537,21 +656,26 @@ export function parseArgs(argv: string[]): Opts {
     process.exit(0)
   }
   if (
+    sub !== "init" &&
     sub !== "project" &&
     sub !== "plan" &&
     sub !== "repo" &&
     sub !== "batch"
   ) {
-    fail(`unknown subcommand "${sub}"; expected project | plan | repo | batch`)
+    fail(
+      `unknown subcommand "${sub}"; expected init | project | plan | repo | batch`,
+    )
   }
   const opts =
-    sub === "project"
-      ? parseProject(rest)
-      : sub === "plan"
-        ? parsePlan(rest)
-        : sub === "repo"
-          ? parseRepo(rest)
-          : parseBatch(rest)
+    sub === "init"
+      ? parseInit(rest)
+      : sub === "project"
+        ? parseProject(rest)
+        : sub === "plan"
+          ? parsePlan(rest)
+          : sub === "repo"
+            ? parseRepo(rest)
+            : parseBatch(rest)
   if (opts.help) {
     printSubcommandHelp(sub)
     process.exit(0)
