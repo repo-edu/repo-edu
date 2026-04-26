@@ -296,7 +296,7 @@ const SETTING_ITEMS: SettingItem[] = [
 ]
 
 function row(prefix: string, comment: string): string {
-  const pad = Math.max(2, SETTINGS_COMMENT_COL - prefix.length)
+  const pad = Math.max(1, SETTINGS_COMMENT_COL - prefix.length)
   return `${prefix}${" ".repeat(pad)}// ${comment}`
 }
 

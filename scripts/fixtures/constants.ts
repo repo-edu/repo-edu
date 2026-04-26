@@ -4,13 +4,13 @@ import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 
 // Models
 export const DEFAULT_MP = "33"
-export const DEFAULT_MC = "23"
+export const DEFAULT_MC = "22"
 
 // Mode
 export const DEFAULT_AI_CODERS = true
 
 // Project (planner)
-export const DEFAULT_COMPLEXITY = 2
+export const DEFAULT_COMPLEXITY = 1
 export const MIN_COMPLEXITY = 1
 export const MAX_COMPLEXITY = 4
 
@@ -39,7 +39,7 @@ export const STYLES = [
   "refactor-heavy",
 ] as const
 export type Style = (typeof STYLES)[number]
-export const DEFAULT_STYLE: Style = "big-bang"
+export const DEFAULT_STYLE: Style = "incremental"
 export const STYLE_CODE: Record<Style, string> = {
   "big-bang": "bb",
   incremental: "inc",

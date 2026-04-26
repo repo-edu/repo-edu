@@ -150,15 +150,15 @@ same ranges as the CLI flags):
 ```jsonc
 {
     "mp": "33",             // project and planner model CODE
-    "mc": "23",             // coder model CODE
+    "mc": "22",             // coder model CODE
 
     // fixture project
-    "complexity": 2,        // integer 1-4, project tier
+    "complexity": 1,        // integer 1-4, project tier
 
     // fixture plan
     "aiCoders": true,       // AI-coders mode vs student framing
     "coderInteraction": 2,  // integer 1-3, cross-module author mixing
-    "style": "big-bang",    // one of: big-bang | incremental | vertical-slice |
+    "style": "incremental", // one of: big-bang | incremental | vertical-slice |
                             //         bottom-up | top-down | test-driven |
                             //         walking-skeleton | spike-and-stabilize |
                             //         demo-driven | refactor-heavy

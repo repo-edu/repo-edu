@@ -32,6 +32,12 @@ Modules grow in lockstep rather than one-at-a-time. Module files
 appear in the first commit that needs them and gain content
 gradually across rounds.
 
+This style overrides any "module owner" interpretation of
+`coder-interaction`: every commit spans modules, so there is no
+single owner. Treat `coder-interaction` as the lead-author rotation
+rate across slices — 1 = same author leads most slices, 3 = the
+lead rotates each slice.
+
 ## bottom-up
 
 Early rounds build shared utilities, types, constants, and
@@ -89,6 +95,12 @@ Commits are aligned to demo-able milestones rather than module
 boundaries; one commit may touch several modules to make the new
 demo work. Notes read like demo descriptions ("demo: load a CSV
 and print summary", "demo: filter rides by date").
+
+This style overrides any "module owner" interpretation of
+`coder-interaction`: commits are demo-driven, not module-driven,
+so there is no single owner. Treat `coder-interaction` as the
+lead-author rotation rate across demos — 1 = same author leads
+most demos, 3 = the lead rotates each demo.
 
 ## refactor-heavy
 
