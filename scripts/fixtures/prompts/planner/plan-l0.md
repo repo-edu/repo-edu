@@ -18,7 +18,8 @@ Parameters:
 - S (coders): {{students}}
 - today: {{today}}
 
-Kind sequence (use verbatim, in order; do not change any kind):
+Kind sequence (the orchestrator assigns each slot's kind; you do not emit
+this field, but use it to shape the note/message per slot):
 
 {{kind_sequence}}
 
@@ -34,11 +35,10 @@ Output JSON shape (comments are for YOU, do not include them in output):
       "module": "primary_module.py"
     }
   ],
-  "commits": [ // exactly {{planned_count}} entries, ascending date
+  "commits": [ // exactly {{planned_count}} entries, ascending date; slot i corresponds to entry i in the Kind sequence
     {
       "date": "YYYY-MM-DDTHH:MM:SS",
       "author_index": 0,
-      "kind": "build",
       "note": "goal for this round in the planner's voice",
       "message": "fallback one-liner if the coder fails to return one"
     }
@@ -57,11 +57,12 @@ Rules:
 - Dates span 1-2 weeks ending on or before today, uneven pacing.
 - Each commit is one coherent change. If a note bundles unrelated
   concerns, split them.
-- Kinds are fixed by the Kind sequence above; emit in that exact order
-  with those exact kinds.
-- For "review" commits, note asks the coder to recheck recent work; the
+- Emit exactly {{planned_count}} commits in ascending date order. Slot i
+  takes its kind from entry i of the Kind sequence above; you do not
+  emit kind, but the slot's kind shapes note/message.
+- For "review" slots, note asks the coder to recheck recent work; the
   author must differ from the author of the immediately preceding build
-  commit.
+  slot.
 - "note" is the round goal (fed to the Coder). "message" is a fallback
   commit message used only if the Coder doesn't return one.
 

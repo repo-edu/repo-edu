@@ -282,8 +282,7 @@ function loadPlanFrom(path: string): {
   const pf = markdownToPlan(readFileSync(path, "utf8"))
   const projectPath = resolve(dirname(path), pf.meta.projectFile)
   const project = loadProjectFrom(projectPath)
-  const kindSequence = pf.plan.commits.map((c) => c.kind)
-  validatePlan(pf.plan, pf.meta.students, kindSequence)
+  validatePlan(pf.plan, pf.meta.students, pf.plan.commits.length)
   return { meta: pf.meta, plan: pf.plan, project }
 }
 

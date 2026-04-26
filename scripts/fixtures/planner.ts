@@ -8,7 +8,7 @@ import {
   type Style,
 } from "./constants"
 import { emit, fail } from "./log"
-import type { CommitKind, Plan } from "./plan-md"
+import type { CommitKind, Plan, PlannedCommit, TeamMember } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
 
@@ -123,25 +123,20 @@ function validateProject(project: Project, complexity: number): void {
 export function validatePlan(
   plan: Plan,
   students: number,
-  kindSequence: CommitKind[],
+  plannedCount: number,
 ): void {
   if (plan.team?.length !== students) {
     fail(`plan.team must have ${students} entries, got ${plan.team?.length}`)
   }
-  if (plan.commits?.length !== kindSequence.length) {
+  if (plan.commits?.length !== plannedCount) {
     fail(
-      `plan.commits must have ${kindSequence.length} entries, got ${plan.commits?.length}`,
+      `plan.commits must have ${plannedCount} entries, got ${plan.commits?.length}`,
     )
   }
   for (let i = 0; i < plan.commits.length; i++) {
     const c = plan.commits[i]
     if (c.author_index < 0 || c.author_index >= students) {
       fail(`commits[${i}].author_index out of range`)
-    }
-    if (c.kind !== kindSequence[i]) {
-      fail(
-        `commits[${i}].kind must be "${kindSequence[i]}" (from sampled sequence), got "${c.kind}"`,
-      )
     }
   }
 }
@@ -198,7 +193,16 @@ export async function generatePlan(
     permissionMode: "bypassPermissions",
   })
   emitPlannerTrace("plan", prompt, reply, usage)
-  const plan = parseJsonOrFail<Plan>(reply, "planner plan reply")
-  validatePlan(plan, opts.students, kindSequence)
+  type RawPlannedCommit = Omit<PlannedCommit, "kind">
+  const raw = parseJsonOrFail<{
+    team: TeamMember[]
+    commits: RawPlannedCommit[]
+  }>(reply, "planner plan reply")
+  const commits: PlannedCommit[] = (raw.commits ?? []).map((c, i) => ({
+    ...c,
+    kind: kindSequence[i],
+  }))
+  const plan: Plan = { team: raw.team, commits }
+  validatePlan(plan, opts.students, kindSequence.length)
   return { plan, usage }
 }

@@ -18,7 +18,8 @@ Parameters:
 - S (students): {{students}}
 - today: {{today}}
 
-Kind sequence (use verbatim, in order; do not change any kind):
+Kind sequence (the orchestrator assigns each slot's kind; you do not emit
+this field, but use it to shape the note/message per slot):
 
 {{kind_sequence}}
 
@@ -34,11 +35,10 @@ Output JSON shape (comments are for YOU, do not include them in output):
       "module": "primary_module.py" // use path form (src/<pkg>/foo.py) only at C=4
     }
   ],
-  "commits": [ // exactly {{planned_count}} entries, in ascending date order
+  "commits": [ // exactly {{planned_count}} entries, in ascending date order; slot i corresponds to entry i in the Kind sequence
     {
       "date": "YYYY-MM-DDTHH:MM:SS", // ISO-8601 local, no timezone
       "author_index": 0, // integer in 0..{{max_author}}
-      "kind": "build", // "build" or "review"
       "note": "round goal in planner's voice (not the Coder's prompt)",
       "message": "fallback one-liner used only if the Coder fails to produce a commit"
     }
@@ -62,15 +62,15 @@ Rules:
   weekends are plausible but lighter. Avoid exactly one commit per day.
 - Each commit is one coherent change. If a note reads "X and Y" where X
   and Y are different concerns, split them into two commits.
-- The "kind" field of each commit is fixed by the Kind sequence above;
-  emit the commits in that exact order with those exact kinds. Do not
-  reorder, merge, split, or change any kind.
-- For each "review" commit, the note re-examines recent work rather than
-  adds a feature ("take another look at the parser, clean up rough
-  edges", "look over the CSV import and fix anything that feels off").
-  Assign every review commit to an author different from the one who
-  wrote the immediately preceding build commit — a teammate looking over
-  someone else's work, not the original author.
+- Emit exactly {{planned_count}} commits in ascending date order. Slot i
+  takes its kind from entry i of the Kind sequence above; you do not
+  emit kind, but the slot's kind determines the shape of note/message.
+- For each slot whose kind is "review", the note re-examines recent
+  work rather than adds a feature ("take another look at the parser,
+  clean up rough edges", "look over the CSV import and fix anything
+  that feels off"). Assign every review slot to an author different
+  from the one who wrote the immediately preceding build slot — a
+  teammate looking over someone else's work, not the original author.
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.
