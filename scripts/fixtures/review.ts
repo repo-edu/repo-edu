@@ -3,7 +3,7 @@ import { resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import type { Usage } from "./agent"
 import type { State } from "./coder"
-import { type ModelName, STUDENT_REPOS } from "./constants"
+import { type ModelName, REVIEW_BASENAME } from "./constants"
 import { formatSeconds } from "./log"
 import { formatSpec } from "./naming"
 import type { Project } from "./project-md"
@@ -25,6 +25,7 @@ export function writeReview(
   opts: ReviewSummaryOpts,
   plannerUsage: Usage,
   runMs: number,
+  planDir: string,
   dirName: string,
 ): void {
   const totalIn =
@@ -78,10 +79,10 @@ export function writeReview(
   )
   lines.push("")
 
-  writeFileSync(resolve(STUDENT_REPOS, "_review.md"), lines.join("\n"))
+  writeFileSync(resolve(planDir, REVIEW_BASENAME), lines.join("\n"))
   const stoppedSuffix = state.stopped ? " (stopped early)" : ""
   process.stdout.write(
-    `Wrote ${dirName}/${stoppedSuffix} (see git log for contents). Review: ${dirName}/_review.md\n`,
+    `Wrote ${dirName}/${stoppedSuffix} (see git log for contents). Review: ${dirName}/../${REVIEW_BASENAME}\n`,
   )
   process.stdout.write(
     `Wall time: ${formatSeconds(runMs)} | tokens in/out: ${totalIn} / ${totalOut}\n`,

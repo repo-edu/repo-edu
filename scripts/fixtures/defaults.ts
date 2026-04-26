@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import {
   DEFAULT_AI_CODERS,
@@ -23,16 +23,14 @@ import {
   MIN_COMPLEXITY,
   MIN_REVIEW_FREQUENCY,
   MIN_STUDENTS,
+  SETTINGS_BASENAME,
   STUDENT_REPOS,
 } from "./constants"
 import { fail } from "./log"
 
-export const FIXTURE_DEFAULTS_FILE = resolve(
-  STUDENT_REPOS,
-  ".fixture-defaults.json",
-)
+export const FIXTURE_SETTINGS_FILE = resolve(STUDENT_REPOS, SETTINGS_BASENAME)
 
-export interface Defaults {
+export interface Settings {
   mp: string
   mc: string
   aiCoders: boolean
@@ -45,7 +43,7 @@ export interface Defaults {
   reviewFrequency: number
 }
 
-export const HARDCODED_DEFAULTS: Defaults = {
+export const HARDCODED_SETTINGS: Settings = {
   mp: DEFAULT_MP,
   mc: DEFAULT_MC,
   aiCoders: DEFAULT_AI_CODERS,
@@ -64,7 +62,7 @@ interface Spec {
 }
 
 const NUMERIC_SPECS: Record<
-  keyof Omit<Defaults, "mp" | "mc" | "aiCoders">,
+  keyof Omit<Settings, "mp" | "mc" | "aiCoders">,
   Spec
 > = {
   coderExperience: { min: MIN_CODER_EXPERIENCE, max: MAX_CODER_EXPERIENCE },
@@ -76,33 +74,33 @@ const NUMERIC_SPECS: Record<
   reviewFrequency: { min: MIN_REVIEW_FREQUENCY, max: MAX_REVIEW_FREQUENCY },
 }
 
-const KNOWN_KEYS = new Set<keyof Defaults>([
+const KNOWN_KEYS = new Set<keyof Settings>([
   "mp",
   "mc",
   "aiCoders",
-  ...(Object.keys(NUMERIC_SPECS) as (keyof Defaults)[]),
+  ...(Object.keys(NUMERIC_SPECS) as (keyof Settings)[]),
 ])
 
-function parseFile(): Partial<Defaults> {
-  if (!existsSync(FIXTURE_DEFAULTS_FILE)) return {}
+function parseSettingsFile(path: string): Partial<Settings> {
+  if (!existsSync(path)) return {}
   let raw: unknown
   try {
-    raw = JSON.parse(readFileSync(FIXTURE_DEFAULTS_FILE, "utf8"))
+    raw = JSON.parse(readFileSync(path, "utf8"))
   } catch (err) {
     fail(
-      `${FIXTURE_DEFAULTS_FILE}: invalid JSON (${err instanceof Error ? err.message : String(err)})`,
+      `${path}: invalid JSON (${err instanceof Error ? err.message : String(err)})`,
     )
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    fail(`${FIXTURE_DEFAULTS_FILE}: must be a JSON object`)
+    fail(`${path}: must be a JSON object`)
   }
   const obj = raw as Record<string, unknown>
-  const out: Partial<Defaults> = {}
+  const out: Partial<Settings> = {}
 
   for (const key of Object.keys(obj)) {
-    if (!KNOWN_KEYS.has(key as keyof Defaults)) {
+    if (!KNOWN_KEYS.has(key as keyof Settings)) {
       fail(
-        `${FIXTURE_DEFAULTS_FILE}: unknown key "${key}"; expected one of ${[...KNOWN_KEYS].join(", ")}`,
+        `${path}: unknown key "${key}"; expected one of ${[...KNOWN_KEYS].join(", ")}`,
       )
     }
   }
@@ -120,7 +118,7 @@ function parseFile(): Partial<Defaults> {
       v > spec.max
     ) {
       fail(
-        `${FIXTURE_DEFAULTS_FILE}: "${key}" must be an integer ${spec.min}-${spec.max}, got ${JSON.stringify(v)}`,
+        `${path}: "${key}" must be an integer ${spec.min}-${spec.max}, got ${JSON.stringify(v)}`,
       )
     }
     out[key] = v
@@ -130,7 +128,7 @@ function parseFile(): Partial<Defaults> {
     if (v === undefined) continue
     if (typeof v !== "string" || v.length === 0) {
       fail(
-        `${FIXTURE_DEFAULTS_FILE}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
+        `${path}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
       )
     }
     out[key] = v
@@ -138,7 +136,7 @@ function parseFile(): Partial<Defaults> {
   if (obj.aiCoders !== undefined) {
     if (typeof obj.aiCoders !== "boolean") {
       fail(
-        `${FIXTURE_DEFAULTS_FILE}: "aiCoders" must be a boolean, got ${JSON.stringify(obj.aiCoders)}`,
+        `${path}: "aiCoders" must be a boolean, got ${JSON.stringify(obj.aiCoders)}`,
       )
     }
     out.aiCoders = obj.aiCoders
@@ -147,4 +145,21 @@ function parseFile(): Partial<Defaults> {
   return out
 }
 
-export const DEFAULTS: Defaults = { ...HARDCODED_DEFAULTS, ...parseFile() }
+export const SETTINGS: Settings = {
+  ...HARDCODED_SETTINGS,
+  ...parseSettingsFile(FIXTURE_SETTINGS_FILE),
+}
+
+export function writeSettings(dir: string, settings: Settings): void {
+  writeFileSync(
+    resolve(dir, SETTINGS_BASENAME),
+    `${JSON.stringify(settings, null, 2)}\n`,
+  )
+}
+
+export function readSettings(dir: string): Settings {
+  return {
+    ...HARDCODED_SETTINGS,
+    ...parseSettingsFile(resolve(dir, SETTINGS_BASENAME)),
+  }
+}

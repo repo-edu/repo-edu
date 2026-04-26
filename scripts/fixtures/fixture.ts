@@ -1,14 +1,13 @@
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
+  renameSync,
   statSync,
   writeFileSync,
 } from "node:fs"
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import type { Usage } from "./agent"
 import {
@@ -21,10 +20,16 @@ import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
 import {
   LOG_BASENAME,
   type ModelName,
-  STALE_FILES,
+  PLAN_BASENAME,
   STUDENT_REPOS,
   TRACE_BASENAME,
 } from "./constants"
+import {
+  readSettings,
+  SETTINGS,
+  type Settings,
+  writeSettings,
+} from "./defaults"
 import {
   emit,
   fail,
@@ -35,6 +40,7 @@ import {
 } from "./log"
 import {
   formatSpec,
+  modelCode,
   nextAvailable,
   type PlanNameOpts,
   parseSpec,
@@ -67,14 +73,22 @@ import { readState, writeState } from "./state"
 
 function setupRun(verbosity: number): void {
   mkdirSync(STUDENT_REPOS, { recursive: true })
-  for (const name of STALE_FILES) {
-    rmSync(resolve(STUDENT_REPOS, name), { force: true })
-  }
   const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
   const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
   writeFileSync(logPath, "")
   writeFileSync(tracePath, "")
   setEmitState(verbosity, logPath, tracePath)
+}
+
+function relocateLogs(targetDir: string, verbosity: number): void {
+  mkdirSync(targetDir, { recursive: true })
+  const fromLog = resolve(STUDENT_REPOS, LOG_BASENAME)
+  const fromTrace = resolve(STUDENT_REPOS, TRACE_BASENAME)
+  const toLog = resolve(targetDir, LOG_BASENAME)
+  const toTrace = resolve(targetDir, TRACE_BASENAME)
+  if (existsSync(fromLog)) renameSync(fromLog, toLog)
+  if (existsSync(fromTrace)) renameSync(fromTrace, toTrace)
+  setEmitState(verbosity, toLog, toTrace)
 }
 
 function projectDir(project: Project): string {
@@ -103,16 +117,22 @@ function latestVersion(dir: string, base: string, ext: string): string | null {
 }
 
 function resolveSinglePlan(dir: string): string {
-  const plans = readdirSync(dir).filter(
-    (n) => n.startsWith("plan-") && n.endsWith(".md"),
-  )
-  if (plans.length === 0) fail(`no plan-*.md found in directory: ${dir}`)
-  if (plans.length > 1) {
+  const direct = resolve(dir, PLAN_BASENAME)
+  if (existsSync(direct)) return direct
+  const planDirs = readdirSync(dir, { withFileTypes: true })
+    .filter(
+      (d) => d.isDirectory() && existsSync(resolve(dir, d.name, PLAN_BASENAME)),
+    )
+    .map((d) => d.name)
+  if (planDirs.length === 0) {
+    fail(`no plan.md or plan subdirectory found in: ${dir}`)
+  }
+  if (planDirs.length > 1) {
     fail(
-      `multiple plan files in ${dir}; pass one explicitly:\n  ${plans.sort().join("\n  ")}`,
+      `multiple plan subdirs in ${dir}; pass one explicitly:\n  ${planDirs.sort().join("\n  ")}`,
     )
   }
-  return resolve(dir, plans[0])
+  return resolve(dir, planDirs[0], PLAN_BASENAME)
 }
 
 function archiveProject(project: Project): string {
@@ -130,12 +150,18 @@ function archivePlan(
   project: Project,
   plan: Plan,
   opts: PlanNameOpts,
-  projectFile: string,
+  projectPath: string,
   reviewFrequency: number,
-): string {
+): { planPath: string; planDir: string } {
+  const parentDir = projectDir(project)
+  mkdirSync(parentDir, { recursive: true })
+  const planDirName = nextAvailable(parentDir, planPostfix(opts))
+  const planDir = resolve(parentDir, planDirName)
+  mkdirSync(planDir, { recursive: true })
+  const planPath = resolve(planDir, PLAN_BASENAME)
   const meta: PlanMeta = {
     project: project.name,
-    projectFile,
+    projectFile: relative(planDir, projectPath),
     planner: formatSpec(opts.plannerModel, opts.plannerEffort),
     aiCoders: opts.aiCoders,
     rounds: opts.rounds,
@@ -143,17 +169,13 @@ function archivePlan(
     reviewFrequency,
     coderInteraction: opts.coderInteraction,
   }
-  const dir = projectDir(project)
-  mkdirSync(dir, { recursive: true })
-  const name = nextAvailable(dir, `plan-${planPostfix(opts)}`, ".md")
-  const path = resolve(dir, name)
-  writeFileSync(path, planToMarkdown({ meta, plan }))
-  progress(`archived plan to ${path}`)
+  writeFileSync(planPath, planToMarkdown({ meta, plan }))
+  progress(`archived plan to ${planPath}`)
   writeState({
-    project: relative(STUDENT_REPOS, resolve(dir, projectFile)),
-    plan: relative(STUDENT_REPOS, path),
+    project: relative(STUDENT_REPOS, projectPath),
+    plan: relative(STUDENT_REPOS, planPath),
   })
-  return path
+  return { planPath, planDir }
 }
 
 function emitPlan(
@@ -246,6 +268,7 @@ async function runCoderStage(
     plannerModel: ModelName
     plannerEffort: EffortLevel | "none"
   },
+  planDir: string,
   runStart: number,
   plannerUsage: Usage,
 ): Promise<void> {
@@ -259,14 +282,19 @@ async function runCoderStage(
     students: planMeta.students,
     rounds: planMeta.rounds,
   }
-  const parentDir = projectDir(project)
-  mkdirSync(parentDir, { recursive: true })
-  const dirName = nextAvailable(parentDir, repoPostfix(nameOpts))
-  const dir = resolve(parentDir, dirName)
+  const dirName = nextAvailable(planDir, repoPostfix(nameOpts))
+  const dir = resolve(planDir, dirName)
   mkdirSync(dir, { recursive: true })
   initRepo(dir)
 
-  const state = await runCoderLoop(project, plan, coderOpts, dir, runStart)
+  const state = await runCoderLoop(
+    project,
+    plan,
+    coderOpts,
+    dir,
+    planDir,
+    runStart,
+  )
 
   const reviewOpts: ReviewSummaryOpts = {
     rounds: planMeta.rounds,
@@ -278,18 +306,44 @@ async function runCoderStage(
     coderModel: coderOpts.coderModel,
     coderEffort: coderOpts.coderEffort,
   }
-  const displayDir = `c${project.complexity}-${project.name}/${dirName}`
+  const displayDir = `${relative(STUDENT_REPOS, planDir)}/${dirName}`
   writeReview(
     project,
     state,
     reviewOpts,
     plannerUsage,
     Date.now() - runStart,
+    planDir,
     displayDir,
   )
-  for (const name of STALE_FILES) {
-    const src = resolve(STUDENT_REPOS, name)
-    if (existsSync(src)) copyFileSync(src, resolve(dir, name))
+}
+
+function settingsForProject(prev: Settings, opts: ProjectOpts): Settings {
+  return {
+    ...prev,
+    mp: modelCode(opts.plannerModel, opts.plannerEffort),
+    complexity: opts.complexity,
+  }
+}
+
+function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
+  return {
+    ...prev,
+    mp: modelCode(opts.plannerModel, opts.plannerEffort),
+    aiCoders: opts.aiCoders,
+    students: opts.students,
+    rounds: opts.rounds,
+    coderInteraction: opts.coderInteraction,
+    reviewFrequency: opts.reviewFrequency,
+  }
+}
+
+function settingsForRepo(prev: Settings, opts: RepoOpts): Settings {
+  return {
+    ...prev,
+    mc: modelCode(opts.coderModel, opts.coderEffort),
+    coderExperience: opts.coderExperience,
+    comments: opts.comments,
   }
 }
 
@@ -300,6 +354,7 @@ async function handleProject(
   const { project, usage } = await produceProject(opts, runStart)
   archiveProject(project)
   emit(1, projectToMarkdown(project))
+  writeSettings(STUDENT_REPOS, settingsForProject(SETTINGS, opts))
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
@@ -319,7 +374,6 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
       fail(`no project.md found in directory: ${resolved}`))
     : resolved
   const project = loadProjectFrom(fromPath)
-  const projectFile = basename(fromPath)
   progress(`loaded project "${project.name}" from ${fromPath}`)
   const { plan, usage } = await producePlan(project, opts, runStart)
   const planNameOpts: PlanNameOpts = {
@@ -331,17 +385,27 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     rounds: opts.rounds,
     coderInteraction: opts.coderInteraction,
   }
-  emitPlan(project, plan, planNameOpts, projectFile, opts.reviewFrequency)
-  const archivePath = archivePlan(
+  const { planPath, planDir } = archivePlan(
     project,
     plan,
     planNameOpts,
-    projectFile,
+    fromPath,
     opts.reviewFrequency,
   )
+  emitPlan(
+    project,
+    plan,
+    planNameOpts,
+    relative(planDir, fromPath),
+    opts.reviewFrequency,
+  )
+  relocateLogs(planDir, opts.verbosity)
+  const updated = settingsForPlan(SETTINGS, opts)
+  writeSettings(STUDENT_REPOS, updated)
+  writeSettings(planDir, updated)
   const runMs = Date.now() - runStart
   process.stdout.write(
-    `Plan archived: ${archivePath}\nWall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
+    `Plan archived: ${planPath}\nWall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
   )
 }
 
@@ -355,7 +419,9 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const resolved = resolveFrom(rawFrom)
   const fromPath = isDir(resolved) ? resolveSinglePlan(resolved) : resolved
   const { meta, plan, project } = loadPlanFrom(fromPath)
+  const planDir = dirname(fromPath)
   progress(`loaded plan for project "${project.name}" from ${fromPath}`)
+  relocateLogs(planDir, opts.verbosity)
   if (meta.aiCoders && opts.coderExperienceExplicit) {
     progress(
       `warning: --coder-experience=${opts.coderExperience} ignored — plan is in AI-coders mode`,
@@ -391,9 +457,14 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       plannerModel: planner.model,
       plannerEffort: planner.effort,
     },
+    planDir,
     runStart,
     zero,
   )
+  const prevPlanSettings = readSettings(planDir)
+  const updated = settingsForRepo(prevPlanSettings, opts)
+  writeSettings(planDir, updated)
+  writeSettings(STUDENT_REPOS, settingsForRepo(SETTINGS, opts))
 }
 
 async function main(): Promise<void> {

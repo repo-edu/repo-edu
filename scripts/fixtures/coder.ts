@@ -9,7 +9,7 @@ import {
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
   type ModelName,
-  STUDENT_REPOS,
+  STATE_BASENAME,
 } from "./constants"
 import { emit, fail, formatSeconds, progress, withTicker } from "./log"
 import type { Plan, PlannedCommit } from "./plan-md"
@@ -119,6 +119,7 @@ export async function runCoderLoop(
   plan: Plan,
   opts: CoderRunOpts,
   dir: string,
+  planDir: string,
   runStart: number,
 ): Promise<State> {
   const state: State = { commit_index: 0, rounds: [], stopped: false }
@@ -178,7 +179,7 @@ export async function runCoderLoop(
       })
       state.commit_index = i + 1
       writeFileSync(
-        resolve(STUDENT_REPOS, "_state.json"),
+        resolve(planDir, STATE_BASENAME),
         `${JSON.stringify(state, null, 2)}\n`,
       )
       progress(

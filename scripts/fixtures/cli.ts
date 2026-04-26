@@ -16,7 +16,7 @@ import {
   MIN_STUDENTS,
   type ModelName,
 } from "./constants"
-import { DEFAULTS } from "./defaults"
+import { SETTINGS } from "./defaults"
 import { fail } from "./log"
 
 export type Subcommand = "project" | "plan" | "repo"
@@ -116,14 +116,19 @@ const TOP_OVERVIEW_LINES = [
   "",
   "  c2-flash-card-quiz/               # one folder per project",
   "    project.md                      # from `fixture project`",
-  "    plan-ai-c2-s3-r6-i2.md          # from `fixture plan`",
-  "    m23-ai-f30-c2-s3-r6/            # git repo from `fixture repo`",
+  "    ai-c2-s3-r6-i2/                 # one folder per plan",
+  "      plan.md                       # from `fixture plan`",
+  "      m23-ai-f30-c2-s3-r6/          # git repo from `fixture repo`",
+  "      .fixture-settings.json        # snapshot of settings used",
+  "      _log.md  _trace.md            # run log + trace",
+  "      _review.md  _state.json       # review summary + per-round state",
   "",
-  "The folder is named c<N>-<name>, where <N> is the project's",
+  "The project folder is named c<N>-<name>, where <N> is the project's",
   "complexity tier (1-4) and <name> is the kebab-case name the",
-  "planner invented. Plan and repo names encode their run parameters",
-  "as a <postfix>, so one project folder can hold multiple plans and",
-  "repos generated from different settings.",
+  "planner invented. Each plan lives in its own subfolder named by the",
+  "plan's <postfix>; repo names encode the coder-side run parameters.",
+  "One project folder can hold multiple plans and one plan folder can",
+  "hold multiple repos generated from different settings.",
   "",
   "../student-repos/.fixture-state.json caches the most recent",
   "project and plan, so a typical session needs no --from flags:",
@@ -203,7 +208,7 @@ function resolveAiCoders(
 ): boolean {
   if (v["ai-coders"] === true) return true
   if (v["no-ai-coders"] === true) return false
-  return DEFAULTS.aiCoders
+  return SETTINGS.aiCoders
 }
 
 function validateComplexity(n: number): void {
@@ -280,9 +285,9 @@ function parseProject(argv: string[]): ProjectOpts {
   })
   const common = commonOptsFrom(v, false)
   const complexity =
-    v.complexity !== undefined ? Number(v.complexity) : DEFAULTS.complexity
+    v.complexity !== undefined ? Number(v.complexity) : SETTINGS.complexity
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULTS.mp,
+    (v.model as string | undefined) ?? SETTINGS.mp,
     "-m/--model",
   )
   if (!common.help) {
@@ -310,20 +315,20 @@ function parsePlan(argv: string[]): PlanOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v, false)
-  const rounds = v.rounds !== undefined ? Number(v.rounds) : DEFAULTS.rounds
+  const rounds = v.rounds !== undefined ? Number(v.rounds) : SETTINGS.rounds
   const students =
-    v.students !== undefined ? Number(v.students) : DEFAULTS.students
+    v.students !== undefined ? Number(v.students) : SETTINGS.students
   const coderInteraction =
     v["coder-interaction"] !== undefined
       ? Number(v["coder-interaction"])
-      : DEFAULTS.coderInteraction
+      : SETTINGS.coderInteraction
   const reviewFrequency =
     v["review-frequency"] !== undefined
       ? Number(v["review-frequency"])
-      : DEFAULTS.reviewFrequency
+      : SETTINGS.reviewFrequency
   const aiCoders = resolveAiCoders(v)
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULTS.mp,
+    (v.model as string | undefined) ?? SETTINGS.mp,
     "-m/--model",
   )
   if (!common.help) {
@@ -359,11 +364,11 @@ function parseRepo(argv: string[]): RepoOpts {
   const coderExperienceExplicit = v["coder-experience"] !== undefined
   const coderExperience = coderExperienceExplicit
     ? Number(v["coder-experience"])
-    : DEFAULTS.coderExperience
+    : SETTINGS.coderExperience
   const comments =
-    v.comments !== undefined ? Number(v.comments) : DEFAULTS.comments
+    v.comments !== undefined ? Number(v.comments) : SETTINGS.comments
   const m = parseModelCode(
-    (v.model as string | undefined) ?? DEFAULTS.mc,
+    (v.model as string | undefined) ?? SETTINGS.mc,
     "-m/--model",
   )
   if (!common.help) {
@@ -383,7 +388,7 @@ function parseRepo(argv: string[]): RepoOpts {
 }
 
 const aiCodersHelp = (): string =>
-  `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${DEFAULTS.aiCoders ? "--ai-coders" : "--no-ai-coders"})`
+  `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${SETTINGS.aiCoders ? "--ai-coders" : "--no-ai-coders"})`
 
 function subcommandHelpBody(sub: Subcommand): string[] {
   const helpLine =
@@ -395,8 +400,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "Generate a project (name + assignment) at c<N>-<name>/project.md.",
       "",
       "Options:",
-      `  -m, --model=CODE                   Planner model (default: ${DEFAULTS.mp})`,
-      `  -c, --complexity=N                 ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${DEFAULTS.complexity})`,
+      `  -m, --model=CODE                   Planner model (default: ${SETTINGS.mp})`,
+      `  -c, --complexity=N                 ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS.complexity})`,
       "  -v, --verbose                      Print project to stdout; -vv also prints Planner prompt/reply",
       helpLine,
     ]
@@ -405,8 +410,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     return [
       "Usage: fixture plan [--from=<project.md>] [options]",
       "",
-      "Generate a plan (team + commits) next to the project file, as",
-      "c<N>-<name>/plan-<postfix>.md. Without --from, falls back to the",
+      "Generate a plan (team + commits) in a new subfolder of the project,",
+      "as c<N>-<name>/<postfix>/plan.md. Without --from, falls back to the",
       "project recorded in ../student-repos/.fixture-state.json (set by the",
       "most recent `fixture project` or `fixture plan`).",
       "",
@@ -414,11 +419,11 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "      --from=PATH                    Project .md file or c<N>-<name>/ dir (absolute,",
       "                                     or relative to ../student-repos/). Optional if",
       "                                     .fixture-state.json has a project.",
-      `  -m, --model=CODE                   Planner model (default: ${DEFAULTS.mp})`,
-      `  -s, --students=N                   ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${DEFAULTS.students})`,
-      `  -r, --rounds=N                     Build-commit count (default: ${DEFAULTS.rounds})`,
-      `  -i, --coder-interaction=N          ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${DEFAULTS.coderInteraction}) — cross-module author mixing`,
-      `  -f, --review-frequency=N           ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${DEFAULTS.reviewFrequency})`,
+      `  -m, --model=CODE                   Planner model (default: ${SETTINGS.mp})`,
+      `  -s, --students=N                   ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS.students})`,
+      `  -r, --rounds=N                     Build-commit count (default: ${SETTINGS.rounds})`,
+      `  -i, --coder-interaction=N          ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS.coderInteraction}) — cross-module author mixing`,
+      `  -f, --review-frequency=N           ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${SETTINGS.reviewFrequency})`,
       aiCodersHelp(),
       "  -v, --verbose                      Print plan to stdout; -vv also prints Planner prompt/reply",
       helpLine,
@@ -428,18 +433,19 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "Usage: fixture repo [--from=<plan.md>] [options]",
     "",
     "Run Coder sub-agents against a plan to produce a git repo at",
-    "c<N>-<name>/<postfix>/. --from can also point at a c<N>-<name>/",
-    "directory when it contains exactly one plan-*.md file. Without --from,",
-    "falls back to the plan recorded in ../student-repos/.fixture-state.json",
+    "c<N>-<name>/<plan-postfix>/<repo-postfix>/. --from can also point at",
+    "a c<N>-<name>/<plan-postfix>/ plan dir, or at a c<N>-<name>/ project",
+    "dir when it contains exactly one plan subfolder. Without --from, falls",
+    "back to the plan recorded in ../student-repos/.fixture-state.json",
     "(set by the most recent `fixture plan`).",
     "",
     "Options:",
-    "      --from=PATH                    Plan .md file or c<N>-<name>/ dir (absolute,",
-    "                                     or relative to ../student-repos/). Optional if",
-    "                                     .fixture-state.json has a plan.",
-    `  -m, --model=CODE                   Coder model (default: ${DEFAULTS.mc})`,
-    `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${DEFAULTS.coderExperience}); ignored when the plan is in AI-coders mode`,
-    `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${DEFAULTS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
+    "      --from=PATH                    Plan .md file, plan dir, or project dir",
+    "                                     (absolute, or relative to ../student-repos/).",
+    "                                     Optional if .fixture-state.json has a plan.",
+    `  -m, --model=CODE                   Coder model (default: ${SETTINGS.mc})`,
+    `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
+    `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
     "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
     helpLine,
   ]

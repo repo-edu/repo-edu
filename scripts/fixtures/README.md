@@ -10,8 +10,8 @@ is only called for the parts that need creative judgement.
   per-stage flow. The modules below own the individual phases.
 - `cli.ts` — argument parsing, help, `Opts` type, model-code resolution.
 - `constants.ts` — hardcoded defaults, bounds, paths, model/effort tables.
-- `defaults.ts` — merges `constants.ts` with `.fixture-defaults.json`
-  (see [Defaults](#defaults) below).
+- `defaults.ts` — merges `constants.ts` with `.fixture-settings.json`
+  (see [Settings](#settings) below).
 - `state.ts` — reads/writes `.fixture-state.json` (last project + plan
   pointers, so `plan` / `repo` can skip `--from`).
 - `log.ts` — stderr progress, ticker, verbose `_log.md` sink, `fail()`.
@@ -33,15 +33,23 @@ is only called for the parts that need creative judgement.
 
 Generated artifacts land in `../student-repos/` (sibling of the repo
 root). Each (complexity, project) pair gets its own folder
-`c<N>-<name>/` that holds the project description, one or more plans,
-and the generated repos:
+`c<N>-<name>/`. Inside it, every plan gets its own subfolder named by
+the plan postfix; each repo generated from that plan is a child of the
+plan folder:
 
 ```text
 ../student-repos/
+  .fixture-settings.json     # actual values from the most recent run
+  .fixture-state.json        # last project + plan pointers (auto-managed)
   c<N>-<name>/
     project.md               # first; later regenerations → project-v2.md, ...
-    plan-<postfix>.md        # plan; re-runs → plan-<postfix>-v2.md, ...
-    <postfix>/               # git repo; re-runs → <postfix>-v2/, ...
+    <plan-postfix>/          # plan; re-runs → <plan-postfix>-v2/, ...
+      plan.md                # plan content + meta
+      .fixture-settings.json # snapshot of settings used for this plan/repo
+      _log.md  _trace.md     # run log + trace
+      _review.md             # repo run summary
+      _state.json            # per-round coder state
+      <repo-postfix>/        # git repo; re-runs → <repo-postfix>-v2/, ...
 ```
 
 The postfixes encode run parameters:
@@ -70,24 +78,34 @@ is mode-agnostic — its output is the same regardless. The `repo` stage
 reads the mode from the plan's `Ai-coders:` meta line; it has no
 `--ai-coders` flag of its own.
 
-Per-run scratch files (`_state.json`, `_review.md`, `_log.md`,
-`_trace.md`) are written at the `../student-repos/` root, cleared at
-the start of each subsequent run, and copied into the finished repo.
-`_log.md` mirrors the stdout summary (the archived plan); `_trace.md`
-holds full Coder prompts and replies regardless of `-v`/`-vv`.
+Per-run scratch files (`_log.md`, `_trace.md`, `_review.md`,
+`_state.json`) live inside the plan folder for `plan` and `repo` runs,
+so a subsequent run against a different plan never overwrites them.
+For a `project` run (no plan exists yet), `_log.md` and `_trace.md`
+stay at the `../student-repos/` root. `_log.md` mirrors the stdout
+summary (the archived plan); `_trace.md` holds full Coder prompts and
+replies regardless of `-v`/`-vv`.
 
-## Defaults
+## Settings
 
 Every CLI option has a default resolved in this precedence order:
 
 1. Explicit CLI flag (e.g. `-c 3`) — wins when supplied.
-2. `../student-repos/.fixture-defaults.json` — per-machine overrides.
+2. `../student-repos/.fixture-settings.json` — actual values from the
+   most recent run, automatically rewritten on every successful
+   `project` / `plan` / `repo`. Edit by hand to lock in different
+   defaults.
 3. Hardcoded constant in `constants.ts` (`DEFAULT_*`, `MIN_*`, `MAX_*`) —
    the single source of truth for shipped defaults; edit here to
    change what's baked in.
 
-The config file is optional. Drop it alongside `.fixture-state.json`
-to override any subset of the defaults without editing source:
+A copy of `.fixture-settings.json` is also written inside the plan
+folder, capturing the settings that produced that specific
+plan/repo. The top-level file evolves with each run; the per-plan
+copy is frozen alongside the artifacts it describes.
+
+Schema (all keys optional; values are validated against the same
+ranges as the CLI flags):
 
 ```json
 {
@@ -105,13 +123,10 @@ to override any subset of the defaults without editing source:
 ```
 
 The keys above are exhaustive and the values shown are the current
-hardcoded defaults from `constants.ts`. Drop the file in to lock in
-those values, or edit individual keys to override.
-
-All keys are optional. Values are validated against the same ranges
-as the CLI flags; unknown keys or out-of-range values fail fast with
-a message pointing at the file. `fixture <sub> --help` reflects the
-effective defaults (hardcoded merged with the file).
+hardcoded defaults from `constants.ts`. Unknown keys or out-of-range
+values fail fast with a message pointing at the file.
+`fixture <sub> --help` reflects the effective values (hardcoded
+merged with the file).
 
 ## State
 
@@ -129,8 +144,8 @@ for the flags that apply to each.
 | subcommand | produces | key flags |
 |---|---|---|
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
-| `plan --from=<project.md>` | `c<N>-<name>/plan-<postfix>.md` | `-m`, `-s`, `-r`, `-i`, `-f`, `-a` |
-| `repo --from=<plan.md>` | `c<N>-<name>/<postfix>/` git repo | `-m`, `-x`, `--comments` |
+| `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-i`, `-f`, `-a` |
+| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `--comments` |
 
 Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet
 (default/low/medium/high); `3|31|32|33|34|35` = opus
@@ -152,6 +167,7 @@ Explicit paths still work and override the state:
 
 ```bash
 pnpm fixture plan --from=c3-NAME/project.md -s 4 -r 5 -i 3
-pnpm fixture repo --from=c3-NAME -x 4      # auto-picks single plan-*.md
-pnpm fixture repo --from=c3-NAME/plan-c4-s3-r3-i2.md -x 4
+pnpm fixture repo --from=c3-NAME -x 4         # auto-picks single plan subfolder
+pnpm fixture repo --from=c3-NAME/c4-s3-r3-i2/ # plan dir
+pnpm fixture repo --from=c3-NAME/c4-s3-r3-i2/plan.md -x 4
 ```
