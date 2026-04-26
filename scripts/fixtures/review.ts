@@ -12,7 +12,7 @@ export interface ReviewSummaryOpts {
   rounds: number
   complexity: number
   students: number
-  reviewFrequency: number
+  reviews: number
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
   coderModel: ModelName
@@ -43,7 +43,7 @@ export function writeReview(
     `- N (builds): ${opts.rounds}`,
     `- C: ${opts.complexity}`,
     `- S: ${opts.students}`,
-    `- Review-frequency: ${opts.reviewFrequency}% (sampled ${reviewCount} reviews; ${state.rounds.length} total commits)`,
+    `- Reviews: ${opts.reviews} (planned; ${reviewCount} executed; ${state.rounds.length} total commits)`,
     `- Planner: ${formatSpec(opts.plannerModel, opts.plannerEffort)}`,
     `- Coder: ${formatSpec(opts.coderModel, opts.coderEffort)}`,
     `- Dir: ${dirName}/`,

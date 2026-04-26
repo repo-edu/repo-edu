@@ -1,7 +1,13 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import { EFFORT_DIGIT, MODEL_DIGIT, type ModelName } from "./constants"
+import {
+  EFFORT_DIGIT,
+  MODEL_DIGIT,
+  type ModelName,
+  STYLE_CODE,
+  type Style,
+} from "./constants"
 
 export interface PlanNameOpts {
   plannerModel: ModelName
@@ -10,7 +16,9 @@ export interface PlanNameOpts {
   complexity: number
   students: number
   rounds: number
+  reviews: number
   coderInteraction: number
+  style: Style
 }
 
 export interface RepoNameOpts {
@@ -18,7 +26,6 @@ export interface RepoNameOpts {
   coderEffort: EffortLevel | "none"
   aiCoders: boolean
   coderExperience: number
-  reviewFrequency: number
   complexity: number
   students: number
   rounds: number
@@ -56,9 +63,11 @@ export function planPostfix(opts: PlanNameOpts): string {
   const parts: string[] = []
   if (opts.aiCoders) parts.push("ai")
   parts.push(
+    STYLE_CODE[opts.style],
     `c${opts.complexity}`,
     `s${opts.students}`,
     `r${opts.rounds}`,
+    `w${opts.reviews}`,
     `i${opts.coderInteraction}`,
   )
   return parts.join("-")
@@ -67,12 +76,7 @@ export function planPostfix(opts: PlanNameOpts): string {
 export function repoPostfix(opts: RepoNameOpts): string {
   const parts = [`m${modelCode(opts.coderModel, opts.coderEffort)}`]
   parts.push(opts.aiCoders ? "ai" : `x${opts.coderExperience}`)
-  parts.push(
-    `f${opts.reviewFrequency}`,
-    `c${opts.complexity}`,
-    `s${opts.students}`,
-    `r${opts.rounds}`,
-  )
+  parts.push(`c${opts.complexity}`, `s${opts.students}`, `r${opts.rounds}`)
   return parts.join("-")
 }
 

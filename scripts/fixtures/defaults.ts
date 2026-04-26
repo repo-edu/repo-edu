@@ -8,23 +8,25 @@ import {
   DEFAULT_COMPLEXITY,
   DEFAULT_MC,
   DEFAULT_MP,
-  DEFAULT_REVIEW_FREQUENCY,
+  DEFAULT_REVIEWS,
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
+  DEFAULT_STYLE,
   MAX_CODER_EXPERIENCE,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
-  MAX_REVIEW_FREQUENCY,
   MAX_STUDENTS,
   MIN_CODER_EXPERIENCE,
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
-  MIN_REVIEW_FREQUENCY,
+  MIN_REVIEWS,
   MIN_STUDENTS,
   SETTINGS_BASENAME,
   STUDENT_REPOS,
+  STYLES,
+  type Style,
 } from "./constants"
 import { fail } from "./log"
 
@@ -40,7 +42,8 @@ export interface Settings {
   students: number
   rounds: number
   comments: number
-  reviewFrequency: number
+  reviews: number
+  style: Style
 }
 
 export const HARDCODED_SETTINGS: Settings = {
@@ -53,7 +56,8 @@ export const HARDCODED_SETTINGS: Settings = {
   students: DEFAULT_STUDENTS,
   rounds: DEFAULT_ROUNDS,
   comments: DEFAULT_COMMENTS,
-  reviewFrequency: DEFAULT_REVIEW_FREQUENCY,
+  reviews: DEFAULT_REVIEWS,
+  style: DEFAULT_STYLE,
 }
 
 interface Spec {
@@ -62,7 +66,7 @@ interface Spec {
 }
 
 const NUMERIC_SPECS: Record<
-  keyof Omit<Settings, "mp" | "mc" | "aiCoders">,
+  keyof Omit<Settings, "mp" | "mc" | "aiCoders" | "style">,
   Spec
 > = {
   coderExperience: { min: MIN_CODER_EXPERIENCE, max: MAX_CODER_EXPERIENCE },
@@ -71,13 +75,14 @@ const NUMERIC_SPECS: Record<
   students: { min: MIN_STUDENTS, max: MAX_STUDENTS },
   rounds: { min: 1, max: Number.MAX_SAFE_INTEGER },
   comments: { min: MIN_COMMENTS, max: MAX_COMMENTS },
-  reviewFrequency: { min: MIN_REVIEW_FREQUENCY, max: MAX_REVIEW_FREQUENCY },
+  reviews: { min: MIN_REVIEWS, max: Number.MAX_SAFE_INTEGER },
 }
 
 const KNOWN_KEYS = new Set<keyof Settings>([
   "mp",
   "mc",
   "aiCoders",
+  "style",
   ...(Object.keys(NUMERIC_SPECS) as (keyof Settings)[]),
 ])
 
@@ -140,6 +145,14 @@ function parseSettingsFile(path: string): Partial<Settings> {
       )
     }
     out.aiCoders = obj.aiCoders
+  }
+  if (obj.style !== undefined) {
+    if (typeof obj.style !== "string" || !STYLES.includes(obj.style as Style)) {
+      fail(
+        `${path}: "style" must be one of ${STYLES.join(", ")}, got ${JSON.stringify(obj.style)}`,
+      )
+    }
+    out.style = obj.style as Style
   }
 
   return out

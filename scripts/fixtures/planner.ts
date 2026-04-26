@@ -1,7 +1,12 @@
 import { existsSync, readdirSync } from "node:fs"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import { effortOption, runAgent, type Usage } from "./agent"
-import { type ModelName, REPO_ROOT, STUDENT_REPOS } from "./constants"
+import {
+  type ModelName,
+  REPO_ROOT,
+  STUDENT_REPOS,
+  type Style,
+} from "./constants"
 import { emit, fail } from "./log"
 import type { CommitKind, Plan } from "./plan-md"
 import type { Project } from "./project-md"
@@ -19,7 +24,9 @@ export interface PlanGenOpts {
   aiCoders: boolean
   rounds: number
   students: number
+  reviews: number
   coderInteraction: number
+  style: Style
 }
 
 function today(): string {
@@ -80,6 +87,7 @@ function planPrompt(
     opts.students === 1
       ? loadSection("planner/interaction", "solo")
       : loadSection("planner/interaction", String(opts.coderInteraction))
+  const styleGuidance = loadSection("planner/style", opts.style)
   const ctx: Record<string, string> = {
     project_name: project.name,
     assignment: project.assignment,
@@ -90,6 +98,8 @@ function planPrompt(
     students: String(opts.students),
     today: today(),
     interaction_guidance: interactionGuidance,
+    style: opts.style,
+    style_guidance: styleGuidance,
   }
   if (!opts.aiCoders) ctx.max_author = String(opts.students - 1)
   return loadPrompt(template, ctx)

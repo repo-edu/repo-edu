@@ -1,3 +1,5 @@
+import { STYLES, type Style } from "./constants"
+
 export type CommitKind = "build" | "review"
 
 export interface TeamMember {
@@ -27,8 +29,9 @@ export interface PlanMeta {
   aiCoders: boolean
   rounds: number
   students: number
-  reviewFrequency: number
+  reviews: number
   coderInteraction: number
+  style: Style
 }
 
 export interface PlanFile {
@@ -45,8 +48,9 @@ export function planToMarkdown(file: PlanFile): string {
   lines.push(`Ai-coders: ${meta.aiCoders}`)
   lines.push(`Rounds: ${meta.rounds}`)
   lines.push(`Students: ${meta.students}`)
-  lines.push(`Review-frequency: ${meta.reviewFrequency}`)
+  lines.push(`Reviews: ${meta.reviews}`)
   lines.push(`Coder-interaction: ${meta.coderInteraction}`)
+  lines.push(`Style: ${meta.style}`)
   lines.push("", "## Team", "")
   plan.team.forEach((m, i) => {
     lines.push(
@@ -106,11 +110,19 @@ export function markdownToPlan(md: string): PlanFile {
       case "Rounds":
         meta.rounds = Number(value)
         break
-      case "Review-frequency":
-        meta.reviewFrequency = Number(value)
+      case "Reviews":
+        meta.reviews = Number(value)
         break
       case "Coder-interaction":
         meta.coderInteraction = Number(value)
+        break
+      case "Style":
+        if (!STYLES.includes(value as Style)) {
+          throw new Error(
+            `Style must be one of ${STYLES.join(", ")}, got: ${value}`,
+          )
+        }
+        meta.style = value as Style
         break
       default:
         throw new Error(`unknown plan meta key: ${key}`)
@@ -123,11 +135,12 @@ export function markdownToPlan(md: string): PlanFile {
     meta.aiCoders === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
-    meta.reviewFrequency === undefined ||
-    meta.coderInteraction === undefined
+    meta.reviews === undefined ||
+    meta.coderInteraction === undefined ||
+    meta.style === undefined
   ) {
     throw new Error(
-      "missing plan meta fields (need Project-file, Planner, Ai-coders, Students, Rounds, Review-frequency, Coder-interaction)",
+      "missing plan meta fields (need Project-file, Planner, Ai-coders, Students, Rounds, Reviews, Coder-interaction, Style)",
     )
   }
 

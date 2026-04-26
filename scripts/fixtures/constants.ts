@@ -22,9 +22,26 @@ export const DEFAULT_ROUNDS = 3
 export const DEFAULT_CODER_INTERACTION = 2
 export const MIN_CODER_INTERACTION = 1
 export const MAX_CODER_INTERACTION = 3
-export const DEFAULT_REVIEW_FREQUENCY = 30
-export const MIN_REVIEW_FREQUENCY = 0
-export const MAX_REVIEW_FREQUENCY = 100
+export const DEFAULT_REVIEWS = 1
+export const MIN_REVIEWS = 0
+
+// Plan style
+export const STYLES = [
+  "big-bang",
+  "incremental",
+  "vertical-slice",
+  "bottom-up",
+  "top-down",
+] as const
+export type Style = (typeof STYLES)[number]
+export const DEFAULT_STYLE: Style = "big-bang"
+export const STYLE_CODE: Record<Style, string> = {
+  "big-bang": "bb",
+  incremental: "in",
+  "vertical-slice": "vs",
+  "bottom-up": "bu",
+  "top-down": "td",
+}
 
 // Repo (coder)
 export const DEFAULT_CODER_EXPERIENCE = 3

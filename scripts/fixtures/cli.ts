@@ -6,20 +6,21 @@ import {
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
-  MAX_REVIEW_FREQUENCY,
   MAX_STUDENTS,
   MIN_CODER_EXPERIENCE,
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
-  MIN_REVIEW_FREQUENCY,
+  MIN_REVIEWS,
   MIN_STUDENTS,
   type ModelName,
+  STYLES,
+  type Style,
 } from "./constants"
 import { SETTINGS } from "./defaults"
 import { fail } from "./log"
 
-export type Subcommand = "project" | "plan" | "repo"
+export type Subcommand = "project" | "plan" | "repo" | "batch"
 
 export interface CommonOpts {
   verbosity: number
@@ -39,10 +40,16 @@ export interface PlanOpts extends CommonOpts {
   rounds: number
   students: number
   coderInteraction: number
-  reviewFrequency: number
+  reviews: number
   aiCoders: boolean
+  style: Style
   plannerModel: ModelName
   plannerEffort: EffortLevel | "none"
+}
+
+export interface BatchOpts extends CommonOpts {
+  subcommand: "batch"
+  listPath: string
 }
 
 export interface RepoOpts extends CommonOpts {
@@ -55,7 +62,7 @@ export interface RepoOpts extends CommonOpts {
   coderEffort: EffortLevel | "none"
 }
 
-export type Opts = ProjectOpts | PlanOpts | RepoOpts
+export type Opts = ProjectOpts | PlanOpts | RepoOpts | BatchOpts
 
 const MODEL_CODES: Record<
   string,
@@ -88,7 +95,7 @@ export function parseModelCode(
 }
 
 const MODEL_CODE_HELP = [
-  "Model codes:",
+  "Model CODE (-m, --model=CODE):",
   "              low   medium   high      xhigh   max",
   "  sonnet      21    22       23 | 2     —       —",
   "  opus        31    32       33 | 3     34      35",
@@ -99,13 +106,16 @@ const MODEL_CODE_HELP = [
 const TOP_OVERVIEW_LINES = [
   "Usage: fixture <subcommand> [options]",
   "",
-  "Generate synthetic coder-team repo fixtures with AI agents:",
+  "Generate synthetic coder-team repo fixtures with AI agents through",
+  "these subcommands:",
   "",
   "  project   Invent a project (name + assignment) → project.md.",
   "  plan      Generate a team and commit timeline for a given",
-  "            project → plan-<postfix>.md.",
+  "            project → <plan-postfix>/plan.md.",
   "  repo      Run one Coder sub-agent per planned commit against a",
   "            plan → a git repo.",
+  "  batch     Drive plan+repo for many entries against a fixed",
+  "            project, reading entries from a JSON list file.",
   "",
   "Options:",
   "  -h, --help                         Show this top-level help and exit",
@@ -116,9 +126,9 @@ const TOP_OVERVIEW_LINES = [
   "",
   "  c2-flash-card-quiz/               # one folder per project",
   "    project.md                      # from `fixture project`",
-  "    ai-c2-s3-r6-i2/                 # one folder per plan",
+  "    ai-bb-c2-s3-r6-w2-i2/           # one folder per plan",
   "      plan.md                       # from `fixture plan`",
-  "      m23-ai-f30-c2-s3-r6/          # git repo from `fixture repo`",
+  "      m23-ai-c2-s3-r6/              # git repo from `fixture repo`",
   "      .fixture-settings.json        # snapshot of settings used",
   "      _log.md  _trace.md            # run log + trace",
   "      _review.md  _state.json       # review summary + per-round state",
@@ -144,11 +154,16 @@ export function printTopHelp(): void {
   process.stdout.write(`${TOP_OVERVIEW_LINES.join("\n")}\n`)
 }
 
+function indentBody(lines: string[], indent: string): string[] {
+  return lines.map((line, i) => (i === 0 || !line ? line : indent + line))
+}
+
 export function printFullHelp(): void {
   const sections = [
-    subcommandHelpBody("project").join("\n"),
-    subcommandHelpBody("plan").join("\n"),
-    subcommandHelpBody("repo").join("\n"),
+    indentBody(subcommandHelpBody("project"), "  ").join("\n"),
+    indentBody(subcommandHelpBody("plan"), "  ").join("\n"),
+    indentBody(subcommandHelpBody("repo"), "  ").join("\n"),
+    indentBody(subcommandHelpBody("batch"), "  ").join("\n"),
     MODEL_CODE_HELP.join("\n"),
   ]
   process.stdout.write(`${sections.join("\n\n")}\n`)
@@ -259,15 +274,16 @@ function validateCoderInteraction(n: number): void {
     )
   }
 }
-function validateReviewFrequency(n: number): void {
-  if (
-    !Number.isInteger(n) ||
-    n < MIN_REVIEW_FREQUENCY ||
-    n > MAX_REVIEW_FREQUENCY
-  ) {
+function validateReviews(reviews: number, rounds: number): void {
+  if (!Number.isInteger(reviews) || reviews < MIN_REVIEWS || reviews > rounds) {
     fail(
-      `--review-frequency must be an integer ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}, got "${n}"`,
+      `--reviews must be an integer ${MIN_REVIEWS}-${rounds} (≤ --rounds), got "${reviews}"`,
     )
+  }
+}
+function validateStyle(s: string): void {
+  if (!STYLES.includes(s as Style)) {
+    fail(`--style must be one of ${STYLES.join(", ")}, got "${s}"`)
   }
 }
 
@@ -308,7 +324,8 @@ function parsePlan(argv: string[]): PlanOpts {
     rounds: { type: "string", short: "r" },
     students: { type: "string", short: "s" },
     "coder-interaction": { type: "string", short: "i" },
-    "review-frequency": { type: "string", short: "f" },
+    reviews: { type: "string", short: "w" },
+    style: { type: "string", short: "y" },
     model: { type: "string", short: "m" },
     ...aiCodersFlag,
     verbose: { type: "boolean", short: "v", multiple: true },
@@ -322,10 +339,8 @@ function parsePlan(argv: string[]): PlanOpts {
     v["coder-interaction"] !== undefined
       ? Number(v["coder-interaction"])
       : SETTINGS.coderInteraction
-  const reviewFrequency =
-    v["review-frequency"] !== undefined
-      ? Number(v["review-frequency"])
-      : SETTINGS.reviewFrequency
+  const reviews = v.reviews !== undefined ? Number(v.reviews) : SETTINGS.reviews
+  const style = (v.style as string | undefined) ?? SETTINGS.style
   const aiCoders = resolveAiCoders(v)
   const m = parseModelCode(
     (v.model as string | undefined) ?? SETTINGS.mp,
@@ -335,7 +350,8 @@ function parsePlan(argv: string[]): PlanOpts {
     validateRounds(rounds)
     validateStudents(students)
     validateCoderInteraction(coderInteraction)
-    validateReviewFrequency(reviewFrequency)
+    validateReviews(reviews, rounds)
+    validateStyle(style)
   }
   return {
     ...common,
@@ -344,8 +360,9 @@ function parsePlan(argv: string[]): PlanOpts {
     rounds,
     students,
     coderInteraction,
-    reviewFrequency,
+    reviews,
     aiCoders,
+    style: style as Style,
     plannerModel: m.model,
     plannerEffort: m.effort,
   }
@@ -390,6 +407,28 @@ function parseRepo(argv: string[]): RepoOpts {
 const aiCodersHelp = (): string =>
   `  -a, --ai-coders / --no-ai-coders   AI-coders mode (no student framing) (default: ${SETTINGS.aiCoders ? "--ai-coders" : "--no-ai-coders"})`
 
+function parseBatch(argv: string[]): BatchOpts {
+  let listPath: string | undefined
+  const flagArgs: string[] = []
+  for (const a of argv) {
+    if (!a.startsWith("-") && listPath === undefined) listPath = a
+    else flagArgs.push(a)
+  }
+  const { values: v } = runNodeParseArgs(flagArgs, {
+    verbose: { type: "boolean", short: "v", multiple: true },
+    help: { type: "boolean", short: "h" },
+  })
+  const common = commonOptsFrom(v, false)
+  if (!common.help && !listPath) {
+    fail("batch requires a path to a batch file: fixture batch <list.json>")
+  }
+  return {
+    ...common,
+    subcommand: "batch",
+    listPath: listPath ?? "",
+  }
+}
+
 function subcommandHelpBody(sub: Subcommand): string[] {
   const helpLine =
     "  -h, --help                         Show this help and exit"
@@ -423,30 +462,61 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       `  -s, --students=N                   ${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS.students})`,
       `  -r, --rounds=N                     Build-commit count (default: ${SETTINGS.rounds})`,
       `  -i, --coder-interaction=N          ${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS.coderInteraction}) — cross-module author mixing`,
-      `  -f, --review-frequency=N           ${MIN_REVIEW_FREQUENCY}-${MAX_REVIEW_FREQUENCY}% per-build chance (default: ${SETTINGS.reviewFrequency})`,
+      `  -w, --reviews=N                    ${MIN_REVIEWS}..--rounds (default: ${SETTINGS.reviews}) — review-commit`,
+      "                                     count, placed at random build slots",
+      `  -y, --style=NAME                   one of ${STYLES.join("|")}`,
+      `                                     (default: ${SETTINGS.style}) — structural shape of the commit timeline`,
       aiCodersHelp(),
       "  -v, --verbose                      Print plan to stdout; -vv also prints Planner prompt/reply",
       helpLine,
     ]
   }
+  if (sub === "repo") {
+    return [
+      "Usage: fixture repo [--from=<plan.md>] [options]",
+      "",
+      "Run Coder sub-agents against a plan to produce a git repo at",
+      "c<N>-<name>/<plan-postfix>/<repo-postfix>/. --from can also point at",
+      "a c<N>-<name>/<plan-postfix>/ plan dir, or at a c<N>-<name>/ project",
+      "dir when it contains exactly one plan subfolder. Without --from, falls",
+      "back to the plan recorded in ../student-repos/.fixture-state.json",
+      "(set by the most recent `fixture plan`).",
+      "",
+      "Options:",
+      "      --from=PATH                    Plan .md file, plan dir, or project dir",
+      "                                     (absolute, or relative to ../student-repos/).",
+      "                                     Optional if .fixture-state.json has a plan.",
+      `  -m, --model=CODE                   Coder model (default: ${SETTINGS.mc})`,
+      `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
+      `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
+      "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
+      helpLine,
+    ]
+  }
   return [
-    "Usage: fixture repo [--from=<plan.md>] [options]",
+    "Usage: fixture batch <list.json> [options]",
     "",
-    "Run Coder sub-agents against a plan to produce a git repo at",
-    "c<N>-<name>/<plan-postfix>/<repo-postfix>/. --from can also point at",
-    "a c<N>-<name>/<plan-postfix>/ plan dir, or at a c<N>-<name>/ project",
-    "dir when it contains exactly one plan subfolder. Without --from, falls",
-    "back to the plan recorded in ../student-repos/.fixture-state.json",
-    "(set by the most recent `fixture plan`).",
+    "Run a batch of plan+repo entries against a single fixed project.",
+    "Each entry is generated, then removed from the file on success.",
+    "Stops on the first failure (the failed entry stays in the file for",
+    "a manual retry). The file shape:",
+    "",
+    "  {",
+    '    "project": "c3-trail-conditions-aggregator/project.md",',
+    '    "entries": [',
+    "      { mp, mc, aiCoders, coderExperience, coderInteraction,",
+    "        students, rounds, reviews, comments, style },",
+    "      ...",
+    "    ]",
+    "  }",
+    "",
+    "`project` is either a path to an existing project.md (or project dir)",
+    'or `{ complexity: N, mp: "CODE" }` to generate a fresh project. Each',
+    "entry's keys match `.fixture-settings.json` plus `style`.",
     "",
     "Options:",
-    "      --from=PATH                    Plan .md file, plan dir, or project dir",
-    "                                     (absolute, or relative to ../student-repos/).",
-    "                                     Optional if .fixture-state.json has a plan.",
-    `  -m, --model=CODE                   Coder model (default: ${SETTINGS.mc})`,
-    `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
-    `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
-    "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
+    "  -v, --verbose                      Print plan to stdout; -vv also prints",
+    "                                     Planner/Coder prompts/replies",
     helpLine,
   ]
 }
@@ -466,15 +536,22 @@ export function parseArgs(argv: string[]): Opts {
     printTopHelp()
     process.exit(0)
   }
-  if (sub !== "project" && sub !== "plan" && sub !== "repo") {
-    fail(`unknown subcommand "${sub}"; expected project | plan | repo`)
+  if (
+    sub !== "project" &&
+    sub !== "plan" &&
+    sub !== "repo" &&
+    sub !== "batch"
+  ) {
+    fail(`unknown subcommand "${sub}"; expected project | plan | repo | batch`)
   }
   const opts =
     sub === "project"
       ? parseProject(rest)
       : sub === "plan"
         ? parsePlan(rest)
-        : parseRepo(rest)
+        : sub === "repo"
+          ? parseRepo(rest)
+          : parseBatch(rest)
   if (opts.help) {
     printSubcommandHelp(sub)
     process.exit(0)

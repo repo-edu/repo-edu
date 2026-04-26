@@ -56,6 +56,7 @@ Rules:
   half the build commits or fewer. A typical S=3/N=10 split is 4/3/3 or
   4/4/2, not 7/2/1.
 - Cross-module author mixing: {{interaction_guidance}}
+- Plan style ({{style}}): {{style_guidance}}
 - Commit dates spread realistically across 1-2 weeks ending on or before
   today. Pacing is uneven: some days have no commits, some have 2-3,
   weekends are plausible but lighter. Avoid exactly one commit per day.

@@ -54,16 +54,19 @@ plan folder:
 
 The postfixes encode run parameters:
 
-- plan: `[ai-]c<N>-s<N>-r<N>-i<N>`
-- repo: `m<code>-{x<N>|ai}-f<N>-c<N>-s<N>-r<N>`
+- plan: `[ai-]c<N>-s<N>-r<N>-w<N>-i<N>`
+- repo: `m<code>-{x<N>|ai}-c<N>-s<N>-r<N>`
+
+`w<N>` is the review-commit count (0..rounds): `--reviews` reviews are
+placed after a uniformly-chosen subset of build slots.
 
 `i<N>` is the coder-interaction level — a planner concern that shapes
 how the planner mixes `author_index` across modules (1 = each module
 has a primary owner, 2 = moderate cross-module mixing, 3 = constant
 cross-module mixing). `x<N>` is the coder-experience level — a coder
-concern that picks a code-style tier. Review-commit frequency is
-independent (`-f / --review-frequency`, percent 0-100) and is sampled
-into the plan's kind sequence by the planner.
+concern that picks a code-style tier. The review-commit count is set
+directly via `--reviews` (0 ≤ reviews ≤ rounds) and placed at uniformly
+random build slots in the plan's kind sequence.
 
 `--ai-coders` (`-a`) on `plan` switches into **AI-coders mode**: the
 planner drops student-team framing, and downstream the coder runs
@@ -118,7 +121,8 @@ ranges as the CLI flags):
   "students": 3,
   "rounds": 3,
   "comments": 1,
-  "reviewFrequency": 30
+  "reviews": 1,
+  "style": "big-bang"
 }
 ```
 
@@ -136,16 +140,71 @@ and `plan` rewrite it on success; `repo` reads it. This is what lets
 `plan` and `repo` run with no `--from` (see examples below). Delete or
 edit the file to reset or point at specific artifacts.
 
+## Plan styles
+
+`--style` selects the structural shape of the commit timeline.
+Same parameters with different styles produce visibly different
+repos:
+
+- `big-bang` (default) — round 1 is one author committing a skeleton
+  architecture defining every module; later rounds flesh modules out.
+- `incremental` — start with one module skeleton; new modules are
+  introduced one-per-round across the early schedule.
+- `vertical-slice` — every commit touches multiple modules; modules
+  grow in lockstep, no single-module commits.
+- `bottom-up` — early rounds build shared utilities and types;
+  features and integrations land later.
+- `top-down` — early rounds scaffold high-level features as stubs;
+  later rounds replace stubs with real implementations.
+
+The full prompt fragments live at [prompts/planner/style.md](prompts/planner/style.md).
+
+## Batch mode
+
+`fixture batch <list.json>` drives multiple plan+repo entries against
+a single fixed project. Each entry is generated, then removed from the
+file on success. Stops on the first failure (the failed entry stays
+in the file for a manual retry).
+
+File shape:
+
+```json
+{
+  "project": "c3-trail-conditions-aggregator/project.md",
+  "entries": [
+    {
+      "mp": "33", "mc": "22", "aiCoders": true,
+      "coderExperience": 3, "coderInteraction": 3,
+      "students": 3, "rounds": 6, "reviews": 2,
+      "comments": 1, "style": "incremental"
+    },
+    {
+      "mp": "33", "mc": "22", "aiCoders": true,
+      "coderExperience": 3, "coderInteraction": 3,
+      "students": 3, "rounds": 6, "reviews": 2,
+      "comments": 1, "style": "vertical-slice"
+    }
+  ]
+}
+```
+
+`project` is either a path to an existing project (`project.md` file
+or a `c<N>-<name>/` directory) or a generation spec
+`{ "complexity": N, "mp": "CODE" }` to generate a fresh one. Each
+entry's keys mirror `.fixture-settings.json`; missing fields fall
+back to the top-level `.fixture-settings.json` snapshot.
+
 ## Entry point
 
-`pnpm fixture` has three subcommands; run `pnpm fixture <sub> --help`
+`pnpm fixture` has four subcommands; run `pnpm fixture <sub> --help`
 for the flags that apply to each.
 
 | subcommand | produces | key flags |
 |---|---|---|
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
-| `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-i`, `-f`, `-a` |
+| `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
 | `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `--comments` |
+| `batch <list.json>` | one plan+repo per entry under one shared project | — (entry fields) |
 
 Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet
 (default/low/medium/high); `3|31|32|33|34|35` = opus
@@ -166,8 +225,8 @@ pnpm fixture repo -x 4                     # uses state.plan
 Explicit paths still work and override the state:
 
 ```bash
-pnpm fixture plan --from=c3-NAME/project.md -s 4 -r 5 -i 3
-pnpm fixture repo --from=c3-NAME -x 4         # auto-picks single plan subfolder
-pnpm fixture repo --from=c3-NAME/c4-s3-r3-i2/ # plan dir
-pnpm fixture repo --from=c3-NAME/c4-s3-r3-i2/plan.md -x 4
+pnpm fixture plan --from=c3-NAME/project.md -s 4 -r 5 --reviews 2 -i 3
+pnpm fixture repo --from=c3-NAME -x 4              # auto-picks single plan subfolder
+pnpm fixture repo --from=c3-NAME/bb-c4-s3-r5-w2-i3/   # plan dir
+pnpm fixture repo --from=c3-NAME/bb-c4-s3-r5-w2-i3/plan.md -x 4
 ```

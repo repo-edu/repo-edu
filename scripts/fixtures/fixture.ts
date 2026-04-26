@@ -10,10 +10,13 @@ import {
 import { dirname, isAbsolute, relative, resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import type { Usage } from "./agent"
+import { type BatchEntry, loadBatch, mergeEntry, saveBatch } from "./batch"
 import {
+  type BatchOpts,
   type PlanOpts,
   type ProjectOpts,
   parseArgs,
+  parseModelCode,
   type RepoOpts,
 } from "./cli"
 import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
@@ -91,6 +94,14 @@ function relocateLogs(targetDir: string, verbosity: number): void {
   setEmitState(verbosity, toLog, toTrace)
 }
 
+function resetRunLogs(verbosity: number): void {
+  const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
+  const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
+  writeFileSync(logPath, "")
+  writeFileSync(tracePath, "")
+  setEmitState(verbosity, logPath, tracePath)
+}
+
 function projectDir(project: Project): string {
   return resolve(STUDENT_REPOS, `c${project.complexity}-${project.name}`)
 }
@@ -151,7 +162,6 @@ function archivePlan(
   plan: Plan,
   opts: PlanNameOpts,
   projectPath: string,
-  reviewFrequency: number,
 ): { planPath: string; planDir: string } {
   const parentDir = projectDir(project)
   mkdirSync(parentDir, { recursive: true })
@@ -166,7 +176,7 @@ function archivePlan(
     aiCoders: opts.aiCoders,
     rounds: opts.rounds,
     students: opts.students,
-    reviewFrequency,
+    reviews: opts.reviews,
     coderInteraction: opts.coderInteraction,
   }
   writeFileSync(planPath, planToMarkdown({ meta, plan }))
@@ -183,7 +193,6 @@ function emitPlan(
   plan: Plan,
   opts: PlanNameOpts,
   projectFile: string,
-  reviewFrequency: number,
 ): void {
   emit(
     1,
@@ -195,7 +204,7 @@ function emitPlan(
         aiCoders: opts.aiCoders,
         rounds: opts.rounds,
         students: opts.students,
-        reviewFrequency,
+        reviews: opts.reviews,
         coderInteraction: opts.coderInteraction,
       },
       plan,
@@ -220,13 +229,12 @@ async function produceProject(
 
 async function producePlan(
   project: Project,
-  opts: PlanGenOpts & { reviewFrequency: number },
+  opts: PlanGenOpts,
   runStart: number,
 ): Promise<{ plan: Plan; usage: Usage }> {
-  const kindSequence = sampleKindSequence(opts.rounds, opts.reviewFrequency)
-  const reviewCount = kindSequence.length - opts.rounds
+  const kindSequence = sampleKindSequence(opts.rounds, opts.reviews)
   progress(
-    `sampled kind sequence (${opts.rounds} builds + ${reviewCount} reviews)`,
+    `sampled kind sequence (${opts.rounds} builds + ${opts.reviews} reviews)`,
   )
   const { plan, usage } = await withTicker("fixture: generating plan…", () =>
     generatePlan(project, opts, kindSequence),
@@ -262,7 +270,7 @@ async function runCoderStage(
   planMeta: {
     rounds: number
     students: number
-    reviewFrequency: number
+    reviews: number
   },
   coderOpts: CoderRunOpts & {
     plannerModel: ModelName
@@ -277,7 +285,6 @@ async function runCoderStage(
     coderEffort: coderOpts.coderEffort,
     aiCoders: coderOpts.aiCoders,
     coderExperience: coderOpts.coderExperience,
-    reviewFrequency: planMeta.reviewFrequency,
     complexity: project.complexity,
     students: planMeta.students,
     rounds: planMeta.rounds,
@@ -300,7 +307,7 @@ async function runCoderStage(
     rounds: planMeta.rounds,
     complexity: project.complexity,
     students: planMeta.students,
-    reviewFrequency: planMeta.reviewFrequency,
+    reviews: planMeta.reviews,
     plannerModel: coderOpts.plannerModel,
     plannerEffort: coderOpts.plannerEffort,
     coderModel: coderOpts.coderModel,
@@ -334,7 +341,8 @@ function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
     students: opts.students,
     rounds: opts.rounds,
     coderInteraction: opts.coderInteraction,
-    reviewFrequency: opts.reviewFrequency,
+    reviews: opts.reviews,
+    style: opts.style,
   }
 }
 
@@ -383,22 +391,17 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     complexity: project.complexity,
     students: opts.students,
     rounds: opts.rounds,
+    reviews: opts.reviews,
     coderInteraction: opts.coderInteraction,
+    style: opts.style,
   }
   const { planPath, planDir } = archivePlan(
     project,
     plan,
     planNameOpts,
     fromPath,
-    opts.reviewFrequency,
   )
-  emitPlan(
-    project,
-    plan,
-    planNameOpts,
-    relative(planDir, fromPath),
-    opts.reviewFrequency,
-  )
+  emitPlan(project, plan, planNameOpts, relative(planDir, fromPath))
   relocateLogs(planDir, opts.verbosity)
   const updated = settingsForPlan(SETTINGS, opts)
   writeSettings(STUDENT_REPOS, updated)
@@ -435,9 +438,11 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     complexity: project.complexity,
     students: meta.students,
     rounds: meta.rounds,
+    reviews: meta.reviews,
     coderInteraction: meta.coderInteraction,
+    style: meta.style,
   }
-  emitPlan(project, plan, planNameOpts, meta.projectFile, meta.reviewFrequency)
+  emitPlan(project, plan, planNameOpts, meta.projectFile)
   const zero: Usage = { input_tokens: 0, output_tokens: 0, wall_ms: 0 }
   await runCoderStage(
     project,
@@ -445,7 +450,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     {
       rounds: meta.rounds,
       students: meta.students,
-      reviewFrequency: meta.reviewFrequency,
+      reviews: meta.reviews,
     },
     {
       coderModel: opts.coderModel,
@@ -467,6 +472,123 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   writeSettings(STUDENT_REPOS, settingsForRepo(SETTINGS, opts))
 }
 
+async function runEntry(
+  project: Project,
+  projectPath: string,
+  entrySettings: Settings,
+  verbosity: number,
+  runStart: number,
+): Promise<void> {
+  const planner = parseModelCode(entrySettings.mp, "entry.mp")
+  const coder = parseModelCode(entrySettings.mc, "entry.mc")
+  const planGenOpts: PlanGenOpts = {
+    plannerModel: planner.model,
+    plannerEffort: planner.effort,
+    aiCoders: entrySettings.aiCoders,
+    rounds: entrySettings.rounds,
+    students: entrySettings.students,
+    reviews: entrySettings.reviews,
+    coderInteraction: entrySettings.coderInteraction,
+    style: entrySettings.style,
+  }
+  const { plan, usage: plannerUsage } = await producePlan(
+    project,
+    planGenOpts,
+    runStart,
+  )
+  const planNameOpts: PlanNameOpts = {
+    plannerModel: planner.model,
+    plannerEffort: planner.effort,
+    aiCoders: entrySettings.aiCoders,
+    complexity: project.complexity,
+    students: entrySettings.students,
+    rounds: entrySettings.rounds,
+    reviews: entrySettings.reviews,
+    coderInteraction: entrySettings.coderInteraction,
+    style: entrySettings.style,
+  }
+  const { planDir } = archivePlan(project, plan, planNameOpts, projectPath)
+  emitPlan(project, plan, planNameOpts, relative(planDir, projectPath))
+  relocateLogs(planDir, verbosity)
+  writeSettings(planDir, entrySettings)
+  writeSettings(STUDENT_REPOS, entrySettings)
+  await runCoderStage(
+    project,
+    plan,
+    {
+      rounds: entrySettings.rounds,
+      students: entrySettings.students,
+      reviews: entrySettings.reviews,
+    },
+    {
+      coderModel: coder.model,
+      coderEffort: coder.effort,
+      aiCoders: entrySettings.aiCoders,
+      coderExperience: entrySettings.coderExperience,
+      comments: entrySettings.comments,
+      students: entrySettings.students,
+      plannerModel: planner.model,
+      plannerEffort: planner.effort,
+    },
+    planDir,
+    runStart,
+    plannerUsage,
+  )
+  writeSettings(planDir, entrySettings)
+  writeSettings(STUDENT_REPOS, entrySettings)
+}
+
+async function handleBatch(opts: BatchOpts, runStart: number): Promise<void> {
+  const listPath = resolveFrom(opts.listPath)
+  const batch = loadBatch(listPath)
+  let project: Project
+  let projectPath: string
+  if (typeof batch.project === "string") {
+    const resolved = resolveFrom(batch.project)
+    projectPath = isDir(resolved)
+      ? (latestVersion(resolved, "project", ".md") ??
+        fail(`no project.md found in directory: ${resolved}`))
+      : resolved
+    project = loadProjectFrom(projectPath)
+    progress(`batch: loaded project "${project.name}" from ${projectPath}`)
+  } else {
+    const m = parseModelCode(batch.project.mp ?? SETTINGS.mp, "project.mp")
+    const projectGenOpts: ProjectGenOpts = {
+      complexity: batch.project.complexity,
+      plannerModel: m.model,
+      plannerEffort: m.effort,
+    }
+    const { project: p } = await produceProject(projectGenOpts, runStart)
+    project = p
+    const archivedName = archiveProject(project)
+    projectPath = resolve(projectDir(project), archivedName)
+    progress(`batch: generated project "${project.name}"`)
+  }
+  let remaining = batch.entries.length
+  while (batch.entries.length > 0) {
+    const entry: BatchEntry = batch.entries[0]
+    const entrySettings = mergeEntry(SETTINGS, entry)
+    progress(
+      `batch: ${remaining} entries remaining — students=${entrySettings.students} rounds=${entrySettings.rounds} reviews=${entrySettings.reviews} style=${entrySettings.style}`,
+    )
+    resetRunLogs(opts.verbosity)
+    await runEntry(
+      project,
+      projectPath,
+      entrySettings,
+      opts.verbosity,
+      runStart,
+    )
+    batch.entries.shift()
+    saveBatch(listPath, batch)
+    remaining--
+    progress(`batch: entry done; ${remaining} remaining`)
+  }
+  process.stdout.write(
+    `Batch complete. ${formatSeconds(Date.now() - runStart)} total.\n`,
+  )
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2))
   setupRun(opts.verbosity)
@@ -480,6 +602,9 @@ async function main(): Promise<void> {
       break
     case "repo":
       await handleRepo(opts, runStart)
+      break
+    case "batch":
+      await handleBatch(opts, runStart)
       break
   }
 }
