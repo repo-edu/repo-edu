@@ -10,14 +10,20 @@ export function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)} s`
 }
 
-let EMIT_STATE = { verbosity: 0, logPath: "", tracePath: "" }
+let EMIT_STATE = {
+  verbosity: 0,
+  logPath: "",
+  tracePath: "",
+  xtracePath: "",
+}
 
 export function setEmitState(
   verbosity: number,
   logPath: string,
   tracePath: string,
+  xtracePath: string,
 ): void {
-  EMIT_STATE = { verbosity, logPath, tracePath }
+  EMIT_STATE = { verbosity, logPath, tracePath, xtracePath }
 }
 
 const ANSI_RESET = "\x1b[0m"
@@ -37,10 +43,15 @@ function colorizeForTTY(text: string): string {
   )
 }
 
-export function emit(level: 1 | 2, text: string): void {
+export function emit(level: 1 | 2 | 3, text: string): void {
   const block = text.endsWith("\n") ? text : `${text}\n`
   if (EMIT_STATE.verbosity >= level) process.stdout.write(colorizeForTTY(block))
-  const path = level === 1 ? EMIT_STATE.logPath : EMIT_STATE.tracePath
+  const path =
+    level === 1
+      ? EMIT_STATE.logPath
+      : level === 2
+        ? EMIT_STATE.tracePath
+        : EMIT_STATE.xtracePath
   appendFileSync(path, block)
 }
 

@@ -81,13 +81,19 @@ is mode-agnostic — its output is the same regardless. The `repo` stage
 reads the mode from the plan's `Ai-coders:` meta line; it has no
 `--ai-coders` flag of its own.
 
-Per-run scratch files (`_log.md`, `_trace.md`, `_review.md`,
-`_state.json`) live inside the plan folder for `plan` and `repo` runs,
-so a subsequent run against a different plan never overwrites them.
-For a `project` run (no plan exists yet), `_log.md` and `_trace.md`
-stay at the `../student-repos/` root. `_log.md` mirrors the stdout
-summary (the archived plan); `_trace.md` holds full Coder prompts and
-replies regardless of `-v`/`-vv`.
+Per-run scratch files (`_log.md`, `_trace.md`, `_xtrace.md`,
+`_review.md`, `_state.json`) live inside the plan folder for `plan`
+and `repo` runs, so a subsequent run against a different plan never
+overwrites them. For a `project` run (no plan exists yet), the log
+files stay at the `../student-repos/` root. All three log files are
+always written; `-v`/`-vv`/`-vvv` only gate which level streams to
+stdout:
+
+- `_log.md` — high-level summary (archived plan).
+- `_trace.md` — per-round Planner/Coder prompts and final replies.
+- `_xtrace.md` — full agent turn log (every assistant message,
+  tool_use, and tool_result). File contents read/written by Read,
+  Write, and Edit are elided to a one-line summary.
 
 ## Settings
 

@@ -26,6 +26,7 @@ import {
   PLAN_BASENAME,
   STUDENT_REPOS,
   TRACE_BASENAME,
+  XTRACE_BASENAME,
 } from "./constants"
 import {
   readSettings,
@@ -78,28 +79,41 @@ function setupRun(verbosity: number): void {
   mkdirSync(STUDENT_REPOS, { recursive: true })
   const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
   const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
+  const xtracePath = resolve(STUDENT_REPOS, XTRACE_BASENAME)
   writeFileSync(logPath, "")
   writeFileSync(tracePath, "")
-  setEmitState(verbosity, logPath, tracePath)
+  writeFileSync(xtracePath, "")
+  setEmitState(verbosity, logPath, tracePath, xtracePath)
 }
 
 function relocateLogs(targetDir: string, verbosity: number): void {
   mkdirSync(targetDir, { recursive: true })
-  const fromLog = resolve(STUDENT_REPOS, LOG_BASENAME)
-  const fromTrace = resolve(STUDENT_REPOS, TRACE_BASENAME)
-  const toLog = resolve(targetDir, LOG_BASENAME)
-  const toTrace = resolve(targetDir, TRACE_BASENAME)
-  if (existsSync(fromLog)) renameSync(fromLog, toLog)
-  if (existsSync(fromTrace)) renameSync(fromTrace, toTrace)
-  setEmitState(verbosity, toLog, toTrace)
+  const moves: [string, string][] = [
+    [LOG_BASENAME, LOG_BASENAME],
+    [TRACE_BASENAME, TRACE_BASENAME],
+    [XTRACE_BASENAME, XTRACE_BASENAME],
+  ]
+  for (const [from, to] of moves) {
+    const src = resolve(STUDENT_REPOS, from)
+    const dst = resolve(targetDir, to)
+    if (existsSync(src)) renameSync(src, dst)
+  }
+  setEmitState(
+    verbosity,
+    resolve(targetDir, LOG_BASENAME),
+    resolve(targetDir, TRACE_BASENAME),
+    resolve(targetDir, XTRACE_BASENAME),
+  )
 }
 
 function resetRunLogs(verbosity: number): void {
   const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
   const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
+  const xtracePath = resolve(STUDENT_REPOS, XTRACE_BASENAME)
   writeFileSync(logPath, "")
   writeFileSync(tracePath, "")
-  setEmitState(verbosity, logPath, tracePath)
+  writeFileSync(xtracePath, "")
+  setEmitState(verbosity, logPath, tracePath, xtracePath)
 }
 
 function projectDir(project: Project): string {

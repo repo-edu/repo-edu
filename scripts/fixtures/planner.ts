@@ -152,11 +152,12 @@ function emitPlannerTrace(
   reply: string,
   usage: Usage,
 ): void {
-  emit(2, `\n## Planner · ${stage}\n\n### Prompt\n\n${prompt}`)
-  emit(
-    2,
-    `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`,
-  )
+  const header = `\n## Planner · ${stage}\n\n### Prompt\n\n${prompt}`
+  emit(2, header)
+  emit(3, header)
+  const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`
+  emit(2, tail)
+  emit(3, tail)
 }
 
 export async function generateProject(

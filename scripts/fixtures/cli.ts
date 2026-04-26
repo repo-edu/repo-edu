@@ -171,16 +171,10 @@ export function printFullHelp(): void {
 
 function commonOptsFrom(
   v: Record<string, string | boolean | boolean[] | undefined>,
-  doubleV: boolean,
 ): CommonOpts {
-  return {
-    verbosity: doubleV
-      ? 2
-      : Array.isArray(v.verbose) && v.verbose.length > 0
-        ? 1
-        : 0,
-    help: v.help === true,
-  }
+  const count = Array.isArray(v.verbose) ? v.verbose.length : 0
+  const verbosity = Math.min(count, 3)
+  return { verbosity, help: v.help === true }
 }
 
 interface ParsedArgs {
@@ -191,10 +185,10 @@ function runNodeParseArgs(
   argv: string[],
   options: Parameters<typeof nodeParseArgs>[0]["options"],
 ): ParsedArgs {
-  let doubleV = false
+  let extraV = 0
   const preprocessed = argv.filter((a) => {
-    if (a === "-vv") {
-      doubleV = true
+    if (/^-v+$/.test(a) && a.length >= 3) {
+      extraV += a.length - 1
       return false
     }
     return true
@@ -211,7 +205,10 @@ function runNodeParseArgs(
       string,
       string | boolean | boolean[] | undefined
     >
-    if (doubleV) values.verbose = [true, true]
+    if (extraV > 0) {
+      const existing = Array.isArray(values.verbose) ? values.verbose.length : 0
+      values.verbose = Array(existing + extraV).fill(true)
+    }
     return { values }
   } catch (err) {
     fail(err instanceof Error ? err.message : String(err))
@@ -299,7 +296,7 @@ function parseProject(argv: string[]): ProjectOpts {
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
-  const common = commonOptsFrom(v, false)
+  const common = commonOptsFrom(v)
   const complexity =
     v.complexity !== undefined ? Number(v.complexity) : SETTINGS.complexity
   const m = parseModelCode(
@@ -331,7 +328,7 @@ function parsePlan(argv: string[]): PlanOpts {
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
-  const common = commonOptsFrom(v, false)
+  const common = commonOptsFrom(v)
   const rounds = v.rounds !== undefined ? Number(v.rounds) : SETTINGS.rounds
   const students =
     v.students !== undefined ? Number(v.students) : SETTINGS.students
@@ -377,7 +374,7 @@ function parseRepo(argv: string[]): RepoOpts {
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
-  const common = commonOptsFrom(v, false)
+  const common = commonOptsFrom(v)
   const coderExperienceExplicit = v["coder-experience"] !== undefined
   const coderExperience = coderExperienceExplicit
     ? Number(v["coder-experience"])
@@ -418,7 +415,7 @@ function parseBatch(argv: string[]): BatchOpts {
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
-  const common = commonOptsFrom(v, false)
+  const common = commonOptsFrom(v)
   if (!common.help && !listPath) {
     fail("batch requires a path to a batch file: fixture batch <list.json>")
   }
@@ -441,7 +438,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "Options:",
       `  -m, --model=CODE                   Planner model (default: ${SETTINGS.mp})`,
       `  -c, --complexity=N                 ${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS.complexity})`,
-      "  -v, --verbose                      Print project to stdout; -vv also prints Planner prompt/reply",
+      "  -v, --verbose                      Print project to stdout; -vv adds Planner",
+      "                                     prompt/reply; -vvv adds full agent turns",
       helpLine,
     ]
   }
@@ -467,7 +465,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       `  -y, --style=NAME                   one of ${STYLES.join("|")}`,
       `                                     (default: ${SETTINGS.style}) — structural shape of the commit timeline`,
       aiCodersHelp(),
-      "  -v, --verbose                      Print plan to stdout; -vv also prints Planner prompt/reply",
+      "  -v, --verbose                      Print plan to stdout; -vv adds Planner",
+      "                                     prompt/reply; -vvv adds full agent turns",
       helpLine,
     ]
   }
@@ -489,7 +488,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       `  -m, --model=CODE                   Coder model (default: ${SETTINGS.mc})`,
       `  -x, --coder-experience=N           ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
       `      --comments=N                   ${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
-      "  -v, --verbose                      Print plan to stdout; -vv also prints Coder prompts/replies",
+      "  -v, --verbose                      Print plan to stdout; -vv adds Coder",
+      "                                     prompts/replies; -vvv adds full agent turns",
       helpLine,
     ]
   }
@@ -515,8 +515,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "entry's keys match `.fixture-settings.json` plus `style`.",
     "",
     "Options:",
-    "  -v, --verbose                      Print plan to stdout; -vv also prints",
-    "                                     Planner/Coder prompts/replies",
+    "  -v, --verbose                      Print plan to stdout; -vv adds Planner/Coder",
+    "                                     prompts/replies; -vvv adds full agent turns",
     helpLine,
   ]
 }

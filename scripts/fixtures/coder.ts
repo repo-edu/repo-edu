@@ -146,10 +146,9 @@ export async function runCoderLoop(
     for (let i = 0; i < plan.commits.length; i++) {
       const commit = plan.commits[i]
       const prompt = composeCoderPrompt(project, plan, commit, opts, dir)
-      emit(
-        2,
-        `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}\n\n### Prompt\n\n${prompt}`,
-      )
+      const roundHeader = `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}`
+      emit(2, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
+      emit(3, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
       const { reply, usage } = await withTicker(
         `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
         () =>
@@ -166,10 +165,9 @@ export async function runCoderLoop(
             },
           }),
       )
-      emit(
-        2,
-        `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`,
-      )
+      const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`
+      emit(2, tail)
+      emit(3, tail)
       state.rounds.push({
         commit_index: i,
         author_index: commit.author_index,

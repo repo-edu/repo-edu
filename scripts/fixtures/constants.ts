@@ -75,6 +75,7 @@ export const EFFORT_DIGIT: Record<EffortLevel | "none", number> = {
 
 export const LOG_BASENAME = "_log.md"
 export const TRACE_BASENAME = "_trace.md"
+export const XTRACE_BASENAME = "_xtrace.md"
 export const STATE_BASENAME = "_state.json"
 export const REVIEW_BASENAME = "_review.md"
 export const SETTINGS_BASENAME = ".fixture-settings.json"
@@ -82,6 +83,7 @@ export const PLAN_BASENAME = "plan.md"
 export const GITIGNORE_LINES = [
   "_log.md",
   "_trace.md",
+  "_xtrace.md",
   "_review.md",
   "_state.json",
   ".fixture-settings.json",
