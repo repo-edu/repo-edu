@@ -114,25 +114,6 @@ export function DisplayPane() {
   return (
     <div className="space-y-6">
       <FormField
-        label="Syntax theme"
-        htmlFor="display-syntax-theme"
-        description="Colour scheme used for the Blame code column."
-      >
-        <Select value={syntaxTheme} onValueChange={handleSyntaxThemeChange}>
-          <SelectTrigger id="display-syntax-theme" className="w-52">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {syntaxThemeIds.map((id) => (
-              <SelectItem key={id} value={id}>
-                {SYNTAX_THEMES[id].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
-
-      <FormField
         label="Theme"
         htmlFor="display-theme"
         description="Choose how the application appears."
@@ -145,6 +126,25 @@ export function DisplayPane() {
             {THEMES.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField
+        label="Syntax theme"
+        htmlFor="display-syntax-theme"
+        description="Colour scheme used for the Blame code column."
+      >
+        <Select value={syntaxTheme} onValueChange={handleSyntaxThemeChange}>
+          <SelectTrigger id="display-syntax-theme" className="w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {syntaxThemeIds.map((id) => (
+              <SelectItem key={id} value={id}>
+                {SYNTAX_THEMES[id].label}
               </SelectItem>
             ))}
           </SelectContent>
