@@ -3,48 +3,54 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  renameSync,
   statSync,
   writeFileSync,
 } from "node:fs"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import type { Usage } from "./agent"
-import { type BatchEntry, loadBatch, mergeEntry, saveBatch } from "./batch"
 import {
-  type BatchOpts,
+  type EvaluateOpts,
   type InitOpts,
   type PlanOpts,
   type ProjectOpts,
   parseArgs,
-  parseModelCode,
   type RepoOpts,
+  type SweepOpts,
 } from "./cli"
 import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
 import {
+  FIXTURES_DIR,
   LOG_BASENAME,
   type ModelName,
   PLAN_BASENAME,
-  STUDENT_REPOS,
   TRACE_BASENAME,
   XTRACE_BASENAME,
 } from "./constants"
 import {
   FIXTURE_SETTINGS_FILE,
+  FIXTURE_SWEEP_FILE,
   HARDCODED_SETTINGS,
+  loadSweepFile,
+  materializeSettings,
   readSettings,
   SETTINGS,
   type Settings,
+  type SweepPhase,
   writeSettings,
+  writeSweep,
 } from "./defaults"
+import { findRepoDirs, runEvaluate } from "./evaluate"
 import {
   emit,
+  FixtureError,
   fail,
   formatSeconds,
   progress,
   setEmitState,
   withTicker,
 } from "./log"
+import { parseModelCode } from "./model-codes"
 import {
   formatSpec,
   modelCode,
@@ -76,47 +82,21 @@ import {
 } from "./project-md"
 import { type ReviewSummaryOpts, writeReview } from "./review"
 import { sampleKindSequence } from "./sampler"
-import { readState, writeState } from "./state"
+import { FIXTURE_STATE_FILE, readState, writeState } from "./state"
 
-function setupRun(verbosity: number): void {
-  mkdirSync(STUDENT_REPOS, { recursive: true })
+function scaffoldFixturesDir(): void {
+  mkdirSync(FIXTURES_DIR, { recursive: true })
   if (!existsSync(FIXTURE_SETTINGS_FILE)) {
-    writeSettings(STUDENT_REPOS, HARDCODED_SETTINGS)
+    writeSettings(FIXTURES_DIR, HARDCODED_SETTINGS)
     progress(`scaffolded ${FIXTURE_SETTINGS_FILE}`)
   }
-  const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
-  const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
-  const xtracePath = resolve(STUDENT_REPOS, XTRACE_BASENAME)
-  writeFileSync(logPath, "")
-  writeFileSync(tracePath, "")
-  writeFileSync(xtracePath, "")
-  setEmitState(verbosity, logPath, tracePath, xtracePath)
 }
 
-function relocateLogs(targetDir: string, verbosity: number): void {
-  mkdirSync(targetDir, { recursive: true })
-  const moves: [string, string][] = [
-    [LOG_BASENAME, LOG_BASENAME],
-    [TRACE_BASENAME, TRACE_BASENAME],
-    [XTRACE_BASENAME, XTRACE_BASENAME],
-  ]
-  for (const [from, to] of moves) {
-    const src = resolve(STUDENT_REPOS, from)
-    const dst = resolve(targetDir, to)
-    if (existsSync(src)) renameSync(src, dst)
-  }
-  setEmitState(
-    verbosity,
-    resolve(targetDir, LOG_BASENAME),
-    resolve(targetDir, TRACE_BASENAME),
-    resolve(targetDir, XTRACE_BASENAME),
-  )
-}
-
-function resetRunLogs(verbosity: number): void {
-  const logPath = resolve(STUDENT_REPOS, LOG_BASENAME)
-  const tracePath = resolve(STUDENT_REPOS, TRACE_BASENAME)
-  const xtracePath = resolve(STUDENT_REPOS, XTRACE_BASENAME)
+function initLogs(verbosity: number, dir: string): void {
+  mkdirSync(dir, { recursive: true })
+  const logPath = resolve(dir, LOG_BASENAME)
+  const tracePath = resolve(dir, TRACE_BASENAME)
+  const xtracePath = resolve(dir, XTRACE_BASENAME)
   writeFileSync(logPath, "")
   writeFileSync(tracePath, "")
   writeFileSync(xtracePath, "")
@@ -124,11 +104,11 @@ function resetRunLogs(verbosity: number): void {
 }
 
 function projectDir(project: Project): string {
-  return resolve(STUDENT_REPOS, `c${project.complexity}-${project.name}`)
+  return resolve(FIXTURES_DIR, `c${project.complexity}-${project.name}`)
 }
 
 function resolveFrom(path: string): string {
-  return isAbsolute(path) ? path : resolve(STUDENT_REPOS, path)
+  return isAbsolute(path) ? path : resolve(FIXTURES_DIR, path)
 }
 
 function isDir(path: string): boolean {
@@ -174,21 +154,33 @@ function archiveProject(project: Project): string {
   const path = resolve(dir, name)
   writeFileSync(path, projectToMarkdown(project))
   progress(`archived project to ${path}`)
-  writeState({ project: relative(STUDENT_REPOS, path), plan: null })
+  writeState({ project: relative(FIXTURES_DIR, path), plan: null })
   return name
 }
 
-function archivePlan(
-  project: Project,
-  plan: Plan,
-  opts: PlanNameOpts,
-  projectPath: string,
-): { planPath: string; planDir: string } {
+function reservePlanDir(project: Project, opts: PlanNameOpts): string {
   const parentDir = projectDir(project)
   mkdirSync(parentDir, { recursive: true })
   const planDirName = nextAvailable(parentDir, planPostfix(opts))
   const planDir = resolve(parentDir, planDirName)
   mkdirSync(planDir, { recursive: true })
+  return planDir
+}
+
+function reserveRepoDir(planDir: string, opts: RepoNameOpts): string {
+  const dirName = nextAvailable(planDir, repoPostfix(opts))
+  const dir = resolve(planDir, dirName)
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+function archivePlanIntoDir(
+  project: Project,
+  plan: Plan,
+  opts: PlanNameOpts,
+  projectPath: string,
+  planDir: string,
+): string {
   const planPath = resolve(planDir, PLAN_BASENAME)
   const meta: PlanMeta = {
     project: project.name,
@@ -204,10 +196,10 @@ function archivePlan(
   writeFileSync(planPath, planToMarkdown({ meta, plan }))
   progress(`archived plan to ${planPath}`)
   writeState({
-    project: relative(STUDENT_REPOS, projectPath),
-    plan: relative(STUDENT_REPOS, planPath),
+    project: relative(FIXTURES_DIR, projectPath),
+    plan: relative(FIXTURES_DIR, planPath),
   })
-  return { planPath, planDir }
+  return planPath
 }
 
 function emitPlan(
@@ -299,29 +291,13 @@ async function runCoderStage(
     plannerEffort: EffortLevel | "none"
   },
   planDir: string,
+  repoDir: string,
   runStart: number,
   plannerUsage: Usage,
 ): Promise<void> {
-  const nameOpts: RepoNameOpts = {
-    coderModel: coderOpts.coderModel,
-    coderEffort: coderOpts.coderEffort,
-    aiCoders: coderOpts.aiCoders,
-    coderExperience: coderOpts.coderExperience,
-    comments: coderOpts.comments,
-  }
-  const dirName = nextAvailable(planDir, repoPostfix(nameOpts))
-  const dir = resolve(planDir, dirName)
-  mkdirSync(dir, { recursive: true })
-  initRepo(dir)
+  initRepo(repoDir)
 
-  const state = await runCoderLoop(
-    project,
-    plan,
-    coderOpts,
-    dir,
-    planDir,
-    runStart,
-  )
+  const state = await runCoderLoop(project, plan, coderOpts, repoDir, runStart)
 
   const reviewOpts: ReviewSummaryOpts = {
     rounds: planMeta.rounds,
@@ -333,14 +309,14 @@ async function runCoderStage(
     coderModel: coderOpts.coderModel,
     coderEffort: coderOpts.coderEffort,
   }
-  const displayDir = `${relative(STUDENT_REPOS, planDir)}/${dirName}`
+  const displayDir = `${relative(FIXTURES_DIR, planDir)}/${basename(repoDir)}`
   writeReview(
     project,
     state,
     reviewOpts,
     plannerUsage,
     Date.now() - runStart,
-    planDir,
+    repoDir,
     displayDir,
   )
 }
@@ -379,10 +355,11 @@ async function handleProject(
   opts: ProjectOpts,
   runStart: number,
 ): Promise<void> {
+  initLogs(opts.verbosity, FIXTURES_DIR)
   const { project, usage } = await produceProject(opts, runStart)
   archiveProject(project)
   emit(1, projectToMarkdown(project))
-  writeSettings(STUDENT_REPOS, settingsForProject(SETTINGS, opts))
+  writeSettings(FIXTURES_DIR, settingsForProject(SETTINGS, opts))
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
@@ -402,8 +379,6 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
       fail(`no project.md found in directory: ${resolved}`))
     : resolved
   const project = loadProjectFrom(fromPath)
-  progress(`loaded project "${project.name}" from ${fromPath}`)
-  const { plan, usage } = await producePlan(project, opts, runStart)
   const planNameOpts: PlanNameOpts = {
     plannerModel: opts.plannerModel,
     plannerEffort: opts.plannerEffort,
@@ -415,16 +390,20 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     coderInteraction: opts.coderInteraction,
     style: opts.style,
   }
-  const { planPath, planDir } = archivePlan(
+  const planDir = reservePlanDir(project, planNameOpts)
+  initLogs(opts.verbosity, planDir)
+  progress(`loaded project "${project.name}" from ${fromPath}`)
+  const { plan, usage } = await producePlan(project, opts, runStart)
+  const planPath = archivePlanIntoDir(
     project,
     plan,
     planNameOpts,
     fromPath,
+    planDir,
   )
   emitPlan(project, plan, planNameOpts, relative(planDir, fromPath))
-  relocateLogs(planDir, opts.verbosity)
   const updated = settingsForPlan(SETTINGS, opts)
-  writeSettings(STUDENT_REPOS, updated)
+  writeSettings(FIXTURES_DIR, updated)
   writeSettings(planDir, updated)
   const runMs = Date.now() - runStart
   process.stdout.write(
@@ -443,8 +422,16 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const fromPath = isDir(resolved) ? resolveSinglePlan(resolved) : resolved
   const { meta, plan, project } = loadPlanFrom(fromPath)
   const planDir = dirname(fromPath)
+  const repoNameOpts: RepoNameOpts = {
+    coderModel: opts.coderModel,
+    coderEffort: opts.coderEffort,
+    aiCoders: meta.aiCoders,
+    coderExperience: opts.coderExperience,
+    comments: opts.comments,
+  }
+  const repoDir = reserveRepoDir(planDir, repoNameOpts)
+  initLogs(opts.verbosity, repoDir)
   progress(`loaded plan for project "${project.name}" from ${fromPath}`)
-  relocateLogs(planDir, opts.verbosity)
   if (meta.aiCoders && opts.coderExperienceExplicit) {
     progress(
       `warning: --coder-experience=${opts.coderExperience} ignored — plan is in AI-coders mode`,
@@ -483,24 +470,43 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       plannerEffort: planner.effort,
     },
     planDir,
+    repoDir,
     runStart,
     zero,
   )
   const prevPlanSettings = readSettings(planDir)
   const updated = settingsForRepo(prevPlanSettings, opts)
-  writeSettings(planDir, updated)
-  writeSettings(STUDENT_REPOS, settingsForRepo(SETTINGS, opts))
+  writeSettings(repoDir, updated)
+  writeSettings(FIXTURES_DIR, settingsForRepo(SETTINGS, opts))
 }
 
-async function runEntry(
+interface EntryPlan {
+  plan: Plan
+  planDir: string
+  plannerUsage: Usage
+}
+
+async function archivePlanForEntry(
   project: Project,
   projectPath: string,
   entrySettings: Settings,
   verbosity: number,
   runStart: number,
-): Promise<void> {
+): Promise<EntryPlan> {
   const planner = parseModelCode(entrySettings.mp, "entry.mp")
-  const coder = parseModelCode(entrySettings.mc, "entry.mc")
+  const planNameOpts: PlanNameOpts = {
+    plannerModel: planner.model,
+    plannerEffort: planner.effort,
+    aiCoders: entrySettings.aiCoders,
+    complexity: project.complexity,
+    students: entrySettings.students,
+    rounds: entrySettings.rounds,
+    reviews: entrySettings.reviews,
+    coderInteraction: entrySettings.coderInteraction,
+    style: entrySettings.style,
+  }
+  const planDir = reservePlanDir(project, planNameOpts)
+  initLogs(verbosity, planDir)
   const planGenOpts: PlanGenOpts = {
     plannerModel: planner.model,
     plannerEffort: planner.effort,
@@ -516,22 +522,33 @@ async function runEntry(
     planGenOpts,
     runStart,
   )
-  const planNameOpts: PlanNameOpts = {
-    plannerModel: planner.model,
-    plannerEffort: planner.effort,
-    aiCoders: entrySettings.aiCoders,
-    complexity: project.complexity,
-    students: entrySettings.students,
-    rounds: entrySettings.rounds,
-    reviews: entrySettings.reviews,
-    coderInteraction: entrySettings.coderInteraction,
-    style: entrySettings.style,
-  }
-  const { planDir } = archivePlan(project, plan, planNameOpts, projectPath)
+  archivePlanIntoDir(project, plan, planNameOpts, projectPath, planDir)
   emitPlan(project, plan, planNameOpts, relative(planDir, projectPath))
-  relocateLogs(planDir, verbosity)
   writeSettings(planDir, entrySettings)
-  writeSettings(STUDENT_REPOS, entrySettings)
+  writeSettings(FIXTURES_DIR, entrySettings)
+  return { plan, planDir, plannerUsage }
+}
+
+async function runRepoForEntry(
+  project: Project,
+  plan: Plan,
+  planDir: string,
+  entrySettings: Settings,
+  verbosity: number,
+  runStart: number,
+  plannerUsage: Usage,
+): Promise<void> {
+  const planner = parseModelCode(entrySettings.mp, "entry.mp")
+  const coder = parseModelCode(entrySettings.mc, "entry.mc")
+  const repoNameOpts: RepoNameOpts = {
+    coderModel: coder.model,
+    coderEffort: coder.effort,
+    aiCoders: entrySettings.aiCoders,
+    coderExperience: entrySettings.coderExperience,
+    comments: entrySettings.comments,
+  }
+  const repoDir = reserveRepoDir(planDir, repoNameOpts)
+  initLogs(verbosity, repoDir)
   await runCoderStage(
     project,
     plan,
@@ -551,73 +568,343 @@ async function runEntry(
       plannerEffort: planner.effort,
     },
     planDir,
+    repoDir,
     runStart,
     plannerUsage,
   )
-  writeSettings(planDir, entrySettings)
-  writeSettings(STUDENT_REPOS, entrySettings)
+  writeSettings(repoDir, entrySettings)
+  writeSettings(FIXTURES_DIR, entrySettings)
 }
 
-async function handleBatch(opts: BatchOpts, runStart: number): Promise<void> {
-  const listPath = resolveFrom(opts.listPath)
-  const batch = loadBatch(listPath)
-  let project: Project
-  let projectPath: string
-  if (typeof batch.project === "string") {
-    const resolved = resolveFrom(batch.project)
-    projectPath = isDir(resolved)
-      ? (latestVersion(resolved, "project", ".md") ??
-        fail(`no project.md found in directory: ${resolved}`))
-      : resolved
-    project = loadProjectFrom(projectPath)
-    progress(`batch: loaded project "${project.name}" from ${projectPath}`)
-  } else {
-    const m = parseModelCode(batch.project.mp ?? SETTINGS.mp, "project.mp")
-    const projectGenOpts: ProjectGenOpts = {
-      complexity: batch.project.complexity,
-      plannerModel: m.model,
-      plannerEffort: m.effort,
-    }
-    const { project: p } = await produceProject(projectGenOpts, runStart)
-    project = p
-    const archivedName = archiveProject(project)
-    projectPath = resolve(projectDir(project), archivedName)
-    progress(`batch: generated project "${project.name}"`)
-  }
-  let remaining = batch.entries.length
-  while (batch.entries.length > 0) {
-    const entry: BatchEntry = batch.entries[0]
-    const entrySettings = mergeEntry(SETTINGS, entry)
-    progress(
-      `batch: ${remaining} entries remaining — students=${entrySettings.students} rounds=${entrySettings.rounds} reviews=${entrySettings.reviews} style=${entrySettings.style}`,
-    )
-    resetRunLogs(opts.verbosity)
-    await runEntry(
-      project,
-      projectPath,
-      entrySettings,
-      opts.verbosity,
-      runStart,
-    )
-    batch.entries.shift()
-    saveBatch(listPath, batch)
-    remaining--
-    progress(`batch: entry done; ${remaining} remaining`)
-  }
-  process.stdout.write(
-    `Batch complete. ${formatSeconds(Date.now() - runStart)} total.\n`,
+async function runEntry(
+  project: Project,
+  projectPath: string,
+  entrySettings: Settings,
+  verbosity: number,
+  runStart: number,
+): Promise<void> {
+  const { plan, planDir, plannerUsage } = await archivePlanForEntry(
+    project,
+    projectPath,
+    entrySettings,
+    verbosity,
+    runStart,
+  )
+  await runRepoForEntry(
+    project,
+    plan,
+    planDir,
+    entrySettings,
+    verbosity,
+    runStart,
+    plannerUsage,
   )
 }
 
-function handleInit(opts: InitOpts): void {
-  mkdirSync(STUDENT_REPOS, { recursive: true })
-  if (existsSync(FIXTURE_SETTINGS_FILE) && !opts.force) {
+type SweepFromKind = "project" | "plan"
+
+interface SweepFromProject {
+  kind: "project"
+  project: Project
+  projectPath: string
+}
+
+interface SweepFromPlan {
+  kind: "plan"
+  project: Project
+  planPath: string
+  planDir: string
+  plan: Plan
+  meta: PlanMeta
+}
+
+type SweepFrom = SweepFromProject | SweepFromPlan
+
+function loadSweepFromAsProject(absPath: string): SweepFromProject {
+  const projectPath = isDir(absPath)
+    ? (latestVersion(absPath, "project", ".md") ??
+      fail(`no project.md found in directory: ${absPath}`))
+    : absPath
+  const project = loadProjectFrom(projectPath)
+  return { kind: "project", project, projectPath }
+}
+
+function loadSweepFromAsPlan(absPath: string): SweepFromPlan {
+  const planPath = isDir(absPath) ? resolveSinglePlan(absPath) : absPath
+  const planDir = dirname(planPath)
+  const { meta, plan, project } = loadPlanFrom(planPath)
+  return { kind: "plan", project, planPath, planDir, plan, meta }
+}
+
+function classifyFromPath(absPath: string): SweepFromKind {
+  if (isDir(absPath)) {
+    if (existsSync(resolve(absPath, PLAN_BASENAME))) return "plan"
+    if (latestVersion(absPath, "project", ".md") !== null) return "project"
     fail(
-      `${FIXTURE_SETTINGS_FILE} already exists; pass -f / --force to overwrite`,
+      `--from=${absPath}: directory has no plan.md or project*.md; cannot classify as project or plan`,
     )
   }
-  writeSettings(STUDENT_REPOS, HARDCODED_SETTINGS)
+  const base = basename(absPath)
+  if (base === PLAN_BASENAME) return "plan"
+  if (/^project(?:-v\d+)?\.md$/.test(base)) return "project"
+  fail(
+    `--from=${absPath}: filename must be plan.md or project[-vN].md, or a directory containing one`,
+  )
+}
+
+function resolveSweepFrom(opts: SweepOpts, phase: SweepPhase): SweepFrom {
+  if (opts.fromPath) {
+    const abs = resolveFrom(opts.fromPath)
+    if (!existsSync(abs)) fail(`--from path not found: ${abs}`)
+    const kind = classifyFromPath(abs)
+    if (kind === "plan") {
+      if (phase === "plan") {
+        fail(
+          "sweep on a plan-phase key cannot reuse an existing plan; pass --from=<project> or omit it",
+        )
+      }
+      return loadSweepFromAsPlan(abs)
+    }
+    return loadSweepFromAsProject(abs)
+  }
+  const state = readState()
+  if (phase === "repo" && state.plan) {
+    return loadSweepFromAsPlan(resolveFrom(state.plan))
+  }
+  if (state.project) {
+    return loadSweepFromAsProject(resolveFrom(state.project))
+  }
+  fail(
+    phase === "plan"
+      ? "sweep on a plan-phase key requires --from=<project> or a project in .fixture-state.json (run `fixture project` first)"
+      : "sweep on a repo-phase key requires --from=<project|plan> or an entry in .fixture-state.json",
+  )
+}
+
+async function runRepoForExistingPlan(
+  from: SweepFromPlan,
+  entrySettings: Settings,
+  verbosity: number,
+  runStart: number,
+): Promise<void> {
+  const coder = parseModelCode(entrySettings.mc, "entry.mc")
+  const planner = parseSpec(from.meta.planner)
+  const repoNameOpts: RepoNameOpts = {
+    coderModel: coder.model,
+    coderEffort: coder.effort,
+    aiCoders: from.meta.aiCoders,
+    coderExperience: entrySettings.coderExperience,
+    comments: entrySettings.comments,
+  }
+  const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
+  initLogs(verbosity, repoDir)
+  await runCoderStage(
+    from.project,
+    from.plan,
+    {
+      rounds: from.meta.rounds,
+      students: from.meta.students,
+      reviews: from.meta.reviews,
+    },
+    {
+      coderModel: coder.model,
+      coderEffort: coder.effort,
+      aiCoders: from.meta.aiCoders,
+      coderExperience: entrySettings.coderExperience,
+      comments: entrySettings.comments,
+      students: from.meta.students,
+      plannerModel: planner.model,
+      plannerEffort: planner.effort,
+    },
+    from.planDir,
+    repoDir,
+    runStart,
+    { input_tokens: 0, output_tokens: 0, wall_ms: 0 },
+  )
+  const prevPlanSettings = readSettings(from.planDir)
+  const updated: Settings = {
+    ...prevPlanSettings,
+    mc: entrySettings.mc,
+    coderExperience: entrySettings.coderExperience,
+    comments: entrySettings.comments,
+  }
+  writeSettings(repoDir, updated)
+  writeSettings(FIXTURES_DIR, updated)
+}
+
+async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
+  const sweepPath = opts.sweepPath
+    ? resolveFrom(opts.sweepPath)
+    : FIXTURE_SWEEP_FILE
+  const sweep = loadSweepFile(sweepPath)
+  const from = resolveSweepFrom(opts, sweep.phase)
+  const total = sweep.sweptValues.length
+
+  if (from.kind === "project") {
+    progress(
+      `sweep: project "${from.project.name}" from ${from.projectPath}; ` +
+        `${sweep.phase}-phase key "${sweep.sweptKey}" × ${total} value(s)`,
+    )
+  } else {
+    progress(
+      `sweep: existing plan ${from.planDir} (project "${from.project.name}"); ` +
+        `${sweep.phase}-phase key "${sweep.sweptKey}" × ${total} value(s)`,
+    )
+  }
+
+  if (sweep.phase === "plan") {
+    if (from.kind !== "project") {
+      fail("internal: plan-phase sweep reached repo-phase from-resolution")
+    }
+    for (let i = 0; i < total; i++) {
+      const value = sweep.sweptValues[i]
+      const entrySettings = materializeSettings(
+        sweep.baseSettings,
+        sweep.sweptKey,
+        value,
+        `${sweepPath}[${i}]`,
+      )
+      progress(
+        `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
+      )
+      await runEntry(
+        from.project,
+        from.projectPath,
+        entrySettings,
+        opts.verbosity,
+        runStart,
+      )
+    }
+  } else if (from.kind === "plan") {
+    for (let i = 0; i < total; i++) {
+      const value = sweep.sweptValues[i]
+      const entrySettings = materializeSettings(
+        sweep.baseSettings,
+        sweep.sweptKey,
+        value,
+        `${sweepPath}[${i}]`,
+      )
+      progress(
+        `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
+      )
+      await runRepoForExistingPlan(
+        from,
+        entrySettings,
+        opts.verbosity,
+        runStart,
+      )
+    }
+  } else {
+    const firstSettings = materializeSettings(
+      sweep.baseSettings,
+      sweep.sweptKey,
+      sweep.sweptValues[0],
+      `${sweepPath}[0]`,
+    )
+    progress(
+      `sweep: planning once for ${total} repo variant(s); base ${sweep.sweptKey}=${JSON.stringify(sweep.sweptValues[0])}`,
+    )
+    const { plan, planDir, plannerUsage } = await archivePlanForEntry(
+      from.project,
+      from.projectPath,
+      firstSettings,
+      opts.verbosity,
+      runStart,
+    )
+    for (let i = 0; i < total; i++) {
+      const value = sweep.sweptValues[i]
+      const entrySettings = materializeSettings(
+        sweep.baseSettings,
+        sweep.sweptKey,
+        value,
+        `${sweepPath}[${i}]`,
+      )
+      progress(
+        `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
+      )
+      await runRepoForEntry(
+        from.project,
+        plan,
+        planDir,
+        entrySettings,
+        opts.verbosity,
+        runStart,
+        i === 0
+          ? plannerUsage
+          : { input_tokens: 0, output_tokens: 0, wall_ms: 0 },
+      )
+    }
+  }
+  process.stdout.write(
+    `Sweep complete (${total} variant(s)). ${formatSeconds(Date.now() - runStart)} total.\n`,
+  )
+}
+
+async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
+  let rootDir: string
+  if (opts.fromPath) {
+    const abs = resolveFrom(opts.fromPath)
+    if (!existsSync(abs)) fail(`--from path not found: ${abs}`)
+    rootDir = isDir(abs) ? abs : dirname(abs)
+  } else {
+    rootDir = FIXTURES_DIR
+    const state = readState()
+    const insideFixtures = (p: string): boolean =>
+      p === FIXTURES_DIR || p.startsWith(`${FIXTURES_DIR}/`)
+    const candidates: string[] = []
+    // Prefer state.plan: plans always live in FIXTURES_DIR even when the
+    // seed project file is external. Grandparent = c<N>-<name>/ project dir.
+    if (state.plan) {
+      const planAbs = resolveFrom(state.plan)
+      if (insideFixtures(planAbs) && existsSync(planAbs)) {
+        candidates.push(dirname(dirname(planAbs)))
+      }
+    }
+    if (state.project) {
+      const projectAbs = resolveFrom(state.project)
+      const projectCand = isDir(projectAbs) ? projectAbs : dirname(projectAbs)
+      if (insideFixtures(projectCand) && existsSync(projectCand)) {
+        candidates.push(projectCand)
+      }
+    }
+    const picked = candidates.find((c) => findRepoDirs(c).length > 0)
+    if (picked) {
+      rootDir = picked
+    } else if (state.project || state.plan) {
+      progress(
+        `.fixture-state.json points outside ${FIXTURES_DIR} or yields no repos; walking ${FIXTURES_DIR}`,
+      )
+    }
+  }
+  const outPath = opts.outPath
+    ? isAbsolute(opts.outPath)
+      ? opts.outPath
+      : resolve(process.cwd(), opts.outPath)
+    : null
+  await runEvaluate({
+    rootDir,
+    evaluatorSpec: { model: opts.evaluatorModel, effort: opts.evaluatorEffort },
+    outPath,
+  })
+}
+
+function handleInit(opts: InitOpts): void {
+  mkdirSync(FIXTURES_DIR, { recursive: true })
+  const conflicts: string[] = []
+  if (existsSync(FIXTURE_SETTINGS_FILE)) conflicts.push(FIXTURE_SETTINGS_FILE)
+  if (existsSync(FIXTURE_SWEEP_FILE)) conflicts.push(FIXTURE_SWEEP_FILE)
+  if (existsSync(FIXTURE_STATE_FILE)) conflicts.push(FIXTURE_STATE_FILE)
+  if (conflicts.length > 0 && !opts.force) {
+    fail(
+      `already exists: ${conflicts.join(", ")}; pass -f / --force to overwrite`,
+    )
+  }
+  writeSettings(FIXTURES_DIR, HARDCODED_SETTINGS)
+  writeSweep(FIXTURES_DIR)
+  writeState({ project: null, plan: null })
   process.stdout.write(`Wrote ${FIXTURE_SETTINGS_FILE}\n`)
+  process.stdout.write(`Wrote ${FIXTURE_SWEEP_FILE}\n`)
+  process.stdout.write(`Wrote ${FIXTURE_STATE_FILE}\n`)
 }
 
 async function main(): Promise<void> {
@@ -626,7 +913,7 @@ async function main(): Promise<void> {
     handleInit(opts)
     return
   }
-  setupRun(opts.verbosity)
+  scaffoldFixturesDir()
   const runStart = Date.now()
   switch (opts.subcommand) {
     case "project":
@@ -638,13 +925,21 @@ async function main(): Promise<void> {
     case "repo":
       await handleRepo(opts, runStart)
       break
-    case "batch":
-      await handleBatch(opts, runStart)
+    case "sweep":
+      await handleSweep(opts, runStart)
+      break
+    case "evaluate":
+      await handleEvaluate(opts)
       break
   }
 }
 
 main().catch((err) => {
+  if (err instanceof FixtureError) {
+    process.stderr.write(`fixture: ${err.message}\n`)
+    process.stderr.write("Run with --help for usage.\n")
+    process.exit(2)
+  }
   process.stderr.write(
     `fixture: ${err instanceof Error ? err.message : String(err)}\n`,
   )

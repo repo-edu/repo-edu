@@ -19,8 +19,15 @@ import {
 } from "./constants"
 import { SETTINGS, SETTINGS_PREAMBLE, settingsRowsForHelp } from "./defaults"
 import { fail } from "./log"
+import { parseModelCode } from "./model-codes"
 
-export type Subcommand = "init" | "project" | "plan" | "repo" | "batch"
+export type Subcommand =
+  | "init"
+  | "project"
+  | "plan"
+  | "repo"
+  | "sweep"
+  | "evaluate"
 
 export interface CommonOpts {
   verbosity: number
@@ -47,9 +54,10 @@ export interface PlanOpts extends CommonOpts {
   plannerEffort: EffortLevel | "none"
 }
 
-export interface BatchOpts extends CommonOpts {
-  subcommand: "batch"
-  listPath: string
+export interface SweepOpts extends CommonOpts {
+  subcommand: "sweep"
+  fromPath: string
+  sweepPath: string
 }
 
 export interface InitOpts extends CommonOpts {
@@ -67,37 +75,21 @@ export interface RepoOpts extends CommonOpts {
   coderEffort: EffortLevel | "none"
 }
 
-export type Opts = ProjectOpts | PlanOpts | RepoOpts | BatchOpts | InitOpts
-
-const MODEL_CODES: Record<
-  string,
-  { model: ModelName; effort: EffortLevel | "none" }
-> = {
-  "1": { model: "haiku", effort: "none" },
-  "2": { model: "sonnet", effort: "high" },
-  "21": { model: "sonnet", effort: "low" },
-  "22": { model: "sonnet", effort: "medium" },
-  "23": { model: "sonnet", effort: "high" },
-  "3": { model: "opus", effort: "high" },
-  "31": { model: "opus", effort: "low" },
-  "32": { model: "opus", effort: "medium" },
-  "33": { model: "opus", effort: "high" },
-  "34": { model: "opus", effort: "xhigh" },
-  "35": { model: "opus", effort: "max" },
+export interface EvaluateOpts extends CommonOpts {
+  subcommand: "evaluate"
+  fromPath: string
+  outPath: string
+  evaluatorModel: ModelName
+  evaluatorEffort: EffortLevel | "none"
 }
 
-export function parseModelCode(
-  code: string,
-  flag: string,
-): { model: ModelName; effort: EffortLevel | "none" } {
-  const resolved = MODEL_CODES[code]
-  if (!resolved) {
-    fail(
-      `${flag}: unknown model code "${code}"; expected one of ${Object.keys(MODEL_CODES).join(", ")}`,
-    )
-  }
-  return resolved
-}
+export type Opts =
+  | ProjectOpts
+  | PlanOpts
+  | RepoOpts
+  | SweepOpts
+  | InitOpts
+  | EvaluateOpts
 
 const MODEL_CODE_HELP = [
   "Model CODE (-m, --model=CODE):",
@@ -131,15 +123,17 @@ const TOP_OVERVIEW_LINES = [
   "            project → <plan-postfix>/plan.md.",
   "  repo      Run one Coder sub-agent per planned commit against a",
   "            plan → a git repo.",
-  "  batch     Drive plan+repo for many entries against a fixed",
-  "            project, reading entries from a JSON list file.",
+  "  sweep     Iterate plan and/or repo across the values of one",
+  "            list-valued setting in a sweep file.",
+  "  evaluate  Walk a project (or higher) folder and score every repo",
+  "            child with an LLM judge → _evaluate.md report.",
   "",
   "Options:",
   "  -h, --help                         Show this top-level help and exit",
   "  -hh                                Show the full help (every subcommand)",
   "                                     and exit",
   "",
-  "Output layout under ../student-repos/ for the example session below:",
+  "Output layout under ../fixtures/ for the example session below:",
   "",
   "  c2-flash-card-quiz/               # one folder per project",
   "    project.md                      # from `fixture project`",
@@ -158,7 +152,7 @@ const TOP_OVERVIEW_LINES = [
   "One project folder can hold multiple plans and one plan folder can",
   "hold multiple repos generated from different settings.",
   "",
-  "../student-repos/.fixture-state.json caches the most recent",
+  "../fixtures/.fixture-state.json caches the most recent",
   "project and plan, so a typical session needs no --from flags:",
   "",
   "  fixture project -c 2",
@@ -185,7 +179,8 @@ export function printFullHelp(): void {
     indentBody(subcommandHelpBody("project"), "  ").join("\n"),
     indentBody(subcommandHelpBody("plan"), "  ").join("\n"),
     indentBody(subcommandHelpBody("repo"), "  ").join("\n"),
-    indentBody(subcommandHelpBody("batch"), "  ").join("\n"),
+    indentBody(subcommandHelpBody("sweep"), "  ").join("\n"),
+    indentBody(subcommandHelpBody("evaluate"), "  ").join("\n"),
     MODEL_CODE_HELP.join("\n"),
   ]
   process.stdout.write(`${sections.join("\n\n")}\n`)
@@ -453,25 +448,44 @@ function parseInit(argv: string[]): InitOpts {
   }
 }
 
-function parseBatch(argv: string[]): BatchOpts {
-  let listPath: string | undefined
-  const flagArgs: string[] = []
-  for (const a of argv) {
-    if (!a.startsWith("-") && listPath === undefined) listPath = a
-    else flagArgs.push(a)
-  }
-  const { values: v } = runNodeParseArgs(flagArgs, {
+function parseSweep(argv: string[]): SweepOpts {
+  const { values: v } = runNodeParseArgs(argv, {
+    from: { type: "string" },
+    sweep: { type: "string" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v)
-  if (!common.help && !listPath) {
-    fail("batch requires a path to a batch file: fixture batch <list.json>")
-  }
   return {
     ...common,
-    subcommand: "batch",
-    listPath: listPath ?? "",
+    subcommand: "sweep",
+    fromPath: (v.from as string | undefined) ?? "",
+    sweepPath: (v.sweep as string | undefined) ?? "",
+  }
+}
+
+const EVALUATE_DEFAULT_MODEL_CODE = "35"
+
+function parseEvaluate(argv: string[]): EvaluateOpts {
+  const { values: v } = runNodeParseArgs(argv, {
+    from: { type: "string" },
+    out: { type: "string" },
+    model: { type: "string", short: "m" },
+    verbose: { type: "boolean", short: "v", multiple: true },
+    help: { type: "boolean", short: "h" },
+  })
+  const common = commonOptsFrom(v)
+  const m = parseModelCode(
+    (v.model as string | undefined) ?? EVALUATE_DEFAULT_MODEL_CODE,
+    "-m/--model",
+  )
+  return {
+    ...common,
+    subcommand: "evaluate",
+    fromPath: (v.from as string | undefined) ?? "",
+    outPath: (v.out as string | undefined) ?? "",
+    evaluatorModel: m.model,
+    evaluatorEffort: m.effort,
   }
 }
 
@@ -481,16 +495,25 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     return [
       "Usage: fixture init [-f]",
       "",
-      "Write a default ../student-repos/.fixture-settings.jsonc with all keys",
-      "and inline JSONC comments. Refuses to overwrite an existing file",
-      "unless -f / --force is given. Settings is also auto-created on the",
-      "first project / plan / repo / batch run, so this subcommand is",
-      "mainly useful to scaffold the file ahead of editing it.",
+      "Write defaults for three files under ../fixtures/:",
+      "  .fixture-settings.jsonc   run-time defaults (inline JSONC comments)",
+      "  .fixture-sweep.jsonc      template for `fixture sweep`",
+      "  .fixture-state.json       empty {project, plan} pointers, written",
+      "                            on every successful project / plan run",
+      "",
+      "Refuses to overwrite if any of the three exists, unless -f /",
+      "--force is given. Settings is also auto-created on the first",
+      "project / plan / repo / sweep run, so this subcommand is mainly",
+      "useful to scaffold the files ahead of editing them.",
       "",
       ...SETTINGS_BODY,
       "",
       "Options:",
-      ...opt("  -f, --force", "Overwrite an existing .fixture-settings.jsonc"),
+      ...opt(
+        "  -f, --force",
+        "Overwrite existing .fixture-settings.jsonc,",
+        ".fixture-sweep.jsonc, and .fixture-state.json",
+      ),
       ...helpLine,
     ]
   }
@@ -520,14 +543,14 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "",
       "Generate a plan (team + commits) in a new subfolder of the project,",
       "as c<N>-<name>/<postfix>/plan.md. Without --from, falls back to the",
-      "project recorded in ../student-repos/.fixture-state.json (set by the",
+      "project recorded in ../fixtures/.fixture-state.json (set by the",
       "most recent `fixture project` or `fixture plan`).",
       "",
       "Options:",
       ...opt(
         "      --from=PATH",
         "Project .md file or c<N>-<name>/ dir (absolute,",
-        "or relative to ../student-repos/). Optional if",
+        "or relative to ../fixtures/). Optional if",
         ".fixture-state.json has a project.",
       ),
       ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS.mp})`),
@@ -602,14 +625,14 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "c<N>-<name>/<plan-postfix>/<repo-postfix>/. --from can also point at",
       "a c<N>-<name>/<plan-postfix>/ plan dir, or at a c<N>-<name>/ project",
       "dir when it contains exactly one plan subfolder. Without --from, falls",
-      "back to the plan recorded in ../student-repos/.fixture-state.json",
+      "back to the plan recorded in ../fixtures/.fixture-state.json",
       "(set by the most recent `fixture plan`).",
       "",
       "Options:",
       ...opt(
         "      --from=PATH",
         "Plan .md file, plan dir, or project dir",
-        "(absolute, or relative to ../student-repos/).",
+        "(absolute, or relative to ../fixtures/).",
         "Optional if .fixture-state.json has a plan.",
       ),
       ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS.mc})`),
@@ -635,29 +658,77 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "  3  No directive — the coder decides.",
     ]
   }
+  if (sub === "evaluate") {
+    return [
+      "Usage: fixture evaluate [--from=<dir>] [--out=PATH] [-m CODE]",
+      "",
+      "Walk one directory recursively, find every repo child (any folder",
+      "containing _state.json), and score each one with an LLM judge.",
+      "Writes a Markdown report at <root>/_evaluate.md (override with",
+      "--out=PATH).",
+      "",
+      "Without --from, falls back to the project recorded in",
+      "../fixtures/.fixture-state.json; if that's empty, walks all of",
+      "../fixtures/. --from narrows the walk to any project / plan /",
+      "repo dir; descent stops at the first folder containing",
+      "_state.json.",
+      "",
+      "Options:",
+      ...opt(
+        "      --from=PATH",
+        "Project / plan / repo dir (absolute, or",
+        "relative to ../fixtures/). Defaults to the",
+        "project in .fixture-state.json, else",
+        "../fixtures/ itself.",
+      ),
+      ...opt(
+        "      --out=PATH",
+        "Override the default <root>/_evaluate.md",
+        "destination (absolute or relative to cwd).",
+      ),
+      ...opt(
+        "  -m, --model=CODE",
+        `Evaluator model (default: ${EVALUATE_DEFAULT_MODEL_CODE})`,
+      ),
+      ...helpLine,
+    ]
+  }
   return [
-    "Usage: fixture batch <list.json> [options]",
+    "Usage: fixture sweep [--from=<project-or-plan>] [--sweep=<sweep.jsonc>]",
+    "                     [options]",
     "",
-    "Run a batch of plan+repo entries against a single fixed project.",
-    "Each entry is generated, then removed from the file on success.",
-    "Stops on the first failure (the failed entry stays in the file for",
-    "a manual retry). The file shape:",
+    "Iterate plan and/or repo across the values of one list-valued setting",
+    "in a sweep file. The sweep file mirrors `.fixture-settings.jsonc` but",
+    "exactly one key may hold an array; every other key must be a scalar",
+    "(or absent, in which case the value falls back to",
+    "`.fixture-settings.jsonc`).",
     "",
-    "  {",
-    '    "project": "c3-trail-conditions-aggregator/project.md",',
-    '    "entries": [',
-    "      { mp, mc, aiCoders, coderInteraction, style,",
-    "        students, rounds, reviews, coderExperience, comments },",
-    "      ...",
-    "    ]",
-    "  }",
-    "",
-    "`project` is either a path to an existing project.md (or project dir)",
-    'or `{ complexity: N, mp: "CODE" }` to generate a fresh project.',
-    "Each entry's keys match `.fixture-settings.jsonc` (excluding",
-    "`complexity`, which the project provides).",
+    "Behavior depends on the swept key's phase and on `--from`:",
+    "  - List on a plan-phase key (mp, complexity, aiCoders,",
+    "    coderInteraction, style, students, rounds, reviews):",
+    "      `--from` must be a project (or omitted, falling back to state).",
+    "      For each value: run plan, then run repo. Yields N plan dirs,",
+    "      one repo each.",
+    "  - List on a repo-phase key (mc, coderExperience, comments):",
+    "      `--from` may be a project (plan once, then iterate repos) or a",
+    "      plan (skip planning, iterate repos against the existing plan).",
+    "      Without `--from`, falls back to state.plan if set, else",
+    "      state.project.",
     "",
     "Options:",
+    ...opt(
+      "      --from=PATH",
+      "Project file/dir, or for repo-phase sweeps a",
+      "plan file/dir. Absolute or relative to",
+      "../fixtures/. Optional if .fixture-state.json",
+      "has the appropriate entry.",
+    ),
+    ...opt(
+      "      --sweep=PATH",
+      "Sweep file (absolute, or relative to",
+      "../fixtures/). Defaults to",
+      "../fixtures/.fixture-sweep.jsonc.",
+    ),
     ...opt(
       "  -v, --verbose",
       "Print plan to stdout; -vv adds Planner/Coder",
@@ -687,10 +758,11 @@ export function parseArgs(argv: string[]): Opts {
     sub !== "project" &&
     sub !== "plan" &&
     sub !== "repo" &&
-    sub !== "batch"
+    sub !== "sweep" &&
+    sub !== "evaluate"
   ) {
     fail(
-      `unknown subcommand "${sub}"; expected init | project | plan | repo | batch`,
+      `unknown subcommand "${sub}"; expected init | project | plan | repo | sweep | evaluate`,
     )
   }
   const opts =
@@ -702,7 +774,9 @@ export function parseArgs(argv: string[]): Opts {
           ? parsePlan(rest)
           : sub === "repo"
             ? parseRepo(rest)
-            : parseBatch(rest)
+            : sub === "sweep"
+              ? parseSweep(rest)
+              : parseEvaluate(rest)
   if (opts.help) {
     printSubcommandHelp(sub)
     process.exit(0)

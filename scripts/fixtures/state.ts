@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { STUDENT_REPOS } from "./constants"
+import { FIXTURES_DIR } from "./constants"
 
-export const FIXTURE_STATE_FILE = resolve(STUDENT_REPOS, ".fixture-state.json")
+export const FIXTURE_STATE_FILE = resolve(FIXTURES_DIR, ".fixture-state.json")
 
 export interface FixtureState {
   project: string | null

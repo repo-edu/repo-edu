@@ -5,7 +5,7 @@ import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import { effortOption, runAgent, type Usage } from "./agent"
 import {
   CODER_AGREEMENT,
-  CODER_AGREEMENT_L0,
+  CODER_AGREEMENT_AI,
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
   type ModelName,
@@ -62,13 +62,13 @@ function composeCoderPrompt(
 
   if (opts.aiCoders) {
     return loadPrompt(
-      commit.kind === "review" ? "coder/review-l0" : "coder/build-l0",
+      commit.kind === "review" ? "coder/review-ai" : "coder/build-ai",
       {
         persona_name: persona.name,
         persona_email: persona.email,
         assignment: project.assignment,
         abs_path: absPath,
-        coder_agreement_path: CODER_AGREEMENT_L0,
+        coder_agreement_path: CODER_AGREEMENT_AI,
         round_goal: commit.note,
         comments_directive: commentsDirective,
         commit_date: commit.date,
@@ -119,12 +119,11 @@ export async function runCoderLoop(
   plan: Plan,
   opts: CoderRunOpts,
   dir: string,
-  planDir: string,
   runStart: number,
 ): Promise<State> {
   const state: State = { commit_index: 0, rounds: [], stopped: false }
   const coderPersona = loadPrompt(
-    opts.aiCoders ? "coder/persona-l0" : "coder/persona",
+    opts.aiCoders ? "coder/persona-ai" : "coder/persona",
   ).trim()
 
   let sigintCount = 0
@@ -177,7 +176,7 @@ export async function runCoderLoop(
       })
       state.commit_index = i + 1
       writeFileSync(
-        resolve(planDir, STATE_BASENAME),
+        resolve(dir, STATE_BASENAME),
         `${JSON.stringify(state, null, 2)}\n`,
       )
       progress(

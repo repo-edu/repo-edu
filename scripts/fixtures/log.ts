@@ -1,9 +1,14 @@
 import { appendFileSync } from "node:fs"
 
+export class FixtureError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "FixtureError"
+  }
+}
+
 export function fail(msg: string): never {
-  process.stderr.write(`fixture: ${msg}\n`)
-  process.stderr.write("Run with --help for usage.\n")
-  process.exit(2)
+  throw new FixtureError(msg)
 }
 
 export function formatSeconds(ms: number): string {
@@ -52,7 +57,7 @@ export function emit(level: 1 | 2 | 3, text: string): void {
       : level === 2
         ? EMIT_STATE.tracePath
         : EMIT_STATE.xtracePath
-  appendFileSync(path, block)
+  if (path) appendFileSync(path, block)
 }
 
 export function progress(msg: string): void {

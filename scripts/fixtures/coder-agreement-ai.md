@@ -1,4 +1,4 @@
-# Team working agreements (L0)
+# Team working agreements (AI)
 
 Several AI coders are building this Python project together, one commit
 at a time. Your prompt tells you who you are, what this round is for,

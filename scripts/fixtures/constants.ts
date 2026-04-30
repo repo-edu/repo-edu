@@ -83,12 +83,25 @@ export const EFFORT_DIGIT: Record<EffortLevel | "none", number> = {
   max: 5,
 }
 
+// USD per million tokens. Snapshot from https://www.anthropic.com/pricing —
+// update here when Anthropic changes pricing.
+export const TOKENS_PER_MTOK = 1_000_000
+export const MODEL_PRICE_USD_PER_MTOK: Record<
+  ModelName,
+  { input: number; output: number }
+> = {
+  haiku: { input: 1, output: 5 },
+  sonnet: { input: 3, output: 15 },
+  opus: { input: 15, output: 75 },
+}
+
 export const LOG_BASENAME = "_log.md"
 export const TRACE_BASENAME = "_trace.md"
 export const XTRACE_BASENAME = "_xtrace.md"
 export const STATE_BASENAME = "_state.json"
 export const REVIEW_BASENAME = "_review.md"
 export const SETTINGS_BASENAME = ".fixture-settings.jsonc"
+export const SWEEP_BASENAME = ".fixture-sweep.jsonc"
 export const PLAN_BASENAME = "plan.md"
 export const GITIGNORE_LINES = [
   "_log.md",
@@ -102,6 +115,6 @@ export const GITIGNORE_LINES = [
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = resolve(__dirname, "../..")
-export const STUDENT_REPOS = resolve(REPO_ROOT, "../student-repos")
+export const FIXTURES_DIR = resolve(REPO_ROOT, "../fixtures")
 export const CODER_AGREEMENT = resolve(__dirname, "coder-agreement.md")
-export const CODER_AGREEMENT_L0 = resolve(__dirname, "coder-agreement-l0.md")
+export const CODER_AGREEMENT_AI = resolve(__dirname, "coder-agreement-ai.md")

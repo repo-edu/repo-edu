@@ -13,6 +13,7 @@ import {
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
   DEFAULT_STYLE,
+  FIXTURES_DIR,
   MAX_CODER_EXPERIENCE,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
@@ -25,13 +26,14 @@ import {
   MIN_REVIEWS,
   MIN_STUDENTS,
   SETTINGS_BASENAME,
-  STUDENT_REPOS,
   STYLES,
   type Style,
+  SWEEP_BASENAME,
 } from "./constants"
 import { fail } from "./log"
 
-export const FIXTURE_SETTINGS_FILE = resolve(STUDENT_REPOS, SETTINGS_BASENAME)
+export const FIXTURE_SETTINGS_FILE = resolve(FIXTURES_DIR, SETTINGS_BASENAME)
+export const FIXTURE_SWEEP_FILE = resolve(FIXTURES_DIR, SWEEP_BASENAME)
 
 export interface Settings {
   mp: string
@@ -129,8 +131,48 @@ function parseJsonc(text: string): unknown {
   return JSON.parse(stripped)
 }
 
-function parseSettingsFile(path: string): Partial<Settings> {
-  if (!existsSync(path)) return {}
+function validateValue<K extends keyof Settings>(
+  ref: string,
+  key: K,
+  v: unknown,
+): Settings[K] {
+  if (key === "mp" || key === "mc") {
+    if (typeof v !== "string" || v.length === 0) {
+      fail(
+        `${ref}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
+      )
+    }
+    return v as Settings[K]
+  }
+  if (key === "aiCoders") {
+    if (typeof v !== "boolean") {
+      fail(`${ref}: "aiCoders" must be a boolean, got ${JSON.stringify(v)}`)
+    }
+    return v as Settings[K]
+  }
+  if (key === "style") {
+    if (typeof v !== "string" || !STYLES.includes(v as Style)) {
+      fail(
+        `${ref}: "style" must be one of ${STYLES.join(", ")}, got ${JSON.stringify(v)}`,
+      )
+    }
+    return v as Settings[K]
+  }
+  const spec = NUMERIC_SPECS[key as keyof typeof NUMERIC_SPECS]
+  if (
+    typeof v !== "number" ||
+    !Number.isInteger(v) ||
+    v < spec.min ||
+    v > spec.max
+  ) {
+    fail(
+      `${ref}: "${key}" must be an integer ${spec.min}-${spec.max}, got ${JSON.stringify(v)}`,
+    )
+  }
+  return v as Settings[K]
+}
+
+function readJsoncObject(path: string): Record<string, unknown> {
   let raw: unknown
   try {
     raw = parseJsonc(readFileSync(path, "utf8"))
@@ -143,8 +185,6 @@ function parseSettingsFile(path: string): Partial<Settings> {
     fail(`${path}: must be a JSON object`)
   }
   const obj = raw as Record<string, unknown>
-  const out: Partial<Settings> = {}
-
   for (const key of Object.keys(obj)) {
     if (!KNOWN_KEYS.has(key as keyof Settings)) {
       fail(
@@ -152,53 +192,102 @@ function parseSettingsFile(path: string): Partial<Settings> {
       )
     }
   }
+  return obj
+}
 
-  for (const [key, spec] of Object.entries(NUMERIC_SPECS) as [
-    keyof typeof NUMERIC_SPECS,
-    Spec,
-  ][]) {
+function parseSettingsFile(path: string): Partial<Settings> {
+  if (!existsSync(path)) return {}
+  const obj = readJsoncObject(path)
+  const out: Partial<Settings> = {}
+  for (const key of KNOWN_KEYS) {
     const v = obj[key]
     if (v === undefined) continue
-    if (
-      typeof v !== "number" ||
-      !Number.isInteger(v) ||
-      v < spec.min ||
-      v > spec.max
-    ) {
-      fail(
-        `${path}: "${key}" must be an integer ${spec.min}-${spec.max}, got ${JSON.stringify(v)}`,
-      )
-    }
-    out[key] = v
+    ;(out as Record<string, unknown>)[key] = validateValue(path, key, v)
   }
-  for (const key of ["mp", "mc"] as const) {
-    const v = obj[key]
-    if (v === undefined) continue
-    if (typeof v !== "string" || v.length === 0) {
-      fail(
-        `${path}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
-      )
-    }
-    out[key] = v
-  }
-  if (obj.aiCoders !== undefined) {
-    if (typeof obj.aiCoders !== "boolean") {
-      fail(
-        `${path}: "aiCoders" must be a boolean, got ${JSON.stringify(obj.aiCoders)}`,
-      )
-    }
-    out.aiCoders = obj.aiCoders
-  }
-  if (obj.style !== undefined) {
-    if (typeof obj.style !== "string" || !STYLES.includes(obj.style as Style)) {
-      fail(
-        `${path}: "style" must be one of ${STYLES.join(", ")}, got ${JSON.stringify(obj.style)}`,
-      )
-    }
-    out.style = obj.style as Style
-  }
-
   return out
+}
+
+export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
+  "mp",
+  "complexity",
+  "aiCoders",
+  "coderInteraction",
+  "style",
+  "students",
+  "rounds",
+  "reviews",
+])
+
+export const REPO_PHASE_KEYS = new Set<keyof Settings>([
+  "mc",
+  "coderExperience",
+  "comments",
+])
+
+export type SweepPhase = "plan" | "repo"
+
+export interface SweepFile {
+  sweptKey: keyof Settings
+  sweptValues: Settings[keyof Settings][]
+  phase: SweepPhase
+  baseSettings: Settings
+}
+
+export function loadSweepFile(path: string): SweepFile {
+  if (!existsSync(path)) fail(`sweep file not found: ${path}`)
+  const obj = readJsoncObject(path)
+  const arrayKeys = (Object.keys(obj) as (keyof Settings)[]).filter((k) =>
+    Array.isArray(obj[k]),
+  )
+  if (arrayKeys.length === 0) {
+    fail(
+      `${path}: sweep file must have exactly one list-valued key; found none`,
+    )
+  }
+  if (arrayKeys.length > 1) {
+    fail(
+      `${path}: sweep file must have exactly one list-valued key; found ${arrayKeys.length} (${arrayKeys.join(", ")})`,
+    )
+  }
+  const sweptKey = arrayKeys[0]
+  const rawList = obj[sweptKey] as unknown[]
+  if (rawList.length === 0) {
+    fail(`${path}: list for "${sweptKey}" must be non-empty`)
+  }
+  const sweptValues = rawList.map((v, i) =>
+    validateValue(`${path}[${sweptKey}][${i}]`, sweptKey, v),
+  )
+  const overrides: Partial<Settings> = {}
+  for (const key of KNOWN_KEYS) {
+    if (key === sweptKey) continue
+    const v = obj[key]
+    if (v === undefined) continue
+    if (Array.isArray(v)) continue // unreachable, guarded above
+    ;(overrides as Record<string, unknown>)[key] = validateValue(path, key, v)
+  }
+  const baseSettings: Settings = { ...SETTINGS, ...overrides }
+  const phase: SweepPhase = PLAN_PHASE_KEYS.has(sweptKey) ? "plan" : "repo"
+  if (phase === "plan") {
+    // reviews ≤ rounds will be checked per materialized variant
+  } else if (baseSettings.reviews > baseSettings.rounds) {
+    fail(
+      `${path}: reviews (${baseSettings.reviews}) must be ≤ rounds (${baseSettings.rounds})`,
+    )
+  }
+  return { sweptKey, sweptValues, phase, baseSettings }
+}
+
+export function materializeSettings<K extends keyof Settings>(
+  base: Settings,
+  key: K,
+  value: Settings[K],
+  ref: string,
+): Settings {
+  const next: Settings = { ...base, [key]: value }
+  if (next.reviews > next.rounds) {
+    fail(`${ref}: reviews (${next.reviews}) must be ≤ rounds (${next.rounds})`)
+  }
+  return next
 }
 
 export const SETTINGS: Settings = {
@@ -340,6 +429,33 @@ export function settingsToJsonc(s: Settings): string {
 
 export function writeSettings(dir: string, settings: Settings): void {
   writeFileSync(resolve(dir, SETTINGS_BASENAME), settingsToJsonc(settings))
+}
+
+export const SWEEP_PREAMBLE = [
+  "Sweep file — overrides .fixture-settings.jsonc for `fixture sweep`.",
+  "Exactly one key must hold an array (the swept axis). Every other",
+  "key must be a scalar (or absent, in which case it falls back to",
+  ".fixture-settings.jsonc).",
+  "",
+  "Plan-phase keys (mp, complexity, aiCoders, coderInteraction, style,",
+  "students, rounds, reviews): --from=<project>; iterates plan+repo",
+  "per value (N plan dirs, one repo each).",
+  "Repo-phase keys (mc, coderExperience, comments): --from=<project>",
+  "plans once and iterates repos, or --from=<plan> reuses an existing",
+  "plan and skips planning.",
+]
+
+const DEFAULT_SWEEP_BODY = [
+  "{",
+  `    "style": ["incremental", "vertical-slice"]`,
+  "}",
+  "",
+]
+
+export function writeSweep(dir: string): void {
+  const lines = SWEEP_PREAMBLE.map((l) => (l.length === 0 ? "//" : `// ${l}`))
+  lines.push("", ...DEFAULT_SWEEP_BODY)
+  writeFileSync(resolve(dir, SWEEP_BASENAME), lines.join("\n"))
 }
 
 export function readSettings(dir: string): Settings {

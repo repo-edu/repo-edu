@@ -31,27 +31,32 @@ is only called for the parts that need creative judgement.
 
 ## Output
 
-Generated artifacts land in `../student-repos/` (sibling of the repo
+Generated artifacts land in `../fixtures/` (sibling of the repo
 root). Each (complexity, project) pair gets its own folder
 `c<N>-<name>/`. Inside it, every plan gets its own subfolder named by
 the plan postfix; each repo generated from that plan is a child of the
 plan folder:
 
 ```text
-../student-repos/
+../fixtures/
 ├─ .fixture-settings.jsonc          # actual values from the most recent run
+├─ .fixture-sweep.jsonc             # optional sweep spec (one list-valued key)
 ├─ .fixture-state.json              # last project + plan pointers (auto-managed)
 └─ c<N>-<name>/                     # one folder per project
    ├─ project.md                    # first; regenerations → project-v2.md, ...
    └─ <plan-postfix>/               # plan; re-runs → <plan-postfix>-v2/, ...
       ├─ plan.md                    # plan content + meta
-      ├─ .fixture-settings.jsonc    # snapshot of settings used for this plan/repo
-      ├─ _log.md                    # run log (high-level summary)
-      ├─ _trace.md                  # per-round Planner/Coder prompts + replies
-      ├─ _xtrace.md                 # full agent turn log
-      ├─ _review.md                 # repo run summary
-      ├─ _state.json                # per-round coder state
+      ├─ .fixture-settings.jsonc    # frozen snapshot of plan-time settings
+      ├─ _log.md                    # plan-generation log (high-level)
+      ├─ _trace.md                  # plan-generation Planner prompt + reply
+      ├─ _xtrace.md                 # plan-generation agent turn log
       └─ <repo-postfix>/            # git repo; re-runs → <repo-postfix>-v2/, ...
+         ├─ .fixture-settings.jsonc # frozen snapshot of full settings used for this repo
+         ├─ _log.md                 # repo-run log (high-level)
+         ├─ _trace.md               # per-round Coder prompts + replies
+         ├─ _xtrace.md              # full agent turn log
+         ├─ _review.md              # repo run summary
+         └─ _state.json             # per-round coder state
 ```
 
 ### Postfix encoding
@@ -97,9 +102,9 @@ from the parent project/plan folders is omitted.
 - Coder runs without an experience tier; `-x` on `repo` is silently
   ignored (experience tiers simulate student skill, which doesn't
   apply to AI coders).
-- AI-mode prompts live in bespoke files (`planner/plan-l0.md`,
-  `coder/build-l0.md`, `coder/review-l0.md`, `coder/persona-l0.md`,
-  `coder-agreement-l0.md`) so student-mode prompts stay unchanged.
+- AI-mode prompts live in bespoke files (`planner/plan-ai.md`,
+  `coder/build-ai.md`, `coder/review-ai.md`, `coder/persona-ai.md`,
+  `coder-agreement-ai.md`) so student-mode prompts stay unchanged.
 - `--comments` still applies in both modes — it's a pure
   output-style knob.
 - `project` is mode-agnostic — its output is the same either way.
@@ -108,11 +113,13 @@ from the parent project/plan folders is omitted.
 
 ### Per-run scratch files
 
-`_log.md`, `_trace.md`, `_xtrace.md`, `_review.md`, and `_state.json`
-live **inside the plan folder** for `plan` and `repo` runs, so a
-subsequent run against a different plan never overwrites them. For a
+`_log.md`, `_trace.md`, and `_xtrace.md` are written directly into the
+artifact folder they describe: a `plan` run writes them into the plan
+folder; a `repo` run writes them into the repo folder, alongside
+`_review.md` and `_state.json`. Each artifact therefore carries its own
+forensic trail and successive runs never clobber each other. For a
 `project` run (no plan exists yet), the log files stay at the
-`../student-repos/` root.
+`../fixtures/` root.
 
 All three log files are always written; `-v`/`-vv`/`-vvv` only gate
 which level streams to stdout:
@@ -128,7 +135,7 @@ which level streams to stdout:
 Every CLI option has a default resolved in this precedence order:
 
 1. Explicit CLI flag (e.g. `-c 3`) — wins when supplied.
-2. `../student-repos/.fixture-settings.jsonc` — actual values from the
+2. `../fixtures/.fixture-settings.jsonc` — actual values from the
    most recent run, automatically rewritten on every successful
    `project` / `plan` / `repo`. Edit by hand to lock in different
    defaults.
@@ -136,16 +143,20 @@ Every CLI option has a default resolved in this precedence order:
    the single source of truth for shipped defaults; edit here to
    change what's baked in.
 
-A copy of `.fixture-settings.jsonc` is also written inside the plan
-folder, capturing the settings that produced that specific
-plan/repo. The top-level file evolves with each run; the per-plan
-copy is frozen alongside the artifacts it describes.
+Frozen per-artifact snapshots are also written: the `plan` run drops
+a copy in the plan folder (plan-time settings), and each `repo` run
+drops one in the repo folder (full settings used for that repo). The
+top-level file evolves with each run; the per-plan and per-repo
+copies are written once and never overwritten — so a sweep that
+shares a plan across N coder variants leaves N independent
+self-describing repo folders.
 
 Format is JSONC (JSON with `//` comments and trailing commas). Run
-`fixture init` to scaffold a freshly-commented file before editing,
-or just run any subcommand and the file is auto-created on first
-use. Schema (all keys optional; values are validated against the
-same ranges as the CLI flags):
+`fixture init` to scaffold `.fixture-settings.jsonc`,
+`.fixture-sweep.jsonc`, and an empty `.fixture-state.json` before
+editing, or just run any subcommand and `.fixture-settings.jsonc` is
+auto-created on first use. Schema (all keys optional; values are
+validated against the same ranges as the CLI flags):
 
 ```jsonc
 {
@@ -180,8 +191,8 @@ merged with the file).
 
 ## State
 
-`../student-repos/.fixture-state.json` records the last archived
-project and plan as paths relative to `../student-repos/`. `project`
+`../fixtures/.fixture-state.json` records the last archived
+project and plan as paths relative to `../fixtures/`. `project`
 and `plan` rewrite it on success; `repo` reads it. This is what lets
 `plan` and `repo` run with no `--from` (see examples below). Delete or
 edit the file to reset or point at specific artifacts.
@@ -205,63 +216,124 @@ repos:
 
 The full prompt fragments live at [prompts/planner/style.md](prompts/planner/style.md).
 
-## Batch mode
+## Sweep mode
 
-`fixture batch <list.json>` drives multiple plan+repo entries against
-a single fixed project. Each entry is generated, then removed from the
-file on success. Stops on the first failure (the failed entry stays
-in the file for a manual retry).
+`fixture sweep` iterates plan and/or repo generation across the values
+of one list-valued setting. The sweep file mirrors
+`.fixture-settings.jsonc` exactly, except **one** key may hold a
+JSON array (the swept axis). Every other key must be a scalar (or
+absent, in which case the value falls back to
+`.fixture-settings.jsonc`). The single-list cap is intentional: it
+keeps cost predictable and side-steps cartesian-product blow-ups.
 
-File shape:
+Behaviour follows from which phase the swept key belongs to **and**
+what `--from` points at:
 
-```json
+- **Plan-phase key** (`mp`, `complexity`, `aiCoders`, `coderInteraction`,
+  `style`, `students`, `rounds`, `reviews`):
+  - `--from` must be a project (or omitted, falling back to
+    `state.project`). Plan-phase sweeps cannot reuse an existing plan.
+  - For each value: run plan, then run repo. Yields N plan dirs, one
+    repo each.
+- **Repo-phase key** (`mc`, `coderExperience`, `comments`):
+  - `--from` may be a project (plan once with the first value's
+    settings, then iterate repos against that shared plan) **or** a
+    plan (skip planning entirely, iterate repos against the existing
+    plan — useful for comparing coder models on a plan you've already
+    judged).
+  - Without `--from`, falls back to `state.plan` if set, else
+    `state.project`.
+
+`--sweep=PATH` selects the sweep file; defaults to
+`../fixtures/.fixture-sweep.jsonc`. `--from` accepts the same path
+shapes as `plan` / `repo`: a `.md` file or a directory, absolute or
+relative to `../fixtures/`.
+
+Two example sweeps live in [sweeps/](sweeps/):
+
+- [`sweeps/compare-coder-styles.jsonc`](sweeps/compare-coder-styles.jsonc)
+  — plan-phase sweep across all 10 styles.
+- [`sweeps/compare-coder-models.jsonc`](sweeps/compare-coder-models.jsonc)
+  — repo-phase sweep across the 7 informative coder models.
+
+```bash
+pnpm fixture project -c 2
+pnpm fixture sweep \
+  --sweep=scripts/fixtures/sweeps/compare-coder-styles.jsonc
+
+# Re-run a coder-model bake-off against an existing plan, no re-planning:
+pnpm fixture sweep \
+  --from=c2-NAME/ai-i2-vs-s3-r10-w0 \
+  --sweep=scripts/fixtures/sweeps/compare-coder-models.jsonc
+```
+
+The sweep file shape (plan-phase example):
+
+```jsonc
 {
-  "project": "c3-trail-conditions-aggregator/project.md",
-  "entries": [
-    {
-      "mp": "33", "mc": "22", "aiCoders": true,
-      "coderInteraction": 3, "style": "incremental",
-      "students": 3, "rounds": 6, "reviews": 2,
-      "coderExperience": 3, "comments": 1
-    },
-    {
-      "mp": "33", "mc": "22", "aiCoders": true,
-      "coderInteraction": 3, "style": "vertical-slice",
-      "students": 3, "rounds": 6, "reviews": 2,
-      "coderExperience": 3, "comments": 1
-    }
-  ]
+    "mp": "33",
+    "aiCoders": true,
+    "coderInteraction": 2,
+    "students": 3,
+    "rounds": 6,
+    "reviews": 0,
+    "mc": "22",
+    "comments": 1,
+    "style": [           // exactly one key may be a list
+        "big-bang", "incremental", "vertical-slice"
+    ]
 }
 ```
 
-`project` is either a path to an existing project (`project.md` file
-or a `c<N>-<name>/` directory) or a generation spec
-`{ "complexity": N, "mp": "CODE" }` to generate a fresh one. Each
-entry's keys mirror `.fixture-settings.jsonc`; missing fields fall
-back to the top-level `.fixture-settings.jsonc` snapshot.
+### Evaluating a sweep
+
+`pnpm fixture evaluate` walks one directory recursively, finds every
+folder that contains `_state.json` (a generated repo), scores each
+one with an LLM judge, and writes a Markdown report at
+`<root>/_evaluate.md`:
+
+```bash
+# Repo-phase sweep — point at the shared plan dir
+pnpm fixture evaluate --from=c2-NAME/<plan-postfix>
+
+# Plan-phase sweep — point at the project; the walk picks up every
+# repo under every plan-postfix sibling
+pnpm fixture evaluate --from=c2-NAME
+
+# Or omit --from to fall back to .fixture-state.json's project
+# (and ../fixtures/ itself if state is empty)
+pnpm fixture evaluate
+```
+
+The walk stops descending at the first folder that contains
+`_state.json`, so a project / plan / repo dir all work as
+roots. Override the destination with `--out=PATH`. The evaluator
+model defaults to opus max; override with `-m CODE`.
 
 ## Entry point
 
-`pnpm fixture` has five subcommands; run `pnpm fixture <sub> -h`
+`pnpm fixture` has six subcommands; run `pnpm fixture <sub> -h`
 for the flags that apply to each, or `pnpm fixture -hh` for the full
 reference (every subcommand plus the model-code table and
-`.fixture-settings.jsonc` schema).
+`.fixture-settings.jsonc` schema). The six are `init`, `project`,
+`plan`, `repo`, `sweep`, and `evaluate`.
 
 | subcommand | produces | key flags |
 |---|---|---|
-| `init` | `.fixture-settings.jsonc` (scaffold) | `-f` |
+| `init` | `.fixture-settings.jsonc` + `.fixture-sweep.jsonc` + empty `.fixture-state.json` (scaffold) | `-f` |
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
 | `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `-o` |
-| `batch <list.json>` | one plan+repo per entry under one shared project | — (entry fields) |
+| `sweep [--from=<project\|plan>] [--sweep=<sweep.jsonc>]` | N plan+repo (plan-phase key) or one plan + N repos (repo-phase key); `--from=<plan>` reuses an existing plan | `--from`, `--sweep` |
+| `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
 
 Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet
 (default/low/medium/high); `3|31|32|33|34|35` = opus
 (default/low/medium/high/xhigh/max).
 
 `--from=PATH` accepts absolute paths or paths relative to
-`../student-repos/`. When omitted, `plan` and `repo` fall back to
-`../student-repos/.fixture-state.json`, which is refreshed on every
+`../fixtures/`. When omitted, `plan` and `repo` fall back to
+`../fixtures/.fixture-state.json`, which is refreshed on every
 successful `project` and `plan` run — so the typical sequence reads
 naturally without any `--from` flags:
 

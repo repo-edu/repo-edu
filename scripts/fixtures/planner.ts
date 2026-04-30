@@ -2,9 +2,9 @@ import { existsSync, readdirSync } from "node:fs"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import { effortOption, runAgent, type Usage } from "./agent"
 import {
+  FIXTURES_DIR,
   type ModelName,
   REPO_ROOT,
-  STUDENT_REPOS,
   type Style,
 } from "./constants"
 import { emit, fail } from "./log"
@@ -34,9 +34,9 @@ function today(): string {
 }
 
 export function existingDirs(): string[] {
-  if (!existsSync(STUDENT_REPOS)) return []
+  if (!existsSync(FIXTURES_DIR)) return []
   const names = new Set<string>()
-  for (const entry of readdirSync(STUDENT_REPOS, { withFileTypes: true })) {
+  for (const entry of readdirSync(FIXTURES_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
     if (entry.name.startsWith(".") || entry.name.startsWith("_")) continue
     const stripped = entry.name.replace(/^c\d+-/, "")
@@ -82,7 +82,7 @@ function planPrompt(
   const sequenceLines = kindSequence
     .map((kind, i) => `${i + 1}. ${kind}`)
     .join("\n")
-  const template = opts.aiCoders ? "planner/plan-l0" : "planner/plan"
+  const template = opts.aiCoders ? "planner/plan-ai" : "planner/plan"
   const interactionGuidance =
     opts.students === 1
       ? loadSection("planner/interaction", "solo")

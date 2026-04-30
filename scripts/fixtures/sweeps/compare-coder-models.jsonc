@@ -1,0 +1,30 @@
+// Coder-model bake-off — holds plan + style constant, varies the coder
+// model across sonnet (low/medium/high), and opus (low/high).
+// Yields one shared plan dir with N repo subdirs (one per coder model).
+//
+// Run (plan freshly from the project recorded in .fixture-state.json):
+//   pnpm fixture sweep --sweep=scripts/fixtures/sweeps/compare-coder-models.jsonc
+//
+// Or against an existing plan dir (skips re-planning, big cost win):
+//   pnpm fixture sweep \
+//     --from=c<N>-<name>/<plan-postfix> \
+//     --sweep=scripts/fixtures/sweeps/compare-coder-models.jsonc
+//
+// Then evaluate the shared plan dir (walks the m*-o1 repo children):
+//   pnpm fixture evaluate --from=c<N>-<name>/<plan-postfix>
+
+
+
+{
+    "mp": "33",                 // planner model: opus high (constant)
+    "aiCoders": true,
+    "coderInteraction": 2,
+    "style": "vertical-slice",  // hand-pick after a style sweep
+    "students": 3,
+    "rounds": 10,               // bumped from the styles default of 6 so
+                                // per-round usage drift shows up
+    "reviews": 0,
+
+    "comments": 1,
+    "mc": ["21", "22", "23", "31", "33"]   // swept axis
+}

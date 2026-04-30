@@ -1,0 +1,50 @@
+// Plan-style sweep — holds project + coder model constant, varies the
+// plan --style across all 10 styles. Yields N plan dirs, one repo each.
+//
+// Run (project comes from .fixture-state.json or --from=<project>):
+//   pnpm fixture sweep --sweep=scripts/fixtures/sweeps/compare-coder-styles.jsonc
+//
+// Then evaluate by pointing at the project dir (walks every plan +
+// repo under it):
+//   pnpm fixture evaluate --from=c<N>-<name>
+//
+// Why these constants
+// -------------------
+// - rounds: 6 — most styles only diverge from `incremental` at ≥4
+//   rounds; 6 makes test-driven, spike-and-stabilize, and refactor-heavy
+//   visible. Even count makes refactor-heavy's build/refactor alternation
+//   land cleanly.
+// - coderInteraction: 2 — median; vertical-slice and demo-driven ignore
+//   it, so the median keeps the other 8 comparable.
+// - reviews: 0 — review commits don't follow --style, so they'd add
+//   off-style noise to the analysis charts.
+// - aiCoders: true — strips student-team narrative so charts reflect
+//   structural style, not persona variation.
+// - mc: 22 (sonnet medium) + comments: 1 — keeps line counts predictable
+//   across the 10 repos.
+
+
+{
+    "mp": "33",                  // planner model: opus high (constant)
+    "aiCoders": true,
+    "coderInteraction": 2,
+    "students": 3,
+    "rounds": 6,
+    "reviews": 0,
+
+    "mc": "22",                  // coder model: sonnet medium (constant)
+    "comments": 1,
+
+    "style": [                   // swept axis
+        "big-bang",
+        "incremental",
+        "vertical-slice",
+        "bottom-up",
+        "top-down",
+        "test-driven",
+        "walking-skeleton",
+        "spike-and-stabilize",
+        "demo-driven",
+        "refactor-heavy"
+    ]
+}
