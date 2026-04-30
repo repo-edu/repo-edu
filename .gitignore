@@ -9,6 +9,8 @@
 
 # Test artifacts
 .test-config/
+apps/desktop/test-results/
+apps/desktop/playwright-report/
 
 # AI assistants
 .claude/settings.local.json
