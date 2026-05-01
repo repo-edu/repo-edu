@@ -764,6 +764,7 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )
@@ -784,6 +785,7 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )
@@ -819,6 +821,7 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )

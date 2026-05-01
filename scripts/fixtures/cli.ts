@@ -720,14 +720,15 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "Behavior depends on the swept key's phase and on `--from`:",
     "  - List on a plan-phase key (mp, complexity, aiCoders,",
     "    coderInteraction, style, students, rounds, reviews):",
-    "      `--from` must be a project (or omitted, falling back to state).",
+    "      `--from` must be a project (or omitted if .fixture-state.json",
+    "      has a project).",
     "      For each value: run plan, then run repo. Yields N plan dirs,",
     "      one repo each.",
     "  - List on a repo-phase key (mc, coderExperience, comments):",
     "      `--from` may be a project (plan once, then iterate repos) or a",
     "      plan (skip planning, iterate repos against the existing plan).",
-    "      Without `--from`, falls back to state.plan if set, else",
-    "      state.project.",
+    "      Without `--from`, falls back to the plan in",
+    "      .fixture-state.json if set, else its project.",
     "",
     "Options:",
     ...opt(
@@ -753,7 +754,8 @@ function subcommandHelpBody(sub: Subcommand): string[] {
 }
 
 export function printSubcommandHelp(sub: Subcommand): void {
-  const lines = [...subcommandHelpBody(sub), "", ...MODEL_CODE_HELP, ""]
+  const trailer = sub === "sweep" ? [""] : ["", ...MODEL_CODE_HELP, ""]
+  const lines = [...subcommandHelpBody(sub), ...trailer]
   process.stdout.write(lines.join("\n"))
 }
 

@@ -82,9 +82,9 @@ export function writeReview(
   writeFileSync(resolve(repoDir, REVIEW_BASENAME), lines.join("\n"))
   const stoppedSuffix = state.stopped ? " (stopped early)" : ""
   process.stdout.write(
-    `Wrote ${dirName}/${stoppedSuffix} (see git log for contents). Review: ${dirName}/${REVIEW_BASENAME}\n`,
+    `Wrote ${dirName}/${stoppedSuffix} (see git log for contents). Review: ${REVIEW_BASENAME}\n`,
   )
   process.stdout.write(
-    `Wall time: ${formatSeconds(runMs)} | tokens in/out: ${totalIn} / ${totalOut}\n`,
+    `Wall time: ${formatSeconds(totalWallMs)} | tokens in/out: ${totalIn} / ${totalOut}\n`,
   )
 }
