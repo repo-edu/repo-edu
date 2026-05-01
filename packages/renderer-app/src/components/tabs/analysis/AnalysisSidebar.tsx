@@ -263,6 +263,9 @@ export function AnalysisSidebar() {
     [],
   )
 
+  // Repo list view state
+  const [repoViewMode, setRepoViewMode] = useState<"list" | "tree">("tree")
+
   // File list view state
   const [fileViewMode, setFileViewMode] = useState<"list" | "tree">("list")
   const [fileSortMode, setFileSortMode] = useState<
@@ -285,6 +288,7 @@ export function AnalysisSidebar() {
       ...analysisSidebar.sectionState,
       repositories: true,
     })
+    setRepoViewMode(analysisSidebar.repoViewMode)
     setFileViewMode(analysisSidebar.fileViewMode)
     setFileSortMode(analysisSidebar.fileSortMode)
   }, [settingsStatus, analysisSidebar, hydrateFromPersistedSettings])
@@ -295,6 +299,7 @@ export function AnalysisSidebar() {
     const snapshot: PersistedAnalysisSidebarSettings = {
       searchDepth,
       sectionState: sections,
+      repoViewMode,
       fileViewMode,
       fileSortMode,
       blameConfig: {
@@ -311,6 +316,7 @@ export function AnalysisSidebar() {
   }, [
     searchDepth,
     sections,
+    repoViewMode,
     fileViewMode,
     fileSortMode,
     blameConfig,
@@ -574,7 +580,7 @@ export function AnalysisSidebar() {
 
       {/* A. Repositories */}
       <CollapsibleSection
-        title="Repositories"
+        title="Repos"
         sectionKey="repositories"
         open={sections.repositories}
         onOpenChange={handleSectionChange}
@@ -584,6 +590,8 @@ export function AnalysisSidebar() {
             collapseAllRepoFolders={collapseAllRepoFolders}
             onSearchRepos={handleSearchRepos}
             searchReposDisabled={!searchFolder || isRunning || isDiscovering}
+            repoViewMode={repoViewMode}
+            setRepoViewMode={setRepoViewMode}
           />
         }
         leading={
@@ -624,6 +632,7 @@ export function AnalysisSidebar() {
           tree={repoTree}
           onBrowse={handleBrowseSearchFolder}
           browseTooltipKey={browseTooltipKey}
+          repoViewMode={repoViewMode}
         />
       </CollapsibleSection>
 

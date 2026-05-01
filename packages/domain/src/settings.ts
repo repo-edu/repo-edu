@@ -104,6 +104,7 @@ const persistedBlameConfigSchema = z.object({
 const persistedAnalysisSidebarSettingsSchema = z.object({
   searchDepth: z.number().int().min(1).max(9),
   sectionState: z.record(z.string(), z.boolean()),
+  repoViewMode: z.enum(["list", "tree"]).default("tree"),
   fileViewMode: z.enum(["list", "tree"]).default("list"),
   fileSortMode: z
     .enum(["lines-desc", "lines-asc", "alpha"])

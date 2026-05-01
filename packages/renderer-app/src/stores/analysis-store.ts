@@ -53,7 +53,6 @@ type PerRepoBlameState = {
   fileSelectionMode: AnalysisFileSelectionMode
   selectedFiles: Set<string>
   focusedFilePath: string | null
-  activeView: AnalysisView
 }
 
 type PerRepoEntry = PerRepoBlameState & {
@@ -227,7 +226,6 @@ const DEFAULT_BLAME_STATE: PerRepoBlameState = {
   fileSelectionMode: "all",
   selectedFiles: new Set(),
   focusedFilePath: null,
-  activeView: "authors",
 }
 
 const initialState: AnalysisState = {
@@ -319,7 +317,6 @@ function snapshotActiveBlameState(
     fileSelectionMode: state.fileSelectionMode,
     selectedFiles: state.selectedFiles,
     focusedFilePath: state.focusedFilePath,
-    activeView: state.activeView,
   })
   return next
 }
@@ -383,7 +380,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
             fileSelectionMode: nextEntry.fileSelectionMode,
             selectedFiles: nextEntry.selectedFiles,
             focusedFilePath: nextEntry.focusedFilePath,
-            activeView: nextEntry.activeView,
           }
         }
         return {
@@ -449,7 +445,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
             fileSelectionMode: "all",
             selectedFiles: new Set<string>(),
             focusedFilePath: null,
-            activeView: state.activeView,
           })
         } else if (result === null) {
           repoStates.delete(repoPath)
@@ -460,11 +455,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setResultForRepo: (repoPath, result, configFingerprint) =>
       set((state) => {
         const repoStates = new Map(state.repoStates)
-        const previous = state.repoStates.get(repoPath)
-        const preservedActiveView =
-          state.selectedRepoPath === repoPath
-            ? state.activeView
-            : (previous?.activeView ?? "authors")
         repoStates.set(repoPath, {
           result,
           configFingerprint,
@@ -482,7 +472,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           fileSelectionMode: "all",
           selectedFiles: new Set<string>(),
           focusedFilePath: null,
-          activeView: preservedActiveView,
         })
         // Mirror into flat fields if this is the selected repo.
         if (state.selectedRepoPath === repoPath) {

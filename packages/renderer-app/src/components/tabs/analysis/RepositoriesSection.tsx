@@ -12,6 +12,8 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   FolderOpen,
+  FolderTree,
+  List,
   Loader2,
   RefreshCw,
 } from "@repo-edu/ui/components/icons"
@@ -33,6 +35,8 @@ type RepositoriesToolbarProps = {
   collapseAllRepoFolders: () => void
   onSearchRepos: () => void
   searchReposDisabled: boolean
+  repoViewMode: "list" | "tree"
+  setRepoViewMode: (mode: "list" | "tree") => void
 }
 
 export function RepositoriesToolbar({
@@ -40,6 +44,8 @@ export function RepositoriesToolbar({
   collapseAllRepoFolders,
   onSearchRepos,
   searchReposDisabled,
+  repoViewMode,
+  setRepoViewMode,
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
@@ -77,9 +83,36 @@ export function RepositoriesToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                variant={repoViewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={() => setRepoViewMode("list")}
+              >
+                <List className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">List view</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={repoViewMode === "tree" ? "secondary" : "ghost"}
+                size="icon"
+                className="size-6 shrink-0"
+                onClick={() => setRepoViewMode("tree")}
+              >
+                <FolderTree className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Tree view</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
                 variant="ghost"
                 size="icon"
                 className="size-6 shrink-0"
+                disabled={repoViewMode !== "tree"}
                 onClick={expandAllRepoFolders}
               >
                 <ChevronsUpDown className="size-3.5" />
@@ -93,6 +126,7 @@ export function RepositoriesToolbar({
                 variant="ghost"
                 size="icon"
                 className="size-6 shrink-0"
+                disabled={repoViewMode !== "tree"}
                 onClick={collapseAllRepoFolders}
               >
                 <ChevronsDownUp className="size-3.5" />
@@ -130,12 +164,14 @@ type RepositoriesSectionProps = {
   tree: RepoTree
   onBrowse: () => void
   browseTooltipKey: number
+  repoViewMode: "list" | "tree"
 }
 
 export function RepositoriesSection({
   tree,
   onBrowse,
   browseTooltipKey,
+  repoViewMode,
 }: RepositoriesSectionProps) {
   const { runAnalysis } = useAnalysisWorkflows()
 
@@ -234,20 +270,34 @@ export function RepositoriesSection({
                 selectedRepoPath,
                 repoPathByRelative,
                 onRepoClick: searchFolderIsRepo ? onBrowse : handleSelectRepo,
+                viewMode: searchFolderIsRepo ? "tree" : repoViewMode,
               }}
             >
               <div
                 className={`flex flex-col gap-0.5 ${searchFolderIsRepo ? "" : "ml-4"}`}
               >
-                {repoTree.children.map((child) => (
-                  <RepoFolderNode key={child.path} node={child} />
-                ))}
-                {repoTree.files.map((relativePath) => (
-                  <RepoLeafButton
-                    key={relativePath}
-                    relativePath={relativePath}
-                  />
-                ))}
+                {repoViewMode === "list" || searchFolderIsRepo ? (
+                  [...repoPathByRelative.keys()]
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((relativePath) => (
+                      <RepoLeafButton
+                        key={relativePath}
+                        relativePath={relativePath}
+                      />
+                    ))
+                ) : (
+                  <>
+                    {repoTree.children.map((child) => (
+                      <RepoFolderNode key={child.path} node={child} />
+                    ))}
+                    {repoTree.files.map((relativePath) => (
+                      <RepoLeafButton
+                        key={relativePath}
+                        relativePath={relativePath}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
             </RepoTreeProvider>
           )}

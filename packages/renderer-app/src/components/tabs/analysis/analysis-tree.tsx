@@ -209,6 +209,7 @@ type RepoTreeContextValue = {
   selectedRepoPath: string | null
   repoPathByRelative: Map<string, string>
   onRepoClick: (absolutePath: string) => void
+  viewMode: "list" | "tree"
 }
 
 const [RepoTreeProvider, useRepoTreeContext] =
@@ -221,23 +222,34 @@ export { RepoTreeProvider }
 // ---------------------------------------------------------------------------
 
 export function RepoLeafButton({ relativePath }: { relativePath: string }) {
-  const { selectedRepoPath, repoPathByRelative, onRepoClick } =
+  const { selectedRepoPath, repoPathByRelative, onRepoClick, viewMode } =
     useRepoTreeContext()
   const absolutePath = repoPathByRelative.get(relativePath)
   if (!absolutePath) throw new Error(`Unknown repo path: ${relativePath}`)
   const selected = selectedRepoPath === absolutePath
-  const basename = relativePath.slice(relativePath.lastIndexOf("/") + 1)
+  const slashIdx = relativePath.lastIndexOf("/")
+  const dir = slashIdx >= 0 ? `${relativePath.slice(0, slashIdx)}/` : ""
+  const basename =
+    slashIdx >= 0 ? relativePath.slice(slashIdx + 1) : relativePath
 
   return (
     <button
       type="button"
-      className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
+      className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
         selected ? "bg-selection font-medium" : "hover:bg-accent"
       }`}
       onClick={() => onRepoClick(absolutePath)}
+      title={relativePath}
     >
       <GitBranch className="size-3 shrink-0 text-muted-foreground" />
-      <span className="truncate">{basename}</span>
+      {viewMode === "list" && dir ? (
+        <span className="flex min-w-0">
+          <span className="min-w-0 truncate text-muted-foreground">{dir}</span>
+          <span className="min-w-0 truncate">{basename}</span>
+        </span>
+      ) : (
+        <span className="truncate">{basename}</span>
+      )}
     </button>
   )
 }
