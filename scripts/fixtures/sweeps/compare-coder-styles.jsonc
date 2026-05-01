@@ -25,7 +25,7 @@
 
 
 {
-    "mp": "33",                  // planner model: opus high (constant)
+    "mp": "35",                  // planner model: opus max (constant)
     "aiCoders": true,
     "coderInteraction": 2,
     "students": 3,

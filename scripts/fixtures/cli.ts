@@ -63,6 +63,7 @@ export interface SweepOpts extends CommonOpts {
 export interface InitOpts extends CommonOpts {
   subcommand: "init"
   force: boolean
+  fromPath: string
 }
 
 export interface RepoOpts extends CommonOpts {
@@ -437,6 +438,7 @@ const aiCodersHelp = (): string[] =>
 function parseInit(argv: string[]): InitOpts {
   const { values: v } = runNodeParseArgs(argv, {
     force: { type: "boolean", short: "f" },
+    from: { type: "string" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
@@ -445,6 +447,7 @@ function parseInit(argv: string[]): InitOpts {
     ...common,
     subcommand: "init",
     force: v.force === true,
+    fromPath: (v.from as string | undefined) ?? "",
   }
 }
 
@@ -493,7 +496,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
   const helpLine = opt("  -h, --help", "Show this help and exit")
   if (sub === "init") {
     return [
-      "Usage: fixture init [-f]",
+      "Usage: fixture init [-f] [--from=<project.md>]",
       "",
       "Write defaults for three files under ../fixtures/:",
       "  .fixture-settings.jsonc   run-time defaults (inline JSONC comments)",
@@ -506,6 +509,12 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "project / plan / repo / sweep run, so this subcommand is mainly",
       "useful to scaffold the files ahead of editing them.",
       "",
+      "With --from=<project.md>, also seeds a curated project (e.g.",
+      "scripts/fixtures/projects/calculator.md) by archiving it to",
+      "../fixtures/c<N>-<name>/project.md and pointing .fixture-state.json",
+      "at it, so the next `fixture plan` / `sweep` picks it up without a",
+      "`fixture project` step.",
+      "",
       ...SETTINGS_BODY,
       "",
       "Options:",
@@ -513,6 +522,11 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         "  -f, --force",
         "Overwrite existing .fixture-settings.jsonc,",
         ".fixture-sweep.jsonc, and .fixture-state.json",
+      ),
+      ...opt(
+        "      --from=PATH",
+        "Curated project .md file to seed (absolute,",
+        "or relative to the current directory).",
       ),
       ...helpLine,
     ]

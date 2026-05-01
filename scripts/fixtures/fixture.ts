@@ -901,7 +901,15 @@ function handleInit(opts: InitOpts): void {
   }
   writeSettings(FIXTURES_DIR, HARDCODED_SETTINGS)
   writeSweep(FIXTURES_DIR)
-  writeState({ project: null, plan: null })
+  if (opts.fromPath) {
+    const abs = isAbsolute(opts.fromPath)
+      ? opts.fromPath
+      : resolve(process.cwd(), opts.fromPath)
+    const project = loadProjectFrom(abs)
+    archiveProject(project)
+  } else {
+    writeState({ project: null, plan: null })
+  }
   process.stdout.write(`Wrote ${FIXTURE_SETTINGS_FILE}\n`)
   process.stdout.write(`Wrote ${FIXTURE_SWEEP_FILE}\n`)
   process.stdout.write(`Wrote ${FIXTURE_STATE_FILE}\n`)

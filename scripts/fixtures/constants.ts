@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 
 // Models
-export const DEFAULT_MP = "33"
+export const DEFAULT_MP = "35"
 export const DEFAULT_MC = "22"
 
 // Mode

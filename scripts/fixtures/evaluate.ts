@@ -15,7 +15,7 @@ import {
   STATE_BASENAME,
   TOKENS_PER_MTOK,
 } from "./constants"
-import { fail, formatSeconds } from "./log"
+import { fail } from "./log"
 import { MODEL_CODES, type ModelSpec } from "./model-codes"
 import { formatSpec } from "./naming"
 import { markdownToPlan } from "./plan-md"
@@ -169,8 +169,8 @@ function buildPrompt(args: {
     "Score the repository on each axis from 1 (poor) to 5 (excellent):",
     "",
     "- blame_richness: per-file blame tables show multiple authors per module with varied commit ages — non-trivial blame mosaic.",
-    "- author_variation: per-author charts show distinguishable contribution signatures, not flatlined or near-identical.",
-    "- timeline_shape: commits across rounds form a visible pattern in the round-by-round view (growth curve, refactor pulses, slice deliveries).",
+    "- author_variation: per-author charts show distinguishable contribution signatures and reasonably balanced LOC across the team — not one author owning the bulk while others trickle in. A 60/20/20 LOC split or worse is a red flag even if commit counts look even, EXCEPT when the style explicitly hands round 1 to one author (big-bang, walking-skeleton, spike-and-stabilize): in those styles the round-1 author legitimately leads on LOC, so judge balance from the post-round-1 work instead.",
+    "- timeline_shape: commits across rounds form a visible pattern in the round-by-round view (growth curve, refactor pulses, slice deliveries) AND no single round dominates by size — round 1 should be comparable to later rounds unless the style explicitly defines a foundation commit (big-bang, walking-skeleton, spike-and-stabilize).",
     "- chart_legibility: distributions readable; no one giant file dominating, no swarm of trivial stubs.",
     '- commit_message_quality: messages read like real student commits, not LLM boilerplate ("Initial implementation", "Refactor code").',
     "- surface_plausibility: at a 30-second teacher glance, no syntax errors, broken control flow, nonsense identifiers, or pass-stub functions in modules the plan said were implemented. Eyeball only.",
@@ -271,8 +271,12 @@ function formatCost(usd: number): string {
   return usd < 0.01 ? `<$0.01` : `$${usd.toFixed(2)}`
 }
 
-function formatTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+function formatTokens(n: number, decimals = 1): string {
+  return `${(n / 1000).toFixed(decimals)}k`
+}
+
+function formatWallSeconds(ms: number): string {
+  return `${Math.round(ms / 1000)} s`
 }
 
 function renderReport(
@@ -284,21 +288,29 @@ function renderReport(
   const styles = [...new Set(sorted.map((r) => r.styleName))]
   const planDirs = [...new Set(sorted.map((r) => r.planDir))].sort()
   const titleStyle = styles.length === 1 ? styles[0] : `${styles.length} styles`
-  const header = [
-    `| repo | style | wall | in | out | cost | ${RUBRIC_AXES.join(" | ")} | total |`,
-    `| --- | --- | --- | --- | --- | --- | ${RUBRIC_AXES.map(() => "---").join(" | ")} | --- |`,
+  const summaryHeader = [
+    `| repo | kind | wall | in | out | cost |`,
+    `| --- | --- | --- | --- | --- | --- |`,
   ]
-  const rows = sorted.map((r) => {
+  const summaryRows = sorted.map((r) => {
     const spec = formatSpec(r.spec.model, r.spec.effort)
-    const wall = formatSeconds(r.totalUsage.wall_ms)
+    const wall = formatWallSeconds(r.totalUsage.wall_ms)
     const inT = formatTokens(r.totalUsage.input_tokens)
     const outT = formatTokens(r.totalUsage.output_tokens)
     const cost = formatCost(r.estCost)
+    const repoLabel = `${basename(r.planDir)}/${r.dirName} (${spec})`
+    return `| ${repoLabel} | ${r.styleName} | ${wall} | ${inT} | ${outT} | ${cost} |`
+  })
+  const axisHeadings = RUBRIC_AXES.map((a) => a.replace(/_/g, " "))
+  const scoresHeader = [
+    `| kind | ${axisHeadings.join(" | ")} | total |`,
+    `| --- | ${RUBRIC_AXES.map(() => "---").join(" | ")} | --- |`,
+  ]
+  const scoresRows = sorted.map((r) => {
     const axes = RUBRIC_AXES.map((a) => String(r.score[a] as number)).join(
       " | ",
     )
-    const repoLabel = `${basename(r.planDir)}/${r.dirName} (${spec})`
-    return `| ${repoLabel} | ${r.styleName} | ${wall} | ${inT} | ${outT} | ${cost} | ${axes} | **${r.total}** |`
+    return `| ${r.styleName} | ${axes} | **${r.total}** |`
   })
   const notes = sorted.map((r) => {
     const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatSpec(r.spec.model, r.spec.effort)} (${r.styleName})`
@@ -321,10 +333,15 @@ function renderReport(
     "",
     "Cost estimates use `MODEL_PRICE_USD_PER_MTOK` in `scripts/fixtures/constants.ts`; update it as Anthropic pricing changes.",
     "",
+    "## Summary",
+    "",
+    ...summaryHeader,
+    ...summaryRows,
+    "",
     "## Scores",
     "",
-    ...header,
-    ...rows,
+    ...scoresHeader,
+    ...scoresRows,
     "",
     "## Notes",
     "",

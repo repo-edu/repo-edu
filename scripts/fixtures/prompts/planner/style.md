@@ -32,6 +32,13 @@ Modules grow in lockstep rather than one-at-a-time. Module files
 appear in the first commit that needs them and gain content
 gradually across rounds.
 
+Round 1 is itself a thin slice, not a scaffolding commit. Do not
+bundle whole-system setup ("create tokenizer, parser, evaluator,
+CLI, and first test") into round 1; only the modules exercised by
+the first slice appear in round 1, the rest arrive with their own
+slice. All slices should be comparable in size — no round should
+dwarf the others.
+
 This style overrides any "module owner" interpretation of
 `coder-interaction`: every commit spans modules, so there is no
 single owner. Treat `coder-interaction` as the lead-author rotation
@@ -46,6 +53,11 @@ and integrations appear only in the second half of the schedule.
 The first commit is a utilities or types module rather than a full
 architecture.
 
+Round 1 introduces one foundational primitive module — not a sweep
+of utilities, types, constants, and primitives all at once. Each of
+the next early rounds adds one more primitive. All build rounds
+should be comparable in size — no round should dwarf the others.
+
 ## top-down
 
 Early rounds scaffold high-level features as stubs — function
@@ -54,6 +66,12 @@ return values that capture the user-facing surface area. Later
 rounds replace those stubs with real implementations and pull in
 helpers as needed. The first commit defines the public surface;
 inner workings come later.
+
+Round 1 defines the entry-point's public surface only — not stubs
+for every `team[i].module` at once. Other modules' stubs appear in
+later rounds, when the orchestrating layer first calls into them.
+All build rounds should be comparable in size — no round should
+dwarf the others.
 
 ## test-driven
 
@@ -96,6 +114,11 @@ boundaries; one commit may touch several modules to make the new
 demo work. Notes read like demo descriptions ("demo: load a CSV
 and print summary", "demo: filter rides by date").
 
+Round 1 demonstrates the smallest end-to-end capability, not a
+project skeleton: only modules required by that first demo appear
+in round 1, others arrive with their own demos. Demos should be
+comparable in size — no round should dwarf the others.
+
 This style overrides any "module owner" interpretation of
 `coder-interaction`: commits are demo-driven, not module-driven,
 so there is no single owner. Treat `coder-interaction` as the
@@ -110,3 +133,8 @@ behaviour; the other half rename, extract helpers, split modules,
 or move responsibilities without changing observable behaviour.
 Refactor notes use "extract X", "rename Y", "split Z into ...",
 "move W to ..." language and don't introduce new features.
+
+Round 1 adds a normal-sized initial capability — there is no
+whole-system scaffolding round. All build rounds, capability and
+refactor alike, should be comparable in size — no round should
+dwarf the others.

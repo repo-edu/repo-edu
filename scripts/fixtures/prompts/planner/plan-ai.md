@@ -50,13 +50,19 @@ Rules:
 
 - team has exactly {{students}} entries, each with a plausible full name
   and email. S=1: all commits have author_index 0.
-- Commits are distributed across authors; natural distribution, no hard
-  caps.
+- Each author appears at least once when N >= S. Distribution is uneven
+  but no single author dominates: keep the most-active author at roughly
+  half the build commits or fewer. A typical S=3/N=10 split is 4/3/3 or
+  4/4/2, not 7/2/1.
 - Cross-module author mixing: {{interaction_guidance}}
 - Plan style ({{style}}): {{style_guidance}}
 - Dates span 1-2 weeks ending on or before today, uneven pacing.
 - Each commit is one coherent change. If a note bundles unrelated
   concerns, split them.
+- Rounds should describe comparable amounts of work — no round should
+  dwarf the others. Unless the style explicitly defines round 1 as a
+  foundation commit (big-bang, walking-skeleton, spike-and-stabilize),
+  round 1 is a normal-sized step, not a setup-and-scaffold mega-commit.
 - Emit exactly {{planned_count}} commits in ascending date order. Slot i
   takes its kind from entry i of the Kind sequence above; you do not
   emit kind, but the slot's kind shapes note/message.
