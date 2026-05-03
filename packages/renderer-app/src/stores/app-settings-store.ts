@@ -1,13 +1,16 @@
-import type { SyntaxThemeId } from "@repo-edu/domain/settings"
+import type { LlmProviderKind, SyntaxThemeId } from "@repo-edu/domain/settings"
 import {
   defaultAppSettings,
+  type ExaminationModelsByProvider,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppSettings,
   type PersistedCacheSizeBudgets,
   type PersistedGitConnection,
+  type PersistedLlmConnection,
   type PersistedLmsConnection,
   resolveActiveGitConnection,
+  resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
@@ -48,6 +51,15 @@ type AppSettingsActions = {
   addGitConnection: (connection: PersistedGitConnection) => void
   updateGitConnection: (id: string, connection: PersistedGitConnection) => void
   removeGitConnection: (id: string) => void
+
+  setActiveLlmConnectionId: (id: string | null) => void
+  addLlmConnection: (connection: PersistedLlmConnection) => void
+  updateLlmConnection: (id: string, connection: PersistedLlmConnection) => void
+  removeLlmConnection: (id: string) => void
+  setExaminationModelForProvider: (
+    provider: LlmProviderKind,
+    code: string,
+  ) => void
 
   setRosterColumnVisibility: (visibility: Record<string, boolean>) => void
   setRosterColumnSizing: (sizing: Record<string, number>) => void
@@ -277,6 +289,59 @@ export const useAppSettingsStore = create<
       useConnectionsStore.getState().removeGitStatus(id)
     },
 
+    setActiveLlmConnectionId: (id) =>
+      set((state) => ({
+        settings: { ...state.settings, activeLlmConnectionId: id },
+      })),
+
+    addLlmConnection: (connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          llmConnections: [...state.settings.llmConnections, connection],
+        },
+      })),
+
+    updateLlmConnection: (id, connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          llmConnections: state.settings.llmConnections.map((lc) =>
+            lc.id === id ? connection : lc,
+          ),
+        },
+      })),
+
+    removeLlmConnection: (id) => {
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          llmConnections: state.settings.llmConnections.filter(
+            (lc) => lc.id !== id,
+          ),
+          activeLlmConnectionId:
+            state.settings.activeLlmConnectionId === id
+              ? null
+              : state.settings.activeLlmConnectionId,
+        },
+      }))
+      useConnectionsStore.getState().removeLlmStatus(id)
+    },
+
+    setExaminationModelForProvider: (provider, code) =>
+      set((state) => {
+        const next: ExaminationModelsByProvider = {
+          ...state.settings.examinationModelsByProvider,
+          [provider]: code,
+        }
+        return {
+          settings: {
+            ...state.settings,
+            examinationModelsByProvider: next,
+          },
+        }
+      }),
+
     setRosterColumnVisibility: (visibility) =>
       set((state) => ({
         settings: { ...state.settings, rosterColumnVisibility: visibility },
@@ -342,6 +407,14 @@ export const selectActiveGitConnectionId = (state: AppSettingsState) =>
   state.settings.activeGitConnectionId
 export const selectActiveGitConnection = (state: AppSettingsState) =>
   resolveActiveGitConnection(state.settings)
+export const selectLlmConnections = (state: AppSettingsState) =>
+  state.settings.llmConnections
+export const selectActiveLlmConnectionId = (state: AppSettingsState) =>
+  state.settings.activeLlmConnectionId
+export const selectActiveLlmConnection = (state: AppSettingsState) =>
+  resolveActiveLlmConnection(state.settings)
+export const selectExaminationModelsByProvider = (state: AppSettingsState) =>
+  state.settings.examinationModelsByProvider
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>

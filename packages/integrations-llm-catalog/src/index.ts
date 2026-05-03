@@ -3,7 +3,10 @@ export const packageId = "@repo-edu/integrations-llm-catalog"
 export {
   allCatalogSpecs,
   codingAgentProviders,
+  getExaminationDefaultSpec,
   getSpecByCode,
+  getVerifyDefaultSpec,
+  listCatalogSpecsForProvider,
   listCodes,
   listCodesForTierStem,
   tierOf,

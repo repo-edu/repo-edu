@@ -13,6 +13,8 @@
     "@repo-edu/application": "workspace:*",
     "@repo-edu/application-contract": "workspace:*",
     "@repo-edu/domain": "workspace:*",
+    "@repo-edu/integrations-llm-catalog": "workspace:*",
+    "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
     "@repo-edu/renderer-host-contract": "workspace:*",
     "@repo-edu/ui": "workspace:*",

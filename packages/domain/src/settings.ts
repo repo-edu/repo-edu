@@ -74,6 +74,31 @@ const persistedGitConnectionSchema = z.object({
   ...persistedConnectionFields,
 })
 
+export const llmProviderKinds = ["claude", "codex"] as const
+export type LlmProviderKind = (typeof llmProviderKinds)[number]
+
+const llmConnectionBaseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  provider: z.enum(llmProviderKinds),
+})
+
+export const persistedLlmConnectionSchema = z.discriminatedUnion("authMode", [
+  llmConnectionBaseSchema.extend({
+    authMode: z.literal("subscription"),
+    apiKey: z.literal(""),
+  }),
+  llmConnectionBaseSchema.extend({
+    authMode: z.literal("api"),
+    apiKey: z.string().min(1),
+  }),
+])
+
+const examinationModelsByProviderSchema = z.object({
+  claude: z.string().optional(),
+  codex: z.string().optional(),
+}) satisfies z.ZodType<Partial<Record<LlmProviderKind, string>>>
+
 export const syntaxThemeIds = [
   "plus",
   "github",
@@ -144,6 +169,9 @@ export const persistedAppSettingsSchema = z.object({
   lmsConnections: z.array(persistedLmsConnectionSchema),
   gitConnections: z.array(persistedGitConnectionSchema),
   activeGitConnectionId: z.string().nullable().default(null),
+  llmConnections: z.array(persistedLlmConnectionSchema),
+  activeLlmConnectionId: z.string().nullable(),
+  examinationModelsByProvider: examinationModelsByProviderSchema,
   lastOpenedAt: z.string().nullable(),
   rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
   rosterColumnSizing: z.record(z.string(), z.number()).default({}),
@@ -169,6 +197,12 @@ export type PersistedLmsConnection = z.infer<
 >
 export type PersistedGitConnection = z.infer<
   typeof persistedGitConnectionSchema
+>
+export type PersistedLlmConnection = z.infer<
+  typeof persistedLlmConnectionSchema
+>
+export type ExaminationModelsByProvider = z.infer<
+  typeof examinationModelsByProviderSchema
 >
 export type AppAppearance = z.infer<typeof appAppearanceSchema>
 export type PersistedWindowState = z.infer<typeof persistedWindowStateSchema>
@@ -218,6 +252,33 @@ export function resolveActiveGitConnection(
   return gitConnections[0] ?? null
 }
 
+/**
+ * Resolve the LLM connection used for prompt/reply calls. Mirrors the Git
+ * resolver: a single configured connection is used implicitly; with multiple
+ * the user picks an `activeLlmConnectionId`. Returns `null` when no
+ * connection is configured or the saved active id is stale.
+ */
+export function resolveActiveLlmConnection(
+  settings: Pick<
+    PersistedAppSettings,
+    "llmConnections" | "activeLlmConnectionId"
+  >,
+): PersistedLlmConnection | null {
+  const { llmConnections, activeLlmConnectionId } = settings
+  if (llmConnections.length === 0) {
+    return null
+  }
+  if (activeLlmConnectionId !== null) {
+    const match = llmConnections.find(
+      (connection) => connection.id === activeLlmConnectionId,
+    )
+    if (match !== undefined) {
+      return match
+    }
+  }
+  return llmConnections[0] ?? null
+}
+
 // Drift guards: persisted blame schema must stay a subset of its runtime
 // counterpart. A compile error here means a field was added to the persisted
 // schema without a matching field in AnalysisBlameConfig. Additionally, course
@@ -257,6 +318,9 @@ export const defaultAppSettings: PersistedAppSettings = {
   lmsConnections: [],
   gitConnections: [],
   activeGitConnectionId: null,
+  llmConnections: [],
+  activeLlmConnectionId: null,
+  examinationModelsByProvider: {},
   lastOpenedAt: null,
   rosterColumnVisibility: {},
   rosterColumnSizing: {},

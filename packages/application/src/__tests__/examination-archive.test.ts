@@ -107,12 +107,7 @@ describe("examination archive adapter", () => {
       memberEmail: "alice@example.com",
       repoGitDir: "/repos/alice",
       assignmentContext: "A1",
-      model: {
-        provider: "claude" as const,
-        family: "sonnet",
-        modelId: "claude-sonnet-4-6",
-        effort: "medium" as const,
-      },
+      model: "22",
       effort: "medium" as const,
       questionCount: 1,
       usage: {
@@ -293,6 +288,19 @@ function baseInput() {
     ],
     questionCount: 2,
     assignmentContext: "A1",
+    llmSettings: {
+      llmConnections: [
+        {
+          id: "llm-1",
+          name: "Test Claude",
+          provider: "claude" as const,
+          authMode: "subscription" as const,
+          apiKey: "" as const,
+        },
+      ],
+      activeLlmConnectionId: "llm-1",
+      examinationModelsByProvider: { claude: "22" },
+    },
   }
 }
 

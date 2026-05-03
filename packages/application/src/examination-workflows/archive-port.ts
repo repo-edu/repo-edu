@@ -17,8 +17,6 @@ import type {
 import type {
   LlmAuthMode,
   LlmEffort,
-  LlmModelSpec,
-  LlmProvider,
 } from "@repo-edu/integrations-llm-contract"
 
 export type ExaminationArchivePort = {
@@ -273,8 +271,7 @@ function validateProvenance(
   ) {
     return null
   }
-  const validatedModel = validateModelSpec(model)
-  if (validatedModel === null) return null
+  if (typeof model !== "string" || model.length === 0) return null
   const validatedEffort = validateEffort(effort)
   if (validatedEffort === null) return null
   const validatedExcerpts = validateExcerpts(excerpts)
@@ -287,7 +284,7 @@ function validateProvenance(
     repoGitDir,
     assignmentContext:
       typeof assignmentContext === "string" ? assignmentContext : null,
-    model: validatedModel,
+    model,
     effort: validatedEffort,
     questionCount,
     usage: validatedUsage,
@@ -296,7 +293,6 @@ function validateProvenance(
   }
 }
 
-const LLM_PROVIDERS: readonly LlmProvider[] = ["claude", "codex"]
 const LLM_EFFORTS: readonly LlmEffort[] = [
   "none",
   "minimal",
@@ -307,28 +303,6 @@ const LLM_EFFORTS: readonly LlmEffort[] = [
   "max",
 ]
 const LLM_AUTH_MODES: readonly LlmAuthMode[] = ["subscription", "api"]
-
-function validateModelSpec(raw: unknown): LlmModelSpec | null {
-  if (!isRecord(raw)) return null
-  const { provider, family, modelId, effort } = raw
-  if (
-    typeof provider !== "string" ||
-    typeof family !== "string" ||
-    typeof modelId !== "string" ||
-    typeof effort !== "string"
-  ) {
-    return null
-  }
-  if (!LLM_PROVIDERS.includes(provider as LlmProvider)) return null
-  const validatedEffort = validateEffort(effort)
-  if (validatedEffort === null) return null
-  return {
-    provider: provider as LlmProvider,
-    family,
-    modelId,
-    effort: validatedEffort,
-  }
-}
 
 function validateEffort(raw: unknown): LlmEffort | null {
   if (typeof raw !== "string") return null

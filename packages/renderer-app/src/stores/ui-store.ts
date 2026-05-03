@@ -24,6 +24,7 @@ type GroupOperationSection = "create" | "clone" | "update" | "clone-all" | null
 type SettingsCategory =
   | "lms-connections"
   | "git-connections"
+  | "llm-connections"
   | "display"
   | "shortcuts"
   | "storage"

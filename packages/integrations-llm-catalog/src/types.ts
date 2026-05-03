@@ -16,6 +16,8 @@ export type FixtureModelSpec = LlmModelSpec & {
   displayName: string
   versionTag: string
   priceUsdPerMTok: PriceCard | undefined
+  verifyDefault?: true
+  examinationDefault?: true
 }
 
 export type Phase = "mp" | "mc"

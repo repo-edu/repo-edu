@@ -11,10 +11,12 @@ import {
   createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
+  createLlmConnectionWorkflowHandlers,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
+  type LlmConnectionWorkflowPorts,
   runInspectUserFileWorkflow,
   runUserFileExportPreviewWorkflow,
 } from "@repo-edu/application"
@@ -75,6 +77,14 @@ export type DesktopRouterPorts = {
   cacheBudgets: DesktopCacheBudgets
   parentAbortSignal?: AbortSignal
   onWorkflowInvocationStart?: () => () => void
+  /**
+   * Called whenever `settings.saveApp` succeeds with the validated, env-stripped
+   * settings about to be persisted. Composition root uses this to rebuild the
+   * LLM port delegate so the next workflow run sees the updated connection.
+   */
+  onAppSettingsSaved?: (settings: PersistedAppSettings) => void
+  /** Factory for verifying draft LLM connections. */
+  createDraftLlmTextClient: LlmConnectionWorkflowPorts["createDraftLlmTextClient"]
 }
 
 function envPositiveInt(name: string): number | null {
@@ -176,6 +186,7 @@ function createDesktopWorkflowRegistry(
         persistable,
         options,
       )
+      ports.onAppSettingsSaved?.(saved)
       return applyEnvOverrides(saved)
     },
   }
@@ -184,6 +195,9 @@ function createDesktopWorkflowRegistry(
     ...createCourseWorkflowHandlers(ports.courseStore),
     ...wrappedSettingsHandlers,
     ...createConnectionWorkflowHandlers({ lms, git }),
+    ...createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: ports.createDraftLlmTextClient,
+    }),
     ...createRosterWorkflowHandlers({
       lms,
       userFile: ports.userFile,

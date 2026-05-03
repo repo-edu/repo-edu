@@ -1,6 +1,8 @@
 import {
   gitProviderDefaultBaseUrls,
+  type LlmProviderKind,
   type PersistedGitConnection,
+  type PersistedLlmConnection,
   type PersistedLmsConnection,
 } from "@repo-edu/domain/settings"
 import type { LmsProviderKind } from "@repo-edu/domain/types"
@@ -15,6 +17,13 @@ export type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
 
 export type GitDraft = Omit<PersistedGitConnection, "id" | "userAgent"> & {
   userAgent: string
+}
+
+export type LlmDraft = {
+  name: string
+  provider: LlmProviderKind
+  authMode: "subscription" | "api"
+  apiKey: string
 }
 
 export const INVALID_REQUIRED_URL_MESSAGE =
@@ -116,4 +125,28 @@ export function toGitDraft(connection: PersistedGitConnection): GitDraft {
   }
 }
 
-export type { LmsProviderKind, PersistedGitConnection, PersistedLmsConnection }
+export function emptyLlmDraft(): LlmDraft {
+  return {
+    name: "",
+    provider: "claude",
+    authMode: "subscription",
+    apiKey: "",
+  }
+}
+
+export function toLlmDraft(connection: PersistedLlmConnection): LlmDraft {
+  return {
+    name: connection.name,
+    provider: connection.provider,
+    authMode: connection.authMode,
+    apiKey: connection.apiKey,
+  }
+}
+
+export type {
+  LlmProviderKind,
+  LmsProviderKind,
+  PersistedGitConnection,
+  PersistedLlmConnection,
+  PersistedLmsConnection,
+}

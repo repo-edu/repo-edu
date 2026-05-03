@@ -5,9 +5,11 @@ type ConnectionsState = {
   lmsStatus: ConnectionStatus
   lmsStatuses: Record<string, ConnectionStatus>
   gitStatuses: Record<string, ConnectionStatus>
+  llmStatuses: Record<string, ConnectionStatus>
   lmsError: string | null
   lmsErrors: Record<string, string | null>
   gitErrors: Record<string, string | null>
+  llmErrors: Record<string, string | null>
   courseStatuses: Record<string, CourseStatus>
   courseErrors: Record<string, string | null>
   activeCourseForConnections: string | null
@@ -37,6 +39,13 @@ type ConnectionsActions = {
   renameLmsConnectionStatus: (oldName: string, newName: string) => void
   resetGitStatus: (id: string) => void
   removeGitStatus: (id: string) => void
+  setLlmStatus: (
+    id: string,
+    status: ConnectionStatus,
+    error?: string | null,
+  ) => void
+  resetLlmStatus: (id: string) => void
+  removeLlmStatus: (id: string) => void
   resetAllStatuses: () => void
 }
 
@@ -44,9 +53,11 @@ const initialState: ConnectionsState = {
   lmsStatus: "disconnected",
   lmsStatuses: {},
   gitStatuses: {},
+  llmStatuses: {},
   lmsError: null,
   lmsErrors: {},
   gitErrors: {},
+  llmErrors: {},
   courseStatuses: {},
   courseErrors: {},
   activeCourseForConnections: null,
@@ -134,6 +145,30 @@ export const useConnectionsStore = create<
       return { gitStatuses, gitErrors }
     }),
 
+  setLlmStatus: (id, status, error) =>
+    set((state) => ({
+      llmStatuses: { ...state.llmStatuses, [id]: status },
+      llmErrors: { ...state.llmErrors, [id]: error ?? null },
+    })),
+
+  resetLlmStatus: (id) =>
+    set((state) => {
+      const llmStatuses = { ...state.llmStatuses }
+      const llmErrors = { ...state.llmErrors }
+      delete llmStatuses[id]
+      delete llmErrors[id]
+      return { llmStatuses, llmErrors }
+    }),
+
+  removeLlmStatus: (id) =>
+    set((state) => {
+      const llmStatuses = { ...state.llmStatuses }
+      const llmErrors = { ...state.llmErrors }
+      delete llmStatuses[id]
+      delete llmErrors[id]
+      return { llmStatuses, llmErrors }
+    }),
+
   resetAllStatuses: () => set(initialState),
 }))
 
@@ -151,6 +186,11 @@ export const selectGitStatus = (id: string) => (state: ConnectionsState) =>
   state.gitStatuses[id] ?? "disconnected"
 export const selectGitError = (id: string) => (state: ConnectionsState) =>
   state.gitErrors[id] ?? null
+export const selectLlmStatuses = (state: ConnectionsState) => state.llmStatuses
+export const selectLlmStatus = (id: string) => (state: ConnectionsState) =>
+  state.llmStatuses[id] ?? "disconnected"
+export const selectLlmError = (id: string) => (state: ConnectionsState) =>
+  state.llmErrors[id] ?? null
 export const selectCourseStatus =
   (course: string) => (state: ConnectionsState) =>
     state.courseStatuses[course] ?? "unknown"

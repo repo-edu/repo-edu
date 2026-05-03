@@ -9,6 +9,7 @@ import {
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
   createInMemoryExaminationArchive,
+  createLlmConnectionWorkflowHandlers,
   createRepositoryWorkflowHandlers,
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
@@ -359,6 +360,20 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     ...createConnectionWorkflowHandlers({
       lms: lmsPorts,
       git: gitPorts,
+    }),
+    ...createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: () => ({
+        async generateText() {
+          throw {
+            type: "provider",
+            message:
+              "LLM connection verification is not available in the docs demo. Run the desktop app to verify your credentials.",
+            provider: "llm",
+            operation: "verifyLlmDraft",
+            retryable: false,
+          } satisfies AppError
+        },
+      }),
     }),
     ...createValidationWorkflowHandlers(),
     ...createRosterWorkflowHandlers({

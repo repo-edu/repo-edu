@@ -92,6 +92,12 @@ importers:
       '@repo-edu/integrations-git':
         specifier: workspace:*
         version: link:../../packages/integrations-git
+      '@repo-edu/integrations-llm':
+        specifier: workspace:*
+        version: link:../../packages/integrations-llm
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../../packages/integrations-llm-contract
       '@repo-edu/integrations-lms':
         specifier: workspace:*
         version: link:../../packages/integrations-lms
@@ -232,6 +238,9 @@ importers:
       '@repo-edu/integrations-git-contract':
         specifier: workspace:*
         version: link:../integrations-git-contract
+      '@repo-edu/integrations-llm-catalog':
+        specifier: workspace:*
+        version: link:../integrations-llm-catalog
       '@repo-edu/integrations-llm-contract':
         specifier: workspace:*
         version: link:../integrations-llm-contract
@@ -434,6 +443,12 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+      '@repo-edu/integrations-llm-catalog':
+        specifier: workspace:*
+        version: link:../integrations-llm-catalog
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../integrations-lms-contract

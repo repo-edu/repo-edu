@@ -27,6 +27,12 @@
       "path": "../application-contract"
     },
     {
+      "path": "../integrations-llm-catalog"
+    },
+    {
+      "path": "../integrations-llm-contract"
+    },
+    {
       "path": "../renderer-host-contract"
     }
   ],

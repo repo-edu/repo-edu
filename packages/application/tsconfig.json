@@ -25,6 +25,9 @@
       "path": "../integrations-git-contract"
     },
     {
+      "path": "../integrations-llm-catalog"
+    },
+    {
       "path": "../integrations-llm-contract"
     },
     {

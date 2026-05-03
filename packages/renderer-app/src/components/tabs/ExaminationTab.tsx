@@ -4,6 +4,16 @@ import type {
   MilestoneProgress,
 } from "@repo-edu/application-contract"
 import type { BlameAuthorSummary } from "@repo-edu/domain/analysis"
+import type {
+  LlmProviderKind,
+  PersistedLlmConnection,
+} from "@repo-edu/domain/settings"
+import {
+  getExaminationDefaultSpec,
+  getSpecByCode,
+  listCatalogSpecsForProvider,
+  modelCode,
+} from "@repo-edu/integrations-llm-catalog"
 import {
   Button,
   Card,
@@ -13,14 +23,25 @@ import {
   EmptyState,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@repo-edu/ui"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectAuthorDisplayByPersonId,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
+import {
+  selectActiveLlmConnection,
+  selectExaminationModelsByProvider,
+  selectLlmConnections,
+  useAppSettingsStore,
+} from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import {
   type ExaminationEntry,
@@ -28,6 +49,7 @@ import {
   useExaminationStore,
 } from "../../stores/examination-store.js"
 import { useToastStore } from "../../stores/toast-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 import { buildMemberExcerpts } from "./examination/build-excerpts.js"
 
 function buildExaminationEntryKey(parts: {
@@ -58,6 +80,57 @@ export function ExaminationTab() {
   const workflowClient = useWorkflowClient()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((s) => s.addToast)
+
+  const llmConnections = useAppSettingsStore(selectLlmConnections)
+  const activeLlmConnection = useAppSettingsStore(selectActiveLlmConnection)
+  const examinationModelsByProvider = useAppSettingsStore(
+    selectExaminationModelsByProvider,
+  )
+  const setActiveLlmConnectionId = useAppSettingsStore(
+    (s) => s.setActiveLlmConnectionId,
+  )
+  const setExaminationModelForProvider = useAppSettingsStore(
+    (s) => s.setExaminationModelForProvider,
+  )
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const openSettings = useUiStore((s) => s.openSettings)
+
+  const activeProvider = activeLlmConnection?.provider ?? null
+  const llmSettings = useMemo(
+    () => ({
+      llmConnections,
+      activeLlmConnectionId: activeLlmConnection?.id ?? null,
+      examinationModelsByProvider,
+    }),
+    [llmConnections, activeLlmConnection, examinationModelsByProvider],
+  )
+
+  const selectedModelCode = useMemo(() => {
+    if (activeProvider === null) return null
+    return resolveExaminationModelCode(
+      activeProvider,
+      examinationModelsByProvider,
+    )
+  }, [activeProvider, examinationModelsByProvider])
+
+  // Auto-correct provider/model mismatch caused by direct settings edits
+  // before any examination call reaches the workflow.
+  useEffect(() => {
+    if (activeProvider === null) return
+    const persisted = examinationModelsByProvider[activeProvider]
+    if (typeof persisted !== "string" || persisted.length === 0) return
+    const spec = getSpecByCode(persisted)
+    if (spec !== undefined && spec.provider === activeProvider) return
+    const fallback = getExaminationDefaultSpec(activeProvider)
+    if (fallback === undefined) return
+    setExaminationModelForProvider(activeProvider, modelCode(fallback))
+    void saveAppSettings()
+  }, [
+    activeProvider,
+    examinationModelsByProvider,
+    setExaminationModelForProvider,
+    saveAppSettings,
+  ])
 
   const authorSummaries = useMemo(
     () => blameResult?.authorSummaries ?? [],
@@ -121,6 +194,9 @@ export function ExaminationTab() {
     }
     if (!memberIdByPersonId.has(personId)) {
       return "This author is not matched to a roster member; archiving requires a roster match."
+    }
+    if (activeLlmConnection === null) {
+      return "Add an LLM connection in Settings → LLM Connections to generate questions."
     }
     return null
   }
@@ -186,6 +262,7 @@ export function ExaminationTab() {
           memberEmail,
           excerpts,
           questionCount,
+          llmSettings,
           ...(options?.regenerate ? { regenerate: true } : {}),
         },
         {
@@ -325,6 +402,22 @@ export function ExaminationTab() {
           </Button>
         </div>
       </div>
+
+      <LlmControls
+        connections={llmConnections}
+        activeConnection={activeLlmConnection}
+        selectedModelCode={selectedModelCode}
+        onSelectConnection={(id) => {
+          setActiveLlmConnectionId(id)
+          void saveAppSettings()
+        }}
+        onSelectModelCode={(code) => {
+          if (activeProvider === null) return
+          setExaminationModelForProvider(activeProvider, code)
+          void saveAppSettings()
+        }}
+        onOpenSettings={() => openSettings("llm-connections")}
+      />
 
       <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
         <MemberList
@@ -657,6 +750,118 @@ function QuestionList({ questions, showAnswers }: QuestionListProps) {
       ))}
     </ol>
   )
+}
+
+type LlmControlsProps = {
+  connections: PersistedLlmConnection[]
+  activeConnection: PersistedLlmConnection | null
+  selectedModelCode: string | null
+  onSelectConnection: (id: string) => void
+  onSelectModelCode: (code: string) => void
+  onOpenSettings: () => void
+}
+
+const PROVIDER_LABEL: Record<LlmProviderKind, string> = {
+  claude: "Claude",
+  codex: "Codex",
+}
+
+function LlmControls({
+  connections,
+  activeConnection,
+  selectedModelCode,
+  onSelectConnection,
+  onSelectModelCode,
+  onOpenSettings,
+}: LlmControlsProps) {
+  const provider = activeConnection?.provider ?? null
+  const providerSpecs = useMemo(
+    () => (provider === null ? [] : listCatalogSpecsForProvider(provider)),
+    [provider],
+  )
+
+  if (connections.length === 0) {
+    return (
+      <div className="rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        No LLM connection configured.{" "}
+        <button type="button" className="underline" onClick={onOpenSettings}>
+          Add one in Settings
+        </button>{" "}
+        to generate questions.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="examination-llm-connection">LLM connection</Label>
+        <Select
+          value={activeConnection?.id ?? ""}
+          onValueChange={onSelectConnection}
+        >
+          <SelectTrigger id="examination-llm-connection" className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {connections.map((connection) => (
+              <SelectItem key={connection.id} value={connection.id}>
+                {connection.name} · {PROVIDER_LABEL[connection.provider]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="examination-llm-model">Model</Label>
+        <Select
+          value={selectedModelCode ?? ""}
+          onValueChange={onSelectModelCode}
+          disabled={provider === null || providerSpecs.length === 0}
+        >
+          <SelectTrigger id="examination-llm-model" className="w-56">
+            <SelectValue placeholder="Choose a model" />
+          </SelectTrigger>
+          <SelectContent>
+            {providerSpecs.map((spec) => {
+              const code = modelCode(spec)
+              return (
+                <SelectItem key={code} value={code}>
+                  {formatSpecLabel(spec)}
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
+
+function formatSpecLabel(spec: {
+  provider: LlmProviderKind
+  family: string
+  effort: string
+}): string {
+  const provider = PROVIDER_LABEL[spec.provider]
+  return spec.effort === "none"
+    ? `${provider} ${spec.family}`
+    : `${provider} ${spec.family} (${spec.effort})`
+}
+
+function resolveExaminationModelCode(
+  provider: LlmProviderKind,
+  byProvider: Partial<Record<LlmProviderKind, string>>,
+): string | null {
+  const persisted = byProvider[provider]
+  if (typeof persisted === "string" && persisted.length > 0) {
+    const spec = getSpecByCode(persisted)
+    if (spec !== undefined && spec.provider === provider) {
+      return persisted
+    }
+  }
+  const fallback = getExaminationDefaultSpec(provider)
+  return fallback === undefined ? null : modelCode(fallback)
 }
 
 function buildMarkdownTranscript(params: {

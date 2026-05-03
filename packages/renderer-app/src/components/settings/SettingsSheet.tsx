@@ -1,5 +1,6 @@
 import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
 import {
+  Brain,
   Command,
   GitBranch,
   GraduationCap,
@@ -16,12 +17,14 @@ import {
 import { DisplayPane } from "./DisplayPane.js"
 import { GitConnectionsPane } from "./GitConnectionsPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
+import { LlmConnectionsPane } from "./LlmConnectionsPane.js"
 import { LmsConnectionsPane } from "./LmsConnectionsPane.js"
 import { StoragePane } from "./StoragePane.js"
 
 type SettingsCategory =
   | "lms-connections"
   | "git-connections"
+  | "llm-connections"
   | "display"
   | "shortcuts"
   | "storage"
@@ -47,6 +50,11 @@ const categories: CategoryItem[] = [
     id: "git-connections",
     label: "Git Connections",
     icon: <GitBranch className="size-4" />,
+  },
+  {
+    id: "llm-connections",
+    label: "LLM Connections",
+    icon: <Brain className="size-4" />,
   },
   {
     id: "storage",
@@ -130,6 +138,14 @@ export function SettingsSheet() {
               aria-hidden={activeCategory !== "git-connections"}
             >
               <GitConnectionsPane />
+            </div>
+            <div
+              className={cn(
+                activeCategory === "llm-connections" ? "block" : "hidden",
+              )}
+              aria-hidden={activeCategory !== "llm-connections"}
+            >
+              <LlmConnectionsPane />
             </div>
             <div
               className={cn(activeCategory === "display" ? "block" : "hidden")}

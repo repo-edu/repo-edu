@@ -20,6 +20,10 @@ type Tier = {
   /** Short-code stem before the optional effort digit, e.g. "2" or "c3". */
   codeStem: string
   supportedEfforts: SupportedEfforts
+  /** Effort whose spec is the per-provider draft-verification default. */
+  verifyDefaultEffort?: LlmEffort
+  /** Effort whose spec is the per-provider examination-workflow default. */
+  examinationDefaultEffort?: LlmEffort
 }
 
 const TIERS: Tier[] = [
@@ -30,6 +34,7 @@ const TIERS: Tier[] = [
     versionTag: "45",
     codeStem: "1",
     supportedEfforts: ["none"],
+    verifyDefaultEffort: "none",
   },
   {
     provider: "claude",
@@ -38,6 +43,7 @@ const TIERS: Tier[] = [
     versionTag: "46",
     codeStem: "2",
     supportedEfforts: ["low", "medium", "high"],
+    examinationDefaultEffort: "medium",
   },
   {
     provider: "claude",
@@ -54,6 +60,7 @@ const TIERS: Tier[] = [
     versionTag: "54m",
     codeStem: "c1",
     supportedEfforts: ["none"],
+    verifyDefaultEffort: "none",
   },
   {
     provider: "codex",
@@ -62,6 +69,7 @@ const TIERS: Tier[] = [
     versionTag: "54",
     codeStem: "c2",
     supportedEfforts: ["low", "medium", "high", "xhigh"],
+    examinationDefaultEffort: "medium",
   },
   {
     provider: "codex",
@@ -95,7 +103,7 @@ const EFFORT_DIGIT: Record<LlmEffort, string> = {
 function buildSpec(tier: Tier, effort: LlmEffort): FixtureModelSpec {
   const displayName =
     effort === "none" ? tier.family : `${tier.family}-${effort}`
-  return {
+  const spec: FixtureModelSpec = {
     provider: tier.provider,
     family: tier.family,
     modelId: tier.modelId,
@@ -104,6 +112,13 @@ function buildSpec(tier: Tier, effort: LlmEffort): FixtureModelSpec {
     versionTag: tier.versionTag,
     priceUsdPerMTok: getPriceCard(tier.modelId),
   }
+  if (tier.verifyDefaultEffort === effort) {
+    spec.verifyDefault = true
+  }
+  if (tier.examinationDefaultEffort === effort) {
+    spec.examinationDefault = true
+  }
+  return spec
 }
 
 function canonicalCode(tier: Tier, effort: LlmEffort): string {
@@ -153,4 +168,26 @@ export function allCatalogSpecs(): FixtureModelSpec[] {
   const seen = new Set<FixtureModelSpec>()
   for (const spec of codeTable.values()) seen.add(spec)
   return [...seen]
+}
+
+export function listCatalogSpecsForProvider(
+  provider: LlmProvider,
+): FixtureModelSpec[] {
+  return allCatalogSpecs().filter((spec) => spec.provider === provider)
+}
+
+export function getVerifyDefaultSpec(
+  provider: LlmProvider,
+): FixtureModelSpec | undefined {
+  return allCatalogSpecs().find(
+    (spec) => spec.provider === provider && spec.verifyDefault === true,
+  )
+}
+
+export function getExaminationDefaultSpec(
+  provider: LlmProvider,
+): FixtureModelSpec | undefined {
+  return allCatalogSpecs().find(
+    (spec) => spec.provider === provider && spec.examinationDefault === true,
+  )
 }

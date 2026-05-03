@@ -8,6 +8,7 @@ import type { AppSettingsStore } from "@repo-edu/application"
 import {
   defaultAppSettings,
   type PersistedAppSettings,
+  resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
@@ -27,8 +28,16 @@ import {
 } from "@repo-edu/host-node/examination-archive"
 import type {
   ExaminationArchiveStoragePort,
+  LlmPort,
+  LlmRunRequest,
+  LlmRunResult,
   PersistentCache,
 } from "@repo-edu/host-runtime-contract"
+import { createLlmTextClient } from "@repo-edu/integrations-llm"
+import type {
+  LlmRuntimeConfig,
+  LlmTextClient,
+} from "@repo-edu/integrations-llm-contract"
 import {
   app,
   BrowserWindow,
@@ -77,7 +86,56 @@ const desktopHost = createDesktopHostEnvironment()
 const nodeHttpPort = createNodeHttpPort()
 const nodeGitCommandPort = createNodeGitCommandPort()
 const nodeFileSystemPort = createNodeFileSystemPort()
-const nodeLlmPort = createNodeLlmPort()
+// Stable LLM port delegate. The underlying adapter is rebuilt whenever the
+// active LLM connection or its credentials change so a settings save reaches
+// the next workflow invocation without recreating the tRPC router.
+let activeLlmPort: LlmPort = createNodeLlmPort()
+const nodeLlmPort: LlmPort = {
+  run(request: LlmRunRequest): Promise<LlmRunResult> {
+    return activeLlmPort.run(request)
+  },
+}
+
+export function createDraftLlmTextClient(draft: {
+  provider: "claude" | "codex"
+  authMode: "subscription" | "api"
+  apiKey: string
+}): LlmTextClient {
+  const config = configForDraft(draft)
+  return createLlmTextClient(config)
+}
+
+function configForDraft(draft: {
+  provider: "claude" | "codex"
+  authMode: "subscription" | "api"
+  apiKey: string
+}): LlmRuntimeConfig {
+  const providerConfig =
+    draft.authMode === "subscription"
+      ? { authMode: draft.authMode }
+      : { authMode: draft.authMode, apiKey: draft.apiKey }
+  return draft.provider === "claude"
+    ? { claude: providerConfig }
+    : { codex: providerConfig }
+}
+
+function configFromSettings(settings: PersistedAppSettings): LlmRuntimeConfig {
+  const active = resolveActiveLlmConnection(settings)
+  if (active === null) return {}
+  const providerConfig =
+    active.authMode === "subscription"
+      ? { authMode: active.authMode }
+      : { authMode: active.authMode, apiKey: active.apiKey }
+  return active.provider === "claude"
+    ? { claude: providerConfig }
+    : { codex: providerConfig }
+}
+
+function rebuildLlmPort(settings: PersistedAppSettings | null): void {
+  activeLlmPort = createNodeLlmPort(
+    settings === null ? undefined : configFromSettings(settings),
+  )
+}
 let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
 let hostIpcRegistered = false
@@ -699,6 +757,7 @@ async function createWindow(): Promise<BrowserWindow> {
   if (!desktopRouter) {
     const caches = openCacheSetOnce(storageRoot, appSettings)
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
+    rebuildLlmPort(appSettings)
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       courseStore: createDesktopCourseStore(storageRoot),
@@ -712,6 +771,8 @@ async function createWindow(): Promise<BrowserWindow> {
       cacheBudgets: resolveEffectiveCacheBudgets(appSettings),
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,
+      onAppSettingsSaved: rebuildLlmPort,
+      createDraftLlmTextClient,
     })
   }
 

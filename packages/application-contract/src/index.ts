@@ -7,7 +7,11 @@ import type {
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
 import type { ConnectionBase } from "@repo-edu/domain/connection"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type {
+  ExaminationModelsByProvider,
+  PersistedAppSettings,
+  PersistedLlmConnection,
+} from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   ExportFormat,
@@ -32,8 +36,9 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/host-runtime-contract"
 import type {
+  LlmAuthMode,
   LlmEffort,
-  LlmModelSpec,
+  LlmProvider,
   LlmUsage,
 } from "@repo-edu/integrations-llm-contract"
 import type {
@@ -217,6 +222,12 @@ export type ListLmsCoursesDraftInput = ConnectionBase & {
 
 export type VerifyGitDraftInput = ConnectionBase & {
   provider: GitProviderKind
+}
+
+export type VerifyLlmDraftInput = {
+  provider: LlmProvider
+  authMode: LlmAuthMode
+  apiKey: string
 }
 
 export type ConnectionVerificationResult = {
@@ -464,6 +475,12 @@ export type ExaminationCodeExcerpt = {
   lines: string[]
 }
 
+export type ExaminationLlmSettings = {
+  llmConnections: PersistedLlmConnection[]
+  activeLlmConnectionId: string | null
+  examinationModelsByProvider: ExaminationModelsByProvider
+}
+
 export type ExaminationGenerateQuestionsInput = {
   groupSetId: string
   memberId: string
@@ -474,6 +491,13 @@ export type ExaminationGenerateQuestionsInput = {
   excerpts: ExaminationCodeExcerpt[]
   questionCount: number
   assignmentContext?: string
+  /**
+   * Subset of app settings the examination workflow needs to resolve which
+   * LLM connection and model code to use. The renderer reads these from
+   * `useAppSettingsStore` and forwards them so the workflow stays a pure
+   * function of its input.
+   */
+  llmSettings: ExaminationLlmSettings
   /**
    * When true, skip the archive read and always call the LLM. The fresh
    * result overwrites any matching archived entry on success. Errors never
@@ -515,7 +539,16 @@ export type ExaminationArchivedProvenance = {
   memberEmail: string
   repoGitDir: string
   assignmentContext: string | null
-  model: LlmModelSpec
+  /**
+   * Catalog short code that produced the run (e.g. `"22"`, `"c33"`). The
+   * code expands into a full `LlmModelSpec` via the catalog; storing the
+   * code keeps the archive readable after spec metadata changes.
+   */
+  model: string
+  /**
+   * Effort tier that produced the run, retained for legacy display. Drops
+   * out of `model` because the code already encodes effort.
+   */
   effort: LlmEffort
   questionCount: number
   usage: ExaminationUsage
@@ -625,6 +658,12 @@ export type WorkflowPayloads = {
   }
   "connection.verifyGitDraft": {
     input: VerifyGitDraftInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ConnectionVerificationResult
+  }
+  "connection.verifyLlmDraft": {
+    input: VerifyLlmDraftInput
     progress: MilestoneProgress
     output: DiagnosticOutput
     result: ConnectionVerificationResult
@@ -842,6 +881,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   },
   "connection.verifyGitDraft": {
     delivery: ["desktop", "docs", "cli"],
+    progress: "milestone",
+    cancellation: "best-effort",
+  },
+  "connection.verifyLlmDraft": {
+    delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "best-effort",
   },

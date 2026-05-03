@@ -6,6 +6,7 @@ export {
   ArrowLeft,
   ArrowRightLeft,
   ArrowUp,
+  Brain,
   Check,
   ChevronDown,
   ChevronRight,

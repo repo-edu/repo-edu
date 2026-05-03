@@ -44,6 +44,11 @@ export { createExaminationWorkflowHandlers } from "./examination-workflows/exami
 export type { ExaminationWorkflowPorts } from "./examination-workflows/ports.js"
 export { createGitUsernameWorkflowHandlers } from "./git-username-workflows.js"
 export { createGroupSetWorkflowHandlers } from "./group-set-workflows.js"
+export type {
+  LlmConnectionWorkflowPorts,
+  LlmDraftConnection,
+} from "./llm-connection-workflows.js"
+export { createLlmConnectionWorkflowHandlers } from "./llm-connection-workflows.js"
 export { createRepositoryWorkflowHandlers } from "./repository-workflows.js"
 export { createRosterWorkflowHandlers } from "./roster-workflows.js"
 export { createSettingsWorkflowHandlers } from "./settings-workflows.js"

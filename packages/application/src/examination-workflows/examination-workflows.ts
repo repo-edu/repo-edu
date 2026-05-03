@@ -7,13 +7,24 @@ import type {
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
   ExaminationLineRange,
+  ExaminationLlmSettings,
   ExaminationProvenanceDrift,
   ExaminationQuestion,
   MilestoneProgress,
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { LlmModelSpec } from "@repo-edu/integrations-llm-contract"
+import {
+  type PersistedLlmConnection,
+  resolveActiveLlmConnection,
+} from "@repo-edu/domain/settings"
+import {
+  type FixtureModelSpec,
+  getExaminationDefaultSpec,
+  getSpecByCode,
+  modelCode,
+} from "@repo-edu/integrations-llm-catalog"
+import type { LlmProvider } from "@repo-edu/integrations-llm-contract"
 import { createValidationAppError } from "../core.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
@@ -22,13 +33,6 @@ import {
 } from "./archive-key.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
 import { buildExaminationPrompt, stripJsonFences } from "./prompt-builder.js"
-
-const DEFAULT_EXAMINATION_SPEC: LlmModelSpec = {
-  provider: "claude",
-  family: "sonnet",
-  modelId: "claude-sonnet-4-6",
-  effort: "medium",
-}
 
 type ExaminationWorkflowId = "examination.generateQuestions"
 
@@ -68,9 +72,12 @@ export function createExaminationWorkflowHandlers(
             totalSteps: 3,
             label: "Returning archived questions.",
           })
+          const driftResolution = resolveExaminationModelOrNull(
+            input.llmSettings,
+          )
           return toResult(hit, {
             fromArchive: true,
-            drift: computeDrift(hit.provenance, input),
+            drift: computeDrift(hit.provenance, input, driftResolution),
           })
         }
       }
@@ -82,9 +89,15 @@ export function createExaminationWorkflowHandlers(
         label: "Generating questions via LLM.",
       })
 
+      const resolution = resolveExaminationModel(input.llmSettings)
       const prompt = buildExaminationPrompt(input)
       const { reply, usage } = await ports.llm.run({
-        spec: DEFAULT_EXAMINATION_SPEC,
+        spec: {
+          provider: resolution.spec.provider,
+          family: resolution.spec.family,
+          modelId: resolution.spec.modelId,
+          effort: resolution.spec.effort,
+        },
         prompt,
         signal: options?.signal,
       })
@@ -103,8 +116,8 @@ export function createExaminationWorkflowHandlers(
         memberEmail: input.memberEmail,
         repoGitDir: input.repoGitDir,
         assignmentContext: input.assignmentContext ?? null,
-        model: DEFAULT_EXAMINATION_SPEC,
-        effort: DEFAULT_EXAMINATION_SPEC.effort,
+        model: resolution.code,
+        effort: resolution.spec.effort,
         questionCount: input.questionCount,
         usage,
         createdAtMs: Date.now(),
@@ -119,9 +132,86 @@ export function createExaminationWorkflowHandlers(
 
       ports.archive.put(record)
 
-      return toResult(record, { fromArchive: false, drift: null })
+      return toResult(record, {
+        fromArchive: false,
+        drift: null,
+      })
     },
   }
+}
+
+type ExaminationModelResolution = {
+  spec: FixtureModelSpec
+  code: string
+  connection: PersistedLlmConnection
+}
+
+function resolveExaminationModel(
+  settings: ExaminationLlmSettings,
+): ExaminationModelResolution {
+  const connection = resolveActiveLlmConnection(settings)
+  if (connection === null) {
+    throw createValidationAppError("No LLM connection is configured.", [
+      {
+        path: "llmSettings.activeLlmConnectionId",
+        message:
+          "Add an LLM connection in Settings → LLM Connections before generating questions.",
+      },
+    ])
+  }
+  const provider = connection.provider as LlmProvider
+  const explicit = lookupExplicitProviderCode(provider, connection, settings)
+  if (explicit !== null) {
+    return { connection, ...explicit }
+  }
+  const fallback = getExaminationDefaultSpec(provider)
+  if (fallback === undefined) {
+    throw createValidationAppError(
+      `No default examination model is registered for provider '${provider}'.`,
+      [
+        {
+          path: "llmSettings.examinationModelsByProvider",
+          message: `Catalog is missing an examinationDefault entry for ${provider}.`,
+        },
+      ],
+    )
+  }
+  return { connection, spec: fallback, code: modelCode(fallback) }
+}
+
+function lookupExplicitProviderCode(
+  provider: LlmProvider,
+  connection: PersistedLlmConnection,
+  settings: ExaminationLlmSettings,
+): { spec: FixtureModelSpec; code: string } | null {
+  const value = settings.examinationModelsByProvider[provider]
+  const codeFromSettings =
+    typeof value === "string" && value.length > 0 ? value : null
+  if (codeFromSettings === null) return null
+  const spec = getSpecByCode(codeFromSettings)
+  if (spec === undefined) {
+    throw createValidationAppError(
+      `Unknown model code '${codeFromSettings}' for provider '${provider}'.`,
+      [
+        {
+          path: `llmSettings.examinationModelsByProvider.${provider}`,
+          message: `Code '${codeFromSettings}' is not in the catalog.`,
+        },
+      ],
+    )
+  }
+  if (spec.provider !== connection.provider) {
+    throw createValidationAppError(
+      "Selected model does not match the active LLM connection's provider.",
+      [
+        {
+          path: `llmSettings.examinationModelsByProvider.${provider}`,
+          message: `Code '${codeFromSettings}' is for provider ${spec.provider} but the active LLM connection is provider ${connection.provider}.`,
+        },
+      ],
+    )
+  }
+  return { spec, code: codeFromSettings }
 }
 
 function toResult(
@@ -140,8 +230,11 @@ function toResult(
 function computeDrift(
   stored: ExaminationArchivedProvenance,
   input: ExaminationGenerateQuestionsInput,
+  current: ExaminationModelResolution | null,
 ): ExaminationProvenanceDrift | null {
   const currentAssignmentContext = input.assignmentContext ?? null
+  const currentCode = current?.code ?? null
+  const currentEffort = current?.spec.effort ?? null
   const drift: ExaminationProvenanceDrift = {
     memberNameChanged:
       stored.memberName !== input.memberName
@@ -163,15 +256,12 @@ function computeDrift(
           }
         : null,
     modelChanged:
-      stored.model.modelId !== DEFAULT_EXAMINATION_SPEC.modelId
-        ? {
-            from: stored.model.modelId,
-            to: DEFAULT_EXAMINATION_SPEC.modelId,
-          }
+      currentCode !== null && stored.model !== currentCode
+        ? { from: stored.model, to: currentCode }
         : null,
     effortChanged:
-      stored.effort !== DEFAULT_EXAMINATION_SPEC.effort
-        ? { from: stored.effort, to: DEFAULT_EXAMINATION_SPEC.effort }
+      currentEffort !== null && stored.effort !== currentEffort
+        ? { from: stored.effort, to: currentEffort }
         : null,
   }
   const anyChanged =
@@ -184,8 +274,24 @@ function computeDrift(
   return anyChanged ? drift : null
 }
 
+function resolveExaminationModelOrNull(
+  settings: ExaminationLlmSettings,
+): ExaminationModelResolution | null {
+  try {
+    return resolveExaminationModel(settings)
+  } catch {
+    return null
+  }
+}
+
 function validateInput(input: ExaminationGenerateQuestionsInput): void {
   const issues: { path: string; message: string }[] = []
+  if (input.llmSettings === undefined || input.llmSettings === null) {
+    issues.push({
+      path: "llmSettings",
+      message: "llmSettings is required.",
+    })
+  }
   if (input.groupSetId.trim().length === 0) {
     issues.push({ path: "groupSetId", message: "groupSetId is required." })
   }
