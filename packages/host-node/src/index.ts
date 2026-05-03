@@ -341,8 +341,8 @@ export function createNodeFileSystemPort(): FileSystemPort {
 
 // ---------------------------------------------------------------------------
 // NodeLlmPort — thin adapter over the multi-provider LlmTextClient dispatcher
-// from @repo-edu/integrations-llm. Currently routes Claude requests; Codex
-// support arrives with the Codex adapter.
+// from @repo-edu/integrations-llm. Routes by `spec.provider` to either the
+// Claude or Codex prompt/reply adapter.
 // ---------------------------------------------------------------------------
 
 export function createNodeLlmPort(config?: LlmRuntimeConfig): LlmPort {

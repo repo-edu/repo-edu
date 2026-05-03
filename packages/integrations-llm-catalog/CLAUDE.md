@@ -8,8 +8,8 @@ fixture engine and the renderer.
 - `FixtureModelSpec` extends `LlmModelSpec` from
   `@repo-edu/integrations-llm-contract` with display name, version tag, and
   pricing card (USD per million tokens, including cached input).
-- Curated short-code table (`1` / `21..23` / `2` / `31..35` / `3` for Claude;
-  Codex `c1` / `c2` / `c3` lands with the Codex provider plan).
+- Curated short-code table: Claude `1` / `21..23` / `2` / `31..35` / `3`,
+  Codex `c1` / `c21..c24` / `c2` / `c31..c34` / `c3`.
 - `parseShortCode(code, phase)` resolver with provider gating for the coder
   phase (`mc` accepts only providers in `codingAgentProviders`).
 - `modelCode(spec)` returns the canonical short code; `archivalModelCode`

@@ -324,9 +324,25 @@ reference (every subcommand plus the model-code table and
 | `sweep [--from=<project\|plan>] [--sweep=<sweep.jsonc>]` | N plan+repo (plan-phase key) or one plan + N repos (repo-phase key); `--from=<plan>` reuses an existing plan | `--from`, `--sweep` |
 | `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
 
-Model codes for `-m` / `--model`: `1` = haiku; `2|21|22|23` = sonnet
-(default/low/medium/high); `3|31|32|33|34|35` = opus
-(default/low/medium/high/xhigh/max).
+Model codes for `-m` / `--model`:
+
+- Claude: `1` = haiku; `2|21|22|23` = sonnet (default/low/medium/high);
+  `3|31|32|33|34|35` = opus (default/low/medium/high/xhigh/max).
+- Codex: `c1` = gpt-5.4-mini; `c2|c21|c22|c23|c24` = gpt-5.4
+  (default/low/medium/high/xhigh); `c3|c31|c32|c33|c34` = gpt-5.5
+  (default/low/medium/high/xhigh).
+
+Codex codes are accepted for `mp` (planner / evaluator) only — `mc`
+stays Claude-only because the coder uses workspace-write tools that
+the multi-provider contract intentionally does not expose. Each
+generated dirname includes the resolved model's version tag (e.g.
+`m22-46`, `mc22-54`) so cross-generation runs stay distinguishable.
+
+Both auth modes work with both providers: a logged-in subscription
+(Claude `claude` CLI session, ChatGPT login under `codex`) or an
+explicit API key (`ANTHROPIC_API_KEY`, `CODEX_API_KEY`). The active
+auth mode shows up in `_review.md` as a bare `$1.23` (api) or
+`~$1.23` (subscription, API-equivalent estimate).
 
 `--from=PATH` accepts absolute paths or paths relative to
 `../fixtures/`. When omitted, `plan` and `repo` fall back to

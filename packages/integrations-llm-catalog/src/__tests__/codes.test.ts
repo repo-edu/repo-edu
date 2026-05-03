@@ -87,6 +87,74 @@ describe("coder phase gating (mc)", () => {
     assert.doesNotThrow(() => parseShortCode("22", "mc"))
     assert.doesNotThrow(() => parseShortCode("35", "mc"))
   })
+
+  test("Codex codes rejected in mc with supported-providers hint", () => {
+    assert.throws(
+      () => parseShortCode("c22", "mc"),
+      (err: unknown) =>
+        err instanceof ModelCodeError &&
+        /codex models are not supported for the coder phase/.test(
+          err.message,
+        ) &&
+        /claude/.test(err.message),
+    )
+  })
+
+  test("Codex codes accepted in mp", () => {
+    assert.doesNotThrow(() => parseShortCode("c22", "mp"))
+    assert.doesNotThrow(() => parseShortCode("c1", "mp"))
+  })
+})
+
+describe("parseShortCode — Codex tier resolution", () => {
+  test("c1 → gpt-5.4-mini, no effort", () => {
+    const spec = parseShortCode("c1", "mp")
+    assert.equal(spec.provider, "codex")
+    assert.equal(spec.family, "gpt-5.4-mini")
+    assert.equal(spec.modelId, "gpt-5.4-mini")
+    assert.equal(spec.effort, "none")
+    assert.equal(spec.versionTag, "54m")
+  })
+
+  test("c21..c24 cover gpt-5.4 low..xhigh", () => {
+    assert.equal(parseShortCode("c21", "mp").effort, "low")
+    assert.equal(parseShortCode("c22", "mp").effort, "medium")
+    assert.equal(parseShortCode("c23", "mp").effort, "high")
+    assert.equal(parseShortCode("c24", "mp").effort, "xhigh")
+    for (const code of ["c21", "c22", "c23", "c24"]) {
+      assert.equal(parseShortCode(code, "mp").modelId, "gpt-5.4")
+    }
+  })
+
+  test("c31..c34 cover gpt-5.5 low..xhigh", () => {
+    assert.equal(parseShortCode("c31", "mp").effort, "low")
+    assert.equal(parseShortCode("c32", "mp").effort, "medium")
+    assert.equal(parseShortCode("c33", "mp").effort, "high")
+    assert.equal(parseShortCode("c34", "mp").effort, "xhigh")
+    for (const code of ["c31", "c32", "c33", "c34"]) {
+      assert.equal(parseShortCode(code, "mp").modelId, "gpt-5.5")
+    }
+  })
+
+  test("Codex aliases collapse: c2 ≡ c23, c3 ≡ c33", () => {
+    assert.equal(parseShortCode("c2", "mp"), parseShortCode("c23", "mp"))
+    assert.equal(parseShortCode("c3", "mp"), parseShortCode("c33", "mp"))
+  })
+
+  test("Codex max (c25 / c35) is rejected", () => {
+    assert.throws(() => parseShortCode("c25", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("c35", "mp"), ModelCodeError)
+  })
+
+  test("c1 with effort suffix is rejected (mini has no effort dim)", () => {
+    assert.throws(() => parseShortCode("c12", "mp"), ModelCodeError)
+  })
+
+  test("archivalModelCode appends Codex versionTag", () => {
+    assert.equal(archivalModelCode(parseShortCode("c22", "mp")), "c22-54")
+    assert.equal(archivalModelCode(parseShortCode("c1", "mp")), "c1-54m")
+    assert.equal(archivalModelCode(parseShortCode("c34", "mp")), "c34-55")
+  })
 })
 
 describe("catalog integrity", () => {

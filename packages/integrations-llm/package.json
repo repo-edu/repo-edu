@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+    "@openai/codex-sdk": "0.128.0",
     "@repo-edu/integrations-llm-contract": "workspace:*"
   },
   "exports": {
@@ -16,6 +17,11 @@
       "source": "./src/claude/index.ts",
       "types": "./dist/claude/index.d.ts",
       "default": "./dist/claude/index.js"
+    },
+    "./codex": {
+      "source": "./src/codex/index.ts",
+      "types": "./dist/codex/index.d.ts",
+      "default": "./dist/codex/index.js"
     }
   },
   "scripts": {

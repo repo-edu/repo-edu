@@ -92,11 +92,14 @@ const MODEL_CODE_HELP = [
   "              low   medium   high      xhigh   max",
   "  sonnet      21    22       23 | 2     —       —",
   "  opus        31    32       33 | 3     34      35",
+  "  gpt-5.4     c21   c22      c23 | c2   c24     —",
+  "  gpt-5.5     c31   c32      c33 | c3   c34     —",
   "",
-  "  haiku = 1 (no thinking modes)",
+  "  haiku       = 1   (no thinking modes; Claude)",
+  "  gpt-5.4-mini = c1 (no thinking modes; Codex)",
   "",
-  "  Codex codes (c1 / c21..c24 / c2 / c31..c34 / c3) ship with the",
-  "  Codex provider plan; coder phase (mc) is Claude-only.",
+  "  Codex codes are accepted for the planner / evaluator phase (mp)",
+  "  only; the coder phase (mc) is Claude-only.",
 ]
 
 const OPT_DESC_COL = 31

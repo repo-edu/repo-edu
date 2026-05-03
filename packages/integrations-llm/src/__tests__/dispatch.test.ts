@@ -5,12 +5,11 @@ import {
   LlmError,
   type LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
-import { createCodexLlmTextClient } from "../codex"
 
 const codexSpec = {
   provider: "codex" as const,
-  family: "gpt-5.5",
-  modelId: "gpt-5.5",
+  family: "gpt-5.4",
+  modelId: "gpt-5.4",
   effort: "medium" as const,
 }
 
@@ -26,21 +25,6 @@ function fakeRequest(
 ): GenerateTextRequest {
   return { spec, prompt: "ping" }
 }
-
-describe("Codex stub", () => {
-  it("throws LlmError('other', ...) until the real adapter ships", async () => {
-    const client: LlmTextClient = createCodexLlmTextClient()
-    await assert.rejects(
-      () => client.generateText(fakeRequest(codexSpec)),
-      (error: unknown) => {
-        if (!(error instanceof LlmError)) return false
-        if (error.kind !== "other") return false
-        if (error.context.provider !== "codex") return false
-        return true
-      },
-    )
-  })
-})
 
 describe("Dispatcher routing", () => {
   it("routes by spec.provider and surfaces unknown providers as plain Error", async () => {
@@ -88,7 +72,7 @@ describe("Dispatcher routing", () => {
     const claudeResult = await client.generateText(fakeRequest(claudeSpec))
     assert.equal(claudeResult.reply, "claude:claude-sonnet-4-6")
     const codexResult = await client.generateText(fakeRequest(codexSpec))
-    assert.equal(codexResult.reply, "codex:gpt-5.5")
+    assert.equal(codexResult.reply, "codex:gpt-5.4")
 
     const bogusSpec = {
       ...claudeSpec,

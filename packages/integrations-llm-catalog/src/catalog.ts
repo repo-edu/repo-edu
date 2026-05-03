@@ -9,8 +9,7 @@ import type { FixtureModelSpec, SupportedEfforts } from "./types"
 // Tier metadata
 //
 // Adding a model: declare its tier here, list the efforts it supports, and add
-// a code-table block below. Pricing lives in pricing.ts. Codex tiers land
-// with the Codex provider plan.
+// a code-table block below. Pricing lives in pricing.ts.
 // ---------------------------------------------------------------------------
 
 type Tier = {
@@ -47,6 +46,30 @@ const TIERS: Tier[] = [
     versionTag: "47",
     codeStem: "3",
     supportedEfforts: ["low", "medium", "high", "xhigh", "max"],
+  },
+  {
+    provider: "codex",
+    family: "gpt-5.4-mini",
+    modelId: "gpt-5.4-mini",
+    versionTag: "54m",
+    codeStem: "c1",
+    supportedEfforts: ["none"],
+  },
+  {
+    provider: "codex",
+    family: "gpt-5.4",
+    modelId: "gpt-5.4",
+    versionTag: "54",
+    codeStem: "c2",
+    supportedEfforts: ["low", "medium", "high", "xhigh"],
+  },
+  {
+    provider: "codex",
+    family: "gpt-5.5",
+    modelId: "gpt-5.5",
+    versionTag: "55",
+    codeStem: "c3",
+    supportedEfforts: ["low", "medium", "high", "xhigh"],
   },
 ]
 
