@@ -1,0 +1,16 @@
+{
+  "name": "@repo-edu/fixture-cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "redu-fixtures": "./src/main.ts"
+  },
+  "dependencies": {
+    "@repo-edu/fixture-engine": "workspace:*"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  }
+}

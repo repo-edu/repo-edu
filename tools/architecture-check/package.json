@@ -1,0 +1,13 @@
+{
+  "name": "@repo-edu/architecture-check",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "typescript": "6.0.2"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  }
+}

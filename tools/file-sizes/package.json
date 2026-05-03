@@ -1,0 +1,10 @@
+{
+  "name": "@repo-edu/file-sizes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  }
+}

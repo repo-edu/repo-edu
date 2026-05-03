@@ -197,7 +197,7 @@ interface ParsedArgs {
 
 function runNodeParseArgs(
   argv: string[],
-  options: Parameters<typeof nodeParseArgs>[0]["options"],
+  options: NonNullable<Parameters<typeof nodeParseArgs>[0]>["options"],
 ): ParsedArgs {
   let extraV = 0
   const preprocessed = argv.filter((a) => {

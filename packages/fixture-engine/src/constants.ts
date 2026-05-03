@@ -111,7 +111,44 @@ export const GITIGNORE_LINES = [
 ]
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-export const REPO_ROOT = resolve(__dirname, "../..")
-export const FIXTURES_DIR = resolve(REPO_ROOT, "../fixtures")
+
+// Package-local assets resolve from this module's location.
 export const CODER_AGREEMENT = resolve(__dirname, "coder-agreement.md")
 export const CODER_AGREEMENT_AI = resolve(__dirname, "coder-agreement-ai.md")
+
+// Workspace-root-sensitive paths come from runtime roots configured by the
+// CLI shell. The engine itself never derives these from its own source path.
+export interface FixtureRuntimeRoots {
+  workspaceRoot: string
+  fixturesDir: string
+}
+
+let RUNTIME_ROOTS: FixtureRuntimeRoots | null = null
+
+export function setFixtureRuntimeRoots(roots: FixtureRuntimeRoots): void {
+  RUNTIME_ROOTS = roots
+}
+
+export function getFixtureRuntimeRoots(): FixtureRuntimeRoots {
+  if (!RUNTIME_ROOTS) {
+    throw new Error(
+      "fixture-engine: runtime roots not configured (call setFixtureRuntimeRoots before invoking fixture commands)",
+    )
+  }
+  return RUNTIME_ROOTS
+}
+
+export function defaultFixturesDirFor(workspaceRoot: string): string {
+  return resolve(workspaceRoot, "../fixtures")
+}
+
+// Live bindings — modules that read these at init time must be loaded only
+// after `setFixtureRuntimeRoots` has been called (use `runFixtureCli` from
+// the package entry, which dynamic-imports the rest of the engine).
+export function REPO_ROOT(): string {
+  return getFixtureRuntimeRoots().workspaceRoot
+}
+
+export function FIXTURES_DIR(): string {
+  return getFixtureRuntimeRoots().fixturesDir
+}

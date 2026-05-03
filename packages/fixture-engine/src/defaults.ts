@@ -29,8 +29,12 @@ import {
 } from "./constants"
 import { fail } from "./log"
 
-export const FIXTURE_SETTINGS_FILE = resolve(FIXTURES_DIR, SETTINGS_BASENAME)
-export const FIXTURE_SWEEP_FILE = resolve(FIXTURES_DIR, SWEEP_BASENAME)
+export function FIXTURE_SETTINGS_FILE(): string {
+  return resolve(FIXTURES_DIR(), SETTINGS_BASENAME)
+}
+export function FIXTURE_SWEEP_FILE(): string {
+  return resolve(FIXTURES_DIR(), SWEEP_BASENAME)
+}
 
 export interface Settings {
   mp: string
@@ -282,7 +286,7 @@ export function materializeSettings<K extends keyof Settings>(
 
 export const SETTINGS: Settings = {
   ...HARDCODED_SETTINGS,
-  ...parseSettingsFile(FIXTURE_SETTINGS_FILE),
+  ...parseSettingsFile(FIXTURE_SETTINGS_FILE()),
 }
 
 export const SETTINGS_COMMENT_COL = 28

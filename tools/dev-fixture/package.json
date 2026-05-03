@@ -1,0 +1,13 @@
+{
+  "name": "@repo-edu/dev-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@repo-edu/test-fixtures": "workspace:*"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  }
+}

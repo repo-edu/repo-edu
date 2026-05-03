@@ -267,6 +267,12 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
+  packages/fixture-engine:
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.2.114
+        version: 0.2.114(zod@4.3.6)
+
   packages/host-browser-mock:
     dependencies:
       '@repo-edu/domain':
@@ -530,6 +536,34 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
+
+  tools/architecture-check:
+    dependencies:
+      typescript:
+        specifier: 6.0.2
+        version: 6.0.2
+
+  tools/dev-fixture:
+    dependencies:
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
+
+  tools/file-sizes: {}
+
+  tools/fixture-cli:
+    dependencies:
+      '@repo-edu/fixture-engine':
+        specifier: workspace:*
+        version: link:../../packages/fixture-engine
+
+  tools/fixtures-check:
+    dependencies:
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
+
+  tools/release: {}
 
 packages:
 

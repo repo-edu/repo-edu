@@ -43,7 +43,6 @@ import {
 import { findRepoDirs, runEvaluate } from "./evaluate"
 import {
   emit,
-  FixtureError,
   fail,
   formatSeconds,
   progress,
@@ -85,10 +84,10 @@ import { sampleKindSequence } from "./sampler"
 import { FIXTURE_STATE_FILE, readState, writeState } from "./state"
 
 function scaffoldFixturesDir(): void {
-  mkdirSync(FIXTURES_DIR, { recursive: true })
-  if (!existsSync(FIXTURE_SETTINGS_FILE)) {
-    writeSettings(FIXTURES_DIR, HARDCODED_SETTINGS)
-    progress(`scaffolded ${FIXTURE_SETTINGS_FILE}`)
+  mkdirSync(FIXTURES_DIR(), { recursive: true })
+  if (!existsSync(FIXTURE_SETTINGS_FILE())) {
+    writeSettings(FIXTURES_DIR(), HARDCODED_SETTINGS)
+    progress(`scaffolded ${FIXTURE_SETTINGS_FILE()}`)
   }
 }
 
@@ -104,11 +103,11 @@ function initLogs(verbosity: number, dir: string): void {
 }
 
 function projectDir(project: Project): string {
-  return resolve(FIXTURES_DIR, `c${project.complexity}-${project.name}`)
+  return resolve(FIXTURES_DIR(), `c${project.complexity}-${project.name}`)
 }
 
 function resolveFrom(path: string): string {
-  return isAbsolute(path) ? path : resolve(FIXTURES_DIR, path)
+  return isAbsolute(path) ? path : resolve(FIXTURES_DIR(), path)
 }
 
 function isDir(path: string): boolean {
@@ -154,7 +153,7 @@ function archiveProject(project: Project): string {
   const path = resolve(dir, name)
   writeFileSync(path, projectToMarkdown(project))
   progress(`archived project to ${path}`)
-  writeState({ project: relative(FIXTURES_DIR, path), plan: null })
+  writeState({ project: relative(FIXTURES_DIR(), path), plan: null })
   return name
 }
 
@@ -196,8 +195,8 @@ function archivePlanIntoDir(
   writeFileSync(planPath, planToMarkdown({ meta, plan }))
   progress(`archived plan to ${planPath}`)
   writeState({
-    project: relative(FIXTURES_DIR, projectPath),
-    plan: relative(FIXTURES_DIR, planPath),
+    project: relative(FIXTURES_DIR(), projectPath),
+    plan: relative(FIXTURES_DIR(), planPath),
   })
   return planPath
 }
@@ -309,7 +308,7 @@ async function runCoderStage(
     coderModel: coderOpts.coderModel,
     coderEffort: coderOpts.coderEffort,
   }
-  const displayDir = `${relative(FIXTURES_DIR, planDir)}/${basename(repoDir)}`
+  const displayDir = `${relative(FIXTURES_DIR(), planDir)}/${basename(repoDir)}`
   writeReview(
     project,
     state,
@@ -354,11 +353,11 @@ async function handleProject(
   opts: ProjectOpts,
   runStart: number,
 ): Promise<void> {
-  initLogs(opts.verbosity, FIXTURES_DIR)
+  initLogs(opts.verbosity, FIXTURES_DIR())
   const { project, usage } = await produceProject(opts, runStart)
   archiveProject(project)
   emit(1, projectToMarkdown(project))
-  writeSettings(FIXTURES_DIR, settingsForProject(SETTINGS, opts))
+  writeSettings(FIXTURES_DIR(), settingsForProject(SETTINGS, opts))
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
@@ -402,7 +401,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
   )
   emitPlan(project, plan, planNameOpts, relative(planDir, fromPath))
   const updated = settingsForPlan(SETTINGS, opts)
-  writeSettings(FIXTURES_DIR, updated)
+  writeSettings(FIXTURES_DIR(), updated)
   writeSettings(planDir, updated)
   const runMs = Date.now() - runStart
   process.stdout.write(
@@ -468,7 +467,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const prevPlanSettings = readSettings(planDir)
   const updated = settingsForRepo(prevPlanSettings, opts)
   writeSettings(repoDir, updated)
-  writeSettings(FIXTURES_DIR, settingsForRepo(SETTINGS, opts))
+  writeSettings(FIXTURES_DIR(), settingsForRepo(SETTINGS, opts))
 }
 
 interface EntryPlan {
@@ -516,7 +515,7 @@ async function archivePlanForEntry(
   archivePlanIntoDir(project, plan, planNameOpts, projectPath, planDir)
   emitPlan(project, plan, planNameOpts, relative(planDir, projectPath))
   writeSettings(planDir, entrySettings)
-  writeSettings(FIXTURES_DIR, entrySettings)
+  writeSettings(FIXTURES_DIR(), entrySettings)
   return { plan, planDir, plannerUsage }
 }
 
@@ -561,7 +560,7 @@ async function runRepoForEntry(
     plannerUsage,
   )
   writeSettings(repoDir, entrySettings)
-  writeSettings(FIXTURES_DIR, entrySettings)
+  writeSettings(FIXTURES_DIR(), entrySettings)
 }
 
 async function runEntry(
@@ -713,13 +712,13 @@ async function runRepoForExistingPlan(
     comments: entrySettings.comments,
   }
   writeSettings(repoDir, updated)
-  writeSettings(FIXTURES_DIR, updated)
+  writeSettings(FIXTURES_DIR(), updated)
 }
 
 async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
   const sweepPath = opts.sweepPath
     ? resolveFrom(opts.sweepPath)
-    : FIXTURE_SWEEP_FILE
+    : FIXTURE_SWEEP_FILE()
   const sweep = loadSweepFile(sweepPath)
   const from = resolveSweepFrom(opts, sweep.phase)
   const total = sweep.sweptValues.length
@@ -834,12 +833,12 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
     if (!existsSync(abs)) fail(`--from path not found: ${abs}`)
     rootDir = isDir(abs) ? abs : dirname(abs)
   } else {
-    rootDir = FIXTURES_DIR
+    rootDir = FIXTURES_DIR()
     const state = readState()
     const insideFixtures = (p: string): boolean =>
-      p === FIXTURES_DIR || p.startsWith(`${FIXTURES_DIR}/`)
+      p === FIXTURES_DIR() || p.startsWith(`${FIXTURES_DIR()}/`)
     const candidates: string[] = []
-    // Prefer state.plan: plans always live in FIXTURES_DIR even when the
+    // Prefer state.plan: plans always live in FIXTURES_DIR() even when the
     // seed project file is external. Grandparent = c<N>-<name>/ project dir.
     if (state.plan) {
       const planAbs = resolveFrom(state.plan)
@@ -859,7 +858,7 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
       rootDir = picked
     } else if (state.project || state.plan) {
       progress(
-        `.fixture-state.json points outside ${FIXTURES_DIR} or yields no repos; walking ${FIXTURES_DIR}`,
+        `.fixture-state.json points outside ${FIXTURES_DIR()} or yields no repos; walking ${FIXTURES_DIR()}`,
       )
     }
   }
@@ -876,18 +875,18 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
 }
 
 function handleInit(opts: InitOpts): void {
-  mkdirSync(FIXTURES_DIR, { recursive: true })
+  mkdirSync(FIXTURES_DIR(), { recursive: true })
   const conflicts: string[] = []
-  if (existsSync(FIXTURE_SETTINGS_FILE)) conflicts.push(FIXTURE_SETTINGS_FILE)
-  if (existsSync(FIXTURE_SWEEP_FILE)) conflicts.push(FIXTURE_SWEEP_FILE)
-  if (existsSync(FIXTURE_STATE_FILE)) conflicts.push(FIXTURE_STATE_FILE)
+  if (existsSync(FIXTURE_SETTINGS_FILE())) conflicts.push(FIXTURE_SETTINGS_FILE())
+  if (existsSync(FIXTURE_SWEEP_FILE())) conflicts.push(FIXTURE_SWEEP_FILE())
+  if (existsSync(FIXTURE_STATE_FILE())) conflicts.push(FIXTURE_STATE_FILE())
   if (conflicts.length > 0 && !opts.force) {
     fail(
       `already exists: ${conflicts.join(", ")}; pass -f / --force to overwrite`,
     )
   }
-  writeSettings(FIXTURES_DIR, HARDCODED_SETTINGS)
-  writeSweep(FIXTURES_DIR)
+  writeSettings(FIXTURES_DIR(), HARDCODED_SETTINGS)
+  writeSweep(FIXTURES_DIR())
   if (opts.fromPath) {
     const abs = isAbsolute(opts.fromPath)
       ? opts.fromPath
@@ -897,13 +896,13 @@ function handleInit(opts: InitOpts): void {
   } else {
     writeState({ project: null, plan: null })
   }
-  process.stdout.write(`Wrote ${FIXTURE_SETTINGS_FILE}\n`)
-  process.stdout.write(`Wrote ${FIXTURE_SWEEP_FILE}\n`)
-  process.stdout.write(`Wrote ${FIXTURE_STATE_FILE}\n`)
+  process.stdout.write(`Wrote ${FIXTURE_SETTINGS_FILE()}\n`)
+  process.stdout.write(`Wrote ${FIXTURE_SWEEP_FILE()}\n`)
+  process.stdout.write(`Wrote ${FIXTURE_STATE_FILE()}\n`)
 }
 
-async function main(): Promise<void> {
-  const opts = parseArgs(process.argv.slice(2))
+export async function runFixtureSubcommand(argv: string[]): Promise<void> {
+  const opts = parseArgs(argv)
   if (opts.subcommand === "init") {
     handleInit(opts)
     return
@@ -928,15 +927,3 @@ async function main(): Promise<void> {
       break
   }
 }
-
-main().catch((err) => {
-  if (err instanceof FixtureError) {
-    process.stderr.write(`fixture: ${err.message}\n`)
-    process.stderr.write("Run with --help for usage.\n")
-    process.exit(2)
-  }
-  process.stderr.write(
-    `fixture: ${err instanceof Error ? err.message : String(err)}\n`,
-  )
-  process.exit(1)
-})

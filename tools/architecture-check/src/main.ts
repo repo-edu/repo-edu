@@ -3,7 +3,10 @@ import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 import * as ts from "typescript"
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+const ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+)
 
 function findFiles(
   dir: string,
@@ -127,7 +130,7 @@ function extractImportPaths(content: string): string[] {
 
 function getWorkspacePackageNameMap(): Map<string, string> {
   const packageNames = new Map<string, string>()
-  for (const scope of ["apps", "packages"]) {
+  for (const scope of ["apps", "packages", "tools"]) {
     const scopeDir = path.join(ROOT, scope)
     if (!fs.existsSync(scopeDir)) continue
 
@@ -185,7 +188,7 @@ function checkDomainModuleOrder(errors: Violation[]) {
       const match = imp.match(/^\.\/(.+)\.js$/)
       if (!match) continue
 
-      const depMod = match[1]
+      const depMod = match[1] as (typeof DOMAIN_MODULE_ORDER)[number]
       const depIndex = orderIndex.get(depMod)
       if (depIndex === undefined) continue
 

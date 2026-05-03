@@ -34,9 +34,9 @@ function today(): string {
 }
 
 export function existingDirs(): string[] {
-  if (!existsSync(FIXTURES_DIR)) return []
+  if (!existsSync(FIXTURES_DIR())) return []
   const names = new Set<string>()
-  for (const entry of readdirSync(FIXTURES_DIR, { withFileTypes: true })) {
+  for (const entry of readdirSync(FIXTURES_DIR(), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
     if (entry.name.startsWith(".") || entry.name.startsWith("_")) continue
     const stripped = entry.name.replace(/^c\d+-/, "")
@@ -163,7 +163,7 @@ export async function generateProject(
   const { reply, usage } = await runAgent(prompt, {
     model: opts.plannerModel,
     ...effortOption(opts.plannerEffort),
-    cwd: REPO_ROOT,
+    cwd: REPO_ROOT(),
     maxTurns: 1,
     allowedTools: [],
     permissionMode: "bypassPermissions",
@@ -187,7 +187,7 @@ export async function generatePlan(
   const { reply, usage } = await runAgent(prompt, {
     model: opts.plannerModel,
     ...effortOption(opts.plannerEffort),
-    cwd: REPO_ROOT,
+    cwd: REPO_ROOT(),
     maxTurns: 1,
     allowedTools: [],
     permissionMode: "bypassPermissions",

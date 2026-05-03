@@ -86,7 +86,8 @@
       "@repo-edu/integrations-lms": [
         "./packages/integrations-lms/src/index.ts"
       ],
-      "@repo-edu/integrations-git": ["./packages/integrations-git/src/index.ts"]
+      "@repo-edu/integrations-git": ["./packages/integrations-git/src/index.ts"],
+      "@repo-edu/fixture-engine": ["./packages/fixture-engine/src/index.ts"]
     }
   }
 }
