@@ -63,6 +63,8 @@ export const TRACE_BASENAME = "_trace.md"
 export const XTRACE_BASENAME = "_xtrace.md"
 export const STATE_BASENAME = "_state.json"
 export const REVIEW_BASENAME = "_review.md"
+export const RATE_LIMITED_BASENAME = "_rate-limited.json"
+export const QUOTA_EXHAUSTED_BASENAME = "_quota-exhausted.json"
 export const SETTINGS_BASENAME = ".fixture-settings.jsonc"
 export const SWEEP_BASENAME = ".fixture-sweep.jsonc"
 export const PLAN_BASENAME = "plan.md"
@@ -72,6 +74,8 @@ export const GITIGNORE_LINES = [
   "_xtrace.md",
   "_review.md",
   "_state.json",
+  "_rate-limited.json",
+  "_quota-exhausted.json",
   ".fixture-settings.jsonc",
   ".DS_Store",
 ]

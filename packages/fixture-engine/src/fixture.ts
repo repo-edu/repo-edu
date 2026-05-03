@@ -12,7 +12,7 @@ import {
   modelCode,
   parseShortCode,
 } from "@repo-edu/integrations-llm-catalog"
-import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
+import { LlmError, type LlmUsage } from "@repo-edu/integrations-llm-contract"
 import {
   type EvaluateOpts,
   type InitOpts,
@@ -53,6 +53,7 @@ import {
   setEmitState,
   withTicker,
 } from "./log"
+import { isCapErrorKind, writeCapMarkerForRepo } from "./markers"
 import {
   nextAvailable,
   type PlanNameOpts,
@@ -82,6 +83,12 @@ import {
 import { type ReviewSummaryOpts, writeReview } from "./review"
 import { sampleKindSequence } from "./sampler"
 import { FIXTURE_STATE_FILE, readState, writeState } from "./state"
+import {
+  bucketLabel,
+  type CappedBucket,
+  findCappedBucket,
+  recordCapFromError,
+} from "./sweep-buckets"
 
 function scaffoldFixturesDir(): void {
   mkdirSync(FIXTURES_DIR(), { recursive: true })
@@ -433,26 +440,33 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     style: meta.style,
   }
   emitPlan(project, plan, planNameOpts, meta.projectFile)
-  await runCoderStage(
-    project,
-    plan,
-    {
-      rounds: meta.rounds,
-      students: meta.students,
-      reviews: meta.reviews,
-    },
-    {
-      coderSpec: opts.coderSpec,
-      aiCoders: meta.aiCoders,
-      comments: opts.comments,
-      students: meta.students,
-      plannerSpec,
-    },
-    planDir,
-    repoDir,
-    runStart,
-    emptyUsage(),
-  )
+  try {
+    await runCoderStage(
+      project,
+      plan,
+      {
+        rounds: meta.rounds,
+        students: meta.students,
+        reviews: meta.reviews,
+      },
+      {
+        coderSpec: opts.coderSpec,
+        aiCoders: meta.aiCoders,
+        comments: opts.comments,
+        students: meta.students,
+        plannerSpec,
+      },
+      planDir,
+      repoDir,
+      runStart,
+      emptyUsage(),
+    )
+  } catch (err) {
+    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+      writeCapMarkerForRepo(repoDir, err, opts.coderSpec)
+    }
+    throw err
+  }
   const prevPlanSettings = readSettings(planDir)
   const updated = settingsForRepo(prevPlanSettings, opts)
   writeSettings(repoDir, updated)
@@ -523,53 +537,35 @@ async function runRepoForEntry(
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
   initLogs(verbosity, repoDir)
-  await runCoderStage(
-    project,
-    plan,
-    {
-      rounds: entrySettings.rounds,
-      students: entrySettings.students,
-      reviews: entrySettings.reviews,
-    },
-    {
-      coderSpec,
-      aiCoders: entrySettings.aiCoders,
-      comments: entrySettings.comments,
-      students: entrySettings.students,
-      plannerSpec,
-    },
-    planDir,
-    repoDir,
-    runStart,
-    plannerUsage,
-  )
+  try {
+    await runCoderStage(
+      project,
+      plan,
+      {
+        rounds: entrySettings.rounds,
+        students: entrySettings.students,
+        reviews: entrySettings.reviews,
+      },
+      {
+        coderSpec,
+        aiCoders: entrySettings.aiCoders,
+        comments: entrySettings.comments,
+        students: entrySettings.students,
+        plannerSpec,
+      },
+      planDir,
+      repoDir,
+      runStart,
+      plannerUsage,
+    )
+  } catch (err) {
+    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+      writeCapMarkerForRepo(repoDir, err, coderSpec)
+    }
+    throw err
+  }
   writeSettings(repoDir, entrySettings)
   writeSettings(FIXTURES_DIR(), entrySettings)
-}
-
-async function runEntry(
-  project: Project,
-  projectPath: string,
-  entrySettings: Settings,
-  verbosity: number,
-  runStart: number,
-): Promise<void> {
-  const { plan, planDir, plannerUsage } = await archivePlanForEntry(
-    project,
-    projectPath,
-    entrySettings,
-    verbosity,
-    runStart,
-  )
-  await runRepoForEntry(
-    project,
-    plan,
-    planDir,
-    entrySettings,
-    verbosity,
-    runStart,
-    plannerUsage,
-  )
 }
 
 type SweepFromKind = "project" | "plan"
@@ -666,26 +662,33 @@ async function runRepoForExistingPlan(
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
   initLogs(verbosity, repoDir)
-  await runCoderStage(
-    from.project,
-    from.plan,
-    {
-      rounds: from.meta.rounds,
-      students: from.meta.students,
-      reviews: from.meta.reviews,
-    },
-    {
-      coderSpec,
-      aiCoders: from.meta.aiCoders,
-      comments: entrySettings.comments,
-      students: from.meta.students,
-      plannerSpec,
-    },
-    from.planDir,
-    repoDir,
-    runStart,
-    emptyUsage(),
-  )
+  try {
+    await runCoderStage(
+      from.project,
+      from.plan,
+      {
+        rounds: from.meta.rounds,
+        students: from.meta.students,
+        reviews: from.meta.reviews,
+      },
+      {
+        coderSpec,
+        aiCoders: from.meta.aiCoders,
+        comments: entrySettings.comments,
+        students: from.meta.students,
+        plannerSpec,
+      },
+      from.planDir,
+      repoDir,
+      runStart,
+      emptyUsage(),
+    )
+  } catch (err) {
+    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+      writeCapMarkerForRepo(repoDir, err, coderSpec)
+    }
+    throw err
+  }
   const prevPlanSettings = readSettings(from.planDir)
   const updated: Settings = {
     ...prevPlanSettings,
@@ -716,6 +719,8 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
     )
   }
 
+  const cappedBuckets: CappedBucket[] = []
+
   if (sweep.phase === "plan") {
     if (from.kind !== "project") {
       fail("internal: plan-phase sweep reached repo-phase from-resolution")
@@ -728,17 +733,63 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      const variantPlannerSpec = parseShortCode(entrySettings.mp, "mp")
+      const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
+      const plannerCapped = findCappedBucket(
+        cappedBuckets,
+        variantPlannerSpec.provider,
+      )
+      const coderCapped = findCappedBucket(
+        cappedBuckets,
+        variantCoderSpec.provider,
+      )
+      const blocking = plannerCapped ?? coderCapped
+      if (blocking) {
+        if (i > 0) process.stderr.write("\n")
+        progress(
+          `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+        )
+        continue
+      }
       if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )
-      await runEntry(
+      // Planner phase first: cap here cannot write a per-repo marker, so the
+      // sweep aborts with the error.
+      const planned = await archivePlanForEntry(
         from.project,
         from.projectPath,
         entrySettings,
         opts.verbosity,
         runStart,
       )
+      // Repo phase: cap writes a marker and lets the sweep continue with
+      // other buckets.
+      try {
+        await runRepoForEntry(
+          from.project,
+          planned.plan,
+          planned.planDir,
+          entrySettings,
+          opts.verbosity,
+          runStart,
+          planned.plannerUsage,
+        )
+      } catch (err) {
+        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+          const bucket = recordCapFromError(
+            cappedBuckets,
+            err,
+            variantCoderSpec.provider,
+          )
+          progress(
+            `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,
+          )
+          continue
+        }
+        throw err
+      }
     }
   } else if (from.kind === "plan") {
     for (let i = 0; i < total; i++) {
@@ -749,16 +800,43 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
+      const blocking = findCappedBucket(
+        cappedBuckets,
+        variantCoderSpec.provider,
+      )
+      if (blocking) {
+        if (i > 0) process.stderr.write("\n")
+        progress(
+          `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+        )
+        continue
+      }
       if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )
-      await runRepoForExistingPlan(
-        from,
-        entrySettings,
-        opts.verbosity,
-        runStart,
-      )
+      try {
+        await runRepoForExistingPlan(
+          from,
+          entrySettings,
+          opts.verbosity,
+          runStart,
+        )
+      } catch (err) {
+        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+          const bucket = recordCapFromError(
+            cappedBuckets,
+            err,
+            variantCoderSpec.provider,
+          )
+          progress(
+            `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,
+          )
+          continue
+        }
+        throw err
+      }
     }
   } else {
     const firstSettings = materializeSettings(
@@ -785,19 +863,46 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         value,
         `${sweepPath}[${i}]`,
       )
+      const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
+      const blocking = findCappedBucket(
+        cappedBuckets,
+        variantCoderSpec.provider,
+      )
+      if (blocking) {
+        if (i > 0) process.stderr.write("\n")
+        progress(
+          `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+        )
+        continue
+      }
       if (i > 0) process.stderr.write("\n")
       progress(
         `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
       )
-      await runRepoForEntry(
-        from.project,
-        plan,
-        planDir,
-        entrySettings,
-        opts.verbosity,
-        runStart,
-        i === 0 ? plannerUsage : emptyUsage(),
-      )
+      try {
+        await runRepoForEntry(
+          from.project,
+          plan,
+          planDir,
+          entrySettings,
+          opts.verbosity,
+          runStart,
+          i === 0 ? plannerUsage : emptyUsage(),
+        )
+      } catch (err) {
+        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+          const bucket = recordCapFromError(
+            cappedBuckets,
+            err,
+            variantCoderSpec.provider,
+          )
+          progress(
+            `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,
+          )
+          continue
+        }
+        throw err
+      }
     }
   }
   process.stdout.write(

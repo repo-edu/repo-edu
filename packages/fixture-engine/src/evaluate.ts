@@ -15,9 +15,15 @@ import {
   tokenCostUsd,
 } from "@repo-edu/integrations-llm-catalog"
 import type { LlmAuthMode, LlmUsage } from "@repo-edu/integrations-llm-contract"
-import { PLAN_BASENAME, STATE_BASENAME } from "./constants"
+import {
+  PLAN_BASENAME,
+  QUOTA_EXHAUSTED_BASENAME,
+  RATE_LIMITED_BASENAME,
+  STATE_BASENAME,
+} from "./constants"
 import { emptyUsage, generateText } from "./llm-client"
 import { fail } from "./log"
+import { type CapMarker, hasCapMarker, readCapMarker } from "./markers"
 import { markdownToPlan } from "./plan-md"
 import { loadSection } from "./prompt-loader"
 
@@ -48,6 +54,11 @@ interface RoundUsage {
   usage: LlmUsage
 }
 
+type RepoStatus =
+  | "ok"
+  | "incomplete: rate-limited"
+  | "incomplete: quota-exhausted"
+
 interface RepoReport {
   repoDir: string
   dirName: string
@@ -58,8 +69,15 @@ interface RepoReport {
   totalUsage: LlmUsage
   estCost: number | undefined
   authMode: LlmAuthMode
-  score: Score
-  total: number
+  status: RepoStatus
+  score: Score | null
+  total: number | null
+}
+
+function statusFromMarker(marker: CapMarker): RepoStatus {
+  return marker.kind === "rate_limit"
+    ? "incomplete: rate-limited"
+    : "incomplete: quota-exhausted"
 }
 
 export const EVALUATE_BASENAME = "_evaluate.md"
@@ -72,7 +90,11 @@ export function findRepoDirs(root: string): string[] {
   const out: string[] = []
   const walk = (dir: string): void => {
     if (!isDir(dir)) return
-    if (existsSync(resolve(dir, STATE_BASENAME))) {
+    if (
+      existsSync(resolve(dir, STATE_BASENAME)) ||
+      existsSync(resolve(dir, RATE_LIMITED_BASENAME)) ||
+      existsSync(resolve(dir, QUOTA_EXHAUSTED_BASENAME))
+    ) {
       out.push(dir)
       return
     }
@@ -88,6 +110,7 @@ export function findRepoDirs(root: string): string[] {
 
 function readState(repoDir: string): RoundUsage[] {
   const path = resolve(repoDir, STATE_BASENAME)
+  if (!existsSync(path)) return []
   const raw = JSON.parse(readFileSync(path, "utf8")) as {
     rounds: RoundUsage[]
   }
@@ -264,18 +287,26 @@ function formatWallSeconds(ms: number): string {
   return `${Math.round(ms / 1000)} s`
 }
 
+function rankKey(r: RepoReport): number {
+  return r.total ?? -1
+}
+
 function renderReport(
   evaluatorSpec: FixtureModelSpec,
   rootDir: string,
   reports: RepoReport[],
 ): string {
-  const sorted = [...reports].sort((a, b) => b.total - a.total)
+  const sorted = [...reports].sort((a, b) => rankKey(b) - rankKey(a))
+  const scored = sorted.filter(
+    (r): r is RepoReport & { score: Score; total: number } =>
+      r.status === "ok" && r.score !== null,
+  )
   const styles = [...new Set(sorted.map((r) => r.styleName))]
   const planDirs = [...new Set(sorted.map((r) => r.planDir))].sort()
   const titleStyle = styles.length === 1 ? styles[0] : `${styles.length} styles`
   const summaryHeader = [
-    `| repo | kind | wall | in | cached | out | cost |`,
-    `| --- | --- | --- | --- | --- | --- | --- |`,
+    `| repo | kind | status | wall | in | cached | out | cost |`,
+    `| --- | --- | --- | --- | --- | --- | --- | --- |`,
   ]
   const summaryRows = sorted.map((r) => {
     const wall = formatWallSeconds(r.totalUsage.wallMs)
@@ -284,20 +315,20 @@ function renderReport(
     const outT = formatTokens(r.totalUsage.outputTokens)
     const cost = formatCostByMode(r.authMode, r.estCost)
     const repoLabel = `${basename(r.planDir)}/${r.dirName} (${formatModelSpec(r.spec)})`
-    return `| ${repoLabel} | ${r.styleName} | ${wall} | ${inT} | ${cachedT} | ${outT} | ${cost} |`
+    return `| ${repoLabel} | ${r.styleName} | ${r.status} | ${wall} | ${inT} | ${cachedT} | ${outT} | ${cost} |`
   })
   const axisHeadings = RUBRIC_AXES.map((a) => a.replace(/_/g, " "))
   const scoresHeader = [
     `| kind | ${axisHeadings.join(" | ")} | total |`,
     `| --- | ${RUBRIC_AXES.map(() => "---").join(" | ")} | --- |`,
   ]
-  const scoresRows = sorted.map((r) => {
+  const scoresRows = scored.map((r) => {
     const axes = RUBRIC_AXES.map((a) => String(r.score[a] as number)).join(
       " | ",
     )
     return `| ${r.styleName} | ${axes} | **${r.total}** |`
   })
-  const notes = sorted.map((r) => {
+  const notes = scored.map((r) => {
     const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatModelSpec(r.spec)} (${r.styleName})`
     const bullets = RUBRIC_AXES.map((axis) => {
       const note = r.score.notes[axis]?.trim() ?? ""
@@ -308,6 +339,9 @@ function renderReport(
     })
     return [heading, "", ...bullets].join("\n")
   })
+  const incomplete = sorted.filter((r) => r.status !== "ok")
+  const scoresHeading =
+    incomplete.length > 0 ? "## Scores (scored-only)" : "## Scores"
   return [
     `# Repo evaluation — ${titleStyle}`,
     "",
@@ -318,13 +352,14 @@ function renderReport(
     "",
     "Costs use the pricing snapshot in `@repo-edu/integrations-llm-catalog/pricing.ts`.",
     "Subscription-mode rows are prefixed with `~` (API-equivalent cost); `usd: —` means the model has no rate card.",
+    "Incomplete repos (rate-limited / quota-exhausted) appear in the Summary with their completed-round usage included in totals, but are excluded from the Scores table and rubric averages.",
     "",
     "## Summary",
     "",
     ...summaryHeader,
     ...summaryRows,
     "",
-    "## Scores",
+    scoresHeading,
     "",
     ...scoresHeader,
     ...scoresRows,
@@ -385,7 +420,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
   const repoDirs = findRepoDirs(opts.rootDir)
   if (repoDirs.length === 0) {
     fail(
-      `no repo dirs under ${opts.rootDir} (looking for directories containing ${STATE_BASENAME})`,
+      `no repo dirs under ${opts.rootDir} (looking for directories containing ${STATE_BASENAME}, ${RATE_LIMITED_BASENAME}, or ${QUOTA_EXHAUSTED_BASENAME})`,
     )
   }
 
@@ -408,6 +443,33 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
     const rounds = readState(repoDir)
     const totalUsage = aggregateUsage(rounds)
     const estCost = tokenCostUsd(parsed.spec, totalUsage)
+    const marker = hasCapMarker(repoDir) ? readCapMarker(repoDir) : null
+
+    if (marker) {
+      const status = statusFromMarker(marker)
+      const authMode: LlmAuthMode =
+        rounds.length > 0
+          ? totalUsage.authMode
+          : (marker.authMode ?? totalUsage.authMode)
+      process.stdout.write(
+        `evaluate: ${basename(ctx.planDir)}/${name} ${status} (${rounds.length} completed round(s)) — skipping rubric\n`,
+      )
+      reports.push({
+        repoDir,
+        dirName: name,
+        planDir: ctx.planDir,
+        styleName: ctx.styleName,
+        spec: parsed.spec,
+        rounds: rounds.length,
+        totalUsage,
+        estCost,
+        authMode,
+        status,
+        score: null,
+        total: null,
+      })
+      continue
+    }
 
     const tree = gitLs(repoDir)
     const files = readFiles(repoDir, tree)
@@ -438,6 +500,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
       totalUsage,
       estCost,
       authMode: totalUsage.authMode,
+      status: "ok",
       score,
       total: totalScore(score),
     })
