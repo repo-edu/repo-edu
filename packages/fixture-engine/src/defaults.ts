@@ -259,7 +259,7 @@ export function loadSweepFile(path: string): SweepFile {
     if (Array.isArray(v)) continue // unreachable, guarded above
     ;(overrides as Record<string, unknown>)[key] = validateValue(path, key, v)
   }
-  const baseSettings: Settings = { ...SETTINGS, ...overrides }
+  const baseSettings: Settings = { ...SETTINGS(), ...overrides }
   const phase: SweepPhase = PLAN_PHASE_KEYS.has(sweptKey) ? "plan" : "repo"
   if (phase === "plan") {
     // reviews ≤ rounds will be checked per materialized variant
@@ -284,9 +284,19 @@ export function materializeSettings<K extends keyof Settings>(
   return next
 }
 
-export const SETTINGS: Settings = {
-  ...HARDCODED_SETTINGS,
-  ...parseSettingsFile(FIXTURE_SETTINGS_FILE()),
+// Lazy so importing this module does not trigger a runtime-roots read.
+// Tests that exercise pure helpers (parsers, materializers) can import the
+// module without configuring fixture roots; CLI entry points call
+// `setFixtureRuntimeRoots` before consulting `SETTINGS`.
+let cachedSettings: Settings | null = null
+export function SETTINGS(): Settings {
+  if (cachedSettings === null) {
+    cachedSettings = {
+      ...HARDCODED_SETTINGS,
+      ...parseSettingsFile(FIXTURE_SETTINGS_FILE()),
+    }
+  }
+  return cachedSettings
 }
 
 export const SETTINGS_COMMENT_COL = 28

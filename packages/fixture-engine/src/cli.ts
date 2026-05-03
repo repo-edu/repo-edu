@@ -109,7 +109,7 @@ const SETTINGS_BODY = [
   "Format: JSONC (JSON with // comments and trailing commas).",
   "",
   "{",
-  ...settingsRowsForHelp(SETTINGS),
+  ...settingsRowsForHelp(SETTINGS()),
   "}",
 ]
 
@@ -239,7 +239,7 @@ function resolveAiCoders(
   v: Record<string, string | boolean | boolean[] | undefined>,
 ): boolean {
   const raw = v["ai-coders"]
-  if (raw === undefined) return SETTINGS.aiCoders
+  if (raw === undefined) return SETTINGS().aiCoders
   if (raw === "1") return true
   if (raw === "0") return false
   fail(`-a/--ai-coders must be 0 or 1, got "${String(raw)}"`)
@@ -321,9 +321,9 @@ function parseProject(argv: string[]): ProjectOpts {
   })
   const common = commonOptsFrom(v)
   const complexity =
-    v.complexity !== undefined ? Number(v.complexity) : SETTINGS.complexity
+    v.complexity !== undefined ? Number(v.complexity) : SETTINGS().complexity
   const plannerSpec = parseModelOption(
-    (v.model as string | undefined) ?? SETTINGS.mp,
+    (v.model as string | undefined) ?? SETTINGS().mp,
     "-m/--model",
     "mp",
   )
@@ -352,18 +352,19 @@ function parsePlan(argv: string[]): PlanOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v)
-  const rounds = v.rounds !== undefined ? Number(v.rounds) : SETTINGS.rounds
+  const rounds = v.rounds !== undefined ? Number(v.rounds) : SETTINGS().rounds
   const students =
-    v.students !== undefined ? Number(v.students) : SETTINGS.students
+    v.students !== undefined ? Number(v.students) : SETTINGS().students
   const coderInteraction =
     v["coder-interaction"] !== undefined
       ? Number(v["coder-interaction"])
-      : SETTINGS.coderInteraction
-  const reviews = v.reviews !== undefined ? Number(v.reviews) : SETTINGS.reviews
-  const style = (v.style as string | undefined) ?? SETTINGS.style
+      : SETTINGS().coderInteraction
+  const reviews =
+    v.reviews !== undefined ? Number(v.reviews) : SETTINGS().reviews
+  const style = (v.style as string | undefined) ?? SETTINGS().style
   const aiCoders = resolveAiCoders(v)
   const plannerSpec = parseModelOption(
-    (v.model as string | undefined) ?? SETTINGS.mp,
+    (v.model as string | undefined) ?? SETTINGS().mp,
     "-m/--model",
     "mp",
   )
@@ -398,9 +399,9 @@ function parseRepo(argv: string[]): RepoOpts {
   })
   const common = commonOptsFrom(v)
   const comments =
-    v.comments !== undefined ? Number(v.comments) : SETTINGS.comments
+    v.comments !== undefined ? Number(v.comments) : SETTINGS().comments
   const coderSpec = parseModelOption(
-    (v.model as string | undefined) ?? SETTINGS.mc,
+    (v.model as string | undefined) ?? SETTINGS().mc,
     "-m/--model",
     "mc",
   )
@@ -428,7 +429,7 @@ function opt(spec: string, ...descLines: string[]): string[] {
 const aiCodersHelp = (): string[] =>
   opt(
     "  -a, --ai-coders=0|1",
-    `AI-coders mode (no student framing) (default: ${SETTINGS.aiCoders ? 1 : 0})`,
+    `AI-coders mode (no student framing) (default: ${SETTINGS().aiCoders ? 1 : 0})`,
   )
 
 function parseInit(argv: string[]): InitOpts {
@@ -534,10 +535,10 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "Generate a project (name + assignment) at c<N>-<name>/project.md.",
       "",
       "Options:",
-      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS.mp})`),
+      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS().mp})`),
       ...opt(
         "  -c, --complexity=N",
-        `${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS.complexity})`,
+        `${MIN_COMPLEXITY}-${MAX_COMPLEXITY} (default: ${SETTINGS().complexity})`,
       ),
       ...opt(
         "  -v, --verbose",
@@ -563,28 +564,28 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         "or relative to ../fixtures/). Optional if",
         ".fixture-state.json has a project.",
       ),
-      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS.mp})`),
+      ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS().mp})`),
       ...aiCodersHelp(),
       ...opt(
         "  -i, --coder-interaction=N",
-        `${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS.coderInteraction}) — cross-module author mixing`,
+        `${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS().coderInteraction}) — cross-module author mixing`,
       ),
       ...opt(
         "  -y, --style=STYLENAME",
-        `(default: ${SETTINGS.style}) — structural shape of the commit`,
+        `(default: ${SETTINGS().style}) — structural shape of the commit`,
         "timeline; see Style values: below",
       ),
       ...opt(
         "  -s, --students=N",
-        `${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS.students})`,
+        `${MIN_STUDENTS}-${MAX_STUDENTS} (default: ${SETTINGS().students})`,
       ),
       ...opt(
         "  -r, --rounds=N",
-        `Build-commit count (default: ${SETTINGS.rounds})`,
+        `Build-commit count (default: ${SETTINGS().rounds})`,
       ),
       ...opt(
         "  -w, --reviews=N",
-        `${MIN_REVIEWS}..--rounds (default: ${SETTINGS.reviews}) — review-commit`,
+        `${MIN_REVIEWS}..--rounds (default: ${SETTINGS().reviews}) — review-commit`,
         "count, placed at random build slots",
       ),
       ...opt(
@@ -645,10 +646,10 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         "(absolute, or relative to ../fixtures/).",
         "Optional if .fixture-state.json has a plan.",
       ),
-      ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS.mc})`),
+      ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS().mc})`),
       ...opt(
         "  -o, --comments=N",
-        `${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
+        `${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS().comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
       ),
       ...opt(
         "  -v, --verbose",

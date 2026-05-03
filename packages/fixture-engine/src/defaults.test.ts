@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 import { afterEach, beforeEach, describe, test } from "node:test"
+import { setFixtureRuntimeRoots } from "./constants.js"
 import {
   HARDCODED_SETTINGS,
   loadSweepFile,
@@ -24,6 +25,10 @@ function stageSweep(name: string, body: object | string): string {
 
 beforeEach(() => {
   workDir = mkdtempSync(resolve(tmpdir(), "fixture-defaults-"))
+  // `loadSweepFile` and `writeSweep` consult the lazy `SETTINGS()` singleton,
+  // which requires runtime roots. Point fixturesDir at the per-test workDir
+  // so the absent settings file falls back to `HARDCODED_SETTINGS`.
+  setFixtureRuntimeRoots({ workspaceRoot: workDir, fixturesDir: workDir })
 })
 
 afterEach(() => {

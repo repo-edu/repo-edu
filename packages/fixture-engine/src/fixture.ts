@@ -359,7 +359,7 @@ async function handleProject(
   const { project, usage } = await produceProject(opts, runStart)
   archiveProject(project)
   emit(1, projectToMarkdown(project))
-  writeSettings(FIXTURES_DIR(), settingsForProject(SETTINGS, opts))
+  writeSettings(FIXTURES_DIR(), settingsForProject(SETTINGS(), opts))
   const runMs = Date.now() - runStart
   process.stdout.write(
     `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/cached/out: ${usage.inputTokens} / ${usage.cachedInputTokens} / ${usage.outputTokens}\n`,
@@ -401,7 +401,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     planDir,
   )
   emitPlan(project, plan, planNameOpts, relative(planDir, fromPath))
-  const updated = settingsForPlan(SETTINGS, opts)
+  const updated = settingsForPlan(SETTINGS(), opts)
   writeSettings(FIXTURES_DIR(), updated)
   writeSettings(planDir, updated)
   const runMs = Date.now() - runStart
@@ -470,7 +470,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const prevPlanSettings = readSettings(planDir)
   const updated = settingsForRepo(prevPlanSettings, opts)
   writeSettings(repoDir, updated)
-  writeSettings(FIXTURES_DIR(), settingsForRepo(SETTINGS, opts))
+  writeSettings(FIXTURES_DIR(), settingsForRepo(SETTINGS(), opts))
 }
 
 interface EntryPlan {
