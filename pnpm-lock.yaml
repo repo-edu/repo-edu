@@ -281,6 +281,9 @@ importers:
       '@repo-edu/integrations-llm':
         specifier: workspace:*
         version: link:../integrations-llm
+      '@repo-edu/integrations-llm-catalog':
+        specifier: workspace:*
+        version: link:../integrations-llm-catalog
       '@repo-edu/integrations-llm-contract':
         specifier: workspace:*
         version: link:../integrations-llm-contract
@@ -378,6 +381,12 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2.114
         version: 0.2.114(zod@4.3.6)
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
+
+  packages/integrations-llm-catalog:
+    dependencies:
       '@repo-edu/integrations-llm-contract':
         specifier: workspace:*
         version: link:../integrations-llm-contract

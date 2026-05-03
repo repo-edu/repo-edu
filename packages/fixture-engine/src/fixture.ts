@@ -7,7 +7,12 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
+import {
+  type FixtureModelSpec,
+  modelCode,
+  parseShortCode,
+} from "@repo-edu/integrations-llm-catalog"
+import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
 import {
   type EvaluateOpts,
   type InitOpts,
@@ -21,7 +26,6 @@ import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
 import {
   FIXTURES_DIR,
   LOG_BASENAME,
-  type ModelName,
   PLAN_BASENAME,
   TRACE_BASENAME,
   XTRACE_BASENAME,
@@ -40,7 +44,7 @@ import {
   writeSweep,
 } from "./defaults"
 import { findRepoDirs, runEvaluate } from "./evaluate"
-import type { Usage } from "./llm-client"
+import { emptyUsage } from "./llm-client"
 import {
   emit,
   fail,
@@ -49,13 +53,9 @@ import {
   setEmitState,
   withTicker,
 } from "./log"
-import { makeClaudeSpec, parseModelCode } from "./model-codes"
 import {
-  formatSpec,
-  modelCode,
   nextAvailable,
   type PlanNameOpts,
-  parseSpec,
   planPostfix,
   type RepoNameOpts,
   repoPostfix,
@@ -184,7 +184,7 @@ function archivePlanIntoDir(
   const meta: PlanMeta = {
     project: project.name,
     projectFile: relative(planDir, projectPath),
-    planner: formatSpec(opts.plannerModel, opts.plannerEffort),
+    planner: modelCode(opts.plannerSpec),
     aiCoders: opts.aiCoders,
     rounds: opts.rounds,
     students: opts.students,
@@ -213,7 +213,7 @@ function emitPlan(
       meta: {
         project: project.name,
         projectFile,
-        planner: formatSpec(opts.plannerModel, opts.plannerEffort),
+        planner: modelCode(opts.plannerSpec),
         aiCoders: opts.aiCoders,
         rounds: opts.rounds,
         students: opts.students,
@@ -229,14 +229,14 @@ function emitPlan(
 async function produceProject(
   opts: ProjectGenOpts,
   runStart: number,
-): Promise<{ project: Project; usage: Usage }> {
+): Promise<{ project: Project; usage: LlmUsage }> {
   const existing = existingDirs()
   const { project, usage } = await withTicker(
     "fixture: generating project…",
     () => generateProject(opts, existing),
   )
   progress(
-    `project ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
+    `project ready (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
   )
   return { project, usage }
 }
@@ -245,7 +245,7 @@ async function producePlan(
   project: Project,
   opts: PlanGenOpts,
   runStart: number,
-): Promise<{ plan: Plan; usage: Usage }> {
+): Promise<{ plan: Plan; usage: LlmUsage }> {
   const kindSequence = sampleKindSequence(opts.rounds, opts.reviews)
   progress(
     `sampled kind sequence (${opts.rounds} builds + ${opts.reviews} reviews)`,
@@ -254,7 +254,7 @@ async function producePlan(
     generatePlan(project, opts, kindSequence),
   )
   progress(
-    `plan ready (${formatSeconds(usage.wall_ms)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
+    `plan ready (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
   )
   return { plan, usage }
 }
@@ -285,14 +285,11 @@ async function runCoderStage(
     students: number
     reviews: number
   },
-  coderOpts: CoderRunOpts & {
-    plannerModel: ModelName
-    plannerEffort: EffortLevel | "none"
-  },
+  coderOpts: CoderRunOpts & { plannerSpec: FixtureModelSpec },
   planDir: string,
   repoDir: string,
   runStart: number,
-  plannerUsage: Usage,
+  plannerUsage: LlmUsage,
 ): Promise<void> {
   initRepo(repoDir)
 
@@ -303,10 +300,8 @@ async function runCoderStage(
     complexity: project.complexity,
     students: planMeta.students,
     reviews: planMeta.reviews,
-    plannerModel: coderOpts.plannerModel,
-    plannerEffort: coderOpts.plannerEffort,
-    coderModel: coderOpts.coderModel,
-    coderEffort: coderOpts.coderEffort,
+    plannerSpec: coderOpts.plannerSpec,
+    coderSpec: coderOpts.coderSpec,
   }
   const displayDir = `${relative(FIXTURES_DIR(), planDir)}/${basename(repoDir)}`
   writeReview(
@@ -323,7 +318,7 @@ async function runCoderStage(
 function settingsForProject(prev: Settings, opts: ProjectOpts): Settings {
   return {
     ...prev,
-    mp: modelCode(opts.plannerModel, opts.plannerEffort),
+    mp: modelCode(opts.plannerSpec),
     complexity: opts.complexity,
   }
 }
@@ -331,7 +326,7 @@ function settingsForProject(prev: Settings, opts: ProjectOpts): Settings {
 function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
   return {
     ...prev,
-    mp: modelCode(opts.plannerModel, opts.plannerEffort),
+    mp: modelCode(opts.plannerSpec),
     aiCoders: opts.aiCoders,
     students: opts.students,
     rounds: opts.rounds,
@@ -344,7 +339,7 @@ function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
 function settingsForRepo(prev: Settings, opts: RepoOpts): Settings {
   return {
     ...prev,
-    mc: modelCode(opts.coderModel, opts.coderEffort),
+    mc: modelCode(opts.coderSpec),
     comments: opts.comments,
   }
 }
@@ -360,7 +355,7 @@ async function handleProject(
   writeSettings(FIXTURES_DIR(), settingsForProject(SETTINGS, opts))
   const runMs = Date.now() - runStart
   process.stdout.write(
-    `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
+    `Project "${project.name}" archived. Wall time: ${formatSeconds(runMs)} | tokens in/cached/out: ${usage.inputTokens} / ${usage.cachedInputTokens} / ${usage.outputTokens}\n`,
   )
 }
 
@@ -378,8 +373,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     : resolved
   const project = loadProjectFrom(fromPath)
   const planNameOpts: PlanNameOpts = {
-    plannerModel: opts.plannerModel,
-    plannerEffort: opts.plannerEffort,
+    plannerSpec: opts.plannerSpec,
     aiCoders: opts.aiCoders,
     complexity: project.complexity,
     students: opts.students,
@@ -405,7 +399,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
   writeSettings(planDir, updated)
   const runMs = Date.now() - runStart
   process.stdout.write(
-    `Plan archived: ${planPath}\nWall time: ${formatSeconds(runMs)} | tokens in/out: ${usage.input_tokens} / ${usage.output_tokens}\n`,
+    `Plan archived: ${planPath}\nWall time: ${formatSeconds(runMs)} | tokens in/cached/out: ${usage.inputTokens} / ${usage.cachedInputTokens} / ${usage.outputTokens}\n`,
   )
 }
 
@@ -421,17 +415,15 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const { meta, plan, project } = loadPlanFrom(fromPath)
   const planDir = dirname(fromPath)
   const repoNameOpts: RepoNameOpts = {
-    coderModel: opts.coderModel,
-    coderEffort: opts.coderEffort,
+    coderSpec: opts.coderSpec,
     comments: opts.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
   initLogs(opts.verbosity, repoDir)
   progress(`loaded plan for project "${project.name}" from ${fromPath}`)
-  const planner = parseSpec(meta.planner)
+  const plannerSpec = parseShortCode(meta.planner, "mp")
   const planNameOpts: PlanNameOpts = {
-    plannerModel: planner.model,
-    plannerEffort: planner.effort,
+    plannerSpec,
     aiCoders: meta.aiCoders,
     complexity: project.complexity,
     students: meta.students,
@@ -441,7 +433,6 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     style: meta.style,
   }
   emitPlan(project, plan, planNameOpts, meta.projectFile)
-  const zero: Usage = { input_tokens: 0, output_tokens: 0, wall_ms: 0 }
   await runCoderStage(
     project,
     plan,
@@ -451,18 +442,16 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       reviews: meta.reviews,
     },
     {
-      coderModel: opts.coderModel,
-      coderEffort: opts.coderEffort,
+      coderSpec: opts.coderSpec,
       aiCoders: meta.aiCoders,
       comments: opts.comments,
       students: meta.students,
-      plannerModel: planner.model,
-      plannerEffort: planner.effort,
+      plannerSpec,
     },
     planDir,
     repoDir,
     runStart,
-    zero,
+    emptyUsage(),
   )
   const prevPlanSettings = readSettings(planDir)
   const updated = settingsForRepo(prevPlanSettings, opts)
@@ -473,7 +462,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
 interface EntryPlan {
   plan: Plan
   planDir: string
-  plannerUsage: Usage
+  plannerUsage: LlmUsage
 }
 
 async function archivePlanForEntry(
@@ -483,12 +472,9 @@ async function archivePlanForEntry(
   verbosity: number,
   runStart: number,
 ): Promise<EntryPlan> {
-  const planner = parseModelCode(entrySettings.mp, "entry.mp")
-  const plannerModel = planner.family as ModelName
-  const plannerEffort = planner.effort as EffortLevel | "none"
+  const plannerSpec = parseShortCode(entrySettings.mp, "mp")
   const planNameOpts: PlanNameOpts = {
-    plannerModel,
-    plannerEffort,
+    plannerSpec,
     aiCoders: entrySettings.aiCoders,
     complexity: project.complexity,
     students: entrySettings.students,
@@ -500,8 +486,7 @@ async function archivePlanForEntry(
   const planDir = reservePlanDir(project, planNameOpts)
   initLogs(verbosity, planDir)
   const planGenOpts: PlanGenOpts = {
-    plannerModel,
-    plannerEffort,
+    plannerSpec,
     aiCoders: entrySettings.aiCoders,
     rounds: entrySettings.rounds,
     students: entrySettings.students,
@@ -528,17 +513,12 @@ async function runRepoForEntry(
   entrySettings: Settings,
   verbosity: number,
   runStart: number,
-  plannerUsage: Usage,
+  plannerUsage: LlmUsage,
 ): Promise<void> {
-  const planner = parseModelCode(entrySettings.mp, "entry.mp")
-  const coder = parseModelCode(entrySettings.mc, "entry.mc")
-  const plannerModel = planner.family as ModelName
-  const plannerEffort = planner.effort as EffortLevel | "none"
-  const coderModel = coder.family as ModelName
-  const coderEffort = coder.effort as EffortLevel | "none"
+  const plannerSpec = parseShortCode(entrySettings.mp, "mp")
+  const coderSpec = parseShortCode(entrySettings.mc, "mc")
   const repoNameOpts: RepoNameOpts = {
-    coderModel,
-    coderEffort,
+    coderSpec,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
@@ -552,13 +532,11 @@ async function runRepoForEntry(
       reviews: entrySettings.reviews,
     },
     {
-      coderModel,
-      coderEffort,
+      coderSpec,
       aiCoders: entrySettings.aiCoders,
       comments: entrySettings.comments,
       students: entrySettings.students,
-      plannerModel,
-      plannerEffort,
+      plannerSpec,
     },
     planDir,
     repoDir,
@@ -680,13 +658,10 @@ async function runRepoForExistingPlan(
   verbosity: number,
   runStart: number,
 ): Promise<void> {
-  const coder = parseModelCode(entrySettings.mc, "entry.mc")
-  const planner = parseSpec(from.meta.planner)
-  const coderModel = coder.family as ModelName
-  const coderEffort = coder.effort as EffortLevel | "none"
+  const coderSpec = parseShortCode(entrySettings.mc, "mc")
+  const plannerSpec = parseShortCode(from.meta.planner, "mp")
   const repoNameOpts: RepoNameOpts = {
-    coderModel,
-    coderEffort,
+    coderSpec,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
@@ -700,18 +675,16 @@ async function runRepoForExistingPlan(
       reviews: from.meta.reviews,
     },
     {
-      coderModel,
-      coderEffort,
+      coderSpec,
       aiCoders: from.meta.aiCoders,
       comments: entrySettings.comments,
       students: from.meta.students,
-      plannerModel: planner.model,
-      plannerEffort: planner.effort,
+      plannerSpec,
     },
     from.planDir,
     repoDir,
     runStart,
-    { input_tokens: 0, output_tokens: 0, wall_ms: 0 },
+    emptyUsage(),
   )
   const prevPlanSettings = readSettings(from.planDir)
   const updated: Settings = {
@@ -823,9 +796,7 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         entrySettings,
         opts.verbosity,
         runStart,
-        i === 0
-          ? plannerUsage
-          : { input_tokens: 0, output_tokens: 0, wall_ms: 0 },
+        i === 0 ? plannerUsage : emptyUsage(),
       )
     }
   }
@@ -877,7 +848,7 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
     : null
   await runEvaluate({
     rootDir,
-    evaluatorSpec: makeClaudeSpec(opts.evaluatorModel, opts.evaluatorEffort),
+    evaluatorSpec: opts.evaluatorSpec,
     outPath,
   })
 }

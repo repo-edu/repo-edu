@@ -1,8 +1,7 @@
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 
-// Models
+// Default model codes — resolved against @repo-edu/integrations-llm-catalog.
 export const DEFAULT_MP = "35"
 export const DEFAULT_MC = "22"
 
@@ -58,39 +57,6 @@ export const DEFAULT_COMMENTS = 1
 export const MIN_COMMENTS = 0
 export const MAX_COMMENTS = 3
 export const COMMENTS_FREE_TIER = 3
-
-export const MODEL_EFFORTS = {
-  haiku: [] as readonly EffortLevel[],
-  sonnet: ["low", "medium", "high"] as readonly EffortLevel[],
-  opus: ["low", "medium", "high", "xhigh", "max"] as readonly EffortLevel[],
-} as const
-export type ModelName = keyof typeof MODEL_EFFORTS
-
-export const MODEL_DIGIT: Record<ModelName, number> = {
-  haiku: 1,
-  sonnet: 2,
-  opus: 3,
-}
-export const EFFORT_DIGIT: Record<EffortLevel | "none", number> = {
-  none: 0,
-  low: 1,
-  medium: 2,
-  high: 3,
-  xhigh: 4,
-  max: 5,
-}
-
-// USD per million tokens. Snapshot from https://www.anthropic.com/pricing —
-// update here when Anthropic changes pricing.
-export const TOKENS_PER_MTOK = 1_000_000
-export const MODEL_PRICE_USD_PER_MTOK: Record<
-  ModelName,
-  { input: number; output: number }
-> = {
-  haiku: { input: 1, output: 5 },
-  sonnet: { input: 3, output: 15 },
-  opus: { input: 15, output: 75 },
-}
 
 export const LOG_BASENAME = "_log.md"
 export const TRACE_BASENAME = "_trace.md"

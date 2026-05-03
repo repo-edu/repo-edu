@@ -25,6 +25,7 @@ export interface Plan {
 export interface PlanMeta {
   project: string
   projectFile: string
+  /** Canonical planner model code (e.g. "22"); resolves via the catalog. */
   planner: string
   aiCoders: boolean
   rounds: number

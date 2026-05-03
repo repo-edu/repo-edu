@@ -73,6 +73,9 @@
       "@repo-edu/integrations-llm-contract": [
         "./packages/integrations-llm-contract/src/index.ts"
       ],
+      "@repo-edu/integrations-llm-catalog": [
+        "./packages/integrations-llm-catalog/src/index.ts"
+      ],
       "@repo-edu/integrations-llm": [
         "./packages/integrations-llm/src/index.ts"
       ],

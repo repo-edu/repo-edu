@@ -1,5 +1,10 @@
 import { parseArgs as nodeParseArgs } from "node:util"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
+import {
+  type FixtureModelSpec,
+  ModelCodeError,
+  type Phase,
+  parseShortCode,
+} from "@repo-edu/integrations-llm-catalog"
 import {
   COMMENTS_FREE_TIER,
   MAX_CODER_INTERACTION,
@@ -11,13 +16,11 @@ import {
   MIN_COMPLEXITY,
   MIN_REVIEWS,
   MIN_STUDENTS,
-  type ModelName,
   STYLES,
   type Style,
 } from "./constants"
 import { SETTINGS, SETTINGS_PREAMBLE, settingsRowsForHelp } from "./defaults"
 import { fail } from "./log"
-import { parseModelCode } from "./model-codes"
 
 export type Subcommand =
   | "init"
@@ -35,8 +38,7 @@ export interface CommonOpts {
 export interface ProjectOpts extends CommonOpts {
   subcommand: "project"
   complexity: number
-  plannerModel: ModelName
-  plannerEffort: EffortLevel | "none"
+  plannerSpec: FixtureModelSpec
 }
 
 export interface PlanOpts extends CommonOpts {
@@ -48,8 +50,7 @@ export interface PlanOpts extends CommonOpts {
   reviews: number
   aiCoders: boolean
   style: Style
-  plannerModel: ModelName
-  plannerEffort: EffortLevel | "none"
+  plannerSpec: FixtureModelSpec
 }
 
 export interface SweepOpts extends CommonOpts {
@@ -68,16 +69,14 @@ export interface RepoOpts extends CommonOpts {
   subcommand: "repo"
   fromPath: string
   comments: number
-  coderModel: ModelName
-  coderEffort: EffortLevel | "none"
+  coderSpec: FixtureModelSpec
 }
 
 export interface EvaluateOpts extends CommonOpts {
   subcommand: "evaluate"
   fromPath: string
   outPath: string
-  evaluatorModel: ModelName
-  evaluatorEffort: EffortLevel | "none"
+  evaluatorSpec: FixtureModelSpec
 }
 
 export type Opts =
@@ -95,6 +94,9 @@ const MODEL_CODE_HELP = [
   "  opus        31    32       33 | 3     34      35",
   "",
   "  haiku = 1 (no thinking modes)",
+  "",
+  "  Codex codes (c1 / c21..c24 / c2 / c31..c34 / c3) ship with the",
+  "  Codex provider plan; coder phase (mc) is Claude-only.",
 ]
 
 const OPT_DESC_COL = 31
@@ -136,7 +138,7 @@ const TOP_OVERVIEW_LINES = [
   "    project.md                      # from `fixture project`",
   "    ai-i2-bb-s3-r6-w2/              # one folder per plan",
   "      plan.md                       # from `fixture plan`",
-  "      m23-o2/                       # git repo from `fixture repo`",
+  "      m23-46-o2/                    # git repo from `fixture repo`",
   "      .fixture-settings.jsonc       # snapshot of settings used",
   "      _log.md  _trace.md            # run log + per-round prompts/replies",
   "      _xtrace.md                    # full agent turn log",
@@ -145,7 +147,8 @@ const TOP_OVERVIEW_LINES = [
   "The project folder is named c<N>-<name>, where <N> is the project's",
   "complexity tier (1-4) and <name> is the kebab-case name the",
   "planner invented. Each plan lives in its own subfolder named by the",
-  "plan's <postfix>; repo names encode the coder-side run parameters.",
+  "plan's <postfix>; repo names encode the coder-side run parameters",
+  "(model code, model version tag, comments tier).",
   "One project folder can hold multiple plans and one plan folder can",
   "hold multiple repos generated from different settings.",
   "",
@@ -239,6 +242,19 @@ function resolveAiCoders(
   fail(`-a/--ai-coders must be 0 or 1, got "${String(raw)}"`)
 }
 
+function parseModelOption(
+  raw: string,
+  flag: string,
+  phase: Phase,
+): FixtureModelSpec {
+  try {
+    return parseShortCode(raw, phase)
+  } catch (err) {
+    if (err instanceof ModelCodeError) fail(`${flag}: ${err.message}`)
+    throw err
+  }
+}
+
 function validateComplexity(n: number): void {
   if (!Number.isInteger(n) || n < MIN_COMPLEXITY || n > MAX_COMPLEXITY) {
     fail(
@@ -303,9 +319,10 @@ function parseProject(argv: string[]): ProjectOpts {
   const common = commonOptsFrom(v)
   const complexity =
     v.complexity !== undefined ? Number(v.complexity) : SETTINGS.complexity
-  const m = parseModelCode(
+  const plannerSpec = parseModelOption(
     (v.model as string | undefined) ?? SETTINGS.mp,
     "-m/--model",
+    "mp",
   )
   if (!common.help) {
     validateComplexity(complexity)
@@ -314,8 +331,7 @@ function parseProject(argv: string[]): ProjectOpts {
     ...common,
     subcommand: "project",
     complexity,
-    plannerModel: m.family as ModelName,
-    plannerEffort: m.effort as EffortLevel | "none",
+    plannerSpec,
   }
 }
 
@@ -343,9 +359,10 @@ function parsePlan(argv: string[]): PlanOpts {
   const reviews = v.reviews !== undefined ? Number(v.reviews) : SETTINGS.reviews
   const style = (v.style as string | undefined) ?? SETTINGS.style
   const aiCoders = resolveAiCoders(v)
-  const m = parseModelCode(
+  const plannerSpec = parseModelOption(
     (v.model as string | undefined) ?? SETTINGS.mp,
     "-m/--model",
+    "mp",
   )
   if (!common.help) {
     validateRounds(rounds)
@@ -364,8 +381,7 @@ function parsePlan(argv: string[]): PlanOpts {
     reviews,
     aiCoders,
     style: style as Style,
-    plannerModel: m.family as ModelName,
-    plannerEffort: m.effort as EffortLevel | "none",
+    plannerSpec,
   }
 }
 
@@ -380,9 +396,10 @@ function parseRepo(argv: string[]): RepoOpts {
   const common = commonOptsFrom(v)
   const comments =
     v.comments !== undefined ? Number(v.comments) : SETTINGS.comments
-  const m = parseModelCode(
+  const coderSpec = parseModelOption(
     (v.model as string | undefined) ?? SETTINGS.mc,
     "-m/--model",
+    "mc",
   )
   if (!common.help) {
     validateComments(comments)
@@ -392,8 +409,7 @@ function parseRepo(argv: string[]): RepoOpts {
     subcommand: "repo",
     fromPath: (v.from as string | undefined) ?? "",
     comments,
-    coderModel: m.family as ModelName,
-    coderEffort: m.effort as EffortLevel | "none",
+    coderSpec,
   }
 }
 
@@ -455,17 +471,17 @@ function parseEvaluate(argv: string[]): EvaluateOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v)
-  const m = parseModelCode(
+  const evaluatorSpec = parseModelOption(
     (v.model as string | undefined) ?? EVALUATE_DEFAULT_MODEL_CODE,
     "-m/--model",
+    "mp",
   )
   return {
     ...common,
     subcommand: "evaluate",
     fromPath: (v.from as string | undefined) ?? "",
     outPath: (v.out as string | undefined) ?? "",
-    evaluatorModel: m.family as ModelName,
-    evaluatorEffort: m.effort as EffortLevel | "none",
+    evaluatorSpec,
   }
 }
 

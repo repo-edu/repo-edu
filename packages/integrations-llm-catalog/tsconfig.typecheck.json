@@ -6,8 +6,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "../integrations-llm-contract/src/**/*.ts",
-    "../integrations-llm-catalog/src/**/*.ts",
-    "../integrations-llm/src/**/*.ts"
+    "../integrations-llm-contract/src/**/*.ts"
   ]
 }

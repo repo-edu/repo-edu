@@ -1,22 +1,20 @@
 import { existsSync, readdirSync } from "node:fs"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import { FIXTURES_DIR, type ModelName, type Style } from "./constants"
-import { generateText, type Usage } from "./llm-client"
+import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
+import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
+import { FIXTURES_DIR, type Style } from "./constants"
+import { generateText } from "./llm-client"
 import { emit, fail } from "./log"
-import { makeClaudeSpec } from "./model-codes"
 import type { CommitKind, Plan, PlannedCommit, TeamMember } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
 
 export interface ProjectGenOpts {
-  plannerModel: ModelName
-  plannerEffort: EffortLevel | "none"
+  plannerSpec: FixtureModelSpec
   complexity: number
 }
 
 export interface PlanGenOpts {
-  plannerModel: ModelName
-  plannerEffort: EffortLevel | "none"
+  plannerSpec: FixtureModelSpec
   aiCoders: boolean
   rounds: number
   students: number
@@ -141,12 +139,12 @@ function emitPlannerTrace(
   stage: "project" | "plan",
   prompt: string,
   reply: string,
-  usage: Usage,
+  usage: LlmUsage,
 ): void {
   const header = `\n## Planner · ${stage}\n\n### Prompt\n\n${prompt}`
   emit(2, header)
   emit(3, header)
-  const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`
+  const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- inputTokens: ${usage.inputTokens}\n- cachedInputTokens: ${usage.cachedInputTokens}\n- outputTokens: ${usage.outputTokens}\n- wallMs: ${usage.wallMs}\n- authMode: ${usage.authMode}`
   emit(2, tail)
   emit(3, tail)
 }
@@ -154,10 +152,9 @@ function emitPlannerTrace(
 export async function generateProject(
   opts: ProjectGenOpts,
   existing: string[],
-): Promise<{ project: Project; usage: Usage }> {
+): Promise<{ project: Project; usage: LlmUsage }> {
   const prompt = projectPrompt(opts, existing)
-  const spec = makeClaudeSpec(opts.plannerModel, opts.plannerEffort)
-  const { reply, usage } = await generateText(spec, prompt)
+  const { reply, usage } = await generateText(opts.plannerSpec, prompt)
   emitPlannerTrace("project", prompt, reply, usage)
   const parsed = parseJsonOrFail<Omit<Project, "complexity">>(
     reply,
@@ -172,10 +169,9 @@ export async function generatePlan(
   project: Project,
   opts: PlanGenOpts,
   kindSequence: CommitKind[],
-): Promise<{ plan: Plan; usage: Usage }> {
+): Promise<{ plan: Plan; usage: LlmUsage }> {
   const prompt = planPrompt(project, opts, kindSequence)
-  const spec = makeClaudeSpec(opts.plannerModel, opts.plannerEffort)
-  const { reply, usage } = await generateText(spec, prompt)
+  const { reply, usage } = await generateText(opts.plannerSpec, prompt)
   emitPlannerTrace("plan", prompt, reply, usage)
   type RawPlannedCommit = Omit<PlannedCommit, "kind">
   const raw = parseJsonOrFail<{

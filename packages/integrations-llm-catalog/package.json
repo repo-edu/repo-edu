@@ -1,11 +1,8 @@
 {
-  "name": "@repo-edu/fixture-engine",
+  "name": "@repo-edu/integrations-llm-catalog",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.114",
-    "@repo-edu/integrations-llm": "workspace:*",
-    "@repo-edu/integrations-llm-catalog": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*"
   },
   "exports": {
@@ -19,6 +16,6 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
-    "test": "node --import tsx --test src/*.test.ts"
+    "test": "node --import tsx --test src/__tests__/*.test.ts"
   }
 }

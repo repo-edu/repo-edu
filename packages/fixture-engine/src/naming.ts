@@ -1,17 +1,13 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import {
-  EFFORT_DIGIT,
-  MODEL_DIGIT,
-  type ModelName,
-  STYLE_CODE,
-  type Style,
-} from "./constants"
+  archivalModelCode,
+  type FixtureModelSpec,
+} from "@repo-edu/integrations-llm-catalog"
+import { STYLE_CODE, type Style } from "./constants"
 
 export interface PlanNameOpts {
-  plannerModel: ModelName
-  plannerEffort: EffortLevel | "none"
+  plannerSpec: FixtureModelSpec
   aiCoders: boolean
   complexity: number
   students: number
@@ -22,37 +18,8 @@ export interface PlanNameOpts {
 }
 
 export interface RepoNameOpts {
-  coderModel: ModelName
-  coderEffort: EffortLevel | "none"
+  coderSpec: FixtureModelSpec
   comments: number
-}
-
-export function modelCode(
-  model: ModelName,
-  effort: EffortLevel | "none",
-): string {
-  const m = MODEL_DIGIT[model]
-  if (model === "haiku") return String(m)
-  return `${m}${EFFORT_DIGIT[effort]}`
-}
-
-export function formatSpec(
-  model: ModelName,
-  effort: EffortLevel | "none",
-): string {
-  return effort === "none" ? model : `${model}-${effort}`
-}
-
-export function parseSpec(spec: string): {
-  model: ModelName
-  effort: EffortLevel | "none"
-} {
-  const dash = spec.indexOf("-")
-  if (dash < 0) return { model: spec as ModelName, effort: "none" }
-  return {
-    model: spec.slice(0, dash) as ModelName,
-    effort: spec.slice(dash + 1) as EffortLevel,
-  }
 }
 
 export function planPostfix(opts: PlanNameOpts): string {
@@ -69,7 +36,7 @@ export function planPostfix(opts: PlanNameOpts): string {
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  return `m${modelCode(opts.coderModel, opts.coderEffort)}-o${opts.comments}`
+  return `m${archivalModelCode(opts.coderSpec)}-o${opts.comments}`
 }
 
 export function nextAvailable(dir: string, base: string, ext = ""): string {

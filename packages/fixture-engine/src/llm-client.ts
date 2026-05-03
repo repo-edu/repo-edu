@@ -10,20 +10,6 @@ import type {
 } from "@repo-edu/integrations-llm-contract"
 import { emit } from "./log"
 
-export interface Usage {
-  input_tokens: number
-  output_tokens: number
-  wall_ms: number
-}
-
-export function toLegacyUsage(usage: LlmUsage): Usage {
-  return {
-    input_tokens: usage.inputTokens,
-    output_tokens: usage.outputTokens,
-    wall_ms: usage.wallMs,
-  }
-}
-
 const xtraceSink = (text: string): void => {
   emit(3, text)
 }
@@ -41,14 +27,23 @@ export async function generateText(
   spec: LlmModelSpec,
   prompt: string,
   signal?: AbortSignal,
-): Promise<{ reply: string; usage: Usage }> {
-  const result = await getClient().generateText({ spec, prompt, signal })
-  return { reply: result.reply, usage: toLegacyUsage(result.usage) }
+): Promise<{ reply: string; usage: LlmUsage }> {
+  return getClient().generateText({ spec, prompt, signal })
 }
 
 export async function runCoder(
   request: Omit<ClaudeCoderRequest, "trace">,
-): Promise<{ reply: string; usage: Usage }> {
-  const result = await runClaudeCoder({ ...request, trace: xtraceSink })
-  return { reply: result.reply, usage: toLegacyUsage(result.usage) }
+): Promise<{ reply: string; usage: LlmUsage }> {
+  return runClaudeCoder({ ...request, trace: xtraceSink })
+}
+
+export function emptyUsage(authMode: LlmUsage["authMode"] = "api"): LlmUsage {
+  return {
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    reasoningOutputTokens: 0,
+    wallMs: 0,
+    authMode,
+  }
 }

@@ -6,17 +6,17 @@
     "declarationMap": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "tsBuildInfoFile": "./.tsbuildinfo",
-    "types": ["node"]
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../integrations-llm-contract" },
-    { "path": "../integrations-llm-catalog" },
-    { "path": "../integrations-llm" }
+    { "path": "../integrations-llm-contract" }
+  ],
+  "include": [
+    "src/**/*.ts"
   ],
   "exclude": [
     "src/**/__tests__/**",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

@@ -7,19 +7,17 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, resolve } from "node:path"
-import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import type { LlmModelSpec } from "@repo-edu/integrations-llm-contract"
 import {
-  MODEL_PRICE_USD_PER_MTOK,
-  type ModelName,
-  PLAN_BASENAME,
-  STATE_BASENAME,
-  TOKENS_PER_MTOK,
-} from "./constants"
-import { generateText, type Usage } from "./llm-client"
+  type FixtureModelSpec,
+  formatCostByMode,
+  formatModelSpec,
+  parseRepoDirCode,
+  tokenCostUsd,
+} from "@repo-edu/integrations-llm-catalog"
+import type { LlmAuthMode, LlmUsage } from "@repo-edu/integrations-llm-contract"
+import { PLAN_BASENAME, STATE_BASENAME } from "./constants"
+import { emptyUsage, generateText } from "./llm-client"
 import { fail } from "./log"
-import { MODEL_CODES } from "./model-codes"
-import { formatSpec } from "./naming"
 import { markdownToPlan } from "./plan-md"
 import { loadSection } from "./prompt-loader"
 
@@ -47,7 +45,7 @@ interface Score {
 }
 
 interface RoundUsage {
-  usage: Usage
+  usage: LlmUsage
 }
 
 interface RepoReport {
@@ -55,10 +53,11 @@ interface RepoReport {
   dirName: string
   planDir: string
   styleName: string
-  spec: LlmModelSpec
+  spec: FixtureModelSpec
   rounds: number
-  totalUsage: Usage
-  estCost: number
+  totalUsage: LlmUsage
+  estCost: number | undefined
+  authMode: LlmAuthMode
   score: Score
   total: number
 }
@@ -87,12 +86,6 @@ export function findRepoDirs(root: string): string[] {
   return out
 }
 
-function parseRepoDirCode(dirName: string): LlmModelSpec | null {
-  const m = dirName.match(/^m(\d+)-o\d+/)
-  if (!m) return null
-  return MODEL_CODES[m[1]] ?? null
-}
-
 function readState(repoDir: string): RoundUsage[] {
   const path = resolve(repoDir, STATE_BASENAME)
   const raw = JSON.parse(readFileSync(path, "utf8")) as {
@@ -101,22 +94,16 @@ function readState(repoDir: string): RoundUsage[] {
   return raw.rounds
 }
 
-function aggregateUsage(rounds: RoundUsage[]): Usage {
-  const acc: Usage = { input_tokens: 0, output_tokens: 0, wall_ms: 0 }
+function aggregateUsage(rounds: RoundUsage[]): LlmUsage {
+  const acc = emptyUsage(rounds[0]?.usage.authMode ?? "api")
   for (const r of rounds) {
-    acc.input_tokens += r.usage.input_tokens
-    acc.output_tokens += r.usage.output_tokens
-    acc.wall_ms += r.usage.wall_ms
+    acc.inputTokens += r.usage.inputTokens
+    acc.cachedInputTokens += r.usage.cachedInputTokens
+    acc.outputTokens += r.usage.outputTokens
+    acc.reasoningOutputTokens += r.usage.reasoningOutputTokens
+    acc.wallMs += r.usage.wallMs
   }
   return acc
-}
-
-function estimateCost(family: ModelName, usage: Usage): number {
-  const p = MODEL_PRICE_USD_PER_MTOK[family]
-  return (
-    (usage.input_tokens * p.input + usage.output_tokens * p.output) /
-    TOKENS_PER_MTOK
-  )
 }
 
 function gitLs(repoDir: string): string[] {
@@ -269,10 +256,6 @@ function totalScore(s: Score): number {
   return RUBRIC_AXES.reduce((sum, axis) => sum + (s[axis] as number), 0)
 }
 
-function formatCost(usd: number): string {
-  return usd < 0.01 ? `<$0.01` : `$${usd.toFixed(2)}`
-}
-
 function formatTokens(n: number, decimals = 1): string {
   return `${(n / 1000).toFixed(decimals)}k`
 }
@@ -282,7 +265,7 @@ function formatWallSeconds(ms: number): string {
 }
 
 function renderReport(
-  evaluatorSpec: LlmModelSpec,
+  evaluatorSpec: FixtureModelSpec,
   rootDir: string,
   reports: RepoReport[],
 ): string {
@@ -291,20 +274,17 @@ function renderReport(
   const planDirs = [...new Set(sorted.map((r) => r.planDir))].sort()
   const titleStyle = styles.length === 1 ? styles[0] : `${styles.length} styles`
   const summaryHeader = [
-    `| repo | kind | wall | in | out | cost |`,
-    `| --- | --- | --- | --- | --- | --- |`,
+    `| repo | kind | wall | in | cached | out | cost |`,
+    `| --- | --- | --- | --- | --- | --- | --- |`,
   ]
   const summaryRows = sorted.map((r) => {
-    const spec = formatSpec(
-      r.spec.family as ModelName,
-      r.spec.effort as EffortLevel | "none",
-    )
-    const wall = formatWallSeconds(r.totalUsage.wall_ms)
-    const inT = formatTokens(r.totalUsage.input_tokens)
-    const outT = formatTokens(r.totalUsage.output_tokens)
-    const cost = formatCost(r.estCost)
-    const repoLabel = `${basename(r.planDir)}/${r.dirName} (${spec})`
-    return `| ${repoLabel} | ${r.styleName} | ${wall} | ${inT} | ${outT} | ${cost} |`
+    const wall = formatWallSeconds(r.totalUsage.wallMs)
+    const inT = formatTokens(r.totalUsage.inputTokens)
+    const cachedT = formatTokens(r.totalUsage.cachedInputTokens)
+    const outT = formatTokens(r.totalUsage.outputTokens)
+    const cost = formatCostByMode(r.authMode, r.estCost)
+    const repoLabel = `${basename(r.planDir)}/${r.dirName} (${formatModelSpec(r.spec)})`
+    return `| ${repoLabel} | ${r.styleName} | ${wall} | ${inT} | ${cachedT} | ${outT} | ${cost} |`
   })
   const axisHeadings = RUBRIC_AXES.map((a) => a.replace(/_/g, " "))
   const scoresHeader = [
@@ -318,7 +298,7 @@ function renderReport(
     return `| ${r.styleName} | ${axes} | **${r.total}** |`
   })
   const notes = sorted.map((r) => {
-    const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatSpec(r.spec.family as ModelName, r.spec.effort as EffortLevel | "none")} (${r.styleName})`
+    const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatModelSpec(r.spec)} (${r.styleName})`
     const bullets = RUBRIC_AXES.map((axis) => {
       const note = r.score.notes[axis]?.trim() ?? ""
       const score = r.score[axis] as number
@@ -334,9 +314,10 @@ function renderReport(
     `Root: \`${rootDir}\``,
     `Plan dir(s):`,
     ...planDirs.map((p) => `- \`${p}\``),
-    `Evaluator: ${formatSpec(evaluatorSpec.family as ModelName, evaluatorSpec.effort as EffortLevel | "none")}`,
+    `Evaluator: ${formatModelSpec(evaluatorSpec)}`,
     "",
-    "Cost estimates use `MODEL_PRICE_USD_PER_MTOK` in `scripts/fixtures/constants.ts`; update it as Anthropic pricing changes.",
+    "Costs use the pricing snapshot in `@repo-edu/integrations-llm-catalog/pricing.ts`.",
+    "Subscription-mode rows are prefixed with `~` (API-equivalent cost); `usd: —` means the model has no rate card.",
     "",
     "## Summary",
     "",
@@ -395,7 +376,7 @@ function loadPlanContext(
 
 export interface EvaluateOpts {
   rootDir: string
-  evaluatorSpec: LlmModelSpec
+  evaluatorSpec: FixtureModelSpec
   outPath: string | null
 }
 
@@ -409,10 +390,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
   }
 
   process.stdout.write(
-    `evaluate: ${repoDirs.length} repo(s) under ${opts.rootDir}, evaluator=${formatSpec(
-      opts.evaluatorSpec.family as ModelName,
-      opts.evaluatorSpec.effort as EffortLevel | "none",
-    )}\n`,
+    `evaluate: ${repoDirs.length} repo(s) under ${opts.rootDir}, evaluator=${formatModelSpec(opts.evaluatorSpec)}\n`,
   )
 
   const planCache = new Map<string, PlanContext>()
@@ -420,8 +398,8 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
   for (const repoDir of repoDirs) {
     const name = basename(repoDir)
     const ctx = loadPlanContext(planCache, repoDir)
-    const spec = parseRepoDirCode(name)
-    if (!spec) {
+    const parsed = parseRepoDirCode(name)
+    if (!parsed) {
       process.stdout.write(
         `evaluate: skipping ${basename(ctx.planDir)}/${name} (unrecognised repo dir name)\n`,
       )
@@ -429,7 +407,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
     }
     const rounds = readState(repoDir)
     const totalUsage = aggregateUsage(rounds)
-    const estCost = estimateCost(spec.family as ModelName, totalUsage)
+    const estCost = tokenCostUsd(parsed.spec, totalUsage)
 
     const tree = gitLs(repoDir)
     const files = readFiles(repoDir, tree)
@@ -455,10 +433,11 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
       dirName: name,
       planDir: ctx.planDir,
       styleName: ctx.styleName,
-      spec,
+      spec: parsed.spec,
       rounds: rounds.length,
       totalUsage,
       estCost,
+      authMode: totalUsage.authMode,
       score,
       total: totalScore(score),
     })

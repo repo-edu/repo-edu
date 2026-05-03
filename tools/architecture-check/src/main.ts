@@ -79,6 +79,7 @@ const FORBIDDEN_CROSS_LAYER: [string, string[]][] = [
     [
       "packages/integrations-git/src/",
       "packages/integrations-lms/src/",
+      "packages/integrations-llm/src/",
       "packages/host-node/",
     ],
   ],
