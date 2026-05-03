@@ -12,6 +12,8 @@
     "type": "module",
     "main": "./out/main/main.js",
     "dependencies": {
+        "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+        "@openai/codex-sdk": "0.128.0",
         "@repo-edu/application": "workspace:*",
         "@repo-edu/application-contract": "workspace:*",
         "@repo-edu/domain": "workspace:*",

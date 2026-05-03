@@ -74,6 +74,12 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.2.114
+        version: 0.2.114(zod@4.3.6)
+      '@openai/codex-sdk':
+        specifier: 0.128.0
+        version: 0.128.0
       '@repo-edu/application':
         specifier: workspace:*
         version: link:../../packages/application

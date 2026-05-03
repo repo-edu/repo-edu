@@ -33,6 +33,7 @@ describe("application-contract workflow catalog", () => {
       "connection.verifyLmsDraft",
       "connection.listLmsCoursesDraft",
       "connection.verifyGitDraft",
+      "connection.verifyLlmDraft",
       "roster.importFromFile",
       "roster.importFromLms",
       "roster.exportMembers",
