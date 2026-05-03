@@ -2,12 +2,10 @@ import { parseArgs as nodeParseArgs } from "node:util"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
 import {
   COMMENTS_FREE_TIER,
-  MAX_CODER_EXPERIENCE,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
   MAX_STUDENTS,
-  MIN_CODER_EXPERIENCE,
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
@@ -69,8 +67,6 @@ export interface InitOpts extends CommonOpts {
 export interface RepoOpts extends CommonOpts {
   subcommand: "repo"
   fromPath: string
-  coderExperience: number
-  coderExperienceExplicit: boolean
   comments: number
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
@@ -262,17 +258,6 @@ function validateRounds(n: number): void {
     fail(`--rounds must be a positive integer, got "${n}"`)
   }
 }
-function validateCoderExperience(n: number): void {
-  if (
-    !Number.isInteger(n) ||
-    n < MIN_CODER_EXPERIENCE ||
-    n > MAX_CODER_EXPERIENCE
-  ) {
-    fail(
-      `--coder-experience must be an integer ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE}, got "${n}"`,
-    )
-  }
-}
 function validateComments(n: number): void {
   if (!Number.isInteger(n) || n < MIN_COMMENTS || n > MAX_COMMENTS) {
     fail(
@@ -387,17 +372,12 @@ function parsePlan(argv: string[]): PlanOpts {
 function parseRepo(argv: string[]): RepoOpts {
   const { values: v } = runNodeParseArgs(argv, {
     from: { type: "string" },
-    "coder-experience": { type: "string", short: "x" },
     comments: { type: "string", short: "o" },
     model: { type: "string", short: "m" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v)
-  const coderExperienceExplicit = v["coder-experience"] !== undefined
-  const coderExperience = coderExperienceExplicit
-    ? Number(v["coder-experience"])
-    : SETTINGS.coderExperience
   const comments =
     v.comments !== undefined ? Number(v.comments) : SETTINGS.comments
   const m = parseModelCode(
@@ -405,15 +385,12 @@ function parseRepo(argv: string[]): RepoOpts {
     "-m/--model",
   )
   if (!common.help) {
-    validateCoderExperience(coderExperience)
     validateComments(comments)
   }
   return {
     ...common,
     subcommand: "repo",
     fromPath: (v.from as string | undefined) ?? "",
-    coderExperience,
-    coderExperienceExplicit,
     comments,
     coderModel: m.model,
     coderEffort: m.effort,
@@ -651,10 +628,6 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       ),
       ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS.mc})`),
       ...opt(
-        "  -x, --coder-experience=N",
-        `${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE} (default: ${SETTINGS.coderExperience}); ignored when the plan is in AI-coders mode`,
-      ),
-      ...opt(
         "  -o, --comments=N",
         `${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS.comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
       ),
@@ -724,7 +697,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "      has a project).",
     "      For each value: run plan, then run repo. Yields N plan dirs,",
     "      one repo each.",
-    "  - List on a repo-phase key (mc, coderExperience, comments):",
+    "  - List on a repo-phase key (mc, comments):",
     "      `--from` may be a project (plan once, then iterate repos) or a",
     "      plan (skip planning, iterate repos against the existing plan).",
     "      Without `--from`, falls back to the plan in",

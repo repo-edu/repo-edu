@@ -81,16 +81,13 @@ because the parent `c<N>-<name>/` folder already carries it.
 - `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
   a uniformly-chosen subset of build slots).
 
-**Repo postfix** — `m<code>[-x<N>]-o<N>`
+**Repo postfix** — `m<code>-o<N>`
 
 Segments follow `fixture repo -h` flag order; everything inherited
 from the parent project/plan folders is omitted.
 
 - `m<code>` — coder model + effort (e.g. `m22` = sonnet medium; see
   the model-code table in `fixture -hh`).
-- `x<N>` *(optional)* — coder-experience level
-  (`--coder-experience`, 1-4); omitted in AI-coders mode where `-x`
-  is silently ignored.
 - `o<N>` — comment-density tier (`-o, --comments`, 0-3); 0 leaves
   commenting to the coder.
 
@@ -99,9 +96,6 @@ from the parent project/plan folders is omitted.
 `-a 1` (or `--ai-coders 1`) on `plan` switches into **AI-coders mode**:
 
 - Planner drops student-team framing.
-- Coder runs without an experience tier; `-x` on `repo` is silently
-  ignored (experience tiers simulate student skill, which doesn't
-  apply to AI coders).
 - AI-mode prompts live in bespoke files (`planner/plan-ai.md`,
   `coder/build-ai.md`, `coder/review-ai.md`, `coder/persona-ai.md`,
   `coder-agreement-ai.md`) so student-mode prompts stay unchanged.
@@ -182,7 +176,6 @@ CLI flags):
     "reviews": 1,           // integer 0..rounds, review-commit count
 
     // fixture repo
-    "coderExperience": 3,   // integer 1-4, ignored when aiCoders=true
     "comments": 1           // integer 0-3, 3=leave to coder
 }
 ```
@@ -239,7 +232,7 @@ what `--from` points at:
     `state.project`). Plan-phase sweeps cannot reuse an existing plan.
   - For each value: run plan, then run repo. Yields N plan dirs, one
     repo each.
-- **Repo-phase key** (`mc`, `coderExperience`, `comments`):
+- **Repo-phase key** (`mc`, `comments`):
   - `--from` may be a project (plan once with the first value's
     settings, then iterate repos against that shared plan) **or** a
     plan (skip planning entirely, iterate repos against the existing
@@ -327,7 +320,7 @@ reference (every subcommand plus the model-code table and
 | `init` | `.fixture-settings.jsonc` + `.fixture-sweep.jsonc` + empty `.fixture-state.json` (scaffold) | `-f` |
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
-| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-x`, `-o` |
+| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-o` |
 | `sweep [--from=<project\|plan>] [--sweep=<sweep.jsonc>]` | N plan+repo (plan-phase key) or one plan + N repos (repo-phase key); `--from=<plan>` reuses an existing plan | `--from`, `--sweep` |
 | `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
 
@@ -344,14 +337,14 @@ naturally without any `--from` flags:
 ```bash
 pnpm fixture project -c 3                  # archives project, updates state
 pnpm fixture plan -s 4 -r 5 -i 3 -a 0            # uses state.project, updates state.plan
-pnpm fixture repo -x 4                     # uses state.plan
+pnpm fixture repo -o 2                     # uses state.plan
 ```
 
 Explicit paths still work and override the state:
 
 ```bash
 pnpm fixture plan --from=c3-NAME/project.md -s 4 -r 5 --reviews 2 -i 3
-pnpm fixture repo --from=c3-NAME -x 4              # auto-picks single plan subfolder
+pnpm fixture repo --from=c3-NAME -o 2              # auto-picks single plan subfolder
 pnpm fixture repo --from=c3-NAME/bb-c4-s3-r5-w2-i3/   # plan dir
-pnpm fixture repo --from=c3-NAME/bb-c4-s3-r5-w2-i3/plan.md -x 4
+pnpm fixture repo --from=c3-NAME/bb-c4-s3-r5-w2-i3/plan.md -o 2
 ```

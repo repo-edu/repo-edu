@@ -11,8 +11,6 @@ goal points at — it may be my own area or a teammate's. If something is
 rough — a bug, a messy bit, an inconsistency — fix it and commit. If
 everything looks fine, say so and don't commit anything.
 
-Code style: {{coder_experience_rules}}
-
 {{comments_directive}}
 
 When you're done, stage and commit your work with:

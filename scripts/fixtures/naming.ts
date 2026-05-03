@@ -24,8 +24,6 @@ export interface PlanNameOpts {
 export interface RepoNameOpts {
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
-  aiCoders: boolean
-  coderExperience: number
   comments: number
 }
 
@@ -71,10 +69,7 @@ export function planPostfix(opts: PlanNameOpts): string {
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  const parts = [`m${modelCode(opts.coderModel, opts.coderEffort)}`]
-  if (!opts.aiCoders) parts.push(`x${opts.coderExperience}`)
-  parts.push(`o${opts.comments}`)
-  return parts.join("-")
+  return `m${modelCode(opts.coderModel, opts.coderEffort)}-o${opts.comments}`
 }
 
 export function nextAvailable(dir: string, base: string, ext = ""): string {

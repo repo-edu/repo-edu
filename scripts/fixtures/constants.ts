@@ -54,9 +54,6 @@ export const STYLE_CODE: Record<Style, string> = {
 }
 
 // Repo (coder)
-export const DEFAULT_CODER_EXPERIENCE = 3
-export const MIN_CODER_EXPERIENCE = 1
-export const MAX_CODER_EXPERIENCE = 4
 export const DEFAULT_COMMENTS = 1
 export const MIN_COMMENTS = 0
 export const MAX_COMMENTS = 3

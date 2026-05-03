@@ -3,7 +3,6 @@ import { resolve } from "node:path"
 import {
   COMMENTS_FREE_TIER,
   DEFAULT_AI_CODERS,
-  DEFAULT_CODER_EXPERIENCE,
   DEFAULT_CODER_INTERACTION,
   DEFAULT_COMMENTS,
   DEFAULT_COMPLEXITY,
@@ -14,12 +13,10 @@ import {
   DEFAULT_STUDENTS,
   DEFAULT_STYLE,
   FIXTURES_DIR,
-  MAX_CODER_EXPERIENCE,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
   MAX_COMPLEXITY,
   MAX_STUDENTS,
-  MIN_CODER_EXPERIENCE,
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
@@ -39,7 +36,6 @@ export interface Settings {
   mp: string
   mc: string
   aiCoders: boolean
-  coderExperience: number
   coderInteraction: number
   complexity: number
   students: number
@@ -53,7 +49,6 @@ export const HARDCODED_SETTINGS: Settings = {
   mp: DEFAULT_MP,
   mc: DEFAULT_MC,
   aiCoders: DEFAULT_AI_CODERS,
-  coderExperience: DEFAULT_CODER_EXPERIENCE,
   coderInteraction: DEFAULT_CODER_INTERACTION,
   complexity: DEFAULT_COMPLEXITY,
   students: DEFAULT_STUDENTS,
@@ -72,7 +67,6 @@ const NUMERIC_SPECS: Record<
   keyof Omit<Settings, "mp" | "mc" | "aiCoders" | "style">,
   Spec
 > = {
-  coderExperience: { min: MIN_CODER_EXPERIENCE, max: MAX_CODER_EXPERIENCE },
   coderInteraction: { min: MIN_CODER_INTERACTION, max: MAX_CODER_INTERACTION },
   complexity: { min: MIN_COMPLEXITY, max: MAX_COMPLEXITY },
   students: { min: MIN_STUDENTS, max: MAX_STUDENTS },
@@ -218,11 +212,7 @@ export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
   "reviews",
 ])
 
-export const REPO_PHASE_KEYS = new Set<keyof Settings>([
-  "mc",
-  "coderExperience",
-  "comments",
-])
+export const REPO_PHASE_KEYS = new Set<keyof Settings>(["mc", "comments"])
 
 export type SweepPhase = "plan" | "repo"
 
@@ -372,12 +362,6 @@ const SETTING_ITEMS: SettingItem[] = [
   { kind: "header", text: "fixture repo" },
   {
     kind: "row",
-    key: "coderExperience",
-    value: (s) => String(s.coderExperience),
-    comment: `integer ${MIN_CODER_EXPERIENCE}-${MAX_CODER_EXPERIENCE}, ignored when aiCoders=true`,
-  },
-  {
-    kind: "row",
     key: "comments",
     value: (s) => String(s.comments),
     comment: `integer ${MIN_COMMENTS}-${MAX_COMMENTS}, ${COMMENTS_FREE_TIER}=leave to coder`,
@@ -440,7 +424,7 @@ export const SWEEP_PREAMBLE = [
   "Plan-phase keys (mp, complexity, aiCoders, coderInteraction, style,",
   "students, rounds, reviews): --from=<project>; iterates plan+repo",
   "per value (N plan dirs, one repo each).",
-  "Repo-phase keys (mc, coderExperience, comments): --from=<project>",
+  "Repo-phase keys (mc, comments): --from=<project>",
   "plans once and iterates repos, or --from=<plan> reuses an existing",
   "plan and skips planning.",
 ]

@@ -346,7 +346,6 @@ function settingsForRepo(prev: Settings, opts: RepoOpts): Settings {
   return {
     ...prev,
     mc: modelCode(opts.coderModel, opts.coderEffort),
-    coderExperience: opts.coderExperience,
     comments: opts.comments,
   }
 }
@@ -425,18 +424,11 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const repoNameOpts: RepoNameOpts = {
     coderModel: opts.coderModel,
     coderEffort: opts.coderEffort,
-    aiCoders: meta.aiCoders,
-    coderExperience: opts.coderExperience,
     comments: opts.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
   initLogs(opts.verbosity, repoDir)
   progress(`loaded plan for project "${project.name}" from ${fromPath}`)
-  if (meta.aiCoders && opts.coderExperienceExplicit) {
-    progress(
-      `warning: --coder-experience=${opts.coderExperience} ignored — plan is in AI-coders mode`,
-    )
-  }
   const planner = parseSpec(meta.planner)
   const planNameOpts: PlanNameOpts = {
     plannerModel: planner.model,
@@ -463,7 +455,6 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       coderModel: opts.coderModel,
       coderEffort: opts.coderEffort,
       aiCoders: meta.aiCoders,
-      coderExperience: opts.coderExperience,
       comments: opts.comments,
       students: meta.students,
       plannerModel: planner.model,
@@ -543,8 +534,6 @@ async function runRepoForEntry(
   const repoNameOpts: RepoNameOpts = {
     coderModel: coder.model,
     coderEffort: coder.effort,
-    aiCoders: entrySettings.aiCoders,
-    coderExperience: entrySettings.coderExperience,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
@@ -561,7 +550,6 @@ async function runRepoForEntry(
       coderModel: coder.model,
       coderEffort: coder.effort,
       aiCoders: entrySettings.aiCoders,
-      coderExperience: entrySettings.coderExperience,
       comments: entrySettings.comments,
       students: entrySettings.students,
       plannerModel: planner.model,
@@ -692,8 +680,6 @@ async function runRepoForExistingPlan(
   const repoNameOpts: RepoNameOpts = {
     coderModel: coder.model,
     coderEffort: coder.effort,
-    aiCoders: from.meta.aiCoders,
-    coderExperience: entrySettings.coderExperience,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
@@ -710,7 +696,6 @@ async function runRepoForExistingPlan(
       coderModel: coder.model,
       coderEffort: coder.effort,
       aiCoders: from.meta.aiCoders,
-      coderExperience: entrySettings.coderExperience,
       comments: entrySettings.comments,
       students: from.meta.students,
       plannerModel: planner.model,
@@ -725,7 +710,6 @@ async function runRepoForExistingPlan(
   const updated: Settings = {
     ...prevPlanSettings,
     mc: entrySettings.mc,
-    coderExperience: entrySettings.coderExperience,
     comments: entrySettings.comments,
   }
   writeSettings(repoDir, updated)

@@ -12,8 +12,6 @@ single focused commit and note in your reply what you deferred.
 
 Please edit the files and make it work.
 
-Code style: {{coder_experience_rules}}
-
 {{comments_directive}}
 
 When you're done, stage and commit your work with:

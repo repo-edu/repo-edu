@@ -20,7 +20,6 @@ export interface CoderRunOpts {
   coderModel: ModelName
   coderEffort: EffortLevel | "none"
   aiCoders: boolean
-  coderExperience: number
   comments: number
   students: number
 }
@@ -76,11 +75,6 @@ function composeCoderPrompt(
     )
   }
 
-  const coderExperienceRules = loadSection(
-    "coder/experience",
-    String(opts.coderExperience),
-  )
-
   const ctx: Record<string, string> = {
     persona_name: persona.name,
     persona_email: persona.email,
@@ -89,7 +83,6 @@ function composeCoderPrompt(
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
     round_goal: commit.note,
-    coder_experience_rules: coderExperienceRules,
     comments_directive: commentsDirective,
     commit_date: commit.date,
   }
