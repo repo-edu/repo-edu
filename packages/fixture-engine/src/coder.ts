@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import { effortOption, runAgent, type Usage } from "./agent"
 import {
   CODER_AGREEMENT,
   CODER_AGREEMENT_AI,
@@ -11,7 +10,9 @@ import {
   type ModelName,
   STATE_BASENAME,
 } from "./constants"
+import { runCoder, type Usage } from "./llm-client"
 import { emit, fail, formatSeconds, progress, withTicker } from "./log"
+import { makeClaudeSpec } from "./model-codes"
 import type { Plan, PlannedCommit } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
@@ -141,20 +142,15 @@ export async function runCoderLoop(
       const roundHeader = `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}`
       emit(2, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
       emit(3, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
+      const coderSpec = makeClaudeSpec(opts.coderModel, opts.coderEffort)
       const { reply, usage } = await withTicker(
         `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
         () =>
-          runAgent(prompt, {
-            model: opts.coderModel,
-            ...effortOption(opts.coderEffort),
+          runCoder({
+            spec: coderSpec,
+            prompt,
             cwd: dir,
-            permissionMode: "bypassPermissions",
-            allowedTools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
-            systemPrompt: {
-              type: "preset",
-              preset: "claude_code",
-              append: coderPersona,
-            },
+            appendInstructions: coderPersona,
           }),
       )
       const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- input_tokens: ${usage.input_tokens}\n- output_tokens: ${usage.output_tokens}\n- wall_ms: ${usage.wall_ms}`

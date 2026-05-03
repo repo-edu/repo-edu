@@ -32,6 +32,11 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/host-runtime-contract"
 import type {
+  LlmEffort,
+  LlmModelSpec,
+  LlmUsage,
+} from "@repo-edu/integrations-llm-contract"
+import type {
   LmsCourseSummary as LmsContractCourseSummary,
   LmsGroupSetSummary as LmsContractGroupSetSummary,
 } from "@repo-edu/integrations-lms-contract"
@@ -489,11 +494,7 @@ export type ExaminationQuestion = {
   lineRange: ExaminationLineRange | null
 }
 
-export type ExaminationUsage = {
-  inputTokens: number
-  outputTokens: number
-  wallMs: number
-}
+export type ExaminationUsage = LlmUsage
 
 export type ExaminationProvenanceFieldDrift<T> = {
   from: T
@@ -514,8 +515,8 @@ export type ExaminationArchivedProvenance = {
   memberEmail: string
   repoGitDir: string
   assignmentContext: string | null
-  model: string
-  effort: string
+  model: LlmModelSpec
+  effort: LlmEffort
   questionCount: number
   usage: ExaminationUsage
   createdAtMs: number

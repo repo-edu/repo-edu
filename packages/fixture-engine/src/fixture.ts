@@ -8,7 +8,6 @@ import {
 } from "node:fs"
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import type { Usage } from "./agent"
 import {
   type EvaluateOpts,
   type InitOpts,
@@ -41,6 +40,7 @@ import {
   writeSweep,
 } from "./defaults"
 import { findRepoDirs, runEvaluate } from "./evaluate"
+import type { Usage } from "./llm-client"
 import {
   emit,
   fail,
@@ -49,7 +49,7 @@ import {
   setEmitState,
   withTicker,
 } from "./log"
-import { parseModelCode } from "./model-codes"
+import { makeClaudeSpec, parseModelCode } from "./model-codes"
 import {
   formatSpec,
   modelCode,
@@ -484,9 +484,11 @@ async function archivePlanForEntry(
   runStart: number,
 ): Promise<EntryPlan> {
   const planner = parseModelCode(entrySettings.mp, "entry.mp")
+  const plannerModel = planner.family as ModelName
+  const plannerEffort = planner.effort as EffortLevel | "none"
   const planNameOpts: PlanNameOpts = {
-    plannerModel: planner.model,
-    plannerEffort: planner.effort,
+    plannerModel,
+    plannerEffort,
     aiCoders: entrySettings.aiCoders,
     complexity: project.complexity,
     students: entrySettings.students,
@@ -498,8 +500,8 @@ async function archivePlanForEntry(
   const planDir = reservePlanDir(project, planNameOpts)
   initLogs(verbosity, planDir)
   const planGenOpts: PlanGenOpts = {
-    plannerModel: planner.model,
-    plannerEffort: planner.effort,
+    plannerModel,
+    plannerEffort,
     aiCoders: entrySettings.aiCoders,
     rounds: entrySettings.rounds,
     students: entrySettings.students,
@@ -530,9 +532,13 @@ async function runRepoForEntry(
 ): Promise<void> {
   const planner = parseModelCode(entrySettings.mp, "entry.mp")
   const coder = parseModelCode(entrySettings.mc, "entry.mc")
+  const plannerModel = planner.family as ModelName
+  const plannerEffort = planner.effort as EffortLevel | "none"
+  const coderModel = coder.family as ModelName
+  const coderEffort = coder.effort as EffortLevel | "none"
   const repoNameOpts: RepoNameOpts = {
-    coderModel: coder.model,
-    coderEffort: coder.effort,
+    coderModel,
+    coderEffort,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
@@ -546,13 +552,13 @@ async function runRepoForEntry(
       reviews: entrySettings.reviews,
     },
     {
-      coderModel: coder.model,
-      coderEffort: coder.effort,
+      coderModel,
+      coderEffort,
       aiCoders: entrySettings.aiCoders,
       comments: entrySettings.comments,
       students: entrySettings.students,
-      plannerModel: planner.model,
-      plannerEffort: planner.effort,
+      plannerModel,
+      plannerEffort,
     },
     planDir,
     repoDir,
@@ -676,9 +682,11 @@ async function runRepoForExistingPlan(
 ): Promise<void> {
   const coder = parseModelCode(entrySettings.mc, "entry.mc")
   const planner = parseSpec(from.meta.planner)
+  const coderModel = coder.family as ModelName
+  const coderEffort = coder.effort as EffortLevel | "none"
   const repoNameOpts: RepoNameOpts = {
-    coderModel: coder.model,
-    coderEffort: coder.effort,
+    coderModel,
+    coderEffort,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
@@ -692,8 +700,8 @@ async function runRepoForExistingPlan(
       reviews: from.meta.reviews,
     },
     {
-      coderModel: coder.model,
-      coderEffort: coder.effort,
+      coderModel,
+      coderEffort,
       aiCoders: from.meta.aiCoders,
       comments: entrySettings.comments,
       students: from.meta.students,
@@ -869,7 +877,7 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
     : null
   await runEvaluate({
     rootDir,
-    evaluatorSpec: { model: opts.evaluatorModel, effort: opts.evaluatorEffort },
+    evaluatorSpec: makeClaudeSpec(opts.evaluatorModel, opts.evaluatorEffort),
     outPath,
   })
 }
@@ -877,7 +885,8 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
 function handleInit(opts: InitOpts): void {
   mkdirSync(FIXTURES_DIR(), { recursive: true })
   const conflicts: string[] = []
-  if (existsSync(FIXTURE_SETTINGS_FILE())) conflicts.push(FIXTURE_SETTINGS_FILE())
+  if (existsSync(FIXTURE_SETTINGS_FILE()))
+    conflicts.push(FIXTURE_SETTINGS_FILE())
   if (existsSync(FIXTURE_SWEEP_FILE())) conflicts.push(FIXTURE_SWEEP_FILE())
   if (existsSync(FIXTURE_STATE_FILE())) conflicts.push(FIXTURE_STATE_FILE())
   if (conflicts.length > 0 && !opts.force) {

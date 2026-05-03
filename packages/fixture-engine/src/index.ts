@@ -1,7 +1,7 @@
 export {
   defaultFixturesDirFor,
-  setFixtureRuntimeRoots,
   type FixtureRuntimeRoots,
+  setFixtureRuntimeRoots,
 } from "./constants"
 export { FixtureError } from "./log"
 

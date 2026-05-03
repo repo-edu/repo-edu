@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.114"
+    "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+    "@repo-edu/integrations-llm": "workspace:*",
+    "@repo-edu/integrations-llm-contract": "workspace:*"
   },
   "exports": {
     ".": {

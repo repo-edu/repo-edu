@@ -22,9 +22,8 @@ export type {
   FixtureRecord,
 } from "./fixtures.js"
 export { getFixture } from "./fixtures.js"
-
-export { buildFixtureMatrix } from "./generator-lib.js"
 export { validateFixtureMatrix } from "./fixtures-validate.js"
+export { buildFixtureMatrix } from "./generator-lib.js"
 
 export type { FixtureSource } from "./source-overlay.js"
 export {

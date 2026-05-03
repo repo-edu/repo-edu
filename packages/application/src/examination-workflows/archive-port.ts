@@ -14,6 +14,12 @@ import type {
   ExaminationArchiveStoragePort,
   ExaminationArchiveStoredEntry,
 } from "@repo-edu/host-runtime-contract"
+import type {
+  LlmAuthMode,
+  LlmEffort,
+  LlmModelSpec,
+  LlmProvider,
+} from "@repo-edu/integrations-llm-contract"
 
 export type ExaminationArchivePort = {
   get(key: ExaminationArchiveKey): ExaminationArchiveRecord | undefined
@@ -255,8 +261,6 @@ function validateProvenance(
     typeof memberName !== "string" ||
     typeof memberEmail !== "string" ||
     typeof repoGitDir !== "string" ||
-    typeof model !== "string" ||
-    typeof effort !== "string" ||
     typeof questionCount !== "number" ||
     typeof createdAtMs !== "number"
   ) {
@@ -269,6 +273,10 @@ function validateProvenance(
   ) {
     return null
   }
+  const validatedModel = validateModelSpec(model)
+  if (validatedModel === null) return null
+  const validatedEffort = validateEffort(effort)
+  if (validatedEffort === null) return null
   const validatedExcerpts = validateExcerpts(excerpts)
   if (validatedExcerpts === null) return null
   const validatedUsage = validateUsage(usage)
@@ -279,13 +287,59 @@ function validateProvenance(
     repoGitDir,
     assignmentContext:
       typeof assignmentContext === "string" ? assignmentContext : null,
-    model,
-    effort,
+    model: validatedModel,
+    effort: validatedEffort,
     questionCount,
     usage: validatedUsage,
     createdAtMs,
     excerpts: validatedExcerpts,
   }
+}
+
+const LLM_PROVIDERS: readonly LlmProvider[] = ["claude", "codex"]
+const LLM_EFFORTS: readonly LlmEffort[] = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]
+const LLM_AUTH_MODES: readonly LlmAuthMode[] = ["subscription", "api"]
+
+function validateModelSpec(raw: unknown): LlmModelSpec | null {
+  if (!isRecord(raw)) return null
+  const { provider, family, modelId, effort } = raw
+  if (
+    typeof provider !== "string" ||
+    typeof family !== "string" ||
+    typeof modelId !== "string" ||
+    typeof effort !== "string"
+  ) {
+    return null
+  }
+  if (!LLM_PROVIDERS.includes(provider as LlmProvider)) return null
+  const validatedEffort = validateEffort(effort)
+  if (validatedEffort === null) return null
+  return {
+    provider: provider as LlmProvider,
+    family,
+    modelId,
+    effort: validatedEffort,
+  }
+}
+
+function validateEffort(raw: unknown): LlmEffort | null {
+  if (typeof raw !== "string") return null
+  return LLM_EFFORTS.includes(raw as LlmEffort) ? (raw as LlmEffort) : null
+}
+
+function validateAuthMode(raw: unknown): LlmAuthMode | null {
+  if (typeof raw !== "string") return null
+  return LLM_AUTH_MODES.includes(raw as LlmAuthMode)
+    ? (raw as LlmAuthMode)
+    : null
 }
 
 function validateExcerpts(raw: unknown): ExaminationCodeExcerpt[] | null {
@@ -309,15 +363,33 @@ function validateUsage(
   raw: unknown,
 ): ExaminationArchivedProvenance["usage"] | null {
   if (!isRecord(raw)) return null
-  const { inputTokens, outputTokens, wallMs } = raw
+  const {
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningOutputTokens,
+    wallMs,
+    authMode,
+  } = raw
   if (
     typeof inputTokens !== "number" ||
+    typeof cachedInputTokens !== "number" ||
     typeof outputTokens !== "number" ||
+    typeof reasoningOutputTokens !== "number" ||
     typeof wallMs !== "number"
   ) {
     return null
   }
-  return { inputTokens, outputTokens, wallMs }
+  const validatedAuthMode = validateAuthMode(authMode)
+  if (validatedAuthMode === null) return null
+  return {
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningOutputTokens,
+    wallMs,
+    authMode: validatedAuthMode,
+  }
 }
 
 function parseBundleRecords(raw: unknown): {

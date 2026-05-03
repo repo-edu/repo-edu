@@ -4,5 +4,9 @@
     "rootDir": "../..",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts",
+    "../integrations-llm/src/**/*.ts"
+  ]
 }

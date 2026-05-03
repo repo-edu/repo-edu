@@ -1,13 +1,9 @@
 import { existsSync, readdirSync } from "node:fs"
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
-import { effortOption, runAgent, type Usage } from "./agent"
-import {
-  FIXTURES_DIR,
-  type ModelName,
-  REPO_ROOT,
-  type Style,
-} from "./constants"
+import { FIXTURES_DIR, type ModelName, type Style } from "./constants"
+import { generateText, type Usage } from "./llm-client"
 import { emit, fail } from "./log"
+import { makeClaudeSpec } from "./model-codes"
 import type { CommitKind, Plan, PlannedCommit, TeamMember } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
@@ -160,14 +156,8 @@ export async function generateProject(
   existing: string[],
 ): Promise<{ project: Project; usage: Usage }> {
   const prompt = projectPrompt(opts, existing)
-  const { reply, usage } = await runAgent(prompt, {
-    model: opts.plannerModel,
-    ...effortOption(opts.plannerEffort),
-    cwd: REPO_ROOT(),
-    maxTurns: 1,
-    allowedTools: [],
-    permissionMode: "bypassPermissions",
-  })
+  const spec = makeClaudeSpec(opts.plannerModel, opts.plannerEffort)
+  const { reply, usage } = await generateText(spec, prompt)
   emitPlannerTrace("project", prompt, reply, usage)
   const parsed = parseJsonOrFail<Omit<Project, "complexity">>(
     reply,
@@ -184,14 +174,8 @@ export async function generatePlan(
   kindSequence: CommitKind[],
 ): Promise<{ plan: Plan; usage: Usage }> {
   const prompt = planPrompt(project, opts, kindSequence)
-  const { reply, usage } = await runAgent(prompt, {
-    model: opts.plannerModel,
-    ...effortOption(opts.plannerEffort),
-    cwd: REPO_ROOT(),
-    maxTurns: 1,
-    allowedTools: [],
-    permissionMode: "bypassPermissions",
-  })
+  const spec = makeClaudeSpec(opts.plannerModel, opts.plannerEffort)
+  const { reply, usage } = await generateText(spec, prompt)
   emitPlannerTrace("plan", prompt, reply, usage)
   type RawPlannedCommit = Omit<PlannedCommit, "kind">
   const raw = parseJsonOrFail<{

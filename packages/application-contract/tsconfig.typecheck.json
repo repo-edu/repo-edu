@@ -8,6 +8,7 @@
     "src/**/*.ts",
     "../domain/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts"
   ]
 }

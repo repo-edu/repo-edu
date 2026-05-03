@@ -387,7 +387,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       return {
         ...createExaminationWorkflowHandlers({
           llm: {
-            async run() {
+            async run(_request) {
               throw {
                 type: "provider",
                 message:

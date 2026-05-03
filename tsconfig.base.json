@@ -70,6 +70,12 @@
       "@repo-edu/integrations-git-contract": [
         "./packages/integrations-git-contract/src/index.ts"
       ],
+      "@repo-edu/integrations-llm-contract": [
+        "./packages/integrations-llm-contract/src/index.ts"
+      ],
+      "@repo-edu/integrations-llm": [
+        "./packages/integrations-llm/src/index.ts"
+      ],
       "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
       "@repo-edu/host-node/cache": [
         "./packages/host-node/src/cache/index.ts"

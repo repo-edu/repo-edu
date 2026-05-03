@@ -314,8 +314,8 @@ function parseProject(argv: string[]): ProjectOpts {
     ...common,
     subcommand: "project",
     complexity,
-    plannerModel: m.model,
-    plannerEffort: m.effort,
+    plannerModel: m.family as ModelName,
+    plannerEffort: m.effort as EffortLevel | "none",
   }
 }
 
@@ -364,8 +364,8 @@ function parsePlan(argv: string[]): PlanOpts {
     reviews,
     aiCoders,
     style: style as Style,
-    plannerModel: m.model,
-    plannerEffort: m.effort,
+    plannerModel: m.family as ModelName,
+    plannerEffort: m.effort as EffortLevel | "none",
   }
 }
 
@@ -392,8 +392,8 @@ function parseRepo(argv: string[]): RepoOpts {
     subcommand: "repo",
     fromPath: (v.from as string | undefined) ?? "",
     comments,
-    coderModel: m.model,
-    coderEffort: m.effort,
+    coderModel: m.family as ModelName,
+    coderEffort: m.effort as EffortLevel | "none",
   }
 }
 
@@ -464,8 +464,8 @@ function parseEvaluate(argv: string[]): EvaluateOpts {
     subcommand: "evaluate",
     fromPath: (v.from as string | undefined) ?? "",
     outPath: (v.out as string | undefined) ?? "",
-    evaluatorModel: m.model,
-    evaluatorEffort: m.effort,
+    evaluatorModel: m.family as ModelName,
+    evaluatorEffort: m.effort as EffortLevel | "none",
   }
 }
 

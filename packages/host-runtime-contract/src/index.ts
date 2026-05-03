@@ -166,20 +166,44 @@ export type FileSystemPort = {
   readonly userHomeSystemDirectories: readonly string[]
 }
 
-export type LlmEffortLevel = "none" | "low" | "medium" | "high"
+// LlmPort wraps the prompt/reply LlmTextClient from
+// @repo-edu/integrations-llm-contract. This package re-declares the relevant
+// types instead of importing them so it stays free of inter-package coupling
+// and continues to be browser-safe.
+
+export type LlmProvider = "claude" | "codex"
+
+export type LlmEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+
+export type LlmAuthMode = "subscription" | "api"
+
+export type LlmModelSpec = {
+  provider: LlmProvider
+  family: string
+  modelId: string
+  effort: LlmEffort
+}
 
 export type LlmRunRequest = {
+  spec: LlmModelSpec
   prompt: string
-  model?: string
-  effort?: LlmEffortLevel
-  maxTurns?: number
   signal?: AbortSignal
 }
 
 export type LlmUsage = {
   inputTokens: number
+  cachedInputTokens: number
   outputTokens: number
+  reasoningOutputTokens: number
   wallMs: number
+  authMode: LlmAuthMode
 }
 
 export type LlmRunResult = {

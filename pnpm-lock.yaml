@@ -232,6 +232,9 @@ importers:
       '@repo-edu/integrations-git-contract':
         specifier: workspace:*
         version: link:../integrations-git-contract
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../integrations-lms-contract
@@ -257,6 +260,9 @@ importers:
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../host-runtime-contract
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../integrations-lms-contract
@@ -272,6 +278,12 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2.114
         version: 0.2.114(zod@4.3.6)
+      '@repo-edu/integrations-llm':
+        specifier: workspace:*
+        version: link:../integrations-llm
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
 
   packages/host-browser-mock:
     dependencies:
@@ -290,12 +302,15 @@ importers:
 
   packages/host-node:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.114
-        version: 0.2.114(zod@4.3.6)
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../host-runtime-contract
+      '@repo-edu/integrations-llm':
+        specifier: workspace:*
+        version: link:../integrations-llm
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
 
   packages/host-runtime-contract:
     dependencies:
@@ -357,6 +372,17 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+
+  packages/integrations-llm:
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.2.114
+        version: 0.2.114(zod@4.3.6)
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
+
+  packages/integrations-llm-contract: {}
 
   packages/integrations-lms:
     dependencies:

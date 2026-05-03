@@ -107,10 +107,22 @@ describe("examination archive adapter", () => {
       memberEmail: "alice@example.com",
       repoGitDir: "/repos/alice",
       assignmentContext: "A1",
-      model: "claude-sonnet-4-6",
-      effort: "medium",
+      model: {
+        provider: "claude" as const,
+        family: "sonnet",
+        modelId: "claude-sonnet-4-6",
+        effort: "medium" as const,
+      },
+      effort: "medium" as const,
       questionCount: 1,
-      usage: { inputTokens: 100, outputTokens: 50, wallMs: 500 },
+      usage: {
+        inputTokens: 100,
+        cachedInputTokens: 0,
+        outputTokens: 50,
+        reasoningOutputTokens: 0,
+        wallMs: 500,
+        authMode: "subscription" as const,
+      },
       createdAtMs: 1_700_000_000_000,
       excerpts: [
         { filePath: "src/a.ts", startLine: 1, lines: ["alpha", "beta"] },
@@ -244,7 +256,14 @@ function createRecordingLlm(reply: string): LlmPort & { calls: number } {
       state.calls += 1
       return {
         reply,
-        usage: { inputTokens: 10, outputTokens: 5, wallMs: 50 },
+        usage: {
+          inputTokens: 10,
+          cachedInputTokens: 0,
+          outputTokens: 5,
+          reasoningOutputTokens: 0,
+          wallMs: 50,
+          authMode: "subscription",
+        },
       }
     },
   }

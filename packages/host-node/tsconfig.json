@@ -17,6 +17,12 @@
   "references": [
     {
       "path": "../host-runtime-contract"
+    },
+    {
+      "path": "../integrations-llm-contract"
+    },
+    {
+      "path": "../integrations-llm"
     }
   ],
   "exclude": [

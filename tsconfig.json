@@ -10,6 +10,8 @@
     { "path": "./packages/host-runtime-contract" },
     { "path": "./packages/integrations-lms-contract" },
     { "path": "./packages/integrations-git-contract" },
+    { "path": "./packages/integrations-llm-contract" },
+    { "path": "./packages/integrations-llm" },
     { "path": "./packages/host-node" },
     { "path": "./packages/host-browser-mock" },
     { "path": "./packages/test-fixtures" },

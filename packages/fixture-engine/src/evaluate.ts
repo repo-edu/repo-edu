@@ -7,7 +7,8 @@ import {
   writeFileSync,
 } from "node:fs"
 import { basename, dirname, resolve } from "node:path"
-import { effortOption, runAgent, type Usage } from "./agent"
+import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk"
+import type { LlmModelSpec } from "@repo-edu/integrations-llm-contract"
 import {
   MODEL_PRICE_USD_PER_MTOK,
   type ModelName,
@@ -15,8 +16,9 @@ import {
   STATE_BASENAME,
   TOKENS_PER_MTOK,
 } from "./constants"
+import { generateText, type Usage } from "./llm-client"
 import { fail } from "./log"
-import { MODEL_CODES, type ModelSpec } from "./model-codes"
+import { MODEL_CODES } from "./model-codes"
 import { formatSpec } from "./naming"
 import { markdownToPlan } from "./plan-md"
 import { loadSection } from "./prompt-loader"
@@ -53,7 +55,7 @@ interface RepoReport {
   dirName: string
   planDir: string
   styleName: string
-  spec: ModelSpec
+  spec: LlmModelSpec
   rounds: number
   totalUsage: Usage
   estCost: number
@@ -85,7 +87,7 @@ export function findRepoDirs(root: string): string[] {
   return out
 }
 
-function parseRepoDirCode(dirName: string): ModelSpec | null {
+function parseRepoDirCode(dirName: string): LlmModelSpec | null {
   const m = dirName.match(/^m(\d+)-o\d+/)
   if (!m) return null
   return MODEL_CODES[m[1]] ?? null
@@ -109,8 +111,8 @@ function aggregateUsage(rounds: RoundUsage[]): Usage {
   return acc
 }
 
-function estimateCost(model: ModelName, usage: Usage): number {
-  const p = MODEL_PRICE_USD_PER_MTOK[model]
+function estimateCost(family: ModelName, usage: Usage): number {
+  const p = MODEL_PRICE_USD_PER_MTOK[family]
   return (
     (usage.input_tokens * p.input + usage.output_tokens * p.output) /
     TOKENS_PER_MTOK
@@ -280,7 +282,7 @@ function formatWallSeconds(ms: number): string {
 }
 
 function renderReport(
-  evaluatorSpec: ModelSpec,
+  evaluatorSpec: LlmModelSpec,
   rootDir: string,
   reports: RepoReport[],
 ): string {
@@ -293,7 +295,10 @@ function renderReport(
     `| --- | --- | --- | --- | --- | --- |`,
   ]
   const summaryRows = sorted.map((r) => {
-    const spec = formatSpec(r.spec.model, r.spec.effort)
+    const spec = formatSpec(
+      r.spec.family as ModelName,
+      r.spec.effort as EffortLevel | "none",
+    )
     const wall = formatWallSeconds(r.totalUsage.wall_ms)
     const inT = formatTokens(r.totalUsage.input_tokens)
     const outT = formatTokens(r.totalUsage.output_tokens)
@@ -313,7 +318,7 @@ function renderReport(
     return `| ${r.styleName} | ${axes} | **${r.total}** |`
   })
   const notes = sorted.map((r) => {
-    const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatSpec(r.spec.model, r.spec.effort)} (${r.styleName})`
+    const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatSpec(r.spec.family as ModelName, r.spec.effort as EffortLevel | "none")} (${r.styleName})`
     const bullets = RUBRIC_AXES.map((axis) => {
       const note = r.score.notes[axis]?.trim() ?? ""
       const score = r.score[axis] as number
@@ -329,7 +334,7 @@ function renderReport(
     `Root: \`${rootDir}\``,
     `Plan dir(s):`,
     ...planDirs.map((p) => `- \`${p}\``),
-    `Evaluator: ${formatSpec(evaluatorSpec.model, evaluatorSpec.effort)}`,
+    `Evaluator: ${formatSpec(evaluatorSpec.family as ModelName, evaluatorSpec.effort as EffortLevel | "none")}`,
     "",
     "Cost estimates use `MODEL_PRICE_USD_PER_MTOK` in `scripts/fixtures/constants.ts`; update it as Anthropic pricing changes.",
     "",
@@ -390,7 +395,7 @@ function loadPlanContext(
 
 export interface EvaluateOpts {
   rootDir: string
-  evaluatorSpec: ModelSpec
+  evaluatorSpec: LlmModelSpec
   outPath: string | null
 }
 
@@ -405,8 +410,8 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
 
   process.stdout.write(
     `evaluate: ${repoDirs.length} repo(s) under ${opts.rootDir}, evaluator=${formatSpec(
-      opts.evaluatorSpec.model,
-      opts.evaluatorSpec.effort,
+      opts.evaluatorSpec.family as ModelName,
+      opts.evaluatorSpec.effort as EffortLevel | "none",
     )}\n`,
   )
 
@@ -424,7 +429,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
     }
     const rounds = readState(repoDir)
     const totalUsage = aggregateUsage(rounds)
-    const estCost = estimateCost(spec.model, totalUsage)
+    const estCost = estimateCost(spec.family as ModelName, totalUsage)
 
     const tree = gitLs(repoDir)
     const files = readFiles(repoDir, tree)
@@ -443,14 +448,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
     process.stdout.write(
       `evaluate: scoring ${basename(ctx.planDir)}/${name}…\n`,
     )
-    const { reply } = await runAgent(prompt, {
-      model: opts.evaluatorSpec.model,
-      ...effortOption(opts.evaluatorSpec.effort),
-      cwd: repoDir,
-      permissionMode: "default",
-      allowedTools: [],
-      systemPrompt: { type: "preset", preset: "claude_code" },
-    })
+    const { reply } = await generateText(opts.evaluatorSpec, prompt)
     const score = parseScore(reply)
     reports.push({
       repoDir,

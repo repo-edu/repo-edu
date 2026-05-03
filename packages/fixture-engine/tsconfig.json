@@ -10,6 +10,10 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../integrations-llm-contract" },
+    { "path": "../integrations-llm" }
+  ],
   "exclude": [
     "src/**/__tests__/**",
     "src/**/*.test.ts"

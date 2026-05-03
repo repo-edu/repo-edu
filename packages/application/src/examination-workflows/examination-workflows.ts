@@ -13,6 +13,7 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import type { LlmModelSpec } from "@repo-edu/integrations-llm-contract"
 import { createValidationAppError } from "../core.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
@@ -22,8 +23,12 @@ import {
 import type { ExaminationWorkflowPorts } from "./ports.js"
 import { buildExaminationPrompt, stripJsonFences } from "./prompt-builder.js"
 
-const DEFAULT_EXAMINATION_MODEL = "claude-sonnet-4-6"
-const DEFAULT_EXAMINATION_EFFORT = "medium"
+const DEFAULT_EXAMINATION_SPEC: LlmModelSpec = {
+  provider: "claude",
+  family: "sonnet",
+  modelId: "claude-sonnet-4-6",
+  effort: "medium",
+}
 
 type ExaminationWorkflowId = "examination.generateQuestions"
 
@@ -79,10 +84,8 @@ export function createExaminationWorkflowHandlers(
 
       const prompt = buildExaminationPrompt(input)
       const { reply, usage } = await ports.llm.run({
+        spec: DEFAULT_EXAMINATION_SPEC,
         prompt,
-        model: DEFAULT_EXAMINATION_MODEL,
-        effort: DEFAULT_EXAMINATION_EFFORT,
-        maxTurns: 1,
         signal: options?.signal,
       })
 
@@ -100,14 +103,10 @@ export function createExaminationWorkflowHandlers(
         memberEmail: input.memberEmail,
         repoGitDir: input.repoGitDir,
         assignmentContext: input.assignmentContext ?? null,
-        model: DEFAULT_EXAMINATION_MODEL,
-        effort: DEFAULT_EXAMINATION_EFFORT,
+        model: DEFAULT_EXAMINATION_SPEC,
+        effort: DEFAULT_EXAMINATION_SPEC.effort,
         questionCount: input.questionCount,
-        usage: {
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          wallMs: usage.wallMs,
-        },
+        usage,
         createdAtMs: Date.now(),
         excerpts: canonicalExcerpts,
       }
@@ -164,12 +163,15 @@ function computeDrift(
           }
         : null,
     modelChanged:
-      stored.model !== DEFAULT_EXAMINATION_MODEL
-        ? { from: stored.model, to: DEFAULT_EXAMINATION_MODEL }
+      stored.model.modelId !== DEFAULT_EXAMINATION_SPEC.modelId
+        ? {
+            from: stored.model.modelId,
+            to: DEFAULT_EXAMINATION_SPEC.modelId,
+          }
         : null,
     effortChanged:
-      stored.effort !== DEFAULT_EXAMINATION_EFFORT
-        ? { from: stored.effort, to: DEFAULT_EXAMINATION_EFFORT }
+      stored.effort !== DEFAULT_EXAMINATION_SPEC.effort
+        ? { from: stored.effort, to: DEFAULT_EXAMINATION_SPEC.effort }
         : null,
   }
   const anyChanged =

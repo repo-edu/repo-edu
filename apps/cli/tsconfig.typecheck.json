@@ -14,6 +14,8 @@
     "../../packages/integrations-git/src/**/*.ts",
     "../../packages/integrations-lms/src/**/*.ts",
     "../../packages/integrations-git-contract/src/**/*.ts",
+    "../../packages/integrations-llm-contract/src/**/*.ts",
+    "../../packages/integrations-llm/src/**/*.ts",
     "../../packages/integrations-lms-contract/src/**/*.ts",
     "../../packages/host-node/src/**/*.ts",
     "../../packages/host-runtime-contract/src/**/*.ts"
