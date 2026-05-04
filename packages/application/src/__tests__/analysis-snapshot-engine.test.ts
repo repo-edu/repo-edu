@@ -3,7 +3,9 @@ import { describe, it } from "node:test"
 import {
   applyCommitExclusions,
   buildCommitGroups,
+  buildRepoWideLogArgs,
   type CommitGroup,
+  filterCommitsByPathScope,
   filterFileCandidates,
   reduceCommitGroupOverlap,
 } from "../analysis-workflows/snapshot-engine.js"
@@ -244,5 +246,102 @@ describe("snapshot-engine reduceCommitGroupOverlap", () => {
 
     assert.equal(map.get("a.ts")?.length, 1)
     assert.equal(map.get("b.ts")?.length, 1)
+  })
+})
+
+describe("snapshot-engine buildRepoWideLogArgs", () => {
+  it("emits log args without --follow or path scope", () => {
+    const args = buildRepoWideLogArgs("abc123", { whitespace: false })
+    assert.ok(args.includes("log"))
+    assert.ok(args.includes("--numstat"))
+    assert.ok(args.includes("abc123"))
+    assert.equal(
+      args.includes("--follow"),
+      false,
+      "repo-wide log must not use --follow",
+    )
+    assert.equal(
+      args.includes("--"),
+      false,
+      "repo-wide log must not pass a pathspec separator",
+    )
+  })
+
+  it("includes -w only when whitespace is not preserved", () => {
+    assert.ok(buildRepoWideLogArgs("oid", {}).includes("-w"))
+    assert.equal(
+      buildRepoWideLogArgs("oid", { whitespace: true }).includes("-w"),
+      false,
+    )
+  })
+
+  it("propagates since/until when set", () => {
+    const args = buildRepoWideLogArgs("oid", {
+      since: "2024-01-01",
+      until: "2024-06-30",
+    })
+    assert.ok(args.includes("--since=2024-01-01"))
+    assert.ok(args.includes("--until=2024-06-30"))
+  })
+})
+
+describe("snapshot-engine filterCommitsByPathScope", () => {
+  const baseCommit = {
+    sha: "c1",
+    authorName: "Alice",
+    authorEmail: "alice@example.com",
+    timestamp: 100,
+    message: "msg",
+  }
+
+  it("drops commits whose files are outside the subfolder", () => {
+    const commits: AnalysisCommit[] = [
+      {
+        ...baseCommit,
+        files: [{ path: "doc/README.md", insertions: 1, deletions: 0 }],
+      },
+      {
+        ...baseCommit,
+        sha: "c2",
+        files: [{ path: "src/a.ts", insertions: 5, deletions: 0 }],
+      },
+    ]
+    const filtered = filterCommitsByPathScope(commits, { subfolder: "src" })
+    assert.equal(filtered.length, 1)
+    assert.equal(filtered[0].sha, "c2")
+  })
+
+  it("filters file entries by extension allowlist", () => {
+    const commits: AnalysisCommit[] = [
+      {
+        ...baseCommit,
+        files: [
+          { path: "a.ts", insertions: 5, deletions: 0 },
+          { path: "a.md", insertions: 9, deletions: 0 },
+        ],
+      },
+    ]
+    const filtered = filterCommitsByPathScope(commits, { extensions: ["ts"] })
+    assert.equal(filtered.length, 1)
+    assert.equal(filtered[0].files.length, 1)
+    assert.equal(filtered[0].files[0].path, "a.ts")
+  })
+
+  it("does not apply the nFiles cap", () => {
+    const commits: AnalysisCommit[] = [
+      {
+        ...baseCommit,
+        files: [
+          { path: "a.ts", insertions: 1, deletions: 0 },
+          { path: "b.ts", insertions: 1, deletions: 0 },
+          { path: "c.ts", insertions: 1, deletions: 0 },
+        ],
+      },
+    ]
+    // nFiles=1 would prune to top-N in filterFileCandidates, but the
+    // repo-wide path scope must keep every matching numstat entry so the
+    // author totals stay correct regardless of the cap.
+    const filtered = filterCommitsByPathScope(commits, { nFiles: 1 })
+    assert.equal(filtered[0].files.length, 3)
   })
 })

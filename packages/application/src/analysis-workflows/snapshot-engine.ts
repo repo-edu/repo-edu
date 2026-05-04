@@ -260,6 +260,98 @@ export function buildPerFileLogArgs(
 }
 
 // ---------------------------------------------------------------------------
+// Repo-wide git log
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds git log arguments for a single repo-wide traversal of the snapshot
+ * head. Used to drive author-level aggregates that must not depend on the
+ * `nFiles` cap (commits, insertions, deletions, age, daily activity).
+ *
+ * Path filtering (subfolder/extensions/include/exclude) is applied later in
+ * code on the parsed numstat output; this keeps the git invocation simple
+ * and lets us reuse the same parser as the per-file pass.
+ */
+export function buildRepoWideLogArgs(
+  commitOid: string,
+  config: AnalysisConfig,
+): string[] {
+  const args = ["log"]
+
+  if (config.since) args.push(`--since=${config.since}`)
+  if (config.until) args.push(`--until=${config.until}`)
+  if (!config.whitespace) args.push("-w")
+
+  args.push(
+    commitOid,
+    "--numstat",
+    `-z`,
+    `--pretty=format:${LOG_PRETTY_FORMAT}`,
+  )
+
+  return args
+}
+
+/**
+ * Filters per-commit numstat file entries against the same path filters used
+ * for snapshot listing (subfolder, extensions, include, exclude). Commits
+ * whose entire file list is filtered out are dropped from the result.
+ *
+ * The `nFiles` cap is intentionally NOT applied here — repo-wide aggregates
+ * must reflect every file that matches the filters, not only the top-N.
+ */
+export function filterCommitsByPathScope(
+  commits: AnalysisCommit[],
+  config: AnalysisConfig,
+): AnalysisCommit[] {
+  const subfolder = config.subfolder
+  const extensions = config.extensions ?? []
+  const excludeFiles = config.excludeFiles ?? []
+  const includeFiles = config.includeFiles ?? ["*"]
+
+  const subfolderPrefix = subfolder
+    ? subfolder.endsWith("/")
+      ? subfolder
+      : `${subfolder}/`
+    : ""
+  const extSet =
+    extensions.length > 0 && !extensions.includes("*")
+      ? new Set(extensions.map((e) => e.toLowerCase()))
+      : undefined
+  const includeAll =
+    includeFiles.length === 0 ||
+    (includeFiles.length === 1 && includeFiles[0] === "*")
+
+  const matchesScope = (rawPath: string): boolean => {
+    let path = rawPath
+    if (subfolderPrefix) {
+      if (!path.startsWith(subfolderPrefix)) return false
+      path = path.slice(subfolderPrefix.length)
+    }
+    if (extSet) {
+      const dotIndex = path.lastIndexOf(".")
+      if (dotIndex === -1) return false
+      if (!extSet.has(path.slice(dotIndex + 1).toLowerCase())) return false
+    }
+    if (excludeFiles.length > 0 && fnmatchFilter(path, excludeFiles)) {
+      return false
+    }
+    if (!includeAll && !fnmatchFilter(path, includeFiles)) {
+      return false
+    }
+    return true
+  }
+
+  const filtered: AnalysisCommit[] = []
+  for (const commit of commits) {
+    const files = commit.files.filter((f) => matchesScope(f.path))
+    if (files.length === 0) continue
+    filtered.push({ ...commit, files })
+  }
+  return filtered
+}
+
+// ---------------------------------------------------------------------------
 // Commit-level exclusion (post-filter, Python parity)
 // ---------------------------------------------------------------------------
 
@@ -310,12 +402,6 @@ export type CommitGroup = {
   dateSum: number
   shas: Set<string>
   latestTimestamp?: number
-  commitEntries?: {
-    sha: string
-    timestamp: number
-    insertions: number
-    deletions: number
-  }[]
 }
 
 /**
@@ -344,13 +430,6 @@ export function buildCommitGroups(
         last.latestTimestamp ?? 0,
         commit.timestamp,
       )
-      last.commitEntries ??= []
-      last.commitEntries.push({
-        sha: commit.sha,
-        timestamp: commit.timestamp,
-        insertions: fileEntry.insertions,
-        deletions: fileEntry.deletions,
-      })
     } else {
       groups.push({
         author: authorKey,
@@ -360,14 +439,6 @@ export function buildCommitGroups(
         dateSum: commit.timestamp * fileEntry.insertions,
         shas: new Set([commit.sha]),
         latestTimestamp: commit.timestamp,
-        commitEntries: [
-          {
-            sha: commit.sha,
-            timestamp: commit.timestamp,
-            insertions: fileEntry.insertions,
-            deletions: fileEntry.deletions,
-          },
-        ],
       })
     }
   }

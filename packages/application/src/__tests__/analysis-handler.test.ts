@@ -421,6 +421,98 @@ describe("analysis.run handler", () => {
     )
     assert.equal(result.authorDailyActivity[0].insertions, 3)
   })
+
+  it("includes commits that touch only non-top-N files in author stats", async () => {
+    // Regression: when nFiles caps the per-file scan, author/commit/insertion
+    // totals must still reflect the full repo. Here the snapshot has a large
+    // and a small file; nFiles=1 keeps only the large one for per-file work,
+    // but every commit must still feed authorStats and authorDailyActivity.
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        const args = request.args.join(" ")
+        if (args.startsWith("rev-parse --git-dir")) {
+          return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
+        }
+        if (args.startsWith("rev-parse HEAD")) {
+          return { exitCode: 0, stdout: "abc123", stderr: "", signal: null }
+        }
+        if (args.startsWith("ls-tree")) {
+          return {
+            exitCode: 0,
+            stdout: [
+              "100644 blob deadbeef 500\tlarge.ts",
+              "100644 blob deadbeef 100\tsmall.ts",
+              "",
+            ].join("\n"),
+            stderr: "",
+            signal: null,
+          }
+        }
+        // Repo-wide: no `--follow` and no `--` pathspec separator.
+        if (args.includes("--follow")) {
+          // Per-file pass for "large.ts" only (top-1).
+          return {
+            exitCode: 0,
+            stdout: [
+              `${COMMIT_DELIMITER}`,
+              "\0commitL\x001700000200\0Mira\0mira@example.com\0big",
+              "\0" + "20\t0\0large.ts\0",
+            ].join(""),
+            stderr: "",
+            signal: null,
+          }
+        }
+        if (args.startsWith("log")) {
+          // Repo-wide pass returns both commits.
+          return {
+            exitCode: 0,
+            stdout: [
+              `${COMMIT_DELIMITER}`,
+              "\0commitL\x001700000200\0Mira\0mira@example.com\0big",
+              "\0" + "20\t0\0large.ts\0",
+              `${COMMIT_DELIMITER}`,
+              "\0commitS\x001700000100\0Theo\0theo@example.com\0small",
+              "\0" + "7\t0\0small.ts\0",
+            ].join(""),
+            stderr: "",
+            signal: null,
+          }
+        }
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.run"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: { nFiles: 1 },
+    })
+
+    // fileStats is per-file scoped: only the top-1 file is present.
+    assert.equal(result.fileStats.length, 1)
+    assert.equal(result.fileStats[0].path, "large.ts")
+
+    // authorStats must include both authors despite the nFiles=1 cap.
+    const names = result.authorStats.map((s) => s.canonicalName).sort()
+    assert.deepEqual(names, ["Mira", "Theo"])
+    const theo = result.authorStats.find((s) => s.canonicalName === "Theo")
+    assert.ok(theo)
+    assert.equal(theo.commits, 1)
+    assert.equal(theo.insertions, 7)
+
+    // authorDailyActivity must include Theo's commit too.
+    const theoActivity = result.authorDailyActivity.filter(
+      (row) => row.personId === theo.personId,
+    )
+    assert.equal(theoActivity.length, 1)
+    assert.equal(theoActivity[0].insertions, 7)
+  })
 })
 
 describe("analysis.blame handler", () => {

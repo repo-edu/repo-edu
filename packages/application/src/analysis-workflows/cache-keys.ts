@@ -161,6 +161,15 @@ export function buildBlameKeyArgv(
 }
 
 /**
+ * Bump when the blame parsing/aggregation pipeline changes shape so that
+ * previously persisted blame entries no longer collide with new keys. Lives
+ * separately from the analysis schema version because the two pipelines
+ * evolve independently — a change in author-stat aggregation should not
+ * invalidate the (very expensive) cold blame cache.
+ */
+export const BLAME_CACHE_SCHEMA_VERSION = 1
+
+/**
  * Blame output is a deterministic function of `(resolved OID, file path,
  * git argv, working-tree ignore-revs file)`. `repoGitDir` deliberately does
  * NOT participate: two clones of the same origin at the same OID produce
@@ -177,6 +186,7 @@ export function buildBlameCacheKey(parts: {
   const argv = buildBlameKeyArgv(parts.config, parts.hasIgnoreRevsFile)
   const raw = [
     "blame",
+    `v${BLAME_CACHE_SCHEMA_VERSION}`,
     parts.resolvedOid,
     parts.filePath,
     parts.ignoreRevsFingerprint ?? "no-ignore-revs",

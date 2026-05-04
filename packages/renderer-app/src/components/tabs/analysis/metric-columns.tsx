@@ -1,4 +1,10 @@
-import { DataTableCell, DataTableRow } from "@repo-edu/ui"
+import {
+  DataTableCell,
+  DataTableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@repo-edu/ui"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { ReactNode } from "react"
 import { useMemo } from "react"
@@ -7,6 +13,9 @@ import {
   type MetricTotals,
 } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
+
+const LINES_OF_CODE_TOOLTIP =
+  "Lines attributed by blame across the files selected by the N-files cap. Other columns reflect the full repo-wide history."
 
 export type MetricRow = {
   commits: number
@@ -42,12 +51,24 @@ export function useMetricColumns<T extends MetricRow>({
         id: "linesOfCode",
         accessorFn: (row) => row.lines,
         header: ({ column }) => (
-          <SortHeaderButton
-            label="Lines of Code"
-            canSort={column.getCanSort()}
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting()}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <SortHeaderButton
+                  label="Lines of Code"
+                  canSort={column.getCanSort()}
+                  sorted={column.getIsSorted()}
+                  onToggle={() => column.toggleSorting()}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="max-w-xs whitespace-normal text-xs leading-snug"
+            >
+              {LINES_OF_CODE_TOOLTIP}
+            </TooltipContent>
+          </Tooltip>
         ),
         cell: ({ row }) =>
           formatMaybePercent(row.original.lines, totals.linesOfCode, isPercent),

@@ -37,7 +37,9 @@ import {
   applyCommitExclusions,
   buildCommitGroups,
   buildPerFileLogArgs,
+  buildRepoWideLogArgs,
   type CommitGroup,
+  filterCommitsByPathScope,
   filterFileCandidates,
   listSnapshotFiles,
   reduceCommitGroupOverlap,
@@ -72,15 +74,21 @@ async function mapBounded<T, R>(
 }
 
 // ---------------------------------------------------------------------------
-// Stats aggregation
+// Author stats aggregation (repo-wide)
 // ---------------------------------------------------------------------------
 
-function aggregateStats(
-  fileGroupsMap: Map<string, CommitGroup[]>,
-  fileToSubfolderedPath: (path: string) => string,
-  fileBytes: Map<string, number>,
-): { authorStats: AuthorStats[]; fileStats: FileStats[] } {
-  // Per-author aggregation
+/**
+ * Aggregates author-level stats from the repo-wide commit list. Independent
+ * of the `nFiles` cap so commit/insertion/deletion counts and daily activity
+ * reflect every file that matches the path filters, not only the top-N.
+ *
+ * Each commit's per-author totals are computed from its filtered numstat
+ * file entries (so a commit that only touches files outside the filter
+ * scope is excluded by the caller, see `filterCommitsByPathScope`).
+ */
+function aggregateAuthorStatsFromCommits(
+  commits: AnalysisCommit[],
+): AuthorStats[] {
   const authorMap = new Map<
     string,
     {
@@ -93,7 +101,71 @@ function aggregateStats(
     }
   >()
 
-  // Per-file aggregation
+  for (const commit of commits) {
+    const authorKey = `${commit.authorName}\0${commit.authorEmail}`
+    let stat = authorMap.get(authorKey)
+    if (!stat) {
+      stat = {
+        name: commit.authorName,
+        email: commit.authorEmail,
+        insertions: 0,
+        deletions: 0,
+        dateSum: 0,
+        commitShas: new Set(),
+      }
+      authorMap.set(authorKey, stat)
+    }
+
+    let commitInsertions = 0
+    let commitDeletions = 0
+    for (const file of commit.files) {
+      commitInsertions += file.insertions
+      commitDeletions += file.deletions
+    }
+
+    stat.insertions += commitInsertions
+    stat.deletions += commitDeletions
+    // Weight age by insertions (Python parity: age = now - sum(ts*ins)/sum(ins))
+    stat.dateSum += commit.timestamp * commitInsertions
+    stat.commitShas.add(commit.sha)
+  }
+
+  const totalInsertions = [...authorMap.values()].reduce(
+    (sum, a) => sum + a.insertions,
+    0,
+  )
+  const now = Date.now() / 1000
+
+  return [...authorMap.values()].map((stat) => ({
+    personId: "", // filled after PersonDB construction
+    canonicalName: stat.name,
+    canonicalEmail: stat.email,
+    commits: stat.commitShas.size,
+    insertions: stat.insertions,
+    deletions: stat.deletions,
+    lines: 0,
+    linesPercent: 0,
+    insertionsPercent:
+      totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
+    age: stat.insertions > 0 ? now - stat.dateSum / stat.insertions : 0,
+    commitShas: stat.commitShas,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// File stats aggregation (per-file)
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggregates file-level stats from the per-file `--follow` commit groups.
+ * Always scoped to the top-N file selection — `fileStats` and per-file
+ * author breakdowns are by definition per-file metrics.
+ */
+function aggregateFileStatsFromGroups(
+  fileGroupsMap: Map<string, CommitGroup[]>,
+  fileToSubfolderedPath: (path: string) => string,
+  fileBytes: Map<string, number>,
+): FileStats[] {
   const fileMap = new Map<
     string,
     {
@@ -114,7 +186,6 @@ function aggregateStats(
     }
   >()
 
-  // Process in deterministic sorted file order
   const sortedFiles = [...fileGroupsMap.keys()].sort()
 
   for (const filePath of sortedFiles) {
@@ -136,28 +207,8 @@ function aggregateStats(
 
     for (const group of groups) {
       const [authorName, authorEmail] = group.author.split("\0")
-
-      // Author aggregation
       const authorKey = `${authorName}\0${authorEmail}`
-      if (!authorMap.has(authorKey)) {
-        authorMap.set(authorKey, {
-          name: authorName,
-          email: authorEmail,
-          insertions: 0,
-          deletions: 0,
-          dateSum: 0,
-          commitShas: new Set(),
-        })
-      }
-      const authorStat = authorMap.get(authorKey)
-      if (authorStat) {
-        authorStat.insertions += group.insertions
-        authorStat.deletions += group.deletions
-        authorStat.dateSum += group.dateSum
-        for (const sha of group.shas) authorStat.commitShas.add(sha)
-      }
 
-      // File aggregation
       fileStat.insertions += group.insertions
       fileStat.deletions += group.deletions
       fileStat.lastModified = Math.max(
@@ -168,7 +219,6 @@ function aggregateStats(
         fileStat.commitShas.add(sha)
       }
 
-      // Author breakdown within file
       if (!fileStat.authorBreakdown.has(authorKey)) {
         fileStat.authorBreakdown.set(authorKey, {
           insertions: 0,
@@ -187,38 +237,7 @@ function aggregateStats(
     }
   }
 
-  // Calculate totals for percentage computation
-  const totalInsertions = [...authorMap.values()].reduce(
-    (sum, a) => sum + a.insertions,
-    0,
-  )
-
-  const now = Date.now() / 1000
-
-  const authorStats: AuthorStats[] = [...authorMap.entries()].map(
-    ([, stat]) => {
-      const age = stat.insertions > 0 ? now - stat.dateSum / stat.insertions : 0
-
-      return {
-        personId: "", // filled after PersonDB construction
-        canonicalName: stat.name,
-        canonicalEmail: stat.email,
-        commits: stat.commitShas.size,
-        insertions: stat.insertions,
-        deletions: stat.deletions,
-        lines: 0,
-        linesPercent: 0,
-        insertionsPercent:
-          totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
-        age,
-        commitShas: stat.commitShas,
-      }
-    },
-  )
-
-  // Update file stat commit counts
-  const fileStats: FileStats[] = [...fileMap.entries()].map(([path, stat]) => {
-    // Update author breakdown commit counts
+  return [...fileMap.entries()].map(([path, stat]) => {
     for (const breakdown of stat.authorBreakdown.values()) {
       breakdown.commits = breakdown.commitShas.size
     }
@@ -235,8 +254,6 @@ function aggregateStats(
       authorBreakdown: stat.authorBreakdown,
     }
   })
-
-  return { authorStats, fileStats }
 }
 
 // ---------------------------------------------------------------------------
@@ -501,7 +518,7 @@ function toUtcDay(timestamp: number): string {
 }
 
 function buildAuthorDailyActivity(
-  fileGroupsMap: Map<string, CommitGroup[]>,
+  commits: AnalysisCommit[],
   personDb: AnalysisResult["personDbBaseline"],
 ): AuthorDailyActivity[] {
   const rowsByKey = new Map<
@@ -516,39 +533,37 @@ function buildAuthorDailyActivity(
     }
   >()
 
-  const sortedPaths = [...fileGroupsMap.keys()].sort()
-  for (const filePath of sortedPaths) {
-    const groups = fileGroupsMap.get(filePath)
-    if (!groups) continue
+  for (const commit of commits) {
+    const personId = personDb.identityIndex.get(
+      toPersonDbIdentityKey(commit.authorName, commit.authorEmail),
+    )
+    if (!personId) continue
 
-    for (const group of groups) {
-      const [name = "", email = ""] = group.author.split("\0")
-      const personId = personDb.identityIndex.get(
-        toPersonDbIdentityKey(name, email),
-      )
-      if (!personId) continue
-
-      for (const entry of group.commitEntries ?? []) {
-        const date = toUtcDay(entry.timestamp)
-        const key = `${date}\0${personId}`
-        const existing = rowsByKey.get(key)
-        if (existing) {
-          existing.commits.add(entry.sha)
-          existing.insertions += entry.insertions
-          existing.deletions += entry.deletions
-          existing.netLines += entry.insertions - entry.deletions
-          continue
-        }
-        rowsByKey.set(key, {
-          date,
-          personId,
-          commits: new Set([entry.sha]),
-          insertions: entry.insertions,
-          deletions: entry.deletions,
-          netLines: entry.insertions - entry.deletions,
-        })
-      }
+    let insertions = 0
+    let deletions = 0
+    for (const file of commit.files) {
+      insertions += file.insertions
+      deletions += file.deletions
     }
+
+    const date = toUtcDay(commit.timestamp)
+    const key = `${date}\0${personId}`
+    const existing = rowsByKey.get(key)
+    if (existing) {
+      existing.commits.add(commit.sha)
+      existing.insertions += insertions
+      existing.deletions += deletions
+      existing.netLines += insertions - deletions
+      continue
+    }
+    rowsByKey.set(key, {
+      date,
+      personId,
+      commits: new Set([commit.sha]),
+      insertions,
+      deletions,
+      netLines: insertions - deletions,
+    })
   }
 
   return [...rowsByKey.values()]
@@ -684,31 +699,6 @@ export function createAnalysisRunHandler(
         const filePaths = filterFileCandidates(treeEntries, config)
         const totalFiles = filePaths.length
 
-        if (totalFiles === 0) {
-          // Empty result set — successful outcome
-          const emptyPersonDb = createPersonDbFromLog([], new Map())
-          const result: AnalysisResult = {
-            resolvedAsOfOid,
-            authorStats: [],
-            fileStats: [],
-            authorDailyActivity: [],
-            personDbBaseline: emptyPersonDb,
-          }
-          if (ports.cache && cacheKey) {
-            ports.cache.set(cacheKey, result)
-          }
-          return result
-        }
-
-        // Phase 4: Per-file git log --follow with bounded concurrency
-        options?.onProgress?.({
-          phase: "log",
-          label: "Collecting per-file commit histories.",
-          processedFiles: 0,
-          totalFiles,
-        })
-
-        const maxConcurrency = config.maxConcurrency ?? 1
         const subfolder = config.subfolder
         const subfolderPrefix = subfolder
           ? subfolder.endsWith("/")
@@ -725,64 +715,113 @@ export function createAnalysisRunHandler(
           treeEntries.map((e) => [fileToSubfolderedPath(e.path), e.size]),
         )
 
-        let processedFiles = 0
-        const fileCommitGroupsMap = new Map<string, CommitGroup[]>()
-
-        // Collect per-file log data with bounded concurrency
-        const perFileResults = await mapBounded(
-          filePaths,
-          maxConcurrency,
-          async (filePath) => {
-            throwIfAborted(options?.signal)
-
-            const args = buildPerFileLogArgs(resolvedAsOfOid, filePath, config)
-
-            const result = await ports.gitCommand.run({
-              args,
-              cwd: repoRoot,
-              signal: options?.signal,
-            })
-
-            processedFiles++
-            options?.onProgress?.({
-              phase: "log",
-              label: "Collecting per-file commit histories.",
-              processedFiles,
-              totalFiles,
-              currentFile: filePath,
-            })
-
-            if (result.exitCode !== 0) {
-              // Non-fatal: skip files that fail (may be deleted in history)
-              options?.onOutput?.({
-                channel: "warn",
-                message: `git log failed for '${filePath}': ${result.stderr.trim()}`,
-              })
-              return { filePath, commits: [] as AnalysisCommit[] }
-            }
-
-            const commits = parseLogOutput(result.stdout)
-            const filtered = applyCommitExclusions(commits, config)
-            return { filePath, commits: filtered }
-          },
-        )
-
-        // Build commit groups in deterministic sorted file order
-        for (const { filePath, commits } of perFileResults) {
-          const groups = buildCommitGroups(commits, filePath)
-          if (groups.length > 0) {
-            fileCommitGroupsMap.set(filePath, groups)
-          }
-        }
-
-        // Phase 5: Overlap reduction
+        // Phase 4a: Repo-wide git log for author-level aggregates. Path
+        // filters (subfolder/extensions/include/exclude) apply, but the
+        // `nFiles` cap intentionally does not — author commits/insertions/
+        // deletions/age and daily activity must reflect every matching file.
         options?.onProgress?.({
-          phase: "reduce",
-          label: "Reducing commit history overlap.",
-          processedFiles: totalFiles,
+          phase: "log",
+          label: "Collecting repo-wide commit history.",
+          processedFiles: 0,
           totalFiles,
         })
-        reduceCommitGroupOverlap(fileCommitGroupsMap)
+        throwIfAborted(options?.signal)
+
+        const repoWideArgs = buildRepoWideLogArgs(resolvedAsOfOid, config)
+        const repoWideResult = await ports.gitCommand.run({
+          args: repoWideArgs,
+          cwd: repoRoot,
+          signal: options?.signal,
+        })
+        if (repoWideResult.exitCode !== 0) {
+          throw {
+            type: "provider",
+            message: `Repo-wide git log failed: ${repoWideResult.stderr.trim()}`,
+            provider: "git",
+            operation: "log",
+            retryable: false,
+          } satisfies AppError
+        }
+
+        const repoWideCommits = filterCommitsByPathScope(
+          applyCommitExclusions(parseLogOutput(repoWideResult.stdout), config),
+          config,
+        )
+
+        // Phase 4b: Per-file git log --follow with bounded concurrency.
+        // Drives only fileStats and per-file author breakdowns (which are
+        // by definition top-N scoped). Skipped when nFiles selects nothing.
+        const fileCommitGroupsMap = new Map<string, CommitGroup[]>()
+
+        if (totalFiles > 0) {
+          options?.onProgress?.({
+            phase: "log",
+            label: "Collecting per-file commit histories.",
+            processedFiles: 0,
+            totalFiles,
+          })
+
+          const maxConcurrency = config.maxConcurrency ?? 1
+          let processedFiles = 0
+
+          const perFileResults = await mapBounded(
+            filePaths,
+            maxConcurrency,
+            async (filePath) => {
+              throwIfAborted(options?.signal)
+
+              const args = buildPerFileLogArgs(
+                resolvedAsOfOid,
+                filePath,
+                config,
+              )
+
+              const result = await ports.gitCommand.run({
+                args,
+                cwd: repoRoot,
+                signal: options?.signal,
+              })
+
+              processedFiles++
+              options?.onProgress?.({
+                phase: "log",
+                label: "Collecting per-file commit histories.",
+                processedFiles,
+                totalFiles,
+                currentFile: filePath,
+              })
+
+              if (result.exitCode !== 0) {
+                // Non-fatal: skip files that fail (may be deleted in history)
+                options?.onOutput?.({
+                  channel: "warn",
+                  message: `git log failed for '${filePath}': ${result.stderr.trim()}`,
+                })
+                return { filePath, commits: [] as AnalysisCommit[] }
+              }
+
+              const commits = parseLogOutput(result.stdout)
+              const filtered = applyCommitExclusions(commits, config)
+              return { filePath, commits: filtered }
+            },
+          )
+
+          for (const { filePath, commits } of perFileResults) {
+            const groups = buildCommitGroups(commits, filePath)
+            if (groups.length > 0) {
+              fileCommitGroupsMap.set(filePath, groups)
+            }
+          }
+
+          // Phase 5: Overlap reduction (per-file `--follow` rename tails)
+          options?.onProgress?.({
+            phase: "reduce",
+            label: "Reducing commit history overlap.",
+            processedFiles: totalFiles,
+            totalFiles,
+          })
+          reduceCommitGroupOverlap(fileCommitGroupsMap)
+        }
 
         // Phase 6: Aggregate stats
         throwIfAborted(options?.signal)
@@ -793,10 +832,15 @@ export function createAnalysisRunHandler(
           totalFiles,
         })
 
-        const { authorStats: rawAuthorStats, fileStats: rawFileStats } =
-          aggregateStats(fileCommitGroupsMap, fileToSubfolderedPath, fileBytes)
+        const rawAuthorStats = aggregateAuthorStatsFromCommits(repoWideCommits)
+        const rawFileStats = aggregateFileStatsFromGroups(
+          fileCommitGroupsMap,
+          fileToSubfolderedPath,
+          fileBytes,
+        )
 
-        // Phase 7: Build PersonDB from log identities
+        // Phase 7: Build PersonDB from repo-wide log identities so that
+        // person merging never depends on the nFiles cap.
         const identities: GitAuthorIdentity[] = []
         const commitCounts = new Map<string, number>()
 
@@ -833,7 +877,7 @@ export function createAnalysisRunHandler(
           filteredStats.authorStats.map((author) => author.personId),
         )
         const authorDailyActivity = buildAuthorDailyActivity(
-          fileCommitGroupsMap,
+          repoWideCommits,
           personDbBaseline,
         ).filter((row) => visibleAuthorIds.has(row.personId))
 

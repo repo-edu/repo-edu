@@ -20,6 +20,18 @@ export type BlameFileCache = LayeredCache<FileBlame>
 // Cache key builder
 // ---------------------------------------------------------------------------
 
+/**
+ * Bump when the analysis aggregation pipeline changes shape so that previously
+ * persisted entries (computed by older code) no longer collide with new keys.
+ *
+ * History:
+ * - v1: per-file `--follow` drove every aggregate (commits/insertions/age/
+ *   daily activity were silently bound by the `nFiles` cap).
+ * - v2: split — repo-wide log feeds author-level aggregates and daily
+ *   activity; per-file path only feeds `fileStats` and per-file breakdowns.
+ */
+export const ANALYSIS_CACHE_SCHEMA_VERSION = 2
+
 export function buildAnalysisCacheKey(parts: {
   repoGitDir: string
   resolvedAsOfOid: string
@@ -28,6 +40,7 @@ export function buildAnalysisCacheKey(parts: {
 }): string {
   const raw = [
     "analysis",
+    `v${ANALYSIS_CACHE_SCHEMA_VERSION}`,
     parts.repoGitDir,
     parts.resolvedAsOfOid,
     parts.normalizedConfigJson,
