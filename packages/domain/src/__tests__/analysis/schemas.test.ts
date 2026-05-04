@@ -188,7 +188,6 @@ describe("validateAnalysisBlameConfig", () => {
     assert.equal(result.ok, true)
     if (!result.ok) return
     assert.equal(result.value.copyMove, 1)
-    assert.equal(result.value.ignoreRevsFile, true)
     assert.equal(result.value.whitespace, false)
     assert.equal(result.value.maxConcurrency, 1)
     assert.deepStrictEqual(result.value.includeFiles, ["*"])

@@ -2,9 +2,9 @@ import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
 import {
   Brain,
   Command,
+  Gauge,
   GitBranch,
   GraduationCap,
-  HardDrive,
   Monitor,
   X,
 } from "@repo-edu/ui/components/icons"
@@ -19,15 +19,15 @@ import { GitConnectionsPane } from "./GitConnectionsPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
 import { LlmConnectionsPane } from "./LlmConnectionsPane.js"
 import { LmsConnectionsPane } from "./LmsConnectionsPane.js"
-import { StoragePane } from "./StoragePane.js"
+import { PerformancePane } from "./PerformancePane.js"
 
 type SettingsCategory =
   | "lms-connections"
   | "git-connections"
   | "llm-connections"
   | "display"
+  | "performance"
   | "shortcuts"
-  | "storage"
 
 type CategoryItem = {
   id: SettingsCategory
@@ -57,9 +57,9 @@ const categories: CategoryItem[] = [
     icon: <Brain className="size-4" />,
   },
   {
-    id: "storage",
-    label: "Storage",
-    icon: <HardDrive className="size-4" />,
+    id: "performance",
+    label: "Performance",
+    icon: <Gauge className="size-4" />,
   },
   {
     id: "shortcuts",
@@ -154,10 +154,12 @@ export function SettingsSheet() {
               <DisplayPane />
             </div>
             <div
-              className={cn(activeCategory === "storage" ? "block" : "hidden")}
-              aria-hidden={activeCategory !== "storage"}
+              className={cn(
+                activeCategory === "performance" ? "block" : "hidden",
+              )}
+              aria-hidden={activeCategory !== "performance"}
             >
-              <StoragePane />
+              <PerformancePane />
             </div>
             <div
               className={cn(

@@ -234,10 +234,9 @@ export function useAnalysisWorkflows() {
           // background repos surface via per-repo status badges.
           setSelectedRepoPath(firstRepoPath)
           const repoPaths = result.repos.map((r) => r.path)
-          // Fan out: analyse every discovered repo with bounded concurrency.
-          // Warm launches hit the disk cache and resolve near-instantly;
-          // cold launches avoid thrashing a full cohort's worth of git
-          // subprocess pipelines simultaneously.
+          // Fan out: analyse every discovered repo with bounded concurrency
+          // so a full cohort doesn't thrash on simultaneous git subprocess
+          // pipelines.
           void mapBounded(
             repoPaths,
             analysisConcurrency.repoParallelism,

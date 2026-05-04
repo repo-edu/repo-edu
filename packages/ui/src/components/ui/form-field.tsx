@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils"
 import { Label } from "./label"
 
 interface FormFieldProps {
-  label: string
+  label: React.ReactNode
   htmlFor?: string
   description?: string
   title?: string

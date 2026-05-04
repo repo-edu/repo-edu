@@ -64,7 +64,6 @@ describe("analysis store", () => {
     const store = useAnalysisStore.getState()
     store.setBlameConfig({
       copyMove: 3,
-      ignoreRevsFile: false,
     })
 
     const course = makeCourse({
@@ -93,7 +92,6 @@ describe("analysis store", () => {
     assert.equal(merged.whitespace, true)
     assert.equal(merged.maxConcurrency, 4)
     assert.equal(merged.copyMove, 3)
-    assert.equal(merged.ignoreRevsFile, false)
   })
 
   it("sources blame extensions from the app default when the course leaves it unset", () => {

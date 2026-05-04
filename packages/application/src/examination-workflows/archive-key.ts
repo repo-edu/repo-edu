@@ -1,5 +1,17 @@
 import type { ExaminationCodeExcerpt } from "@repo-edu/application-contract"
-import { hashCacheKey } from "../cache/layered-cache.js"
+
+// The fingerprint is one field of a composite archive key
+// {groupSetId, personId, commitOid, questionCount, excerptsFingerprint};
+// a collision on the fingerprint alone can't produce a wrong hit unless
+// every other field also matches, so a single 32-bit FNV-1a is enough.
+function fnv1a32Hex(input: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0")
+}
 
 /**
  * Canonicalize excerpts by sorting on (filePath, startLine). The excerpt
@@ -35,8 +47,8 @@ export function buildExaminationExcerptsFingerprint(
         String(excerpt.startLine),
         String(excerpt.lines.length),
         excerpt.lines.join("\n"),
-      ].join("\u001f"),
+      ].join(""),
     )
-    .join("\u001e")
-  return hashCacheKey(serialized)
+    .join("")
+  return fnv1a32Hex(serialized)
 }

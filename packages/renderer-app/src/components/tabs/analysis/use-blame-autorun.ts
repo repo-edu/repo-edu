@@ -52,9 +52,14 @@ export function useBlameAutoRun() {
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
-  const filesPerRepo = useAppSettingsStore(
-    (s) => s.settings.analysisConcurrency.filesPerRepo,
+  const analysisConcurrency = useAppSettingsStore(
+    (s) => s.settings.analysisConcurrency,
   )
+  // Blame runs against one repo at a time, so the per-repo file budget
+  // would leave the rest of the global git-process budget idle. Spend it
+  // all on the selected repo.
+  const blameMaxConcurrency =
+    analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo
   const effectiveBlameConfig = useMemo(
     () =>
       course
@@ -62,10 +67,10 @@ export function useBlameAutoRun() {
             course,
             blameConfig,
             defaultExtensions,
-            filesPerRepo,
+            blameMaxConcurrency,
           )
         : blameConfig,
-    [course, blameConfig, defaultExtensions, filesPerRepo],
+    [course, blameConfig, defaultExtensions, blameMaxConcurrency],
   )
   const effectiveBlameConfigSnapshot = useMemo(
     () => stableStringify(effectiveBlameConfig),

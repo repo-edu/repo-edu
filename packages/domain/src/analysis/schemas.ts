@@ -143,7 +143,6 @@ const analysisBlameConfigInnerSchema = z.object({
   whitespace: z.boolean().optional().default(false),
   maxConcurrency: z.number().int().min(1).max(16).optional().default(1),
   copyMove: z.number().int().min(0).max(4).optional().default(1),
-  ignoreRevsFile: z.boolean().optional().default(true),
 })
 
 export const analysisBlameConfigSchema = z.pipe(

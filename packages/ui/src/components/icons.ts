@@ -27,6 +27,7 @@ export {
   FolderMinus,
   FolderOpen,
   FolderTree,
+  Gauge,
   GitBranch,
   GraduationCap,
   GripHorizontal,

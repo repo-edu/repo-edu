@@ -421,8 +421,6 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
         }),
       }
     })(),
-    "cache.getStats": async () => ({ caches: [] }),
-    "cache.clearAll": async () => ({ cleared: [] }),
     "userFile.inspectSelection": (
       input: UserFileRef,
       options: Parameters<typeof runInspectUserFileWorkflow>[2],

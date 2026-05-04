@@ -2,8 +2,6 @@ import {
   type AppSettingsStore,
   type CourseStore,
   createAnalysisWorkflowHandlers,
-  createBlameFileCache,
-  createCacheWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
   createExaminationArchive,
@@ -42,24 +40,16 @@ import type {
   GitCommandPort,
   HttpPort,
   LlmPort,
-  PersistentCache,
   UserFilePort,
 } from "@repo-edu/host-runtime-contract"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
-import { envDisableCache } from "./env-flags"
 
 const t = initTRPC.create()
 
 type DesktopWorkflowId = keyof typeof workflowCatalog
-
-export type DesktopCacheBudgets = {
-  sizeMB: { blameMB: number }
-  hotMB: { blameMB: number }
-  enabled: boolean
-}
 
 export type DesktopRouterPorts = {
   http: HttpPort
@@ -69,11 +59,7 @@ export type DesktopRouterPorts = {
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
   llm: LlmPort
-  caches: {
-    blameCache: PersistentCache
-  }
   examinationArchive: ExaminationArchiveStoragePort
-  cacheBudgets: DesktopCacheBudgets
   parentAbortSignal?: AbortSignal
   onWorkflowInvocationStart?: () => () => void
   /**
@@ -105,13 +91,11 @@ function applyEnvOverrides(
 ): PersistedAppSettings {
   const repoParallelism = envPositiveInt("REPO_EDU_REPO_PARALLELISM")
   const filesPerRepo = envPositiveInt("REPO_EDU_FILES_PER_REPO")
-  const disableCache = envDisableCache()
-  if (repoParallelism === null && filesPerRepo === null && !disableCache) {
+  if (repoParallelism === null && filesPerRepo === null) {
     return settings
   }
   return {
     ...settings,
-    cacheEnabled: disableCache ? false : settings.cacheEnabled,
     analysisConcurrency: {
       repoParallelism:
         repoParallelism ?? settings.analysisConcurrency.repoParallelism,
@@ -130,13 +114,11 @@ function stripEnvOverridesForPersist(
 ): PersistedAppSettings {
   const repoParallelism = envPositiveInt("REPO_EDU_REPO_PARALLELISM")
   const filesPerRepo = envPositiveInt("REPO_EDU_FILES_PER_REPO")
-  const disableCache = envDisableCache()
-  if (repoParallelism === null && filesPerRepo === null && !disableCache) {
+  if (repoParallelism === null && filesPerRepo === null) {
     return next
   }
   return {
     ...next,
-    cacheEnabled: disableCache ? rawPersisted.cacheEnabled : next.cacheEnabled,
     analysisConcurrency: {
       repoParallelism:
         repoParallelism === null
@@ -156,12 +138,6 @@ function createDesktopWorkflowRegistry(
   const lms = createLmsProviderDispatch(ports.http)
   const git = createGitProviderDispatch(ports.http)
 
-  const MB = 1024 * 1024
-  const blameFileCache = createBlameFileCache({
-    cache: ports.caches.blameCache,
-    hotBytes: ports.cacheBudgets.hotMB.blameMB * MB,
-    disabled: !ports.cacheBudgets.enabled,
-  })
   const examinationArchive = createExaminationArchive(ports.examinationArchive)
 
   const settingsHandlers = createSettingsWorkflowHandlers(
@@ -215,7 +191,6 @@ function createDesktopWorkflowRegistry(
     ...createAnalysisWorkflowHandlers({
       gitCommand: ports.gitCommand,
       fileSystem: ports.fileSystem,
-      blameCache: blameFileCache,
     }),
     ...createExaminationWorkflowHandlers({
       llm: ports.llm,
@@ -224,9 +199,6 @@ function createDesktopWorkflowRegistry(
     ...createExaminationArchiveWorkflowHandlers({
       archive: examinationArchive,
       userFile: ports.userFile,
-    }),
-    ...createCacheWorkflowHandlers({
-      blameCache: blameFileCache,
     }),
     "userFile.inspectSelection": (input, options) =>
       runInspectUserFileWorkflow(ports.userFile, input, options),

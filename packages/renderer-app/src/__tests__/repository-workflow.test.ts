@@ -72,9 +72,6 @@ const appSettings: PersistedAppSettings = {
   analysisDetailListSize: null,
   analysisSidebar: null,
   defaultExtensions: [],
-  cacheEnabled: true,
-  cacheSizeBudgetMB: { blameMB: 10000 },
-  cacheHotBudgetMB: { blameMB: 500 },
   analysisConcurrency: { repoParallelism: 3, filesPerRepo: 1 },
 }
 

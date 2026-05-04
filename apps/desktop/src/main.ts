@@ -17,11 +17,6 @@ import {
   createNodeLlmPort,
 } from "@repo-edu/host-node"
 import {
-  type CacheDatabaseHandle,
-  createSqliteCache,
-  openCacheDatabase,
-} from "@repo-edu/host-node/cache"
-import {
   createExaminationArchiveStorage,
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
@@ -31,7 +26,6 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
-  PersistentCache,
 } from "@repo-edu/host-runtime-contract"
 import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type {
@@ -59,7 +53,6 @@ import {
 } from "./auto-updater"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
-import { envDisableCache } from "./env-flags"
 import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
 import {
   type DesktopRendererHostBridge,
@@ -143,60 +136,12 @@ let storageRootPath: string | null = null
 let validationCourseId = ""
 let updaterMenuBound = false
 let quitRequested = false
-let cacheDatabaseHandle: CacheDatabaseHandle | null = null
-let cacheDatabaseClosed = false
 let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
 let examinationArchiveClosed = false
 export const shutdownController = new AbortController()
-export type DesktopCacheSet = {
-  blameCache: PersistentCache
-}
-let desktopCacheSet: DesktopCacheSet | null = null
 let desktopExaminationArchive: ExaminationArchiveStoragePort | null = null
 let inFlightWorkflowCount = 0
 const inFlightDrainWaiters = new Set<() => void>()
-
-const MB = 1024 * 1024
-
-type EffectiveCacheBudgets = {
-  sizeMB: { blameMB: number }
-  hotMB: { blameMB: number }
-  enabled: boolean
-}
-
-function resolveEffectiveCacheBudgets(
-  settings: PersistedAppSettings | null,
-): EffectiveCacheBudgets {
-  const base = settings ?? defaultAppSettings
-  return {
-    sizeMB: { blameMB: base.cacheSizeBudgetMB.blameMB },
-    hotMB: { blameMB: base.cacheHotBudgetMB.blameMB },
-    enabled: base.cacheEnabled && !envDisableCache(),
-  }
-}
-
-function openCacheSetOnce(
-  storageRoot: string,
-  settings: PersistedAppSettings | null,
-): DesktopCacheSet {
-  if (desktopCacheSet) return desktopCacheSet
-  const budgets = resolveEffectiveCacheBudgets(settings)
-
-  const cacheDir = join(storageRoot, "cache")
-  mkdirSync(cacheDir, { recursive: true })
-
-  const handle = openCacheDatabase({ dbPath: join(cacheDir, "cache.db") })
-  cacheDatabaseHandle = handle
-
-  const blameCache = createSqliteCache({
-    handle,
-    table: "blame_cache",
-    maxBytes: budgets.sizeMB.blameMB * MB,
-  })
-
-  desktopCacheSet = { blameCache }
-  return desktopCacheSet
-}
 
 function openExaminationArchiveOnce(
   storageRoot: string,
@@ -228,28 +173,6 @@ function openOrRecreateExaminationArchive(dbPath: string) {
     }
     return openExaminationArchiveDatabase({ dbPath })
   }
-}
-
-function closeCacheDatabase() {
-  if (cacheDatabaseClosed) return
-  cacheDatabaseClosed = true
-  const caches = desktopCacheSet
-  if (caches) {
-    try {
-      caches.blameCache.close()
-    } catch {
-      // Best-effort — the blame cache flushes touch metadata independently.
-    }
-  }
-  const handle = cacheDatabaseHandle
-  desktopCacheSet = null
-  if (!handle) return
-  try {
-    handle.close()
-  } catch {
-    // Best-effort — WAL durability survives close failures.
-  }
-  cacheDatabaseHandle = null
 }
 
 function closeExaminationArchiveDatabase() {
@@ -758,7 +681,6 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   if (!desktopRouter) {
-    const caches = openCacheSetOnce(storageRoot, appSettings)
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
     rebuildLlmPort(appSettings)
     desktopRouter = createDesktopRouter({
@@ -769,9 +691,7 @@ async function createWindow(): Promise<BrowserWindow> {
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,
       llm: nodeLlmPort,
-      caches,
       examinationArchive,
-      cacheBudgets: resolveEffectiveCacheBudgets(appSettings),
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,
       onAppSettingsSaved: rebuildLlmPort,
@@ -894,10 +814,10 @@ if (hasSingleInstanceLock) {
       }
       void (async () => {
         await waitForInFlightWorkflows(gracePeriodMs)
-        // Both databases run in WAL mode: closing checkpoints the WAL and any
-        // acknowledged write is already on disk. Close even on a forced quit
-        // so the archive (where data is not regenerable) never stays open.
-        closeCacheDatabase()
+        // Examination archive runs in WAL mode: closing checkpoints the WAL
+        // and any acknowledged write is already on disk. Close even on a
+        // forced quit so the archive (where data is not regenerable) never
+        // stays open.
         closeExaminationArchiveDatabase()
       })()
         .catch((error) => {

@@ -5,7 +5,6 @@ import {
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppSettings,
-  type PersistedCacheSizeBudgets,
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
@@ -68,8 +67,6 @@ type AppSettingsActions = {
   setAnalysisDetailListSize: (size: number) => void
   setAnalysisSidebar: (sidebar: PersistedAnalysisSidebarSettings | null) => void
 
-  setCacheEnabled: (enabled: boolean) => void
-  setCacheSizeBudgetMB: (budgets: PersistedCacheSizeBudgets) => void
   setAnalysisConcurrency: (concurrency: PersistedAnalysisConcurrency) => void
 
   reset: () => void
@@ -370,16 +367,6 @@ export const useAppSettingsStore = create<
     setAnalysisSidebar: (sidebar) =>
       set((state) => ({
         settings: { ...state.settings, analysisSidebar: sidebar },
-      })),
-
-    setCacheEnabled: (enabled) =>
-      set((state) => ({
-        settings: { ...state.settings, cacheEnabled: enabled },
-      })),
-
-    setCacheSizeBudgetMB: (budgets) =>
-      set((state) => ({
-        settings: { ...state.settings, cacheSizeBudgetMB: budgets },
       })),
 
     setAnalysisConcurrency: (concurrency) =>

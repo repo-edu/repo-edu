@@ -610,22 +610,6 @@ export type ExaminationArchiveExportResult = {
 export type ExaminationArchiveImportSummary =
   HostExaminationArchiveImportSummary
 
-export type CacheTypeId = "blame"
-
-export type CacheTypeStats = {
-  type: CacheTypeId
-  coldBytes: number
-  coldEntries: number
-}
-
-export type CacheStatsResult = {
-  caches: CacheTypeStats[]
-}
-
-export type CacheClearAllResult = {
-  cleared: CacheTypeId[]
-}
-
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -837,18 +821,6 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: ExaminationArchiveImportSummary
   }
-  "cache.getStats": {
-    input: undefined
-    progress: never
-    output: never
-    result: CacheStatsResult
-  }
-  "cache.clearAll": {
-    input: undefined
-    progress: never
-    output: never
-    result: CacheClearAllResult
-  }
 }
 
 export type WorkflowId = keyof WorkflowPayloads
@@ -1032,16 +1004,6 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",
-  },
-  "cache.getStats": {
-    delivery: ["desktop", "docs"],
-    progress: "none",
-    cancellation: "non-cancellable",
-  },
-  "cache.clearAll": {
-    delivery: ["desktop", "docs"],
-    progress: "none",
-    cancellation: "non-cancellable",
   },
 }
 

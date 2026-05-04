@@ -30,5 +30,4 @@ export type AnalysisBlameConfig = {
   whitespace?: boolean
   maxConcurrency?: number
   copyMove?: number
-  ignoreRevsFile?: boolean
 }

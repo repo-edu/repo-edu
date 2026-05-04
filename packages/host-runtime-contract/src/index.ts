@@ -216,38 +216,6 @@ export type LlmPort = {
 }
 
 // ---------------------------------------------------------------------------
-// PersistentCache port — opaque byte-level key/value store. Schema
-// invalidation is governed exclusively by the database `user_version`; a
-// mismatch wipes the file wholesale. There is no per-row schema tracking.
-// ---------------------------------------------------------------------------
-
-export type PersistentCacheEntry = {
-  bytes: Uint8Array
-}
-
-export type PersistentCacheSetEntry = {
-  key: string
-  bytes: Uint8Array
-}
-
-export type PersistentCacheStats = {
-  sizeBytes: number
-  entryCount: number
-}
-
-export type PersistentCache = {
-  get(key: string): PersistentCacheEntry | undefined
-  set(key: string, bytes: Uint8Array): void
-  getMany(keys: readonly string[]): (PersistentCacheEntry | undefined)[]
-  setMany(entries: readonly PersistentCacheSetEntry[]): void
-  touch(key: string): void
-  touchMany(keys: readonly string[]): void
-  clear(): void
-  stats(): PersistentCacheStats
-  close(): void
-}
-
-// ---------------------------------------------------------------------------
 // ExaminationArchiveStoragePort — JSON payload store keyed by the structured
 // archive identity. The application archive adapter owns typed payload
 // validation; the storage port owns addressing and persistence only, trusts
