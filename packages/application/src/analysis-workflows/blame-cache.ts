@@ -1,5 +1,35 @@
-import type { AnalysisBlameConfig } from "@repo-edu/domain/analysis"
-import { hashCacheKey } from "../cache/layered-cache.js"
+import type { AnalysisBlameConfig, FileBlame } from "@repo-edu/domain/analysis"
+import type { PersistentCache } from "@repo-edu/host-runtime-contract"
+import {
+  createByteBudgetedLru,
+  createLayeredCache,
+  hashCacheKey,
+  type LayeredCache,
+  structuredJsonSerde,
+} from "../cache/layered-cache.js"
+
+// ---------------------------------------------------------------------------
+// Blame file cache
+// ---------------------------------------------------------------------------
+
+export type BlameFileCache = LayeredCache<FileBlame>
+
+export type BlameFileCacheOptions = {
+  cache: PersistentCache
+  hotBytes: number
+  disabled?: boolean
+}
+
+export function createBlameFileCache(
+  options: BlameFileCacheOptions,
+): BlameFileCache {
+  return createLayeredCache<FileBlame>({
+    hot: createByteBudgetedLru(options.hotBytes),
+    cold: options.cache,
+    serde: structuredJsonSerde<FileBlame>(),
+    disabled: options.disabled,
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Blame cache key builder

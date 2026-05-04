@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { buildBlameCacheKey } from "../analysis-workflows/cache-keys.js"
+import { buildBlameCacheKey } from "../analysis-workflows/blame-cache.js"
 
 // ---------------------------------------------------------------------------
 // buildBlameCacheKey

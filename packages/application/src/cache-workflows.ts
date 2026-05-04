@@ -4,7 +4,7 @@ import type {
   CacheTypeId,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { BlameFileCache } from "./analysis-workflows/cache.js"
+import type { BlameFileCache } from "./analysis-workflows/blame-cache.js"
 
 export const CACHE_TYPES = ["blame"] as const satisfies readonly CacheTypeId[]
 

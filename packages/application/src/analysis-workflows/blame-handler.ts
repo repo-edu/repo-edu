@@ -21,8 +21,8 @@ import {
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
+import { buildBlameCacheKey } from "./blame-cache.js"
 import { parseBlameOutput } from "./blame-parser.js"
-import { buildBlameCacheKey } from "./cache-keys.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot } from "./repo-root.js"
@@ -73,7 +73,7 @@ const COPY_MOVE_FLAGS: Record<number, string[]> = {
 
 /**
  * Builds the `git blame` argv for a given `(OID, file, config)` triple.
- * Kept in lock-step with `buildBlameKeyArgv` in `./cache-keys.ts` — any
+ * Kept in lock-step with `buildBlameKeyArgv` in `./blame-cache.ts` — any
  * flag added here must be reflected there, or the blame cache will
  * silently miss on the new flag.
  */
