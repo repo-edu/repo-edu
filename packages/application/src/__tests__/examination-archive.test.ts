@@ -86,7 +86,7 @@ describe("examination archive fingerprint", () => {
 describe("examination archive adapter", () => {
   const baseKey = {
     groupSetId: "gs_1",
-    memberId: "m_1",
+    personId: "p_1",
     commitOid: "oid-1",
     questionCount: 1,
     excerptsFingerprint: "fp-1",
@@ -105,6 +105,7 @@ describe("examination archive adapter", () => {
     provenance: {
       memberName: "Alice",
       memberEmail: "alice@example.com",
+      memberId: "m_1",
       repoGitDir: "/repos/alice",
       assignmentContext: "A1",
       model: "22",
@@ -278,6 +279,7 @@ function sampleLlmReply(questionCount: number): string {
 function baseInput() {
   return {
     groupSetId: "gs_1",
+    personId: "p_1",
     memberId: "m_1",
     commitOid: "oid-abc",
     repoGitDir: "/repos/alice",

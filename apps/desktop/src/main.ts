@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs"
+import { mkdirSync, rmSync } from "node:fs"
 import { createRequire } from "node:module"
 import os from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
@@ -216,13 +216,30 @@ function openExaminationArchiveOnce(
   if (desktopExaminationArchive) return desktopExaminationArchive
   const archiveDir = join(storageRoot, "examinations")
   mkdirSync(archiveDir, { recursive: true })
-  const handle = openExaminationArchiveDatabase({
-    dbPath: join(archiveDir, "archive.db"),
-  })
+  const dbPath = join(archiveDir, "archive.db")
+  const handle = openOrRecreateExaminationArchive(dbPath)
   examinationArchiveHandle = handle
   const archive = createExaminationArchiveStorage({ handle })
   desktopExaminationArchive = archive
   return archive
+}
+
+// The archive opener throws on any unexpected `user_version`. When the
+// mismatch is from an older known schema the archive is unrecoverable
+// (column shape changed), so recreate the file and continue rather than
+// crash window startup. WAL/SHM siblings come along to keep SQLite from
+// reattaching to a half-deleted database.
+function openOrRecreateExaminationArchive(dbPath: string) {
+  try {
+    return openExaminationArchiveDatabase({ dbPath })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!/unsupported user_version/.test(message)) throw error
+    for (const path of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+      rmSync(path, { force: true })
+    }
+    return openExaminationArchiveDatabase({ dbPath })
+  }
 }
 
 function closeCacheDatabase() {

@@ -35,7 +35,7 @@ export type ExaminationArchivePort = {
 export function createInMemoryExaminationArchiveStorage(): ExaminationArchiveStoragePort {
   const entries = new Map<string, ExaminationArchiveStoredEntry>()
   const mapKey = (key: ExaminationArchiveKey): string =>
-    `${key.groupSetId}\u0000${key.memberId}\u0000${key.commitOid}\u0000${key.questionCount}\u0000${key.excerptsFingerprint}`
+    `${key.groupSetId}\u0000${key.personId}\u0000${key.commitOid}\u0000${key.questionCount}\u0000${key.excerptsFingerprint}`
   return {
     get(key) {
       return entries.get(mapKey(key))
@@ -182,7 +182,7 @@ function examinationKeysEqual(
 ): boolean {
   return (
     a.groupSetId === b.groupSetId &&
-    a.memberId === b.memberId &&
+    a.personId === b.personId &&
     a.commitOid === b.commitOid &&
     a.questionCount === b.questionCount &&
     a.excerptsFingerprint === b.excerptsFingerprint
@@ -193,21 +193,21 @@ function validateKey(raw: unknown): ExaminationArchiveKey | null {
   if (!isRecord(raw)) return null
   const {
     groupSetId,
-    memberId,
+    personId,
     commitOid,
     questionCount,
     excerptsFingerprint,
   } = raw
   if (
     typeof groupSetId !== "string" ||
-    typeof memberId !== "string" ||
+    typeof personId !== "string" ||
     typeof commitOid !== "string" ||
     typeof questionCount !== "number" ||
     typeof excerptsFingerprint !== "string"
   ) {
     return null
   }
-  return { groupSetId, memberId, commitOid, questionCount, excerptsFingerprint }
+  return { groupSetId, personId, commitOid, questionCount, excerptsFingerprint }
 }
 
 // A single malformed question rejects the whole record. Partial imports are
@@ -246,6 +246,7 @@ function validateProvenance(
   const {
     memberName,
     memberEmail,
+    memberId,
     repoGitDir,
     assignmentContext,
     model,
@@ -261,6 +262,13 @@ function validateProvenance(
     typeof repoGitDir !== "string" ||
     typeof questionCount !== "number" ||
     typeof createdAtMs !== "number"
+  ) {
+    return null
+  }
+  if (
+    memberId !== null &&
+    memberId !== undefined &&
+    typeof memberId !== "string"
   ) {
     return null
   }
@@ -281,6 +289,7 @@ function validateProvenance(
   return {
     memberName,
     memberEmail,
+    memberId: typeof memberId === "string" ? memberId : null,
     repoGitDir,
     assignmentContext:
       typeof assignmentContext === "string" ? assignmentContext : null,
@@ -403,7 +412,7 @@ function parseBundleRecords(raw: unknown): {
 }
 
 function describeKey(key: ExaminationArchiveKey): string {
-  return `group=${key.groupSetId} member=${key.memberId} commit=${key.commitOid.slice(0, 8)} q=${key.questionCount}`
+  return `group=${key.groupSetId} person=${key.personId} commit=${key.commitOid.slice(0, 8)} q=${key.questionCount}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -257,7 +257,7 @@ export type PersistentCache = {
 
 export type ExaminationArchiveKey = {
   groupSetId: string
-  memberId: string
+  personId: string
   commitOid: string
   questionCount: number
   excerptsFingerprint: string

@@ -58,7 +58,7 @@ export function createExaminationWorkflowHandlers(
         buildExaminationExcerptsFingerprint(canonicalExcerpts)
       const archiveKey: ExaminationArchiveKey = {
         groupSetId: input.groupSetId,
-        memberId: input.memberId,
+        personId: input.personId,
         commitOid: input.commitOid,
         questionCount: input.questionCount,
         excerptsFingerprint,
@@ -114,6 +114,7 @@ export function createExaminationWorkflowHandlers(
       const provenance: ExaminationArchivedProvenance = {
         memberName: input.memberName,
         memberEmail: input.memberEmail,
+        memberId: input.memberId,
         repoGitDir: input.repoGitDir,
         assignmentContext: input.assignmentContext ?? null,
         model: resolution.code,
@@ -295,8 +296,14 @@ function validateInput(input: ExaminationGenerateQuestionsInput): void {
   if (input.groupSetId.trim().length === 0) {
     issues.push({ path: "groupSetId", message: "groupSetId is required." })
   }
-  if (input.memberId.trim().length === 0) {
-    issues.push({ path: "memberId", message: "memberId is required." })
+  if (input.personId.trim().length === 0) {
+    issues.push({ path: "personId", message: "personId is required." })
+  }
+  if (input.memberId !== null && input.memberId.trim().length === 0) {
+    issues.push({
+      path: "memberId",
+      message: "memberId must be null or a non-empty string.",
+    })
   }
   if (input.commitOid.trim().length === 0) {
     issues.push({ path: "commitOid", message: "commitOid is required." })

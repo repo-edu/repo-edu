@@ -55,10 +55,9 @@ import { buildMemberExcerpts } from "./examination/build-excerpts.js"
 function buildExaminationEntryKey(parts: {
   repoPath: string
   commitOid: string
-  memberId: string
   personId: string
 }): string {
-  return `${parts.repoPath}\0${parts.commitOid}\0${parts.memberId}\0${parts.personId}`
+  return `${parts.repoPath}\0${parts.commitOid}\0${parts.personId}`
 }
 
 export function ExaminationTab() {
@@ -146,30 +145,26 @@ export function ExaminationTab() {
     return map
   }, [analysisResult])
 
+  const rosterPopulated = useMemo(() => {
+    if (!course) return false
+    return course.roster.students.length + course.roster.staff.length > 0
+  }, [course])
+
   const commitOid = useMemo(() => {
     const resolved = analysisResult?.resolvedAsOfOid
     if (resolved && resolved.length > 0) return resolved
     return asOfCommit ?? ""
   }, [analysisResult, asOfCommit])
   const selectedEntryKey = useMemo(() => {
-    const memberId = selectedPersonId
-      ? memberIdByPersonId.get(selectedPersonId)
-      : undefined
-    if (
-      !selectedRepoPath ||
-      commitOid.length === 0 ||
-      !selectedPersonId ||
-      !memberId
-    ) {
+    if (!selectedRepoPath || commitOid.length === 0 || !selectedPersonId) {
       return null
     }
     return buildExaminationEntryKey({
       repoPath: selectedRepoPath,
       commitOid,
-      memberId,
       personId: selectedPersonId,
     })
-  }, [commitOid, memberIdByPersonId, selectedPersonId, selectedRepoPath])
+  }, [commitOid, selectedPersonId, selectedRepoPath])
   const entry = useExaminationStore((s) =>
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )
@@ -182,7 +177,7 @@ export function ExaminationTab() {
     )
   }
 
-  const resolveBlockingReason = (personId: string): string | null => {
+  const resolveBlockingReason = (_personId: string): string | null => {
     if (!course) {
       return "Open a course before generating questions."
     }
@@ -190,15 +185,18 @@ export function ExaminationTab() {
       return "Select a repository in the Analysis tab first."
     }
     if (commitOid.length === 0) {
-      return "Analysis must resolve a commit before archiving examination output."
-    }
-    if (!memberIdByPersonId.has(personId)) {
-      return "This author is not matched to a roster member; archiving requires a roster match."
+      return "Analysis must resolve a commit before generating examination output."
     }
     if (activeLlmConnection === null) {
       return "Add an LLM connection in Settings → LLM Connections to generate questions."
     }
     return null
+  }
+
+  const resolveRosterWarning = (personId: string): string | null => {
+    if (!rosterPopulated) return null
+    if (memberIdByPersonId.has(personId)) return null
+    return "This author is not in the course roster — verify they belong to this course before sharing the questions."
   }
 
   const generate = async (
@@ -213,12 +211,11 @@ export function ExaminationTab() {
       addToast(blocker, { tone: "warning" })
       return
     }
-    const memberId = memberIdByPersonId.get(personId)
-    if (!course || !selectedRepoPath || !memberId) return
+    if (!course || !selectedRepoPath) return
+    const memberId = memberIdByPersonId.get(personId) ?? null
     const entryKey = buildExaminationEntryKey({
       repoPath: selectedRepoPath,
       commitOid,
-      memberId,
       personId,
     })
 
@@ -255,6 +252,7 @@ export function ExaminationTab() {
         "examination.generateQuestions",
         {
           groupSetId: course.id,
+          personId,
           memberId,
           commitOid,
           repoGitDir: selectedRepoPath,
@@ -367,6 +365,10 @@ export function ExaminationTab() {
     selectedSummary !== null
       ? resolveBlockingReason(selectedSummary.personId)
       : null
+  const selectedRosterWarning =
+    selectedSummary !== null
+      ? resolveRosterWarning(selectedSummary.personId)
+      : null
 
   const copyMarkdown = async () => {
     if (!selectedSummary || !entry || entry.status !== "loaded") return
@@ -443,6 +445,7 @@ export function ExaminationTab() {
               questionCount={questionCount}
               showAnswers={showAnswers}
               blocker={selectedBlocker}
+              rosterWarning={selectedRosterWarning}
               onQuestionCountChange={setQuestionCount}
               onShowAnswersChange={setShowAnswers}
               onGenerate={() =>
@@ -522,6 +525,7 @@ type MemberPanelProps = {
   questionCount: number
   showAnswers: boolean
   blocker: string | null
+  rosterWarning: string | null
   onQuestionCountChange: (count: number) => void
   onShowAnswersChange: (show: boolean) => void
   onGenerate: () => void
@@ -537,6 +541,7 @@ function MemberPanel({
   questionCount,
   showAnswers,
   blocker,
+  rosterWarning,
   onQuestionCountChange,
   onShowAnswersChange,
   onGenerate,
@@ -564,6 +569,11 @@ function MemberPanel({
           <p className="text-xs text-muted-foreground">
             {memberEmail} · {summary.lines} attributed lines
           </p>
+          {rosterWarning !== null ? (
+            <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+              {rosterWarning}
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">

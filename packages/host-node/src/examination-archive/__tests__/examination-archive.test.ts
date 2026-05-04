@@ -32,7 +32,7 @@ function buildEntry(
   return {
     key: {
       groupSetId: "gs_1",
-      memberId: "m_1",
+      personId: "p_1",
       commitOid: "oid-abc",
       questionCount: 1,
       excerptsFingerprint: "fingerprint-1",
@@ -66,7 +66,7 @@ describe("examination archive storage (host-node)", () => {
       const a = buildEntry({
         key: {
           groupSetId: "gs_1",
-          memberId: "m_1",
+          personId: "p_1",
           commitOid: "oid-a",
           questionCount: 1,
           excerptsFingerprint: "fp-a",
@@ -75,7 +75,7 @@ describe("examination archive storage (host-node)", () => {
       const b = buildEntry({
         key: {
           groupSetId: "gs_1",
-          memberId: "m_2",
+          personId: "p_2",
           commitOid: "oid-b",
           questionCount: 2,
           excerptsFingerprint: "fp-b",
@@ -87,9 +87,9 @@ describe("examination archive storage (host-node)", () => {
 
       const exported = ctx.storage.exportAll()
       assert.equal(exported.length, 2)
-      const byMember = new Map(exported.map((e) => [e.key.memberId, e]))
-      assert.equal(byMember.get("m_1")?.createdAtMs, a.createdAtMs)
-      assert.equal(byMember.get("m_2")?.createdAtMs, b.createdAtMs)
+      const byPerson = new Map(exported.map((e) => [e.key.personId, e]))
+      assert.equal(byPerson.get("p_1")?.createdAtMs, a.createdAtMs)
+      assert.equal(byPerson.get("p_2")?.createdAtMs, b.createdAtMs)
     } finally {
       ctx.cleanup()
     }
@@ -100,7 +100,7 @@ describe("examination archive storage (host-node)", () => {
     try {
       const sharedKey = {
         groupSetId: "gs_1",
-        memberId: "m_1",
+        personId: "p_1",
         commitOid: "oid-x",
         questionCount: 1,
         excerptsFingerprint: "fp-x",
@@ -123,7 +123,7 @@ describe("examination archive storage (host-node)", () => {
         buildEntry({
           key: {
             groupSetId: "gs_1",
-            memberId: "m_2",
+            personId: "p_2",
             commitOid: "oid-y",
             questionCount: 1,
             excerptsFingerprint: "fp-y",
@@ -135,7 +135,7 @@ describe("examination archive storage (host-node)", () => {
         buildEntry({
           key: {
             groupSetId: "gs_1",
-            memberId: "m_3",
+            personId: "p_3",
             commitOid: "oid-z",
             questionCount: 1,
             excerptsFingerprint: "fp-z",
@@ -164,7 +164,7 @@ describe("examination archive storage (host-node)", () => {
     try {
       const key = {
         groupSetId: "gs_1",
-        memberId: "m_1",
+        personId: "p_1",
         commitOid: "oid-x",
         questionCount: 1,
         excerptsFingerprint: "fp-x",

@@ -6,7 +6,7 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { withTransaction } from "../sqlite/transaction.js"
 
-const ARCHIVE_USER_VERSION = 2
+const ARCHIVE_USER_VERSION = 3
 
 export type ExaminationArchiveDatabaseHandle = {
   readonly db: DatabaseSync
@@ -52,17 +52,17 @@ export function openExaminationArchiveDatabase(
   db.exec(`
     CREATE TABLE IF NOT EXISTS examinations (
       group_set_id         TEXT NOT NULL,
-      member_id            TEXT NOT NULL,
+      person_id            TEXT NOT NULL,
       commit_oid           TEXT NOT NULL,
       question_count       INTEGER NOT NULL,
       excerpts_fingerprint TEXT NOT NULL,
       created_at           INTEGER NOT NULL,
       updated_at           INTEGER NOT NULL,
       payload              TEXT NOT NULL,
-      PRIMARY KEY (group_set_id, member_id, commit_oid, question_count, excerpts_fingerprint)
+      PRIMARY KEY (group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint)
     );
-    CREATE INDEX IF NOT EXISTS examinations_member_idx
-      ON examinations(group_set_id, member_id);
+    CREATE INDEX IF NOT EXISTS examinations_person_idx
+      ON examinations(group_set_id, person_id);
   `)
 
   return {
@@ -84,34 +84,34 @@ export function createExaminationArchiveStorage(
   const db = options.handle.db
 
   const selectOne: StatementSync = db.prepare(
-    `SELECT group_set_id, member_id, commit_oid, question_count, excerpts_fingerprint,
+    `SELECT group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
             created_at, payload
        FROM examinations
       WHERE group_set_id = ?
-        AND member_id = ?
+        AND person_id = ?
         AND commit_oid = ?
         AND question_count = ?
         AND excerpts_fingerprint = ?`,
   )
   const selectAll: StatementSync = db.prepare(
-    `SELECT group_set_id, member_id, commit_oid, question_count, excerpts_fingerprint,
+    `SELECT group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
             created_at, payload
        FROM examinations`,
   )
   const selectExisting: StatementSync = db.prepare(
     `SELECT created_at FROM examinations
       WHERE group_set_id = ?
-        AND member_id = ?
+        AND person_id = ?
         AND commit_oid = ?
         AND question_count = ?
         AND excerpts_fingerprint = ?`,
   )
   const upsert: StatementSync = db.prepare(
     `INSERT INTO examinations
-       (group_set_id, member_id, commit_oid, question_count, excerpts_fingerprint,
+       (group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
         created_at, updated_at, payload)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(group_set_id, member_id, commit_oid, question_count, excerpts_fingerprint)
+     ON CONFLICT(group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint)
      DO UPDATE SET
        created_at = excluded.created_at,
        updated_at = excluded.updated_at,
@@ -120,7 +120,7 @@ export function createExaminationArchiveStorage(
 
   function rowToEntry(row: {
     group_set_id: string
-    member_id: string
+    person_id: string
     commit_oid: string
     question_count: number
     excerpts_fingerprint: string
@@ -130,7 +130,7 @@ export function createExaminationArchiveStorage(
     return {
       key: {
         groupSetId: row.group_set_id,
-        memberId: row.member_id,
+        personId: row.person_id,
         commitOid: row.commit_oid,
         questionCount: Number(row.question_count),
         excerptsFingerprint: row.excerpts_fingerprint,
@@ -143,7 +143,7 @@ export function createExaminationArchiveStorage(
   function putEntry(entry: ExaminationArchiveStoredEntry, now: number): void {
     upsert.run(
       entry.key.groupSetId,
-      entry.key.memberId,
+      entry.key.personId,
       entry.key.commitOid,
       entry.key.questionCount,
       entry.key.excerptsFingerprint,
@@ -157,14 +157,14 @@ export function createExaminationArchiveStorage(
     get(key) {
       const row = selectOne.get(
         key.groupSetId,
-        key.memberId,
+        key.personId,
         key.commitOid,
         key.questionCount,
         key.excerptsFingerprint,
       ) as
         | {
             group_set_id: string
-            member_id: string
+            person_id: string
             commit_oid: string
             question_count: number
             excerpts_fingerprint: string
@@ -183,7 +183,7 @@ export function createExaminationArchiveStorage(
     exportAll() {
       const rows = selectAll.all() as {
         group_set_id: string
-        member_id: string
+        person_id: string
         commit_oid: string
         question_count: number
         excerpts_fingerprint: string
@@ -203,7 +203,7 @@ export function createExaminationArchiveStorage(
         for (const entry of entries) {
           const existing = selectExisting.get(
             entry.key.groupSetId,
-            entry.key.memberId,
+            entry.key.personId,
             entry.key.commitOid,
             entry.key.questionCount,
             entry.key.excerptsFingerprint,

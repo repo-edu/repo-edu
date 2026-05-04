@@ -483,7 +483,20 @@ export type ExaminationLlmSettings = {
 
 export type ExaminationGenerateQuestionsInput = {
   groupSetId: string
-  memberId: string
+  /**
+   * Stable identity of the author the excerpts belong to, derived from
+   * blame canonicalization. Always present — examinations key on this so
+   * generation works without a roster.
+   */
+  personId: string
+  /**
+   * Roster member the author resolves to, when a roster match exists.
+   * Null when there is no roster, the roster is empty, or the author
+   * could not be matched. Carried through to the archived provenance so
+   * graders can tell, on re-open, whether the entry was produced under a
+   * matched roster identity.
+   */
+  memberId: string | null
   commitOid: string
   repoGitDir: string
   memberName: string
@@ -537,6 +550,12 @@ export type ExaminationProvenanceDrift = {
 export type ExaminationArchivedProvenance = {
   memberName: string
   memberEmail: string
+  /**
+   * Roster member id at the time the questions were generated, or null
+   * when the author was not matched to a roster member (or no roster
+   * existed). Informational only — the archive is keyed on personId.
+   */
+  memberId: string | null
   repoGitDir: string
   assignmentContext: string | null
   /**

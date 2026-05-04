@@ -44,6 +44,7 @@ function baseInput(
 ): ExaminationGenerateQuestionsInput {
   return {
     groupSetId: "gs_1",
+    personId: "p_1",
     memberId: "m_1",
     commitOid: "oid-abc",
     repoGitDir: "/repos/alice",
