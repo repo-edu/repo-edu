@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 // Default model codes — resolved against @repo-edu/integrations-llm-catalog.
 export const DEFAULT_MP = "35"
 export const DEFAULT_MC = "22"
+export const DEFAULT_ME = "35"
 
 // Mode
 export const DEFAULT_AI_CODERS = true

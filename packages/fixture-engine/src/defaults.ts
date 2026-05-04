@@ -7,6 +7,7 @@ import {
   DEFAULT_COMMENTS,
   DEFAULT_COMPLEXITY,
   DEFAULT_MC,
+  DEFAULT_ME,
   DEFAULT_MP,
   DEFAULT_REVIEWS,
   DEFAULT_ROUNDS,
@@ -39,6 +40,7 @@ export function FIXTURE_SWEEP_FILE(): string {
 export interface Settings {
   mp: string
   mc: string
+  me: string
   aiCoders: boolean
   coderInteraction: number
   complexity: number
@@ -52,6 +54,7 @@ export interface Settings {
 export const HARDCODED_SETTINGS: Settings = {
   mp: DEFAULT_MP,
   mc: DEFAULT_MC,
+  me: DEFAULT_ME,
   aiCoders: DEFAULT_AI_CODERS,
   coderInteraction: DEFAULT_CODER_INTERACTION,
   complexity: DEFAULT_COMPLEXITY,
@@ -68,7 +71,7 @@ interface Spec {
 }
 
 const NUMERIC_SPECS: Record<
-  keyof Omit<Settings, "mp" | "mc" | "aiCoders" | "style">,
+  keyof Omit<Settings, "mp" | "mc" | "me" | "aiCoders" | "style">,
   Spec
 > = {
   coderInteraction: { min: MIN_CODER_INTERACTION, max: MAX_CODER_INTERACTION },
@@ -82,6 +85,7 @@ const NUMERIC_SPECS: Record<
 const KNOWN_KEYS = new Set<keyof Settings>([
   "mp",
   "mc",
+  "me",
   "aiCoders",
   "style",
   ...(Object.keys(NUMERIC_SPECS) as (keyof Settings)[]),
@@ -134,7 +138,7 @@ function validateValue<K extends keyof Settings>(
   key: K,
   v: unknown,
 ): Settings[K] {
-  if (key === "mp" || key === "mc") {
+  if (key === "mp" || key === "mc" || key === "me") {
     if (typeof v !== "string" || v.length === 0) {
       fail(
         `${ref}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
@@ -218,6 +222,8 @@ export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
 
 export const REPO_PHASE_KEYS = new Set<keyof Settings>(["mc", "comments"])
 
+export const EVALUATE_PHASE_KEYS = new Set<keyof Settings>(["me"])
+
 export type SweepPhase = "plan" | "repo"
 
 export interface SweepFile {
@@ -247,6 +253,11 @@ export function loadSweepFile(path: string): SweepFile {
   const rawList = obj[sweptKey] as unknown[]
   if (rawList.length === 0) {
     fail(`${path}: list for "${sweptKey}" must be non-empty`)
+  }
+  if (EVALUATE_PHASE_KEYS.has(sweptKey)) {
+    fail(
+      `${path}: cannot sweep on "${sweptKey}" — evaluate-phase keys are not part of plan/repo runs`,
+    )
   }
   const sweptValues = rawList.map((v, i) =>
     validateValue(`${path}[${sweptKey}][${i}]`, sweptKey, v),
@@ -323,6 +334,12 @@ const SETTING_ITEMS: SettingItem[] = [
     key: "mc",
     value: (s) => `"${s.mc}"`,
     comment: "coder model CODE",
+  },
+  {
+    kind: "row",
+    key: "me",
+    value: (s) => `"${s.me}"`,
+    comment: "evaluator model CODE",
   },
   { kind: "header", text: "fixture project" },
   {
@@ -441,6 +458,7 @@ export const SWEEP_PREAMBLE = [
   "Repo-phase keys (mc, comments): --from=<project>",
   "plans once and iterates repos, or --from=<plan> reuses an existing",
   "plan and skips planning.",
+  "Evaluate-phase keys (me) cannot be swept.",
 ]
 
 const DEFAULT_SWEEP_BODY = [

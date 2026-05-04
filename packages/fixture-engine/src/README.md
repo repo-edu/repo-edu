@@ -305,7 +305,9 @@ pnpm fixture evaluate
 The walk stops descending at the first folder that contains
 `_state.json`, so a project / plan / repo dir all work as
 roots. Override the destination with `--out=PATH`. The evaluator
-model defaults to opus max; override with `-m CODE`.
+model defaults to `me` in `.fixture-settings.jsonc` (initialised to
+opus max); `-m CODE` overrides per-run and updates `me` for the next
+run.
 
 ## Entry point
 

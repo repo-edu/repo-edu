@@ -464,8 +464,6 @@ function parseSweep(argv: string[]): SweepOpts {
   }
 }
 
-const EVALUATE_DEFAULT_MODEL_CODE = "35"
-
 function parseEvaluate(argv: string[]): EvaluateOpts {
   const { values: v } = runNodeParseArgs(argv, {
     from: { type: "string" },
@@ -476,7 +474,7 @@ function parseEvaluate(argv: string[]): EvaluateOpts {
   })
   const common = commonOptsFrom(v)
   const evaluatorSpec = parseModelOption(
-    (v.model as string | undefined) ?? EVALUATE_DEFAULT_MODEL_CODE,
+    (v.model as string | undefined) ?? SETTINGS().me,
     "-m/--model",
     "mp",
   )
@@ -695,7 +693,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       ),
       ...opt(
         "  -m, --model=CODE",
-        `Evaluator model (default: ${EVALUATE_DEFAULT_MODEL_CODE})`,
+        `Evaluator model (default: ${SETTINGS().me})`,
       ),
       ...helpLine,
     ]

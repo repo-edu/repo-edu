@@ -5,6 +5,7 @@ import { resolve } from "node:path"
 import { afterEach, beforeEach, describe, test } from "node:test"
 import { setFixtureRuntimeRoots } from "./constants.js"
 import {
+  EVALUATE_PHASE_KEYS,
   HARDCODED_SETTINGS,
   loadSweepFile,
   materializeSettings,
@@ -82,15 +83,26 @@ describe("loadSweepFile — phase classification", () => {
     }
   })
 
-  test("plan-phase and repo-phase key sets are disjoint and exhaustive", () => {
+  test("phase key sets are disjoint and exhaustive", () => {
     const all: (keyof Settings)[] = Object.keys(
       HARDCODED_SETTINGS,
     ) as (keyof Settings)[]
     for (const key of all) {
-      const inPlan = PLAN_PHASE_KEYS.has(key)
-      const inRepo = REPO_PHASE_KEYS.has(key)
-      assert.notEqual(inPlan, inRepo, `${key} must be in exactly one phase`)
+      const memberships = [
+        PLAN_PHASE_KEYS.has(key),
+        REPO_PHASE_KEYS.has(key),
+        EVALUATE_PHASE_KEYS.has(key),
+      ].filter(Boolean).length
+      assert.equal(memberships, 1, `${key} must be in exactly one phase`)
     }
+  })
+
+  test("evaluate-phase key cannot be swept", () => {
+    const path = stageSweep("p.jsonc", { me: ["33", "35"] })
+    assert.throws(
+      () => loadSweepFile(path),
+      /cannot sweep on "me" — evaluate-phase keys/,
+    )
   })
 })
 

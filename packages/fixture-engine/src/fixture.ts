@@ -43,7 +43,7 @@ import {
   writeSettings,
   writeSweep,
 } from "./defaults"
-import { findRepoDirs, runEvaluate } from "./evaluate"
+import { findRepoDirs, resolveProjectFromPlan, runEvaluate } from "./evaluate"
 import { emptyUsage } from "./llm-client"
 import {
   emit,
@@ -278,7 +278,7 @@ function loadPlanFrom(path: string): {
 } {
   if (!existsSync(path)) fail(`plan file not found: ${path}`)
   const pf = markdownToPlan(readFileSync(path, "utf8"))
-  const projectPath = resolve(dirname(path), pf.meta.projectFile)
+  const projectPath = resolveProjectFromPlan(dirname(path), pf.meta.projectFile)
   const project = loadProjectFrom(projectPath)
   validatePlan(pf.plan, pf.meta.students, pf.plan.commits.length)
   return { meta: pf.meta, plan: pf.plan, project }
@@ -348,6 +348,13 @@ function settingsForRepo(prev: Settings, opts: RepoOpts): Settings {
     ...prev,
     mc: modelCode(opts.coderSpec),
     comments: opts.comments,
+  }
+}
+
+function settingsForEvaluate(prev: Settings, opts: EvaluateOpts): Settings {
+  return {
+    ...prev,
+    me: modelCode(opts.evaluatorSpec),
   }
 }
 
@@ -910,7 +917,10 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
   )
 }
 
-async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
+async function handleEvaluate(
+  opts: EvaluateOpts,
+  runStart: number,
+): Promise<void> {
   let rootDir: string
   if (opts.fromPath) {
     const abs = resolveFrom(opts.fromPath)
@@ -951,11 +961,16 @@ async function handleEvaluate(opts: EvaluateOpts): Promise<void> {
       ? opts.outPath
       : resolve(process.cwd(), opts.outPath)
     : null
-  await runEvaluate({
+  const result = await runEvaluate({
     rootDir,
     evaluatorSpec: opts.evaluatorSpec,
     outPath,
+    runStart,
   })
+  writeSettings(FIXTURES_DIR(), settingsForEvaluate(SETTINGS(), opts))
+  process.stdout.write(
+    `Evaluation complete (${result.reportCount} repo(s)). ${formatSeconds(Date.now() - runStart)} total.\n`,
+  )
 }
 
 function handleInit(opts: InitOpts): void {
@@ -1008,7 +1023,7 @@ export async function runFixtureSubcommand(argv: string[]): Promise<void> {
       await handleSweep(opts, runStart)
       break
     case "evaluate":
-      await handleEvaluate(opts)
+      await handleEvaluate(opts, runStart)
       break
   }
 }

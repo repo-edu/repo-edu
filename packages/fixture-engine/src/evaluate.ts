@@ -22,7 +22,7 @@ import {
   STATE_BASENAME,
 } from "./constants"
 import { emptyUsage, generateText } from "./llm-client"
-import { fail } from "./log"
+import { fail, formatSeconds } from "./log"
 import { type CapMarker, hasCapMarker, readCapMarker } from "./markers"
 import { markdownToPlan } from "./plan-md"
 import { loadSection } from "./prompt-loader"
@@ -38,6 +38,32 @@ const RUBRIC_AXES = [
 ] as const
 
 type RubricAxis = (typeof RUBRIC_AXES)[number]
+
+const AXIS_HEADINGS: Record<RubricAxis, string> = {
+  blame_richness: "blame",
+  author_variation: "authors",
+  timeline_shape: "timeline",
+  chart_legibility: "charts",
+  commit_message_quality: "messages",
+  surface_plausibility: "surface",
+  style_fidelity: "style",
+}
+
+const AXIS_DESCRIPTIONS: Record<RubricAxis, string> = {
+  blame_richness:
+    "per-file blame shows multiple authors per module with varied commit ages",
+  author_variation:
+    "per-author charts show distinguishable signatures and reasonably balanced LOC",
+  timeline_shape:
+    "round-by-round view shows a visible pattern; no single round dominates by size",
+  chart_legibility:
+    "distributions readable — no giant file dominating, no swarm of trivial stubs",
+  commit_message_quality:
+    'messages read like real student commits, not LLM boilerplate ("Refactor code")',
+  surface_plausibility:
+    "30-second eyeball: no syntax errors, broken control flow, or pass-stub functions",
+  style_fidelity: "repository honours the plan's stated style",
+}
 
 interface Score {
   blame_richness: number
@@ -84,6 +110,34 @@ export const EVALUATE_BASENAME = "_evaluate.md"
 
 function isDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory()
+}
+
+function findProjectMdInDir(dir: string): string | null {
+  const direct = resolve(dir, "project.md")
+  if (existsSync(direct)) return direct
+  let latest: string | null = null
+  let n = 2
+  while (existsSync(resolve(dir, `project-v${n}.md`))) {
+    latest = resolve(dir, `project-v${n}.md`)
+    n++
+  }
+  return latest
+}
+
+export function resolveProjectFromPlan(
+  planDir: string,
+  recordedProjectFile: string,
+): string {
+  const recorded = resolve(planDir, recordedProjectFile)
+  if (existsSync(recorded)) return recorded
+  let dir = dirname(planDir)
+  while (true) {
+    const found = findProjectMdInDir(dir)
+    if (found) return found
+    const parent = dirname(dir)
+    if (parent === dir) return recorded
+    dir = parent
+  }
 }
 
 export function findRepoDirs(root: string): string[] {
@@ -287,16 +341,16 @@ function formatWallSeconds(ms: number): string {
   return `${Math.round(ms / 1000)} s`
 }
 
-function rankKey(r: RepoReport): number {
-  return r.total ?? -1
-}
-
 function renderReport(
   evaluatorSpec: FixtureModelSpec,
   rootDir: string,
   reports: RepoReport[],
 ): string {
-  const sorted = [...reports].sort((a, b) => rankKey(b) - rankKey(a))
+  const repoLabelOf = (r: RepoReport): string =>
+    `${basename(r.planDir)}/${r.dirName}`
+  const sorted = [...reports].sort((a, b) =>
+    repoLabelOf(a).localeCompare(repoLabelOf(b)),
+  )
   const scored = sorted.filter(
     (r): r is RepoReport & { score: Score; total: number } =>
       r.status === "ok" && r.score !== null,
@@ -305,8 +359,8 @@ function renderReport(
   const planDirs = [...new Set(sorted.map((r) => r.planDir))].sort()
   const titleStyle = styles.length === 1 ? styles[0] : `${styles.length} styles`
   const summaryHeader = [
-    `| repo | kind | status | wall | in | cached | out | cost |`,
-    `| --- | --- | --- | --- | --- | --- | --- | --- |`,
+    `| repo | status | wall | in | cached | out | cost |`,
+    `| --- | --- | --- | --- | --- | --- | --- |`,
   ]
   const summaryRows = sorted.map((r) => {
     const wall = formatWallSeconds(r.totalUsage.wallMs)
@@ -314,20 +368,23 @@ function renderReport(
     const cachedT = formatTokens(r.totalUsage.cachedInputTokens)
     const outT = formatTokens(r.totalUsage.outputTokens)
     const cost = formatCostByMode(r.authMode, r.estCost)
-    const repoLabel = `${basename(r.planDir)}/${r.dirName} (${formatModelSpec(r.spec)})`
-    return `| ${repoLabel} | ${r.styleName} | ${r.status} | ${wall} | ${inT} | ${cachedT} | ${outT} | ${cost} |`
+    return `| ${repoLabelOf(r)} | ${r.status} | ${wall} | ${inT} | ${cachedT} | ${outT} | ${cost} |`
   })
-  const axisHeadings = RUBRIC_AXES.map((a) => a.replace(/_/g, " "))
+  const axisHeadings = RUBRIC_AXES.map((a) => AXIS_HEADINGS[a])
   const scoresHeader = [
-    `| kind | ${axisHeadings.join(" | ")} | total |`,
+    `| repo | ${axisHeadings.join(" | ")} | total |`,
     `| --- | ${RUBRIC_AXES.map(() => "---").join(" | ")} | --- |`,
   ]
   const scoresRows = scored.map((r) => {
     const axes = RUBRIC_AXES.map((a) => String(r.score[a] as number)).join(
       " | ",
     )
-    return `| ${r.styleName} | ${axes} | **${r.total}** |`
+    return `| ${repoLabelOf(r)} | ${axes} | **${r.total}** |`
   })
+  const rubricHeader = [`| column | meaning |`, `| --- | --- |`]
+  const rubricRows = RUBRIC_AXES.map(
+    (a) => `| ${AXIS_HEADINGS[a]} | ${AXIS_DESCRIPTIONS[a]} |`,
+  )
   const notes = scored.map((r) => {
     const heading = `### ${basename(r.planDir)}/${r.dirName} — ${formatModelSpec(r.spec)} (${r.styleName})`
     const bullets = RUBRIC_AXES.map((axis) => {
@@ -364,6 +421,11 @@ function renderReport(
     ...scoresHeader,
     ...scoresRows,
     "",
+    "## Rubric",
+    "",
+    ...rubricHeader,
+    ...rubricRows,
+    "",
     "## Notes",
     "",
     ...notes,
@@ -394,7 +456,7 @@ function loadPlanContext(
   }
   const planText = readFileSync(planPath, "utf8")
   const { meta } = markdownToPlan(planText)
-  const projectPath = resolve(planDir, meta.projectFile)
+  const projectPath = resolveProjectFromPlan(planDir, meta.projectFile)
   if (!existsSync(projectPath)) fail(`project file not found: ${projectPath}`)
   const projectText = readFileSync(projectPath, "utf8")
   const styleDescription = loadSection("planner/style", meta.style)
@@ -413,9 +475,15 @@ export interface EvaluateOpts {
   rootDir: string
   evaluatorSpec: FixtureModelSpec
   outPath: string | null
+  runStart: number
 }
 
-export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
+export interface EvaluateResult {
+  outPath: string
+  reportCount: number
+}
+
+export async function runEvaluate(opts: EvaluateOpts): Promise<EvaluateResult> {
   if (!isDir(opts.rootDir)) fail(`not a directory: ${opts.rootDir}`)
   const repoDirs = findRepoDirs(opts.rootDir)
   if (repoDirs.length === 0) {
@@ -485,11 +553,12 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
       gitLogText: logText,
     })
 
-    process.stdout.write(
-      `evaluate: scoring ${basename(ctx.planDir)}/${name}…\n`,
-    )
-    const { reply } = await generateText(opts.evaluatorSpec, prompt)
+    process.stdout.write(`evaluate: scoring ${basename(ctx.planDir)}/${name}`)
+    const { reply, usage } = await generateText(opts.evaluatorSpec, prompt)
     const score = parseScore(reply)
+    process.stdout.write(
+      ` (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - opts.runStart)})\n`,
+    )
     reports.push({
       repoDir,
       dirName: name,
@@ -517,5 +586,5 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<string> {
     opts.outPath ?? resolve(opts.rootDir, EVALUATE_BASENAME)
   writeFileSync(resolvedOutPath, out)
   process.stdout.write(`evaluate: wrote ${resolvedOutPath}\n`)
-  return resolvedOutPath
+  return { outPath: resolvedOutPath, reportCount: reports.length }
 }
