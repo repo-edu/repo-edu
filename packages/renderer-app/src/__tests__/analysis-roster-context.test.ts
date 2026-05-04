@@ -65,22 +65,8 @@ function makeCourse(
 }
 
 describe("buildAnalysisRosterContext", () => {
-  it("returns undefined for non-LMS roster connections", () => {
+  it("returns undefined when the roster has no members regardless of connection", () => {
     const noConnection = makeCourse(null, { students: [], staff: [] })
-    const imported = makeCourse(
-      {
-        kind: "import",
-        sourceFilename: "teams.txt",
-        lastUpdated: "2026-04-08T00:00:00.000Z",
-      },
-      { students: [makeMember("s1", "Ada", "student")], staff: [] },
-    )
-
-    assert.equal(buildAnalysisRosterContext(noConnection), undefined)
-    assert.equal(buildAnalysisRosterContext(imported), undefined)
-  })
-
-  it("returns undefined when LMS roster has no members", () => {
     const emptyLms = makeCourse(
       {
         kind: "canvas",
@@ -90,7 +76,32 @@ describe("buildAnalysisRosterContext", () => {
       { students: [], staff: [] },
     )
 
+    assert.equal(buildAnalysisRosterContext(noConnection), undefined)
     assert.equal(buildAnalysisRosterContext(emptyLms), undefined)
+  })
+
+  it("returns members for non-LMS roster sources when populated", () => {
+    const imported = makeCourse(
+      {
+        kind: "import",
+        sourceFilename: "teams.txt",
+        lastUpdated: "2026-04-08T00:00:00.000Z",
+      },
+      { students: [makeMember("s1", "Ada", "student")], staff: [] },
+    )
+    const local = makeCourse(null, {
+      students: [makeMember("s1", "Ada", "student")],
+      staff: [],
+    })
+
+    assert.deepEqual(
+      buildAnalysisRosterContext(imported)?.members.map((m) => m.id),
+      ["s1"],
+    )
+    assert.deepEqual(
+      buildAnalysisRosterContext(local)?.members.map((m) => m.id),
+      ["s1"],
+    )
   })
 
   it("returns deduplicated members for LMS roster", () => {
