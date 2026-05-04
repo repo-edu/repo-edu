@@ -32,11 +32,12 @@ export function createBlameFileCache(
 }
 
 // ---------------------------------------------------------------------------
-// Blame cache key builder
+// Blame argv builder (shared by handler invocation and cache keying)
 // ---------------------------------------------------------------------------
 
 /**
- * Copy-move flag mapping (must match `blame-handler.ts::COPY_MOVE_FLAGS`).
+ * Copy-move flag mapping (Python parity):
+ * 0 = no detection, 1 = -M, 2 = -C, 3 = -C -C, 4 = -C -C -C
  */
 const BLAME_COPY_MOVE_FLAGS: Record<number, string[]> = {
   0: [],
@@ -47,17 +48,25 @@ const BLAME_COPY_MOVE_FLAGS: Record<number, string[]> = {
 }
 
 /**
- * Produces the blame `git` argv for a given `(config, OID sentinel, path
- * sentinel)` tuple. The argv shape is canonical cache-key material: any
- * future flag added to blame automatically participates in the key, and
- * removed flags stop participating. Kept in sync with `buildBlameArgs`
- * (see comment in `blame-handler.ts`).
- *
- * The real commit OID and file path contribute to the key separately, so
- * we substitute sentinels here to avoid double-counting and to keep the
+ * Sentinels substituted for the real OID and file path when the argv is
+ * being hashed into a cache key. Kept as named constants so the cache-key
+ * call site reads as a sentinel substitution rather than magic strings.
+ */
+export const BLAME_KEY_OID_SENTINEL = "<OID>"
+export const BLAME_KEY_FILE_SENTINEL = "<FILE>"
+
+/**
+ * Builds the `git blame` argv for a given `(OID, file, config)` triple.
+ * The argv shape is canonical cache-key material: any flag added here
+ * automatically participates in the cache key when called with sentinels,
+ * and removed flags stop participating. The real OID and file path
+ * contribute to the key separately, so the cache-key call substitutes
+ * `BLAME_KEY_OID_SENTINEL` / `BLAME_KEY_FILE_SENTINEL` to keep the
  * canonical form stable across different OID/path values.
  */
-export function buildBlameKeyArgv(
+export function buildBlameArgs(
+  commitOid: string,
+  filePath: string,
   config: AnalysisBlameConfig,
   hasIgnoreRevsFile: boolean,
 ): string[] {
@@ -69,9 +78,13 @@ export function buildBlameKeyArgv(
   if (hasIgnoreRevsFile && (config.ignoreRevsFile ?? true)) {
     args.push("--ignore-revs-file=_git-blame-ignore-revs.txt")
   }
-  args.push("<OID>", "--", "<FILE>")
+  args.push(commitOid, "--", filePath)
   return args
 }
+
+// ---------------------------------------------------------------------------
+// Blame cache key builder
+// ---------------------------------------------------------------------------
 
 /**
  * Bump when the blame parsing/aggregation pipeline changes shape so that
@@ -93,7 +106,12 @@ export function buildBlameCacheKey(parts: {
   hasIgnoreRevsFile: boolean
   ignoreRevsFingerprint: string | null
 }): string {
-  const argv = buildBlameKeyArgv(parts.config, parts.hasIgnoreRevsFile)
+  const argv = buildBlameArgs(
+    BLAME_KEY_OID_SENTINEL,
+    BLAME_KEY_FILE_SENTINEL,
+    parts.config,
+    parts.hasIgnoreRevsFile,
+  )
   const raw = [
     "blame",
     `v${BLAME_CACHE_SCHEMA_VERSION}`,

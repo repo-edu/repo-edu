@@ -21,7 +21,7 @@ import {
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
-import { buildBlameCacheKey } from "./blame-cache.js"
+import { buildBlameArgs, buildBlameCacheKey } from "./blame-cache.js"
 import { parseBlameOutput } from "./blame-parser.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
@@ -53,53 +53,6 @@ async function mapBounded<T, R>(
   )
   await Promise.all(workers)
   return results
-}
-
-// ---------------------------------------------------------------------------
-// Git blame command construction
-// ---------------------------------------------------------------------------
-
-/**
- * Copy-move flag mapping (Python parity):
- * 0 = no detection, 1 = -M, 2 = -C, 3 = -C -C, 4 = -C -C -C
- */
-const COPY_MOVE_FLAGS: Record<number, string[]> = {
-  0: [],
-  1: ["-M"],
-  2: ["-C"],
-  3: ["-C", "-C"],
-  4: ["-C", "-C", "-C"],
-}
-
-/**
- * Builds the `git blame` argv for a given `(OID, file, config)` triple.
- * Kept in lock-step with `buildBlameKeyArgv` in `./blame-cache.ts` — any
- * flag added here must be reflected there, or the blame cache will
- * silently miss on the new flag.
- */
-function buildBlameArgs(
-  commitOid: string,
-  filePath: string,
-  config: AnalysisBlameConfig,
-  hasIgnoreRevsFile: boolean,
-): string[] {
-  const args = ["blame", "--follow", "--porcelain"]
-
-  const copyMoveLevel = config.copyMove ?? 1
-  const flags = COPY_MOVE_FLAGS[copyMoveLevel] ?? COPY_MOVE_FLAGS[1]
-  args.push(...flags)
-
-  if (!config.whitespace) {
-    args.push("-w")
-  }
-
-  if (hasIgnoreRevsFile && (config.ignoreRevsFile ?? true)) {
-    args.push("--ignore-revs-file=_git-blame-ignore-revs.txt")
-  }
-
-  args.push(commitOid, "--", filePath)
-
-  return args
 }
 
 // ---------------------------------------------------------------------------
