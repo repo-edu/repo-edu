@@ -1,17 +1,6 @@
 export { createAnalysisWorkflowHandlers } from "./analysis-workflows/analysis-workflows.js"
-export type {
-  AnalysisResultCache,
-  BlameFileCache,
-} from "./analysis-workflows/cache.js"
-export {
-  createAnalysisCaches,
-  createInMemoryAnalysisCache,
-} from "./analysis-workflows/cache.js"
-export {
-  getAnalysisConfigFingerprint,
-  normalizeAnalysisConfigForCache,
-  normalizeRosterContextForCache,
-} from "./analysis-workflows/cache-keys.js"
+export type { BlameFileCache } from "./analysis-workflows/cache.js"
+export { createBlameFileCache } from "./analysis-workflows/cache.js"
 export type { AnalysisWorkflowPorts } from "./analysis-workflows/ports.js"
 export { hashCacheKey } from "./cache/layered-cache.js"
 export type { CacheStats } from "./cache-workflows.js"

@@ -1,4 +1,3 @@
-import { getAnalysisConfigFingerprint } from "@repo-edu/application"
 import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
@@ -22,6 +21,7 @@ import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
+import { buildAnalysisStoreFingerprint } from "../../../utils/analysis-store-fingerprint.js"
 import {
   RepoFolderNode,
   RepoLeafButton,
@@ -209,7 +209,7 @@ export function RepositoriesSection({
       filesPerRepo,
     )
     const rosterContext = buildAnalysisRosterContext(course)
-    return getAnalysisConfigFingerprint(config, rosterContext)
+    return buildAnalysisStoreFingerprint(config, rosterContext)
   }, [course, defaultExtensions, filesPerRepo])
 
   const handleSelectRepo = useCallback(

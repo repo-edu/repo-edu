@@ -22,13 +22,7 @@ import {
   validateAnalysisConfig,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
-import { isAbsolutePath, joinPath } from "../path-utils.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
-import { buildAnalysisCacheKey } from "./cache.js"
-import {
-  normalizeAnalysisConfigForCache,
-  normalizeRosterContextForCache,
-} from "./cache-keys.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import { parseLogOutput } from "./log-parser.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
@@ -631,19 +625,6 @@ export function createAnalysisRunHandler(
             retryable: false,
           } satisfies AppError
         }
-        const repoGitDirRaw = gitCheckResult.stdout.trim()
-        if (repoGitDirRaw.length === 0) {
-          throw {
-            type: "provider",
-            message: `Failed to resolve git directory for '${repoRoot}'.`,
-            provider: "git",
-            operation: "rev-parse",
-            retryable: false,
-          } satisfies AppError
-        }
-        const repoGitDir = isAbsolutePath(repoGitDirRaw)
-          ? repoGitDirRaw
-          : joinPath(repoRoot, repoGitDirRaw)
 
         throwIfAborted(options?.signal)
         const resolvedAsOfOid = await resolveSnapshotHead(
@@ -654,31 +635,6 @@ export function createAnalysisRunHandler(
           options?.signal,
           options?.onOutput,
         )
-
-        const cacheKey = ports.cache
-          ? buildAnalysisCacheKey({
-              repoGitDir,
-              resolvedAsOfOid,
-              normalizedConfigJson: normalizeAnalysisConfigForCache(config),
-              normalizedRosterFingerprint: normalizeRosterContextForCache(
-                input.rosterContext,
-              ),
-            })
-          : undefined
-
-        // Cache lookup
-        if (ports.cache && cacheKey) {
-          const cached = ports.cache.get(cacheKey)
-          if (cached) {
-            options?.onProgress?.({
-              phase: "done",
-              label: "Analysis complete (cached).",
-              processedFiles: 0,
-              totalFiles: 0,
-            })
-            return cached
-          }
-        }
 
         // Phase 3: List and filter file candidates
         throwIfAborted(options?.signal)
@@ -904,11 +860,6 @@ export function createAnalysisRunHandler(
           authorDailyActivity,
           personDbBaseline,
           rosterMatches,
-        }
-
-        // Cache store
-        if (ports.cache && cacheKey) {
-          ports.cache.set(cacheKey, result)
         }
 
         return result

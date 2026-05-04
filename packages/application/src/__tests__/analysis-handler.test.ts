@@ -12,7 +12,6 @@ import type {
   GitCommandPort,
 } from "@repo-edu/host-runtime-contract"
 import { createAnalysisWorkflowHandlers } from "../analysis-workflows/analysis-workflows.js"
-import { createInMemoryAnalysisCache } from "../analysis-workflows/cache.js"
 import { COMMIT_DELIMITER } from "../analysis-workflows/log-parser.js"
 
 // ---------------------------------------------------------------------------
@@ -150,55 +149,6 @@ describe("analysis.run handler", () => {
     assert.equal(result.fileStats.length, 0)
     assert.equal(result.authorDailyActivity.length, 0)
     assert.equal(result.resolvedAsOfOid, "abc123def456")
-  })
-
-  it("caches empty analysis results and skips repeated tree scans", async () => {
-    const calls: string[] = []
-    const gitCommand: GitCommandPort = {
-      cancellation: "cooperative",
-      async run(request) {
-        const key = request.args.join(" ")
-        calls.push(key)
-
-        if (key.startsWith("rev-parse --git-dir")) {
-          return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
-        }
-        if (key.startsWith("rev-parse HEAD")) {
-          return {
-            exitCode: 0,
-            stdout: "abc123def456",
-            stderr: "",
-            signal: null,
-          }
-        }
-        if (key.startsWith("ls-tree")) {
-          return { exitCode: 0, stdout: "", stderr: "", signal: null }
-        }
-        return { exitCode: 0, stdout: "", stderr: "", signal: null }
-      },
-    }
-
-    const handlers = createAnalysisWorkflowHandlers({
-      gitCommand,
-      fileSystem: stubFileSystem,
-      cache: createInMemoryAnalysisCache(),
-    })
-
-    const input: AnalysisRunInput = {
-      course: createMockCourse(),
-      repositoryRelativePath: "test-repo",
-      config: { nFiles: 0 },
-    }
-
-    const first = await handlers["analysis.run"](input)
-    const second = await handlers["analysis.run"](input)
-
-    assert.deepEqual(first, second)
-    assert.equal(
-      calls.filter((call) => call.startsWith("ls-tree")).length,
-      1,
-      "second run should hit cache before ls-tree",
-    )
   })
 
   it("emits progress events through all phases", async () => {

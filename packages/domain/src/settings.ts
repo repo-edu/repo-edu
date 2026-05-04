@@ -139,17 +139,15 @@ const persistedAnalysisSidebarSettingsSchema = z.object({
 
 const persistedCacheSizeBudgetsSchema = z
   .object({
-    analysisMB: z.number().int().min(0).default(5000),
     blameMB: z.number().int().min(0).default(10000),
   })
-  .default({ analysisMB: 5000, blameMB: 10000 })
+  .default({ blameMB: 10000 })
 
 const persistedCacheHotBudgetsSchema = z
   .object({
-    analysisMB: z.number().int().min(0).default(200),
     blameMB: z.number().int().min(0).default(500),
   })
-  .default({ analysisMB: 200, blameMB: 500 })
+  .default({ blameMB: 500 })
 
 const persistedAnalysisConcurrencySchema = z
   .object({
@@ -331,11 +329,9 @@ export const defaultAppSettings: PersistedAppSettings = {
   defaultExtensions: [...DEFAULT_EXTENSIONS],
   cacheEnabled: true,
   cacheSizeBudgetMB: {
-    analysisMB: 5000,
     blameMB: 10000,
   },
   cacheHotBudgetMB: {
-    analysisMB: 200,
     blameMB: 500,
   },
   analysisConcurrency: {

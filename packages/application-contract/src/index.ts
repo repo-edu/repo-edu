@@ -610,7 +610,7 @@ export type ExaminationArchiveExportResult = {
 export type ExaminationArchiveImportSummary =
   HostExaminationArchiveImportSummary
 
-export type CacheTypeId = "analysis" | "blame"
+export type CacheTypeId = "blame"
 
 export type CacheTypeStats = {
   type: CacheTypeId

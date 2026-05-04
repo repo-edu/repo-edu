@@ -1,8 +1,8 @@
 import {
   type AppSettingsStore,
   type CourseStore,
-  createAnalysisCaches,
   createAnalysisWorkflowHandlers,
+  createBlameFileCache,
   createCacheWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
@@ -56,8 +56,8 @@ const t = initTRPC.create()
 type DesktopWorkflowId = keyof typeof workflowCatalog
 
 export type DesktopCacheBudgets = {
-  sizeMB: { analysisMB: number; blameMB: number }
-  hotMB: { analysisMB: number; blameMB: number }
+  sizeMB: { blameMB: number }
+  hotMB: { blameMB: number }
   enabled: boolean
 }
 
@@ -70,7 +70,6 @@ export type DesktopRouterPorts = {
   fileSystem: FileSystemPort
   llm: LlmPort
   caches: {
-    analysisCache: PersistentCache
     blameCache: PersistentCache
   }
   examinationArchive: ExaminationArchiveStoragePort
@@ -158,14 +157,11 @@ function createDesktopWorkflowRegistry(
   const git = createGitProviderDispatch(ports.http)
 
   const MB = 1024 * 1024
-  const { analysis: analysisCache, blame: blameFileCache } =
-    createAnalysisCaches({
-      cache: ports.caches.analysisCache,
-      blameCache: ports.caches.blameCache,
-      hotAnalysisBytes: ports.cacheBudgets.hotMB.analysisMB * MB,
-      hotBlameBytes: ports.cacheBudgets.hotMB.blameMB * MB,
-      disabled: !ports.cacheBudgets.enabled,
-    })
+  const blameFileCache = createBlameFileCache({
+    cache: ports.caches.blameCache,
+    hotBytes: ports.cacheBudgets.hotMB.blameMB * MB,
+    disabled: !ports.cacheBudgets.enabled,
+  })
   const examinationArchive = createExaminationArchive(ports.examinationArchive)
 
   const settingsHandlers = createSettingsWorkflowHandlers(
@@ -219,7 +215,6 @@ function createDesktopWorkflowRegistry(
     ...createAnalysisWorkflowHandlers({
       gitCommand: ports.gitCommand,
       fileSystem: ports.fileSystem,
-      cache: analysisCache,
       blameCache: blameFileCache,
     }),
     ...createExaminationWorkflowHandlers({
@@ -231,7 +226,6 @@ function createDesktopWorkflowRegistry(
       userFile: ports.userFile,
     }),
     ...createCacheWorkflowHandlers({
-      analysisCache,
       blameCache: blameFileCache,
     }),
     "userFile.inspectSelection": (input, options) =>

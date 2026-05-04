@@ -13,7 +13,6 @@ import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 const CACHE_TYPE_LABELS: Record<CacheTypeId, string> = {
-  analysis: "Analysis results",
   blame: "Blame per-file",
 }
 
@@ -182,16 +181,6 @@ export function StoragePane() {
           Takes effect on next app launch.
         </Text>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Analysis" htmlFor="cache-budget-analysis">
-            <Input
-              id="cache-budget-analysis"
-              type="number"
-              min={0}
-              value={cacheSizeBudgetMB.analysisMB}
-              onChange={(e) => handleBudgetChange("analysis", e.target.value)}
-              onBlur={handleFieldCommit}
-            />
-          </FormField>
           <FormField label="Blame" htmlFor="cache-budget-blame">
             <Input
               id="cache-budget-blame"

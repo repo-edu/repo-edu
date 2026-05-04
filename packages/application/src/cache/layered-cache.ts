@@ -14,7 +14,7 @@ import type {
 const FNV_PRIME = 0x01000193
 const FNV_OFFSET = 0x811c9dc5
 
-export function fnv1a32Hex(input: string): string {
+function fnv1a32Hex(input: string): string {
   let hash = FNV_OFFSET
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i)
@@ -99,23 +99,6 @@ export function structuredJsonSerde<TValue>(): CacheSerde<TValue> {
       return JSON.parse(textDecoder.decode(bytes), structuredReviver) as TValue
     },
   }
-}
-
-// ---------------------------------------------------------------------------
-// Shared no-op cold cache — used by the in-memory analysis cache and by any
-// caller wanting to compose a hot-only layered cache.
-// ---------------------------------------------------------------------------
-
-export const noopPersistentCache: PersistentCache = {
-  get: () => undefined,
-  set: () => {},
-  getMany: (keys) => keys.map(() => undefined),
-  setMany: () => {},
-  touch: () => {},
-  touchMany: () => {},
-  clear: () => {},
-  stats: () => ({ sizeBytes: 0, entryCount: 0 }),
-  close: () => {},
 }
 
 // ---------------------------------------------------------------------------

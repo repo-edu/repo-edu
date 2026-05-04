@@ -1,4 +1,3 @@
-import { getAnalysisConfigFingerprint } from "@repo-edu/application"
 import type {
   AnalysisProgress,
   DiscoverReposProgress,
@@ -14,6 +13,7 @@ import {
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
+import { buildAnalysisStoreFingerprint } from "../../../utils/analysis-store-fingerprint.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
 import { resolveRunCompletionAction } from "./run-analysis-state.js"
 
@@ -82,7 +82,7 @@ export function useAnalysisWorkflows() {
       analysisConcurrency.filesPerRepo,
     )
     const rosterContext = buildAnalysisRosterContext(course)
-    return getAnalysisConfigFingerprint(config, rosterContext)
+    return buildAnalysisStoreFingerprint(config, rosterContext)
   }, [analysisConcurrency.filesPerRepo, course, defaultExtensions])
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export function useAnalysisWorkflows() {
         const effectiveConfig =
           configOverride ??
           resolveCourseAnalysisConfig(course, defaultExtensions, filesPerRepo)
-        const fingerprint = getAnalysisConfigFingerprint(
+        const fingerprint = buildAnalysisStoreFingerprint(
           effectiveConfig,
           rosterContext,
         )

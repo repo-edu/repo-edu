@@ -149,7 +149,6 @@ let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
 let examinationArchiveClosed = false
 export const shutdownController = new AbortController()
 export type DesktopCacheSet = {
-  analysisCache: PersistentCache
   blameCache: PersistentCache
 }
 let desktopCacheSet: DesktopCacheSet | null = null
@@ -160,8 +159,8 @@ const inFlightDrainWaiters = new Set<() => void>()
 const MB = 1024 * 1024
 
 type EffectiveCacheBudgets = {
-  sizeMB: { analysisMB: number; blameMB: number }
-  hotMB: { analysisMB: number; blameMB: number }
+  sizeMB: { blameMB: number }
+  hotMB: { blameMB: number }
   enabled: boolean
 }
 
@@ -170,14 +169,8 @@ function resolveEffectiveCacheBudgets(
 ): EffectiveCacheBudgets {
   const base = settings ?? defaultAppSettings
   return {
-    sizeMB: {
-      analysisMB: base.cacheSizeBudgetMB.analysisMB,
-      blameMB: base.cacheSizeBudgetMB.blameMB,
-    },
-    hotMB: {
-      analysisMB: base.cacheHotBudgetMB.analysisMB,
-      blameMB: base.cacheHotBudgetMB.blameMB,
-    },
+    sizeMB: { blameMB: base.cacheSizeBudgetMB.blameMB },
+    hotMB: { blameMB: base.cacheHotBudgetMB.blameMB },
     enabled: base.cacheEnabled && !envDisableCache(),
   }
 }
@@ -195,18 +188,13 @@ function openCacheSetOnce(
   const handle = openCacheDatabase({ dbPath: join(cacheDir, "cache.db") })
   cacheDatabaseHandle = handle
 
-  const analysisCache = createSqliteCache({
-    handle,
-    table: "analysis_cache",
-    maxBytes: budgets.sizeMB.analysisMB * MB,
-  })
   const blameCache = createSqliteCache({
     handle,
     table: "blame_cache",
     maxBytes: budgets.sizeMB.blameMB * MB,
   })
 
-  desktopCacheSet = { analysisCache, blameCache }
+  desktopCacheSet = { blameCache }
   return desktopCacheSet
 }
 
@@ -247,12 +235,10 @@ function closeCacheDatabase() {
   cacheDatabaseClosed = true
   const caches = desktopCacheSet
   if (caches) {
-    for (const cache of [caches.analysisCache, caches.blameCache]) {
-      try {
-        cache.close()
-      } catch {
-        // Best-effort — each cache flushes independent touch metadata.
-      }
+    try {
+      caches.blameCache.close()
+    } catch {
+      // Best-effort — the blame cache flushes touch metadata independently.
     }
   }
   const handle = cacheDatabaseHandle
