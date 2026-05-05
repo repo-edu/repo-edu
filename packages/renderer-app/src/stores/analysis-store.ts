@@ -514,39 +514,24 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set((state) => {
         let changed = false
         const next = new Map(state.repoStates)
-        const removedRepoPaths = new Set<string>()
         for (const [path, entry] of next) {
           if (entry.configFingerprint !== currentFingerprint) {
             next.delete(path)
-            removedRepoPaths.add(path)
             changed = true
           }
         }
         if (!changed) return state
-        const nextRepoWorkflowStatus = new Map(state.repoWorkflowStatus)
-        const nextRepoProgress = new Map(state.repoProgress)
-        const nextRepoErrorMessage = new Map(state.repoErrorMessage)
-        for (const path of removedRepoPaths) {
-          nextRepoWorkflowStatus.delete(path)
-          nextRepoProgress.delete(path)
-          nextRepoErrorMessage.delete(path)
-        }
-        const selectedStillPresent =
-          state.selectedRepoPath !== null && next.has(state.selectedRepoPath)
-        if (selectedStillPresent) {
-          return {
-            repoStates: next,
-            repoWorkflowStatus: nextRepoWorkflowStatus,
-            repoProgress: nextRepoProgress,
-            repoErrorMessage: nextRepoErrorMessage,
-          }
+        // Selection is the user's intent and persists across config changes;
+        // an auto-rerun (see `setConfigAndRerun` in AnalysisSidebar) repopulates
+        // the result via setResultForRepo, which mirrors into the flat fields
+        // only while selectedRepoPath still matches the repo being analyzed.
+        const isSelectedRemoved =
+          state.selectedRepoPath !== null && !next.has(state.selectedRepoPath)
+        if (!isSelectedRemoved) {
+          return { repoStates: next }
         }
         return {
-          selectedRepoPath: null,
           repoStates: next,
-          repoWorkflowStatus: nextRepoWorkflowStatus,
-          repoProgress: nextRepoProgress,
-          repoErrorMessage: nextRepoErrorMessage,
           result: null,
           blameResult: null,
           blameTargetFiles: [],
@@ -557,9 +542,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
           blameErrorMessage: null,
           blameContextSnapshot: null,
-          workflowStatus: "idle",
-          progress: null,
-          errorMessage: null,
           selectedAuthors: new Set(),
           blameVisibleAuthors: null,
           fileSelectionMode: "all",

@@ -263,7 +263,11 @@ describe("analysis store", () => {
     )
   })
 
-  it("clears selected repo when fingerprint pruning removes the active entry", () => {
+  it("preserves selected repo when fingerprint pruning removes the active entry", () => {
+    // The user's selection persists across config changes so an auto-rerun
+    // (kicked off by sidebar config edits) can mirror its result back into the
+    // flat fields via setResultForRepo. Per-repo workflow state for the
+    // in-flight run is left intact for the same reason.
     const store = useAnalysisStore.getState()
     const repoPath = "/tmp/repo-a"
     store.setSelectedRepoPath(repoPath)
@@ -275,19 +279,16 @@ describe("analysis store", () => {
       processedFiles: 1,
       totalFiles: 2,
     })
-    store.setErrorMessageForRepo(repoPath, "old-error")
 
     store.pruneStaleResultsByFingerprint("fingerprint-new")
 
     const state = useAnalysisStore.getState()
-    assert.equal(state.selectedRepoPath, null)
+    assert.equal(state.selectedRepoPath, repoPath)
     assert.equal(state.repoStates.has(repoPath), false)
-    assert.equal(state.repoWorkflowStatus.has(repoPath), false)
-    assert.equal(state.repoProgress.has(repoPath), false)
-    assert.equal(state.repoErrorMessage.has(repoPath), false)
-    assert.equal(state.workflowStatus, "idle")
-    assert.equal(state.progress, null)
-    assert.equal(state.errorMessage, null)
+    assert.equal(state.repoWorkflowStatus.get(repoPath), "running")
+    assert.equal(state.repoProgress.get(repoPath)?.phase, "log")
+    assert.equal(state.result, null)
+    assert.equal(state.blameResult, null)
   })
 })
 
