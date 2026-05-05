@@ -48,7 +48,7 @@
         "// ---- fixtures ----": "",
         "fixture": "pnpm --filter @repo-edu/fixture-cli start",
         "// ---- utilities ----": "",
-        "file-sizes": "pnpm --filter @repo-edu/file-sizes start",
+        "file-sizes": "tsx tools/file-sizes/src/main.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",
         "pnpm:update": "pnpm self-update",
         "deps:latest": "pnpm up -r --latest && pnpm dedupe"

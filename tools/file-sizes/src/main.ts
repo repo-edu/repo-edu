@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process"
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { parseArgs } from "node:util"
+import { Command, InvalidArgumentError } from "commander"
 
 const UNBOUNDED_SUBDIR_LEVEL = Number.MAX_SAFE_INTEGER
 
@@ -39,107 +39,69 @@ type CliOptions = {
   topFiles: number | undefined
 }
 
-function parseCliOptions(args: string[]): CliOptions {
-  const usage =
-    "Usage: pnpm file-sizes [<directory>] [options]  (default: current directory)"
-  const helpText = [
-    usage,
-    "",
-    "Options:",
-    "  -d, --dir-level <N>  Show subfolders up to depth N (default: 2, 0 = all depths).",
-    "  -x, --extensions     Show file extension analysis section.",
-    "  -f, --files          Show per-file line counts in addition to per-folder sums.",
-    "  -t, --top <N>        Show the N biggest files sorted by line count.",
-    "  -l, --include-lock   Include pnpm-lock.yaml in counts and output.",
-    "  -n, --sort-numeric   Sort folders by total number of lines.",
-    "  -h, --help           Show this help message.",
-  ].join("\n")
-  const normalizedArgs = args.filter((arg) => arg !== "--")
+function parseDirLevel(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError("Expected a non-negative integer.")
+  }
+  const parsed = Number.parseInt(value, 10)
+  return parsed === 0 ? UNBOUNDED_SUBDIR_LEVEL : parsed
+}
 
-  let values: {
-    "dir-level": string
+function parsePositiveInt(value: string): number {
+  if (!/^\d+$/.test(value) || value === "0") {
+    throw new InvalidArgumentError("Expected a positive integer.")
+  }
+  return Number.parseInt(value, 10)
+}
+
+function parseCliOptions(args: string[]): CliOptions {
+  const program = new Command()
+    .name("file-sizes")
+    .description("Tree-style line/file counts per subfolder for a directory.")
+    .argument("[directory]", "Root directory to scan.", ".")
+    .option(
+      "-d, --dir-level <n>",
+      "Show subfolders up to depth N (0 = all depths).",
+      parseDirLevel,
+      2,
+    )
+    .option("-x, --extensions", "Show file extension analysis section.", false)
+    .option(
+      "-f, --files",
+      "Show per-file line counts in addition to per-folder sums.",
+      false,
+    )
+    .option(
+      "-t, --top <n>",
+      "Show the N biggest files sorted by line count.",
+      parsePositiveInt,
+    )
+    .option(
+      "-l, --include-lock",
+      "Include pnpm-lock.yaml in counts and output.",
+      false,
+    )
+    .option(
+      "-n, --sort-numeric",
+      "Sort folders by total number of lines.",
+      false,
+    )
+    .helpOption("-h, --help", "Show this help message.")
+    .showHelpAfterError("(See --help for usage info.)")
+
+  program.parse(args, { from: "user" })
+
+  const opts = program.opts<{
+    dirLevel: number
     extensions: boolean
     files: boolean
-    help: boolean
-    "include-lock": boolean
-    "sort-numeric": boolean
-    top: string | undefined
-  }
-  let positionals: string[] = []
-
-  try {
-    const parsed = parseArgs({
-      args: normalizedArgs,
-      allowPositionals: true,
-      options: {
-        "dir-level": {
-          type: "string",
-          short: "d",
-          default: "2",
-        },
-        "sort-numeric": {
-          type: "boolean",
-          short: "n",
-          default: false,
-        },
-        extensions: {
-          type: "boolean",
-          short: "x",
-          default: false,
-        },
-        files: {
-          type: "boolean",
-          short: "f",
-          default: false,
-        },
-        top: {
-          type: "string",
-          short: "t",
-        },
-        "include-lock": {
-          type: "boolean",
-          short: "l",
-          default: false,
-        },
-        help: {
-          type: "boolean",
-          short: "h",
-          default: false,
-        },
-      },
-      strict: true,
-    })
-
-    positionals = parsed.positionals
-    values = {
-      "dir-level": parsed.values["dir-level"],
-      extensions: parsed.values.extensions,
-      files: parsed.values.files,
-      help: parsed.values.help,
-      "include-lock": parsed.values["include-lock"],
-      "sort-numeric": parsed.values["sort-numeric"],
-      top: parsed.values.top,
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`${error.message}\n${usage}`)
-    }
-    throw error
-  }
-
-  if (values.help) {
-    console.log(helpText)
-    process.exit(0)
-  }
-
-  if (positionals.length > 1) {
-    throw new Error(
-      `Expected at most one root-folder argument, received ${positionals.length}\n${usage}`,
-    )
-  }
-
-  const dirArg = positionals[0] ?? "."
-  const rootDirPath = path.resolve(process.cwd(), dirArg)
+    top: number | undefined
+    includeLock: boolean
+    sortNumeric: boolean
+  }>()
+  const dirArg = program.args[0] ?? "."
+  const baseCwd = process.env.INIT_CWD ?? process.cwd()
+  const rootDirPath = path.resolve(baseCwd, dirArg)
   if (!fs.existsSync(rootDirPath) || !fs.statSync(rootDirPath).isDirectory()) {
     throw new Error(
       `Root folder does not exist or is not a directory: ${dirArg}`,
@@ -149,34 +111,15 @@ function parseCliOptions(args: string[]): CliOptions {
   const rootLabel = normalizedLabel === "" ? "." : normalizedLabel
 
   return {
-    showExtensions: values.extensions,
-    includeLock: values["include-lock"],
+    showExtensions: opts.extensions,
+    includeLock: opts.includeLock,
     rootLabel,
     rootDirPath,
-    showFiles: values.files,
-    sortMode: values["sort-numeric"] ? "size" : "alphabetical",
-    subdirLevel: parseSubdirLevelValue(values["dir-level"], "--dir-level"),
-    topFiles: values.top
-      ? parsePositiveIntValue(values.top, "--top")
-      : undefined,
+    showFiles: opts.files,
+    sortMode: opts.sortNumeric ? "size" : "alphabetical",
+    subdirLevel: opts.dirLevel,
+    topFiles: opts.top,
   }
-}
-
-function parseSubdirLevelValue(value: string, flagName: string): number {
-  if (!/^\d+$/.test(value)) {
-    throw new Error(`Invalid value for ${flagName}: ${value}`)
-  }
-  const parsed = Number.parseInt(value, 10)
-  return parsed === 0 ? UNBOUNDED_SUBDIR_LEVEL : parsed
-}
-
-function parsePositiveIntValue(value: string, flagName: string): number {
-  if (!/^\d+$/.test(value) || value === "0") {
-    throw new Error(
-      `Invalid value for ${flagName}: ${value} (expected positive integer)`,
-    )
-  }
-  return Number.parseInt(value, 10)
 }
 
 function listFilesWithFd(dirPath: string, includeLock: boolean): string[] {
