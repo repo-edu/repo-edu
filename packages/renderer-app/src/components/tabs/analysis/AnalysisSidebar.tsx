@@ -54,6 +54,7 @@ import {
   RepositoriesToolbar,
 } from "./RepositoriesSection.js"
 import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
+import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 import { useRepoTree } from "./use-repo-tree.js"
 
 // ---------------------------------------------------------------------------
@@ -152,13 +153,17 @@ function ProgressDisplay({ progress }: { progress: AnalysisProgress }) {
     progress.totalFiles > 0
       ? Math.round((progress.processedFiles / progress.totalFiles) * 100)
       : 0
+  const elapsedSeconds = useElapsedSeconds(true)
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{progress.label}</span>
-        <span>
-          {progress.processedFiles}/{progress.totalFiles}
+        <span className="flex items-center gap-2 tabular-nums">
+          {elapsedSeconds !== null && <span>{elapsedSeconds}s</span>}
+          <span>
+            {progress.processedFiles}/{progress.totalFiles}
+          </span>
         </span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted">

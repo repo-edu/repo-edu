@@ -1,8 +1,10 @@
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 
 export function BlameProgressBar() {
   const blameWorkflowStatus = useAnalysisStore((s) => s.blameWorkflowStatus)
   const blameProgress = useAnalysisStore((s) => s.blameProgress)
+  const elapsedSeconds = useElapsedSeconds(blameProgress !== null)
 
   if (blameWorkflowStatus !== "running" || !blameProgress) return null
 
@@ -17,8 +19,11 @@ export function BlameProgressBar() {
     <div className="border-b px-3 py-1.5">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{blameProgress.label}</span>
-        <span>
-          {blameProgress.processedFiles}/{blameProgress.totalFiles}
+        <span className="flex items-center gap-2 tabular-nums">
+          {elapsedSeconds !== null && <span>{elapsedSeconds}s</span>}
+          <span>
+            {blameProgress.processedFiles}/{blameProgress.totalFiles}
+          </span>
         </span>
       </div>
       <div className="mt-1 h-1 w-full rounded-full bg-muted">
