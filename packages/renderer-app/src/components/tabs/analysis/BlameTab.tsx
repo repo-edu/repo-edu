@@ -25,6 +25,7 @@ import {
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
+import { buildBlameCommitNumberMap } from "./blame-commit-numbering.js"
 import { useBlameHighlightedLines } from "./use-blame-highlighted-lines.js"
 
 // ---------------------------------------------------------------------------
@@ -178,6 +179,7 @@ function renderCodeCell(
 function processBlameLines(
   fileBlame: FileBlame,
   personDb: PersonDbSnapshot,
+  commitNumberMap: ReadonlyMap<string, number>,
   options: {
     excludeAuthors: readonly string[]
     excludeEmails: readonly string[]
@@ -224,19 +226,6 @@ function processBlameLines(
   const authorRankMap = new Map<string, number>()
   for (let i = 0; i < sortedAuthors.length; i++) {
     authorRankMap.set(sortedAuthors[i][0], i + 1)
-  }
-
-  const shaTimestamps = new Map<string, number>()
-  for (const line of lines) {
-    const existing = shaTimestamps.get(line.sha)
-    if (existing === undefined || line.timestamp < existing) {
-      shaTimestamps.set(line.sha, line.timestamp)
-    }
-  }
-  const sortedShas = [...shaTimestamps.entries()].sort((a, b) => a[1] - b[1])
-  const commitNumberMap = new Map<string, number>()
-  for (let i = 0; i < sortedShas.length; i++) {
-    commitNumberMap.set(sortedShas[i][0], i + 1)
   }
 
   const processed: ProcessedLine[] = []
@@ -597,6 +586,7 @@ function BlameGrid({
 
 export function BlameTab({ filePath }: { filePath: string }) {
   const entry = useAnalysisStore((s) => s.blameFileResults.get(filePath))
+  const blameFileResults = useAnalysisStore((s) => s.blameFileResults)
   const result = useAnalysisStore((s) => s.result)
   const blameResult = useAnalysisStore((s) => s.blameResult)
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
@@ -627,14 +617,23 @@ export function BlameTab({ filePath }: { filePath: string }) {
   )
 
   const personDb = blameResult?.personDbOverlay ?? result?.personDbBaseline
+  const commitNumberMap = useMemo(() => {
+    const fileBlames: FileBlame[] = []
+    for (const resultEntry of blameFileResults.values()) {
+      if (resultEntry.status === "loaded" && resultEntry.fileBlame) {
+        fileBlames.push(resultEntry.fileBlame)
+      }
+    }
+    return buildBlameCommitNumberMap(fileBlames)
+  }, [blameFileResults])
 
   const processed = useMemo(() => {
     if (!entry?.fileBlame || !personDb) return []
-    return processBlameLines(entry.fileBlame, personDb, {
+    return processBlameLines(entry.fileBlame, personDb, commitNumberMap, {
       excludeAuthors: blameConfig.excludeAuthors ?? [],
       excludeEmails: blameConfig.excludeEmails ?? [],
     })
-  }, [entry?.fileBlame, personDb, blameConfig])
+  }, [entry?.fileBlame, personDb, commitNumberMap, blameConfig])
 
   const lineFilteredLines = useMemo(() => {
     let lines = processed
