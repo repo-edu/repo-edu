@@ -26,6 +26,7 @@ type SettingsCategory =
   | "git-connections"
   | "llm-connections"
   | "display"
+  | "analysis"
   | "performance"
   | "shortcuts"
 

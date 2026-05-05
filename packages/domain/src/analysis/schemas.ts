@@ -2,26 +2,10 @@ import { z } from "zod"
 import type { ValidationResult } from "../types.js"
 import type { AnalysisBlameConfig, AnalysisConfig } from "./config-types.js"
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-export const DEFAULT_EXTENSIONS = [
-  "c",
-  "cc",
-  "cif",
-  "cpp",
-  "glsl",
-  "h",
-  "hh",
-  "hpp",
-  "java",
-  "js",
-  "py",
-  "rb",
-  "sql",
-  "ts",
-] as const
+export {
+  DEFAULT_EXTENSIONS,
+  normalizeExtension,
+} from "./language-catalog.js"
 
 // ---------------------------------------------------------------------------
 // Helpers

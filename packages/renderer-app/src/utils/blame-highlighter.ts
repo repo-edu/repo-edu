@@ -9,9 +9,10 @@ import lightPlus from "@shikijs/themes/light-plus"
 import minDark from "@shikijs/themes/min-dark"
 import minLight from "@shikijs/themes/min-light"
 import nord from "@shikijs/themes/nord"
+import { bundledLanguagesInfo } from "shiki"
 import { createHighlighterCore, type HighlighterCore } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
-import type { LanguageRegistration, ThemedToken } from "shiki/types"
+import type { ThemedToken } from "shiki/types"
 import type { ShikiLangId } from "./blame-language-map.js"
 
 export const MAX_HIGHLIGHT_LINES = 5000
@@ -41,48 +42,12 @@ export const SYNTAX_THEMES: Record<
   min: { label: "Min", light: "min-light", dark: "min-dark" },
 }
 
-type LangModule = { default: LanguageRegistration[] }
-
-const LANG_LOADERS: Record<ShikiLangId, () => Promise<LangModule>> = {
-  python: () => import("@shikijs/langs/python"),
-  typescript: () => import("@shikijs/langs/typescript"),
-  tsx: () => import("@shikijs/langs/tsx"),
-  javascript: () => import("@shikijs/langs/javascript"),
-  jsx: () => import("@shikijs/langs/jsx"),
-  java: () => import("@shikijs/langs/java"),
-  kotlin: () => import("@shikijs/langs/kotlin"),
-  swift: () => import("@shikijs/langs/swift"),
-  c: () => import("@shikijs/langs/c"),
-  cpp: () => import("@shikijs/langs/cpp"),
-  csharp: () => import("@shikijs/langs/csharp"),
-  go: () => import("@shikijs/langs/go"),
-  rust: () => import("@shikijs/langs/rust"),
-  ruby: () => import("@shikijs/langs/ruby"),
-  php: () => import("@shikijs/langs/php"),
-  scala: () => import("@shikijs/langs/scala"),
-  haskell: () => import("@shikijs/langs/haskell"),
-  sql: () => import("@shikijs/langs/sql"),
-  html: () => import("@shikijs/langs/html"),
-  xml: () => import("@shikijs/langs/xml"),
-  glsl: () => import("@shikijs/langs/glsl"),
-  ocaml: () => import("@shikijs/langs/ocaml"),
-  latex: () => import("@shikijs/langs/latex"),
-  markdown: () => import("@shikijs/langs/markdown"),
-  yaml: () => import("@shikijs/langs/yaml"),
-  json: () => import("@shikijs/langs/json"),
-  jsonc: () => import("@shikijs/langs/jsonc"),
-  toml: () => import("@shikijs/langs/toml"),
-  bash: () => import("@shikijs/langs/bash"),
-  css: () => import("@shikijs/langs/css"),
-  scss: () => import("@shikijs/langs/scss"),
-  dart: () => import("@shikijs/langs/dart"),
-  lua: () => import("@shikijs/langs/lua"),
-  r: () => import("@shikijs/langs/r"),
-  clojure: () => import("@shikijs/langs/clojure"),
-  elixir: () => import("@shikijs/langs/elixir"),
-  vue: () => import("@shikijs/langs/vue"),
-  svelte: () => import("@shikijs/langs/svelte"),
-}
+const LANG_INFO_BY_ID: ReadonlyMap<
+  ShikiLangId,
+  (typeof bundledLanguagesInfo)[number]
+> = new Map(
+  bundledLanguagesInfo.map((info) => [info.id as ShikiLangId, info] as const),
+)
 
 let highlighterRef: HighlighterCore | null = null
 let highlighterPromise: Promise<HighlighterCore> | null = null
@@ -112,12 +77,12 @@ async function getHighlighter(): Promise<HighlighterCore> {
 }
 
 export async function ensureLanguage(langId: ShikiLangId): Promise<boolean> {
-  const loader = LANG_LOADERS[langId]
-  if (!loader) return false
+  const info = LANG_INFO_BY_ID.get(langId)
+  if (!info) return false
   const highlighter = await getHighlighter()
   let promise = langPromises.get(langId)
   if (!promise) {
-    promise = loader().then(async (mod) => {
+    promise = info.import().then(async (mod) => {
       await highlighter.loadLanguage(mod.default)
     })
     langPromises.set(langId, promise)

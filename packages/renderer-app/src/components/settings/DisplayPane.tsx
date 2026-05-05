@@ -6,7 +6,6 @@ import type {
 } from "@repo-edu/domain/types"
 import {
   FormField,
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -54,16 +53,10 @@ export function DisplayPane() {
   const syntaxTheme = useAppSettingsStore(
     (state) => state.settings.appearance.syntaxTheme,
   )
-  const defaultExtensions = useAppSettingsStore(
-    (state) => state.settings.defaultExtensions,
-  )
   const setTheme = useAppSettingsStore((state) => state.setTheme)
   const setDateFormat = useAppSettingsStore((state) => state.setDateFormat)
   const setTimeFormat = useAppSettingsStore((state) => state.setTimeFormat)
   const setSyntaxTheme = useAppSettingsStore((state) => state.setSyntaxTheme)
-  const setDefaultExtensions = useAppSettingsStore(
-    (state) => state.setDefaultExtensions,
-  )
   const saveAppSettings = useAppSettingsStore((state) => state.save)
 
   const [saving, setSaving] = useState(false)
@@ -99,15 +92,6 @@ export function DisplayPane() {
 
   const handleSyntaxThemeChange = (value: SyntaxThemeId) => {
     setSyntaxTheme(value)
-    void persist()
-  }
-
-  const handleDefaultExtensionsBlur = (raw: string) => {
-    const next = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    setDefaultExtensions(next)
     void persist()
   }
 
@@ -171,22 +155,6 @@ export function DisplayPane() {
             ))}
           </SelectContent>
         </Select>
-      </FormField>
-
-      <FormField
-        label="Default file extensions"
-        htmlFor="display-default-extensions"
-        description="Comma-separated fallback used when a course leaves Extensions unset."
-      >
-        <Input
-          id="display-default-extensions"
-          key={defaultExtensions.join(",")}
-          type="text"
-          className="w-52"
-          placeholder="ts,tsx,js"
-          defaultValue={defaultExtensions.join(", ")}
-          onBlur={(e) => handleDefaultExtensionsBlur(e.target.value)}
-        />
       </FormField>
 
       <FormField

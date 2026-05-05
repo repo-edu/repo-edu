@@ -1,12 +1,18 @@
-export {
-  classifyCommentLines,
-  extensionToLanguage,
-} from "./comment-detector.js"
+export { classifyCommentLines } from "./comment-detector.js"
 export type {
   AnalysisBlameConfig,
   AnalysisConfig,
 } from "./config-types.js"
 export { bridgeAuthorsToRoster } from "./identity-bridge.js"
+export type { LanguageEntry } from "./language-catalog.js"
+export {
+  DEFAULT_EXTENSIONS,
+  extensionToLanguage,
+  isSupportedExtension,
+  LANGUAGE_CATALOG,
+  normalizeExtension,
+  SUPPORTED_LANGUAGES,
+} from "./language-catalog.js"
 export {
   applyBlameToPersonDb,
   clonePersonDbSnapshot,
@@ -17,7 +23,6 @@ export { mergePersonIdentities } from "./person-merge.js"
 export {
   analysisBlameConfigSchema,
   analysisConfigSchema,
-  DEFAULT_EXTENSIONS,
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "./schemas.js"

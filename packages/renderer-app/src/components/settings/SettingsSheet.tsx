@@ -2,6 +2,7 @@ import { cn, Sheet, SheetContent, SheetTitle } from "@repo-edu/ui"
 import {
   Brain,
   Command,
+  FileCode,
   Gauge,
   GitBranch,
   GraduationCap,
@@ -14,6 +15,7 @@ import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../../utils/platform.js"
+import { AnalysisPane } from "./AnalysisPane.js"
 import { DisplayPane } from "./DisplayPane.js"
 import { GitConnectionsPane } from "./GitConnectionsPane.js"
 import { KeyboardShortcutsPane } from "./KeyboardShortcutsPane.js"
@@ -26,6 +28,7 @@ type SettingsCategory =
   | "git-connections"
   | "llm-connections"
   | "display"
+  | "analysis"
   | "performance"
   | "shortcuts"
 
@@ -55,6 +58,11 @@ const categories: CategoryItem[] = [
     id: "llm-connections",
     label: "LLM Connections",
     icon: <Brain className="size-4" />,
+  },
+  {
+    id: "analysis",
+    label: "Analysis",
+    icon: <FileCode className="size-4" />,
   },
   {
     id: "performance",
@@ -152,6 +160,12 @@ export function SettingsSheet() {
               aria-hidden={activeCategory !== "display"}
             >
               <DisplayPane />
+            </div>
+            <div
+              className={cn(activeCategory === "analysis" ? "block" : "hidden")}
+              aria-hidden={activeCategory !== "analysis"}
+            >
+              <AnalysisPane />
             </div>
             <div
               className={cn(

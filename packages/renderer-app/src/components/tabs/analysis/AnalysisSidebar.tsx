@@ -42,6 +42,7 @@ import {
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { useCourseStore } from "../../../stores/course-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
+import { ExtensionTagInput } from "../../settings/ExtensionTagInput.js"
 import {
   buildFileTree,
   collectFolderPaths,
@@ -329,7 +330,6 @@ export function AnalysisSidebar() {
       JSON.stringify({
         subfolder: config.subfolder ?? "",
         includeFiles: config.includeFiles ?? [],
-        extensions: config.extensions ?? [],
         since: config.since ?? "",
         until: config.until ?? "",
         excludeFiles: config.excludeFiles ?? [],
@@ -885,24 +885,16 @@ export function AnalysisSidebar() {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Extensions</Label>
-          <Input
-            key={`extensions-${configInputResetKey}`}
-            type="text"
+          <ExtensionTagInput
             size="xs"
-            placeholder="ts,tsx,js"
-            defaultValue={config.extensions?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
+            values={config.extensions ?? []}
+            onChange={(next) =>
               setConfigAndRerun({
-                extensions: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
+                extensions: next.length === 0 ? undefined : next,
               })
-            }}
-            onKeyDown={blurOnEnter}
+            }
+            placeholder="ts, tsx, js"
+            ariaLabel="Extensions"
           />
         </div>
       </CollapsibleSection>

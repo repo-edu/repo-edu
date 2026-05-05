@@ -1,107 +1,53 @@
-export type ShikiLangId =
-  | "python"
-  | "typescript"
-  | "tsx"
-  | "javascript"
-  | "jsx"
-  | "java"
-  | "kotlin"
-  | "swift"
-  | "c"
-  | "cpp"
-  | "csharp"
-  | "go"
-  | "rust"
-  | "ruby"
-  | "php"
-  | "scala"
-  | "haskell"
-  | "sql"
-  | "html"
-  | "xml"
-  | "glsl"
-  | "ocaml"
-  | "latex"
-  | "markdown"
-  | "yaml"
-  | "json"
-  | "jsonc"
-  | "toml"
-  | "bash"
-  | "css"
-  | "scss"
-  | "dart"
-  | "lua"
-  | "r"
-  | "clojure"
-  | "elixir"
-  | "vue"
-  | "svelte"
+import { type BundledLanguage, bundledLanguagesInfo } from "shiki"
 
-const EXTENSION_TO_SHIKI: Record<string, ShikiLangId> = {
-  py: "python",
-  ts: "typescript",
-  tsx: "tsx",
-  js: "javascript",
-  jsx: "jsx",
-  mjs: "javascript",
-  cjs: "javascript",
-  java: "java",
-  kt: "kotlin",
-  kts: "kotlin",
-  swift: "swift",
-  c: "c",
-  h: "c",
+export type ShikiLangId = BundledLanguage
+
+/**
+ * Extensions that aren't directly recognised as a language id or alias by
+ * shiki's bundle metadata. Add an entry here only when an extension is missing
+ * from `bundledLanguagesInfo[].id`/`aliases` for its language.
+ */
+const EXTENSION_OVERRIDES: Record<string, BundledLanguage> = {
   cc: "cpp",
-  cpp: "cpp",
   cxx: "cpp",
   hh: "cpp",
   hpp: "cpp",
   hxx: "cpp",
-  cs: "csharp",
-  go: "go",
-  rs: "rust",
-  rb: "ruby",
-  php: "php",
-  scala: "scala",
-  hs: "haskell",
-  sql: "sql",
-  html: "html",
-  xhtml: "html",
-  xml: "xml",
-  jspx: "xml",
-  glsl: "glsl",
-  ml: "ocaml",
-  mli: "ocaml",
-  tex: "latex",
-  md: "markdown",
-  markdown: "markdown",
-  yaml: "yaml",
-  yml: "yaml",
-  json: "json",
-  jsonc: "jsonc",
-  toml: "toml",
-  sh: "bash",
-  bash: "bash",
-  zsh: "bash",
-  css: "css",
-  scss: "scss",
-  dart: "dart",
-  lua: "lua",
-  r: "r",
-  clj: "clojure",
   cljs: "clojure",
+  cljc: "clojure",
+  edn: "clojure",
   ex: "elixir",
   exs: "elixir",
-  vue: "vue",
-  svelte: "svelte",
+  mli: "ocaml",
+  ml: "ocaml",
+  xhtml: "html",
+  htm: "html",
+  jspx: "xml",
+  vert: "glsl",
+  frag: "glsl",
+  pm: "perl",
+  fs: "fsharp",
+  fsi: "fsharp",
+  fsx: "fsharp",
+  sc: "scala",
+  lhs: "haskell",
 }
+
+const EXTENSION_INDEX: ReadonlyMap<string, BundledLanguage> = (() => {
+  const map = new Map<string, BundledLanguage>()
+  for (const info of bundledLanguagesInfo) {
+    map.set(info.id, info.id as BundledLanguage)
+    for (const alias of info.aliases ?? []) {
+      if (!map.has(alias)) map.set(alias, info.id as BundledLanguage)
+    }
+  }
+  for (const [ext, id] of Object.entries(EXTENSION_OVERRIDES)) {
+    map.set(ext, id)
+  }
+  return map
+})()
 
 export function extensionToShikiLang(ext: string): ShikiLangId | null {
   const normalized = ext.toLowerCase().replace(/^\./, "")
-  return EXTENSION_TO_SHIKI[normalized] ?? null
-}
-
-export function allMappedShikiLangs(): readonly ShikiLangId[] {
-  return Object.values(EXTENSION_TO_SHIKI)
+  return EXTENSION_INDEX.get(normalized) ?? null
 }

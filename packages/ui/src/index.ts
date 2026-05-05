@@ -106,6 +106,13 @@ export {
   SheetTrigger,
 } from "./components/ui/sheet"
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+export {
+  TagInput,
+  type TagInputProps,
+  type TagRenderProps,
+  tagChipVariants,
+  tagInputVariants,
+} from "./components/ui/tag-input"
 export { Text, textVariants } from "./components/ui/text"
 export { Textarea, textareaVariants } from "./components/ui/textarea"
 export {
