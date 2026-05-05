@@ -23,8 +23,6 @@ export const DEFAULT_EXTENSIONS = [
   "ts",
 ] as const
 
-export const DEFAULT_N_FILES = 5
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -106,7 +104,7 @@ export const analysisConfigSchema = z
     excludeEmails: patternArraySchema().optional(),
     excludeRevisions: patternArraySchema().optional(),
     excludeMessages: patternArraySchema().optional(),
-    nFiles: z.number().int().min(0).optional().default(DEFAULT_N_FILES),
+    nFiles: z.number().int().min(1).optional(),
     whitespace: z.boolean().optional().default(false),
     maxConcurrency: z.number().int().min(1).max(16).optional().default(1),
     blameSkip: z.boolean().optional().default(false),

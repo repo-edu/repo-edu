@@ -142,7 +142,7 @@ describe("analysis.run handler", () => {
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
-      config: { nFiles: 0 },
+      config: {},
     })
 
     assert.equal(result.authorStats.length, 0)
@@ -181,7 +181,7 @@ describe("analysis.run handler", () => {
       {
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
-        config: { nFiles: 0 },
+        config: {},
       },
       {
         onProgress(event: AnalysisProgress) {
@@ -239,7 +239,7 @@ describe("analysis.run handler", () => {
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
-      config: { nFiles: 0 },
+      config: {},
       asOfCommit: "v1.0",
     })
 
@@ -274,7 +274,7 @@ describe("analysis.run handler", () => {
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
-      config: { nFiles: 0 },
+      config: {},
       rosterContext: {
         members: [
           {
@@ -353,7 +353,7 @@ describe("analysis.run handler", () => {
     const result = await handlers["analysis.run"]({
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
-      config: { nFiles: 0, excludeAuthors: ["alice"] },
+      config: { excludeAuthors: ["alice"] },
     })
 
     assert.equal(result.authorStats.length, 1)

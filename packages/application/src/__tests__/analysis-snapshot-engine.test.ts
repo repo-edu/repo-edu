@@ -32,7 +32,6 @@ describe("snapshot-engine filterFileCandidates", () => {
   it("filters by subfolder", () => {
     const result = filterFileCandidates(entries, {
       subfolder: "src",
-      nFiles: 0,
     })
     assert.ok(result.every((p) => p.startsWith("src/")))
     assert.ok(!result.includes("lib/helper.py"))
@@ -41,7 +40,6 @@ describe("snapshot-engine filterFileCandidates", () => {
   it("filters by extensions", () => {
     const result = filterFileCandidates(entries, {
       extensions: ["ts"],
-      nFiles: 0,
     })
     assert.ok(result.every((p) => p.endsWith(".ts")))
   })
@@ -51,13 +49,13 @@ describe("snapshot-engine filterFileCandidates", () => {
     assert.equal(result.length, 3)
   })
 
-  it("nFiles=0 returns all files", () => {
-    const result = filterFileCandidates(entries, { nFiles: 0 })
+  it("omitted nFiles returns all files", () => {
+    const result = filterFileCandidates(entries, {})
     assert.equal(result.length, entries.length)
   })
 
   it("returns deterministic sorted order", () => {
-    const result = filterFileCandidates(entries, { nFiles: 0 })
+    const result = filterFileCandidates(entries, {})
     const sorted = [...result].sort()
     assert.deepEqual(result, sorted)
   })
@@ -65,7 +63,6 @@ describe("snapshot-engine filterFileCandidates", () => {
   it("excludeFiles removes matching paths", () => {
     const result = filterFileCandidates(entries, {
       excludeFiles: ["*.md"],
-      nFiles: 0,
     })
     assert.ok(!result.includes("README.md"))
   })
@@ -73,7 +70,6 @@ describe("snapshot-engine filterFileCandidates", () => {
   it("includeFiles selects only matching paths", () => {
     const result = filterFileCandidates(entries, {
       includeFiles: ["*.py"],
-      nFiles: 0,
     })
     assert.deepEqual(result, ["lib/helper.py"])
   })

@@ -16,7 +16,7 @@ describe("validateAnalysisConfig", () => {
     const result = validateAnalysisConfig({})
     assert.equal(result.ok, true)
     if (!result.ok) return
-    assert.equal(result.value.nFiles, 5)
+    assert.equal(result.value.nFiles, undefined)
     assert.equal(result.value.whitespace, false)
     assert.equal(result.value.maxConcurrency, 1)
     assert.equal(result.value.blameSkip, false)
@@ -155,11 +155,16 @@ describe("validateAnalysisConfig", () => {
     assert.equal(result.ok, false)
   })
 
-  it("accepts nFiles = 0 (all files)", () => {
-    const result = validateAnalysisConfig({ nFiles: 0 })
+  it("treats omitted nFiles as undefined (all files)", () => {
+    const result = validateAnalysisConfig({})
     assert.equal(result.ok, true)
     if (!result.ok) return
-    assert.equal(result.value.nFiles, 0)
+    assert.equal(result.value.nFiles, undefined)
+  })
+
+  it("rejects nFiles = 0", () => {
+    const result = validateAnalysisConfig({ nFiles: 0 })
+    assert.equal(result.ok, false)
   })
 
   it("rejects negative nFiles", () => {

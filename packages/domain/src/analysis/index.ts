@@ -18,7 +18,6 @@ export {
   analysisBlameConfigSchema,
   analysisConfigSchema,
   DEFAULT_EXTENSIONS,
-  DEFAULT_N_FILES,
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "./schemas.js"

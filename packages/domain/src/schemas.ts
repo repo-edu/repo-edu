@@ -27,7 +27,7 @@ const persistedCourseAnalysisInputsSchema = z.object({
   excludeEmails: z.array(z.string()).optional(),
   excludeRevisions: z.array(z.string()).optional(),
   excludeMessages: z.array(z.string()).optional(),
-  nFiles: z.number().int().min(0).optional(),
+  nFiles: z.number().int().min(1).optional(),
   whitespace: z.boolean().optional(),
   blameSkip: z.boolean().optional(),
 })

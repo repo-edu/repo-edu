@@ -169,7 +169,7 @@ export function filterFileCandidates(
   const extensions = config.extensions ?? []
   const excludeFiles = config.excludeFiles ?? []
   const includeFiles = config.includeFiles ?? ["*"]
-  const nFiles = config.nFiles ?? 5
+  const nFiles = config.nFiles
 
   let filtered = entries
 
@@ -219,8 +219,8 @@ export function filterFileCandidates(
   // Sort by size descending for nFiles selection, then by path for determinism
   filtered.sort((a, b) => b.size - a.size || a.path.localeCompare(b.path))
 
-  // 5. nFiles truncation (0 = all files)
-  if (nFiles > 0) {
+  // 5. nFiles truncation (undefined = all files)
+  if (nFiles !== undefined) {
     filtered = filtered.slice(0, nFiles)
   }
 

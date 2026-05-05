@@ -659,9 +659,16 @@ export function AnalysisSidebar() {
                   pattern="[0-9]*"
                   size="xs"
                   className="w-10"
-                  value={config.nFiles ?? 5}
+                  value={config.nFiles ?? ""}
                   onChange={(e) => {
-                    const v = Math.max(0, Number(e.target.value) || 0)
+                    const raw = e.target.value.trim()
+                    if (raw === "") {
+                      setConfigAndRerun({ nFiles: undefined })
+                      return
+                    }
+                    const parsed = Number(raw)
+                    if (!Number.isFinite(parsed)) return
+                    const v = Math.max(1, Math.trunc(parsed))
                     setConfigAndRerun({ nFiles: v })
                   }}
                   onKeyDown={blurOnEnter}
