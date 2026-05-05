@@ -1,9 +1,4 @@
-import {
-  initialIdSequences,
-  type PersistedCourse,
-  persistedCourseKind,
-  type Roster,
-} from "@repo-edu/domain/types"
+import { createBlankCourse, type PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback } from "react"
 import {
   getWorkflowClient,
@@ -15,15 +10,6 @@ import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { generateCourseId } from "../utils/nanoid.js"
-
-const EMPTY_ROSTER: Roster = {
-  connection: null,
-  students: [],
-  staff: [],
-  groups: [],
-  groupSets: [],
-  assignments: [],
-}
 
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
@@ -40,8 +26,9 @@ export function useCourses() {
         activeCourseId !== null &&
         !list.some((course) => course.id === activeCourseId)
       ) {
-        useUiStore.getState().setActiveCourseId(null)
-        useAppSettingsStore.getState().setActiveCourseId(null)
+        const fallbackId = list.length > 0 ? list[0].id : null
+        useUiStore.getState().setActiveCourseId(fallbackId)
+        useAppSettingsStore.getState().setActiveCourseId(fallbackId)
         try {
           await useAppSettingsStore.getState().save()
         } catch {
@@ -72,21 +59,19 @@ export function useCourses() {
           courseId: sourceId,
         })
 
-        const duplicate: PersistedCourse = {
-          kind: persistedCourseKind,
-          revision: 0,
-          id: generateCourseId(),
-          displayName,
-          lmsConnectionName: source.lmsConnectionName,
-          organization: source.organization,
-          lmsCourseId: source.lmsCourseId,
-          idSequences: initialIdSequences(),
-          roster: EMPTY_ROSTER,
-          repositoryTemplate: source.repositoryTemplate,
-          searchFolder: source.searchFolder,
-          analysisInputs: { ...source.analysisInputs },
-          updatedAt: new Date().toISOString(),
-        }
+        const duplicate = createBlankCourse(
+          generateCourseId(),
+          new Date().toISOString(),
+          {
+            displayName,
+            lmsConnectionName: source.lmsConnectionName,
+            organization: source.organization,
+            lmsCourseId: source.lmsCourseId,
+            repositoryTemplate: source.repositoryTemplate,
+            searchFolder: source.searchFolder,
+            analysisInputs: { ...source.analysisInputs },
+          },
+        )
 
         await wfClient.run("course.save", duplicate)
         await refresh()
@@ -101,6 +86,28 @@ export function useCourses() {
     },
     [refresh],
   )
+
+  const createEmptyCourse = useCallback(async (): Promise<boolean> => {
+    const addToast = useToastStore.getState().addToast
+    try {
+      const wfClient = getWorkflowClient()
+      const course = createBlankCourse(
+        generateCourseId(),
+        new Date().toISOString(),
+        { displayName: "Empty Course" },
+      )
+
+      const saved = await wfClient.run("course.save", course)
+      await refresh()
+      await switchCourse(saved.id)
+      useUiStore.getState().setActiveTab("analysis")
+      return true
+    } catch (error) {
+      const message = getErrorMessage(error)
+      addToast(`Failed to create course: ${message}`, { tone: "error" })
+      return false
+    }
+  }, [refresh, switchCourse])
 
   const renameCourse = useCallback(
     async (courseId: string, newDisplayName: string): Promise<boolean> => {
@@ -172,6 +179,7 @@ export function useCourses() {
     loading,
     refresh,
     switchCourse,
+    createEmptyCourse,
     duplicateCourse,
     renameCourse,
     deleteCourse,

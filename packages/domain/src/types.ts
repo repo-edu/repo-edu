@@ -222,6 +222,45 @@ export function resolveCourseAnalysisConfig(
   return { ...course.analysisInputs, extensions, maxConcurrency }
 }
 
+export type BlankCourseFields = {
+  displayName: string
+  lmsConnectionName?: string | null
+  organization?: string | null
+  lmsCourseId?: string | null
+  repositoryTemplate?: RepositoryTemplate | null
+  searchFolder?: string | null
+  analysisInputs?: CourseAnalysisInputs
+}
+
+export function createBlankCourse(
+  id: string,
+  updatedAt: string,
+  fields: BlankCourseFields,
+): PersistedCourse {
+  return {
+    kind: persistedCourseKind,
+    revision: 0,
+    id,
+    displayName: fields.displayName,
+    lmsConnectionName: fields.lmsConnectionName ?? null,
+    organization: fields.organization ?? null,
+    lmsCourseId: fields.lmsCourseId ?? null,
+    idSequences: initialIdSequences(),
+    roster: {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    },
+    repositoryTemplate: fields.repositoryTemplate ?? null,
+    searchFolder: fields.searchFolder ?? null,
+    analysisInputs: fields.analysisInputs ?? {},
+    updatedAt,
+  }
+}
+
 export type CourseSummary = Pick<
   PersistedCourse,
   "id" | "displayName" | "updatedAt"

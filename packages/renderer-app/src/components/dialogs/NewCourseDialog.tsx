@@ -1,10 +1,5 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import {
-  initialIdSequences,
-  type PersistedCourse,
-  persistedCourseKind,
-  type Roster,
-} from "@repo-edu/domain/types"
+import { createBlankCourse } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,
@@ -33,14 +28,6 @@ import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { generateCourseId } from "../../utils/nanoid.js"
 
-const EMPTY_ROSTER: Roster = {
-  connection: null,
-  students: [],
-  staff: [],
-  groups: [],
-  groupSets: [],
-  assignments: [],
-}
 const NONE_VALUE = "__none__"
 type CourseMode = "lms" | "manual"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
@@ -227,26 +214,19 @@ export function NewCourseDialog() {
     setError(null)
 
     try {
-      const now = new Date().toISOString()
       const nextCourseId =
         courseMode === "lms"
           ? selectedCourseId.trim() || null
           : lmsCourseId.trim() || null
-      const course: PersistedCourse = {
-        kind: persistedCourseKind,
-        revision: 0,
-        id: generateCourseId(),
-        displayName: courseName.trim(),
-        lmsConnectionName: selectedLmsConnection || null,
-        organization: null,
-        lmsCourseId: nextCourseId,
-        idSequences: initialIdSequences(),
-        roster: EMPTY_ROSTER,
-        repositoryTemplate: null,
-        searchFolder: null,
-        analysisInputs: {},
-        updatedAt: now,
-      }
+      const course = createBlankCourse(
+        generateCourseId(),
+        new Date().toISOString(),
+        {
+          displayName: courseName.trim(),
+          lmsConnectionName: selectedLmsConnection || null,
+          lmsCourseId: nextCourseId,
+        },
+      )
 
       const client = getWorkflowClient()
       const saved = await client.run("course.save", course)

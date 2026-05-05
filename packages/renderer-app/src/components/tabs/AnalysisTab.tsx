@@ -96,7 +96,7 @@ export function AnalysisTab() {
   }, [])
 
   if (!activeCourseId || !course) {
-    return <NoCourseEmptyState tabLabel="analysis" />
+    return <NoCourseEmptyState />
   }
 
   return (

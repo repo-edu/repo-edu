@@ -1,58 +1,58 @@
 /**
- * NoCourseEmptyState — Shown in tab content when no course is active.
- * Distinguishes between "no courses exist" and "courses exist, none selected"
- * and provides contextual actions.
+ * NoCourseEmptyState — First-run welcome screen shown in tab content when no
+ * course exists. Presents two options (create a course manually or spin up an
+ * empty course) each paired with an explanation. LMS setup lives in settings.
  */
 
-import { Button, EmptyState } from "@repo-edu/ui"
-import { Link } from "@repo-edu/ui/components/icons"
-import {
-  selectLmsConnections,
-  useAppSettingsStore,
-} from "../stores/app-settings-store.js"
+import { Button } from "@repo-edu/ui"
+import { useState } from "react"
+import { useCourses } from "../hooks/use-courses.js"
 import { useUiStore } from "../stores/ui-store.js"
 
-type NoCourseEmptyStateProps = {
-  /** Tab-specific noun shown in the "Select a course to view {tabLabel}." message. */
-  tabLabel: string
-}
-
-export function NoCourseEmptyState({ tabLabel }: NoCourseEmptyStateProps) {
-  const courses = useUiStore((s) => s.courseList)
+export function NoCourseEmptyState() {
   const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
-  const openSettings = useUiStore((s) => s.openSettings)
-  const lmsConnections = useAppSettingsStore(selectLmsConnections)
+  const { createEmptyCourse } = useCourses()
+  const [creatingEmpty, setCreatingEmpty] = useState(false)
 
-  const hasCourses = courses.length > 0
-  const hasLmsConnection = lmsConnections.length > 0
-
-  if (hasCourses) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message={`Select a course to view ${tabLabel}.`} />
-      </div>
-    )
+  const handleCreateEmpty = async () => {
+    setCreatingEmpty(true)
+    try {
+      await createEmptyCourse()
+    } finally {
+      setCreatingEmpty(false)
+    }
   }
 
   return (
     <div className="flex h-full items-center justify-center p-8">
-      <EmptyState
-        message={
-          hasLmsConnection
-            ? "Create a course to get started."
-            : "Set up an LMS connection to import courses, or create a course manually."
-        }
-      >
-        {!hasLmsConnection && (
-          <Button onClick={() => openSettings("lms-connections")}>
-            <Link className="size-4 mr-1" />
-            Set Up LMS
+      <div className="max-w-2xl">
+        <div className="grid grid-cols-[12rem_1fr] gap-x-5 gap-y-4 items-center">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setNewCourseDialogOpen(true)}
+          >
+            Create Course…
           </Button>
-        )}
-        <Button variant="outline" onClick={() => setNewCourseDialogOpen(true)}>
-          Create Course
-        </Button>
-      </EmptyState>
+          <p className="text-sm text-muted-foreground">
+            Add a course manually with the full setup, optionally linked to an
+            LMS course.
+          </p>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={creatingEmpty}
+            onClick={() => void handleCreateEmpty()}
+          >
+            {creatingEmpty ? "Creating…" : "Create Empty Course"}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Spin up an empty course with no roster — handy for trying out
+            repository analysis.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

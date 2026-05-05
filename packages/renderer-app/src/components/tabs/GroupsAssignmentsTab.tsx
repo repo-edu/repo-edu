@@ -80,7 +80,7 @@ export function GroupsAssignmentsTab() {
   }, [])
 
   if (!activeCourseId || !course) {
-    return <NoCourseEmptyState tabLabel="groups and assignments" />
+    return <NoCourseEmptyState />
   }
 
   return (

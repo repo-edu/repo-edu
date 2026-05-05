@@ -76,7 +76,7 @@ export function StudentsTab() {
   }
 
   if (!course) {
-    return <NoCourseEmptyState tabLabel="the roster" />
+    return <NoCourseEmptyState />
   }
 
   return (
