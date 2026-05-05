@@ -957,7 +957,7 @@ export function AnalysisSidebar() {
             id="blameSkip"
             checked={blameSkip}
             onCheckedChange={(checked) =>
-              setAnalysisInputs({ blameSkip: checked === true })
+              setConfigAndRerun({ blameSkip: checked === true })
             }
           />
           <Label htmlFor="blameSkip" className="text-xs">
@@ -1004,7 +1004,7 @@ export function AnalysisSidebar() {
             id="whitespace"
             checked={config.whitespace ?? false}
             onCheckedChange={(checked) =>
-              setAnalysisInputs({ whitespace: checked === true })
+              setConfigAndRerun({ whitespace: checked === true })
             }
           />
           <Label htmlFor="whitespace" className="text-xs">
@@ -1031,7 +1031,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeFiles?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setAnalysisInputs({
+              setConfigAndRerun({
                 excludeFiles: raw
                   ? raw
                       .split(",")
@@ -1053,7 +1053,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeAuthors?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setAnalysisInputs({
+              setConfigAndRerun({
                 excludeAuthors: raw
                   ? raw
                       .split(",")
@@ -1075,7 +1075,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeEmails?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setAnalysisInputs({
+              setConfigAndRerun({
                 excludeEmails: raw
                   ? raw
                       .split(",")
@@ -1097,7 +1097,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeRevisions?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setAnalysisInputs({
+              setConfigAndRerun({
                 excludeRevisions: raw
                   ? raw
                       .split(",")
@@ -1119,7 +1119,7 @@ export function AnalysisSidebar() {
             defaultValue={config.excludeMessages?.join(", ") ?? ""}
             onBlur={(e) => {
               const raw = e.target.value
-              setAnalysisInputs({
+              setConfigAndRerun({
                 excludeMessages: raw
                   ? raw
                       .split(",")
