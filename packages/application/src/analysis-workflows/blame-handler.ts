@@ -28,6 +28,17 @@ import { resolveAnalysisRepoRoot } from "./repo-root.js"
 import { resolveSnapshotHead } from "./snapshot-engine.js"
 
 // ---------------------------------------------------------------------------
+// Tuning constants
+// ---------------------------------------------------------------------------
+
+// Minimum gap between progress events that carry the running per-author
+// line tally. Per-file progress (counters + current path) still fires on
+// every file; only the heavier `partialAuthorLines` payload is throttled,
+// so the renderer re-renders the Authors table at a bounded rate
+// regardless of cohort size.
+const PARTIAL_AUTHOR_LINES_EMIT_INTERVAL_MS = 250
+
+// ---------------------------------------------------------------------------
 // Bounded concurrent execution
 // ---------------------------------------------------------------------------
 
@@ -283,6 +294,28 @@ export function createAnalysisBlameHandler(
         const maxConcurrency = config.maxConcurrency ?? 1
         let processedFiles = 0
 
+        // Live partial author-line tally streamed via progress so the UI can
+        // update Lines of Code while blame is still running. Identities are
+        // resolved against the existing person DB (overlay if provided, else
+        // baseline); ones discovered only via blame surface in the final
+        // result. Emission cadence is governed by
+        // PARTIAL_AUTHOR_LINES_EMIT_INTERVAL_MS — emitting on every file
+        // produced enough cross-IPC + React work to roughly double total
+        // blame time for large cohorts.
+        const baselineIdentityIndex = (
+          input.personDbOverlay ?? input.personDbBaseline
+        ).identityIndex
+        const excludeAuthorsForPartial = config.excludeAuthors ?? []
+        const excludeEmailsForPartial = config.excludeEmails ?? []
+        const partialLinesByPerson = new Map<string, number>()
+        let lastPartialEmitMs = 0
+        let partialsDirty = false
+        const buildPartialAuthorLines = () =>
+          [...partialLinesByPerson.entries()].map(([personId, lines]) => ({
+            personId,
+            lines,
+          }))
+
         const rawBlames = await mapBounded(
           targets,
           maxConcurrency,
@@ -295,15 +328,6 @@ export function createAnalysisBlameHandler(
               signal: options?.signal,
             })
 
-            processedFiles++
-            options?.onProgress?.({
-              phase: "blame",
-              label: "Running per-file blame.",
-              processedFiles,
-              totalFiles: targets.length,
-              currentFile: displayPath,
-            })
-
             if (result.exitCode !== 0) {
               throw {
                 type: "provider",
@@ -314,7 +338,56 @@ export function createAnalysisBlameHandler(
               } satisfies AppError
             }
 
-            return parseBlameOutput(displayPath, result.stdout)
+            const parsed = parseBlameOutput(displayPath, result.stdout)
+
+            for (const line of parsed.lines) {
+              if (
+                excludeAuthorsForPartial.length > 0 &&
+                fnmatchFilter(line.authorName, excludeAuthorsForPartial)
+              ) {
+                continue
+              }
+              if (
+                excludeEmailsForPartial.length > 0 &&
+                fnmatchFilter(line.authorEmail, excludeEmailsForPartial)
+              ) {
+                continue
+              }
+              const personId = baselineIdentityIndex.get(
+                toPersonDbIdentityKey(line.authorName, line.authorEmail),
+              )
+              if (!personId) continue
+              partialLinesByPerson.set(
+                personId,
+                (partialLinesByPerson.get(personId) ?? 0) + 1,
+              )
+              partialsDirty = true
+            }
+
+            processedFiles++
+            const nowMs = Date.now()
+            const isFinalFile = processedFiles === targets.length
+            const includePartial =
+              partialsDirty &&
+              (isFinalFile ||
+                nowMs - lastPartialEmitMs >=
+                  PARTIAL_AUTHOR_LINES_EMIT_INTERVAL_MS)
+            if (includePartial) {
+              lastPartialEmitMs = nowMs
+              partialsDirty = false
+            }
+            options?.onProgress?.({
+              phase: "blame",
+              label: "Running per-file blame.",
+              processedFiles,
+              totalFiles: targets.length,
+              currentFile: displayPath,
+              partialAuthorLines: includePartial
+                ? buildPartialAuthorLines()
+                : undefined,
+            })
+
+            return parsed
           },
         )
 

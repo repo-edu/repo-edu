@@ -39,6 +39,9 @@ export function useBlameAutoRun() {
     (s) => s.setBlameWorkflowStatus,
   )
   const setBlameProgress = useAnalysisStore((s) => s.setBlameProgress)
+  const setBlamePartialAuthorLines = useAnalysisStore(
+    (s) => s.setBlamePartialAuthorLines,
+  )
   const setBlameErrorMessage = useAnalysisStore((s) => s.setBlameErrorMessage)
   const blameContextSnapshot = useAnalysisStore((s) => s.blameContextSnapshot)
   const setBlameContextSnapshot = useAnalysisStore(
@@ -101,6 +104,7 @@ export function useBlameAutoRun() {
     clearBlameFileResults()
     setBlameWorkflowStatus("idle")
     setBlameProgress(null)
+    setBlamePartialAuthorLines(new Map())
     setBlameErrorMessage(null)
   }, [
     blameContextSnapshot,
@@ -108,6 +112,7 @@ export function useBlameAutoRun() {
     contextSnapshot,
     setBlameContextSnapshot,
     setBlameErrorMessage,
+    setBlamePartialAuthorLines,
     setBlameProgress,
     setBlameResult,
     setBlameWorkflowStatus,
@@ -142,6 +147,7 @@ export function useBlameAutoRun() {
 
       setBlameWorkflowStatus("running")
       setBlameProgress(null)
+      setBlamePartialAuthorLines(new Map())
       setBlameErrorMessage(null)
 
       for (const path of filesToLoad) {
@@ -166,7 +172,16 @@ export function useBlameAutoRun() {
             asOfCommit: asOfCommit || result.resolvedAsOfOid,
           },
           {
-            onProgress: (p: AnalysisProgress) => setBlameProgress(p),
+            onProgress: (p: AnalysisProgress) => {
+              setBlameProgress(p)
+              if (p.partialAuthorLines) {
+                const next = new Map<string, number>()
+                for (const entry of p.partialAuthorLines) {
+                  next.set(entry.personId, entry.lines)
+                }
+                setBlamePartialAuthorLines(next)
+              }
+            },
             signal: ac.signal,
           },
         )
@@ -226,6 +241,7 @@ export function useBlameAutoRun() {
       selectedRepoPath,
       setBlameErrorMessage,
       setBlameFileResult,
+      setBlamePartialAuthorLines,
       setBlameProgress,
       setBlameResult,
       setBlameWorkflowStatus,

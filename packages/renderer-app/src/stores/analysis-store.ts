@@ -45,6 +45,7 @@ type PerRepoBlameState = {
   activeBlameFile: string | null
   blameWorkflowStatus: AnalysisWorkflowStatus
   blameProgress: AnalysisProgress | null
+  blamePartialAuthorLines: ReadonlyMap<string, number>
   blameErrorMessage: string | null
   blameContextSnapshot: string | null
   blameVisibleAuthors: Set<string> | null
@@ -95,6 +96,7 @@ type AnalysisState = {
   activeBlameFile: string | null
   blameWorkflowStatus: AnalysisWorkflowStatus
   blameProgress: AnalysisProgress | null
+  blamePartialAuthorLines: ReadonlyMap<string, number>
   blameErrorMessage: string | null
   blameContextSnapshot: string | null
 
@@ -170,6 +172,7 @@ type AnalysisActions = {
   clearBlameFileResults: () => void
   setBlameWorkflowStatus: (status: AnalysisWorkflowStatus) => void
   setBlameProgress: (progress: AnalysisProgress | null) => void
+  setBlamePartialAuthorLines: (lines: ReadonlyMap<string, number>) => void
   setBlameErrorMessage: (message: string | null) => void
   setBlameContextSnapshot: (snapshot: string | null) => void
 
@@ -211,6 +214,8 @@ type AnalysisActions = {
   reset: () => void
 }
 
+const EMPTY_PARTIAL_AUTHOR_LINES: ReadonlyMap<string, number> = new Map()
+
 const DEFAULT_BLAME_STATE: PerRepoBlameState = {
   blameResult: null,
   blameTargetFiles: [],
@@ -218,6 +223,7 @@ const DEFAULT_BLAME_STATE: PerRepoBlameState = {
   activeBlameFile: null,
   blameWorkflowStatus: "idle",
   blameProgress: null,
+  blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
   blameErrorMessage: null,
   blameContextSnapshot: null,
   blameVisibleAuthors: null,
@@ -259,6 +265,7 @@ const initialState: AnalysisState = {
   activeBlameFile: null,
   blameWorkflowStatus: "idle",
   blameProgress: null,
+  blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
   blameErrorMessage: null,
   blameContextSnapshot: null,
 
@@ -309,6 +316,7 @@ function snapshotActiveBlameState(
     activeBlameFile: state.activeBlameFile,
     blameWorkflowStatus: state.blameWorkflowStatus,
     blameProgress: state.blameProgress,
+    blamePartialAuthorLines: state.blamePartialAuthorLines,
     blameErrorMessage: state.blameErrorMessage,
     blameContextSnapshot: state.blameContextSnapshot,
     blameVisibleAuthors: state.blameVisibleAuthors,
@@ -372,6 +380,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
             activeBlameFile: nextEntry.activeBlameFile,
             blameWorkflowStatus: nextEntry.blameWorkflowStatus,
             blameProgress: nextEntry.blameProgress,
+            blamePartialAuthorLines: nextEntry.blamePartialAuthorLines,
             blameErrorMessage: nextEntry.blameErrorMessage,
             blameContextSnapshot: nextEntry.blameContextSnapshot,
             blameVisibleAuthors: nextEntry.blameVisibleAuthors,
@@ -414,6 +423,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           activeBlameFile: null,
           blameWorkflowStatus: "idle" as AnalysisWorkflowStatus,
           blameProgress: null,
+          blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
           blameErrorMessage: null,
           blameContextSnapshot: null,
           selectedAuthors: new Set<string>(),
@@ -437,6 +447,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
             activeBlameFile: null,
             blameWorkflowStatus: "idle",
             blameProgress: null,
+            blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
             blameErrorMessage: null,
             blameContextSnapshot: null,
             blameVisibleAuthors: null,
@@ -464,6 +475,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           activeBlameFile: null,
           blameWorkflowStatus: "idle",
           blameProgress: null,
+          blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
           blameErrorMessage: null,
           blameContextSnapshot: null,
           blameVisibleAuthors: null,
@@ -484,6 +496,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
             activeBlameFile: null,
             blameWorkflowStatus: "idle" as AnalysisWorkflowStatus,
             blameProgress: null,
+            blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
             blameErrorMessage: null,
             blameContextSnapshot: null,
             selectedAuthors: new Set<string>(),
@@ -541,6 +554,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           activeBlameFile: null,
           blameWorkflowStatus: "idle",
           blameProgress: null,
+          blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
           blameErrorMessage: null,
           blameContextSnapshot: null,
           workflowStatus: "idle",
@@ -627,6 +641,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         activeBlameFile: null,
         blameWorkflowStatus: "idle",
         blameProgress: null,
+        blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
         blameErrorMessage: null,
         blameContextSnapshot: null,
         workflowStatus: "idle",
@@ -657,6 +672,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     setBlameWorkflowStatus: (blameWorkflowStatus) =>
       set({ blameWorkflowStatus }),
     setBlameProgress: (blameProgress) => set({ blameProgress }),
+    setBlamePartialAuthorLines: (blamePartialAuthorLines) =>
+      set({ blamePartialAuthorLines }),
     setBlameErrorMessage: (blameErrorMessage) => set({ blameErrorMessage }),
     setBlameContextSnapshot: (blameContextSnapshot) =>
       set({ blameContextSnapshot }),
@@ -799,6 +816,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         errorMessage: null,
         blameWorkflowStatus: "idle",
         blameProgress: null,
+        blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
         blameErrorMessage: null,
         blameContextSnapshot: null,
         asOfCommit: "",
@@ -827,17 +845,24 @@ export const selectBlameMergedAuthorStats = (() => {
   const EMPTY: AuthorStats[] = []
   let previousResult: AnalysisResult | null = null
   let previousBlame: BlameResult | null = null
+  let previousPartial: ReadonlyMap<string, number> | null = null
   let previousValue: AuthorStats[] = EMPTY
 
   return (state: AnalysisState & AnalysisActions): AuthorStats[] => {
     const result = state.result
     const blameResult = state.blameResult
-    if (result === previousResult && blameResult === previousBlame) {
+    const partial = state.blamePartialAuthorLines
+    if (
+      result === previousResult &&
+      blameResult === previousBlame &&
+      partial === previousPartial
+    ) {
       return previousValue
     }
 
     previousResult = result
     previousBlame = blameResult
+    previousPartial = partial
 
     if (!result) {
       previousValue = EMPTY
@@ -845,7 +870,17 @@ export const selectBlameMergedAuthorStats = (() => {
     }
 
     if (!blameResult) {
-      previousValue = result.authorStats
+      if (partial.size === 0) {
+        previousValue = result.authorStats
+        return previousValue
+      }
+      let totalPartial = 0
+      for (const lines of partial.values()) totalPartial += lines
+      previousValue = result.authorStats.map((stat) => {
+        const lines = partial.get(stat.personId) ?? 0
+        const linesPercent = totalPartial > 0 ? (100 * lines) / totalPartial : 0
+        return { ...stat, lines, linesPercent }
+      })
       return previousValue
     }
 

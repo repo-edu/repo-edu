@@ -25,6 +25,7 @@ import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
+import { BlameProgressBar } from "./analysis/BlameProgressBar.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
@@ -132,6 +133,7 @@ export function AnalysisTab() {
               )}
             </TabsList>
           </div>
+          {!blameSkip && <BlameProgressBar />}
           <TabsContent value="authors" className="flex-1 min-h-0 overflow-auto">
             <AuthorPanel />
           </TabsContent>

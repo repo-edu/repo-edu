@@ -428,6 +428,11 @@ export type AnalysisProgress = {
   processedCommits?: number
   totalCommits?: number
   currentFile?: string
+  // Running per-author line tally emitted during blame phase 2 so the
+  // Authors view can show Lines of Code progressing live. Keyed by personId
+  // resolved against the input person DB; identities not yet in the baseline
+  // are omitted and only appear in the final result.
+  partialAuthorLines?: ReadonlyArray<{ personId: string; lines: number }>
 }
 
 export type AnalysisRepositoryInput = {
