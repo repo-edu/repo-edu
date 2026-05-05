@@ -793,7 +793,7 @@ export function AnalysisSidebar() {
                       key={path}
                       type="button"
                       className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                        focusedFilePath === path
+                        activeView === "blame" && focusedFilePath === path
                           ? "bg-selection font-medium"
                           : "hover:bg-accent"
                       }`}
@@ -820,7 +820,7 @@ export function AnalysisSidebar() {
                   toggleFolderOpen,
                   effectiveFileSelection,
                   focusedFilePath,
-                  highlightFocused: true,
+                  highlightFocused: activeView === "blame",
                   onFileClick: handleFileClick,
                 }}
               >

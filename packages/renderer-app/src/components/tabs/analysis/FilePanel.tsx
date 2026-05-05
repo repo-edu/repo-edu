@@ -19,6 +19,10 @@ import {
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
 import {
+  FILES_PANEL_CHART_FLEX,
+  FILES_PANEL_TABLE_FLEX,
+} from "../../../constants/layout.js"
+import {
   selectFilteredFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
@@ -29,7 +33,6 @@ import {
   AnalysisDisplayControls,
 } from "./AnalysisDisplayControls.js"
 import { FileCharts } from "./charts/FileCharts.js"
-import { FileFilterControls } from "./FileFilterControls.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 export function FilePanel() {
@@ -43,8 +46,6 @@ export function FilePanel() {
   const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
   const showAge = useAnalysisStore((s) => s.showAge)
   const chartMetric = useAnalysisStore((s) => s.chartMetric)
-  const activeBlameFile = useAnalysisStore((s) => s.activeBlameFile)
-  const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const isPercent = displayMode === "percentage"
 
@@ -132,7 +133,10 @@ export function FilePanel() {
   return (
     <div className="flex flex-col h-full min-h-0">
       <AnalysisDisplayControls showChartMetric={false} />
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div
+        className="min-h-0 overflow-auto"
+        style={{ flex: FILES_PANEL_TABLE_FLEX }}
+      >
         <DataTable stickyHeader>
           <DataTableHeader>
             {(table.getHeaderGroups()[0]?.headers ?? []).map((header) => (
@@ -170,25 +174,13 @@ export function FilePanel() {
                   showLinesOfCode={showLinesOfCode}
                 />
                 {table.getRowModel().rows.map((row) => (
-                  <DataTableRow
-                    key={row.id}
-                    className={`group cursor-pointer ${
-                      activeBlameFile === row.original.path
-                        ? "bg-primary/5"
-                        : ""
-                    }`}
-                    onClick={() => openFileForBlame(row.original.path)}
-                  >
+                  <DataTableRow key={row.id} className="group">
                     {row.getVisibleCells().map((cell) => (
                       <DataTableCell
                         key={cell.id}
                         className={
                           cell.column.id === "path"
-                            ? `sticky left-0 z-10 ${
-                                activeBlameFile === row.original.path
-                                  ? "bg-primary/5"
-                                  : "bg-background group-hover:bg-muted/50"
-                              }`
+                            ? "sticky left-0 z-10 bg-background group-hover:bg-muted/50"
                             : ""
                         }
                       >
@@ -204,14 +196,18 @@ export function FilePanel() {
             )}
           </DataTableBody>
         </DataTable>
-        <AnalysisChartMetricControls />
+      </div>
+      <AnalysisChartMetricControls />
+      <div
+        className="min-h-0 overflow-auto"
+        style={{ flex: FILES_PANEL_CHART_FLEX }}
+      >
         <FileCharts
           fileStats={fileStats}
           authorStats={authorStats}
           activeMetric={chartMetric}
         />
       </div>
-      <FileFilterControls />
     </div>
   )
 }
