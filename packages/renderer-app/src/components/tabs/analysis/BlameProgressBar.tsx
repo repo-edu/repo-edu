@@ -27,6 +27,11 @@ export function BlameProgressBar() {
           style={{ width: `${percent}%` }}
         />
       </div>
+      {blameProgress.currentFile && (
+        <div className="mt-1 truncate text-xs text-muted-foreground">
+          {blameProgress.currentFile}
+        </div>
+      )}
     </div>
   )
 }
