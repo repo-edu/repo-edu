@@ -20,7 +20,8 @@ All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-ed
 - `course list|active|show|load`
 - `lms verify`
 - `git verify`
-- `repo create|clone|update`
+- `repo create|clone|update|discover`
+- `update` (self-update)
 - `validate`
 
 ## Data Directory

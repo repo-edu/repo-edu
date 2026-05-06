@@ -6,13 +6,16 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 
 `@repo-edu/domain` is side-effect free and host-agnostic. It defines:
 
-- canonical persisted settings/course/roster/group/assignment types
+- canonical persisted settings/course/analysis/roster/group/assignment types
+- `PersistedDocument = PersistedAnalysis | PersistedCourse` discriminated by `documentKind` (`"analysis"` | `"course"`); `PersistedAnalysis` is a standalone document type that holds analysis state without a course/roster, while `PersistedCourse` carries roster/groups/assignments
+- `CourseKind = "lms" | "repobee"` discriminator on `PersistedCourse` separating LMS-driven courses from RepoBee/local courses; helpers `isLmsCourse(course)` / `isRepobeeCourse(course)` and the `documentKindOf(...)` selector
 - zod validation for boundary payloads
-- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) from monotonic `IdSequences` on `PersistedCourse`
-- roster normalization, validation, and reconciliation (`roster-reconciliation.ts`: `reconcileRosterFromGitUsernames` for RepoBee import)
+- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) from monotonic `IdSequences` shared by `PersistedAnalysis` and `PersistedCourse`
+- roster normalization, validation, reconciliation (`roster-reconciliation.ts`: `reconcileRosterFromGitUsernames` for RepoBee import) and LMS-side merge (`roster-lms-merge.ts`)
 - system group-set maintenance
 - discriminated `GroupSet` union (`NamedGroupSet` / `UsernameGroupSet`) on `nameMode`
 - group-set import/export semantics (CSV → named sets, RepoBee → unnamed sets via `GroupSetImportFormat`)
+- LMS / Git connection types (`connection.ts`) and persisted LLM connection settings (`settings.ts`)
 - repository planning and collision semantics
 - git analysis primitives (`src/analysis/`):
   - `types.ts` — `AnalysisConfig`, `AnalysisBlameConfig`, `AnalysisResult`, `BlameResult`, `PersonDbSnapshot`, `AuthorStats`, `FileStats`, `SupportedLanguage`

@@ -23,28 +23,38 @@ pnpm test
 
 ## Architecture
 
-`repo-edu` is a pure TypeScript pnpm monorepo.
+`repo-edu` is a pure TypeScript pnpm monorepo. Workspace globs: `apps/*`, `packages/*`, `tools/*`.
 
 ```text
 repo-edu/
 ├── apps/
 │   ├── desktop/   # Electron shell + tRPC router + preload bridge
 │   ├── cli/       # Commander-based CLI (redu)
-│   └── docs/      # Browser-safe demo harness
-└── packages/
-    ├── domain/                    # Pure product rules and validation
-    ├── application/               # Workflow orchestration/use-cases
-    ├── application-contract/      # Workflow ids/payloads/catalog + AppError
-    ├── renderer-host-contract/    # Renderer-safe host interface
-    ├── host-runtime-contract/     # Runtime ports (http/process/fs/user-file)
-    ├── host-node/                 # Node implementations for runtime ports
-    ├── host-browser-mock/         # Browser mock host for docs/tests
-    ├── integrations-lms(-contract)
-    ├── integrations-git(-contract)
-    ├── renderer-app/               # Shared React application
-    ├── ui/                         # Shared UI component library
-    ├── test-fixtures/              # Shared domain fixture generation (faker-based)
-    └── integration-tests/          # E2E workflow tests against live Git providers
+│   └── docs/      # Astro/Starlight site + browser-safe demo harness
+├── packages/
+│   ├── domain/                    # Pure product rules and validation
+│   ├── application/               # Workflow orchestration/use-cases
+│   ├── application-contract/      # Workflow ids/payloads/catalog + AppError
+│   ├── renderer-host-contract/    # Renderer-safe host interface
+│   ├── host-runtime-contract/     # Runtime ports (http/process/fs/user-file/llm/exam-archive)
+│   ├── host-node/                 # Node implementations for runtime ports
+│   ├── host-browser-mock/         # Browser mock host for docs/tests
+│   ├── integrations-git(-contract)
+│   ├── integrations-lms(-contract)
+│   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
+│   │                                         # Claude/Codex adapters, curated model catalog
+│   ├── fixture-engine/            # AI-driven student-repo fixture generator
+│   ├── renderer-app/              # Shared React application
+│   ├── ui/                        # Shared UI component library
+│   ├── test-fixtures/             # Shared domain fixture generation (faker-based)
+│   └── integration-tests/         # E2E workflow tests against live Git providers
+└── tools/                         # Workspace tooling (each runs via tsx)
+    ├── architecture-check/        # Boundary/architecture lint (pnpm check:architecture)
+    ├── dev-fixture/               # Local seed runner (pnpm dev:fixture)
+    ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
+    ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine
+    ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
+    └── release/                   # Versioning/release helper
 ```
 
 Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-obvious conventions:
@@ -55,12 +65,16 @@ Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-
 - [packages/application/CLAUDE.md](packages/application/CLAUDE.md)
 - [packages/application-contract/CLAUDE.md](packages/application-contract/CLAUDE.md)
 - [packages/domain/CLAUDE.md](packages/domain/CLAUDE.md)
+- [packages/fixture-engine/CLAUDE.md](packages/fixture-engine/CLAUDE.md)
 - [packages/host-browser-mock/CLAUDE.md](packages/host-browser-mock/CLAUDE.md)
 - [packages/host-node/CLAUDE.md](packages/host-node/CLAUDE.md)
 - [packages/host-runtime-contract/CLAUDE.md](packages/host-runtime-contract/CLAUDE.md)
 - [packages/integration-tests/CLAUDE.md](packages/integration-tests/CLAUDE.md)
 - [packages/integrations-git/CLAUDE.md](packages/integrations-git/CLAUDE.md)
 - [packages/integrations-git-contract/CLAUDE.md](packages/integrations-git-contract/CLAUDE.md)
+- [packages/integrations-llm/CLAUDE.md](packages/integrations-llm/CLAUDE.md)
+- [packages/integrations-llm-catalog/CLAUDE.md](packages/integrations-llm-catalog/CLAUDE.md)
+- [packages/integrations-llm-contract/CLAUDE.md](packages/integrations-llm-contract/CLAUDE.md)
 - [packages/integrations-lms/CLAUDE.md](packages/integrations-lms/CLAUDE.md)
 - [packages/integrations-lms-contract/CLAUDE.md](packages/integrations-lms-contract/CLAUDE.md)
 - [packages/renderer-app/CLAUDE.md](packages/renderer-app/CLAUDE.md)
