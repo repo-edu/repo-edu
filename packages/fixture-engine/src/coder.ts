@@ -106,6 +106,14 @@ export function initRepo(dir: string): void {
   writeFileSync(resolve(dir, ".gitignore"), `${GITIGNORE_LINES.join("\n")}\n`)
 }
 
+function headSha(dir: string): string | null {
+  const result = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], {
+    stdio: ["ignore", "pipe", "ignore"],
+  })
+  if (result.status !== 0) return null
+  return result.stdout.toString().trim()
+}
+
 export async function runCoderLoop(
   project: Project,
   plan: Plan,
@@ -140,6 +148,7 @@ export async function runCoderLoop(
       const roundHeader = `\n## Round ${i + 1} · ${commit.kind} · author ${commit.author_index}`
       emit(2, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
       emit(3, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
+      const beforeSha = headSha(dir)
       const { reply, usage } = await withTicker(
         `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
         () =>
@@ -150,6 +159,8 @@ export async function runCoderLoop(
             appendInstructions: coderPersona,
           }),
       )
+      const afterSha = headSha(dir)
+      const committed = afterSha !== null && afterSha !== beforeSha
       const tail = `\n### Reply\n\n${reply}\n\n### Usage\n\n- inputTokens: ${usage.inputTokens}\n- cachedInputTokens: ${usage.cachedInputTokens}\n- outputTokens: ${usage.outputTokens}\n- wallMs: ${usage.wallMs}\n- authMode: ${usage.authMode}`
       emit(2, tail)
       emit(3, tail)
@@ -166,7 +177,7 @@ export async function runCoderLoop(
         `${JSON.stringify(state, null, 2)}\n`,
       )
       progress(
-        `round ${i + 1} done (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - runStart)})`,
+        `round ${i + 1} ${commit.kind} done (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - runStart)})${committed ? "" : " (no commit)"}`,
       )
       if (state.stopped) break
     }
