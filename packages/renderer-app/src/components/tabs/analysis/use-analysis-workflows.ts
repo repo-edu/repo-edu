@@ -3,7 +3,7 @@ import type {
   DiscoverReposProgress,
 } from "@repo-edu/application-contract"
 import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
-import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
+import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { useCallback, useEffect, useMemo } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import {
@@ -76,7 +76,7 @@ export function useAnalysisWorkflows() {
 
   const currentConfigFingerprint = useMemo(() => {
     if (!course) return null
-    const config = resolveCourseAnalysisConfig(
+    const config = resolveAnalysisConfig(
       course,
       defaultExtensions,
       analysisConcurrency.filesPerRepo,
@@ -117,11 +117,7 @@ export function useAnalysisWorkflows() {
             repositoryAbsolutePath: repoPath,
             config:
               configOverride ??
-              resolveCourseAnalysisConfig(
-                course,
-                defaultExtensions,
-                filesPerRepo,
-              ),
+              resolveAnalysisConfig(course, defaultExtensions, filesPerRepo),
             ...(rosterContext ? { rosterContext } : {}),
           },
           {
@@ -145,7 +141,7 @@ export function useAnalysisWorkflows() {
         }
         const effectiveConfig =
           configOverride ??
-          resolveCourseAnalysisConfig(course, defaultExtensions, filesPerRepo)
+          resolveAnalysisConfig(course, defaultExtensions, filesPerRepo)
         const fingerprint = buildAnalysisStoreFingerprint(
           effectiveConfig,
           rosterContext,

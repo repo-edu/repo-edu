@@ -1,6 +1,7 @@
 import type {
+  AnalysisInputs,
   Assignment,
-  CourseAnalysisInputs,
+  DocumentKind,
   GitIdentityMode,
   Group,
   IdSequences,
@@ -28,6 +29,17 @@ export type HistoryEntry = {
 
 export type CourseState = {
   course: PersistedCourse | null
+  /**
+   * Discriminator for the working document. When set to "analysis", the
+   * `course` field holds a synthesized PersistedCourse projection of the
+   * underlying Analysis; saves are dispatched to `analyses.save` and the
+   * roster/teaching surface is suppressed in the UI.
+   */
+  documentKind: DocumentKind
+  /** Source-of-truth id when documentKind is "analysis". */
+  analysisDocId: string | null
+  /** Source-of-truth revision when documentKind is "analysis". */
+  analysisDocRevision: number | null
   status: DocumentStatus
   error: string | null
   warnings: string[]
@@ -52,6 +64,7 @@ export type CourseState = {
 
 export type CourseActions = {
   load: (courseId: string) => Promise<void>
+  loadAnalysis: (analysisId: string) => Promise<void>
   save: () => Promise<boolean>
   clear: () => void
 
@@ -115,7 +128,7 @@ export type CourseActions = {
   ) => void
   setDisplayName: (name: string) => void
   setSearchFolder: (folder: string | null) => void
-  setAnalysisInputs: (patch: Partial<CourseAnalysisInputs>) => void
+  setAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
 
   // System sets
   ensureSystemGroupSets: () => void
@@ -146,6 +159,9 @@ export type StoreInternals = {
 
 export const initialState: CourseState = {
   course: null,
+  documentKind: "course",
+  analysisDocId: null,
+  analysisDocRevision: null,
   status: "empty",
   error: null,
   warnings: [],

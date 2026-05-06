@@ -24,6 +24,11 @@ describe("application-contract workflow catalog", () => {
 
     // Verify well-known workflow ids are present
     const expectedIds: WorkflowId[] = [
+      "analyses.list",
+      "analyses.load",
+      "analyses.save",
+      "analyses.delete",
+      "documents.list",
       "course.list",
       "course.load",
       "course.save",
@@ -194,6 +199,24 @@ describe("application-contract workflow catalog", () => {
       assert.ok(
         !meta.delivery.includes("cli"),
         `Setup-phase workflow '${id}' should not include CLI delivery`,
+      )
+    }
+  })
+
+  it("analysis-document workflows exclude CLI delivery", () => {
+    const analysisDocWorkflows: WorkflowId[] = [
+      "analyses.list",
+      "analyses.load",
+      "analyses.save",
+      "analyses.delete",
+      "documents.list",
+    ]
+
+    for (const id of analysisDocWorkflows) {
+      const meta = workflowCatalog[id]
+      assert.ok(
+        !meta.delivery.includes("cli"),
+        `Analysis-document workflow '${id}' should not include CLI delivery`,
       )
     }
   })

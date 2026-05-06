@@ -1,6 +1,8 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
 import { createBlankCourse } from "@repo-edu/domain/types"
 import {
+  Alert,
+  AlertDescription,
   Button,
   Dialog,
   DialogBody,
@@ -20,7 +22,7 @@ import {
   SelectValue,
   Text,
 } from "@repo-edu/ui"
-import { Loader2, Search } from "@repo-edu/ui/components/icons"
+import { AlertTriangle, Loader2, Search } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
@@ -36,8 +38,12 @@ export function NewCourseDialog() {
   const open = useUiStore((state) => state.newCourseDialogOpen)
   const setOpen = useUiStore((state) => state.setNewCourseDialogOpen)
   const setActiveCourseId = useUiStore((state) => state.setActiveCourseId)
+  const setActiveDocumentKind = useUiStore(
+    (state) => state.setActiveDocumentKind,
+  )
   const setCourseList = useUiStore((state) => state.setCourseList)
   const existingCourses = useUiStore((state) => state.courseList)
+  const openSettings = useUiStore((state) => state.openSettings)
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
@@ -153,6 +159,9 @@ export function NewCourseDialog() {
     }
 
     if (courseMode === "lms") {
+      if (lmsConnections.length === 0) {
+        return false
+      }
       return (
         selectedLmsConnection.trim().length > 0 &&
         selectedCourseId.trim().length > 0
@@ -165,6 +174,7 @@ export function NewCourseDialog() {
     creating,
     isCourseNameTaken,
     courseMode,
+    lmsConnections.length,
     selectedLmsConnection,
     selectedCourseId,
   ])
@@ -172,7 +182,7 @@ export function NewCourseDialog() {
   const reset = useCallback(() => {
     setCourseName("")
     setLmsCourseId("")
-    setCourseMode(lmsConnections.length > 0 ? "lms" : "manual")
+    setCourseMode("lms")
     setCourseSearch("")
     setCourses([])
     setSelectedCourseId("")
@@ -232,8 +242,10 @@ export function NewCourseDialog() {
       const saved = await client.run("course.save", course)
       const courses = await client.run("course.list", undefined)
       setCourseList(courses)
+      setActiveDocumentKind("course")
       setActiveCourseId(saved.id)
 
+      useAppSettingsStore.getState().setActiveDocumentKind("course")
       setSettingsActiveCourseId(saved.id)
       await saveAppSettings()
 
@@ -260,26 +272,6 @@ export function NewCourseDialog() {
           <DialogTitle>New Course</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          <FormField label="Course name" htmlFor="new-course-name">
-            <Input
-              id="new-course-name"
-              placeholder="e.g., Software Engineering 2026"
-              value={courseName}
-              onChange={(event) => setCourseName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && canCreate) {
-                  void handleCreate()
-                }
-              }}
-              autoFocus
-            />
-            {isCourseNameTaken && (
-              <Text className="text-sm text-destructive mt-1">
-                A course with this name already exists.
-              </Text>
-            )}
-          </FormField>
-
           <FormField label="Course">
             <RadioGroup
               value={courseMode}
@@ -292,7 +284,7 @@ export function NewCourseDialog() {
                   htmlFor="new-course-course-mode-lms"
                   className="font-normal cursor-pointer"
                 >
-                  Select from LMS
+                  Select from a Learning Management System (Canvas or Moodle)
                 </Label>
               </div>
               <div className="flex items-center gap-2">
@@ -310,31 +302,58 @@ export function NewCourseDialog() {
             </RadioGroup>
           </FormField>
 
-          <FormField
-            label="LMS connection (optional)"
-            htmlFor="new-course-lms-connection"
-          >
-            <Select
-              value={selectedLmsConnection || NONE_VALUE}
-              onValueChange={(value) =>
-                setSelectedLmsConnection(value === NONE_VALUE ? "" : value)
-              }
-            >
-              <SelectTrigger id="new-course-lms-connection">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE}>None</SelectItem>
-                {lmsConnections.map((connection) => (
-                  <SelectItem key={connection.name} value={connection.name}>
-                    {connection.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
+          {courseMode === "lms" && lmsConnections.length === 0 && (
+            <Alert variant="warning">
+              <AlertTriangle />
+              <AlertDescription>
+                <Text>
+                  No Learning Management System connections configured. Add a
+                  Canvas or Moodle connection in Settings to import a course and
+                  roster.
+                </Text>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    className="text-warning underline underline-offset-4 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50 rounded-sm"
+                    onClick={() => {
+                      handleClose()
+                      openSettings("lms-connections")
+                    }}
+                  >
+                    Configure LMS connections…
+                  </button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
-          {courseMode === "lms" ? (
+          {courseMode === "lms" && lmsConnections.length > 0 && (
+            <FormField
+              label="LMS connection"
+              htmlFor="new-course-lms-connection"
+            >
+              <Select
+                value={selectedLmsConnection || NONE_VALUE}
+                onValueChange={(value) =>
+                  setSelectedLmsConnection(value === NONE_VALUE ? "" : value)
+                }
+              >
+                <SelectTrigger id="new-course-lms-connection">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>None</SelectItem>
+                  {lmsConnections.map((connection) => (
+                    <SelectItem key={connection.name} value={connection.name}>
+                      {connection.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+
+          {courseMode === "lms" && lmsConnections.length > 0 ? (
             <div className="space-y-2">
               {selectedLmsDraft ? (
                 <Text className="text-xs text-muted-foreground">
@@ -429,7 +448,7 @@ export function NewCourseDialog() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : courseMode === "manual" ? (
             <FormField
               label="Course ID (optional)"
               htmlFor="new-course-course-id"
@@ -440,6 +459,28 @@ export function NewCourseDialog() {
                 value={lmsCourseId}
                 onChange={(event) => setLmsCourseId(event.target.value)}
               />
+            </FormField>
+          ) : null}
+
+          {(courseMode === "manual" ||
+            (courseMode === "lms" && lmsConnections.length > 0)) && (
+            <FormField label="Course name" htmlFor="new-course-name">
+              <Input
+                id="new-course-name"
+                placeholder="e.g., Software Engineering 2026"
+                value={courseName}
+                onChange={(event) => setCourseName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && canCreate) {
+                    void handleCreate()
+                  }
+                }}
+              />
+              {isCourseNameTaken && (
+                <Text className="text-sm text-destructive mt-1">
+                  A course with this name already exists.
+                </Text>
+              )}
             </FormField>
           )}
 

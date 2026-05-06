@@ -8,7 +8,7 @@ import {
   initialIdSequences,
   type PersistedCourse,
   persistedCourseKind,
-  resolveCourseAnalysisConfig,
+  resolveAnalysisConfig,
 } from "../../types.js"
 
 describe("validateAnalysisConfig", () => {
@@ -256,7 +256,7 @@ describe("validateAnalysisBlameConfig", () => {
   })
 })
 
-describe("resolveCourseAnalysisConfig", () => {
+describe("resolveAnalysisConfig", () => {
   function makeCourse(
     inputs: PersistedCourse["analysisInputs"],
   ): PersistedCourse {
@@ -286,20 +286,20 @@ describe("resolveCourseAnalysisConfig", () => {
 
   it("substitutes the default extensions when the course value is undefined", () => {
     const course = makeCourse({})
-    const config = resolveCourseAnalysisConfig(course, ["ts", "js"], 2)
+    const config = resolveAnalysisConfig(course, ["ts", "js"], 2)
     assert.deepStrictEqual(config.extensions, ["ts", "js"])
     assert.equal(config.maxConcurrency, 2)
   })
 
   it("passes an explicit empty extensions array through unchanged (no filter)", () => {
     const course = makeCourse({ extensions: [] })
-    const config = resolveCourseAnalysisConfig(course, ["ts"], 1)
+    const config = resolveAnalysisConfig(course, ["ts"], 1)
     assert.deepStrictEqual(config.extensions, [])
   })
 
   it("preserves a non-empty course extensions value", () => {
     const course = makeCourse({ extensions: ["py"] })
-    const config = resolveCourseAnalysisConfig(course, ["ts"], 1)
+    const config = resolveAnalysisConfig(course, ["ts"], 1)
     assert.deepStrictEqual(config.extensions, ["py"])
   })
 })

@@ -25,6 +25,11 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 
 | Workflow | Desktop | CLI | Docs | Notes |
 |---|---|---|---|---|
+| `analyses.list` | yes | — | yes | Document picker UI only |
+| `analyses.load` | yes | — | yes | Document picker UI only |
+| `analyses.save` | yes | — | yes | Document picker UI only |
+| `analyses.delete` | yes | — | yes | Document picker UI only |
+| `documents.list` | yes | — | yes | Unified document picker UI only |
 | `course.list` | yes | yes | yes | |
 | `course.load` | yes | yes | yes | |
 | `course.save` | yes | yes | yes | Internal save path for CLI repo operations |
@@ -79,6 +84,9 @@ These 10 commands serve scripting and automation:
 
 **Multi-step wizard:**
 `settings.saveApp` — multi-pane connection setup for LMS and Git providers.
+
+**Document picker UI:**
+`analyses.list`, `analyses.load`, `analyses.save`, `analyses.delete`, `documents.list` — surfaced through the unified document picker; no scripting use case yet.
 
 ## Dropped CLI commands (with rationale)
 

@@ -4,6 +4,7 @@ import {
   persistedAppSettingsSchema,
 } from "./settings.js"
 import type {
+  PersistedAnalysis,
   PersistedCourse,
   ValidationIssue,
   ValidationResult,
@@ -13,10 +14,11 @@ import {
   gitUsernameStatusKinds,
   groupOriginKinds,
   memberStatusKinds,
+  persistedAnalysisKind,
   persistedCourseKind,
 } from "./types.js"
 
-const persistedCourseAnalysisInputsSchema = z.object({
+export const analysisInputsSchema = z.object({
   since: z.string().optional(),
   until: z.string().optional(),
   subfolder: z.string().optional(),
@@ -199,6 +201,16 @@ const idSequencesSchema = z.object({
   nextAssignmentSeq: z.number().int().positive(),
 })
 
+export const persistedAnalysisSchema = z.object({
+  kind: z.literal(persistedAnalysisKind),
+  revision: z.number().int().nonnegative(),
+  id: z.string(),
+  displayName: z.string(),
+  searchFolder: z.string().nullable(),
+  analysisInputs: analysisInputsSchema,
+  updatedAt: z.string(),
+})
+
 export const persistedCourseSchema = z.object({
   kind: z.literal(persistedCourseKind),
   revision: z.number().int().nonnegative(),
@@ -216,11 +228,20 @@ export const persistedCourseSchema = z.object({
     .nullable()
     .optional(),
   searchFolder: z.string().nullable(),
-  analysisInputs: persistedCourseAnalysisInputsSchema,
+  analysisInputs: analysisInputsSchema,
   updatedAt: z.string(),
 })
 
 // Compile-time drift guard: ensure zod inferred type matches hand-authored type
+type _AnalysisCheck =
+  z.infer<typeof persistedAnalysisSchema> extends PersistedAnalysis
+    ? PersistedAnalysis extends z.infer<typeof persistedAnalysisSchema>
+      ? true
+      : never
+    : never
+const _analysisGuard: _AnalysisCheck = true
+void _analysisGuard
+
 type _CourseCheck =
   z.infer<typeof persistedCourseSchema> extends PersistedCourse
     ? PersistedCourse extends z.infer<typeof persistedCourseSchema>
@@ -297,6 +318,16 @@ export function validatePersistedAppSettings(
   value: unknown,
 ): ValidationResult<PersistedAppSettings> {
   const result = persistedAppSettingsSchema.safeParse(value)
+  if (result.success) {
+    return { ok: true, value: result.data }
+  }
+  return { ok: false, issues: toValidationIssues(result.error) }
+}
+
+export function validatePersistedAnalysis(
+  value: unknown,
+): ValidationResult<PersistedAnalysis> {
+  const result = persistedAnalysisSchema.safeParse(value)
   if (result.success) {
     return { ok: true, value: result.data }
   }

@@ -48,6 +48,8 @@ const course: PersistedCourse = {
 
 const appSettings: PersistedAppSettings = {
   kind: "repo-edu.app-settings.v1",
+  activeDocumentKind: "course",
+  activeAnalysisId: null,
   activeCourseId: course.id,
   activeTab: "roster",
   appearance: {

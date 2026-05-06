@@ -8,6 +8,7 @@ import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
   packageId as domainPackageId,
   type GitIdentityMode,
+  type PersistedAnalysis,
   type PersistedCourse,
   type RosterValidationResult,
 } from "@repo-edu/domain/types"
@@ -49,6 +50,21 @@ export type CourseStore = {
     signal?: AbortSignal,
   ): Promise<PersistedCourse> | PersistedCourse
   deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
+}
+
+export type AnalysisStore = {
+  listAnalyses(
+    signal?: AbortSignal,
+  ): Promise<PersistedAnalysis[]> | PersistedAnalysis[]
+  loadAnalysis(
+    analysisId: string,
+    signal?: AbortSignal,
+  ): Promise<PersistedAnalysis | null> | PersistedAnalysis | null
+  saveAnalysis(
+    analysis: PersistedAnalysis,
+    signal?: AbortSignal,
+  ): Promise<PersistedAnalysis> | PersistedAnalysis
+  deleteAnalysis(analysisId: string, signal?: AbortSignal): Promise<void> | void
 }
 
 export type AppSettingsStore = {
@@ -150,6 +166,47 @@ export function createInMemoryCourseStore(
     },
     deleteCourse(courseId: string) {
       coursesById.delete(courseId)
+    },
+  }
+}
+
+export function createInMemoryAnalysisStore(
+  analyses: readonly PersistedAnalysis[],
+): AnalysisStore {
+  const analysesById = new Map(
+    analyses.map((analysis) => [analysis.id, analysis] as const),
+  )
+
+  return {
+    listAnalyses() {
+      return [...analysesById.values()]
+    },
+    loadAnalysis(analysisId: string) {
+      return analysesById.get(analysisId) ?? null
+    },
+    saveAnalysis(analysis: PersistedAnalysis) {
+      const current = analysesById.get(analysis.id) ?? null
+      if (current !== null && current.revision !== analysis.revision) {
+        throw new Error(
+          `Analysis revision invariant violated for '${analysis.id}' (expected ${analysis.revision}, stored ${current.revision}).`,
+        )
+      }
+      if (current === null && analysis.revision !== 0) {
+        throw new Error(
+          `Analysis revision invariant violated for '${analysis.id}' (expected ${analysis.revision}, stored missing analysis).`,
+        )
+      }
+
+      const savedAnalysis: PersistedAnalysis = {
+        ...analysis,
+        revision: analysis.revision + 1,
+        updatedAt: new Date().toISOString(),
+      }
+      analysesById.set(analysis.id, savedAnalysis)
+      return savedAnalysis
+    },
+    deleteAnalysis(analysisId: string) {
+      analysesById.delete(analysisId)
     },
   }
 }

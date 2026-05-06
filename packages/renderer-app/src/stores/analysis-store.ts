@@ -13,7 +13,7 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
+import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { create } from "zustand"
 import { authorColorMap } from "../utils/author-colors.js"
 
@@ -1045,7 +1045,7 @@ export const buildEffectiveBlameWorkflowConfig = (
   defaultExtensions: string[],
   maxConcurrency: number,
 ): AnalysisBlameConfig => {
-  const config = resolveCourseAnalysisConfig(
+  const config = resolveAnalysisConfig(
     course,
     defaultExtensions,
     maxConcurrency,

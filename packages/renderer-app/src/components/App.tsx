@@ -47,6 +47,7 @@ import { ImportGitUsernamesDialog } from "./dialogs/ImportGitUsernamesDialog.js"
 import { ImportGroupSetDialog } from "./dialogs/ImportGroupSetDialog.js"
 import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDialog.js"
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
+import { NewAnalysisDialog } from "./dialogs/NewAnalysisDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
 import { NewCourseDialog } from "./dialogs/NewCourseDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
@@ -91,11 +92,19 @@ const hasMacDesktopBridge = hasMacDesktopInset
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
+  const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
 
   const theme = useAppSettingsStore(selectTheme)
   const appSettingsActiveCourseId = useAppSettingsStore(
     selectAppSettingsActiveCourseId,
+  )
+  const appSettingsActiveAnalysisId = useAppSettingsStore(
+    (s) => s.settings.activeAnalysisId,
+  )
+  const appSettingsActiveDocumentKind = useAppSettingsStore(
+    (s) => s.settings.activeDocumentKind,
   )
   const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
   const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
@@ -118,14 +127,21 @@ function AppShell() {
     void loadAppSettings()
   }, [loadAppSettings])
 
-  // Restore active course and tab from app settings after settings load.
+  // Restore active document and tab from app settings after settings load.
   useEffect(() => {
-    if (!activeCourseId && appSettingsActiveCourseId) {
+    if (activeDocumentKind === null && appSettingsActiveDocumentKind !== null) {
       setActiveTab(appSettingsActiveTab)
-      useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
+      useUiStore.getState().setActiveDocumentKind(appSettingsActiveDocumentKind)
+      if (appSettingsActiveDocumentKind === "analysis") {
+        useUiStore.getState().setActiveAnalysisId(appSettingsActiveAnalysisId)
+      } else {
+        useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
+      }
     }
   }, [
-    activeCourseId,
+    activeDocumentKind,
+    appSettingsActiveDocumentKind,
+    appSettingsActiveAnalysisId,
     appSettingsActiveCourseId,
     appSettingsActiveTab,
     setActiveTab,
@@ -147,8 +163,11 @@ function AppShell() {
   // Apply theme.
   useTheme(theme)
 
-  // Load course when activeCourseId changes.
-  useLoadCourse(activeCourseId)
+  // Load the active document (course or analysis) when its identity changes.
+  useLoadCourse(
+    activeDocumentKind,
+    activeDocumentKind === "analysis" ? activeAnalysisId : activeCourseId,
+  )
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -205,8 +224,12 @@ function AppShell() {
             <CourseSwitcher />
           </div>
           <TabsList className="app-no-drag">
-            <TabsTrigger value="roster">Roster</TabsTrigger>
-            <TabsTrigger value="groups-assignments">Groups</TabsTrigger>
+            {activeDocumentKind !== "analysis" && (
+              <>
+                <TabsTrigger value="roster">Roster</TabsTrigger>
+                <TabsTrigger value="groups-assignments">Groups</TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
           </TabsList>
           <div className="flex-1" />
@@ -288,7 +311,8 @@ function AppShell() {
       <ValidationDialog />
       <PreflightDialog />
 
-      {/* Course and roster dialogs */}
+      {/* Document and roster dialogs */}
+      <NewAnalysisDialog />
       <NewCourseDialog />
       <StudentSyncDialog />
       <ImportStudentsFromFileDialog />

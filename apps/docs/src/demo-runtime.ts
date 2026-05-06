@@ -1,11 +1,14 @@
 import {
+  createAnalysisDocWorkflowHandlers,
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
+  createDocumentsListWorkflowHandler,
   createExaminationArchiveWorkflowHandlers,
   createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
+  createInMemoryAnalysisStore,
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
   createInMemoryExaminationArchive,
@@ -217,6 +220,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     ) ?? null
 
   const courseStore = createInMemoryCourseStore([seedCourse])
+  const analysisStore = createInMemoryAnalysisStore([])
   const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
 
   const lmsPorts = createMockLmsPorts(
@@ -356,6 +360,8 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
 
   const workflowHandlers = {
     ...createCourseWorkflowHandlers(courseStore),
+    ...createAnalysisDocWorkflowHandlers(analysisStore),
+    ...createDocumentsListWorkflowHandler(analysisStore, courseStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
     ...createConnectionWorkflowHandlers({
       lms: lmsPorts,

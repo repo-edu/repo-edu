@@ -13,7 +13,9 @@ import type {
   PersistedLlmConnection,
 } from "@repo-edu/domain/settings"
 import type {
+  AnalysisSummary,
   CourseSummary,
+  DocumentSummary,
   ExportFormat,
   GitProviderKind,
   GroupSet,
@@ -21,6 +23,7 @@ import type {
   GroupSetImportPreview,
   IdSequences,
   LmsProviderKind,
+  PersistedAnalysis,
   PersistedCourse,
   RepositoryTemplate,
   Roster,
@@ -101,6 +104,7 @@ export type AppError =
       message: string
       resource:
         | "connection"
+        | "analysis"
         | "course"
         | "group-set"
         | "assignment"
@@ -111,6 +115,7 @@ export type AppError =
       type: "conflict"
       message: string
       resource:
+        | "analysis"
         | "course"
         | "connection"
         | "group-set"
@@ -616,6 +621,36 @@ export type ExaminationArchiveImportSummary =
   HostExaminationArchiveImportSummary
 
 export type WorkflowPayloads = {
+  "analyses.list": {
+    input: undefined
+    progress: never
+    output: never
+    result: AnalysisSummary[]
+  }
+  "analyses.load": {
+    input: { analysisId: string }
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: PersistedAnalysis
+  }
+  "analyses.save": {
+    input: PersistedAnalysis
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: PersistedAnalysis
+  }
+  "analyses.delete": {
+    input: { analysisId: string }
+    progress: never
+    output: never
+    result: undefined
+  }
+  "documents.list": {
+    input: undefined
+    progress: never
+    output: never
+    result: DocumentSummary[]
+  }
   "course.list": {
     input: undefined
     progress: never
@@ -835,6 +870,31 @@ type WorkflowMetadata = WorkflowExecutionProfile & {
 }
 
 export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
+  "analyses.list": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "non-cancellable",
+  },
+  "analyses.load": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "analyses.save": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "analyses.delete": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "non-cancellable",
+  },
+  "documents.list": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "non-cancellable",
+  },
   "course.list": {
     delivery: ["desktop", "docs", "cli"],
     progress: "none",

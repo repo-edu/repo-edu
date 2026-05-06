@@ -1,23 +1,33 @@
+import type { DocumentKind } from "@repo-edu/domain/types"
 import { useEffect, useRef } from "react"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 
 /**
- * Loads a course into the course store when `courseId` changes.
- * Ignores stale results if the course changed before loading completed.
+ * Loads the active document into the course store when its identity changes.
+ * Dispatches to the right workflow based on `documentKind`. Ignores stale
+ * results if the active document changed before loading completed.
  */
-export function useLoadCourse(courseId: string | null): void {
-  const loadIdRef = useRef<string | null>(null)
+export function useLoadCourse(
+  documentKind: DocumentKind | null,
+  documentId: string | null,
+): void {
+  const loadKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     useAnalysisStore.getState().resetAnalysisContext()
-    if (!courseId) {
+    if (documentKind === null || documentId === null) {
       useCourseStore.getState().clear()
-      loadIdRef.current = null
+      loadKeyRef.current = null
       return
     }
 
-    loadIdRef.current = courseId
-    void useCourseStore.getState().load(courseId)
-  }, [courseId])
+    const key = `${documentKind}:${documentId}`
+    loadKeyRef.current = key
+    if (documentKind === "analysis") {
+      void useCourseStore.getState().loadAnalysis(documentId)
+    } else {
+      void useCourseStore.getState().load(documentId)
+    }
+  }, [documentKind, documentId])
 }

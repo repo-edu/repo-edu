@@ -14,6 +14,7 @@ import {
 import type {
   ActiveTab,
   DateFormatPreference,
+  DocumentKind,
   ThemePreference,
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
@@ -33,7 +34,9 @@ type AppSettingsActions = {
   load: () => Promise<void>
   save: () => Promise<void>
 
+  setActiveDocumentKind: (kind: DocumentKind | null) => void
   setActiveCourseId: (courseId: string | null) => void
+  setActiveAnalysisId: (analysisId: string | null) => void
   setActiveTab: (tab: ActiveTab) => void
   setActiveGitConnectionId: (id: string | null) => void
 
@@ -143,11 +146,27 @@ export const useAppSettingsStore = create<
       }
     },
 
+    setActiveDocumentKind: (kind) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          activeDocumentKind: kind,
+        },
+      })),
+
     setActiveCourseId: (courseId) =>
       set((state) => ({
         settings: {
           ...state.settings,
           activeCourseId: courseId,
+        },
+      })),
+
+    setActiveAnalysisId: (analysisId) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          activeAnalysisId: analysisId,
         },
       })),
 

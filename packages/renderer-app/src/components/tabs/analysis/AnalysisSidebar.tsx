@@ -1,8 +1,8 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
-import type { CourseAnalysisInputs } from "@repo-edu/domain/types"
-import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
+import type { AnalysisInputs } from "@repo-edu/domain/types"
+import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
   Checkbox,
@@ -205,7 +205,7 @@ export function AnalysisSidebar() {
   const course = useCourseStore((s) => s.course)
   const setAnalysisInputs = useCourseStore((s) => s.setAnalysisInputs)
   const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
-  const config = course?.analysisInputs ?? ({} as CourseAnalysisInputs)
+  const config = course?.analysisInputs ?? ({} as AnalysisInputs)
   const searchFolder = course?.searchFolder ?? null
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
@@ -463,14 +463,14 @@ export function AnalysisSidebar() {
   }, [selectedRepoPath, runAnalysis])
 
   const setConfigAndRerun = useCallback(
-    (patch: Partial<CourseAnalysisInputs>) => {
+    (patch: Partial<AnalysisInputs>) => {
       setAnalysisInputs(patch)
       if (selectedRepoPath && course) {
         const nextCourse = {
           ...course,
           analysisInputs: { ...course.analysisInputs, ...patch },
         }
-        const nextConfig: AnalysisConfig = resolveCourseAnalysisConfig(
+        const nextConfig: AnalysisConfig = resolveAnalysisConfig(
           nextCourse,
           defaultExtensions,
           filesPerRepo,

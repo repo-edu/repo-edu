@@ -41,7 +41,9 @@ export function useCourses() {
   }, [client])
 
   const switchCourse = useCallback(async (courseId: string) => {
+    useUiStore.getState().setActiveDocumentKind("course")
     useUiStore.getState().setActiveCourseId(courseId)
+    useAppSettingsStore.getState().setActiveDocumentKind("course")
     useAppSettingsStore.getState().setActiveCourseId(courseId)
     try {
       await useAppSettingsStore.getState().save()
@@ -86,28 +88,6 @@ export function useCourses() {
     },
     [refresh],
   )
-
-  const createEmptyCourse = useCallback(async (): Promise<boolean> => {
-    const addToast = useToastStore.getState().addToast
-    try {
-      const wfClient = getWorkflowClient()
-      const course = createBlankCourse(
-        generateCourseId(),
-        new Date().toISOString(),
-        { displayName: "Empty Course" },
-      )
-
-      const saved = await wfClient.run("course.save", course)
-      await refresh()
-      await switchCourse(saved.id)
-      useUiStore.getState().setActiveTab("analysis")
-      return true
-    } catch (error) {
-      const message = getErrorMessage(error)
-      addToast(`Failed to create course: ${message}`, { tone: "error" })
-      return false
-    }
-  }, [refresh, switchCourse])
 
   const renameCourse = useCallback(
     async (courseId: string, newDisplayName: string): Promise<boolean> => {
@@ -179,7 +159,6 @@ export function useCourses() {
     loading,
     refresh,
     switchCourse,
-    createEmptyCourse,
     duplicateCourse,
     renameCourse,
     deleteCourse,

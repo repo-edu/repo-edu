@@ -1,27 +1,15 @@
 /**
- * NoCourseEmptyState — First-run welcome screen shown in tab content when no
- * course exists. Presents two options (create a course manually or spin up an
- * empty course) each paired with an explanation. LMS setup lives in settings.
+ * Welcome pane shown when no document is open. Two ways in: a standalone
+ * Analysis (just look at a repository, optionally with AI exam questions) or
+ * a Course (an Analysis bound to a roster you're teaching).
  */
 
 import { Button } from "@repo-edu/ui"
-import { useState } from "react"
-import { useCourses } from "../hooks/use-courses.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 export function NoCourseEmptyState() {
   const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
-  const { createEmptyCourse } = useCourses()
-  const [creatingEmpty, setCreatingEmpty] = useState(false)
-
-  const handleCreateEmpty = async () => {
-    setCreatingEmpty(true)
-    try {
-      await createEmptyCourse()
-    } finally {
-      setCreatingEmpty(false)
-    }
-  }
+  const setNewAnalysisDialogOpen = useUiStore((s) => s.setNewAnalysisDialogOpen)
 
   return (
     <div className="flex h-full items-center justify-center p-8">
@@ -30,26 +18,26 @@ export function NoCourseEmptyState() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setNewCourseDialogOpen(true)}
+            onClick={() => setNewAnalysisDialogOpen(true)}
           >
-            Create Course…
+            New Analysis…
           </Button>
           <p className="text-sm text-muted-foreground">
-            Add a course manually with the full setup, optionally linked to an
-            LMS course.
+            Analyze a repository — author/file stats and AI-generated exam
+            questions. No roster needed.
           </p>
 
           <Button
             variant="outline"
             className="w-full"
-            disabled={creatingEmpty}
-            onClick={() => void handleCreateEmpty()}
+            onClick={() => setNewCourseDialogOpen(true)}
           >
-            {creatingEmpty ? "Creating…" : "Create Empty Course"}
+            New Course…
           </Button>
           <p className="text-sm text-muted-foreground">
-            Spin up an empty course with no roster — handy for trying out
-            repository analysis.
+            A class you're teaching: same analysis, attributed to a specific
+            roster, optionally linked to a Learning Management System (Canvas or
+            Moodle).
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { resolveCourseAnalysisConfig } from "@repo-edu/domain/types"
+import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
   Input,
@@ -203,7 +203,7 @@ export function RepositoriesSection({
   } = tree
   const currentConfigFingerprint = useMemo(() => {
     if (!course) return null
-    const config = resolveCourseAnalysisConfig(
+    const config = resolveAnalysisConfig(
       course,
       defaultExtensions,
       filesPerRepo,

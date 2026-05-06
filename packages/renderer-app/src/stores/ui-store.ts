@@ -1,5 +1,7 @@
 import type {
+  AnalysisSummary,
   CourseSummary,
+  DocumentKind,
   GroupSetImportFormat,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
@@ -39,12 +41,15 @@ export type LmsImportConflict = {
 type UiState = {
   // Navigation
   activeTab: ActiveTab
+  activeDocumentKind: DocumentKind | null
   activeCourseId: string | null
+  activeAnalysisId: string | null
 
   // Dialog visibility
   settingsDialogOpen: boolean
   settingsCategory: SettingsCategory
   newCourseDialogOpen: boolean
+  newAnalysisDialogOpen: boolean
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
   importGitUsernamesDialogOpen: boolean
@@ -85,17 +90,24 @@ type UiState = {
   courseList: CourseSummary[]
   courseListLoading: boolean
 
+  // Analysis list cache
+  analysisList: AnalysisSummary[]
+  analysisListLoading: boolean
+
   // Close prompt
   closePromptVisible: boolean
 }
 
 type UiActions = {
   setActiveTab: (tab: ActiveTab) => void
+  setActiveDocumentKind: (kind: DocumentKind | null) => void
   setActiveCourseId: (id: string | null) => void
+  setActiveAnalysisId: (id: string | null) => void
 
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
   setNewCourseDialogOpen: (open: boolean) => void
+  setNewAnalysisDialogOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
@@ -138,6 +150,9 @@ type UiActions = {
   setCourseList: (list: CourseSummary[]) => void
   setCourseListLoading: (loading: boolean) => void
 
+  setAnalysisList: (list: AnalysisSummary[]) => void
+  setAnalysisListLoading: (loading: boolean) => void
+
   showClosePrompt: () => void
   hideClosePrompt: () => void
 
@@ -146,11 +161,14 @@ type UiActions = {
 
 const initialState: UiState = {
   activeTab: "roster",
+  activeDocumentKind: null,
   activeCourseId: null,
+  activeAnalysisId: null,
 
   settingsDialogOpen: false,
   settingsCategory: "display",
   newCourseDialogOpen: false,
+  newAnalysisDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
   importGitUsernamesDialogOpen: false,
@@ -184,6 +202,9 @@ const initialState: UiState = {
   courseList: [],
   courseListLoading: false,
 
+  analysisList: [],
+  analysisListLoading: false,
+
   closePromptVisible: false,
 }
 
@@ -210,8 +231,12 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
 
   setActiveTab: (tab) => set((state) => setIfChanged(state, "activeTab", tab)),
+  setActiveDocumentKind: (kind) =>
+    set((state) => setIfChanged(state, "activeDocumentKind", kind)),
   setActiveCourseId: (id) =>
     set((state) => setIfChanged(state, "activeCourseId", id)),
+  setActiveAnalysisId: (id) =>
+    set((state) => setIfChanged(state, "activeAnalysisId", id)),
 
   setSettingsDialogOpen: (open) =>
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
@@ -228,6 +253,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     }),
   setNewCourseDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newCourseDialogOpen", open)),
+  setNewAnalysisDialogOpen: (open) =>
+    set((state) => setIfChanged(state, "newAnalysisDialogOpen", open)),
   setImportFileDialogOpen: (open) =>
     set((state) => setIfChanged(state, "importFileDialogOpen", open)),
   setRosterSyncDialogOpen: (open) =>
@@ -337,6 +364,11 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "courseList", list)),
   setCourseListLoading: (loading) =>
     set((state) => setIfChanged(state, "courseListLoading", loading)),
+
+  setAnalysisList: (list) =>
+    set((state) => setIfChanged(state, "analysisList", list)),
+  setAnalysisListLoading: (loading) =>
+    set((state) => setIfChanged(state, "analysisListLoading", loading)),
 
   showClosePrompt: () =>
     set((state) => setIfChanged(state, "closePromptVisible", true)),

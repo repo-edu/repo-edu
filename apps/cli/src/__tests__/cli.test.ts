@@ -173,6 +173,8 @@ function makeProfile(): PersistedCourse {
 function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
+    activeDocumentKind: activeCourseId === null ? null : "course",
+    activeAnalysisId: null,
     activeCourseId,
     activeTab: "roster",
     appearance: {

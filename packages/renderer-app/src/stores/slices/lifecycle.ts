@@ -2,9 +2,11 @@ import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import type {
   Group,
   GroupSet,
+  PersistedAnalysis,
   PersistedCourse,
   RosterValidationResult,
 } from "@repo-edu/domain/types"
+import { initialIdSequences, persistedCourseKind } from "@repo-edu/domain/types"
 import { validateAssignment, validateRoster } from "@repo-edu/domain/validation"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -17,13 +19,45 @@ import type {
 } from "./types.js"
 import { initialState } from "./types.js"
 
+/**
+ * Synthesize a course-shaped working document from a persisted Analysis.
+ * The renderer stores either kind in the course slice; saves dispatch back
+ * to the right workflow based on `documentKind`.
+ */
+function projectAnalysisToCourseShape(
+  analysis: PersistedAnalysis,
+): PersistedCourse {
+  return {
+    kind: persistedCourseKind,
+    revision: 0,
+    id: analysis.id,
+    displayName: analysis.displayName,
+    lmsConnectionName: null,
+    organization: null,
+    lmsCourseId: null,
+    idSequences: initialIdSequences(),
+    roster: {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    },
+    repositoryTemplate: null,
+    searchFolder: analysis.searchFolder,
+    analysisInputs: analysis.analysisInputs,
+    updatedAt: analysis.updatedAt,
+  }
+}
+
 export function createLifecycleSlice(
   set: StoreSet,
   get: StoreGet,
   internals: StoreInternals,
 ): Pick<
   CourseActions,
-  "load" | "clear" | "ensureSystemGroupSets" | "runChecks"
+  "load" | "loadAnalysis" | "clear" | "ensureSystemGroupSets" | "runChecks"
 > {
   return {
     load: async (courseId) => {
@@ -46,6 +80,9 @@ export function createLifecycleSlice(
         loadedCourse.idSequences = sysResult.idSequences
         set((draft) => {
           draft.course = loadedCourse
+          draft.documentKind = "course"
+          draft.analysisDocId = null
+          draft.analysisDocRevision = null
           draft.status = "loaded"
           draft.history = []
           draft.future = []
@@ -54,6 +91,43 @@ export function createLifecycleSlice(
           draft.systemSetsReady = true
           draft.localVersion = 0
           draft.lastSavedRevision = loadedCourse.revision
+          draft.syncState = "idle"
+        })
+      } catch (err) {
+        set((draft) => {
+          draft.status = "error"
+          draft.error = getErrorMessage(err)
+        })
+      }
+    },
+
+    loadAnalysis: async (analysisId) => {
+      const currentDocumentId = get().course?.id ?? null
+      if (currentDocumentId !== null && currentDocumentId !== analysisId) {
+        await get().save()
+      }
+      try {
+        set((draft) => {
+          draft.status = "loading"
+          draft.error = null
+        })
+        const client = getWorkflowClient()
+        const loaded = await client.run("analyses.load", { analysisId })
+        const loadedAnalysis = loaded as PersistedAnalysis
+        const projected = projectAnalysisToCourseShape(loadedAnalysis)
+        set((draft) => {
+          draft.course = projected
+          draft.documentKind = "analysis"
+          draft.analysisDocId = loadedAnalysis.id
+          draft.analysisDocRevision = loadedAnalysis.revision
+          draft.status = "loaded"
+          draft.history = []
+          draft.future = []
+          draft.assignmentSelection = null
+          draft.checksDirty = false
+          draft.systemSetsReady = true
+          draft.localVersion = 0
+          draft.lastSavedRevision = loadedAnalysis.revision
           draft.syncState = "idle"
         })
       } catch (err) {
