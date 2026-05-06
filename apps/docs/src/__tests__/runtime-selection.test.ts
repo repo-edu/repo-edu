@@ -2,25 +2,32 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createDocsDemoRuntime, mountDocsDemoApp } from "../demo-runtime.js"
 
-describe("docs runtime fixture selection", () => {
-  it("defaults to canvas fixtures with 67 students", async () => {
+describe("docs runtime seeded documents", () => {
+  it("seeds an LMS course with 67 students under a Canvas connection", async () => {
     const runtime = createDocsDemoRuntime()
-    assert.deepEqual(runtime.fixtureSelection, {
-      source: "canvas",
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.lmsCourseEntityId,
     })
 
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
-    })
+    assert.equal(course.courseKind, "lms")
+    assert.equal(course.lmsConnectionName, "Canvas Demo")
+    assert.equal(course.roster.connection?.kind, "canvas")
     assert.equal(course.roster.students.length, 67)
     assert.equal(course.roster.staff.length, 3)
+
+    const nonSystemGroupSets = course.roster.groupSets.filter(
+      (gs) => gs.connection?.kind !== "system",
+    )
+    assert.ok(nonSystemGroupSets.length > 0)
+    assert.ok(
+      nonSystemGroupSets.every((gs) => gs.connection?.kind === "canvas"),
+    )
   })
 
-  it("applies fixed task group layout with asymmetric group counts", async () => {
+  it("applies the fixed task group layout on the LMS course", async () => {
     const runtime = createDocsDemoRuntime()
-
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.lmsCourseEntityId,
     })
 
     assert.deepEqual(
@@ -38,112 +45,18 @@ describe("docs runtime fixture selection", () => {
       nonSystemGroupSets.map((groupSet) => groupSet.name).join("|"),
       "Web API Teams|Data Pipeline Teams",
     )
-
-    const [webApiSet, pipelineSet] = nonSystemGroupSets
-    assert.ok(webApiSet.groupIds.length > pipelineSet.groupIds.length)
-    assert.ok(webApiSet.groupIds.length > 0)
-    assert.ok(pipelineSet.groupIds.length > 0)
   })
 
-  it("keeps nextGroupSeq ahead of all existing group ids", async () => {
+  it("seeds a RepoBee course with no LMS connection and unnamed teams", async () => {
     const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.repobeeCourseEntityId,
     })
 
-    const maxGroupSequence = course.roster.groups.reduce((max, group) => {
-      const sequence = Number.parseInt(group.id.replace(/^g_/, ""), 10)
-      return Number.isNaN(sequence) ? max : Math.max(max, sequence)
-    }, 0)
-
-    assert.equal(course.idSequences.nextGroupSeq > maxGroupSequence, true)
-  })
-
-  it("mount options thread source into runtime selection", () => {
-    const fakeMountNode = { id: "app" }
-    const runtime = mountDocsDemoApp({
-      queryMountNode: () => fakeMountNode,
-      appRootComponent: () => null,
-      source: "moodle",
-      createRoot() {
-        return {
-          render() {},
-        }
-      },
-    })
-
-    assert.deepEqual(runtime.fixtureSelection, {
-      source: "moodle",
-    })
-  })
-
-  it("applies canvas source overlay to fixture", async () => {
-    const runtime = createDocsDemoRuntime({ source: "canvas" })
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
-    })
-
-    assert.equal(course.lmsConnectionName, "Canvas Demo")
-    assert.equal(course.roster.connection?.kind, "canvas")
-
-    const nonSystemGroups = course.roster.groups.filter(
-      (g) => g.origin !== "system",
-    )
-    assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((g) => g.origin === "lms"))
-    assert.ok(nonSystemGroups.every((g) => g.lmsGroupId !== null))
-
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (gs) => gs.connection?.kind !== "system",
-    )
-    assert.ok(
-      nonSystemGroupSets.every((gs) => gs.connection?.kind === "canvas"),
-    )
-  })
-
-  it("applies moodle source overlay to fixture", async () => {
-    const runtime = createDocsDemoRuntime({ source: "moodle" })
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
-    })
-
-    assert.equal(course.lmsConnectionName, "Moodle Demo")
-    assert.equal(course.roster.connection?.kind, "moodle")
-
-    const nonSystemGroups = course.roster.groups.filter(
-      (g) => g.origin !== "system",
-    )
-    assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((g) => g.origin === "lms"))
-    assert.ok(nonSystemGroups.every((g) => g.lmsGroupId !== null))
-
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (gs) => gs.connection?.kind !== "system",
-    )
-    assert.ok(
-      nonSystemGroupSets.every((gs) => gs.connection?.kind === "moodle"),
-    )
-    assert.ok(
-      nonSystemGroupSets.every(
-        (gs) =>
-          gs.connection?.kind === "moodle" && "groupingId" in gs.connection,
-      ),
-    )
-  })
-
-  it("applies file source overlay with no LMS connection", async () => {
-    const runtime = createDocsDemoRuntime({ source: "file" })
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
-    })
-
+    assert.equal(course.courseKind, "repobee")
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection?.kind, "import")
-    assert.equal(course.roster.students.length, 0)
-    assert.equal(course.roster.staff.length, 0)
-    assert.equal(course.roster.groups.length, 0)
-    assert.equal(course.roster.assignments.length > 0, true)
 
     const importedRepoBeeSets = course.roster.groupSets.filter(
       (groupSet) =>
@@ -155,5 +68,56 @@ describe("docs runtime fixture selection", () => {
       importedRepoBeeSets.every((groupSet) => groupSet.teams.length > 0),
       true,
     )
+  })
+
+  it("lists both seeded courses plus the seeded analysis", async () => {
+    const runtime = createDocsDemoRuntime()
+    const documents = await runtime.workflowClient.run(
+      "documents.list",
+      undefined,
+    )
+
+    const courseIds = documents
+      .filter((doc) => doc.kind === "course")
+      .map((doc) => doc.id)
+      .sort()
+    assert.deepEqual(
+      courseIds,
+      [runtime.lmsCourseEntityId, runtime.repobeeCourseEntityId].sort(),
+    )
+
+    const analysisIds = documents
+      .filter((doc) => doc.kind === "analysis")
+      .map((doc) => doc.id)
+    assert.deepEqual(analysisIds, [runtime.analysisId])
+  })
+
+  it("seeds the analysis as the active document", async () => {
+    const runtime = createDocsDemoRuntime()
+    const settings = await runtime.workflowClient.run(
+      "settings.loadApp",
+      undefined,
+    )
+
+    assert.equal(settings.activeDocumentKind, "analysis")
+    assert.equal(settings.activeAnalysisId, runtime.analysisId)
+    assert.equal(settings.activeCourseId, runtime.lmsCourseEntityId)
+  })
+
+  it("mountDocsDemoApp wires the runtime into the provided root", () => {
+    const fakeMountNode = { id: "app" }
+    const runtime = mountDocsDemoApp({
+      queryMountNode: () => fakeMountNode,
+      appRootComponent: () => null,
+      createRoot() {
+        return {
+          render() {},
+        }
+      },
+    })
+
+    assert.ok(runtime.lmsCourseEntityId)
+    assert.ok(runtime.repobeeCourseEntityId)
+    assert.ok(runtime.analysisId)
   })
 })

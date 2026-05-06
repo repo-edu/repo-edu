@@ -29,15 +29,10 @@ import { createWorkflowClient } from "@repo-edu/application-contract"
 import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
-import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
 import { createRecordedAnalysisGitMock } from "./fixtures/analysis-git-mock.js"
-import type { DocsFixtureSource } from "./fixtures/docs-fixtures.js"
-import {
-  getDocsFixture,
-  resolveDocsFixtureSelection,
-} from "./fixtures/docs-fixtures.js"
+import { getDocsFixture } from "./fixtures/docs-fixtures.js"
 
 export type DocsMountRoot = {
   render(element: ReturnType<typeof React.createElement>): void
@@ -46,15 +41,10 @@ export type DocsMountRoot = {
 export type DocsMountOptions = {
   queryMountNode?: () => unknown
   createRoot?: (mountNode: unknown) => DocsMountRoot
-  source?: DocsFixtureSource
   appRootComponent?: React.ComponentType<{
     workflowClient: ReturnType<typeof createDocsDemoRuntime>["workflowClient"]
     rendererHost: ReturnType<typeof createDocsDemoRuntime>["rendererHost"]
   }>
-}
-
-export type DocsDemoRuntimeOptions = {
-  source?: DocsFixtureSource
 }
 
 function resolveMountNode(queryMountNode?: () => unknown): unknown {
@@ -67,13 +57,6 @@ function resolveMountNode(queryMountNode?: () => unknown): unknown {
   }
 
   return document.querySelector("#app")
-}
-
-function cloneValue<TValue>(value: TValue): TValue {
-  if (typeof structuredClone === "function") {
-    return structuredClone(value)
-  }
-  return JSON.parse(JSON.stringify(value)) as TValue
 }
 
 function toBase64(value: string): string {
@@ -92,13 +75,12 @@ function toBase64(value: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Mock LMS ports — source-aware factory
+// Mock LMS ports — backed by the seeded LMS course
 // ---------------------------------------------------------------------------
 
 function createMockLmsPorts(
-  source: DocsFixtureSource,
-  seedCourse: PersistedCourse,
-  seedCourseId: string,
+  lmsCourse: PersistedCourse,
+  lmsCourseId: string,
   collaborativeGroupSet: GroupSet | null,
   lmsMemberIds: string[],
 ) {
@@ -117,39 +99,19 @@ function createMockLmsPorts(
     source: member.source,
   })
 
-  if (source === "file") {
-    return {
-      async verifyConnection() {
-        return { verified: false }
-      },
-      async listCourses() {
-        return []
-      },
-      async fetchRoster(): Promise<never> {
-        throw new Error("No LMS connection configured")
-      },
-      async listGroupSets() {
-        return []
-      },
-      async fetchGroupSet(): Promise<never> {
-        throw new Error("No LMS connection configured")
-      },
-    }
-  }
-
   return {
     async verifyConnection() {
       return { verified: true }
     },
     async listCourses() {
       return [
-        { id: seedCourseId, name: "Docs Demo Course", code: "DOCS-101" },
+        { id: lmsCourseId, name: "Docs Demo Course", code: "DOCS-101" },
         { id: "course-advanced", name: "Advanced Docs Course", code: null },
       ]
     },
     async fetchRoster() {
-      return seedCourse.roster.students
-        .concat(seedCourse.roster.staff)
+      return lmsCourse.roster.students
+        .concat(lmsCourse.roster.staff)
         .map(toRemoteMember)
     },
     async listGroupSets() {
@@ -192,20 +154,11 @@ function createMockLmsPorts(
 // Runtime creation
 // ---------------------------------------------------------------------------
 
-export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
-  const fixtureSelection = resolveDocsFixtureSelection(options)
-  const fixture = getDocsFixture(fixtureSelection)
-  const seedCourse = cloneValue(fixture.course)
-  const seedSettings = cloneValue(fixture.settings)
-  const seedCourseEntityId = seedCourse.id
-  const seedCourseId = seedCourse.lmsCourseId ?? "course-task-groups"
-
-  applyFixtureSourceOverlay(
-    seedCourse,
-    seedSettings,
-    fixtureSelection.source,
-    seedCourseId,
-  )
+export function createDocsDemoRuntime() {
+  const fixture = getDocsFixture()
+  const lmsCourse = fixture.lmsCourse
+  const repobeeCourse = fixture.repobeeCourse
+  const lmsCourseId = lmsCourse.lmsCourseId ?? "course-task-groups"
 
   const browserMockHost = createBrowserMockHostEnvironment({
     readableFiles: fixture.readableFiles,
@@ -213,23 +166,22 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const analysisGitMock = createRecordedAnalysisGitMock(
     fixture.analysisGitFixture,
   )
-  const lmsMemberIds = seedCourse.roster.students
+  const lmsMemberIds = lmsCourse.roster.students
     .slice(0, 2)
     .map((member) => member.id)
   const collaborativeGroupSet =
-    seedCourse.roster.groupSets.find(
+    lmsCourse.roster.groupSets.find(
       (groupSet) =>
         groupSet.connection !== null && groupSet.connection.kind !== "system",
     ) ?? null
 
-  const courseStore = createInMemoryCourseStore([seedCourse])
+  const courseStore = createInMemoryCourseStore([lmsCourse, repobeeCourse])
   const analysisStore = createInMemoryAnalysisStore(fixture.analyses)
-  const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
+  const appSettingsStore = createInMemoryAppSettingsStore(fixture.settings)
 
   const lmsPorts = createMockLmsPorts(
-    fixtureSelection.source,
-    seedCourse,
-    seedCourseId,
+    lmsCourse,
+    lmsCourseId,
     collaborativeGroupSet,
     lmsMemberIds,
   )
@@ -421,9 +373,10 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
       ...browserMockHost.rendererHost,
       pickDirectory: analysisGitMock.pickDirectory,
     },
-    seedCourseEntityId,
-    seedCourseId,
-    fixtureSelection,
+    lmsCourseEntityId: lmsCourse.id,
+    repobeeCourseEntityId: repobeeCourse.id,
+    lmsCourseId,
+    analysisId: fixture.analyses[0].id,
     analysisFixtureRootPath: fixture.analysisGitFixture.rootPath,
   }
 }
@@ -434,9 +387,7 @@ export function mountDocsDemoApp(options: DocsMountOptions = {}) {
     throw new Error("Docs app mount node #app was not found")
   }
 
-  const runtime = createDocsDemoRuntime({
-    source: options.source,
-  })
+  const runtime = createDocsDemoRuntime()
   const appRootComponent = options.appRootComponent
   if (!appRootComponent) {
     throw new Error("Docs app root component was not provided.")

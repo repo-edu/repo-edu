@@ -4,18 +4,9 @@ import {
   type PersistedAnalysis,
   type PersistedCourse,
 } from "@repo-edu/domain/types"
-import {
-  type FixtureSource,
-  fixtureSources,
-  getFixture,
-  isFixtureSource,
-} from "@repo-edu/test-fixtures"
+import { applyFixtureSourceOverlay, getFixture } from "@repo-edu/test-fixtures"
 import type { RecordedAnalysisGitFixture } from "./analysis-git-fixture-types.js"
 import { docsAnalysisGitFixture } from "./generated-analysis-git-fixture.js"
-
-export const docsFixtureSources = fixtureSources
-
-export type DocsFixtureSource = FixtureSource
 
 export type DocsReadableFileSeed = {
   referenceId: string
@@ -25,49 +16,21 @@ export type DocsReadableFileSeed = {
 }
 
 export type DocsFixtureRecord = {
-  course: PersistedCourse
+  lmsCourse: PersistedCourse
+  repobeeCourse: PersistedCourse
   analyses: PersistedAnalysis[]
   settings: PersistedAppSettings
   readableFiles: DocsReadableFileSeed[]
   analysisGitFixture: RecordedAnalysisGitFixture
 }
 
-export type DocsFixtureSelection = {
-  source: DocsFixtureSource
-}
-
-export const defaultDocsFixtureSelection: DocsFixtureSelection = {
-  source: "canvas",
-}
-
 const fixedDocsTier = "medium" as const
-const fixedDocsPreset = "task-groups" as const
-const repobeeReadableFilesPreset = "repobee-teams" as const
+const lmsPreset = "task-groups" as const
+const repobeePreset = "repobee-teams" as const
 const docsAnalysisId = "analysis-c2-arithmetic-expression-evaluator"
-
-function queryFixtureSelection(search: string): Partial<DocsFixtureSelection> {
-  const params = new URLSearchParams(search)
-  const sourceParam = params.get("source")
-
-  return {
-    source: isFixtureSource(sourceParam) ? sourceParam : undefined,
-  }
-}
-
-export function resolveDocsFixtureSelection(options?: {
-  source?: DocsFixtureSource
-  search?: string
-}): DocsFixtureSelection {
-  const defaultSearch =
-    options?.search ??
-    (typeof window !== "undefined" ? window.location.search : "")
-  const fromQuery = queryFixtureSelection(defaultSearch)
-
-  return {
-    source:
-      options?.source ?? fromQuery.source ?? defaultDocsFixtureSelection.source,
-  }
-}
+const lmsCourseDisplayName = "Demo Course (Canvas)"
+const repobeeCourseDisplayName = "Demo Course (RepoBee)"
+const lmsCourseLmsId = "course-task-groups"
 
 function toReadableFiles(
   artifacts: ReturnType<typeof getFixture>["artifacts"],
@@ -80,15 +43,39 @@ function toReadableFiles(
   }))
 }
 
-function toDocsFixtureRecord(source: DocsFixtureSource): DocsFixtureRecord {
-  const baseFixture = getFixture({
-    tier: fixedDocsTier,
-    preset: source === "file" ? repobeeReadableFilesPreset : fixedDocsPreset,
-  })
-  const repobeeFixture = getFixture({
-    tier: fixedDocsTier,
-    preset: repobeeReadableFilesPreset,
-  })
+function buildDocsFixture(): DocsFixtureRecord {
+  const lmsBase = getFixture({ tier: fixedDocsTier, preset: lmsPreset })
+  const repobeeBase = getFixture({ tier: fixedDocsTier, preset: repobeePreset })
+
+  const lmsCourse: PersistedCourse = {
+    ...structuredClone(lmsBase.course),
+    displayName: lmsCourseDisplayName,
+    searchFolder: docsAnalysisGitFixture.rootPath,
+    analysisInputs: {
+      ...lmsBase.course.analysisInputs,
+      extensions: ["py"],
+    },
+  }
+  const repobeeCourse: PersistedCourse = {
+    ...structuredClone(repobeeBase.course),
+    displayName: repobeeCourseDisplayName,
+    searchFolder: docsAnalysisGitFixture.rootPath,
+    analysisInputs: {
+      ...repobeeBase.course.analysisInputs,
+      extensions: ["py"],
+    },
+  }
+
+  const settings: PersistedAppSettings = structuredClone(lmsBase.settings)
+
+  applyFixtureSourceOverlay(repobeeCourse, settings, "file", repobeeCourse.id)
+  applyFixtureSourceOverlay(lmsCourse, settings, "canvas", lmsCourseLmsId)
+
+  settings.activeDocumentKind = "analysis"
+  settings.activeAnalysisId = docsAnalysisId
+  settings.activeCourseId = lmsCourse.id
+  settings.activeTab = "analysis"
+
   const analysis = createBlankAnalysis(
     docsAnalysisId,
     docsAnalysisGitFixture.recordedAt,
@@ -102,28 +89,15 @@ function toDocsFixtureRecord(source: DocsFixtureSource): DocsFixtureRecord {
   )
 
   return {
-    course: {
-      ...baseFixture.course,
-      searchFolder: docsAnalysisGitFixture.rootPath,
-      analysisInputs: {
-        ...baseFixture.course.analysisInputs,
-        extensions: ["py"],
-      },
-    },
+    lmsCourse,
+    repobeeCourse,
     analyses: [analysis],
-    settings: {
-      ...baseFixture.settings,
-      activeDocumentKind: "analysis",
-      activeAnalysisId: docsAnalysisId,
-      activeTab: "analysis",
-    },
-    readableFiles: toReadableFiles(repobeeFixture.artifacts),
+    settings,
+    readableFiles: toReadableFiles(repobeeBase.artifacts),
     analysisGitFixture: docsAnalysisGitFixture,
   }
 }
 
-export function getDocsFixture(
-  selection: DocsFixtureSelection,
-): DocsFixtureRecord {
-  return toDocsFixtureRecord(selection.source)
+export function getDocsFixture(): DocsFixtureRecord {
+  return buildDocsFixture()
 }

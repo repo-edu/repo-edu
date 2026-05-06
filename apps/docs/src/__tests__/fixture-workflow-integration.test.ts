@@ -26,13 +26,11 @@ function plannedGroupIds(
   return plan.value.groups.map((group) => group.groupId).sort()
 }
 
-describe("docs fixture integration: source parity", () => {
-  it("supports canvas source overlays and source-sensitive workflows", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "canvas",
-    })
+describe("docs fixture integration: seeded LMS course", () => {
+  it("supports canvas-style LMS workflows on the seeded LMS course", async () => {
+    const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.lmsCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
@@ -68,70 +66,17 @@ describe("docs fixture integration: source parity", () => {
     const imported = await runtime.workflowClient.run("roster.importFromLms", {
       course,
       appSettings,
-      lmsCourseId: runtime.seedCourseId,
+      lmsCourseId: runtime.lmsCourseId,
     })
     assert.equal(imported.roster.connection?.kind, "canvas")
   })
+})
 
-  it("supports moodle source overlays and source-sensitive workflows", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "moodle",
-    })
+describe("docs fixture integration: seeded RepoBee course", () => {
+  it("rejects LMS workflows for the RepoBee course", async () => {
+    const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
-    })
-    const appSettings = await runtime.workflowClient.run(
-      "settings.loadApp",
-      undefined,
-    )
-
-    assert.equal(course.lmsConnectionName, "Moodle Demo")
-    assert.equal(course.roster.connection?.kind, "moodle")
-
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (groupSet) => groupSet.connection?.kind !== "system",
-    )
-    assert.ok(nonSystemGroupSets.length > 0)
-    assert.ok(
-      nonSystemGroupSets.every(
-        (groupSet) => groupSet.connection?.kind === "moodle",
-      ),
-    )
-    assert.ok(
-      nonSystemGroupSets.every(
-        (groupSet) =>
-          groupSet.connection?.kind === "moodle" &&
-          "groupingId" in groupSet.connection,
-      ),
-    )
-
-    const nonSystemGroups = course.roster.groups.filter(
-      (group) => group.origin !== "system",
-    )
-    assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((group) => group.origin === "lms"))
-    assert.ok(nonSystemGroups.every((group) => group.lmsGroupId !== null))
-
-    const available = await runtime.workflowClient.run(
-      "groupSet.fetchAvailableFromLms",
-      { course, appSettings },
-    )
-    assert.equal(available.length > 0, true)
-
-    const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      course,
-      appSettings,
-      lmsCourseId: runtime.seedCourseId,
-    })
-    assert.equal(imported.roster.connection?.kind, "moodle")
-  })
-
-  it("rejects LMS workflows for file source overlays", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "file",
-    })
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.repobeeCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
@@ -141,10 +86,6 @@ describe("docs fixture integration: source parity", () => {
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection?.kind, "import")
-    assert.equal(course.roster.students.length, 0)
-    assert.equal(course.roster.staff.length, 0)
-    assert.equal(course.roster.groups.length, 0)
-    assert.equal(course.roster.assignments.length > 0, true)
 
     const importedRepoBeeSets = course.roster.groupSets.filter(
       (groupSet) =>
@@ -169,7 +110,7 @@ describe("docs fixture integration: source parity", () => {
       runtime.workflowClient.run("roster.importFromLms", {
         course,
         appSettings,
-        lmsCourseId: runtime.seedCourseId,
+        lmsCourseId: runtime.lmsCourseId,
       }),
       (error: unknown) => isAppErrorWithType(error, "validation"),
     )
@@ -178,11 +119,9 @@ describe("docs fixture integration: source parity", () => {
 
 describe("docs fixture integration: repository planning by fixed task setup", () => {
   it("api-design and api-implementation share one group set and match repo.create count", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "canvas",
-    })
+    const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.lmsCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
@@ -215,11 +154,9 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
   })
 
   it("data-pipeline isolates its group population from web-api and matches repo.create count", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "canvas",
-    })
+    const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.lmsCourseEntityId,
     })
     const appSettings = await runtime.workflowClient.run(
       "settings.loadApp",
@@ -258,9 +195,7 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
 describe("docs fixture integration: recorded analysis git mocks", () => {
   it("seeds an analysis document and supports discovery, filtered log analysis, and blame", async () => {
-    const runtime = createDocsDemoRuntime({
-      source: "canvas",
-    })
+    const runtime = createDocsDemoRuntime()
     const documents = await runtime.workflowClient.run(
       "documents.list",
       undefined,
@@ -295,7 +230,7 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
     )
 
     const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.seedCourseEntityId,
+      courseId: runtime.lmsCourseEntityId,
     })
     const analysisCourse: PersistedCourse = {
       ...course,

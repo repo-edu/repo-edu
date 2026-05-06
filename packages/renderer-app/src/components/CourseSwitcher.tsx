@@ -350,6 +350,32 @@ export function CourseSwitcher() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" side="bottom">
+          {courseGroups.lms.length > 0 && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                LMS Courses
+              </div>
+              {renderCourseRows(courseGroups.lms)}
+            </>
+          )}
+
+          {courseGroups.lms.length > 0 && courseGroups.repobee.length > 0 && (
+            <DropdownMenuSeparator className="my-0.5" />
+          )}
+
+          {courseGroups.repobee.length > 0 && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                RepoBee Courses
+              </div>
+              {renderCourseRows(courseGroups.repobee)}
+            </>
+          )}
+
+          {courses.length > 0 && analyses.length > 0 && (
+            <DropdownMenuSeparator className="my-0.5" />
+          )}
+
           {analyses.length > 0 && (
             <>
               <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -422,44 +448,18 @@ export function CourseSwitcher() {
             </>
           )}
 
-          {analyses.length > 0 && courses.length > 0 && (
-            <DropdownMenuSeparator className="my-0.5" />
-          )}
-
-          {courseGroups.lms.length > 0 && (
-            <>
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                LMS Courses
-              </div>
-              {renderCourseRows(courseGroups.lms)}
-            </>
-          )}
-
-          {courseGroups.lms.length > 0 && courseGroups.repobee.length > 0 && (
-            <DropdownMenuSeparator className="my-0.5" />
-          )}
-
-          {courseGroups.repobee.length > 0 && (
-            <>
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                RepoBee Courses
-              </div>
-              {renderCourseRows(courseGroups.repobee)}
-            </>
-          )}
-
           {hasDocuments && <DropdownMenuSeparator className="my-0.5" />}
 
           <div
             role="option"
             tabIndex={0}
             aria-selected={false}
-            onClick={handleNewAnalysis}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewAnalysis)}
+            onClick={handleNewLmsCourse}
+            onKeyDown={(event) => handleRowKeyDown(event, handleNewLmsCourse)}
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <Plus className="size-3" />
-            New Analysis
+            New LMS Course
           </div>
 
           <div
@@ -480,12 +480,12 @@ export function CourseSwitcher() {
             role="option"
             tabIndex={0}
             aria-selected={false}
-            onClick={handleNewLmsCourse}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewLmsCourse)}
+            onClick={handleNewAnalysis}
+            onKeyDown={(event) => handleRowKeyDown(event, handleNewAnalysis)}
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <Plus className="size-3" />
-            New LMS Course
+            New Analysis
           </div>
         </DropdownMenuContent>
       </DropdownMenu>

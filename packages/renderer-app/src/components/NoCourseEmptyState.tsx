@@ -12,13 +12,14 @@ export function NoCourseEmptyState() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setNewAnalysisDialogOpen(true)}
+            onClick={() => setNewCourseDialogMode("lms")}
           >
-            New Analysis…
+            New LMS Course…
           </Button>
           <p className="text-sm text-muted-foreground">
-            Analyze a repository — author/file stats and AI-generated exam
-            questions. No roster needed.
+            A class you're teaching, linked to a Learning Management System
+            (Canvas or Moodle): roster, groups, and analysis attributed to your
+            students.
           </p>
 
           <Button
@@ -36,14 +37,13 @@ export function NoCourseEmptyState() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setNewCourseDialogMode("lms")}
+            onClick={() => setNewAnalysisDialogOpen(true)}
           >
-            New LMS Course…
+            New Analysis…
           </Button>
           <p className="text-sm text-muted-foreground">
-            A class you're teaching, linked to a Learning Management System
-            (Canvas or Moodle): roster, groups, and analysis attributed to your
-            students.
+            Analyze a repository — author/file stats and AI-generated exam
+            questions. No roster needed.
           </p>
         </div>
       </div>

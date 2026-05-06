@@ -22,12 +22,12 @@ describe("docs demo smoke", () => {
     })
 
     assert.notEqual(renderedElement, null)
-    assert.equal(runtime.fixtureSelection.source, "canvas")
 
     const courses = await runtime.workflowClient.run("course.list", undefined)
-    assert.equal(
-      courses.some((course) => course.id === runtime.seedCourseEntityId),
-      true,
+    const courseIds = courses.map((course) => course.id).sort()
+    assert.deepEqual(
+      courseIds,
+      [runtime.lmsCourseEntityId, runtime.repobeeCourseEntityId].sort(),
     )
 
     const environment = await runtime.rendererHost.getEnvironmentSnapshot()

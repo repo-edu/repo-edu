@@ -22,7 +22,6 @@ export const workspaceDependencies = [
   testFixturesPackageId,
 ] as const
 
-export type { DocsDemoRuntimeOptions } from "./demo-runtime.js"
 export { createDocsDemoRuntime, mountDocsDemoApp } from "./demo-runtime.js"
 
 if (typeof document !== "undefined") {
