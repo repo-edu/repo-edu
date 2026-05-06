@@ -1,11 +1,17 @@
 import type { PersistedAppSettings } from "@repo-edu/domain/settings"
-import type { PersistedCourse } from "@repo-edu/domain/types"
+import {
+  createBlankAnalysis,
+  type PersistedAnalysis,
+  type PersistedCourse,
+} from "@repo-edu/domain/types"
 import {
   type FixtureSource,
   fixtureSources,
   getFixture,
   isFixtureSource,
 } from "@repo-edu/test-fixtures"
+import type { RecordedAnalysisGitFixture } from "./analysis-git-fixture-types.js"
+import { docsAnalysisGitFixture } from "./generated-analysis-git-fixture.js"
 
 export const docsFixtureSources = fixtureSources
 
@@ -20,8 +26,10 @@ export type DocsReadableFileSeed = {
 
 export type DocsFixtureRecord = {
   course: PersistedCourse
+  analyses: PersistedAnalysis[]
   settings: PersistedAppSettings
   readableFiles: DocsReadableFileSeed[]
+  analysisGitFixture: RecordedAnalysisGitFixture
 }
 
 export type DocsFixtureSelection = {
@@ -35,6 +43,7 @@ export const defaultDocsFixtureSelection: DocsFixtureSelection = {
 const fixedDocsTier = "medium" as const
 const fixedDocsPreset = "task-groups" as const
 const repobeeReadableFilesPreset = "repobee-teams" as const
+const docsAnalysisId = "analysis-c2-arithmetic-expression-evaluator"
 
 function queryFixtureSelection(search: string): Partial<DocsFixtureSelection> {
   const params = new URLSearchParams(search)
@@ -80,11 +89,36 @@ function toDocsFixtureRecord(source: DocsFixtureSource): DocsFixtureRecord {
     tier: fixedDocsTier,
     preset: repobeeReadableFilesPreset,
   })
+  const analysis = createBlankAnalysis(
+    docsAnalysisId,
+    docsAnalysisGitFixture.recordedAt,
+    {
+      displayName: "Arithmetic Expression Evaluator",
+      searchFolder: docsAnalysisGitFixture.rootPath,
+      analysisInputs: {
+        extensions: ["py"],
+      },
+    },
+  )
 
   return {
-    course: baseFixture.course,
-    settings: baseFixture.settings,
+    course: {
+      ...baseFixture.course,
+      searchFolder: docsAnalysisGitFixture.rootPath,
+      analysisInputs: {
+        ...baseFixture.course.analysisInputs,
+        extensions: ["py"],
+      },
+    },
+    analyses: [analysis],
+    settings: {
+      ...baseFixture.settings,
+      activeDocumentKind: "analysis",
+      activeAnalysisId: docsAnalysisId,
+      activeTab: "analysis",
+    },
     readableFiles: toReadableFiles(repobeeFixture.artifacts),
+    analysisGitFixture: docsAnalysisGitFixture,
   }
 }
 

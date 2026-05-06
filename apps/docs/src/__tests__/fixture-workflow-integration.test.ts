@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
 function isAppErrorWithType(
@@ -252,5 +253,108 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       template: null,
     })
     assert.equal(pipelineResult.repositoriesPlanned, pipelineGroupIds.length)
+  })
+})
+
+describe("docs fixture integration: recorded analysis git mocks", () => {
+  it("seeds an analysis document and supports discovery, filtered log analysis, and blame", async () => {
+    const runtime = createDocsDemoRuntime({
+      source: "canvas",
+    })
+    const documents = await runtime.workflowClient.run(
+      "documents.list",
+      undefined,
+    )
+    const analysisSummary = documents.find(
+      (document) =>
+        document.kind === "analysis" &&
+        document.displayName === "Arithmetic Expression Evaluator",
+    )
+    assert.ok(analysisSummary)
+
+    const analysis = await runtime.workflowClient.run("analyses.load", {
+      analysisId: analysisSummary.id,
+    })
+    assert.equal(analysis.searchFolder, runtime.analysisFixtureRootPath)
+    assert.deepEqual(analysis.analysisInputs.extensions, ["py"])
+
+    const discovered = await runtime.workflowClient.run(
+      "analysis.discoverRepos",
+      {
+        searchFolder: runtime.analysisFixtureRootPath,
+        maxDepth: 1,
+      },
+    )
+    assert.deepEqual(
+      discovered.repos.map((repo) => repo.name),
+      [
+        "adeyemi-lindqvist-ramaswamy",
+        "eriksen-okafor-raman",
+        "lindqvist-okafor-tanaka",
+      ],
+    )
+
+    const course = await runtime.workflowClient.run("course.load", {
+      courseId: runtime.seedCourseEntityId,
+    })
+    const analysisCourse: PersistedCourse = {
+      ...course,
+      searchFolder: analysis.searchFolder,
+      analysisInputs: analysis.analysisInputs,
+    }
+    const selectedRepo = discovered.repos[0]
+
+    const result = await runtime.workflowClient.run("analysis.run", {
+      course: analysisCourse,
+      repositoryAbsolutePath: selectedRepo.path,
+      config: {
+        extensions: ["py"],
+        includeFiles: ["*.py", "tests/*.py"],
+        excludeFiles: ["test_unary.py"],
+        excludeAuthors: ["Nobody*"],
+        excludeEmails: ["nobody@example.edu"],
+        excludeRevisions: ["0000000"],
+        excludeMessages: ["chore:*"],
+        since: "2026-01-01",
+        until: "2026-12-31",
+        whitespace: true,
+        nFiles: 3,
+        maxConcurrency: 2,
+      },
+    })
+    assert.equal(result.resolvedAsOfOid.length, 40)
+    assert.equal(result.authorStats.length > 0, true)
+    assert.equal(result.fileStats.length > 0, true)
+    assert.equal(result.fileStats.length <= 3, true)
+    assert.equal(
+      result.fileStats.every((file) => !file.path.endsWith("test_unary.py")),
+      true,
+    )
+
+    const blameTarget =
+      result.fileStats.find((file) => file.path === "evaluator.py") ??
+      result.fileStats[0]
+    const blame = await runtime.workflowClient.run("analysis.blame", {
+      course: analysisCourse,
+      repositoryAbsolutePath: selectedRepo.path,
+      config: {
+        extensions: ["py"],
+        includeFiles: ["*.py", "tests/*.py"],
+        excludeFiles: [],
+        excludeAuthors: [],
+        excludeEmails: [],
+        whitespace: false,
+        maxConcurrency: 2,
+        copyMove: 4,
+      },
+      personDbBaseline: result.personDbBaseline,
+      files: [blameTarget.path],
+      asOfCommit: result.resolvedAsOfOid,
+    })
+
+    assert.equal(blame.fileBlames.length, 1)
+    assert.equal(blame.fileBlames[0].path, blameTarget.path)
+    assert.equal(blame.fileBlames[0].lines.length > 0, true)
+    assert.equal(blame.authorSummaries.length > 0, true)
   })
 })

@@ -33,6 +33,7 @@
     "preview": "astro preview --host --port 4321",
     "typecheck": "astro check && tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
+    "record:analysis-fixtures": "tsx scripts/record-analysis-fixtures.ts",
     "test": "node --import tsx --test src/**/*.test.ts"
   }
 }

@@ -28,11 +28,11 @@ import type {
 import { createWorkflowClient } from "@repo-edu/application-contract"
 import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
-import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
 import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
 import { applyFixtureSourceOverlay } from "@repo-edu/test-fixtures"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
+import { createRecordedAnalysisGitMock } from "./fixtures/analysis-git-mock.js"
 import type { DocsFixtureSource } from "./fixtures/docs-fixtures.js"
 import {
   getDocsFixture,
@@ -210,6 +210,9 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   const browserMockHost = createBrowserMockHostEnvironment({
     readableFiles: fixture.readableFiles,
   })
+  const analysisGitMock = createRecordedAnalysisGitMock(
+    fixture.analysisGitFixture,
+  )
   const lmsMemberIds = seedCourse.roster.students
     .slice(0, 2)
     .map((member) => member.id)
@@ -220,7 +223,7 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     ) ?? null
 
   const courseStore = createInMemoryCourseStore([seedCourse])
-  const analysisStore = createInMemoryAnalysisStore([])
+  const analysisStore = createInMemoryAnalysisStore(fixture.analyses)
   const appSettingsStore = createInMemoryAppSettingsStore(seedSettings)
 
   const lmsPorts = createMockLmsPorts(
@@ -321,42 +324,8 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
     },
   }
 
-  const gitCommandPort = {
-    cancellation: "best-effort" as const,
-    async run() {
-      return {
-        exitCode: 0,
-        signal: null,
-        stdout: "",
-        stderr: "",
-      }
-    },
-  }
-
-  const fileSystemPort: FileSystemPort = {
-    userHomeSystemDirectories: [],
-    async inspect(request) {
-      return request.paths.map((path) => ({
-        path,
-        kind: "missing" as const,
-      }))
-    },
-    async applyBatch(request) {
-      return {
-        completed: request.operations,
-      }
-    },
-    async createTempDirectory(_prefix) {
-      return "/tmp/repo-edu-demo"
-    },
-    async listDirectory(_request) {
-      return [
-        { name: "team-alpha-project", kind: "directory" as const },
-        { name: "team-beta-project", kind: "directory" as const },
-        { name: "README.md", kind: "file" as const },
-      ]
-    },
-  }
+  const gitCommandPort = analysisGitMock.gitCommandPort
+  const fileSystemPort = analysisGitMock.fileSystemPort
 
   const workflowHandlers = {
     ...createCourseWorkflowHandlers(courseStore),
@@ -448,10 +417,14 @@ export function createDocsDemoRuntime(options: DocsDemoRuntimeOptions = {}) {
   return {
     workflowClient,
     workflowHandlers,
-    rendererHost: browserMockHost.rendererHost,
+    rendererHost: {
+      ...browserMockHost.rendererHost,
+      pickDirectory: analysisGitMock.pickDirectory,
+    },
     seedCourseEntityId,
     seedCourseId,
     fixtureSelection,
+    analysisFixtureRootPath: fixture.analysisGitFixture.rootPath,
   }
 }
 
