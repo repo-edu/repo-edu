@@ -262,6 +262,7 @@ describe("resolveAnalysisConfig", () => {
   ): PersistedCourse {
     return {
       kind: persistedCourseKind,
+      courseKind: "lms",
       revision: 0,
       id: "c1",
       displayName: "Course",

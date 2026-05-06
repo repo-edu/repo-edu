@@ -1,3 +1,4 @@
+import { courseHasRoster } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,
@@ -35,7 +36,8 @@ export function ImportGitUsernamesDialog() {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const hasStudents = (course?.roster.students.length ?? 0) > 0
+  const hasRoster = course !== null && courseHasRoster(course)
+  const hasStudents = hasRoster && (course?.roster.students.length ?? 0) > 0
 
   const handleBrowse = async () => {
     try {
@@ -55,7 +57,7 @@ export function ImportGitUsernamesDialog() {
   }
 
   const handleImport = async () => {
-    if (!fileRef || !course) return
+    if (!fileRef || !course || !hasRoster) return
 
     setImporting(true)
     setError(null)
@@ -94,7 +96,11 @@ export function ImportGitUsernamesDialog() {
           <DialogTitle>Import Git Usernames</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-3">
-          {!hasStudents ? (
+          {!hasRoster ? (
+            <Text className="text-sm text-muted-foreground">
+              RepoBee courses do not use roster Git username imports.
+            </Text>
+          ) : !hasStudents ? (
             <Text className="text-sm text-muted-foreground">
               Import students first before importing Git usernames.
             </Text>

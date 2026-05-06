@@ -6,7 +6,11 @@ import type {
   PersistedCourse,
   RosterValidationResult,
 } from "@repo-edu/domain/types"
-import { initialIdSequences, persistedCourseKind } from "@repo-edu/domain/types"
+import {
+  courseHasRoster,
+  initialIdSequences,
+  persistedCourseKind,
+} from "@repo-edu/domain/types"
 import { validateAssignment, validateRoster } from "@repo-edu/domain/validation"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -29,6 +33,7 @@ function projectAnalysisToCourseShape(
 ): PersistedCourse {
   return {
     kind: persistedCourseKind,
+    courseKind: "repobee",
     revision: 0,
     id: analysis.id,
     displayName: analysis.displayName,
@@ -73,11 +78,13 @@ export function createLifecycleSlice(
         const client = getWorkflowClient()
         const loaded = await client.run("course.load", { courseId })
         const loadedCourse = loaded as PersistedCourse
-        const sysResult = ensureSystemGroupSets(
-          loadedCourse.roster,
-          loadedCourse.idSequences,
-        )
-        loadedCourse.idSequences = sysResult.idSequences
+        if (courseHasRoster(loadedCourse)) {
+          const sysResult = ensureSystemGroupSets(
+            loadedCourse.roster,
+            loadedCourse.idSequences,
+          )
+          loadedCourse.idSequences = sysResult.idSequences
+        }
         set((draft) => {
           draft.course = loadedCourse
           draft.documentKind = "course"
@@ -148,6 +155,12 @@ export function createLifecycleSlice(
     ensureSystemGroupSets: () => {
       const state = get()
       if (!state.course) return
+      if (!courseHasRoster(state.course)) {
+        set((draft) => {
+          draft.systemSetsReady = true
+        })
+        return
+      }
       const result = ensureSystemGroupSets(
         state.course.roster,
         state.course.idSequences,
@@ -195,6 +208,9 @@ export function createLifecycleSlice(
       const state = get()
       if (!state.course) return
       const roster = state.course.roster
+      const rosterResult = courseHasRoster(state.course)
+        ? validateRoster(roster)
+        : { issues: [] }
 
       set((draft) => {
         draft.checksStatus = "running"
@@ -202,7 +218,6 @@ export function createLifecycleSlice(
       })
 
       try {
-        const rosterResult = validateRoster(roster)
         const assignmentResults: Record<string, RosterValidationResult> = {}
         for (const assignment of roster.assignments) {
           assignmentResults[assignment.id] = validateAssignment(

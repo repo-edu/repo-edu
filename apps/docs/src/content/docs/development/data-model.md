@@ -44,6 +44,7 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `string` | Unique course identifier |
+| `courseKind` | `"lms" \| "repobee"` | Course capability discriminator |
 | `displayName` | `string` | Human-readable name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References a connection in app settings by name |

@@ -31,12 +31,13 @@ export function NewAnalysisDialog() {
   const [error, setError] = useState<string | null>(null)
 
   const isNameTaken = useMemo(() => {
+    if (creating) return false
     const normalized = displayName.trim().toLowerCase()
     if (normalized.length === 0) return false
     return existingAnalyses.some(
       (analysis) => analysis.displayName.trim().toLowerCase() === normalized,
     )
-  }, [existingAnalyses, displayName])
+  }, [creating, existingAnalyses, displayName])
 
   const canCreate = displayName.trim().length > 0 && !creating && !isNameTaken
 

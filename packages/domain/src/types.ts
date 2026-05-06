@@ -9,6 +9,7 @@ export const persistedCourseKind = "repo-edu.course.v1" as const
 export type DocumentKind = "analysis" | "course"
 
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
+export const courseKinds = ["lms", "repobee"] as const
 export const gitUsernameStatusKinds = ["unknown", "valid", "invalid"] as const
 export const memberStatusKinds = ["active", "incomplete", "dropped"] as const
 export const enrollmentTypeKinds = [
@@ -23,6 +24,7 @@ export const groupOriginKinds = ["system", "lms", "local"] as const
 
 export type LmsProviderKind = "canvas" | "moodle"
 export type GitProviderKind = (typeof gitProviderKinds)[number]
+export type CourseKind = (typeof courseKinds)[number]
 export type ProviderKind = LmsProviderKind | GitProviderKind | "git"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]
 export type MemberStatus = (typeof memberStatusKinds)[number]
@@ -218,6 +220,7 @@ export type PersistedAnalysis = AnalysisCore & {
 
 export type PersistedCourse = AnalysisCore & {
   kind: typeof persistedCourseKind
+  courseKind: CourseKind
   revision: number
   id: string
   displayName: string
@@ -236,6 +239,18 @@ export type PersistedDocument = PersistedAnalysis | PersistedCourse
 
 export function documentKindOf(document: PersistedDocument): DocumentKind {
   return document.kind === persistedAnalysisKind ? "analysis" : "course"
+}
+
+export function courseHasRoster(course: PersistedCourse): boolean {
+  return course.courseKind === "lms"
+}
+
+export function courseSupportsLms(course: PersistedCourse): boolean {
+  return course.courseKind === "lms"
+}
+
+export function courseSupportsRepoBeeGroups(course: PersistedCourse): boolean {
+  return course.courseKind === "repobee"
 }
 
 export function resolveAnalysisConfig(
@@ -270,6 +285,7 @@ export function createBlankAnalysis(
 }
 
 export type BlankCourseFields = {
+  courseKind?: CourseKind
   displayName: string
   lmsConnectionName?: string | null
   organization?: string | null
@@ -286,6 +302,7 @@ export function createBlankCourse(
 ): PersistedCourse {
   return {
     kind: persistedCourseKind,
+    courseKind: fields.courseKind ?? "lms",
     revision: 0,
     id,
     displayName: fields.displayName,
@@ -315,7 +332,7 @@ export type AnalysisSummary = Pick<
 
 export type CourseSummary = Pick<
   PersistedCourse,
-  "id" | "displayName" | "updatedAt"
+  "id" | "displayName" | "updatedAt" | "courseKind"
 >
 
 export type DocumentSummary =

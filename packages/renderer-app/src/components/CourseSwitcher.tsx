@@ -4,6 +4,7 @@
  * trailing "New Analysis" / "New Course" pair.
  */
 
+import type { CourseSummary } from "@repo-edu/domain/types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,11 +41,21 @@ import { useAnalyses } from "../hooks/use-analyses.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useUiStore } from "../stores/ui-store.js"
 
+export function groupCourseSummaries(courses: readonly CourseSummary[]): {
+  lms: CourseSummary[]
+  repobee: CourseSummary[]
+} {
+  return {
+    lms: courses.filter((course) => course.courseKind === "lms"),
+    repobee: courses.filter((course) => course.courseKind === "repobee"),
+  }
+}
+
 export function CourseSwitcher() {
   const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
   const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
-  const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
+  const setNewCourseDialogMode = useUiStore((s) => s.setNewCourseDialogMode)
   const setNewAnalysisDialogOpen = useUiStore((s) => s.setNewAnalysisDialogOpen)
   const {
     courses,
@@ -228,9 +239,14 @@ export function CourseSwitcher() {
     setDeleteDialog({ open: false, kind: "course", id: "", name: "" })
   }
 
-  const handleNewCourse = () => {
+  const handleNewLmsCourse = () => {
     setOpen(false)
-    setNewCourseDialogOpen(true)
+    setNewCourseDialogMode("lms")
+  }
+
+  const handleNewRepoBeeCourse = () => {
+    setOpen(false)
+    setNewCourseDialogMode("repobee")
   }
 
   const handleNewAnalysis = () => {
@@ -245,7 +261,76 @@ export function CourseSwitcher() {
     deleteDialog.kind === "course" && remainingCourses.length === 0
   const nextCourse = remainingCourses[0]?.displayName
 
-  const showSectionHeaders = analyses.length > 0 && courses.length > 0
+  const courseGroups = groupCourseSummaries(courses)
+  const hasDocuments = analyses.length > 0 || courses.length > 0
+  const renderCourseRows = (rows: CourseSummary[]) =>
+    rows.map((course) => {
+      const isActive =
+        course.id === activeCourseId && activeDocumentKind === "course"
+      return (
+        <div
+          key={`c-${course.id}`}
+          role="option"
+          tabIndex={0}
+          aria-selected={isActive}
+          onClick={() => handleCourseSelect(course.id)}
+          onKeyDown={(event) =>
+            handleRowKeyDown(event, () => handleCourseSelect(course.id))
+          }
+          className={cn(
+            "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
+            "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+            isActive && "bg-selection",
+          )}
+        >
+          <span className="truncate">{course.displayName}</span>
+          <div className="flex shrink-0 items-center gap-0">
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="size-4"
+              aria-label={`Duplicate ${course.displayName}`}
+              title="Duplicate"
+              onClick={(event) =>
+                handleActionClick(event, () =>
+                  handleDuplicateClick(course.id, course.displayName),
+                )
+              }
+            >
+              <Copy className="size-3" />
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="size-4"
+              aria-label={`Rename ${course.displayName}`}
+              title="Rename"
+              onClick={(event) =>
+                handleActionClick(event, () =>
+                  handleRenameClick("course", course.id, course.displayName),
+                )
+              }
+            >
+              <Pencil className="size-3" />
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="size-4"
+              aria-label={`Delete ${course.displayName}`}
+              title="Delete"
+              onClick={(event) =>
+                handleActionClick(event, () =>
+                  handleDeleteClick("course", course.id, course.displayName),
+                )
+              }
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
+        </div>
+      )
+    })
 
   return (
     <>
@@ -267,11 +352,9 @@ export function CourseSwitcher() {
         <DropdownMenuContent align="start" side="bottom">
           {analyses.length > 0 && (
             <>
-              {showSectionHeaders && (
-                <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Analyses
-                </div>
-              )}
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Analyses
+              </div>
               {analyses.map((analysis) => {
                 const isActive =
                   analysis.id === activeAnalysisId &&
@@ -343,90 +426,29 @@ export function CourseSwitcher() {
             <DropdownMenuSeparator className="my-0.5" />
           )}
 
-          {courses.length > 0 && showSectionHeaders && (
-            <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Courses
-            </div>
-          )}
-          {courses.map((course) => {
-            const isActive =
-              course.id === activeCourseId && activeDocumentKind === "course"
-            return (
-              <div
-                key={`c-${course.id}`}
-                role="option"
-                tabIndex={0}
-                aria-selected={isActive}
-                onClick={() => handleCourseSelect(course.id)}
-                onKeyDown={(event) =>
-                  handleRowKeyDown(event, () => handleCourseSelect(course.id))
-                }
-                className={cn(
-                  "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
-                  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-                  isActive && "bg-selection",
-                )}
-              >
-                <span className="truncate">{course.displayName}</span>
-                <div className="flex shrink-0 items-center gap-0">
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    className="size-4"
-                    aria-label={`Duplicate ${course.displayName}`}
-                    title="Duplicate"
-                    onClick={(event) =>
-                      handleActionClick(event, () =>
-                        handleDuplicateClick(course.id, course.displayName),
-                      )
-                    }
-                  >
-                    <Copy className="size-3" />
-                  </Button>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    className="size-4"
-                    aria-label={`Rename ${course.displayName}`}
-                    title="Rename"
-                    onClick={(event) =>
-                      handleActionClick(event, () =>
-                        handleRenameClick(
-                          "course",
-                          course.id,
-                          course.displayName,
-                        ),
-                      )
-                    }
-                  >
-                    <Pencil className="size-3" />
-                  </Button>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    className="size-4"
-                    aria-label={`Delete ${course.displayName}`}
-                    title="Delete"
-                    onClick={(event) =>
-                      handleActionClick(event, () =>
-                        handleDeleteClick(
-                          "course",
-                          course.id,
-                          course.displayName,
-                        ),
-                      )
-                    }
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
+          {courseGroups.lms.length > 0 && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                LMS Courses
               </div>
-            )
-          })}
+              {renderCourseRows(courseGroups.lms)}
+            </>
+          )}
 
-          {(analyses.length > 0 || courses.length > 0) && (
+          {courseGroups.lms.length > 0 && courseGroups.repobee.length > 0 && (
             <DropdownMenuSeparator className="my-0.5" />
           )}
+
+          {courseGroups.repobee.length > 0 && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                RepoBee Courses
+              </div>
+              {renderCourseRows(courseGroups.repobee)}
+            </>
+          )}
+
+          {hasDocuments && <DropdownMenuSeparator className="my-0.5" />}
 
           <div
             role="option"
@@ -444,12 +466,26 @@ export function CourseSwitcher() {
             role="option"
             tabIndex={0}
             aria-selected={false}
-            onClick={handleNewCourse}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewCourse)}
+            onClick={handleNewRepoBeeCourse}
+            onKeyDown={(event) =>
+              handleRowKeyDown(event, handleNewRepoBeeCourse)
+            }
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <Plus className="size-3" />
-            New Course
+            New RepoBee Course
+          </div>
+
+          <div
+            role="option"
+            tabIndex={0}
+            aria-selected={false}
+            onClick={handleNewLmsCourse}
+            onKeyDown={(event) => handleRowKeyDown(event, handleNewLmsCourse)}
+            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+          >
+            <Plus className="size-3" />
+            New LMS Course
           </div>
         </DropdownMenuContent>
       </DropdownMenu>

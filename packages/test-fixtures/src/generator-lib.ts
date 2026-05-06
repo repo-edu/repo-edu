@@ -532,6 +532,7 @@ function createFixtureRecord(
     }
     const course: PersistedCourse = {
       kind: persistedCourseKind,
+      courseKind: "repobee",
       revision: 0,
       id: courseId,
       displayName: `Fixture (${tier}, ${preset})`,
@@ -656,6 +657,7 @@ function createFixtureRecord(
 
   const course: PersistedCourse = {
     kind: persistedCourseKind,
+    courseKind: "lms",
     revision: 0,
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,

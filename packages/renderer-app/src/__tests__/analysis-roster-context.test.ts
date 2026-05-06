@@ -36,6 +36,7 @@ function makeCourse(
 ): PersistedCourse {
   return {
     kind: persistedCourseKind,
+    courseKind: "lms",
     revision: 0,
     id: "course-1",
     displayName: "Course 1",

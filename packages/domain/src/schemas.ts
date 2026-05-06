@@ -10,6 +10,7 @@ import type {
   ValidationResult,
 } from "./types.js"
 import {
+  courseKinds,
   enrollmentTypeKinds,
   gitUsernameStatusKinds,
   groupOriginKinds,
@@ -42,6 +43,7 @@ const memberStatusSchema = z.enum(memberStatusKinds)
 const gitUsernameStatusSchema = z.enum(gitUsernameStatusKinds)
 const enrollmentTypeSchema = z.enum(enrollmentTypeKinds)
 const groupOriginSchema = z.enum(groupOriginKinds)
+const courseKindSchema = z.enum(courseKinds)
 const localMemberIdSchema = z.string().regex(/^m_\d{4,}$/)
 const localGroupIdSchema = z.string().regex(/^g_\d{4,}$/)
 const localGroupSetIdSchema = z.string().regex(/^gs_\d{4,}$/)
@@ -213,6 +215,7 @@ export const persistedAnalysisSchema = z.object({
 
 export const persistedCourseSchema = z.object({
   kind: z.literal(persistedCourseKind),
+  courseKind: courseKindSchema,
   revision: z.number().int().nonnegative(),
   id: z.string(),
   displayName: z.string(),

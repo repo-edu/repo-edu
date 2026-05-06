@@ -65,6 +65,7 @@ export function useCourses() {
           generateCourseId(),
           new Date().toISOString(),
           {
+            courseKind: source.courseKind,
             displayName,
             lmsConnectionName: source.lmsConnectionName,
             organization: source.organization,

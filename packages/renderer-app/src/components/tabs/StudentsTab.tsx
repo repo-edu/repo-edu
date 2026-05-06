@@ -1,4 +1,4 @@
-import type { Roster } from "@repo-edu/domain/types"
+import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
@@ -75,7 +75,7 @@ export function StudentsTab() {
     }
   }
 
-  if (!course) {
+  if (!course || !courseHasRoster(course)) {
     return <NoCourseEmptyState />
   }
 

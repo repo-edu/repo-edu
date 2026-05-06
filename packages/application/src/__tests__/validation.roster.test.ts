@@ -247,6 +247,44 @@ describe("application roster workflow helpers", () => {
     assert.equal(systemSetsMissing(imported.roster), false)
   })
 
+  it("rejects LMS roster import for RepoBee courses", async () => {
+    const { course, settings } = getCourseAndSettingsScenario({
+      tier: "small",
+      preset: "repobee-teams",
+    })
+    const handlers = createRosterWorkflowHandlers({
+      lms: {
+        fetchRoster: async () => {
+          throw new Error("not used")
+        },
+      },
+      userFile: {
+        readText: async () => {
+          throw new Error("not used")
+        },
+        writeText: async (reference) => ({
+          displayName: reference.displayName,
+          mediaType: "text/csv",
+          byteLength: 0,
+          savedAt: "2026-03-04T10:00:00.000Z",
+        }),
+      },
+    })
+
+    await assert.rejects(
+      handlers["roster.importFromLms"]({
+        course,
+        appSettings: settings,
+        lmsCourseId: "course-42",
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation",
+    )
+  })
+
   it("exports students to CSV and rejects unsupported xlsx export", async () => {
     const course = getCourseScenario({
       tier: "small",

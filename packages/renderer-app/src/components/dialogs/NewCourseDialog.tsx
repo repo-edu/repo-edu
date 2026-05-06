@@ -1,5 +1,5 @@
 import type { LmsCourseSummary } from "@repo-edu/application-contract"
-import { createBlankCourse } from "@repo-edu/domain/types"
+import { type CourseKind, createBlankCourse } from "@repo-edu/domain/types"
 import {
   Alert,
   AlertDescription,
@@ -31,12 +31,30 @@ import { getErrorMessage } from "../../utils/error-message.js"
 import { generateCourseId } from "../../utils/nanoid.js"
 
 const NONE_VALUE = "__none__"
-type CourseMode = "lms" | "manual"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
 
+export function createNewCourseDraft(input: {
+  id: string
+  updatedAt: string
+  mode: CourseKind
+  displayName: string
+  selectedLmsConnection: string
+  selectedCourseId: string
+}) {
+  return createBlankCourse(input.id, input.updatedAt, {
+    courseKind: input.mode,
+    displayName: input.displayName,
+    lmsConnectionName:
+      input.mode === "lms" ? input.selectedLmsConnection || null : null,
+    lmsCourseId:
+      input.mode === "lms" ? input.selectedCourseId.trim() || null : null,
+  })
+}
+
 export function NewCourseDialog() {
-  const open = useUiStore((state) => state.newCourseDialogOpen)
-  const setOpen = useUiStore((state) => state.setNewCourseDialogOpen)
+  const courseMode = useUiStore((state) => state.newCourseDialogMode)
+  const setCourseMode = useUiStore((state) => state.setNewCourseDialogMode)
+  const open = courseMode !== null
   const setActiveCourseId = useUiStore((state) => state.setActiveCourseId)
   const setActiveDocumentKind = useUiStore(
     (state) => state.setActiveDocumentKind,
@@ -47,16 +65,18 @@ export function NewCourseDialog() {
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
+  const setActiveTab = useUiStore((state) => state.setActiveTab)
 
   const settings = useAppSettingsStore((state) => state.settings)
   const saveAppSettings = useAppSettingsStore((state) => state.save)
   const setSettingsActiveCourseId = useAppSettingsStore(
     (state) => state.setActiveCourseId,
   )
+  const setSettingsActiveTab = useAppSettingsStore(
+    (state) => state.setActiveTab,
+  )
 
   const [courseName, setCourseName] = useState("")
-  const [lmsCourseId, setLmsCourseId] = useState("")
-  const [courseMode, setCourseMode] = useState<CourseMode>("manual")
   const [courseSearch, setCourseSearch] = useState("")
   const [courses, setCourses] = useState<LmsCourseSummary[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState("")
@@ -92,6 +112,7 @@ export function NewCourseDialog() {
   }, [courseSearch, courses])
 
   const isCourseNameTaken = useMemo(() => {
+    if (creating) return false
     const normalized = courseName.trim().toLowerCase()
     if (normalized.length === 0) {
       return false
@@ -100,7 +121,7 @@ export function NewCourseDialog() {
     return existingCourses.some(
       (course) => course.displayName.trim().toLowerCase() === normalized,
     )
-  }, [existingCourses, courseName])
+  }, [creating, existingCourses, courseName])
 
   const loadLmsCourses = useCallback(() => {
     if (!selectedLmsDraft) {
@@ -181,8 +202,6 @@ export function NewCourseDialog() {
 
   const reset = useCallback(() => {
     setCourseName("")
-    setLmsCourseId("")
-    setCourseMode("lms")
     setCourseSearch("")
     setCourses([])
     setSelectedCourseId("")
@@ -208,12 +227,12 @@ export function NewCourseDialog() {
   }, [open, courseMode, loadLmsCourses])
 
   const handleClose = () => {
-    setOpen(false)
+    setCourseMode(null)
     reset()
   }
 
   const handleCreate = async () => {
-    if (!canCreate) return
+    if (!canCreate || courseMode === null) return
 
     if (isCourseNameTaken) {
       setError("A course with this name already exists.")
@@ -224,19 +243,14 @@ export function NewCourseDialog() {
     setError(null)
 
     try {
-      const nextCourseId =
-        courseMode === "lms"
-          ? selectedCourseId.trim() || null
-          : lmsCourseId.trim() || null
-      const course = createBlankCourse(
-        generateCourseId(),
-        new Date().toISOString(),
-        {
-          displayName: courseName.trim(),
-          lmsConnectionName: selectedLmsConnection || null,
-          lmsCourseId: nextCourseId,
-        },
-      )
+      const course = createNewCourseDraft({
+        id: generateCourseId(),
+        updatedAt: new Date().toISOString(),
+        mode: courseMode,
+        displayName: courseName.trim(),
+        selectedLmsConnection,
+        selectedCourseId,
+      })
 
       const client = getWorkflowClient()
       const saved = await client.run("course.save", course)
@@ -244,9 +258,13 @@ export function NewCourseDialog() {
       setCourseList(courses)
       setActiveDocumentKind("course")
       setActiveCourseId(saved.id)
+      const nextTab =
+        saved.courseKind === "repobee" ? "groups-assignments" : "roster"
+      setActiveTab(nextTab)
 
       useAppSettingsStore.getState().setActiveDocumentKind("course")
       setSettingsActiveCourseId(saved.id)
+      setSettingsActiveTab(nextTab)
       await saveAppSettings()
 
       handleClose()
@@ -269,39 +287,11 @@ export function NewCourseDialog() {
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Course</DialogTitle>
+          <DialogTitle>
+            {courseMode === "repobee" ? "New RepoBee Course" : "New LMS Course"}
+          </DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          <FormField label="Course">
-            <RadioGroup
-              value={courseMode}
-              onValueChange={(value) => setCourseMode(value as CourseMode)}
-              className="space-y-2"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="lms" id="new-course-course-mode-lms" />
-                <Label
-                  htmlFor="new-course-course-mode-lms"
-                  className="font-normal cursor-pointer"
-                >
-                  Select from a Learning Management System (Canvas or Moodle)
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem
-                  value="manual"
-                  id="new-course-course-mode-manual"
-                />
-                <Label
-                  htmlFor="new-course-course-mode-manual"
-                  className="font-normal cursor-pointer"
-                >
-                  Enter manually
-                </Label>
-              </div>
-            </RadioGroup>
-          </FormField>
-
           {courseMode === "lms" && lmsConnections.length === 0 && (
             <Alert variant="warning">
               <AlertTriangle />
@@ -448,21 +438,9 @@ export function NewCourseDialog() {
                 </div>
               )}
             </div>
-          ) : courseMode === "manual" ? (
-            <FormField
-              label="Course ID (optional)"
-              htmlFor="new-course-course-id"
-            >
-              <Input
-                id="new-course-course-id"
-                placeholder="e.g., SE-2026-A"
-                value={lmsCourseId}
-                onChange={(event) => setLmsCourseId(event.target.value)}
-              />
-            </FormField>
           ) : null}
 
-          {(courseMode === "manual" ||
+          {(courseMode === "repobee" ||
             (courseMode === "lms" && lmsConnections.length > 0)) && (
             <FormField label="Course name" htmlFor="new-course-name">
               <Input

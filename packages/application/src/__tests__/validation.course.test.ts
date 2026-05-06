@@ -1,7 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { createInMemoryCourseStore } from "../core.js"
+import { createBlankAnalysis } from "@repo-edu/domain/types"
+import { createDocumentsListWorkflowHandler } from "../analysis-doc-workflows.js"
+import {
+  createInMemoryAnalysisStore,
+  createInMemoryCourseStore,
+} from "../core.js"
 import { createCourseWorkflowHandlers } from "../course-workflows.js"
 import { getCourseScenario } from "./helpers/fixture-scenarios.js"
 import { makeInvalidCourseWrongKind } from "./helpers/test-builders.js"
@@ -20,6 +25,7 @@ describe("application course workflow helpers", () => {
       {
         id: original.id,
         displayName: original.displayName,
+        courseKind: original.courseKind,
         updatedAt: original.updatedAt,
       },
     ])
@@ -90,6 +96,33 @@ describe("application course workflow helpers", () => {
         error !== null &&
         "type" in error &&
         error.type === "not-found",
+    )
+  })
+
+  it("includes courseKind in document summaries", async () => {
+    const course = getCourseScenario({
+      tier: "small",
+      preset: "repobee-teams",
+    })
+    const analysis = createBlankAnalysis(
+      "analysis-1",
+      "2026-01-02T00:00:00.000Z",
+      { displayName: "Standalone Analysis" },
+    )
+    const handlers = createDocumentsListWorkflowHandler(
+      createInMemoryAnalysisStore([analysis]),
+      createInMemoryCourseStore([course]),
+    )
+
+    const summaries = await handlers["documents.list"](undefined)
+
+    assert.ok(
+      summaries.some(
+        (summary) =>
+          summary.kind === "course" &&
+          summary.id === course.id &&
+          summary.courseKind === "repobee",
+      ),
     )
   })
 

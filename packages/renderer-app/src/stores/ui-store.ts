@@ -1,5 +1,6 @@
 import type {
   AnalysisSummary,
+  CourseKind,
   CourseSummary,
   DocumentKind,
   GroupSetImportFormat,
@@ -48,7 +49,7 @@ type UiState = {
   // Dialog visibility
   settingsDialogOpen: boolean
   settingsCategory: SettingsCategory
-  newCourseDialogOpen: boolean
+  newCourseDialogMode: CourseKind | null
   newAnalysisDialogOpen: boolean
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
@@ -106,7 +107,7 @@ type UiActions = {
 
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
-  setNewCourseDialogOpen: (open: boolean) => void
+  setNewCourseDialogMode: (mode: CourseKind | null) => void
   setNewAnalysisDialogOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
@@ -167,7 +168,7 @@ const initialState: UiState = {
 
   settingsDialogOpen: false,
   settingsCategory: "display",
-  newCourseDialogOpen: false,
+  newCourseDialogMode: null,
   newAnalysisDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
@@ -251,8 +252,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
         settingsCategory: nextCategory,
       }
     }),
-  setNewCourseDialogOpen: (open) =>
-    set((state) => setIfChanged(state, "newCourseDialogOpen", open)),
+  setNewCourseDialogMode: (mode) =>
+    set((state) => setIfChanged(state, "newCourseDialogMode", mode)),
   setNewAnalysisDialogOpen: (open) =>
     set((state) => setIfChanged(state, "newAnalysisDialogOpen", open)),
   setImportFileDialogOpen: (open) =>

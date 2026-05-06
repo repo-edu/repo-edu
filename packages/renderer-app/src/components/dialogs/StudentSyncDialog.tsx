@@ -1,4 +1,7 @@
-import type { RosterImportFromLmsResult } from "@repo-edu/domain/types"
+import {
+  courseSupportsLms,
+  type RosterImportFromLmsResult,
+} from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,
@@ -33,6 +36,7 @@ export function StudentSyncDialog() {
   const courseStatus = useCourseStore(selectCourseStatus)
   const appSettings = useAppSettingsStore((state) => state.settings)
   const loadedCourse = course && course.id === activeCourseId ? course : null
+  const supportsLms = loadedCourse !== null && courseSupportsLms(loadedCourse)
   const lmsCourseId = loadedCourse?.lmsCourseId ?? null
   const lmsConnectionName = loadedCourse?.lmsConnectionName ?? null
 
@@ -52,21 +56,24 @@ export function StudentSyncDialog() {
   const hasAutoPreviewedRef = useRef(false)
   const previewRequestIdRef = useRef(0)
 
-  const resetState = () => {
+  const resetState = useCallback(() => {
     previewRequestIdRef.current += 1
     setLoadingPreview(false)
     setPreview(null)
     setError(null)
     setProgressMessage(null)
     setLmsImportConflicts(null)
-  }
+  }, [setLmsImportConflicts])
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen)
-    if (!nextOpen) {
-      resetState()
-    }
-  }
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setOpen(nextOpen)
+      if (!nextOpen) {
+        resetState()
+      }
+    },
+    [setOpen, resetState],
+  )
 
   const handlePreview = useCallback(async () => {
     const requestId = previewRequestIdRef.current + 1
@@ -81,6 +88,12 @@ export function StudentSyncDialog() {
     if (!loadedCourse || courseStatus === "loading") {
       setError(null)
       setProgressMessage("Loading course configuration...")
+      return
+    }
+
+    if (!supportsLms) {
+      setError("RepoBee courses do not support LMS roster sync")
+      setProgressMessage(null)
       return
     }
 
@@ -128,6 +141,7 @@ export function StudentSyncDialog() {
     activeCourseId,
     appSettings,
     loadedCourse,
+    supportsLms,
     courseStatus,
     lmsConnectionName,
     lmsCourseId,
@@ -141,10 +155,22 @@ export function StudentSyncDialog() {
     if (hasAutoPreviewedRef.current) return
     if (!activeCourseId) return
     if (!loadedCourse || courseStatus === "loading") return
+    if (!supportsLms) {
+      handleOpenChange(false)
+      return
+    }
 
     hasAutoPreviewedRef.current = true
     void handlePreview()
-  }, [open, activeCourseId, loadedCourse, courseStatus, handlePreview])
+  }, [
+    open,
+    activeCourseId,
+    loadedCourse,
+    supportsLms,
+    courseStatus,
+    handlePreview,
+    handleOpenChange,
+  ])
 
   const handleApply = () => {
     if (!preview) return

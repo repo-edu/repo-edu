@@ -90,6 +90,32 @@ describe("application group-set workflow helpers", () => {
     ])
   })
 
+  it("rejects LMS group-set discovery for RepoBee courses", async () => {
+    const { course, settings } = getCourseAndSettingsScenario({
+      tier: "small",
+      preset: "repobee-teams",
+    })
+    const handlers = createGroupSetHarness({
+      lms: {
+        listGroupSets: async () => {
+          throw new Error("not used")
+        },
+      },
+    })
+
+    await assert.rejects(
+      handlers["groupSet.fetchAvailableFromLms"]({
+        course,
+        appSettings: settings,
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation",
+    )
+  })
+
   it("connects an LMS group set using a local id and persists remote linkage", async () => {
     const { course, settings } = createLmsScenario()
     course.roster.students = [

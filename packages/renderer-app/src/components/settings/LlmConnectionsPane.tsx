@@ -76,12 +76,14 @@ export function LlmConnectionsPane() {
   const [editorStatus, setEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [editorError, setEditorError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const editorOriginalId =
     viewState.view === "editor" ? viewState.originalId : null
   const editing = viewState.view === "editor" && viewState.originalId !== null
 
   const nameTaken = useMemo(() => {
+    if (saving) return false
     const normalized = draft.name.trim().toLowerCase()
     if (!normalized) return false
     return llmConnections.some(
@@ -89,7 +91,7 @@ export function LlmConnectionsPane() {
         connection.id !== editorOriginalId &&
         connection.name.trim().toLowerCase() === normalized,
     )
-  }, [llmConnections, draft.name, editorOriginalId])
+  }, [saving, llmConnections, draft.name, editorOriginalId])
 
   const apiKeyMissing =
     draft.authMode === "api" && draft.apiKey.trim().length === 0
@@ -115,6 +117,7 @@ export function LlmConnectionsPane() {
     setDraft(emptyLlmDraft())
     setEditorStatus("disconnected")
     setEditorError(null)
+    setSaving(false)
   }
 
   const verify = async (d: LlmDraft) => {
@@ -166,6 +169,7 @@ export function LlmConnectionsPane() {
             apiKey: draft.apiKey.trim(),
           }
 
+    setSaving(true)
     if (editorOriginalId === null) {
       addLlmConnection(nextConnection)
       // First connection becomes active automatically.

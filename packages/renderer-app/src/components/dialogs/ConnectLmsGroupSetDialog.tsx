@@ -1,5 +1,8 @@
 import type { GroupSetLmsSummary } from "@repo-edu/application-contract"
-import type { GroupSetConnection } from "@repo-edu/domain/types"
+import {
+  courseSupportsLms,
+  type GroupSetConnection,
+} from "@repo-edu/domain/types"
 import {
   Alert,
   Button,
@@ -18,7 +21,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
@@ -44,6 +47,7 @@ export function ConnectLmsGroupSetDialog() {
   const setRoster = useCourseStore((state) => state.setRoster)
   const setIdSequences = useCourseStore((state) => state.setIdSequences)
   const appSettings = useAppSettingsStore((state) => state.settings)
+  const supportsLms = course !== null && courseSupportsLms(course)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
   const [selectedId, setSelectedId] = useState("")
@@ -76,7 +80,7 @@ export function ConnectLmsGroupSetDialog() {
   }, [availableGroupSets, open, selectedId])
 
   useEffect(() => {
-    if (!open || !course) return
+    if (!open || !course || !supportsLms) return
 
     let cancelled = false
     setLoading(true)
@@ -107,7 +111,7 @@ export function ConnectLmsGroupSetDialog() {
     return () => {
       cancelled = true
     }
-  }, [open, course, appSettings])
+  }, [open, course, appSettings, supportsLms])
 
   const selectedGroupSet = useMemo(
     () => availableGroupSets.find((groupSet) => groupSet.id === selectedId),
@@ -118,11 +122,12 @@ export function ConnectLmsGroupSetDialog() {
     open &&
     !!roster &&
     !!course &&
+    supportsLms &&
     !!selectedGroupSet &&
     !loading &&
     !connecting
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     connectRequestIdRef.current += 1
     setGroupSetOperation(null)
     setOpen(false)
@@ -132,7 +137,13 @@ export function ConnectLmsGroupSetDialog() {
     setConnecting(false)
     setGroupSets([])
     setProgressMessage(null)
-  }
+  }, [setGroupSetOperation, setOpen])
+
+  useEffect(() => {
+    if (open && course && !supportsLms) {
+      handleClose()
+    }
+  }, [open, course, supportsLms, handleClose])
 
   const handleConnect = async () => {
     if (!canConnect || !roster || !course || !selectedGroupSet) {

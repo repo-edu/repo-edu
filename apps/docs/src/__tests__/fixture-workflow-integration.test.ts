@@ -162,7 +162,7 @@ describe("docs fixture integration: source parity", () => {
         course,
         appSettings,
       }),
-      (error: unknown) => isAppErrorWithType(error, "not-found"),
+      (error: unknown) => isAppErrorWithType(error, "validation"),
     )
 
     await assert.rejects(
@@ -171,7 +171,7 @@ describe("docs fixture integration: source parity", () => {
         appSettings,
         lmsCourseId: runtime.seedCourseId,
       }),
-      (error: unknown) => isAppErrorWithType(error, "not-found"),
+      (error: unknown) => isAppErrorWithType(error, "validation"),
     )
   })
 })

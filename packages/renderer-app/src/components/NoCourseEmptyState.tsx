@@ -1,14 +1,8 @@
-/**
- * Welcome pane shown when no document is open. Two ways in: a standalone
- * Analysis (just look at a repository, optionally with AI exam questions) or
- * a Course (an Analysis bound to a roster you're teaching).
- */
-
 import { Button } from "@repo-edu/ui"
 import { useUiStore } from "../stores/ui-store.js"
 
 export function NoCourseEmptyState() {
-  const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
+  const setNewCourseDialogMode = useUiStore((s) => s.setNewCourseDialogMode)
   const setNewAnalysisDialogOpen = useUiStore((s) => s.setNewAnalysisDialogOpen)
 
   return (
@@ -30,14 +24,26 @@ export function NoCourseEmptyState() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setNewCourseDialogOpen(true)}
+            onClick={() => setNewCourseDialogMode("repobee")}
           >
-            New Course…
+            New RepoBee Course…
           </Button>
           <p className="text-sm text-muted-foreground">
-            A class you're teaching: same analysis, attributed to a specific
-            roster, optionally linked to a Learning Management System (Canvas or
-            Moodle).
+            A class managed with RepoBee — no LMS link. Import unnamed teams
+            from TXT and run analysis against the resulting repositories.
+          </p>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setNewCourseDialogMode("lms")}
+          >
+            New LMS Course…
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            A class you're teaching, linked to a Learning Management System
+            (Canvas or Moodle): roster, groups, and analysis attributed to your
+            students.
           </p>
         </div>
       </div>

@@ -92,6 +92,7 @@ async function runCli(
 function makeProfile(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
+    courseKind: "lms",
     revision: 0,
     id: "seed-course",
     displayName: "Seed Course",

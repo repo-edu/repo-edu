@@ -67,11 +67,13 @@ export function LmsConnectionsPane() {
   const [editorStatus, setEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [editorError, setEditorError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const editorIndex = viewState.view === "editor" ? viewState.index : null
   const editing = viewState.view === "editor" && viewState.index !== null
 
   const nameTaken = useMemo(() => {
+    if (saving) return false
     const normalized = draft.name.trim().toLowerCase()
     if (!normalized) return false
     return lmsConnections.some(
@@ -79,7 +81,7 @@ export function LmsConnectionsPane() {
         index !== editorIndex &&
         connection.name.trim().toLowerCase() === normalized,
     )
-  }, [lmsConnections, draft.name, editorIndex])
+  }, [saving, lmsConnections, draft.name, editorIndex])
 
   const baseUrlError = validateRequiredBaseUrl(draft.baseUrl)
 
@@ -117,6 +119,7 @@ export function LmsConnectionsPane() {
     setDraft(emptyLmsDraft())
     setEditorStatus("disconnected")
     setEditorError(null)
+    setSaving(false)
   }
 
   const verify = async (d: LmsDraft) => {
@@ -178,6 +181,7 @@ export function LmsConnectionsPane() {
       userAgent: normalizeUserAgent(draft.userAgent),
     }
 
+    setSaving(true)
     if (editorIndex === null) {
       addLmsConnection(nextConnection)
     } else {

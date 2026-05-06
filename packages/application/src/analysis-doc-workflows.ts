@@ -147,6 +147,7 @@ export function createDocumentsListWorkflowHandler(
           kind: "course" as const,
           id: course.id,
           displayName: course.displayName,
+          courseKind: course.courseKind,
           updatedAt: course.updatedAt,
         })),
       ]

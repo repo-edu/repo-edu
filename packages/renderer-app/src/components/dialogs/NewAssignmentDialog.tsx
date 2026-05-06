@@ -30,11 +30,14 @@ export function NewAssignmentDialog() {
   const addAssignment = useCourseStore((state) => state.addAssignment)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
 
+  const [creating, setCreating] = useState(false)
+
   const resolvedGroupSetId =
     preSelectedGroupSetId ??
     (selection?.kind === "group-set" ? selection.id : null)
 
   const duplicateName = useMemo(() => {
+    if (creating) return false
     const trimmed = name.trim().toLowerCase()
     if (!trimmed || !roster || !resolvedGroupSetId) return false
     return roster.assignments.some(
@@ -42,11 +45,12 @@ export function NewAssignmentDialog() {
         assignment.groupSetId === resolvedGroupSetId &&
         assignment.name.trim().toLowerCase() === trimmed,
     )
-  }, [name, roster, resolvedGroupSetId])
+  }, [creating, name, roster, resolvedGroupSetId])
 
   useEffect(() => {
     if (!open) {
       setName("")
+      setCreating(false)
       return
     }
 
@@ -56,17 +60,22 @@ export function NewAssignmentDialog() {
   }, [open, preSelectedGroupSetId, selection, setPreSelectedGroupSetId])
 
   const canCreate =
-    name.trim().length > 0 && resolvedGroupSetId !== null && !duplicateName
+    name.trim().length > 0 &&
+    resolvedGroupSetId !== null &&
+    !duplicateName &&
+    !creating
 
   const handleClose = () => {
     setOpen(false)
     setName("")
     setPreSelectedGroupSetId(null)
+    setCreating(false)
   }
 
   const handleCreate = () => {
     if (!canCreate || !resolvedGroupSetId) return
 
+    setCreating(true)
     addAssignment({
       name: name.trim(),
       groupSetId: resolvedGroupSetId,

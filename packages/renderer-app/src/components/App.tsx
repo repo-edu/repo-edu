@@ -1,4 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
+import { courseHasRoster } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
   Button,
@@ -33,6 +34,10 @@ import {
 } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
+import {
+  resolveDocumentTabVisibility,
+  resolveSupportedActiveTab,
+} from "../utils/document-navigation.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
@@ -95,6 +100,7 @@ function AppShell() {
   const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
   const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
+  const courseList = useUiStore((s) => s.courseList)
 
   const theme = useAppSettingsStore(selectTheme)
   const appSettingsActiveCourseId = useAppSettingsStore(
@@ -115,12 +121,34 @@ function AppShell() {
   const canRedo = useCourseStore(selectCanRedo)
   const undoDescription = useCourseStore(selectNextUndoDescription)
   const redoDescription = useCourseStore(selectNextRedoDescription)
+  const loadedCourse = useCourseStore((s) => s.course)
   const undo = useCourseStore((s) => s.undo)
   const redo = useCourseStore((s) => s.redo)
   const flushCourse = useCourseStore((s) => s.save)
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
+  const activeCourseSummary =
+    activeCourseId === null
+      ? null
+      : (courseList.find((course) => course.id === activeCourseId) ?? null)
+  const activeCourseKind =
+    activeDocumentKind === "course"
+      ? loadedCourse?.id === activeCourseId
+        ? loadedCourse.courseKind
+        : (activeCourseSummary?.courseKind ?? null)
+      : null
+  const canShowRosterTab =
+    activeDocumentKind === "course" &&
+    (loadedCourse?.id === activeCourseId
+      ? courseHasRoster(loadedCourse)
+      : activeCourseKind === "lms")
+  const tabVisibility = resolveDocumentTabVisibility(
+    activeDocumentKind,
+    activeCourseKind,
+  )
+  const canShowGroupsTab = tabVisibility.groupsAssignments
+  const canShowAnalysisTab = tabVisibility.analysis
 
   // Load app settings on mount.
   useEffect(() => {
@@ -159,6 +187,17 @@ function AppShell() {
     setAppSettingsActiveTab,
     saveAppSettings,
   ])
+
+  useEffect(() => {
+    const supportedTab = resolveSupportedActiveTab(
+      activeTab,
+      activeDocumentKind,
+      activeCourseKind,
+    )
+    if (supportedTab !== activeTab) {
+      setActiveTab(supportedTab)
+    }
+  }, [activeDocumentKind, activeCourseKind, activeTab, setActiveTab])
 
   // Apply theme.
   useTheme(theme)
@@ -223,15 +262,17 @@ function AppShell() {
           >
             <CourseSwitcher />
           </div>
-          <TabsList className="app-no-drag">
-            {activeDocumentKind !== "analysis" && (
-              <>
+          {canShowAnalysisTab && (
+            <TabsList className="app-no-drag">
+              {canShowRosterTab && (
                 <TabsTrigger value="roster">Roster</TabsTrigger>
+              )}
+              {canShowGroupsTab && (
                 <TabsTrigger value="groups-assignments">Groups</TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          </TabsList>
+              )}
+              <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            </TabsList>
+          )}
           <div className="flex-1" />
           <div className="app-no-drag flex items-center gap-1 pr-2">
             <Tooltip>

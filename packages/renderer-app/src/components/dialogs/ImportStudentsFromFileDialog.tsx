@@ -1,3 +1,4 @@
+import { courseHasRoster } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,
@@ -56,6 +57,10 @@ export function ImportStudentsFromFileDialog() {
     if (!fileRef) return
     if (!course) {
       setError("No course loaded")
+      return
+    }
+    if (!courseHasRoster(course)) {
+      setError("RepoBee courses do not support roster imports")
       return
     }
 

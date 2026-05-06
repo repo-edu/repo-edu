@@ -32,6 +32,7 @@ import {
   resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import {
+  courseSupportsLms,
   type EnrollmentType,
   enrollmentTypeKinds,
   type GroupSetImportFormat,
@@ -180,6 +181,15 @@ export function resolveLmsDraft(
   course: PersistedCourse,
   settings: PersistedAppSettings,
 ): LmsConnectionDraft {
+  if (!courseSupportsLms(course)) {
+    throw createValidationAppError("LMS workflow requires an LMS course.", [
+      {
+        path: "course.courseKind",
+        message: "RepoBee courses do not support LMS workflows.",
+      },
+    ])
+  }
+
   if (course.lmsConnectionName === null) {
     throw {
       type: "not-found",

@@ -185,6 +185,7 @@ describe("validatePersistedAppSettings", () => {
 describe("validatePersistedCourse", () => {
   const validProfile = {
     kind: "repo-edu.course.v1",
+    courseKind: "lms",
     searchFolder: null,
     analysisInputs: {},
     revision: 0,
@@ -218,6 +219,16 @@ describe("validatePersistedCourse", () => {
     if (result.ok) {
       assert.equal(result.value.id, "prof-1")
       assert.equal(result.value.displayName, "Test Course")
+    }
+  })
+
+  it("rejects courses without an explicit courseKind", () => {
+    const { courseKind: _, ...withoutCourseKind } = validProfile
+    void _
+    const result = validatePersistedCourse(withoutCourseKind)
+    assert.equal(result.ok, false)
+    if (!result.ok) {
+      assert.ok(result.issues.some((issue) => issue.path === "courseKind"))
     }
   })
 

@@ -1,4 +1,8 @@
-import type { GroupSet, GroupSetImportFormat } from "@repo-edu/domain/types"
+import {
+  courseSupportsLms,
+  type GroupSet,
+  type GroupSetImportFormat,
+} from "@repo-edu/domain/types"
 import {
   cn,
   DropdownMenu,
@@ -82,6 +86,7 @@ function buildGroupSetActions(
     setDeleteGroupSetTargetId: (id: string | null) => void
     setNewAssignmentDialogOpen: (open: boolean) => void
     setPreSelectedGroupSetId: (id: string | null) => void
+    allowLmsActions: boolean
   },
 ) {
   const groupSetId = groupSet.id
@@ -105,9 +110,10 @@ function buildGroupSetActions(
     onStartRename: isNameEditable
       ? () => setters.setRenameGroupSetTriggerId(groupSetId)
       : undefined,
-    onSync: isLms
-      ? withSelect(() => setters.setSyncGroupSetTriggerId(groupSetId))
-      : undefined,
+    onSync:
+      isLms && setters.allowLmsActions
+        ? withSelect(() => setters.setSyncGroupSetTriggerId(groupSetId))
+        : undefined,
     onReimport: isImported
       ? withSelect(() => setters.setReimportGroupSetTargetId(groupSetId))
       : undefined,
@@ -221,6 +227,7 @@ export function GroupsAssignmentsSidebar({
   const setPreSelectedGroupSetId = useUiStore((s) => s.setPreSelectedGroupSetId)
 
   const course = useCourseStore((s) => s.course)
+  const allowLmsActions = course !== null && courseSupportsLms(course)
   const addToast = useToastStore((s) => s.addToast)
 
   const onExportGroupSet = useCallback(
@@ -243,6 +250,7 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
       setPreSelectedGroupSetId,
+      allowLmsActions,
     }),
     [
       setRenameGroupSetTriggerId,
@@ -253,6 +261,7 @@ export function GroupsAssignmentsSidebar({
       setDeleteGroupSetTargetId,
       setNewAssignmentDialogOpen,
       setPreSelectedGroupSetId,
+      allowLmsActions,
     ],
   )
 
@@ -294,8 +303,6 @@ export function GroupsAssignmentsSidebar({
         : set.teams.length > 0,
     )
   }, [systemSets, roster])
-
-  const hasAnyGroupSets = allGroupSets.length > 0
 
   const groupCountByGroupSetId = useMemo(() => {
     const map = new Map<string, number>()
@@ -348,10 +355,18 @@ export function GroupsAssignmentsSidebar({
     () => buildRows(sortedConnected),
     [buildRows, sortedConnected],
   )
+  const visibleConnectedRows = useMemo(
+    () => (allowLmsActions ? connectedRows : []),
+    [allowLmsActions, connectedRows],
+  )
   const localRows = useMemo(
     () => buildRows(sortedLocal),
     [buildRows, sortedLocal],
   )
+  const hasAnyVisibleGroupSets =
+    (hasSystemGroups && systemRows.length > 0) ||
+    visibleConnectedRows.length > 0 ||
+    localRows.length > 0
 
   const navigationItems = useMemo(() => {
     const items: NavigationItem[] = []
@@ -365,10 +380,18 @@ export function GroupsAssignmentsSidebar({
     }
 
     if (hasSystemGroups) appendRows(systemRows)
-    if (hasLmsConnection || connectedRows.length > 0) appendRows(connectedRows)
+    if (hasLmsConnection || visibleConnectedRows.length > 0) {
+      appendRows(visibleConnectedRows)
+    }
     appendRows(localRows)
     return items
-  }, [systemRows, connectedRows, localRows, hasSystemGroups, hasLmsConnection])
+  }, [
+    systemRows,
+    visibleConnectedRows,
+    localRows,
+    hasSystemGroups,
+    hasLmsConnection,
+  ])
 
   const activeItemId = useMemo(() => {
     const selectedItemId = selectionToItemId(selection)
@@ -451,44 +474,45 @@ export function GroupsAssignmentsSidebar({
         </div>
       )}
 
-      {(hasLmsConnection || connectedRows.length > 0) && (
-        <div className="px-1">
-          <SectionHeader
-            action={
-              <button
-                type="button"
-                className={cn(
-                  "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
-                  "text-muted-foreground hover:bg-muted/50 transition-colors",
-                )}
-                onClick={onConnectGroupSet}
+      {allowLmsActions &&
+        (hasLmsConnection || visibleConnectedRows.length > 0) && (
+          <div className="px-1">
+            <SectionHeader
+              action={
+                <button
+                  type="button"
+                  className={cn(
+                    "h-6 w-6 rounded-md inline-flex items-center justify-center shrink-0",
+                    "text-muted-foreground hover:bg-muted/50 transition-colors",
+                  )}
+                  onClick={onConnectGroupSet}
+                  disabled={isOperationActive}
+                  aria-label="Add LMS group set"
+                  title="Add LMS group set"
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              }
+            >
+              LMS Group Sets
+            </SectionHeader>
+            {visibleConnectedRows.length > 0 && (
+              <GroupSetList
+                rows={visibleConnectedRows}
+                selection={selection}
+                activeItemId={activeItemId}
+                editingGroupSetId={editingGroupSetId}
+                busyGroupSetId={busyGroupSetId}
                 disabled={isOperationActive}
-                aria-label="Add LMS group set"
-                title="Add LMS group set"
-              >
-                <Plus className="size-3.5" />
-              </button>
-            }
-          >
-            LMS Group Sets
-          </SectionHeader>
-          {connectedRows.length > 0 && (
-            <GroupSetList
-              rows={connectedRows}
-              selection={selection}
-              activeItemId={activeItemId}
-              editingGroupSetId={editingGroupSetId}
-              busyGroupSetId={busyGroupSetId}
-              disabled={isOperationActive}
-              onSelect={onSelect}
-              onKeyDown={handleKeyDown}
-              onRenameSubmit={handleRenameSubmit}
-              onRenameCancel={handleRenameCancel}
-              actionSetters={actionSetters}
-            />
-          )}
-        </div>
-      )}
+                onSelect={onSelect}
+                onKeyDown={handleKeyDown}
+                onRenameSubmit={handleRenameSubmit}
+                onRenameCancel={handleRenameCancel}
+                actionSetters={actionSetters}
+              />
+            )}
+          </div>
+        )}
 
       <div className="px-1">
         <SectionHeader
@@ -553,9 +577,11 @@ export function GroupsAssignmentsSidebar({
         )}
       </div>
 
-      {!hasAnyGroupSets && (
+      {!hasAnyVisibleGroupSets && (
         <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-          Create a local group set, import from file, or sync from LMS.
+          {allowLmsActions
+            ? "Create a local group set, import from file, or sync from LMS."
+            : "Import unnamed teams from TXT or create a local group set."}
         </div>
       )}
     </div>

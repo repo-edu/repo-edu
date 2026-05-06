@@ -1,3 +1,4 @@
+import { courseHasRoster } from "@repo-edu/domain/types"
 import {
   Button,
   Dialog,
@@ -19,6 +20,8 @@ export function UsernameVerificationDialog() {
   )
 
   const students = useCourseStore(selectStudents)
+  const course = useCourseStore((state) => state.course)
+  const hasRoster = course !== null && courseHasRoster(course)
 
   const summary = useMemo(() => {
     let valid = 0
@@ -61,25 +64,33 @@ export function UsernameVerificationDialog() {
           <DialogTitle>Git Username Verification</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <Text className="text-sm text-muted-foreground">
-            Username verification is performed as part of Git username import in
-            the current workflow surface.
-          </Text>
+          {hasRoster ? (
+            <Text className="text-sm text-muted-foreground">
+              Username verification is performed as part of Git username import
+              in the current workflow surface.
+            </Text>
+          ) : (
+            <Text className="text-sm text-muted-foreground">
+              RepoBee courses do not use roster Git username verification.
+            </Text>
+          )}
           <div className="rounded-md border px-3 py-2 text-sm space-y-1">
             <div>{summary.valid} valid</div>
             <div>{summary.invalid} invalid</div>
             <div>{summary.unknown} unknown</div>
             <div>{summary.missing} missing username</div>
           </div>
-          <Text className="text-xs text-muted-foreground">
-            Re-import a username CSV to refresh verification status.
-          </Text>
+          {hasRoster && (
+            <Text className="text-xs text-muted-foreground">
+              Re-import a username CSV to refresh verification status.
+            </Text>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Close
           </Button>
-          <Button onClick={handleOpenImport}>Open Import</Button>
+          {hasRoster && <Button onClick={handleOpenImport}>Open Import</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

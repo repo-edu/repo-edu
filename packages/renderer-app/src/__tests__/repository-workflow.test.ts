@@ -19,6 +19,7 @@ const template: RepositoryTemplate = {
 
 const course: PersistedCourse = {
   kind: "repo-edu.course.v1",
+  courseKind: "lms",
   revision: 0,
   id: "course-1",
   displayName: "Course 1",

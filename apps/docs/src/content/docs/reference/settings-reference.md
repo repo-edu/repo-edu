@@ -41,6 +41,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
+| `courseKind` | `"lms" \| "repobee"` | Course capability discriminator |
 | `id` | `string` | Unique course identifier |
 | `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |
