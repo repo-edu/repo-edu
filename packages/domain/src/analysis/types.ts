@@ -202,7 +202,6 @@ export type AuthorDailyActivity = {
   commits: number
   insertions: number
   deletions: number
-  netLines: number
 }
 
 // ---------------------------------------------------------------------------

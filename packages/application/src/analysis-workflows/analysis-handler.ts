@@ -523,7 +523,6 @@ function buildAuthorDailyActivity(
       commits: Set<string>
       insertions: number
       deletions: number
-      netLines: number
     }
   >()
 
@@ -547,7 +546,6 @@ function buildAuthorDailyActivity(
       existing.commits.add(commit.sha)
       existing.insertions += insertions
       existing.deletions += deletions
-      existing.netLines += insertions - deletions
       continue
     }
     rowsByKey.set(key, {
@@ -556,7 +554,6 @@ function buildAuthorDailyActivity(
       commits: new Set([commit.sha]),
       insertions,
       deletions,
-      netLines: insertions - deletions,
     })
   }
 
@@ -567,7 +564,6 @@ function buildAuthorDailyActivity(
       commits: row.commits.size,
       insertions: row.insertions,
       deletions: row.deletions,
-      netLines: row.netLines,
     }))
     .sort(
       (a, b) =>

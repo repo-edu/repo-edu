@@ -57,14 +57,15 @@ function metricLabel(metric: AnalysisActiveMetric): string {
   }
 }
 
-function cumulativeLabel(metric: AnalysisActiveMetric): string {
-  if (metric === "linesOfCode") return "Cumulative Net Lines"
+type DailyMetric = Exclude<AnalysisActiveMetric, "linesOfCode">
+
+function cumulativeLabel(metric: DailyMetric): string {
   return `Cumulative ${metricLabel(metric)}`
 }
 
 function metricFromDaily(
   row: AuthorDailyActivity,
-  metric: AnalysisActiveMetric,
+  metric: DailyMetric,
 ): number {
   switch (metric) {
     case "commits":
@@ -73,8 +74,6 @@ function metricFromDaily(
       return row.insertions
     case "deletions":
       return row.deletions
-    case "linesOfCode":
-      return row.netLines
   }
 }
 
@@ -131,31 +130,41 @@ export function AuthorCharts({
     return nameById.get(personId) ?? personId
   }
 
+  const dailyMetric: DailyMetric | null =
+    activeMetric === "linesOfCode" ? null : activeMetric
+
   const dailyBarData = useMemo(() => {
+    if (dailyMetric === null) return []
     const byDate = new Map<string, Record<string, number>>()
     for (const row of dailyActivity) {
       if (!nameById.has(row.personId)) continue
       const point = byDate.get(row.date) ?? {}
       point[row.personId] =
-        (point[row.personId] ?? 0) + metricFromDaily(row, activeMetric)
+        (point[row.personId] ?? 0) + metricFromDaily(row, dailyMetric)
       byDate.set(row.date, point)
     }
 
     return [...byDate.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, values]) => ({ date, ...values }))
-  }, [activeMetric, dailyActivity, nameById])
+  }, [dailyMetric, dailyActivity, nameById])
 
   const { cumulativeData, cumulativeTickDates, cumulativeChangeIndices } =
     useMemo(() => {
+      if (dailyMetric === null) {
+        return {
+          cumulativeData: [] as Record<string, number | string>[],
+          cumulativeTickDates: [] as string[],
+          cumulativeChangeIndices: new Map<string, Set<number>>(),
+        }
+      }
       const byDateAuthor = new Map<string, Map<string, number>>()
       for (const row of dailyActivity) {
         if (!nameById.has(row.personId)) continue
         const byAuthor = byDateAuthor.get(row.date) ?? new Map<string, number>()
         byAuthor.set(
           row.personId,
-          (byAuthor.get(row.personId) ?? 0) +
-            metricFromDaily(row, activeMetric),
+          (byAuthor.get(row.personId) ?? 0) + metricFromDaily(row, dailyMetric),
         )
         byDateAuthor.set(row.date, byAuthor)
       }
@@ -186,7 +195,7 @@ export function AuthorCharts({
         cumulativeTickDates: dates,
         cumulativeChangeIndices: changes,
       }
-    }, [activeMetric, authorIdsByLoc, dailyActivity, nameById])
+    }, [dailyMetric, authorIdsByLoc, dailyActivity, nameById])
 
   const pieData = useMemo(
     () =>
@@ -205,7 +214,13 @@ export function AuthorCharts({
 
   return (
     <div className="space-y-4 p-3 text-foreground">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div
+        className={
+          dailyMetric === null
+            ? "grid grid-cols-1 gap-4"
+            : "grid grid-cols-1 xl:grid-cols-2 gap-4"
+        }
+      >
         <div className="min-h-[170px]">
           <ResponsiveContainer width="100%" height={170}>
             <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -240,16 +255,68 @@ export function AuthorCharts({
           </ResponsiveContainer>
         </div>
 
-        <div className="min-h-[260px]">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={dailyBarData}>
+        {dailyMetric !== null && (
+          <div className="min-h-[260px]">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={dailyBarData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  ticks={cumulativeTickDates}
+                  tick={{ fontSize: 11, fill: "currentColor" }}
+                />
+                <YAxis tick={{ fontSize: 11, fill: "currentColor" }} />
+                <Tooltip
+                  formatter={(value, key) => [
+                    formatCount(Number(value)),
+                    nameById.get(String(key)) ?? String(key),
+                  ]}
+                  labelFormatter={(label) => `Date: ${String(label)}`}
+                />
+                <Legend
+                  itemSorter={legendItemSorter}
+                  formatter={legendFormatter}
+                />
+                {authorIdsByLoc.map((personId) => (
+                  <Bar
+                    key={personId}
+                    dataKey={personId}
+                    stackId="daily"
+                    isAnimationActive={false}
+                    fill={colors.get(personId) ?? "#888"}
+                    name={personId}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {dailyMetric !== null && (
+        <div className="min-h-[280px]">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={cumulativeData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
                 ticks={cumulativeTickDates}
+                scale="band"
                 tick={{ fontSize: 11, fill: "currentColor" }}
               />
-              <YAxis tick={{ fontSize: 11, fill: "currentColor" }} />
+              <YAxis
+                tick={{ fontSize: 11, fill: "currentColor" }}
+                label={{
+                  value: cumulativeLabel(dailyMetric),
+                  angle: -90,
+                  position: "insideLeft",
+                  style: {
+                    fill: "currentColor",
+                    fontSize: 11,
+                    textAnchor: "middle",
+                  },
+                }}
+              />
               <Tooltip
                 formatter={(value, key) => [
                   formatCount(Number(value)),
@@ -262,91 +329,46 @@ export function AuthorCharts({
                 formatter={legendFormatter}
               />
               {authorIdsByLoc.map((personId) => (
-                <Bar
+                <Line
                   key={personId}
+                  type="stepAfter"
                   dataKey={personId}
-                  stackId="daily"
+                  stroke={colors.get(personId) ?? "#888"}
+                  strokeWidth={3}
+                  dot={(dotProps) => {
+                    const { cx, cy, index, key } = dotProps as {
+                      cx?: number
+                      cy?: number
+                      index?: number
+                      key?: React.Key | null
+                    }
+                    const reactKey = key ?? `dot-${personId}-${index ?? "x"}`
+                    if (
+                      index === undefined ||
+                      cx === undefined ||
+                      cy === undefined ||
+                      !cumulativeChangeIndices.get(personId)?.has(index)
+                    ) {
+                      return <g key={reactKey} />
+                    }
+                    return (
+                      <circle
+                        key={reactKey}
+                        cx={cx}
+                        cy={cy}
+                        r={4}
+                        fill={colors.get(personId) ?? "#888"}
+                      />
+                    )
+                  }}
                   isAnimationActive={false}
-                  fill={colors.get(personId) ?? "#888"}
                   name={personId}
                 />
               ))}
-            </BarChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
-
-      <div className="min-h-[280px]">
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={cumulativeData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="date"
-              ticks={cumulativeTickDates}
-              scale="band"
-              tick={{ fontSize: 11, fill: "currentColor" }}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "currentColor" }}
-              label={{
-                value: cumulativeLabel(activeMetric),
-                angle: -90,
-                position: "insideLeft",
-                style: {
-                  fill: "currentColor",
-                  fontSize: 11,
-                  textAnchor: "middle",
-                },
-              }}
-            />
-            <Tooltip
-              formatter={(value, key) => [
-                formatCount(Number(value)),
-                nameById.get(String(key)) ?? String(key),
-              ]}
-              labelFormatter={(label) => `Date: ${String(label)}`}
-            />
-            <Legend itemSorter={legendItemSorter} formatter={legendFormatter} />
-            {authorIdsByLoc.map((personId) => (
-              <Line
-                key={personId}
-                type="stepAfter"
-                dataKey={personId}
-                stroke={colors.get(personId) ?? "#888"}
-                strokeWidth={3}
-                dot={(dotProps) => {
-                  const { cx, cy, index, key } = dotProps as {
-                    cx?: number
-                    cy?: number
-                    index?: number
-                    key?: React.Key | null
-                  }
-                  const reactKey = key ?? `dot-${personId}-${index ?? "x"}`
-                  if (
-                    index === undefined ||
-                    cx === undefined ||
-                    cy === undefined ||
-                    !cumulativeChangeIndices.get(personId)?.has(index)
-                  ) {
-                    return <g key={reactKey} />
-                  }
-                  return (
-                    <circle
-                      key={reactKey}
-                      cx={cx}
-                      cy={cy}
-                      r={4}
-                      fill={colors.get(personId) ?? "#888"}
-                    />
-                  )
-                }}
-                isAnimationActive={false}
-                name={personId}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      )}
     </div>
   )
 }
