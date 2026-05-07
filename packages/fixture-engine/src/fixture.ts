@@ -712,17 +712,20 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
     : FIXTURE_SWEEP_FILE()
   const sweep = loadSweepFile(sweepPath)
   const from = resolveSweepFrom(opts, sweep.phase)
-  const total = sweep.sweptValues.length
+  const total = sweep.variants.length
+  const sweptLabel = sweep.sweptKeys.join(",")
+  const variantLabel = (v: Partial<Settings>): string =>
+    sweep.sweptKeys.map((k) => `${k}=${JSON.stringify(v[k])}`).join(" ")
 
   if (from.kind === "project") {
     progress(
       `sweep: project "${from.project.name}" from ${from.projectPath}; ` +
-        `${sweep.phase}-phase key "${sweep.sweptKey}" × ${total} value(s)`,
+        `${sweep.phase}-phase key(s) "${sweptLabel}" × ${total} variant(s)`,
     )
   } else {
     progress(
       `sweep: existing plan ${from.planDir} (project "${from.project.name}"); ` +
-        `${sweep.phase}-phase key "${sweep.sweptKey}" × ${total} value(s)`,
+        `${sweep.phase}-phase key(s) "${sweptLabel}" × ${total} variant(s)`,
     )
   }
 
@@ -733,11 +736,10 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       fail("internal: plan-phase sweep reached repo-phase from-resolution")
     }
     for (let i = 0; i < total; i++) {
-      const value = sweep.sweptValues[i]
+      const variant = sweep.variants[i]
       const entrySettings = materializeSettings(
         sweep.baseSettings,
-        sweep.sweptKey,
-        value,
+        variant,
         `${sweepPath}[${i}]`,
       )
       const variantPlannerSpec = parseShortCode(entrySettings.mp, "mp")
@@ -754,14 +756,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
-          `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+          `sweep: variant ${i + 1}/${total} — ${variantLabel(variant)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
         )
         continue
       }
       if (i > 0) process.stderr.write("\n")
-      progress(
-        `sweep: variant ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
-      )
+      progress(`sweep: variant ${i + 1}/${total} — ${variantLabel(variant)}`)
       // Planner phase first: cap here cannot write a per-repo marker, so the
       // sweep aborts with the error.
       const planned = await archivePlanForEntry(
@@ -800,11 +800,10 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
     }
   } else if (from.kind === "plan") {
     for (let i = 0; i < total; i++) {
-      const value = sweep.sweptValues[i]
+      const variant = sweep.variants[i]
       const entrySettings = materializeSettings(
         sweep.baseSettings,
-        sweep.sweptKey,
-        value,
+        variant,
         `${sweepPath}[${i}]`,
       )
       const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
@@ -815,14 +814,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
-          `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+          `sweep: repo ${i + 1}/${total} — ${variantLabel(variant)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
         )
         continue
       }
       if (i > 0) process.stderr.write("\n")
-      progress(
-        `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
-      )
+      progress(`sweep: repo ${i + 1}/${total} — ${variantLabel(variant)}`)
       try {
         await runRepoForExistingPlan(
           from,
@@ -848,12 +845,11 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
   } else {
     const firstSettings = materializeSettings(
       sweep.baseSettings,
-      sweep.sweptKey,
-      sweep.sweptValues[0],
+      sweep.variants[0],
       `${sweepPath}[0]`,
     )
     progress(
-      `sweep: planning once for ${total} repo variant(s); base ${sweep.sweptKey}=${JSON.stringify(sweep.sweptValues[0])}`,
+      `sweep: planning once for ${total} repo variant(s); base ${variantLabel(sweep.variants[0])}`,
     )
     const { plan, planDir, plannerUsage } = await archivePlanForEntry(
       from.project,
@@ -863,11 +859,10 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       runStart,
     )
     for (let i = 0; i < total; i++) {
-      const value = sweep.sweptValues[i]
+      const variant = sweep.variants[i]
       const entrySettings = materializeSettings(
         sweep.baseSettings,
-        sweep.sweptKey,
-        value,
+        variant,
         `${sweepPath}[${i}]`,
       )
       const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
@@ -878,14 +873,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
-          `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
+          `sweep: repo ${i + 1}/${total} — ${variantLabel(variant)} skipped (bucket ${bucketLabel(blocking)} ${blocking.kind})`,
         )
         continue
       }
       if (i > 0) process.stderr.write("\n")
-      progress(
-        `sweep: repo ${i + 1}/${total} — ${sweep.sweptKey}=${JSON.stringify(value)}`,
-      )
+      progress(`sweep: repo ${i + 1}/${total} — ${variantLabel(variant)}`)
       try {
         await runRepoForEntry(
           from.project,

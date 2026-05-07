@@ -127,12 +127,21 @@ most demos, 3 = the lead rotates each demo.
 
 ## refactor-heavy
 
-Build rounds alternate between adding capability and refactoring
-recent work in place. Roughly half the build commits add new
-behaviour; the other half rename, extract helpers, split modules,
-or move responsibilities without changing observable behaviour.
-Refactor notes use "extract X", "rename Y", "split Z into ...",
-"move W to ..." language and don't introduce new features.
+Build rounds follow a 2:1 cadence: two capability rounds, then one
+refactor round, repeating. Capability commits add new behaviour with
+"add X" / "implement Y" notes; refactor commits rename, extract
+helpers, split modules, or move responsibilities without changing
+observable behaviour, and use "extract X", "rename Y",
+"split Z into ...", "move W to ..." language. A refactor round
+reworks code introduced in the preceding capability rounds, not
+arbitrary earlier code. Unlike `spike-and-stabilize`, cleanup is
+interleaved throughout rather than concentrated after a front-loaded
+prototype.
+
+Refactor rounds may introduce new files when a split or extraction
+calls for them, but may not introduce new top-level `team[i].module`
+entries — only capability rounds do that. Refactor commits may span
+modules even when capability commits don't.
 
 Round 1 adds a normal-sized initial capability — there is no
 whole-system scaffolding round. All build rounds, capability and

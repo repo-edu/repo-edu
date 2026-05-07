@@ -41,8 +41,11 @@ describe("loadSweepFile — phase classification", () => {
     const path = stageSweep("p.jsonc", { style: ["incremental", "big-bang"] })
     const sweep = loadSweepFile(path)
     assert.equal(sweep.phase, "plan")
-    assert.equal(sweep.sweptKey, "style")
-    assert.deepEqual(sweep.sweptValues, ["incremental", "big-bang"])
+    assert.deepEqual(sweep.sweptKeys, ["style"])
+    assert.deepEqual(sweep.variants, [
+      { style: "incremental" },
+      { style: "big-bang" },
+    ])
   })
 
   test("mc is repo-phase", () => {
@@ -53,7 +56,7 @@ describe("loadSweepFile — phase classification", () => {
     })
     const sweep = loadSweepFile(path)
     assert.equal(sweep.phase, "repo")
-    assert.equal(sweep.sweptKey, "mc")
+    assert.deepEqual(sweep.sweptKeys, ["mc"])
   })
 
   test("every plan-phase key classifies as plan", () => {
@@ -81,6 +84,16 @@ describe("loadSweepFile — phase classification", () => {
       })
       assert.equal(loadSweepFile(path).phase, "repo", `${key} should be repo`)
     }
+  })
+
+  test("plan-phase + repo-phase mix classifies as plan", () => {
+    const path = stageSweep("p.jsonc", {
+      style: ["incremental", "big-bang"],
+      mc: ["22", "33"],
+    })
+    const sweep = loadSweepFile(path)
+    assert.equal(sweep.phase, "plan")
+    assert.deepEqual(sweep.sweptKeys, ["style", "mc"])
   })
 
   test("phase key sets are disjoint and exhaustive", () => {
@@ -140,16 +153,32 @@ describe("loadSweepFile — failures", () => {
     const path = stageSweep("p.jsonc", { style: "incremental" })
     assert.throws(
       () => loadSweepFile(path),
-      /must have exactly one list-valued key; found none/,
+      /must have at least one list-valued key; found none/,
     )
   })
 
-  test("multiple array keys", () => {
+  test("multiple array keys with same length zip into variants", () => {
     const path = stageSweep("p.jsonc", {
-      style: ["incremental"],
+      style: ["incremental", "big-bang"],
       mc: ["22", "33"],
     })
-    assert.throws(() => loadSweepFile(path), /found 2 \(style, mc\)/)
+    const sweep = loadSweepFile(path)
+    assert.deepEqual(sweep.sweptKeys, ["style", "mc"])
+    assert.deepEqual(sweep.variants, [
+      { style: "incremental", mc: "22" },
+      { style: "big-bang", mc: "33" },
+    ])
+  })
+
+  test("multiple array keys with mismatched lengths rejected", () => {
+    const path = stageSweep("p.jsonc", {
+      style: ["incremental", "big-bang"],
+      mc: ["22", "33", "23"],
+    })
+    assert.throws(
+      () => loadSweepFile(path),
+      /all list-valued keys must have the same length; got style=2, mc=3/,
+    )
   })
 
   test("empty array", () => {
@@ -206,22 +235,36 @@ describe("writeSweep — scaffolded default", () => {
     writeSweep(workDir)
     const sweep = loadSweepFile(resolve(workDir, ".fixture-sweep.jsonc"))
     assert.equal(sweep.phase, "plan")
-    assert.equal(sweep.sweptKey, "style")
-    assert.deepEqual(sweep.sweptValues, ["incremental", "vertical-slice"])
+    assert.deepEqual(sweep.sweptKeys, ["style"])
+    assert.deepEqual(sweep.variants, [
+      { style: "incremental" },
+      { style: "vertical-slice" },
+    ])
   })
 })
 
 describe("materializeSettings", () => {
   test("substitutes the swept value", () => {
-    const next = materializeSettings(HARDCODED_SETTINGS, "rounds", 9, "ref")
+    const next = materializeSettings(HARDCODED_SETTINGS, { rounds: 9 }, "ref")
     assert.equal(next.rounds, 9)
     assert.equal(next.style, HARDCODED_SETTINGS.style)
+  })
+
+  test("applies multiple overrides at once", () => {
+    const next = materializeSettings(
+      HARDCODED_SETTINGS,
+      { rounds: 9, style: "incremental", mc: "33" },
+      "ref",
+    )
+    assert.equal(next.rounds, 9)
+    assert.equal(next.style, "incremental")
+    assert.equal(next.mc, "33")
   })
 
   test("rejects reviews > rounds in materialized output", () => {
     const base: Settings = { ...HARDCODED_SETTINGS, rounds: 5, reviews: 0 }
     assert.throws(
-      () => materializeSettings(base, "reviews", 9, "ref"),
+      () => materializeSettings(base, { reviews: 9 }, "ref"),
       /reviews \(9\) must be ≤ rounds \(5\)/,
     )
   })
@@ -229,7 +272,7 @@ describe("materializeSettings", () => {
   test("does not mutate the input", () => {
     const base: Settings = { ...HARDCODED_SETTINGS }
     const before = { ...base }
-    materializeSettings(base, "rounds", 7, "ref")
+    materializeSettings(base, { rounds: 7 }, "ref")
     assert.deepEqual(base, before)
   })
 })

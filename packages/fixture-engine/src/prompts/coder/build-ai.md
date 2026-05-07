@@ -12,14 +12,20 @@ Edit the files and make it work.
 
 {{comments_directive}}
 
-When you're done, stage and commit with:
+You cannot run shell commands. Inspect with Read / Glob / Grep, edit
+with Edit / Write — do not try to run tests or any other Bash command.
+The coordinator commits your changes for you with the right author and
+date.
 
-```bash
-git -C {{abs_path}} add -A
-GIT_AUTHOR_NAME="{{persona_name}}" GIT_AUTHOR_EMAIL="{{persona_email}}" GIT_AUTHOR_DATE="{{commit_date}}" \
-GIT_COMMITTER_NAME="{{persona_name}}" GIT_COMMITTER_EMAIL="{{persona_email}}" GIT_COMMITTER_DATE="{{commit_date}}" \
-git -C {{abs_path}} commit -m "<your one-line message>"
+End your reply with a single trailer line:
+
+```text
+COMMIT: <short, imperative-mood subject ≤ 72 chars, no trailing period>
 ```
 
-Use a short, imperative-mood subject (≤ 72 chars, no trailing period).
-If there's nothing to commit, just say so and stop.
+If you want any files removed as part of this commit, add one
+`DELETE: <path>` line per file (paths relative to {{abs_path}}) before
+the `COMMIT:` line. The coordinator runs `git rm` on each before
+staging your edits.
+
+If there is nothing to commit, end with `COMMIT: -` instead.

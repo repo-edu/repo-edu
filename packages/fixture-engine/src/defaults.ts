@@ -8,11 +8,11 @@ import {
   DEFAULT_COMPLEXITY,
   DEFAULT_MC,
   DEFAULT_ME,
-  DEFAULT_MP,
   DEFAULT_REVIEWS,
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
   DEFAULT_STYLE,
+  defaultPlannerCodeForComplexity,
   FIXTURES_DIR,
   MAX_CODER_INTERACTION,
   MAX_COMMENTS,
@@ -52,7 +52,7 @@ export interface Settings {
 }
 
 export const HARDCODED_SETTINGS: Settings = {
-  mp: DEFAULT_MP,
+  mp: defaultPlannerCodeForComplexity(DEFAULT_COMPLEXITY),
   mc: DEFAULT_MC,
   me: DEFAULT_ME,
   aiCoders: DEFAULT_AI_CODERS,
@@ -227,8 +227,8 @@ export const EVALUATE_PHASE_KEYS = new Set<keyof Settings>(["me"])
 export type SweepPhase = "plan" | "repo"
 
 export interface SweepFile {
-  sweptKey: keyof Settings
-  sweptValues: Settings[keyof Settings][]
+  sweptKeys: (keyof Settings)[]
+  variants: Partial<Settings>[]
   phase: SweepPhase
   baseSettings: Settings
 }
@@ -241,54 +241,69 @@ export function loadSweepFile(path: string): SweepFile {
   )
   if (arrayKeys.length === 0) {
     fail(
-      `${path}: sweep file must have exactly one list-valued key; found none`,
+      `${path}: sweep file must have at least one list-valued key; found none`,
     )
   }
-  if (arrayKeys.length > 1) {
+  for (const key of arrayKeys) {
+    if (EVALUATE_PHASE_KEYS.has(key)) {
+      fail(
+        `${path}: cannot sweep on "${key}" — evaluate-phase keys are not part of plan/repo runs`,
+      )
+    }
+    const list = obj[key] as unknown[]
+    if (list.length === 0) {
+      fail(`${path}: list for "${key}" must be non-empty`)
+    }
+  }
+  const lengths = arrayKeys.map((k) => (obj[k] as unknown[]).length)
+  const first = lengths[0]
+  if (lengths.some((l) => l !== first)) {
+    const detail = arrayKeys.map((k, i) => `${k}=${lengths[i]}`).join(", ")
     fail(
-      `${path}: sweep file must have exactly one list-valued key; found ${arrayKeys.length} (${arrayKeys.join(", ")})`,
+      `${path}: all list-valued keys must have the same length; got ${detail}`,
     )
   }
-  const sweptKey = arrayKeys[0]
-  const rawList = obj[sweptKey] as unknown[]
-  if (rawList.length === 0) {
-    fail(`${path}: list for "${sweptKey}" must be non-empty`)
-  }
-  if (EVALUATE_PHASE_KEYS.has(sweptKey)) {
-    fail(
-      `${path}: cannot sweep on "${sweptKey}" — evaluate-phase keys are not part of plan/repo runs`,
+  const validatedLists = new Map<keyof Settings, Settings[keyof Settings][]>()
+  for (const key of arrayKeys) {
+    const validated = (obj[key] as unknown[]).map((v, i) =>
+      validateValue(`${path}[${key}][${i}]`, key, v),
     )
+    validatedLists.set(key, validated)
   }
-  const sweptValues = rawList.map((v, i) =>
-    validateValue(`${path}[${sweptKey}][${i}]`, sweptKey, v),
-  )
+  const variants: Partial<Settings>[] = []
+  for (let i = 0; i < first; i++) {
+    const variant: Partial<Settings> = {}
+    for (const key of arrayKeys) {
+      ;(variant as Record<string, unknown>)[key] = validatedLists.get(key)?.[i]
+    }
+    variants.push(variant)
+  }
   const overrides: Partial<Settings> = {}
   for (const key of KNOWN_KEYS) {
-    if (key === sweptKey) continue
+    if (arrayKeys.includes(key)) continue
     const v = obj[key]
     if (v === undefined) continue
     if (Array.isArray(v)) continue // unreachable, guarded above
     ;(overrides as Record<string, unknown>)[key] = validateValue(path, key, v)
   }
   const baseSettings: Settings = { ...SETTINGS(), ...overrides }
-  const phase: SweepPhase = PLAN_PHASE_KEYS.has(sweptKey) ? "plan" : "repo"
-  if (phase === "plan") {
-    // reviews ≤ rounds will be checked per materialized variant
-  } else if (baseSettings.reviews > baseSettings.rounds) {
+  const phase: SweepPhase = arrayKeys.some((k) => PLAN_PHASE_KEYS.has(k))
+    ? "plan"
+    : "repo"
+  if (phase === "repo" && baseSettings.reviews > baseSettings.rounds) {
     fail(
       `${path}: reviews (${baseSettings.reviews}) must be ≤ rounds (${baseSettings.rounds})`,
     )
   }
-  return { sweptKey, sweptValues, phase, baseSettings }
+  return { sweptKeys: arrayKeys, variants, phase, baseSettings }
 }
 
-export function materializeSettings<K extends keyof Settings>(
+export function materializeSettings(
   base: Settings,
-  key: K,
-  value: Settings[K],
+  overrides: Partial<Settings>,
   ref: string,
 ): Settings {
-  const next: Settings = { ...base, [key]: value }
+  const next: Settings = { ...base, ...overrides }
   if (next.reviews > next.rounds) {
     fail(`${ref}: reviews (${next.reviews}) must be ≤ rounds (${next.rounds})`)
   }
@@ -302,12 +317,21 @@ export function materializeSettings<K extends keyof Settings>(
 let cachedSettings: Settings | null = null
 export function SETTINGS(): Settings {
   if (cachedSettings === null) {
-    cachedSettings = {
-      ...HARDCODED_SETTINGS,
-      ...parseSettingsFile(FIXTURE_SETTINGS_FILE()),
-    }
+    cachedSettings = mergeSettings(parseSettingsFile(FIXTURE_SETTINGS_FILE()))
   }
   return cachedSettings
+}
+
+// Merges a parsed settings file over the hardcoded defaults. When `mp` is
+// absent from the file, falls back to the complexity-tracking default rather
+// than the c1 hardcoded constant — so editing only `complexity` in the file
+// shifts the planner default to match.
+function mergeSettings(file: Partial<Settings>): Settings {
+  const merged = { ...HARDCODED_SETTINGS, ...file }
+  if (file.mp === undefined) {
+    merged.mp = defaultPlannerCodeForComplexity(merged.complexity)
+  }
+  return merged
 }
 
 export const SETTINGS_COMMENT_COL = 28
@@ -327,7 +351,8 @@ const SETTING_ITEMS: SettingItem[] = [
     kind: "row",
     key: "mp",
     value: (s) => `"${s.mp}"`,
-    comment: "project and planner model CODE",
+    comment: "project and planner model CODE; omit to track",
+    cont: [`complexity (c1-c2 → "31", c3-c4 → "33")`],
   },
   {
     kind: "row",
@@ -448,16 +473,18 @@ export function writeSettings(dir: string, settings: Settings): void {
 
 export const SWEEP_PREAMBLE = [
   "Sweep file — overrides .fixture-settings.jsonc for `fixture sweep`.",
-  "Exactly one key must hold an array (the swept axis). Every other",
-  "key must be a scalar (or absent, in which case it falls back to",
-  ".fixture-settings.jsonc).",
+  "One or more keys may hold an array; lists are zipped index-wise into",
+  "variants and must therefore share the same length. Any non-array key",
+  "is a scalar override applied to every variant (or absent, in which",
+  "case it falls back to .fixture-settings.jsonc).",
   "",
   "Plan-phase keys (mp, complexity, aiCoders, coderInteraction, style,",
   "students, rounds, reviews): --from=<project>; iterates plan+repo",
-  "per value (N plan dirs, one repo each).",
-  "Repo-phase keys (mc, comments): --from=<project>",
-  "plans once and iterates repos, or --from=<plan> reuses an existing",
-  "plan and skips planning.",
+  "per variant (N plan dirs, one repo each).",
+  "Repo-phase keys (mc, comments): --from=<project> plans once and",
+  "iterates repos, or --from=<plan> reuses an existing plan and skips",
+  "planning. A sweep mixing plan-phase and repo-phase keys is treated",
+  "as plan-phase (re-plans for every variant).",
   "Evaluate-phase keys (me) cannot be swept.",
 ]
 
@@ -475,8 +502,5 @@ export function writeSweep(dir: string): void {
 }
 
 export function readSettings(dir: string): Settings {
-  return {
-    ...HARDCODED_SETTINGS,
-    ...parseSettingsFile(resolve(dir, SETTINGS_BASENAME)),
-  }
+  return mergeSettings(parseSettingsFile(resolve(dir, SETTINGS_BASENAME)))
 }

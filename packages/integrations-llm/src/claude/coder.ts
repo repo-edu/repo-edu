@@ -9,7 +9,11 @@ import type { TraceSink } from "./trace"
 
 export const CLAUDE_CODER_DEFAULT_MAX_TURNS = 50
 
-const CODER_TOOL_LIST = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+// Bash is intentionally absent: the coder must inspect with Read/Glob/Grep
+// and edit with Edit/Write only. The fixture-engine coordinator turns the
+// resulting working-tree changes into a commit using a `COMMIT:` trailer
+// the model emits at the end of its reply.
+const CODER_TOOL_LIST = ["Read", "Write", "Edit", "Glob", "Grep"]
 
 export type ClaudeCoderRequest = {
   spec: LlmModelSpec

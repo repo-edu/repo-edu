@@ -2,9 +2,18 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 // Default model codes — resolved against @repo-edu/integrations-llm-catalog.
-export const DEFAULT_MP = "35"
+// `mp` has no scalar default: when the settings file lacks `mp`, it falls
+// back to `defaultPlannerCodeForComplexity` below.
 export const DEFAULT_MC = "22"
 export const DEFAULT_ME = "35"
+
+// Planner-model defaults track project complexity. C1-C2 plans don't benefit
+// from extra reasoning effort (the structure is small; low effort already
+// produces clean, well-targeted notes); C3-C4 do. Output cost scales nearly
+// linearly with effort.
+export function defaultPlannerCodeForComplexity(c: number): string {
+  return c >= 3 ? "33" : "31"
+}
 
 // Mode
 export const DEFAULT_AI_CODERS = true

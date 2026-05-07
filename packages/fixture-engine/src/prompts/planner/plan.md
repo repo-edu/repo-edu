@@ -68,13 +68,25 @@ Rules:
 - For each slot whose kind is "review", the note re-examines recent
   work rather than adds a feature ("take another look at the parser,
   clean up rough edges", "look over the CSV import and fix anything
-  that feels off"). Assign every review slot to an author different
-  from the one who wrote the immediately preceding build slot — a
-  teammate looking over someone else's work, not the original author.
+  that feels off"). Pick a clear target — usually one or two recent
+  build slots — and word the note so it points at that area. The
+  review's author_index must differ from the author_index of every
+  targeted build slot: a reviewer never re-examines their own
+  commits. (S=1 exception: with one coder this is impossible, so
+  reviews stay on author 0 and read as a self-check.)
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.
 - No file lists, no file-count caps, no planned error/fix pairs: the
   Coder decides file structure, and planted errors harm realism.
+- Tests are fine when scoped to the feature being added (see the
+  test-driven style), but never plan a round whose goal is to
+  guarantee correctness across the project. Notes must not ask the
+  Coder to chase green tests, fix all failures, iterate until
+  everything passes, or "make sure everything works end-to-end" —
+  such rounds balloon into expensive multi-module sweeps. The Coder
+  writes one coherent change per round and moves on; failing tests
+  left behind are realistic, not something to drive a verification
+  round around.
 
 Output only the JSON object.

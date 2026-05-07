@@ -66,10 +66,22 @@ Rules:
 - Emit exactly {{planned_count}} commits in ascending date order. Slot i
   takes its kind from entry i of the Kind sequence above; you do not
   emit kind, but the slot's kind shapes note/message.
-- For "review" slots, note asks the coder to recheck recent work; the
-  author must differ from the author of the immediately preceding build
-  slot.
+- For "review" slots, the note targets specific recent work (one or
+  two earlier build slots) and asks the coder to recheck it. The
+  review's author_index must differ from the author_index of every
+  build slot the note targets — a reviewer never re-examines their
+  own commits. (S=1 exception: with one coder this is impossible, so
+  reviews stay on author 0 and read as a self-check.)
 - "note" is the round goal (fed to the Coder). "message" is a fallback
   commit message used only if the Coder doesn't return one.
+- Tests are fine when scoped to the feature being added (see the
+  test-driven style), but never plan a round whose goal is to
+  guarantee correctness across the project. Notes must not ask the
+  Coder to chase green tests, fix all failures, iterate until
+  everything passes, or "make sure everything works end-to-end" —
+  such rounds balloon into expensive multi-module sweeps. The Coder
+  writes one coherent change per round and moves on; failing tests
+  left behind are realistic, not something to drive a verification
+  round around.
 
 Output only the JSON object.

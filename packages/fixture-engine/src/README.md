@@ -40,7 +40,7 @@ plan folder:
 ```text
 ../fixtures/
 ├─ .fixture-settings.jsonc          # actual values from the most recent run
-├─ .fixture-sweep.jsonc             # optional sweep spec (one list-valued key)
+├─ .fixture-sweep.jsonc             # optional sweep spec (one or more list-valued keys, zipped)
 ├─ .fixture-state.json              # last project + plan pointers (auto-managed)
 └─ c<N>-<name>/                     # one folder per project
    ├─ project.md                    # first; regenerations → project-v2.md, ...
@@ -215,16 +215,18 @@ The full prompt fragments live at [prompts/planner/style.md](prompts/planner/sty
 
 ## Sweep mode
 
-`fixture sweep` iterates plan and/or repo generation across the values
-of one list-valued setting. The sweep file mirrors
-`.fixture-settings.jsonc` exactly, except **one** key may hold a
-JSON array (the swept axis). Every other key must be a scalar (or
-absent, in which case the value falls back to
-`.fixture-settings.jsonc`). The single-list cap is intentional: it
-keeps cost predictable and side-steps cartesian-product blow-ups.
+`fixture sweep` iterates plan and/or repo generation across the
+variants defined by a sweep file. The sweep file mirrors
+`.fixture-settings.jsonc` exactly, except one or more keys may hold a
+JSON array. Lists are **zipped index-wise** into variants and must
+therefore share the same length — there is no cartesian-product
+expansion. Every non-array key is a scalar override applied to every
+variant (or absent, in which case it falls back to
+`.fixture-settings.jsonc`).
 
-Behaviour follows from which phase the swept key belongs to **and**
-what `--from` points at:
+Behaviour follows from which phase the swept keys belong to **and**
+what `--from` points at. A sweep that mixes plan-phase and repo-phase
+keys is treated as plan-phase (a fresh plan per variant):
 
 - **Plan-phase key** (`mp`, `complexity`, `aiCoders`, `coderInteraction`,
   `style`, `students`, `rounds`, `reviews`):
@@ -276,7 +278,7 @@ The sweep file shape (plan-phase example):
     "reviews": 0,
     "mc": "22",
     "comments": 1,
-    "style": [           // exactly one key may be a list
+    "style": [           // one or more list-valued keys, zipped
         "big-bang", "incremental", "vertical-slice"
     ]
 }
