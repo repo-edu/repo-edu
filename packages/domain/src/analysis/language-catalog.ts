@@ -214,6 +214,11 @@ export const LANGUAGE_CATALOG = {
     extensions: ["tooldef"],
     comment: C_FAMILY,
   },
+  toml: {
+    label: "TOML",
+    extensions: ["toml"],
+    comment: { start: null, end: null, line: "#" },
+  },
   ts: {
     label: "TypeScript",
     extensions: ["ts", "mts", "cts"],
