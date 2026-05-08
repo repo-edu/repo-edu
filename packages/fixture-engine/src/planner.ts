@@ -23,6 +23,7 @@ export interface PlanGenOpts {
   rounds: number
   students: number
   reviews: number
+  refactors: number
   coderInteraction: number
   style: Style
 }
@@ -122,7 +123,9 @@ function validateProject(project: Project, complexity: number): void {
  * for level >= 2, when a build commit edits a file that already has authors,
  * pick the candidate author with the lowest commit count so far who hasn't
  * touched it yet. Reviews are left alone (they don't add lines and the
- * planner already cross-attributes them).
+ * planner already cross-attributes them). Refactors are also left alone:
+ * they deliberately span modules and the planner picks an author who didn't
+ * write the touched code, which is the cross-attribution we want.
  */
 export function redistributeAuthors(
   plan: Plan,
@@ -241,6 +244,15 @@ export async function generatePlan(
       }
     }
     prevAuthor = c.author_index
+    if (kind === "refactor") {
+      return {
+        date: c.date,
+        author_index: c.author_index,
+        kind,
+        note: c.note,
+        message: c.message,
+      }
+    }
     return { ...c, kind }
   })
   const plan: Plan = { team: raw.team, commits }

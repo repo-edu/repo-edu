@@ -31,6 +31,8 @@ export const MIN_CODER_INTERACTION = 1
 export const MAX_CODER_INTERACTION = 3
 export const DEFAULT_REVIEWS = 1
 export const MIN_REVIEWS = 0
+export const DEFAULT_REFACTORS = 0
+export const MIN_REFACTORS = 0
 
 // Canonical fixed text for review-slot notes and fallback messages. The
 // planner is instructed to emit these literals; planner.ts overwrites
@@ -50,7 +52,6 @@ export const STYLES = [
   "walking-skeleton",
   "spike-and-stabilize",
   "demo-driven",
-  "refactor-heavy",
 ] as const
 export type Style = (typeof STYLES)[number]
 export const DEFAULT_STYLE: Style = "incremental"
@@ -64,7 +65,6 @@ export const STYLE_CODE: Record<Style, string> = {
   "walking-skeleton": "walk",
   "spike-and-stabilize": "spik",
   "demo-driven": "demo",
-  "refactor-heavy": "rfct",
 }
 
 // Repo (coder)

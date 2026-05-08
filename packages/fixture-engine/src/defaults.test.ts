@@ -194,13 +194,30 @@ describe("loadSweepFile — failures", () => {
     assert.throws(() => loadSweepFile(path), /unknown key "wat"/)
   })
 
-  test("repo-phase: reviews > rounds rejected at base", () => {
+  test("repo-phase: reviews + refactors > rounds rejected at base", () => {
     const path = stageSweep("p.jsonc", {
       mc: ["22", "33"],
       rounds: 2,
       reviews: 5,
+      refactors: 0,
     })
-    assert.throws(() => loadSweepFile(path), /reviews \(5\) must be ≤ rounds/)
+    assert.throws(
+      () => loadSweepFile(path),
+      /reviews \+ refactors \(5 \+ 0\) must be ≤ rounds/,
+    )
+  })
+
+  test("repo-phase: reviews + refactors sum check catches overflow", () => {
+    const path = stageSweep("p.jsonc", {
+      mc: ["22", "33"],
+      rounds: 4,
+      reviews: 3,
+      refactors: 2,
+    })
+    assert.throws(
+      () => loadSweepFile(path),
+      /reviews \+ refactors \(3 \+ 2\) must be ≤ rounds \(4\)/,
+    )
   })
 
   test("plan-phase: reviews > rounds at base is deferred (not raised here)", () => {
@@ -259,11 +276,29 @@ describe("materializeSettings", () => {
     assert.equal(next.mc, "33")
   })
 
-  test("rejects reviews > rounds in materialized output", () => {
-    const base: Settings = { ...HARDCODED_SETTINGS, rounds: 5, reviews: 0 }
+  test("rejects reviews + refactors > rounds in materialized output", () => {
+    const base: Settings = {
+      ...HARDCODED_SETTINGS,
+      rounds: 5,
+      reviews: 0,
+      refactors: 0,
+    }
     assert.throws(
       () => materializeSettings(base, { reviews: 9 }, "ref"),
-      /reviews \(9\) must be ≤ rounds \(5\)/,
+      /reviews \+ refactors \(9 \+ 0\) must be ≤ rounds \(5\)/,
+    )
+  })
+
+  test("rejects sum of reviews and refactors over rounds", () => {
+    const base: Settings = {
+      ...HARDCODED_SETTINGS,
+      rounds: 4,
+      reviews: 1,
+      refactors: 0,
+    }
+    assert.throws(
+      () => materializeSettings(base, { refactors: 4 }, "ref"),
+      /reviews \+ refactors \(1 \+ 4\) must be ≤ rounds \(4\)/,
     )
   })
 

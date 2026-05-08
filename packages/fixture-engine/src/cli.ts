@@ -14,6 +14,7 @@ import {
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
+  MIN_REFACTORS,
   MIN_REVIEWS,
   MIN_STUDENTS,
   STYLES,
@@ -48,6 +49,7 @@ export interface PlanOpts extends CommonOpts {
   students: number
   coderInteraction: number
   reviews: number
+  refactors: number
   style: Style
   plannerSpec: FixtureModelSpec
 }
@@ -139,7 +141,7 @@ const TOP_OVERVIEW_LINES = [
   "",
   "  c2-flash-card-quiz/               # one folder per project",
   "    project.md                      # from `fixture project`",
-  "    i2-bb-s3-r6-w2/                 # one folder per plan",
+  "    i2-bb-s3-r6-w2-f1/              # one folder per plan",
   "      plan.md                       # from `fixture plan`",
   "      m23-46-r31-46-o2/             # git repo from `fixture repo`",
   "      .fixture-settings.jsonc       # snapshot of settings used",
@@ -292,6 +294,28 @@ function validateReviews(reviews: number, rounds: number): void {
     )
   }
 }
+function validateRefactors(refactors: number, rounds: number): void {
+  if (
+    !Number.isInteger(refactors) ||
+    refactors < MIN_REFACTORS ||
+    refactors > rounds
+  ) {
+    fail(
+      `--refactors must be an integer ${MIN_REFACTORS}-${rounds} (≤ --rounds), got "${refactors}"`,
+    )
+  }
+}
+function validateReviewsAndRefactors(
+  reviews: number,
+  refactors: number,
+  rounds: number,
+): void {
+  if (reviews + refactors > rounds) {
+    fail(
+      `--reviews + --refactors (${reviews} + ${refactors}) must be ≤ --rounds (${rounds})`,
+    )
+  }
+}
 function validateStyle(s: string): void {
   if (!STYLES.includes(s as Style)) {
     fail(`--style must be one of ${STYLES.join(", ")}, got "${s}"`)
@@ -331,6 +355,7 @@ function parsePlan(argv: string[]): PlanOpts {
     students: { type: "string", short: "s" },
     "coder-interaction": { type: "string", short: "i" },
     reviews: { type: "string", short: "w" },
+    refactors: { type: "string", short: "f" },
     style: { type: "string", short: "y" },
     model: { type: "string", short: "m" },
     verbose: { type: "boolean", short: "v", multiple: true },
@@ -346,6 +371,8 @@ function parsePlan(argv: string[]): PlanOpts {
       : SETTINGS().coderInteraction
   const reviews =
     v.reviews !== undefined ? Number(v.reviews) : SETTINGS().reviews
+  const refactors =
+    v.refactors !== undefined ? Number(v.refactors) : SETTINGS().refactors
   const style = (v.style as string | undefined) ?? SETTINGS().style
   const plannerSpec = parseModelOption(
     (v.model as string | undefined) ?? SETTINGS().mp,
@@ -357,6 +384,8 @@ function parsePlan(argv: string[]): PlanOpts {
     validateStudents(students)
     validateCoderInteraction(coderInteraction)
     validateReviews(reviews, rounds)
+    validateRefactors(refactors, rounds)
+    validateReviewsAndRefactors(reviews, refactors, rounds)
     validateStyle(style)
   }
   return {
@@ -367,6 +396,7 @@ function parsePlan(argv: string[]): PlanOpts {
     students,
     coderInteraction,
     reviews,
+    refactors,
     style: style as Style,
     plannerSpec,
   }
@@ -567,7 +597,14 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       ...opt(
         "  -w, --reviews=N",
         `${MIN_REVIEWS}..--rounds (default: ${SETTINGS().reviews}) — review-commit`,
-        "count, placed at random build slots",
+        "count, placed at stratified build slots",
+      ),
+      ...opt(
+        "  -f, --refactors=N",
+        `${MIN_REFACTORS}..--rounds (default: ${SETTINGS().refactors}) — refactor-commit`,
+        "count, placed at stratified build slots",
+        "(disjoint from review slots; reviews +",
+        "refactors must be ≤ rounds)",
       ),
       ...opt(
         "  -v, --verbose",
@@ -604,9 +641,6 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "                       than module boundaries.",
       "                       -i is ignored (commits cross module",
       "                       boundaries).",
-      "  refactor-heavy       Build commits alternate between adding",
-      "                       capability and refactoring recent work in",
-      "                       place.",
     ]
   }
   if (sub === "repo") {
@@ -701,7 +735,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "",
     "Behavior depends on the swept key's phase and on `--from`:",
     "  - List on a plan-phase key (mp, complexity, coderInteraction,",
-    "    style, students, rounds, reviews):",
+    "    style, students, rounds, reviews, refactors):",
     "      `--from` must be a project (or omitted if .fixture-state.json",
     "      has a project).",
     "      For each value: run plan, then run repo. Yields N plan dirs,",

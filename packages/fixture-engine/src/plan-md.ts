@@ -1,6 +1,6 @@
 import { STYLES, type Style } from "./constants"
 
-export type CommitKind = "build" | "review"
+export type CommitKind = "build" | "review" | "refactor"
 
 export interface TeamMember {
   name: string
@@ -32,6 +32,7 @@ export interface PlanMeta {
   rounds: number
   students: number
   reviews: number
+  refactors: number
   coderInteraction: number
   style: Style
 }
@@ -50,6 +51,7 @@ export function planToMarkdown(file: PlanFile): string {
   lines.push(`Rounds: ${meta.rounds}`)
   lines.push(`Students: ${meta.students}`)
   lines.push(`Reviews: ${meta.reviews}`)
+  lines.push(`Refactors: ${meta.refactors}`)
   lines.push(`Coder-interaction: ${meta.coderInteraction}`)
   lines.push(`Style: ${meta.style}`)
   lines.push("", "## Team", "")
@@ -108,6 +110,9 @@ export function markdownToPlan(md: string): PlanFile {
       case "Reviews":
         meta.reviews = Number(value)
         break
+      case "Refactors":
+        meta.refactors = Number(value)
+        break
       case "Coder-interaction":
         meta.coderInteraction = Number(value)
         break
@@ -130,11 +135,12 @@ export function markdownToPlan(md: string): PlanFile {
     meta.students === undefined ||
     meta.rounds === undefined ||
     meta.reviews === undefined ||
+    meta.refactors === undefined ||
     meta.coderInteraction === undefined ||
     meta.style === undefined
   ) {
     throw new Error(
-      "missing plan meta fields (need Project-file, Planner, Students, Rounds, Reviews, Coder-interaction, Style)",
+      "missing plan meta fields (need Project-file, Planner, Students, Rounds, Reviews, Refactors, Coder-interaction, Style)",
     )
   }
 
@@ -162,7 +168,8 @@ export function markdownToPlan(md: string): PlanFile {
 
   expectHeading("## Commits")
   const commits: PlannedCommit[] = []
-  const commitHeader = /^### \d+\. (build|review) · (.+?) · author (\d+)$/
+  const commitHeader =
+    /^### \d+\. (build|review|refactor) · (.+?) · author (\d+)$/
   while (i < lines.length) {
     const line = lines[i].trim()
     if (!line) {

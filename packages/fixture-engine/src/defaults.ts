@@ -8,6 +8,7 @@ import {
   DEFAULT_MC,
   DEFAULT_ME,
   DEFAULT_MR,
+  DEFAULT_REFACTORS,
   DEFAULT_REVIEWS,
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
@@ -21,6 +22,7 @@ import {
   MIN_CODER_INTERACTION,
   MIN_COMMENTS,
   MIN_COMPLEXITY,
+  MIN_REFACTORS,
   MIN_REVIEWS,
   MIN_STUDENTS,
   SETTINGS_BASENAME,
@@ -48,6 +50,7 @@ export interface Settings {
   rounds: number
   comments: number
   reviews: number
+  refactors: number
   style: Style
 }
 
@@ -62,6 +65,7 @@ export const HARDCODED_SETTINGS: Settings = {
   rounds: DEFAULT_ROUNDS,
   comments: DEFAULT_COMMENTS,
   reviews: DEFAULT_REVIEWS,
+  refactors: DEFAULT_REFACTORS,
   style: DEFAULT_STYLE,
 }
 
@@ -80,6 +84,7 @@ const NUMERIC_SPECS: Record<
   rounds: { min: 1, max: Number.MAX_SAFE_INTEGER },
   comments: { min: MIN_COMMENTS, max: MAX_COMMENTS },
   reviews: { min: MIN_REVIEWS, max: Number.MAX_SAFE_INTEGER },
+  refactors: { min: MIN_REFACTORS, max: Number.MAX_SAFE_INTEGER },
 }
 
 const KNOWN_KEYS = new Set<keyof Settings>([
@@ -211,6 +216,7 @@ export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
   "students",
   "rounds",
   "reviews",
+  "refactors",
 ])
 
 export const REPO_PHASE_KEYS = new Set<keyof Settings>(["mc", "mr", "comments"])
@@ -283,9 +289,12 @@ export function loadSweepFile(path: string): SweepFile {
   const phase: SweepPhase = arrayKeys.some((k) => PLAN_PHASE_KEYS.has(k))
     ? "plan"
     : "repo"
-  if (phase === "repo" && baseSettings.reviews > baseSettings.rounds) {
+  if (
+    phase === "repo" &&
+    baseSettings.reviews + baseSettings.refactors > baseSettings.rounds
+  ) {
     fail(
-      `${path}: reviews (${baseSettings.reviews}) must be ≤ rounds (${baseSettings.rounds})`,
+      `${path}: reviews + refactors (${baseSettings.reviews} + ${baseSettings.refactors}) must be ≤ rounds (${baseSettings.rounds})`,
     )
   }
   return { sweptKeys: arrayKeys, variants, phase, baseSettings }
@@ -297,8 +306,10 @@ export function materializeSettings(
   ref: string,
 ): Settings {
   const next: Settings = { ...base, ...overrides }
-  if (next.reviews > next.rounds) {
-    fail(`${ref}: reviews (${next.reviews}) must be ≤ rounds (${next.rounds})`)
+  if (next.reviews + next.refactors > next.rounds) {
+    fail(
+      `${ref}: reviews + refactors (${next.reviews} + ${next.refactors}) must be ≤ rounds (${next.rounds})`,
+    )
   }
   return next
 }
@@ -386,8 +397,7 @@ const SETTING_ITEMS: SettingItem[] = [
     comment: `one of: ${STYLES.slice(0, 3).join(" | ")} |`,
     cont: [
       `        ${STYLES.slice(3, 6).join(" | ")} |`,
-      `        ${STYLES.slice(6, 8).join(" | ")} |`,
-      `        ${STYLES.slice(8).join(" | ")}`,
+      `        ${STYLES.slice(6).join(" | ")}`,
     ],
   },
   {
@@ -407,6 +417,13 @@ const SETTING_ITEMS: SettingItem[] = [
     key: "reviews",
     value: (s) => String(s.reviews),
     comment: `integer ${MIN_REVIEWS}..rounds, review-commit count`,
+  },
+  {
+    kind: "row",
+    key: "refactors",
+    value: (s) => String(s.refactors),
+    comment: `integer ${MIN_REFACTORS}..rounds, refactor-commit count`,
+    cont: ["(reviews + refactors must be ≤ rounds)"],
   },
   { kind: "header", text: "fixture repo" },
   {
@@ -472,8 +489,8 @@ export const SWEEP_PREAMBLE = [
   "case it falls back to .fixture-settings.jsonc).",
   "",
   "Plan-phase keys (mp, complexity, coderInteraction, style, students,",
-  "rounds, reviews): --from=<project>; iterates plan+repo per variant",
-  "(N plan dirs, one repo each).",
+  "rounds, reviews, refactors): --from=<project>; iterates plan+repo per",
+  "variant (N plan dirs, one repo each).",
   "Repo-phase keys (mc, mr, comments): --from=<project> plans once and",
   "iterates repos, or --from=<plan> reuses an existing plan and skips",
   "planning. A sweep mixing plan-phase and repo-phase keys is treated",

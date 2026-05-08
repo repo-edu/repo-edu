@@ -39,7 +39,7 @@ export interface CoderRunOpts {
 export interface RoundRecord {
   commit_index: number
   author_index: number
-  kind: "build" | "review"
+  kind: "build" | "review" | "refactor"
   coder_summary: string
   usage: LlmUsage
 }
@@ -158,11 +158,16 @@ function composeCoderPrompt(
     round_goal: commit.note,
     comments_directive: commentsDirective,
   }
-  if (commit.kind === "review") ctx.commit_log = shortLog(absPath)
-  return loadPrompt(
-    commit.kind === "review" ? "coder/review" : "coder/build",
-    ctx,
-  )
+  if (commit.kind === "review" || commit.kind === "refactor") {
+    ctx.commit_log = shortLog(absPath)
+  }
+  const template =
+    commit.kind === "review"
+      ? "coder/review"
+      : commit.kind === "refactor"
+        ? "coder/refactor"
+        : "coder/build"
+  return loadPrompt(template, ctx)
 }
 
 function firstParagraph(reply: string): string {
@@ -303,11 +308,11 @@ function applyTrailerAndCommit(
     }
   }
 
-  // Resolve the subject: explicit COMMIT trailer wins; otherwise build rounds
-  // fall back to the planner's `message`, review rounds skip.
+  // Resolve the subject: explicit COMMIT trailer wins; otherwise build and
+  // refactor rounds fall back to the planner's `message`, review rounds skip.
   let subject: string | null
   if (trailer.commitSubject === null) {
-    subject = commit.kind === "build" ? commit.message : null
+    subject = commit.kind === "review" ? null : commit.message
   } else if (trailer.commitSubject === "") {
     subject = null
   } else {

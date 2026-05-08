@@ -78,7 +78,7 @@ interface Score {
 }
 
 interface RoundUsage {
-  kind?: "build" | "review"
+  kind?: "build" | "review" | "refactor"
   usage: LlmUsage
 }
 

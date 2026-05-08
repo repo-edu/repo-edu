@@ -12,6 +12,7 @@ export interface PlanNameOpts {
   students: number
   rounds: number
   reviews: number
+  refactors: number
   coderInteraction: number
   style: Style
 }
@@ -30,6 +31,7 @@ export function planPostfix(opts: PlanNameOpts): string {
     `s${opts.students}`,
     `r${opts.rounds}`,
     `w${opts.reviews}`,
+    `f${opts.refactors}`,
   ].join("-")
 }
 

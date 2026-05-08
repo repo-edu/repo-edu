@@ -63,7 +63,7 @@ plan folder:
 
 ### Postfix encoding
 
-**Plan postfix** — `i<N>-<style>-s<N>-r<N>-w<N>`
+**Plan postfix** — `i<N>-<style>-s<N>-r<N>-w<N>-f<N>`
 
 Segments follow `fixture plan -h` flag order; complexity is omitted
 because the parent `c<N>-<name>/` folder already carries it.
@@ -75,11 +75,14 @@ because the parent `c<N>-<name>/` folder already carries it.
 - `<style>` — short code from `--style`: `bb` big-bang, `inc`
   incremental, `vs` vertical-slice, `bu` bottom-up, `topd`
   top-down, `tdd` test-driven, `walk` walking-skeleton, `spik`
-  spike-and-stabilize, `demo` demo-driven, `rfct` refactor-heavy.
+  spike-and-stabilize, `demo` demo-driven.
 - `s<N>` — team size (`--students`, 1-10).
 - `r<N>` — build-commit count (`--rounds`, ≥1).
 - `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
-  a uniformly-chosen subset of build slots).
+  a stratified subset of build slots).
+- `f<N>` — refactor-commit count (`--refactors`, 0..rounds, placed
+  after a stratified subset of build slots disjoint from review slots;
+  reviews + refactors must be ≤ rounds).
 
 **Repo postfix** — `m<code>[-<ver>][-r<code>[-<ver>]]-o<N>`
 
@@ -160,10 +163,12 @@ CLI flags):
     "style": "incremental", // one of: big-bang | incremental | vertical-slice |
                             //         bottom-up | top-down | test-driven |
                             //         walking-skeleton | spike-and-stabilize |
-                            //         demo-driven | refactor-heavy
+                            //         demo-driven
     "students": 3,          // integer 1-10, team size
     "rounds": 3,            // integer ≥1, build-commit count
     "reviews": 1,           // integer 0..rounds, review-commit count
+    "refactors": 0,         // integer 0..rounds, refactor-commit count
+                            // (reviews + refactors must be ≤ rounds)
 
     // fixture repo
     "comments": 1           // integer 0-3, 3=leave to coder
@@ -202,6 +207,14 @@ repos:
   later rounds replace stubs with real implementations.
 
 The full prompt fragments live at [prompts/planner/style.md](prompts/planner/style.md).
+
+Reviews and refactors are orthogonal axes layered onto any style.
+Reviews are conservative passes (one-file fixes, no new behaviour);
+refactors deliberately span modules — split, rename, extract, move —
+without changing observable behaviour, and are typically attributed
+to authors who didn't write the touched code, which adds blame
+variety. Use `--reviews=N`, `--refactors=N`, or both; reviews +
+refactors must be ≤ rounds.
 
 ## Sweep mode
 

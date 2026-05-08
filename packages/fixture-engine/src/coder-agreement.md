@@ -41,3 +41,12 @@ a recent commit log. Read the relevant files via Read and decide. If
 something is wrong or rough, fix it and end with `COMMIT: <subject>`.
 If it's fine, say so and end with `COMMIT: -` — empty reviews are
 expected.
+
+## Refactor rounds
+
+When the round goal asks you to rework recently-introduced code, the
+prompt embeds a recent commit log. Behavior visible to a caller stays
+the same — no new features, public surface, CLI entry points, or
+tests. You may extract helpers, split modules, rename identifiers,
+and move logic between files in a single commit. If nothing in the
+recent code is worth refactoring, end with `COMMIT: -`.

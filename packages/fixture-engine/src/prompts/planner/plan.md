@@ -14,7 +14,7 @@ Project:
 Parameters:
 
 - N (build commits): {{rounds}}
-- planned commit count: {{planned_count}} (exact; includes both build and review commits)
+- planned commit count: {{planned_count}} (exact; includes build, review, and refactor commits)
 - S (students): {{students}}
 - today: {{today}}
 
@@ -79,6 +79,16 @@ Rules:
   orchestrator overwrites `author_index`, `note`, and `message` with
   a round-robin reviewer schedule and canonical text, and ignores
   whatever you put there. Omit `primary_module`.
+- For each slot whose kind is "refactor", emit `date`, `author_index`,
+  `note`, and `message` (omit `primary_module` — refactors may span
+  modules). The note must describe a behavior-preserving rework of
+  code introduced in recent build slots: "extract X into helper",
+  "split Y into …", "rename Z to …", "move W into …". Refactors must
+  not add new public surface, features, CLI entry points, or tests.
+  Pick an `author_index` that did NOT write the bulk of the code
+  being reworked, so blame variety improves. Refactor slots are
+  exempt from the "no single author dominates" rule (which applies
+  to build commits only).
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.

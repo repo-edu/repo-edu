@@ -228,6 +228,7 @@ function archivePlanIntoDir(
     rounds: opts.rounds,
     students: opts.students,
     reviews: opts.reviews,
+    refactors: opts.refactors,
     coderInteraction: opts.coderInteraction,
     style: opts.style,
   }
@@ -256,6 +257,7 @@ function emitPlan(
         rounds: opts.rounds,
         students: opts.students,
         reviews: opts.reviews,
+        refactors: opts.refactors,
         coderInteraction: opts.coderInteraction,
         style: opts.style,
       },
@@ -284,9 +286,13 @@ async function producePlan(
   opts: PlanGenOpts,
   runStart: number,
 ): Promise<{ plan: Plan; usage: LlmUsage }> {
-  const kindSequence = sampleKindSequence(opts.rounds, opts.reviews)
+  const kindSequence = sampleKindSequence(
+    opts.rounds,
+    opts.reviews,
+    opts.refactors,
+  )
   progress(
-    `sampled kind sequence (${opts.rounds} builds + ${opts.reviews} reviews)`,
+    `sampled kind sequence (${opts.rounds} builds + ${opts.reviews} reviews + ${opts.refactors} refactors)`,
   )
   const { plan, usage } = await withTicker("fixture: generating plan…", () =>
     generatePlan(project, opts, kindSequence),
@@ -322,6 +328,7 @@ async function runCoderStage(
     rounds: number
     students: number
     reviews: number
+    refactors: number
   },
   coderOpts: CoderRunOpts & { plannerSpec: FixtureModelSpec },
   planDir: string,
@@ -338,6 +345,7 @@ async function runCoderStage(
     complexity: project.complexity,
     students: planMeta.students,
     reviews: planMeta.reviews,
+    refactors: planMeta.refactors,
     plannerSpec: coderOpts.plannerSpec,
     coderSpec: coderOpts.coderSpec,
     reviewerSpec: coderOpts.reviewerSpec,
@@ -370,6 +378,7 @@ function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
     rounds: opts.rounds,
     coderInteraction: opts.coderInteraction,
     reviews: opts.reviews,
+    refactors: opts.refactors,
     style: opts.style,
   }
 }
@@ -424,6 +433,7 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
     students: opts.students,
     rounds: opts.rounds,
     reviews: opts.reviews,
+    refactors: opts.refactors,
     coderInteraction: opts.coderInteraction,
     style: opts.style,
   }
@@ -475,6 +485,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     students: meta.students,
     rounds: meta.rounds,
     reviews: meta.reviews,
+    refactors: meta.refactors,
     coderInteraction: meta.coderInteraction,
     style: meta.style,
   }
@@ -487,6 +498,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
         rounds: meta.rounds,
         students: meta.students,
         reviews: meta.reviews,
+        refactors: meta.refactors,
       },
       {
         coderSpec: opts.coderSpec,
@@ -530,6 +542,7 @@ async function archivePlanForEntry(
     students: entrySettings.students,
     rounds: entrySettings.rounds,
     reviews: entrySettings.reviews,
+    refactors: entrySettings.refactors,
     coderInteraction: entrySettings.coderInteraction,
     style: entrySettings.style,
   }
@@ -540,6 +553,7 @@ async function archivePlanForEntry(
     rounds: entrySettings.rounds,
     students: entrySettings.students,
     reviews: entrySettings.reviews,
+    refactors: entrySettings.refactors,
     coderInteraction: entrySettings.coderInteraction,
     style: entrySettings.style,
   }
@@ -583,6 +597,7 @@ async function runRepoForEntry(
         rounds: entrySettings.rounds,
         students: entrySettings.students,
         reviews: entrySettings.reviews,
+        refactors: entrySettings.refactors,
       },
       {
         coderSpec,
@@ -709,6 +724,7 @@ async function runRepoForExistingPlan(
         rounds: from.meta.rounds,
         students: from.meta.students,
         reviews: from.meta.reviews,
+        refactors: from.meta.refactors,
       },
       {
         coderSpec,

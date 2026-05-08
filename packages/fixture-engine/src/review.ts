@@ -18,6 +18,7 @@ export interface ReviewSummaryOpts {
   complexity: number
   students: number
   reviews: number
+  refactors: number
   plannerSpec: FixtureModelSpec
   coderSpec: FixtureModelSpec
   reviewerSpec: FixtureModelSpec
@@ -77,6 +78,7 @@ export function writeReview(
   dirName: string,
 ): void {
   const reviewCount = state.rounds.filter((r) => r.kind === "review").length
+  const refactorCount = state.rounds.filter((r) => r.kind === "refactor").length
 
   const plannerCost: CostRow = {
     authMode: plannerUsage.authMode,
@@ -104,7 +106,8 @@ export function writeReview(
     `- N (builds): ${opts.rounds}`,
     `- C: ${opts.complexity}`,
     `- S: ${opts.students}`,
-    `- Reviews: ${opts.reviews} (planned; ${reviewCount} executed; ${state.rounds.length} total commits)`,
+    `- Reviews: ${opts.reviews} (planned; ${reviewCount} executed)`,
+    `- Refactors: ${opts.refactors} (planned; ${refactorCount} executed; ${state.rounds.length} total commits)`,
     `- Planner: ${formatModelSpec(opts.plannerSpec)} (${plannerUsage.authMode})`,
     `- Coder: ${formatModelSpec(opts.coderSpec)}`,
     `- Reviewer: ${formatModelSpec(opts.reviewerSpec)}`,
