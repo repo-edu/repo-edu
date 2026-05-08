@@ -9,8 +9,6 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -58,10 +56,6 @@ function metricLabel(metric: AnalysisActiveMetric): string {
 }
 
 type DailyMetric = Exclude<AnalysisActiveMetric, "linesOfCode">
-
-function cumulativeLabel(metric: DailyMetric): string {
-  return `Cumulative ${metricLabel(metric)}`
-}
 
 function metricFromDaily(
   row: AuthorDailyActivity,
@@ -149,54 +143,6 @@ export function AuthorCharts({
       .map(([date, values]) => ({ date, ...values }))
   }, [dailyMetric, dailyActivity, nameById])
 
-  const { cumulativeData, cumulativeTickDates, cumulativeChangeIndices } =
-    useMemo(() => {
-      if (dailyMetric === null) {
-        return {
-          cumulativeData: [] as Record<string, number | string>[],
-          cumulativeTickDates: [] as string[],
-          cumulativeChangeIndices: new Map<string, Set<number>>(),
-        }
-      }
-      const byDateAuthor = new Map<string, Map<string, number>>()
-      for (const row of dailyActivity) {
-        if (!nameById.has(row.personId)) continue
-        const byAuthor = byDateAuthor.get(row.date) ?? new Map<string, number>()
-        byAuthor.set(
-          row.personId,
-          (byAuthor.get(row.personId) ?? 0) + metricFromDaily(row, dailyMetric),
-        )
-        byDateAuthor.set(row.date, byAuthor)
-      }
-
-      const dates = [...byDateAuthor.keys()].sort()
-      const cumulative = new Map<string, number>()
-      const changes = new Map<string, Set<number>>()
-      for (const personId of authorIdsByLoc) {
-        cumulative.set(personId, 0)
-        changes.set(personId, new Set())
-      }
-
-      const points = dates.map((date, index) => {
-        const point: Record<string, number | string> = { date }
-        const deltas = byDateAuthor.get(date) ?? new Map<string, number>()
-        for (const personId of authorIdsByLoc) {
-          const delta = deltas.get(personId) ?? 0
-          const next = (cumulative.get(personId) ?? 0) + delta
-          cumulative.set(personId, next)
-          point[personId] = next
-          if (delta !== 0) changes.get(personId)?.add(index)
-        }
-        return point
-      })
-
-      return {
-        cumulativeData: points,
-        cumulativeTickDates: dates,
-        cumulativeChangeIndices: changes,
-      }
-    }, [dailyMetric, authorIdsByLoc, dailyActivity, nameById])
-
   const pieData = useMemo(
     () =>
       authorStats
@@ -262,7 +208,6 @@ export function AuthorCharts({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
-                  ticks={cumulativeTickDates}
                   tick={{ fontSize: 11, fill: "currentColor" }}
                 />
                 <YAxis tick={{ fontSize: 11, fill: "currentColor" }} />
@@ -292,83 +237,6 @@ export function AuthorCharts({
           </div>
         )}
       </div>
-
-      {dailyMetric !== null && (
-        <div className="min-h-[280px]">
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={cumulativeData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="date"
-                ticks={cumulativeTickDates}
-                scale="band"
-                tick={{ fontSize: 11, fill: "currentColor" }}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "currentColor" }}
-                label={{
-                  value: cumulativeLabel(dailyMetric),
-                  angle: -90,
-                  position: "insideLeft",
-                  style: {
-                    fill: "currentColor",
-                    fontSize: 11,
-                    textAnchor: "middle",
-                  },
-                }}
-              />
-              <Tooltip
-                formatter={(value, key) => [
-                  formatCount(Number(value)),
-                  nameById.get(String(key)) ?? String(key),
-                ]}
-                labelFormatter={(label) => `Date: ${String(label)}`}
-              />
-              <Legend
-                itemSorter={legendItemSorter}
-                formatter={legendFormatter}
-              />
-              {authorIdsByLoc.map((personId) => (
-                <Line
-                  key={personId}
-                  type="stepAfter"
-                  dataKey={personId}
-                  stroke={colors.get(personId) ?? "#888"}
-                  strokeWidth={3}
-                  dot={(dotProps) => {
-                    const { cx, cy, index, key } = dotProps as {
-                      cx?: number
-                      cy?: number
-                      index?: number
-                      key?: React.Key | null
-                    }
-                    const reactKey = key ?? `dot-${personId}-${index ?? "x"}`
-                    if (
-                      index === undefined ||
-                      cx === undefined ||
-                      cy === undefined ||
-                      !cumulativeChangeIndices.get(personId)?.has(index)
-                    ) {
-                      return <g key={reactKey} />
-                    }
-                    return (
-                      <circle
-                        key={reactKey}
-                        cx={cx}
-                        cy={cy}
-                        r={4}
-                        fill={colors.get(personId) ?? "#888"}
-                      />
-                    )
-                  }}
-                  isAnimationActive={false}
-                  name={personId}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
     </div>
   )
 }

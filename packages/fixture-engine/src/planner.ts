@@ -223,17 +223,24 @@ export async function generatePlan(
     team: TeamMember[]
     commits: RawPlannedCommit[]
   }>(reply, "planner plan reply")
+  let prevAuthor = -1
   const commits: PlannedCommit[] = (raw.commits ?? []).map((c, i) => {
     const kind = kindSequence[i]
     if (kind === "review") {
+      const author_index =
+        opts.students > 1 && prevAuthor >= 0
+          ? (prevAuthor + 1) % opts.students
+          : 0
+      prevAuthor = author_index
       return {
         date: c.date,
-        author_index: c.author_index,
+        author_index,
         kind,
         note: REVIEW_NOTE,
         message: REVIEW_FALLBACK,
       }
     }
+    prevAuthor = c.author_index
     return { ...c, kind }
   })
   const plan: Plan = { team: raw.team, commits }

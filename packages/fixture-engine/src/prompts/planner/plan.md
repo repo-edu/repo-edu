@@ -73,13 +73,12 @@ Rules:
 - Emit exactly {{planned_count}} commits in ascending date order. Slot i
   takes its kind from entry i of the Kind sequence above; you do not
   emit kind, but the slot's kind determines the shape of note/message.
-- For each slot whose kind is "review", emit only `date` and
-  `author_index`; you may set `note` and `message` to empty strings
-  or any placeholder — the orchestrator overwrites them with
-  canonical text and ignores whatever you put there. Omit
-  `primary_module`. The review's author_index must differ from the
-  author_index of the immediately preceding build slot. (S=1
-  exception: reviews stay on author 0.)
+- For each slot whose kind is "review", emit only `date` and a
+  placeholder `author_index` (any in-range value is fine); you may
+  set `note` and `message` to empty strings or any placeholder. The
+  orchestrator overwrites `author_index`, `note`, and `message` with
+  a round-robin reviewer schedule and canonical text, and ignores
+  whatever you put there. Omit `primary_module`.
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.
