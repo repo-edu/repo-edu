@@ -8,6 +8,7 @@ import {
 } from "node:fs"
 import { basename, dirname, resolve } from "node:path"
 import {
+  archivalModelCode,
   type FixtureModelSpec,
   formatCostByMode,
   formatModelSpec,
@@ -107,7 +108,9 @@ function statusFromMarker(marker: CapMarker): RepoStatus {
     : "incomplete: quota-exhausted"
 }
 
-export const EVALUATE_BASENAME = "_evaluate.md"
+export function evaluateBasename(evaluatorSpec: FixtureModelSpec): string {
+  return `_evaluate-${archivalModelCode(evaluatorSpec)}.md`
+}
 
 function isDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory()
@@ -601,7 +604,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<EvaluateResult> {
 
   const out = renderReport(opts.evaluatorSpec, opts.rootDir, reports)
   const resolvedOutPath =
-    opts.outPath ?? resolve(opts.rootDir, EVALUATE_BASENAME)
+    opts.outPath ?? resolve(opts.rootDir, evaluateBasename(opts.evaluatorSpec))
   writeFileSync(resolvedOutPath, out)
   process.stdout.write(`evaluate: wrote ${resolvedOutPath}\n`)
   return { outPath: resolvedOutPath, reportCount: reports.length }

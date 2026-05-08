@@ -258,7 +258,9 @@ The sweep file shape (plan-phase example):
 `pnpm fixture evaluate` walks one directory recursively, finds every
 folder that contains `_state.json` (a generated repo), scores each
 one with an LLM judge, and writes a Markdown report at
-`<root>/_evaluate.md`:
+`<root>/_evaluate-<model>.md` (one report per evaluator model — the
+archival short code is appended so multiple judges can score the same
+root without overwriting each other):
 
 ```bash
 # Repo-phase sweep — point at the shared plan dir
@@ -295,7 +297,7 @@ reference (every subcommand plus the model-code table and
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
 | `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `--review-model`, `-o` |
 | `sweep [--from=<project\|plan>] [--sweep=<sweep.jsonc>]` | N plan+repo (plan-phase key) or one plan + N repos (repo-phase key); `--from=<plan>` reuses an existing plan | `--from`, `--sweep` |
-| `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
+| `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate-<model>.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
 
 Model codes for `-m` / `--model`:
 
