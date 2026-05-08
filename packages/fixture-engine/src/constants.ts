@@ -36,7 +36,7 @@ export const MIN_REVIEWS = 0
 // planner is instructed to emit these literals; planner.ts overwrites
 // review notes/messages after parse as a defense against creative drift.
 export const REVIEW_NOTE =
-  "Review previous work and improve where necessary, but do not add new modules or tests."
+  "Review previous work and improve where necessary. Do not add unrelated features or tests, but you may split existing behavior into focused files when that improves the module design."
 export const REVIEW_FALLBACK = "review: pass over recent work"
 
 // Plan style
