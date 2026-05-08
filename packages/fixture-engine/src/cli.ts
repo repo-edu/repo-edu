@@ -90,16 +90,16 @@ export type Opts =
 const MODEL_CODE_HELP = [
   "Model CODE (-m, --model=CODE):",
   "              low   medium   high      xhigh   max",
-  "  sonnet      21    22       23 | 2     —       —",
-  "  opus        31    32       33 | 3     34      35",
-  "  gpt-5.4     c21   c22      c23 | c2   c24     —",
-  "  gpt-5.5     c31   c32      c33 | c3   c34     —",
+  "  sonnet      21    22       23        —       —",
+  "  opus        31    32       33        34      35",
+  "  gpt-5.4     c541  c542     c543      c544    —",
+  "  gpt-5.5     c551  c552     c553      c554    —",
   "",
   "  haiku       = 1   (no thinking modes; Claude)",
-  "  gpt-5.4-mini = c1 (no thinking modes; Codex)",
+  "  gpt-5.4-mini = c54m (no thinking modes; Codex)",
   "",
-  "  Codex codes are accepted for the planner / evaluator phase (mp)",
-  "  only; the coder and reviewer phases (mc, mr) are Claude-only.",
+  "  Claude and Codex codes are accepted for planner/evaluator (mp)",
+  "  and coder/reviewer (mc, mr) phases.",
 ]
 
 const OPT_DESC_COL = 31

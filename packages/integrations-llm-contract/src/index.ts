@@ -51,6 +51,7 @@ export type LlmErrorKind =
   | "quota_exhausted"
   | "auth"
   | "network"
+  | "guardrail"
   | "other"
 
 export type LlmErrorContext = {

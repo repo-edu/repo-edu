@@ -1,8 +1,8 @@
 import {
+  codeForSpec,
   codingAgentProviders,
   getSpecByCode,
   listCodesForTierStem,
-  tierOf,
 } from "./catalog"
 import type { FixtureModelSpec, Phase } from "./types"
 
@@ -13,10 +13,18 @@ export class ModelCodeError extends Error {
   }
 }
 
+function tierStemForUnknownCode(code: string): string | undefined {
+  if (code.startsWith("c54m")) return "c54m"
+  const codex = code.match(/^c\d{2}/)
+  if (codex) return codex[0]
+  const claude = code.match(/^\d/)
+  return claude?.[0]
+}
+
 export function parseShortCode(code: string, phase: Phase): FixtureModelSpec {
   const spec = getSpecByCode(code)
   if (!spec) {
-    const stem = code.match(/^([a-z]*\d)/)?.[1]
+    const stem = tierStemForUnknownCode(code)
     const tierCodes = stem ? listCodesForTierStem(stem) : []
     const hint =
       tierCodes.length > 0
@@ -33,24 +41,14 @@ export function parseShortCode(code: string, phase: Phase): FixtureModelSpec {
   return spec
 }
 
-const EFFORT_DIGIT: Record<FixtureModelSpec["effort"], string> = {
-  none: "",
-  minimal: "0",
-  low: "1",
-  medium: "2",
-  high: "3",
-  xhigh: "4",
-  max: "5",
-}
-
 export function modelCode(spec: FixtureModelSpec): string {
-  const tier = tierOf(spec)
-  if (!tier) {
+  const code = codeForSpec(spec)
+  if (!code) {
     throw new ModelCodeError(
       `no catalog tier for provider="${spec.provider}", family="${spec.family}"`,
     )
   }
-  return `${tier.codeStem}${EFFORT_DIGIT[spec.effort]}`
+  return code
 }
 
 export function archivalModelCode(spec: FixtureModelSpec): string {

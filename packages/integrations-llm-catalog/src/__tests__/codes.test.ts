@@ -33,24 +33,16 @@ describe("parseShortCode — Claude tier resolution", () => {
   })
 })
 
-describe("parseShortCode — alias collapse", () => {
-  test("`2` ≡ `23` resolves to identical spec", () => {
-    assert.equal(parseShortCode("2", "mp"), parseShortCode("23", "mp"))
-  })
-
-  test("`3` ≡ `33` resolves to identical spec", () => {
-    assert.equal(parseShortCode("3", "mp"), parseShortCode("33", "mp"))
-  })
-})
-
 describe("parseShortCode — effort gating", () => {
-  test("sonnet xhigh (`24`) is rejected with tier-2 hint", () => {
-    assert.throws(
-      () => parseShortCode("24", "mp"),
-      (err: unknown) =>
-        err instanceof ModelCodeError &&
-        /supported codes for tier 2: 2, 21, 22, 23/.test(err.message),
-    )
+  test("tier-only aliases are rejected", () => {
+    assert.throws(() => parseShortCode("2", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("3", "mp"), ModelCodeError)
+  })
+
+  test("unsupported Claude efforts are rejected as unknown codes", () => {
+    assert.throws(() => parseShortCode("24", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("25", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("36", "mp"), ModelCodeError)
   })
 
   test("haiku with effort (`12`) is rejected", () => {
@@ -68,11 +60,10 @@ describe("parseShortCode — effort gating", () => {
 })
 
 describe("modelCode + archivalModelCode round-trip", () => {
-  test("modelCode returns canonical for aliases", () => {
-    assert.equal(modelCode(parseShortCode("2", "mp")), "23")
-    assert.equal(modelCode(parseShortCode("3", "mp")), "33")
+  test("modelCode returns canonical catalog codes", () => {
     assert.equal(modelCode(parseShortCode("22", "mp")), "22")
     assert.equal(modelCode(parseShortCode("1", "mp")), "1")
+    assert.equal(modelCode(parseShortCode("c542", "mp")), "c542")
   })
 
   test("archivalModelCode appends versionTag", () => {
@@ -83,32 +74,22 @@ describe("modelCode + archivalModelCode round-trip", () => {
 })
 
 describe("coder phase gating (mc)", () => {
-  test("Claude codes accepted in mc", () => {
+  test("Claude and Codex codes are accepted in mc", () => {
     assert.doesNotThrow(() => parseShortCode("22", "mc"))
     assert.doesNotThrow(() => parseShortCode("35", "mc"))
-  })
-
-  test("Codex codes rejected in mc with supported-providers hint", () => {
-    assert.throws(
-      () => parseShortCode("c22", "mc"),
-      (err: unknown) =>
-        err instanceof ModelCodeError &&
-        /codex models are not supported for the coder phase/.test(
-          err.message,
-        ) &&
-        /claude/.test(err.message),
-    )
+    assert.doesNotThrow(() => parseShortCode("c542", "mc"))
+    assert.doesNotThrow(() => parseShortCode("c552", "mc"))
   })
 
   test("Codex codes accepted in mp", () => {
-    assert.doesNotThrow(() => parseShortCode("c22", "mp"))
-    assert.doesNotThrow(() => parseShortCode("c1", "mp"))
+    assert.doesNotThrow(() => parseShortCode("c542", "mp"))
+    assert.doesNotThrow(() => parseShortCode("c54m", "mp"))
   })
 })
 
 describe("parseShortCode — Codex tier resolution", () => {
-  test("c1 → gpt-5.4-mini, no effort", () => {
-    const spec = parseShortCode("c1", "mp")
+  test("c54m → gpt-5.4-mini, no effort", () => {
+    const spec = parseShortCode("c54m", "mp")
     assert.equal(spec.provider, "codex")
     assert.equal(spec.family, "gpt-5.4-mini")
     assert.equal(spec.modelId, "gpt-5.4-mini")
@@ -116,44 +97,41 @@ describe("parseShortCode — Codex tier resolution", () => {
     assert.equal(spec.versionTag, "54m")
   })
 
-  test("c21..c24 cover gpt-5.4 low..xhigh", () => {
-    assert.equal(parseShortCode("c21", "mp").effort, "low")
-    assert.equal(parseShortCode("c22", "mp").effort, "medium")
-    assert.equal(parseShortCode("c23", "mp").effort, "high")
-    assert.equal(parseShortCode("c24", "mp").effort, "xhigh")
-    for (const code of ["c21", "c22", "c23", "c24"]) {
+  test("c541..c544 cover gpt-5.4 low..xhigh", () => {
+    assert.equal(parseShortCode("c541", "mp").effort, "low")
+    assert.equal(parseShortCode("c542", "mp").effort, "medium")
+    assert.equal(parseShortCode("c543", "mp").effort, "high")
+    assert.equal(parseShortCode("c544", "mp").effort, "xhigh")
+    for (const code of ["c541", "c542", "c543", "c544"]) {
       assert.equal(parseShortCode(code, "mp").modelId, "gpt-5.4")
     }
   })
 
-  test("c31..c34 cover gpt-5.5 low..xhigh", () => {
-    assert.equal(parseShortCode("c31", "mp").effort, "low")
-    assert.equal(parseShortCode("c32", "mp").effort, "medium")
-    assert.equal(parseShortCode("c33", "mp").effort, "high")
-    assert.equal(parseShortCode("c34", "mp").effort, "xhigh")
-    for (const code of ["c31", "c32", "c33", "c34"]) {
+  test("c551..c554 cover gpt-5.5 low..xhigh", () => {
+    assert.equal(parseShortCode("c551", "mp").effort, "low")
+    assert.equal(parseShortCode("c552", "mp").effort, "medium")
+    assert.equal(parseShortCode("c553", "mp").effort, "high")
+    assert.equal(parseShortCode("c554", "mp").effort, "xhigh")
+    for (const code of ["c551", "c552", "c553", "c554"]) {
       assert.equal(parseShortCode(code, "mp").modelId, "gpt-5.5")
     }
   })
 
-  test("Codex aliases collapse: c2 ≡ c23, c3 ≡ c33", () => {
-    assert.equal(parseShortCode("c2", "mp"), parseShortCode("c23", "mp"))
-    assert.equal(parseShortCode("c3", "mp"), parseShortCode("c33", "mp"))
+  test("Codex tier-only aliases and max efforts are rejected", () => {
+    assert.throws(() => parseShortCode("c54", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("c55", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("c545", "mp"), ModelCodeError)
+    assert.throws(() => parseShortCode("c555", "mp"), ModelCodeError)
   })
 
-  test("Codex max (c25 / c35) is rejected", () => {
-    assert.throws(() => parseShortCode("c25", "mp"), ModelCodeError)
-    assert.throws(() => parseShortCode("c35", "mp"), ModelCodeError)
-  })
-
-  test("c1 with effort suffix is rejected (mini has no effort dim)", () => {
-    assert.throws(() => parseShortCode("c12", "mp"), ModelCodeError)
+  test("c54m with effort suffix is rejected (mini has no effort dim)", () => {
+    assert.throws(() => parseShortCode("c54m2", "mp"), ModelCodeError)
   })
 
   test("archivalModelCode appends Codex versionTag", () => {
-    assert.equal(archivalModelCode(parseShortCode("c22", "mp")), "c22-54")
-    assert.equal(archivalModelCode(parseShortCode("c1", "mp")), "c1-54m")
-    assert.equal(archivalModelCode(parseShortCode("c34", "mp")), "c34-55")
+    assert.equal(archivalModelCode(parseShortCode("c542", "mp")), "c542-54")
+    assert.equal(archivalModelCode(parseShortCode("c54m", "mp")), "c54m-54m")
+    assert.equal(archivalModelCode(parseShortCode("c554", "mp")), "c554-55")
   })
 })
 

@@ -2,14 +2,14 @@ import { spawnSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
-import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
+import { LlmError, type LlmUsage } from "@repo-edu/integrations-llm-contract"
 import {
   CODER_AGREEMENT,
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
   STATE_BASENAME,
 } from "./constants"
-import { runCoder } from "./llm-client"
+import { runFixtureCoder } from "./llm-client"
 import { emit, fail, formatSeconds, progress, withTicker } from "./log"
 import type { Plan, PlannedCommit } from "./plan-md"
 import type { Project } from "./project-md"
@@ -34,6 +34,18 @@ export interface State {
   commit_index: number
   rounds: RoundRecord[]
   stopped: boolean
+}
+
+export class CoderRoundLlmError extends Error {
+  readonly error: LlmError
+  readonly activeSpec: FixtureModelSpec
+
+  constructor(error: LlmError, activeSpec: FixtureModelSpec) {
+    super(error.message, { cause: error })
+    this.name = "CoderRoundLlmError"
+    this.error = error
+    this.activeSpec = activeSpec
+  }
 }
 
 function shortLog(dir: string): string {
@@ -257,16 +269,61 @@ export async function runCoderLoop(
       const beforeSha = headSha(dir)
       const roundSpec =
         commit.kind === "review" ? opts.reviewerSpec : opts.coderSpec
-      const { reply, usage } = await withTicker(
-        `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
-        () =>
-          runCoder({
-            spec: roundSpec,
-            prompt,
-            cwd: dir,
-            appendInstructions: coderPersona,
-          }),
-      )
+      let reply: string
+      let usage: LlmUsage
+      try {
+        ;({ reply, usage } = await withTicker(
+          `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
+          async () => {
+            try {
+              return await runFixtureCoder({
+                spec: roundSpec,
+                prompt,
+                cwd: dir,
+                appendInstructions: coderPersona,
+              })
+            } catch (err) {
+              if (err instanceof LlmError) {
+                throw new CoderRoundLlmError(err, roundSpec)
+              }
+              throw err
+            }
+          },
+        ))
+      } catch (err) {
+        if (
+          err instanceof CoderRoundLlmError &&
+          err.error.kind === "guardrail"
+        ) {
+          gitResetHard(dir)
+          const skipNote = `round ${i + 1} skipped (${err.error.message})`
+          emit(2, `\n### Skipped\n\n${skipNote}`)
+          emit(3, `\n### Skipped\n\n${skipNote}`)
+          state.rounds.push({
+            commit_index: i,
+            author_index: commit.author_index,
+            kind: commit.kind,
+            coder_summary: `(skipped: ${err.error.message})`,
+            usage: {
+              inputTokens: 0,
+              cachedInputTokens: 0,
+              outputTokens: 0,
+              reasoningOutputTokens: 0,
+              wallMs: 0,
+              authMode: err.error.context.authMode ?? "api",
+            },
+          })
+          state.commit_index = i + 1
+          writeFileSync(
+            resolve(dir, STATE_BASENAME),
+            `${JSON.stringify(state, null, 2)}\n`,
+          )
+          progress(skipNote)
+          if (state.stopped) break
+          continue
+        }
+        throw err
+      }
       const trailer = parseCoderTrailer(reply)
       const outcome = applyTrailerAndCommit(dir, trailer, commit, persona)
       const afterSha = headSha(dir)

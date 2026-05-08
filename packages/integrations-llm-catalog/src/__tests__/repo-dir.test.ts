@@ -34,7 +34,7 @@ describe("parseRepoDirCode — widened regex", () => {
   })
 
   test("Codex codes parse with version tag", () => {
-    const r = parseRepoDirCode("mc22-54-o1")
+    const r = parseRepoDirCode("mc542-54-o1")
     assert.ok(r)
     assert.equal(r?.spec.provider, "codex")
     assert.equal(r?.spec.family, "gpt-5.4")
@@ -43,7 +43,7 @@ describe("parseRepoDirCode — widened regex", () => {
   })
 
   test("Codex mini parses with alphanumeric version tag", () => {
-    const r = parseRepoDirCode("mc1-54m-o2")
+    const r = parseRepoDirCode("mc54m-54m-o2")
     assert.ok(r)
     assert.equal(r?.spec.family, "gpt-5.4-mini")
     assert.equal(r?.versionTag, "54m")
@@ -66,6 +66,22 @@ describe("parseRepoDirCode — widened regex", () => {
     assert.equal(r?.versionTag, undefined)
     assert.equal(r?.reviewerSpec?.family, "opus")
     assert.equal(r?.reviewerVersionTag, undefined)
+  })
+
+  test("mixed Codex coder and Claude reviewer parses both specs", () => {
+    const r = parseRepoDirCode("mc542-54-r31-47-o2")
+    assert.ok(r)
+    assert.equal(r?.spec.provider, "codex")
+    assert.equal(r?.reviewerSpec?.provider, "claude")
+    assert.equal(r?.reviewerSpec?.family, "opus")
+  })
+
+  test("mixed Claude coder and Codex reviewer parses both specs", () => {
+    const r = parseRepoDirCode("m22-46-rc552-55-o2")
+    assert.ok(r)
+    assert.equal(r?.spec.provider, "claude")
+    assert.equal(r?.reviewerSpec?.provider, "codex")
+    assert.equal(r?.reviewerSpec?.family, "gpt-5.5")
   })
 
   test("without reviewer code, reviewer fields stay undefined", () => {

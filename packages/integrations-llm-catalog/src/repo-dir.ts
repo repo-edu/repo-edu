@@ -4,16 +4,16 @@ import type { FixtureModelSpec } from "./types"
 // Repo dir names look like:
 //   m22-o1                 (legacy — no version tag)
 //   m22-46-o1              (versioned — sonnet 4.6, comments tier 1)
-//   mc34-47-o2             (Codex / coder-prefixed — version 4.7, comments 2)
+//   mc542-54-o2            (Codex / coder-prefixed — version 5.4, comments 2)
 //   m22-46-r31-46-o2       (versioned coder + versioned reviewer)
 //   m22-r31-o2             (legacy coder + legacy reviewer)
-// Codes are alphanumeric (`22`, `c34`, etc.); version tags start with
+// Codes are alphanumeric (`22`, `c542`, `c54m`, etc.); version tags start with
 // a digit (`\d[a-z0-9]*`) so the `r<code>` reviewer prefix is never
 // mistaken for a version tag. An optional `r<code>(-<version>)?`
 // segment encodes the reviewer (review-round) model when it is
 // recorded. The `o<digit>` suffix encodes the comments tier.
 const REPO_DIR_RE =
-  /^m([a-z]*\d+)(?:-(\d[a-z0-9]*))?(?:-r([a-z]*\d+)(?:-(\d[a-z0-9]*))?)?-o\d+/
+  /^m([a-z]*\d+[a-z]*)(?:-(\d[a-z0-9]*))?(?:-r([a-z]*\d+[a-z]*)(?:-(\d[a-z0-9]*))?)?-o\d+/
 
 export type RepoDirParse = {
   spec: FixtureModelSpec

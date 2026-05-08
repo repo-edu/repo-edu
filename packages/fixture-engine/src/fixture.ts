@@ -22,7 +22,12 @@ import {
   type RepoOpts,
   type SweepOpts,
 } from "./cli"
-import { type CoderRunOpts, initRepo, runCoderLoop } from "./coder"
+import {
+  CoderRoundLlmError,
+  type CoderRunOpts,
+  initRepo,
+  runCoderLoop,
+} from "./coder"
 import {
   FIXTURES_DIR,
   LOG_BASENAME,
@@ -89,6 +94,34 @@ import {
   findCappedBucket,
   recordCapFromError,
 } from "./sweep-buckets"
+
+function activeCapError(
+  err: unknown,
+): { error: LlmError; spec: FixtureModelSpec } | null {
+  if (err instanceof CoderRoundLlmError && isCapErrorKind(err.error.kind)) {
+    return { error: err.error, spec: err.activeSpec }
+  }
+  if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+    return null
+  }
+  return null
+}
+
+function writeActiveCapMarker(repoDir: string, err: unknown): void {
+  const active = activeCapError(err)
+  if (active) writeCapMarkerForRepo(repoDir, active.error, active.spec)
+}
+
+function findBlockingCap(
+  buckets: readonly CappedBucket[],
+  specs: readonly FixtureModelSpec[],
+): CappedBucket | undefined {
+  for (const spec of specs) {
+    const bucket = findCappedBucket(buckets, spec.provider)
+    if (bucket) return bucket
+  }
+  return undefined
+}
 
 function scaffoldFixturesDir(): void {
   mkdirSync(FIXTURES_DIR(), { recursive: true })
@@ -467,9 +500,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       emptyUsage(),
     )
   } catch (err) {
-    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
-      writeCapMarkerForRepo(repoDir, err, opts.coderSpec)
-    }
+    writeActiveCapMarker(repoDir, err)
     throw err
   }
   const prevPlanSettings = readSettings(planDir)
@@ -564,9 +595,7 @@ async function runRepoForEntry(
       plannerUsage,
     )
   } catch (err) {
-    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
-      writeCapMarkerForRepo(repoDir, err, coderSpec)
-    }
+    writeActiveCapMarker(repoDir, err)
     throw err
   }
   writeSettings(repoDir, entrySettings)
@@ -691,9 +720,7 @@ async function runRepoForExistingPlan(
       emptyUsage(),
     )
   } catch (err) {
-    if (err instanceof LlmError && isCapErrorKind(err.kind)) {
-      writeCapMarkerForRepo(repoDir, err, coderSpec)
-    }
+    writeActiveCapMarker(repoDir, err)
     throw err
   }
   const prevPlanSettings = readSettings(from.planDir)
@@ -730,6 +757,18 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
     )
   }
 
+  for (let i = 0; i < total; i++) {
+    const variant = sweep.variants[i]
+    const entrySettings = materializeSettings(
+      sweep.baseSettings,
+      variant,
+      `${sweepPath}[${i}]`,
+    )
+    parseShortCode(entrySettings.mp, "mp")
+    parseShortCode(entrySettings.mc, "mc")
+    parseShortCode(entrySettings.mr, "mc")
+  }
+
   const cappedBuckets: CappedBucket[] = []
 
   if (sweep.phase === "plan") {
@@ -745,15 +784,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
       )
       const variantPlannerSpec = parseShortCode(entrySettings.mp, "mp")
       const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
-      const plannerCapped = findCappedBucket(
-        cappedBuckets,
-        variantPlannerSpec.provider,
-      )
-      const coderCapped = findCappedBucket(
-        cappedBuckets,
-        variantCoderSpec.provider,
-      )
-      const blocking = plannerCapped ?? coderCapped
+      const variantReviewerSpec = parseShortCode(entrySettings.mr, "mc")
+      const blocking = findBlockingCap(cappedBuckets, [
+        variantPlannerSpec,
+        variantCoderSpec,
+        variantReviewerSpec,
+      ])
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
@@ -785,11 +821,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
           planned.plannerUsage,
         )
       } catch (err) {
-        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+        const active = activeCapError(err)
+        if (active) {
           const bucket = recordCapFromError(
             cappedBuckets,
-            err,
-            variantCoderSpec.provider,
+            active.error,
+            active.spec.provider,
           )
           progress(
             `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,
@@ -808,10 +845,11 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         `${sweepPath}[${i}]`,
       )
       const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
-      const blocking = findCappedBucket(
-        cappedBuckets,
-        variantCoderSpec.provider,
-      )
+      const variantReviewerSpec = parseShortCode(entrySettings.mr, "mc")
+      const blocking = findBlockingCap(cappedBuckets, [
+        variantCoderSpec,
+        variantReviewerSpec,
+      ])
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
@@ -829,11 +867,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
           runStart,
         )
       } catch (err) {
-        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+        const active = activeCapError(err)
+        if (active) {
           const bucket = recordCapFromError(
             cappedBuckets,
-            err,
-            variantCoderSpec.provider,
+            active.error,
+            active.spec.provider,
           )
           progress(
             `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,
@@ -867,10 +906,11 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
         `${sweepPath}[${i}]`,
       )
       const variantCoderSpec = parseShortCode(entrySettings.mc, "mc")
-      const blocking = findCappedBucket(
-        cappedBuckets,
-        variantCoderSpec.provider,
-      )
+      const variantReviewerSpec = parseShortCode(entrySettings.mr, "mc")
+      const blocking = findBlockingCap(cappedBuckets, [
+        variantCoderSpec,
+        variantReviewerSpec,
+      ])
       if (blocking) {
         if (i > 0) process.stderr.write("\n")
         progress(
@@ -891,11 +931,12 @@ async function handleSweep(opts: SweepOpts, runStart: number): Promise<void> {
           i === 0 ? plannerUsage : emptyUsage(),
         )
       } catch (err) {
-        if (err instanceof LlmError && isCapErrorKind(err.kind)) {
+        const active = activeCapError(err)
+        if (active) {
           const bucket = recordCapFromError(
             cappedBuckets,
-            err,
-            variantCoderSpec.provider,
+            active.error,
+            active.spec.provider,
           )
           progress(
             `sweep: cap hit on bucket ${bucketLabel(bucket)} (${bucket.kind}); skipping remaining same-bucket variants`,

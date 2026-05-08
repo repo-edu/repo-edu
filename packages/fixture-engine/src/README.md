@@ -293,23 +293,23 @@ reference (every subcommand plus the model-code table and
 | `init` | `.fixture-settings.jsonc` + `.fixture-sweep.jsonc` + empty `.fixture-state.json` (scaffold) | `-f` |
 | `project` | `c<N>-<name>/project.md` | `-m`, `-c` |
 | `plan --from=<project.md>` | `c<N>-<name>/<plan-postfix>/plan.md` | `-m`, `-s`, `-r`, `-w`, `-i`, `-y`, `-a` |
-| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `-o` |
+| `repo --from=<plan.md>` | `c<N>-<name>/<plan-postfix>/<repo-postfix>/` git repo | `-m`, `--review-model`, `-o` |
 | `sweep [--from=<project\|plan>] [--sweep=<sweep.jsonc>]` | N plan+repo (plan-phase key) or one plan + N repos (repo-phase key); `--from=<plan>` reuses an existing plan | `--from`, `--sweep` |
 | `evaluate [--from=<dir>] [--out=PATH]` | `<root>/_evaluate.md` — scores every repo found by walking `<root>` | `--from`, `--out`, `-m` |
 
 Model codes for `-m` / `--model`:
 
-- Claude: `1` = haiku; `2|21|22|23` = sonnet (default/low/medium/high);
-  `3|31|32|33|34|35` = opus (default/low/medium/high/xhigh/max).
-- Codex: `c1` = gpt-5.4-mini; `c2|c21|c22|c23|c24` = gpt-5.4
-  (default/low/medium/high/xhigh); `c3|c31|c32|c33|c34` = gpt-5.5
-  (default/low/medium/high/xhigh).
+- Claude: `1` = haiku; `21|22|23` = sonnet (low/medium/high);
+  `31|32|33|34|35` = opus (low/medium/high/xhigh/max).
+- Codex: `c54m` = gpt-5.4-mini; `c541|c542|c543|c544` = gpt-5.4
+  (low/medium/high/xhigh); `c551|c552|c553|c554` = gpt-5.5
+  (low/medium/high/xhigh).
 
-Codex codes are accepted for `mp` (planner / evaluator) only — `mc`
-stays Claude-only because the coder uses workspace-write tools that
-the multi-provider contract intentionally does not expose. Each
-generated dirname includes the resolved model's version tag (e.g.
-`m22-46`, `mc22-54`) so cross-generation runs stay distinguishable.
+Claude and Codex codes are accepted for `mp` (planner / evaluator),
+`mc` (build rounds), and `mr` (review rounds). Mixed-provider repos are
+valid, for example `pnpm fixture repo -m c542 --review-model 31`.
+Each generated dirname includes the resolved model's version tag (e.g.
+`m22-46`, `mc542-54`) so cross-generation runs stay distinguishable.
 
 Both auth modes work with both providers: a logged-in subscription
 (Claude `claude` CLI session, ChatGPT login under `codex`) or an

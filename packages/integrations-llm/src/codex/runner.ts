@@ -5,6 +5,7 @@ import {
   Codex,
   type CodexOptions,
   type ThreadEvent,
+  type ThreadItem,
   type ThreadOptions,
 } from "@openai/codex-sdk"
 import {
@@ -32,6 +33,32 @@ const PROMPT_REPLY_PREAMBLE = [
   "",
 ].join("\n")
 
+const FIXTURE_CODER_PREAMBLE = [
+  "You are operating as the Codex backend for a fixture repository coding",
+  "round. Work only in the repository working directory provided for this",
+  "thread. Do not use the network, do not ask for approval, and do not",
+  "attempt package downloads or external service calls.",
+  "",
+  "Run as a bounded Codex patch engine: do not call MCP discovery, do not",
+  "perform web search, do not run tests, and do not use git. Prefer one",
+  "short inspection pass and one file-change batch. If shell inspection is",
+  "unavoidable, use only read-only commands such as rg, sed -n, ls, find,",
+  "cat, pwd, nl -ba, or wc -l.",
+  "",
+  "Each shell call must be a single command with no shell operators: no",
+  "pipes (|), no redirects (>, <), no command chaining (&&, ||, ;), no",
+  "command substitution ($(...) or backticks), and no backgrounding (&).",
+  "If you need to combine outputs, run separate commands in successive",
+  "calls.",
+  "",
+  "The fixture coordinator owns git staging and commits. Make file edits for",
+  "the requested round, then end your final assistant message with the",
+  "required DELETE:/COMMIT: trailer protocol exactly as instructed below.",
+  "",
+  "---",
+  "",
+].join("\n")
+
 export type CodexClientFactory = (options: CodexOptions) => Codex
 
 export type CodexRunOptions = {
@@ -42,8 +69,34 @@ export type CodexRunOptions = {
   factory?: CodexClientFactory
 }
 
+export type CodexFixtureCoderRequest = CodexRunOptions & {
+  cwd: string
+  appendInstructions?: string
+  limits?: Partial<CodexFixtureCoderLimits>
+}
+
 export type CodexThreadOptionsSnapshot = ThreadOptions & {
   workingDirectoryEphemeral: true
+}
+
+export type CodexFixtureCoderLimits = {
+  maxElapsedMs: number
+  maxAssistantMessages: number
+  maxReasoningItems: number
+  maxFileChangeBatches: number
+  maxReadOnlyCommands: number
+  maxMcpToolCalls: number
+  maxWebSearches: number
+}
+
+export const DEFAULT_CODEX_FIXTURE_CODER_LIMITS: CodexFixtureCoderLimits = {
+  maxElapsedMs: 75_000,
+  maxAssistantMessages: 4,
+  maxReasoningItems: 6,
+  maxFileChangeBatches: 4,
+  maxReadOnlyCommands: 6,
+  maxMcpToolCalls: 0,
+  maxWebSearches: 0,
 }
 
 const SUPPORTED_EFFORTS: ReadonlySet<LlmEffort> = new Set([
@@ -75,6 +128,22 @@ export function buildCodexThreadOptions(
     sandboxMode: "read-only",
     approvalPolicy: "never",
     skipGitRepoCheck: true,
+    networkAccessEnabled: false,
+    webSearchMode: "disabled",
+  }
+}
+
+export function buildCodexFixtureCoderThreadOptions(
+  spec: LlmModelSpec,
+  workingDirectory: string,
+): ThreadOptions {
+  return {
+    model: spec.modelId,
+    ...effortOption(spec.effort),
+    workingDirectory,
+    sandboxMode: "workspace-write",
+    approvalPolicy: "never",
+    networkAccessEnabled: false,
     webSearchMode: "disabled",
   }
 }
@@ -82,6 +151,54 @@ export function buildCodexThreadOptions(
 export async function runCodexQuery(
   options: CodexRunOptions,
   config: LlmProviderRuntimeConfig | undefined,
+): Promise<LlmResult> {
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "codex-prompt-reply-"),
+  )
+  try {
+    const threadOptions = buildCodexThreadOptions(options.spec, tempDir)
+    const wrappedPrompt = `${PROMPT_REPLY_PREAMBLE}${options.prompt}`
+    return await runCodexTurn(options, config, threadOptions, wrappedPrompt)
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+export async function runCodexFixtureCoder(
+  options: CodexFixtureCoderRequest,
+  config: LlmProviderRuntimeConfig | undefined,
+): Promise<LlmResult> {
+  const threadOptions = buildCodexFixtureCoderThreadOptions(
+    options.spec,
+    options.cwd,
+  )
+  const append =
+    options.appendInstructions === undefined
+      ? ""
+      : `${options.appendInstructions}\n\n---\n\n`
+  const wrappedPrompt = `${FIXTURE_CODER_PREAMBLE}${append}${options.prompt}`
+  return runCodexTurn(options, config, threadOptions, wrappedPrompt, {
+    kind: "fixture-coder",
+    limits: {
+      ...DEFAULT_CODEX_FIXTURE_CODER_LIMITS,
+      ...options.limits,
+    },
+  })
+}
+
+type CodexTurnGuard =
+  | { kind: "none" }
+  | {
+      kind: "fixture-coder"
+      limits: CodexFixtureCoderLimits
+    }
+
+async function runCodexTurn(
+  options: CodexRunOptions,
+  config: LlmProviderRuntimeConfig | undefined,
+  threadOptions: ThreadOptions,
+  prompt: string,
+  guard: CodexTurnGuard = { kind: "none" },
 ): Promise<LlmResult> {
   if (options.spec.provider !== "codex") {
     throw new Error(
@@ -97,21 +214,24 @@ export async function runCodexQuery(
   const resolved = resolveCodexAuth(config)
   const start = Date.now()
   const recorder: CodexTraceRecorder = createCodexTraceRecorder(options.trace)
+  const eventGuard =
+    guard.kind === "fixture-coder"
+      ? createCodexFixtureCoderEventGuard(guard.limits, start)
+      : null
 
-  const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "codex-prompt-reply-"),
-  )
   const envOverride = applyEnvOverrides(resolved)
+  const turnSignal = createTurnSignal(
+    options.signal,
+    guard.kind === "fixture-coder" ? guard.limits.maxElapsedMs : undefined,
+  )
   try {
     const codex = (options.factory ?? defaultCodexFactory)({
       apiKey: resolved.apiKey,
       baseUrl: resolved.baseUrl,
     })
-    const threadOptions = buildCodexThreadOptions(options.spec, tempDir)
     const thread = codex.startThread(threadOptions)
-    const wrappedPrompt = `${PROMPT_REPLY_PREAMBLE}${options.prompt}`
-    const streamed = await thread.runStreamed(wrappedPrompt, {
-      signal: options.signal,
+    const streamed = await thread.runStreamed(prompt, {
+      signal: turnSignal.signal,
     })
 
     let finalResponse = ""
@@ -119,8 +239,17 @@ export async function runCodexQuery(
     let turnFailure: string | null = null
     let streamError: string | null = null
     for await (const event of streamed.events as AsyncIterable<ThreadEvent>) {
-      if (options.signal?.aborted) {
+      if (turnSignal.signal?.aborted) {
         throw new Error("Operation cancelled.")
+      }
+      eventGuard?.record(event)
+      if (event.type === "item.started") {
+        recorder.recordItemStarted(event.item)
+        continue
+      }
+      if (event.type === "item.updated") {
+        recorder.recordItemUpdated(event.item)
+        continue
       }
       if (event.type === "item.completed") {
         if (event.item.type === "agent_message") {
@@ -130,11 +259,14 @@ export async function runCodexQuery(
           recorder.recordReasoning(event.item)
         } else if (event.item.type === "error") {
           recorder.recordError(event.item.message)
+        } else {
+          recorder.recordItemCompleted(event.item)
         }
         continue
       }
       if (event.type === "turn.completed") {
         usage = event.usage
+        recorder.recordUsage(usage)
         continue
       }
       if (event.type === "turn.failed") {
@@ -161,11 +293,189 @@ export async function runCodexQuery(
   } catch (cause) {
     throw toCodexLlmError(cause, resolved.authMode)
   } finally {
+    turnSignal.cleanup()
     envOverride.restore()
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   }
 }
 
 function defaultCodexFactory(options: CodexOptions): Codex {
   return new Codex(options)
+}
+
+function createTurnSignal(
+  signal: AbortSignal | undefined,
+  timeoutMs: number | undefined,
+): { signal?: AbortSignal; cleanup(): void } {
+  if (timeoutMs === undefined) {
+    return { signal, cleanup: () => {} }
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  const abort = () => controller.abort()
+  signal?.addEventListener("abort", abort, { once: true })
+  return {
+    signal: controller.signal,
+    cleanup() {
+      clearTimeout(timeout)
+      signal?.removeEventListener("abort", abort)
+    },
+  }
+}
+
+type CodexFixtureCoderEventGuard = {
+  record(event: ThreadEvent): void
+}
+
+function createCodexFixtureCoderEventGuard(
+  limits: CodexFixtureCoderLimits,
+  start: number,
+): CodexFixtureCoderEventGuard {
+  const countedItems = new Set<string>()
+  let anonymousItemCount = 0
+  let assistantMessages = 0
+  let reasoningItems = 0
+  let fileChangeBatches = 0
+  let readOnlyCommands = 0
+  let mcpToolCalls = 0
+  let webSearches = 0
+
+  const assertWithin = (actual: number, max: number, label: string): void => {
+    if (actual > max) {
+      throwFixtureGuardrail(`${label} exceeded ${max}`)
+    }
+  }
+
+  const countItemOnce = (item: ThreadItem): boolean => {
+    const id = item.id ?? `anonymous-${anonymousItemCount++}`
+    if (countedItems.has(id)) return false
+    countedItems.add(id)
+    return true
+  }
+
+  return {
+    record(event) {
+      if (Date.now() - start > limits.maxElapsedMs) {
+        throwFixtureGuardrail(`elapsed time exceeded ${limits.maxElapsedMs}ms`)
+      }
+      if (event.type !== "item.started" && event.type !== "item.completed") {
+        return
+      }
+
+      const { item } = event
+      if (item.type === "agent_message") {
+        assistantMessages++
+        assertWithin(
+          assistantMessages,
+          limits.maxAssistantMessages,
+          "assistant messages",
+        )
+        return
+      }
+      if (item.type === "reasoning") {
+        reasoningItems++
+        assertWithin(
+          reasoningItems,
+          limits.maxReasoningItems,
+          "reasoning items",
+        )
+        return
+      }
+
+      if (!countItemOnce(item)) return
+      if (item.type === "file_change") {
+        fileChangeBatches++
+        assertWithin(
+          fileChangeBatches,
+          limits.maxFileChangeBatches,
+          "file-change batches",
+        )
+        return
+      }
+      if (item.type === "command_execution") {
+        const command = item.command
+        if (!isAllowedReadOnlyCommand(command)) {
+          throwFixtureGuardrail(
+            `command execution is limited to read-only inspection commands, got: ${command}`,
+          )
+        }
+        readOnlyCommands++
+        assertWithin(
+          readOnlyCommands,
+          limits.maxReadOnlyCommands,
+          "read-only commands",
+        )
+        return
+      }
+      if (item.type === "mcp_tool_call") {
+        mcpToolCalls++
+        assertWithin(mcpToolCalls, limits.maxMcpToolCalls, "MCP tool calls")
+        return
+      }
+      if (item.type === "web_search") {
+        webSearches++
+        assertWithin(webSearches, limits.maxWebSearches, "web searches")
+      }
+    },
+  }
+}
+
+function throwFixtureGuardrail(message: string): never {
+  throw new LlmError("guardrail", `Codex fixture coder guardrail: ${message}`, {
+    context: { provider: "codex" },
+  })
+}
+
+function isAllowedReadOnlyCommand(command: string): boolean {
+  const normalized = unwrapShellCommand(command).trim()
+  if (hasUnquotedShellOperator(normalized)) return false
+  return /^(?:pwd|ls(?:\s|$)|find\s+|rg(?:\s|$)|sed\s+-n\s+|nl\s+-ba\s+|wc\s+-l\s+|cat\s+[^>]+$)/.test(
+    normalized,
+  )
+}
+
+function hasUnquotedShellOperator(command: string): boolean {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  for (const char of command) {
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === "\\") {
+      escaped = true
+      continue
+    }
+    if (quote !== null) {
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (char === ";" || char === "&" || char === "|" || char === "`") {
+      return true
+    }
+    if (char === "$" || char === "<" || char === ">") {
+      return true
+    }
+  }
+  return quote !== null
+}
+
+function unwrapShellCommand(command: string): string {
+  const match = command.match(/^\/bin\/(?:zsh|bash|sh)\s+-lc\s+(.+)$/)
+  if (!match) return command
+  return stripOuterQuotes(match[1])
+}
+
+function stripOuterQuotes(value: string): string {
+  if (value.length < 2) return value
+  const first = value[0]
+  const last = value[value.length - 1]
+  if ((first === "'" && last === "'") || (first === '"' && last === '"')) {
+    return value.slice(1, -1).replaceAll(`\\${first}`, first)
+  }
+  return value
 }

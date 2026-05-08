@@ -7,8 +7,13 @@ import type {
 import { type CodexClientFactory, runCodexQuery } from "./runner"
 import type { TraceSink } from "./trace"
 
-export type { CodexClientFactory } from "./runner"
-export { buildCodexThreadOptions, runCodexQuery } from "./runner"
+export type { CodexClientFactory, CodexFixtureCoderRequest } from "./runner"
+export {
+  buildCodexFixtureCoderThreadOptions,
+  buildCodexThreadOptions,
+  runCodexFixtureCoder,
+  runCodexQuery,
+} from "./runner"
 export type { TraceSink } from "./trace"
 
 export type CreateCodexLlmTextClientOptions = {

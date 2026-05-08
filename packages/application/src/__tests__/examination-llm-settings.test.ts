@@ -149,7 +149,7 @@ describe("examination workflow — LLM settings resolution", () => {
               },
             ],
             activeLlmConnectionId: "claude-1",
-            examinationModelsByProvider: { claude: "c22" },
+            examinationModelsByProvider: { claude: "c542" },
           }),
         ),
       (error: unknown) =>

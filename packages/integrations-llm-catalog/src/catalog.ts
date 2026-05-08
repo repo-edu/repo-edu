@@ -3,7 +3,7 @@ import type {
   LlmProvider,
 } from "@repo-edu/integrations-llm-contract"
 import { getPriceCard } from "./pricing"
-import type { FixtureModelSpec, SupportedEfforts } from "./types"
+import type { FixtureModelSpec } from "./types"
 
 // ---------------------------------------------------------------------------
 // Tier metadata
@@ -17,9 +17,8 @@ type Tier = {
   family: string
   modelId: string
   versionTag: string
-  /** Short-code stem before the optional effort digit, e.g. "2" or "c3". */
-  codeStem: string
-  supportedEfforts: SupportedEfforts
+  stem: string
+  codes: ReadonlyArray<{ code: string; effort: LlmEffort }>
   /** Effort whose spec is the per-provider draft-verification default. */
   verifyDefaultEffort?: LlmEffort
   /** Effort whose spec is the per-provider examination-workflow default. */
@@ -32,8 +31,8 @@ const TIERS: Tier[] = [
     family: "haiku",
     modelId: "claude-haiku-4-5",
     versionTag: "45",
-    codeStem: "1",
-    supportedEfforts: ["none"],
+    stem: "1",
+    codes: [{ code: "1", effort: "none" }],
     verifyDefaultEffort: "none",
   },
   {
@@ -41,8 +40,12 @@ const TIERS: Tier[] = [
     family: "sonnet",
     modelId: "claude-sonnet-4-6",
     versionTag: "46",
-    codeStem: "2",
-    supportedEfforts: ["low", "medium", "high"],
+    stem: "2",
+    codes: [
+      { code: "21", effort: "low" },
+      { code: "22", effort: "medium" },
+      { code: "23", effort: "high" },
+    ],
     examinationDefaultEffort: "medium",
   },
   {
@@ -50,16 +53,22 @@ const TIERS: Tier[] = [
     family: "opus",
     modelId: "claude-opus-4-7",
     versionTag: "47",
-    codeStem: "3",
-    supportedEfforts: ["low", "medium", "high", "xhigh", "max"],
+    stem: "3",
+    codes: [
+      { code: "31", effort: "low" },
+      { code: "32", effort: "medium" },
+      { code: "33", effort: "high" },
+      { code: "34", effort: "xhigh" },
+      { code: "35", effort: "max" },
+    ],
   },
   {
     provider: "codex",
     family: "gpt-5.4-mini",
     modelId: "gpt-5.4-mini",
     versionTag: "54m",
-    codeStem: "c1",
-    supportedEfforts: ["none"],
+    stem: "c54m",
+    codes: [{ code: "c54m", effort: "none" }],
     verifyDefaultEffort: "none",
   },
   {
@@ -67,8 +76,13 @@ const TIERS: Tier[] = [
     family: "gpt-5.4",
     modelId: "gpt-5.4",
     versionTag: "54",
-    codeStem: "c2",
-    supportedEfforts: ["low", "medium", "high", "xhigh"],
+    stem: "c54",
+    codes: [
+      { code: "c541", effort: "low" },
+      { code: "c542", effort: "medium" },
+      { code: "c543", effort: "high" },
+      { code: "c544", effort: "xhigh" },
+    ],
     examinationDefaultEffort: "medium",
   },
   {
@@ -76,29 +90,21 @@ const TIERS: Tier[] = [
     family: "gpt-5.5",
     modelId: "gpt-5.5",
     versionTag: "55",
-    codeStem: "c3",
-    supportedEfforts: ["low", "medium", "high", "xhigh"],
+    stem: "c55",
+    codes: [
+      { code: "c551", effort: "low" },
+      { code: "c552", effort: "medium" },
+      { code: "c553", effort: "high" },
+      { code: "c554", effort: "xhigh" },
+    ],
   },
 ]
 
-// Providers whose models are usable from the coder phase (`mc`). The coder
-// surface is Claude-internal; Codex models cannot be used as coders.
+// Providers whose models are usable from the coder phase (`mc`).
 export const codingAgentProviders: ReadonlySet<LlmProvider> = new Set([
   "claude",
+  "codex",
 ])
-
-// Effort digit used in short codes. "none" omits the digit (haiku → "1", not
-// "10"). The high-effort variant doubles as the tier-only alias (`2` ≡ `23`,
-// `3` ≡ `33`).
-const EFFORT_DIGIT: Record<LlmEffort, string> = {
-  none: "",
-  minimal: "0",
-  low: "1",
-  medium: "2",
-  high: "3",
-  xhigh: "4",
-  max: "5",
-}
 
 function buildSpec(tier: Tier, effort: LlmEffort): FixtureModelSpec {
   const displayName =
@@ -121,27 +127,21 @@ function buildSpec(tier: Tier, effort: LlmEffort): FixtureModelSpec {
   return spec
 }
 
-function canonicalCode(tier: Tier, effort: LlmEffort): string {
-  return `${tier.codeStem}${EFFORT_DIGIT[effort]}`
-}
-
 const codeTable = new Map<string, FixtureModelSpec>()
+const codeBySpec = new Map<FixtureModelSpec, string>()
+const codesByTier = new Map<Tier, string[]>()
 const tierByFamilyProvider = new Map<string, Tier>()
 
 for (const tier of TIERS) {
   tierByFamilyProvider.set(`${tier.provider}::${tier.family}`, tier)
-  for (const effort of tier.supportedEfforts) {
+  const tierCodes: string[] = []
+  for (const { code, effort } of tier.codes) {
     const spec = buildSpec(tier, effort)
-    codeTable.set(canonicalCode(tier, effort), spec)
-    // Tier-only alias collapses to high (or to the sole supported effort for
-    // effort-less families like haiku).
-    const aliasEffort: LlmEffort = tier.supportedEfforts.includes("high")
-      ? "high"
-      : tier.supportedEfforts[0]
-    if (effort === aliasEffort) {
-      codeTable.set(tier.codeStem, spec)
-    }
+    codeTable.set(code, spec)
+    codeBySpec.set(spec, code)
+    tierCodes.push(code)
   }
+  codesByTier.set(tier, tierCodes)
 }
 
 export function listCodes(): string[] {
@@ -153,7 +153,8 @@ export function getSpecByCode(code: string): FixtureModelSpec | undefined {
 }
 
 export function listCodesForTierStem(stem: string): string[] {
-  return [...codeTable.keys()].filter((code) => code.startsWith(stem)).sort()
+  const tier = TIERS.find((candidate) => candidate.stem === stem)
+  return tier ? [...(codesByTier.get(tier) ?? [])].sort() : []
 }
 
 export function tierOf(spec: {
@@ -164,10 +165,7 @@ export function tierOf(spec: {
 }
 
 export function allCatalogSpecs(): FixtureModelSpec[] {
-  // Deduplicate: tier-only alias reuses the high-effort spec instance.
-  const seen = new Set<FixtureModelSpec>()
-  for (const spec of codeTable.values()) seen.add(spec)
-  return [...seen]
+  return [...codeTable.values()]
 }
 
 export function listCatalogSpecsForProvider(
@@ -190,4 +188,20 @@ export function getExaminationDefaultSpec(
   return allCatalogSpecs().find(
     (spec) => spec.provider === provider && spec.examinationDefault === true,
   )
+}
+
+export function codeForSpec(spec: FixtureModelSpec): string | undefined {
+  const direct = codeBySpec.get(spec)
+  if (direct) return direct
+  for (const [code, candidate] of codeTable) {
+    if (
+      candidate.provider === spec.provider &&
+      candidate.family === spec.family &&
+      candidate.modelId === spec.modelId &&
+      candidate.effort === spec.effort
+    ) {
+      return code
+    }
+  }
+  return undefined
 }
