@@ -9,7 +9,24 @@ Recent commits (most recent last):
 {{commit_log}}
 ```
 
+Current project files:
+
+```text
+{{repo_snapshot}}
+```
+
 {{round_goal}}
+
+Review-round scope:
+
+- You may only inspect and improve behavior already present in the recent
+  commits.
+- Do not add future planned features, new public surface, CLI entry points,
+  tests, modules, or end-to-end workflows.
+- Modify at most one existing project file unless deleting a directly related
+  dead file is part of the same cleanup.
+- Files not listed under Current project files are out of scope.
+- If the existing code has no focused issue worth fixing, return `COMMIT: -`.
 
 {{comments_directive}}
 

@@ -15,7 +15,10 @@ import {
   type LlmModelSpec,
 } from "@repo-edu/integrations-llm-contract"
 import { createCodexLlmTextClient } from "../index"
-import { runCodexFixtureCoder } from "../runner"
+import {
+  DEFAULT_CODEX_FIXTURE_CODER_LIMITS,
+  runCodexFixtureCoder,
+} from "../runner"
 
 const CODEX = "CODEX_API_KEY"
 
@@ -65,6 +68,7 @@ type FakeCall = {
 type FakeOutcome = {
   events?: ThreadEvent[]
   throwOnRun?: unknown
+  delayBeforeEventsMs?: number
 }
 
 function createFakeCodex(outcome: FakeOutcome): {
@@ -91,6 +95,11 @@ function createFakeCodex(outcome: FakeOutcome): {
             return {
               events: (async function* () {
                 if (throwOnRun) throw throwOnRun
+                if (outcome.delayBeforeEventsMs !== undefined) {
+                  await new Promise((resolve) =>
+                    setTimeout(resolve, outcome.delayBeforeEventsMs),
+                  )
+                }
                 for (const event of events) yield event
               })(),
             }
@@ -401,7 +410,9 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
     assert.equal(calls[0].threadOptions.additionalDirectories, undefined)
     assert.notEqual(calls[0].threadOptions.skipGitRepoCheck, true)
     assert.match(calls[0].promptInput, /fixture repository coding/)
-    assert.match(calls[0].promptInput, /bounded Codex patch engine/)
+    assert.match(calls[0].promptInput, /one-shot Codex patch engine/)
+    assert.match(calls[0].promptInput, /current project file list/)
+    assert.match(calls[0].promptInput, /target file content/)
     assert.match(calls[0].promptInput, /do not call MCP discovery/)
     assert.match(calls[0].promptInput, /Persona instructions/)
     assert.match(calls[0].promptInput, /edit files/)
@@ -488,6 +499,91 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
         {
           type: "item.completed",
           item: { id: "msg", type: "agent_message", text: "ok\nCOMMIT: -" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 1,
+            cached_input_tokens: 0,
+            output_tokens: 1,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+    })
+
+    const result = await runCodexFixtureCoder(
+      {
+        spec: codexSpec,
+        prompt: "inspect files",
+        cwd: "/tmp/fixture-repo",
+        factory,
+      },
+      undefined,
+    )
+
+    assert.equal(result.reply, "ok\nCOMMIT: -")
+  })
+
+  it("counts started and completed events for the same reasoning item once", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.started",
+          item: { id: "reasoning", type: "reasoning", text: "" },
+        },
+        {
+          type: "item.completed",
+          item: { id: "reasoning", type: "reasoning", text: "done" },
+        },
+        {
+          type: "item.completed",
+          item: { id: "msg", type: "agent_message", text: "ok\nCOMMIT: -" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 1,
+            cached_input_tokens: 0,
+            output_tokens: 1,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+    })
+
+    const result = await runCodexFixtureCoder(
+      {
+        spec: codexSpec,
+        prompt: "inspect files",
+        cwd: "/tmp/fixture-repo",
+        factory,
+        limits: {
+          maxReasoningItems: 1,
+        },
+      },
+      undefined,
+    )
+
+    assert.equal(result.reply, "ok\nCOMMIT: -")
+  })
+
+  it("does not fail fixture rounds on assistant progress messages", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        ...Array.from({ length: 8 }, (_, index) => ({
+          type: "item.completed" as const,
+          item: {
+            id: `msg-${index}`,
+            type: "agent_message" as const,
+            text: `progress ${index}`,
+          },
+        })),
+        {
+          type: "item.completed",
+          item: { id: "final", type: "agent_message", text: "ok\nCOMMIT: -" },
         },
         {
           type: "turn.completed",
@@ -624,6 +720,46 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
   it("caps repeated read-only command inspection", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({
+      events: Array.from(
+        { length: DEFAULT_CODEX_FIXTURE_CODER_LIMITS.maxReadOnlyCommands + 1 },
+        (_, index) => ({
+          type: "item.started" as const,
+          item: {
+            id: `cmd-${index}`,
+            type: "command_execution" as const,
+            command: "rg --files .",
+            aggregated_output: "",
+            status: "in_progress" as const,
+          },
+        }),
+      ),
+    })
+
+    const exceededMessage = new RegExp(
+      `read-only commands exceeded ${DEFAULT_CODEX_FIXTURE_CODER_LIMITS.maxReadOnlyCommands}`,
+    )
+
+    await assert.rejects(
+      () =>
+        runCodexFixtureCoder(
+          {
+            spec: codexSpec,
+            prompt: "edit files",
+            cwd: "/tmp/fixture-repo",
+            factory,
+          },
+          undefined,
+        ),
+      (err: unknown) =>
+        err instanceof LlmError &&
+        err.kind === "guardrail" &&
+        exceededMessage.test(err.message),
+    )
+  })
+
+  it("keeps custom read-only command limits strict", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
       events: Array.from({ length: 7 }, (_, index) => ({
         type: "item.started" as const,
         item: {
@@ -644,6 +780,9 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
             prompt: "edit files",
             cwd: "/tmp/fixture-repo",
             factory,
+            limits: {
+              maxReadOnlyCommands: 6,
+            },
           },
           undefined,
         ),
@@ -683,6 +822,41 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
         err instanceof LlmError &&
         err.kind === "guardrail" &&
         /file-change batches exceeded 4/.test(err.message),
+    )
+  })
+
+  it("reports fixture-coder elapsed timeout as a guardrail", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      delayBeforeEventsMs: 20,
+      events: [
+        {
+          type: "item.completed",
+          item: { id: "msg", type: "agent_message", text: "ok\nCOMMIT: -" },
+        },
+      ],
+    })
+
+    await assert.rejects(
+      () =>
+        runCodexFixtureCoder(
+          {
+            spec: codexSpec,
+            prompt: "edit files",
+            cwd: "/tmp/fixture-repo",
+            factory,
+            limits: {
+              maxElapsedMs: 1,
+            },
+          },
+          undefined,
+        ),
+      (err: unknown) =>
+        err instanceof LlmError &&
+        err.kind === "guardrail" &&
+        err.context.provider === "codex" &&
+        err.context.authMode === "api" &&
+        /elapsed time exceeded 1ms/.test(err.message),
     )
   })
 })

@@ -1,13 +1,26 @@
 import { spawnSync } from "node:child_process"
-import { writeFileSync } from "node:fs"
-import { resolve } from "node:path"
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
+import { isAbsolute, join, normalize, resolve } from "node:path"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import { LlmError, type LlmUsage } from "@repo-edu/integrations-llm-contract"
 import {
   CODER_AGREEMENT,
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
+  LOG_BASENAME,
+  QUOTA_EXHAUSTED_BASENAME,
+  RATE_LIMITED_BASENAME,
+  REVIEW_BASENAME,
+  SETTINGS_BASENAME,
   STATE_BASENAME,
+  TRACE_BASENAME,
+  XTRACE_BASENAME,
 } from "./constants"
 import { runFixtureCoder } from "./llm-client"
 import { emit, fail, formatSeconds, progress, withTicker } from "./log"
@@ -59,6 +72,63 @@ function shortLog(dir: string): string {
   return out.length > 0 ? out : "(no commits yet)"
 }
 
+const SNAPSHOT_OMIT = new Set([
+  ".git",
+  LOG_BASENAME,
+  QUOTA_EXHAUSTED_BASENAME,
+  RATE_LIMITED_BASENAME,
+  REVIEW_BASENAME,
+  SETTINGS_BASENAME,
+  STATE_BASENAME,
+  TRACE_BASENAME,
+  XTRACE_BASENAME,
+])
+
+const MAX_TARGET_FILE_BYTES = 20_000
+
+function repoSnapshot(dir: string): string {
+  const files: string[] = []
+  const walk = (relativeDir: string): void => {
+    const entries = readdirSync(join(dir, relativeDir), {
+      withFileTypes: true,
+    }).sort((a, b) => a.name.localeCompare(b.name))
+    for (const entry of entries) {
+      if (SNAPSHOT_OMIT.has(entry.name)) continue
+      const relativePath =
+        relativeDir.length === 0 ? entry.name : `${relativeDir}/${entry.name}`
+      if (entry.isDirectory()) {
+        walk(relativePath)
+        continue
+      }
+      if (entry.isFile()) files.push(relativePath)
+    }
+  }
+  walk("")
+  return files.length === 0 ? "(no project files yet)" : files.join("\n")
+}
+
+function targetFileContent(dir: string, relativePath: string): string {
+  if (relativePath.length === 0) return "(no target file for this round)"
+  const normalized = normalize(relativePath)
+  if (
+    isAbsolute(relativePath) ||
+    normalized === ".." ||
+    normalized.startsWith("../")
+  ) {
+    return "(target file path is outside the repository)"
+  }
+  const absPath = resolve(dir, normalized)
+  if (!existsSync(absPath)) return "(target file does not exist yet)"
+  const stat = statSync(absPath)
+  if (!stat.isFile()) return "(target path is not a file)"
+  const content = readFileSync(absPath, "utf8")
+  if (Buffer.byteLength(content, "utf8") <= MAX_TARGET_FILE_BYTES) {
+    return content.length === 0 ? "(target file is empty)" : content
+  }
+  const truncated = content.slice(0, MAX_TARGET_FILE_BYTES)
+  return `${truncated}\n\n[truncated after ${MAX_TARGET_FILE_BYTES} bytes]`
+}
+
 function composeCoderPrompt(
   project: Project,
   plan: Plan,
@@ -71,6 +141,8 @@ function composeCoderPrompt(
     opts.comments === COMMENTS_FREE_TIER
       ? ""
       : loadSection("coder/comments", String(opts.comments))
+  const primaryModule =
+    commit.kind === "build" ? (commit.primary_module ?? "") : ""
 
   const ctx: Record<string, string> = {
     persona_name: persona.name,
@@ -78,6 +150,9 @@ function composeCoderPrompt(
     assignment: project.assignment,
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
+    repo_snapshot: repoSnapshot(absPath),
+    target_file: primaryModule,
+    target_file_content: targetFileContent(absPath, primaryModule),
     round_goal: commit.note,
     comments_directive: commentsDirective,
   }
@@ -162,6 +237,20 @@ function gitAddAll(dir: string): void {
   })
 }
 
+function untrackedProjectFiles(dir: string): string[] {
+  const result = spawnSync(
+    "git",
+    ["-C", dir, "ls-files", "--others", "--exclude-standard"],
+    { stdio: ["ignore", "pipe", "ignore"] },
+  )
+  if (result.status !== 0) return []
+  return result.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+}
+
 function gitResetHard(dir: string): void {
   // Discard working-tree edits and untracked files for a "no commit" round
   // so the next round starts from the last committed state.
@@ -201,6 +290,17 @@ function applyTrailerAndCommit(
   commit: PlannedCommit,
   persona: { name: string; email: string },
 ): { committed: boolean; reason: string } {
+  if (commit.kind === "review") {
+    const newFiles = untrackedProjectFiles(dir)
+    if (newFiles.length > 0) {
+      gitResetHard(dir)
+      return {
+        committed: false,
+        reason: `review created new project file(s): ${newFiles.join(", ")}`,
+      }
+    }
+  }
+
   // Resolve the subject: explicit COMMIT trailer wins; otherwise build rounds
   // fall back to the planner's `message`, review rounds skip.
   let subject: string | null
@@ -231,6 +331,18 @@ function applyTrailerAndCommit(
     }
   }
   return { committed: true, reason: "" }
+}
+
+function writeRunState(dir: string, state: State): void {
+  writeFileSync(
+    resolve(dir, STATE_BASENAME),
+    `${JSON.stringify(state, null, 2)}\n`,
+  )
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return String(err)
 }
 
 export async function runCoderLoop(
@@ -314,13 +426,19 @@ export async function runCoderLoop(
             },
           })
           state.commit_index = i + 1
-          writeFileSync(
-            resolve(dir, STATE_BASENAME),
-            `${JSON.stringify(state, null, 2)}\n`,
-          )
+          writeRunState(dir, state)
           progress(skipNote)
           if (state.stopped) break
           continue
+        }
+        if (state.stopped) {
+          gitResetHard(dir)
+          const stopNote = `round ${i + 1} stopped after stop request (${errorMessage(err)})`
+          emit(2, `\n### Stopped\n\n${stopNote}`)
+          emit(3, `\n### Stopped\n\n${stopNote}`)
+          writeRunState(dir, state)
+          progress(stopNote)
+          break
         }
         throw err
       }
@@ -339,10 +457,7 @@ export async function runCoderLoop(
         usage,
       })
       state.commit_index = i + 1
-      writeFileSync(
-        resolve(dir, STATE_BASENAME),
-        `${JSON.stringify(state, null, 2)}\n`,
-      )
+      writeRunState(dir, state)
       progress(
         `round ${i + 1} ${commit.kind} done (${formatSeconds(usage.wallMs)}, cumulative ${formatSeconds(Date.now() - runStart)})${committed ? "" : " (no commit)"}`,
       )

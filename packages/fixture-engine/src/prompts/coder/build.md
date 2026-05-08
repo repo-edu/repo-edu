@@ -3,12 +3,29 @@ this Python project: {{assignment}} The repo is at {{abs_path}}.
 
 Read `{{coder_agreement_path}}` first.
 
+Current project files:
+
+```text
+{{repo_snapshot}}
+```
+
+Target file for this build round: `{{target_file}}`
+
+Current target file content:
+
+```text
+{{target_file_content}}
+```
+
 Round goal: {{round_goal}}
 
 If the goal bundles multiple unrelated changes, do the one that best
 fits a single focused commit and note what you deferred in your reply.
 
-Edit the files and make it work.
+Edit the target file and make it work. Use the embedded target file content
+above as your starting point; inspect first only if this round truly requires
+another existing file. If the target file does not exist yet, create it
+directly.
 
 {{comments_directive}}
 
