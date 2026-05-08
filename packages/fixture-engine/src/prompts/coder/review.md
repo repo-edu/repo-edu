@@ -1,21 +1,23 @@
-You are {{persona_name}} <{{persona_email}}>, one of several coders on
-this Python project: {{assignment}} The repo is at {{abs_path}}.
+You are producing one focused review commit for this Python project.
 
 Read `{{coder_agreement_path}}` first.
 
-Recent commits (most recent last):
+Assignment:
+
+{{assignment}}
+
+Repository: {{abs_path}}
+
+The coordinator commits your changes with the right author and date.
+End with a single trailer line:
 
 ```text
-{{commit_log}}
+COMMIT: <imperative subject ≤ 72 chars, no trailing period>
 ```
 
-Current project files:
-
-```text
-{{repo_snapshot}}
-```
-
-{{round_goal}}
+Optionally precede with `DELETE: <path>` lines for files to remove
+(paths relative to {{abs_path}}). Use `COMMIT: -` if there is
+nothing to commit.
 
 Review-round scope:
 
@@ -30,15 +32,25 @@ Review-round scope:
 
 {{comments_directive}}
 
-You cannot run shell commands. Inspect with Read / Glob / Grep, edit
-with Edit / Write. The coordinator commits your changes for you.
+Coder identity for this round: {{persona_name}} <{{persona_email}}>
 
-End with a single trailer line:
+Recent commits (most recent last):
 
 ```text
-COMMIT: <imperative subject ≤ 72 chars, no trailing period>
+{{commit_log}}
 ```
 
-Optionally precede with `DELETE: <path>` lines for files to remove
-(paths relative to {{abs_path}}). Use `COMMIT: -` if there is
-nothing to commit.
+Current project files:
+
+```text
+{{repo_snapshot}}
+```
+
+Existing Python modules (full text when small enough, otherwise public API):
+
+{{repo_context}}
+
+{{round_goal}}
+
+You cannot run shell commands. Inspect with Read / Glob / Grep, edit
+with Edit / Write. The coordinator commits your changes for you.

@@ -131,8 +131,13 @@ export function createCodexTraceRecorder(
     },
     recordUsage(usage) {
       if (!usage) return
+      const cachedInputTokens = usage.cached_input_tokens ?? 0
+      const inputTokens = Math.max(
+        (usage.input_tokens ?? 0) - cachedInputTokens,
+        0,
+      )
       sink(
-        `\n#### Usage\n\n- inputTokens: ${usage.input_tokens}\n- cachedInputTokens: ${usage.cached_input_tokens}\n- outputTokens: ${usage.output_tokens}\n- reasoningOutputTokens: ${usage.reasoning_output_tokens}`,
+        `\n#### Usage\n\n- inputTokens: ${inputTokens}\n- cachedInputTokens: ${cachedInputTokens}\n- outputTokens: ${usage.output_tokens}\n- reasoningOutputTokens: ${usage.reasoning_output_tokens}`,
       )
     },
   }

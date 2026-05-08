@@ -214,6 +214,33 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
     assert.ok(typeof result.usage.wallMs === "number")
   })
 
+  it("reports uncached and cached input tokens separately", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.completed",
+          item: { id: "1", type: "agent_message", text: "ok" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 100,
+            cached_input_tokens: 40,
+            output_tokens: 5,
+            reasoning_output_tokens: 1,
+          },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+    const result = await client.generateText(request(codexSpec))
+    assert.equal(result.usage.inputTokens, 60)
+    assert.equal(result.usage.cachedInputTokens, 40)
+    assert.equal(result.usage.outputTokens, 5)
+    assert.equal(result.usage.reasoningOutputTokens, 1)
+  })
+
   it("propagates xhigh reasoning effort", async () => {
     process.env[CODEX] = "k"
     const { factory, calls } = createFakeCodex({
@@ -399,7 +426,8 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
     )
 
     assert.equal(result.reply, "done\nCOMMIT: x")
-    assert.equal(result.usage.inputTokens, 3)
+    assert.equal(result.usage.inputTokens, 2)
+    assert.equal(result.usage.cachedInputTokens, 1)
     assert.equal(calls.length, 1)
     assert.equal(calls[0].threadOptions.model, "gpt-5.4")
     assert.equal(calls[0].threadOptions.workingDirectory, "/tmp/fixture-repo")
@@ -411,7 +439,7 @@ describe("runCodexFixtureCoder — writable fixture repo guard rails", () => {
     assert.notEqual(calls[0].threadOptions.skipGitRepoCheck, true)
     assert.match(calls[0].promptInput, /fixture repository coding/)
     assert.match(calls[0].promptInput, /one-shot Codex patch engine/)
-    assert.match(calls[0].promptInput, /current project file list/)
+    assert.match(calls[0].promptInput, /current project\s+file list/)
     assert.match(calls[0].promptInput, /target file content/)
     assert.match(calls[0].promptInput, /do not call MCP discovery/)
     assert.match(calls[0].promptInput, /Persona instructions/)

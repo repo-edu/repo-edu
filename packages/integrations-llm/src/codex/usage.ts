@@ -15,9 +15,11 @@ export function mapCodexUsage(
   wallMs: number,
   authMode: LlmAuthMode,
 ): LlmUsage {
+  const cachedInputTokens = usage?.cached_input_tokens ?? 0
+  const totalInputTokens = usage?.input_tokens ?? 0
   return {
-    inputTokens: usage?.input_tokens ?? 0,
-    cachedInputTokens: usage?.cached_input_tokens ?? 0,
+    inputTokens: Math.max(totalInputTokens - cachedInputTokens, 0),
+    cachedInputTokens,
     outputTokens: usage?.output_tokens ?? 0,
     reasoningOutputTokens: usage?.reasoning_output_tokens ?? 0,
     wallMs,

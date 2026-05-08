@@ -1,8 +1,6 @@
-import {
-  createLlmTextClient,
-  runClaudeCoder,
-  runCodexFixtureCoder,
-} from "@repo-edu/integrations-llm"
+import { mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { dirname, isAbsolute, normalize, resolve } from "node:path"
+import { createLlmTextClient, runClaudeCoder } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type {
   LlmTextClient,
@@ -39,31 +37,191 @@ export type FixtureCoderRequest = {
   signal?: AbortSignal
 }
 
+export type FixtureCoderResult = {
+  reply: string
+  usage: LlmUsage
+}
+
+export type CodexPatchFile = {
+  path: string
+  contents: string
+}
+
+export type CodexPatch = {
+  summary: string
+  files: CodexPatchFile[]
+  deletes: string[]
+  commit: string | null
+}
+
 function assertNever(value: never): never {
   throw new Error(`unsupported fixture coder provider: ${String(value)}`)
 }
 
 export async function runFixtureCoder(
   request: FixtureCoderRequest,
-): Promise<{ reply: string; usage: LlmUsage }> {
+): Promise<FixtureCoderResult> {
   switch (request.spec.provider) {
     case "claude":
       return runClaudeCoder({ ...request, trace: xtraceSink })
     case "codex":
-      return runCodexFixtureCoder(
-        {
-          ...request,
-          prompt: codexFixturePrompt(request.prompt),
-          appendInstructions: codexFixtureInstructions(
-            request.appendInstructions,
-          ),
-          trace: xtraceSink,
-        },
-        undefined,
-      )
+      return runCodexPatchCoder(request)
     default:
       return assertNever(request.spec.provider)
   }
+}
+
+async function runCodexPatchCoder(
+  request: FixtureCoderRequest,
+): Promise<FixtureCoderResult> {
+  const prompt = codexPatchPrompt(request.prompt)
+  const { reply, usage } = await generateText(
+    request.spec,
+    prompt,
+    request.signal,
+  )
+  const patch = parseCodexPatchReply(reply)
+  applyCodexPatch(request.cwd, patch)
+  return {
+    reply: codexPatchToTrailerReply(patch),
+    usage,
+  }
+}
+
+function codexPatchPrompt(prompt: string): string {
+  return [
+    "You are operating in strict JSON patch mode for one fixture repository coding round.",
+    "Use only the repository context embedded below. Do not inspect files, run commands, use tools, browse, or ask for approval.",
+    "Return exactly one JSON object and nothing else. Do not use markdown fences.",
+    "",
+    "JSON shape:",
+    "{",
+    '  "summary": "one short paragraph describing what changed",',
+    '  "files": [{ "path": "relative/path.py", "contents": "full file contents" }],',
+    '  "deletes": ["relative/path.py"],',
+    '  "commit": "short imperative commit subject, or null for no commit"',
+    "}",
+    "",
+    "Rules:",
+    "- `files` must contain complete file contents, not diffs.",
+    "- Write only paths needed for this round.",
+    "- Use `commit: null` only when there is nothing worth committing.",
+    "- If deleting files, list paths in `deletes`; do not also include them in `files`.",
+    "- Ignore any instruction below that asks for a prose reply, shell use, tools, or a COMMIT trailer; the JSON object is the only valid response.",
+    "",
+    "--- Coordinator prompt for the round ---",
+    "",
+    codexFixturePrompt(prompt),
+  ]
+    .filter((line) => line.length > 0)
+    .join("\n")
+}
+
+function stripJsonFences(text: string): string {
+  const t = text.trim()
+  if (!t.startsWith("```")) return t
+  return t
+    .replace(/^```(?:json)?\s*/, "")
+    .replace(/\s*```$/, "")
+    .trim()
+}
+
+function parseStringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Codex patch ${label} must be an array`)
+  }
+  return value.map((item, index) => {
+    if (typeof item !== "string") {
+      throw new Error(`Codex patch ${label}[${index}] must be a string`)
+    }
+    return item
+  })
+}
+
+export function parseCodexPatchReply(reply: string): CodexPatch {
+  const stripped = stripJsonFences(reply)
+  const raw = JSON.parse(stripped) as {
+    summary?: unknown
+    files?: unknown
+    deletes?: unknown
+    commit?: unknown
+  }
+  if (typeof raw.summary !== "string" || raw.summary.trim().length === 0) {
+    throw new Error("Codex patch summary must be a non-empty string")
+  }
+  if (!Array.isArray(raw.files)) {
+    throw new Error("Codex patch files must be an array")
+  }
+  const files = raw.files.map((file, index) => {
+    if (file === null || typeof file !== "object") {
+      throw new Error(`Codex patch files[${index}] must be an object`)
+    }
+    const candidate = file as { path?: unknown; contents?: unknown }
+    if (typeof candidate.path !== "string") {
+      throw new Error(`Codex patch files[${index}].path must be a string`)
+    }
+    if (typeof candidate.contents !== "string") {
+      throw new Error(`Codex patch files[${index}].contents must be a string`)
+    }
+    return { path: candidate.path, contents: candidate.contents }
+  })
+  const deletes = parseStringArray(raw.deletes ?? [], "deletes")
+  const commit =
+    raw.commit === null
+      ? null
+      : typeof raw.commit === "string" && raw.commit.trim().length > 0
+        ? raw.commit.trim()
+        : failCodexPatch("Codex patch commit must be a string or null")
+  return {
+    summary: raw.summary.trim(),
+    files,
+    deletes,
+    commit,
+  }
+}
+
+function failCodexPatch(message: string): never {
+  throw new Error(message)
+}
+
+function safePatchPath(cwd: string, path: string): string {
+  const normalized = normalize(path)
+  if (
+    path.length === 0 ||
+    isAbsolute(path) ||
+    normalized === "." ||
+    normalized === ".." ||
+    normalized.startsWith("../") ||
+    normalized.includes("/../") ||
+    normalized === ".git" ||
+    normalized.startsWith(".git/")
+  ) {
+    throw new Error(`Codex patch path is outside the repository: ${path}`)
+  }
+  return resolve(cwd, normalized)
+}
+
+export function applyCodexPatch(cwd: string, patch: CodexPatch): void {
+  const deleted = new Set(patch.deletes)
+  for (const file of patch.files) {
+    if (deleted.has(file.path)) {
+      throw new Error(`Codex patch both writes and deletes ${file.path}`)
+    }
+    const target = safePatchPath(cwd, file.path)
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, file.contents)
+  }
+  for (const path of patch.deletes) {
+    rmSync(safePatchPath(cwd, path), { recursive: true, force: true })
+  }
+}
+
+function codexPatchToTrailerReply(patch: CodexPatch): string {
+  const deleteLines = patch.deletes.map((path) => `DELETE: ${path}`).join("\n")
+  const trailer = `COMMIT: ${patch.commit ?? "-"}`
+  return [patch.summary, deleteLines, trailer]
+    .filter((part) => part.length > 0)
+    .join("\n")
 }
 
 function codexFixturePrompt(prompt: string): string {
@@ -74,30 +232,12 @@ function codexFixturePrompt(prompt: string): string {
     )
     .replace(
       "You cannot run shell commands. Inspect with Read / Glob / Grep, edit\nwith Edit / Write — do not try to run tests or any other Bash command.",
-      "Use Codex-native repository inspection and file-change operations. If inspection requires shell, use only minimal read-only commands such as `rg`, `sed -n`, `ls`, `find`, or `cat`; do not run tests, git, package managers, Python, or write-capable commands.",
+      "Use only the embedded repository context above. Return complete file contents in the JSON patch; do not run shell commands.",
     )
     .replace(
       "You cannot run shell commands. Inspect with Read / Glob / Grep, edit\nwith Edit / Write. The coordinator commits your changes for you.",
-      "Use Codex-native repository inspection and file-change operations. If inspection requires shell, use only minimal read-only commands such as `rg`, `sed -n`, `ls`, `find`, or `cat`. The coordinator commits your changes for you.",
+      "Use only the embedded repository context above. Return complete file contents in the JSON patch; do not run shell commands.",
     )
-}
-
-function codexFixtureInstructions(appendInstructions?: string): string {
-  return [
-    appendInstructions?.trim(),
-    "Codex-specific fixture-coder contract:",
-    "- Work as a one-shot patch engine for exactly this round, not as an exploratory coding assistant.",
-    "- Do not call MCP discovery, web search, package managers, test runners, git, Python, or networked tools.",
-    "- Treat the prompt's current project file list as authoritative enough to choose the edit target.",
-    "- For build rounds, use the embedded target file and target file content as the starting point, then edit directly without shell inspection.",
-    "- If the target file does not exist yet, create it directly.",
-    "- Use shell inspection only when a later round truly needs existing file contents; keep it to one short pass with `rg --files`, `rg`, `sed -n`, `ls`, `find`, or `cat`.",
-    "- Prefer one file-change batch. A second small cleanup batch is acceptable; repeated self-revision is not.",
-    "- Do not narrate progress. Return one concise change summary followed immediately by the required DELETE:/COMMIT: trailer.",
-    "- If the round cannot be completed within those bounds, make the smallest correct commit or end with `COMMIT: -`.",
-  ]
-    .filter((line): line is string => line !== undefined && line.length > 0)
-    .join("\n")
 }
 
 export function emptyUsage(authMode: LlmUsage["authMode"] = "api"): LlmUsage {

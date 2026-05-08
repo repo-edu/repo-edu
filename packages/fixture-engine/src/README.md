@@ -1,8 +1,8 @@
 # Fixture generation
 
 AI-driven generator that produces realistic student-repo fixtures for the
-grading tool. A TypeScript orchestrator owns the plan and the loop; Claude
-is only called for the parts that need creative judgement.
+grading tool. A TypeScript orchestrator owns the plan and the loop; LLMs are
+only called for the parts that need creative judgement.
 
 ## Pieces
 
@@ -27,6 +27,8 @@ is only called for the parts that need creative judgement.
 - `coder-agreement.md` — shared working agreement the Coder reads at the
   start of every round (team norms, commit conventions, review-round
   behaviour).
+- `codex-cost-findings.md` — retained evaluation notes about unsuccessful
+  Codex fixture cost-reduction attempts and the next recommended direction.
 - `plan-multi-agent.md` — background design document.
 
 ## Output

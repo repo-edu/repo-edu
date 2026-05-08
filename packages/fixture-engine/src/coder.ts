@@ -27,6 +27,7 @@ import { emit, fail, formatSeconds, progress, withTicker } from "./log"
 import type { Plan, PlannedCommit } from "./plan-md"
 import type { Project } from "./project-md"
 import { loadPrompt, loadSection } from "./prompt-loader"
+import { pythonRepoContext } from "./repo-context"
 
 export interface CoderRunOpts {
   coderSpec: FixtureModelSpec
@@ -151,6 +152,7 @@ function composeCoderPrompt(
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
     repo_snapshot: repoSnapshot(absPath),
+    repo_context: pythonRepoContext(absPath, primaryModule),
     target_file: primaryModule,
     target_file_content: targetFileContent(absPath, primaryModule),
     round_goal: commit.note,
