@@ -49,6 +49,32 @@ describe("parseRepoDirCode — widened regex", () => {
     assert.equal(r?.versionTag, "54m")
   })
 
+  test("with reviewer code (versioned) parses both specs", () => {
+    const r = parseRepoDirCode("m22-46-r31-46-o2")
+    assert.ok(r)
+    assert.equal(r?.spec.family, "sonnet")
+    assert.equal(r?.versionTag, "46")
+    assert.equal(r?.reviewerSpec?.family, "opus")
+    assert.equal(r?.reviewerSpec?.effort, "low")
+    assert.equal(r?.reviewerVersionTag, "46")
+  })
+
+  test("with reviewer code (legacy, no versions) parses both specs", () => {
+    const r = parseRepoDirCode("m22-r31-o2")
+    assert.ok(r)
+    assert.equal(r?.spec.family, "sonnet")
+    assert.equal(r?.versionTag, undefined)
+    assert.equal(r?.reviewerSpec?.family, "opus")
+    assert.equal(r?.reviewerVersionTag, undefined)
+  })
+
+  test("without reviewer code, reviewer fields stay undefined", () => {
+    const r = parseRepoDirCode("m22-46-o1")
+    assert.ok(r)
+    assert.equal(r?.reviewerSpec, undefined)
+    assert.equal(r?.reviewerVersionTag, undefined)
+  })
+
   test("non-matching dir name returns null", () => {
     assert.equal(parseRepoDirCode("not-a-repo-dir"), null)
     assert.equal(parseRepoDirCode("c2-flash-card"), null)
