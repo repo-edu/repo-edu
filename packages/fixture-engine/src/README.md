@@ -81,7 +81,7 @@ because the parent `c<N>-<name>/` folder already carries it.
 - `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
   a uniformly-chosen subset of build slots).
 
-**Repo postfix** — `m<code>[-<ver>]-r<code>[-<ver>]-o<N>`
+**Repo postfix** — `m<code>[-<ver>][-r<code>[-<ver>]]-o<N>`
 
 Segments follow `fixture repo -h` flag order; everything inherited
 from the parent project/plan folders is omitted.
@@ -90,7 +90,8 @@ from the parent project/plan folders is omitted.
   tag (e.g. `m22-46` = sonnet medium 4.6; see the model-code table
   in `fixture -hh`).
 - `r<code>[-<ver>]` — reviewer (review-round) model + effort and
-  version tag (e.g. `r31-46` = opus low 4.6).
+  version tag (e.g. `r31-46` = opus low 4.6). Omitted when the parent
+  plan has `w0` (zero review rounds), since the reviewer never runs.
 - `o<N>` — comment-density tier (`-o, --comments`, 0-3); 0 leaves
   commenting to the coder.
 

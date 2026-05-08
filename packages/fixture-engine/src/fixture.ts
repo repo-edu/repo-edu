@@ -463,6 +463,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
     coderSpec: opts.coderSpec,
     reviewerSpec: opts.reviewerSpec,
     comments: opts.comments,
+    reviews: meta.reviews,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
   initLogs(opts.verbosity, repoDir)
@@ -570,6 +571,7 @@ async function runRepoForEntry(
     coderSpec,
     reviewerSpec,
     comments: entrySettings.comments,
+    reviews: entrySettings.reviews,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
   initLogs(verbosity, repoDir)
@@ -695,6 +697,7 @@ async function runRepoForExistingPlan(
     coderSpec,
     reviewerSpec,
     comments: entrySettings.comments,
+    reviews: from.meta.reviews,
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
   initLogs(verbosity, repoDir)

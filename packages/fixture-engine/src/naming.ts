@@ -20,6 +20,7 @@ export interface RepoNameOpts {
   coderSpec: FixtureModelSpec
   reviewerSpec: FixtureModelSpec
   comments: number
+  reviews: number
 }
 
 export function planPostfix(opts: PlanNameOpts): string {
@@ -33,7 +34,10 @@ export function planPostfix(opts: PlanNameOpts): string {
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  return `m${archivalModelCode(opts.coderSpec)}-r${archivalModelCode(opts.reviewerSpec)}-o${opts.comments}`
+  const coder = `m${archivalModelCode(opts.coderSpec)}`
+  const reviewer =
+    opts.reviews === 0 ? "" : `-r${archivalModelCode(opts.reviewerSpec)}`
+  return `${coder}${reviewer}-o${opts.comments}`
 }
 
 export function nextAvailable(dir: string, base: string, ext = ""): string {
