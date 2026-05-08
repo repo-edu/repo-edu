@@ -48,7 +48,6 @@ export interface PlanOpts extends CommonOpts {
   students: number
   coderInteraction: number
   reviews: number
-  aiCoders: boolean
   style: Style
   plannerSpec: FixtureModelSpec
 }
@@ -70,6 +69,7 @@ export interface RepoOpts extends CommonOpts {
   fromPath: string
   comments: number
   coderSpec: FixtureModelSpec
+  reviewerSpec: FixtureModelSpec
 }
 
 export interface EvaluateOpts extends CommonOpts {
@@ -99,7 +99,7 @@ const MODEL_CODE_HELP = [
   "  gpt-5.4-mini = c1 (no thinking modes; Codex)",
   "",
   "  Codex codes are accepted for the planner / evaluator phase (mp)",
-  "  only; the coder phase (mc) is Claude-only.",
+  "  only; the coder and reviewer phases (mc, mr) are Claude-only.",
 ]
 
 const OPT_DESC_COL = 31
@@ -139,9 +139,9 @@ const TOP_OVERVIEW_LINES = [
   "",
   "  c2-flash-card-quiz/               # one folder per project",
   "    project.md                      # from `fixture project`",
-  "    ai-i2-bb-s3-r6-w2/              # one folder per plan",
+  "    i2-bb-s3-r6-w2/                 # one folder per plan",
   "      plan.md                       # from `fixture plan`",
-  "      m23-46-o2/                    # git repo from `fixture repo`",
+  "      m23-46-r31-46-o2/             # git repo from `fixture repo`",
   "      .fixture-settings.jsonc       # snapshot of settings used",
   "      _log.md  _trace.md            # run log + per-round prompts/replies",
   "      _xtrace.md                    # full agent turn log",
@@ -235,16 +235,6 @@ function runNodeParseArgs(
   }
 }
 
-function resolveAiCoders(
-  v: Record<string, string | boolean | boolean[] | undefined>,
-): boolean {
-  const raw = v["ai-coders"]
-  if (raw === undefined) return SETTINGS().aiCoders
-  if (raw === "1") return true
-  if (raw === "0") return false
-  fail(`-a/--ai-coders must be 0 or 1, got "${String(raw)}"`)
-}
-
 function parseModelOption(
   raw: string,
   flag: string,
@@ -308,10 +298,6 @@ function validateStyle(s: string): void {
   }
 }
 
-const aiCodersFlag = {
-  "ai-coders": { type: "string" as const, short: "a" },
-}
-
 function parseProject(argv: string[]): ProjectOpts {
   const { values: v } = runNodeParseArgs(argv, {
     complexity: { type: "string", short: "c" },
@@ -347,7 +333,6 @@ function parsePlan(argv: string[]): PlanOpts {
     reviews: { type: "string", short: "w" },
     style: { type: "string", short: "y" },
     model: { type: "string", short: "m" },
-    ...aiCodersFlag,
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
@@ -362,7 +347,6 @@ function parsePlan(argv: string[]): PlanOpts {
   const reviews =
     v.reviews !== undefined ? Number(v.reviews) : SETTINGS().reviews
   const style = (v.style as string | undefined) ?? SETTINGS().style
-  const aiCoders = resolveAiCoders(v)
   const plannerSpec = parseModelOption(
     (v.model as string | undefined) ?? SETTINGS().mp,
     "-m/--model",
@@ -383,7 +367,6 @@ function parsePlan(argv: string[]): PlanOpts {
     students,
     coderInteraction,
     reviews,
-    aiCoders,
     style: style as Style,
     plannerSpec,
   }
@@ -394,6 +377,7 @@ function parseRepo(argv: string[]): RepoOpts {
     from: { type: "string" },
     comments: { type: "string", short: "o" },
     model: { type: "string", short: "m" },
+    "review-model": { type: "string" },
     verbose: { type: "boolean", short: "v", multiple: true },
     help: { type: "boolean", short: "h" },
   })
@@ -405,6 +389,11 @@ function parseRepo(argv: string[]): RepoOpts {
     "-m/--model",
     "mc",
   )
+  const reviewerSpec = parseModelOption(
+    (v["review-model"] as string | undefined) ?? SETTINGS().mr,
+    "--review-model",
+    "mc",
+  )
   if (!common.help) {
     validateComments(comments)
   }
@@ -414,6 +403,7 @@ function parseRepo(argv: string[]): RepoOpts {
     fromPath: (v.from as string | undefined) ?? "",
     comments,
     coderSpec,
+    reviewerSpec,
   }
 }
 
@@ -425,12 +415,6 @@ function opt(spec: string, ...descLines: string[]): string[] {
   }
   return out
 }
-
-const aiCodersHelp = (): string[] =>
-  opt(
-    "  -a, --ai-coders=0|1",
-    `AI-coders mode (no student framing) (default: ${SETTINGS().aiCoders ? 1 : 0})`,
-  )
 
 function parseInit(argv: string[]): InitOpts {
   const { values: v } = runNodeParseArgs(argv, {
@@ -563,7 +547,6 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         ".fixture-state.json has a project.",
       ),
       ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS().mp})`),
-      ...aiCodersHelp(),
       ...opt(
         "  -i, --coder-interaction=N",
         `${MIN_CODER_INTERACTION}-${MAX_CODER_INTERACTION} (default: ${SETTINGS().coderInteraction}) — cross-module author mixing`,
@@ -644,7 +627,14 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         "(absolute, or relative to ../fixtures/).",
         "Optional if .fixture-state.json has a plan.",
       ),
-      ...opt("  -m, --model=CODE", `Coder model (default: ${SETTINGS().mc})`),
+      ...opt(
+        "  -m, --model=CODE",
+        `Coder model for build rounds (default: ${SETTINGS().mc})`,
+      ),
+      ...opt(
+        "      --review-model=CODE",
+        `Reviewer model for review rounds (default: ${SETTINGS().mr})`,
+      ),
       ...opt(
         "  -o, --comments=N",
         `${MIN_COMMENTS}-${MAX_COMMENTS} (default: ${SETTINGS().comments}); ${COMMENTS_FREE_TIER} leaves commenting to the coder`,
@@ -709,13 +699,13 @@ function subcommandHelpBody(sub: Subcommand): string[] {
     "`.fixture-settings.jsonc`).",
     "",
     "Behavior depends on the swept key's phase and on `--from`:",
-    "  - List on a plan-phase key (mp, complexity, aiCoders,",
-    "    coderInteraction, style, students, rounds, reviews):",
+    "  - List on a plan-phase key (mp, complexity, coderInteraction,",
+    "    style, students, rounds, reviews):",
     "      `--from` must be a project (or omitted if .fixture-state.json",
     "      has a project).",
     "      For each value: run plan, then run repo. Yields N plan dirs,",
     "      one repo each.",
-    "  - List on a repo-phase key (mc, comments):",
+    "  - List on a repo-phase key (mc, mr, comments):",
     "      `--from` may be a project (plan once, then iterate repos) or a",
     "      plan (skip planning, iterate repos against the existing plan).",
     "      Without `--from`, falls back to the plan in",

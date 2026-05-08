@@ -16,12 +16,13 @@ round 1.
 
 ## incremental
 
-Round 1 introduces a single module skeleton — typically the one
-owned by author 0. Each of the next few build rounds introduces one
-additional module, authored by that module's owner, until all
-`team[i].module` entries exist. Remaining rounds flesh out content
-inside the already-introduced modules. There is no upfront
-whole-system architecture commit.
+Round 1 introduces the first module — typically the one owned by
+author 0 — as a normal-sized first capability, not a stub. Each of
+the next few build rounds introduces one additional module until
+all `team[i].module` entries exist. Remaining rounds flesh out
+content inside the already-introduced modules. There is no upfront
+whole-system architecture commit. Author attribution for all rounds
+follows the `coder-interaction` guidance, not strict ownership.
 
 ## vertical-slice
 

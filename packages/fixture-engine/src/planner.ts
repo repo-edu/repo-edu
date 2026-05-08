@@ -1,7 +1,12 @@
 import { existsSync, readdirSync } from "node:fs"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
-import { FIXTURES_DIR, type Style } from "./constants"
+import {
+  FIXTURES_DIR,
+  REVIEW_FALLBACK,
+  REVIEW_NOTE,
+  type Style,
+} from "./constants"
 import { generateText } from "./llm-client"
 import { emit, fail } from "./log"
 import type { CommitKind, Plan, PlannedCommit, TeamMember } from "./plan-md"
@@ -15,7 +20,6 @@ export interface ProjectGenOpts {
 
 export interface PlanGenOpts {
   plannerSpec: FixtureModelSpec
-  aiCoders: boolean
   rounds: number
   students: number
   reviews: number
@@ -76,13 +80,12 @@ function planPrompt(
   const sequenceLines = kindSequence
     .map((kind, i) => `${i + 1}. ${kind}`)
     .join("\n")
-  const template = opts.aiCoders ? "planner/plan-ai" : "planner/plan"
   const interactionGuidance =
     opts.students === 1
       ? loadSection("planner/interaction", "solo")
       : loadSection("planner/interaction", String(opts.coderInteraction))
   const styleGuidance = loadSection("planner/style", opts.style)
-  const ctx: Record<string, string> = {
+  return loadPrompt("planner/plan", {
     project_name: project.name,
     assignment: project.assignment,
     complexity: String(project.complexity),
@@ -90,13 +93,12 @@ function planPrompt(
     planned_count: String(kindSequence.length),
     kind_sequence: sequenceLines,
     students: String(opts.students),
+    max_author: String(opts.students - 1),
     today: today(),
     interaction_guidance: interactionGuidance,
     style: opts.style,
     style_guidance: styleGuidance,
-  }
-  if (!opts.aiCoders) ctx.max_author = String(opts.students - 1)
-  return loadPrompt(template, ctx)
+  })
 }
 
 function validateProject(project: Project, complexity: number): void {
@@ -111,6 +113,43 @@ function validateProject(project: Project, complexity: number): void {
   }
   if (project.complexity !== complexity) {
     fail(`project.complexity must be ${complexity}, got ${project.complexity}`)
+  }
+}
+
+/**
+ * Re-attribute fleshing-out build commits to non-prior-authors of the file
+ * they centrally touch. Hard enforcement of the `coder-interaction` nudge:
+ * for level >= 2, when a build commit edits a file that already has authors,
+ * pick the candidate author with the lowest commit count so far who hasn't
+ * touched it yet. Reviews are left alone (they don't add lines and the
+ * planner already cross-attributes them).
+ */
+export function redistributeAuthors(
+  plan: Plan,
+  students: number,
+  coderInteraction: number,
+): void {
+  if (students < 2 || coderInteraction < 2) return
+  const fileAuthors = new Map<string, Set<number>>()
+  const counts = new Array<number>(students).fill(0)
+  for (const c of plan.commits) {
+    if (c.kind !== "build" || !c.primary_module) {
+      counts[c.author_index] += 1
+      continue
+    }
+    const file = c.primary_module
+    const prior = fileAuthors.get(file)
+    if (prior?.has(c.author_index)) {
+      let pick = -1
+      for (let a = 0; a < students; a++) {
+        if (prior.has(a)) continue
+        if (pick < 0 || counts[a] < counts[pick]) pick = a
+      }
+      if (pick >= 0) c.author_index = pick
+    }
+    counts[c.author_index] += 1
+    if (!fileAuthors.has(file)) fileAuthors.set(file, new Set())
+    fileAuthors.get(file)?.add(c.author_index)
   }
 }
 
@@ -131,6 +170,12 @@ export function validatePlan(
     const c = plan.commits[i]
     if (c.author_index < 0 || c.author_index >= students) {
       fail(`commits[${i}].author_index out of range`)
+    }
+    if (
+      c.kind === "build" &&
+      (!c.primary_module || typeof c.primary_module !== "string")
+    ) {
+      fail(`commits[${i}].primary_module missing (required for build)`)
     }
   }
 }
@@ -178,11 +223,21 @@ export async function generatePlan(
     team: TeamMember[]
     commits: RawPlannedCommit[]
   }>(reply, "planner plan reply")
-  const commits: PlannedCommit[] = (raw.commits ?? []).map((c, i) => ({
-    ...c,
-    kind: kindSequence[i],
-  }))
+  const commits: PlannedCommit[] = (raw.commits ?? []).map((c, i) => {
+    const kind = kindSequence[i]
+    if (kind === "review") {
+      return {
+        date: c.date,
+        author_index: c.author_index,
+        kind,
+        note: REVIEW_NOTE,
+        message: REVIEW_FALLBACK,
+      }
+    }
+    return { ...c, kind }
+  })
   const plan: Plan = { team: raw.team, commits }
   validatePlan(plan, opts.students, kindSequence.length)
+  redistributeAuthors(plan, opts.students, opts.coderInteraction)
   return { plan, usage }
 }

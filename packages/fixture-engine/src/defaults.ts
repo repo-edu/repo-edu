@@ -2,12 +2,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import {
   COMMENTS_FREE_TIER,
-  DEFAULT_AI_CODERS,
   DEFAULT_CODER_INTERACTION,
   DEFAULT_COMMENTS,
   DEFAULT_COMPLEXITY,
   DEFAULT_MC,
   DEFAULT_ME,
+  DEFAULT_MR,
   DEFAULT_REVIEWS,
   DEFAULT_ROUNDS,
   DEFAULT_STUDENTS,
@@ -40,8 +40,8 @@ export function FIXTURE_SWEEP_FILE(): string {
 export interface Settings {
   mp: string
   mc: string
+  mr: string
   me: string
-  aiCoders: boolean
   coderInteraction: number
   complexity: number
   students: number
@@ -54,8 +54,8 @@ export interface Settings {
 export const HARDCODED_SETTINGS: Settings = {
   mp: defaultPlannerCodeForComplexity(DEFAULT_COMPLEXITY),
   mc: DEFAULT_MC,
+  mr: DEFAULT_MR,
   me: DEFAULT_ME,
-  aiCoders: DEFAULT_AI_CODERS,
   coderInteraction: DEFAULT_CODER_INTERACTION,
   complexity: DEFAULT_COMPLEXITY,
   students: DEFAULT_STUDENTS,
@@ -71,7 +71,7 @@ interface Spec {
 }
 
 const NUMERIC_SPECS: Record<
-  keyof Omit<Settings, "mp" | "mc" | "me" | "aiCoders" | "style">,
+  keyof Omit<Settings, "mp" | "mc" | "mr" | "me" | "style">,
   Spec
 > = {
   coderInteraction: { min: MIN_CODER_INTERACTION, max: MAX_CODER_INTERACTION },
@@ -85,8 +85,8 @@ const NUMERIC_SPECS: Record<
 const KNOWN_KEYS = new Set<keyof Settings>([
   "mp",
   "mc",
+  "mr",
   "me",
-  "aiCoders",
   "style",
   ...(Object.keys(NUMERIC_SPECS) as (keyof Settings)[]),
 ])
@@ -138,17 +138,11 @@ function validateValue<K extends keyof Settings>(
   key: K,
   v: unknown,
 ): Settings[K] {
-  if (key === "mp" || key === "mc" || key === "me") {
+  if (key === "mp" || key === "mc" || key === "mr" || key === "me") {
     if (typeof v !== "string" || v.length === 0) {
       fail(
         `${ref}: "${key}" must be a non-empty model-code string, got ${JSON.stringify(v)}`,
       )
-    }
-    return v as Settings[K]
-  }
-  if (key === "aiCoders") {
-    if (typeof v !== "boolean") {
-      fail(`${ref}: "aiCoders" must be a boolean, got ${JSON.stringify(v)}`)
     }
     return v as Settings[K]
   }
@@ -212,7 +206,6 @@ function parseSettingsFile(path: string): Partial<Settings> {
 export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
   "mp",
   "complexity",
-  "aiCoders",
   "coderInteraction",
   "style",
   "students",
@@ -220,7 +213,7 @@ export const PLAN_PHASE_KEYS = new Set<keyof Settings>([
   "reviews",
 ])
 
-export const REPO_PHASE_KEYS = new Set<keyof Settings>(["mc", "comments"])
+export const REPO_PHASE_KEYS = new Set<keyof Settings>(["mc", "mr", "comments"])
 
 export const EVALUATE_PHASE_KEYS = new Set<keyof Settings>(["me"])
 
@@ -358,7 +351,13 @@ const SETTING_ITEMS: SettingItem[] = [
     kind: "row",
     key: "mc",
     value: (s) => `"${s.mc}"`,
-    comment: "coder model CODE",
+    comment: "coder (build round) model CODE",
+  },
+  {
+    kind: "row",
+    key: "mr",
+    value: (s) => `"${s.mr}"`,
+    comment: "reviewer (review round) model CODE",
   },
   {
     kind: "row",
@@ -374,12 +373,6 @@ const SETTING_ITEMS: SettingItem[] = [
     comment: `integer ${MIN_COMPLEXITY}-${MAX_COMPLEXITY}, project tier`,
   },
   { kind: "header", text: "fixture plan" },
-  {
-    kind: "row",
-    key: "aiCoders",
-    value: (s) => String(s.aiCoders),
-    comment: "AI-coders mode vs student framing",
-  },
   {
     kind: "row",
     key: "coderInteraction",
@@ -478,10 +471,10 @@ export const SWEEP_PREAMBLE = [
   "is a scalar override applied to every variant (or absent, in which",
   "case it falls back to .fixture-settings.jsonc).",
   "",
-  "Plan-phase keys (mp, complexity, aiCoders, coderInteraction, style,",
-  "students, rounds, reviews): --from=<project>; iterates plan+repo",
-  "per variant (N plan dirs, one repo each).",
-  "Repo-phase keys (mc, comments): --from=<project> plans once and",
+  "Plan-phase keys (mp, complexity, coderInteraction, style, students,",
+  "rounds, reviews): --from=<project>; iterates plan+repo per variant",
+  "(N plan dirs, one repo each).",
+  "Repo-phase keys (mc, mr, comments): --from=<project> plans once and",
   "iterates repos, or --from=<plan> reuses an existing plan and skips",
   "planning. A sweep mixing plan-phase and repo-phase keys is treated",
   "as plan-phase (re-plans for every variant).",

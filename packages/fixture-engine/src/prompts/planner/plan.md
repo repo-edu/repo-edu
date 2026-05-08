@@ -1,6 +1,6 @@
-You are planning a team and commit timeline for a synthetic student-team
-software assignment. A TypeScript orchestrator will drive one Coder
-sub-agent per commit using your output.
+You are planning the work sequence for a team of {{students}} AI coders
+building a Python project together. A TypeScript orchestrator will drive
+one Coder sub-agent per commit using your output.
 
 Output EXACTLY ONE JSON object and nothing else — no prose, no markdown
 fences.
@@ -39,6 +39,7 @@ Output JSON shape (comments are for YOU, do not include them in output):
     {
       "date": "YYYY-MM-DDTHH:MM:SS", // ISO-8601 local, no timezone
       "author_index": 0, // integer in 0..{{max_author}}
+      "primary_module": "tree.py", // build slots: file the round centrally edits/creates (same form as team[i].module, or "tests/test_<name>.py"). REVIEW slots: omit this field entirely.
       "note": "round goal in planner's voice (not the Coder's prompt)",
       "message": "fallback one-liner used only if the Coder fails to produce a commit"
     }
@@ -62,18 +63,23 @@ Rules:
   weekends are plausible but lighter. Avoid exactly one commit per day.
 - Each commit is one coherent change. If a note reads "X and Y" where X
   and Y are different concerns, split them into two commits.
+- When several build slots share a `primary_module`, each slot's note
+  must name the specific function, type, or behavioural delta added in
+  that slot — not "introduce the X module" framing. Reserve
+  module-introduction phrasing for files that appear in exactly one
+  build slot. Otherwise the first slot's Coder rounds the scope up to
+  "make the module feel complete" and pre-implements later slots,
+  leaving them with nothing to commit.
 - Emit exactly {{planned_count}} commits in ascending date order. Slot i
   takes its kind from entry i of the Kind sequence above; you do not
   emit kind, but the slot's kind determines the shape of note/message.
-- For each slot whose kind is "review", the note re-examines recent
-  work rather than adds a feature ("take another look at the parser,
-  clean up rough edges", "look over the CSV import and fix anything
-  that feels off"). Pick a clear target — usually one or two recent
-  build slots — and word the note so it points at that area. The
-  review's author_index must differ from the author_index of every
-  targeted build slot: a reviewer never re-examines their own
-  commits. (S=1 exception: with one coder this is impossible, so
-  reviews stay on author 0 and read as a self-check.)
+- For each slot whose kind is "review", emit only `date` and
+  `author_index`; you may set `note` and `message` to empty strings
+  or any placeholder — the orchestrator overwrites them with
+  canonical text and ignores whatever you put there. Omit
+  `primary_module`. The review's author_index must differ from the
+  author_index of the immediately preceding build slot. (S=1
+  exception: reviews stay on author 0.)
 - "note" is the round goal in the planner's voice (used to compose the
   Coder prompt). "message" is a fallback commit message used only if the
   Coder doesn't return one.
@@ -83,10 +89,16 @@ Rules:
   test-driven style), but never plan a round whose goal is to
   guarantee correctness across the project. Notes must not ask the
   Coder to chase green tests, fix all failures, iterate until
-  everything passes, or "make sure everything works end-to-end" —
-  such rounds balloon into expensive multi-module sweeps. The Coder
-  writes one coherent change per round and moves on; failing tests
-  left behind are realistic, not something to drive a verification
-  round around.
+  everything passes, "make sure everything works end-to-end",
+  "round-trip without crashing", "handle X without errors", or any
+  similar correctness-across-the-project framing — such rounds
+  balloon into expensive multi-module sweeps. Notes must not license
+  cross-module reach with phrases like "adjust X and Y", "update
+  call sites as needed", or naming two or more module files in the
+  same round; each build round names a single primary module and
+  changes only that file (helpers it imports may move with it, but
+  the note does not point at sibling modules). The Coder writes one
+  coherent change per round and moves on; failing tests left behind
+  are realistic, not something to drive a verification round around.
 
 Output only the JSON object.

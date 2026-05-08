@@ -64,11 +64,9 @@ describe("loadSweepFile — phase classification", () => {
       const value =
         key === "mp"
           ? ["33", "32"]
-          : key === "aiCoders"
-            ? [true, false]
-            : key === "style"
-              ? ["incremental", "big-bang"]
-              : [1, 2]
+          : key === "style"
+            ? ["incremental", "big-bang"]
+            : [1, 2]
       const path = stageSweep(`${key}.jsonc`, { [key]: value })
       assert.equal(loadSweepFile(path).phase, "plan", `${key} should be plan`)
     }
@@ -76,7 +74,7 @@ describe("loadSweepFile — phase classification", () => {
 
   test("every repo-phase key classifies as repo", () => {
     for (const key of REPO_PHASE_KEYS) {
-      const value = key === "mc" ? ["22", "33"] : [1, 2]
+      const value = key === "mc" || key === "mr" ? ["22", "33"] : [1, 2]
       const path = stageSweep(`${key}.jsonc`, {
         [key]: value,
         rounds: 3,

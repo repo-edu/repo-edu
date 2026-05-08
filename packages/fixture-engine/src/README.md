@@ -61,13 +61,11 @@ plan folder:
 
 ### Postfix encoding
 
-**Plan postfix** — `[ai-]i<N>-<style>-s<N>-r<N>-w<N>`
+**Plan postfix** — `i<N>-<style>-s<N>-r<N>-w<N>`
 
 Segments follow `fixture plan -h` flag order; complexity is omitted
 because the parent `c<N>-<name>/` folder already carries it.
 
-- `ai-` *(optional)* — present iff `--ai-coders 1` (planner drops
-  student-team framing).
 - `i<N>` — coder-interaction level (`--coder-interaction`, 1-3): how
   aggressively the planner mixes `author_index` across modules. 1 =
   each module has a primary owner; 2 = moderate cross-module mixing;
@@ -81,29 +79,18 @@ because the parent `c<N>-<name>/` folder already carries it.
 - `w<N>` — review-commit count (`--reviews`, 0..rounds, placed after
   a uniformly-chosen subset of build slots).
 
-**Repo postfix** — `m<code>-o<N>`
+**Repo postfix** — `m<code>[-<ver>]-r<code>[-<ver>]-o<N>`
 
 Segments follow `fixture repo -h` flag order; everything inherited
 from the parent project/plan folders is omitted.
 
-- `m<code>` — coder model + effort (e.g. `m22` = sonnet medium; see
-  the model-code table in `fixture -hh`).
+- `m<code>[-<ver>]` — coder (build-round) model + effort and version
+  tag (e.g. `m22-46` = sonnet medium 4.6; see the model-code table
+  in `fixture -hh`).
+- `r<code>[-<ver>]` — reviewer (review-round) model + effort and
+  version tag (e.g. `r31-46` = opus low 4.6).
 - `o<N>` — comment-density tier (`-o, --comments`, 0-3); 0 leaves
   commenting to the coder.
-
-### AI-coders mode
-
-`-a 1` (or `--ai-coders 1`) on `plan` switches into **AI-coders mode**:
-
-- Planner drops student-team framing.
-- AI-mode prompts live in bespoke files (`planner/plan-ai.md`,
-  `coder/build-ai.md`, `coder/review-ai.md`, `coder/persona-ai.md`,
-  `coder-agreement-ai.md`) so student-mode prompts stay unchanged.
-- `--comments` still applies in both modes — it's a pure
-  output-style knob.
-- `project` is mode-agnostic — its output is the same either way.
-- `repo` reads the mode from the plan's `Ai-coders:` meta line; it
-  has no `--ai-coders` flag of its own.
 
 ### Per-run scratch files
 
@@ -159,13 +146,13 @@ CLI flags):
 ```jsonc
 {
     "mp": "35",             // project and planner model CODE
-    "mc": "22",             // coder model CODE
+    "mc": "22",             // coder (build round) model CODE
+    "mr": "31",             // reviewer (review round) model CODE
 
     // fixture project
     "complexity": 1,        // integer 1-4, project tier
 
     // fixture plan
-    "aiCoders": true,       // AI-coders mode vs student framing
     "coderInteraction": 2,  // integer 1-3, cross-module author mixing
     "style": "incremental", // one of: big-bang | incremental | vertical-slice |
                             //         bottom-up | top-down | test-driven |
@@ -228,13 +215,13 @@ Behaviour follows from which phase the swept keys belong to **and**
 what `--from` points at. A sweep that mixes plan-phase and repo-phase
 keys is treated as plan-phase (a fresh plan per variant):
 
-- **Plan-phase key** (`mp`, `complexity`, `aiCoders`, `coderInteraction`,
+- **Plan-phase key** (`mp`, `complexity`, `coderInteraction`,
   `style`, `students`, `rounds`, `reviews`):
   - `--from` must be a project (or omitted, falling back to
     `state.project`). Plan-phase sweeps cannot reuse an existing plan.
   - For each value: run plan, then run repo. Yields N plan dirs, one
     repo each.
-- **Repo-phase key** (`mc`, `comments`):
+- **Repo-phase key** (`mc`, `mr`, `comments`):
   - `--from` may be a project (plan once with the first value's
     settings, then iterate repos against that shared plan) **or** a
     plan (skip planning entirely, iterate repos against the existing
@@ -248,35 +235,17 @@ keys is treated as plan-phase (a fresh plan per variant):
 shapes as `plan` / `repo`: a `.md` file or a directory, absolute or
 relative to `../fixtures/`.
 
-Two example sweeps live in [sweeps/](sweeps/):
-
-- [`sweeps/compare-coder-styles.jsonc`](sweeps/compare-coder-styles.jsonc)
-  — plan-phase sweep across all 10 styles.
-- [`sweeps/compare-coder-models.jsonc`](sweeps/compare-coder-models.jsonc)
-  — repo-phase sweep across the 7 informative coder models.
-
-```bash
-pnpm fixture project -c 2
-pnpm fixture sweep \
-  --sweep=scripts/fixtures/sweeps/compare-coder-styles.jsonc
-
-# Re-run a coder-model bake-off against an existing plan, no re-planning:
-pnpm fixture sweep \
-  --from=c2-NAME/ai-i2-vs-s3-r10-w0 \
-  --sweep=scripts/fixtures/sweeps/compare-coder-models.jsonc
-```
-
 The sweep file shape (plan-phase example):
 
 ```jsonc
 {
     "mp": "35",
-    "aiCoders": true,
     "coderInteraction": 2,
     "students": 3,
     "rounds": 6,
     "reviews": 0,
     "mc": "22",
+    "mr": "31",
     "comments": 1,
     "style": [           // one or more list-valued keys, zipped
         "big-bang", "incremental", "vertical-slice"
@@ -356,7 +325,7 @@ naturally without any `--from` flags:
 
 ```bash
 pnpm fixture project -c 3                  # archives project, updates state
-pnpm fixture plan -s 4 -r 5 -i 3 -a 0            # uses state.project, updates state.plan
+pnpm fixture plan -s 4 -r 5 -i 3                 # uses state.project, updates state.plan
 pnpm fixture repo -o 2                     # uses state.plan
 ```
 

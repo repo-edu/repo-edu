@@ -192,7 +192,6 @@ function archivePlanIntoDir(
     project: project.name,
     projectFile: relative(planDir, projectPath),
     planner: modelCode(opts.plannerSpec),
-    aiCoders: opts.aiCoders,
     rounds: opts.rounds,
     students: opts.students,
     reviews: opts.reviews,
@@ -221,7 +220,6 @@ function emitPlan(
         project: project.name,
         projectFile,
         planner: modelCode(opts.plannerSpec),
-        aiCoders: opts.aiCoders,
         rounds: opts.rounds,
         students: opts.students,
         reviews: opts.reviews,
@@ -309,6 +307,7 @@ async function runCoderStage(
     reviews: planMeta.reviews,
     plannerSpec: coderOpts.plannerSpec,
     coderSpec: coderOpts.coderSpec,
+    reviewerSpec: coderOpts.reviewerSpec,
   }
   const displayDir = `${relative(FIXTURES_DIR(), planDir)}/${basename(repoDir)}`
   writeReview(
@@ -334,7 +333,6 @@ function settingsForPlan(prev: Settings, opts: PlanOpts): Settings {
   return {
     ...prev,
     mp: modelCode(opts.plannerSpec),
-    aiCoders: opts.aiCoders,
     students: opts.students,
     rounds: opts.rounds,
     coderInteraction: opts.coderInteraction,
@@ -347,6 +345,7 @@ function settingsForRepo(prev: Settings, opts: RepoOpts): Settings {
   return {
     ...prev,
     mc: modelCode(opts.coderSpec),
+    mr: modelCode(opts.reviewerSpec),
     comments: opts.comments,
   }
 }
@@ -388,7 +387,6 @@ async function handlePlan(opts: PlanOpts, runStart: number): Promise<void> {
   const project = loadProjectFrom(fromPath)
   const planNameOpts: PlanNameOpts = {
     plannerSpec: opts.plannerSpec,
-    aiCoders: opts.aiCoders,
     complexity: project.complexity,
     students: opts.students,
     rounds: opts.rounds,
@@ -430,6 +428,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const planDir = dirname(fromPath)
   const repoNameOpts: RepoNameOpts = {
     coderSpec: opts.coderSpec,
+    reviewerSpec: opts.reviewerSpec,
     comments: opts.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
@@ -438,7 +437,6 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
   const plannerSpec = parseShortCode(meta.planner, "mp")
   const planNameOpts: PlanNameOpts = {
     plannerSpec,
-    aiCoders: meta.aiCoders,
     complexity: project.complexity,
     students: meta.students,
     rounds: meta.rounds,
@@ -458,7 +456,7 @@ async function handleRepo(opts: RepoOpts, runStart: number): Promise<void> {
       },
       {
         coderSpec: opts.coderSpec,
-        aiCoders: meta.aiCoders,
+        reviewerSpec: opts.reviewerSpec,
         comments: opts.comments,
         students: meta.students,
         plannerSpec,
@@ -496,7 +494,6 @@ async function archivePlanForEntry(
   const plannerSpec = parseShortCode(entrySettings.mp, "mp")
   const planNameOpts: PlanNameOpts = {
     plannerSpec,
-    aiCoders: entrySettings.aiCoders,
     complexity: project.complexity,
     students: entrySettings.students,
     rounds: entrySettings.rounds,
@@ -508,7 +505,6 @@ async function archivePlanForEntry(
   initLogs(verbosity, planDir)
   const planGenOpts: PlanGenOpts = {
     plannerSpec,
-    aiCoders: entrySettings.aiCoders,
     rounds: entrySettings.rounds,
     students: entrySettings.students,
     reviews: entrySettings.reviews,
@@ -538,8 +534,10 @@ async function runRepoForEntry(
 ): Promise<void> {
   const plannerSpec = parseShortCode(entrySettings.mp, "mp")
   const coderSpec = parseShortCode(entrySettings.mc, "mc")
+  const reviewerSpec = parseShortCode(entrySettings.mr, "mc")
   const repoNameOpts: RepoNameOpts = {
     coderSpec,
+    reviewerSpec,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(planDir, repoNameOpts)
@@ -555,7 +553,7 @@ async function runRepoForEntry(
       },
       {
         coderSpec,
-        aiCoders: entrySettings.aiCoders,
+        reviewerSpec,
         comments: entrySettings.comments,
         students: entrySettings.students,
         plannerSpec,
@@ -662,9 +660,11 @@ async function runRepoForExistingPlan(
   runStart: number,
 ): Promise<void> {
   const coderSpec = parseShortCode(entrySettings.mc, "mc")
+  const reviewerSpec = parseShortCode(entrySettings.mr, "mc")
   const plannerSpec = parseShortCode(from.meta.planner, "mp")
   const repoNameOpts: RepoNameOpts = {
     coderSpec,
+    reviewerSpec,
     comments: entrySettings.comments,
   }
   const repoDir = reserveRepoDir(from.planDir, repoNameOpts)
@@ -680,7 +680,7 @@ async function runRepoForExistingPlan(
       },
       {
         coderSpec,
-        aiCoders: from.meta.aiCoders,
+        reviewerSpec,
         comments: entrySettings.comments,
         students: from.meta.students,
         plannerSpec,
@@ -700,6 +700,7 @@ async function runRepoForExistingPlan(
   const updated: Settings = {
     ...prevPlanSettings,
     mc: entrySettings.mc,
+    mr: entrySettings.mr,
     comments: entrySettings.comments,
   }
   writeSettings(repoDir, updated)

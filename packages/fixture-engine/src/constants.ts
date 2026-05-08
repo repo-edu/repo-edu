@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 // `mp` has no scalar default: when the settings file lacks `mp`, it falls
 // back to `defaultPlannerCodeForComplexity` below.
 export const DEFAULT_MC = "22"
+export const DEFAULT_MR = "31"
 export const DEFAULT_ME = "35"
 
 // Planner-model defaults track project complexity. C1-C2 plans don't benefit
@@ -14,9 +15,6 @@ export const DEFAULT_ME = "35"
 export function defaultPlannerCodeForComplexity(c: number): string {
   return c >= 3 ? "33" : "31"
 }
-
-// Mode
-export const DEFAULT_AI_CODERS = true
 
 // Project (planner)
 export const DEFAULT_COMPLEXITY = 1
@@ -33,6 +31,13 @@ export const MIN_CODER_INTERACTION = 1
 export const MAX_CODER_INTERACTION = 3
 export const DEFAULT_REVIEWS = 1
 export const MIN_REVIEWS = 0
+
+// Canonical fixed text for review-slot notes and fallback messages. The
+// planner is instructed to emit these literals; planner.ts overwrites
+// review notes/messages after parse as a defense against creative drift.
+export const REVIEW_NOTE =
+  "Review previous work and improve where necessary, but do not add new modules or tests."
+export const REVIEW_FALLBACK = "review: pass over recent work"
 
 // Plan style
 export const STYLES = [
@@ -94,7 +99,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Package-local assets resolve from this module's location.
 export const CODER_AGREEMENT = resolve(__dirname, "coder-agreement.md")
-export const CODER_AGREEMENT_AI = resolve(__dirname, "coder-agreement-ai.md")
 
 // Workspace-root-sensitive paths come from runtime roots configured by the
 // CLI shell. The engine itself never derives these from its own source path.

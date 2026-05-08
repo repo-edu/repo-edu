@@ -20,6 +20,7 @@ export interface ReviewSummaryOpts {
   reviews: number
   plannerSpec: FixtureModelSpec
   coderSpec: FixtureModelSpec
+  reviewerSpec: FixtureModelSpec
 }
 
 interface CostRow {
@@ -82,13 +83,16 @@ export function writeReview(
     usd: tokenCostUsd(opts.plannerSpec, plannerUsage),
   }
   const roundRows: { usage: LlmUsage; cost: CostRow }[] = state.rounds.map(
-    (r) => ({
-      usage: r.usage,
-      cost: {
-        authMode: r.usage.authMode,
-        usd: tokenCostUsd(opts.coderSpec, r.usage),
-      },
-    }),
+    (r) => {
+      const spec = r.kind === "review" ? opts.reviewerSpec : opts.coderSpec
+      return {
+        usage: r.usage,
+        cost: {
+          authMode: r.usage.authMode,
+          usd: tokenCostUsd(spec, r.usage),
+        },
+      }
+    },
   )
   const totalUsage = sumUsage([plannerUsage, ...roundRows.map((r) => r.usage)])
   const allCostRows: CostRow[] = [plannerCost, ...roundRows.map((r) => r.cost)]
@@ -103,6 +107,7 @@ export function writeReview(
     `- Reviews: ${opts.reviews} (planned; ${reviewCount} executed; ${state.rounds.length} total commits)`,
     `- Planner: ${formatModelSpec(opts.plannerSpec)} (${plannerUsage.authMode})`,
     `- Coder: ${formatModelSpec(opts.coderSpec)}`,
+    `- Reviewer: ${formatModelSpec(opts.reviewerSpec)}`,
     `- Dir: ${dirName}/`,
     `- Wall time: ${formatSeconds(runMs)}`,
     `- Tokens in/cached/out: ${totalUsage.inputTokens} / ${totalUsage.cachedInputTokens} / ${totalUsage.outputTokens}`,

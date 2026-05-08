@@ -5,7 +5,6 @@ import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type { LlmUsage } from "@repo-edu/integrations-llm-contract"
 import {
   CODER_AGREEMENT,
-  CODER_AGREEMENT_AI,
   COMMENTS_FREE_TIER,
   GITIGNORE_LINES,
   STATE_BASENAME,
@@ -18,7 +17,7 @@ import { loadPrompt, loadSection } from "./prompt-loader"
 
 export interface CoderRunOpts {
   coderSpec: FixtureModelSpec
-  aiCoders: boolean
+  reviewerSpec: FixtureModelSpec
   comments: number
   students: number
 }
@@ -35,14 +34,6 @@ export interface State {
   commit_index: number
   rounds: RoundRecord[]
   stopped: boolean
-}
-
-function teamPhrase(s: number): string {
-  if (s === 1) return loadSection("coder/team-phrase", "solo")
-  if (s === 2) return loadSection("coder/team-phrase", "pair")
-  return loadSection("coder/team-phrase", "group", {
-    teammate_count: String(s - 1),
-  })
 }
 
 function shortLog(dir: string): string {
@@ -69,27 +60,9 @@ function composeCoderPrompt(
       ? ""
       : loadSection("coder/comments", String(opts.comments))
 
-  if (opts.aiCoders) {
-    const ctx: Record<string, string> = {
-      persona_name: persona.name,
-      persona_email: persona.email,
-      assignment: project.assignment,
-      abs_path: absPath,
-      coder_agreement_path: CODER_AGREEMENT_AI,
-      round_goal: commit.note,
-      comments_directive: commentsDirective,
-    }
-    if (commit.kind === "review") ctx.commit_log = shortLog(absPath)
-    return loadPrompt(
-      commit.kind === "review" ? "coder/review-ai" : "coder/build-ai",
-      ctx,
-    )
-  }
-
   const ctx: Record<string, string> = {
     persona_name: persona.name,
     persona_email: persona.email,
-    team_phrase: teamPhrase(opts.students),
     assignment: project.assignment,
     abs_path: absPath,
     coder_agreement_path: CODER_AGREEMENT,
@@ -256,9 +229,7 @@ export async function runCoderLoop(
   runStart: number,
 ): Promise<State> {
   const state: State = { commit_index: 0, rounds: [], stopped: false }
-  const coderPersona = loadPrompt(
-    opts.aiCoders ? "coder/persona-ai" : "coder/persona",
-  ).trim()
+  const coderPersona = loadPrompt("coder/persona").trim()
 
   let sigintCount = 0
   const onSigint = () => {
@@ -284,11 +255,13 @@ export async function runCoderLoop(
       emit(2, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
       emit(3, `${roundHeader}\n\n### Prompt\n\n${prompt}`)
       const beforeSha = headSha(dir)
+      const roundSpec =
+        commit.kind === "review" ? opts.reviewerSpec : opts.coderSpec
       const { reply, usage } = await withTicker(
         `fixture: round ${i + 1}/${plan.commits.length} (${commit.kind}, author ${commit.author_index})…`,
         () =>
           runCoder({
-            spec: opts.coderSpec,
+            spec: roundSpec,
             prompt,
             cwd: dir,
             appendInstructions: coderPersona,

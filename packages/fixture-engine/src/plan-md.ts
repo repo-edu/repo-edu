@@ -13,6 +13,8 @@ export interface PlannedCommit {
   date: string
   author_index: number
   kind: CommitKind
+  /** Required for build commits; omitted for reviews. */
+  primary_module?: string
   note: string
   message: string
 }
@@ -27,7 +29,6 @@ export interface PlanMeta {
   projectFile: string
   /** Canonical planner model code (e.g. "22"); resolves via the catalog. */
   planner: string
-  aiCoders: boolean
   rounds: number
   students: number
   reviews: number
@@ -46,7 +47,6 @@ export function planToMarkdown(file: PlanFile): string {
   lines.push(`# ${meta.project}`, "")
   lines.push(`Project-file: ${meta.projectFile}`)
   lines.push(`Planner: ${meta.planner}`)
-  lines.push(`Ai-coders: ${meta.aiCoders}`)
   lines.push(`Rounds: ${meta.rounds}`)
   lines.push(`Students: ${meta.students}`)
   lines.push(`Reviews: ${meta.reviews}`)
@@ -64,9 +64,9 @@ export function planToMarkdown(file: PlanFile): string {
       "",
       `### ${i + 1}. ${c.kind} · ${c.date} · author ${c.author_index}`,
       "",
-      `Note: ${c.note}`,
-      `Fallback: ${c.message}`,
     )
+    if (c.primary_module) lines.push(`Module: ${c.primary_module}`)
+    lines.push(`Note: ${c.note}`, `Fallback: ${c.message}`)
   })
   lines.push("")
   return lines.join("\n")
@@ -99,12 +99,6 @@ export function markdownToPlan(md: string): PlanFile {
       case "Planner":
         meta.planner = value
         break
-      case "Ai-coders":
-        if (value !== "true" && value !== "false") {
-          throw new Error(`Ai-coders must be true|false, got: ${value}`)
-        }
-        meta.aiCoders = value === "true"
-        break
       case "Students":
         meta.students = Number(value)
         break
@@ -133,7 +127,6 @@ export function markdownToPlan(md: string): PlanFile {
   if (
     meta.projectFile === undefined ||
     meta.planner === undefined ||
-    meta.aiCoders === undefined ||
     meta.students === undefined ||
     meta.rounds === undefined ||
     meta.reviews === undefined ||
@@ -141,7 +134,7 @@ export function markdownToPlan(md: string): PlanFile {
     meta.style === undefined
   ) {
     throw new Error(
-      "missing plan meta fields (need Project-file, Planner, Ai-coders, Students, Rounds, Reviews, Coder-interaction, Style)",
+      "missing plan meta fields (need Project-file, Planner, Students, Rounds, Reviews, Coder-interaction, Style)",
     )
   }
 
@@ -184,27 +177,37 @@ export function markdownToPlan(md: string): PlanFile {
     i++
     skipBlank()
 
+    let primaryModule = ""
     let note = ""
     let message = ""
     while (i < lines.length && lines[i].trim() && !lines[i].startsWith("###")) {
       const bodyLine = lines[i]
-      if (bodyLine.startsWith("Note: ")) note = bodyLine.slice("Note: ".length)
+      if (bodyLine.startsWith("Module: "))
+        primaryModule = bodyLine.slice("Module: ".length)
+      else if (bodyLine.startsWith("Note: "))
+        note = bodyLine.slice("Note: ".length)
       else if (bodyLine.startsWith("Fallback: "))
         message = bodyLine.slice("Fallback: ".length)
       else throw new Error(`unexpected commit body line: ${bodyLine}`)
       i++
     }
+    if (kind === "build" && !primaryModule)
+      throw new Error(
+        `commit ${commits.length + 1} (build) missing Module line`,
+      )
     if (!note) throw new Error(`commit ${commits.length + 1} missing Note line`)
     if (!message)
       throw new Error(`commit ${commits.length + 1} missing Fallback line`)
 
-    commits.push({
+    const commit: PlannedCommit = {
       date,
       author_index: Number(authorStr),
       kind: kind as CommitKind,
       note,
       message,
-    })
+    }
+    if (primaryModule) commit.primary_module = primaryModule
+    commits.push(commit)
   }
 
   return { meta: meta as PlanMeta, plan: { team, commits } }

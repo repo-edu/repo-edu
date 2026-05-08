@@ -8,7 +8,6 @@ import { STYLE_CODE, type Style } from "./constants"
 
 export interface PlanNameOpts {
   plannerSpec: FixtureModelSpec
-  aiCoders: boolean
   complexity: number
   students: number
   rounds: number
@@ -19,24 +18,22 @@ export interface PlanNameOpts {
 
 export interface RepoNameOpts {
   coderSpec: FixtureModelSpec
+  reviewerSpec: FixtureModelSpec
   comments: number
 }
 
 export function planPostfix(opts: PlanNameOpts): string {
-  const parts: string[] = []
-  if (opts.aiCoders) parts.push("ai")
-  parts.push(
+  return [
     `i${opts.coderInteraction}`,
     STYLE_CODE[opts.style],
     `s${opts.students}`,
     `r${opts.rounds}`,
     `w${opts.reviews}`,
-  )
-  return parts.join("-")
+  ].join("-")
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  return `m${archivalModelCode(opts.coderSpec)}-o${opts.comments}`
+  return `m${archivalModelCode(opts.coderSpec)}-r${archivalModelCode(opts.reviewerSpec)}-o${opts.comments}`
 }
 
 export function nextAvailable(dir: string, base: string, ext = ""): string {

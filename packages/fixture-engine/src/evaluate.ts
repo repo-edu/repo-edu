@@ -77,6 +77,7 @@ interface Score {
 }
 
 interface RoundUsage {
+  kind?: "build" | "review"
   usage: LlmUsage
 }
 
@@ -169,6 +170,23 @@ function readState(repoDir: string): RoundUsage[] {
     rounds: RoundUsage[]
   }
   return raw.rounds
+}
+
+function estimateCost(
+  rounds: RoundUsage[],
+  coderSpec: FixtureModelSpec,
+  reviewerSpec: FixtureModelSpec | undefined,
+): number | undefined {
+  let total = 0
+  let anyPriced = false
+  for (const r of rounds) {
+    const spec = r.kind === "review" && reviewerSpec ? reviewerSpec : coderSpec
+    const usd = tokenCostUsd(spec, r.usage)
+    if (usd === undefined) continue
+    anyPriced = true
+    total += usd
+  }
+  return anyPriced ? total : undefined
 }
 
 function aggregateUsage(rounds: RoundUsage[]): LlmUsage {
@@ -510,7 +528,7 @@ export async function runEvaluate(opts: EvaluateOpts): Promise<EvaluateResult> {
     }
     const rounds = readState(repoDir)
     const totalUsage = aggregateUsage(rounds)
-    const estCost = tokenCostUsd(parsed.spec, totalUsage)
+    const estCost = estimateCost(rounds, parsed.spec, parsed.reviewerSpec)
     const marker = hasCapMarker(repoDir) ? readCapMarker(repoDir) : null
 
     if (marker) {

@@ -27,5 +27,7 @@ go to a non-primary author when the note's scope makes it natural.
 
 The team edits across modules constantly. Treat author_index as
 loosely correlated with primary module — frequently assign commits
-about `team[i].module` to non-i authors. Some files end up
-co-authored by several teammates.
+about `team[i].module` to non-i authors. When a build commit edits
+an already-existing file, prefer an `author_index` that has not
+previously committed to that file. Some files end up co-authored by
+several teammates.

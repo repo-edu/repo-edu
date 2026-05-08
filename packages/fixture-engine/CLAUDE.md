@@ -25,8 +25,8 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
   contract `LlmTextClient`).
 - `sampler.ts`, `markers.ts`, `sweep-buckets.ts` — deterministic sampling
   utilities; tests pin the distributions.
-- `prompts/`, `coder-agreement.md`, `coder-agreement-ai.md`, `projects/`,
-  `sweeps/` — prompt templates and curated project / sweep specifications.
+- `prompts/`, `coder-agreement.md`, `projects/`, `sweeps/` — prompt
+  templates and curated project / sweep specifications.
 
 ## Rules
 

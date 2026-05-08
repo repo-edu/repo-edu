@@ -1,18 +1,18 @@
 # Team working agreements
 
-Python assignment, a student team. The prompt will tell you who you are
-and who else is on the team (if anyone), what kind of round this is (a
-build round or a review round), and what you're meant to do this round.
+Several AI coders are building this Python project together, one commit
+at a time. Your prompt tells you who you are, what this round is for,
+and what goal to work toward.
 
 ## Modules
 
-We split the project into a few small modules by concern. Each teammate has
+The project is split into a few small modules by concern. Each coder has
 a primary module they mostly work in. You'll be told yours in the prompt.
 
 Ownership is not exclusive: touching another module is fine when a change
-genuinely belongs there (e.g. a small tweak to the CLI to expose your new
-feature). If there are teammates, don't rewrite someone else's module, and
-don't let every commit collapse into editing the same single file.
+genuinely belongs there (e.g. a small tweak to the CLI to expose a new
+feature). Don't rewrite another coder's module, and don't let every commit
+collapse into editing the same single file.
 
 ## Tools
 
@@ -36,10 +36,8 @@ author name, email, and date supplied with the round.
 
 ## Review rounds
 
-Sometimes the prompt will ask you to look back at what's been committed
-rather than add new functionality. The prompt embeds a recent commit
-log; read the relevant files via Read and decide — as a real student
-would — whether something needs fixing or cleaning up. If yes, fix it
-and end with `COMMIT: <subject>`. If no, say so and end with
-`COMMIT: -`. It's fine for a review round to end without a commit;
-that's a realistic student "I looked, it's fine" moment.
+When the round goal asks you to re-check recent work, the prompt embeds
+a recent commit log. Read the relevant files via Read and decide. If
+something is wrong or rough, fix it and end with `COMMIT: <subject>`.
+If it's fine, say so and end with `COMMIT: -` — empty reviews are
+expected.
