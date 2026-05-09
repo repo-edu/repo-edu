@@ -8,10 +8,10 @@ import {
 } from "node:fs"
 import { basename, dirname, resolve } from "node:path"
 import {
-  archivalModelCode,
   type FixtureModelSpec,
   formatCostByMode,
   formatModelSpec,
+  modelCode,
   parseRepoDirCode,
   tokenCostUsd,
 } from "@repo-edu/integrations-llm-catalog"
@@ -109,7 +109,7 @@ function statusFromMarker(marker: CapMarker): RepoStatus {
 }
 
 export function evaluateBasename(evaluatorSpec: FixtureModelSpec): string {
-  return `_evaluate-${archivalModelCode(evaluatorSpec)}.md`
+  return `_evaluate-${modelCode(evaluatorSpec)}.md`
 }
 
 function isDir(path: string): boolean {

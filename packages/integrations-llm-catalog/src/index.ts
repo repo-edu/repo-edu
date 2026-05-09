@@ -12,7 +12,6 @@ export {
   tierOf,
 } from "./catalog"
 export {
-  archivalModelCode,
   formatModelSpec,
   ModelCodeError,
   modelCode,

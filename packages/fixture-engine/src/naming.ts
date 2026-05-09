@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import {
-  archivalModelCode,
   type FixtureModelSpec,
+  modelCode,
 } from "@repo-edu/integrations-llm-catalog"
 import { STYLE_CODE, type Style } from "./constants"
 
@@ -36,9 +36,8 @@ export function planPostfix(opts: PlanNameOpts): string {
 }
 
 export function repoPostfix(opts: RepoNameOpts): string {
-  const coder = `m${archivalModelCode(opts.coderSpec)}`
-  const reviewer =
-    opts.reviews === 0 ? "" : `-r${archivalModelCode(opts.reviewerSpec)}`
+  const coder = `m${modelCode(opts.coderSpec)}`
+  const reviewer = opts.reviews === 0 ? "" : `-r${modelCode(opts.reviewerSpec)}`
   return `${coder}${reviewer}-o${opts.comments}`
 }
 

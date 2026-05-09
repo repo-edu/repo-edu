@@ -37,7 +37,7 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
   `@repo-edu/integrations-llm-contract` and the dispatcher in
   `@repo-edu/integrations-llm`. Do not import provider SDKs directly here.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
-  (`parseShortCode`, `modelCode`, `archivalModelCode`, `tokenCostUsd`).
+  (`parseShortCode`, `modelCode`, `tokenCostUsd`).
 - Output writes go under the runtime `FIXTURES_DIR` configured by
   `setFixtureRuntimeRoots(...)` — never assume the workspace layout.
 - Determinism: every random choice flows through a seeded sampler so re-runs

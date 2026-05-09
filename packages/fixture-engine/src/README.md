@@ -84,17 +84,16 @@ because the parent `c<N>-<name>/` folder already carries it.
   after a stratified subset of build slots disjoint from review slots;
   reviews + refactors must be ≤ rounds).
 
-**Repo postfix** — `m<code>[-<ver>][-r<code>[-<ver>]]-o<N>`
+**Repo postfix** — `m<code>[-r<code>]-o<N>`
 
 Segments follow `fixture repo -h` flag order; everything inherited
 from the parent project/plan folders is omitted.
 
-- `m<code>[-<ver>]` — coder (build-round) model + effort and version
-  tag (e.g. `m22-46` = sonnet medium 4.6; see the model-code table
-  in `fixture -hh`).
-- `r<code>[-<ver>]` — reviewer (review-round) model + effort and
-  version tag (e.g. `r31-46` = opus low 4.6). Omitted when the parent
-  plan has `w0` (zero review rounds), since the reviewer never runs.
+- `m<code>` — coder (build-round) model + effort (e.g. `m22` = sonnet
+  medium; see the model-code table in `fixture -hh`).
+- `r<code>` — reviewer (review-round) model + effort (e.g. `r31` =
+  opus low). Omitted when the parent plan has `w0` (zero review
+  rounds), since the reviewer never runs.
 - `o<N>` — comment-density tier (`-o, --comments`, 0-3); 0 leaves
   commenting to the coder.
 
@@ -326,8 +325,6 @@ Model codes for `-m` / `--model`:
 Claude and Codex codes are accepted for `mp` (planner / evaluator),
 `mc` (build rounds), and `mr` (review rounds). Mixed-provider repos are
 valid, for example `pnpm fixture repo -m c542 --review-model 31`.
-Each generated dirname includes the resolved model's version tag (e.g.
-`m22-46`, `mc542-54`) so cross-generation runs stay distinguishable.
 
 Both auth modes work with both providers: a logged-in subscription
 (Claude `claude` CLI session, ChatGPT login under `codex`) or an

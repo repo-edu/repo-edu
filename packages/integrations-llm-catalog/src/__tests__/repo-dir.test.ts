@@ -2,74 +2,51 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import { parseRepoDirCode } from "../index.js"
 
-describe("parseRepoDirCode — widened regex", () => {
-  test("legacy shape (no version tag) parses", () => {
+describe("parseRepoDirCode", () => {
+  test("sonnet medium parses", () => {
     const r = parseRepoDirCode("m22-o1")
     assert.ok(r)
     assert.equal(r?.spec.family, "sonnet")
     assert.equal(r?.spec.effort, "medium")
-    assert.equal(r?.versionTag, undefined)
   })
 
-  test("new shape (with version tag) parses and exposes the tag", () => {
-    const r = parseRepoDirCode("m22-46-o1")
-    assert.ok(r)
-    assert.equal(r?.spec.family, "sonnet")
-    assert.equal(r?.versionTag, "46")
-  })
-
-  test("opus max with version tag parses", () => {
-    const r = parseRepoDirCode("m35-47-o2")
+  test("opus max parses", () => {
+    const r = parseRepoDirCode("m35-o2")
     assert.ok(r)
     assert.equal(r?.spec.family, "opus")
     assert.equal(r?.spec.effort, "max")
-    assert.equal(r?.versionTag, "47")
   })
 
   test("haiku parses (single-digit code)", () => {
-    const r = parseRepoDirCode("m1-45-o0")
+    const r = parseRepoDirCode("m1-o0")
     assert.ok(r)
     assert.equal(r?.spec.family, "haiku")
-    assert.equal(r?.versionTag, "45")
   })
 
-  test("Codex codes parse with version tag", () => {
-    const r = parseRepoDirCode("mc542-54-o1")
+  test("Codex code parses", () => {
+    const r = parseRepoDirCode("mc542-o1")
     assert.ok(r)
     assert.equal(r?.spec.provider, "codex")
     assert.equal(r?.spec.family, "gpt-5.4")
     assert.equal(r?.spec.effort, "medium")
-    assert.equal(r?.versionTag, "54")
   })
 
-  test("Codex mini parses with alphanumeric version tag", () => {
-    const r = parseRepoDirCode("mc54m-54m-o2")
+  test("Codex mini parses", () => {
+    const r = parseRepoDirCode("mc54m-o2")
     assert.ok(r)
     assert.equal(r?.spec.family, "gpt-5.4-mini")
-    assert.equal(r?.versionTag, "54m")
   })
 
-  test("with reviewer code (versioned) parses both specs", () => {
-    const r = parseRepoDirCode("m22-46-r31-46-o2")
-    assert.ok(r)
-    assert.equal(r?.spec.family, "sonnet")
-    assert.equal(r?.versionTag, "46")
-    assert.equal(r?.reviewerSpec?.family, "opus")
-    assert.equal(r?.reviewerSpec?.effort, "low")
-    assert.equal(r?.reviewerVersionTag, "46")
-  })
-
-  test("with reviewer code (legacy, no versions) parses both specs", () => {
+  test("coder + reviewer parses both specs", () => {
     const r = parseRepoDirCode("m22-r31-o2")
     assert.ok(r)
     assert.equal(r?.spec.family, "sonnet")
-    assert.equal(r?.versionTag, undefined)
     assert.equal(r?.reviewerSpec?.family, "opus")
-    assert.equal(r?.reviewerVersionTag, undefined)
+    assert.equal(r?.reviewerSpec?.effort, "low")
   })
 
   test("mixed Codex coder and Claude reviewer parses both specs", () => {
-    const r = parseRepoDirCode("mc542-54-r31-47-o2")
+    const r = parseRepoDirCode("mc542-r31-o2")
     assert.ok(r)
     assert.equal(r?.spec.provider, "codex")
     assert.equal(r?.reviewerSpec?.provider, "claude")
@@ -77,18 +54,25 @@ describe("parseRepoDirCode — widened regex", () => {
   })
 
   test("mixed Claude coder and Codex reviewer parses both specs", () => {
-    const r = parseRepoDirCode("m22-46-rc552-55-o2")
+    const r = parseRepoDirCode("m22-rc552-o2")
     assert.ok(r)
     assert.equal(r?.spec.provider, "claude")
     assert.equal(r?.reviewerSpec?.provider, "codex")
     assert.equal(r?.reviewerSpec?.family, "gpt-5.5")
   })
 
-  test("without reviewer code, reviewer fields stay undefined", () => {
-    const r = parseRepoDirCode("m22-46-o1")
+  test("without reviewer code, reviewer field stays undefined", () => {
+    const r = parseRepoDirCode("m22-o1")
     assert.ok(r)
     assert.equal(r?.reviewerSpec, undefined)
-    assert.equal(r?.reviewerVersionTag, undefined)
+  })
+
+  test("obsolete versioned shape is rejected", () => {
+    assert.equal(parseRepoDirCode("m22-46-o1"), null)
+    assert.equal(parseRepoDirCode("m35-47-o2"), null)
+    assert.equal(parseRepoDirCode("mc542-54-o1"), null)
+    assert.equal(parseRepoDirCode("m22-46-r31-46-o2"), null)
+    assert.equal(parseRepoDirCode("mc542-54-rc551-55-o2"), null)
   })
 
   test("non-matching dir name returns null", () => {

@@ -31,40 +31,40 @@ function makeRepo(rel: string, files: Record<string, string>): string {
 
 describe("findRepoDirs", () => {
   test("finds dirs containing _state.json", () => {
-    const repo = makeRepo("p1/m22-46-o1", {
+    const repo = makeRepo("p1/m22-o1", {
       [STATE_BASENAME]: '{"rounds":[]}',
     })
     assert.deepEqual(findRepoDirs(root), [repo])
   })
 
   test("finds dirs containing only _rate-limited.json", () => {
-    const repo = makeRepo("p1/m22-46-o1", {
+    const repo = makeRepo("p1/m22-o1", {
       [RATE_LIMITED_BASENAME]: '{"kind":"rate_limit"}',
     })
     assert.deepEqual(findRepoDirs(root), [repo])
   })
 
   test("finds dirs containing only _quota-exhausted.json", () => {
-    const repo = makeRepo("p1/m22-46-o1", {
+    const repo = makeRepo("p1/m22-o1", {
       [QUOTA_EXHAUSTED_BASENAME]: '{"kind":"quota_exhausted"}',
     })
     assert.deepEqual(findRepoDirs(root), [repo])
   })
 
   test("treats marker-only dirs as leaves and does not descend further", () => {
-    const repo = makeRepo("p1/m22-46-o1", {
+    const repo = makeRepo("p1/m22-o1", {
       [RATE_LIMITED_BASENAME]: "{}",
     })
     // sub-dir below the marker should not be discovered
-    makeRepo("p1/m22-46-o1/nested", { [STATE_BASENAME]: "{}" })
+    makeRepo("p1/m22-o1/nested", { [STATE_BASENAME]: "{}" })
     assert.deepEqual(findRepoDirs(root), [repo])
   })
 
   test("walks past dirs with no markers and no state.json", () => {
-    const completed = makeRepo("p1/m22-46-o1", {
+    const completed = makeRepo("p1/m22-o1", {
       [STATE_BASENAME]: '{"rounds":[]}',
     })
-    const incomplete = makeRepo("p2/m22-46-o2", {
+    const incomplete = makeRepo("p2/m22-o2", {
       [QUOTA_EXHAUSTED_BASENAME]: "{}",
     })
     assert.deepEqual(findRepoDirs(root).sort(), [completed, incomplete].sort())

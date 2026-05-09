@@ -12,7 +12,7 @@ describe("repoPostfix", () => {
         comments: 2,
         reviews: 1,
       }),
-      "mc542-54-r31-47-o2",
+      "mc542-r31-o2",
     )
   })
 
@@ -24,7 +24,7 @@ describe("repoPostfix", () => {
         comments: 2,
         reviews: 0,
       }),
-      "mc542-54-o2",
+      "mc542-o2",
     )
   })
 })

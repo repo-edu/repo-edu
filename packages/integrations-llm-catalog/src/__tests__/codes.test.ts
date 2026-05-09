@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { describe, test } from "node:test"
 import {
   allCatalogSpecs,
-  archivalModelCode,
   ModelCodeError,
   modelCode,
   parseShortCode,
@@ -15,7 +14,6 @@ describe("parseShortCode — Claude tier resolution", () => {
     assert.equal(spec.family, "haiku")
     assert.equal(spec.modelId, "claude-haiku-4-5")
     assert.equal(spec.effort, "none")
-    assert.equal(spec.versionTag, "45")
   })
 
   test("sonnet codes 21/22/23 cover low/medium/high", () => {
@@ -59,17 +57,11 @@ describe("parseShortCode — effort gating", () => {
   })
 })
 
-describe("modelCode + archivalModelCode round-trip", () => {
-  test("modelCode returns canonical catalog codes", () => {
+describe("modelCode", () => {
+  test("returns canonical catalog codes", () => {
     assert.equal(modelCode(parseShortCode("22", "mp")), "22")
     assert.equal(modelCode(parseShortCode("1", "mp")), "1")
     assert.equal(modelCode(parseShortCode("c542", "mp")), "c542")
-  })
-
-  test("archivalModelCode appends versionTag", () => {
-    assert.equal(archivalModelCode(parseShortCode("22", "mp")), "22-46")
-    assert.equal(archivalModelCode(parseShortCode("35", "mp")), "35-47")
-    assert.equal(archivalModelCode(parseShortCode("1", "mp")), "1-45")
   })
 })
 
@@ -94,7 +86,6 @@ describe("parseShortCode — Codex tier resolution", () => {
     assert.equal(spec.family, "gpt-5.4-mini")
     assert.equal(spec.modelId, "gpt-5.4-mini")
     assert.equal(spec.effort, "none")
-    assert.equal(spec.versionTag, "54m")
   })
 
   test("c541..c544 cover gpt-5.4 low..xhigh", () => {
@@ -127,12 +118,6 @@ describe("parseShortCode — Codex tier resolution", () => {
   test("c54m with effort suffix is rejected (mini has no effort dim)", () => {
     assert.throws(() => parseShortCode("c54m2", "mp"), ModelCodeError)
   })
-
-  test("archivalModelCode appends Codex versionTag", () => {
-    assert.equal(archivalModelCode(parseShortCode("c542", "mp")), "c542-54")
-    assert.equal(archivalModelCode(parseShortCode("c54m", "mp")), "c54m-54m")
-    assert.equal(archivalModelCode(parseShortCode("c554", "mp")), "c554-55")
-  })
 })
 
 describe("catalog integrity", () => {
@@ -151,12 +136,6 @@ describe("catalog integrity", () => {
       const key = `${spec.provider}::${spec.modelId}::${spec.effort}`
       assert.ok(!seen.has(key), `duplicate catalog entry for ${key}`)
       seen.add(key)
-    }
-  })
-
-  test("every spec carries a versionTag matching [a-z0-9]+", () => {
-    for (const spec of allCatalogSpecs()) {
-      assert.match(spec.versionTag, /^[a-z0-9]+$/)
     }
   })
 })

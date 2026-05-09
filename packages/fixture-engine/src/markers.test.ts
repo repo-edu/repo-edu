@@ -30,7 +30,6 @@ const SPEC: FixtureModelSpec = {
   modelId: "claude-sonnet-test",
   effort: "low",
   displayName: "Claude Sonnet (test)",
-  versionTag: "tst",
   priceUsdPerMTok: undefined,
 }
 

@@ -51,10 +51,6 @@ export function modelCode(spec: FixtureModelSpec): string {
   return code
 }
 
-export function archivalModelCode(spec: FixtureModelSpec): string {
-  return `${modelCode(spec)}-${spec.versionTag}`
-}
-
 export function formatModelSpec(spec: FixtureModelSpec): string {
   return spec.displayName
 }

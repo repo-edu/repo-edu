@@ -16,7 +16,6 @@ type Tier = {
   provider: LlmProvider
   family: string
   modelId: string
-  versionTag: string
   stem: string
   codes: ReadonlyArray<{ code: string; effort: LlmEffort }>
   /** Effort whose spec is the per-provider draft-verification default. */
@@ -30,7 +29,6 @@ const TIERS: Tier[] = [
     provider: "claude",
     family: "haiku",
     modelId: "claude-haiku-4-5",
-    versionTag: "45",
     stem: "1",
     codes: [{ code: "1", effort: "none" }],
     verifyDefaultEffort: "none",
@@ -39,7 +37,6 @@ const TIERS: Tier[] = [
     provider: "claude",
     family: "sonnet",
     modelId: "claude-sonnet-4-6",
-    versionTag: "46",
     stem: "2",
     codes: [
       { code: "21", effort: "low" },
@@ -52,7 +49,6 @@ const TIERS: Tier[] = [
     provider: "claude",
     family: "opus",
     modelId: "claude-opus-4-7",
-    versionTag: "47",
     stem: "3",
     codes: [
       { code: "31", effort: "low" },
@@ -66,7 +62,6 @@ const TIERS: Tier[] = [
     provider: "codex",
     family: "gpt-5.4-mini",
     modelId: "gpt-5.4-mini",
-    versionTag: "54m",
     stem: "c54m",
     codes: [{ code: "c54m", effort: "none" }],
     verifyDefaultEffort: "none",
@@ -75,7 +70,6 @@ const TIERS: Tier[] = [
     provider: "codex",
     family: "gpt-5.4",
     modelId: "gpt-5.4",
-    versionTag: "54",
     stem: "c54",
     codes: [
       { code: "c541", effort: "low" },
@@ -89,7 +83,6 @@ const TIERS: Tier[] = [
     provider: "codex",
     family: "gpt-5.5",
     modelId: "gpt-5.5",
-    versionTag: "55",
     stem: "c55",
     codes: [
       { code: "c551", effort: "low" },
@@ -115,7 +108,6 @@ function buildSpec(tier: Tier, effort: LlmEffort): FixtureModelSpec {
     modelId: tier.modelId,
     effort,
     displayName,
-    versionTag: tier.versionTag,
     priceUsdPerMTok: getPriceCard(tier.modelId),
   }
   if (tier.verifyDefaultEffort === effort) {
