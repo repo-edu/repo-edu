@@ -2,11 +2,7 @@ import {
   defaultAppSettings,
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
-import {
-  createBlankAnalysis,
-  type PersistedAnalysis,
-  type PersistedCourse,
-} from "@repo-edu/domain/types"
+import { createBlankCourse, type PersistedCourse } from "@repo-edu/domain/types"
 import {
   composeCourseFromCohort,
   type LmsCohortSource,
@@ -30,7 +26,7 @@ export type DocsReadableFileSeed = {
 export type DocsFixtureRecord = {
   lmsCourse: PersistedCourse
   repobeeCourse: PersistedCourse
-  analyses: PersistedAnalysis[]
+  noBackingCourses: PersistedCourse[]
   settings: PersistedAppSettings
   readableFiles: DocsReadableFileSeed[]
   analysisGitFixture: RecordedAnalysisGitFixture
@@ -125,19 +121,22 @@ function courseWithAnalysisRoot(
   }
 }
 
-function buildAnalyses(recordedAt: string): PersistedAnalysis[] {
+function buildNoBackingCourses(recordedAt: string): PersistedCourse[] {
   return [
-    createBlankAnalysis("calculator", recordedAt, {
+    createBlankCourse("calculator", recordedAt, {
+      backing: null,
       displayName: "Calculator",
       searchFolder: analysisRootPath,
       analysisInputs: { extensions: ["py"] },
     }),
-    createBlankAnalysis("topological-task-scheduler", recordedAt, {
+    createBlankCourse("topological-task-scheduler", recordedAt, {
+      backing: null,
       displayName: "Topological Task Scheduler",
       searchFolder: analysisRootPath,
       analysisInputs: { extensions: ["py"] },
     }),
-    createBlankAnalysis("huffman-encoder", recordedAt, {
+    createBlankCourse("huffman-encoder", recordedAt, {
+      backing: null,
       displayName: "Huffman Encoder",
       searchFolder: analysisRootPath,
       analysisInputs: { extensions: ["py"] },
@@ -160,12 +159,10 @@ function buildDocsFixture(): DocsFixtureRecord {
     repobeeCourseDisplayName,
     analysisGitFixture.rootPath,
   )
-  const analyses = buildAnalyses(analysisGitFixture.recordedAt)
+  const noBackingCourses = buildNoBackingCourses(analysisGitFixture.recordedAt)
 
   const settings: PersistedAppSettings = {
     ...defaultAppSettings,
-    activeDocumentKind: "course",
-    activeAnalysisId: analyses[0].id,
     activeCourseId: lmsCourse.id,
     activeTab: "roster",
     gitConnections: [
@@ -183,7 +180,7 @@ function buildDocsFixture(): DocsFixtureRecord {
   return {
     lmsCourse,
     repobeeCourse,
-    analyses,
+    noBackingCourses,
     settings,
     readableFiles: [
       ...lmsReadableFiles(lmsCohort),

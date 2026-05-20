@@ -1,4 +1,8 @@
-import { createBlankCourse, type PersistedCourse } from "@repo-edu/domain/types"
+import {
+  type CourseBacking,
+  createBlankCourse,
+  type PersistedCourse,
+} from "@repo-edu/domain/types"
 import { useCallback } from "react"
 import {
   getWorkflowClient,
@@ -10,6 +14,19 @@ import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { generateCourseId } from "../utils/nanoid.js"
+
+type CreateCourseInput = {
+  backing: CourseBacking
+  displayName: string
+  lmsConnectionName?: string | null
+  lmsCourseId?: string | null
+}
+
+function initialTabForBacking(backing: CourseBacking) {
+  if (backing === "lms") return "roster"
+  if (backing === "repobee") return "groups-assignments"
+  return "analysis"
+}
 
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
@@ -41,9 +58,7 @@ export function useCourses() {
   }, [client])
 
   const switchCourse = useCallback(async (courseId: string) => {
-    useUiStore.getState().setActiveDocumentKind("course")
     useUiStore.getState().setActiveCourseId(courseId)
-    useAppSettingsStore.getState().setActiveDocumentKind("course")
     useAppSettingsStore.getState().setActiveCourseId(courseId)
     try {
       await useAppSettingsStore.getState().save()
@@ -51,6 +66,44 @@ export function useCourses() {
       // Keep course switching resilient even if settings persistence fails.
     }
   }, [])
+
+  const createCourse = useCallback(
+    async (input: CreateCourseInput): Promise<PersistedCourse | null> => {
+      const addToast = useToastStore.getState().addToast
+      try {
+        const backing = input.backing
+        const wfClient = getWorkflowClient()
+        const draft = createBlankCourse(
+          generateCourseId(),
+          new Date().toISOString(),
+          {
+            backing,
+            displayName: input.displayName,
+            lmsConnectionName:
+              backing === "lms" ? (input.lmsConnectionName ?? null) : null,
+            lmsCourseId: backing === "lms" ? (input.lmsCourseId ?? null) : null,
+          },
+        )
+        const saved = await wfClient.run("course.save", draft)
+        await refresh()
+
+        const nextTab = initialTabForBacking(saved.backing)
+        useUiStore.getState().setActiveCourseId(saved.id)
+        useUiStore.getState().setActiveTab(nextTab)
+        useAppSettingsStore.getState().setActiveCourseId(saved.id)
+        useAppSettingsStore.getState().setActiveTab(nextTab)
+        useAppSettingsStore.getState().setLastUsedCourseBacking(saved.backing)
+        await useAppSettingsStore.getState().save()
+
+        return saved
+      } catch (error) {
+        const message = getErrorMessage(error)
+        addToast(`Failed to create course: ${message}`, { tone: "error" })
+        return null
+      }
+    },
+    [refresh],
+  )
 
   const duplicateCourse = useCallback(
     async (sourceId: string, displayName: string): Promise<boolean> => {
@@ -65,7 +118,7 @@ export function useCourses() {
           generateCourseId(),
           new Date().toISOString(),
           {
-            courseKind: source.courseKind,
+            backing: source.backing,
             displayName,
             lmsConnectionName: source.lmsConnectionName,
             organization: source.organization,
@@ -159,6 +212,7 @@ export function useCourses() {
     courses: courseList,
     loading,
     refresh,
+    createCourse,
     switchCourse,
     duplicateCourse,
     renameCourse,

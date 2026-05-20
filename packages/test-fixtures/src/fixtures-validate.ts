@@ -89,7 +89,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
       const course = fixture.course
       const settings = fixture.settings
 
-      if (preset !== "repobee-teams") {
+      if (preset !== "repobee-teams" && preset !== "no-backing") {
         if (course.roster.students.length !== expectedCounts.students) {
           fail(
             `${tier}/${preset}: expected ${expectedCounts.students} students, got ${course.roster.students.length}`,
@@ -149,7 +149,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         .filter(
           (issue) =>
             !(
-              preset === "repobee-teams" &&
+              (preset === "repobee-teams" || preset === "no-backing") &&
               issue.kind === "system_group_sets_missing"
             ),
         )

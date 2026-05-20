@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { AnalysisBlameConfig } from "./analysis/config-types.js"
 import { DEFAULT_EXTENSIONS, extensionsSchema } from "./analysis/schemas.js"
-import type { AnalysisInputs, GitProviderKind } from "./types.js"
+import type { AnalysisInputs, CourseBacking, GitProviderKind } from "./types.js"
 import { gitProviderKinds, persistedAppSettingsKind } from "./types.js"
 
 export const gitProviderDefaultBaseUrls: Record<GitProviderKind, string> = {
@@ -146,12 +146,14 @@ const persistedAnalysisConcurrencySchema = z
 
 export const persistedAppSettingsSchema = z.object({
   kind: z.literal(persistedAppSettingsKind),
-  activeDocumentKind: z.enum(["analysis", "course"]).nullable().default(null),
-  activeAnalysisId: z.string().nullable().default(null),
   activeCourseId: z.string().nullable(),
   activeTab: z
     .enum(["roster", "groups-assignments", "analysis"])
     .default("roster"),
+  lastUsedCourseBacking: z
+    .enum(["lms", "repobee"])
+    .nullable()
+    .optional() satisfies z.ZodType<CourseBacking | undefined>,
   appearance: appAppearanceSchema,
   window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
   lmsConnections: z.array(persistedLmsConnectionSchema),
@@ -281,8 +283,6 @@ void _scopeDisjointGuard
 
 export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
-  activeDocumentKind: null,
-  activeAnalysisId: null,
   activeCourseId: null,
   activeTab: "roster",
   appearance: {

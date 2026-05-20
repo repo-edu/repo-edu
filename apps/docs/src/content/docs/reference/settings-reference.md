@@ -11,7 +11,8 @@ Both app settings and course documents are stored as JSON files and validated on
 |-------|------|-------------|
 | `kind` | `"repo-edu.app-settings.v1"` | Schema discriminator |
 | `activeCourseId` | `string \| null` | Currently selected course |
-| `activeTab` | `"roster" \| "groups-assignments"` | Last active UI tab (default: `"roster"`) |
+| `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab (default: `"roster"`) |
+| `lastUsedCourseBacking` | `"lms" \| "repobee" \| null` | Sticky default for the New Course dialog. Omitted until the first course is created. |
 | `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
 | `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
@@ -41,7 +42,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
-| `courseKind` | `"lms" \| "repobee"` | Course capability discriminator |
+| `backing` | `"lms" \| "repobee" \| null` | Course capability discriminator |
 | `id` | `string` | Unique course identifier |
 | `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |

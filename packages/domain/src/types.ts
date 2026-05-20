@@ -3,13 +3,9 @@ import type { AnalysisConfig } from "./analysis/config-types.js"
 export const packageId = "@repo-edu/domain"
 
 export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
-export const persistedAnalysisKind = "repo-edu.analysis.v1" as const
 export const persistedCourseKind = "repo-edu.course.v1" as const
 
-export type DocumentKind = "analysis" | "course"
-
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
-export const courseKinds = ["lms", "repobee"] as const
 export const gitUsernameStatusKinds = ["unknown", "valid", "invalid"] as const
 export const memberStatusKinds = ["active", "incomplete", "dropped"] as const
 export const enrollmentTypeKinds = [
@@ -24,7 +20,7 @@ export const groupOriginKinds = ["system", "lms", "local"] as const
 
 export type LmsProviderKind = "canvas" | "moodle"
 export type GitProviderKind = (typeof gitProviderKinds)[number]
-export type CourseKind = (typeof courseKinds)[number]
+export type CourseBacking = "lms" | "repobee" | null
 export type ProviderKind = LmsProviderKind | GitProviderKind | "git"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]
 export type MemberStatus = (typeof memberStatusKinds)[number]
@@ -201,8 +197,8 @@ export type IdSequences = {
 export type AnalysisInputs = Omit<AnalysisConfig, "maxConcurrency">
 
 /**
- * Shared shape held by both PersistedAnalysis and PersistedCourse. A Course is
- * (informally) AnalysisCore + teaching context (roster, LMS, assignments).
+ * Analysis configuration embedded in a course. No-backing courses use this
+ * surface without roster, LMS, or repository-management state.
  * Functions that only need analysis configuration accept AnalysisCore directly.
  */
 export type AnalysisCore = {
@@ -210,17 +206,9 @@ export type AnalysisCore = {
   analysisInputs: AnalysisInputs
 }
 
-export type PersistedAnalysis = AnalysisCore & {
-  kind: typeof persistedAnalysisKind
-  revision: number
-  id: string
-  displayName: string
-  updatedAt: string
-}
-
 export type PersistedCourse = AnalysisCore & {
   kind: typeof persistedCourseKind
-  courseKind: CourseKind
+  backing: CourseBacking
   revision: number
   id: string
   displayName: string
@@ -235,22 +223,20 @@ export type PersistedCourse = AnalysisCore & {
   updatedAt: string
 }
 
-export type PersistedDocument = PersistedAnalysis | PersistedCourse
-
-export function documentKindOf(document: PersistedDocument): DocumentKind {
-  return document.kind === persistedAnalysisKind ? "analysis" : "course"
-}
-
 export function courseHasRoster(course: PersistedCourse): boolean {
-  return course.courseKind === "lms"
+  return course.backing === "lms"
 }
 
 export function courseSupportsLms(course: PersistedCourse): boolean {
-  return course.courseKind === "lms"
+  return course.backing === "lms"
 }
 
 export function courseSupportsRepoBeeGroups(course: PersistedCourse): boolean {
-  return course.courseKind === "repobee"
+  return course.backing === "repobee"
+}
+
+export function courseHasGroups(course: PersistedCourse): boolean {
+  return course.backing !== null
 }
 
 export function resolveAnalysisConfig(
@@ -262,35 +248,15 @@ export function resolveAnalysisConfig(
   return { ...core.analysisInputs, extensions, maxConcurrency }
 }
 
-export type BlankAnalysisFields = {
-  displayName: string
-  searchFolder?: string | null
-  analysisInputs?: AnalysisInputs
-}
-
-export function createBlankAnalysis(
-  id: string,
-  updatedAt: string,
-  fields: BlankAnalysisFields,
-): PersistedAnalysis {
-  return {
-    kind: persistedAnalysisKind,
-    revision: 0,
-    id,
-    displayName: fields.displayName,
-    searchFolder: fields.searchFolder ?? null,
-    analysisInputs: fields.analysisInputs ?? {},
-    updatedAt,
-  }
-}
-
 export type BlankCourseFields = {
-  courseKind?: CourseKind
+  backing?: CourseBacking
   displayName: string
   lmsConnectionName?: string | null
   organization?: string | null
   lmsCourseId?: string | null
   repositoryTemplate?: RepositoryTemplate | null
+  repositoryCloneTargetDirectory?: string | null
+  repositoryCloneDirectoryLayout?: "flat" | "by-team" | "by-task" | null
   searchFolder?: string | null
   analysisInputs?: AnalysisInputs
 }
@@ -300,15 +266,21 @@ export function createBlankCourse(
   updatedAt: string,
   fields: BlankCourseFields,
 ): PersistedCourse {
+  const backing = fields.backing === undefined ? "lms" : fields.backing
+  const supportsLms = backing === "lms"
+  const supportsCourseManagement = backing !== null
+
   return {
     kind: persistedCourseKind,
-    courseKind: fields.courseKind ?? "lms",
+    backing,
     revision: 0,
     id,
     displayName: fields.displayName,
-    lmsConnectionName: fields.lmsConnectionName ?? null,
-    organization: fields.organization ?? null,
-    lmsCourseId: fields.lmsCourseId ?? null,
+    lmsConnectionName: supportsLms ? (fields.lmsConnectionName ?? null) : null,
+    organization: supportsCourseManagement
+      ? (fields.organization ?? null)
+      : null,
+    lmsCourseId: supportsLms ? (fields.lmsCourseId ?? null) : null,
     idSequences: initialIdSequences(),
     roster: {
       connection: null,
@@ -318,26 +290,25 @@ export function createBlankCourse(
       groupSets: [],
       assignments: [],
     },
-    repositoryTemplate: fields.repositoryTemplate ?? null,
+    repositoryTemplate: supportsCourseManagement
+      ? (fields.repositoryTemplate ?? null)
+      : null,
+    repositoryCloneTargetDirectory: supportsCourseManagement
+      ? (fields.repositoryCloneTargetDirectory ?? null)
+      : null,
+    repositoryCloneDirectoryLayout: supportsCourseManagement
+      ? (fields.repositoryCloneDirectoryLayout ?? null)
+      : null,
     searchFolder: fields.searchFolder ?? null,
     analysisInputs: fields.analysisInputs ?? {},
     updatedAt,
   }
 }
 
-export type AnalysisSummary = Pick<
-  PersistedAnalysis,
-  "id" | "displayName" | "updatedAt"
->
-
 export type CourseSummary = Pick<
   PersistedCourse,
-  "id" | "displayName" | "updatedAt" | "courseKind"
+  "id" | "displayName" | "updatedAt" | "backing"
 >
-
-export type DocumentSummary =
-  | (AnalysisSummary & { kind: "analysis" })
-  | (CourseSummary & { kind: "course" })
 
 export type ValidationIssue = {
   path: string

@@ -19,7 +19,7 @@ const template: RepositoryTemplate = {
 
 const course: PersistedCourse = {
   kind: "repo-edu.course.v1",
-  courseKind: "lms",
+  backing: "lms",
   revision: 0,
   id: "course-1",
   displayName: "Course 1",
@@ -49,8 +49,6 @@ const course: PersistedCourse = {
 
 const appSettings: PersistedAppSettings = {
   kind: "repo-edu.app-settings.v1",
-  activeDocumentKind: "course",
-  activeAnalysisId: null,
   activeCourseId: course.id,
   activeTab: "roster",
   appearance: {

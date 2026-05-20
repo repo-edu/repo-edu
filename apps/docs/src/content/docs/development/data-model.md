@@ -25,7 +25,8 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | Field | Type | Description |
 |-------|------|-------------|
 | `activeCourseId` | `string \| null` | Currently selected course |
-| `activeTab` | `"roster" \| "groups-assignments"` | Last active UI tab |
+| `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab |
+| `lastUsedCourseBacking` | `"lms" \| "repobee" \| null` | Sticky default for the New Course dialog; omitted until the first course is created |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
 | `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
@@ -39,12 +40,15 @@ There is no migration layer — invalid documents are rejected at the boundary.
 
 ## Persisted course
 
-`PersistedCourse` stores all data for a single course.
+`PersistedCourse` stores all data for a single course. The `backing` axis
+describes which external surface, if any, the course is bound to: `"lms"`
+enables roster sync, `"repobee"` enables local team/group workflows without LMS
+linkage, and `null` is an analysis-only course with an empty roster surface.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `string` | Unique course identifier |
-| `courseKind` | `"lms" \| "repobee"` | Course capability discriminator |
+| `backing` | `"lms" \| "repobee" \| null` | Course capability discriminator |
 | `displayName` | `string` | Human-readable name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References a connection in app settings by name |

@@ -42,7 +42,6 @@ import {
   nativeTheme,
   shell,
 } from "electron"
-import { createDesktopAnalysisStore } from "./analysis-store"
 import {
   bindAutoUpdaterWindow,
   checkForUpdatesNow,
@@ -686,7 +685,6 @@ async function createWindow(): Promise<BrowserWindow> {
     rebuildLlmPort(appSettings)
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
-      analysisStore: createDesktopAnalysisStore(storageRoot),
       courseStore: createDesktopCourseStore(storageRoot),
       appSettingsStore,
       userFile: desktopHost.userFilePort,

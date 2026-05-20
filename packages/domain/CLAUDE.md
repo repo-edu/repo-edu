@@ -6,11 +6,11 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 
 `@repo-edu/domain` is side-effect free and host-agnostic. It defines:
 
-- canonical persisted settings/course/analysis/roster/group/assignment types
-- `PersistedDocument = PersistedAnalysis | PersistedCourse` discriminated by `documentKind` (`"analysis"` | `"course"`); `PersistedAnalysis` is a standalone document type that holds analysis state without a course/roster, while `PersistedCourse` carries roster/groups/assignments
-- `CourseKind = "lms" | "repobee"` discriminator on `PersistedCourse` separating LMS-driven courses from RepoBee/local courses; helpers `isLmsCourse(course)` / `isRepobeeCourse(course)` and the `documentKindOf(...)` selector
+- canonical persisted settings/course/roster/group/assignment types
+- `PersistedCourse` as the single persisted document type; `backing: "lms" | "repobee" | null` controls LMS-backed, RepoBee-backed, and no-backing analysis-only courses
+- course capability helpers (`courseHasRoster`, `courseHasGroups`, `courseSupportsLms`, `courseSupportsRepoBeeGroups`) derived from `backing`
 - zod validation for boundary payloads
-- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) from monotonic `IdSequences` shared by `PersistedAnalysis` and `PersistedCourse`
+- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) from monotonic `IdSequences`
 - roster normalization, validation, reconciliation (`roster-reconciliation.ts`: `reconcileRosterFromGitUsernames` for RepoBee import) and LMS-side merge (`roster-lms-merge.ts`)
 - system group-set maintenance
 - discriminated `GroupSet` union (`NamedGroupSet` / `UsernameGroupSet`) on `nameMode`

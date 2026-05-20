@@ -1,12 +1,9 @@
 import {
-  type AnalysisStore,
   type AppSettingsStore,
   type CourseStore,
-  createAnalysisDocWorkflowHandlers,
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
-  createDocumentsListWorkflowHandler,
   createExaminationArchive,
   createExaminationArchiveWorkflowHandlers,
   createExaminationWorkflowHandlers,
@@ -56,7 +53,6 @@ type DesktopWorkflowId = keyof typeof workflowCatalog
 
 export type DesktopRouterPorts = {
   http: HttpPort
-  analysisStore: AnalysisStore
   courseStore: CourseStore
   appSettingsStore: AppSettingsStore
   userFile: UserFilePort
@@ -168,11 +164,6 @@ function createDesktopWorkflowRegistry(
   }
 
   return {
-    ...createAnalysisDocWorkflowHandlers(ports.analysisStore),
-    ...createDocumentsListWorkflowHandler(
-      ports.analysisStore,
-      ports.courseStore,
-    ),
     ...createCourseWorkflowHandlers(ports.courseStore),
     ...wrappedSettingsHandlers,
     ...createConnectionWorkflowHandlers({ lms, git }),

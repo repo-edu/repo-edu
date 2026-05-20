@@ -17,7 +17,7 @@ function summarizeCourse(course: PersistedCourse): CourseSummary {
   return {
     id: course.id,
     displayName: course.displayName,
-    courseKind: course.courseKind,
+    backing: course.backing,
     updatedAt: course.updatedAt,
   }
 }

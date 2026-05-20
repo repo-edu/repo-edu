@@ -1,4 +1,7 @@
-import type { GroupSetImportFormat } from "@repo-edu/domain/types"
+import {
+  courseHasGroups,
+  type GroupSetImportFormat,
+} from "@repo-edu/domain/types"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -79,7 +82,7 @@ export function GroupsAssignmentsTab() {
     firstFocusable?.focus()
   }, [])
 
-  if (!activeCourseId || !course) {
+  if (!activeCourseId || !course || !courseHasGroups(course)) {
     return <NoCourseEmptyState />
   }
 

@@ -4,18 +4,16 @@ import {
   persistedAppSettingsSchema,
 } from "./settings.js"
 import type {
-  PersistedAnalysis,
   PersistedCourse,
+  RosterMember,
   ValidationIssue,
   ValidationResult,
 } from "./types.js"
 import {
-  courseKinds,
   enrollmentTypeKinds,
   gitUsernameStatusKinds,
   groupOriginKinds,
   memberStatusKinds,
-  persistedAnalysisKind,
   persistedCourseKind,
 } from "./types.js"
 
@@ -43,7 +41,7 @@ const memberStatusSchema = z.enum(memberStatusKinds)
 const gitUsernameStatusSchema = z.enum(gitUsernameStatusKinds)
 const enrollmentTypeSchema = z.enum(enrollmentTypeKinds)
 const groupOriginSchema = z.enum(groupOriginKinds)
-const courseKindSchema = z.enum(courseKinds)
+const courseBackingSchema = z.enum(["lms", "repobee"]).nullable()
 const localMemberIdSchema = z.string().regex(/^m_\d{4,}$/)
 const localGroupIdSchema = z.string().regex(/^g_\d{4,}$/)
 const localGroupSetIdSchema = z.string().regex(/^gs_\d{4,}$/)
@@ -203,48 +201,206 @@ const idSequencesSchema = z.object({
   nextAssignmentSeq: z.number().int().positive(),
 })
 
-export const persistedAnalysisSchema = z.object({
-  kind: z.literal(persistedAnalysisKind),
-  revision: z.number().int().nonnegative(),
-  id: z.string(),
-  displayName: z.string(),
-  searchFolder: z.string().nullable(),
-  analysisInputs: analysisInputsSchema,
-  updatedAt: z.string(),
-})
+function isLmsConnectionKind(kind: string): boolean {
+  return kind === "canvas" || kind === "moodle"
+}
 
-export const persistedCourseSchema = z.object({
-  kind: z.literal(persistedCourseKind),
-  courseKind: courseKindSchema,
-  revision: z.number().int().nonnegative(),
-  id: z.string(),
-  displayName: z.string(),
-  lmsConnectionName: z.string().nullable(),
-  organization: z.string().nullable(),
-  lmsCourseId: z.string().nullable(),
-  idSequences: idSequencesSchema,
-  roster: rosterSchema,
-  repositoryTemplate: repositoryTemplateSchema.nullable(),
-  repositoryCloneTargetDirectory: z.string().nullable().optional(),
-  repositoryCloneDirectoryLayout: z
-    .enum(["flat", "by-team", "by-task"])
-    .nullable()
-    .optional(),
-  searchFolder: z.string().nullable(),
-  analysisInputs: analysisInputsSchema,
-  updatedAt: z.string(),
-})
+function isLmsMemberSource(source: string): boolean {
+  const normalized = source.trim().toLowerCase()
+  return normalized === "lms" || isLmsConnectionKind(normalized)
+}
+
+function addCourseInvariantIssue(
+  context: z.RefinementCtx,
+  path: Array<string | number>,
+  message: string,
+): void {
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path,
+    message,
+  })
+}
+
+function addNonLmsMemberInvariantIssues(
+  context: z.RefinementCtx,
+  collection: "students" | "staff",
+  member: RosterMember,
+  index: number,
+): void {
+  if (member.lmsStatus !== null) {
+    addCourseInvariantIssue(
+      context,
+      ["roster", collection, index, "lmsStatus"],
+      "Only LMS-backed courses may carry member LMS statuses.",
+    )
+  }
+  if (member.lmsUserId !== null) {
+    addCourseInvariantIssue(
+      context,
+      ["roster", collection, index, "lmsUserId"],
+      "Only LMS-backed courses may carry member LMS user ids.",
+    )
+  }
+  if (isLmsMemberSource(member.source)) {
+    addCourseInvariantIssue(
+      context,
+      ["roster", collection, index, "source"],
+      "Only LMS-backed courses may carry LMS member sources.",
+    )
+  }
+}
+
+export const persistedCourseSchema = z
+  .object({
+    kind: z.literal(persistedCourseKind),
+    backing: courseBackingSchema,
+    revision: z.number().int().nonnegative(),
+    id: z.string(),
+    displayName: z.string(),
+    lmsConnectionName: z.string().nullable(),
+    organization: z.string().nullable(),
+    lmsCourseId: z.string().nullable(),
+    idSequences: idSequencesSchema,
+    roster: rosterSchema,
+    repositoryTemplate: repositoryTemplateSchema.nullable(),
+    repositoryCloneTargetDirectory: z.string().nullable().optional(),
+    repositoryCloneDirectoryLayout: z
+      .enum(["flat", "by-team", "by-task"])
+      .nullable()
+      .optional(),
+    searchFolder: z.string().nullable(),
+    analysisInputs: analysisInputsSchema,
+    updatedAt: z.string(),
+  })
+  .superRefine((course, context) => {
+    if (course.backing !== "lms") {
+      if (course.lmsConnectionName !== null) {
+        addCourseInvariantIssue(
+          context,
+          ["lmsConnectionName"],
+          "Only LMS-backed courses may reference an LMS connection.",
+        )
+      }
+      if (course.lmsCourseId !== null) {
+        addCourseInvariantIssue(
+          context,
+          ["lmsCourseId"],
+          "Only LMS-backed courses may reference an LMS course.",
+        )
+      }
+      if (
+        course.roster.connection !== null &&
+        isLmsConnectionKind(course.roster.connection.kind)
+      ) {
+        addCourseInvariantIssue(
+          context,
+          ["roster", "connection"],
+          "Only LMS-backed courses may carry LMS roster connections.",
+        )
+      }
+      course.roster.students.forEach((member, index) => {
+        addNonLmsMemberInvariantIssues(context, "students", member, index)
+      })
+      course.roster.staff.forEach((member, index) => {
+        addNonLmsMemberInvariantIssues(context, "staff", member, index)
+      })
+      course.roster.groups.forEach((group, index) => {
+        if (group.origin === "lms") {
+          addCourseInvariantIssue(
+            context,
+            ["roster", "groups", index, "origin"],
+            "Only LMS-backed courses may carry LMS-origin groups.",
+          )
+        }
+        if (group.lmsGroupId !== null) {
+          addCourseInvariantIssue(
+            context,
+            ["roster", "groups", index, "lmsGroupId"],
+            "Only LMS-backed courses may carry LMS group ids.",
+          )
+        }
+      })
+      course.roster.groupSets.forEach((groupSet, index) => {
+        if (
+          groupSet.connection !== null &&
+          isLmsConnectionKind(groupSet.connection.kind)
+        ) {
+          addCourseInvariantIssue(
+            context,
+            ["roster", "groupSets", index, "connection"],
+            "Only LMS-backed courses may carry LMS group-set connections.",
+          )
+        }
+      })
+    }
+
+    if (course.backing !== null) {
+      return
+    }
+
+    const emptyRosterChecks: Array<[boolean, Array<string | number>, string]> =
+      [
+        [
+          course.roster.connection === null,
+          ["roster", "connection"],
+          "No-backing courses must not carry a roster connection.",
+        ],
+        [
+          course.roster.students.length === 0,
+          ["roster", "students"],
+          "No-backing courses must not carry students.",
+        ],
+        [
+          course.roster.staff.length === 0,
+          ["roster", "staff"],
+          "No-backing courses must not carry staff.",
+        ],
+        [
+          course.roster.groups.length === 0,
+          ["roster", "groups"],
+          "No-backing courses must not carry groups.",
+        ],
+        [
+          course.roster.groupSets.length === 0,
+          ["roster", "groupSets"],
+          "No-backing courses must not carry group sets.",
+        ],
+        [
+          course.roster.assignments.length === 0,
+          ["roster", "assignments"],
+          "No-backing courses must not carry assignments.",
+        ],
+        [
+          course.organization === null,
+          ["organization"],
+          "No-backing courses must not carry a repository organization.",
+        ],
+        [
+          course.repositoryTemplate === null,
+          ["repositoryTemplate"],
+          "No-backing courses must not carry a repository template.",
+        ],
+        [
+          course.repositoryCloneTargetDirectory === null,
+          ["repositoryCloneTargetDirectory"],
+          "No-backing courses must not carry a clone target directory.",
+        ],
+        [
+          course.repositoryCloneDirectoryLayout === null,
+          ["repositoryCloneDirectoryLayout"],
+          "No-backing courses must not carry a clone directory layout.",
+        ],
+      ]
+
+    for (const [valid, path, message] of emptyRosterChecks) {
+      if (!valid) {
+        addCourseInvariantIssue(context, path, message)
+      }
+    }
+  })
 
 // Compile-time drift guard: ensure zod inferred type matches hand-authored type
-type _AnalysisCheck =
-  z.infer<typeof persistedAnalysisSchema> extends PersistedAnalysis
-    ? PersistedAnalysis extends z.infer<typeof persistedAnalysisSchema>
-      ? true
-      : never
-    : never
-const _analysisGuard: _AnalysisCheck = true
-void _analysisGuard
-
 type _CourseCheck =
   z.infer<typeof persistedCourseSchema> extends PersistedCourse
     ? PersistedCourse extends z.infer<typeof persistedCourseSchema>
@@ -321,16 +477,6 @@ export function validatePersistedAppSettings(
   value: unknown,
 ): ValidationResult<PersistedAppSettings> {
   const result = persistedAppSettingsSchema.safeParse(value)
-  if (result.success) {
-    return { ok: true, value: result.data }
-  }
-  return { ok: false, issues: toValidationIssues(result.error) }
-}
-
-export function validatePersistedAnalysis(
-  value: unknown,
-): ValidationResult<PersistedAnalysis> {
-  const result = persistedAnalysisSchema.safeParse(value)
   if (result.success) {
     return { ok: true, value: result.data }
   }

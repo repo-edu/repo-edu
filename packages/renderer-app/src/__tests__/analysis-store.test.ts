@@ -25,7 +25,7 @@ function makeCourse(
 ): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    courseKind: "lms",
+    backing: "lms",
     revision: 0,
     id: "c1",
     displayName: "Course",

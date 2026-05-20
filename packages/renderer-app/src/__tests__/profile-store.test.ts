@@ -5,6 +5,7 @@ import {
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
+  createBlankCourse,
   ORIGIN_SYSTEM,
   type PersistedCourse,
   persistedCourseKind,
@@ -30,7 +31,7 @@ function deferred<T>() {
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    courseKind: "lms",
+    backing: "lms",
     revision: 0,
     id: courseId,
     displayName: "Test Course",
@@ -199,6 +200,49 @@ describe("course store", () => {
     assert.equal(useCourseStore.getState().history.length, 0)
     assert.equal(useCourseStore.getState().future.length, 1)
     assert.equal(useCourseStore.getState().course?.roster.students.length, 1)
+  })
+
+  it("ignores group-surface mutations for no-backing courses", async () => {
+    const course = createBlankCourse(
+      "analysis-course",
+      "2026-03-05T00:00:00.000Z",
+      {
+        backing: null,
+        displayName: "Standalone Analysis",
+      },
+    )
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    const store = useCourseStore.getState()
+    store.addMember(makeStudent("m_0001", "Grace Hopper"))
+    assert.equal(store.createLocalGroupSet("Teams"), null)
+    store.addAssignment({
+      name: "assignment-1",
+      groupSetId: "gs_0001",
+      repositories: {},
+    })
+    store.setRoster(
+      {
+        connection: null,
+        students: [makeStudent("m_0002", "Ada Lovelace")],
+        staff: [],
+        groups: [],
+        groupSets: [],
+        assignments: [],
+      },
+      "Inject roster state",
+    )
+
+    const loaded = useCourseStore.getState().course
+    assert.deepEqual(loaded?.roster.students, [])
+    assert.deepEqual(loaded?.roster.groupSets, [])
+    assert.deepEqual(loaded?.roster.assignments, [])
+    assert.equal(useCourseStore.getState().history.length, 0)
   })
 
   it("undo/redo restores unnamed import snapshots and keeps team ids monotonic", async () => {

@@ -19,7 +19,7 @@ It composes:
 - Long-running workflows use `WorkflowCallOptions` for progress/output/cancellation.
 - App-level error normalization returns `AppError` variants.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`; `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
-- Course/document persistence: `src/course-workflows.ts` (`course.list|load|save|delete`), and the unified document surface in `src/analysis-doc-workflows.ts` (`analyses.list|load|save|delete`, `documents.list`) which treats standalone `PersistedAnalysis` and `PersistedCourse` documents through the same handlers.
+- Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for every `PersistedCourse`, including no-backing analysis-only courses.
 - Connection workflows are split: `src/connection-workflows.ts` (LMS/Git draft verification + LMS course listing) and `src/llm-connection-workflows.ts` (`connection.verifyLlmDraft`, exercising provider adapters via `LlmPort`).
 - Group-set workflows live in `src/group-set-workflows/` (`file-handlers.ts`, `lms-handlers.ts`, `helpers.ts`, `ports.ts`). CSV import produces `NamedGroupSet`; RepoBee import produces `UsernameGroupSet`. Export dispatches by `nameMode` (CSV for named, TXT for unnamed).
 - Repository workflows live in `src/repository-workflows/` (also re-exported from `src/repository-workflows.ts`): `repo.create|clone|update|listNamespace|bulkClone`.

@@ -21,9 +21,9 @@ It consumes:
 - `src/stores/*`: Zustand stores — `course-store.ts` (with `course-store-selectors.ts`), `app-settings-store.ts`, `connections-store.ts`, `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`, `ui-store.ts`, `toast-store.ts`
 - `src/stores/slices/*`: course store slices (`roster-actions.ts`, `lifecycle.ts`, `autosave.ts`, `history.ts`, `metadata-actions.ts`); roster-actions uses domain `id-allocator` for group/member creation
 - `src/components/*`: tabs, dialogs, sheets, settings panes (incl. LMS / Git / LLM connection panes; per-provider examination model picker)
-- `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; analyses can be opened standalone (no course) or under a course context
+- `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; no-backing courses (`backing: null`) expose only the analysis surface
 - `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, etc.)
-- `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained only for course/analysis ID generation
+- `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained for course ID generation
 
 ## Rules
 

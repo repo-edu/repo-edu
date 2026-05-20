@@ -5,7 +5,13 @@ import {
   allocateGroupSetId,
   allocateMemberId,
 } from "@repo-edu/domain/id-allocator"
-import type { Group, NamedGroupSet, Roster } from "@repo-edu/domain/types"
+import {
+  courseHasGroups,
+  courseHasRoster,
+  type Group,
+  type NamedGroupSet,
+  type Roster,
+} from "@repo-edu/domain/types"
 import { produceWithPatches } from "immer"
 import type {
   CourseActions,
@@ -14,6 +20,17 @@ import type {
   StoreSet,
 } from "./types.js"
 import { HISTORY_LIMIT } from "./types.js"
+
+function hasRosterSurfaceState(roster: Roster): boolean {
+  return (
+    roster.connection !== null ||
+    roster.students.length > 0 ||
+    roster.staff.length > 0 ||
+    roster.groups.length > 0 ||
+    roster.groupSets.length > 0 ||
+    roster.assignments.length > 0
+  )
+}
 
 export function createRosterActionsSlice(
   set: StoreSet,
@@ -53,6 +70,7 @@ export function createRosterActionsSlice(
     addMember: (member) => {
       const state = get()
       if (!state.course) return
+      if (!courseHasRoster(state.course)) return
       const alloc = allocateMemberId(state.course.idSequences)
       set((draft) => {
         if (!draft.course) return
@@ -70,6 +88,8 @@ export function createRosterActionsSlice(
     },
 
     updateMember: (id, updates) => {
+      const state = get()
+      if (!state.course || !courseHasRoster(state.course)) return
       internals.mutateRoster("Update member", (roster) => {
         const allMembers = [...roster.students, ...roster.staff]
         const member = allMembers.find((m) => m.id === id)
@@ -78,6 +98,8 @@ export function createRosterActionsSlice(
     },
 
     removeMember: (id) => {
+      const state = get()
+      if (!state.course || !courseHasRoster(state.course)) return
       internals.mutateRoster("Remove member", (roster) => {
         const student = roster.students.find((m) => m.id === id)
         if (student) {
@@ -92,6 +114,8 @@ export function createRosterActionsSlice(
     },
 
     deleteMemberPermanently: (id) => {
+      const state = get()
+      if (!state.course || !courseHasRoster(state.course)) return
       internals.mutateRoster("Delete member permanently", (roster) => {
         roster.students = roster.students.filter((m) => m.id !== id)
         roster.staff = roster.staff.filter((m) => m.id !== id)
@@ -104,6 +128,9 @@ export function createRosterActionsSlice(
     setRoster: (roster, description) => {
       const state = get()
       if (!state.course) return
+      if (!courseHasGroups(state.course) && hasRosterSurfaceState(roster)) {
+        return
+      }
       const [nextRoster, patches, inversePatches] = produceWithPatches(
         state.course.roster,
         () => roster,
@@ -145,6 +172,7 @@ export function createRosterActionsSlice(
     addAssignment: (assignment) => {
       const state = get()
       if (!state.course) return
+      if (!courseHasGroups(state.course)) return
       const alloc = allocateAssignmentId(state.course.idSequences)
       set((draft) => {
         if (!draft.course) return
@@ -160,6 +188,8 @@ export function createRosterActionsSlice(
     },
 
     updateAssignment: (id, updates) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Update assignment", (roster) => {
         const assignment = roster.assignments.find((a) => a.id === id)
         if (assignment) Object.assign(assignment, updates)
@@ -167,6 +197,8 @@ export function createRosterActionsSlice(
     },
 
     deleteAssignment: (id) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Delete assignment", (roster) => {
         roster.assignments = roster.assignments.filter((a) => a.id !== id)
       })
@@ -190,6 +222,7 @@ export function createRosterActionsSlice(
     createGroup: (groupSetId, name, memberIds) => {
       const state = get()
       if (!state.course) return null
+      if (!courseHasGroups(state.course)) return null
       const targetGroupSet = state.course.roster.groupSets.find(
         (gs) => gs.id === groupSetId,
       )
@@ -219,6 +252,8 @@ export function createRosterActionsSlice(
     },
 
     updateGroup: (groupId, updates) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Update group", (roster) => {
         const group = roster.groups.find((g) => g.id === groupId)
         if (group && group.origin === "local") {
@@ -228,6 +263,8 @@ export function createRosterActionsSlice(
     },
 
     deleteGroup: (groupId) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Delete group", (roster) => {
         roster.groups = roster.groups.filter((g) => g.id !== groupId)
         for (const gs of roster.groupSets) {
@@ -239,6 +276,8 @@ export function createRosterActionsSlice(
     },
 
     moveMemberToGroup: (memberId, sourceGroupId, targetGroupId) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Move member", (roster) => {
         const source = roster.groups.find((g) => g.id === sourceGroupId)
         const target = roster.groups.find((g) => g.id === targetGroupId)
@@ -252,6 +291,8 @@ export function createRosterActionsSlice(
     },
 
     copyMemberToGroup: (memberId, targetGroupId) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Copy member to group", (roster) => {
         const target = roster.groups.find((g) => g.id === targetGroupId)
         if (target && !target.memberIds.includes(memberId)) {
@@ -267,6 +308,7 @@ export function createRosterActionsSlice(
     createLocalGroupSet: (name, groupIds) => {
       const state = get()
       if (!state.course) return null
+      if (!courseHasGroups(state.course)) return null
       const alloc = allocateGroupSetId(state.course.idSequences)
       set((draft) => {
         if (!draft.course) return
@@ -293,6 +335,7 @@ export function createRosterActionsSlice(
     copyGroupSet: (groupSetId) => {
       const state = get()
       if (!state.course) return null
+      if (!courseHasGroups(state.course)) return null
       const source = state.course.roster.groupSets.find(
         (gs) => gs.id === groupSetId,
       )
@@ -344,6 +387,8 @@ export function createRosterActionsSlice(
     },
 
     renameGroupSet: (groupSetId, name) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster(`Rename group set to "${name}"`, (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (gs && gs.connection?.kind !== "system") {
@@ -353,6 +398,8 @@ export function createRosterActionsSlice(
     },
 
     deleteGroupSet: (groupSetId) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Delete group set", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (!gs || gs.connection?.kind === "system") return
@@ -378,6 +425,8 @@ export function createRosterActionsSlice(
     },
 
     removeGroupFromSet: (groupSetId, groupId) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Remove group from set", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (gs?.nameMode === "named") {
@@ -387,6 +436,8 @@ export function createRosterActionsSlice(
     },
 
     updateGroupSetTemplate: (groupSetId, template) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Update group set template", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (!gs) return
@@ -398,6 +449,8 @@ export function createRosterActionsSlice(
     },
 
     updateGroupSetColumnVisibility: (groupSetId, visibility) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Update group set column visibility", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (gs) gs.columnVisibility = visibility
@@ -405,6 +458,8 @@ export function createRosterActionsSlice(
     },
 
     updateGroupSetColumnSizing: (groupSetId, sizing) => {
+      const state = get()
+      if (!state.course || !courseHasGroups(state.course)) return
       internals.mutateRoster("Update group set column sizing", (roster) => {
         const gs = roster.groupSets.find((g) => g.id === groupSetId)
         if (gs) gs.columnSizing = sizing

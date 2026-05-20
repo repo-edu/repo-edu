@@ -92,7 +92,7 @@ async function runCli(
 function makeProfile(): PersistedCourse {
   return {
     kind: "repo-edu.course.v1",
-    courseKind: "lms",
+    backing: "lms",
     revision: 0,
     id: "seed-course",
     displayName: "Seed Course",
@@ -174,8 +174,6 @@ function makeProfile(): PersistedCourse {
 function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
     kind: "repo-edu.app-settings.v1",
-    activeDocumentKind: activeCourseId === null ? null : "course",
-    activeAnalysisId: null,
     activeCourseId,
     activeTab: "roster",
     appearance: {

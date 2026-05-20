@@ -4,6 +4,7 @@ import {
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import {
+  createBlankCourse,
   type MemberStatus,
   type PersistedCourse,
   persistedCourseKind,
@@ -118,7 +119,13 @@ function fixtureSeed(tier: FixtureTier, preset: FixturePreset): number {
   const tierIndex =
     tier === "small" ? 0 : tier === "medium" ? 1 : tier === "stress" ? 2 : 0
   const presetIndex =
-    preset === "shared-teams" ? 0 : preset === "task-groups" ? 3 : 2
+    preset === "shared-teams"
+      ? 0
+      : preset === "task-groups"
+        ? 3
+        : preset === "repobee-teams"
+          ? 2
+          : 5
   return baseSeed + tierIndex * 1_000 + presetIndex * 100
 }
 
@@ -511,6 +518,34 @@ function createFixtureRecord(
   faker.seed(fixtureSeed(tier, preset))
 
   const counts = fixtureTierCounts[tier]
+  if (preset === "no-backing") {
+    const courseId = `fixture-${tier}-${preset}`
+    const course = createBlankCourse(courseId, fixtureGeneratedAt, {
+      backing: null,
+      displayName: `Fixture (${tier}, ${preset})`,
+      searchFolder: `/fixtures/${tier}/${preset}`,
+    })
+    const settings: PersistedAppSettings = {
+      ...defaultAppSettings,
+      activeCourseId: courseId,
+      gitConnections: [
+        {
+          id: "github-demo",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "demo-token",
+        },
+      ],
+      activeGitConnectionId: "github-demo",
+      lastOpenedAt: fixtureGeneratedAt,
+    }
+    return {
+      course,
+      settings,
+      artifacts: createArtifacts(course, preset),
+    }
+  }
+
   const isRepobeePreset = preset === "repobee-teams"
 
   if (isRepobeePreset) {
@@ -532,7 +567,7 @@ function createFixtureRecord(
     }
     const course: PersistedCourse = {
       kind: persistedCourseKind,
-      courseKind: "repobee",
+      backing: "repobee",
       revision: 0,
       id: courseId,
       displayName: `Fixture (${tier}, ${preset})`,
@@ -657,7 +692,7 @@ function createFixtureRecord(
 
   const course: PersistedCourse = {
     kind: persistedCourseKind,
-    courseKind: "lms",
+    backing: "lms",
     revision: 0,
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
@@ -719,16 +754,19 @@ export function buildFixtureMatrix(): FixtureMatrix {
       "shared-teams": createFixtureRecord("small", "shared-teams"),
       "task-groups": createFixtureRecord("small", "task-groups"),
       "repobee-teams": createFixtureRecord("small", "repobee-teams"),
+      "no-backing": createFixtureRecord("small", "no-backing"),
     },
     medium: {
       "shared-teams": createFixtureRecord("medium", "shared-teams"),
       "task-groups": createFixtureRecord("medium", "task-groups"),
       "repobee-teams": createFixtureRecord("medium", "repobee-teams"),
+      "no-backing": createFixtureRecord("medium", "no-backing"),
     },
     stress: {
       "shared-teams": createFixtureRecord("stress", "shared-teams"),
       "task-groups": createFixtureRecord("stress", "task-groups"),
       "repobee-teams": createFixtureRecord("stress", "repobee-teams"),
+      "no-backing": createFixtureRecord("stress", "no-backing"),
     },
   }
 }

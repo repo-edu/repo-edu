@@ -226,37 +226,36 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 })
 
 describe("docs fixture integration: recorded analysis git mocks", () => {
-  it("seeds analysis documents and supports discovery, filtered log analysis, and blame", async () => {
+  it("seeds no-backing courses and supports discovery, filtered log analysis, and blame", async () => {
     const runtime = createDocsDemoRuntime()
-    const documents = await runtime.workflowClient.run(
-      "documents.list",
-      undefined,
-    )
-    const analysisSummary = documents.find(
-      (document) =>
-        document.kind === "analysis" && document.id === runtime.analysisId,
+    const courses = await runtime.workflowClient.run("course.list", undefined)
+    const analysisSummary = courses.find(
+      (course) =>
+        course.backing === null &&
+        course.id === runtime.noBackingCourseEntityId,
     )
     assert.ok(analysisSummary)
 
-    const analysis = await runtime.workflowClient.run("analyses.load", {
-      analysisId: analysisSummary.id,
+    const analysis = await runtime.workflowClient.run("course.load", {
+      courseId: analysisSummary.id,
     })
+    assert.equal(analysis.backing, null)
     assert.equal(analysis.searchFolder, runtime.analysisFixtureRootPath)
     assert.deepEqual(analysis.analysisInputs.extensions, ["py"])
 
-    const analyses = await Promise.all(
-      documents
-        .filter((document) => document.kind === "analysis")
-        .map((document) =>
-          runtime.workflowClient.run("analyses.load", {
-            analysisId: document.id,
+    const noBackingCourses = await Promise.all(
+      courses
+        .filter((course) => course.backing === null)
+        .map((course) =>
+          runtime.workflowClient.run("course.load", {
+            courseId: course.id,
           }),
         ),
     )
     assert.ok(
-      analyses.every(
-        (seededAnalysis) =>
-          seededAnalysis.searchFolder === runtime.analysisFixtureRootPath,
+      noBackingCourses.every(
+        (seededCourse) =>
+          seededCourse.searchFolder === runtime.analysisFixtureRootPath,
       ),
     )
 

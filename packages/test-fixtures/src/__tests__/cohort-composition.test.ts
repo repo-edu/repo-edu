@@ -76,7 +76,7 @@ describe("composeCourseFromCohort", () => {
       cohort: lmsCohort,
     })
 
-    assert.equal(course.courseKind, "lms")
+    assert.equal(course.backing, "lms")
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.deepEqual(
@@ -106,7 +106,7 @@ describe("composeCourseFromCohort", () => {
       cohort: repobeeCohort,
     })
 
-    assert.equal(course.courseKind, "repobee")
+    assert.equal(course.backing, "repobee")
     assert.deepEqual(course.roster.students, [])
     assert.deepEqual(course.roster.groups, [])
     assert.equal(course.roster.groupSets[0].nameMode, "unnamed")

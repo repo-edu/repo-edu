@@ -1,14 +1,11 @@
 import {
-  createAnalysisDocWorkflowHandlers,
   createAnalysisWorkflowHandlers,
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
-  createDocumentsListWorkflowHandler,
   createExaminationArchiveWorkflowHandlers,
   createExaminationWorkflowHandlers,
   createGitUsernameWorkflowHandlers,
   createGroupSetWorkflowHandlers,
-  createInMemoryAnalysisStore,
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
   createInMemoryExaminationArchive,
@@ -158,6 +155,10 @@ export function createDocsDemoRuntime() {
   const fixture = getDocsFixture()
   const lmsCourse = fixture.lmsCourse
   const repobeeCourse = fixture.repobeeCourse
+  const noBackingCourse = fixture.noBackingCourses[0]
+  if (noBackingCourse === undefined) {
+    throw new Error("Docs fixture must include a no-backing course.")
+  }
   const lmsCourseId = lmsCourse.lmsCourseId ?? lmsCourse.id
 
   const browserMockHost = createBrowserMockHostEnvironment({
@@ -175,8 +176,11 @@ export function createDocsDemoRuntime() {
         groupSet.nameMode === "named" && groupSet.connection?.kind !== "system",
     ) ?? null
 
-  const courseStore = createInMemoryCourseStore([lmsCourse, repobeeCourse])
-  const analysisStore = createInMemoryAnalysisStore(fixture.analyses)
+  const courseStore = createInMemoryCourseStore([
+    lmsCourse,
+    repobeeCourse,
+    ...fixture.noBackingCourses,
+  ])
   const appSettingsStore = createInMemoryAppSettingsStore(fixture.settings)
 
   const lmsPorts = createMockLmsPorts(
@@ -281,8 +285,6 @@ export function createDocsDemoRuntime() {
 
   const workflowHandlers = {
     ...createCourseWorkflowHandlers(courseStore),
-    ...createAnalysisDocWorkflowHandlers(analysisStore),
-    ...createDocumentsListWorkflowHandler(analysisStore, courseStore),
     ...createSettingsWorkflowHandlers(appSettingsStore),
     ...createConnectionWorkflowHandlers({
       lms: lmsPorts,
@@ -375,8 +377,8 @@ export function createDocsDemoRuntime() {
     },
     lmsCourseEntityId: lmsCourse.id,
     repobeeCourseEntityId: repobeeCourse.id,
+    noBackingCourseEntityId: noBackingCourse.id,
     lmsCourseId,
-    analysisId: fixture.analyses[0].id,
     analysisFixtureRootPath: fixture.analysisGitFixture.rootPath,
   }
 }

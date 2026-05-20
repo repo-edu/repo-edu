@@ -1,6 +1,6 @@
 import {
   type Assignment,
-  type CourseKind,
+  type CourseBacking,
   type Group,
   type IdSequences,
   type PersistedCourse,
@@ -124,14 +124,14 @@ function rosterMember(
 }
 
 function baseCourse(
-  profile: CourseKind,
+  profile: CourseBacking,
   id: string,
   displayName: string,
   idSequences: IdSequences,
 ): Omit<PersistedCourse, "roster"> {
   return {
     kind: persistedCourseKind,
-    courseKind: profile,
+    backing: profile,
     revision: 0,
     id,
     displayName,

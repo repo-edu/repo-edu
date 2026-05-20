@@ -1,31 +1,13 @@
-import type { PersistedAnalysis, PersistedCourse } from "@repo-edu/domain/types"
-import { persistedAnalysisKind } from "@repo-edu/domain/types"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import type {
   CourseActions,
-  CourseState,
   StoreGet,
   StoreInternals,
   StoreSet,
 } from "./types.js"
 import { AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_RETRY_DELAYS_MS } from "./types.js"
-
-function projectCourseToAnalysis(
-  course: PersistedCourse,
-  state: CourseState,
-): PersistedAnalysis {
-  const revision = state.analysisDocRevision ?? 0
-  return {
-    kind: persistedAnalysisKind,
-    revision,
-    id: state.analysisDocId ?? course.id,
-    displayName: course.displayName,
-    searchFolder: course.searchFolder,
-    analysisInputs: course.analysisInputs,
-    updatedAt: course.updatedAt,
-  }
-}
 
 export function createAutosaveSlice(
   set: StoreSet,
@@ -136,25 +118,10 @@ export function createAutosaveSlice(
 
       try {
         const client = getWorkflowClient()
-        let savedCourse: PersistedCourse
-        let savedAnalysis: PersistedAnalysis | null = null
-        if (stateAtStart.documentKind === "analysis") {
-          const analysisDraft = projectCourseToAnalysis(course, stateAtStart)
-          savedAnalysis = (await client.run(
-            "analyses.save",
-            analysisDraft,
-          )) as PersistedAnalysis
-          savedCourse = {
-            ...course,
-            revision: course.revision + 1,
-            updatedAt: savedAnalysis.updatedAt,
-          }
-        } else {
-          savedCourse = (await client.run(
-            "course.save",
-            course,
-          )) as PersistedCourse
-        }
+        const savedCourse = (await client.run(
+          "course.save",
+          course,
+        )) as PersistedCourse
         clearTimeout(savingIndicatorTimer)
 
         set((draft) => {
@@ -163,9 +130,6 @@ export function createAutosaveSlice(
           }
           draft.lastSavedRevision = savedCourse.revision
           draft.syncState = "idle"
-          if (savedAnalysis !== null) {
-            draft.analysisDocRevision = savedAnalysis.revision
-          }
 
           if (draft.localVersion === startLocalVersion) {
             draft.course = savedCourse

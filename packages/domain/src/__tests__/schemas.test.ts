@@ -13,6 +13,7 @@ import {
   validatePersistedCourse,
 } from "../schemas.js"
 import { defaultAppSettings } from "../settings.js"
+import { createBlankCourse } from "../types.js"
 
 describe("validatePersistedAppSettings", () => {
   it("accepts valid default settings", () => {
@@ -180,12 +181,29 @@ describe("validatePersistedAppSettings", () => {
     const result = validatePersistedAppSettings(withoutAppearance)
     assert.equal(result.ok, false)
   })
+
+  it("preserves omitted and null last-used course backing distinctly", () => {
+    const omitted = validatePersistedAppSettings(defaultAppSettings)
+    assert.equal(omitted.ok, true)
+    if (omitted.ok) {
+      assert.equal(omitted.value.lastUsedCourseBacking, undefined)
+    }
+
+    const noBacking = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      lastUsedCourseBacking: null,
+    })
+    assert.equal(noBacking.ok, true)
+    if (noBacking.ok) {
+      assert.equal(noBacking.value.lastUsedCourseBacking, null)
+    }
+  })
 })
 
 describe("validatePersistedCourse", () => {
   const validProfile = {
     kind: "repo-edu.course.v1",
-    courseKind: "lms",
+    backing: "lms",
     searchFolder: null,
     analysisInputs: {},
     revision: 0,
@@ -222,13 +240,209 @@ describe("validatePersistedCourse", () => {
     }
   })
 
-  it("rejects courses without an explicit courseKind", () => {
-    const { courseKind: _, ...withoutCourseKind } = validProfile
+  it("rejects courses without an explicit backing", () => {
+    const { backing: _, ...withoutCourseBacking } = validProfile
     void _
-    const result = validatePersistedCourse(withoutCourseKind)
+    const result = validatePersistedCourse(withoutCourseBacking)
     assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(result.issues.some((issue) => issue.path === "courseKind"))
+      assert.ok(result.issues.some((issue) => issue.path === "backing"))
+    }
+  })
+
+  it("accepts a no-backing course with an empty roster surface", () => {
+    const course = createBlankCourse(
+      "analysis-course",
+      "2026-03-04T10:00:00Z",
+      {
+        backing: null,
+        displayName: "Standalone Analysis",
+        searchFolder: "/tmp/repo",
+      },
+    )
+
+    const result = validatePersistedCourse(course)
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.equal(result.value.backing, null)
+      assert.deepStrictEqual(result.value.roster.students, [])
+    }
+  })
+
+  it("normalizes blank course fields that are incompatible with backing", () => {
+    const repositoryTemplate = {
+      kind: "remote" as const,
+      owner: "course-org",
+      name: "starter",
+      visibility: "private" as const,
+    }
+    const repobeeCourse = createBlankCourse(
+      "repobee-course",
+      "2026-03-04T10:00:00Z",
+      {
+        backing: "repobee",
+        displayName: "RepoBee Course",
+        lmsConnectionName: "Canvas",
+        lmsCourseId: "canvas-course-1",
+        organization: "course-org",
+        repositoryTemplate,
+        repositoryCloneTargetDirectory: "/tmp/repos",
+        repositoryCloneDirectoryLayout: "by-team",
+      },
+    )
+    assert.equal(repobeeCourse.lmsConnectionName, null)
+    assert.equal(repobeeCourse.lmsCourseId, null)
+    assert.equal(repobeeCourse.organization, "course-org")
+    assert.deepEqual(repobeeCourse.repositoryTemplate, repositoryTemplate)
+    assert.equal(validatePersistedCourse(repobeeCourse).ok, true)
+
+    const noBackingCourse = createBlankCourse(
+      "analysis-course",
+      "2026-03-04T10:00:00Z",
+      {
+        backing: null,
+        displayName: "Standalone Analysis",
+        lmsConnectionName: "Canvas",
+        lmsCourseId: "canvas-course-1",
+        organization: "course-org",
+        repositoryTemplate,
+        repositoryCloneTargetDirectory: "/tmp/repos",
+        repositoryCloneDirectoryLayout: "by-team",
+      },
+    )
+    assert.equal(noBackingCourse.lmsConnectionName, null)
+    assert.equal(noBackingCourse.lmsCourseId, null)
+    assert.equal(noBackingCourse.organization, null)
+    assert.equal(noBackingCourse.repositoryTemplate, null)
+    assert.equal(noBackingCourse.repositoryCloneTargetDirectory, null)
+    assert.equal(noBackingCourse.repositoryCloneDirectoryLayout, null)
+    assert.equal(validatePersistedCourse(noBackingCourse).ok, true)
+  })
+
+  it("rejects no-backing courses with roster or repository-management state", () => {
+    const course = createBlankCourse(
+      "analysis-course",
+      "2026-03-04T10:00:00Z",
+      {
+        backing: null,
+        displayName: "Standalone Analysis",
+      },
+    )
+    const result = validatePersistedCourse({
+      ...course,
+      organization: "course-org",
+      roster: {
+        ...course.roster,
+        assignments: [{ id: "a1", name: "HW1", groupSetId: "gs_0001" }],
+      },
+    })
+
+    assert.equal(result.ok, false)
+    if (!result.ok) {
+      assert.ok(
+        result.issues.some((issue) => issue.path === "roster.assignments"),
+      )
+      assert.ok(result.issues.some((issue) => issue.path === "organization"))
+    }
+  })
+
+  it("rejects non-LMS courses with LMS linkage", () => {
+    const result = validatePersistedCourse({
+      ...validProfile,
+      backing: "repobee",
+      lmsConnectionName: "Canvas",
+      lmsCourseId: "canvas-course-1",
+      roster: {
+        ...validProfile.roster,
+        connection: {
+          kind: "canvas",
+          courseId: "canvas-course-1",
+          lastUpdated: "2026-03-04T10:00:00Z",
+        },
+        students: [
+          {
+            id: "m_0001",
+            name: "Alice",
+            email: "alice@example.com",
+            studentNumber: "12345",
+            gitUsername: "alice",
+            gitUsernameStatus: "valid",
+            status: "active",
+            lmsStatus: "active",
+            lmsUserId: "canvas-user-1",
+            enrollmentType: "student",
+            enrollmentDisplay: null,
+            department: null,
+            institution: null,
+            source: "canvas",
+          },
+        ],
+        groups: [
+          {
+            id: "g_0001",
+            name: "LMS Group",
+            memberIds: ["m_0001"],
+            origin: "lms",
+            lmsGroupId: "canvas-group-1",
+          },
+        ],
+        groupSets: [
+          {
+            id: "gs_0001",
+            name: "LMS Groups",
+            nameMode: "named",
+            groupIds: ["g_0001"],
+            connection: {
+              kind: "canvas",
+              courseId: "canvas-course-1",
+              groupSetId: "canvas-group-set-1",
+              lastUpdated: "2026-03-04T10:00:00Z",
+            },
+            repoNameTemplate: null,
+            columnVisibility: {},
+            columnSizing: {},
+          },
+        ],
+      },
+    })
+
+    assert.equal(result.ok, false)
+    if (!result.ok) {
+      assert.ok(
+        result.issues.some((issue) => issue.path === "lmsConnectionName"),
+      )
+      assert.ok(result.issues.some((issue) => issue.path === "lmsCourseId"))
+      assert.ok(
+        result.issues.some((issue) => issue.path === "roster.connection"),
+      )
+      assert.ok(
+        result.issues.some(
+          (issue) => issue.path === "roster.students.0.lmsStatus",
+        ),
+      )
+      assert.ok(
+        result.issues.some(
+          (issue) => issue.path === "roster.students.0.lmsUserId",
+        ),
+      )
+      assert.ok(
+        result.issues.some(
+          (issue) => issue.path === "roster.students.0.source",
+        ),
+      )
+      assert.ok(
+        result.issues.some((issue) => issue.path === "roster.groups.0.origin"),
+      )
+      assert.ok(
+        result.issues.some(
+          (issue) => issue.path === "roster.groups.0.lmsGroupId",
+        ),
+      )
+      assert.ok(
+        result.issues.some(
+          (issue) => issue.path === "roster.groupSets.0.connection",
+        ),
+      )
     }
   })
 

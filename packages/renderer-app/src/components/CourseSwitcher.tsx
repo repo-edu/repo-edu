@@ -1,9 +1,3 @@
-/**
- * Document picker. Shows both standalone Analyses and full Courses with
- * per-document management (rename/delete, plus duplicate for courses) and a
- * trailing "New Analysis" / "New Course" pair.
- */
-
 import type { CourseSummary } from "@repo-edu/domain/types"
 import {
   AlertDialog,
@@ -36,27 +30,31 @@ import {
   Plus,
   Trash2,
 } from "@repo-edu/ui/components/icons"
-import { type KeyboardEvent, type MouseEvent, useEffect, useState } from "react"
-import { useAnalyses } from "../hooks/use-analyses.js"
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import { useCourses } from "../hooks/use-courses.js"
 import { useUiStore } from "../stores/ui-store.js"
 
-export function groupCourseSummaries(courses: readonly CourseSummary[]): {
-  lms: CourseSummary[]
-  repobee: CourseSummary[]
-} {
-  return {
-    lms: courses.filter((course) => course.courseKind === "lms"),
-    repobee: courses.filter((course) => course.courseKind === "repobee"),
-  }
+function backingBadgeLabel(course: CourseSummary): string | null {
+  if (course.backing === "lms") return "LMS"
+  if (course.backing === "repobee") return "RepoBee"
+  return null
+}
+
+function backingSortRank(course: CourseSummary): number {
+  if (course.backing === "lms") return 0
+  if (course.backing === "repobee") return 1
+  return 2
 }
 
 export function CourseSwitcher() {
-  const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
-  const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
-  const setNewCourseDialogMode = useUiStore((s) => s.setNewCourseDialogMode)
-  const setNewAnalysisDialogOpen = useUiStore((s) => s.setNewAnalysisDialogOpen)
+  const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
   const {
     courses,
     refresh: refreshCourses,
@@ -65,44 +63,32 @@ export function CourseSwitcher() {
     renameCourse,
     deleteCourse,
   } = useCourses()
-  const {
-    analyses,
-    refresh: refreshAnalyses,
-    switchAnalysis,
-    renameAnalysis,
-    deleteAnalysis,
-  } = useAnalyses()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     void refreshCourses()
-    void refreshAnalyses()
-  }, [refreshCourses, refreshAnalyses])
+  }, [refreshCourses])
 
-  const activeDocumentName =
-    activeDocumentKind === "analysis"
-      ? (analyses.find((a) => a.id === activeAnalysisId)?.displayName ?? null)
-      : activeDocumentKind === "course"
-        ? (courses.find((c) => c.id === activeCourseId)?.displayName ?? null)
-        : null
+  const activeCourseName =
+    courses.find((course) => course.id === activeCourseId)?.displayName ?? null
 
-  const titleKindLabel =
-    activeDocumentKind === "analysis"
-      ? "Analysis:"
-      : activeDocumentKind === "course"
-        ? "Course:"
-        : "Document:"
+  const sortedCourses = useMemo(
+    () =>
+      [...courses].sort((a, b) => {
+        const rankDiff = backingSortRank(a) - backingSortRank(b)
+        if (rankDiff !== 0) return rankDiff
+        return a.displayName.localeCompare(b.displayName)
+      }),
+    [courses],
+  )
 
-  // --- Rename dialog (works for either kind) ---
   const [renameDialog, setRenameDialog] = useState<{
     open: boolean
-    kind: "analysis" | "course"
     id: string
     currentName: string
     newName: string
-  }>({ open: false, kind: "course", id: "", currentName: "", newName: "" })
+  }>({ open: false, id: "", currentName: "", newName: "" })
 
-  // --- Duplicate dialog (course only) ---
   const [duplicateDialog, setDuplicateDialog] = useState<{
     open: boolean
     sourceCourseId: string
@@ -117,24 +103,16 @@ export function CourseSwitcher() {
     isProcessing: false,
   })
 
-  // --- Delete dialog (works for either kind) ---
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
-    kind: "analysis" | "course"
     id: string
     name: string
-  }>({ open: false, kind: "course", id: "", name: "" })
+  }>({ open: false, id: "", name: "" })
 
   const handleCourseSelect = (id: string) => {
-    if (id === activeCourseId && activeDocumentKind === "course") return
+    if (id === activeCourseId) return
     setOpen(false)
     void switchCourse(id)
-  }
-
-  const handleAnalysisSelect = (id: string) => {
-    if (id === activeAnalysisId && activeDocumentKind === "analysis") return
-    setOpen(false)
-    void switchAnalysis(id)
   }
 
   const handleRowKeyDown = (
@@ -156,7 +134,6 @@ export function CourseSwitcher() {
     action()
   }
 
-  // --- Duplicate (course) ---
   const handleDuplicateClick = (courseId: string, courseName: string) => {
     setOpen(false)
     setDuplicateDialog({
@@ -188,16 +165,10 @@ export function CourseSwitcher() {
     }
   }
 
-  // --- Rename ---
-  const handleRenameClick = (
-    kind: "analysis" | "course",
-    id: string,
-    name: string,
-  ) => {
+  const handleRenameClick = (id: string, name: string) => {
     setOpen(false)
     setRenameDialog({
       open: true,
-      kind,
       id,
       currentName: name,
       newName: name,
@@ -205,71 +176,47 @@ export function CourseSwitcher() {
   }
 
   const handleRenameConfirm = async () => {
-    const { kind, id, newName } = renameDialog
-    if (kind === "course") {
-      await renameCourse(id, newName)
-    } else {
-      await renameAnalysis(id, newName)
-    }
+    const { id, newName } = renameDialog
+    await renameCourse(id, newName)
     setRenameDialog({
       open: false,
-      kind: "course",
       id: "",
       currentName: "",
       newName: "",
     })
   }
 
-  // --- Delete ---
-  const handleDeleteClick = (
-    kind: "analysis" | "course",
-    id: string,
-    name: string,
-  ) => {
+  const handleDeleteClick = (id: string, name: string) => {
     setOpen(false)
-    setDeleteDialog({ open: true, kind, id, name })
+    setDeleteDialog({ open: true, id, name })
   }
 
   const handleDeleteConfirm = async () => {
-    if (deleteDialog.kind === "course") {
-      await deleteCourse(deleteDialog.id)
-    } else {
-      await deleteAnalysis(deleteDialog.id)
-    }
-    setDeleteDialog({ open: false, kind: "course", id: "", name: "" })
+    await deleteCourse(deleteDialog.id)
+    setDeleteDialog({ open: false, id: "", name: "" })
   }
 
-  const handleNewLmsCourse = () => {
+  const handleNewCourse = () => {
     setOpen(false)
-    setNewCourseDialogMode("lms")
-  }
-
-  const handleNewRepoBeeCourse = () => {
-    setOpen(false)
-    setNewCourseDialogMode("repobee")
-  }
-
-  const handleNewAnalysis = () => {
-    setOpen(false)
-    setNewAnalysisDialogOpen(true)
+    setNewCourseDialogOpen(true)
   }
 
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
 
-  const remainingCourses = courses.filter((p) => p.id !== deleteDialog.id)
-  const isLastCourse =
-    deleteDialog.kind === "course" && remainingCourses.length === 0
+  const remainingCourses = sortedCourses.filter(
+    (course) => course.id !== deleteDialog.id,
+  )
+  const isLastCourse = remainingCourses.length === 0
   const nextCourse = remainingCourses[0]?.displayName
+  const hasCourses = courses.length > 0
 
-  const courseGroups = groupCourseSummaries(courses)
-  const hasDocuments = analyses.length > 0 || courses.length > 0
   const renderCourseRows = (rows: CourseSummary[]) =>
     rows.map((course) => {
-      const isActive =
-        course.id === activeCourseId && activeDocumentKind === "course"
+      const isActive = course.id === activeCourseId
+      const badge = backingBadgeLabel(course)
       return (
         <div
-          key={`c-${course.id}`}
+          key={course.id}
           role="option"
           tabIndex={0}
           aria-selected={isActive}
@@ -283,7 +230,12 @@ export function CourseSwitcher() {
             isActive && "bg-selection",
           )}
         >
-          <span className="truncate">{course.displayName}</span>
+          <span className="min-w-0 flex-1 truncate">{course.displayName}</span>
+          {badge !== null && (
+            <span className="shrink-0 rounded border border-border/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
+              {badge}
+            </span>
+          )}
           <div className="flex shrink-0 items-center gap-0">
             <Button
               size="icon-xs"
@@ -307,7 +259,7 @@ export function CourseSwitcher() {
               title="Rename"
               onClick={(event) =>
                 handleActionClick(event, () =>
-                  handleRenameClick("course", course.id, course.displayName),
+                  handleRenameClick(course.id, course.displayName),
                 )
               }
             >
@@ -321,7 +273,7 @@ export function CourseSwitcher() {
               title="Delete"
               onClick={(event) =>
                 handleActionClick(event, () =>
-                  handleDeleteClick("course", course.id, course.displayName),
+                  handleDeleteClick(course.id, course.displayName),
                 )
               }
             >
@@ -342,155 +294,38 @@ export function CourseSwitcher() {
             className="max-w-full min-w-0 overflow-hidden"
           >
             <span className="truncate">
-              <span className="text-muted-foreground">{titleKindLabel}</span>{" "}
-              {activeDocumentName ?? "None"}
+              <span className="text-muted-foreground">Course:</span>{" "}
+              {activeCourseName ?? "None"}
             </span>
             <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" side="bottom">
-          {courseGroups.lms.length > 0 && (
+          {hasCourses && (
             <>
               <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                LMS Courses
+                Courses
               </div>
-              {renderCourseRows(courseGroups.lms)}
+              {renderCourseRows(sortedCourses)}
+              <DropdownMenuSeparator className="my-0.5" />
             </>
           )}
-
-          {courseGroups.lms.length > 0 && courseGroups.repobee.length > 0 && (
-            <DropdownMenuSeparator className="my-0.5" />
-          )}
-
-          {courseGroups.repobee.length > 0 && (
-            <>
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                RepoBee Courses
-              </div>
-              {renderCourseRows(courseGroups.repobee)}
-            </>
-          )}
-
-          {courses.length > 0 && analyses.length > 0 && (
-            <DropdownMenuSeparator className="my-0.5" />
-          )}
-
-          {analyses.length > 0 && (
-            <>
-              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Analyses
-              </div>
-              {analyses.map((analysis) => {
-                const isActive =
-                  analysis.id === activeAnalysisId &&
-                  activeDocumentKind === "analysis"
-                return (
-                  <div
-                    key={`a-${analysis.id}`}
-                    role="option"
-                    tabIndex={0}
-                    aria-selected={isActive}
-                    onClick={() => handleAnalysisSelect(analysis.id)}
-                    onKeyDown={(event) =>
-                      handleRowKeyDown(event, () =>
-                        handleAnalysisSelect(analysis.id),
-                      )
-                    }
-                    className={cn(
-                      "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
-                      "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
-                      isActive && "bg-selection",
-                    )}
-                  >
-                    <span className="truncate">{analysis.displayName}</span>
-                    <div className="flex shrink-0 items-center gap-0">
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="size-4"
-                        aria-label={`Rename ${analysis.displayName}`}
-                        title="Rename"
-                        onClick={(event) =>
-                          handleActionClick(event, () =>
-                            handleRenameClick(
-                              "analysis",
-                              analysis.id,
-                              analysis.displayName,
-                            ),
-                          )
-                        }
-                      >
-                        <Pencil className="size-3" />
-                      </Button>
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="size-4"
-                        aria-label={`Delete ${analysis.displayName}`}
-                        title="Delete"
-                        onClick={(event) =>
-                          handleActionClick(event, () =>
-                            handleDeleteClick(
-                              "analysis",
-                              analysis.id,
-                              analysis.displayName,
-                            ),
-                          )
-                        }
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </>
-          )}
-
-          {hasDocuments && <DropdownMenuSeparator className="my-0.5" />}
 
           <div
             role="option"
             tabIndex={0}
             aria-selected={false}
-            onClick={handleNewLmsCourse}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewLmsCourse)}
+            onClick={handleNewCourse}
+            onKeyDown={(event) => handleRowKeyDown(event, handleNewCourse)}
             className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <Plus className="size-3" />
-            New LMS Course
-          </div>
-
-          <div
-            role="option"
-            tabIndex={0}
-            aria-selected={false}
-            onClick={handleNewRepoBeeCourse}
-            onKeyDown={(event) =>
-              handleRowKeyDown(event, handleNewRepoBeeCourse)
-            }
-            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-          >
-            <Plus className="size-3" />
-            New RepoBee Course
-          </div>
-
-          <div
-            role="option"
-            tabIndex={0}
-            aria-selected={false}
-            onClick={handleNewAnalysis}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewAnalysis)}
-            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-          >
-            <Plus className="size-3" />
-            New Analysis
+            New Course
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Duplicate Dialog */}
       <Dialog
         open={duplicateDialog.open}
         onOpenChange={(nextOpen) => {
@@ -555,7 +390,6 @@ export function CourseSwitcher() {
         </DialogContent>
       </Dialog>
 
-      {/* Rename Dialog */}
       <Dialog
         open={renameDialog.open}
         onOpenChange={(nextOpen) =>
@@ -564,9 +398,7 @@ export function CourseSwitcher() {
       >
         <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle>
-              Rename {renameDialog.kind === "analysis" ? "Analysis" : "Course"}
-            </DialogTitle>
+            <DialogTitle>Rename Course</DialogTitle>
           </DialogHeader>
           <Input
             placeholder="New name"
@@ -591,7 +423,6 @@ export function CourseSwitcher() {
               onClick={() =>
                 setRenameDialog({
                   open: false,
-                  kind: "course",
                   id: "",
                   currentName: "",
                   newName: "",
@@ -611,7 +442,6 @@ export function CourseSwitcher() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={deleteDialog.open}
         onOpenChange={(nextOpen) =>
@@ -620,18 +450,14 @@ export function CourseSwitcher() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {deleteDialog.kind === "analysis" ? "Analysis" : "Course"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete Course</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteDialog.kind === "course" && isLastCourse ? (
+              {isLastCourse ? (
                 <>
                   Delete &quot;{deleteDialog.name}&quot;? This is your last
                   course.
                 </>
-              ) : deleteDialog.kind === "course" &&
-                deleteDialog.id === activeCourseId &&
-                activeDocumentKind === "course" ? (
+              ) : deleteDialog.id === activeCourseId ? (
                 <>
                   Delete &quot;{deleteDialog.name}&quot;? You will be switched
                   to &quot;{nextCourse}&quot;.
@@ -639,14 +465,9 @@ export function CourseSwitcher() {
               ) : (
                 <>Delete &quot;{deleteDialog.name}&quot;?</>
               )}
-              {deleteDialog.kind === "course" && (
-                <>
-                  <br />
-                  <br />
-                  This will also delete the roster data associated with this
-                  course.
-                </>
-              )}
+              <br />
+              <br />
+              This will also delete the roster data associated with this course.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

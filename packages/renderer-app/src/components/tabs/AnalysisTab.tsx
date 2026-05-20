@@ -40,14 +40,9 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 }
 
 export function AnalysisTab() {
-  const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
-  const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
   const course = useCourseStore((s) => s.course)
-  const hasActiveDocument =
-    activeDocumentKind === "analysis"
-      ? activeAnalysisId !== null
-      : activeCourseId !== null
+  const hasActiveDocument = activeCourseId !== null
 
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(

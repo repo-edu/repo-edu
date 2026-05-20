@@ -13,8 +13,8 @@ import {
 } from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
+  CourseBacking,
   DateFormatPreference,
-  DocumentKind,
   ThemePreference,
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
@@ -34,10 +34,9 @@ type AppSettingsActions = {
   load: () => Promise<void>
   save: () => Promise<void>
 
-  setActiveDocumentKind: (kind: DocumentKind | null) => void
   setActiveCourseId: (courseId: string | null) => void
-  setActiveAnalysisId: (analysisId: string | null) => void
   setActiveTab: (tab: ActiveTab) => void
+  setLastUsedCourseBacking: (backing: CourseBacking) => void
   setActiveGitConnectionId: (id: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
@@ -146,14 +145,6 @@ export const useAppSettingsStore = create<
       }
     },
 
-    setActiveDocumentKind: (kind) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          activeDocumentKind: kind,
-        },
-      })),
-
     setActiveCourseId: (courseId) =>
       set((state) => ({
         settings: {
@@ -162,19 +153,19 @@ export const useAppSettingsStore = create<
         },
       })),
 
-    setActiveAnalysisId: (analysisId) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          activeAnalysisId: analysisId,
-        },
-      })),
-
     setActiveTab: (tab) =>
       set((state) => ({
         settings: {
           ...state.settings,
           activeTab: tab,
+        },
+      })),
+
+    setLastUsedCourseBacking: (backing) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          lastUsedCourseBacking: backing,
         },
       })),
 

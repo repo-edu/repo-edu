@@ -9,7 +9,7 @@ describe("docs runtime seeded documents", () => {
       courseId: runtime.lmsCourseEntityId,
     })
 
-    assert.equal(course.courseKind, "lms")
+    assert.equal(course.backing, "lms")
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.roster.connection, null)
     assert.equal(course.roster.students.length, 67)
@@ -47,7 +47,7 @@ describe("docs runtime seeded documents", () => {
       courseId: runtime.repobeeCourseEntityId,
     })
 
-    assert.equal(course.courseKind, "repobee")
+    assert.equal(course.backing, "repobee")
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection, null)
@@ -62,41 +62,35 @@ describe("docs runtime seeded documents", () => {
     )
   })
 
-  it("lists both seeded courses plus the seeded analysis", async () => {
+  it("lists backed and no-backing seeded courses", async () => {
     const runtime = createDocsDemoRuntime()
-    const documents = await runtime.workflowClient.run(
-      "documents.list",
-      undefined,
-    )
+    const courses = await runtime.workflowClient.run("course.list", undefined)
 
-    const courseIds = documents
-      .filter((doc) => doc.kind === "course")
-      .map((doc) => doc.id)
-      .sort()
+    const courseIds = courses.map((course) => course.id).sort()
     assert.deepEqual(
       courseIds,
-      [runtime.lmsCourseEntityId, runtime.repobeeCourseEntityId].sort(),
+      [
+        runtime.lmsCourseEntityId,
+        runtime.repobeeCourseEntityId,
+        runtime.noBackingCourseEntityId,
+        "huffman-encoder",
+        "topological-task-scheduler",
+      ].sort(),
     )
 
-    const analysisIds = documents
-      .filter((doc) => doc.kind === "analysis")
-      .map((doc) => doc.id)
-    assert.deepEqual(analysisIds, [
-      "calculator",
-      "topological-task-scheduler",
-      "huffman-encoder",
-    ])
+    const noBacking = courses.find(
+      (course) => course.id === runtime.noBackingCourseEntityId,
+    )
+    assert.equal(noBacking?.backing, null)
   })
 
-  it("seeds the LMS course as the active document", async () => {
+  it("seeds the LMS course as the active course", async () => {
     const runtime = createDocsDemoRuntime()
     const settings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    assert.equal(settings.activeDocumentKind, "course")
-    assert.equal(settings.activeAnalysisId, runtime.analysisId)
     assert.equal(settings.activeCourseId, runtime.lmsCourseEntityId)
     assert.equal(settings.activeTab, "roster")
   })
@@ -115,6 +109,6 @@ describe("docs runtime seeded documents", () => {
 
     assert.ok(runtime.lmsCourseEntityId)
     assert.ok(runtime.repobeeCourseEntityId)
-    assert.ok(runtime.analysisId)
+    assert.ok(runtime.noBackingCourseEntityId)
   })
 })

@@ -1,5 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import { courseHasRoster } from "@repo-edu/domain/types"
+import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
   Button,
@@ -35,9 +35,9 @@ import {
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import {
-  resolveDocumentTabVisibility,
   resolveSupportedActiveTab,
-} from "../utils/document-navigation.js"
+  resolveTabVisibility,
+} from "../utils/course-navigation.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
@@ -52,7 +52,6 @@ import { ImportGitUsernamesDialog } from "./dialogs/ImportGitUsernamesDialog.js"
 import { ImportGroupSetDialog } from "./dialogs/ImportGroupSetDialog.js"
 import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDialog.js"
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
-import { NewAnalysisDialog } from "./dialogs/NewAnalysisDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
 import { NewCourseDialog } from "./dialogs/NewCourseDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
@@ -97,20 +96,12 @@ const hasMacDesktopBridge = hasMacDesktopInset
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
-  const activeDocumentKind = useUiStore((s) => s.activeDocumentKind)
   const activeCourseId = useUiStore((s) => s.activeCourseId)
-  const activeAnalysisId = useUiStore((s) => s.activeAnalysisId)
   const courseList = useUiStore((s) => s.courseList)
 
   const theme = useAppSettingsStore(selectTheme)
   const appSettingsActiveCourseId = useAppSettingsStore(
     selectAppSettingsActiveCourseId,
-  )
-  const appSettingsActiveAnalysisId = useAppSettingsStore(
-    (s) => s.settings.activeAnalysisId,
-  )
-  const appSettingsActiveDocumentKind = useAppSettingsStore(
-    (s) => s.settings.activeDocumentKind,
   )
   const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
   const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
@@ -132,21 +123,16 @@ function AppShell() {
     activeCourseId === null
       ? null
       : (courseList.find((course) => course.id === activeCourseId) ?? null)
-  const activeCourseKind =
-    activeDocumentKind === "course"
-      ? loadedCourse?.id === activeCourseId
-        ? loadedCourse.courseKind
-        : (activeCourseSummary?.courseKind ?? null)
-      : null
-  const canShowRosterTab =
-    activeDocumentKind === "course" &&
-    (loadedCourse?.id === activeCourseId
-      ? courseHasRoster(loadedCourse)
-      : activeCourseKind === "lms")
-  const tabVisibility = resolveDocumentTabVisibility(
-    activeDocumentKind,
-    activeCourseKind,
-  )
+  const activeBacking: CourseBacking | undefined =
+    activeCourseId === null
+      ? undefined
+      : loadedCourse?.id === activeCourseId
+        ? loadedCourse.backing
+        : activeCourseSummary !== null
+          ? activeCourseSummary.backing
+          : "lms"
+  const tabVisibility = resolveTabVisibility(activeBacking)
+  const canShowRosterTab = tabVisibility.roster
   const canShowGroupsTab = tabVisibility.groupsAssignments
   const canShowAnalysisTab = tabVisibility.analysis
 
@@ -155,21 +141,14 @@ function AppShell() {
     void loadAppSettings()
   }, [loadAppSettings])
 
-  // Restore active document and tab from app settings after settings load.
+  // Restore active course and tab from app settings after settings load.
   useEffect(() => {
-    if (activeDocumentKind === null && appSettingsActiveDocumentKind !== null) {
+    if (activeCourseId === null && appSettingsActiveCourseId !== null) {
       setActiveTab(appSettingsActiveTab)
-      useUiStore.getState().setActiveDocumentKind(appSettingsActiveDocumentKind)
-      if (appSettingsActiveDocumentKind === "analysis") {
-        useUiStore.getState().setActiveAnalysisId(appSettingsActiveAnalysisId)
-      } else {
-        useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
-      }
+      useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
     }
   }, [
-    activeDocumentKind,
-    appSettingsActiveDocumentKind,
-    appSettingsActiveAnalysisId,
+    activeCourseId,
     appSettingsActiveCourseId,
     appSettingsActiveTab,
     setActiveTab,
@@ -189,24 +168,17 @@ function AppShell() {
   ])
 
   useEffect(() => {
-    const supportedTab = resolveSupportedActiveTab(
-      activeTab,
-      activeDocumentKind,
-      activeCourseKind,
-    )
+    const supportedTab = resolveSupportedActiveTab(activeTab, activeBacking)
     if (supportedTab !== activeTab) {
       setActiveTab(supportedTab)
     }
-  }, [activeDocumentKind, activeCourseKind, activeTab, setActiveTab])
+  }, [activeBacking, activeTab, setActiveTab])
 
   // Apply theme.
   useTheme(theme)
 
-  // Load the active document (course or analysis) when its identity changes.
-  useLoadCourse(
-    activeDocumentKind,
-    activeDocumentKind === "analysis" ? activeAnalysisId : activeCourseId,
-  )
+  // Load the active course when its identity changes.
+  useLoadCourse(activeCourseId)
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -353,7 +325,6 @@ function AppShell() {
       <PreflightDialog />
 
       {/* Document and roster dialogs */}
-      <NewAnalysisDialog />
       <NewCourseDialog />
       <StudentSyncDialog />
       <ImportStudentsFromFileDialog />

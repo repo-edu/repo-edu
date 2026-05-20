@@ -22,7 +22,6 @@ import {
   groupSetImportRowSchema,
   type StudentImportRow,
   studentImportRowSchema,
-  validatePersistedAnalysis,
   validatePersistedAppSettings,
   validatePersistedCourse,
 } from "@repo-edu/domain/schemas"
@@ -40,7 +39,6 @@ import {
   type IdSequences,
   type MemberStatus,
   memberStatusKinds,
-  type PersistedAnalysis,
   type PersistedCourse,
   type Roster,
   type RosterMember,
@@ -52,7 +50,7 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import type { AnalysisStore, AppSettingsStore, CourseStore } from "./core.js"
+import type { AppSettingsStore, CourseStore } from "./core.js"
 import { createValidationAppError } from "./core.js"
 
 export function toCancelledAppError() {
@@ -98,40 +96,6 @@ export async function loadRequiredCourse(
     type: "not-found",
     message: `Course '${courseId}' was not found.`,
     resource: "course",
-  } satisfies AppError
-}
-
-export function validateLoadedAnalysis(
-  analysis: PersistedAnalysis,
-): PersistedAnalysis {
-  const validation = validatePersistedAnalysis(analysis)
-  if (!validation.ok) {
-    throw createValidationAppError(
-      "Loaded analysis validation failed.",
-      validation.issues,
-    )
-  }
-
-  return validation.value
-}
-
-export async function loadRequiredAnalysis(
-  analysisStore: AnalysisStore,
-  analysisId: string,
-  signal?: AbortSignal,
-): Promise<PersistedAnalysis> {
-  throwIfAborted(signal)
-  const analysis = await analysisStore.loadAnalysis(analysisId, signal)
-  throwIfAborted(signal)
-
-  if (analysis !== null) {
-    return validateLoadedAnalysis(analysis)
-  }
-
-  throw {
-    type: "not-found",
-    message: `Analysis '${analysisId}' was not found.`,
-    resource: "analysis",
   } satisfies AppError
 }
 
@@ -184,8 +148,8 @@ export function resolveLmsDraft(
   if (!courseSupportsLms(course)) {
     throw createValidationAppError("LMS workflow requires an LMS course.", [
       {
-        path: "course.courseKind",
-        message: "RepoBee courses do not support LMS workflows.",
+        path: "course.backing",
+        message: "Non-LMS-backed courses do not support LMS workflows.",
       },
     ])
   }

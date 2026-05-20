@@ -25,7 +25,7 @@ import { useCourseStore } from "../stores/course-store.js"
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
-    courseKind: "lms",
+    backing: "lms",
     revision: 0,
     id: courseId,
     displayName: "Test Course",
