@@ -3,24 +3,21 @@ import { describe, it } from "node:test"
 import { createDocsDemoRuntime, mountDocsDemoApp } from "../demo-runtime.js"
 
 describe("docs runtime seeded documents", () => {
-  it("seeds an LMS course with 67 students under a Canvas connection", async () => {
+  it("seeds an LMS course with 67 students from the committed cohort", async () => {
     const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.lmsCourseEntityId,
     })
 
     assert.equal(course.courseKind, "lms")
-    assert.equal(course.lmsConnectionName, "Canvas Demo")
-    assert.equal(course.roster.connection?.kind, "canvas")
+    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.roster.connection, null)
     assert.equal(course.roster.students.length, 67)
     assert.equal(course.roster.staff.length, 3)
 
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (gs) => gs.connection?.kind !== "system",
-    )
-    assert.ok(nonSystemGroupSets.length > 0)
+    assert.equal(course.roster.groupSets.length, 2)
     assert.ok(
-      nonSystemGroupSets.every((gs) => gs.connection?.kind === "canvas"),
+      course.roster.groupSets.every((groupSet) => groupSet.connection === null),
     )
   })
 
@@ -32,18 +29,15 @@ describe("docs runtime seeded documents", () => {
 
     assert.deepEqual(
       course.roster.assignments.map((assignment) => assignment.id),
-      ["a1", "a2", "a3"],
+      ["calculator", "topological-task-scheduler", "huffman-encoder"],
     )
-    const [a1, a2, a3] = course.roster.assignments
-    assert.equal(a1.groupSetId, a2.groupSetId)
-    assert.notEqual(a1.groupSetId, a3.groupSetId)
+    const [calculator, scheduler, huffman] = course.roster.assignments
+    assert.equal(calculator.groupSetId, scheduler.groupSetId)
+    assert.notEqual(calculator.groupSetId, huffman.groupSetId)
 
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (groupSet) => groupSet.connection?.kind !== "system",
-    )
     assert.equal(
-      nonSystemGroupSets.map((groupSet) => groupSet.name).join("|"),
-      "Web API Teams|Data Pipeline Teams",
+      course.roster.groupSets.map((groupSet) => groupSet.name).join("|"),
+      "Shared Project Teams|Compression Project Teams",
     )
   })
 
@@ -56,16 +50,14 @@ describe("docs runtime seeded documents", () => {
     assert.equal(course.courseKind, "repobee")
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
-    assert.equal(course.roster.connection?.kind, "import")
+    assert.equal(course.roster.connection, null)
 
-    const importedRepoBeeSets = course.roster.groupSets.filter(
-      (groupSet) =>
-        groupSet.connection?.kind === "import" &&
-        groupSet.nameMode === "unnamed",
+    const repobeeSets = course.roster.groupSets.filter(
+      (groupSet) => groupSet.nameMode === "unnamed",
     )
-    assert.equal(importedRepoBeeSets.length > 0, true)
+    assert.equal(repobeeSets.length > 0, true)
     assert.equal(
-      importedRepoBeeSets.every((groupSet) => groupSet.teams.length > 0),
+      repobeeSets.every((groupSet) => groupSet.teams.length > 0),
       true,
     )
   })
@@ -89,19 +81,24 @@ describe("docs runtime seeded documents", () => {
     const analysisIds = documents
       .filter((doc) => doc.kind === "analysis")
       .map((doc) => doc.id)
-    assert.deepEqual(analysisIds, [runtime.analysisId])
+    assert.deepEqual(analysisIds, [
+      "calculator",
+      "topological-task-scheduler",
+      "huffman-encoder",
+    ])
   })
 
-  it("seeds the analysis as the active document", async () => {
+  it("seeds the LMS course as the active document", async () => {
     const runtime = createDocsDemoRuntime()
     const settings = await runtime.workflowClient.run(
       "settings.loadApp",
       undefined,
     )
 
-    assert.equal(settings.activeDocumentKind, "analysis")
+    assert.equal(settings.activeDocumentKind, "course")
     assert.equal(settings.activeAnalysisId, runtime.analysisId)
     assert.equal(settings.activeCourseId, runtime.lmsCourseEntityId)
+    assert.equal(settings.activeTab, "roster")
   })
 
   it("mountDocsDemoApp wires the runtime into the provided root", () => {

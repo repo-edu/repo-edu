@@ -4,6 +4,15 @@ export const packageId = "@repo-edu/test-fixtures"
 export const workspaceDependencies = [domainPackageId] as const
 
 export type {
+  CohortIdentitySource,
+  ComposeCourseFromCohortInput,
+  LmsCohortMemberSource,
+  LmsCohortSource,
+  LmsCohortStaffSource,
+  RepobeeCohortSource,
+} from "./cohort-composition.js"
+export { composeCourseFromCohort } from "./cohort-composition.js"
+export type {
   FixturePreset,
   FixtureSelection,
   FixtureTier,
@@ -15,7 +24,6 @@ export {
   isFixturePreset,
   isFixtureTier,
 } from "./fixture-defs.js"
-
 export type {
   FixtureArtifact,
   FixtureMatrix,

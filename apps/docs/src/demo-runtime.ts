@@ -158,7 +158,7 @@ export function createDocsDemoRuntime() {
   const fixture = getDocsFixture()
   const lmsCourse = fixture.lmsCourse
   const repobeeCourse = fixture.repobeeCourse
-  const lmsCourseId = lmsCourse.lmsCourseId ?? "course-task-groups"
+  const lmsCourseId = lmsCourse.lmsCourseId ?? lmsCourse.id
 
   const browserMockHost = createBrowserMockHostEnvironment({
     readableFiles: fixture.readableFiles,
@@ -172,7 +172,7 @@ export function createDocsDemoRuntime() {
   const collaborativeGroupSet =
     lmsCourse.roster.groupSets.find(
       (groupSet) =>
-        groupSet.connection !== null && groupSet.connection.kind !== "system",
+        groupSet.nameMode === "named" && groupSet.connection?.kind !== "system",
     ) ?? null
 
   const courseStore = createInMemoryCourseStore([lmsCourse, repobeeCourse])

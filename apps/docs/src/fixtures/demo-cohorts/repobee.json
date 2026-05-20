@@ -1,0 +1,455 @@
+{
+  "teamSets": {
+    "ts_0001": {
+      "name": "RepoBee Teams",
+      "teams": [
+        "ut_0001",
+        "ut_0002",
+        "ut_0003",
+        "ut_0004",
+        "ut_0005",
+        "ut_0006",
+        "ut_0007",
+        "ut_0008",
+        "ut_0009",
+        "ut_0010",
+        "ut_0011",
+        "ut_0012",
+        "ut_0013",
+        "ut_0014",
+        "ut_0015",
+        "ut_0016",
+        "ut_0017",
+        "ut_0018",
+        "ut_0019"
+      ]
+    }
+  },
+  "teams": {
+    "ut_0001": {
+      "members": [
+        {
+          "name": "Maya Lindqvist",
+          "email": "maya.lindqvist@example.com",
+          "gitUsername": "maya-lindqvist"
+        },
+        {
+          "name": "Rafael Okafor",
+          "email": "rafael.okafor@example.com",
+          "gitUsername": "rafael-okafor"
+        },
+        {
+          "name": "Hina Tanaka",
+          "email": "hina.tanaka@example.com",
+          "gitUsername": "hina-tanaka"
+        }
+      ]
+    },
+    "ut_0002": {
+      "members": [
+        {
+          "name": "Marisol Adeyemi",
+          "email": "marisol.adeyemi@example.com",
+          "gitUsername": "marisol-adeyemi"
+        },
+        {
+          "name": "Theo Lindqvist",
+          "email": "theo.lindqvist@example.com",
+          "gitUsername": "theo-lindqvist"
+        },
+        {
+          "name": "Priya Ramaswamy",
+          "email": "priya.ramaswamy@example.com",
+          "gitUsername": "priya-ramaswamy"
+        }
+      ]
+    },
+    "ut_0003": {
+      "members": [
+        {
+          "name": "Maya Eriksen",
+          "email": "maya.eriksen@example.com",
+          "gitUsername": "maya-eriksen"
+        },
+        {
+          "name": "Daniel Okafor",
+          "email": "daniel.okafor@example.com",
+          "gitUsername": "daniel-okafor"
+        },
+        {
+          "name": "Priya Raman",
+          "email": "priya.raman@example.com",
+          "gitUsername": "priya-raman"
+        }
+      ]
+    },
+    "ut_0004": {
+      "members": [
+        {
+          "name": "Alex Vermeer",
+          "email": "alex.vermeer@example.edu",
+          "gitUsername": "alex-vermeer"
+        },
+        {
+          "name": "Bea Sato",
+          "email": "bea.sato@example.edu",
+          "gitUsername": "bea-sato"
+        },
+        {
+          "name": "Caleb Nguyen",
+          "email": "caleb.nguyen@example.edu",
+          "gitUsername": "caleb-nguyen"
+        },
+        {
+          "name": "Dina Patel",
+          "email": "dina.patel@example.edu",
+          "gitUsername": "dina-patel"
+        }
+      ]
+    },
+    "ut_0005": {
+      "members": [
+        {
+          "name": "Elias Garcia",
+          "email": "elias.garcia@example.edu",
+          "gitUsername": "elias-garcia"
+        },
+        {
+          "name": "Farah Smith",
+          "email": "farah.smith@example.edu",
+          "gitUsername": "farah-smith"
+        },
+        {
+          "name": "Gavin Kowalski",
+          "email": "gavin.kowalski@example.edu",
+          "gitUsername": "gavin-kowalski"
+        },
+        {
+          "name": "Hana Hassan",
+          "email": "hana.hassan@example.edu",
+          "gitUsername": "hana-hassan"
+        }
+      ]
+    },
+    "ut_0006": {
+      "members": [
+        {
+          "name": "Iris Muller",
+          "email": "iris.muller@example.edu",
+          "gitUsername": "iris-muller"
+        },
+        {
+          "name": "Jonas Chen",
+          "email": "jonas.chen@example.edu",
+          "gitUsername": "jonas-chen"
+        },
+        {
+          "name": "Keiko Silva",
+          "email": "keiko.silva@example.edu",
+          "gitUsername": "keiko-silva"
+        },
+        {
+          "name": "Lena Iversen",
+          "email": "lena.iversen@example.edu",
+          "gitUsername": "lena-iversen"
+        }
+      ]
+    },
+    "ut_0007": {
+      "members": [
+        {
+          "name": "Mateo Novak",
+          "email": "mateo.novak@example.edu",
+          "gitUsername": "mateo-novak"
+        },
+        {
+          "name": "Nadia Khan",
+          "email": "nadia.khan@example.edu",
+          "gitUsername": "nadia-khan"
+        },
+        {
+          "name": "Omar Bakker",
+          "email": "omar.bakker@example.edu",
+          "gitUsername": "omar-bakker"
+        },
+        {
+          "name": "Petra Rossi",
+          "email": "petra.rossi@example.edu",
+          "gitUsername": "petra-rossi"
+        }
+      ]
+    },
+    "ut_0008": {
+      "members": [
+        {
+          "name": "Quinn Singh",
+          "email": "quinn.singh@example.edu",
+          "gitUsername": "quinn-singh"
+        },
+        {
+          "name": "Rina Brown",
+          "email": "rina.brown@example.edu",
+          "gitUsername": "rina-brown"
+        },
+        {
+          "name": "Soren Nielsen",
+          "email": "soren.nielsen@example.edu",
+          "gitUsername": "soren-nielsen"
+        },
+        {
+          "name": "Tala Costa",
+          "email": "tala.costa@example.edu",
+          "gitUsername": "tala-costa"
+        }
+      ]
+    },
+    "ut_0009": {
+      "members": [
+        {
+          "name": "Uma Jansen",
+          "email": "uma.jansen@example.edu",
+          "gitUsername": "uma-jansen"
+        },
+        {
+          "name": "Viktor Dubois",
+          "email": "viktor.dubois@example.edu",
+          "gitUsername": "viktor-dubois"
+        },
+        {
+          "name": "Willa Schmidt",
+          "email": "willa.schmidt@example.edu",
+          "gitUsername": "willa-schmidt"
+        },
+        {
+          "name": "Xavier Lopez",
+          "email": "xavier.lopez@example.edu",
+          "gitUsername": "xavier-lopez"
+        }
+      ]
+    },
+    "ut_0010": {
+      "members": [
+        {
+          "name": "Yara Martin",
+          "email": "yara.martin@example.edu",
+          "gitUsername": "yara-martin"
+        },
+        {
+          "name": "Zane Meijer",
+          "email": "zane.meijer@example.edu",
+          "gitUsername": "zane-meijer"
+        },
+        {
+          "name": "Anika Das",
+          "email": "anika.das@example.edu",
+          "gitUsername": "anika-das"
+        }
+      ]
+    },
+    "ut_0011": {
+      "members": [
+        {
+          "name": "Bram Kim",
+          "email": "bram.kim@example.edu",
+          "gitUsername": "bram-kim"
+        },
+        {
+          "name": "Cora Ali",
+          "email": "cora.ali@example.edu",
+          "gitUsername": "cora-ali"
+        },
+        {
+          "name": "Daan Moreau",
+          "email": "daan.moreau@example.edu",
+          "gitUsername": "daan-moreau"
+        }
+      ]
+    },
+    "ut_0012": {
+      "members": [
+        {
+          "name": "Elin Fischer",
+          "email": "elin.fischer@example.edu",
+          "gitUsername": "elin-fischer"
+        },
+        {
+          "name": "Felix Popov",
+          "email": "felix.popov@example.edu",
+          "gitUsername": "felix-popov"
+        },
+        {
+          "name": "Greta Klein",
+          "email": "greta.klein@example.edu",
+          "gitUsername": "greta-klein"
+        }
+      ]
+    },
+    "ut_0013": {
+      "members": [
+        {
+          "name": "Hugo Wang",
+          "email": "hugo.wang@example.edu",
+          "gitUsername": "hugo-wang"
+        },
+        {
+          "name": "Ines Sousa",
+          "email": "ines.sousa@example.edu",
+          "gitUsername": "ines-sousa"
+        },
+        {
+          "name": "Jules Vos",
+          "email": "jules.vos@example.edu",
+          "gitUsername": "jules-vos"
+        }
+      ]
+    },
+    "ut_0014": {
+      "members": [
+        {
+          "name": "Kira Roy",
+          "email": "kira.roy@example.edu",
+          "gitUsername": "kira-roy"
+        },
+        {
+          "name": "Luca Peters",
+          "email": "luca.peters@example.edu",
+          "gitUsername": "luca-peters"
+        },
+        {
+          "name": "Mina Ito",
+          "email": "mina.ito@example.edu",
+          "gitUsername": "mina-ito"
+        },
+        {
+          "name": "Nico Yilmaz",
+          "email": "nico.yilmaz@example.edu",
+          "gitUsername": "nico-yilmaz"
+        }
+      ]
+    },
+    "ut_0015": {
+      "members": [
+        {
+          "name": "Orla Larsen",
+          "email": "orla.larsen@example.edu",
+          "gitUsername": "orla-larsen"
+        },
+        {
+          "name": "Pavel Cohen",
+          "email": "pavel.cohen@example.edu",
+          "gitUsername": "pavel-cohen"
+        },
+        {
+          "name": "Rhea Fernandez",
+          "email": "rhea.fernandez@example.edu",
+          "gitUsername": "rhea-fernandez"
+        },
+        {
+          "name": "Sasha De Vries",
+          "email": "sasha.de-vries@example.edu",
+          "gitUsername": "sasha-de-vries"
+        }
+      ]
+    },
+    "ut_0016": {
+      "members": [
+        {
+          "name": "Timo Nowak",
+          "email": "timo.nowak@example.edu",
+          "gitUsername": "timo-nowak"
+        },
+        {
+          "name": "Vera Nakamura",
+          "email": "vera.nakamura@example.edu",
+          "gitUsername": "vera-nakamura"
+        },
+        {
+          "name": "Wes Mendes",
+          "email": "wes.mendes@example.edu",
+          "gitUsername": "wes-mendes"
+        },
+        {
+          "name": "Noor Akhtar",
+          "email": "noor.akhtar@example.edu",
+          "gitUsername": "noor-akhtar"
+        }
+      ]
+    },
+    "ut_0017": {
+      "members": [
+        {
+          "name": "Milan Bos",
+          "email": "milan.bos@example.edu",
+          "gitUsername": "milan-bos"
+        },
+        {
+          "name": "Sara Fontaine",
+          "email": "sara.fontaine@example.edu",
+          "gitUsername": "sara-fontaine"
+        },
+        {
+          "name": "Leah Shah",
+          "email": "leah.shah@example.edu",
+          "gitUsername": "leah-shah"
+        },
+        {
+          "name": "Adam Berg",
+          "email": "adam.berg@example.edu",
+          "gitUsername": "adam-berg"
+        }
+      ]
+    },
+    "ut_0018": {
+      "members": [
+        {
+          "name": "Nora Li",
+          "email": "nora.li@example.edu",
+          "gitUsername": "nora-li"
+        },
+        {
+          "name": "Finn Pereira",
+          "email": "finn.pereira@example.edu",
+          "gitUsername": "finn-pereira"
+        },
+        {
+          "name": "Asha Smit",
+          "email": "asha.smit@example.edu",
+          "gitUsername": "asha-smit"
+        }
+      ]
+    },
+    "ut_0019": {
+      "members": [
+        {
+          "name": "Ivan Kaur",
+          "email": "ivan.kaur@example.edu",
+          "gitUsername": "ivan-kaur"
+        },
+        {
+          "name": "Mara Ricci",
+          "email": "mara.ricci@example.edu",
+          "gitUsername": "mara-ricci"
+        },
+        {
+          "name": "Otto Aydin",
+          "email": "otto.aydin@example.edu",
+          "gitUsername": "otto-aydin"
+        }
+      ]
+    }
+  },
+  "assignments": {
+    "calculator": {
+      "name": "Calculator",
+      "teamSetId": "ts_0001"
+    },
+    "topological-task-scheduler": {
+      "name": "Topological Task Scheduler",
+      "teamSetId": "ts_0001"
+    },
+    "huffman-encoder": {
+      "name": "Huffman Encoder",
+      "teamSetId": "ts_0001"
+    }
+  }
+}

@@ -142,7 +142,7 @@ Format is JSONC (JSON with `//` comments and trailing commas). Run
 `.fixture-sweep.jsonc`, and an empty `.fixture-state.json` before
 editing, or just run any subcommand and `.fixture-settings.jsonc` is
 auto-created on first use. Pass `--from=<project.md>` (e.g.
-`scripts/fixtures/projects/calculator.md`) to additionally seed a
+`apps/docs/src/fixtures/projects/calculator/spec.md`) to additionally seed a
 curated project under `../fixtures/c<N>-<name>/` and point
 `.fixture-state.json` at it, skipping `fixture project`. Schema (all
 keys optional; values are validated against the same ranges as the

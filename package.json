@@ -39,6 +39,7 @@
         "docs:dev": "pnpm --filter @repo-edu/docs run dev",
         "docs:build": "pnpm --filter @repo-edu/docs run build",
         "docs:preview": "pnpm --filter @repo-edu/docs run build && pnpm --filter @repo-edu/docs run preview",
+        "docs:record-fixtures": "pnpm --filter @repo-edu/docs run record:fixtures",
         "docs:test": "pnpm --filter @repo-edu/docs run test",
         "// ---- release ----": "",
         "release": "pnpm --filter @repo-edu/release start",

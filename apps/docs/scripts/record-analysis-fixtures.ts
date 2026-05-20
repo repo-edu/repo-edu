@@ -1,26 +1,29 @@
 import { execFileSync } from "node:child_process"
-import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import type {
+  GeneratedRepoSlot,
   RecordedAnalysisGitCommit,
-  RecordedAnalysisGitFixture,
   RecordedAnalysisGitNumstat,
   RecordedAnalysisGitRepo,
   RecordedAnalysisGitTreeEntry,
 } from "../src/fixtures/analysis-git-fixture-types.js"
-
-const defaultSourcePath =
-  "/Users/aivm/repos/fixtures-demo/c2-arithmetic-expression-evaluator"
-const defaultDemoRootPath = "/repo-edu-demo/c2-arithmetic-expression-evaluator"
-const generatedRelativePath =
-  "../src/fixtures/generated-analysis-git-fixture.ts"
+import { extractRecordedAuthors } from "../src/fixtures/recorded-repo-slots.js"
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-const outputPath = join(scriptDir, generatedRelativePath)
-const sourcePath = process.env.DOCS_ANALYSIS_FIXTURE_SOURCE ?? defaultSourcePath
+const workspaceRoot = resolve(scriptDir, "../../..")
+const fixturesDemoRoot = resolve(workspaceRoot, "../fixtures-demo")
+const projectsRoot = resolve(workspaceRoot, "apps/docs/src/fixtures/projects")
 const demoRootPath =
-  process.env.DOCS_ANALYSIS_FIXTURE_ROOT ?? defaultDemoRootPath
+  process.env.DOCS_ANALYSIS_FIXTURE_ROOT ??
+  "/repo-edu-demo/shared-analysis-fixture"
 
 function gitText(cwd: string, args: string[]): string {
   return execFileSync("git", args, {
@@ -37,25 +40,12 @@ function gitBuffer(cwd: string, args: string[]): Buffer {
   })
 }
 
-function isGitRepo(path: string): boolean {
-  try {
-    return statSync(join(path, ".git")).isDirectory()
-  } catch {
-    return false
-  }
+function fail(message: string): never {
+  throw new Error(message)
 }
 
-function listFixtureRepos(root: string): string[] {
-  return readdirSync(root)
-    .map((entry) => join(root, entry))
-    .filter((path) => {
-      try {
-        return statSync(path).isDirectory() && isGitRepo(path)
-      } catch {
-        return false
-      }
-    })
-    .sort()
+function hasPathSeparator(value: string): boolean {
+  return value.includes("/") || value.includes("\\")
 }
 
 function slugifyToken(value: string): string {
@@ -63,34 +53,53 @@ function slugifyToken(value: string): string {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ".")
-    .replace(/^\.+|\.+$/g, "")
-    .replace(/\.{2,}/g, ".")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
-function authorSurname(authorName: string): string {
-  const parts = authorName.trim().split(/\s+/)
-  return parts.at(-1) ?? authorName
+function variableName(projectId: string, slotId: string): string {
+  return `${projectId.replaceAll("-", "_")}Slot_${slotId.replaceAll("-", "_")}`
 }
 
-function authorRepoName(commits: readonly RecordedAnalysisGitCommit[]): string {
-  const surnames = new Set<string>()
+function projectDir(projectId: string): string {
+  return resolve(projectsRoot, projectId)
+}
 
-  for (const commit of [...commits].reverse()) {
-    const surname = slugifyToken(authorSurname(commit.authorName))
-    if (surname.length > 0) {
-      surnames.add(surname)
-    }
+function generatedDir(projectId: string): string {
+  return resolve(projectDir(projectId), "generated")
+}
+
+function leafPath(projectId: string, slotId: string): string {
+  return resolve(generatedDir(projectId), `${slotId}.fixture.ts`)
+}
+
+function isGitRepo(path: string): boolean {
+  try {
+    return statSync(resolve(path, ".git")).isDirectory()
+  } catch {
+    return false
   }
+}
 
-  return [...surnames].join("-") || "unknown-authors"
+function sourceRepoPath(sourcePath: string): string {
+  return isAbsolute(sourcePath)
+    ? sourcePath
+    : resolve(fixturesDemoRoot, sourcePath)
+}
+
+function sourcePathForLeaf(inputPath: string): string {
+  const absolute = sourceRepoPath(inputPath)
+  const relativePath = relative(fixturesDemoRoot, absolute)
+  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+    fail(`source path must be under ${fixturesDemoRoot}: ${inputPath}`)
+  }
+  return relativePath.replaceAll("\\", "/")
 }
 
 function parseNumstatZ(output: Buffer): RecordedAnalysisGitNumstat[] {
-  const text = output.toString("utf8")
   const entries: RecordedAnalysisGitNumstat[] = []
 
-  for (const record of text.split("\0")) {
+  for (const record of output.toString("utf8").split("\0")) {
     if (record.length === 0) continue
     const [insertionsRaw, deletionsRaw, path] = record
       .replace(/^\n+/, "")
@@ -188,7 +197,6 @@ function recordBlameForTree(
 
 type SourceRepoRecord = {
   repoPath: string
-  name: string
   headOid: string
   defaultBranch: string
   commitOids: string[]
@@ -196,6 +204,7 @@ type SourceRepoRecord = {
 }
 
 function recordSourceRepo(repoPath: string): SourceRepoRecord {
+  if (!isGitRepo(repoPath)) fail(`not a git repository: ${repoPath}`)
   const headOid = gitText(repoPath, ["rev-parse", "HEAD"]).trim()
   const defaultBranch =
     gitText(repoPath, ["rev-parse", "--abbrev-ref", "HEAD"]).trim() || "main"
@@ -206,7 +215,6 @@ function recordSourceRepo(repoPath: string): SourceRepoRecord {
 
   return {
     repoPath,
-    name: authorRepoName(commits),
     headOid,
     defaultBranch,
     commitOids,
@@ -218,7 +226,6 @@ function recordRepo(
   sourceRepo: SourceRepoRecord,
   assignedName: string,
 ): RecordedAnalysisGitRepo {
-  const virtualRepoPath = `${demoRootPath}/${assignedName}`
   const treesByCommit: Record<string, RecordedAnalysisGitTreeEntry[]> = {}
   const blameByCommit: Record<string, Record<string, string>> = {}
 
@@ -230,7 +237,7 @@ function recordRepo(
 
   return {
     name: assignedName,
-    path: virtualRepoPath,
+    path: `${demoRootPath}/${assignedName}`,
     headOid: sourceRepo.headOid,
     defaultBranch: sourceRepo.defaultBranch,
     commits: sourceRepo.commits,
@@ -239,15 +246,15 @@ function recordRepo(
   }
 }
 
-function serializeFixture(fixture: RecordedAnalysisGitFixture): string {
+function serializeSlot(slot: GeneratedRepoSlot): string {
   return [
     "/* eslint-disable */",
     "// AUTO-GENERATED by apps/docs/scripts/record-analysis-fixtures.ts.",
-    "// Do not edit manually; regenerate from the source fixture repositories.",
-    'import type { RecordedAnalysisGitFixture } from "./analysis-git-fixture-types.js"',
+    "// Do not edit manually; regenerate from the source fixture repository.",
+    'import type { GeneratedRepoSlot } from "../../../analysis-git-fixture-types.js"',
     "",
-    `export const docsAnalysisGitFixture: RecordedAnalysisGitFixture = ${JSON.stringify(
-      fixture,
+    `export const ${variableName(slot.projectId, slot.slotId)}: GeneratedRepoSlot = ${JSON.stringify(
+      slot,
       null,
       2,
     )}`,
@@ -255,31 +262,203 @@ function serializeFixture(fixture: RecordedAnalysisGitFixture): string {
   ].join("\n")
 }
 
-const sourceRepoPaths = listFixtureRepos(sourcePath)
-if (sourceRepoPaths.length === 0) {
-  throw new Error(`No git repositories found under ${sourcePath}`)
-}
-const recordedRepos = sourceRepoPaths.map(recordSourceRepo)
-const nameCounts = new Map<string, number>()
-const repos = recordedRepos.map((recorded) => {
-  const count = (nameCounts.get(recorded.name) ?? 0) + 1
-  nameCounts.set(recorded.name, count)
-  const uniqueName =
-    count === 1
-      ? recorded.name
-      : `${recorded.name}-${recorded.headOid.slice(0, 7)}`
-  return recordRepo(recorded, uniqueName)
-})
-const latestCommitTimestamp = Math.max(
-  ...repos.flatMap((repo) => repo.commits.map((commit) => commit.timestamp)),
-)
-
-const fixture: RecordedAnalysisGitFixture = {
-  rootPath: demoRootPath,
-  recordedAt: new Date(latestCommitTimestamp * 1000).toISOString(),
-  repos,
+function serializeGeneratedIndex(projectId: string, slotIds: string[]): string {
+  const imports = slotIds.map(
+    (slotId) =>
+      `import { ${variableName(projectId, slotId)} } from "./${slotId}.fixture.js"`,
+  )
+  const entries = slotIds
+    .map((slotId) => `  ${variableName(projectId, slotId)}`)
+    .join(",\n")
+  return [
+    ...imports,
+    'import type { GeneratedRepoSlot } from "../../../analysis-git-fixture-types.js"',
+    'import { recordedAtForSlots } from "../../../recorded-repo-slots.js"',
+    "",
+    `export const projectId = "${projectId}"`,
+    "export const generatedRepoSlots = [",
+    entries,
+    "] satisfies GeneratedRepoSlot[]",
+    "export const recordedAt = recordedAtForSlots(generatedRepoSlots)",
+    "",
+  ].join("\n")
 }
 
-mkdirSync(dirname(outputPath), { recursive: true })
-writeFileSync(outputPath, serializeFixture(fixture))
-console.log(`Recorded ${repos.length} analysis fixture repos to ${outputPath}`)
+function writeProjectIndex(projectId: string): void {
+  const dir = generatedDir(projectId)
+  const slotIds = readdirSync(dir)
+    .filter((entry) => entry.endsWith(".fixture.ts"))
+    .map((entry) => entry.replace(/\.fixture\.ts$/, ""))
+    .sort()
+  writeFileSync(
+    resolve(dir, "index.ts"),
+    serializeGeneratedIndex(projectId, slotIds),
+  )
+  writeFileSync(
+    resolve(projectDir(projectId), "index.ts"),
+    'export * from "./generated/index.js"\n',
+  )
+}
+
+async function loadSlot(
+  projectId: string,
+  slotId: string,
+): Promise<GeneratedRepoSlot> {
+  const path = leafPath(projectId, slotId)
+  if (!existsSync(path)) fail(`slot not found: ${projectId}/${slotId}`)
+  const href = `${pathToFileURL(path).href}?t=${Date.now()}`
+  const mod = (await import(href)) as Record<string, GeneratedRepoSlot>
+  const slot = mod[variableName(projectId, slotId)]
+  if (!slot) fail(`slot export not found in ${path}`)
+  return slot
+}
+
+function listProjects(): string[] {
+  return readdirSync(projectsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+}
+
+function listProjectSlotIds(projectId: string): string[] {
+  return readdirSync(generatedDir(projectId))
+    .filter((entry) => entry.endsWith(".fixture.ts"))
+    .map((entry) => entry.replace(/\.fixture\.ts$/, ""))
+    .sort()
+}
+
+async function recordSlot(
+  existing: GeneratedRepoSlot,
+  updateCommitOid: boolean,
+): Promise<GeneratedRepoSlot> {
+  const repoPath = sourceRepoPath(existing.source.path)
+  const headOid = gitText(repoPath, ["rev-parse", "HEAD"]).trim()
+  if (headOid !== existing.source.commitOid && !updateCommitOid) {
+    fail(
+      `${existing.projectId}/${existing.slotId}: source HEAD ${headOid} does not match recorded source.commitOid ${existing.source.commitOid}; pass --update-commit-oid to accept the new source HEAD`,
+    )
+  }
+  const sourceRepo = recordSourceRepo(repoPath)
+  return {
+    ...existing,
+    source: {
+      ...existing.source,
+      commitOid: updateCommitOid
+        ? sourceRepo.headOid
+        : existing.source.commitOid,
+    },
+    recordedAuthors: extractRecordedAuthors(sourceRepo.commits),
+    repo: recordRepo(sourceRepo, existing.repoName),
+  }
+}
+
+async function bootstrap(
+  projectId: string,
+  inputSourcePath: string,
+  slotIdInput: string | undefined,
+): Promise<void> {
+  const sourcePath = sourcePathForLeaf(inputSourcePath)
+  const repoPath = sourceRepoPath(sourcePath)
+  const sourceRepo = recordSourceRepo(repoPath)
+  const slotId = slotIdInput ?? slugifyToken(basename(repoPath))
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slotId)) {
+    fail(`slot id must be kebab-case, got "${slotId}"`)
+  }
+  const path = leafPath(projectId, slotId)
+  if (existsSync(path)) fail(`slot already exists: ${projectId}/${slotId}`)
+  mkdirSync(dirname(path), { recursive: true })
+  const repoName = `${projectId}-${slotId}`
+  const slot: GeneratedRepoSlot = {
+    slotKey: `${projectId}:${slotId}`,
+    slotId,
+    projectId,
+    repoName,
+    source: {
+      path: sourcePath,
+      commitOid: sourceRepo.headOid,
+    },
+    recordedAuthors: extractRecordedAuthors(sourceRepo.commits),
+    repo: recordRepo(sourceRepo, repoName),
+  }
+  writeFileSync(path, serializeSlot(slot))
+  writeProjectIndex(projectId)
+  process.stdout.write(
+    `Bootstrapped ${projectId}/${slotId} from ${sourcePath}\n`,
+  )
+}
+
+async function record(
+  target: string | undefined,
+  updateCommitOid: boolean,
+): Promise<void> {
+  const affected: Array<[projectId: string, slotId: string]> = []
+  if (!target) {
+    for (const projectId of listProjects()) {
+      for (const slotId of listProjectSlotIds(projectId)) {
+        affected.push([projectId, slotId])
+      }
+    }
+  } else if (target.includes("/")) {
+    const [projectId, slotId] = target.split("/")
+    if (!projectId || !slotId || hasPathSeparator(slotId)) {
+      fail(
+        `record target must be <project> or <project>/<slotId>, got ${target}`,
+      )
+    }
+    affected.push([projectId, slotId])
+  } else {
+    for (const slotId of listProjectSlotIds(target))
+      affected.push([target, slotId])
+  }
+
+  for (const [projectId, slotId] of affected) {
+    const slot = await loadSlot(projectId, slotId)
+    const updated = await recordSlot(slot, updateCommitOid)
+    writeFileSync(leafPath(projectId, slotId), serializeSlot(updated))
+    writeProjectIndex(projectId)
+  }
+  process.stdout.write(`Recorded ${affected.length} fixture slot(s)\n`)
+}
+
+function parseArgs(argv: string[]): {
+  command: string
+  args: string[]
+  slotId?: string
+  updateCommitOid: boolean
+} {
+  const args: string[] = []
+  let slotId: string | undefined
+  let updateCommitOid = false
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]
+    if (arg === "--slot-id") {
+      slotId = argv[++index]
+      if (!slotId) fail("--slot-id requires a value")
+    } else if (arg === "--update-commit-oid") {
+      updateCommitOid = true
+    } else {
+      args.push(arg)
+    }
+  }
+  return {
+    command: args[0] ?? "record",
+    args: args.slice(1),
+    slotId,
+    updateCommitOid,
+  }
+}
+
+const parsed = parseArgs(process.argv.slice(2))
+if (parsed.command === "bootstrap") {
+  const [projectId, sourcePath] = parsed.args
+  if (!projectId || !sourcePath) {
+    fail(
+      "Usage: pnpm docs:record-fixtures bootstrap <project> <sourcePath> [--slot-id <id>]",
+    )
+  }
+  await bootstrap(projectId, sourcePath, parsed.slotId)
+} else if (parsed.command === "record") {
+  await record(parsed.args[0], parsed.updateCommitOid)
+} else {
+  fail(`unknown subcommand "${parsed.command}"; expected bootstrap or record`)
+}

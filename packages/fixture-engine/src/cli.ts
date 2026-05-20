@@ -45,6 +45,9 @@ export interface ProjectOpts extends CommonOpts {
 export interface PlanOpts extends CommonOpts {
   subcommand: "plan"
   fromPath: string
+  project: string
+  teamSource: string
+  teams: string
   rounds: number
   students: number
   coderInteraction: number
@@ -351,6 +354,9 @@ function parseProject(argv: string[]): ProjectOpts {
 function parsePlan(argv: string[]): PlanOpts {
   const { values: v } = runNodeParseArgs(argv, {
     from: { type: "string" },
+    project: { type: "string" },
+    "team-source": { type: "string" },
+    teams: { type: "string" },
     rounds: { type: "string", short: "r" },
     students: { type: "string", short: "s" },
     "coder-interaction": { type: "string", short: "i" },
@@ -362,6 +368,8 @@ function parsePlan(argv: string[]): PlanOpts {
     help: { type: "boolean", short: "h" },
   })
   const common = commonOptsFrom(v)
+  const teamSource = (v["team-source"] as string | undefined) ?? ""
+  const teams = (v.teams as string | undefined) ?? ""
   const rounds = v.rounds !== undefined ? Number(v.rounds) : SETTINGS().rounds
   const students =
     v.students !== undefined ? Number(v.students) : SETTINGS().students
@@ -380,8 +388,20 @@ function parsePlan(argv: string[]): PlanOpts {
     "mp",
   )
   if (!common.help) {
+    if (teamSource && v.students !== undefined) {
+      fail("--students is incompatible with --team-source")
+    }
+    if (teamSource && !(v.project as string | undefined)) {
+      fail("--team-source requires --project")
+    }
+    if (teamSource && !teams) {
+      fail("--team-source requires --teams")
+    }
+    if ((v.from as string | undefined) && (v.project as string | undefined)) {
+      fail("--from and --project are mutually exclusive")
+    }
     validateRounds(rounds)
-    validateStudents(students)
+    if (!teamSource) validateStudents(students)
     validateCoderInteraction(coderInteraction)
     validateReviews(reviews, rounds)
     validateRefactors(refactors, rounds)
@@ -392,6 +412,9 @@ function parsePlan(argv: string[]): PlanOpts {
     ...common,
     subcommand: "plan",
     fromPath: (v.from as string | undefined) ?? "",
+    project: (v.project as string | undefined) ?? "",
+    teamSource,
+    teams,
     rounds,
     students,
     coderInteraction,
@@ -519,7 +542,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
       "useful to scaffold the files ahead of editing them.",
       "",
       "With --from=<project.md>, also seeds a curated project (e.g.",
-      "scripts/fixtures/projects/calculator.md) by archiving it to",
+      "apps/docs/src/fixtures/projects/calculator/spec.md) by archiving it to",
       "../fixtures/c<N>-<name>/project.md and pointing .fixture-state.json",
       "at it, so the next `fixture plan` / `sweep` picks it up without a",
       "`fixture project` step.",
@@ -562,7 +585,7 @@ function subcommandHelpBody(sub: Subcommand): string[] {
   }
   if (sub === "plan") {
     return [
-      "Usage: fixture plan [--from=<project.md>] [options]",
+      "Usage: fixture plan [--from=<project.md> | --project=<id>] [options]",
       "",
       "Generate a plan (team + commits) in a new subfolder of the project,",
       "as c<N>-<name>/<postfix>/plan.md. Without --from, falls back to the",
@@ -575,6 +598,21 @@ function subcommandHelpBody(sub: Subcommand): string[] {
         "Project .md file or c<N>-<name>/ dir (absolute,",
         "or relative to ../fixtures/). Optional if",
         ".fixture-state.json has a project.",
+      ),
+      ...opt(
+        "      --project=ID",
+        "Docs demo project id resolved to",
+        "apps/docs/src/fixtures/projects/<id>/spec.md.",
+      ),
+      ...opt(
+        "      --team-source=PATH",
+        "Cohort JSON file. Bare names resolve under",
+        "apps/docs/src/fixtures/demo-cohorts/.",
+      ),
+      ...opt(
+        "      --teams=LIST",
+        "Comma-separated 1-based cohort team indices",
+        "or ranges, e.g. 1-3,5.",
       ),
       ...opt("  -m, --model=CODE", `Planner model (default: ${SETTINGS().mp})`),
       ...opt(

@@ -37,3 +37,21 @@ export type RecordedAnalysisGitFixture = {
   recordedAt: string
   repos: RecordedAnalysisGitRepo[]
 }
+
+export type RecordedAnalysisGitAuthor = {
+  name: string
+  email: string
+}
+
+export type GeneratedRepoSlot = {
+  slotKey: string
+  slotId: string
+  projectId: string
+  repoName: string
+  source: {
+    path: string
+    commitOid: string
+  }
+  recordedAuthors: RecordedAnalysisGitAuthor[]
+  repo: RecordedAnalysisGitRepo
+}

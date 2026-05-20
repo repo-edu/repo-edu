@@ -16,6 +16,15 @@ function isAppErrorWithType(
   )
 }
 
+function isAppErrorWithAnyType(
+  error: unknown,
+  types: Array<
+    "validation" | "not-found" | "provider" | "unexpected" | "cancelled"
+  >,
+) {
+  return types.some((type) => isAppErrorWithType(error, type))
+}
+
 function plannedGroupIds(
   plan: ReturnType<typeof planRepositoryOperation>,
 ): string[] {
@@ -27,7 +36,7 @@ function plannedGroupIds(
 }
 
 describe("docs fixture integration: seeded LMS course", () => {
-  it("supports canvas-style LMS workflows on the seeded LMS course", async () => {
+  it("uses local/generated LMS cohort data without Canvas source state", async () => {
     const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.lmsCourseEntityId,
@@ -37,38 +46,41 @@ describe("docs fixture integration: seeded LMS course", () => {
       undefined,
     )
 
-    assert.equal(course.lmsConnectionName, "Canvas Demo")
-    assert.equal(course.roster.connection?.kind, "canvas")
-
-    const nonSystemGroupSets = course.roster.groupSets.filter(
-      (groupSet) => groupSet.connection?.kind !== "system",
-    )
-    assert.ok(nonSystemGroupSets.length > 0)
+    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsCourseId, null)
+    assert.equal(course.roster.connection, null)
+    assert.equal(course.roster.students.length, 67)
+    assert.equal(course.roster.staff.length, 3)
+    assert.equal(course.roster.groupSets.length, 2)
     assert.ok(
-      nonSystemGroupSets.every(
-        (groupSet) => groupSet.connection?.kind === "canvas",
-      ),
+      course.roster.groupSets.every((groupSet) => groupSet.connection === null),
     )
 
     const nonSystemGroups = course.roster.groups.filter(
       (group) => group.origin !== "system",
     )
     assert.ok(nonSystemGroups.length > 0)
-    assert.ok(nonSystemGroups.every((group) => group.origin === "lms"))
-    assert.ok(nonSystemGroups.every((group) => group.lmsGroupId !== null))
+    assert.ok(nonSystemGroups.every((group) => group.origin === "local"))
+    assert.ok(nonSystemGroups.every((group) => group.lmsGroupId === null))
 
-    const available = await runtime.workflowClient.run(
-      "groupSet.fetchAvailableFromLms",
-      { course, appSettings },
+    await assert.rejects(
+      runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
+        course,
+        appSettings,
+      }),
+      (error: unknown) =>
+        isAppErrorWithAnyType(error, ["validation", "not-found"]),
     )
-    assert.equal(available.length > 0, true)
 
-    const imported = await runtime.workflowClient.run("roster.importFromLms", {
-      course,
-      appSettings,
-      lmsCourseId: runtime.lmsCourseId,
-    })
-    assert.equal(imported.roster.connection?.kind, "canvas")
+    await assert.rejects(
+      runtime.workflowClient.run("roster.importFromLms", {
+        course,
+        appSettings,
+        lmsCourseId: runtime.lmsCourseId,
+      }),
+      (error: unknown) =>
+        isAppErrorWithAnyType(error, ["validation", "not-found"]),
+    )
   })
 })
 
@@ -85,16 +97,14 @@ describe("docs fixture integration: seeded RepoBee course", () => {
 
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
-    assert.equal(course.roster.connection?.kind, "import")
+    assert.equal(course.roster.connection, null)
 
-    const importedRepoBeeSets = course.roster.groupSets.filter(
-      (groupSet) =>
-        groupSet.connection?.kind === "import" &&
-        groupSet.nameMode === "unnamed",
+    const repobeeSets = course.roster.groupSets.filter(
+      (groupSet) => groupSet.nameMode === "unnamed",
     )
-    assert.equal(importedRepoBeeSets.length > 0, true)
+    assert.equal(repobeeSets.length > 0, true)
     assert.equal(
-      importedRepoBeeSets.every((groupSet) => groupSet.teams.length > 0),
+      repobeeSets.every((groupSet) => groupSet.teams.length > 0),
       true,
     )
 
@@ -118,7 +128,7 @@ describe("docs fixture integration: seeded RepoBee course", () => {
 })
 
 describe("docs fixture integration: repository planning by fixed task setup", () => {
-  it("api-design and api-implementation share one group set and match repo.create count", async () => {
+  it("calculator and scheduler share one group set and match repo.create count", async () => {
     const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.lmsCourseEntityId,
@@ -128,32 +138,43 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const designPlan = planRepositoryOperation(course, "a1", "create")
-    const implPlan = planRepositoryOperation(course, "a2", "create")
+    const calculatorPlan = planRepositoryOperation(
+      course,
+      "calculator",
+      "create",
+    )
+    const schedulerPlan = planRepositoryOperation(
+      course,
+      "topological-task-scheduler",
+      "create",
+    )
 
-    const designGroupIds = plannedGroupIds(designPlan)
-    const implGroupIds = plannedGroupIds(implPlan)
-    assert.deepEqual(designGroupIds, implGroupIds)
-    assert.equal(designGroupIds.length > 0, true)
+    const calculatorGroupIds = plannedGroupIds(calculatorPlan)
+    const schedulerGroupIds = plannedGroupIds(schedulerPlan)
+    assert.deepEqual(calculatorGroupIds, schedulerGroupIds)
+    assert.equal(calculatorGroupIds.length > 0, true)
 
-    const designResult = await runtime.workflowClient.run("repo.create", {
+    const calculatorResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a1",
+      assignmentId: "calculator",
       template: null,
     })
-    assert.equal(designResult.repositoriesPlanned, designGroupIds.length)
+    assert.equal(
+      calculatorResult.repositoriesPlanned,
+      calculatorGroupIds.length,
+    )
 
-    const implResult = await runtime.workflowClient.run("repo.create", {
+    const schedulerResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a2",
+      assignmentId: "topological-task-scheduler",
       template: null,
     })
-    assert.equal(implResult.repositoriesPlanned, implGroupIds.length)
+    assert.equal(schedulerResult.repositoriesPlanned, schedulerGroupIds.length)
   })
 
-  it("data-pipeline isolates its group population from web-api and matches repo.create count", async () => {
+  it("huffman isolates its group population and matches repo.create count", async () => {
     const runtime = createDocsDemoRuntime()
     const course = await runtime.workflowClient.run("course.load", {
       courseId: runtime.lmsCourseEntityId,
@@ -163,38 +184,49 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
       undefined,
     )
 
-    const designPlan = planRepositoryOperation(course, "a1", "create")
-    const pipelinePlan = planRepositoryOperation(course, "a3", "create")
+    const calculatorPlan = planRepositoryOperation(
+      course,
+      "calculator",
+      "create",
+    )
+    const huffmanPlan = planRepositoryOperation(
+      course,
+      "huffman-encoder",
+      "create",
+    )
 
-    const designGroupIds = plannedGroupIds(designPlan)
-    const pipelineGroupIds = plannedGroupIds(pipelinePlan)
-    const overlap = designGroupIds.filter((groupId) =>
-      pipelineGroupIds.includes(groupId),
+    const calculatorGroupIds = plannedGroupIds(calculatorPlan)
+    const huffmanGroupIds = plannedGroupIds(huffmanPlan)
+    const overlap = calculatorGroupIds.filter((groupId) =>
+      huffmanGroupIds.includes(groupId),
     )
     assert.deepEqual(overlap, [])
-    assert.equal(designGroupIds.length > 0, true)
-    assert.equal(pipelineGroupIds.length > 0, true)
+    assert.equal(calculatorGroupIds.length > 0, true)
+    assert.equal(huffmanGroupIds.length > 0, true)
 
-    const designResult = await runtime.workflowClient.run("repo.create", {
+    const calculatorResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a1",
+      assignmentId: "calculator",
       template: null,
     })
-    assert.equal(designResult.repositoriesPlanned, designGroupIds.length)
+    assert.equal(
+      calculatorResult.repositoriesPlanned,
+      calculatorGroupIds.length,
+    )
 
-    const pipelineResult = await runtime.workflowClient.run("repo.create", {
+    const huffmanResult = await runtime.workflowClient.run("repo.create", {
       course,
       appSettings,
-      assignmentId: "a3",
+      assignmentId: "huffman-encoder",
       template: null,
     })
-    assert.equal(pipelineResult.repositoriesPlanned, pipelineGroupIds.length)
+    assert.equal(huffmanResult.repositoriesPlanned, huffmanGroupIds.length)
   })
 })
 
 describe("docs fixture integration: recorded analysis git mocks", () => {
-  it("seeds an analysis document and supports discovery, filtered log analysis, and blame", async () => {
+  it("seeds analysis documents and supports discovery, filtered log analysis, and blame", async () => {
     const runtime = createDocsDemoRuntime()
     const documents = await runtime.workflowClient.run(
       "documents.list",
@@ -202,8 +234,7 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
     )
     const analysisSummary = documents.find(
       (document) =>
-        document.kind === "analysis" &&
-        document.displayName === "Arithmetic Expression Evaluator",
+        document.kind === "analysis" && document.id === runtime.analysisId,
     )
     assert.ok(analysisSummary)
 
@@ -212,6 +243,22 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
     })
     assert.equal(analysis.searchFolder, runtime.analysisFixtureRootPath)
     assert.deepEqual(analysis.analysisInputs.extensions, ["py"])
+
+    const analyses = await Promise.all(
+      documents
+        .filter((document) => document.kind === "analysis")
+        .map((document) =>
+          runtime.workflowClient.run("analyses.load", {
+            analysisId: document.id,
+          }),
+        ),
+    )
+    assert.ok(
+      analyses.every(
+        (seededAnalysis) =>
+          seededAnalysis.searchFolder === runtime.analysisFixtureRootPath,
+      ),
+    )
 
     const discovered = await runtime.workflowClient.run(
       "analysis.discoverRepos",
@@ -223,9 +270,12 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
     assert.deepEqual(
       discovered.repos.map((repo) => repo.name),
       [
-        "adeyemi-lindqvist-ramaswamy",
-        "eriksen-okafor-raman",
-        "lindqvist-okafor-tanaka",
+        "calculator-adeyemi-lindqvist-ramaswamy",
+        "calculator-eriksen-okafor-raman",
+        "calculator-lindqvist-okafor-tanaka",
+        "huffman-encoder-team-01",
+        "huffman-encoder-team-02",
+        "huffman-encoder-team-03",
       ],
     )
 
