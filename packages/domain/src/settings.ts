@@ -1,7 +1,8 @@
 import { z } from "zod"
 import type { AnalysisBlameConfig } from "./analysis/config-types.js"
 import { DEFAULT_EXTENSIONS, extensionsSchema } from "./analysis/schemas.js"
-import type { AnalysisInputs, CourseBacking, GitProviderKind } from "./types.js"
+import { type AnalysisInputs, analysisInputsSchema } from "./analysis-inputs.js"
+import type { CourseBacking, GitProviderKind } from "./types.js"
 import { gitProviderKinds, persistedAppSettingsKind } from "./types.js"
 
 export const gitProviderDefaultBaseUrls: Record<GitProviderKind, string> = {
@@ -144,36 +145,107 @@ const persistedAnalysisConcurrencySchema = z
   })
   .default({ repoParallelism: 3, filesPerRepo: 4 })
 
-export const persistedAppSettingsSchema = z.object({
-  kind: z.literal(persistedAppSettingsKind),
-  activeCourseId: z.string().nullable(),
-  activeTab: z
-    .enum(["roster", "groups-assignments", "analysis"])
-    .default("roster"),
-  lastUsedCourseBacking: z
-    .enum(["lms", "repobee"])
-    .nullable()
-    .optional() satisfies z.ZodType<CourseBacking | undefined>,
-  appearance: appAppearanceSchema,
-  window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
-  lmsConnections: z.array(persistedLmsConnectionSchema),
-  gitConnections: z.array(persistedGitConnectionSchema),
-  activeGitConnectionId: z.string().nullable().default(null),
-  llmConnections: z.array(persistedLlmConnectionSchema),
-  activeLlmConnectionId: z.string().nullable(),
-  examinationModelsByProvider: examinationModelsByProviderSchema,
-  lastOpenedAt: z.string().nullable(),
-  rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
-  rosterColumnSizing: z.record(z.string(), z.number()).default({}),
-  groupsSidebarSize: z.number().nullable().default(null),
-  analysisSidebarSize: z.number().nullable().default(null),
-  analysisDetailListSize: z.number().nullable().default(null),
-  analysisSidebar: persistedAnalysisSidebarSettingsSchema
-    .nullable()
-    .default(null),
-  defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
-  analysisConcurrency: persistedAnalysisConcurrencySchema,
+export function normalizeAnalysisFolderPath(path: string): string | null {
+  const normalized = path.trim().replace(/\\/g, "/")
+  if (normalized.length === 0) {
+    return null
+  }
+  if (normalized === "/") {
+    return normalized
+  }
+  if (/^[a-zA-Z]:\/$/.test(normalized)) {
+    return normalized
+  }
+  return normalized.replace(/\/+$/, "")
+}
+
+export function normalizeRecentAnalysisFolders(
+  paths: readonly string[],
+): string[] {
+  const recent: string[] = []
+  const seen = new Set<string>()
+  for (const path of paths) {
+    const normalized = normalizeAnalysisFolderPath(path)
+    if (normalized === null || seen.has(normalized)) {
+      continue
+    }
+    recent.push(normalized)
+    seen.add(normalized)
+    if (recent.length >= 8) {
+      break
+    }
+  }
+  return recent
+}
+
+const analysisFolderPathSchema = z.string().transform((path, context) => {
+  const normalized = normalizeAnalysisFolderPath(path)
+  if (normalized === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Folder path must not be empty.",
+    })
+    return z.NEVER
+  }
+  return normalized
 })
+
+const persistedActiveSurfaceSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("course"),
+      courseId: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("folder"),
+      path: analysisFolderPathSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("none"),
+    })
+    .strict(),
+])
+
+export const persistedAppSettingsSchema = z
+  .object({
+    kind: z.literal(persistedAppSettingsKind),
+    activeSurface: persistedActiveSurfaceSchema.default({ kind: "none" }),
+    activeTab: z
+      .enum(["roster", "groups-assignments", "analysis"])
+      .default("roster"),
+    lastUsedCourseBacking: z
+      .enum(["lms", "repobee"])
+      .optional() satisfies z.ZodType<CourseBacking | undefined>,
+    recentAnalysisFolders: z
+      .array(z.string())
+      .default([])
+      .transform((paths) => normalizeRecentAnalysisFolders(paths)),
+    folderViewAnalysisInputs: analysisInputsSchema.default({}),
+    appearance: appAppearanceSchema,
+    window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
+    lmsConnections: z.array(persistedLmsConnectionSchema),
+    gitConnections: z.array(persistedGitConnectionSchema),
+    activeGitConnectionId: z.string().nullable().default(null),
+    llmConnections: z.array(persistedLlmConnectionSchema),
+    activeLlmConnectionId: z.string().nullable(),
+    examinationModelsByProvider: examinationModelsByProviderSchema,
+    lastOpenedAt: z.string().nullable(),
+    rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
+    rosterColumnSizing: z.record(z.string(), z.number()).default({}),
+    groupsSidebarSize: z.number().nullable().default(null),
+    analysisSidebarSize: z.number().nullable().default(null),
+    analysisDetailListSize: z.number().nullable().default(null),
+    analysisSidebar: persistedAnalysisSidebarSettingsSchema
+      .nullable()
+      .default(null),
+    defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
+    analysisConcurrency: persistedAnalysisConcurrencySchema,
+  })
+  .strict()
 
 // ---------------------------------------------------------------------------
 // Inferred persistence types
@@ -199,7 +271,26 @@ export type PersistedAnalysisSidebarSettings = z.infer<
 export type PersistedAnalysisConcurrency = z.infer<
   typeof persistedAnalysisConcurrencySchema
 >
+export type PersistedActiveSurface = z.infer<
+  typeof persistedActiveSurfaceSchema
+>
 export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
+
+export function normalizeActiveSurface(
+  surface: PersistedActiveSurface,
+): PersistedActiveSurface {
+  if (surface.kind !== "folder") {
+    return surface
+  }
+  const path = normalizeAnalysisFolderPath(surface.path)
+  return path === null ? { kind: "none" } : { kind: "folder", path }
+}
+
+export function activeCourseIdFromSurface(
+  surface: PersistedActiveSurface,
+): string | null {
+  return surface.kind === "course" ? surface.courseId : null
+}
 
 // ---------------------------------------------------------------------------
 // Active-Git-connection resolution
@@ -283,8 +374,10 @@ void _scopeDisjointGuard
 
 export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
-  activeCourseId: null,
+  activeSurface: { kind: "none" },
   activeTab: "roster",
+  recentAnalysisFolders: [],
+  folderViewAnalysisInputs: {},
   appearance: {
     theme: "system",
     windowChrome: "system",

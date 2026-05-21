@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type {
+  AnalysisBlameInput,
   AnalysisProgress,
   AnalysisRunInput,
   AppError,
@@ -76,6 +77,20 @@ const stubFileSystem: FileSystemPort = {
   },
 }
 
+function emptyPersonDb() {
+  return { persons: [], identityIndex: new Map<string, string>() }
+}
+
+async function assertValidationError(action: () => Promise<unknown>) {
+  try {
+    await action()
+    assert.fail("Should have thrown validation error")
+  } catch (error) {
+    assert.ok(isAppError(error))
+    assert.equal((error as AppError).type, "validation")
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -149,6 +164,41 @@ describe("analysis.run handler", () => {
     assert.equal(result.fileStats.length, 0)
     assert.equal(result.authorDailyActivity.length, 0)
     assert.equal(result.resolvedAsOfOid, "abc123def456")
+  })
+
+  it("accepts absolute repository paths without course source data", async () => {
+    const cwds: string[] = []
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        cwds.push(request.cwd ?? "")
+        const args = request.args.join(" ")
+        if (args.startsWith("rev-parse --git-dir")) {
+          return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
+        }
+        if (args.startsWith("rev-parse HEAD")) {
+          return { exitCode: 0, stdout: "abc123", stderr: "", signal: null }
+        }
+        if (args.startsWith("ls-tree")) {
+          return { exitCode: 0, stdout: "", stderr: "", signal: null }
+        }
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.run"]({
+      repositoryAbsolutePath: "/tmp/repos/absolute-repo",
+      config: {},
+      analysisSource: { kind: "folder" },
+    })
+
+    assert.equal(result.authorStats.length, 0)
+    assert.equal(result.resolvedAsOfOid, "abc123")
+    assert.ok(cwds.every((cwd) => cwd === "/tmp/repos/absolute-repo"))
   })
 
   it("emits progress events through all phases", async () => {
@@ -275,25 +325,28 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: {},
-      rosterContext: {
-        members: [
-          {
-            id: "m1",
-            name: "Alice",
-            email: "alice@example.com",
-            studentNumber: null,
-            gitUsername: null,
-            gitUsernameStatus: "unknown",
-            status: "active",
-            lmsStatus: null,
-            lmsUserId: null,
-            enrollmentType: "student",
-            enrollmentDisplay: null,
-            department: null,
-            institution: null,
-            source: "import",
-          },
-        ],
+      analysisSource: {
+        kind: "course",
+        rosterContext: {
+          members: [
+            {
+              id: "m1",
+              name: "Alice",
+              email: "alice@example.com",
+              studentNumber: null,
+              gitUsername: null,
+              gitUsernameStatus: "unknown",
+              status: "active",
+              lmsStatus: null,
+              lmsUserId: null,
+              enrollmentType: "student",
+              enrollmentDisplay: null,
+              department: null,
+              institution: null,
+              source: "import",
+            },
+          ],
+        },
       },
     })
 
@@ -318,6 +371,69 @@ describe("analysis.run handler", () => {
       assert.ok(isAppError(error))
       assert.equal((error as AppError).type, "validation")
     }
+  })
+
+  it("rejects relative repository paths without course source data", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.run"]({
+        repositoryRelativePath: "test-repo",
+        config: {},
+      } as unknown as AnalysisRunInput),
+    )
+  })
+
+  it("rejects inputs that set both repository path variants", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.run"]({
+        course: createMockCourse(),
+        repositoryRelativePath: "test-repo",
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+      } as unknown as AnalysisRunInput),
+    )
+  })
+
+  it("rejects legacy top-level roster context", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.run"]({
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+        rosterContext: { members: [] },
+      } as unknown as AnalysisRunInput),
+    )
+  })
+
+  it("rejects folder analysis source with roster context", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.run"]({
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+        analysisSource: {
+          kind: "folder",
+          rosterContext: { members: [] },
+        },
+      } as unknown as AnalysisRunInput),
+    )
   })
 
   it("assigns person ids and applies author exclusions to file stats", async () => {
@@ -491,6 +607,44 @@ describe("analysis.blame handler", () => {
     assert.equal(result.fileBlames.length, 0)
     assert.equal(result.authorSummaries.length, 0)
     assert.deepEqual(result.delta.newPersons, [])
+  })
+
+  it("accepts absolute repository paths without course source data", async () => {
+    const cwds: string[] = []
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        cwds.push(request.cwd ?? "")
+        const args = request.args.join(" ")
+        if (args.startsWith("rev-parse --git-dir")) {
+          return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
+        }
+        if (args.startsWith("rev-parse --verify")) {
+          return {
+            exitCode: 0,
+            stdout: "resolved-oid",
+            stderr: "",
+            signal: null,
+          }
+        }
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.blame"]({
+      repositoryAbsolutePath: "/tmp/repos/absolute-repo",
+      config: {},
+      personDbBaseline: emptyPersonDb(),
+      files: [],
+      asOfCommit: "abc123",
+    })
+
+    assert.equal(result.fileBlames.length, 0)
+    assert.ok(cwds.every((cwd) => cwd === "/tmp/repos/absolute-repo"))
   })
 
   it("respects AbortSignal", async () => {
@@ -684,6 +838,70 @@ describe("analysis.blame handler", () => {
       assert.ok(isAppError(error))
       assert.equal((error as AppError).type, "validation")
     }
+  })
+
+  it("rejects relative repository paths without course source data", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.blame"]({
+        repositoryRelativePath: "test-repo",
+        config: {},
+        personDbBaseline: emptyPersonDb(),
+        files: ["src/main.ts"],
+        asOfCommit: "abc123",
+      } as unknown as AnalysisBlameInput),
+    )
+  })
+
+  it("rejects inputs that set both repository path variants", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.blame"]({
+        course: createMockCourse(),
+        repositoryRelativePath: "test-repo",
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+        personDbBaseline: emptyPersonDb(),
+        files: ["src/main.ts"],
+        asOfCommit: "abc123",
+      } as unknown as AnalysisBlameInput),
+    )
+  })
+
+  it("rejects top-level roster context and analysis source enrichment", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({}),
+      fileSystem: stubFileSystem,
+    })
+
+    await assertValidationError(() =>
+      handlers["analysis.blame"]({
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+        personDbBaseline: emptyPersonDb(),
+        files: ["src/main.ts"],
+        asOfCommit: "abc123",
+        rosterContext: { members: [] },
+      } as unknown as AnalysisBlameInput),
+    )
+    await assertValidationError(() =>
+      handlers["analysis.blame"]({
+        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        config: {},
+        personDbBaseline: emptyPersonDb(),
+        files: ["src/main.ts"],
+        asOfCommit: "abc123",
+        analysisSource: { kind: "folder" },
+      } as unknown as AnalysisBlameInput),
+    )
   })
 
   it("applies blame file filters from AnalysisBlameConfig", async () => {

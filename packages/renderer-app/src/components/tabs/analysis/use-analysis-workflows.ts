@@ -6,13 +6,12 @@ import type { AnalysisConfig, AnalysisResult } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { useCallback, useEffect, useMemo } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
+import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
   analysisStoreInternals,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
-import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import { buildAnalysisStoreFingerprint } from "../../../utils/analysis-store-fingerprint.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
 import { resolveRunCompletionAction } from "./run-analysis-state.js"
@@ -41,7 +40,7 @@ async function mapBounded<T, R>(
 }
 
 export function useAnalysisWorkflows() {
-  const course = useCourseStore((s) => s.course)
+  const analysisContext = useAnalysisContext()
   const client = useWorkflowClient()
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
@@ -50,7 +49,6 @@ export function useAnalysisWorkflows() {
     (s) => s.settings.analysisConcurrency,
   )
 
-  const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const setResultForRepo = useAnalysisStore((s) => s.setResultForRepo)
   const pruneStaleResultsByFingerprint = useAnalysisStore(
@@ -75,15 +73,17 @@ export function useAnalysisWorkflows() {
   )
 
   const currentConfigFingerprint = useMemo(() => {
-    if (!course) return null
+    if (analysisContext.kind === "none") return null
     const config = resolveAnalysisConfig(
-      course,
+      {
+        searchFolder: analysisContext.searchFolder,
+        analysisInputs: analysisContext.analysisInputs,
+      },
       defaultExtensions,
       analysisConcurrency.filesPerRepo,
     )
-    const rosterContext = buildAnalysisRosterContext(course)
-    return buildAnalysisStoreFingerprint(config, rosterContext)
-  }, [analysisConcurrency.filesPerRepo, course, defaultExtensions])
+    return buildAnalysisStoreFingerprint(config, analysisContext.rosterContext)
+  }, [analysisConcurrency.filesPerRepo, analysisContext, defaultExtensions])
 
   useEffect(() => {
     if (!currentConfigFingerprint) return
@@ -92,8 +92,7 @@ export function useAnalysisWorkflows() {
 
   const runAnalysis = useCallback(
     async (repoPath: string, configOverride?: AnalysisConfig) => {
-      if (!course) return
-      const rosterContext = buildAnalysisRosterContext(course)
+      if (analysisContext.kind === "none") return
 
       const existing = analysisStoreInternals.analysisAborts.get(repoPath)
       existing?.abort()
@@ -113,12 +112,26 @@ export function useAnalysisWorkflows() {
         const result: AnalysisResult = await client.run(
           "analysis.run",
           {
-            course,
             repositoryAbsolutePath: repoPath,
             config:
               configOverride ??
-              resolveAnalysisConfig(course, defaultExtensions, filesPerRepo),
-            ...(rosterContext ? { rosterContext } : {}),
+              resolveAnalysisConfig(
+                {
+                  searchFolder: analysisContext.searchFolder,
+                  analysisInputs: analysisContext.analysisInputs,
+                },
+                defaultExtensions,
+                filesPerRepo,
+              ),
+            analysisSource:
+              analysisContext.kind === "course"
+                ? {
+                    kind: "course",
+                    ...(analysisContext.rosterContext
+                      ? { rosterContext: analysisContext.rosterContext }
+                      : {}),
+                  }
+                : { kind: "folder" },
           },
           {
             onProgress: (p: AnalysisProgress) => {
@@ -141,10 +154,17 @@ export function useAnalysisWorkflows() {
         }
         const effectiveConfig =
           configOverride ??
-          resolveAnalysisConfig(course, defaultExtensions, filesPerRepo)
+          resolveAnalysisConfig(
+            {
+              searchFolder: analysisContext.searchFolder,
+              analysisInputs: analysisContext.analysisInputs,
+            },
+            defaultExtensions,
+            filesPerRepo,
+          )
         const fingerprint = buildAnalysisStoreFingerprint(
           effectiveConfig,
-          rosterContext,
+          analysisContext.rosterContext,
         )
         setResultForRepo(repoPath, result, fingerprint)
         setWorkflowStatusForRepo(repoPath, "idle")
@@ -168,8 +188,8 @@ export function useAnalysisWorkflows() {
     },
     [
       analysisConcurrency,
+      analysisContext,
       client,
-      course,
       defaultExtensions,
       setErrorMessageForRepo,
       setProgressForRepo,
@@ -212,20 +232,26 @@ export function useAnalysisWorkflows() {
           setDiscoveryCurrentFolder(null)
           return
         }
-        setDiscoveredRepos(result.repos)
-        setLastDiscoveryOutcome("completed")
-        setDiscoveryStatus("idle")
-        setDiscoveryCurrentFolder(null)
-        if (result.repos.length > 0) {
-          const firstRepoPath = result.repos[0].path
+        const firstRepoPath = result.repos[0]?.path ?? null
+        if (firstRepoPath !== null) {
           const normalizedFolder = folder.replaceAll("\\", "/")
           const normalizedRepo = firstRepoPath.replaceAll("\\", "/")
           if (
             result.repos.length === 1 &&
             normalizedFolder.startsWith(`${normalizedRepo}/`)
           ) {
-            setSearchFolder(firstRepoPath)
+            if (analysisContext.kind === "folder") {
+              await analysisContext.activateFolderPath(firstRepoPath)
+            } else {
+              analysisContext.updateCourseSearchFolder(firstRepoPath)
+            }
           }
+        }
+        setDiscoveredRepos(result.repos)
+        setLastDiscoveryOutcome("completed")
+        setDiscoveryStatus("idle")
+        setDiscoveryCurrentFolder(null)
+        if (result.repos.length > 0) {
           // Select the first repo immediately so the UI shows something;
           // background repos surface via per-repo status badges.
           setSelectedRepoPath(firstRepoPath)
@@ -259,9 +285,9 @@ export function useAnalysisWorkflows() {
     },
     [
       analysisConcurrency,
+      analysisContext,
       client,
       runAnalysis,
-      setSearchFolder,
       setSelectedRepoPath,
       setDiscoveryStatus,
       setDiscoveryError,

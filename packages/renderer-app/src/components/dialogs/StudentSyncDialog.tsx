@@ -25,13 +25,13 @@ import {
   selectCourseStatus,
   useCourseStore,
 } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 export function StudentSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
-  const activeCourseId = useUiStore((state) => state.activeCourseId)
+  const activeCourseId = useUiStore(selectActiveCourseId)
   const course = useCourseStore((state) => state.course)
   const courseStatus = useCourseStore(selectCourseStatus)
   const appSettings = useAppSettingsStore((state) => state.settings)

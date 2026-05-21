@@ -200,7 +200,7 @@ describe("application repository create workflow helpers", () => {
         if (assignment) {
           assignment.repositoryTemplate = assignmentTemplate
         }
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",
@@ -246,7 +246,7 @@ describe("application repository create workflow helpers", () => {
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
         course.organization = "repo-edu"
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",

@@ -435,12 +435,22 @@ export type AnalysisProgress = {
   partialAuthorLines?: ReadonlyArray<{ personId: string; lines: number }>
 }
 
-export type AnalysisRepositoryInput = {
-  course: PersistedCourse
-} & (
-  | { repositoryRelativePath: string; repositoryAbsolutePath?: undefined }
-  | { repositoryAbsolutePath: string; repositoryRelativePath?: undefined }
-)
+export type AnalysisCourseRepositorySource = Pick<
+  PersistedCourse,
+  "repositoryCloneTargetDirectory"
+>
+
+export type AnalysisRepositoryInput =
+  | {
+      repositoryRelativePath: string
+      repositoryAbsolutePath?: undefined
+      course: AnalysisCourseRepositorySource
+    }
+  | {
+      repositoryAbsolutePath: string
+      repositoryRelativePath?: undefined
+      course?: undefined
+    }
 
 export type AnalysisDiscoverReposInput = {
   searchFolder: string
@@ -460,9 +470,13 @@ export type DiscoverReposProgress = {
   currentFolder: string
 }
 
+export type AnalysisRunSource =
+  | { kind: "course"; rosterContext?: AnalysisRosterContext }
+  | { kind: "folder" }
+
 export type AnalysisRunInput = AnalysisRepositoryInput & {
   config: AnalysisConfig
-  rosterContext?: AnalysisRosterContext
+  analysisSource?: AnalysisRunSource
   asOfCommit?: string
 }
 

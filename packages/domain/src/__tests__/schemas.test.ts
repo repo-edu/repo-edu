@@ -27,7 +27,7 @@ describe("validatePersistedAppSettings", () => {
   it("accepts settings with populated connections", () => {
     const settings = {
       ...defaultAppSettings,
-      activeCourseId: "abc-123",
+      activeSurface: { kind: "course", courseId: "abc-123" },
       lastOpenedAt: "2026-03-04T10:00:00Z",
       lmsConnections: [
         {
@@ -182,7 +182,7 @@ describe("validatePersistedAppSettings", () => {
     assert.equal(result.ok, false)
   })
 
-  it("preserves omitted and null last-used course backing distinctly", () => {
+  it("preserves omitted last-used course backing and rejects null", () => {
     const omitted = validatePersistedAppSettings(defaultAppSettings)
     assert.equal(omitted.ok, true)
     if (omitted.ok) {
@@ -193,10 +193,66 @@ describe("validatePersistedAppSettings", () => {
       ...defaultAppSettings,
       lastUsedCourseBacking: null,
     })
-    assert.equal(noBacking.ok, true)
-    if (noBacking.ok) {
-      assert.equal(noBacking.value.lastUsedCourseBacking, null)
+    assert.equal(noBacking.ok, false)
+  })
+
+  it("normalizes active folder surfaces and recent analysis folders", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: { kind: "folder", path: " /tmp/repos\\course/ " },
+      recentAnalysisFolders: [
+        " /tmp/repos\\course/ ",
+        "/tmp/repos/course",
+        "",
+        "/tmp/repos/other",
+      ],
+    })
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.deepStrictEqual(result.value.activeSurface, {
+        kind: "folder",
+        path: "/tmp/repos/course",
+      })
+      assert.deepStrictEqual(result.value.recentAnalysisFolders, [
+        "/tmp/repos/course",
+        "/tmp/repos/other",
+      ])
     }
+  })
+
+  it("rejects malformed active-surface shapes", () => {
+    const courseAndFolder = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: {
+        kind: "course",
+        courseId: "course-1",
+        path: "/tmp/repos",
+      },
+    })
+    assert.equal(courseAndFolder.ok, false)
+
+    const emptyFolder = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: { kind: "folder", path: "  " },
+    })
+    assert.equal(emptyFolder.ok, false)
+  })
+
+  it("rejects legacy app settings kind", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      kind: "repo-edu.app-settings.v1",
+      activeCourseId: "course-1",
+    })
+    assert.equal(result.ok, false)
+  })
+
+  it("rejects legacy activeCourseId fields on current settings", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeCourseId: "course-1",
+    })
+    assert.equal(result.ok, false)
   })
 })
 
@@ -250,25 +306,6 @@ describe("validatePersistedCourse", () => {
     }
   })
 
-  it("accepts a no-backing course with an empty roster surface", () => {
-    const course = createBlankCourse(
-      "analysis-course",
-      "2026-03-04T10:00:00Z",
-      {
-        backing: null,
-        displayName: "Standalone Analysis",
-        searchFolder: "/tmp/repo",
-      },
-    )
-
-    const result = validatePersistedCourse(course)
-    assert.equal(result.ok, true)
-    if (result.ok) {
-      assert.equal(result.value.backing, null)
-      assert.deepStrictEqual(result.value.roster.students, [])
-    }
-  })
-
   it("normalizes blank course fields that are incompatible with backing", () => {
     const repositoryTemplate = {
       kind: "remote" as const,
@@ -295,54 +332,17 @@ describe("validatePersistedCourse", () => {
     assert.equal(repobeeCourse.organization, "course-org")
     assert.deepEqual(repobeeCourse.repositoryTemplate, repositoryTemplate)
     assert.equal(validatePersistedCourse(repobeeCourse).ok, true)
-
-    const noBackingCourse = createBlankCourse(
-      "analysis-course",
-      "2026-03-04T10:00:00Z",
-      {
-        backing: null,
-        displayName: "Standalone Analysis",
-        lmsConnectionName: "Canvas",
-        lmsCourseId: "canvas-course-1",
-        organization: "course-org",
-        repositoryTemplate,
-        repositoryCloneTargetDirectory: "/tmp/repos",
-        repositoryCloneDirectoryLayout: "by-team",
-      },
-    )
-    assert.equal(noBackingCourse.lmsConnectionName, null)
-    assert.equal(noBackingCourse.lmsCourseId, null)
-    assert.equal(noBackingCourse.organization, null)
-    assert.equal(noBackingCourse.repositoryTemplate, null)
-    assert.equal(noBackingCourse.repositoryCloneTargetDirectory, null)
-    assert.equal(noBackingCourse.repositoryCloneDirectoryLayout, null)
-    assert.equal(validatePersistedCourse(noBackingCourse).ok, true)
   })
 
-  it("rejects no-backing courses with roster or repository-management state", () => {
-    const course = createBlankCourse(
-      "analysis-course",
-      "2026-03-04T10:00:00Z",
-      {
-        backing: null,
-        displayName: "Standalone Analysis",
-      },
-    )
+  it("rejects null course backing", () => {
     const result = validatePersistedCourse({
-      ...course,
-      organization: "course-org",
-      roster: {
-        ...course.roster,
-        assignments: [{ id: "a1", name: "HW1", groupSetId: "gs_0001" }],
-      },
+      ...validProfile,
+      backing: null,
     })
 
     assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(
-        result.issues.some((issue) => issue.path === "roster.assignments"),
-      )
-      assert.ok(result.issues.some((issue) => issue.path === "organization"))
+      assert.ok(result.issues.some((issue) => issue.path === "backing"))
     }
   })
 

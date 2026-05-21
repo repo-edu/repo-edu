@@ -1,3 +1,4 @@
+import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
 import type { ActiveTab, CourseBacking } from "@repo-edu/domain/types"
 
 export type CourseTabVisibility = {
@@ -7,7 +8,7 @@ export type CourseTabVisibility = {
 }
 
 export function resolveTabVisibility(
-  backing: CourseBacking | undefined,
+  backing: CourseBacking | "folder" | undefined,
 ): CourseTabVisibility {
   if (backing === undefined) {
     return {
@@ -17,7 +18,7 @@ export function resolveTabVisibility(
     }
   }
 
-  if (backing === null) {
+  if (backing === "folder") {
     return {
       roster: false,
       groupsAssignments: false,
@@ -42,7 +43,7 @@ export function resolveTabVisibility(
 
 export function resolveSupportedActiveTab(
   activeTab: ActiveTab,
-  backing: CourseBacking | undefined,
+  backing: CourseBacking | "folder" | undefined,
 ): ActiveTab {
   if (backing === undefined) return activeTab
 
@@ -53,4 +54,13 @@ export function resolveSupportedActiveTab(
   }
   if (activeTab === "analysis" && visibility.analysis) return activeTab
   return visibility.groupsAssignments ? "groups-assignments" : "analysis"
+}
+
+export function surfaceTabBacking(
+  surface: PersistedActiveSurface,
+  courseBacking: CourseBacking | undefined,
+): CourseBacking | "folder" | undefined {
+  if (surface.kind === "folder") return "folder"
+  if (surface.kind === "course") return courseBacking
+  return undefined
 }

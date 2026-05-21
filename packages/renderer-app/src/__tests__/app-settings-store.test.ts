@@ -56,14 +56,17 @@ describe("app settings store", () => {
 
     gate.resolve(
       makeSettings({
-        activeCourseId: "course-1",
+        activeSurface: { kind: "course", courseId: "course-1" },
       }),
     )
     await loadPromise
 
     const state = useAppSettingsStore.getState()
     assert.equal(state.status, "loaded")
-    assert.equal(state.settings.activeCourseId, "course-1")
+    assert.deepStrictEqual(state.settings.activeSurface, {
+      kind: "course",
+      courseId: "course-1",
+    })
   })
 
   it("keeps local mutations visible during save and returns to loaded status", async () => {
@@ -75,14 +78,16 @@ describe("app settings store", () => {
     setWorkflowClient(client as unknown as WorkflowClient)
 
     await useAppSettingsStore.getState().load()
-    useAppSettingsStore.getState().setActiveCourseId("course-2")
+    useAppSettingsStore
+      .getState()
+      .setActiveSurface({ kind: "course", courseId: "course-2" })
     useAppSettingsStore.getState().setTheme("dark")
 
     const savePromise = useAppSettingsStore.getState().save()
     assert.equal(useAppSettingsStore.getState().status, "saving")
-    assert.equal(
-      useAppSettingsStore.getState().settings.activeCourseId,
-      "course-2",
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.activeSurface,
+      { kind: "course", courseId: "course-2" },
     )
     assert.equal(
       useAppSettingsStore.getState().settings.appearance.theme,
@@ -91,7 +96,7 @@ describe("app settings store", () => {
 
     saveGate.resolve(
       makeSettings({
-        activeCourseId: "course-2",
+        activeSurface: { kind: "course", courseId: "course-2" },
         appearance: {
           theme: "dark",
           windowChrome: "system",
@@ -128,6 +133,53 @@ describe("app settings store", () => {
     assert.deepStrictEqual(
       useAppSettingsStore.getState().settings.defaultExtensions,
       ["ts", "js", "py"],
+    )
+  })
+
+  it("pushes recent folders with normalization, move-to-front, and cap", () => {
+    const store = useAppSettingsStore.getState()
+
+    for (const path of [
+      "/repos/one",
+      "/repos/two",
+      "/repos/three",
+      "/repos/four",
+      "/repos/five",
+      "/repos/six",
+      "/repos/seven",
+      "/repos/eight",
+      "/repos/nine",
+      " /repos\\three/ ",
+    ]) {
+      store.pushRecentFolder(path)
+    }
+
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.recentAnalysisFolders,
+      [
+        "/repos/three",
+        "/repos/nine",
+        "/repos/eight",
+        "/repos/seven",
+        "/repos/six",
+        "/repos/five",
+        "/repos/four",
+        "/repos/two",
+      ],
+    )
+  })
+
+  it("removes recent folders by normalized path", () => {
+    const store = useAppSettingsStore.getState()
+    store.pushRecentFolder("/repos/one")
+    store.pushRecentFolder("/repos/two")
+    store.pushRecentFolder("/repos/three")
+
+    store.removeRecentFolder(" /repos\\two/ ")
+
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.recentAnalysisFolders,
+      ["/repos/three", "/repos/one"],
     )
   })
 

@@ -12,7 +12,7 @@ import type {
   IdentityMatch,
 } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
-import type { PersistedCourse } from "@repo-edu/domain/types"
+import type { AnalysisCore } from "@repo-edu/domain/types"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { create } from "zustand"
 import { authorColorMap } from "../utils/author-colors.js"
@@ -1040,7 +1040,7 @@ export const selectFilteredFileStats = (() => {
 })()
 
 export const buildEffectiveBlameWorkflowConfig = (
-  course: PersistedCourse,
+  course: AnalysisCore,
   blameConfig: AnalysisBlameConfig,
   defaultExtensions: string[],
   maxConcurrency: number,

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { analysisInputsSchema } from "./analysis-inputs.js"
 import {
   type PersistedAppSettings,
   persistedAppSettingsSchema,
@@ -17,22 +18,6 @@ import {
   persistedCourseKind,
 } from "./types.js"
 
-export const analysisInputsSchema = z.object({
-  since: z.string().optional(),
-  until: z.string().optional(),
-  subfolder: z.string().optional(),
-  extensions: z.array(z.string()).optional(),
-  includeFiles: z.array(z.string()).optional(),
-  excludeFiles: z.array(z.string()).optional(),
-  excludeAuthors: z.array(z.string()).optional(),
-  excludeEmails: z.array(z.string()).optional(),
-  excludeRevisions: z.array(z.string()).optional(),
-  excludeMessages: z.array(z.string()).optional(),
-  nFiles: z.number().int().min(1).optional(),
-  whitespace: z.boolean().optional(),
-  blameSkip: z.boolean().optional(),
-})
-
 // ---------------------------------------------------------------------------
 // Internal zod schema definitions
 // ---------------------------------------------------------------------------
@@ -41,7 +26,7 @@ const memberStatusSchema = z.enum(memberStatusKinds)
 const gitUsernameStatusSchema = z.enum(gitUsernameStatusKinds)
 const enrollmentTypeSchema = z.enum(enrollmentTypeKinds)
 const groupOriginSchema = z.enum(groupOriginKinds)
-const courseBackingSchema = z.enum(["lms", "repobee"]).nullable()
+const courseBackingSchema = z.enum(["lms", "repobee"])
 const localMemberIdSchema = z.string().regex(/^m_\d{4,}$/)
 const localGroupIdSchema = z.string().regex(/^g_\d{4,}$/)
 const localGroupSetIdSchema = z.string().regex(/^gs_\d{4,}$/)
@@ -333,70 +318,6 @@ export const persistedCourseSchema = z
           )
         }
       })
-    }
-
-    if (course.backing !== null) {
-      return
-    }
-
-    const emptyRosterChecks: Array<[boolean, Array<string | number>, string]> =
-      [
-        [
-          course.roster.connection === null,
-          ["roster", "connection"],
-          "No-backing courses must not carry a roster connection.",
-        ],
-        [
-          course.roster.students.length === 0,
-          ["roster", "students"],
-          "No-backing courses must not carry students.",
-        ],
-        [
-          course.roster.staff.length === 0,
-          ["roster", "staff"],
-          "No-backing courses must not carry staff.",
-        ],
-        [
-          course.roster.groups.length === 0,
-          ["roster", "groups"],
-          "No-backing courses must not carry groups.",
-        ],
-        [
-          course.roster.groupSets.length === 0,
-          ["roster", "groupSets"],
-          "No-backing courses must not carry group sets.",
-        ],
-        [
-          course.roster.assignments.length === 0,
-          ["roster", "assignments"],
-          "No-backing courses must not carry assignments.",
-        ],
-        [
-          course.organization === null,
-          ["organization"],
-          "No-backing courses must not carry a repository organization.",
-        ],
-        [
-          course.repositoryTemplate === null,
-          ["repositoryTemplate"],
-          "No-backing courses must not carry a repository template.",
-        ],
-        [
-          course.repositoryCloneTargetDirectory === null,
-          ["repositoryCloneTargetDirectory"],
-          "No-backing courses must not carry a clone target directory.",
-        ],
-        [
-          course.repositoryCloneDirectoryLayout === null,
-          ["repositoryCloneDirectoryLayout"],
-          "No-backing courses must not carry a clone directory layout.",
-        ],
-      ]
-
-    for (const [valid, path, message] of emptyRosterChecks) {
-      if (!valid) {
-        addCourseInvariantIssue(context, path, message)
-      }
     }
   })
 

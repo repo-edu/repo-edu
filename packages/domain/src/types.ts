@@ -1,8 +1,11 @@
 import type { AnalysisConfig } from "./analysis/config-types.js"
+import type { AnalysisInputs } from "./analysis-inputs.js"
+
+export type { AnalysisInputs } from "./analysis-inputs.js"
 
 export const packageId = "@repo-edu/domain"
 
-export const persistedAppSettingsKind = "repo-edu.app-settings.v1" as const
+export const persistedAppSettingsKind = "repo-edu.app-settings.v2" as const
 export const persistedCourseKind = "repo-edu.course.v1" as const
 
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
@@ -20,7 +23,7 @@ export const groupOriginKinds = ["system", "lms", "local"] as const
 
 export type LmsProviderKind = "canvas" | "moodle"
 export type GitProviderKind = (typeof gitProviderKinds)[number]
-export type CourseBacking = "lms" | "repobee" | null
+export type CourseBacking = "lms" | "repobee"
 export type ProviderKind = LmsProviderKind | GitProviderKind | "git"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]
 export type MemberStatus = (typeof memberStatusKinds)[number]
@@ -194,11 +197,8 @@ export type IdSequences = {
   nextTeamSeq: number
 }
 
-export type AnalysisInputs = Omit<AnalysisConfig, "maxConcurrency">
-
 /**
- * Analysis configuration embedded in a course. No-backing courses use this
- * surface without roster, LMS, or repository-management state.
+ * Analysis configuration embedded in a course.
  * Functions that only need analysis configuration accept AnalysisCore directly.
  */
 export type AnalysisCore = {
@@ -236,7 +236,8 @@ export function courseSupportsRepoBeeGroups(course: PersistedCourse): boolean {
 }
 
 export function courseHasGroups(course: PersistedCourse): boolean {
-  return course.backing !== null
+  void course
+  return true
 }
 
 export function resolveAnalysisConfig(
@@ -249,7 +250,7 @@ export function resolveAnalysisConfig(
 }
 
 export type BlankCourseFields = {
-  backing?: CourseBacking
+  backing: CourseBacking
   displayName: string
   lmsConnectionName?: string | null
   organization?: string | null
@@ -266,9 +267,8 @@ export function createBlankCourse(
   updatedAt: string,
   fields: BlankCourseFields,
 ): PersistedCourse {
-  const backing = fields.backing === undefined ? "lms" : fields.backing
+  const backing = fields.backing
   const supportsLms = backing === "lms"
-  const supportsCourseManagement = backing !== null
 
   return {
     kind: persistedCourseKind,
@@ -277,9 +277,7 @@ export function createBlankCourse(
     id,
     displayName: fields.displayName,
     lmsConnectionName: supportsLms ? (fields.lmsConnectionName ?? null) : null,
-    organization: supportsCourseManagement
-      ? (fields.organization ?? null)
-      : null,
+    organization: fields.organization ?? null,
     lmsCourseId: supportsLms ? (fields.lmsCourseId ?? null) : null,
     idSequences: initialIdSequences(),
     roster: {
@@ -290,15 +288,11 @@ export function createBlankCourse(
       groupSets: [],
       assignments: [],
     },
-    repositoryTemplate: supportsCourseManagement
-      ? (fields.repositoryTemplate ?? null)
-      : null,
-    repositoryCloneTargetDirectory: supportsCourseManagement
-      ? (fields.repositoryCloneTargetDirectory ?? null)
-      : null,
-    repositoryCloneDirectoryLayout: supportsCourseManagement
-      ? (fields.repositoryCloneDirectoryLayout ?? null)
-      : null,
+    repositoryTemplate: fields.repositoryTemplate ?? null,
+    repositoryCloneTargetDirectory:
+      fields.repositoryCloneTargetDirectory ?? null,
+    repositoryCloneDirectoryLayout:
+      fields.repositoryCloneDirectoryLayout ?? null,
     searchFolder: fields.searchFolder ?? null,
     analysisInputs: fields.analysisInputs ?? {},
     updatedAt,

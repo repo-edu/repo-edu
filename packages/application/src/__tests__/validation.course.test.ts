@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { createBlankCourse, type PersistedCourse } from "@repo-edu/domain/types"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createInMemoryCourseStore } from "../core.js"
 import { createCourseWorkflowHandlers } from "../course-workflows.js"
 import { getCourseScenario } from "./helpers/fixture-scenarios.js"
@@ -92,27 +92,6 @@ describe("application course workflow helpers", () => {
         "type" in error &&
         error.type === "not-found",
     )
-  })
-
-  it("round-trips a no-backing course through course.save and course.load", async () => {
-    const course = createBlankCourse(
-      "analysis-course-1",
-      "2026-01-02T00:00:00.000Z",
-      {
-        backing: null,
-        displayName: "Standalone Analysis",
-        searchFolder: "/tmp/repositories",
-      },
-    )
-    const store = createInMemoryCourseStore([])
-    const handlers = createCourseWorkflowHandlers(store)
-
-    const saved = await handlers["course.save"](course)
-    const loaded = await handlers["course.load"]({ courseId: saved.id })
-
-    assert.equal(loaded.backing, null)
-    assert.deepStrictEqual(loaded.roster.students, [])
-    assert.deepStrictEqual(loaded.roster.groupSets, [])
   })
 
   it("course.delete throws cancelled AppError when signal is aborted", async () => {

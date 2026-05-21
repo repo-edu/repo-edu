@@ -22,7 +22,7 @@ export function createRepoHarness(options?: {
     { tier: "small", preset: "shared-teams" },
     ({ course, settings }) => {
       course.organization = "repo-edu"
-      settings.activeCourseId = course.id
+      settings.activeSurface = { kind: "course", courseId: course.id }
       settings.gitConnections = [
         {
           id: "main-git",

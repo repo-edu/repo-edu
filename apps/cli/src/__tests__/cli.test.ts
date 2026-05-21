@@ -8,7 +8,10 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  defaultAppSettings,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   applyFixtureSourceOverlay,
@@ -173,26 +176,12 @@ function makeProfile(): PersistedCourse {
 
 function makeSettings(activeCourseId: string | null): PersistedAppSettings {
   return {
-    kind: "repo-edu.app-settings.v1",
-    activeCourseId,
+    ...defaultAppSettings,
+    activeSurface:
+      activeCourseId === null
+        ? { kind: "none" }
+        : { kind: "course", courseId: activeCourseId },
     activeTab: "roster",
-    appearance: {
-      theme: "system",
-      windowChrome: "system",
-      dateFormat: "DMY",
-      timeFormat: "24h",
-      syntaxTheme: "plus",
-    },
-    window: { width: 1180, height: 760 },
-    lmsConnections: [],
-    gitConnections: [],
-    activeGitConnectionId: null,
-    llmConnections: [],
-    activeLlmConnectionId: null,
-    examinationModelsByProvider: {},
-    lastOpenedAt: null,
-    rosterColumnVisibility: {},
-    rosterColumnSizing: {},
   }
 }
 

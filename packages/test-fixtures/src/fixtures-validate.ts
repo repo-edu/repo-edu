@@ -89,7 +89,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
       const course = fixture.course
       const settings = fixture.settings
 
-      if (preset !== "repobee-teams" && preset !== "no-backing") {
+      if (preset !== "repobee-teams") {
         if (course.roster.students.length !== expectedCounts.students) {
           fail(
             `${tier}/${preset}: expected ${expectedCounts.students} students, got ${course.roster.students.length}`,
@@ -103,9 +103,12 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         }
       }
 
-      if (settings.activeCourseId !== course.id) {
+      if (
+        settings.activeSurface.kind !== "course" ||
+        settings.activeSurface.courseId !== course.id
+      ) {
         fail(
-          `${tier}/${preset}: activeCourseId '${settings.activeCourseId}' must match course id '${course.id}'`,
+          `${tier}/${preset}: activeSurface must match course id '${course.id}'`,
         )
       }
 
@@ -149,7 +152,7 @@ export function validateFixtureMatrix(matrix: FixtureMatrix): void {
         .filter(
           (issue) =>
             !(
-              (preset === "repobee-teams" || preset === "no-backing") &&
+              preset === "repobee-teams" &&
               issue.kind === "system_group_sets_missing"
             ),
         )

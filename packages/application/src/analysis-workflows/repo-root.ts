@@ -2,12 +2,12 @@ import type { AppError } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 
 type AnalysisRepositoryInputLike = {
-  course: Pick<PersistedCourse, "repositoryCloneTargetDirectory">
-  repositoryRelativePath?: string
-  repositoryAbsolutePath?: string
+  course?: Pick<PersistedCourse, "repositoryCloneTargetDirectory">
+  repositoryRelativePath?: unknown
+  repositoryAbsolutePath?: unknown
 }
 
-function validationError(message: string, path: string): AppError {
+export function validationError(message: string, path: string): AppError {
   return {
     type: "validation",
     message,
@@ -70,18 +70,64 @@ function normalizeAbsolutePath(absolutePath: string): string {
 export function resolveAnalysisRepoRoot(
   input: AnalysisRepositoryInputLike,
 ): string {
-  if (input.repositoryAbsolutePath) {
+  const hasRelative = input.repositoryRelativePath !== undefined
+  const hasAbsolute = input.repositoryAbsolutePath !== undefined
+
+  if (hasRelative && hasAbsolute) {
+    throw validationError(
+      "Only one repository path variant may be provided.",
+      "repositoryRelativePath",
+    )
+  }
+
+  if (hasAbsolute) {
+    if (input.course !== undefined) {
+      throw validationError(
+        "Absolute repository paths must not include course repository source data.",
+        "course",
+      )
+    }
+    if (typeof input.repositoryAbsolutePath !== "string") {
+      throw validationError(
+        "Repository absolute path must be a string.",
+        "repositoryAbsolutePath",
+      )
+    }
     return normalizeAbsolutePath(input.repositoryAbsolutePath)
   }
 
-  if (!input.repositoryRelativePath) {
+  if (!hasRelative) {
     throw validationError(
       "Either repositoryRelativePath or repositoryAbsolutePath is required.",
       "repositoryRelativePath",
     )
   }
+  if (typeof input.repositoryRelativePath !== "string") {
+    throw validationError(
+      "Repository relative path must be a string.",
+      "repositoryRelativePath",
+    )
+  }
+  if (
+    typeof input.course !== "object" ||
+    input.course === null ||
+    Array.isArray(input.course)
+  ) {
+    throw validationError(
+      "Relative repository paths require course repository source data.",
+      "course",
+    )
+  }
 
   const cloneTarget = input.course.repositoryCloneTargetDirectory
+  if (cloneTarget !== undefined && cloneTarget !== null) {
+    if (typeof cloneTarget !== "string") {
+      throw validationError(
+        "Course repository clone target directory must be a string.",
+        "course.repositoryCloneTargetDirectory",
+      )
+    }
+  }
   if (!cloneTarget) {
     throw validationError(
       "Course does not have a repository clone target directory configured.",

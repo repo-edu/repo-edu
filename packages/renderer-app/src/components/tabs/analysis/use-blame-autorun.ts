@@ -2,12 +2,12 @@ import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { BlameResult } from "@repo-edu/domain/analysis"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
+import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
   buildEffectiveBlameWorkflowConfig,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
 
 function stableStringify(value: unknown): string {
   if (value === null || value === undefined) return "null"
@@ -24,7 +24,7 @@ function stableStringify(value: unknown): string {
 }
 
 export function useBlameAutoRun() {
-  const course = useCourseStore((s) => s.course)
+  const analysisContext = useAnalysisContext()
   const client = useWorkflowClient()
 
   const result = useAnalysisStore((s) => s.result)
@@ -49,7 +49,7 @@ export function useBlameAutoRun() {
   )
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
-  const blameSkip = course?.analysisInputs.blameSkip ?? false
+  const blameSkip = analysisContext.analysisInputs.blameSkip ?? false
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const asOfCommit = useAnalysisStore((s) => s.asOfCommit)
   const defaultExtensions = useAppSettingsStore(
@@ -65,15 +65,25 @@ export function useBlameAutoRun() {
     analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo
   const effectiveBlameConfig = useMemo(
     () =>
-      course
+      analysisContext.kind !== "none"
         ? buildEffectiveBlameWorkflowConfig(
-            course,
+            {
+              searchFolder: analysisContext.searchFolder,
+              analysisInputs: analysisContext.analysisInputs,
+            },
             blameConfig,
             defaultExtensions,
             blameMaxConcurrency,
           )
         : blameConfig,
-    [course, blameConfig, defaultExtensions, blameMaxConcurrency],
+    [
+      analysisContext.kind,
+      analysisContext.searchFolder,
+      analysisContext.analysisInputs,
+      blameConfig,
+      defaultExtensions,
+      blameMaxConcurrency,
+    ],
   )
   const effectiveBlameConfigSnapshot = useMemo(
     () => stableStringify(effectiveBlameConfig),
@@ -86,7 +96,11 @@ export function useBlameAutoRun() {
   // must re-point the selectors at the stored per-repo entry without
   // clearing anything. Changes to `asOfCommit`, `blameConfig`, or
   // `blameSkip` for the currently selected repo still trigger abort+clear.
-  const contextSnapshot = `${course?.id ?? ""}\0${result?.resolvedAsOfOid ?? ""}\0${asOfCommit}\0${blameSkip ? "1" : "0"}\0${effectiveBlameConfigSnapshot}`
+  const contextSource =
+    analysisContext.activeSurface.kind === "course"
+      ? analysisContext.activeSurface.courseId
+      : (analysisContext.searchFolder ?? "")
+  const contextSnapshot = `${contextSource}\0${result?.resolvedAsOfOid ?? ""}\0${asOfCommit}\0${blameSkip ? "1" : "0"}\0${effectiveBlameConfigSnapshot}`
 
   useEffect(() => {
     if (blameContextSnapshot === null) {
@@ -129,7 +143,7 @@ export function useBlameAutoRun() {
   const runBlame = useCallback(
     async (filesToLoad: string[]) => {
       if (
-        !course ||
+        analysisContext.kind === "none" ||
         !selectedRepoPath ||
         !result ||
         filesToLoad.length === 0 ||
@@ -162,7 +176,6 @@ export function useBlameAutoRun() {
         const blameResultNew: BlameResult = await client.run(
           "analysis.blame",
           {
-            course,
             repositoryAbsolutePath: selectedRepoPath,
             config: effectiveBlameConfig,
             personDbBaseline: result.personDbBaseline,
@@ -233,9 +246,9 @@ export function useBlameAutoRun() {
     },
     [
       asOfCommit,
+      analysisContext.kind,
       blameSkip,
       client,
-      course,
       effectiveBlameConfig,
       result,
       selectedRepoPath,

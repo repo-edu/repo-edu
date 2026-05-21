@@ -24,7 +24,7 @@ import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
 import { parseBlameOutput } from "./blame-parser.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
-import { resolveAnalysisRepoRoot } from "./repo-root.js"
+import { resolveAnalysisRepoRoot, validationError } from "./repo-root.js"
 import { resolveSnapshotHead } from "./snapshot-engine.js"
 
 // ---------------------------------------------------------------------------
@@ -223,6 +223,20 @@ export function createAnalysisBlameHandler(
       options?: WorkflowCallOptions<AnalysisProgress, DiagnosticOutput>,
     ): Promise<BlameResult> => {
       try {
+        const raw = input as AnalysisBlameInput & Record<string, unknown>
+        if ("rosterContext" in raw) {
+          throw validationError(
+            "Blame analysis must not carry roster context.",
+            "rosterContext",
+          )
+        }
+        if ("analysisSource" in raw) {
+          throw validationError(
+            "Blame analysis must not carry analysis source enrichment.",
+            "analysisSource",
+          )
+        }
+
         // Phase 1: Validate config
         throwIfAborted(options?.signal)
         const validation = validateAnalysisBlameConfig(input.config)

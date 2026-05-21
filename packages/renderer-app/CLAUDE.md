@@ -21,8 +21,8 @@ It consumes:
 - `src/stores/*`: Zustand stores — `course-store.ts` (with `course-store-selectors.ts`), `app-settings-store.ts`, `connections-store.ts`, `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`, `ui-store.ts`, `toast-store.ts`
 - `src/stores/slices/*`: course store slices (`roster-actions.ts`, `lifecycle.ts`, `autosave.ts`, `history.ts`, `metadata-actions.ts`); roster-actions uses domain `id-allocator` for group/member creation
 - `src/components/*`: tabs, dialogs, sheets, settings panes (incl. LMS / Git / LLM connection panes; per-provider examination model picker)
-- `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; no-backing courses (`backing: null`) expose only the analysis surface
-- `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, etc.)
+- `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; folder analysis uses the active-surface settings state instead of a course document
+- `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, `use-active-surface-navigation`, `use-analysis-context`, etc.); active-surface navigation owns course/folder switching, save-before-leave behavior, recents updates, tab fallback, and analysis-context reset
 - `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained for course ID generation
 
 ## Rules

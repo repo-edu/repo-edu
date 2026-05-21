@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  defaultAppSettings,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import type {
   PersistedCourse,
   RepositoryTemplate,
@@ -48,30 +51,9 @@ const course: PersistedCourse = {
 }
 
 const appSettings: PersistedAppSettings = {
-  kind: "repo-edu.app-settings.v1",
-  activeCourseId: course.id,
+  ...defaultAppSettings,
+  activeSurface: { kind: "course", courseId: course.id },
   activeTab: "roster",
-  appearance: {
-    theme: "system",
-    windowChrome: "system",
-    dateFormat: "DMY",
-    timeFormat: "24h",
-    syntaxTheme: "plus",
-  },
-  window: { width: 1180, height: 760 },
-  lmsConnections: [],
-  gitConnections: [],
-  activeGitConnectionId: null,
-  llmConnections: [],
-  activeLlmConnectionId: null,
-  examinationModelsByProvider: {},
-  lastOpenedAt: null,
-  rosterColumnVisibility: {},
-  rosterColumnSizing: {},
-  groupsSidebarSize: null,
-  analysisSidebarSize: null,
-  analysisDetailListSize: null,
-  analysisSidebar: null,
   defaultExtensions: [],
   analysisConcurrency: { repoParallelism: 3, filesPerRepo: 1 },
 }

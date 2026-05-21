@@ -3,7 +3,6 @@ export const fixturePresets = [
   "shared-teams",
   "task-groups",
   "repobee-teams",
-  "no-backing",
 ] as const
 
 export type FixtureTier = (typeof fixtureTiers)[number]

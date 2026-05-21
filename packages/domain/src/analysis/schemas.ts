@@ -24,13 +24,13 @@ function isValidCalendarDate(value: string): boolean {
   )
 }
 
-const yyyymmddSchema = z
+export const yyyymmddSchema = z
   .string()
   .check(
     z.refine((v) => isValidCalendarDate(v), "Must be a valid YYYY-MM-DD date"),
   )
 
-function patternArraySchema() {
+export function patternArraySchema() {
   return z
     .array(
       z
@@ -52,7 +52,7 @@ export function extensionsSchema() {
   })
 }
 
-function subfolderSchema() {
+export function subfolderSchema() {
   return z
     .string()
     .check(
@@ -74,24 +74,36 @@ function subfolderSchema() {
 // AnalysisConfig schema
 // ---------------------------------------------------------------------------
 
-export const analysisConfigSchema = z
-  .object({
+export function analysisConfigFieldSchemas() {
+  return {
     since: yyyymmddSchema.optional(),
     until: yyyymmddSchema.optional(),
     subfolder: subfolderSchema().optional(),
     extensions: extensionsSchema().optional(),
-    includeFiles: patternArraySchema()
-      .optional()
-      .transform((v) => v ?? ["*"]),
+    includeFiles: patternArraySchema().optional(),
     excludeFiles: patternArraySchema().optional(),
     excludeAuthors: patternArraySchema().optional(),
     excludeEmails: patternArraySchema().optional(),
     excludeRevisions: patternArraySchema().optional(),
     excludeMessages: patternArraySchema().optional(),
     nFiles: z.number().int().min(1).optional(),
-    whitespace: z.boolean().optional().default(false),
-    maxConcurrency: z.number().int().min(1).max(16).optional().default(1),
-    blameSkip: z.boolean().optional().default(false),
+    whitespace: z.boolean().optional(),
+    maxConcurrency: z.number().int().min(1).max(16).optional(),
+    blameSkip: z.boolean().optional(),
+  }
+}
+
+const analysisConfigFields = analysisConfigFieldSchemas()
+
+export const analysisConfigSchema = z
+  .object({
+    ...analysisConfigFields,
+    includeFiles: analysisConfigFields.includeFiles.transform(
+      (v) => v ?? ["*"],
+    ),
+    whitespace: analysisConfigFields.whitespace.default(false),
+    maxConcurrency: analysisConfigFields.maxConcurrency.default(1),
+    blameSkip: analysisConfigFields.blameSkip.default(false),
   })
   .check(
     z.refine((data) => {
@@ -113,17 +125,29 @@ const FORBIDDEN_BLAME_KEYS = [
   "excludeMessages",
 ] as const
 
+export function analysisBlameConfigFieldSchemas() {
+  return {
+    subfolder: subfolderSchema().optional(),
+    extensions: extensionsSchema().optional(),
+    includeFiles: patternArraySchema().optional(),
+    excludeFiles: patternArraySchema().optional(),
+    excludeAuthors: patternArraySchema().optional(),
+    excludeEmails: patternArraySchema().optional(),
+    whitespace: z.boolean().optional(),
+    maxConcurrency: z.number().int().min(1).max(16).optional(),
+    copyMove: z.number().int().min(0).max(4).optional(),
+  }
+}
+
+const analysisBlameConfigFields = analysisBlameConfigFieldSchemas()
+
 const analysisBlameConfigInnerSchema = z.object({
-  subfolder: subfolderSchema().optional(),
-  extensions: extensionsSchema().optional(),
-  includeFiles: patternArraySchema()
-    .optional()
-    .transform((v) => v ?? ["*"]),
-  excludeFiles: patternArraySchema().optional(),
-  excludeAuthors: patternArraySchema().optional(),
-  excludeEmails: patternArraySchema().optional(),
-  whitespace: z.boolean().optional().default(false),
-  maxConcurrency: z.number().int().min(1).max(16).optional().default(1),
+  ...analysisBlameConfigFields,
+  includeFiles: analysisBlameConfigFields.includeFiles.transform(
+    (v) => v ?? ["*"],
+  ),
+  whitespace: analysisBlameConfigFields.whitespace.default(false),
+  maxConcurrency: analysisBlameConfigFields.maxConcurrency.default(1),
   copyMove: z.number().int().min(0).max(4).optional().default(1),
 })
 

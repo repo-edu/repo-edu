@@ -121,7 +121,7 @@ Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DI
 
 3. **Docs as a first-class surface.** `apps/docs` mounts the real `@repo-edu/renderer-app` with mock host adapters. It has dedicated [alignment and guardrail tests](/repo-edu/development/contributing/#guardrail-tests) that break the build if the docs runtime drifts from the workflow catalog.
 
-4. **No legacy migration layer.** This codebase intentionally does not include migration code from older formats. Schema versioning exists (`repo-edu.app-settings.v1`, `repo-edu.course.v1`) for future evolution, not backward compatibility.
+4. **No legacy migration layer.** This codebase intentionally does not include migration code from older formats. Schema versioning exists (`repo-edu.app-settings.v2`, `repo-edu.course.v1`) for future evolution, not backward compatibility.
 
 5. **Intentionally partial CLI parity.** The CLI covers repeatable execution paths (repo ops, validation, connection checks). Setup-phase workflows stay GUI-only. See [CLI-GUI Parity](/repo-edu/development/cli-gui-parity/) for the full rationale and workflow matrix.
 

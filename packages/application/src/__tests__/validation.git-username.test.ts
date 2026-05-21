@@ -16,7 +16,7 @@ describe("application git username workflow helpers", () => {
             email: "s1@example.com",
           },
         ]
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",
@@ -120,7 +120,7 @@ describe("application git username workflow helpers", () => {
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
         course.organization = "repo-edu"
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",

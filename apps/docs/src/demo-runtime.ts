@@ -155,10 +155,6 @@ export function createDocsDemoRuntime() {
   const fixture = getDocsFixture()
   const lmsCourse = fixture.lmsCourse
   const repobeeCourse = fixture.repobeeCourse
-  const noBackingCourse = fixture.noBackingCourses[0]
-  if (noBackingCourse === undefined) {
-    throw new Error("Docs fixture must include a no-backing course.")
-  }
   const lmsCourseId = lmsCourse.lmsCourseId ?? lmsCourse.id
 
   const browserMockHost = createBrowserMockHostEnvironment({
@@ -176,11 +172,7 @@ export function createDocsDemoRuntime() {
         groupSet.nameMode === "named" && groupSet.connection?.kind !== "system",
     ) ?? null
 
-  const courseStore = createInMemoryCourseStore([
-    lmsCourse,
-    repobeeCourse,
-    ...fixture.noBackingCourses,
-  ])
+  const courseStore = createInMemoryCourseStore([lmsCourse, repobeeCourse])
   const appSettingsStore = createInMemoryAppSettingsStore(fixture.settings)
 
   const lmsPorts = createMockLmsPorts(
@@ -377,7 +369,6 @@ export function createDocsDemoRuntime() {
     },
     lmsCourseEntityId: lmsCourse.id,
     repobeeCourseEntityId: repobeeCourse.id,
-    noBackingCourseEntityId: noBackingCourse.id,
     lmsCourseId,
     analysisFixtureRootPath: fixture.analysisGitFixture.rootPath,
   }

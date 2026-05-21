@@ -2,7 +2,7 @@ import {
   defaultAppSettings,
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
-import { createBlankCourse, type PersistedCourse } from "@repo-edu/domain/types"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   composeCourseFromCohort,
   type LmsCohortSource,
@@ -121,29 +121,6 @@ function courseWithAnalysisRoot(
   }
 }
 
-function buildNoBackingCourses(recordedAt: string): PersistedCourse[] {
-  return [
-    createBlankCourse("calculator", recordedAt, {
-      backing: null,
-      displayName: "Calculator",
-      searchFolder: analysisRootPath,
-      analysisInputs: { extensions: ["py"] },
-    }),
-    createBlankCourse("topological-task-scheduler", recordedAt, {
-      backing: null,
-      displayName: "Topological Task Scheduler",
-      searchFolder: analysisRootPath,
-      analysisInputs: { extensions: ["py"] },
-    }),
-    createBlankCourse("huffman-encoder", recordedAt, {
-      backing: null,
-      displayName: "Huffman Encoder",
-      searchFolder: analysisRootPath,
-      analysisInputs: { extensions: ["py"] },
-    }),
-  ]
-}
-
 function buildDocsFixture(): DocsFixtureRecord {
   const analysisGitFixture = buildRecordedAnalysisGitFixture(
     allGeneratedRepoSlots,
@@ -159,12 +136,14 @@ function buildDocsFixture(): DocsFixtureRecord {
     repobeeCourseDisplayName,
     analysisGitFixture.rootPath,
   )
-  const noBackingCourses = buildNoBackingCourses(analysisGitFixture.recordedAt)
+  const noBackingCourses: PersistedCourse[] = []
 
   const settings: PersistedAppSettings = {
     ...defaultAppSettings,
-    activeCourseId: lmsCourse.id,
+    activeSurface: { kind: "course", courseId: lmsCourse.id },
     activeTab: "roster",
+    recentAnalysisFolders: [],
+    folderViewAnalysisInputs: {},
     gitConnections: [
       {
         id: "github-demo",

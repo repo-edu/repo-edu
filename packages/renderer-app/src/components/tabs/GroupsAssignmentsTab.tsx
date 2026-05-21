@@ -16,7 +16,7 @@ import {
 } from "../../constants/layout.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
+import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
 import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
@@ -32,7 +32,7 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 export function GroupsAssignmentsTab() {
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const activeCourseId = useUiStore(selectActiveCourseId)
   const course = useCourseStore((s) => s.course)
   const selection = useUiStore((s) => s.sidebarSelection)
   const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)

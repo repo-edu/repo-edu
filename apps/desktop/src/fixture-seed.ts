@@ -225,7 +225,7 @@ export async function seedDesktopFixtureFromEnvironment(
 
   await appSettingsStore.saveSettings({
     ...settings,
-    activeCourseId,
+    activeSurface: { kind: "course", courseId: activeCourseId },
   })
 
   const artifactPaths = await writeFixtureArtifacts(storageRoot, selection)

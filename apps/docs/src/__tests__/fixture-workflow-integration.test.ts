@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
-import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
 function isAppErrorWithType(
@@ -226,38 +225,8 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 })
 
 describe("docs fixture integration: recorded analysis git mocks", () => {
-  it("seeds no-backing courses and supports discovery, filtered log analysis, and blame", async () => {
+  it("supports folder discovery, filtered log analysis, and blame", async () => {
     const runtime = createDocsDemoRuntime()
-    const courses = await runtime.workflowClient.run("course.list", undefined)
-    const analysisSummary = courses.find(
-      (course) =>
-        course.backing === null &&
-        course.id === runtime.noBackingCourseEntityId,
-    )
-    assert.ok(analysisSummary)
-
-    const analysis = await runtime.workflowClient.run("course.load", {
-      courseId: analysisSummary.id,
-    })
-    assert.equal(analysis.backing, null)
-    assert.equal(analysis.searchFolder, runtime.analysisFixtureRootPath)
-    assert.deepEqual(analysis.analysisInputs.extensions, ["py"])
-
-    const noBackingCourses = await Promise.all(
-      courses
-        .filter((course) => course.backing === null)
-        .map((course) =>
-          runtime.workflowClient.run("course.load", {
-            courseId: course.id,
-          }),
-        ),
-    )
-    assert.ok(
-      noBackingCourses.every(
-        (seededCourse) =>
-          seededCourse.searchFolder === runtime.analysisFixtureRootPath,
-      ),
-    )
 
     const discovered = await runtime.workflowClient.run(
       "analysis.discoverRepos",
@@ -278,19 +247,11 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
       ],
     )
 
-    const course = await runtime.workflowClient.run("course.load", {
-      courseId: runtime.lmsCourseEntityId,
-    })
-    const analysisCourse: PersistedCourse = {
-      ...course,
-      searchFolder: analysis.searchFolder,
-      analysisInputs: analysis.analysisInputs,
-    }
     const selectedRepo = discovered.repos[0]
 
     const result = await runtime.workflowClient.run("analysis.run", {
-      course: analysisCourse,
       repositoryAbsolutePath: selectedRepo.path,
+      analysisSource: { kind: "folder" },
       config: {
         extensions: ["py"],
         includeFiles: ["*.py", "tests/*.py"],
@@ -319,7 +280,6 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
       result.fileStats.find((file) => file.path === "evaluator.py") ??
       result.fileStats[0]
     const blame = await runtime.workflowClient.run("analysis.blame", {
-      course: analysisCourse,
       repositoryAbsolutePath: selectedRepo.path,
       config: {
         extensions: ["py"],

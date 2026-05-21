@@ -7,7 +7,7 @@ import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { selectActiveCourseId, useUiStore } from "../stores/ui-store.js"
 
 type SaveStatus = "idle" | "saving" | "success" | "error"
 
@@ -17,7 +17,7 @@ type SaveButtonProps = {
 }
 
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const activeCourseId = useUiStore(selectActiveCourseId)
   const save = useCourseStore((s) => s.save)
   const [status, setStatus] = useState<SaveStatus>("idle")
 

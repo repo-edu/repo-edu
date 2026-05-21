@@ -15,8 +15,8 @@ describe("course navigation", () => {
     })
   })
 
-  it("shows only analysis for no-backing courses", () => {
-    assert.deepStrictEqual(resolveTabVisibility(null), {
+  it("shows only analysis for folder surfaces", () => {
+    assert.deepStrictEqual(resolveTabVisibility("folder"), {
       roster: false,
       groupsAssignments: false,
       analysis: true,
@@ -46,9 +46,9 @@ describe("course navigation", () => {
     )
   })
 
-  it("redirects an unsupported groups tab to analysis for no-backing courses", () => {
+  it("redirects an unsupported groups tab to analysis for folder surfaces", () => {
     assert.equal(
-      resolveSupportedActiveTab("groups-assignments", null),
+      resolveSupportedActiveTab("groups-assignments", "folder"),
       "analysis",
     )
   })
@@ -83,21 +83,6 @@ describe("course navigation", () => {
     })
 
     assert.equal(course.backing, "repobee")
-    assert.equal(course.lmsConnectionName, null)
-    assert.equal(course.lmsCourseId, null)
-  })
-
-  it("creates no-backing course drafts without LMS binding", () => {
-    const course = createNewCourseDraft({
-      id: "course-1",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      backing: null,
-      displayName: "No Backing Course",
-      selectedLmsConnection: "Canvas",
-      selectedCourseId: "canvas-1",
-    })
-
-    assert.equal(course.backing, null)
     assert.equal(course.lmsConnectionName, null)
     assert.equal(course.lmsCourseId, null)
   })

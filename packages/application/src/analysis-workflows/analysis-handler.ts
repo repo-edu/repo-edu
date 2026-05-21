@@ -10,6 +10,7 @@ import type {
   AnalysisCommit,
   AnalysisConfig,
   AnalysisResult,
+  AnalysisRosterContext,
   AuthorDailyActivity,
   AuthorStats,
   FileStats,
@@ -26,7 +27,7 @@ import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import { parseLogOutput } from "./log-parser.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
-import { resolveAnalysisRepoRoot } from "./repo-root.js"
+import { resolveAnalysisRepoRoot, validationError } from "./repo-root.js"
 import {
   applyCommitExclusions,
   buildCommitGroups,
@@ -575,6 +576,62 @@ function buildAuthorDailyActivity(
 // Handler
 // ---------------------------------------------------------------------------
 
+function resolveRunRosterContext(
+  input: AnalysisRunInput,
+): AnalysisRosterContext | undefined {
+  const raw = input as AnalysisRunInput & Record<string, unknown>
+  if ("rosterContext" in raw) {
+    throw validationError(
+      "Roster context must be nested under analysisSource.",
+      "rosterContext",
+    )
+  }
+
+  const source = raw.analysisSource
+  if (source === undefined) {
+    return undefined
+  }
+  if (typeof source !== "object" || source === null || !("kind" in source)) {
+    throw validationError("Analysis source is invalid.", "analysisSource")
+  }
+
+  const sourceRecord = source as Record<string, unknown>
+  if (sourceRecord.kind === "folder") {
+    if ("rosterContext" in sourceRecord) {
+      throw validationError(
+        "Folder analysis source must not carry roster context.",
+        "analysisSource.rosterContext",
+      )
+    }
+    return undefined
+  }
+
+  if (sourceRecord.kind !== "course") {
+    throw validationError(
+      "Analysis source kind is invalid.",
+      "analysisSource.kind",
+    )
+  }
+
+  const rosterContext = sourceRecord.rosterContext
+  if (rosterContext === undefined) {
+    return undefined
+  }
+  if (
+    typeof rosterContext !== "object" ||
+    rosterContext === null ||
+    Array.isArray(rosterContext) ||
+    !Array.isArray((rosterContext as Record<string, unknown>).members)
+  ) {
+    throw validationError(
+      "Course analysis source roster context is invalid.",
+      "analysisSource.rosterContext",
+    )
+  }
+
+  return rosterContext as AnalysisRosterContext
+}
+
 export function createAnalysisRunHandler(
   ports: AnalysisWorkflowPorts,
 ): Pick<WorkflowHandlerMap<"analysis.run">, "analysis.run"> {
@@ -584,6 +641,8 @@ export function createAnalysisRunHandler(
       options?: WorkflowCallOptions<AnalysisProgress, DiagnosticOutput>,
     ): Promise<AnalysisResult> => {
       try {
+        const rosterContext = resolveRunRosterContext(input)
+
         // Phase 1: Validate config
         throwIfAborted(options?.signal)
         const validation = validateAnalysisConfig(input.config)
@@ -835,10 +894,10 @@ export function createAnalysisRunHandler(
 
         // Phase 8: Optional roster bridging
         let rosterMatches: AnalysisResult["rosterMatches"]
-        if (input.rosterContext) {
+        if (rosterContext) {
           rosterMatches = bridgeAuthorsToRoster(
             personDbBaseline,
-            input.rosterContext.members,
+            rosterContext.members,
           )
         }
 

@@ -1,5 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import {
+  activeCourseIdFromSurface,
   type PersistedAppSettings,
   resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
@@ -51,7 +52,7 @@ export async function loadSelectedCourse(
   const settings = await workflowClient.run("settings.loadApp", undefined)
   const selectedCourseId = resolveRequestedCourseId(
     command,
-    settings.activeCourseId,
+    activeCourseIdFromSurface(settings.activeSurface),
   )
 
   if (selectedCourseId === null) {

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
 import { buildFileTree, collectFolderPaths } from "./analysis-tree.js"
 
 export type RepoTree = ReturnType<typeof useRepoTree>
 
 export function useRepoTree() {
-  const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
+  const searchFolder = useAnalysisContext().searchFolder
   const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
 
   const [openRepoFolders, setOpenRepoFolders] = useState<Set<string>>(new Set())

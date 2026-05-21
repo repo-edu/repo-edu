@@ -21,7 +21,7 @@ describe("application repository update workflow helpers", () => {
         if (assignment) {
           assignment.templateCommitSha = "old-template-sha"
         }
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",
@@ -141,7 +141,7 @@ describe("application repository update workflow helpers", () => {
         if (assignment) {
           assignment.templateCommitSha = "same-template-sha"
         }
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.gitConnections = [
           {
             id: "main-git",

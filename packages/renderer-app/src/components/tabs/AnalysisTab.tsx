@@ -14,13 +14,12 @@ import {
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
+import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
 import {
   type AnalysisView,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useCourseStore } from "../../stores/course-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
 import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
@@ -40,9 +39,8 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 }
 
 export function AnalysisTab() {
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
-  const course = useCourseStore((s) => s.course)
-  const hasActiveDocument = activeCourseId !== null
+  const analysisContext = useAnalysisContext()
+  const hasActiveDocument = analysisContext.kind !== "none"
 
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(
@@ -53,7 +51,9 @@ export function AnalysisTab() {
 
   const activeView = useAnalysisStore((s) => s.activeView)
   const setActiveView = useAnalysisStore((s) => s.setActiveView)
-  const blameSkip = course?.analysisInputs.blameSkip ?? false
+  const blameSkip = analysisContext.analysisInputs.blameSkip ?? false
+  const canShowExamination =
+    analysisContext.kind === "course" && blameSkip === false
 
   useEffect(() => {
     if (blameSkip && activeView === "blame") {
@@ -64,25 +64,28 @@ export function AnalysisTab() {
     if (blameSkip && activeView === "examination") {
       setActiveView("authors")
     }
-  }, [blameSkip, activeView, setActiveView])
+    if (!canShowExamination && activeView === "examination") {
+      setActiveView("authors")
+    }
+  }, [blameSkip, canShowExamination, activeView, setActiveView])
 
   const { runRepoDiscovery } = useAnalysisWorkflows()
-  const searchFolder = course?.searchFolder ?? null
+  const searchFolder = analysisContext.searchFolder
   const hasDiscoveredRepos = useAnalysisStore(
     (s) => s.discoveredRepos.length > 0,
   )
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
   const settingsStatus = useAppSettingsStore((s) => s.status)
-  const didAutoDiscoverRef = useRef(false)
+  const autoDiscoveredFolderRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
   useEffect(() => {
-    if (didAutoDiscoverRef.current) return
     if (settingsStatus !== "loaded") return
     if (!searchFolder) return
+    if (autoDiscoveredFolderRef.current === searchFolder) return
     if (hasDiscoveredRepos) return
     if (discoveryStatus === "loading") return
-    didAutoDiscoverRef.current = true
+    autoDiscoveredFolderRef.current = searchFolder
     void runRepoDiscoveryRef.current(searchFolder)
   }, [settingsStatus, searchFolder, hasDiscoveredRepos, discoveryStatus])
 
@@ -96,7 +99,7 @@ export function AnalysisTab() {
     void save()
   }, [])
 
-  if (!hasActiveDocument || !course) {
+  if (!hasActiveDocument) {
     return <NoCourseEmptyState />
   }
 
@@ -129,7 +132,7 @@ export function AnalysisTab() {
               <TabsTrigger value="authors">Authors</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               {!blameSkip && <TabsTrigger value="blame">Blame</TabsTrigger>}
-              {!blameSkip && (
+              {canShowExamination && (
                 <TabsTrigger value="examination">Examination</TabsTrigger>
               )}
             </TabsList>
@@ -146,7 +149,7 @@ export function AnalysisTab() {
               <BlamePanel />
             </TabsContent>
           )}
-          {!blameSkip && (
+          {canShowExamination && (
             <TabsContent
               value="examination"
               className="flex-1 min-h-0 overflow-hidden"

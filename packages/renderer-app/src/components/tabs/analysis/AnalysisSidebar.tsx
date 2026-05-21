@@ -1,8 +1,10 @@
 import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
-import type { AnalysisInputs } from "@repo-edu/domain/types"
-import { resolveAnalysisConfig } from "@repo-edu/domain/types"
+import {
+  type AnalysisInputs,
+  resolveAnalysisConfig,
+} from "@repo-edu/domain/types"
 import {
   Button,
   Checkbox,
@@ -35,12 +37,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
+import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
   selectBlameMergedFileStats,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
 import { ExtensionTagInput } from "../../settings/ExtensionTagInput.js"
 import {
@@ -202,11 +204,10 @@ export function AnalysisSidebar() {
     useAnalysisWorkflows()
   const rendererHost = useRendererHost()
 
-  const course = useCourseStore((s) => s.course)
-  const setAnalysisInputs = useCourseStore((s) => s.setAnalysisInputs)
-  const setSearchFolder = useCourseStore((s) => s.setSearchFolder)
-  const config = course?.analysisInputs ?? ({} as AnalysisInputs)
-  const searchFolder = course?.searchFolder ?? null
+  const analysisContext = useAnalysisContext()
+  const setAnalysisInputs = analysisContext.setAnalysisInputs
+  const config = analysisContext.analysisInputs
+  const searchFolder = analysisContext.searchFolder
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
@@ -452,11 +453,15 @@ export function AnalysisSidebar() {
       title: "Open repository search folder",
     })
     if (!dir) return
-    setSearchFolder(dir)
     setSelectedRepoPath(null)
     setSections((prev) => ({ ...prev, repositories: true }))
+    if (analysisContext.kind === "folder") {
+      await analysisContext.activateFolderPath(dir)
+    } else {
+      analysisContext.updateCourseSearchFolder(dir)
+    }
     void runRepoDiscovery(dir)
-  }, [rendererHost, runRepoDiscovery, setSearchFolder, setSelectedRepoPath])
+  }, [analysisContext, rendererHost, runRepoDiscovery, setSelectedRepoPath])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
@@ -465,13 +470,24 @@ export function AnalysisSidebar() {
   const setConfigAndRerun = useCallback(
     (patch: Partial<AnalysisInputs>) => {
       setAnalysisInputs(patch)
-      if (selectedRepoPath && course) {
-        const nextCourse = {
-          ...course,
-          analysisInputs: { ...course.analysisInputs, ...patch },
+      if (selectedRepoPath && analysisContext.kind !== "none") {
+        const nextInputs = { ...analysisContext.analysisInputs }
+        for (const [key, value] of Object.entries(patch) as [
+          keyof AnalysisInputs,
+          unknown,
+        ][]) {
+          if (value === undefined) {
+            delete nextInputs[key]
+          } else {
+            // biome-ignore lint/suspicious/noExplicitAny: keyed AnalysisInputs merge
+            ;(nextInputs as any)[key] = value
+          }
         }
         const nextConfig: AnalysisConfig = resolveAnalysisConfig(
-          nextCourse,
+          {
+            searchFolder: analysisContext.searchFolder,
+            analysisInputs: nextInputs,
+          },
           defaultExtensions,
           filesPerRepo,
         )
@@ -479,7 +495,7 @@ export function AnalysisSidebar() {
       }
     },
     [
-      course,
+      analysisContext,
       defaultExtensions,
       filesPerRepo,
       runAnalysis,

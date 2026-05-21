@@ -35,18 +35,7 @@ import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 const NONE_VALUE = "__none__"
-const NO_BACKING_VALUE = "__no_backing__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
-
-function radioValueFromBacking(backing: CourseBacking): string {
-  return backing === null ? NO_BACKING_VALUE : backing
-}
-
-function backingFromRadioValue(value: string): CourseBacking {
-  return value === NO_BACKING_VALUE
-    ? null
-    : (value as Exclude<CourseBacking, null>)
-}
 
 export function createNewCourseDraft(input: {
   id: string
@@ -310,10 +299,8 @@ export function NewCourseDialog() {
           <div className="space-y-2">
             <Label>Backing</Label>
             <RadioGroup
-              value={radioValueFromBacking(backing)}
-              onValueChange={(value) =>
-                setBacking(backingFromRadioValue(value))
-              }
+              value={backing}
+              onValueChange={(value) => setBacking(value as CourseBacking)}
               className="space-y-2"
             >
               <div className="flex items-start gap-2 rounded-md border p-3">
@@ -342,21 +329,6 @@ export function NewCourseDialog() {
                     where each line lists the git IDs (GitHub or GitLab) of one
                     team. This is the format used by RepoBee. Use this when your
                     roster lives in a flat file rather than an LMS.
-                  </Text>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 rounded-md border p-3">
-                <RadioGroupItem
-                  value={NO_BACKING_VALUE}
-                  id="new-course-backing-none"
-                />
-                <div className="grid gap-1">
-                  <Label htmlFor="new-course-backing-none">No backing</Label>
-                  <Text className="text-xs text-muted-foreground select-text">
-                    Analyses all cloned repos found under a chosen folder
-                    (recursively). No roster, no groups, no GitHub/GitLab
-                    interaction. Use this for past courses, research repos or
-                    quick one-off analyses.
                   </Text>
                 </div>
               </div>

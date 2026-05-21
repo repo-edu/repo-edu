@@ -17,10 +17,9 @@ import {
   RefreshCw,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useMemo, useState } from "react"
+import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
-import { buildAnalysisRosterContext } from "../../../utils/analysis-roster-context.js"
 import { buildAnalysisStoreFingerprint } from "../../../utils/analysis-store-fingerprint.js"
 import {
   RepoFolderNode,
@@ -174,11 +173,11 @@ export function RepositoriesSection({
   repoViewMode,
 }: RepositoriesSectionProps) {
   const { runAnalysis } = useAnalysisWorkflows()
+  const analysisContext = useAnalysisContext()
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-  const course = useCourseStore((s) => s.course)
-  const searchFolder = useCourseStore((s) => s.course?.searchFolder) ?? null
+  const searchFolder = analysisContext.searchFolder
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
@@ -202,15 +201,17 @@ export function RepositoriesSection({
     toggleRepoFolderOpen,
   } = tree
   const currentConfigFingerprint = useMemo(() => {
-    if (!course) return null
+    if (analysisContext.kind === "none") return null
     const config = resolveAnalysisConfig(
-      course,
+      {
+        searchFolder: analysisContext.searchFolder,
+        analysisInputs: analysisContext.analysisInputs,
+      },
       defaultExtensions,
       filesPerRepo,
     )
-    const rosterContext = buildAnalysisRosterContext(course)
-    return buildAnalysisStoreFingerprint(config, rosterContext)
-  }, [course, defaultExtensions, filesPerRepo])
+    return buildAnalysisStoreFingerprint(config, analysisContext.rosterContext)
+  }, [analysisContext, defaultExtensions, filesPerRepo])
 
   const handleSelectRepo = useCallback(
     (path: string) => {

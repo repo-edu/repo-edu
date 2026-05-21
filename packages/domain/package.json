@@ -72,6 +72,11 @@
       "source": "./src/analysis/index.ts",
       "types": "./dist/analysis/index.d.ts",
       "default": "./dist/analysis/index.js"
+    },
+    "./analysis-inputs": {
+      "source": "./src/analysis-inputs.ts",
+      "types": "./dist/analysis-inputs.d.ts",
+      "default": "./dist/analysis-inputs.js"
     }
   },
   "scripts": {

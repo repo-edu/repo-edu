@@ -11,9 +11,10 @@ import {
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { selectActiveCourseId, useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { generateCourseId } from "../utils/nanoid.js"
+import { useActiveSurfaceNavigation } from "./use-active-surface-navigation.js"
 
 type CreateCourseInput = {
   backing: CourseBacking
@@ -24,48 +25,50 @@ type CreateCourseInput = {
 
 function initialTabForBacking(backing: CourseBacking) {
   if (backing === "lms") return "roster"
-  if (backing === "repobee") return "groups-assignments"
-  return "analysis"
+  return "groups-assignments"
 }
 
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
   const loading = useUiStore((s) => s.courseListLoading)
   const client = useWorkflowClient()
+  const activateSurface = useActiveSurfaceNavigation()
 
   const refresh = useCallback(async () => {
     useUiStore.getState().setCourseListLoading(true)
     try {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
-      const activeCourseId = useUiStore.getState().activeCourseId
+      const activeCourseId = selectActiveCourseId(useUiStore.getState())
       if (
         activeCourseId !== null &&
         !list.some((course) => course.id === activeCourseId)
       ) {
-        const fallbackId = list.length > 0 ? list[0].id : null
-        useUiStore.getState().setActiveCourseId(fallbackId)
-        useAppSettingsStore.getState().setActiveCourseId(fallbackId)
-        try {
-          await useAppSettingsStore.getState().save()
-        } catch {
-          // Keep refresh resilient even if settings persistence fails.
-        }
+        const fallback = list[0] ?? null
+        await activateSurface(
+          fallback === null
+            ? { kind: "none" }
+            : { kind: "course", courseId: fallback.id },
+          {
+            courseBacking: fallback?.backing,
+            skipCourseFlush: true,
+          },
+        )
       }
     } finally {
       useUiStore.getState().setCourseListLoading(false)
     }
-  }, [client])
+  }, [activateSurface, client])
 
-  const switchCourse = useCallback(async (courseId: string) => {
-    useUiStore.getState().setActiveCourseId(courseId)
-    useAppSettingsStore.getState().setActiveCourseId(courseId)
-    try {
-      await useAppSettingsStore.getState().save()
-    } catch {
-      // Keep course switching resilient even if settings persistence fails.
-    }
-  }, [])
+  const switchCourse = useCallback(
+    async (courseId: string, backing?: CourseBacking) => {
+      await activateSurface(
+        { kind: "course", courseId },
+        { courseBacking: backing },
+      )
+    },
+    [activateSurface],
+  )
 
   const createCourse = useCallback(
     async (input: CreateCourseInput): Promise<PersistedCourse | null> => {
@@ -87,13 +90,14 @@ export function useCourses() {
         const saved = await wfClient.run("course.save", draft)
         await refresh()
 
-        const nextTab = initialTabForBacking(saved.backing)
-        useUiStore.getState().setActiveCourseId(saved.id)
-        useUiStore.getState().setActiveTab(nextTab)
-        useAppSettingsStore.getState().setActiveCourseId(saved.id)
-        useAppSettingsStore.getState().setActiveTab(nextTab)
         useAppSettingsStore.getState().setLastUsedCourseBacking(saved.backing)
-        await useAppSettingsStore.getState().save()
+        await activateSurface(
+          { kind: "course", courseId: saved.id },
+          {
+            courseBacking: saved.backing,
+            preferredTab: initialTabForBacking(saved.backing),
+          },
+        )
 
         return saved
       } catch (error) {
@@ -102,7 +106,7 @@ export function useCourses() {
         return null
       }
     },
-    [refresh],
+    [activateSurface, refresh],
   )
 
   const duplicateCourse = useCallback(
@@ -172,7 +176,7 @@ export function useCourses() {
   const deleteCourse = useCallback(
     async (courseId: string): Promise<boolean> => {
       const addToast = useToastStore.getState().addToast
-      const activeCourseId = useUiStore.getState().activeCourseId
+      const activeCourseId = selectActiveCourseId(useUiStore.getState())
       const courses = useUiStore.getState().courseList
       const isActive = courseId === activeCourseId
       const remaining = courses.filter((p) => p.id !== courseId)
@@ -185,15 +189,15 @@ export function useCourses() {
           // Prevent the next course load from trying to autosave a now-deleted course.
           useCourseStore.getState().clear()
           if (remaining.length > 0) {
-            await switchCourse(remaining[0].id)
+            await activateSurface(
+              { kind: "course", courseId: remaining[0].id },
+              {
+                courseBacking: remaining[0].backing,
+                skipCourseFlush: true,
+              },
+            )
           } else {
-            useUiStore.getState().setActiveCourseId(null)
-            useAppSettingsStore.getState().setActiveCourseId(null)
-            try {
-              await useAppSettingsStore.getState().save()
-            } catch {
-              // Keep delete resilient.
-            }
+            await activateSurface({ kind: "none" }, { skipCourseFlush: true })
           }
         }
 
@@ -205,7 +209,7 @@ export function useCourses() {
         return false
       }
     },
-    [refresh, switchCourse],
+    [activateSurface, refresh],
   )
 
   return {

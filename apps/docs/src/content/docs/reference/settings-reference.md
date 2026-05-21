@@ -5,14 +5,16 @@ description: Complete field reference for app settings and course documents
 
 Both app settings and course documents are stored as JSON files and validated on every read and write using Zod schemas. Invalid files are rejected with path-level error messages.
 
-## App settings (`repo-edu.app-settings.v1`)
+## App settings (`repo-edu.app-settings.v2`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `kind` | `"repo-edu.app-settings.v1"` | Schema discriminator |
-| `activeCourseId` | `string \| null` | Currently selected course |
+| `kind` | `"repo-edu.app-settings.v2"` | Schema discriminator |
+| `activeSurface` | `{ kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "none" }` | Currently selected surface |
 | `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab (default: `"roster"`) |
-| `lastUsedCourseBacking` | `"lms" \| "repobee" \| null` | Sticky default for the New Course dialog. Omitted until the first course is created. |
+| `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog. Omitted until the first course is created. |
+| `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized, deduplicated, newest first, capped at 8 |
+| `folderViewAnalysisInputs` | `AnalysisInputs` | Shared persisted Analysis-tab inputs for folder analysis surfaces |
 | `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
 | `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
@@ -42,7 +44,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.course.v1"` | Schema discriminator |
-| `backing` | `"lms" \| "repobee" \| null` | Course capability discriminator |
+| `backing` | `"lms" \| "repobee"` | Course capability discriminator |
 | `id` | `string` | Unique course identifier |
 | `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |

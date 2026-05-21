@@ -4,7 +4,6 @@ import {
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import {
-  createBlankCourse,
   type MemberStatus,
   type PersistedCourse,
   persistedCourseKind,
@@ -518,34 +517,6 @@ function createFixtureRecord(
   faker.seed(fixtureSeed(tier, preset))
 
   const counts = fixtureTierCounts[tier]
-  if (preset === "no-backing") {
-    const courseId = `fixture-${tier}-${preset}`
-    const course = createBlankCourse(courseId, fixtureGeneratedAt, {
-      backing: null,
-      displayName: `Fixture (${tier}, ${preset})`,
-      searchFolder: `/fixtures/${tier}/${preset}`,
-    })
-    const settings: PersistedAppSettings = {
-      ...defaultAppSettings,
-      activeCourseId: courseId,
-      gitConnections: [
-        {
-          id: "github-demo",
-          provider: "github",
-          baseUrl: "https://github.com",
-          token: "demo-token",
-        },
-      ],
-      activeGitConnectionId: "github-demo",
-      lastOpenedAt: fixtureGeneratedAt,
-    }
-    return {
-      course,
-      settings,
-      artifacts: createArtifacts(course, preset),
-    }
-  }
-
   const isRepobeePreset = preset === "repobee-teams"
 
   if (isRepobeePreset) {
@@ -594,7 +565,7 @@ function createFixtureRecord(
     }
     const settings: PersistedAppSettings = {
       ...defaultAppSettings,
-      activeCourseId: courseId,
+      activeSurface: { kind: "course", courseId },
       lmsConnections: [],
       gitConnections: [
         {
@@ -720,7 +691,7 @@ function createFixtureRecord(
 
   const settings: PersistedAppSettings = {
     ...defaultAppSettings,
-    activeCourseId: courseId,
+    activeSurface: { kind: "course", courseId },
     lmsConnections: [
       {
         name: "Canvas Demo",
@@ -754,19 +725,16 @@ export function buildFixtureMatrix(): FixtureMatrix {
       "shared-teams": createFixtureRecord("small", "shared-teams"),
       "task-groups": createFixtureRecord("small", "task-groups"),
       "repobee-teams": createFixtureRecord("small", "repobee-teams"),
-      "no-backing": createFixtureRecord("small", "no-backing"),
     },
     medium: {
       "shared-teams": createFixtureRecord("medium", "shared-teams"),
       "task-groups": createFixtureRecord("medium", "task-groups"),
       "repobee-teams": createFixtureRecord("medium", "repobee-teams"),
-      "no-backing": createFixtureRecord("medium", "no-backing"),
     },
     stress: {
       "shared-teams": createFixtureRecord("stress", "shared-teams"),
       "task-groups": createFixtureRecord("stress", "task-groups"),
       "repobee-teams": createFixtureRecord("stress", "repobee-teams"),
-      "no-backing": createFixtureRecord("stress", "no-backing"),
     },
   }
 }

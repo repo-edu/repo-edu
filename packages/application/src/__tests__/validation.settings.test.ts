@@ -12,16 +12,22 @@ describe("application settings workflow helpers", () => {
     )
 
     const loadedDefault = await handlers["settings.loadApp"](undefined)
-    assert.equal(loadedDefault.kind, "repo-edu.app-settings.v1")
+    assert.equal(loadedDefault.kind, "repo-edu.app-settings.v2")
 
     const saved = await handlers["settings.saveApp"]({
       ...getSettingsScenario({ tier: "small", preset: "shared-teams" }),
-      activeCourseId: "course-1",
+      activeSurface: { kind: "course", courseId: "course-1" },
     })
-    assert.equal(saved.activeCourseId, "course-1")
+    assert.deepStrictEqual(saved.activeSurface, {
+      kind: "course",
+      courseId: "course-1",
+    })
 
     const reloaded = await handlers["settings.loadApp"](undefined)
-    assert.equal(reloaded.activeCourseId, "course-1")
+    assert.deepStrictEqual(reloaded.activeSurface, {
+      kind: "course",
+      courseId: "course-1",
+    })
   })
 
   it("returns a validation AppError when settings.saveApp receives invalid data", async () => {

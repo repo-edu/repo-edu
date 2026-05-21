@@ -169,7 +169,7 @@ describe("application roster workflow helpers", () => {
       ({ course, settings }) => {
         course.lmsConnectionName = "main-lms"
         course.lmsCourseId = "course-42"
-        settings.activeCourseId = course.id
+        settings.activeSurface = { kind: "course", courseId: course.id }
         settings.lmsConnections = [
           {
             name: "main-lms",

@@ -25,10 +25,12 @@ import {
 import {
   ChevronDown,
   Copy,
+  FolderOpen,
   Loader2,
   Pencil,
   Plus,
   Trash2,
+  X,
 } from "@repo-edu/ui/components/icons"
 import {
   type KeyboardEvent,
@@ -37,24 +39,48 @@ import {
   useMemo,
   useState,
 } from "react"
+import { useRendererHost } from "../contexts/renderer-host.js"
+import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
 import { useCourses } from "../hooks/use-courses.js"
-import { useUiStore } from "../stores/ui-store.js"
+import { useAppSettingsStore } from "../stores/app-settings-store.js"
+import {
+  selectActiveCourseId,
+  selectActiveFolderPath,
+  useUiStore,
+} from "../stores/ui-store.js"
 
-function backingBadgeLabel(course: CourseSummary): string | null {
+function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
-  if (course.backing === "repobee") return "RepoBee"
-  return null
+  return "RepoBee"
 }
 
 function backingSortRank(course: CourseSummary): number {
   if (course.backing === "lms") return 0
-  if (course.backing === "repobee") return 1
-  return 2
+  return 1
+}
+
+function folderBasename(path: string): string {
+  const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "")
+  return normalized.slice(normalized.lastIndexOf("/") + 1) || normalized
+}
+
+function folderParent(path: string): string {
+  const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "")
+  const index = normalized.lastIndexOf("/")
+  return index <= 0 ? normalized : normalized.slice(0, index)
 }
 
 export function CourseSwitcher() {
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const rendererHost = useRendererHost()
+  const activeCourseId = useUiStore(selectActiveCourseId)
+  const activeFolderPath = useUiStore(selectActiveFolderPath)
   const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
+  const recentFolders = useAppSettingsStore(
+    (s) => s.settings.recentAnalysisFolders,
+  )
+  const removeRecentFolder = useAppSettingsStore((s) => s.removeRecentFolder)
+  const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const activateSurface = useActiveSurfaceNavigation()
   const {
     courses,
     refresh: refreshCourses,
@@ -71,6 +97,10 @@ export function CourseSwitcher() {
 
   const activeCourseName =
     courses.find((course) => course.id === activeCourseId)?.displayName ?? null
+  const activeLabel =
+    activeFolderPath !== null
+      ? folderBasename(activeFolderPath)
+      : (activeCourseName ?? "None")
 
   const sortedCourses = useMemo(
     () =>
@@ -109,10 +139,32 @@ export function CourseSwitcher() {
     name: string
   }>({ open: false, id: "", name: "" })
 
-  const handleCourseSelect = (id: string) => {
+  const handleCourseSelect = (course: CourseSummary) => {
+    const id = course.id
     if (id === activeCourseId) return
     setOpen(false)
-    void switchCourse(id)
+    void switchCourse(id, course.backing)
+  }
+
+  const handleOpenFolder = async () => {
+    setOpen(false)
+    const dir = await rendererHost.pickDirectory({
+      title: "Open folder of repositories",
+    })
+    if (!dir) return
+    await activateSurface(
+      { kind: "folder", path: dir },
+      { recordRecent: true, preferredTab: "analysis" },
+    )
+  }
+
+  const handleRecentFolderSelect = (path: string) => {
+    if (path === activeFolderPath) return
+    setOpen(false)
+    void activateSurface(
+      { kind: "folder", path },
+      { recordRecent: true, preferredTab: "analysis" },
+    )
   }
 
   const handleRowKeyDown = (
@@ -201,6 +253,11 @@ export function CourseSwitcher() {
     setNewCourseDialogOpen(true)
   }
 
+  const handleRemoveRecentFolder = (path: string) => {
+    removeRecentFolder(path)
+    void saveAppSettings()
+  }
+
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
 
   const remainingCourses = sortedCourses.filter(
@@ -220,9 +277,9 @@ export function CourseSwitcher() {
           role="option"
           tabIndex={0}
           aria-selected={isActive}
-          onClick={() => handleCourseSelect(course.id)}
+          onClick={() => handleCourseSelect(course)}
           onKeyDown={(event) =>
-            handleRowKeyDown(event, () => handleCourseSelect(course.id))
+            handleRowKeyDown(event, () => handleCourseSelect(course))
           }
           className={cn(
             "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
@@ -231,11 +288,9 @@ export function CourseSwitcher() {
           )}
         >
           <span className="min-w-0 flex-1 truncate">{course.displayName}</span>
-          {badge !== null && (
-            <span className="shrink-0 rounded border border-border/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
-              {badge}
-            </span>
-          )}
+          <span className="shrink-0 rounded border border-border/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
+            {badge}
+          </span>
           <div className="flex shrink-0 items-center gap-0">
             <Button
               size="icon-xs"
@@ -284,6 +339,48 @@ export function CourseSwitcher() {
       )
     })
 
+  const renderRecentFolderRows = () =>
+    recentFolders.map((path) => {
+      const isActive = path === activeFolderPath
+      return (
+        <div
+          key={path}
+          role="option"
+          tabIndex={0}
+          aria-selected={isActive}
+          onClick={() => handleRecentFolderSelect(path)}
+          onKeyDown={(event) =>
+            handleRowKeyDown(event, () => handleRecentFolderSelect(path))
+          }
+          className={cn(
+            "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
+            "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+            isActive && "bg-selection",
+          )}
+        >
+          <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{folderBasename(path)}</span>
+            <span className="block truncate text-[10px] text-muted-foreground">
+              {folderParent(path)}
+            </span>
+          </span>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            className="size-4 shrink-0"
+            aria-label={`Remove ${path} from recent folders`}
+            title="Remove recent folder"
+            onClick={(event) =>
+              handleActionClick(event, () => handleRemoveRecentFolder(path))
+            }
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+      )
+    })
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -294,8 +391,10 @@ export function CourseSwitcher() {
             className="max-w-full min-w-0 overflow-hidden"
           >
             <span className="truncate">
-              <span className="text-muted-foreground">Course:</span>{" "}
-              {activeCourseName ?? "None"}
+              <span className="text-muted-foreground">
+                {activeFolderPath !== null ? "Folder:" : "Course:"}
+              </span>{" "}
+              {activeLabel}
             </span>
             <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           </Button>
@@ -323,6 +422,28 @@ export function CourseSwitcher() {
             <Plus className="size-3" />
             New Course
           </div>
+          <div
+            role="option"
+            tabIndex={0}
+            aria-selected={false}
+            onClick={() => void handleOpenFolder()}
+            onKeyDown={(event) =>
+              handleRowKeyDown(event, () => void handleOpenFolder())
+            }
+            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+          >
+            <FolderOpen className="size-3" />
+            Open folder of repos...
+          </div>
+          {recentFolders.length > 0 && (
+            <>
+              <DropdownMenuSeparator className="my-0.5" />
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Recent folders
+              </div>
+              {renderRecentFolderRows()}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

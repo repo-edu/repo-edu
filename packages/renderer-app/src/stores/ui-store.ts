@@ -1,3 +1,4 @@
+import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   GroupSetImportFormat,
@@ -39,7 +40,7 @@ export type LmsImportConflict = {
 type UiState = {
   // Navigation
   activeTab: ActiveTab
-  activeCourseId: string | null
+  activeSurface: PersistedActiveSurface
 
   // Dialog visibility
   settingsDialogOpen: boolean
@@ -91,7 +92,7 @@ type UiState = {
 
 type UiActions = {
   setActiveTab: (tab: ActiveTab) => void
-  setActiveCourseId: (id: string | null) => void
+  setActiveSurface: (surface: PersistedActiveSurface) => void
 
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
@@ -146,7 +147,7 @@ type UiActions = {
 
 const initialState: UiState = {
   activeTab: "roster",
-  activeCourseId: null,
+  activeSurface: { kind: "none" },
 
   settingsDialogOpen: false,
   settingsCategory: "display",
@@ -210,8 +211,8 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
 
   setActiveTab: (tab) => set((state) => setIfChanged(state, "activeTab", tab)),
-  setActiveCourseId: (id) =>
-    set((state) => setIfChanged(state, "activeCourseId", id)),
+  setActiveSurface: (surface) =>
+    set((state) => setIfChanged(state, "activeSurface", surface)),
 
   setSettingsDialogOpen: (open) =>
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
@@ -347,6 +348,10 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 }))
 
 export const selectActiveTab = (state: UiState) => state.activeTab
-export const selectActiveCourseId = (state: UiState) => state.activeCourseId
+export const selectActiveSurface = (state: UiState) => state.activeSurface
+export const selectActiveCourseId = (state: UiState) =>
+  state.activeSurface.kind === "course" ? state.activeSurface.courseId : null
+export const selectActiveFolderPath = (state: UiState) =>
+  state.activeSurface.kind === "folder" ? state.activeSurface.path : null
 export const selectClosePromptVisible = (state: UiState) =>
   state.closePromptVisible

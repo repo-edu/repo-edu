@@ -28,10 +28,6 @@ export function createLifecycleSlice(
 > {
   return {
     load: async (courseId) => {
-      const currentCourseId = get().course?.id ?? null
-      if (currentCourseId !== null && currentCourseId !== courseId) {
-        await get().save()
-      }
       try {
         set((draft) => {
           draft.status = "loading"

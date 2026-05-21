@@ -1,3 +1,4 @@
+import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { Command } from "commander"
 import {
   emitCommandError,
@@ -21,7 +22,7 @@ export function registerCourseCommands(parent: Command): void {
         const settings = await workflowClient.run("settings.loadApp", undefined)
         const selectedCourseId = resolveRequestedCourseId(
           this,
-          settings.activeCourseId,
+          activeCourseIdFromSurface(settings.activeSurface),
         )
 
         if (listedCourses.length === 0) {
@@ -50,7 +51,7 @@ export function registerCourseCommands(parent: Command): void {
         const settings = await workflowClient.run("settings.loadApp", undefined)
         const selectedCourseId = resolveRequestedCourseId(
           this,
-          settings.activeCourseId,
+          activeCourseIdFromSurface(settings.activeSurface),
         )
 
         if (selectedCourseId === null) {
@@ -95,7 +96,7 @@ export function registerCourseCommands(parent: Command): void {
         )
         await workflowClient.run("settings.saveApp", {
           ...currentSettings,
-          activeCourseId: loadedCourse.id,
+          activeSurface: { kind: "course", courseId: loadedCourse.id },
         })
 
         process.stdout.write(`Active course set to '${loadedCourse.id}'.\n`)

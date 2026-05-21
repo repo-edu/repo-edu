@@ -1,7 +1,10 @@
-import type { LlmProviderKind, SyntaxThemeId } from "@repo-edu/domain/settings"
 import {
   defaultAppSettings,
   type ExaminationModelsByProvider,
+  type LlmProviderKind,
+  normalizeAnalysisFolderPath,
+  normalizeRecentAnalysisFolders,
+  type PersistedActiveSurface,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppSettings,
@@ -10,9 +13,11 @@ import {
   type PersistedLmsConnection,
   resolveActiveGitConnection,
   resolveActiveLlmConnection,
+  type SyntaxThemeId,
 } from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
+  AnalysisInputs,
   CourseBacking,
   DateFormatPreference,
   ThemePreference,
@@ -34,9 +39,13 @@ type AppSettingsActions = {
   load: () => Promise<void>
   save: () => Promise<void>
 
-  setActiveCourseId: (courseId: string | null) => void
+  setActiveSurface: (surface: PersistedActiveSurface) => void
   setActiveTab: (tab: ActiveTab) => void
   setLastUsedCourseBacking: (backing: CourseBacking) => void
+  setFolderViewAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
+  pushRecentFolder: (path: string) => void
+  removeRecentFolder: (path: string) => void
+  clearRecentFolders: () => void
   setActiveGitConnectionId: (id: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
@@ -145,11 +154,11 @@ export const useAppSettingsStore = create<
       }
     },
 
-    setActiveCourseId: (courseId) =>
+    setActiveSurface: (surface) =>
       set((state) => ({
         settings: {
           ...state.settings,
-          activeCourseId: courseId,
+          activeSurface: surface,
         },
       })),
 
@@ -166,6 +175,63 @@ export const useAppSettingsStore = create<
         settings: {
           ...state.settings,
           lastUsedCourseBacking: backing,
+        },
+      })),
+
+    setFolderViewAnalysisInputs: (patch) =>
+      set((state) => {
+        const next = { ...state.settings.folderViewAnalysisInputs }
+        for (const [key, value] of Object.entries(patch) as [
+          keyof AnalysisInputs,
+          unknown,
+        ][]) {
+          if (value === undefined) {
+            delete next[key]
+          } else {
+            // biome-ignore lint/suspicious/noExplicitAny: keyed AnalysisInputs merge
+            ;(next as any)[key] = value
+          }
+        }
+        return {
+          settings: {
+            ...state.settings,
+            folderViewAnalysisInputs: next,
+          },
+        }
+      }),
+
+    pushRecentFolder: (path) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          recentAnalysisFolders: normalizeRecentAnalysisFolders([
+            path,
+            ...state.settings.recentAnalysisFolders,
+          ]),
+        },
+      })),
+
+    removeRecentFolder: (path) =>
+      set((state) => {
+        const normalized = normalizeAnalysisFolderPath(path)
+        if (normalized === null) {
+          return state
+        }
+        return {
+          settings: {
+            ...state.settings,
+            recentAnalysisFolders: state.settings.recentAnalysisFolders.filter(
+              (candidate) => candidate !== normalized,
+            ),
+          },
+        }
+      }),
+
+    clearRecentFolders: () =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          recentAnalysisFolders: [],
         },
       })),
 
@@ -390,8 +456,8 @@ export const useAppSettingsStore = create<
 
 export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
-export const selectAppSettingsActiveCourseId = (state: AppSettingsState) =>
-  state.settings.activeCourseId
+export const selectAppSettingsActiveSurface = (state: AppSettingsState) =>
+  state.settings.activeSurface
 export const selectAppSettingsActiveTab = (state: AppSettingsState) =>
   state.settings.activeTab
 export const selectLmsConnections = (state: AppSettingsState) =>

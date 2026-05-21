@@ -13,15 +13,16 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useLayoutEffect } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  selectAppSettingsActiveCourseId,
+  selectAppSettingsActiveSurface,
   selectAppSettingsActiveTab,
+  selectAppSettingsStatus,
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
@@ -32,11 +33,16 @@ import {
   selectNextUndoDescription,
   useCourseStore,
 } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
+import {
+  selectActiveCourseId,
+  selectActiveSurface,
+  useUiStore,
+} from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import {
   resolveSupportedActiveTab,
   resolveTabVisibility,
+  surfaceTabBacking,
 } from "../utils/course-navigation.js"
 import {
   hasMacDesktopInset,
@@ -96,12 +102,14 @@ const hasMacDesktopBridge = hasMacDesktopInset
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
-  const activeCourseId = useUiStore((s) => s.activeCourseId)
+  const activeSurface = useUiStore(selectActiveSurface)
+  const activeCourseId = useUiStore(selectActiveCourseId)
   const courseList = useUiStore((s) => s.courseList)
 
   const theme = useAppSettingsStore(selectTheme)
-  const appSettingsActiveCourseId = useAppSettingsStore(
-    selectAppSettingsActiveCourseId,
+  const appSettingsStatus = useAppSettingsStore(selectAppSettingsStatus)
+  const appSettingsActiveSurface = useAppSettingsStore(
+    selectAppSettingsActiveSurface,
   )
   const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
   const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
@@ -120,18 +128,20 @@ function AppShell() {
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
   const activeCourseSummary =
-    activeCourseId === null
+    activeSurface.kind !== "course"
       ? null
-      : (courseList.find((course) => course.id === activeCourseId) ?? null)
+      : (courseList.find((course) => course.id === activeSurface.courseId) ??
+        null)
   const activeBacking: CourseBacking | undefined =
-    activeCourseId === null
+    activeSurface.kind !== "course"
       ? undefined
-      : loadedCourse?.id === activeCourseId
+      : loadedCourse?.id === activeSurface.courseId
         ? loadedCourse.backing
         : activeCourseSummary !== null
           ? activeCourseSummary.backing
           : "lms"
-  const tabVisibility = resolveTabVisibility(activeBacking)
+  const tabBacking = surfaceTabBacking(activeSurface, activeBacking)
+  const tabVisibility = resolveTabVisibility(tabBacking)
   const canShowRosterTab = tabVisibility.roster
   const canShowGroupsTab = tabVisibility.groupsAssignments
   const canShowAnalysisTab = tabVisibility.analysis
@@ -141,16 +151,30 @@ function AppShell() {
     void loadAppSettings()
   }, [loadAppSettings])
 
-  // Restore active course and tab from app settings after settings load.
+  // Cold-start hydration deliberately bypasses active-surface navigation:
+  // there is no previously loaded course to flush before restoring settings.
+  const didHydrateSettingsRef = useRef(false)
   useEffect(() => {
-    if (activeCourseId === null && appSettingsActiveCourseId !== null) {
-      setActiveTab(appSettingsActiveTab)
-      useUiStore.getState().setActiveCourseId(appSettingsActiveCourseId)
-    }
+    if (didHydrateSettingsRef.current) return
+    if (appSettingsStatus !== "loaded") return
+    didHydrateSettingsRef.current = true
+    const restoredBacking =
+      appSettingsActiveSurface.kind === "course"
+        ? (courseList.find(
+            (course) => course.id === appSettingsActiveSurface.courseId,
+          )?.backing ?? "lms")
+        : undefined
+    const restoredTab = resolveSupportedActiveTab(
+      appSettingsActiveTab,
+      surfaceTabBacking(appSettingsActiveSurface, restoredBacking),
+    )
+    setActiveTab(restoredTab)
+    useUiStore.getState().setActiveSurface(appSettingsActiveSurface)
   }, [
-    activeCourseId,
-    appSettingsActiveCourseId,
+    appSettingsStatus,
+    appSettingsActiveSurface,
     appSettingsActiveTab,
+    courseList,
     setActiveTab,
   ])
 
@@ -168,11 +192,11 @@ function AppShell() {
   ])
 
   useEffect(() => {
-    const supportedTab = resolveSupportedActiveTab(activeTab, activeBacking)
+    const supportedTab = resolveSupportedActiveTab(activeTab, tabBacking)
     if (supportedTab !== activeTab) {
       setActiveTab(supportedTab)
     }
-  }, [activeBacking, activeTab, setActiveTab])
+  }, [tabBacking, activeTab, setActiveTab])
 
   // Apply theme.
   useTheme(theme)

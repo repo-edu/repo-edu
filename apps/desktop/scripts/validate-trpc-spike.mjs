@@ -218,7 +218,7 @@ async function main() {
       throw new Error("savedCourseUpdatedAt was not emitted as a string.");
     }
 
-    if (marker.settingsKind !== "repo-edu.app-settings.v1") {
+    if (marker.settingsKind !== "repo-edu.app-settings.v2") {
       throw new Error(`unexpected settingsKind: ${String(marker.settingsKind)}`);
     }
 

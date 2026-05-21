@@ -13,7 +13,7 @@ Each persisted document carries a `kind` discriminator:
 
 | Document | Kind |
 |----------|------|
-| App settings | `repo-edu.app-settings.v1` |
+| App settings | `repo-edu.app-settings.v2` |
 | Course | `repo-edu.course.v1` |
 
 There is no migration layer — invalid documents are rejected at the boundary.
@@ -24,9 +24,11 @@ There is no migration layer — invalid documents are rejected at the boundary.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `activeCourseId` | `string \| null` | Currently selected course |
+| `activeSurface` | `{ kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "none" }` | Currently selected course, folder analysis surface, or no active surface |
 | `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab |
-| `lastUsedCourseBacking` | `"lms" \| "repobee" \| null` | Sticky default for the New Course dialog; omitted until the first course is created |
+| `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog; omitted until the first course is created |
+| `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized and capped at 8 |
+| `folderViewAnalysisInputs` | `AnalysisInputs` | Shared Analysis-tab inputs for folder analysis surfaces |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
 | `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
@@ -41,14 +43,15 @@ There is no migration layer — invalid documents are rejected at the boundary.
 ## Persisted course
 
 `PersistedCourse` stores all data for a single course. The `backing` axis
-describes which external surface, if any, the course is bound to: `"lms"`
-enables roster sync, `"repobee"` enables local team/group workflows without LMS
-linkage, and `null` is an analysis-only course with an empty roster surface.
+describes which external surface the course is bound to: `"lms"` enables roster
+sync, while `"repobee"` enables local team/group workflows without LMS linkage.
+Folder analysis is represented by `activeSurface.kind === "folder"` in app
+settings, not by a synthetic course document.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `string` | Unique course identifier |
-| `backing` | `"lms" \| "repobee" \| null` | Course capability discriminator |
+| `backing` | `"lms" \| "repobee"` | Course capability discriminator |
 | `displayName` | `string` | Human-readable name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
 | `lmsConnectionName` | `string \| null` | References a connection in app settings by name |
