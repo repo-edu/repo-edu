@@ -20,7 +20,6 @@ import {
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
@@ -75,19 +74,39 @@ export function AnalysisTab() {
     (s) => s.discoveredRepos.length > 0,
   )
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
+  const pendingRepoDiscoveryFolder = useAnalysisStore(
+    (s) => s.pendingRepoDiscoveryFolder,
+  )
+  const clearPendingRepoDiscovery = useAnalysisStore(
+    (s) => s.clearPendingRepoDiscovery,
+  )
   const settingsStatus = useAppSettingsStore((s) => s.status)
   const autoDiscoveredFolderRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
   useEffect(() => {
-    if (settingsStatus !== "loaded") return
     if (!searchFolder) return
-    if (autoDiscoveredFolderRef.current === searchFolder) return
-    if (hasDiscoveredRepos) return
+    const hasPendingDiscovery = pendingRepoDiscoveryFolder === searchFolder
+    if (hasPendingDiscovery) {
+      clearPendingRepoDiscovery(searchFolder)
+      autoDiscoveredFolderRef.current = searchFolder
+    }
     if (discoveryStatus === "loading") return
+    const shouldAutoDiscover =
+      settingsStatus === "loaded" &&
+      autoDiscoveredFolderRef.current !== searchFolder &&
+      !hasDiscoveredRepos
+    if (!hasPendingDiscovery && !shouldAutoDiscover) return
     autoDiscoveredFolderRef.current = searchFolder
     void runRepoDiscoveryRef.current(searchFolder)
-  }, [settingsStatus, searchFolder, hasDiscoveredRepos, discoveryStatus])
+  }, [
+    settingsStatus,
+    searchFolder,
+    hasDiscoveredRepos,
+    discoveryStatus,
+    pendingRepoDiscoveryFolder,
+    clearPendingRepoDiscovery,
+  ])
 
   useBlameAutoRun()
 
@@ -100,7 +119,7 @@ export function AnalysisTab() {
   }, [])
 
   if (!hasActiveDocument) {
-    return <NoCourseEmptyState />
+    return null
   }
 
   return (

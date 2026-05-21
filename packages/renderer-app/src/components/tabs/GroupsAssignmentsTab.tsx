@@ -17,7 +17,6 @@ import {
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
-import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
 
@@ -83,7 +82,7 @@ export function GroupsAssignmentsTab() {
   }, [])
 
   if (!activeCourseId || !course || !courseHasGroups(course)) {
-    return <NoCourseEmptyState />
+    return null
   }
 
   return (

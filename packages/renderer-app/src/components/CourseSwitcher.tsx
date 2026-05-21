@@ -26,9 +26,9 @@ import {
   ChevronDown,
   Copy,
   FolderOpen,
+  Home,
   Loader2,
   Pencil,
-  Plus,
   Trash2,
   X,
 } from "@repo-edu/ui/components/icons"
@@ -39,13 +39,13 @@ import {
   useMemo,
   useState,
 } from "react"
-import { useRendererHost } from "../contexts/renderer-host.js"
 import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import {
   selectActiveCourseId,
   selectActiveFolderPath,
+  selectActiveSurface,
   useUiStore,
 } from "../stores/ui-store.js"
 
@@ -71,10 +71,10 @@ function folderParent(path: string): string {
 }
 
 export function CourseSwitcher() {
-  const rendererHost = useRendererHost()
+  const activeSurface = useUiStore(selectActiveSurface)
   const activeCourseId = useUiStore(selectActiveCourseId)
   const activeFolderPath = useUiStore(selectActiveFolderPath)
-  const setNewCourseDialogOpen = useUiStore((s) => s.setNewCourseDialogOpen)
+  const isHomeSurface = activeSurface.kind === "home"
   const recentFolders = useAppSettingsStore(
     (s) => s.settings.recentAnalysisFolders,
   )
@@ -97,10 +97,6 @@ export function CourseSwitcher() {
 
   const activeCourseName =
     courses.find((course) => course.id === activeCourseId)?.displayName ?? null
-  const activeLabel =
-    activeFolderPath !== null
-      ? folderBasename(activeFolderPath)
-      : (activeCourseName ?? "None")
 
   const sortedCourses = useMemo(
     () =>
@@ -144,18 +140,6 @@ export function CourseSwitcher() {
     if (id === activeCourseId) return
     setOpen(false)
     void switchCourse(id, course.backing)
-  }
-
-  const handleOpenFolder = async () => {
-    setOpen(false)
-    const dir = await rendererHost.pickDirectory({
-      title: "Open folder of repositories",
-    })
-    if (!dir) return
-    await activateSurface(
-      { kind: "folder", path: dir },
-      { recordRecent: true, preferredTab: "analysis" },
-    )
   }
 
   const handleRecentFolderSelect = (path: string) => {
@@ -248,9 +232,13 @@ export function CourseSwitcher() {
     setDeleteDialog({ open: false, id: "", name: "" })
   }
 
-  const handleNewCourse = () => {
+  const handleHomeSelect = () => {
+    if (isHomeSurface) {
+      setOpen(false)
+      return
+    }
     setOpen(false)
-    setNewCourseDialogOpen(true)
+    void activateSurface({ kind: "home" })
   }
 
   const handleRemoveRecentFolder = (path: string) => {
@@ -390,51 +378,55 @@ export function CourseSwitcher() {
             size="sm"
             className="max-w-full min-w-0 overflow-hidden"
           >
-            <span className="truncate">
-              <span className="text-muted-foreground">
-                {activeFolderPath !== null ? "Folder:" : "Course:"}
-              </span>{" "}
-              {activeLabel}
+            <span className="flex items-center gap-1 truncate">
+              {isHomeSurface ? (
+                <>
+                  <Home className="size-3.5 shrink-0 text-muted-foreground" />
+                  Home
+                </>
+              ) : activeFolderPath !== null ? (
+                <>
+                  <span className="text-muted-foreground">Folder:</span>{" "}
+                  {folderBasename(activeFolderPath)}
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Course:</span>{" "}
+                  {activeCourseName ?? "None"}
+                </>
+              )}
             </span>
             <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" side="bottom">
+          <div
+            role="option"
+            tabIndex={0}
+            aria-selected={isHomeSurface}
+            onClick={handleHomeSelect}
+            onKeyDown={(event) => handleRowKeyDown(event, handleHomeSelect)}
+            className={cn(
+              "flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
+              "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+              isHomeSurface && "bg-selection",
+            )}
+          >
+            <Home className="size-3" />
+            Home
+          </div>
+
           {hasCourses && (
             <>
+              <DropdownMenuSeparator className="my-0.5" />
               <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                 Courses
               </div>
               {renderCourseRows(sortedCourses)}
-              <DropdownMenuSeparator className="my-0.5" />
             </>
           )}
 
-          <div
-            role="option"
-            tabIndex={0}
-            aria-selected={false}
-            onClick={handleNewCourse}
-            onKeyDown={(event) => handleRowKeyDown(event, handleNewCourse)}
-            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-          >
-            <Plus className="size-3" />
-            New Course
-          </div>
-          <div
-            role="option"
-            tabIndex={0}
-            aria-selected={false}
-            onClick={() => void handleOpenFolder()}
-            onKeyDown={(event) =>
-              handleRowKeyDown(event, () => void handleOpenFolder())
-            }
-            className="flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-          >
-            <FolderOpen className="size-3" />
-            Open folder of repos...
-          </div>
           {recentFolders.length > 0 && (
             <>
               <DropdownMenuSeparator className="my-0.5" />

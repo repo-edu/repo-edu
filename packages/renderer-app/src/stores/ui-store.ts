@@ -45,7 +45,6 @@ type UiState = {
   // Dialog visibility
   settingsDialogOpen: boolean
   settingsCategory: SettingsCategory
-  newCourseDialogOpen: boolean
   importFileDialogOpen: boolean
   rosterSyncDialogOpen: boolean
   importGitUsernamesDialogOpen: boolean
@@ -96,7 +95,6 @@ type UiActions = {
 
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
-  setNewCourseDialogOpen: (open: boolean) => void
   setImportFileDialogOpen: (open: boolean) => void
   setRosterSyncDialogOpen: (open: boolean) => void
   setImportGitUsernamesDialogOpen: (open: boolean) => void
@@ -147,11 +145,10 @@ type UiActions = {
 
 const initialState: UiState = {
   activeTab: "roster",
-  activeSurface: { kind: "none" },
+  activeSurface: { kind: "home" },
 
   settingsDialogOpen: false,
   settingsCategory: "display",
-  newCourseDialogOpen: false,
   importFileDialogOpen: false,
   rosterSyncDialogOpen: false,
   importGitUsernamesDialogOpen: false,
@@ -227,8 +224,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
         settingsCategory: nextCategory,
       }
     }),
-  setNewCourseDialogOpen: (open) =>
-    set((state) => setIfChanged(state, "newCourseDialogOpen", open)),
   setImportFileDialogOpen: (open) =>
     set((state) => setIfChanged(state, "importFileDialogOpen", open)),
   setRosterSyncDialogOpen: (open) =>

@@ -47,7 +47,7 @@ export function useCourses() {
         const fallback = list[0] ?? null
         await activateSurface(
           fallback === null
-            ? { kind: "none" }
+            ? { kind: "home" }
             : { kind: "course", courseId: fallback.id },
           {
             courseBacking: fallback?.backing,
@@ -197,7 +197,7 @@ export function useCourses() {
               },
             )
           } else {
-            await activateSurface({ kind: "none" }, { skipCourseFlush: true })
+            await activateSurface({ kind: "home" }, { skipCourseFlush: true })
           }
         }
 

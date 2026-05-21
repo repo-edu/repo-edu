@@ -12,11 +12,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@repo-edu/ui"
-import { Redo2, Undo2 } from "@repo-edu/ui/components/icons"
+import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
+import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
 import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
@@ -59,12 +60,12 @@ import { ImportGroupSetDialog } from "./dialogs/ImportGroupSetDialog.js"
 import { ImportStudentsFromFileDialog } from "./dialogs/ImportStudentsFromFileDialog.js"
 import { LmsImportConflictDialog } from "./dialogs/LmsImportConflictDialog.js"
 import { NewAssignmentDialog } from "./dialogs/NewAssignmentDialog.js"
-import { NewCourseDialog } from "./dialogs/NewCourseDialog.js"
 import { NewLocalGroupSetDialog } from "./dialogs/NewLocalGroupSetDialog.js"
 import { PreflightDialog } from "./dialogs/PreflightDialog.js"
 import { StudentSyncDialog } from "./dialogs/StudentSyncDialog.js"
 import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog.js"
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
+import { HomeView } from "./HomeView.js"
 import { IssuesButton } from "./IssuesButton.js"
 import { SettingsButton } from "./SettingsButton.js"
 import { SyncErrorBanner } from "./SyncErrorBanner.js"
@@ -116,6 +117,8 @@ function AppShell() {
   const saveAppSettings = useAppSettingsStore((s) => s.save)
   const loadAppSettings = useAppSettingsStore((s) => s.load)
 
+  const activateSurface = useActiveSurfaceNavigation()
+  const isHomeSurface = activeSurface.kind === "home"
   const canUndo = useCourseStore(selectCanUndo)
   const canRedo = useCourseStore(selectCanRedo)
   const undoDescription = useCourseStore(selectNextUndoDescription)
@@ -253,9 +256,27 @@ function AppShell() {
         {/* Header bar */}
         <div className="app-drag flex min-h-11 items-center gap-2 border-b px-2">
           <div
-            className="app-no-drag flex min-w-0 items-center"
+            className="app-no-drag flex min-w-0 items-center gap-1"
             style={leftInsetStyle}
           >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  aria-pressed={isHomeSurface}
+                  onClick={() => {
+                    if (isHomeSurface) return
+                    void activateSurface({ kind: "home" })
+                  }}
+                >
+                  <Home className="size-[18px]" />
+                  <span className="sr-only">Home</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Home</TooltipContent>
+            </Tooltip>
             <CourseSwitcher />
           </div>
           {canShowAnalysisTab && (
@@ -316,22 +337,32 @@ function AppShell() {
 
         <SyncErrorBanner />
 
-        {/* Tab content */}
-        <TabsContent value="roster" className="flex-1 min-h-0 overflow-hidden">
-          <StudentsTab />
-        </TabsContent>
-        <TabsContent
-          value="groups-assignments"
-          className="flex-1 min-h-0 overflow-hidden"
-        >
-          <GroupsAssignmentsTab />
-        </TabsContent>
-        <TabsContent
-          value="analysis"
-          className="flex-1 min-h-0 overflow-hidden"
-        >
-          <AnalysisTab />
-        </TabsContent>
+        {activeSurface.kind === "home" ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <HomeView />
+          </div>
+        ) : (
+          <>
+            <TabsContent
+              value="roster"
+              className="flex-1 min-h-0 overflow-hidden"
+            >
+              <StudentsTab />
+            </TabsContent>
+            <TabsContent
+              value="groups-assignments"
+              className="flex-1 min-h-0 overflow-hidden"
+            >
+              <GroupsAssignmentsTab />
+            </TabsContent>
+            <TabsContent
+              value="analysis"
+              className="flex-1 min-h-0 overflow-hidden"
+            >
+              <AnalysisTab />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
 
       {/* Assignment and group dialogs */}
@@ -349,7 +380,6 @@ function AppShell() {
       <PreflightDialog />
 
       {/* Document and roster dialogs */}
-      <NewCourseDialog />
       <StudentSyncDialog />
       <ImportStudentsFromFileDialog />
       <ImportGitUsernamesDialog />

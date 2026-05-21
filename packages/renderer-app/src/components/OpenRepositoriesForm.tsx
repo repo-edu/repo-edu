@@ -8,12 +8,7 @@ import {
   Alert,
   AlertDescription,
   Button,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  cn,
   FormField,
   Input,
   Label,
@@ -27,15 +22,23 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2, Search } from "@repo-edu/ui/components/icons"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useCourses } from "../../hooks/use-courses.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { useUiStore } from "../../stores/ui-store.js"
-import { getErrorMessage } from "../../utils/error-message.js"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+import { getWorkflowClient } from "../contexts/workflow-client.js"
+import { useCourses } from "../hooks/use-courses.js"
+import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
+import { useAppSettingsStore } from "../stores/app-settings-store.js"
+import { useUiStore } from "../stores/ui-store.js"
+import { getErrorMessage } from "../utils/error-message.js"
 
 const NONE_VALUE = "__none__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
+type SourceChoice = CourseBacking | "folder"
 
 export function createNewCourseDraft(input: {
   id: string
@@ -55,9 +58,56 @@ export function createNewCourseDraft(input: {
   })
 }
 
-export function NewCourseDialog() {
-  const open = useUiStore((state) => state.newCourseDialogOpen)
-  const setOpen = useUiStore((state) => state.setNewCourseDialogOpen)
+function SourceActionCard({
+  title,
+  description,
+  selected,
+  onClick,
+  children,
+}: {
+  title: string
+  description: ReactNode
+  selected: boolean
+  onClick: () => void
+  children?: ReactNode
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border transition-colors",
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-foreground/30",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "w-full text-left p-3 rounded-md",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        )}
+      >
+        <div
+          className={cn(
+            "font-semibold text-sm mb-1",
+            selected && "text-primary",
+          )}
+        >
+          {title}
+        </div>
+        <Text className="text-xs text-muted-foreground select-text font-normal">
+          {description}
+        </Text>
+      </button>
+      {selected && children !== undefined && (
+        <div className="px-3 pb-3 space-y-4">{children}</div>
+      )}
+    </div>
+  )
+}
+
+export function OpenRepositoriesForm() {
   const existingCourses = useUiStore((state) => state.courseList)
   const openSettings = useUiStore((state) => state.openSettings)
   const setRosterSyncDialogOpen = useUiStore(
@@ -65,14 +115,11 @@ export function NewCourseDialog() {
   )
   const settings = useAppSettingsStore((state) => state.settings)
   const { createCourse } = useCourses()
+  const openRepositoriesFolder = useOpenRepositoriesFolder()
 
   const lmsConnections = settings.lmsConnections
-  const defaultBacking =
-    settings.lastUsedCourseBacking === undefined
-      ? "lms"
-      : settings.lastUsedCourseBacking
 
-  const [backing, setBacking] = useState<CourseBacking>(defaultBacking)
+  const [source, setSource] = useState<SourceChoice | null>(null)
   const [courseName, setCourseName] = useState("")
   const [courseSearch, setCourseSearch] = useState("")
   const [courses, setCourses] = useState<LmsCourseSummary[]>([])
@@ -80,9 +127,13 @@ export function NewCourseDialog() {
   const [courseFetchStatus, setCourseFetchStatus] =
     useState<CourseFetchStatus>("idle")
   const [courseFetchError, setCourseFetchError] = useState<string | null>(null)
-  const [selectedLmsConnection, setSelectedLmsConnection] = useState<string>("")
+  const [selectedLmsConnection, setSelectedLmsConnection] = useState<string>(
+    lmsConnections[0]?.name ?? "",
+  )
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isCourseSource = source === "lms" || source === "repobee"
 
   const selectedLmsDraft = useMemo(
     () =>
@@ -107,7 +158,7 @@ export function NewCourseDialog() {
   }, [courseSearch, courses])
 
   const isCourseNameTaken = useMemo(() => {
-    if (creating) return false
+    if (creating || !isCourseSource) return false
     const normalized = courseName.trim().toLowerCase()
     if (normalized.length === 0) {
       return false
@@ -116,7 +167,7 @@ export function NewCourseDialog() {
     return existingCourses.some(
       (course) => course.displayName.trim().toLowerCase() === normalized,
     )
-  }, [creating, existingCourses, courseName])
+  }, [creating, existingCourses, courseName, isCourseSource])
 
   const loadLmsCourses = useCallback(() => {
     if (!selectedLmsDraft) {
@@ -169,67 +220,38 @@ export function NewCourseDialog() {
     }
   }, [selectedLmsDraft])
 
-  const canCreate = useMemo(() => {
-    if (courseName.trim().length === 0 || creating || isCourseNameTaken) {
-      return false
-    }
-
-    if (backing === "lms") {
-      if (lmsConnections.length === 0) {
-        return false
-      }
+  const canCommitCourse = useMemo(() => {
+    if (creating || !isCourseSource) return false
+    if (courseName.trim().length === 0 || isCourseNameTaken) return false
+    if (source === "lms") {
+      if (lmsConnections.length === 0) return false
       return (
         selectedLmsConnection.trim().length > 0 &&
         selectedCourseId.trim().length > 0
       )
     }
-
     return true
   }, [
     courseName,
     creating,
+    isCourseSource,
     isCourseNameTaken,
-    backing,
+    source,
     lmsConnections.length,
     selectedLmsConnection,
     selectedCourseId,
   ])
 
-  const reset = useCallback(() => {
-    setBacking(defaultBacking)
-    setCourseName("")
-    setCourseSearch("")
-    setCourses([])
-    setSelectedCourseId("")
-    setCourseFetchStatus("idle")
-    setCourseFetchError(null)
-    setSelectedLmsConnection(lmsConnections[0]?.name ?? "")
-    setCreating(false)
-    setError(null)
-  }, [defaultBacking, lmsConnections])
-
   useEffect(() => {
-    if (open) {
-      reset()
-    }
-  }, [open, reset])
-
-  useEffect(() => {
-    if (!open || backing !== "lms") {
+    if (source !== "lms") {
       return
     }
 
     return loadLmsCourses()
-  }, [open, backing, loadLmsCourses])
+  }, [source, loadLmsCourses])
 
-  const handleClose = () => {
-    setOpen(false)
-    reset()
-  }
-
-  const handleCreate = async () => {
-    if (!canCreate) return
-
+  const handleCreateCourse = async () => {
+    if (!isCourseSource) return
     if (isCourseNameTaken) {
       setError("A course with this name already exists.")
       return
@@ -240,19 +262,17 @@ export function NewCourseDialog() {
 
     try {
       const saved = await createCourse({
-        backing,
+        backing: source,
         displayName: courseName.trim(),
         lmsConnectionName:
-          backing === "lms" ? selectedLmsConnection || null : null,
-        lmsCourseId: backing === "lms" ? selectedCourseId.trim() || null : null,
+          source === "lms" ? selectedLmsConnection || null : null,
+        lmsCourseId: source === "lms" ? selectedCourseId.trim() || null : null,
       })
 
       if (saved === null) {
         setError("Failed to create course.")
         return
       }
-
-      handleClose()
 
       if (
         saved.backing === "lms" &&
@@ -269,98 +289,82 @@ export function NewCourseDialog() {
     }
   }
 
+  const handleSelectOrCommit = async (target: SourceChoice) => {
+    if (target === "folder") {
+      await openRepositoriesFolder()
+      return
+    }
+    if (source !== target) {
+      setSource(target)
+      setError(null)
+      return
+    }
+    if (canCommitCourse) {
+      await handleCreateCourse()
+    }
+  }
+
+  const handleCourseNameKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Enter" && canCommitCourse) {
+      event.preventDefault()
+      void handleCreateCourse()
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New Course</DialogTitle>
-        </DialogHeader>
-        <DialogBody className="space-y-4">
-          <FormField label="Course name" htmlFor="new-course-name">
-            <Input
-              id="new-course-name"
-              placeholder="e.g., Software Engineering 2026"
-              value={courseName}
-              onChange={(event) => setCourseName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && canCreate) {
-                  void handleCreate()
-                }
-              }}
-              autoFocus
-            />
-            {isCourseNameTaken && (
-              <Text className="text-sm text-destructive mt-1">
-                A course with this name already exists.
-              </Text>
-            )}
-          </FormField>
-
-          <div className="space-y-2">
-            <Label>Backing</Label>
-            <RadioGroup
-              value={backing}
-              onValueChange={(value) => setBacking(value as CourseBacking)}
-              className="space-y-2"
-            >
-              <div className="flex items-start gap-2 rounded-md border p-3">
-                <RadioGroupItem value="lms" id="new-course-backing-lms" />
-                <div className="grid gap-1">
-                  <Label htmlFor="new-course-backing-lms">LMS-backed</Label>
-                  <Text className="text-xs text-muted-foreground select-text">
-                    Pulls roster, groups and repos from your Learning Management
-                    System (LMS), such as Canvas or Moodle. Use this for any
-                    course (current or past term) where the LMS holds the
-                    authoritative roster.
-                  </Text>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 rounded-md border p-3">
-                <RadioGroupItem
-                  value="repobee"
-                  id="new-course-backing-repobee"
-                />
-                <div className="grid gap-1">
-                  <Label htmlFor="new-course-backing-repobee">
-                    RepoBee-backed
-                  </Label>
-                  <Text className="text-xs text-muted-foreground select-text">
-                    Loads groups from a <code>students.txt</code>-style file
-                    where each line lists the git IDs (GitHub or GitLab) of one
-                    team. This is the format used by RepoBee. Use this when your
-                    roster lives in a flat file rather than an LMS.
-                  </Text>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {backing === "lms" && lmsConnections.length === 0 && (
-            <Alert variant="warning">
-              <AlertTriangle />
-              <AlertDescription>
-                <Text>
-                  No Learning Management System connections configured. Add a
-                  Canvas or Moodle connection in Settings to import a course and
-                  roster.
-                </Text>
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    className="text-warning underline underline-offset-4 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50 rounded-sm"
-                    onClick={() => {
-                      handleClose()
-                      openSettings("lms-connections")
-                    }}
-                  >
-                    Configure LMS connections...
-                  </button>
-                </div>
-              </AlertDescription>
-            </Alert>
+    <div className="space-y-3">
+      <SourceActionCard
+        title="Set up a course from your LMS"
+        description={
+          <>
+            Pulls roster, groups and repos from your Learning Management System
+            (LMS), such as Canvas or Moodle. Use this for any course (current or
+            past term) where the LMS holds the authoritative roster.
+          </>
+        }
+        selected={source === "lms"}
+        onClick={() => void handleSelectOrCommit("lms")}
+      >
+        <FormField label="Course name" htmlFor="new-course-name-lms">
+          <Input
+            id="new-course-name-lms"
+            placeholder="e.g., Software Engineering 2026"
+            value={courseName}
+            onChange={(event) => setCourseName(event.target.value)}
+            onKeyDown={handleCourseNameKeyDown}
+            autoFocus
+          />
+          {isCourseNameTaken && (
+            <Text className="text-sm text-destructive mt-1">
+              A course with this name already exists.
+            </Text>
           )}
+        </FormField>
 
-          {backing === "lms" && lmsConnections.length > 0 && (
+        {lmsConnections.length === 0 ? (
+          <Alert variant="warning">
+            <AlertTriangle />
+            <AlertDescription>
+              <Text>
+                No Learning Management System connections configured. Add a
+                Canvas or Moodle connection in Settings to import a course and
+                roster.
+              </Text>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="text-warning underline underline-offset-4 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50 rounded-sm"
+                  onClick={() => openSettings("lms-connections")}
+                >
+                  Configure LMS connections...
+                </button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
             <FormField
               label="LMS connection"
               htmlFor="new-course-lms-connection"
@@ -384,9 +388,7 @@ export function NewCourseDialog() {
                 </SelectContent>
               </Select>
             </FormField>
-          )}
 
-          {backing === "lms" && lmsConnections.length > 0 ? (
             <div className="space-y-2">
               {selectedLmsDraft ? (
                 <Text className="text-xs text-muted-foreground">
@@ -481,19 +483,54 @@ export function NewCourseDialog() {
                 </div>
               )}
             </div>
-          ) : null}
+          </>
+        )}
 
-          {error && <Text className="text-sm text-destructive">{error}</Text>}
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => void handleCreate()} disabled={!canCreate}>
-            {creating ? "Creating..." : "Create Course"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {error && source === "lms" && (
+          <Text className="text-sm text-destructive">{error}</Text>
+        )}
+      </SourceActionCard>
+
+      <SourceActionCard
+        title="Set up a course from a RepoBee student list"
+        description={
+          <>
+            Loads groups from a <code>students.txt</code>-style file where each
+            line lists the git IDs (GitHub or GitLab) of one team. This is the
+            format used by RepoBee. Use this when your roster lives in a flat
+            file rather than an LMS.
+          </>
+        }
+        selected={source === "repobee"}
+        onClick={() => void handleSelectOrCommit("repobee")}
+      >
+        <FormField label="Course name" htmlFor="new-course-name-repobee">
+          <Input
+            id="new-course-name-repobee"
+            placeholder="e.g., Software Engineering 2026"
+            value={courseName}
+            onChange={(event) => setCourseName(event.target.value)}
+            onKeyDown={handleCourseNameKeyDown}
+            autoFocus
+          />
+          {isCourseNameTaken && (
+            <Text className="text-sm text-destructive mt-1">
+              A course with this name already exists.
+            </Text>
+          )}
+        </FormField>
+
+        {error && source === "repobee" && (
+          <Text className="text-sm text-destructive">{error}</Text>
+        )}
+      </SourceActionCard>
+
+      <SourceActionCard
+        title="Open an existing folder of repos"
+        description="Open any folder containing student repositories for one-off analysis. No course is created and no roster is tracked. Recent folders are remembered in the course menu."
+        selected={false}
+        onClick={() => void handleSelectOrCommit("folder")}
+      />
+    </div>
   )
 }

@@ -10,7 +10,6 @@ import {
 import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
-import { NoCourseEmptyState } from "../NoCourseEmptyState.js"
 import { MemberListPane } from "./students/MemberListPane.js"
 
 export function StudentsTab() {
@@ -76,7 +75,7 @@ export function StudentsTab() {
   }
 
   if (!course || !courseHasRoster(course)) {
-    return <NoCourseEmptyState />
+    return null
   }
 
   return (

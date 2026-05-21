@@ -71,6 +71,7 @@ type AnalysisState = {
   discoveryError: string | null
   discoveryCurrentFolder: string | null
   lastDiscoveryOutcome: "none" | "completed" | "cancelled"
+  pendingRepoDiscoveryFolder: string | null
 
   // Per-repo in-flight status — separate from `repoStates` so errors and
   // progress surface for repos that have never completed successfully.
@@ -138,6 +139,8 @@ type AnalysisActions = {
   setDiscoveryError: (error: string | null) => void
   setDiscoveryCurrentFolder: (folder: string | null) => void
   setLastDiscoveryOutcome: (outcome: "none" | "completed" | "cancelled") => void
+  requestRepoDiscovery: (folder: string) => void
+  clearPendingRepoDiscovery: (folder: string) => void
 
   setResult: (result: AnalysisResult | null, configFingerprint?: string) => void
   setResultForRepo: (
@@ -243,6 +246,7 @@ const initialState: AnalysisState = {
   discoveryError: null,
   discoveryCurrentFolder: null,
   lastDiscoveryOutcome: "none",
+  pendingRepoDiscoveryFolder: null,
 
   repoWorkflowStatus: new Map(),
   repoProgress: new Map(),
@@ -411,6 +415,14 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set({ discoveryCurrentFolder }),
     setLastDiscoveryOutcome: (lastDiscoveryOutcome) =>
       set({ lastDiscoveryOutcome }),
+    requestRepoDiscovery: (pendingRepoDiscoveryFolder) =>
+      set({ pendingRepoDiscoveryFolder }),
+    clearPendingRepoDiscovery: (folder) =>
+      set((state) =>
+        state.pendingRepoDiscoveryFolder === folder
+          ? { pendingRepoDiscoveryFolder: null }
+          : state,
+      ),
 
     setResult: (result, configFingerprint) =>
       set((state) => {
@@ -784,6 +796,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         discoveryError: null,
         discoveryCurrentFolder: null,
         lastDiscoveryOutcome: "none",
+        pendingRepoDiscoveryFolder: null,
         repoStates: new Map(),
         repoWorkflowStatus: new Map(),
         repoProgress: new Map(),

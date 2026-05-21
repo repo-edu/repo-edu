@@ -33,6 +33,7 @@ export {
   GripHorizontal,
   HardDrive,
   HelpCircle,
+  Home,
   Info,
   Layers,
   Link,

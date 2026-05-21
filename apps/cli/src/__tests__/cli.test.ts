@@ -179,7 +179,7 @@ function makeSettings(activeCourseId: string | null): PersistedAppSettings {
     ...defaultAppSettings,
     activeSurface:
       activeCourseId === null
-        ? { kind: "none" }
+        ? { kind: "home" }
         : { kind: "course", courseId: activeCourseId },
     activeTab: "roster",
   }

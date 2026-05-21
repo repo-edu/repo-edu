@@ -205,7 +205,7 @@ const persistedActiveSurfaceSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      kind: z.literal("none"),
+      kind: z.literal("home"),
     })
     .strict(),
 ])
@@ -213,7 +213,7 @@ const persistedActiveSurfaceSchema = z.discriminatedUnion("kind", [
 export const persistedAppSettingsSchema = z
   .object({
     kind: z.literal(persistedAppSettingsKind),
-    activeSurface: persistedActiveSurfaceSchema.default({ kind: "none" }),
+    activeSurface: persistedActiveSurfaceSchema.default({ kind: "home" }),
     activeTab: z
       .enum(["roster", "groups-assignments", "analysis"])
       .default("roster"),
@@ -283,7 +283,7 @@ export function normalizeActiveSurface(
     return surface
   }
   const path = normalizeAnalysisFolderPath(surface.path)
-  return path === null ? { kind: "none" } : { kind: "folder", path }
+  return path === null ? { kind: "home" } : { kind: "folder", path }
 }
 
 export function activeCourseIdFromSurface(
@@ -374,7 +374,7 @@ void _scopeDisjointGuard
 
 export const defaultAppSettings: PersistedAppSettings = {
   kind: persistedAppSettingsKind,
-  activeSurface: { kind: "none" },
+  activeSurface: { kind: "home" },
   activeTab: "roster",
   recentAnalysisFolders: [],
   folderViewAnalysisInputs: {},
