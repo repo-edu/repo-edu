@@ -12,6 +12,7 @@ Provides a matrix of `PersistedCourse` + `PersistedAppSettings` + CSV/JSON artif
 - `src/fixtures.ts` — `FixtureMatrix`, `FixtureRecord`, `getFixture()` accessor
 - `src/fixtures-validate.ts` — `validateFixtureMatrix()` used during `check:fixtures`
 - `src/source-overlay.ts` — `applyFixtureSourceOverlay()` to simulate LMS-connected course state
+- `src/cohort-composition.ts` — `composeCourseFromCohort()` for hand-authored docs demo LMS/RepoBee cohort JSON
 
 Tier sizes: small=24 students/2 staff, medium=67/3, stress=180/8.
 

@@ -14,12 +14,12 @@ It is a validation target for:
 
 ## Structure
 
-- `src/demo-runtime.ts`: in-browser workflow runtime wiring. Binds a browser-safe mock `GitCommandPort` (driven by recorded fixtures in `src/fixtures/`) for analysis workflows, and a stub `LlmPort` that errors so examination calls surface a clear "no LLM in browser" message.
-- `src/fixtures/`: recorded git/analysis fixtures (`analysis-git-fixture-types.ts`, `analysis-git-mock.ts`, `docs-fixtures.ts`, `generated-analysis-git-fixture.ts`) used by the demo runtime instead of a live repo.
+- `src/demo-runtime.ts`: in-browser workflow runtime wiring. Binds browser-safe mock Git/LMS/user-file ports (driven by recorded fixtures in `src/fixtures/`) for demo workflows, and a stub `LlmPort` that errors so examination calls surface a clear "no LLM in browser" message.
+- `src/fixtures/`: demo cohort JSON (`demo-cohorts/*.json`), generated per-project repo-slot fixtures (`projects/*/generated/*.fixture.ts`), `recorded-repo-slots.ts`, `analysis-git-mock.ts`, and `docs-fixtures.ts` used by the demo runtime instead of live LMS/Git repos. Regenerate with `pnpm docs:record-fixtures`.
 - `src/components/DemoApp.tsx`, `src/components/DemoShell.tsx`: React host components for the docs demo runtime.
 - `src/pages/demo-standalone.astro`: standalone page embedding the React demo.
 - `src/content/docs/*`: Starlight documentation content; `astro.config.mjs` configures the site.
-- `src/__tests__/`: smoke (`docs-smoke`), workflow contract alignment (`workflow-alignment`), browser/Node leakage guardrails (`browser-guardrail`), recorded-fixture integration (`fixture-workflow-integration`), runtime selection (`runtime-selection`), and the cross-runner consistency check (`test-runner-consistency`).
+- `src/__tests__/`: smoke (`docs-smoke`), workflow contract alignment (`workflow-alignment`), browser/Node leakage guardrails (`browser-guardrail`), recorded-fixture integration (`fixture-workflow-integration`), runtime selection (`runtime-selection`), roster display (`analysis-roster-display`), and the cross-runner consistency check (`test-runner-consistency`).
 
 ## Rules
 

@@ -20,7 +20,7 @@ Docker lifecycle: `docker:up:gitea` / `docker:up:gitlab` / `docker:down`.
 
 ## Structure
 
-- `src/repo-create.test.ts`, `src/repo-clone.test.ts` — workflow-level tests
+- `src/repo-create.test.ts`, `src/repo-clone.test.ts`, `src/repo-discover.test.ts` — workflow-level tests
 - `src/fixture-adapter.ts` — bridges `@repo-edu/test-fixtures` into integration context
 - `src/*-harness.ts` — provider-specific harnesses (Gitea, GitHub, GitLab)
 - `src/provider-matrix.ts` — resolves active harnesses from `INTEGRATION_GIT_PROVIDERS` env

@@ -7,7 +7,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 ## Structure
 
 - `src/main.ts`: Electron main process bootstrap and composition root
-- `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set, roster, validation, settings, and user-file workflows.
+- `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set, git-username import, roster, validation, settings, and user-file workflows.
 - `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances

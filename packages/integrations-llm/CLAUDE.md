@@ -11,8 +11,8 @@ Provider adapters for the `LlmTextClient` contract from
   (`createClaudeLlmTextClient`) and the Claude-internal coding-agent function
   (`runClaudeCoder`).
 - `src/codex/*`: Codex prompt/reply adapter
-  (`createCodexLlmTextClient`). Prompt/reply only — Codex never edits a
-  workspace and has no `mc` (coder) equivalent.
+  (`createCodexLlmTextClient`), trace/usage helpers, and guarded fixture-coder
+  runner (`runCodexFixtureCoder`).
 - `src/env.ts`: shared `applyEnvOverrides` helper used by both adapters to
   toggle provider env vars per call without leaking edits across calls.
 
@@ -23,13 +23,16 @@ Provider adapters for the `LlmTextClient` contract from
   the dispatcher.
 - Adapters classify SDK errors into `LlmError`. Every adapter-populated
   `LlmError` includes `context.provider` and the effective `context.authMode`.
-- The Claude-internal coder surface (`runClaudeCoder`) is exported from the
-  package's `./claude` subpath only — it is **not** part of the contract and
-  has no Codex equivalent.
-- The Codex adapter starts every call in a fresh `os.tmpdir()` directory
+- The Claude-internal coder surface (`runClaudeCoder`) and Codex fixture-coder
+  surface (`runCodexFixtureCoder`) are implementation helpers, not part of the
+  provider-neutral contract.
+- Codex prompt/reply calls start every call in a fresh `os.tmpdir()` directory
   with `sandboxMode: "read-only"`, `approvalPolicy: "never"`,
-  `webSearchMode: "disabled"`, and a prompt-only preamble — the SDK does
-  not expose a tool-disable switch, so the boundary is enforced by
-  configuration plus prompt instruction.
+  `networkAccessEnabled: false`, `webSearchMode: "disabled"`, and a prompt-only
+  preamble.
+- Codex fixture-coder calls run in the provided repo with
+  `sandboxMode: "workspace-write"`, `approvalPolicy: "never"`,
+  `networkAccessEnabled: false`, `webSearchMode: "disabled"`, and guardrails
+  for command/tool/file-change events.
 - Browser-incompatible: depends on Node-only SDKs. Keep all adapter use behind
   Node hosts.

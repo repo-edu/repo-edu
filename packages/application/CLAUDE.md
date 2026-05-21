@@ -22,6 +22,7 @@ It composes:
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for every `PersistedCourse`, including no-backing analysis-only courses.
 - Connection workflows are split: `src/connection-workflows.ts` (LMS/Git draft verification + LMS course listing) and `src/llm-connection-workflows.ts` (`connection.verifyLlmDraft`, exercising provider adapters via `LlmPort`).
 - Group-set workflows live in `src/group-set-workflows/` (`file-handlers.ts`, `lms-handlers.ts`, `helpers.ts`, `ports.ts`). CSV import produces `NamedGroupSet`; RepoBee import produces `UsernameGroupSet`. Export dispatches by `nameMode` (CSV for named, TXT for unnamed).
+- Git username import lives in `src/git-username-workflows.ts` (`gitUsernames.import`) and validates imported usernames through the Git provider client.
 - Repository workflows live in `src/repository-workflows/` (also re-exported from `src/repository-workflows.ts`): `repo.create|clone|update|listNamespace|bulkClone`.
 - Analysis workflows are in `src/analysis-workflows/`: `analysis-handler.ts` (`analysis.run`), `blame-handler.ts` (`analysis.blame`), `discover-repos-handler.ts` (`analysis.discoverRepos`), plus `log-parser.ts`, `blame-parser.ts`, `snapshot-engine.ts`, `filter-utils.ts`, `repo-root.ts`, `ports.ts` (`AnalysisWorkflowPorts`). Handlers use `GitCommandPort` only — there is no application-level analysis cache (a previous LRU/persistent cache was removed deliberately; see `analysis-workflows/CLAUDE.md`).
 - Examination workflows are in `src/examination-workflows/`: `examination-workflows.ts` (`examination.generateQuestions`), `prompt-builder.ts` (prompt construction + JSON-fence stripping), `ports.ts` (`ExaminationWorkflowPorts` wrapping `LlmPort`), plus archive surface — `archive-workflows.ts` (`examination.archive.export|import`), `archive-key.ts` (structured `ExaminationArchiveKey`), `archive-port.ts` (handler-side adapter over the host's `ExaminationArchiveStoragePort`). The generate handler builds a prompt from blame-attributed code excerpts, calls `LlmPort`, and parses strict JSON into `ExaminationQuestion[]`.
@@ -36,5 +37,5 @@ It composes:
 
 1. Add id/payload types and metadata in `@repo-edu/application-contract`.
 2. Implement handler in this package.
-3. Wire handler in desktop router, desktop workflow client, and CLI/docs runtimes.
+3. Wire handler in the relevant desktop router/client and CLI/docs runtimes.
 4. Add tests at workflow and boundary levels.

@@ -14,8 +14,14 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`, `PersistedCourse`, `LmsProviderKind`, `GitProviderKind`, etc.)
 - re-exported LLM contract types (`LlmProvider`, `LlmEffort`, `LlmAuthMode`, `LlmUsage`) from `@repo-edu/integrations-llm-contract`
 - re-exported `ExaminationArchiveKey` / `ExaminationArchiveImportSummary` from `@repo-edu/host-runtime-contract`
-- course persistence workflow entries: `course.{list,load,save,delete}`
+- course persistence workflow entries: `course.{list,load,save,delete}` and app settings entries: `settings.{loadApp,saveApp}`
 - connection draft verification: `connection.verifyLmsDraft`, `connection.listLmsCoursesDraft`, `connection.verifyGitDraft`, `connection.verifyLlmDraft`
+- roster workflow entries: `roster.importFromFile`, `roster.importFromLms`, `roster.exportMembers`
+- group-set workflow entries: `groupSet.fetchAvailableFromLms`, `groupSet.connectFromLms`, `groupSet.syncFromLms`, `groupSet.previewImportFromFile`, `groupSet.importFromFile`, `groupSet.export`
+- git username workflow entry: `gitUsernames.import`
+- repository workflow entries: `repo.create`, `repo.clone`, `repo.update`, `repo.listNamespace`, `repo.bulkClone`
+- user-file workflow entries: `userFile.inspectSelection`, `userFile.exportPreview`
+- validation workflow entries: `validation.roster`, `validation.assignment`
 - analysis workflow entries: `analysis.run` (log-based stats + PersonDB baseline), `analysis.blame` (per-file blame + PersonDB overlay), and `analysis.discoverRepos` (filesystem repo discovery for course-rooted analyses); all `delivery: ["desktop", "docs"]`, `progress: "granular"`, cooperative cancellation
 - examination workflow entries: `examination.generateQuestions` (LLM-generated oral exam questions per member from blame-attributed code) plus `examination.archive.export|import` (versioned archive bundle — `EXAMINATION_ARCHIVE_BUNDLE_FORMAT` / `EXAMINATION_ARCHIVE_BUNDLE_VERSION`, `ExaminationArchiveBundle`, drift-aware re-import). All `delivery: ["desktop", "docs"]`. Docs runtime binds a stub that errors when no LLM is reachable in-browser.
 

@@ -22,22 +22,31 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 - `state.ts` — `.fixture-state.json` cursor (last project + plan pointers).
 - `planner.ts` / `coder.ts` / `review.ts` / `evaluate.ts` — the LLM-driven
   phases, all routed through `llm-client.ts` (a thin wrapper over the
-  contract `LlmTextClient`).
+  contract `LlmTextClient`; Claude coder rounds use `runClaudeCoder`, Codex
+  coder rounds use strict JSON-patch replies that this package validates and
+  applies).
+- `repo-context.ts` — embeds current repo snapshot and target file contents for
+  coder prompts.
+- `cohort-team-source.ts` — resolves demo cohort team-source JSON used when
+  seeding docs fixtures.
 - `sampler.ts`, `markers.ts`, `sweep-buckets.ts` — deterministic sampling
   utilities; tests pin the distributions.
-- `prompts/`, `coder-agreement.md`, `projects/`, `sweeps/` — prompt
-  templates and curated project / sweep specifications.
+- `prompts/`, `coder-agreement.md` — prompt templates and shared coder working
+  agreement. Curated docs-demo project specs live under
+  `apps/docs/src/fixtures/projects/`.
 
 ## Rules
 
-- Node-only: imports `@anthropic-ai/claude-agent-sdk` (and the Codex SDK via
-  `@repo-edu/integrations-llm`) — never depend on this package from
-  browser-safe code.
+- Node-only: uses filesystem/process/git side effects and provider adapters via
+  `@repo-edu/integrations-llm` — never depend on this package from browser-safe
+  code.
 - Talk to LLMs only through the contract types in
   `@repo-edu/integrations-llm-contract` and the dispatcher in
   `@repo-edu/integrations-llm`. Do not import provider SDKs directly here.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
   (`parseShortCode`, `modelCode`, `tokenCostUsd`).
+- Keep Codex patch parsing/path validation in `llm-client.ts`; prompts may
+  request JSON, but safety checks belong in code.
 - Output writes go under the runtime `FIXTURES_DIR` configured by
   `setFixtureRuntimeRoots(...)` — never assume the workspace layout.
 - Determinism: every random choice flows through a seeded sampler so re-runs

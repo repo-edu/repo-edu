@@ -11,7 +11,7 @@ provider:
 - `LlmModelSpec` — provider + family + modelId + effort
 - `LlmUsage` — token / wall / auth-mode usage record
 - `LlmTextClient` with a single `generateText` method
-- `LlmError` taxonomy for rate limits, quota, auth, network, other
+- `LlmError` taxonomy for rate limits, quota, auth, network, guardrails, other
 
 `supportedLlmProviders` constant: `["claude", "codex"]`.
 
@@ -19,6 +19,6 @@ provider:
 
 - Browser-safe: no Node/Electron imports.
 - Zero implementation — types, the `LlmError` class, and constants only.
-- Prompt/reply only. No coding-agent surface — that lives Claude-internal in
-  `@repo-edu/integrations-llm`.
+- Prompt/reply only. Provider-specific coding helpers live in
+  `@repo-edu/integrations-llm`; they are not part of this contract.
 - Implementations live in `@repo-edu/integrations-llm`.
