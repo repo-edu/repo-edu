@@ -16,6 +16,7 @@ import type { AnalysisCore } from "@repo-edu/domain/types"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import { create } from "zustand"
 import { authorColorMap } from "../utils/author-colors.js"
+import { useExaminationStore } from "./examination-store.js"
 
 const DEFAULT_BLAME_COPY_MOVE = 1
 
@@ -348,12 +349,12 @@ export const analysisStoreInternals = {
 }
 
 export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
-  (set) => ({
+  (set, get) => ({
     ...initialState,
 
-    setSelectedRepoPath: (path) =>
+    setSelectedRepoPath: (path) => {
+      if (get().selectedRepoPath === path) return
       set((state) => {
-        if (state.selectedRepoPath === path) return state
         const snapshot = snapshotActiveBlameState(state)
         if (path === null) {
           return {
@@ -404,7 +405,9 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           errorMessage: nextError,
           ...DEFAULT_BLAME_STATE,
         }
-      }),
+      })
+      useExaminationStore.getState().reset()
+    },
 
     // Repo discovery
     setSearchDepth: (searchDepth) => set({ searchDepth }),
@@ -621,7 +624,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         return { repoErrorMessage: next }
       }),
 
-    clearAllRepoStates: () =>
+    clearAllRepoStates: () => {
+      useExaminationStore.getState().reset()
       set({
         selectedRepoPath: null,
         repoStates: new Map(),
@@ -646,7 +650,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         fileSelectionMode: "all",
         selectedFiles: new Set(),
         focusedFilePath: null,
-      }),
+      })
+    },
 
     // Blame config
     setBlameConfig: (patch) =>
@@ -789,6 +794,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
+      useExaminationStore.getState().reset()
       set({
         selectedRepoPath: null,
         discoveredRepos: [],
@@ -820,6 +826,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         fileSelectionMode: "all",
         selectedFiles: new Set(),
         focusedFilePath: null,
+        activeView: "authors",
       })
     },
 
@@ -827,6 +834,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
+      useExaminationStore.getState().reset()
       set(initialState)
     },
   }),

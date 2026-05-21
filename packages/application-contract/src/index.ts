@@ -30,7 +30,6 @@ import type {
   ValidationIssue,
 } from "@repo-edu/domain/types"
 import type {
-  ExaminationArchiveKey,
   ExaminationArchiveImportSummary as HostExaminationArchiveImportSummary,
   UserFileRef,
   UserSaveTargetRef,
@@ -494,6 +493,235 @@ export type ExaminationCodeExcerpt = {
   lines: string[]
 }
 
+export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 1 as const
+
+export type ExaminationArchiveKey = {
+  repositoryKey: string
+  personId: string
+  commitOid: string
+  questionCount: number
+  excerptsFingerprint: string
+  generationContextFingerprint: string
+}
+
+export type ExaminationGenerationContext = {
+  assignmentContext?: string | null
+  model: string
+  effort: LlmEffort
+  promptTemplateVersion?: number
+}
+
+export type ExaminationGenerationContextCanonical = {
+  assignmentContext: string
+  model: string
+  effort: LlmEffort
+  promptTemplateVersion: number
+}
+
+const EXAMINATION_ARCHIVE_STORAGE_KEY_VERSION =
+  "examination-archive-key-v1" as const
+
+const EXAMINATION_GENERATION_CONTEXT_VERSION =
+  "examination-generation-context-v1" as const
+
+// Archive fingerprints sit inside a composite key that also includes
+// repository, person, commit, question count, and generation context. A
+// 32-bit hash collision alone cannot produce a wrong hit unless every other
+// key field also matches, so FNV-1a is sufficient for this cache identity.
+function fnv1a32Hex(input: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+export function normalizeExaminationRepositoryKey(
+  repositoryPath: string,
+): string {
+  const trimmed = repositoryPath.trim().replace(/\\/g, "/")
+  if (trimmed.length === 0) return ""
+
+  const driveMatch = /^([A-Za-z]:)(?:\/|$)/.exec(trimmed)
+  const drivePrefix = driveMatch?.[1] ?? ""
+  const isDriveAbsolute = drivePrefix.length > 0
+  const pathAfterDrive = isDriveAbsolute
+    ? trimmed.slice(drivePrefix.length)
+    : trimmed
+  const isPosixAbsolute = !isDriveAbsolute && pathAfterDrive.startsWith("/")
+  const isAbsolute = isDriveAbsolute || isPosixAbsolute
+  const rootPrefix = isDriveAbsolute
+    ? `${drivePrefix}/`
+    : isPosixAbsolute
+      ? "/"
+      : ""
+  const rawSegments = pathAfterDrive.split("/")
+  const segments: string[] = []
+
+  for (const segment of rawSegments) {
+    if (segment.length === 0 || segment === ".") continue
+    if (segment === "..") {
+      const canPop =
+        segments.length > 0 && segments[segments.length - 1] !== ".."
+      if (canPop) {
+        segments.pop()
+      } else if (!isAbsolute) {
+        segments.push("..")
+      }
+      continue
+    }
+    segments.push(segment)
+  }
+
+  if (segments.length === 0) {
+    return isAbsolute ? rootPrefix : "."
+  }
+  return `${rootPrefix}${segments.join("/")}`
+}
+
+export function canonicalizeExaminationExcerpts(
+  excerpts: readonly ExaminationCodeExcerpt[],
+): ExaminationCodeExcerpt[] {
+  return [...excerpts]
+    .map((excerpt) => ({
+      filePath: excerpt.filePath,
+      startLine: excerpt.startLine,
+      lines: [...excerpt.lines],
+    }))
+    .sort((a, b) => {
+      if (a.filePath !== b.filePath) {
+        return a.filePath < b.filePath ? -1 : 1
+      }
+      return a.startLine - b.startLine
+    })
+}
+
+export function buildExaminationExcerptsFingerprint(
+  excerpts: readonly ExaminationCodeExcerpt[],
+): string {
+  const canonical = canonicalizeExaminationExcerpts(excerpts)
+  const serialized = canonical
+    .map((excerpt) =>
+      [
+        excerpt.filePath,
+        String(excerpt.startLine),
+        String(excerpt.lines.length),
+        excerpt.lines.join("\n"),
+      ].join("\u001f"),
+    )
+    .join("\u001e")
+  return fnv1a32Hex(serialized)
+}
+
+export function normalizeExaminationAssignmentContext(
+  assignmentContext: string | null | undefined,
+): string {
+  if (assignmentContext === null || assignmentContext === undefined) return ""
+  return assignmentContext
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .trim()
+}
+
+export function canonicalizeExaminationGenerationContext(
+  context: ExaminationGenerationContext,
+): ExaminationGenerationContextCanonical {
+  return {
+    assignmentContext: normalizeExaminationAssignmentContext(
+      context.assignmentContext,
+    ),
+    model: context.model,
+    effort: context.effort,
+    promptTemplateVersion:
+      context.promptTemplateVersion ?? EXAMINATION_PROMPT_TEMPLATE_VERSION,
+  }
+}
+
+export function buildExaminationGenerationContextFingerprint(
+  context: ExaminationGenerationContext,
+): string {
+  const canonical = canonicalizeExaminationGenerationContext(context)
+  return fnv1a32Hex(
+    JSON.stringify([
+      EXAMINATION_GENERATION_CONTEXT_VERSION,
+      canonical.assignmentContext,
+      canonical.model,
+      canonical.effort,
+      canonical.promptTemplateVersion,
+    ]),
+  )
+}
+
+export function serializeExaminationArchiveStorageKey(
+  key: ExaminationArchiveKey,
+): string {
+  return JSON.stringify([
+    EXAMINATION_ARCHIVE_STORAGE_KEY_VERSION,
+    key.repositoryKey,
+    key.personId,
+    key.commitOid,
+    key.questionCount,
+    key.excerptsFingerprint,
+    key.generationContextFingerprint,
+  ])
+}
+
+export function validateExaminationArchiveKey(
+  raw: unknown,
+): ExaminationArchiveKey | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return null
+  }
+  const record = raw as Record<string, unknown>
+  const allowedFields = new Set([
+    "repositoryKey",
+    "personId",
+    "commitOid",
+    "questionCount",
+    "excerptsFingerprint",
+    "generationContextFingerprint",
+  ])
+  if (Object.keys(record).some((field) => !allowedFields.has(field))) {
+    return null
+  }
+  const {
+    repositoryKey,
+    personId,
+    commitOid,
+    questionCount,
+    excerptsFingerprint,
+    generationContextFingerprint,
+  } = record
+  if (
+    typeof repositoryKey !== "string" ||
+    repositoryKey.length === 0 ||
+    typeof personId !== "string" ||
+    personId.length === 0 ||
+    typeof commitOid !== "string" ||
+    commitOid.length === 0 ||
+    typeof questionCount !== "number" ||
+    !Number.isInteger(questionCount) ||
+    questionCount < 1 ||
+    typeof excerptsFingerprint !== "string" ||
+    excerptsFingerprint.length === 0 ||
+    typeof generationContextFingerprint !== "string" ||
+    generationContextFingerprint.length === 0
+  ) {
+    return null
+  }
+  return {
+    repositoryKey,
+    personId,
+    commitOid,
+    questionCount,
+    excerptsFingerprint,
+    generationContextFingerprint,
+  }
+}
+
 export type ExaminationLlmSettings = {
   llmConnections: PersistedLlmConnection[]
   activeLlmConnectionId: string | null
@@ -501,7 +729,6 @@ export type ExaminationLlmSettings = {
 }
 
 export type ExaminationGenerateQuestionsInput = {
-  groupSetId: string
   /**
    * Stable identity of the author the excerpts belong to, derived from
    * blame canonicalization. Always present — examinations key on this so
@@ -515,11 +742,11 @@ export type ExaminationGenerateQuestionsInput = {
    * graders can tell, on re-open, whether the entry was produced under a
    * matched roster identity.
    */
-  memberId: string | null
+  rosterMemberId: string | null
   commitOid: string
-  repoGitDir: string
-  memberName: string
-  memberEmail: string
+  repositoryPath: string
+  authorName: string
+  authorEmail: string
   excerpts: ExaminationCodeExcerpt[]
   questionCount: number
   assignmentContext?: string
@@ -537,6 +764,11 @@ export type ExaminationGenerateQuestionsInput = {
    */
   regenerate?: boolean
 }
+
+export type ExaminationLookupQuestionsInput = Omit<
+  ExaminationGenerateQuestionsInput,
+  "regenerate"
+>
 
 export type ExaminationLineRange = {
   start: number
@@ -558,24 +790,20 @@ export type ExaminationProvenanceFieldDrift<T> = {
 } | null
 
 export type ExaminationProvenanceDrift = {
-  memberNameChanged: ExaminationProvenanceFieldDrift<string>
-  memberEmailChanged: ExaminationProvenanceFieldDrift<string>
-  repoGitDirChanged: ExaminationProvenanceFieldDrift<string>
-  assignmentContextChanged: ExaminationProvenanceFieldDrift<string>
-  modelChanged: ExaminationProvenanceFieldDrift<string>
-  effortChanged: ExaminationProvenanceFieldDrift<string>
+  authorNameChanged: ExaminationProvenanceFieldDrift<string>
+  authorEmailChanged: ExaminationProvenanceFieldDrift<string>
 }
 
 export type ExaminationArchivedProvenance = {
-  memberName: string
-  memberEmail: string
+  authorName: string
+  authorEmail: string
   /**
    * Roster member id at the time the questions were generated, or null
    * when the author was not matched to a roster member (or no roster
    * existed). Informational only — the archive is keyed on personId.
    */
-  memberId: string | null
-  repoGitDir: string
+  rosterMemberId: string | null
+  repositoryPath: string
   assignmentContext: string | null
   /**
    * Catalog short code that produced the run (e.g. `"22"`, `"c33"`). The
@@ -602,7 +830,12 @@ export type ExaminationGenerateQuestionsResult = {
   provenanceDrift: ExaminationProvenanceDrift | null
 }
 
-export type { ExaminationArchiveKey }
+export type ExaminationArchivedQuestionSet = ExaminationGenerateQuestionsResult
+
+export type ExaminationLookupQuestionsResult = {
+  exact: ExaminationGenerateQuestionsResult | null
+  availableSets: ExaminationArchivedQuestionSet[]
+}
 
 export type ExaminationArchiveRecord = {
   key: ExaminationArchiveKey
@@ -828,6 +1061,12 @@ export type WorkflowPayloads = {
     output: DiagnosticOutput
     result: ExaminationGenerateQuestionsResult
   }
+  "examination.lookupQuestions": {
+    input: ExaminationLookupQuestionsInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationLookupQuestionsResult
+  }
   "examination.archive.export": {
     input: UserSaveTargetRef
     progress: MilestoneProgress
@@ -1010,6 +1249,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "best-effort",
   },
   "examination.generateQuestions": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "examination.lookupQuestions": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
     cancellation: "cooperative",

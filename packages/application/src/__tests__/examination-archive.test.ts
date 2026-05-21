@@ -1,15 +1,24 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import {
+  buildExaminationExcerptsFingerprint,
+  buildExaminationGenerationContextFingerprint,
+  canonicalizeExaminationExcerpts,
+  type ExaminationArchiveKey,
+  normalizeExaminationRepositoryKey,
+  serializeExaminationArchiveStorageKey,
+} from "@repo-edu/application-contract"
 import type {
+  ExaminationArchiveStoragePort,
+  ExaminationArchiveStoredEntry,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
 } from "@repo-edu/host-runtime-contract"
 import {
-  buildExaminationExcerptsFingerprint,
-  canonicalizeExaminationExcerpts,
-} from "../examination-workflows/archive-key.js"
-import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
+  createExaminationArchive,
+  createInMemoryExaminationArchive,
+} from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 
 // ---------------------------------------------------------------------------
@@ -84,12 +93,17 @@ describe("examination archive fingerprint", () => {
 // ---------------------------------------------------------------------------
 
 describe("examination archive adapter", () => {
-  const baseKey = {
-    groupSetId: "gs_1",
+  const baseKey: ExaminationArchiveKey = {
+    repositoryKey: normalizeExaminationRepositoryKey("/repos/alice"),
     personId: "p_1",
     commitOid: "oid-1",
     questionCount: 1,
     excerptsFingerprint: "fp-1",
+    generationContextFingerprint: buildExaminationGenerationContextFingerprint({
+      assignmentContext: "A1",
+      model: "22",
+      effort: "medium",
+    }),
   }
 
   const baseRecord = {
@@ -103,10 +117,10 @@ describe("examination archive adapter", () => {
       },
     ],
     provenance: {
-      memberName: "Alice",
-      memberEmail: "alice@example.com",
-      memberId: "m_1",
-      repoGitDir: "/repos/alice",
+      authorName: "Alice",
+      authorEmail: "alice@example.com",
+      rosterMemberId: "m_1",
+      repositoryPath: "/repos/alice",
       assignmentContext: "A1",
       model: "22",
       effort: "medium" as const,
@@ -124,6 +138,38 @@ describe("examination archive adapter", () => {
         { filePath: "src/a.ts", startLine: 1, lines: ["alpha", "beta"] },
       ],
     },
+  }
+
+  function createStorageWithEntries(
+    entries: readonly ExaminationArchiveStoredEntry[],
+  ): ExaminationArchiveStoragePort {
+    const byStorageKey = new Map(
+      entries.map((entry) => [entry.storageKey, entry]),
+    )
+    return {
+      get(storageKey) {
+        return byStorageKey.get(storageKey)
+      },
+      put(entry) {
+        byStorageKey.set(entry.storageKey, entry)
+      },
+      exportAll() {
+        return [...byStorageKey.values()]
+      },
+      importAll(incoming) {
+        for (const entry of incoming) {
+          byStorageKey.set(entry.storageKey, entry)
+        }
+        return {
+          totalInBundle: incoming.length,
+          inserted: incoming.length,
+          updated: 0,
+          skipped: 0,
+          rejected: 0,
+          rejections: [],
+        }
+      },
+    }
   }
 
   it("put/get preserves the typed record", () => {
@@ -226,7 +272,11 @@ describe("examination archive adapter", () => {
       records: [
         baseRecord,
         { key: baseKey, questions: "not-an-array", provenance: {} },
-        { key: { groupSetId: "x" }, questions: [], provenance: {} },
+        {
+          key: { ...baseKey, excerptsFingerprint: undefined },
+          questions: [],
+          provenance: {},
+        },
       ],
     })
     assert.equal(summary.totalInBundle, 3)
@@ -235,6 +285,48 @@ describe("examination archive adapter", () => {
     assert.equal(summary.rejections.length, 2)
     assert.match(summary.rejections[0], /record failed validation/)
     assert.match(summary.rejections[1], /missing or malformed key/)
+  })
+
+  it("rejects old group-set scoped bundle keys instead of migrating them", () => {
+    const target = createInMemoryExaminationArchive()
+    const summary = target.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: 1,
+      exportedAt: "x",
+      records: [
+        {
+          ...baseRecord,
+          key: {
+            groupSetId: "gs_1",
+            personId: "p_1",
+            commitOid: "oid-1",
+            questionCount: 1,
+            excerptsFingerprint: "fp-1",
+          },
+        },
+      ],
+    })
+
+    assert.equal(summary.totalInBundle, 1)
+    assert.equal(summary.inserted, 0)
+    assert.equal(summary.rejected, 1)
+    assert.match(summary.rejections[0], /old group-set scoped/)
+  })
+
+  it("rejects stored payloads whose embedded key does not match the storage key", () => {
+    const corruptStorage = createStorageWithEntries([
+      {
+        storageKey: serializeExaminationArchiveStorageKey(baseKey),
+        createdAtMs: baseRecord.provenance.createdAtMs,
+        payloadJson: JSON.stringify({
+          ...baseRecord,
+          key: { ...baseKey, personId: "different-person" },
+        }),
+      },
+    ])
+    const corruptArchive = createExaminationArchive(corruptStorage)
+
+    assert.equal(corruptArchive.get(baseKey), undefined)
   })
 })
 
@@ -278,13 +370,12 @@ function sampleLlmReply(questionCount: number): string {
 
 function baseInput() {
   return {
-    groupSetId: "gs_1",
     personId: "p_1",
-    memberId: "m_1",
+    rosterMemberId: "m_1",
     commitOid: "oid-abc",
-    repoGitDir: "/repos/alice",
-    memberName: "Alice",
-    memberEmail: "alice@example.com",
+    repositoryPath: "/repos/alice",
+    authorName: "Alice",
+    authorEmail: "alice@example.com",
     excerpts: [
       { filePath: "src/a.ts", startLine: 1, lines: ["alpha", "beta"] },
     ],
@@ -317,7 +408,7 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.equal(result.fromArchive, false)
     assert.equal(result.provenanceDrift, null)
     assert.equal(result.questions.length, 2)
-    assert.equal(result.archivedProvenance.memberName, "Alice")
+    assert.equal(result.archivedProvenance.authorName, "Alice")
     assert.equal(result.archivedProvenance.questionCount, 2)
 
     // Second call with identical inputs hits the archive.
@@ -326,6 +417,77 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.equal(second.fromArchive, true)
     assert.equal(second.provenanceDrift, null)
     assert.equal(second.questions.length, 2)
+  })
+
+  it("lookupQuestions returns archived questions without calling the LLM", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"](baseInput())
+    const result = await handlers["examination.lookupQuestions"](baseInput())
+
+    assert.equal(llm.calls, 1)
+    assert.ok(result.exact, "lookup should find the generated archive record")
+    assert.equal(result.exact.fromArchive, true)
+    assert.equal(result.exact.provenanceDrift, null)
+    assert.equal(result.exact.questions.length, 2)
+    assert.equal(result.availableSets.length, 1)
+  })
+
+  it("lookupQuestions returns an empty result on archive miss without calling the LLM", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    const result = await handlers["examination.lookupQuestions"](baseInput())
+
+    assert.equal(result.exact, null)
+    assert.deepEqual(result.availableSets, [])
+    assert.equal(llm.calls, 0)
+  })
+
+  it("lookupQuestions lists archived sets when the requested count differs", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"](baseInput())
+    const result = await handlers["examination.lookupQuestions"]({
+      ...baseInput(),
+      questionCount: 4,
+    })
+
+    assert.equal(llm.calls, 1)
+    assert.equal(result.exact, null)
+    assert.equal(result.availableSets.length, 1)
+    assert.equal(result.availableSets[0].archivedProvenance.questionCount, 2)
+    assert.equal(result.availableSets[0].questions.length, 2)
+  })
+
+  it("lookupQuestions reports provenance drift on archive hits", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"](baseInput())
+    const result = await handlers["examination.lookupQuestions"]({
+      ...baseInput(),
+      authorName: "Alice Renamed",
+      authorEmail: "renamed@example.com",
+    })
+
+    assert.equal(llm.calls, 1)
+    assert.ok(result.exact, "lookup should find the generated archive record")
+    assert.equal(result.exact.fromArchive, true)
+    assert.deepEqual(result.exact.provenanceDrift?.authorNameChanged, {
+      from: "Alice",
+      to: "Alice Renamed",
+    })
+    assert.deepEqual(result.exact.provenanceDrift?.authorEmailChanged, {
+      from: "alice@example.com",
+      to: "renamed@example.com",
+    })
   })
 
   it("regenerate bypasses the archive and overwrites the stored record", async () => {
@@ -352,30 +514,20 @@ describe("examination.generateQuestions archive behavior", () => {
 
     const result = await handlers["examination.generateQuestions"]({
       ...baseInput(),
-      memberName: "Alice Renamed",
-      memberEmail: "renamed@example.com",
-      repoGitDir: "/repos/alice-moved",
-      assignmentContext: "A1 (updated)",
+      authorName: "Alice Renamed",
+      authorEmail: "renamed@example.com",
     })
     assert.equal(llm.calls, 1)
     assert.equal(result.fromArchive, true)
     const drift = result.provenanceDrift
     assert.ok(drift, "drift should be populated")
-    assert.deepEqual(drift?.memberNameChanged, {
+    assert.deepEqual(drift?.authorNameChanged, {
       from: "Alice",
       to: "Alice Renamed",
     })
-    assert.deepEqual(drift?.memberEmailChanged, {
+    assert.deepEqual(drift?.authorEmailChanged, {
       from: "alice@example.com",
       to: "renamed@example.com",
-    })
-    assert.deepEqual(drift?.repoGitDirChanged, {
-      from: "/repos/alice",
-      to: "/repos/alice-moved",
-    })
-    assert.deepEqual(drift?.assignmentContextChanged, {
-      from: "A1",
-      to: "A1 (updated)",
     })
   })
 
@@ -429,6 +581,89 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.equal(changedCount.fromArchive, false)
   })
 
+  it("keeps same person and commit inputs distinct across repositories", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"](baseInput())
+    const movedRepository = await handlers["examination.generateQuestions"]({
+      ...baseInput(),
+      repositoryPath: "/repos/other",
+    })
+
+    assert.equal(llm.calls, 2)
+    assert.equal(movedRepository.fromArchive, false)
+  })
+
+  it("keys archive reuse by assignment context, model code, effort and prompt version", async () => {
+    const baseFingerprint = buildExaminationGenerationContextFingerprint({
+      assignmentContext: "A1",
+      model: "22",
+      effort: "medium",
+      promptTemplateVersion: 1,
+    })
+    assert.notEqual(
+      baseFingerprint,
+      buildExaminationGenerationContextFingerprint({
+        assignmentContext: "A2",
+        model: "22",
+        effort: "medium",
+        promptTemplateVersion: 1,
+      }),
+    )
+    assert.notEqual(
+      baseFingerprint,
+      buildExaminationGenerationContextFingerprint({
+        assignmentContext: "A1",
+        model: "33",
+        effort: "medium",
+        promptTemplateVersion: 1,
+      }),
+    )
+    assert.notEqual(
+      baseFingerprint,
+      buildExaminationGenerationContextFingerprint({
+        assignmentContext: "A1",
+        model: "22",
+        effort: "high",
+        promptTemplateVersion: 1,
+      }),
+    )
+    assert.notEqual(
+      baseFingerprint,
+      buildExaminationGenerationContextFingerprint({
+        assignmentContext: "A1",
+        model: "22",
+        effort: "medium",
+        promptTemplateVersion: 2,
+      }),
+    )
+  })
+
+  it("misses the archive when assignment context or selected model changes", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"](baseInput())
+    const changedAssignment = await handlers["examination.generateQuestions"]({
+      ...baseInput(),
+      assignmentContext: "A1 updated",
+    })
+    const changedModel = await handlers["examination.generateQuestions"]({
+      ...baseInput(),
+      llmSettings: {
+        ...baseInput().llmSettings,
+        examinationModelsByProvider: { claude: "33" },
+      },
+    })
+
+    assert.equal(llm.calls, 3)
+    assert.equal(changedAssignment.fromArchive, false)
+    assert.equal(changedModel.fromArchive, false)
+  })
+
   it("rejects input missing required identity fields", async () => {
     const archive = createInMemoryExaminationArchive()
     const llm = createRecordingLlm(sampleLlmReply(2))
@@ -438,7 +673,7 @@ describe("examination.generateQuestions archive behavior", () => {
       () =>
         handlers["examination.generateQuestions"]({
           ...baseInput(),
-          groupSetId: "",
+          authorName: "",
         }),
       (error: unknown) =>
         typeof error === "object" &&
@@ -450,5 +685,23 @@ describe("examination.generateQuestions archive behavior", () => {
         ),
     )
     assert.equal(llm.calls, 0)
+  })
+
+  it("rejects empty rosterMemberId while accepting null", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({ llm, archive })
+
+    await handlers["examination.generateQuestions"]({
+      ...baseInput(),
+      rosterMemberId: null,
+    })
+
+    await assert.rejects(() =>
+      handlers["examination.generateQuestions"]({
+        ...baseInput(),
+        rosterMemberId: "",
+      }),
+    )
   })
 })

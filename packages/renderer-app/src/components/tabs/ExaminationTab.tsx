@@ -1,4 +1,6 @@
 import type {
+  ExaminationGenerateQuestionsResult,
+  ExaminationLookupQuestionsInput,
   ExaminationProvenanceDrift,
   ExaminationQuestion,
   MilestoneProgress,
@@ -29,9 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
+import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
 import {
   selectAuthorDisplayByPersonId,
   useAnalysisStore,
@@ -42,7 +45,6 @@ import {
   selectLlmConnections,
   useAppSettingsStore,
 } from "../../stores/app-settings-store.js"
-import { useCourseStore } from "../../stores/course-store.js"
 import {
   type ExaminationEntry,
   examinationStoreInternals,
@@ -51,17 +53,15 @@ import {
 import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { buildMemberExcerpts } from "./examination/build-excerpts.js"
-
-function buildExaminationEntryKey(parts: {
-  repoPath: string
-  commitOid: string
-  personId: string
-}): string {
-  return `${parts.repoPath}\0${parts.commitOid}\0${parts.personId}`
-}
+import {
+  buildExaminationRendererEntryKey,
+  resolveExaminationBlockingReason,
+  resolveExaminationEmptyState,
+  shouldShowUnmatchedRosterWarning,
+} from "./examination/view-state.js"
 
 export function ExaminationTab() {
-  const course = useCourseStore((s) => s.course)
+  const analysisContext = useAnalysisContext()
   const blameResult = useAnalysisStore((s) => s.blameResult)
   const analysisResult = useAnalysisStore((s) => s.result)
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
@@ -75,6 +75,12 @@ export function ExaminationTab() {
   const showAnswers = useExaminationStore((s) => s.showAnswers)
   const setShowAnswers = useExaminationStore((s) => s.setShowAnswers)
   const setEntry = useExaminationStore((s) => s.setEntry)
+  const [availableArchiveEntries, setAvailableArchiveEntries] = useState<
+    AvailableArchiveEntry[]
+  >([])
+  const [selectedArchiveEntryKey, setSelectedArchiveEntryKey] = useState<
+    string | null
+  >(null)
 
   const workflowClient = useWorkflowClient()
   const rendererHost = useRendererHost()
@@ -111,6 +117,13 @@ export function ExaminationTab() {
       examinationModelsByProvider,
     )
   }, [activeProvider, examinationModelsByProvider])
+  const selectedModelSpec = useMemo(
+    () =>
+      selectedModelCode === null
+        ? null
+        : (getSpecByCode(selectedModelCode) ?? null),
+    [selectedModelCode],
+  )
 
   // Auto-correct provider/model mismatch caused by direct settings edits
   // before any examination call reaches the workflow.
@@ -136,7 +149,7 @@ export function ExaminationTab() {
     [blameResult],
   )
 
-  const memberIdByPersonId = useMemo(() => {
+  const rosterMemberIdByPersonId = useMemo(() => {
     const map = new Map<string, string>()
     const matches = analysisResult?.rosterMatches?.matches ?? []
     for (const match of matches) {
@@ -146,78 +159,253 @@ export function ExaminationTab() {
   }, [analysisResult])
 
   const rosterPopulated = useMemo(() => {
-    if (!course) return false
-    return course.roster.students.length + course.roster.staff.length > 0
-  }, [course])
+    const roster = analysisContext.course?.roster
+    if (!roster) return false
+    return roster.students.length + roster.staff.length > 0
+  }, [analysisContext.course])
 
   const commitOid = useMemo(() => {
     const resolved = analysisResult?.resolvedAsOfOid
     if (resolved && resolved.length > 0) return resolved
     return asOfCommit ?? ""
   }, [analysisResult, asOfCommit])
+  const selectedExcerpts = useMemo(() => {
+    if (!blameResult || !selectedPersonId) return []
+    return buildMemberExcerpts(
+      blameResult,
+      blameResult.personDbOverlay,
+      selectedPersonId,
+    )
+  }, [blameResult, selectedPersonId])
   const selectedEntryKey = useMemo(() => {
-    if (!selectedRepoPath || commitOid.length === 0 || !selectedPersonId) {
+    if (
+      !selectedRepoPath ||
+      commitOid.length === 0 ||
+      !selectedPersonId ||
+      selectedModelCode === null ||
+      selectedModelSpec === null ||
+      selectedExcerpts.length === 0
+    ) {
       return null
     }
-    return buildExaminationEntryKey({
-      repoPath: selectedRepoPath,
+    return buildExaminationRendererEntryKey({
+      repositoryPath: selectedRepoPath,
       commitOid,
       personId: selectedPersonId,
+      questionCount,
+      excerpts: selectedExcerpts,
+      assignmentContext: null,
+      model: selectedModelCode,
+      effort: selectedModelSpec.effort,
     })
-  }, [commitOid, selectedPersonId, selectedRepoPath])
+  }, [
+    commitOid,
+    questionCount,
+    selectedExcerpts,
+    selectedModelCode,
+    selectedModelSpec,
+    selectedPersonId,
+    selectedRepoPath,
+  ])
   const entry = useExaminationStore((s) =>
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )
+  const selectedSummary =
+    authorSummaries.find((s) => s.personId === selectedPersonId) ?? null
+  const selectedDisplay =
+    selectedSummary !== null
+      ? (authorDisplays.get(selectedSummary.personId) ?? {
+          name: selectedSummary.canonicalName,
+          email: selectedSummary.canonicalEmail,
+        })
+      : null
+  const selectedAuthorName =
+    selectedSummary !== null
+      ? (selectedDisplay?.name ?? selectedSummary.canonicalName)
+      : null
+  const selectedAuthorEmail =
+    selectedSummary !== null
+      ? (selectedDisplay?.email ?? selectedSummary.canonicalEmail)
+      : null
+  const selectedLookupInput =
+    useMemo<ExaminationLookupQuestionsInput | null>(() => {
+      if (
+        !selectedRepoPath ||
+        commitOid.length === 0 ||
+        selectedPersonId === null ||
+        selectedAuthorName === null ||
+        selectedAuthorEmail === null ||
+        selectedModelCode === null ||
+        selectedModelSpec === null ||
+        selectedExcerpts.length === 0
+      ) {
+        return null
+      }
+      return {
+        personId: selectedPersonId,
+        rosterMemberId: rosterMemberIdByPersonId.get(selectedPersonId) ?? null,
+        commitOid,
+        repositoryPath: selectedRepoPath,
+        authorName: selectedAuthorName,
+        authorEmail: selectedAuthorEmail,
+        excerpts: selectedExcerpts,
+        questionCount,
+        llmSettings,
+      }
+    }, [
+      commitOid,
+      llmSettings,
+      questionCount,
+      rosterMemberIdByPersonId,
+      selectedAuthorEmail,
+      selectedAuthorName,
+      selectedExcerpts,
+      selectedModelCode,
+      selectedModelSpec,
+      selectedPersonId,
+      selectedRepoPath,
+    ])
+  const emptyStateMessage = resolveExaminationEmptyState({
+    selectedRepositoryPath: selectedRepoPath,
+    hasBlameResult: blameResult !== null,
+    authorCount: authorSummaries.length,
+    selectedPersonId,
+  })
 
-  if (!blameResult || authorSummaries.length === 0) {
+  const refreshArchiveEntries = useCallback(
+    async (
+      lookupInput: ExaminationLookupQuestionsInput,
+      entryKey: string,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      setAvailableArchiveEntries([])
+      const result = await workflowClient.run(
+        "examination.lookupQuestions",
+        lookupInput,
+        {
+          signal,
+          onProgress: (_progress: MilestoneProgress) => undefined,
+        },
+      )
+      if (signal?.aborted) return
+      const archiveEntries = result.availableSets.map((questionSet) =>
+        toAvailableArchiveEntry(lookupInput, questionSet),
+      )
+      setAvailableArchiveEntries(archiveEntries)
+      setSelectedArchiveEntryKey(
+        result.exact === null ? (archiveEntries[0]?.key ?? null) : entryKey,
+      )
+      if (result.exact === null) return
+      const currentEntry =
+        useExaminationStore.getState().entriesByKey.get(entryKey) ?? null
+      if (currentEntry !== null && currentEntry.status !== "idle") return
+      setEntry(entryKey, toExaminationEntry(result.exact))
+    },
+    [setEntry, workflowClient],
+  )
+
+  useEffect(() => {
+    if (selectedEntryKey === null || selectedLookupInput === null) {
+      setAvailableArchiveEntries([])
+      setSelectedArchiveEntryKey(null)
+      return
+    }
+
+    const abort = new AbortController()
+    void refreshArchiveEntries(
+      selectedLookupInput,
+      selectedEntryKey,
+      abort.signal,
+    ).catch((_error: unknown) => undefined)
+
+    return () => abort.abort()
+  }, [refreshArchiveEntries, selectedEntryKey, selectedLookupInput])
+
+  const archiveEntries = useMemo(
+    () =>
+      mergeAvailableArchiveEntries(
+        availableArchiveEntries,
+        selectedEntryKey !== null && entry?.status === "loaded"
+          ? [
+              {
+                key: selectedEntryKey,
+                questionCount: entry.archivedQuestionCount ?? questionCount,
+                entry,
+              },
+            ]
+          : [],
+      ),
+    [availableArchiveEntries, entry, questionCount, selectedEntryKey],
+  )
+
+  useEffect(() => {
+    if (archiveEntries.length === 0) {
+      if (selectedArchiveEntryKey !== null) setSelectedArchiveEntryKey(null)
+      return
+    }
+    if (
+      selectedArchiveEntryKey !== null &&
+      archiveEntries.some(
+        (archiveEntry) => archiveEntry.key === selectedArchiveEntryKey,
+      )
+    ) {
+      return
+    }
+    setSelectedArchiveEntryKey(archiveEntries[0].key)
+  }, [archiveEntries, selectedArchiveEntryKey])
+
+  const displayedArchiveEntry = useMemo(() => {
+    if (archiveEntries.length === 0) return null
+    return (
+      archiveEntries.find(
+        (archiveEntry) => archiveEntry.key === selectedArchiveEntryKey,
+      ) ?? archiveEntries[0]
+    )
+  }, [archiveEntries, selectedArchiveEntryKey])
+
+  if (!selectedRepoPath || !blameResult || authorSummaries.length === 0) {
     return (
       <div className="h-full overflow-auto p-6">
-        <EmptyState message="Run blame analysis in the Analysis tab to enable per-member examination questions." />
+        <EmptyState message={emptyStateMessage ?? ""} />
       </div>
     )
   }
 
-  const resolveBlockingReason = (_personId: string): string | null => {
-    if (!course) {
-      return "Open a course before generating questions."
-    }
-    if (!selectedRepoPath) {
-      return "Select a repository in the Analysis tab first."
-    }
-    if (commitOid.length === 0) {
-      return "Analysis must resolve a commit before generating examination output."
-    }
-    if (activeLlmConnection === null) {
-      return "Add an LLM connection in Settings → LLM Connections to generate questions."
-    }
-    return null
+  const resolveBlockingReason = (): string | null => {
+    return resolveExaminationBlockingReason({
+      selectedRepositoryPath: selectedRepoPath,
+      commitOid,
+      hasActiveLlmConnection: activeLlmConnection !== null,
+    })
   }
 
   const resolveRosterWarning = (personId: string): string | null => {
-    if (!rosterPopulated) return null
-    if (memberIdByPersonId.has(personId)) return null
-    return "This author is not in the course roster — verify they belong to this course before sharing the questions."
+    const rosterMemberId = rosterMemberIdByPersonId.get(personId) ?? null
+    if (
+      !shouldShowUnmatchedRosterWarning({
+        analysisKind: analysisContext.kind,
+        rosterPopulated,
+        rosterMemberId,
+      })
+    ) {
+      return null
+    }
+    return "This author is not in the course roster; verify they belong to this course before sharing the questions."
   }
 
   const generate = async (
     personId: string,
-    memberName: string,
-    memberEmail: string,
+    authorName: string,
+    authorEmail: string,
     options?: { regenerate?: boolean },
   ) => {
     if (!blameResult) return
-    const blocker = resolveBlockingReason(personId)
+    const blocker = resolveBlockingReason()
     if (blocker) {
       addToast(blocker, { tone: "warning" })
       return
     }
-    if (!course || !selectedRepoPath) return
-    const memberId = memberIdByPersonId.get(personId) ?? null
-    const entryKey = buildExaminationEntryKey({
-      repoPath: selectedRepoPath,
-      commitOid,
-      personId,
-    })
+    if (!selectedRepoPath) return
 
     const excerpts = buildMemberExcerpts(
       blameResult,
@@ -225,11 +413,28 @@ export function ExaminationTab() {
       personId,
     )
     if (excerpts.length === 0) {
-      addToast("No code is attributed to this member; nothing to generate.", {
+      addToast("No code is attributed to this author; nothing to generate.", {
         tone: "warning",
       })
       return
     }
+    if (selectedModelCode === null || selectedModelSpec === null) {
+      addToast("Choose an examination model before generating questions.", {
+        tone: "warning",
+      })
+      return
+    }
+    const rosterMemberId = rosterMemberIdByPersonId.get(personId) ?? null
+    const entryKey = buildExaminationRendererEntryKey({
+      repositoryPath: selectedRepoPath,
+      commitOid,
+      personId,
+      questionCount,
+      excerpts,
+      assignmentContext: null,
+      model: selectedModelCode,
+      effort: selectedModelSpec.effort,
+    })
 
     const existing = examinationStoreInternals.abortByEntryKey.get(entryKey)
     existing?.abort()
@@ -251,13 +456,12 @@ export function ExaminationTab() {
       const result = await workflowClient.run(
         "examination.generateQuestions",
         {
-          groupSetId: course.id,
           personId,
-          memberId,
+          rosterMemberId,
           commitOid,
-          repoGitDir: selectedRepoPath,
-          memberName,
-          memberEmail,
+          repositoryPath: selectedRepoPath,
+          authorName,
+          authorEmail,
           excerpts,
           questionCount,
           llmSettings,
@@ -269,16 +473,18 @@ export function ExaminationTab() {
         },
       )
       if (abort.signal.aborted) return
-      setEntry(entryKey, {
-        status: "loaded",
-        questions: result.questions,
-        usage: result.usage,
-        errorMessage: null,
-        generatedAt: new Date().toISOString(),
-        fromArchive: result.fromArchive,
-        provenanceDrift: result.provenanceDrift,
-        archivedQuestionCount: result.archivedProvenance.questionCount,
-      })
+      const loadedEntry = toExaminationEntry(result)
+      setEntry(entryKey, loadedEntry)
+      setAvailableArchiveEntries((entries) =>
+        mergeAvailableArchiveEntries(entries, [
+          {
+            key: entryKey,
+            questionCount: result.archivedProvenance.questionCount,
+            entry: loadedEntry,
+          },
+        ]),
+      )
+      setSelectedArchiveEntryKey(entryKey)
     } catch (error) {
       if (abort.signal.aborted) return
       const message =
@@ -344,6 +550,11 @@ export function ExaminationTab() {
         }.`,
         { tone: "success" },
       )
+      if (selectedEntryKey !== null && selectedLookupInput !== null) {
+        void refreshArchiveEntries(selectedLookupInput, selectedEntryKey).catch(
+          (_error: unknown) => undefined,
+        )
+      }
     } catch (error) {
       addToast(
         `Import failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -352,30 +563,19 @@ export function ExaminationTab() {
     }
   }
 
-  const selectedSummary =
-    authorSummaries.find((s) => s.personId === selectedPersonId) ?? null
-  const selectedDisplay =
-    selectedSummary !== null
-      ? (authorDisplays.get(selectedSummary.personId) ?? {
-          name: selectedSummary.canonicalName,
-          email: selectedSummary.canonicalEmail,
-        })
-      : null
   const selectedBlocker =
-    selectedSummary !== null
-      ? resolveBlockingReason(selectedSummary.personId)
-      : null
+    selectedSummary !== null ? resolveBlockingReason() : null
   const selectedRosterWarning =
     selectedSummary !== null
       ? resolveRosterWarning(selectedSummary.personId)
       : null
 
   const copyMarkdown = async () => {
-    if (!selectedSummary || !entry || entry.status !== "loaded") return
+    if (!selectedSummary || displayedArchiveEntry === null) return
     const markdown = buildMarkdownTranscript({
-      memberName: selectedDisplay?.name ?? selectedSummary.canonicalName,
-      memberEmail: selectedDisplay?.email ?? selectedSummary.canonicalEmail,
-      questions: entry.questions,
+      authorName: selectedDisplay?.name ?? selectedSummary.canonicalName,
+      authorEmail: selectedDisplay?.email ?? selectedSummary.canonicalEmail,
+      questions: displayedArchiveEntry.entry.questions,
     })
     try {
       await navigator.clipboard.writeText(markdown)
@@ -391,8 +591,8 @@ export function ExaminationTab() {
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Examination</h2>
           <p className="text-sm text-muted-foreground">
-            Generate per-member oral exam questions from the code each student
-            signed their name to in the final repository state.
+            Generate oral exam questions from the code each author signed their
+            name to in the final repository state.
           </p>
         </div>
         <div className="flex gap-2">
@@ -422,7 +622,7 @@ export function ExaminationTab() {
       />
 
       <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
-        <MemberList
+        <AuthorList
           authorSummaries={authorSummaries}
           authorDisplays={authorDisplays}
           selectedPersonId={selectedPersonId}
@@ -431,23 +631,26 @@ export function ExaminationTab() {
 
         <div className="min-h-0 overflow-hidden">
           {selectedSummary === null ? (
-            <EmptyState message="Pick a student from the list to generate questions." />
+            <EmptyState message={emptyStateMessage ?? ""} />
           ) : (
-            <MemberPanel
-              memberName={
+            <AuthorPanel
+              authorName={
                 selectedDisplay?.name ?? selectedSummary.canonicalName
               }
-              memberEmail={
+              authorEmail={
                 selectedDisplay?.email ?? selectedSummary.canonicalEmail
               }
               summary={selectedSummary}
               entry={entry}
+              archiveEntries={archiveEntries}
+              displayedArchiveEntry={displayedArchiveEntry}
               questionCount={questionCount}
               showAnswers={showAnswers}
               blocker={selectedBlocker}
               rosterWarning={selectedRosterWarning}
               onQuestionCountChange={setQuestionCount}
               onShowAnswersChange={setShowAnswers}
+              onSelectArchiveEntry={setSelectedArchiveEntryKey}
               onGenerate={() =>
                 generate(
                   selectedSummary.personId,
@@ -472,19 +675,19 @@ export function ExaminationTab() {
   )
 }
 
-type MemberListProps = {
+type AuthorListProps = {
   authorSummaries: BlameAuthorSummary[]
   authorDisplays: Map<string, { name: string; email: string }>
   selectedPersonId: string | null
   onSelect: (personId: string) => void
 }
 
-function MemberList({
+function AuthorList({
   authorSummaries,
   authorDisplays,
   selectedPersonId,
   onSelect,
-}: MemberListProps) {
+}: AuthorListProps) {
   const sorted = useMemo(
     () => [...authorSummaries].sort((a, b) => b.lines - a.lines),
     [authorSummaries],
@@ -517,57 +720,61 @@ function MemberList({
   )
 }
 
-type MemberPanelProps = {
-  memberName: string
-  memberEmail: string
+type AvailableArchiveEntry = {
+  key: string
+  questionCount: number
+  entry: ExaminationEntry
+}
+
+type AuthorPanelProps = {
+  authorName: string
+  authorEmail: string
   summary: BlameAuthorSummary
   entry: ExaminationEntry | null
+  archiveEntries: AvailableArchiveEntry[]
+  displayedArchiveEntry: AvailableArchiveEntry | null
   questionCount: number
   showAnswers: boolean
   blocker: string | null
   rosterWarning: string | null
   onQuestionCountChange: (count: number) => void
   onShowAnswersChange: (show: boolean) => void
+  onSelectArchiveEntry: (key: string) => void
   onGenerate: () => void
   onRegenerate: () => void
   onCopyMarkdown: () => void
 }
 
-function MemberPanel({
-  memberName,
-  memberEmail,
+function AuthorPanel({
+  authorName,
+  authorEmail,
   summary,
   entry,
+  archiveEntries,
+  displayedArchiveEntry,
   questionCount,
   showAnswers,
   blocker,
   rosterWarning,
   onQuestionCountChange,
   onShowAnswersChange,
+  onSelectArchiveEntry,
   onGenerate,
   onRegenerate,
   onCopyMarkdown,
-}: MemberPanelProps) {
+}: AuthorPanelProps) {
   const isLoading = entry?.status === "loading"
-  const hasResults = entry?.status === "loaded"
-  const archiveHitDisplayed = hasResults && entry?.fromArchive === true
-  const hasDrift = hasResults && entry?.provenanceDrift != null
-  // On a clean archive hit, reflect the stored count so the visible input
-  // matches what the user sees. When drift is present, leave the input
-  // editable so Regenerate can be driven with a new count.
-  const effectiveQuestionCount =
-    archiveHitDisplayed && !hasDrift
-      ? (entry?.archivedQuestionCount ?? questionCount)
-      : questionCount
-  const countDisabled = isLoading || (archiveHitDisplayed && !hasDrift)
+  const exactHasResults = entry?.status === "loaded"
+  const displayEntry = displayedArchiveEntry?.entry ?? null
+  const hasDisplayResults = displayEntry?.status === "loaded"
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-hidden">
       <Card>
         <CardHeader>
-          <CardTitle>{memberName}</CardTitle>
+          <CardTitle>{authorName}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {memberEmail} · {summary.lines} attributed lines
+            {authorEmail} · {summary.lines} attributed lines
           </p>
           {rosterWarning !== null ? (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
@@ -578,14 +785,14 @@ function MemberPanel({
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="examination-question-count">Questions</Label>
+              <Label htmlFor="examination-question-count">New questions</Label>
               <Input
                 id="examination-question-count"
                 type="number"
                 min={1}
                 max={20}
-                value={effectiveQuestionCount}
-                disabled={countDisabled}
+                value={questionCount}
+                disabled={isLoading}
                 onChange={(event) =>
                   onQuestionCountChange(Number(event.target.value))
                 }
@@ -602,7 +809,7 @@ function MemberPanel({
             <Button
               variant="outline"
               onClick={onRegenerate}
-              disabled={isLoading || !hasResults || blocker !== null}
+              disabled={isLoading || !exactHasResults || blocker !== null}
               title={
                 blocker ??
                 "Force a fresh LLM call, overwriting the archived entry."
@@ -613,14 +820,14 @@ function MemberPanel({
             <Button
               variant="secondary"
               onClick={() => onShowAnswersChange(!showAnswers)}
-              disabled={!hasResults}
+              disabled={!hasDisplayResults}
             >
               {showAnswers ? "Hide answers" : "Show answers"}
             </Button>
             <Button
               variant="ghost"
               onClick={onCopyMarkdown}
-              disabled={!hasResults}
+              disabled={!hasDisplayResults}
             >
               Copy as Markdown
             </Button>
@@ -631,25 +838,146 @@ function MemberPanel({
         </CardContent>
       </Card>
 
-      {hasResults && entry?.provenanceDrift ? (
-        <ProvenanceDriftBanner drift={entry.provenanceDrift} />
+      {archiveEntries.length > 0 ? (
+        <ArchiveSetSelector
+          entries={archiveEntries}
+          selectedKey={displayedArchiveEntry?.key ?? null}
+          onSelect={onSelectArchiveEntry}
+        />
+      ) : null}
+
+      {displayEntry?.status === "loaded" && displayEntry.provenanceDrift ? (
+        <ProvenanceDriftBanner drift={displayEntry.provenanceDrift} />
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {entry === null || entry.status === "idle" ? (
-          <EmptyState message="Click Generate to produce questions for this member." />
-        ) : entry.status === "loading" ? (
+        {displayEntry?.status === "loaded" ? (
+          <div className="flex flex-col gap-2">
+            {displayedArchiveEntry !== null ? (
+              <p className="text-xs text-muted-foreground">
+                Archived {displayedArchiveEntry.questionCount} question
+                {displayedArchiveEntry.questionCount === 1 ? "" : "s"}
+              </p>
+            ) : null}
+            <QuestionList
+              questions={displayEntry.questions}
+              showAnswers={showAnswers}
+            />
+          </div>
+        ) : entry === null || entry.status === "idle" ? (
+          <EmptyState message="Click Generate to produce questions for this author." />
+        ) : isLoading ? (
           <EmptyState message="Generating... the model is writing questions from the attributed code." />
         ) : entry.status === "error" ? (
           <EmptyState
             message={`Generation failed: ${entry.errorMessage ?? "Unknown error."}`}
           />
-        ) : (
-          <QuestionList questions={entry.questions} showAnswers={showAnswers} />
-        )}
+        ) : null}
       </div>
     </div>
   )
+}
+
+type ArchiveSetSelectorProps = {
+  entries: AvailableArchiveEntry[]
+  selectedKey: string | null
+  onSelect: (key: string) => void
+}
+
+function ArchiveSetSelector({
+  entries,
+  selectedKey,
+  onSelect,
+}: ArchiveSetSelectorProps) {
+  return (
+    <div className="rounded border bg-muted/20 px-3 py-2">
+      <div className="mb-2 text-xs font-medium text-muted-foreground">
+        Archived sets
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {entries.map((entry) => {
+          const active = entry.key === selectedKey
+          return (
+            <button
+              key={entry.key}
+              type="button"
+              onClick={() => onSelect(entry.key)}
+              className={`rounded border px-2 py-1 text-xs transition-colors ${
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "bg-background hover:bg-muted"
+              }`}
+            >
+              {entry.questionCount} question
+              {entry.questionCount === 1 ? "" : "s"}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function toAvailableArchiveEntry(
+  input: ExaminationLookupQuestionsInput,
+  result: ExaminationGenerateQuestionsResult,
+): AvailableArchiveEntry {
+  const questionCount = result.archivedProvenance.questionCount
+  return {
+    key: buildExaminationRendererEntryKey({
+      repositoryPath: input.repositoryPath,
+      commitOid: input.commitOid,
+      personId: input.personId,
+      questionCount,
+      excerpts: result.archivedProvenance.excerpts,
+      assignmentContext: result.archivedProvenance.assignmentContext,
+      model: result.archivedProvenance.model,
+      effort: result.archivedProvenance.effort,
+    }),
+    questionCount,
+    entry: toExaminationEntry(result),
+  }
+}
+
+function toExaminationEntry(
+  result: ExaminationGenerateQuestionsResult,
+): ExaminationEntry {
+  return {
+    status: "loaded",
+    questions: result.questions,
+    usage: result.usage,
+    errorMessage: null,
+    generatedAt: new Date(result.archivedProvenance.createdAtMs).toISOString(),
+    fromArchive: result.fromArchive,
+    provenanceDrift: result.provenanceDrift,
+    archivedQuestionCount: result.archivedProvenance.questionCount,
+  }
+}
+
+function mergeAvailableArchiveEntries(
+  current: readonly AvailableArchiveEntry[],
+  incoming: readonly AvailableArchiveEntry[],
+): AvailableArchiveEntry[] {
+  const byKey = new Map<string, AvailableArchiveEntry>()
+  for (const entry of current) {
+    byKey.set(entry.key, entry)
+  }
+  for (const entry of incoming) {
+    byKey.set(entry.key, entry)
+  }
+  return [...byKey.values()].sort(compareAvailableArchiveEntries)
+}
+
+function compareAvailableArchiveEntries(
+  a: AvailableArchiveEntry,
+  b: AvailableArchiveEntry,
+): number {
+  const aTime =
+    a.entry.generatedAt === null ? 0 : Date.parse(a.entry.generatedAt)
+  const bTime =
+    b.entry.generatedAt === null ? 0 : Date.parse(b.entry.generatedAt)
+  if (aTime !== bTime) return bTime - aTime
+  return a.questionCount - b.questionCount
 }
 
 function ProvenanceDriftBanner({
@@ -658,46 +986,18 @@ function ProvenanceDriftBanner({
   drift: ExaminationProvenanceDrift
 }) {
   const items: { label: string; from: string; to: string }[] = []
-  if (drift.memberNameChanged) {
+  if (drift.authorNameChanged) {
     items.push({
       label: "Name",
-      from: drift.memberNameChanged.from,
-      to: drift.memberNameChanged.to,
+      from: drift.authorNameChanged.from,
+      to: drift.authorNameChanged.to,
     })
   }
-  if (drift.memberEmailChanged) {
+  if (drift.authorEmailChanged) {
     items.push({
       label: "Email",
-      from: drift.memberEmailChanged.from,
-      to: drift.memberEmailChanged.to,
-    })
-  }
-  if (drift.repoGitDirChanged) {
-    items.push({
-      label: "Repository path",
-      from: drift.repoGitDirChanged.from,
-      to: drift.repoGitDirChanged.to,
-    })
-  }
-  if (drift.assignmentContextChanged) {
-    items.push({
-      label: "Assignment context",
-      from: drift.assignmentContextChanged.from || "(empty)",
-      to: drift.assignmentContextChanged.to || "(empty)",
-    })
-  }
-  if (drift.modelChanged) {
-    items.push({
-      label: "Model",
-      from: drift.modelChanged.from,
-      to: drift.modelChanged.to,
-    })
-  }
-  if (drift.effortChanged) {
-    items.push({
-      label: "Effort",
-      from: drift.effortChanged.from,
-      to: drift.effortChanged.to,
+      from: drift.authorEmailChanged.from,
+      to: drift.authorEmailChanged.to,
     })
   }
   if (items.length === 0) return null
@@ -707,7 +1007,7 @@ function ProvenanceDriftBanner({
       <ul className="mt-1 list-disc pl-5">
         {items.map((item) => (
           <li key={item.label}>
-            {item.label}: {item.from} → {item.to}
+            {item.label}: {item.from} -&gt; {item.to}
           </li>
         ))}
       </ul>
@@ -875,13 +1175,13 @@ function resolveExaminationModelCode(
 }
 
 function buildMarkdownTranscript(params: {
-  memberName: string
-  memberEmail: string
+  authorName: string
+  authorEmail: string
   questions: ExaminationQuestion[]
 }): string {
   const lines: string[] = [
-    `# Oral examination — ${params.memberName}`,
-    `_${params.memberEmail}_`,
+    `# Oral examination - ${params.authorName}`,
+    `_${params.authorEmail}_`,
     "",
   ]
   for (const [index, question] of params.questions.entries()) {

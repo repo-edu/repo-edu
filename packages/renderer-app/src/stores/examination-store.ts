@@ -36,7 +36,7 @@ type ExaminationActions = {
 
 const initialState: ExaminationState = {
   selectedPersonId: null,
-  questionCount: 8,
+  questionCount: 4,
   showAnswers: false,
   entriesByKey: new Map(),
 }
@@ -77,7 +77,7 @@ export const useExaminationStore = create<
 }))
 
 function clampQuestionCount(count: number): number {
-  if (!Number.isFinite(count)) return 8
+  if (!Number.isFinite(count)) return 4
   const integer = Math.round(count)
   if (integer < 1) return 1
   if (integer > 20) return 20

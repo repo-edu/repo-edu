@@ -28,6 +28,7 @@ import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
 import { ExaminationTab } from "./ExaminationTab.js"
+import { canShowExaminationView } from "./examination/view-state.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
   const value = size ?? ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX
@@ -51,8 +52,7 @@ export function AnalysisTab() {
   const activeView = useAnalysisStore((s) => s.activeView)
   const setActiveView = useAnalysisStore((s) => s.setActiveView)
   const blameSkip = analysisContext.analysisInputs.blameSkip ?? false
-  const canShowExamination =
-    analysisContext.kind === "course" && blameSkip === false
+  const canShowExamination = canShowExaminationView(blameSkip)
 
   useEffect(() => {
     if (blameSkip && activeView === "blame") {

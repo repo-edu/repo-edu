@@ -9,6 +9,8 @@ import {
   type ExaminationCodeExcerpt,
   type ExaminationLineRange,
   type ExaminationQuestion,
+  serializeExaminationArchiveStorageKey,
+  validateExaminationArchiveKey,
 } from "@repo-edu/application-contract"
 import type {
   ExaminationArchiveStoragePort,
@@ -21,6 +23,9 @@ import type {
 
 export type ExaminationArchivePort = {
   get(key: ExaminationArchiveKey): ExaminationArchiveRecord | undefined
+  listForGenerationContext(
+    key: ExaminationArchiveKey,
+  ): ExaminationArchiveRecord[]
   put(record: ExaminationArchiveRecord): void
   exportBundle(): ExaminationArchiveBundle
   importBundle(bundle: unknown): ExaminationArchiveImportSummary
@@ -34,14 +39,12 @@ export type ExaminationArchivePort = {
  */
 export function createInMemoryExaminationArchiveStorage(): ExaminationArchiveStoragePort {
   const entries = new Map<string, ExaminationArchiveStoredEntry>()
-  const mapKey = (key: ExaminationArchiveKey): string =>
-    `${key.groupSetId}\u0000${key.personId}\u0000${key.commitOid}\u0000${key.questionCount}\u0000${key.excerptsFingerprint}`
   return {
-    get(key) {
-      return entries.get(mapKey(key))
+    get(storageKey) {
+      return entries.get(storageKey)
     },
     put(entry) {
-      entries.set(mapKey(entry.key), entry)
+      entries.set(entry.storageKey, entry)
     },
     exportAll() {
       return [...entries.values()]
@@ -51,13 +54,12 @@ export function createInMemoryExaminationArchiveStorage(): ExaminationArchiveSto
       let updated = 0
       let skipped = 0
       for (const entry of incoming) {
-        const id = mapKey(entry.key)
-        const existing = entries.get(id)
+        const existing = entries.get(entry.storageKey)
         if (existing === undefined) {
-          entries.set(id, entry)
+          entries.set(entry.storageKey, entry)
           inserted += 1
         } else if (entry.createdAtMs > existing.createdAtMs) {
-          entries.set(id, entry)
+          entries.set(entry.storageKey, entry)
           updated += 1
         } else {
           skipped += 1
@@ -84,16 +86,21 @@ export function createExaminationArchive(
 ): ExaminationArchivePort {
   return {
     get(key) {
-      const entry = storage.get(key)
+      const entry = storage.get(serializeExaminationArchiveStorageKey(key))
       if (!entry) return undefined
       return tryParseRecord(entry) ?? undefined
     },
+    listForGenerationContext(key) {
+      const records: ExaminationArchiveRecord[] = []
+      for (const entry of storage.exportAll()) {
+        const record = tryParseRecord(entry)
+        if (!record || !sameGenerationContext(record.key, key)) continue
+        records.push(record)
+      }
+      return records.sort(compareRecordsNewestFirst)
+    },
     put(record) {
-      storage.put({
-        key: record.key,
-        createdAtMs: record.provenance.createdAtMs,
-        payloadJson: JSON.stringify(record),
-      })
+      storage.put(toStoredEntry(record))
     },
     exportBundle() {
       const entries = storage.exportAll()
@@ -124,14 +131,7 @@ export function createExaminationArchive(
         }
       }
       const { records, rejections: parseRejections, total } = parsedRecords
-      const entries: ExaminationArchiveStoredEntry[] = records.map(
-        (record) => ({
-          key: record.key,
-          createdAtMs: record.provenance.createdAtMs,
-          payloadJson: JSON.stringify(record),
-        }),
-      )
-      const summary = storage.importAll(entries)
+      const summary = storage.importAll(records.map(toStoredEntry))
       return {
         totalInBundle: total,
         inserted: summary.inserted,
@@ -144,6 +144,39 @@ export function createExaminationArchive(
   }
 }
 
+function sameGenerationContext(
+  a: ExaminationArchiveKey,
+  b: ExaminationArchiveKey,
+): boolean {
+  return (
+    a.repositoryKey === b.repositoryKey &&
+    a.personId === b.personId &&
+    a.commitOid === b.commitOid &&
+    a.excerptsFingerprint === b.excerptsFingerprint &&
+    a.generationContextFingerprint === b.generationContextFingerprint
+  )
+}
+
+function compareRecordsNewestFirst(
+  a: ExaminationArchiveRecord,
+  b: ExaminationArchiveRecord,
+): number {
+  if (a.provenance.createdAtMs !== b.provenance.createdAtMs) {
+    return b.provenance.createdAtMs - a.provenance.createdAtMs
+  }
+  return a.key.questionCount - b.key.questionCount
+}
+
+function toStoredEntry(
+  record: ExaminationArchiveRecord,
+): ExaminationArchiveStoredEntry {
+  return {
+    storageKey: serializeExaminationArchiveStorageKey(record.key),
+    createdAtMs: record.provenance.createdAtMs,
+    payloadJson: JSON.stringify(record),
+  }
+}
+
 function tryParseRecord(
   entry: ExaminationArchiveStoredEntry,
 ): ExaminationArchiveRecord | null {
@@ -153,61 +186,45 @@ function tryParseRecord(
   } catch {
     return null
   }
-  return validateRecord(parsed, entry.key)
+  return validateRecord(parsed, entry.storageKey)
 }
 
 function validateRecord(
   raw: unknown,
-  fallbackKey: ExaminationArchiveKey,
+  storageKey: string,
 ): ExaminationArchiveRecord | null {
   if (!isRecord(raw)) return null
-  // An embedded key that disagrees with the storage-supplied key means the
-  // stored row and the payload describe different records — reject rather
-  // than return a record keyed differently than the lookup expected.
-  const embeddedKey = validateKey(raw.key)
-  if (embeddedKey !== null && !examinationKeysEqual(embeddedKey, fallbackKey)) {
+  const keyResult = parseKey(raw.key)
+  if (!keyResult.ok) return null
+  if (serializeExaminationArchiveStorageKey(keyResult.key) !== storageKey) {
     return null
   }
-  const key = embeddedKey ?? fallbackKey
   const questions = validateQuestions(raw.questions)
   if (questions === null) return null
   const provenance = validateProvenance(raw.provenance)
   if (provenance === null) return null
-  return { key, questions, provenance }
+  return { key: keyResult.key, questions, provenance }
 }
 
-function examinationKeysEqual(
-  a: ExaminationArchiveKey,
-  b: ExaminationArchiveKey,
-): boolean {
-  return (
-    a.groupSetId === b.groupSetId &&
-    a.personId === b.personId &&
-    a.commitOid === b.commitOid &&
-    a.questionCount === b.questionCount &&
-    a.excerptsFingerprint === b.excerptsFingerprint
-  )
-}
+type KeyValidationResult =
+  | { ok: true; key: ExaminationArchiveKey }
+  | { ok: false; reason: string }
 
-function validateKey(raw: unknown): ExaminationArchiveKey | null {
-  if (!isRecord(raw)) return null
-  const {
-    groupSetId,
-    personId,
-    commitOid,
-    questionCount,
-    excerptsFingerprint,
-  } = raw
-  if (
-    typeof groupSetId !== "string" ||
-    typeof personId !== "string" ||
-    typeof commitOid !== "string" ||
-    typeof questionCount !== "number" ||
-    typeof excerptsFingerprint !== "string"
-  ) {
-    return null
+function parseKey(raw: unknown): KeyValidationResult {
+  if (!isRecord(raw)) {
+    return { ok: false, reason: "missing or malformed key" }
   }
-  return { groupSetId, personId, commitOid, questionCount, excerptsFingerprint }
+  if ("groupSetId" in raw) {
+    return {
+      ok: false,
+      reason: "old group-set scoped archive keys are unsupported",
+    }
+  }
+  const key = validateExaminationArchiveKey(raw)
+  if (key === null) {
+    return { ok: false, reason: "missing or malformed key" }
+  }
+  return { ok: true, key }
 }
 
 // A single malformed question rejects the whole record. Partial imports are
@@ -244,10 +261,10 @@ function validateProvenance(
 ): ExaminationArchivedProvenance | null {
   if (!isRecord(raw)) return null
   const {
-    memberName,
-    memberEmail,
-    memberId,
-    repoGitDir,
+    authorName,
+    authorEmail,
+    rosterMemberId,
+    repositoryPath,
     assignmentContext,
     model,
     effort,
@@ -257,18 +274,18 @@ function validateProvenance(
     excerpts,
   } = raw
   if (
-    typeof memberName !== "string" ||
-    typeof memberEmail !== "string" ||
-    typeof repoGitDir !== "string" ||
+    typeof authorName !== "string" ||
+    typeof authorEmail !== "string" ||
+    typeof repositoryPath !== "string" ||
     typeof questionCount !== "number" ||
     typeof createdAtMs !== "number"
   ) {
     return null
   }
   if (
-    memberId !== null &&
-    memberId !== undefined &&
-    typeof memberId !== "string"
+    rosterMemberId !== null &&
+    rosterMemberId !== undefined &&
+    typeof rosterMemberId !== "string"
   ) {
     return null
   }
@@ -287,10 +304,10 @@ function validateProvenance(
   const validatedUsage = validateUsage(usage)
   if (validatedUsage === null) return null
   return {
-    memberName,
-    memberEmail,
-    memberId: typeof memberId === "string" ? memberId : null,
-    repoGitDir,
+    authorName,
+    authorEmail,
+    rosterMemberId: typeof rosterMemberId === "string" ? rosterMemberId : null,
+    repositoryPath,
     assignmentContext:
       typeof assignmentContext === "string" ? assignmentContext : null,
     model,
@@ -391,18 +408,17 @@ function parseBundleRecords(raw: unknown): {
   const records: ExaminationArchiveRecord[] = []
   const rejections: string[] = []
   for (const [index, item] of raw.records.entries()) {
-    const key =
-      isRecord(item) && isRecord((item as Record<string, unknown>).key)
-        ? validateKey((item as Record<string, unknown>).key)
-        : null
-    if (!key) {
-      rejections.push(`record ${index}: missing or malformed key`)
+    const rawKey = isRecord(item) ? item.key : undefined
+    const keyResult = parseKey(rawKey)
+    if (!keyResult.ok) {
+      rejections.push(`record ${index}: ${keyResult.reason}`)
       continue
     }
-    const record = validateRecord(item, key)
+    const storageKey = serializeExaminationArchiveStorageKey(keyResult.key)
+    const record = validateRecord(item, storageKey)
     if (!record) {
       rejections.push(
-        `${describeKey(key)}: record failed validation (questions or provenance)`,
+        `${describeKey(keyResult.key)}: record failed validation (questions or provenance)`,
       )
       continue
     }
@@ -412,7 +428,7 @@ function parseBundleRecords(raw: unknown): {
 }
 
 function describeKey(key: ExaminationArchiveKey): string {
-  return `group=${key.groupSetId} person=${key.personId} commit=${key.commitOid.slice(0, 8)} q=${key.questionCount}`
+  return `repo=${key.repositoryKey} person=${key.personId} commit=${key.commitOid.slice(0, 8)} q=${key.questionCount}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

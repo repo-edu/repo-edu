@@ -18,6 +18,7 @@ import {
   selectRosterMatchByPersonId,
   useAnalysisStore,
 } from "../stores/analysis-store.js"
+import { useExaminationStore } from "../stores/examination-store.js"
 import { authorColor } from "../utils/author-colors.js"
 
 function makeCourse(
@@ -56,11 +57,16 @@ function makeCourse(
 
 beforeEach(() => {
   useAnalysisStore.getState().reset()
+  useExaminationStore.getState().reset()
   analysisStoreInternals.analysisAborts.clear()
   analysisStoreInternals.discoveryAbort = null
 })
 
 describe("analysis store", () => {
+  it("defaults examination generation to four questions", () => {
+    assert.equal(useExaminationStore.getState().questionCount, 4)
+  })
+
   it("builds blame workflow config from course inputs + blame-specific fields", () => {
     const store = useAnalysisStore.getState()
     store.setBlameConfig({
@@ -178,6 +184,8 @@ describe("analysis store", () => {
     store.openFileForBlame("src/a.ts")
     store.setBlameShowMetadata(false)
     store.setBlameColorize(false)
+    store.setActiveView("examination")
+    useExaminationStore.getState().setSelectedPersonId("p_1")
 
     store.resetAnalysisContext()
 
@@ -187,6 +195,29 @@ describe("analysis store", () => {
     assert.equal(state.focusedFilePath, null)
     assert.equal(state.blameShowMetadata, false)
     assert.equal(state.blameColorize, false)
+    assert.equal(state.activeView, "authors")
+    assert.equal(useExaminationStore.getState().selectedPersonId, null)
+  })
+
+  it("resets examination state when the selected repository changes", () => {
+    const store = useAnalysisStore.getState()
+    store.setSelectedRepoPath("/repo-a")
+    useExaminationStore.getState().setSelectedPersonId("p_1")
+    useExaminationStore.getState().setEntry("entry-key", {
+      status: "loaded",
+      questions: [],
+      usage: null,
+      errorMessage: null,
+      generatedAt: "2026-04-24T00:00:00.000Z",
+      fromArchive: false,
+      provenanceDrift: null,
+      archivedQuestionCount: null,
+    })
+
+    store.setSelectedRepoPath("/repo-b")
+
+    assert.equal(useExaminationStore.getState().selectedPersonId, null)
+    assert.equal(useExaminationStore.getState().entriesByKey.size, 0)
   })
 
   it("cancelAll aborts every active run without dropping handles eagerly", () => {

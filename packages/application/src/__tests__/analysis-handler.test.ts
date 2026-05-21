@@ -728,6 +728,93 @@ describe("analysis.blame handler", () => {
     assert.equal(result.authorSummaries[0].linesPercent, 100)
   })
 
+  it("aggregates blame author summaries by merged PersonDB identity", async () => {
+    const blameOutput = [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1",
+      "author Alice",
+      "author-mail <alice@example.com>",
+      "author-time 1700000000",
+      "author-tz +0000",
+      "committer Alice",
+      "committer-mail <alice@example.com>",
+      "committer-time 1700000000",
+      "committer-tz +0000",
+      "summary Init",
+      "filename src/main.ts",
+      "\tconst a = 1",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1",
+      "author Alice S.",
+      "author-mail <alice@example.com>",
+      "author-time 1700000001",
+      "author-tz +0000",
+      "committer Alice S.",
+      "committer-mail <alice@example.com>",
+      "committer-time 1700000001",
+      "committer-tz +0000",
+      "summary Alias",
+      "filename src/main.ts",
+      "\tconst b = 2",
+      "cccccccccccccccccccccccccccccccccccccccc 3 3 1",
+      "author Bob Jones",
+      "author-mail <bob@example.com>",
+      "author-time 1700000002",
+      "author-tz +0000",
+      "committer Bob Jones",
+      "committer-mail <bob@example.com>",
+      "committer-time 1700000002",
+      "committer-tz +0000",
+      "summary Other",
+      "filename src/main.ts",
+      "\tconst c = 3",
+      "dddddddddddddddddddddddddddddddddddddddd 4 4 1",
+      "author Bob   Jones",
+      "author-mail <robert@example.com>",
+      "author-time 1700000003",
+      "author-tz +0000",
+      "committer Bob   Jones",
+      "committer-mail <robert@example.com>",
+      "committer-time 1700000003",
+      "committer-tz +0000",
+      "summary Name alias",
+      "filename src/main.ts",
+      "\tconst d = 4",
+    ].join("\n")
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort({
+        "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
+        "rev-parse --verify": {
+          exitCode: 0,
+          stdout: "resolved-oid",
+          stderr: "",
+        },
+        "cat-file": { exitCode: 1, stdout: "", stderr: "" },
+        blame: { exitCode: 0, stdout: blameOutput, stderr: "" },
+      }),
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.blame"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: {},
+      personDbBaseline: emptyPersonDb(),
+      files: ["src/main.ts"],
+      asOfCommit: "abc123",
+    })
+
+    assert.equal(result.authorSummaries.length, 2)
+    const byName = new Map(
+      result.authorSummaries.map((summary) => [summary.canonicalName, summary]),
+    )
+    assert.equal(byName.get("Alice")?.lines, 2)
+    assert.equal(byName.get("Bob Jones")?.lines, 2)
+    assert.deepEqual(
+      result.authorSummaries.map((summary) => summary.linesPercent).sort(),
+      [50, 50],
+    )
+  })
+
   it("keeps full blame lines for display while summaries honor exclusion config", async () => {
     const aliceOid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     const bobOid = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

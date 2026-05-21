@@ -111,6 +111,25 @@ describe("applyBlameToPersonDb", () => {
     assert.equal(delta.newAliases[0].alias.evidence, "name-only")
   })
 
+  it("adds new alias when blame matches by normalized name only", () => {
+    const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
+    const blameLines: BlameLine[] = [
+      {
+        sha: "abc123",
+        authorName: "Alice   Smith",
+        authorEmail: "alice-personal@other.com",
+        timestamp: 1700000000,
+        lineNumber: 1,
+        content: "code",
+        message: "fix",
+      },
+    ]
+    const { delta } = applyBlameToPersonDb(snapshot, blameLines)
+    assert.equal(delta.newAliases.length, 1)
+    assert.equal(delta.newAliases[0].alias.email, "alice-personal@other.com")
+    assert.equal(delta.newAliases[0].alias.evidence, "name-only")
+  })
+
   it("creates new person for completely unknown identity", () => {
     const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
     const blameLines: BlameLine[] = [

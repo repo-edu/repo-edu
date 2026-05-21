@@ -8,11 +8,11 @@ export function buildExaminationPrompt(
 ): string {
   const header = [
     "You are preparing questions for a one-on-one oral examination.",
-    "The student below is a member of a group software project.",
-    "Using only the code excerpts that git blame attributes to this student in the final repository state, produce questions that probe whether the student genuinely understands the code they signed their name to.",
+    "The author below contributed to a software project.",
+    "Using only the code excerpts that git blame attributes to this author in the final repository state, produce questions that probe whether the contributor genuinely understands the code they signed their name to.",
     "",
-    `Student name: ${input.memberName}`,
-    `Student email: ${input.memberEmail}`,
+    `Author name: ${input.authorName}`,
+    `Author email: ${input.authorEmail}`,
     input.assignmentContext
       ? `\nAssignment context: ${input.assignmentContext}`
       : "",
@@ -27,7 +27,7 @@ export function buildExaminationPrompt(
   const instructions = [
     `Generate exactly ${input.questionCount} questions.`,
     "For each question:",
-    "- Focus on specific lines in the student's code. Prefer 'why' and 'how' over 'what'.",
+    "- Focus on specific lines in the author's code. Prefer 'why' and 'how' over 'what'.",
     "- Include an answer key the teacher can use. The answer must be factually grounded in the excerpt.",
     "- Reference the excerpt by filePath and lineRange {start, end} (1-based, inclusive) whenever the question targets specific lines.",
     "- Vary depth: at least one question about a tricky invariant, one about a design choice, one that asks the student to predict the effect of a small change.",

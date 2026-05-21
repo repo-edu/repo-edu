@@ -43,13 +43,12 @@ function baseInput(
   llmSettings: ExaminationLlmSettings,
 ): ExaminationGenerateQuestionsInput {
   return {
-    groupSetId: "gs_1",
     personId: "p_1",
-    memberId: "m_1",
+    rosterMemberId: "m_1",
     commitOid: "oid-abc",
-    repoGitDir: "/repos/alice",
-    memberName: "Alice",
-    memberEmail: "alice@example.com",
+    repositoryPath: "/repos/alice",
+    authorName: "Alice",
+    authorEmail: "alice@example.com",
     excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["line"] }],
     questionCount: 1,
     llmSettings,
@@ -162,7 +161,7 @@ describe("examination workflow — LLM settings resolution", () => {
     )
   })
 
-  it("computes modelChanged drift when the active code differs from the archived code", async () => {
+  it("misses the archive when the active model code or effort differs", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port } = recordingLlm(sampleReply)
     const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
@@ -189,14 +188,7 @@ describe("examination workflow — LLM settings resolution", () => {
       }),
     )
 
-    assert.equal(second.fromArchive, true)
-    assert.deepStrictEqual(second.provenanceDrift?.modelChanged, {
-      from: "22",
-      to: "33",
-    })
-    assert.deepStrictEqual(second.provenanceDrift?.effortChanged, {
-      from: "medium",
-      to: "high",
-    })
+    assert.equal(second.fromArchive, false)
+    assert.equal(second.provenanceDrift, null)
   })
 })

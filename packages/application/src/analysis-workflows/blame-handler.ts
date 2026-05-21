@@ -515,19 +515,35 @@ export function createAnalysisBlameHandler(
           fileLineMap.set(blame.path, fileLineTotal)
         }
 
-        // Phase 4: Compute author summaries from blame
+        // Phase 4: Compute author summaries from blame after all aliases have
+        // been applied to the overlay PersonDB. This keeps one merged author
+        // row even when blame lines use multiple names/emails for that person.
+        const personById = new Map(
+          personDb.persons.map((person) => [person.id, person]),
+        )
+        const authorLinesByPerson = new Map<string, number>()
+        for (const stat of authorLineMap.values()) {
+          const personId = personDb.identityIndex.get(
+            toPersonDbIdentityKey(stat.name, stat.email),
+          )
+          if (!personId) continue
+          authorLinesByPerson.set(
+            personId,
+            (authorLinesByPerson.get(personId) ?? 0) + stat.lines,
+          )
+        }
         const authorSummaries: BlameAuthorSummary[] = [
-          ...authorLineMap.entries(),
-        ].map(([, stat]) => ({
-          personId:
-            personDb.identityIndex.get(
-              toPersonDbIdentityKey(stat.name, stat.email),
-            ) ?? "",
-          canonicalName: stat.name,
-          canonicalEmail: stat.email,
-          lines: stat.lines,
-          linesPercent: totalLines > 0 ? (100 * stat.lines) / totalLines : 0,
-        }))
+          ...authorLinesByPerson.entries(),
+        ].map(([personId, lines]) => {
+          const person = personById.get(personId)
+          return {
+            personId,
+            canonicalName: person?.canonicalName ?? "",
+            canonicalEmail: person?.canonicalEmail ?? "",
+            lines,
+            linesPercent: totalLines > 0 ? (100 * lines) / totalLines : 0,
+          }
+        })
 
         const fileSummaries: BlameFileSummary[] = [
           ...fileLineMap.entries(),

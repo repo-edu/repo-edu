@@ -216,23 +216,15 @@ export type LlmPort = {
 }
 
 // ---------------------------------------------------------------------------
-// ExaminationArchiveStoragePort — JSON payload store keyed by the structured
-// archive identity. The application archive adapter owns typed payload
-// validation; the storage port owns addressing and persistence only, trusts
-// that callers provide well-formed entries, and leaves database/handle
-// lifecycle to the composition root.
+// ExaminationArchiveStoragePort — opaque JSON payload store for examination
+// archives. The application archive adapter owns archive-key semantics,
+// typed payload validation, and storage-key serialization; the host storage
+// port owns persistence only, trusts that callers provide well-formed entries,
+// and leaves database/handle lifecycle to the composition root.
 // ---------------------------------------------------------------------------
 
-export type ExaminationArchiveKey = {
-  groupSetId: string
-  personId: string
-  commitOid: string
-  questionCount: number
-  excerptsFingerprint: string
-}
-
 export type ExaminationArchiveStoredEntry = {
-  key: ExaminationArchiveKey
+  storageKey: string
   createdAtMs: number
   payloadJson: string
 }
@@ -252,7 +244,7 @@ export type ExaminationArchiveImportSummary = {
 }
 
 export type ExaminationArchiveStoragePort = {
-  get(key: ExaminationArchiveKey): ExaminationArchiveStoredEntry | undefined
+  get(storageKey: string): ExaminationArchiveStoredEntry | undefined
   put(entry: ExaminationArchiveStoredEntry): void
   exportAll(): ExaminationArchiveStoredEntry[]
   importAll(

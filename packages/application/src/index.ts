@@ -8,10 +8,6 @@ export {
   packageId,
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
-export {
-  buildExaminationExcerptsFingerprint,
-  canonicalizeExaminationExcerpts,
-} from "./examination-workflows/archive-key.js"
 export type { ExaminationArchivePort } from "./examination-workflows/archive-port.js"
 export {
   createExaminationArchive,

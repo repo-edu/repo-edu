@@ -6,7 +6,7 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { withTransaction } from "../sqlite/transaction.js"
 
-const ARCHIVE_USER_VERSION = 3
+const ARCHIVE_USER_VERSION = 4
 
 export type ExaminationArchiveDatabaseHandle = {
   readonly db: DatabaseSync
@@ -27,10 +27,9 @@ function readPragma(db: DatabaseSync, name: string): unknown {
 }
 
 /**
- * Opens (or creates) the examination-archive SQLite database. Unlike the
- * byte-cache, a `user_version` mismatch is a hard error — archive data is
- * not regenerable, so we refuse to silently drop or corrupt it. The first
- * released version is 1; migrations will be written when the shape changes.
+ * Opens (or creates) the examination-archive SQLite database. A
+ * `user_version` mismatch is a hard error; the desktop composition root owns
+ * archive lifecycle for unsupported disposable local data.
  */
 export function openExaminationArchiveDatabase(
   options: OpenArchiveOptions,
@@ -51,18 +50,11 @@ export function openExaminationArchiveDatabase(
   db.exec(`PRAGMA user_version = ${ARCHIVE_USER_VERSION}`)
   db.exec(`
     CREATE TABLE IF NOT EXISTS examinations (
-      group_set_id         TEXT NOT NULL,
-      person_id            TEXT NOT NULL,
-      commit_oid           TEXT NOT NULL,
-      question_count       INTEGER NOT NULL,
-      excerpts_fingerprint TEXT NOT NULL,
-      created_at           INTEGER NOT NULL,
-      updated_at           INTEGER NOT NULL,
-      payload              TEXT NOT NULL,
-      PRIMARY KEY (group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint)
+      storage_key TEXT PRIMARY KEY,
+      created_at  INTEGER NOT NULL,
+      updated_at  INTEGER NOT NULL,
+      payload     TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS examinations_person_idx
-      ON examinations(group_set_id, person_id);
   `)
 
   return {
@@ -84,34 +76,23 @@ export function createExaminationArchiveStorage(
   const db = options.handle.db
 
   const selectOne: StatementSync = db.prepare(
-    `SELECT group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
-            created_at, payload
+    `SELECT storage_key, created_at, payload
        FROM examinations
-      WHERE group_set_id = ?
-        AND person_id = ?
-        AND commit_oid = ?
-        AND question_count = ?
-        AND excerpts_fingerprint = ?`,
+      WHERE storage_key = ?`,
   )
   const selectAll: StatementSync = db.prepare(
-    `SELECT group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
-            created_at, payload
+    `SELECT storage_key, created_at, payload
        FROM examinations`,
   )
   const selectExisting: StatementSync = db.prepare(
     `SELECT created_at FROM examinations
-      WHERE group_set_id = ?
-        AND person_id = ?
-        AND commit_oid = ?
-        AND question_count = ?
-        AND excerpts_fingerprint = ?`,
+      WHERE storage_key = ?`,
   )
   const upsert: StatementSync = db.prepare(
     `INSERT INTO examinations
-       (group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint,
-        created_at, updated_at, payload)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(group_set_id, person_id, commit_oid, question_count, excerpts_fingerprint)
+       (storage_key, created_at, updated_at, payload)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(storage_key)
      DO UPDATE SET
        created_at = excluded.created_at,
        updated_at = excluded.updated_at,
@@ -119,55 +100,26 @@ export function createExaminationArchiveStorage(
   )
 
   function rowToEntry(row: {
-    group_set_id: string
-    person_id: string
-    commit_oid: string
-    question_count: number
-    excerpts_fingerprint: string
+    storage_key: string
     created_at: number
     payload: string
   }): ExaminationArchiveStoredEntry {
     return {
-      key: {
-        groupSetId: row.group_set_id,
-        personId: row.person_id,
-        commitOid: row.commit_oid,
-        questionCount: Number(row.question_count),
-        excerptsFingerprint: row.excerpts_fingerprint,
-      },
+      storageKey: row.storage_key,
       createdAtMs: Number(row.created_at),
       payloadJson: row.payload,
     }
   }
 
   function putEntry(entry: ExaminationArchiveStoredEntry, now: number): void {
-    upsert.run(
-      entry.key.groupSetId,
-      entry.key.personId,
-      entry.key.commitOid,
-      entry.key.questionCount,
-      entry.key.excerptsFingerprint,
-      entry.createdAtMs,
-      now,
-      entry.payloadJson,
-    )
+    upsert.run(entry.storageKey, entry.createdAtMs, now, entry.payloadJson)
   }
 
   return {
-    get(key) {
-      const row = selectOne.get(
-        key.groupSetId,
-        key.personId,
-        key.commitOid,
-        key.questionCount,
-        key.excerptsFingerprint,
-      ) as
+    get(storageKey) {
+      const row = selectOne.get(storageKey) as
         | {
-            group_set_id: string
-            person_id: string
-            commit_oid: string
-            question_count: number
-            excerpts_fingerprint: string
+            storage_key: string
             created_at: number
             payload: string
           }
@@ -182,11 +134,7 @@ export function createExaminationArchiveStorage(
 
     exportAll() {
       const rows = selectAll.all() as {
-        group_set_id: string
-        person_id: string
-        commit_oid: string
-        question_count: number
-        excerpts_fingerprint: string
+        storage_key: string
         created_at: number
         payload: string
       }[]
@@ -201,13 +149,9 @@ export function createExaminationArchiveStorage(
       withTransaction(db, () => {
         const now = Date.now()
         for (const entry of entries) {
-          const existing = selectExisting.get(
-            entry.key.groupSetId,
-            entry.key.personId,
-            entry.key.commitOid,
-            entry.key.questionCount,
-            entry.key.excerptsFingerprint,
-          ) as { created_at: number } | undefined
+          const existing = selectExisting.get(entry.storageKey) as
+            | { created_at: number }
+            | undefined
 
           if (existing === undefined) {
             putEntry(entry, now)

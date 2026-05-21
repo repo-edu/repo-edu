@@ -12,7 +12,7 @@ Defines the interfaces and request/result shapes for:
 - `FileSystemPort` — inspect, batch operations (ensure-directory, copy-directory, delete-path), temp directories, list-directory
 - `UserFilePort` — user file read/write via `UserFileRef` / `UserSaveTargetRef`
 - `LlmPort` — provider-neutral prompt/reply over `LlmModelSpec` (provider/family/modelId/effort) with `LlmProvider`, `LlmEffort`, `LlmAuthMode`, `LlmUsage`. Wraps the `LlmTextClient` from `@repo-edu/integrations-llm-contract`; the host-side adapter routes by `spec.provider`.
-- `ExaminationArchiveStoragePort` — JSON payload store keyed by structured `ExaminationArchiveKey`, with `ExaminationArchiveStoredEntry` and `ExaminationArchiveImportSummary` for re-import
+- `ExaminationArchiveStoragePort` — opaque JSON payload store keyed by application-owned `storageKey`, with `ExaminationArchiveStoredEntry` and `ExaminationArchiveImportSummary` for re-import
 
 ## Rules
 

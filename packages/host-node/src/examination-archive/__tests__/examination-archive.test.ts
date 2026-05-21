@@ -30,13 +30,7 @@ function buildEntry(
   overrides: Partial<ExaminationArchiveStoredEntry> = {},
 ): ExaminationArchiveStoredEntry {
   return {
-    key: {
-      groupSetId: "gs_1",
-      personId: "p_1",
-      commitOid: "oid-abc",
-      questionCount: 1,
-      excerptsFingerprint: "fingerprint-1",
-    },
+    storageKey: "key-1",
     createdAtMs: 1_700_000_000_000,
     payloadJson: JSON.stringify({ sample: "payload" }),
     ...overrides,
@@ -50,9 +44,9 @@ describe("examination archive storage (host-node)", () => {
       const entry = buildEntry()
       ctx.storage.put(entry)
 
-      const got = ctx.storage.get(entry.key)
+      const got = ctx.storage.get(entry.storageKey)
       assert.ok(got)
-      assert.deepEqual(got?.key, entry.key)
+      assert.equal(got?.storageKey, entry.storageKey)
       assert.equal(got?.createdAtMs, entry.createdAtMs)
       assert.equal(got?.payloadJson, entry.payloadJson)
     } finally {
@@ -64,22 +58,10 @@ describe("examination archive storage (host-node)", () => {
     const ctx = openTempArchive()
     try {
       const a = buildEntry({
-        key: {
-          groupSetId: "gs_1",
-          personId: "p_1",
-          commitOid: "oid-a",
-          questionCount: 1,
-          excerptsFingerprint: "fp-a",
-        },
+        storageKey: "key-a",
       })
       const b = buildEntry({
-        key: {
-          groupSetId: "gs_1",
-          personId: "p_2",
-          commitOid: "oid-b",
-          questionCount: 2,
-          excerptsFingerprint: "fp-b",
-        },
+        storageKey: "key-b",
         createdAtMs: 1_700_000_000_500,
       })
       ctx.storage.put(a)
@@ -87,9 +69,9 @@ describe("examination archive storage (host-node)", () => {
 
       const exported = ctx.storage.exportAll()
       assert.equal(exported.length, 2)
-      const byPerson = new Map(exported.map((e) => [e.key.personId, e]))
-      assert.equal(byPerson.get("p_1")?.createdAtMs, a.createdAtMs)
-      assert.equal(byPerson.get("p_2")?.createdAtMs, b.createdAtMs)
+      const byKey = new Map(exported.map((e) => [e.storageKey, e]))
+      assert.equal(byKey.get("key-a")?.createdAtMs, a.createdAtMs)
+      assert.equal(byKey.get("key-b")?.createdAtMs, b.createdAtMs)
     } finally {
       ctx.cleanup()
     }
@@ -98,15 +80,9 @@ describe("examination archive storage (host-node)", () => {
   it("importAll inserts new keys and updates only when incoming createdAtMs is newer", () => {
     const ctx = openTempArchive()
     try {
-      const sharedKey = {
-        groupSetId: "gs_1",
-        personId: "p_1",
-        commitOid: "oid-x",
-        questionCount: 1,
-        excerptsFingerprint: "fp-x",
-      }
+      const sharedKey = "shared-key"
       const existing = buildEntry({
-        key: sharedKey,
+        storageKey: sharedKey,
         createdAtMs: 1_000,
         payloadJson: JSON.stringify({ v: "old" }),
       })
@@ -115,31 +91,19 @@ describe("examination archive storage (host-node)", () => {
       const summary = ctx.storage.importAll([
         // newer — should update
         buildEntry({
-          key: sharedKey,
+          storageKey: sharedKey,
           createdAtMs: 2_000,
           payloadJson: JSON.stringify({ v: "new" }),
         }),
         // new key at later timestamp — should insert
         buildEntry({
-          key: {
-            groupSetId: "gs_1",
-            personId: "p_2",
-            commitOid: "oid-y",
-            questionCount: 1,
-            excerptsFingerprint: "fp-y",
-          },
+          storageKey: "key-y",
           createdAtMs: 5_000,
           payloadJson: JSON.stringify({ v: "fresh" }),
         }),
         // equal timestamp on a new key — still inserts
         buildEntry({
-          key: {
-            groupSetId: "gs_1",
-            personId: "p_3",
-            commitOid: "oid-z",
-            questionCount: 1,
-            excerptsFingerprint: "fp-z",
-          },
+          storageKey: "key-z",
           createdAtMs: 5_000,
         }),
       ])
@@ -162,16 +126,10 @@ describe("examination archive storage (host-node)", () => {
   it("importAll skips entries older-or-equal than an existing record", () => {
     const ctx = openTempArchive()
     try {
-      const key = {
-        groupSetId: "gs_1",
-        personId: "p_1",
-        commitOid: "oid-x",
-        questionCount: 1,
-        excerptsFingerprint: "fp-x",
-      }
+      const key = "shared-key"
       ctx.storage.put(
         buildEntry({
-          key,
+          storageKey: key,
           createdAtMs: 2_000,
           payloadJson: JSON.stringify({ v: "kept" }),
         }),
@@ -179,12 +137,12 @@ describe("examination archive storage (host-node)", () => {
 
       const summary = ctx.storage.importAll([
         buildEntry({
-          key,
+          storageKey: key,
           createdAtMs: 1_000,
           payloadJson: JSON.stringify({ v: "older" }),
         }),
         buildEntry({
-          key,
+          storageKey: key,
           createdAtMs: 2_000,
           payloadJson: JSON.stringify({ v: "equal" }),
         }),
@@ -197,6 +155,35 @@ describe("examination archive storage (host-node)", () => {
 
       const winner = ctx.storage.get(key)
       assert.equal(winner?.payloadJson, JSON.stringify({ v: "kept" }))
+    } finally {
+      ctx.cleanup()
+    }
+  })
+
+  it("keeps distinct storage keys as distinct rows", () => {
+    const ctx = openTempArchive()
+    try {
+      const first = buildEntry({
+        storageKey: "same-person-context-a",
+        payloadJson: JSON.stringify({ v: "a" }),
+      })
+      const second = buildEntry({
+        storageKey: "same-person-context-b",
+        payloadJson: JSON.stringify({ v: "b" }),
+      })
+
+      ctx.storage.put(first)
+      ctx.storage.put(second)
+
+      assert.equal(
+        ctx.storage.get(first.storageKey)?.payloadJson,
+        first.payloadJson,
+      )
+      assert.equal(
+        ctx.storage.get(second.storageKey)?.payloadJson,
+        second.payloadJson,
+      )
+      assert.equal(ctx.storage.exportAll().length, 2)
     } finally {
       ctx.cleanup()
     }
@@ -236,7 +223,7 @@ describe("examination archive storage (host-node)", () => {
         handle: secondHandle,
       })
       try {
-        const got = secondStorage.get(entry.key)
+        const got = secondStorage.get(entry.storageKey)
         assert.equal(got?.payloadJson, entry.payloadJson)
       } finally {
         secondHandle.close()
