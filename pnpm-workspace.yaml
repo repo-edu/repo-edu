@@ -7,3 +7,4 @@ onlyBuiltDependencies:
   - bun
   - electron
   - esbuild
+  - tree-sitter-cli

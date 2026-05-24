@@ -10,8 +10,11 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
+import { createRequire } from "node:module"
 import { homedir, tmpdir } from "node:os"
 import { basename, dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
 import type {
   FileSystemBatchOperation,
   FileSystemBatchRequest,
@@ -32,13 +35,27 @@ import type {
   ProcessPort,
   ProcessRequest,
   ProcessResult,
+  TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract"
 import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type { LlmRuntimeConfig } from "@repo-edu/integrations-llm-contract"
+import {
+  getTokenizerGrammarAsset,
+  packageId as grammarAssetsPackageId,
+} from "@repo-edu/tree-sitter-grammar-assets"
+import {
+  LANGUAGE_VERSION,
+  Language,
+  MIN_COMPATIBLE_VERSION,
+  Parser,
+} from "web-tree-sitter"
 
 export const packageId = "@repo-edu/host-node"
-export const workspaceDependencies = [hostRuntimePackageId] as const
+export const workspaceDependencies = [
+  hostRuntimePackageId,
+  grammarAssetsPackageId,
+] as const
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
@@ -227,6 +244,61 @@ export function createNodeGitCommandPort(
         stdinText: request.stdinText,
         signal: request.signal,
       })
+    },
+  }
+}
+
+const tokenizerRequire = createRequire(import.meta.url)
+let tokenizerRuntimeInit: Promise<void> | null = null
+const tokenizerLanguageCache = new Map<
+  TokenizerSupportedLanguage,
+  Promise<Awaited<ReturnType<TokenizerPort["loadTokenizerLanguage"]>>>
+>()
+
+function ensureTokenizerRuntime(): Promise<void> {
+  tokenizerRuntimeInit ??= Parser.init({
+    locateFile: () =>
+      tokenizerRequire.resolve("web-tree-sitter/web-tree-sitter.wasm"),
+  })
+  return tokenizerRuntimeInit
+}
+
+function assertCompatibleGrammar(
+  language: Language,
+  id: TokenizerSupportedLanguage,
+) {
+  if (
+    language.abiVersion < MIN_COMPATIBLE_VERSION ||
+    language.abiVersion > LANGUAGE_VERSION
+  ) {
+    throw new Error(
+      `Tokenizer grammar ${id} ABI ${language.abiVersion} is outside supported range ${MIN_COMPATIBLE_VERSION}-${LANGUAGE_VERSION}.`,
+    )
+  }
+}
+
+async function loadNodeTokenizerLanguage(id: TokenizerSupportedLanguage) {
+  await ensureTokenizerRuntime()
+
+  const asset = getTokenizerGrammarAsset(id)
+  const grammarPath = fileURLToPath(asset.assetUrl)
+  const language = await Language.load(grammarPath)
+  assertCompatibleGrammar(language, id)
+
+  const parser = new Parser()
+  parser.setLanguage(language)
+  return { language: id, parser }
+}
+
+export function createNodeTokenizerPort(): TokenizerPort {
+  return {
+    async loadTokenizerLanguage(id) {
+      let promise = tokenizerLanguageCache.get(id)
+      if (!promise) {
+        promise = loadNodeTokenizerLanguage(id)
+        tokenizerLanguageCache.set(id, promise)
+      }
+      return await promise
     },
   }
 }

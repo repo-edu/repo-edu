@@ -1,5 +1,5 @@
 import {
-  isSupportedExtension,
+  extensionToTokenizerLanguage,
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
 import {
@@ -15,7 +15,7 @@ import { extensionToShikiLang } from "../../utils/blame-language-map.js"
 type SupportTier = "full" | "no-comments" | "no-colorization" | "none"
 
 function classifySupport(ext: string): SupportTier {
-  const hasComments = isSupportedExtension(ext)
+  const hasComments = extensionToTokenizerLanguage(ext) !== undefined
   const hasColor = extensionToShikiLang(ext) !== null
   if (hasComments && hasColor) return "full"
   if (!hasComments && !hasColor) return "none"

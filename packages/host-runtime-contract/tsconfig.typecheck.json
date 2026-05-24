@@ -4,5 +4,9 @@
     "rootDir": "../..",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "../domain/src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../domain/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts"
+  ]
 }

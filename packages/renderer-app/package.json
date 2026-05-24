@@ -17,6 +17,7 @@
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
     "@repo-edu/renderer-host-contract": "workspace:*",
+    "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "@repo-edu/ui": "workspace:*",
     "@shikijs/langs": "^4.0.2",
     "@shikijs/themes": "^4.0.2",
@@ -26,6 +27,7 @@
     "nanoid": "^5.1.7",
     "recharts": "^3.8.1",
     "shiki": "^4.0.2",
+    "web-tree-sitter": "0.26.9",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -39,6 +41,11 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./source-tokenizer": {
+      "source": "./src/source-tokenizer.ts",
+      "types": "./dist/source-tokenizer.d.ts",
+      "default": "./dist/source-tokenizer.js"
     }
   },
   "scripts": {

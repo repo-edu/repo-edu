@@ -9,6 +9,7 @@
     "src/**/*.tsx",
     "../../packages/renderer-app/src/**/*.ts",
     "../../packages/renderer-app/src/**/*.tsx",
+    "../../packages/tree-sitter-grammar-assets/src/index.ts",
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx",
     "../../packages/application-contract/src/**/*.ts",

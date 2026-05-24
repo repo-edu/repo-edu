@@ -5,7 +5,9 @@
   "dependencies": {
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-llm": "workspace:*",
-    "@repo-edu/integrations-llm-contract": "workspace:*"
+    "@repo-edu/integrations-llm-contract": "workspace:*",
+    "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
+    "web-tree-sitter": "0.26.9"
   },
   "exports": {
     ".": {
@@ -23,6 +25,6 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
-    "test": "node --import tsx --test src/**/__tests__/*.test.ts"
+    "test": "node --import tsx --test src/__tests__/*.test.ts src/**/__tests__/*.test.ts"
   }
 }

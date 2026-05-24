@@ -19,6 +19,12 @@
       "path": "../host-runtime-contract"
     },
     {
+      "path": "../domain"
+    },
+    {
+      "path": "../tree-sitter-grammar-assets"
+    },
+    {
       "path": "../integrations-llm-contract"
     },
     {

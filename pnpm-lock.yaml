@@ -284,9 +284,16 @@ importers:
 
   packages/domain:
     dependencies:
+      web-tree-sitter:
+        specifier: 0.26.9
+        version: 0.26.9
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      '@repo-edu/tree-sitter-grammar-assets':
+        specifier: workspace:*
+        version: link:../tree-sitter-grammar-assets
 
   packages/fixture-engine:
     dependencies:
@@ -329,6 +336,12 @@ importers:
       '@repo-edu/integrations-llm-contract':
         specifier: workspace:*
         version: link:../integrations-llm-contract
+      '@repo-edu/tree-sitter-grammar-assets':
+        specifier: workspace:*
+        version: link:../tree-sitter-grammar-assets
+      web-tree-sitter:
+        specifier: 0.26.9
+        version: 0.26.9
 
   packages/host-runtime-contract:
     dependencies:
@@ -461,6 +474,9 @@ importers:
       '@repo-edu/renderer-host-contract':
         specifier: workspace:*
         version: link:../renderer-host-contract
+      '@repo-edu/tree-sitter-grammar-assets':
+        specifier: workspace:*
+        version: link:../tree-sitter-grammar-assets
       '@repo-edu/ui':
         specifier: workspace:*
         version: link:../ui
@@ -494,6 +510,9 @@ importers:
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
+      web-tree-sitter:
+        specifier: 0.26.9
+        version: 0.26.9
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -528,6 +547,16 @@ importers:
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain
+
+  packages/tree-sitter-grammar-assets:
+    dependencies:
+      '@repo-edu/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      tree-sitter-cli:
+        specifier: 0.26.9
+        version: 0.26.9
 
   packages/ui:
     dependencies:
@@ -5363,6 +5392,11 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
 
+  tree-sitter-cli@0.26.9:
+    resolution: {integrity: sha512-7l+U1RmazPVe+yA/JiX80GFOILnL/j24GbawamIzNQC8UlINrcyECbaWGaG1wuq4j/m0DQTx7Uu4r0iW9Ao1BQ==}
+    engines: {node: '>=12.0.0'}
+    hasBin: true
+
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
 
@@ -5764,6 +5798,9 @@ packages:
 
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
+
+  web-tree-sitter@0.26.9:
+    resolution: {integrity: sha512-YJwSHANl6XFgeEjB8nitgj0qZYt5gkIesJ4w2srS2wcLB4GUa4xcOkM0YaMsU6WNR53YVIkDSY7Ej4pf3IXtCA==}
 
   which-pm-runs@1.1.0:
     resolution: {integrity: sha512-n1brCuqClxfFfq/Rb0ICg9giSZqCS+pLtccdag6C2HyufBrh3fBOiy9nb6ggRMvWOVH5GrdJskj5iGTZNxd7SA==}
@@ -11330,6 +11367,8 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
+  tree-sitter-cli@0.26.9: {}
+
   trim-lines@3.0.1: {}
 
   trough@2.2.0: {}
@@ -11673,6 +11712,8 @@ snapshots:
       defaults: 1.0.4
 
   web-namespaces@2.0.1: {}
+
+  web-tree-sitter@0.26.9: {}
 
   which-pm-runs@1.1.0: {}
 

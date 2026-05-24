@@ -7,6 +7,7 @@ const repoRoot = resolve(process.cwd(), "../..")
 
 const guardedRoots = [
   "packages/domain/src",
+  "packages/tree-sitter-grammar-assets/src",
   "packages/application-contract/src",
   "packages/renderer-host-contract/src",
   "packages/renderer-app/src",

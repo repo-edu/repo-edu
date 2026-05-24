@@ -1,3 +1,7 @@
+import type {
+  LoadedTokenizerLanguage,
+  TokenizerSupportedLanguage,
+} from "@repo-edu/domain/analysis"
 import type { FileFormat } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/host-runtime-contract"
@@ -213,6 +217,17 @@ export type LlmRunResult = {
 
 export type LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult>
+}
+
+// TokenizerPort prepares live tree-sitter parser handles for application code
+// running in the same process as the host implementation. Unsupported-language
+// decisions belong at the caller boundary via domain tokenizer helpers; load
+// rejection here is an environment or asset failure.
+
+export type TokenizerPort = {
+  loadTokenizerLanguage(
+    id: TokenizerSupportedLanguage,
+  ): Promise<LoadedTokenizerLanguage>
 }
 
 // ---------------------------------------------------------------------------

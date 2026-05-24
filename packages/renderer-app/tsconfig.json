@@ -21,6 +21,9 @@
       "path": "../domain"
     },
     {
+      "path": "../tree-sitter-grammar-assets"
+    },
+    {
       "path": "../application"
     },
     {

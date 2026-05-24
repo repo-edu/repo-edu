@@ -2,11 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "../..",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "src/**/*.ts",
     "../domain/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts",
     "../host-runtime-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts",
     "../integrations-git-contract/src/**/*.ts"

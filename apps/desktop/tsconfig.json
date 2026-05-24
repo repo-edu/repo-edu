@@ -21,6 +21,9 @@
       "path": "../../packages/renderer-app"
     },
     {
+      "path": "../../packages/tree-sitter-grammar-assets"
+    },
+    {
       "path": "../../packages/application"
     },
     {

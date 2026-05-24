@@ -4,6 +4,7 @@
 export const packageId = "@repo-edu/renderer-app"
 export const workspaceDependencies = [
   "@repo-edu/domain",
+  "@repo-edu/tree-sitter-grammar-assets",
   "@repo-edu/application-contract",
   "@repo-edu/renderer-host-contract",
   "@repo-edu/ui",

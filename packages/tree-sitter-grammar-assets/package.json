@@ -1,0 +1,24 @@
+{
+  "name": "@repo-edu/tree-sitter-grammar-assets",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@repo-edu/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "0.26.9"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsx scripts/copy-assets.ts dist",
+    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit && tsx scripts/validate-manifest.ts",
+    "check": "pnpm run typecheck",
+    "test": "node --import tsx --test src/**/*.test.ts"
+  }
+}

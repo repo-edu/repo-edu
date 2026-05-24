@@ -4,6 +4,7 @@
     { "path": "./packages/ui" },
     { "path": "./packages/renderer-app" },
     { "path": "./packages/domain" },
+    { "path": "./packages/tree-sitter-grammar-assets" },
     { "path": "./packages/application-contract" },
     { "path": "./packages/application" },
     { "path": "./packages/renderer-host-contract" },

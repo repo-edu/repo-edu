@@ -8,11 +8,22 @@ export type { LanguageEntry } from "./language-catalog.js"
 export {
   DEFAULT_EXTENSIONS,
   extensionToLanguage,
-  isSupportedExtension,
   LANGUAGE_CATALOG,
   normalizeExtension,
   SUPPORTED_LANGUAGES,
 } from "./language-catalog.js"
+export type {
+  LoadedTokenizerLanguage,
+  Token,
+  TokenizerSupportedLanguage,
+  TokenKind,
+} from "./language-tokenizer.js"
+export {
+  extensionToTokenizerLanguage,
+  isTokenizerSupportedLanguage,
+  TOKENIZER_SUPPORTED_LANGUAGES,
+  tokenizeSource,
+} from "./language-tokenizer.js"
 export {
   applyBlameToPersonDb,
   clonePersonDbSnapshot,

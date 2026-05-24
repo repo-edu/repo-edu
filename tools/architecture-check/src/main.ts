@@ -63,8 +63,14 @@ const DOMAIN_MODULE_ORDER = [
 const FORBIDDEN_CROSS_LAYER: [string, string[]][] = [
   [
     "packages/domain/",
-    ["packages/application/", "packages/renderer-app/", "apps/"],
+    [
+      "packages/application/",
+      "packages/renderer-app/",
+      "packages/tree-sitter-grammar-assets/",
+      "apps/",
+    ],
   ],
+  ["packages/host-runtime-contract/", ["packages/tree-sitter-grammar-assets/"]],
   [
     "packages/application-contract/",
     [

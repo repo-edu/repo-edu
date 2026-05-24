@@ -8,6 +8,7 @@
     "src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
     "../domain/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts",
     "../integrations-llm-contract/src/**/*.ts",
     "../integrations-llm/src/**/*.ts"
   ]

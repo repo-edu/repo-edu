@@ -2,7 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "../..",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "src/**/*.ts",
@@ -10,6 +12,7 @@
     "../../packages/application/src/**/*.ts",
     "../../packages/application-contract/src/**/*.ts",
     "../../packages/domain/src/**/*.ts",
+    "../../packages/tree-sitter-grammar-assets/src/index.ts",
     "../../packages/test-fixtures/src/**/*.ts",
     "../../packages/integrations-git/src/**/*.ts",
     "../../packages/integrations-lms/src/**/*.ts",

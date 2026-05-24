@@ -22,6 +22,9 @@
       ],
       "@repo-edu/ui/lib/*": ["./packages/ui/src/lib/*"],
       "@repo-edu/renderer-app": ["./packages/renderer-app/src/index.ts"],
+      "@repo-edu/renderer-app/source-tokenizer": [
+        "./packages/renderer-app/src/source-tokenizer.ts"
+      ],
       "@repo-edu/domain/types": ["./packages/domain/src/types.ts"],
       "@repo-edu/domain/settings": ["./packages/domain/src/settings.ts"],
       "@repo-edu/domain/connection": [
@@ -53,6 +56,9 @@
       "@repo-edu/domain/schemas": ["./packages/domain/src/schemas.ts"],
       "@repo-edu/domain/analysis": [
         "./packages/domain/src/analysis/index.ts"
+      ],
+      "@repo-edu/tree-sitter-grammar-assets": [
+        "./packages/tree-sitter-grammar-assets/src/index.ts"
       ],
       "@repo-edu/application-contract": [
         "./packages/application-contract/src/index.ts"

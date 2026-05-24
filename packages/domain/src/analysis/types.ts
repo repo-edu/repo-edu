@@ -205,7 +205,7 @@ export type AuthorDailyActivity = {
 }
 
 // ---------------------------------------------------------------------------
-// Supported languages (comment detection)
+// Supported languages
 // ---------------------------------------------------------------------------
 
 export type { SupportedLanguage } from "./language-catalog.js"

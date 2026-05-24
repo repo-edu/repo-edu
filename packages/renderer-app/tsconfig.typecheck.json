@@ -10,6 +10,7 @@
     "../ui/src/**/*.ts",
     "../ui/src/**/*.tsx",
     "../domain/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts",
     "../application/src/**/*.ts",
     "../application-contract/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
