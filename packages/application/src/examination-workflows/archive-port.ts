@@ -1,4 +1,5 @@
 import {
+  buildExaminationGenerationContextFingerprint,
   EXAMINATION_ARCHIVE_BUNDLE_FORMAT,
   EXAMINATION_ARCHIVE_BUNDLE_VERSION,
   type ExaminationArchiveBundle,
@@ -204,6 +205,9 @@ function validateRecord(
   if (questionsContainEmail(questions)) return null
   const provenance = validateProvenance(raw.provenance)
   if (provenance === null) return null
+  if (!generationContextMatchesProvenance(keyResult.key, provenance)) {
+    return null
+  }
   if (
     questions.length === 0 ||
     questions.length !== provenance.questionCount ||
@@ -212,6 +216,21 @@ function validateRecord(
     return null
   }
   return { key: keyResult.key, questions, provenance }
+}
+
+function generationContextMatchesProvenance(
+  key: ExaminationArchiveKey,
+  provenance: ExaminationArchivedProvenance,
+): boolean {
+  return (
+    key.generationContextFingerprint ===
+    buildExaminationGenerationContextFingerprint({
+      model: provenance.model,
+      effort: provenance.effort,
+      promptTemplateVersion: provenance.promptTemplateVersion,
+      redactionPolicyVersion: provenance.redactionPolicyVersion,
+    })
+  )
 }
 
 type KeyValidationResult =

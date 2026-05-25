@@ -210,6 +210,22 @@ describe("examination archive adapter", () => {
       ],
     })
     assert.equal(inconsistentCountSummary.rejected, 1)
+
+    const mismatchedGenerationContextSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          provenance: {
+            ...baseRecord.provenance,
+            model: "33",
+          },
+        },
+      ],
+    })
+    assert.equal(mismatchedGenerationContextSummary.rejected, 1)
   })
 })
 
