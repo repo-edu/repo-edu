@@ -1,16 +1,21 @@
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { cpSync, readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "electron-vite"
 
 type TsConfigPaths = Record<string, string[]>
+
+const configDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(configDir, "../..")
+const configRequire = createRequire(import.meta.url)
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 function buildWorkspaceAliases() {
-  const repoRoot = resolve(__dirname, "../..")
   const tsconfigPath = resolve(repoRoot, "tsconfig.base.json")
   const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8")) as {
     compilerOptions?: { paths?: TsConfigPaths }
@@ -43,10 +48,39 @@ function buildWorkspaceAliases() {
   })
 }
 
+function copyMainTokenizerAssetsPlugin() {
+  const mainOutputDir = resolve(configDir, "out/main")
+  const grammarAssetSource = resolve(
+    repoRoot,
+    "packages/tree-sitter-grammar-assets/src/assets",
+  )
+  const tokenizerEngineSource = configRequire.resolve(
+    "web-tree-sitter/web-tree-sitter.wasm",
+    { paths: [resolve(repoRoot, "packages/host-node")] },
+  )
+
+  return {
+    name: "copy-main-tokenizer-assets",
+    apply: "build" as const,
+    closeBundle() {
+      cpSync(grammarAssetSource, resolve(mainOutputDir, "assets"), {
+        force: true,
+        recursive: true,
+      })
+      cpSync(
+        tokenizerEngineSource,
+        resolve(mainOutputDir, "web-tree-sitter.wasm"),
+        { force: true },
+      )
+    },
+  }
+}
+
 const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
   main: {
+    plugins: [copyMainTokenizerAssetsPlugin()],
     resolve: {
       alias: workspaceAliases,
     },
@@ -54,7 +88,7 @@ export default defineConfig({
       externalizeDeps: false,
       outDir: "out/main",
       rollupOptions: {
-        input: resolve(__dirname, "src/main.ts"),
+        input: resolve(configDir, "src/main.ts"),
         // @anthropic-ai/claude-agent-sdk and @openai/codex-sdk both resolve
         // their native CLI binaries via createRequire(import.meta.url).
         // Bundling them points that URL at the Vite output, where the
@@ -73,7 +107,7 @@ export default defineConfig({
       externalizeDeps: false,
       outDir: "out/preload",
       rollupOptions: {
-        input: resolve(__dirname, "src/preload.ts"),
+        input: resolve(configDir, "src/preload.ts"),
         output: {
           format: "cjs",
           entryFileNames: "preload.cjs",
@@ -90,7 +124,7 @@ export default defineConfig({
     build: {
       outDir: "out/renderer",
       rollupOptions: {
-        input: resolve(__dirname, "index.html"),
+        input: resolve(configDir, "index.html"),
         // Some ESM dependencies include top-level `"use client"` directives.
         // Rollup prints MODULE_LEVEL_DIRECTIVE warnings because those directives
         // are not used in this Electron renderer bundle. They are expected and

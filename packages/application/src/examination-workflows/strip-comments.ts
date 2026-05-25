@@ -37,6 +37,10 @@ function fallback(excerpt: ExaminationCodeExcerpt): StripCommentsResult {
   }
 }
 
+function normalizeSourceLineEndings(source: string): string {
+  return source.replace(/\r\n?/g, "\n")
+}
+
 function blankRange(chars: string[], start: number, end: number): void {
   for (let index = start; index < end; index++) {
     if (chars[index] !== "\n") chars[index] = " "
@@ -85,13 +89,15 @@ export async function stripCommentsForExcerpt(params: {
     return fallback(params.excerpt)
   }
 
-  const fullSource = params.fileSource.replace(/\r\n?/g, "\n")
+  const fullSource = normalizeSourceLineEndings(params.fileSource)
   const starts = lineStarts(fullSource)
   const windowStart = starts[params.excerpt.startLine - 1]
   if (windowStart === undefined) {
     return fallback(params.excerpt)
   }
-  const originalText = params.excerpt.lines.join("\n")
+  const originalText = normalizeSourceLineEndings(
+    params.excerpt.lines.join("\n"),
+  )
   const windowEnd = windowStart + originalText.length
 
   try {

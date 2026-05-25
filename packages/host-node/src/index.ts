@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
+import { existsSync } from "node:fs"
 import {
   cp,
   mkdir,
@@ -268,10 +269,17 @@ const tokenizerLanguageCache = new Map<
   Promise<Awaited<ReturnType<TokenizerPort["loadTokenizerLanguage"]>>>
 >()
 
+function resolveTokenizerEngineWasmPath(): string {
+  const bundledPath = fileURLToPath(
+    new URL("./web-tree-sitter.wasm", import.meta.url),
+  )
+  if (existsSync(bundledPath)) return bundledPath
+  return tokenizerRequire.resolve("web-tree-sitter/web-tree-sitter.wasm")
+}
+
 function ensureTokenizerRuntime(): Promise<void> {
   tokenizerRuntimeInit ??= Parser.init({
-    locateFile: () =>
-      tokenizerRequire.resolve("web-tree-sitter/web-tree-sitter.wasm"),
+    locateFile: resolveTokenizerEngineWasmPath,
   })
   return tokenizerRuntimeInit
 }

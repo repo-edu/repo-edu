@@ -56,18 +56,25 @@ export function useBlameCommentClassification(
       return
     }
 
+    setCommentLines(null)
     void (async () => {
-      const loaded = await loadRendererTokenizerLanguage(language)
-      if (versionRef.current !== localVersion) return
+      try {
+        const loaded = await loadRendererTokenizerLanguage(language)
+        if (versionRef.current !== localVersion) return
 
-      const result = classifyCommentLines(
-        fileBlame.lines.map((line) => line.content),
-        loaded,
-      )
-      if (versionRef.current !== localVersion) return
+        const result = classifyCommentLines(
+          fileBlame.lines.map((line) => line.content),
+          loaded,
+        )
+        if (versionRef.current !== localVersion) return
 
-      cacheRef.current.set(fileBlame, result)
-      setCommentLines(result)
+        cacheRef.current.set(fileBlame, result)
+        setCommentLines(result)
+      } catch {
+        if (versionRef.current === localVersion) {
+          setCommentLines(null)
+        }
+      }
     })()
   }, [fileBlame])
 
