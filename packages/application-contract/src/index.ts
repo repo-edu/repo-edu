@@ -625,6 +625,31 @@ function providerExcerptIdentityKey(
   ].join("\u001f")
 }
 
+function normalizeSourceIdForbiddenValue(value: string): string {
+  return value.trim().split(/\s+/).join(" ").toLowerCase()
+}
+
+function buildSourceIdCandidate(index: number, attempt: number): string {
+  const sourceNumber = index + 1
+  if (attempt === 0) return `E${sourceNumber}`
+  if (attempt === 1) return `SRC${sourceNumber}`
+  return `SRC${sourceNumber}_${attempt - 1}`
+}
+
+function chooseSourceId(params: {
+  index: number
+  forbidden: ReadonlySet<string>
+  used: ReadonlySet<string>
+}): string {
+  for (let attempt = 0; ; attempt += 1) {
+    const candidate = buildSourceIdCandidate(params.index, attempt)
+    const comparison = candidate.toLowerCase()
+    if (!params.forbidden.has(comparison) && !params.used.has(comparison)) {
+      return candidate
+    }
+  }
+}
+
 export function buildExaminationProviderPayloadFingerprint(
   identities: readonly ExaminationProviderExcerptIdentity[],
 ): string {
@@ -650,11 +675,29 @@ export function buildExaminationProviderPayloadFingerprint(
 
 export function assignExaminationSourceIds(
   identities: readonly ExaminationProviderExcerptIdentity[],
+  options: {
+    forbiddenSourceIds?: readonly string[]
+  } = {},
 ): string[] {
+  const forbidden = new Set(
+    (options.forbiddenSourceIds ?? [])
+      .map(normalizeSourceIdForbiddenValue)
+      .filter((value) => value.length > 0),
+  )
   const uniqueKeys = [...new Set(identities.map(providerExcerptIdentityKey))]
     .toSorted()
-    .map((key, index) => [key, `E${index + 1}`] as const)
-  const sourceIdByKey = new Map(uniqueKeys)
+    .map((key, index) => ({ key, index }))
+  const usedSourceIds = new Set<string>()
+  const uniqueIds = uniqueKeys.map(({ key, index }) => {
+    const sourceId = chooseSourceId({
+      index,
+      forbidden,
+      used: usedSourceIds,
+    })
+    usedSourceIds.add(sourceId.toLowerCase())
+    return [key, sourceId] as const
+  })
+  const sourceIdByKey = new Map(uniqueIds)
   return identities.map((identity) => {
     const sourceId = sourceIdByKey.get(providerExcerptIdentityKey(identity))
     if (sourceId === undefined) {
@@ -745,6 +788,7 @@ export function validateExaminationArchiveKey(
     typeof questionCount !== "number" ||
     !Number.isInteger(questionCount) ||
     questionCount < 1 ||
+    questionCount > 20 ||
     typeof providerPayloadFingerprint !== "string" ||
     providerPayloadFingerprint.length === 0 ||
     typeof generationContextFingerprint !== "string" ||

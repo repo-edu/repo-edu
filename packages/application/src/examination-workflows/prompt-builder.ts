@@ -19,6 +19,7 @@ export function buildExaminationPrompt(
   const excerpts = payload.excerpts
     .map((excerpt, index) => formatExcerpt(excerpt, index))
     .join("\n\n")
+  const exampleSourceId = payload.excerpts[0]?.sourceId ?? "SRC1"
 
   const instructions = [
     `Generate exactly ${payload.questionCount} questions.`,
@@ -31,7 +32,7 @@ export function buildExaminationPrompt(
     "- Do not include names, email addresses, usernames, roster identifiers, repository paths, or file paths in the output.",
     "",
     "Return STRICT JSON matching this shape, with no prose and no markdown fences:",
-    '{"questions":[{"question":"...","answer":"...","anchor":{"sourceId":"E1","lineRange":{"start":10,"end":14}}}]}',
+    `{"questions":[{"question":"...","answer":"...","anchor":{"sourceId":"${exampleSourceId}","lineRange":{"start":10,"end":14}}}]}`,
     "Use null for anchor.sourceId and anchor.lineRange only when the question genuinely spans the whole contribution.",
   ].join("\n")
 

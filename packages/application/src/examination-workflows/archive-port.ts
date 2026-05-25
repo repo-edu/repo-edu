@@ -204,6 +204,13 @@ function validateRecord(
   if (questionsContainEmail(questions)) return null
   const provenance = validateProvenance(raw.provenance)
   if (provenance === null) return null
+  if (
+    questions.length === 0 ||
+    questions.length !== provenance.questionCount ||
+    keyResult.key.questionCount !== provenance.questionCount
+  ) {
+    return null
+  }
   return { key: keyResult.key, questions, provenance }
 }
 
@@ -263,7 +270,8 @@ function validateLineRange(raw: unknown): ExaminationLineRange | null {
 function validateAnchor(raw: unknown): ExaminationSourceAnchor | null {
   if (!isRecord(raw)) return null
   const sourceId =
-    typeof raw.sourceId === "string" && /^E\d+$/.test(raw.sourceId)
+    typeof raw.sourceId === "string" &&
+    /^(?:E\d+|SRC\d+(?:_\d+)?)$/.test(raw.sourceId)
       ? raw.sourceId
       : raw.sourceId === null
         ? null
@@ -310,6 +318,13 @@ function validateProvenance(
     typeof createdAtMs !== "number" ||
     typeof redactionPolicyVersion !== "number" ||
     typeof promptTemplateVersion !== "number"
+  ) {
+    return null
+  }
+  if (
+    !Number.isInteger(questionCount) ||
+    questionCount < 1 ||
+    questionCount > 20
   ) {
     return null
   }

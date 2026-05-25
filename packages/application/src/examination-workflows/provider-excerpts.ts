@@ -57,9 +57,42 @@ function sourceReferenceLineRange(excerpt: ExaminationCodeExcerpt) {
 }
 
 function compareSourceIds(left: string, right: string): number {
-  const leftNumber = Number.parseInt(left.slice(1), 10)
-  const rightNumber = Number.parseInt(right.slice(1), 10)
-  return leftNumber - rightNumber
+  const leftParts = sourceIdSortParts(left)
+  const rightParts = sourceIdSortParts(right)
+  return (
+    leftParts.index - rightParts.index ||
+    leftParts.attempt - rightParts.attempt ||
+    left.localeCompare(right)
+  )
+}
+
+function sourceIdSortParts(sourceId: string): {
+  index: number
+  attempt: number
+} {
+  const eMatch = /^E(\d+)$/.exec(sourceId)
+  if (eMatch) {
+    return { index: Number.parseInt(eMatch[1] ?? "0", 10), attempt: 0 }
+  }
+  const srcMatch = /^SRC(\d+)(?:_(\d+))?$/.exec(sourceId)
+  if (srcMatch) {
+    return {
+      index: Number.parseInt(srcMatch[1] ?? "0", 10),
+      attempt: Number.parseInt(srcMatch[2] ?? "0", 10) + 1,
+    }
+  }
+  return { index: Number.MAX_SAFE_INTEGER, attempt: Number.MAX_SAFE_INTEGER }
+}
+
+function localIdentityValues(
+  context: ExaminationLocalIdentityContext,
+): string[] {
+  return [
+    ...context.names,
+    ...context.emails,
+    ...context.opaqueIdentifiers,
+    ...context.gitUsernames,
+  ]
 }
 
 export async function prepareExaminationProviderExcerpts(params: {
@@ -131,6 +164,9 @@ export async function prepareExaminationProviderExcerpts(params: {
 
   const sourceIds = assignExaminationSourceIds(
     preparedWithoutIds.map((entry) => entry.identity),
+    {
+      forbiddenSourceIds: localIdentityValues(params.localIdentityContext),
+    },
   )
   const sourceReferenceById = new Map<string, ExaminationSourceReference>()
   const promptExcerptById = new Map<string, ExaminationProviderPromptExcerpt>()

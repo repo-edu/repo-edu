@@ -190,6 +190,22 @@ describe("examination archive adapter", () => {
       ],
     })
     assert.equal(emailSummary.rejected, 1)
+
+    const inconsistentCountSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          provenance: {
+            ...baseRecord.provenance,
+            questionCount: baseRecord.provenance.questionCount + 1,
+          },
+        },
+      ],
+    })
+    assert.equal(inconsistentCountSummary.rejected, 1)
   })
 })
 
@@ -270,6 +286,67 @@ describe("examination.generateQuestions archive behavior", () => {
 
     const prompt = llm.requests[0]?.prompt ?? ""
     assert.equal(prompt.match(/^Excerpt /gm)?.length, 1)
+  })
+
+  it("uses source ids that do not collide with local identifiers", async () => {
+    const llm = createRecordingLlm(sampleLlmReply(1))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+
+    await handlers["examination.generateQuestions"]({
+      ...baseInput(),
+      localIdentityContext: {
+        names: [],
+        emails: [],
+        opaqueIdentifiers: [],
+        gitUsernames: ["e1"],
+      },
+      excerpts: [
+        {
+          filePath: "src/a.unknown",
+          startLine: 1,
+          lines: ["const e1 = 1"],
+        },
+      ],
+      excerptFileSources: { "src/a.unknown": "const e1 = 1" },
+      questionCount: 1,
+    })
+
+    const prompt = llm.requests[0]?.prompt ?? ""
+    assert.match(prompt, /Excerpt 1 \(SRC1/)
+    assert.doesNotMatch(prompt, /\bE1\b/)
+    assert.doesNotMatch(prompt, /\be1\b/)
+  })
+
+  it("stores partial provider output under the accepted question count", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(1))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive,
+      tokenizer,
+    })
+    const warnings: string[] = []
+
+    const result = await handlers["examination.generateQuestions"](
+      baseInput(),
+      {
+        onOutput(output) {
+          if (output.channel === "warn") warnings.push(output.message)
+        },
+      },
+    )
+    const lookup = await handlers["examination.lookupQuestions"](baseInput())
+
+    assert.equal(result.questions.length, 1)
+    assert.equal(result.key.questionCount, 1)
+    assert.equal(result.archivedProvenance.questionCount, 1)
+    assert.match(warnings[0] ?? "", /Provider returned 1 of 2 requested/)
+    assert.equal(lookup.exact, null)
+    assert.equal(lookup.availableSets[0]?.key.questionCount, 1)
   })
 
   it("filters cache candidates that now echo a known identifier", async () => {

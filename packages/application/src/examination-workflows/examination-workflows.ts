@@ -146,11 +146,22 @@ export function createExaminationWorkflowHandlers(
         validSourceIds,
       )
       assertOutputAllowedForCurrentContext(questions, input)
+      const acceptedQuestionCount = questions.length
+      if (acceptedQuestionCount < input.questionCount) {
+        options?.onOutput?.({
+          channel: "warn",
+          message: `Provider returned ${acceptedQuestionCount} of ${input.questionCount} requested examination questions. The partial set was stored under its actual question count.`,
+        })
+      }
+      const resultArchiveKey =
+        acceptedQuestionCount === archiveKey.questionCount
+          ? archiveKey
+          : { ...archiveKey, questionCount: acceptedQuestionCount }
 
       const provenance: ExaminationArchivedProvenance = {
         model: resolution.code,
         effort: resolution.spec.effort,
-        questionCount: input.questionCount,
+        questionCount: acceptedQuestionCount,
         usage,
         createdAtMs: Date.now(),
         redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
@@ -158,7 +169,7 @@ export function createExaminationWorkflowHandlers(
       }
 
       const record: ExaminationArchiveRecord = {
-        key: archiveKey,
+        key: resultArchiveKey,
         questions,
         provenance,
       }
