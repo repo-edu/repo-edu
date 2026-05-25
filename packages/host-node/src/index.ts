@@ -22,6 +22,7 @@ import {
   join,
   relative,
   resolve,
+  sep,
 } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
@@ -460,7 +461,8 @@ async function readFileInsideRootPath(
   const containment = relative(rootReal, candidateReal)
   if (
     containment.length === 0 ||
-    containment.startsWith("..") ||
+    containment === ".." ||
+    containment.startsWith(`..${sep}`) ||
     isAbsolute(containment)
   ) {
     throw new Error("Selected file is outside the submission folder.")

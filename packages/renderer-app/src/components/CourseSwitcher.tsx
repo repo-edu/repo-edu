@@ -456,7 +456,12 @@ export function CourseSwitcher() {
             variant="ghost"
             className="size-4 shrink-0"
             aria-label={`Remove ${recent.path} from recent submissions`}
-            title="Remove recent submission"
+            title={
+              isActive
+                ? "Close this submission before removing it from recents"
+                : "Remove recent submission"
+            }
+            disabled={isActive}
             onClick={(event) =>
               handleActionClick(event, () =>
                 handleRemoveRecentSubmissionFolder(recent),

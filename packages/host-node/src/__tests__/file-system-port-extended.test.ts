@@ -102,4 +102,18 @@ describe("createNodeFileSystemPort (extended)", () => {
       /outside the submission folder/,
     )
   })
+
+  it("allows in-root filenames that start with two dots", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    await writeFile(join(root, "..solution.ts"), "const ok = true\n")
+
+    const fs = createNodeFileSystemPort()
+    const result = await fs.readFileInsideRoot({
+      rootPath: root,
+      relativePath: "..solution.ts",
+      maxBytes: 64 * 1024,
+    })
+
+    assert.equal(new TextDecoder().decode(result.bytes), "const ok = true\n")
+  })
 })
