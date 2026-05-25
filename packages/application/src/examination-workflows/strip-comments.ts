@@ -99,6 +99,12 @@ export async function stripCommentsForExcerpt(params: {
     params.excerpt.lines.join("\n"),
   )
   const windowEnd = windowStart + originalText.length
+  if (
+    windowEnd > fullSource.length ||
+    fullSource.slice(windowStart, windowEnd) !== originalText
+  ) {
+    return fallback(params.excerpt)
+  }
 
   const loaded = await params.tokenizer.loadTokenizerLanguage(language)
   const projected = tokenizeSource(fullSource, loaded)

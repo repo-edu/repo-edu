@@ -5,30 +5,35 @@ function isCommentLike(kind: Token["kind"]): boolean {
   return kind === "comment" || kind === "documentation"
 }
 
-function tokenAt(tokens: readonly Token[], offset: number): Token | undefined {
-  return tokens.find((token) => token.start <= offset && offset < token.end)
-}
-
-function isOffsetInCommentLike(tokens: readonly Token[], offset: number) {
-  const token = tokenAt(tokens, offset)
-  return token !== undefined && isCommentLike(token.kind)
+function advanceTokenIndex(
+  tokens: readonly Token[],
+  tokenIndex: number,
+  offset: number,
+): number {
+  let index = tokenIndex
+  while (index < tokens.length && tokens[index].end <= offset) index += 1
+  return index
 }
 
 function isRangeCoveredByCommentLike(
   tokens: readonly Token[],
+  tokenIndex: number,
   start: number,
   end: number,
 ) {
   if (end <= start) return false
 
   let cursor = start
-  for (const token of tokens) {
-    if (token.end <= cursor) continue
+  let index = advanceTokenIndex(tokens, tokenIndex, cursor)
+  while (cursor < end) {
+    const token = tokens[index]
+    if (token === undefined) return false
     if (token.start > cursor) return false
     if (!isCommentLike(token.kind)) return false
 
     cursor = Math.min(end, token.end)
     if (cursor >= end) return true
+    index = advanceTokenIndex(tokens, index, cursor)
   }
 
   return false
@@ -54,6 +59,7 @@ export function classifyCommentLines(
   const tokens = tokenizeSource(source, loaded)
   const starts = lineStarts(lines)
   const commentIndices = new Set<number>()
+  let tokenIndex = 0
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -67,7 +73,13 @@ export function classifyCommentLines(
       if (character === undefined || /\s/.test(character)) continue
 
       hasNonWhitespace = true
-      if (!isOffsetInCommentLike(tokens, offset)) {
+      tokenIndex = advanceTokenIndex(tokens, tokenIndex, offset)
+      const token = tokens[tokenIndex]
+      if (
+        token === undefined ||
+        token.start > offset ||
+        !isCommentLike(token.kind)
+      ) {
         allNonWhitespaceInComment = false
         break
       }
@@ -79,7 +91,8 @@ export function classifyCommentLines(
     }
 
     const regionEnd = end < source.length ? end + 1 : end
-    if (isRangeCoveredByCommentLike(tokens, start, regionEnd)) {
+    tokenIndex = advanceTokenIndex(tokens, tokenIndex, start)
+    if (isRangeCoveredByCommentLike(tokens, tokenIndex, start, regionEnd)) {
       commentIndices.add(i)
     }
   }
