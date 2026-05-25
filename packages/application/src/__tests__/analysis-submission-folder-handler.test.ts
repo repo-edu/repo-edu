@@ -88,6 +88,22 @@ describe("submission folder analysis workflows", () => {
     )
   })
 
+  it("returns validation errors for malformed workflow payloads", async () => {
+    const handlers = createHandlers(createFileSystemPort())
+
+    await assertValidationError(() =>
+      handlers["analysis.listFolderFiles"]({
+        folderPath: "/tmp/submission",
+        extensions: [42],
+      } as never),
+    )
+    await assertValidationError(() =>
+      handlers["analysis.readFolderFile"]({
+        folderPath: "/tmp/submission",
+      } as never),
+    )
+  })
+
   it("reads selected files as base64 through the filesystem port", async () => {
     const handlers = createHandlers(
       createFileSystemPort({

@@ -8,8 +8,8 @@ export function buildExaminationPrompt(
 ): string {
   const header = [
     "You are preparing questions for a one-on-one oral examination.",
-    "The selected contributor below contributed to a software project.",
-    "Using only the redacted code excerpts attributed to the selected contributor in the final repository state, produce questions that probe whether the contributor genuinely understands the code they contributed.",
+    "The selected contributor below is associated with the selected software project excerpts.",
+    "Using only the redacted code excerpts attributed to the selected contributor, produce questions that probe whether the contributor genuinely understands the code.",
     "",
     `Contributor label: ${payload.anonymousContributorLabel}`,
   ]

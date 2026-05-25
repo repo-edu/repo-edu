@@ -15,6 +15,69 @@ import type { AnalysisWorkflowPorts } from "./ports.js"
 
 const MAX_LISTED_SUBMISSION_FILES = 1000
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function validateListFolderFilesInput(input: unknown): {
+  folderPath: string
+  extensions: string[]
+} {
+  if (!isRecord(input)) {
+    throw createValidationAppError("Submission folder input is invalid.", [
+      { path: "input", message: "Input must be an object." },
+    ])
+  }
+  const issues: { path: string; message: string }[] = []
+  if (typeof input.folderPath !== "string") {
+    issues.push({ path: "folderPath", message: "folderPath is required." })
+  }
+  if (
+    !Array.isArray(input.extensions) ||
+    input.extensions.some((extension) => typeof extension !== "string")
+  ) {
+    issues.push({
+      path: "extensions",
+      message: "extensions must be an array of strings.",
+    })
+  }
+  if (issues.length > 0) {
+    throw createValidationAppError(
+      "Submission folder input is invalid.",
+      issues,
+    )
+  }
+  return {
+    folderPath: input.folderPath as string,
+    extensions: input.extensions as string[],
+  }
+}
+
+function validateReadFolderFileInput(input: unknown): {
+  folderPath: string
+  relativePath: string
+} {
+  if (!isRecord(input)) {
+    throw createValidationAppError("Submission file input is invalid.", [
+      { path: "input", message: "Input must be an object." },
+    ])
+  }
+  const issues: { path: string; message: string }[] = []
+  if (typeof input.folderPath !== "string") {
+    issues.push({ path: "folderPath", message: "folderPath is required." })
+  }
+  if (typeof input.relativePath !== "string") {
+    issues.push({ path: "relativePath", message: "relativePath is required." })
+  }
+  if (issues.length > 0) {
+    throw createValidationAppError("Submission file input is invalid.", issues)
+  }
+  return {
+    folderPath: input.folderPath as string,
+    relativePath: input.relativePath as string,
+  }
+}
+
 function normalizeExtensionFilter(extensions: readonly string[]): string[] {
   const normalized = [
     ...new Set(
@@ -100,10 +163,11 @@ export function createSubmissionFolderHandlers(
         | WorkflowCallOptions<never, never>
         | undefined
       const signal = typedOptions?.signal
-      const folderPath = validateAbsoluteFolderPath(input.folderPath)
+      const validatedInput = validateListFolderFilesInput(input)
+      const folderPath = validateAbsoluteFolderPath(validatedInput.folderPath)
       throwIfAborted(signal)
       await assertExistingDirectory(ports, folderPath, signal)
-      const extensions = normalizeExtensionFilter(input.extensions)
+      const extensions = normalizeExtensionFilter(validatedInput.extensions)
       const files = await ports.fileSystem.listFiles({
         rootPath: folderPath,
         extensions,
@@ -131,8 +195,11 @@ export function createSubmissionFolderHandlers(
         | WorkflowCallOptions<never, never>
         | undefined
       const signal = typedOptions?.signal
-      const folderPath = validateAbsoluteFolderPath(input.folderPath)
-      const relativePath = normalizeRelativeFilePath(input.relativePath)
+      const validatedInput = validateReadFolderFileInput(input)
+      const folderPath = validateAbsoluteFolderPath(validatedInput.folderPath)
+      const relativePath = normalizeRelativeFilePath(
+        validatedInput.relativePath,
+      )
       throwIfAborted(signal)
       await assertExistingDirectory(ports, folderPath, signal)
       const result = await ports.fileSystem.readFileInsideRoot({
