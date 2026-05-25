@@ -14,7 +14,11 @@ import {
   type SubmissionStudentIdentity,
   type SubmissionSurfaceState,
 } from "@repo-edu/domain/settings"
-import type { Roster, RosterMember } from "@repo-edu/domain/types"
+import {
+  courseHasRoster,
+  type Roster,
+  type RosterMember,
+} from "@repo-edu/domain/types"
 import { isValidEmail } from "@repo-edu/domain/validation"
 import {
   Button,
@@ -98,15 +102,26 @@ function selectedMemberRoster(roster: Roster, member: RosterMember): Roster {
 
 function resolveSubmissionIdentity(params: {
   courseId?: string
+  attachedCourseLoaded: boolean
+  attachedCourseIsRosterCapable: boolean
   courseRoster: Roster | null
   studentIdentity: SubmissionStudentIdentity | null
 }): { identity: ResolvedSubmissionIdentity | null; message: string | null } {
   if (params.courseId !== undefined) {
-    if (params.courseRoster === null) {
+    if (!params.attachedCourseLoaded) {
       return {
         identity: null,
         message: "Load the attached course before choosing a roster member.",
       }
+    }
+    if (!params.attachedCourseIsRosterCapable) {
+      return {
+        identity: null,
+        message: "The attached course no longer supports roster submissions.",
+      }
+    }
+    if (params.courseRoster === null) {
+      return { identity: null, message: "Choose a roster-capable course." }
     }
     if (params.studentIdentity?.kind !== "roster-member") {
       return { identity: null, message: "Choose the submitted student." }
@@ -187,15 +202,28 @@ export function SubmissionAnalysisTab() {
     attachedCourseId !== undefined && course?.id === attachedCourseId
       ? course
       : null
-  const courseRoster = attachedCourse?.roster ?? null
+  const attachedCourseLoaded = attachedCourse !== null
+  const attachedCourseIsRosterCapable =
+    attachedCourse !== null && courseHasRoster(attachedCourse)
+  const courseRoster = attachedCourseIsRosterCapable
+    ? attachedCourse.roster
+    : null
   const resolved = useMemo(
     () =>
       resolveSubmissionIdentity({
         courseId: attachedCourseId,
+        attachedCourseLoaded,
+        attachedCourseIsRosterCapable,
         courseRoster,
         studentIdentity: submissionState.studentIdentity,
       }),
-    [attachedCourseId, courseRoster, submissionState.studentIdentity],
+    [
+      attachedCourseId,
+      attachedCourseLoaded,
+      attachedCourseIsRosterCapable,
+      courseRoster,
+      submissionState.studentIdentity,
+    ],
   )
 
   useEffect(() => {

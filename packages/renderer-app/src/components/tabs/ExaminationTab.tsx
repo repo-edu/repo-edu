@@ -1,4 +1,5 @@
 import type {
+  DiagnosticOutput,
   ExaminationCodeExcerpt,
   ExaminationGenerateQuestionsResult,
   ExaminationLocalIdentityContext,
@@ -551,6 +552,14 @@ export function ExaminationTab({
         {
           signal: abort.signal,
           onProgress: (_progress: MilestoneProgress) => undefined,
+          onOutput: (output: DiagnosticOutput) => {
+            if (output.channel === "warn") {
+              addToast(output.message, {
+                tone: "warning",
+                durationMs: 6000,
+              })
+            }
+          },
         },
       )
       if (abort.signal.aborted) return

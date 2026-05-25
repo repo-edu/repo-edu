@@ -121,7 +121,9 @@ export function createSubmissionFolderHandlers(
           ],
         )
       }
-      const resultFiles: AnalysisFolderFile[] = files
+      const resultFiles: AnalysisFolderFile[] = [...files].toSorted(
+        (left, right) => left.relativePath.localeCompare(right.relativePath),
+      )
       return { files: resultFiles }
     },
     "analysis.readFolderFile": async (input, options) => {

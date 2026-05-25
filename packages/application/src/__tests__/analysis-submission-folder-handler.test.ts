@@ -60,8 +60,8 @@ describe("submission folder analysis workflows", () => {
     })
 
     assert.deepStrictEqual(result.files, [
-      { relativePath: "b.ts", size: 2 },
       { relativePath: "a.ts", size: 1 },
+      { relativePath: "b.ts", size: 2 },
     ])
   })
 

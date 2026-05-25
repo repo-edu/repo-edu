@@ -50,11 +50,31 @@ export function useCourses() {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
       pruneLoadedSubmissionFoldersForCourses(list)
-      const activeCourseId = selectActiveCourseId(useUiStore.getState())
+      const uiState = useUiStore.getState()
+      const activeSurface = uiState.activeSurface
+      const activeCourseId = selectActiveCourseId(uiState)
+      const activeCourseSummary =
+        activeCourseId === null
+          ? null
+          : (list.find((course) => course.id === activeCourseId) ?? null)
+
       if (
-        activeCourseId !== null &&
-        !list.some((course) => course.id === activeCourseId)
+        activeSurface.kind === "submission" &&
+        activeSurface.courseId !== undefined &&
+        activeCourseSummary !== null &&
+        activeCourseSummary.backing !== "lms"
       ) {
+        await activateSurface(
+          { kind: "course", courseId: activeSurface.courseId },
+          {
+            courseBacking: activeCourseSummary.backing,
+            skipCourseFlush: true,
+          },
+        )
+        return
+      }
+
+      if (activeCourseId !== null && activeCourseSummary === null) {
         const fallback = list[0] ?? null
         await activateSurface(
           fallback === null
