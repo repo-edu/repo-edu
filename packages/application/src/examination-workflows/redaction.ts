@@ -714,9 +714,30 @@ function containsRequiredCheck(text: string, check: RedactionRequiredCheck) {
   )
 }
 
+function sourceDescriptorNameSet(
+  descriptors: readonly string[] | undefined,
+): ReadonlySet<string> {
+  return new Set(
+    (descriptors ?? [])
+      .map((descriptor) => normalizeKnownText(descriptor).toLowerCase())
+      .filter((descriptor) => descriptor.length > 0),
+  )
+}
+
+function isAllowedSourceDescriptorName(
+  replacementClass: ReplacementClass,
+  comparisonKey: string,
+  allowedSourceDescriptors: ReadonlySet<string>,
+): boolean {
+  return (
+    replacementClass === "name" && allowedSourceDescriptors.has(comparisonKey)
+  )
+}
+
 export function assertNoRequiredRedactionLeaks(params: {
   renderedPrompt: string
   requiredChecks: readonly RedactionRequiredCheck[]
+  allowedSourceDescriptors?: readonly string[]
 }): void {
   if (findEmailAddressSpans(params.renderedPrompt).length > 0) {
     throw new Error(
@@ -728,8 +749,16 @@ export function assertNoRequiredRedactionLeaks(params: {
       "Examination prompt redaction failed: a secret literal remained in the provider prompt.",
     )
   }
+  const allowedSourceDescriptors = sourceDescriptorNameSet(
+    params.allowedSourceDescriptors,
+  )
   const leaked = params.requiredChecks.find((check) =>
-    check.assertGlobally
+    check.assertGlobally &&
+    !isAllowedSourceDescriptorName(
+      check.kind,
+      normalizeKnownText(check.value).toLowerCase(),
+      allowedSourceDescriptors,
+    )
       ? containsRequiredCheck(params.renderedPrompt, check)
       : false,
   )
@@ -748,7 +777,11 @@ export type OutputLeakScanResult = {
 export function scanExaminationOutputForLeaks(params: {
   questions: readonly ExaminationQuestion[]
   localIdentityContext: ExaminationLocalIdentityContext
+  allowedSourceDescriptors?: readonly string[]
 }): OutputLeakScanResult {
+  const allowedSourceDescriptors = sourceDescriptorNameSet(
+    params.allowedSourceDescriptors,
+  )
   const text = params.questions
     .map((question) => `${question.question}\n${question.answer}`)
     .join("\n")
@@ -761,7 +794,14 @@ export function scanExaminationOutputForLeaks(params: {
     spans: [{ start: 0, end: text.length, kind: "code" }],
     mode: "prose",
     includeSecrets: false,
-  })
+  }).filter(
+    (candidate) =>
+      !isAllowedSourceDescriptorName(
+        candidate.replacementClass,
+        candidate.comparisonKey,
+        allowedSourceDescriptors,
+      ),
+  )
   if (
     knownIdentifierLeaks.some(
       (candidate) => candidate.replacementClass === "email",

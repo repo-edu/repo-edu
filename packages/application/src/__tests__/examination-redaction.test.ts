@@ -128,6 +128,60 @@ describe("examination redaction", () => {
     assert.deepEqual(result, { ok: false, reason: "email" })
   })
 
+  it("allows source descriptors that collide with known local names", () => {
+    const context = {
+      ...identityContext,
+      names: ["Ruby"],
+    }
+    const lines = ['const owner = "Ruby"']
+    const redacted = redactExaminationSource({
+      lines,
+      spans: allCode(lines),
+      localIdentityContext: context,
+      redactionPolicyVersion,
+    })
+
+    assert.doesNotThrow(() =>
+      assertNoRequiredRedactionLeaks({
+        renderedPrompt: [
+          "Excerpt 1 (E1, Ruby, lines 1-1):",
+          ...redacted.lines,
+        ].join("\n"),
+        requiredChecks: redacted.report.requiredChecks,
+        allowedSourceDescriptors: ["Ruby"],
+      }),
+    )
+
+    assert.deepEqual(
+      scanExaminationOutputForLeaks({
+        questions: [
+          {
+            question: "Why use this Ruby method?",
+            answer: "The Ruby method returns the accumulated value.",
+            anchor: { sourceId: "E1", lineRange: { start: 1, end: 1 } },
+          },
+        ],
+        localIdentityContext: context,
+        allowedSourceDescriptors: ["Ruby"],
+      }),
+      { ok: true, reason: null },
+    )
+    assert.deepEqual(
+      scanExaminationOutputForLeaks({
+        questions: [
+          {
+            question: "Why mention Ada?",
+            answer: "Ada is not a source descriptor here.",
+            anchor: { sourceId: null, lineRange: null },
+          },
+        ],
+        localIdentityContext: { ...context, names: ["Ada"] },
+        allowedSourceDescriptors: ["Ruby"],
+      }),
+      { ok: false, reason: "known-identifier" },
+    )
+  })
+
   it("propagates tokenizer runtime failures for supported sources", async () => {
     const tokenizer: TokenizerPort = {
       async loadTokenizerLanguage() {

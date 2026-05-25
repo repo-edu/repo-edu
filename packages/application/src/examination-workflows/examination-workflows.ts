@@ -77,10 +77,16 @@ export function createExaminationWorkflowHandlers(
         input,
         prepared.providerPayloadFingerprint,
       )
+      const sourceDescriptors = prepared.promptPayload.excerpts.map(
+        (excerpt) => excerpt.sourceDescriptor,
+      )
 
       if (!input.regenerate) {
         const hit = ports.archive.get(archiveKey)
-        if (hit && isRecordAllowedForCurrentContext(hit, input)) {
+        if (
+          hit &&
+          isRecordAllowedForCurrentContext(hit, input, sourceDescriptors)
+        ) {
           options?.onProgress?.({
             step: 4,
             totalSteps: 4,
@@ -106,6 +112,7 @@ export function createExaminationWorkflowHandlers(
         assertNoRequiredRedactionLeaks({
           renderedPrompt: prompt,
           requiredChecks: prepared.requiredChecks,
+          allowedSourceDescriptors: sourceDescriptors,
         })
       } catch (error) {
         const message =
@@ -146,7 +153,7 @@ export function createExaminationWorkflowHandlers(
         input.questionCount,
         validSourceIds,
       )
-      assertOutputAllowedForCurrentContext(questions, input)
+      assertOutputAllowedForCurrentContext(questions, input, sourceDescriptors)
       const acceptedQuestionCount = questions.length
       if (acceptedQuestionCount < input.questionCount) {
         options?.onOutput?.({
@@ -216,9 +223,14 @@ export function createExaminationWorkflowHandlers(
       })
 
       const exact = ports.archive.get(archiveKey)
+      const sourceDescriptors = prepared.promptPayload.excerpts.map(
+        (excerpt) => excerpt.sourceDescriptor,
+      )
       const availableSets = ports.archive
         .listForGenerationContext(archiveKey)
-        .filter((record) => isRecordAllowedForCurrentContext(record, input))
+        .filter((record) =>
+          isRecordAllowedForCurrentContext(record, input, sourceDescriptors),
+        )
         .map((record) =>
           toResult(record, {
             fromArchive: true,
@@ -230,7 +242,8 @@ export function createExaminationWorkflowHandlers(
         requestedKey: archiveKey,
         sourceReferences: prepared.sourceReferences,
         exact:
-          exact === undefined || !isRecordAllowedForCurrentContext(exact, input)
+          exact === undefined ||
+          !isRecordAllowedForCurrentContext(exact, input, sourceDescriptors)
             ? null
             : toResult(exact, {
                 fromArchive: true,
@@ -366,20 +379,24 @@ function toResult(
 function isRecordAllowedForCurrentContext(
   record: ExaminationArchiveRecord,
   input: ExaminationLookupQuestionsInput,
+  sourceDescriptors: readonly string[],
 ): boolean {
   return scanExaminationOutputForLeaks({
     questions: record.questions,
     localIdentityContext: input.localIdentityContext,
+    allowedSourceDescriptors: sourceDescriptors,
   }).ok
 }
 
 function assertOutputAllowedForCurrentContext(
   questions: readonly ExaminationQuestion[],
   input: ExaminationGenerateQuestionsInput,
+  sourceDescriptors: readonly string[],
 ): void {
   const result = scanExaminationOutputForLeaks({
     questions,
     localIdentityContext: input.localIdentityContext,
+    allowedSourceDescriptors: sourceDescriptors,
   })
   if (result.ok) return
   const message =
