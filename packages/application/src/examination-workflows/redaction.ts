@@ -317,17 +317,19 @@ function collectEmailCandidates(
   text: string,
   knownEmails: readonly string[],
 ): ReplacementCandidate[] {
-  const shaped = findEmailAddressSpans(text).map((span) => {
-    const value = text.slice(span.start, span.end)
-    return {
-      ...span,
-      replacementClass: "email",
-      value,
-      comparisonKey: value.toLowerCase(),
-      caseSensitive: false,
-      assertGlobally: true,
-    }
-  })
+  const shaped = findEmailAddressSpans(text).map<ReplacementCandidate>(
+    (span) => {
+      const value = text.slice(span.start, span.end)
+      return {
+        ...span,
+        replacementClass: "email",
+        value,
+        comparisonKey: value.toLowerCase(),
+        caseSensitive: false,
+        assertGlobally: true,
+      }
+    },
+  )
   return [
     ...shaped,
     ...collectLiteralCandidates({
