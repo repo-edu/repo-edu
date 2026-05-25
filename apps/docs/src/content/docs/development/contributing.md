@@ -27,21 +27,21 @@ Keep behavior in shared packages wherever possible. Shell-specific concerns (Ele
 Run these before opening a change:
 
 ```bash
-pnpm check       # lint + typecheck + build:types + check:fixtures + check:architecture
+pnpm check       # fix + typecheck + check:types:build + check:fixtures + check:architecture
 pnpm test        # all package-level tests
 ```
 
 For changes touching desktop or docs, also run:
 
 ```bash
-pnpm desktop:test   # preload bridge and tRPC wiring checks
+pnpm test:runtime   # preload bridge and tRPC wiring checks
 pnpm docs:test      # smoke, workflow alignment, and browser guardrail tests
 ```
 
 Or run everything at once:
 
 ```bash
-pnpm validate    # check + test
+pnpm validate    # check + test:all
 ```
 
 See [Building](/repo-edu/development/building/) for the full script reference.
@@ -79,7 +79,7 @@ This catches forgotten wiring when adding new workflows or changing delivery arr
 
 ### browser-guardrail.test.ts
 
-Scans source files in browser-safe packages (`domain`, `application-contract`, `renderer-host-contract`, `renderer-app`, `host-browser-mock`, `test-fixtures`) for forbidden imports:
+Scans source files in browser-safe packages (`domain`, `tree-sitter-grammar-assets`, `application-contract`, `renderer-host-contract`, `renderer-app`, `host-browser-mock`, `test-fixtures`) for forbidden imports:
 
 - `node:*` built-in modules
 - `fs`, `path`, `child_process`, `worker_threads`, `net`, `tls`

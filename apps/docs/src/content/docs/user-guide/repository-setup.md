@@ -3,14 +3,14 @@ title: Repository Setup
 description: Validate, create, clone, and update assignment repositories
 ---
 
-Repository operations are the main deliverable of repo-edu: creating per-team Git repositories for assignments, cloning them for grading, and pushing template updates. All repository operations work through the configured Git connection (GitHub, GitLab, or Gitea).
+Repository operations are the main deliverable of repo-edu: creating per-team Git repositories for assignments, cloning them for grading, and pushing template updates. All repository operations work through the active Git connection in app settings (GitHub, GitLab, or Gitea).
 
 ## Prerequisites
 
-Before running repository operations, your course needs:
+Before running repository operations, you need:
 
-1. **A Git connection** — configured in app settings with a personal access token that has permission to create repositories in the target organization.
-2. **An organization** — the Git organization or group where repositories will be created.
+1. **An active Git connection** — configured in app settings with a personal access token that has permission to create repositories in the target organization.
+2. **A course organization** — the Git organization or group where repositories will be created.
 3. **An assignment** — linked to a group set that determines which teams get repositories.
 4. **A repository template** (optional) — either a remote repository on the Git provider (`owner/name`) or a local directory path. New repositories are initialized with the template's content.
 
@@ -63,15 +63,7 @@ Preview what would be created without making any changes:
 redu repo create --assignment "Project 1" --dry-run --course <course-id>
 ```
 
-Dry-run reports the planned repository count, names, and any groups that would be skipped (empty groups, groups where all members lack Git usernames, repositories that already exist).
-
-### Filtering by group
-
-Create repositories for specific groups only:
-
-```bash
-redu repo create --assignment "Project 1" --groups "Team Alpha,Team Beta" --course <course-id>
-```
+Dry-run reports the planned repository names, groups, assignments, and validation issues that prevent planning.
 
 ### Using a template override
 

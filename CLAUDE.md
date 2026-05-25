@@ -16,7 +16,7 @@ pnpm test
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
-- `check` — fix + typecheck + build:types + check:fixtures + check:architecture
+- `check` — fix + typecheck + check:types:build + check:fixtures + check:architecture
 - `test` — runs all package tests workspace-wide
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
@@ -44,6 +44,7 @@ repo-edu/
 │   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
 │   │                                         # Claude/Codex adapters, curated model catalog
 │   ├── fixture-engine/            # AI-driven student-repo fixture generator
+│   ├── tree-sitter-grammar-assets/ # Browser-safe source-tokenizer grammar WASM assets
 │   ├── renderer-app/              # Shared React application
 │   ├── ui/                        # Shared UI component library
 │   ├── test-fixtures/             # Shared domain fixture generation (faker-based)
@@ -80,6 +81,7 @@ Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-
 - [packages/renderer-app/CLAUDE.md](packages/renderer-app/CLAUDE.md)
 - [packages/renderer-host-contract/CLAUDE.md](packages/renderer-host-contract/CLAUDE.md)
 - [packages/test-fixtures/CLAUDE.md](packages/test-fixtures/CLAUDE.md)
+- [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
 Core flow:

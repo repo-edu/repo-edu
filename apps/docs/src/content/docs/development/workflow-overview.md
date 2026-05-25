@@ -76,13 +76,15 @@ Workflows are organized into domain groups:
 
 - **course** — list, load, save, delete courses
 - **settings** — load and save application settings
-- **connection** — verify LMS and Git connection drafts, list LMS courses
+- **connection** — verify LMS, Git, and LLM connection drafts; list LMS courses
 - **roster** — import rosters from file or LMS, export members
 - **groupSet** — fetch, connect, sync, preview import, and export group sets
 - **gitUsernames** — import Git usernames for roster members
 - **validation** — validate roster and assignment configurations
-- **repo** — create, clone, and update repositories
+- **repo** — create, clone, update, list namespace repositories, and bulk-clone repositories
 - **userFile** — inspect file selections and preview exports
+- **analysis** — run log analysis, blame files, discover repositories, and browse folder files
+- **examination** — generate/lookup examination questions and import/export the examination archive
 
 Not all workflows are available on all surfaces. The [workflow catalog](/repo-edu/development/workflow-catalog/) declares which surfaces support each workflow.
 

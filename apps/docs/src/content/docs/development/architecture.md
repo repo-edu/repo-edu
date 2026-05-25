@@ -35,6 +35,11 @@ packages/
   integrations-lms/                 Canvas and Moodle adapters
   integrations-git-contract/        Git provider interface
   integrations-git/                 GitHub, GitLab, Gitea adapters
+  integrations-llm-contract/        Provider-neutral LLM interface
+  integrations-llm-catalog/         Curated model catalog and pricing lookup
+  integrations-llm/                 Claude and Codex adapters
+  fixture-engine/                   AI-driven student-repo fixture generator
+  tree-sitter-grammar-assets/       Browser-safe source-tokenizer grammar WASM assets
   ui/                               Shared UI component library
   test-fixtures/                    Faker-based domain fixture generation
   integration-tests/                E2E tests against live Git providers
@@ -64,7 +69,7 @@ This is not just a convenience for users browsing the docs. It also serves as a 
 
 ## Contract layers
 
-Four contract packages define the typed boundaries between layers. All are browser-safe (no Node imports) and contain zero implementation — types only.
+The contract packages define the typed boundaries between layers. They are browser-safe (no Node imports) and contain zero implementation beyond constants and type-level helpers.
 
 ### application-contract
 
@@ -92,12 +97,14 @@ The application ↔ host bridge for runtime I/O. Defines port interfaces consume
 - `GitCommandPort` — Git CLI invocation
 - `FileSystemPort` — inspect paths, batch operations (ensure-directory, copy-directory, delete-path), temp directories
 - `UserFilePort` — read/write user-selected files via opaque `UserFileRef` / `UserSaveTargetRef` handles
+- `LlmPort` — provider-neutral prompt/reply calls for examination workflows
+- `ExaminationArchiveStoragePort` — opaque storage for versioned examination archive records
 
 `@repo-edu/host-node` provides the Node implementations. `@repo-edu/host-browser-mock` provides stubs.
 
-### integrations-lms-contract and integrations-git-contract
+### integrations-lms-contract, integrations-git-contract, and integrations-llm-contract
 
-Provider-specific interfaces for LMS (Canvas, Moodle) and Git (GitHub, GitLab, Gitea) operations. The implementation packages (`integrations-lms`, `integrations-git`) depend on `host-runtime-contract` ports for HTTP and process execution.
+Provider-specific interfaces for LMS (Canvas, Moodle), Git (GitHub, GitLab, Gitea), and LLM prompt/reply operations. The implementation packages (`integrations-lms`, `integrations-git`, `integrations-llm`) depend on runtime ports or provider SDKs in adapter packages, not in domain or renderer code.
 
 ## CLI layering
 

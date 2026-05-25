@@ -5,7 +5,7 @@ description: Create, clone, update, and discover assignment repositories
 
 Repository commands are the primary operational commands in the CLI. They create Git repositories for student teams, clone them locally for grading, push template updates, and discover repositories by name pattern in a namespace.
 
-The first three commands (`create`, `clone`, `update`) are assignment-scoped and require a course with a configured Git connection and organization. The `discover` command is namespace-scoped and only requires a Git connection. See [Repository Setup](/repo-edu/user-guide/repository-setup/) for the full workflow including prerequisites and validation.
+The first three commands (`create`, `clone`, `update`) are assignment-scoped and require a selected course with an organization plus an active Git connection in app settings. The `discover` command is namespace-scoped and only requires an active Git connection. See [Repository Setup](/repo-edu/user-guide/repository-setup/) for the full workflow including prerequisites and validation.
 
 ## `redu repo create`
 
@@ -21,10 +21,10 @@ Options:
 |------|-------------|
 | `--assignment <name>` | Assignment name (required, or use `--all`) |
 | `--all` | Create repositories for all assignments |
-| `--groups <names>` | Comma-separated list of group names to include |
 | `--dry-run` | Show what would be created without making changes |
 | `--template-path <dir>` | Override the configured template with a local directory |
-| `--course <id>` | Course to operate on (defaults to active course) |
+
+Use the global `--course <id>` option to choose a course other than the active course.
 
 ### Dry-run example
 
@@ -33,11 +33,10 @@ redu repo create --assignment "Project 1" --dry-run --course seed-course
 ```
 
 ```text
-Planned repository operation for assignment 'Project 1' (a1)
-  - team-alpha-project-1 (create)
-  - team-beta-project-1 (create)
-  - team-gamma-project-1 (skip: repo exists)
-3 planned, 2 to create, 1 adopted
+Planned repository operation for assignment 'Project 1' (a1) in course 'seed-course':
+- team-alpha-project-1	group=Team Alpha	assignment=Project 1
+- team-beta-project-1	group=Team Beta	assignment=Project 1
+- team-gamma-project-1	group=Team Gamma	assignment=Project 1
 ```
 
 ### Summary output
@@ -71,8 +70,8 @@ Options:
 | `--all` | Clone repositories for all assignments |
 | `--target <dir>` | Local directory for cloned repos (defaults to current directory). Relative paths are resolved against the current working directory. |
 | `--layout <layout>` | Directory organization: `flat`, `by-team`, or `by-task` |
-| `--groups <names>` | Comma-separated list of group names to include |
-| `--course <id>` | Course to operate on |
+
+Use the global `--course <id>` option to choose a course other than the active course.
 
 ### Layout examples
 
@@ -101,7 +100,8 @@ Options:
 |------|-------------|
 | `--assignment <name>` | Assignment name (required) |
 | `--template-path <dir>` | Override the configured template with a local directory |
-| `--course <id>` | Course to operate on |
+
+Use the global `--course <id>` option to choose a course other than the active course.
 
 Repositories that already have a pending update PR are skipped.
 

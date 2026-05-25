@@ -34,6 +34,7 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `connection.verifyLmsDraft` | yes | yes | yes | |
 | `connection.listLmsCoursesDraft` | yes | — | yes | One-time discovery during setup |
 | `connection.verifyGitDraft` | yes | yes | yes | |
+| `connection.verifyLlmDraft` | yes | — | yes | Settings verification for examination providers |
 | `roster.importFromFile` | yes | — | yes | File picker + column mapping |
 | `roster.importFromLms` | yes | — | yes | Setup-phase, done once per course |
 | `roster.exportMembers` | yes | — | yes | File save dialog |
@@ -41,7 +42,7 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `groupSet.connectFromLms` | yes | — | yes | Interactive selection + linking |
 | `groupSet.syncFromLms` | yes | — | yes | Setup-phase, done once per group set |
 | `groupSet.previewImportFromFile` | yes | — | yes | Visual diff before commit |
-| `groupSet.previewReimportFromFile` | yes | — | yes | Visual diff before commit |
+| `groupSet.importFromFile` | yes | — | yes | Applies the previewed import |
 | `groupSet.export` | yes | — | yes | File save dialog |
 | `gitUsernames.import` | yes | — | yes | File picker + verification dialog |
 | `validation.roster` | yes | yes | yes | Called internally by `validate` |
@@ -49,12 +50,23 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `repo.create` | yes | yes | yes | |
 | `repo.clone` | yes | yes | yes | |
 | `repo.update` | yes | yes | yes | |
+| `repo.listNamespace` | yes | yes | yes | Namespace-scoped repository discovery |
+| `repo.bulkClone` | yes | yes | yes | Namespace-scoped bulk clone |
 | `userFile.inspectSelection` | yes | — | yes | File picker dependent |
 | `userFile.exportPreview` | yes | — | yes | File save target dependent |
+| `analysis.run` | yes | — | yes | Interactive repository analysis |
+| `analysis.blame` | yes | — | yes | Interactive per-file blame analysis |
+| `analysis.discoverRepos` | yes | — | yes | Folder/repository browser support |
+| `analysis.listFolderFiles` | yes | — | yes | Folder/repository browser support |
+| `analysis.readFolderFile` | yes | — | yes | Folder/repository browser support |
+| `examination.generateQuestions` | yes | — | yes | Interactive LLM-backed examination generation |
+| `examination.lookupQuestions` | yes | — | yes | Examination archive lookup |
+| `examination.archive.export` | yes | — | yes | File save dialog |
+| `examination.archive.import` | yes | — | yes | File picker dependent |
 
 ## CLI commands (kept)
 
-These 10 commands serve scripting and automation:
+These 11 workflow-backed commands serve scripting and automation:
 
 | Command | Workflow(s) | Rationale |
 |---|---|---|
@@ -64,15 +76,18 @@ These 10 commands serve scripting and automation:
 | `course load` | `course.load`, `settings.saveApp` | Context switching for multi-course scripting |
 | `lms verify` | `connection.verifyLmsDraft` | Connection gate before batch ops |
 | `git verify` | `connection.verifyGitDraft` | Connection gate before batch ops |
-| `repo create` | `repo.create` | Primary automation: `--dry-run`, `--all`, `--groups`, `--template-path` |
-| `repo clone` | `repo.clone` | Bulk grading: `--layout`, `--target`, `--groups` |
+| `repo create` | `repo.create` | Primary automation: `--dry-run`, `--all`, `--template-path` |
+| `repo clone` | `repo.clone` | Bulk grading: `--layout`, `--target` |
 | `repo update` | `repo.update` | Template PR push across repos |
+| `repo discover` | `repo.listNamespace`, `repo.bulkClone` | Namespace-scoped discovery and bulk clone |
 | `validate` | `validation.roster`, `validation.assignment` | Pre-flight check, scriptable gate |
+
+The top-level `update` command is also kept, but it does not execute through the workflow runtime.
 
 ## GUI-only workflows (by reason)
 
 **File picker / file save dependent:**
-`roster.importFromFile`, `roster.exportMembers`, `groupSet.previewImportFromFile`, `groupSet.previewReimportFromFile`, `groupSet.export`, `gitUsernames.import`, `userFile.inspectSelection`, `userFile.exportPreview`
+`roster.importFromFile`, `roster.exportMembers`, `groupSet.previewImportFromFile`, `groupSet.importFromFile`, `groupSet.export`, `gitUsernames.import`, `userFile.inspectSelection`, `userFile.exportPreview`, `examination.archive.export`, `examination.archive.import`
 
 **Interactive conflict resolution:**
 `groupSet.connectFromLms` — requires visual selection from fetched LMS data, then linking.
@@ -80,9 +95,12 @@ These 10 commands serve scripting and automation:
 **Multi-step wizard:**
 `settings.saveApp` — multi-pane connection setup for LMS and Git providers.
 
+**Interactive exploration / LLM review:**
+`analysis.*` and `examination.*` workflows depend on repository browsing, blame inspection, author selection, and examination question review.
+
 ## Dropped CLI commands (with rationale)
 
-These 9 commands are intentionally excluded because they are setup-phase operations, better served by the GUI:
+These commands are intentionally excluded because they are setup-phase operations, better served by the GUI:
 
 | Command | Why dropped |
 |---|---|
@@ -91,10 +109,6 @@ These 9 commands are intentionally excluded because they are setup-phase operati
 | `lms list-courses` | One-time discovery during course setup |
 | `lms import-students` | Done once per course; GUI shows conflict resolution |
 | `lms import-groups` | Done once per group set; GUI shows group mapping |
-| `lms cache list` | Setup-phase group set management |
-| `lms cache fetch` | Setup-phase exploration |
-| `lms cache refresh` | Setup-phase, same as `import-groups` |
-| `lms cache delete` | Setup-phase cleanup with referential integrity checks |
 
 ## Decision rule
 

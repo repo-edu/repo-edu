@@ -21,6 +21,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
 | `appearance.timeFormat` | `"12h" \| "24h"` | Time display format |
+| `appearance.syntaxTheme` | `"plus" \| "github" \| "github-dimmed" \| "everforest" \| "nord" \| "min"` | Source-code highlighting theme |
 | `window.width` | `number` | Window width in pixels (default: 1180) |
 | `window.height` | `number` | Window height in pixels (default: 760) |
 | `lmsConnections[]` | Array | LMS provider connections |
@@ -36,10 +37,23 @@ Both app settings and course documents are stored as JSON files and validated on
 | `gitConnections[].token` | `string` | Personal access token |
 | `gitConnections[].userAgent` | `string?` | Optional custom user agent |
 | `activeGitConnectionId` | `string \| null` | Active Git connection id. When `null` and exactly one connection is configured, that connection is used; otherwise `gitConnections[0]` is the fallback. |
+| `llmConnections[]` | Array | LLM provider connections |
+| `llmConnections[].id` | `string` | Unique connection identifier |
+| `llmConnections[].name` | `string` | Connection display name |
+| `llmConnections[].provider` | `"claude" \| "codex"` | LLM provider |
+| `llmConnections[].authMode` | `"subscription" \| "api"` | Authentication mode |
+| `llmConnections[].apiKey` | `string` | Empty for subscription mode; required for API-key mode |
+| `activeLlmConnectionId` | `string \| null` | Active LLM connection id |
+| `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Roster table column visibility |
 | `rosterColumnSizing` | `Record<string, number>` | Roster table column widths |
+| `groupsSidebarSize` | `number \| null` | Persisted Groups & Assignments sidebar width |
+| `analysisSidebarSize` | `number \| null` | Persisted Analysis sidebar width |
+| `analysisDetailListSize` | `number \| null` | Persisted Analysis detail-list width |
+| `analysisSidebar` | `{ searchDepth; sectionState; repoViewMode; fileViewMode; fileSortMode; blameConfig } \| null` | Persisted Analysis sidebar UI preferences |
 | `defaultExtensions` | `string[]` | Fallback file-extension allowlist used when a course leaves `analysisInputs.extensions` `undefined`. Normalized on write (lowercase, dot stripped, deduplicated). `[]` means "no extension filter". |
+| `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
 
 ## Course (`repo-edu.course.v1`)
 
@@ -58,6 +72,8 @@ Both app settings and course documents are stored as JSON files and validated on
 | `repositoryTemplate` | `RepositoryTemplate \| null` | Default template for repository creation |
 | `repositoryCloneTargetDirectory` | `string \| null` | Default local directory for clone operations |
 | `repositoryCloneDirectoryLayout` | `"flat" \| "by-team" \| "by-task" \| null` | Default clone directory layout |
+| `searchFolder` | `string \| null` | Course-scoped analysis search folder |
+| `analysisInputs` | `AnalysisInputs` | Course-scoped analysis input defaults |
 | `updatedAt` | `string` | ISO timestamp of last save |
 
 ### Roster

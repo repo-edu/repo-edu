@@ -13,10 +13,10 @@ description: Common setup, runtime, and workflow failures
 
 ### Docs build fails on unresolved imports
 
-Shared workspace packages must be built before the docs site can resolve their exports:
+Run the type-build check and then build the docs site:
 
 ```bash
-pnpm build
+pnpm check:types:build
 pnpm docs:build
 ```
 
@@ -25,7 +25,7 @@ pnpm docs:build
 Rebuild type declarations to pick up new or changed package exports:
 
 ```bash
-pnpm build:types
+pnpm check:types:build
 pnpm typecheck
 ```
 
@@ -114,7 +114,7 @@ Common issues:
 
 - **Missing Git usernames** — members need Git usernames before repositories can be created. Import them from CSV or have students register them.
 - **Duplicate repository names** — two groups resolve to the same repository name. Rename one of the groups.
-- **Empty groups** — groups with no active members are skipped. Check that members are assigned to groups.
+- **Empty groups** — groups with no active members cannot derive repository names from member-based templates. Check that members are assigned to groups or that repository names were already recorded.
 
 ### Repositories created but template not pushed
 

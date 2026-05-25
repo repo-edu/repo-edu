@@ -11,19 +11,21 @@ App settings are shared across all courses and include:
 
 - **LMS connections** — credentials for Canvas or Moodle (provider name, base URL, API token). Multiple connections can be configured for institutions that use more than one LMS.
 - **Git connections** — credentials for GitHub, GitLab, or Gitea (provider, base URL, personal access token). Each connection has a unique ID.
-- **Active course** — which course is currently selected in the UI and CLI.
-- **Appearance** — theme (system/light/dark), window chrome style, date format (MDY/DMY), and time format (12h/24h).
+- **LLM connections** — Claude or Codex connections used by the Examination view.
+- **Active surface** — whether the UI is on home, a course, a folder-analysis surface, or a submission-analysis surface. The CLI uses the active course when one is selected.
+- **Appearance** — theme (system/light/dark), window chrome style, date format (MDY/DMY), time format (12h/24h), and source-code highlighting theme.
 - **Table layout** — column visibility and sizing for roster and group tables, persisted across sessions.
+- **Analysis preferences** — default extensions, Analysis sidebar state, split-pane sizes, and analysis concurrency.
 
 ### Adding connections
 
-In the desktop app, open the Settings panel to add or edit LMS and Git connections. Each connection can be verified before saving — verification makes a test API call to confirm the credentials work without storing any data until you save.
+In the desktop app, open the Settings panel to add or edit LMS, Git, and LLM connections. Each connection can be verified before saving — verification makes a test call to confirm the credentials work without storing any data until you save.
 
 From the CLI, you can verify an existing connection:
 
 ```bash
 redu lms verify --course <course-id>
-redu git verify --course <course-id>
+redu git verify
 ```
 
 ## Courses
@@ -31,7 +33,7 @@ redu git verify --course <course-id>
 A course stores everything specific to one class or cohort:
 
 - **Course identity** — unique ID, display name, and linked LMS course ID
-- **Connections** — which LMS connection and Git connection this course uses (by reference to app settings)
+- **Connections** — which LMS connection the course uses; repository operations use the active Git connection from app settings
 - **Organization** — the Git organization or group where repositories are created
 - **Roster** — students and staff, with enrollment type, email, student number, Git username, and status
 - **Groups and group sets** — team assignments, either imported from LMS or from CSV files
@@ -62,7 +64,7 @@ redu course load <course-id>      # Set the active course
 
 Both surfaces store settings and courses as JSON files that are validated on every read and write. Files that fail validation are rejected — there is no partial-load or best-effort parsing.
 
-The desktop app additionally keeps an analysis and blame result cache in the same data directory (`cache/cache.db`). It accumulates as you analyze repositories and is shared across courses; the **Storage** pane lets you set per-type size budgets, see hit-rate statistics, or clear the cache. See [Analysis Caching](/repo-edu/development/analysis-caching/) for the underlying behavior.
+The desktop app also keeps the examination archive in the same data directory at `examinations/archive.db`. The archive stores generated examination records; analysis and blame results are recomputed and are not persisted in a cache. See [Analysis Execution](/repo-edu/development/analysis-caching/) for the current analysis behavior.
 
 ## Undo and redo
 

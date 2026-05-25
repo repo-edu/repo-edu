@@ -82,7 +82,8 @@ The docs demo runs handlers directly in the browser — no transport, no IPC, no
 `createDocsDemoRuntime(options)` composes handler factories with:
 
 - **In-memory stores** (`createInMemoryCourseStore`, `createInMemoryAppSettingsStore`) seeded with fixture data
-- **Mock ports**: LMS, Git, filesystem, and Git command ports that return plausible fake data
+- **Mock ports**: LMS, Git, filesystem, Git command, user-file, and examination archive ports backed by fixture data or memory
+- **LLM stubs**: connection verification and examination generation return clear provider errors because real LLM calls are not available in-browser
 - **`createWorkflowClient(handlers)`** to produce a `WorkflowClient` with no transport overhead
 
 This runtime powers the interactive demo page and the docs smoke tests. It validates that the handler layer and contract types are browser-safe (no Node/Electron imports).

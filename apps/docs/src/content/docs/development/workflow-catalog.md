@@ -15,7 +15,7 @@ type DeliverySurface = "desktop" | "docs" | "cli"
 
 Not all workflows are available everywhere. For example:
 
-- File-selection workflows (`userFile.*`) require Electron's file dialog and are desktop-only
+- File-selection workflows (`userFile.*`) require a host file abstraction and are desktop/docs only
 - Roster/group-set workflows that depend on file dialogs are desktop and docs only
 - Validation workflows run on all three surfaces
 
@@ -35,7 +35,7 @@ type WorkflowProgressGranularity = "none" | "milestone" | "granular"
 
 - **none** — the workflow completes instantly with no intermediate steps (e.g. `course.list`, `validation.roster`). The `progress` channel type is `never`.
 - **milestone** — the workflow reports discrete logical steps (e.g. "Connecting to LMS", "Fetching roster", "Saving course"). This is the most common profile. The `progress` channel type is `MilestoneProgress`.
-- **granular** — reserved for workflows that report fine-grained progress (e.g. byte-level transfer). Not currently used.
+- **granular** — workflows that report fine-grained progress, currently used by analysis workflows.
 
 ### Cancellation guarantee
 
@@ -55,7 +55,7 @@ The catalog lives in `packages/application-contract/src/index.ts` as the `workfl
 "course.load": {
   delivery: ["desktop", "docs", "cli"],
   progress: "milestone",
-  cancellation: "best-effort",
+  cancellation: "cooperative",
 }
 ```
 

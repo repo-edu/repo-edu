@@ -5,10 +5,10 @@ description: Verify Git provider connections from the command line
 
 ## `redu git verify`
 
-Tests whether the active course's Git connection is working. The command makes a test API call to the configured Git provider (GitHub, GitLab, or Gitea) and reports the result.
+Tests whether the active Git connection in app settings is working. The command makes a test API call to the configured Git provider (GitHub, GitLab, or Gitea) and reports the result.
 
 ```bash
-redu git verify --course seed-course
+redu git verify
 ```
 
 ```text
@@ -19,4 +19,4 @@ If verification fails (invalid token, unreachable server, insufficient permissio
 
 ### When to use
 
-Run `git verify` before repository operations (`repo create`, `repo clone`, `repo update`) to confirm your personal access token is valid and has the required permissions for the target organization. This avoids partial failures mid-way through a batch repository creation.
+Run `git verify` before repository operations (`repo create`, `repo clone`, `repo update`) to confirm your personal access token is valid. This avoids partial failures mid-way through a batch repository creation.

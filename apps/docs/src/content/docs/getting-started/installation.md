@@ -24,7 +24,7 @@ pnpm install
 pnpm check
 ```
 
-This runs linting, type checks, and tests across all packages and apps. If everything passes, your environment is ready.
+This runs formatting fixes, type checks, declaration builds, fixture checks, and architecture checks. If everything passes, your environment is ready. Run `pnpm test` separately when you need the full package test suite.
 
 ## Run targets
 

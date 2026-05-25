@@ -5,13 +5,13 @@ description: Verify desktop, CLI, and docs surfaces in one pass
 
 After [installing](/repo-edu/getting-started/installation/), run through these steps to verify everything works.
 
-## 1. Build the project
+## 1. Validate the workspace
 
 ```bash
-pnpm build
+pnpm check
 ```
 
-This compiles all workspace packages and apps.
+This runs formatting fixes, type checks, declaration builds, fixture checks, and architecture checks.
 
 ## 2. Launch the desktop app
 
@@ -43,7 +43,7 @@ The docs site includes an embedded demo that runs the real application against m
 ## 5. Run full validation
 
 ```bash
-pnpm check
+pnpm validate
 ```
 
-This runs linting, type checking, and all tests across the workspace. Use this before committing changes to catch issues early.
+This runs `pnpm check`, all package tests, and desktop runtime validation.

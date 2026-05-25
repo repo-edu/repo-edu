@@ -98,7 +98,7 @@ Add the handler to the workflow handlers object in `apps/docs/src/demo-runtime.t
 - Existing alignment tests catch missing wiring:
   - `apps/docs/src/__tests__/workflow-alignment.test.ts` — verifies every docs-delivered workflow is wired in the demo runtime
   - `apps/cli/src/__tests__/workflow-alignment.test.ts` — verifies every CLI-delivered workflow is wired in the CLI runtime
-  - Note: there is no equivalent desktop alignment test currently
+  - `pnpm test:runtime` — validates desktop preload and tRPC runtime wiring
 
 ## Checklist
 

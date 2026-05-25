@@ -24,6 +24,7 @@ The `--course` flag selects which course to operate on. If omitted, the active c
 | `git` | `verify` | Test Git provider credentials |
 | `repo` | `create`, `clone`, `update`, `discover` | Create, clone, and update assignment repositories; discover and bulk-clone repositories by namespace |
 | `validate` | — | Check roster and assignment readiness |
+| `update` | — | Update the installed `redu` binary |
 
 ## Getting help
 

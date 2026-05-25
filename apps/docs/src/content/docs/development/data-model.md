@@ -35,12 +35,19 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
 | `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
+| `activeGitConnectionId` | `string \| null` | Selected Git connection, or fallback to the first configured connection |
+| `llmConnections` | `PersistedLlmConnection[]` | Claude/Codex connections, including auth mode and API-key state |
+| `activeLlmConnectionId` | `string \| null` | Selected LLM connection, or fallback to the first configured connection |
+| `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
 | `rosterColumnSizing` | `Record<string, number>` | Per-column width for roster table |
+| `groupsSidebarSize` / `analysisSidebarSize` / `analysisDetailListSize` | `number \| null` | Persisted split-pane dimensions |
+| `analysisSidebar` | `PersistedAnalysisSidebarSettings \| null` | Persisted Analysis sidebar view, sort, section, and blame options |
 | `defaultExtensions` | `string[]` | Global fallback for the per-course `analysisInputs.extensions` field. `undefined` on a course means "inherit this default"; `[]` on a course means "no extension filter". Resolution is one level — course → global — with no per-repo layer. |
+| `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
 
-`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), and `timeFormat` (`"12h"`, `"24h"`).
+`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), `timeFormat` (`"12h"`, `"24h"`), and `syntaxTheme` (`"plus"`, `"github"`, `"github-dimmed"`, `"everforest"`, `"nord"`, `"min"`).
 
 ## Persisted course
 
@@ -65,6 +72,8 @@ app settings, not by synthetic course documents.
 | `repositoryTemplate` | `RepositoryTemplate \| null` | Default template for repo creation |
 | `repositoryCloneTargetDirectory` | `string \| null` | Local directory for clone operations |
 | `repositoryCloneDirectoryLayout` | `"flat" \| "by-team" \| "by-task" \| null` | How to organize cloned repos |
+| `searchFolder` | `string \| null` | Course-scoped analysis search folder |
+| `analysisInputs` | `AnalysisInputs` | Course-scoped analysis input defaults |
 | `updatedAt` | `string` | ISO timestamp of last save |
 
 The `revision` field enables compare-and-swap: the save workflow rejects writes where the supplied revision doesn't match the stored one, preventing lost updates from concurrent editors.

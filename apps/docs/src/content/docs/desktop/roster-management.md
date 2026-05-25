@@ -58,7 +58,7 @@ See [LMS Import](/repo-edu/user-guide/lms-import/) for the full workflow.
 
 ## Importing from CSV
 
-Click **Import** → **From File** to upload a CSV file. The file should have columns matching the roster format (see [Output Formats](/repo-edu/reference/output-formats/) for the column spec). A preview shows what will be imported before you confirm.
+Click **Import** -> **From File** to upload a CSV file. The file should have columns matching the roster format (see [Output Formats](/repo-edu/reference/output-formats/) for the column spec). Existing members are matched by email or student number; new rows are added with local IDs.
 
 ## Git usernames
 
@@ -80,7 +80,7 @@ Invalid usernames should be corrected before running repository operations.
 
 ## Exporting
 
-Click **Export** to download the roster as CSV or XLSX. The export includes all members (students and staff) with all their fields.
+Click **Export** -> **Roster (CSV)** to download the roster. The export includes all members (students and staff) with the supported roster-export fields.
 
 ## Deleting members
 

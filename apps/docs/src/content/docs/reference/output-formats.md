@@ -84,15 +84,15 @@ glennol
 
 ### Git username import
 
-Imported by the `gitUsernames.import` workflow. Maps email addresses to Git provider usernames.
+Imported by the `gitUsernames.import` workflow. Maps student email addresses to Git provider usernames.
 
 | Column | Required | Description |
 |--------|----------|-------------|
-| `email` | Yes | Member email (must match a roster member) |
+| `email` | Yes | Student email (must match a roster student) |
 | `git_username` | Yes | Git provider username |
 
 After import, if a Git connection is configured, the workflow verifies each username against the Git provider and sets the status to `valid`, `invalid`, or `unknown`.
 
 ## XLSX format
 
-XLSX is currently unsupported for import and export workflows.
+The tabular adapter package contains XLSX parser/serializer helpers, but current import/export workflows still reject XLSX at the workflow boundary. Use CSV for roster and Git username files, CSV for named group sets, and TXT for RepoBee students group sets.

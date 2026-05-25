@@ -41,9 +41,9 @@ Exit code: `0`
 If issues are found, each one is printed with the kind of problem and affected members or groups:
 
 ```text
-Validation issues for assignment 'Project 1':
-  - missing_git_username: 3 students have no Git username (alice@example.com, bob@example.com, carol@example.com)
-  - empty_group: Group 'Team Delta' has no active members
+Validation found 2 issue(s) for assignment 'Project 1' in course 'seed-course':
+- missing_git_username [m_0001, m_0002, m_0003]: active members need Git usernames
+- empty_group [g_0004]: Group 'Team Delta' has no active members
 ```
 
 Exit code: `1`
