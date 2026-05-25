@@ -31,6 +31,7 @@ export const TOKENIZER_SUPPORTED_LANGUAGES = [
   "robot",
   "rs",
   "shell",
+  "sql",
   "toml",
   "ts",
   "tsx",

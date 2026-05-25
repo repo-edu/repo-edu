@@ -31,6 +31,7 @@ const EXPECTED_SUPPORTED_LANGUAGES = [
   "robot",
   "rs",
   "shell",
+  "sql",
   "toml",
   "ts",
   "tsx",
@@ -122,7 +123,7 @@ describe("extensionToTokenizerLanguage", () => {
   it("keeps catalogue extension aliases mapped to parent language ids", () => {
     assert.equal(extensionToTokenizerLanguage("mjs"), "js")
     assert.equal(extensionToTokenizerLanguage("cts"), "ts")
-    assert.equal(extensionToTokenizerLanguage("sql"), undefined)
+    assert.equal(extensionToTokenizerLanguage("sql"), "sql")
     assert.equal(extensionToTokenizerLanguage("xhtml"), undefined)
     assert.equal(extensionToLanguage("xhtml"), "html")
   })
@@ -252,6 +253,21 @@ describe("tokenizeSource", () => {
       "string-literal",
     )
     assertSubstringKind(source, tokens, "<!-- strip -->", "comment")
+  })
+
+  it("classifies SQL comments and string literals", async () => {
+    const loaded = await loadGrammarForTests("sql")
+    const source = [
+      "-- strip Will",
+      "SELECT 'not -- a comment' /* strip Ada */;",
+      "",
+    ].join("\n")
+    const tokens = tokenizeSource(source, loaded)
+
+    assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, "-- strip Will", "comment")
+    assertSubstringKind(source, tokens, "'not -- a comment'", "string-literal")
+    assertSubstringKind(source, tokens, "/* strip Ada */", "comment")
   })
 
   it("treats malformed source as code without throwing", async () => {

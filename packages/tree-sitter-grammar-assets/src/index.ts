@@ -369,6 +369,26 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     },
     noticeFile: null,
   },
+  sql: {
+    language: "sql",
+    assetUrl: new URL("./assets/grammars/tree-sitter-sql.wasm", import.meta.url)
+      .href,
+    assetBytes: 78_602,
+    assetSha256:
+      "5d5dfa5e4b027aa9f53300c0de13994db43190dd40d164c1f157fa28a00f15f7",
+    upstreamSource: "m-novikov/tree-sitter-sql",
+    grammarVersion: "0.1.0",
+    treeSitterCliVersion: "0.26.9",
+    grammarAbiVersion: 13,
+    runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
+    spdxLicense: "MIT",
+    acquisition: {
+      packageName: "tree-sitter-sql",
+      packageVersion: "0.1.0",
+      assetPath: "source build",
+    },
+    noticeFile: null,
+  },
   toml: {
     language: "toml",
     assetUrl: new URL(

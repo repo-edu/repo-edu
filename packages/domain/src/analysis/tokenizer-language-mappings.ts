@@ -192,6 +192,13 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
       "process_substitution",
     ],
   },
+  sql: {
+    assetLanguage: "sql",
+    commentNodeKinds: ["comment"],
+    documentationNodeKinds: [],
+    stringNodeKinds: ["string"],
+    embeddedExpressionNodeKinds: [],
+  },
   toml: {
     assetLanguage: "toml",
     commentNodeKinds: ["comment"],
