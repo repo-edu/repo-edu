@@ -99,6 +99,21 @@ function sampleLlmReply(questionCount: number, sourceId = "E1"): string {
   return JSON.stringify({ questions })
 }
 
+function sampleLlmReplyWithAnchors(
+  anchors: {
+    sourceId: string | null
+    lineRange: { start: number; end: number } | null
+  }[],
+): string {
+  return JSON.stringify({
+    questions: anchors.map((anchor, index) => ({
+      question: `Q${index + 1}?`,
+      answer: `A${index + 1}.`,
+      anchor,
+    })),
+  })
+}
+
 function baseInput() {
   return {
     personId: "p_1",
@@ -420,6 +435,76 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.match(warnings[0] ?? "", /Provider returned 1 of 2 requested/)
     assert.equal(lookup.exact, null)
     assert.equal(lookup.availableSets[0]?.key.questionCount, 1)
+  })
+
+  it("drops anchor line ranges outside the prompted excerpt", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(
+      sampleLlmReplyWithAnchors([
+        { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+        { sourceId: "E1", lineRange: { start: 10, end: 11 } },
+        { sourceId: "E1", lineRange: { start: 10, end: 12 } },
+      ]),
+    )
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive,
+      tokenizer,
+    })
+    const input = {
+      ...baseInput(),
+      excerpts: [
+        {
+          filePath: "src/a.unknown",
+          startLine: 10,
+          lines: ["alpha", "beta"],
+        },
+      ],
+      excerptFileSources: { "src/a.unknown": "alpha\nbeta" },
+      questionCount: 3,
+    }
+
+    const result = await handlers["examination.generateQuestions"](input)
+
+    assert.deepEqual(
+      result.questions.map((question) => question.anchor),
+      [
+        { sourceId: "E1", lineRange: null },
+        { sourceId: "E1", lineRange: { start: 10, end: 11 } },
+        { sourceId: "E1", lineRange: null },
+      ],
+    )
+  })
+
+  it("normalizes stale archived anchor line ranges before returning them", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive,
+      tokenizer,
+    })
+    const input = baseInput()
+    const generated = await handlers["examination.generateQuestions"](input)
+    archive.put({
+      key: generated.key,
+      provenance: generated.archivedProvenance,
+      questions: generated.questions.map((question, index) => ({
+        ...question,
+        anchor:
+          index === 0
+            ? { sourceId: "E1", lineRange: { start: 99, end: 100 } }
+            : question.anchor,
+      })),
+    })
+
+    const cached = await handlers["examination.generateQuestions"](input)
+
+    assert.equal(cached.fromArchive, true)
+    assert.deepEqual(cached.questions[0]?.anchor, {
+      sourceId: "E1",
+      lineRange: null,
+    })
   })
 
   it("filters cache candidates that now echo a known identifier", async () => {

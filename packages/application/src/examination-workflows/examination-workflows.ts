@@ -145,13 +145,13 @@ export function createExaminationWorkflowHandlers(
         label: "Parsing LLM response.",
       })
 
-      const validSourceIds = new Set(
-        prepared.promptPayload.excerpts.map((excerpt) => excerpt.sourceId),
+      const sourceLineRanges = buildPromptSourceLineRanges(
+        prepared.promptPayload.excerpts,
       )
       const questions = parseQuestions(
         reply,
         input.questionCount,
-        validSourceIds,
+        sourceLineRanges,
       )
       assertOutputAllowedForCurrentContext(questions, input, sourceDescriptors)
       const acceptedQuestionCount = questions.length
@@ -365,9 +365,10 @@ function toResult(
     requestedQuestionCount: number
   },
 ): ExaminationGenerateQuestionsResult {
+  const sourceLineRanges = buildReferenceSourceLineRanges(meta.sourceReferences)
   return {
     key: record.key,
-    questions: record.questions,
+    questions: normalizeQuestionAnchors(record.questions, sourceLineRanges),
     usage: record.provenance.usage,
     fromArchive: meta.fromArchive,
     requestedQuestionCount: meta.requestedQuestionCount,
@@ -589,7 +590,7 @@ function validateExcerptFileSources(
 function parseQuestions(
   reply: string,
   expectedCount: number,
-  validSourceIds: ReadonlySet<string>,
+  sourceLineRanges: SourceLineRangeIndex,
 ): ExaminationQuestion[] {
   const stripped = stripJsonFences(reply)
   let parsed: unknown
@@ -625,7 +626,7 @@ function parseQuestions(
   const rawQuestions = (parsed as { questions: unknown[] }).questions
   const questions: ExaminationQuestion[] = []
   for (const [index, raw] of rawQuestions.entries()) {
-    questions.push(coerceQuestion(raw, index, validSourceIds))
+    questions.push(coerceQuestion(raw, index, sourceLineRanges))
   }
 
   if (questions.length === 0) {
@@ -644,7 +645,7 @@ function parseQuestions(
 function coerceQuestion(
   raw: unknown,
   index: number,
-  validSourceIds: ReadonlySet<string>,
+  sourceLineRanges: SourceLineRangeIndex,
 ): ExaminationQuestion {
   if (!isRecord(raw)) {
     throw providerError(`Question ${index} is not an object.`)
@@ -657,33 +658,101 @@ function coerceQuestion(
   return {
     question,
     answer,
-    anchor: coerceAnchor(raw.anchor, validSourceIds),
+    anchor: coerceAnchor(raw.anchor, sourceLineRanges),
   }
 }
 
 function coerceAnchor(
   raw: unknown,
-  validSourceIds: ReadonlySet<string>,
+  sourceLineRanges: SourceLineRangeIndex,
 ): ExaminationSourceAnchor {
   if (!isRecord(raw)) return { sourceId: null, lineRange: null }
-  const sourceId =
-    typeof raw.sourceId === "string" && validSourceIds.has(raw.sourceId)
-      ? raw.sourceId
-      : null
+  const sourceId = typeof raw.sourceId === "string" ? raw.sourceId : null
   if (sourceId === null) return { sourceId: null, lineRange: null }
+  const validRanges = sourceLineRanges.get(sourceId)
+  if (validRanges === undefined) return { sourceId: null, lineRange: null }
   return {
     sourceId,
-    lineRange: coerceLineRange(raw.lineRange),
+    lineRange: coerceLineRange(raw.lineRange, validRanges),
   }
 }
 
-function coerceLineRange(raw: unknown): ExaminationLineRange | null {
+type SourceLineRangeIndex = ReadonlyMap<string, readonly ExaminationLineRange[]>
+
+function buildPromptSourceLineRanges(
+  excerpts: readonly {
+    sourceId: string
+    startLine: number
+    lines: readonly string[]
+  }[],
+): SourceLineRangeIndex {
+  const ranges = new Map<string, ExaminationLineRange[]>()
+  for (const excerpt of excerpts) {
+    ranges.set(excerpt.sourceId, [
+      {
+        start: excerpt.startLine,
+        end: excerpt.startLine + excerpt.lines.length - 1,
+      },
+    ])
+  }
+  return ranges
+}
+
+function buildReferenceSourceLineRanges(
+  sourceReferences: readonly ExaminationSourceReference[],
+): SourceLineRangeIndex {
+  const ranges = new Map<string, ExaminationLineRange[]>()
+  for (const reference of sourceReferences) {
+    ranges.set(
+      reference.sourceId,
+      reference.occurrences.map((occurrence) => occurrence.lineRange),
+    )
+  }
+  return ranges
+}
+
+function normalizeQuestionAnchors(
+  questions: readonly ExaminationQuestion[],
+  sourceLineRanges: SourceLineRangeIndex,
+): ExaminationQuestion[] {
+  return questions.map((question) => {
+    const anchor = normalizeAnchor(question.anchor, sourceLineRanges)
+    if (anchor === question.anchor) return question
+    return { ...question, anchor }
+  })
+}
+
+function normalizeAnchor(
+  anchor: ExaminationSourceAnchor,
+  sourceLineRanges: SourceLineRangeIndex,
+): ExaminationSourceAnchor {
+  const { sourceId } = anchor
+  if (sourceId === null) return { sourceId: null, lineRange: null }
+  const validRanges = sourceLineRanges.get(sourceId)
+  if (validRanges === undefined) return { sourceId: null, lineRange: null }
+  return {
+    sourceId,
+    lineRange: coerceLineRange(anchor.lineRange, validRanges),
+  }
+}
+
+function coerceLineRange(
+  raw: unknown,
+  validRanges: readonly ExaminationLineRange[],
+): ExaminationLineRange | null {
   if (!isRecord(raw)) return null
   const start = typeof raw.start === "number" ? raw.start : null
   const end = typeof raw.end === "number" ? raw.end : null
   if (start === null || end === null) return null
   if (!Number.isInteger(start) || !Number.isInteger(end)) return null
   if (start < 1 || end < start) return null
+  if (
+    !validRanges.some(
+      (validRange) => start >= validRange.start && end <= validRange.end,
+    )
+  ) {
+    return null
+  }
   return { start, end }
 }
 
