@@ -279,9 +279,15 @@ function resolveTokenizerEngineWasmPath(): string {
 }
 
 function ensureTokenizerRuntime(): Promise<void> {
-  tokenizerRuntimeInit ??= Parser.init({
-    locateFile: resolveTokenizerEngineWasmPath,
-  })
+  if (tokenizerRuntimeInit === null) {
+    const init = Parser.init({
+      locateFile: resolveTokenizerEngineWasmPath,
+    })
+    init.catch(() => {
+      if (tokenizerRuntimeInit === init) tokenizerRuntimeInit = null
+    })
+    tokenizerRuntimeInit = init
+  }
   return tokenizerRuntimeInit
 }
 
@@ -319,6 +325,11 @@ export function createNodeTokenizerPort(): TokenizerPort {
       if (!promise) {
         promise = loadNodeTokenizerLanguage(id)
         tokenizerLanguageCache.set(id, promise)
+        promise.catch(() => {
+          if (tokenizerLanguageCache.get(id) === promise) {
+            tokenizerLanguageCache.delete(id)
+          }
+        })
       }
       return await promise
     },

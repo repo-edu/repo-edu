@@ -23,9 +23,15 @@ const tokenizerLanguageCache = new Map<
 >()
 
 function ensureTokenizerRuntime(): Promise<void> {
-  tokenizerRuntimeInit ??= Parser.init({
-    locateFile: () => engineWasmUrl,
-  })
+  if (tokenizerRuntimeInit === null) {
+    const init = Parser.init({
+      locateFile: () => engineWasmUrl,
+    })
+    init.catch(() => {
+      if (tokenizerRuntimeInit === init) tokenizerRuntimeInit = null
+    })
+    tokenizerRuntimeInit = init
+  }
   return tokenizerRuntimeInit
 }
 
@@ -64,6 +70,11 @@ export async function loadRendererTokenizerLanguage(
   if (!promise) {
     promise = loadLanguage(id)
     tokenizerLanguageCache.set(id, promise)
+    promise.catch(() => {
+      if (tokenizerLanguageCache.get(id) === promise) {
+        tokenizerLanguageCache.delete(id)
+      }
+    })
   }
   return await promise
 }
