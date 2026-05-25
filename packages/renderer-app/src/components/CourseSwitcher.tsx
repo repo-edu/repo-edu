@@ -504,8 +504,8 @@ export function CourseSwitcher() {
             size="icon-xs"
             variant="ghost"
             className="size-4 shrink-0"
-            aria-label={`Remove ${path} from recent folders`}
-            title="Remove recent folder"
+            aria-label={`Remove ${path} from recent repo folders`}
+            title="Remove recent repo folder"
             onClick={(event) =>
               handleActionClick(event, () => handleRemoveRecentFolder(path))
             }
@@ -583,7 +583,7 @@ export function CourseSwitcher() {
             <>
               <DropdownMenuSeparator className="my-0.5" />
               <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Recent folders
+                Recent repo folders
               </div>
               {renderRecentFolderRows()}
             </>
