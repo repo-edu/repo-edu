@@ -56,7 +56,7 @@ async function assertExistingDirectory(
 }
 
 function normalizeRelativeFilePath(relativePath: string): string {
-  const normalized = relativePath.trim().replaceAll("\\", "/")
+  const normalized = relativePath.replaceAll("\\", "/")
   const parts = normalized.split("/")
   const hasInvalidSegment = parts.some(
     (part) => part.length === 0 || part === "." || part === "..",
@@ -64,7 +64,7 @@ function normalizeRelativeFilePath(relativePath: string): string {
   if (
     normalized.length === 0 ||
     normalized.startsWith("/") ||
-    /^[a-zA-Z]:\//.test(normalized) ||
+    /^[a-zA-Z]:/.test(normalized) ||
     normalized.startsWith("//") ||
     hasInvalidSegment
   ) {

@@ -80,17 +80,33 @@ describe("submission folder analysis workflows", () => {
         relativePath: "../main.ts",
       }),
     )
+    await assertValidationError(() =>
+      handlers["analysis.readFolderFile"]({
+        folderPath: "/tmp/submission",
+        relativePath: "C:main.ts",
+      }),
+    )
   })
 
   it("reads selected files as base64 through the filesystem port", async () => {
-    const handlers = createHandlers(createFileSystemPort())
+    const handlers = createHandlers(
+      createFileSystemPort({
+        readFileInsideRoot: async (request) => {
+          assert.equal(request.relativePath, " main.ts ")
+          return {
+            relativePath: request.relativePath,
+            bytes: new TextEncoder().encode("const answer = 42\n"),
+          }
+        },
+      }),
+    )
 
     const result = await handlers["analysis.readFolderFile"]({
       folderPath: "/tmp/submission",
-      relativePath: "main.ts",
+      relativePath: " main.ts ",
     })
 
-    assert.equal(result.relativePath, "main.ts")
+    assert.equal(result.relativePath, " main.ts ")
     assert.equal(result.byteLength, "const answer = 42\n".length)
     assert.equal(atob(result.base64), "const answer = 42\n")
   })

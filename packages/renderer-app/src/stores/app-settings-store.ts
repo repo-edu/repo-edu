@@ -60,7 +60,9 @@ type AppSettingsActions = {
     state: SubmissionSurfaceState,
   ) => void
   clearSubmissionSurfaceState: (recent: SubmissionFolderRecent) => void
-  pruneSubmissionFoldersForCourses: (courses: readonly CourseSummary[]) => void
+  pruneSubmissionFoldersForCourses: (
+    courses: readonly Pick<CourseSummary, "id" | "backing">[],
+  ) => boolean
   setActiveGitConnectionId: (id: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
@@ -102,6 +104,56 @@ const initialState: AppSettingsState = {
   settings: defaultAppSettings,
   status: "loading",
   error: null,
+}
+
+function submissionRecentsEqual(
+  left: readonly SubmissionFolderRecent[],
+  right: readonly SubmissionFolderRecent[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (recent, index) =>
+        recent.path === right[index]?.path &&
+        recent.courseId === right[index]?.courseId,
+    )
+  )
+}
+
+function submissionSurfaceStatesEqual(
+  left: Record<string, SubmissionSurfaceState>,
+  right: Record<string, SubmissionSurfaceState>,
+): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) return false
+  return leftKeys.every((key) => {
+    const leftState = left[key]
+    const rightState = right[key]
+    if (leftState === undefined || rightState === undefined) return false
+    return (
+      leftState.mainFileRelativePath === rightState.mainFileRelativePath &&
+      submissionStudentIdentityEqual(
+        leftState.studentIdentity,
+        rightState.studentIdentity,
+      )
+    )
+  })
+}
+
+function submissionStudentIdentityEqual(
+  left: SubmissionSurfaceState["studentIdentity"],
+  right: SubmissionSurfaceState["studentIdentity"],
+): boolean {
+  if (left === null || right === null) return left === right
+  if (left.kind === "roster-member") {
+    return right.kind === "roster-member" && left.memberId === right.memberId
+  }
+  return (
+    right.kind === "one-off" &&
+    left.name === right.name &&
+    left.email === right.email
+  )
 }
 
 export const useAppSettingsStore = create<
@@ -327,7 +379,8 @@ export const useAppSettingsStore = create<
         }
       }),
 
-    pruneSubmissionFoldersForCourses: (courses) =>
+    pruneSubmissionFoldersForCourses: (courses) => {
+      let changed = false
       set((state) => {
         const rosterCapableCourseIds = new Set(
           courses
@@ -344,13 +397,25 @@ export const useAppSettingsStore = create<
           recentSubmissionFolders,
           submissionSurfaceStates: state.settings.submissionSurfaceStates,
         })
+        changed =
+          !submissionRecentsEqual(
+            recentSubmissionFolders,
+            state.settings.recentSubmissionFolders,
+          ) ||
+          !submissionSurfaceStatesEqual(
+            pruned.submissionSurfaceStates,
+            state.settings.submissionSurfaceStates,
+          )
+        if (!changed) return state
         return {
           settings: {
             ...state.settings,
             ...pruned,
           },
         }
-      }),
+      })
+      return changed
+    },
 
     setActiveGitConnectionId: (id) =>
       set((state) => ({

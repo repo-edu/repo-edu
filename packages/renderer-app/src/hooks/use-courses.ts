@@ -28,6 +28,16 @@ function initialTabForBacking(backing: CourseBacking) {
   return "groups-assignments"
 }
 
+export function pruneLoadedSubmissionFoldersForCourses(
+  courses: readonly Pick<PersistedCourse, "id" | "backing">[],
+): boolean {
+  const settingsStore = useAppSettingsStore.getState()
+  if (settingsStore.status !== "loaded") return false
+  if (!settingsStore.pruneSubmissionFoldersForCourses(courses)) return false
+  void useAppSettingsStore.getState().save()
+  return true
+}
+
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
   const loading = useUiStore((s) => s.courseListLoading)
@@ -39,9 +49,7 @@ export function useCourses() {
     try {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
-      const settingsStore = useAppSettingsStore.getState()
-      settingsStore.pruneSubmissionFoldersForCourses(list)
-      void settingsStore.save()
+      pruneLoadedSubmissionFoldersForCourses(list)
       const activeCourseId = selectActiveCourseId(useUiStore.getState())
       if (
         activeCourseId !== null &&
