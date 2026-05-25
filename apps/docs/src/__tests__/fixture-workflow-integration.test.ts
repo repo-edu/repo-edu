@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { isExaminationContentScopeIdShape } from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import { createDocsDemoRuntime } from "../demo-runtime.js"
 
@@ -268,6 +269,7 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
       },
     })
     assert.equal(result.resolvedAsOfOid.length, 40)
+    assert.equal(isExaminationContentScopeIdShape(result.resolvedAsOfOid), true)
     assert.equal(result.authorStats.length > 0, true)
     assert.equal(result.fileStats.length > 0, true)
     assert.equal(result.fileStats.length <= 3, true)

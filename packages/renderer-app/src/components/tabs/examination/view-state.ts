@@ -1,11 +1,3 @@
-import {
-  buildExaminationExcerptsFingerprint,
-  buildExaminationGenerationContextFingerprint,
-  canonicalizeExaminationExcerpts,
-  type ExaminationCodeExcerpt,
-  normalizeExaminationRepositoryKey,
-  serializeExaminationArchiveStorageKey,
-} from "@repo-edu/application-contract"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 
 export function canShowExaminationView(blameSkip: boolean): boolean {
@@ -59,32 +51,21 @@ export function shouldShowUnmatchedRosterWarning(params: {
   )
 }
 
-export function buildExaminationRendererEntryKey(params: {
+export function buildPendingExaminationEntryKey(params: {
   repositoryPath: string
-  commitOid: string
+  contentScopeId: string
   personId: string
   questionCount: number
-  excerpts: readonly ExaminationCodeExcerpt[]
-  assignmentContext?: string | null
   model: string
   effort: LlmEffort
 }): string {
-  const canonicalExcerpts = canonicalizeExaminationExcerpts(params.excerpts)
-  const excerptsFingerprint =
-    buildExaminationExcerptsFingerprint(canonicalExcerpts)
-  const generationContextFingerprint =
-    buildExaminationGenerationContextFingerprint({
-      assignmentContext: params.assignmentContext ?? null,
-      model: params.model,
-      effort: params.effort,
-    })
-
-  return serializeExaminationArchiveStorageKey({
-    repositoryKey: normalizeExaminationRepositoryKey(params.repositoryPath),
-    personId: params.personId,
-    commitOid: params.commitOid,
-    questionCount: params.questionCount,
-    excerptsFingerprint,
-    generationContextFingerprint,
-  })
+  return JSON.stringify([
+    "examination-pending-entry-v1",
+    params.repositoryPath,
+    params.contentScopeId,
+    params.personId,
+    params.questionCount,
+    params.model,
+    params.effort,
+  ])
 }

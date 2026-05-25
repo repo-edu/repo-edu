@@ -1,52 +1,59 @@
 import type {
-  ExaminationCodeExcerpt,
-  ExaminationGenerateQuestionsInput,
-} from "@repo-edu/application-contract"
+  ExaminationProviderPromptExcerpt,
+  ExaminationProviderPromptPayload,
+} from "./provider-excerpts.js"
 
 export function buildExaminationPrompt(
-  input: ExaminationGenerateQuestionsInput,
+  payload: ExaminationProviderPromptPayload,
 ): string {
   const header = [
     "You are preparing questions for a one-on-one oral examination.",
-    "The author below contributed to a software project.",
-    "Using only the code excerpts that git blame attributes to this author in the final repository state, produce questions that probe whether the contributor genuinely understands the code they signed their name to.",
+    "The selected contributor below contributed to a software project.",
+    "Using only the redacted code excerpts attributed to the selected contributor in the final repository state, produce questions that probe whether the contributor genuinely understands the code they contributed.",
     "",
-    `Author name: ${input.authorName}`,
-    `Author email: ${input.authorEmail}`,
-    input.assignmentContext
-      ? `\nAssignment context: ${input.assignmentContext}`
-      : "",
+    `Contributor label: ${payload.anonymousContributorLabel}`,
   ]
     .filter((line) => line !== "")
     .join("\n")
 
-  const excerpts = input.excerpts
+  const excerpts = payload.excerpts
     .map((excerpt, index) => formatExcerpt(excerpt, index))
     .join("\n\n")
 
   const instructions = [
-    `Generate exactly ${input.questionCount} questions.`,
+    `Generate exactly ${payload.questionCount} questions.`,
     "For each question:",
-    "- Focus on specific lines in the author's code. Prefer 'why' and 'how' over 'what'.",
+    "- Focus on specific lines in the selected contributor's code. Prefer 'why' and 'how' over 'what'.",
     "- Include an answer key the teacher can use. The answer must be factually grounded in the excerpt.",
-    "- Reference the excerpt by filePath and lineRange {start, end} (1-based, inclusive) whenever the question targets specific lines.",
+    "- Reference the excerpt with anchor.sourceId and anchor.lineRange {start, end} (1-based, inclusive) whenever the question targets specific lines.",
     "- Vary depth: at least one question about a tricky invariant, one about a design choice, one that asks the student to predict the effect of a small change.",
     "- Do not invent code that is not in the excerpts.",
+    "- Do not include names, email addresses, usernames, roster identifiers, repository paths, or file paths in the output.",
     "",
     "Return STRICT JSON matching this shape, with no prose and no markdown fences:",
-    '{"questions":[{"question":"...","answer":"...","filePath":"path/to/file.ts","lineRange":{"start":10,"end":14}}]}',
-    "Use null for filePath and lineRange only when the question genuinely spans the whole contribution.",
+    '{"questions":[{"question":"...","answer":"...","anchor":{"sourceId":"E1","lineRange":{"start":10,"end":14}}}]}',
+    "Use null for anchor.sourceId and anchor.lineRange only when the question genuinely spans the whole contribution.",
   ].join("\n")
 
-  return [header, "", "Code excerpts:", excerpts, "", instructions].join("\n")
+  return [
+    header,
+    "",
+    "Redacted code excerpts:",
+    excerpts,
+    "",
+    instructions,
+  ].join("\n")
 }
 
-function formatExcerpt(excerpt: ExaminationCodeExcerpt, index: number): string {
+function formatExcerpt(
+  excerpt: ExaminationProviderPromptExcerpt,
+  index: number,
+): string {
   const endLine = excerpt.startLine + excerpt.lines.length - 1
   const numbered = excerpt.lines
     .map((line, offset) => `${excerpt.startLine + offset}: ${line}`)
     .join("\n")
-  return `Excerpt ${index + 1} — ${excerpt.filePath} (lines ${excerpt.startLine}-${endLine}):\n${numbered}`
+  return `Excerpt ${index + 1} (${excerpt.sourceId}, ${excerpt.sourceDescriptor}, lines ${excerpt.startLine}-${endLine}):\n${numbered}`
 }
 
 export function stripJsonFences(text: string): string {

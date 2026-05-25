@@ -74,3 +74,19 @@ export function buildMemberExcerpts(
 
   return excerpts
 }
+
+export function buildExcerptFileSources(
+  blameResult: BlameResult,
+  excerpts: readonly ExaminationCodeExcerpt[],
+): Record<string, string> {
+  const requested = new Set(excerpts.map((excerpt) => excerpt.filePath))
+  const sources: Record<string, string> = {}
+  for (const fileBlame of blameResult.fileBlames) {
+    if (!requested.has(fileBlame.path)) continue
+    sources[fileBlame.path] = [...fileBlame.lines]
+      .sort((a, b) => a.lineNumber - b.lineNumber)
+      .map((line) => line.content)
+      .join("\n")
+  }
+  return sources
+}

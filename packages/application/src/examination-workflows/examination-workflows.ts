@@ -8,19 +8,21 @@ import type {
   ExaminationGenerateQuestionsResult,
   ExaminationLineRange,
   ExaminationLlmSettings,
+  ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
   ExaminationLookupQuestionsResult,
-  ExaminationProvenanceDrift,
   ExaminationQuestion,
+  ExaminationSourceAnchor,
+  ExaminationSourceReference,
   MilestoneProgress,
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import {
-  buildExaminationExcerptsFingerprint,
   buildExaminationGenerationContextFingerprint,
-  canonicalizeExaminationExcerpts,
-  normalizeExaminationRepositoryKey,
+  EXAMINATION_PROMPT_TEMPLATE_VERSION,
+  EXAMINATION_REDACTION_POLICY_VERSION,
+  isExaminationContentScopeIdShape,
 } from "@repo-edu/application-contract"
 import {
   type PersistedLlmConnection,
@@ -37,6 +39,11 @@ import { createValidationAppError } from "../core.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
 import { buildExaminationPrompt, stripJsonFences } from "./prompt-builder.js"
+import { prepareExaminationProviderExcerpts } from "./provider-excerpts.js"
+import {
+  assertNoRequiredRedactionLeaks,
+  scanExaminationOutputForLeaks,
+} from "./redaction.js"
 
 type ExaminationWorkflowId =
   | "examination.generateQuestions"
@@ -50,29 +57,38 @@ export function createExaminationWorkflowHandlers(
       input: ExaminationGenerateQuestionsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<ExaminationGenerateQuestionsResult> => {
-      validateInput(input)
+      validateGenerateInput(input)
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
-        totalSteps: 3,
-        label: "Building prompt.",
+        totalSteps: 4,
+        label: "Preparing redacted excerpts.",
       })
 
-      const { archiveKey, canonicalExcerpts, resolution } =
-        resolveArchiveContext(input)
+      const prepared = await prepareExaminationProviderExcerpts({
+        excerpts: input.excerpts,
+        excerptFileSources: input.excerptFileSources,
+        localIdentityContext: input.localIdentityContext,
+        tokenizer: ports.tokenizer,
+        questionCount: input.questionCount,
+      })
+      const { archiveKey, resolution } = resolveArchiveContext(
+        input,
+        prepared.providerPayloadFingerprint,
+      )
 
       if (!input.regenerate) {
         const hit = ports.archive.get(archiveKey)
-        if (hit) {
+        if (hit && isRecordAllowedForCurrentContext(hit, input)) {
           options?.onProgress?.({
-            step: 3,
-            totalSteps: 3,
+            step: 4,
+            totalSteps: 4,
             label: "Returning archived questions.",
           })
           return toResult(hit, {
             fromArchive: true,
-            drift: computeDrift(hit.provenance, input),
+            sourceReferences: prepared.sourceReferences,
           })
         }
       }
@@ -80,11 +96,29 @@ export function createExaminationWorkflowHandlers(
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 2,
-        totalSteps: 3,
+        totalSteps: 4,
+        label: "Building prompt.",
+      })
+
+      const prompt = buildExaminationPrompt(prepared.promptPayload)
+      try {
+        assertNoRequiredRedactionLeaks({
+          renderedPrompt: prompt,
+          requiredChecks: prepared.requiredChecks,
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Prompt redaction failed."
+        throw createValidationAppError(message, [{ path: "prompt", message }])
+      }
+
+      throwIfAborted(options?.signal)
+      options?.onProgress?.({
+        step: 3,
+        totalSteps: 4,
         label: "Generating questions via LLM.",
       })
 
-      const prompt = buildExaminationPrompt(input)
       const { reply, usage } = await ports.llm.run({
         spec: {
           provider: resolution.spec.provider,
@@ -98,25 +132,29 @@ export function createExaminationWorkflowHandlers(
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
-        step: 3,
-        totalSteps: 3,
+        step: 4,
+        totalSteps: 4,
         label: "Parsing LLM response.",
       })
 
-      const questions = parseQuestions(reply, input.questionCount)
+      const validSourceIds = new Set(
+        prepared.promptPayload.excerpts.map((excerpt) => excerpt.sourceId),
+      )
+      const questions = parseQuestions(
+        reply,
+        input.questionCount,
+        validSourceIds,
+      )
+      assertOutputAllowedForCurrentContext(questions, input)
 
       const provenance: ExaminationArchivedProvenance = {
-        authorName: input.authorName,
-        authorEmail: input.authorEmail,
-        rosterMemberId: input.rosterMemberId,
-        repositoryPath: input.repositoryPath,
-        assignmentContext: input.assignmentContext ?? null,
         model: resolution.code,
         effort: resolution.spec.effort,
         questionCount: input.questionCount,
         usage,
         createdAtMs: Date.now(),
-        excerpts: canonicalExcerpts,
+        redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+        promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
       }
 
       const record: ExaminationArchiveRecord = {
@@ -129,39 +167,60 @@ export function createExaminationWorkflowHandlers(
 
       return toResult(record, {
         fromArchive: false,
-        drift: null,
+        sourceReferences: prepared.sourceReferences,
       })
     },
     "examination.lookupQuestions": async (
       input: ExaminationLookupQuestionsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<ExaminationLookupQuestionsResult> => {
-      validateInput(input)
+      validateLookupInput(input)
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
-        totalSteps: 1,
+        totalSteps: 2,
+        label: "Preparing redacted excerpts.",
+      })
+
+      const prepared = await prepareExaminationProviderExcerpts({
+        excerpts: input.excerpts,
+        excerptFileSources: input.excerptFileSources,
+        localIdentityContext: input.localIdentityContext,
+        tokenizer: ports.tokenizer,
+        questionCount: input.questionCount,
+      })
+      const { archiveKey } = resolveArchiveContext(
+        input,
+        prepared.providerPayloadFingerprint,
+      )
+
+      throwIfAborted(options?.signal)
+      options?.onProgress?.({
+        step: 2,
+        totalSteps: 2,
         label: "Checking archived questions.",
       })
 
-      const { archiveKey } = resolveArchiveContext(input)
       const exact = ports.archive.get(archiveKey)
       const availableSets = ports.archive
         .listForGenerationContext(archiveKey)
+        .filter((record) => isRecordAllowedForCurrentContext(record, input))
         .map((record) =>
           toResult(record, {
             fromArchive: true,
-            drift: computeDrift(record.provenance, input),
+            sourceReferences: prepared.sourceReferences,
           }),
         )
       return {
+        requestedKey: archiveKey,
+        sourceReferences: prepared.sourceReferences,
         exact:
-          exact === undefined
+          exact === undefined || !isRecordAllowedForCurrentContext(exact, input)
             ? null
             : toResult(exact, {
                 fromArchive: true,
-                drift: computeDrift(exact.provenance, input),
+                sourceReferences: prepared.sourceReferences,
               }),
         availableSets,
       }
@@ -169,31 +228,29 @@ export function createExaminationWorkflowHandlers(
   }
 }
 
-function resolveArchiveContext(input: ExaminationLookupQuestionsInput): {
+function resolveArchiveContext(
+  input: ExaminationLookupQuestionsInput,
+  providerPayloadFingerprint: string,
+): {
   archiveKey: ExaminationArchiveKey
-  canonicalExcerpts: ReturnType<typeof canonicalizeExaminationExcerpts>
   resolution: ExaminationModelResolution
 } {
   const resolution = resolveExaminationModel(input.llmSettings)
-  const canonicalExcerpts = canonicalizeExaminationExcerpts(input.excerpts)
-  const excerptsFingerprint =
-    buildExaminationExcerptsFingerprint(canonicalExcerpts)
   const generationContextFingerprint =
     buildExaminationGenerationContextFingerprint({
-      assignmentContext: input.assignmentContext ?? null,
       model: resolution.code,
       effort: resolution.spec.effort,
+      promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
     })
   return {
     archiveKey: {
-      repositoryKey: normalizeExaminationRepositoryKey(input.repositoryPath),
       personId: input.personId,
-      commitOid: input.commitOid,
+      contentScopeId: input.contentScopeId,
       questionCount: input.questionCount,
-      excerptsFingerprint,
+      providerPayloadFingerprint,
       generationContextFingerprint,
     },
-    canonicalExcerpts,
     resolution,
   }
 }
@@ -213,7 +270,7 @@ function resolveExaminationModel(
       {
         path: "llmSettings.activeLlmConnectionId",
         message:
-          "Add an LLM connection in Settings → LLM Connections before generating questions.",
+          "Add an LLM connection in Settings -> LLM Connections before generating questions.",
       },
     ])
   }
@@ -274,43 +331,81 @@ function lookupExplicitProviderCode(
 
 function toResult(
   record: ExaminationArchiveRecord,
-  meta: { fromArchive: boolean; drift: ExaminationProvenanceDrift | null },
+  meta: {
+    fromArchive: boolean
+    sourceReferences: ExaminationSourceReference[]
+  },
 ): ExaminationGenerateQuestionsResult {
   return {
+    key: record.key,
     questions: record.questions,
     usage: record.provenance.usage,
     fromArchive: meta.fromArchive,
     archivedProvenance: record.provenance,
-    provenanceDrift: meta.drift,
+    sourceReferences: meta.sourceReferences,
   }
 }
 
-function computeDrift(
-  stored: ExaminationArchivedProvenance,
+function isRecordAllowedForCurrentContext(
+  record: ExaminationArchiveRecord,
+  input: ExaminationLookupQuestionsInput,
+): boolean {
+  return scanExaminationOutputForLeaks({
+    questions: record.questions,
+    localIdentityContext: input.localIdentityContext,
+  }).ok
+}
+
+function assertOutputAllowedForCurrentContext(
+  questions: readonly ExaminationQuestion[],
   input: ExaminationGenerateQuestionsInput,
-): ExaminationProvenanceDrift | null {
-  const drift: ExaminationProvenanceDrift = {
-    authorNameChanged:
-      stored.authorName !== input.authorName
-        ? { from: stored.authorName, to: input.authorName }
-        : null,
-    authorEmailChanged:
-      stored.authorEmail !== input.authorEmail
-        ? { from: stored.authorEmail, to: input.authorEmail }
-        : null,
-  }
-  const anyChanged =
-    drift.authorNameChanged !== null || drift.authorEmailChanged !== null
-  return anyChanged ? drift : null
+): void {
+  const result = scanExaminationOutputForLeaks({
+    questions,
+    localIdentityContext: input.localIdentityContext,
+  })
+  if (result.ok) return
+  const message =
+    result.reason === "email"
+      ? "Provider output contained an email address. Generate again to request fresh redacted output; report this if it persists."
+      : "Provider output echoed a known local identifier verbatim. Generate again to request fresh redacted output; report this if it persists."
+  throw createValidationAppError("Provider output failed privacy validation.", [
+    { path: "questions", message },
+  ])
 }
 
-function validateInput(input: ExaminationGenerateQuestionsInput): void {
+function validateGenerateInput(input: ExaminationGenerateQuestionsInput): void {
+  validateInput(input, "generate")
+}
+
+function validateLookupInput(input: ExaminationLookupQuestionsInput): void {
+  validateInput(input, "lookup")
+}
+
+function validateInput(
+  input: ExaminationGenerateQuestionsInput | ExaminationLookupQuestionsInput,
+  mode: "generate" | "lookup",
+): void {
   const issues: { path: string; message: string }[] = []
-  if (input.llmSettings === undefined || input.llmSettings === null) {
-    issues.push({
-      path: "llmSettings",
-      message: "llmSettings is required.",
-    })
+  if (!isRecord(input)) {
+    throw createValidationAppError("Examination input is invalid.", [
+      { path: "input", message: "Input must be an object." },
+    ])
+  }
+  const allowed = new Set([
+    "personId",
+    "contentScopeId",
+    "localIdentityContext",
+    "excerpts",
+    "excerptFileSources",
+    "questionCount",
+    "llmSettings",
+    ...(mode === "generate" ? ["regenerate"] : []),
+  ])
+  for (const field of Object.keys(input)) {
+    if (!allowed.has(field)) {
+      issues.push({ path: field, message: "Unknown field." })
+    }
   }
   if (
     typeof input.personId !== "string" ||
@@ -319,39 +414,16 @@ function validateInput(input: ExaminationGenerateQuestionsInput): void {
     issues.push({ path: "personId", message: "personId is required." })
   }
   if (
-    input.rosterMemberId !== null &&
-    (typeof input.rosterMemberId !== "string" ||
-      input.rosterMemberId.trim().length === 0)
+    typeof input.contentScopeId !== "string" ||
+    !isExaminationContentScopeIdShape(input.contentScopeId)
   ) {
     issues.push({
-      path: "rosterMemberId",
-      message: "rosterMemberId must be null or a non-empty string.",
+      path: "contentScopeId",
+      message:
+        "contentScopeId must be a full lowercase SHA-1 or SHA-256 content identifier.",
     })
   }
-  if (
-    typeof input.commitOid !== "string" ||
-    input.commitOid.trim().length === 0
-  ) {
-    issues.push({ path: "commitOid", message: "commitOid is required." })
-  }
-  if (
-    typeof input.repositoryPath !== "string" ||
-    input.repositoryPath.trim().length === 0
-  ) {
-    issues.push({
-      path: "repositoryPath",
-      message: "repositoryPath is required.",
-    })
-  }
-  if (
-    typeof input.authorName !== "string" ||
-    input.authorName.trim().length === 0
-  ) {
-    issues.push({ path: "authorName", message: "Author name is required." })
-  }
-  if (typeof input.authorEmail !== "string") {
-    issues.push({ path: "authorEmail", message: "authorEmail is required." })
-  }
+  validateLocalIdentityContext(input.localIdentityContext, issues)
   if (
     !Number.isInteger(input.questionCount) ||
     input.questionCount < 1 ||
@@ -362,37 +434,128 @@ function validateInput(input: ExaminationGenerateQuestionsInput): void {
       message: "questionCount must be between 1 and 20.",
     })
   }
-  if (!Array.isArray(input.excerpts) || input.excerpts.length === 0) {
+  validateExcerpts(input.excerpts, issues)
+  validateExcerptFileSources(input.excerptFileSources, issues)
+  if (input.llmSettings === undefined || input.llmSettings === null) {
     issues.push({
-      path: "excerpts",
-      message: "At least one code excerpt is required.",
+      path: "llmSettings",
+      message: "llmSettings is required.",
     })
   }
-  for (const [index, excerpt] of (Array.isArray(input.excerpts)
-    ? input.excerpts
-    : []
-  ).entries()) {
-    if (excerpt.lines.length === 0) {
-      issues.push({
-        path: `excerpts.${index}.lines`,
-        message: "Excerpt must contain at least one line.",
-      })
-    }
-    if (excerpt.startLine < 1) {
-      issues.push({
-        path: `excerpts.${index}.startLine`,
-        message: "startLine must be a 1-based positive integer.",
-      })
-    }
+  if (
+    "regenerate" in input &&
+    input.regenerate !== undefined &&
+    typeof input.regenerate !== "boolean"
+  ) {
+    issues.push({
+      path: "regenerate",
+      message: "regenerate must be a boolean when present.",
+    })
   }
   if (issues.length > 0) {
     throw createValidationAppError("Examination input is invalid.", issues)
   }
 }
 
+function validateLocalIdentityContext(
+  context: ExaminationLocalIdentityContext,
+  issues: { path: string; message: string }[],
+): void {
+  if (!isRecord(context)) {
+    issues.push({
+      path: "localIdentityContext",
+      message: "localIdentityContext is required.",
+    })
+    return
+  }
+  for (const field of [
+    "names",
+    "emails",
+    "opaqueIdentifiers",
+    "gitUsernames",
+  ]) {
+    const value = context[field as keyof ExaminationLocalIdentityContext]
+    if (
+      !Array.isArray(value) ||
+      value.some((item) => typeof item !== "string")
+    ) {
+      issues.push({
+        path: `localIdentityContext.${field}`,
+        message: `${field} must be an array of strings.`,
+      })
+    }
+  }
+}
+
+function validateExcerpts(
+  excerpts: ExaminationGenerateQuestionsInput["excerpts"],
+  issues: { path: string; message: string }[],
+): void {
+  if (!Array.isArray(excerpts) || excerpts.length === 0) {
+    issues.push({
+      path: "excerpts",
+      message: "At least one code excerpt is required.",
+    })
+    return
+  }
+  for (const [index, excerpt] of excerpts.entries()) {
+    if (!isRecord(excerpt)) {
+      issues.push({ path: `excerpts.${index}`, message: "Excerpt is invalid." })
+      continue
+    }
+    if (
+      typeof excerpt.filePath !== "string" ||
+      excerpt.filePath.trim().length === 0
+    ) {
+      issues.push({
+        path: `excerpts.${index}.filePath`,
+        message: "filePath is required for local source lookup.",
+      })
+    }
+    if (!Number.isInteger(excerpt.startLine) || excerpt.startLine < 1) {
+      issues.push({
+        path: `excerpts.${index}.startLine`,
+        message: "startLine must be a 1-based positive integer.",
+      })
+    }
+    if (
+      !Array.isArray(excerpt.lines) ||
+      excerpt.lines.length === 0 ||
+      excerpt.lines.some((line) => typeof line !== "string")
+    ) {
+      issues.push({
+        path: `excerpts.${index}.lines`,
+        message: "Excerpt must contain at least one string line.",
+      })
+    }
+  }
+}
+
+function validateExcerptFileSources(
+  sources: ExaminationGenerateQuestionsInput["excerptFileSources"],
+  issues: { path: string; message: string }[],
+): void {
+  if (!isRecord(sources)) {
+    issues.push({
+      path: "excerptFileSources",
+      message: "excerptFileSources must be an object.",
+    })
+    return
+  }
+  for (const [filePath, source] of Object.entries(sources)) {
+    if (filePath.length === 0 || typeof source !== "string") {
+      issues.push({
+        path: `excerptFileSources.${filePath}`,
+        message: "Each file source must be keyed by path and contain text.",
+      })
+    }
+  }
+}
+
 function parseQuestions(
   reply: string,
   expectedCount: number,
+  validSourceIds: ReadonlySet<string>,
 ): ExaminationQuestion[] {
   const stripped = stripJsonFences(reply)
   let parsed: unknown
@@ -428,7 +591,7 @@ function parseQuestions(
   const rawQuestions = (parsed as { questions: unknown[] }).questions
   const questions: ExaminationQuestion[] = []
   for (const [index, raw] of rawQuestions.entries()) {
-    questions.push(coerceQuestion(raw, index))
+    questions.push(coerceQuestion(raw, index, validSourceIds))
   }
 
   if (questions.length === 0) {
@@ -444,30 +607,48 @@ function parseQuestions(
   return questions.slice(0, expectedCount)
 }
 
-function coerceQuestion(raw: unknown, index: number): ExaminationQuestion {
-  if (typeof raw !== "object" || raw === null) {
+function coerceQuestion(
+  raw: unknown,
+  index: number,
+  validSourceIds: ReadonlySet<string>,
+): ExaminationQuestion {
+  if (!isRecord(raw)) {
     throw providerError(`Question ${index} is not an object.`)
   }
-  const record = raw as Record<string, unknown>
-  const question = typeof record.question === "string" ? record.question : ""
-  const answer = typeof record.answer === "string" ? record.answer : ""
+  const question = typeof raw.question === "string" ? raw.question : ""
+  const answer = typeof raw.answer === "string" ? raw.answer : ""
   if (question.trim().length === 0 || answer.trim().length === 0) {
     throw providerError(`Question ${index} is missing question or answer text.`)
   }
-  const filePath =
-    typeof record.filePath === "string" && record.filePath.trim().length > 0
-      ? record.filePath
+  return {
+    question,
+    answer,
+    anchor: coerceAnchor(raw.anchor, validSourceIds),
+  }
+}
+
+function coerceAnchor(
+  raw: unknown,
+  validSourceIds: ReadonlySet<string>,
+): ExaminationSourceAnchor {
+  if (!isRecord(raw)) return { sourceId: null, lineRange: null }
+  const sourceId =
+    typeof raw.sourceId === "string" && validSourceIds.has(raw.sourceId)
+      ? raw.sourceId
       : null
-  const lineRange = coerceLineRange(record.lineRange)
-  return { question, answer, filePath, lineRange }
+  if (sourceId === null) return { sourceId: null, lineRange: null }
+  return {
+    sourceId,
+    lineRange: coerceLineRange(raw.lineRange),
+  }
 }
 
 function coerceLineRange(raw: unknown): ExaminationLineRange | null {
-  if (typeof raw !== "object" || raw === null) return null
-  const record = raw as Record<string, unknown>
-  const start = typeof record.start === "number" ? record.start : null
-  const end = typeof record.end === "number" ? record.end : null
+  if (!isRecord(raw)) return null
+  const start = typeof raw.start === "number" ? raw.start : null
+  const end = typeof raw.end === "number" ? raw.end : null
   if (start === null || end === null) return null
+  if (!Number.isInteger(start) || !Number.isInteger(end)) return null
   if (start < 1 || end < start) return null
   return { start, end }
 }
@@ -480,4 +661,8 @@ function providerError(message: string): AppError {
     operation: "examination.generateQuestions",
     retryable: true,
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }

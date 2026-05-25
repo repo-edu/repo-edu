@@ -15,6 +15,7 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
   createNodeLlmPort,
+  createNodeTokenizerPort,
 } from "@repo-edu/host-node"
 import {
   createExaminationArchiveStorage,
@@ -79,6 +80,7 @@ const desktopHost = createDesktopHostEnvironment()
 const nodeHttpPort = createNodeHttpPort()
 const nodeGitCommandPort = createNodeGitCommandPort()
 const nodeFileSystemPort = createNodeFileSystemPort()
+const nodeTokenizerPort = createNodeTokenizerPort()
 // Stable LLM port delegate. The underlying adapter is rebuilt whenever the
 // active LLM connection or its credentials change so a settings save reaches
 // the next workflow invocation without recreating the tRPC router.
@@ -691,6 +693,7 @@ async function createWindow(): Promise<BrowserWindow> {
       gitCommand: nodeGitCommandPort,
       fileSystem: nodeFileSystemPort,
       llm: nodeLlmPort,
+      tokenizer: nodeTokenizerPort,
       examinationArchive,
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,

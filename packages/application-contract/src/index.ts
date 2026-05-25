@@ -6,6 +6,11 @@ import type {
   BlameResult,
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
+import {
+  bridgeAuthorsToRoster,
+  extensionToLanguage,
+  LANGUAGE_CATALOG,
+} from "@repo-edu/domain/analysis"
 import type { ConnectionBase } from "@repo-edu/domain/connection"
 import type {
   ExaminationModelsByProvider,
@@ -493,36 +498,53 @@ export type ExaminationCodeExcerpt = {
   lines: string[]
 }
 
-export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 1 as const
+export type ExaminationLocalIdentityContext = {
+  names: string[]
+  emails: string[]
+  opaqueIdentifiers: string[]
+  gitUsernames: string[]
+}
+
+export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 2 as const
+export const EXAMINATION_REDACTION_POLICY_VERSION = 1 as const
+
+export type ExaminationTokenizerTreatment = "stripped" | "fallback"
+
+export type ExaminationProviderExcerptIdentity = {
+  sourceDescriptor: string
+  tokenizerTreatment: ExaminationTokenizerTreatment
+  startLine: number
+  lineCount: number
+  redactedContentFingerprint: string
+}
 
 export type ExaminationArchiveKey = {
-  repositoryKey: string
   personId: string
-  commitOid: string
+  contentScopeId: string
   questionCount: number
-  excerptsFingerprint: string
+  providerPayloadFingerprint: string
   generationContextFingerprint: string
 }
 
 export type ExaminationGenerationContext = {
-  assignmentContext?: string | null
   model: string
   effort: LlmEffort
   promptTemplateVersion?: number
+  redactionPolicyVersion?: number
 }
 
 export type ExaminationGenerationContextCanonical = {
-  assignmentContext: string
   model: string
   effort: LlmEffort
   promptTemplateVersion: number
+  redactionPolicyVersion: number
 }
 
 const EXAMINATION_ARCHIVE_STORAGE_KEY_VERSION =
-  "examination-archive-key-v1" as const
+  "examination-archive-key-v2" as const
 
 const EXAMINATION_GENERATION_CONTEXT_VERSION =
-  "examination-generation-context-v1" as const
+  "examination-generation-context-v2" as const
 
 // Archive fingerprints sit inside a composite key that also includes
 // repository, person, commit, question count, and generation context. A
@@ -535,49 +557,6 @@ function fnv1a32Hex(input: string): string {
     hash = Math.imul(hash, 0x01000193)
   }
   return (hash >>> 0).toString(16).padStart(8, "0")
-}
-
-export function normalizeExaminationRepositoryKey(
-  repositoryPath: string,
-): string {
-  const trimmed = repositoryPath.trim().replace(/\\/g, "/")
-  if (trimmed.length === 0) return ""
-
-  const driveMatch = /^([A-Za-z]:)(?:\/|$)/.exec(trimmed)
-  const drivePrefix = driveMatch?.[1] ?? ""
-  const isDriveAbsolute = drivePrefix.length > 0
-  const pathAfterDrive = isDriveAbsolute
-    ? trimmed.slice(drivePrefix.length)
-    : trimmed
-  const isPosixAbsolute = !isDriveAbsolute && pathAfterDrive.startsWith("/")
-  const isAbsolute = isDriveAbsolute || isPosixAbsolute
-  const rootPrefix = isDriveAbsolute
-    ? `${drivePrefix}/`
-    : isPosixAbsolute
-      ? "/"
-      : ""
-  const rawSegments = pathAfterDrive.split("/")
-  const segments: string[] = []
-
-  for (const segment of rawSegments) {
-    if (segment.length === 0 || segment === ".") continue
-    if (segment === "..") {
-      const canPop =
-        segments.length > 0 && segments[segments.length - 1] !== ".."
-      if (canPop) {
-        segments.pop()
-      } else if (!isAbsolute) {
-        segments.push("..")
-      }
-      continue
-    }
-    segments.push(segment)
-  }
-
-  if (segments.length === 0) {
-    return isAbsolute ? rootPrefix : "."
-  }
-  return `${rootPrefix}${segments.join("/")}`
 }
 
 export function canonicalizeExaminationExcerpts(
@@ -597,46 +576,73 @@ export function canonicalizeExaminationExcerpts(
     })
 }
 
-export function buildExaminationExcerptsFingerprint(
-  excerpts: readonly ExaminationCodeExcerpt[],
+export function buildExaminationRedactedContentFingerprint(
+  lines: readonly string[],
 ): string {
-  const canonical = canonicalizeExaminationExcerpts(excerpts)
-  const serialized = canonical
-    .map((excerpt) =>
-      [
-        excerpt.filePath,
-        String(excerpt.startLine),
-        String(excerpt.lines.length),
-        excerpt.lines.join("\n"),
-      ].join("\u001f"),
-    )
-    .join("\u001e")
-  return fnv1a32Hex(serialized)
+  return fnv1a32Hex(lines.join("\n"))
 }
 
-export function normalizeExaminationAssignmentContext(
-  assignmentContext: string | null | undefined,
+function providerExcerptIdentityKey(
+  identity: ExaminationProviderExcerptIdentity,
 ): string {
-  if (assignmentContext === null || assignmentContext === undefined) return ""
-  return assignmentContext
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .join("\n")
-    .trim()
+  return [
+    identity.sourceDescriptor,
+    identity.tokenizerTreatment,
+    identity.redactedContentFingerprint,
+    String(identity.startLine),
+    String(identity.lineCount),
+  ].join("\u001f")
+}
+
+export function buildExaminationProviderPayloadFingerprint(
+  identities: readonly ExaminationProviderExcerptIdentity[],
+): string {
+  const serialized = [...identities]
+    .toSorted((a, b) => {
+      const aKey = providerExcerptIdentityKey(a)
+      const bKey = providerExcerptIdentityKey(b)
+      return aKey < bKey ? -1 : aKey > bKey ? 1 : 0
+    })
+    .filter((identity, index, sorted) => {
+      if (index === 0) return true
+      return (
+        providerExcerptIdentityKey(identity) !==
+        providerExcerptIdentityKey(sorted[index - 1])
+      )
+    })
+    .map((identity) => providerExcerptIdentityKey(identity))
+    .join("\u001e")
+  return fnv1a32Hex(
+    JSON.stringify([EXAMINATION_REDACTION_POLICY_VERSION, serialized]),
+  )
+}
+
+export function assignExaminationSourceIds(
+  identities: readonly ExaminationProviderExcerptIdentity[],
+): string[] {
+  const uniqueKeys = [...new Set(identities.map(providerExcerptIdentityKey))]
+    .toSorted()
+    .map((key, index) => [key, `E${index + 1}`] as const)
+  const sourceIdByKey = new Map(uniqueKeys)
+  return identities.map((identity) => {
+    const sourceId = sourceIdByKey.get(providerExcerptIdentityKey(identity))
+    if (sourceId === undefined) {
+      throw new Error("Missing examination source id assignment.")
+    }
+    return sourceId
+  })
 }
 
 export function canonicalizeExaminationGenerationContext(
   context: ExaminationGenerationContext,
 ): ExaminationGenerationContextCanonical {
   return {
-    assignmentContext: normalizeExaminationAssignmentContext(
-      context.assignmentContext,
-    ),
     model: context.model,
     effort: context.effort,
     promptTemplateVersion:
       context.promptTemplateVersion ?? EXAMINATION_PROMPT_TEMPLATE_VERSION,
+    redactionPolicyVersion:
+      context.redactionPolicyVersion ?? EXAMINATION_REDACTION_POLICY_VERSION,
   }
 }
 
@@ -647,10 +653,10 @@ export function buildExaminationGenerationContextFingerprint(
   return fnv1a32Hex(
     JSON.stringify([
       EXAMINATION_GENERATION_CONTEXT_VERSION,
-      canonical.assignmentContext,
       canonical.model,
       canonical.effort,
       canonical.promptTemplateVersion,
+      canonical.redactionPolicyVersion,
     ]),
   )
 }
@@ -660,13 +666,16 @@ export function serializeExaminationArchiveStorageKey(
 ): string {
   return JSON.stringify([
     EXAMINATION_ARCHIVE_STORAGE_KEY_VERSION,
-    key.repositoryKey,
     key.personId,
-    key.commitOid,
+    key.contentScopeId,
     key.questionCount,
-    key.excerptsFingerprint,
+    key.providerPayloadFingerprint,
     key.generationContextFingerprint,
   ])
+}
+
+export function isExaminationContentScopeIdShape(value: string): boolean {
+  return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value)
 }
 
 export function validateExaminationArchiveKey(
@@ -677,49 +686,137 @@ export function validateExaminationArchiveKey(
   }
   const record = raw as Record<string, unknown>
   const allowedFields = new Set([
-    "repositoryKey",
     "personId",
-    "commitOid",
+    "contentScopeId",
     "questionCount",
-    "excerptsFingerprint",
+    "providerPayloadFingerprint",
     "generationContextFingerprint",
   ])
   if (Object.keys(record).some((field) => !allowedFields.has(field))) {
     return null
   }
   const {
-    repositoryKey,
     personId,
-    commitOid,
+    contentScopeId,
     questionCount,
-    excerptsFingerprint,
+    providerPayloadFingerprint,
     generationContextFingerprint,
   } = record
   if (
-    typeof repositoryKey !== "string" ||
-    repositoryKey.length === 0 ||
     typeof personId !== "string" ||
     personId.length === 0 ||
-    typeof commitOid !== "string" ||
-    commitOid.length === 0 ||
+    typeof contentScopeId !== "string" ||
+    !isExaminationContentScopeIdShape(contentScopeId) ||
     typeof questionCount !== "number" ||
     !Number.isInteger(questionCount) ||
     questionCount < 1 ||
-    typeof excerptsFingerprint !== "string" ||
-    excerptsFingerprint.length === 0 ||
+    typeof providerPayloadFingerprint !== "string" ||
+    providerPayloadFingerprint.length === 0 ||
     typeof generationContextFingerprint !== "string" ||
     generationContextFingerprint.length === 0
   ) {
     return null
   }
   return {
-    repositoryKey,
     personId,
-    commitOid,
+    contentScopeId,
     questionCount,
-    excerptsFingerprint,
+    providerPayloadFingerprint,
     generationContextFingerprint,
   }
+}
+
+function normalizeIdentityText(value: string): string {
+  return value.trim().split(/\s+/).join(" ")
+}
+
+function dedupeByComparison(
+  values: readonly string[],
+  compare: (value: string) => string,
+): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of values) {
+    const value = normalizeIdentityText(raw)
+    if (value.length === 0) continue
+    const key = compare(value)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(value)
+  }
+  return out
+}
+
+function containsAsciiLetter(value: string): boolean {
+  return /[A-Za-z]/.test(value)
+}
+
+export function buildExaminationLocalIdentityContext({
+  personDb,
+  roster,
+}: {
+  personDb: PersonDbSnapshot
+  roster?: Roster | null
+}): ExaminationLocalIdentityContext {
+  const names: string[] = []
+  const emails: string[] = []
+  const opaqueIdentifiers: string[] = []
+  const gitUsernames: string[] = []
+
+  for (const person of personDb.persons) {
+    names.push(person.canonicalName)
+    emails.push(person.canonicalEmail)
+    for (const alias of person.aliases) {
+      names.push(alias.name)
+      emails.push(alias.email)
+    }
+  }
+
+  if (roster) {
+    const members = [...roster.students, ...roster.staff]
+    const memberById = new Map(members.map((member) => [member.id, member]))
+    const bridge = bridgeAuthorsToRoster(personDb, members)
+    for (const match of bridge.matches) {
+      const member = memberById.get(match.memberId)
+      if (!member) continue
+      names.push(member.name)
+      emails.push(member.email)
+      const memberId = normalizeIdentityText(member.id)
+      if (containsAsciiLetter(memberId)) {
+        opaqueIdentifiers.push(memberId)
+      }
+      const lmsUserId =
+        member.lmsUserId === null ? "" : normalizeIdentityText(member.lmsUserId)
+      if (containsAsciiLetter(lmsUserId)) {
+        opaqueIdentifiers.push(lmsUserId)
+      }
+      if (member.gitUsername !== null) {
+        gitUsernames.push(member.gitUsername)
+      }
+    }
+  }
+
+  return {
+    names: dedupeByComparison(names, (value) => value.toLowerCase()),
+    emails: dedupeByComparison(emails, (value) => value.toLowerCase()),
+    opaqueIdentifiers: dedupeByComparison(opaqueIdentifiers, (value) => value),
+    gitUsernames: dedupeByComparison(gitUsernames, (value) =>
+      value.toLowerCase(),
+    ),
+  }
+}
+
+function finalExtension(filePath: string): string {
+  const basename = filePath.replace(/\\/g, "/").split("/").pop() ?? filePath
+  const index = basename.lastIndexOf(".")
+  return index < 0 ? "" : basename.slice(index + 1)
+}
+
+export function resolveExaminationSourceDescriptor(filePath: string): string {
+  const language = extensionToLanguage(finalExtension(filePath))
+  return language === undefined
+    ? "unknown language"
+    : LANGUAGE_CATALOG[language].label
 }
 
 export type ExaminationLlmSettings = {
@@ -735,21 +832,11 @@ export type ExaminationGenerateQuestionsInput = {
    * generation works without a roster.
    */
   personId: string
-  /**
-   * Roster member the author resolves to, when a roster match exists.
-   * Null when there is no roster, the roster is empty, or the author
-   * could not be matched. Carried through to the archived provenance so
-   * graders can tell, on re-open, whether the entry was produced under a
-   * matched roster identity.
-   */
-  rosterMemberId: string | null
-  commitOid: string
-  repositoryPath: string
-  authorName: string
-  authorEmail: string
+  contentScopeId: string
+  localIdentityContext: ExaminationLocalIdentityContext
   excerpts: ExaminationCodeExcerpt[]
+  excerptFileSources: Record<string, string>
   questionCount: number
-  assignmentContext?: string
   /**
    * Subset of app settings the examination workflow needs to resolve which
    * LLM connection and model code to use. The renderer reads these from
@@ -775,36 +862,20 @@ export type ExaminationLineRange = {
   end: number
 }
 
+export type ExaminationSourceAnchor = {
+  sourceId: string | null
+  lineRange: ExaminationLineRange | null
+}
+
 export type ExaminationQuestion = {
   question: string
   answer: string
-  filePath: string | null
-  lineRange: ExaminationLineRange | null
+  anchor: ExaminationSourceAnchor
 }
 
 export type ExaminationUsage = LlmUsage
 
-export type ExaminationProvenanceFieldDrift<T> = {
-  from: T
-  to: T
-} | null
-
-export type ExaminationProvenanceDrift = {
-  authorNameChanged: ExaminationProvenanceFieldDrift<string>
-  authorEmailChanged: ExaminationProvenanceFieldDrift<string>
-}
-
 export type ExaminationArchivedProvenance = {
-  authorName: string
-  authorEmail: string
-  /**
-   * Roster member id at the time the questions were generated, or null
-   * when the author was not matched to a roster member (or no roster
-   * existed). Informational only — the archive is keyed on personId.
-   */
-  rosterMemberId: string | null
-  repositoryPath: string
-  assignmentContext: string | null
   /**
    * Catalog short code that produced the run (e.g. `"22"`, `"c33"`). The
    * code expands into a full `LlmModelSpec` via the catalog; storing the
@@ -819,20 +890,32 @@ export type ExaminationArchivedProvenance = {
   questionCount: number
   usage: ExaminationUsage
   createdAtMs: number
-  excerpts: ExaminationCodeExcerpt[]
+  redactionPolicyVersion: number
+  promptTemplateVersion: number
+}
+
+export type ExaminationSourceReference = {
+  sourceId: string
+  occurrences: {
+    filePath: string
+    lineRange: ExaminationLineRange
+  }[]
 }
 
 export type ExaminationGenerateQuestionsResult = {
+  key: ExaminationArchiveKey
   questions: ExaminationQuestion[]
   usage: ExaminationUsage
   fromArchive: boolean
   archivedProvenance: ExaminationArchivedProvenance
-  provenanceDrift: ExaminationProvenanceDrift | null
+  sourceReferences: ExaminationSourceReference[]
 }
 
 export type ExaminationArchivedQuestionSet = ExaminationGenerateQuestionsResult
 
 export type ExaminationLookupQuestionsResult = {
+  requestedKey: ExaminationArchiveKey
+  sourceReferences: ExaminationSourceReference[]
   exact: ExaminationGenerateQuestionsResult | null
   availableSets: ExaminationArchivedQuestionSet[]
 }
@@ -845,7 +928,7 @@ export type ExaminationArchiveRecord = {
 
 export const EXAMINATION_ARCHIVE_BUNDLE_FORMAT =
   "repo-edu-examination-archive" as const
-export const EXAMINATION_ARCHIVE_BUNDLE_VERSION = 1 as const
+export const EXAMINATION_ARCHIVE_BUNDLE_VERSION = 2 as const
 
 export type ExaminationArchiveBundle = {
   format: typeof EXAMINATION_ARCHIVE_BUNDLE_FORMAT

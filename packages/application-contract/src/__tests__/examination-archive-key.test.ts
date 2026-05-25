@@ -1,25 +1,59 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { normalizeExaminationRepositoryKey } from "../index.js"
+import {
+  buildExaminationGenerationContextFingerprint,
+  EXAMINATION_REDACTION_POLICY_VERSION,
+  isExaminationContentScopeIdShape,
+  serializeExaminationArchiveStorageKey,
+  validateExaminationArchiveKey,
+} from "../index.js"
+
+const sha1 = "a".repeat(40)
 
 describe("examination archive key helpers", () => {
-  it("normalizes repository paths used in archive keys", () => {
-    const cases: { raw: string; normalized: string }[] = [
-      { raw: "", normalized: "" },
-      { raw: "   ", normalized: "" },
-      { raw: ".", normalized: "." },
-      { raw: "./repo/./project", normalized: "repo/project" },
-      { raw: "repo/project/..", normalized: "repo" },
-      { raw: "../repo/../project", normalized: "../project" },
-      { raw: "/repos/../repos/project//", normalized: "/repos/project" },
-      { raw: "/../project", normalized: "/project" },
-      { raw: "C:\\repos\\project\\..\\next", normalized: "C:/repos/next" },
-      { raw: "C:/../project", normalized: "C:/project" },
-      { raw: "C:", normalized: "C:/" },
-    ]
+  it("accepts only full lowercase content scope identifiers", () => {
+    assert.equal(isExaminationContentScopeIdShape(sha1), true)
+    assert.equal(isExaminationContentScopeIdShape("b".repeat(64)), true)
+    assert.equal(
+      isExaminationContentScopeIdShape("ABCDEF".padEnd(40, "a")),
+      false,
+    )
+    assert.equal(isExaminationContentScopeIdShape("main"), false)
+    assert.equal(isExaminationContentScopeIdShape("abc123"), false)
+  })
 
-    for (const { raw, normalized } of cases) {
-      assert.equal(normalizeExaminationRepositoryKey(raw), normalized)
+  it("validates pathless archive keys", () => {
+    const key = {
+      personId: "p1",
+      contentScopeId: sha1,
+      questionCount: 4,
+      providerPayloadFingerprint: "abcd1234",
+      generationContextFingerprint: "efgh5678",
     }
+
+    assert.deepEqual(validateExaminationArchiveKey(key), key)
+    assert.equal(
+      validateExaminationArchiveKey({ ...key, repositoryKey: "/repo" }),
+      null,
+    )
+    assert.equal(
+      validateExaminationArchiveKey({ ...key, contentScopeId: "fixture-1" }),
+      null,
+    )
+    assert.match(serializeExaminationArchiveStorageKey(key), /archive-key-v2/)
+  })
+
+  it("folds redaction policy version into generation context fingerprints", () => {
+    const current = buildExaminationGenerationContextFingerprint({
+      model: "22",
+      effort: "medium",
+    })
+    const different = buildExaminationGenerationContextFingerprint({
+      model: "22",
+      effort: "medium",
+      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION + 1,
+    })
+
+    assert.notEqual(current, different)
   })
 })

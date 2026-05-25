@@ -40,6 +40,7 @@ import type {
   GitCommandPort,
   HttpPort,
   LlmPort,
+  TokenizerPort,
   UserFilePort,
 } from "@repo-edu/host-runtime-contract"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
@@ -59,6 +60,7 @@ export type DesktopRouterPorts = {
   gitCommand: GitCommandPort
   fileSystem: FileSystemPort
   llm: LlmPort
+  tokenizer: TokenizerPort
   examinationArchive: ExaminationArchiveStoragePort
   parentAbortSignal?: AbortSignal
   onWorkflowInvocationStart?: () => () => void
@@ -195,6 +197,7 @@ function createDesktopWorkflowRegistry(
     ...createExaminationWorkflowHandlers({
       llm: ports.llm,
       archive: examinationArchive,
+      tokenizer: ports.tokenizer,
     }),
     ...createExaminationArchiveWorkflowHandlers({
       archive: examinationArchive,

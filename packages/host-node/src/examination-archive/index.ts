@@ -6,7 +6,7 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { withTransaction } from "../sqlite/transaction.js"
 
-const ARCHIVE_USER_VERSION = 4
+const ARCHIVE_USER_VERSION = 5
 
 export type ExaminationArchiveDatabaseHandle = {
   readonly db: DatabaseSync

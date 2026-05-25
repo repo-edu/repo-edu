@@ -6,9 +6,9 @@ import {
   type ExaminationArchiveImportSummary,
   type ExaminationArchiveKey,
   type ExaminationArchiveRecord,
-  type ExaminationCodeExcerpt,
   type ExaminationLineRange,
   type ExaminationQuestion,
+  type ExaminationSourceAnchor,
   serializeExaminationArchiveStorageKey,
   validateExaminationArchiveKey,
 } from "@repo-edu/application-contract"
@@ -20,6 +20,7 @@ import type {
   LlmAuthMode,
   LlmEffort,
 } from "@repo-edu/integrations-llm-contract"
+import { findEmailAddressSpans } from "./redaction.js"
 
 export type ExaminationArchivePort = {
   get(key: ExaminationArchiveKey): ExaminationArchiveRecord | undefined
@@ -149,10 +150,9 @@ function sameGenerationContext(
   b: ExaminationArchiveKey,
 ): boolean {
   return (
-    a.repositoryKey === b.repositoryKey &&
     a.personId === b.personId &&
-    a.commitOid === b.commitOid &&
-    a.excerptsFingerprint === b.excerptsFingerprint &&
+    a.contentScopeId === b.contentScopeId &&
+    a.providerPayloadFingerprint === b.providerPayloadFingerprint &&
     a.generationContextFingerprint === b.generationContextFingerprint
   )
 }
@@ -201,6 +201,7 @@ function validateRecord(
   }
   const questions = validateQuestions(raw.questions)
   if (questions === null) return null
+  if (questionsContainEmail(questions)) return null
   const provenance = validateProvenance(raw.provenance)
   if (provenance === null) return null
   return { key: keyResult.key, questions, provenance }
@@ -235,15 +236,16 @@ function validateQuestions(raw: unknown): ExaminationQuestion[] | null {
   const out: ExaminationQuestion[] = []
   for (const item of raw) {
     if (!isRecord(item)) return null
+    const allowedFields = new Set(["question", "answer", "anchor"])
+    if (Object.keys(item).some((field) => !allowedFields.has(field))) {
+      return null
+    }
     const question = item.question
     const answer = item.answer
     if (typeof question !== "string" || typeof answer !== "string") return null
-    const filePath =
-      typeof item.filePath === "string" || item.filePath === null
-        ? (item.filePath as string | null)
-        : null
-    const lineRange = validateLineRange(item.lineRange)
-    out.push({ question, answer, filePath, lineRange })
+    const anchor = validateAnchor(item.anchor)
+    if (anchor === null) return null
+    out.push({ question, answer, anchor })
   }
   return out
 }
@@ -253,69 +255,77 @@ function validateLineRange(raw: unknown): ExaminationLineRange | null {
   if (!isRecord(raw)) return null
   const { start, end } = raw
   if (typeof start !== "number" || typeof end !== "number") return null
+  if (!Number.isInteger(start) || !Number.isInteger(end)) return null
+  if (start < 1 || end < start) return null
   return { start, end }
+}
+
+function validateAnchor(raw: unknown): ExaminationSourceAnchor | null {
+  if (!isRecord(raw)) return null
+  const sourceId =
+    typeof raw.sourceId === "string" && /^E\d+$/.test(raw.sourceId)
+      ? raw.sourceId
+      : raw.sourceId === null
+        ? null
+        : undefined
+  if (sourceId === undefined) return null
+  const lineRange = validateLineRange(raw.lineRange)
+  if (
+    raw.lineRange !== null &&
+    raw.lineRange !== undefined &&
+    lineRange === null
+  ) {
+    return null
+  }
+  return { sourceId, lineRange }
 }
 
 function validateProvenance(
   raw: unknown,
 ): ExaminationArchivedProvenance | null {
   if (!isRecord(raw)) return null
+  const allowedFields = new Set([
+    "model",
+    "effort",
+    "questionCount",
+    "usage",
+    "createdAtMs",
+    "redactionPolicyVersion",
+    "promptTemplateVersion",
+  ])
+  if (Object.keys(raw).some((field) => !allowedFields.has(field))) {
+    return null
+  }
   const {
-    authorName,
-    authorEmail,
-    rosterMemberId,
-    repositoryPath,
-    assignmentContext,
     model,
     effort,
     questionCount,
     usage,
     createdAtMs,
-    excerpts,
+    redactionPolicyVersion,
+    promptTemplateVersion,
   } = raw
   if (
-    typeof authorName !== "string" ||
-    typeof authorEmail !== "string" ||
-    typeof repositoryPath !== "string" ||
     typeof questionCount !== "number" ||
-    typeof createdAtMs !== "number"
-  ) {
-    return null
-  }
-  if (
-    rosterMemberId !== null &&
-    rosterMemberId !== undefined &&
-    typeof rosterMemberId !== "string"
-  ) {
-    return null
-  }
-  if (
-    assignmentContext !== null &&
-    assignmentContext !== undefined &&
-    typeof assignmentContext !== "string"
+    typeof createdAtMs !== "number" ||
+    typeof redactionPolicyVersion !== "number" ||
+    typeof promptTemplateVersion !== "number"
   ) {
     return null
   }
   if (typeof model !== "string" || model.length === 0) return null
   const validatedEffort = validateEffort(effort)
   if (validatedEffort === null) return null
-  const validatedExcerpts = validateExcerpts(excerpts)
-  if (validatedExcerpts === null) return null
   const validatedUsage = validateUsage(usage)
   if (validatedUsage === null) return null
   return {
-    authorName,
-    authorEmail,
-    rosterMemberId: typeof rosterMemberId === "string" ? rosterMemberId : null,
-    repositoryPath,
-    assignmentContext:
-      typeof assignmentContext === "string" ? assignmentContext : null,
     model,
     effort: validatedEffort,
     questionCount,
     usage: validatedUsage,
     createdAtMs,
-    excerpts: validatedExcerpts,
+    redactionPolicyVersion,
+    promptTemplateVersion,
   }
 }
 
@@ -340,23 +350,6 @@ function validateAuthMode(raw: unknown): LlmAuthMode | null {
   return LLM_AUTH_MODES.includes(raw as LlmAuthMode)
     ? (raw as LlmAuthMode)
     : null
-}
-
-function validateExcerpts(raw: unknown): ExaminationCodeExcerpt[] | null {
-  if (!Array.isArray(raw)) return null
-  const out: ExaminationCodeExcerpt[] = []
-  for (const item of raw) {
-    if (!isRecord(item)) return null
-    const { filePath, startLine, lines } = item
-    if (typeof filePath !== "string" || typeof startLine !== "number") {
-      return null
-    }
-    if (!Array.isArray(lines) || !lines.every((l) => typeof l === "string")) {
-      return null
-    }
-    out.push({ filePath, startLine, lines: [...lines] })
-  }
-  return out
 }
 
 function validateUsage(
@@ -428,7 +421,15 @@ function parseBundleRecords(raw: unknown): {
 }
 
 function describeKey(key: ExaminationArchiveKey): string {
-  return `repo=${key.repositoryKey} person=${key.personId} commit=${key.commitOid.slice(0, 8)} q=${key.questionCount}`
+  return `person=${key.personId} scope=${key.contentScopeId.slice(0, 8)} q=${key.questionCount}`
+}
+
+function questionsContainEmail(questions: readonly ExaminationQuestion[]) {
+  return questions.some(
+    (question) =>
+      findEmailAddressSpans(`${question.question}\n${question.answer}`).length >
+      0,
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

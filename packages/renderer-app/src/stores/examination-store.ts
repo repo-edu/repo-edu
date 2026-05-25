@@ -1,6 +1,6 @@
 import type {
-  ExaminationProvenanceDrift,
   ExaminationQuestion,
+  ExaminationSourceReference,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
 import { create } from "zustand"
@@ -14,7 +14,7 @@ export type ExaminationEntry = {
   errorMessage: string | null
   generatedAt: string | null
   fromArchive: boolean
-  provenanceDrift: ExaminationProvenanceDrift | null
+  sourceReferences: ExaminationSourceReference[]
   archivedQuestionCount: number | null
 }
 

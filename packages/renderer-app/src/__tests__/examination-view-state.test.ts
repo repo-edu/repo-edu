@@ -3,7 +3,7 @@ import { describe, it } from "node:test"
 import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 import { buildMemberExcerpts } from "../components/tabs/examination/build-excerpts.js"
 import {
-  buildExaminationRendererEntryKey,
+  buildPendingExaminationEntryKey,
   canShowExaminationView,
   resolveExaminationEmptyState,
   shouldShowUnmatchedRosterWarning,
@@ -66,66 +66,56 @@ describe("examination view state", () => {
     )
   })
 
-  it("invalidates renderer entry keys when generation-affecting inputs change", () => {
-    const base = buildExaminationRendererEntryKey({
+  it("invalidates pending entry keys when local selection inputs change", () => {
+    const base = buildPendingExaminationEntryKey({
       repositoryPath: "/repos/project",
-      commitOid: "abc123",
+      contentScopeId: "a".repeat(40),
       personId: "p_1",
       questionCount: 8,
-      excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["alpha"] }],
-      assignmentContext: null,
       model: "22",
       effort: "medium",
     })
 
     assert.notEqual(
       base,
-      buildExaminationRendererEntryKey({
+      buildPendingExaminationEntryKey({
         repositoryPath: "/repos/project",
-        commitOid: "abc123",
+        contentScopeId: "a".repeat(40),
         personId: "p_1",
         questionCount: 9,
-        excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["alpha"] }],
-        assignmentContext: null,
         model: "22",
         effort: "medium",
       }),
     )
     assert.notEqual(
       base,
-      buildExaminationRendererEntryKey({
+      buildPendingExaminationEntryKey({
         repositoryPath: "/repos/project",
-        commitOid: "abc123",
+        contentScopeId: "a".repeat(40),
         personId: "p_1",
         questionCount: 8,
-        excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["alpha"] }],
-        assignmentContext: null,
         model: "33",
         effort: "high",
       }),
     )
     assert.notEqual(
       base,
-      buildExaminationRendererEntryKey({
+      buildPendingExaminationEntryKey({
         repositoryPath: "/repos/project",
-        commitOid: "abc123",
+        contentScopeId: "b".repeat(40),
         personId: "p_1",
         questionCount: 8,
-        excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["alpha"] }],
-        assignmentContext: "A1",
         model: "22",
         effort: "medium",
       }),
     )
     assert.notEqual(
       base,
-      buildExaminationRendererEntryKey({
-        repositoryPath: "/repos/project",
-        commitOid: "abc123",
+      buildPendingExaminationEntryKey({
+        repositoryPath: "/repos/other",
+        contentScopeId: "a".repeat(40),
         personId: "p_1",
         questionCount: 8,
-        excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["beta"] }],
-        assignmentContext: null,
         model: "22",
         effort: "medium",
       }),

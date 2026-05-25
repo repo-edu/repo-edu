@@ -1,9 +1,13 @@
 import type {
   ExaminationGenerateQuestionsResult,
   ExaminationLookupQuestionsInput,
-  ExaminationProvenanceDrift,
   ExaminationQuestion,
+  ExaminationSourceReference,
   MilestoneProgress,
+} from "@repo-edu/application-contract"
+import {
+  buildExaminationLocalIdentityContext,
+  serializeExaminationArchiveStorageKey,
 } from "@repo-edu/application-contract"
 import type { BlameAuthorSummary } from "@repo-edu/domain/analysis"
 import type {
@@ -52,9 +56,12 @@ import {
 } from "../../stores/examination-store.js"
 import { useToastStore } from "../../stores/toast-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
-import { buildMemberExcerpts } from "./examination/build-excerpts.js"
 import {
-  buildExaminationRendererEntryKey,
+  buildExcerptFileSources,
+  buildMemberExcerpts,
+} from "./examination/build-excerpts.js"
+import {
+  buildPendingExaminationEntryKey,
   resolveExaminationBlockingReason,
   resolveExaminationEmptyState,
   shouldShowUnmatchedRosterWarning,
@@ -75,10 +82,17 @@ export function ExaminationTab() {
   const showAnswers = useExaminationStore((s) => s.showAnswers)
   const setShowAnswers = useExaminationStore((s) => s.setShowAnswers)
   const setEntry = useExaminationStore((s) => s.setEntry)
+  const clearEntry = useExaminationStore((s) => s.clearEntry)
   const [availableArchiveEntries, setAvailableArchiveEntries] = useState<
     AvailableArchiveEntry[]
   >([])
   const [selectedArchiveEntryKey, setSelectedArchiveEntryKey] = useState<
+    string | null
+  >(null)
+  const [requestedEntryKey, setRequestedEntryKey] = useState<string | null>(
+    null,
+  )
+  const [requestedEntryPendingKey, setRequestedEntryPendingKey] = useState<
     string | null
   >(null)
 
@@ -177,7 +191,18 @@ export function ExaminationTab() {
       selectedPersonId,
     )
   }, [blameResult, selectedPersonId])
-  const selectedEntryKey = useMemo(() => {
+  const selectedExcerptFileSources = useMemo(() => {
+    if (!blameResult) return {}
+    return buildExcerptFileSources(blameResult, selectedExcerpts)
+  }, [blameResult, selectedExcerpts])
+  const localIdentityContext = useMemo(() => {
+    if (!blameResult) return null
+    return buildExaminationLocalIdentityContext({
+      personDb: blameResult.personDbOverlay,
+      roster: analysisContext.course?.roster ?? null,
+    })
+  }, [analysisContext.course, blameResult])
+  const pendingEntryKey = useMemo(() => {
     if (
       !selectedRepoPath ||
       commitOid.length === 0 ||
@@ -188,13 +213,11 @@ export function ExaminationTab() {
     ) {
       return null
     }
-    return buildExaminationRendererEntryKey({
+    return buildPendingExaminationEntryKey({
       repositoryPath: selectedRepoPath,
-      commitOid,
+      contentScopeId: commitOid,
       personId: selectedPersonId,
       questionCount,
-      excerpts: selectedExcerpts,
-      assignmentContext: null,
       model: selectedModelCode,
       effort: selectedModelSpec.effort,
     })
@@ -207,6 +230,10 @@ export function ExaminationTab() {
     selectedPersonId,
     selectedRepoPath,
   ])
+  const selectedEntryKey =
+    requestedEntryKey !== null && requestedEntryPendingKey === pendingEntryKey
+      ? requestedEntryKey
+      : pendingEntryKey
   const entry = useExaminationStore((s) =>
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )
@@ -219,22 +246,12 @@ export function ExaminationTab() {
           email: selectedSummary.canonicalEmail,
         })
       : null
-  const selectedAuthorName =
-    selectedSummary !== null
-      ? (selectedDisplay?.name ?? selectedSummary.canonicalName)
-      : null
-  const selectedAuthorEmail =
-    selectedSummary !== null
-      ? (selectedDisplay?.email ?? selectedSummary.canonicalEmail)
-      : null
   const selectedLookupInput =
     useMemo<ExaminationLookupQuestionsInput | null>(() => {
       if (
-        !selectedRepoPath ||
         commitOid.length === 0 ||
         selectedPersonId === null ||
-        selectedAuthorName === null ||
-        selectedAuthorEmail === null ||
+        localIdentityContext === null ||
         selectedModelCode === null ||
         selectedModelSpec === null ||
         selectedExcerpts.length === 0
@@ -243,27 +260,23 @@ export function ExaminationTab() {
       }
       return {
         personId: selectedPersonId,
-        rosterMemberId: rosterMemberIdByPersonId.get(selectedPersonId) ?? null,
-        commitOid,
-        repositoryPath: selectedRepoPath,
-        authorName: selectedAuthorName,
-        authorEmail: selectedAuthorEmail,
+        contentScopeId: commitOid,
+        localIdentityContext,
         excerpts: selectedExcerpts,
+        excerptFileSources: selectedExcerptFileSources,
         questionCount,
         llmSettings,
       }
     }, [
       commitOid,
       llmSettings,
+      localIdentityContext,
       questionCount,
-      rosterMemberIdByPersonId,
-      selectedAuthorEmail,
-      selectedAuthorName,
       selectedExcerpts,
+      selectedExcerptFileSources,
       selectedModelCode,
       selectedModelSpec,
       selectedPersonId,
-      selectedRepoPath,
     ])
   const emptyStateMessage = resolveExaminationEmptyState({
     selectedRepositoryPath: selectedRepoPath,
@@ -275,7 +288,7 @@ export function ExaminationTab() {
   const refreshArchiveEntries = useCallback(
     async (
       lookupInput: ExaminationLookupQuestionsInput,
-      entryKey: string,
+      pendingKey: string,
       signal?: AbortSignal,
     ): Promise<void> => {
       setAvailableArchiveEntries([])
@@ -288,8 +301,13 @@ export function ExaminationTab() {
         },
       )
       if (signal?.aborted) return
+      const entryKey = serializeExaminationArchiveStorageKey(
+        result.requestedKey,
+      )
+      setRequestedEntryKey(entryKey)
+      setRequestedEntryPendingKey(pendingKey)
       const archiveEntries = result.availableSets.map((questionSet) =>
-        toAvailableArchiveEntry(lookupInput, questionSet),
+        toAvailableArchiveEntry(questionSet),
       )
       setAvailableArchiveEntries(archiveEntries)
       setSelectedArchiveEntryKey(
@@ -305,21 +323,23 @@ export function ExaminationTab() {
   )
 
   useEffect(() => {
-    if (selectedEntryKey === null || selectedLookupInput === null) {
+    if (pendingEntryKey === null || selectedLookupInput === null) {
       setAvailableArchiveEntries([])
       setSelectedArchiveEntryKey(null)
+      setRequestedEntryKey(null)
+      setRequestedEntryPendingKey(null)
       return
     }
 
     const abort = new AbortController()
     void refreshArchiveEntries(
       selectedLookupInput,
-      selectedEntryKey,
+      pendingEntryKey,
       abort.signal,
     ).catch((_error: unknown) => undefined)
 
     return () => abort.abort()
-  }, [refreshArchiveEntries, selectedEntryKey, selectedLookupInput])
+  }, [refreshArchiveEntries, pendingEntryKey, selectedLookupInput])
 
   const archiveEntries = useMemo(
     () =>
@@ -395,8 +415,6 @@ export function ExaminationTab() {
 
   const generate = async (
     personId: string,
-    authorName: string,
-    authorEmail: string,
     options?: { regenerate?: boolean },
   ) => {
     if (!blameResult) return
@@ -424,17 +442,18 @@ export function ExaminationTab() {
       })
       return
     }
-    const rosterMemberId = rosterMemberIdByPersonId.get(personId) ?? null
-    const entryKey = buildExaminationRendererEntryKey({
-      repositoryPath: selectedRepoPath,
-      commitOid,
-      personId,
-      questionCount,
-      excerpts,
-      assignmentContext: null,
-      model: selectedModelCode,
-      effort: selectedModelSpec.effort,
-    })
+    if (localIdentityContext === null) return
+    const excerptFileSources = buildExcerptFileSources(blameResult, excerpts)
+    const entryKey =
+      pendingEntryKey ??
+      buildPendingExaminationEntryKey({
+        repositoryPath: selectedRepoPath,
+        contentScopeId: commitOid,
+        personId,
+        questionCount,
+        model: selectedModelCode,
+        effort: selectedModelSpec.effort,
+      })
 
     const existing = examinationStoreInternals.abortByEntryKey.get(entryKey)
     existing?.abort()
@@ -448,7 +467,7 @@ export function ExaminationTab() {
       errorMessage: null,
       generatedAt: null,
       fromArchive: false,
-      provenanceDrift: null,
+      sourceReferences: [],
       archivedQuestionCount: null,
     })
 
@@ -457,12 +476,10 @@ export function ExaminationTab() {
         "examination.generateQuestions",
         {
           personId,
-          rosterMemberId,
-          commitOid,
-          repositoryPath: selectedRepoPath,
-          authorName,
-          authorEmail,
+          contentScopeId: commitOid,
+          localIdentityContext,
           excerpts,
+          excerptFileSources,
           questionCount,
           llmSettings,
           ...(options?.regenerate ? { regenerate: true } : {}),
@@ -473,18 +490,24 @@ export function ExaminationTab() {
         },
       )
       if (abort.signal.aborted) return
+      const archiveKey = serializeExaminationArchiveStorageKey(result.key)
       const loadedEntry = toExaminationEntry(result)
-      setEntry(entryKey, loadedEntry)
+      if (archiveKey !== entryKey) {
+        clearEntry(entryKey)
+      }
+      setEntry(archiveKey, loadedEntry)
+      setRequestedEntryKey(archiveKey)
+      setRequestedEntryPendingKey(entryKey)
       setAvailableArchiveEntries((entries) =>
         mergeAvailableArchiveEntries(entries, [
           {
-            key: entryKey,
+            key: archiveKey,
             questionCount: result.archivedProvenance.questionCount,
             entry: loadedEntry,
           },
         ]),
       )
-      setSelectedArchiveEntryKey(entryKey)
+      setSelectedArchiveEntryKey(archiveKey)
     } catch (error) {
       if (abort.signal.aborted) return
       const message =
@@ -500,7 +523,7 @@ export function ExaminationTab() {
         errorMessage: message,
         generatedAt: null,
         fromArchive: false,
-        provenanceDrift: null,
+        sourceReferences: [],
         archivedQuestionCount: null,
       })
       addToast(`Question generation failed: ${message}`, { tone: "error" })
@@ -551,9 +574,10 @@ export function ExaminationTab() {
         { tone: "success" },
       )
       if (selectedEntryKey !== null && selectedLookupInput !== null) {
-        void refreshArchiveEntries(selectedLookupInput, selectedEntryKey).catch(
-          (_error: unknown) => undefined,
-        )
+        void refreshArchiveEntries(
+          selectedLookupInput,
+          pendingEntryKey ?? selectedEntryKey,
+        ).catch((_error: unknown) => undefined)
       }
     } catch (error) {
       addToast(
@@ -576,6 +600,7 @@ export function ExaminationTab() {
       authorName: selectedDisplay?.name ?? selectedSummary.canonicalName,
       authorEmail: selectedDisplay?.email ?? selectedSummary.canonicalEmail,
       questions: displayedArchiveEntry.entry.questions,
+      sourceReferences: displayedArchiveEntry.entry.sourceReferences,
     })
     try {
       await navigator.clipboard.writeText(markdown)
@@ -651,20 +676,9 @@ export function ExaminationTab() {
               onQuestionCountChange={setQuestionCount}
               onShowAnswersChange={setShowAnswers}
               onSelectArchiveEntry={setSelectedArchiveEntryKey}
-              onGenerate={() =>
-                generate(
-                  selectedSummary.personId,
-                  selectedDisplay?.name ?? selectedSummary.canonicalName,
-                  selectedDisplay?.email ?? selectedSummary.canonicalEmail,
-                )
-              }
+              onGenerate={() => generate(selectedSummary.personId)}
               onRegenerate={() =>
-                generate(
-                  selectedSummary.personId,
-                  selectedDisplay?.name ?? selectedSummary.canonicalName,
-                  selectedDisplay?.email ?? selectedSummary.canonicalEmail,
-                  { regenerate: true },
-                )
+                generate(selectedSummary.personId, { regenerate: true })
               }
               onCopyMarkdown={copyMarkdown}
             />
@@ -781,6 +795,10 @@ function AuthorPanel({
               {rosterWarning}
             </p>
           ) : null}
+          <p className="mt-2 rounded border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+            Provider prompts use redacted excerpts, but local code may still
+            contain personal data after best-effort redaction.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">
@@ -846,10 +864,6 @@ function AuthorPanel({
         />
       ) : null}
 
-      {displayEntry?.status === "loaded" && displayEntry.provenanceDrift ? (
-        <ProvenanceDriftBanner drift={displayEntry.provenanceDrift} />
-      ) : null}
-
       <div className="min-h-0 flex-1 overflow-auto">
         {displayEntry?.status === "loaded" ? (
           <div className="flex flex-col gap-2">
@@ -861,6 +875,7 @@ function AuthorPanel({
             ) : null}
             <QuestionList
               questions={displayEntry.questions}
+              sourceReferences={displayEntry.sourceReferences}
               showAnswers={showAnswers}
             />
           </div>
@@ -919,21 +934,11 @@ function ArchiveSetSelector({
 }
 
 function toAvailableArchiveEntry(
-  input: ExaminationLookupQuestionsInput,
   result: ExaminationGenerateQuestionsResult,
 ): AvailableArchiveEntry {
   const questionCount = result.archivedProvenance.questionCount
   return {
-    key: buildExaminationRendererEntryKey({
-      repositoryPath: input.repositoryPath,
-      commitOid: input.commitOid,
-      personId: input.personId,
-      questionCount,
-      excerpts: result.archivedProvenance.excerpts,
-      assignmentContext: result.archivedProvenance.assignmentContext,
-      model: result.archivedProvenance.model,
-      effort: result.archivedProvenance.effort,
-    }),
+    key: serializeExaminationArchiveStorageKey(result.key),
     questionCount,
     entry: toExaminationEntry(result),
   }
@@ -949,7 +954,7 @@ function toExaminationEntry(
     errorMessage: null,
     generatedAt: new Date(result.archivedProvenance.createdAtMs).toISOString(),
     fromArchive: result.fromArchive,
-    provenanceDrift: result.provenanceDrift,
+    sourceReferences: result.sourceReferences,
     archivedQuestionCount: result.archivedProvenance.questionCount,
   }
 }
@@ -980,51 +985,17 @@ function compareAvailableArchiveEntries(
   return a.questionCount - b.questionCount
 }
 
-function ProvenanceDriftBanner({
-  drift,
-}: {
-  drift: ExaminationProvenanceDrift
-}) {
-  const items: { label: string; from: string; to: string }[] = []
-  if (drift.authorNameChanged) {
-    items.push({
-      label: "Name",
-      from: drift.authorNameChanged.from,
-      to: drift.authorNameChanged.to,
-    })
-  }
-  if (drift.authorEmailChanged) {
-    items.push({
-      label: "Email",
-      from: drift.authorEmailChanged.from,
-      to: drift.authorEmailChanged.to,
-    })
-  }
-  if (items.length === 0) return null
-  return (
-    <div className="rounded border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-      <div className="font-medium">Archived questions, context drifted:</div>
-      <ul className="mt-1 list-disc pl-5">
-        {items.map((item) => (
-          <li key={item.label}>
-            {item.label}: {item.from} -&gt; {item.to}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-1">
-        The questions below were generated against the previous context. Use
-        Regenerate if you need a fresh set.
-      </p>
-    </div>
-  )
-}
-
 type QuestionListProps = {
   questions: ExaminationQuestion[]
+  sourceReferences: ExaminationSourceReference[]
   showAnswers: boolean
 }
 
-function QuestionList({ questions, showAnswers }: QuestionListProps) {
+function QuestionList({
+  questions,
+  sourceReferences,
+  showAnswers,
+}: QuestionListProps) {
   return (
     <ol className="flex flex-col gap-3">
       {questions.map((question, index) => (
@@ -1038,12 +1009,9 @@ function QuestionList({ questions, showAnswers }: QuestionListProps) {
               <div className="text-sm font-medium">
                 {index + 1}. {question.question}
               </div>
-              {question.filePath !== null ? (
+              {formatQuestionReference(question, sourceReferences) !== null ? (
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {question.filePath}
-                  {question.lineRange !== null
-                    ? `:${question.lineRange.start}-${question.lineRange.end}`
-                    : ""}
+                  {formatQuestionReference(question, sourceReferences)}
                 </div>
               ) : null}
             </div>
@@ -1178,6 +1146,7 @@ function buildMarkdownTranscript(params: {
   authorName: string
   authorEmail: string
   questions: ExaminationQuestion[]
+  sourceReferences: ExaminationSourceReference[]
 }): string {
   const lines: string[] = [
     `# Oral examination - ${params.authorName}`,
@@ -1186,18 +1155,32 @@ function buildMarkdownTranscript(params: {
   ]
   for (const [index, question] of params.questions.entries()) {
     lines.push(`## Q${index + 1}. ${question.question}`)
-    if (question.filePath !== null) {
-      const range =
-        question.lineRange !== null
-          ? `:${question.lineRange.start}-${question.lineRange.end}`
-          : ""
-      lines.push(`_Reference: ${question.filePath}${range}_`)
+    const reference = formatQuestionReference(question, params.sourceReferences)
+    if (reference !== null) {
+      lines.push(`_Reference: ${reference}_`)
     }
     lines.push("")
     lines.push(`**Answer:** ${question.answer}`)
     lines.push("")
   }
   return lines.join("\n")
+}
+
+function formatQuestionReference(
+  question: ExaminationQuestion,
+  sourceReferences: readonly ExaminationSourceReference[],
+): string | null {
+  const { sourceId, lineRange } = question.anchor
+  if (sourceId === null) return null
+  const reference = sourceReferences.find((item) => item.sourceId === sourceId)
+  const range = lineRange === null ? "" : `:${lineRange.start}-${lineRange.end}`
+  if (reference === undefined || reference.occurrences.length !== 1) {
+    return `${sourceId}${range}`
+  }
+  const occurrence = reference.occurrences[0]
+  return occurrence === undefined
+    ? `${sourceId}${range}`
+    : `${occurrence.filePath}${range}`
 }
 
 function formatDateStamp(): string {

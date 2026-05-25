@@ -43,6 +43,14 @@ Configure connections to GitHub, GitLab, or Gitea. Each connection needs a provi
 
 Theme selection (light, dark, or follow system), date and time format preferences.
 
+## Examination privacy
+
+The Examination view can generate oral-exam questions with a configured LLM provider. Provider prompts contain redacted code excerpts, opaque excerpt IDs, line numbers, language labels, the question count, and model-independent instructions.
+
+Real author names, emails, roster IDs, repository paths, and file paths remain local to the app workflow. Archive bundles store pathless anchors and minimized provenance; imported bundles are user-supplied local content, not proof that repo-specific output scanning ran.
+
+Redaction removes comments where tokenization is supported and substitutes detected emails, matched local identifiers, git usernames, and obvious secret literals before the prompt is sent. Code excerpts may still contain personal data after best-effort redaction. Institutions remain responsible for legal basis, provider agreements, international transfers, retention, and student notices.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |

@@ -8,6 +8,7 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
+  TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
@@ -35,21 +36,34 @@ function recordingLlm(reply: string) {
 
 const sampleReply = JSON.stringify({
   questions: [
-    { question: "Q1?", answer: "A1.", filePath: "src/a.ts", lineRange: null },
+    {
+      question: "Q1?",
+      answer: "A1.",
+      anchor: { sourceId: "E1", lineRange: null },
+    },
   ],
 })
+
+const tokenizer: TokenizerPort = {
+  async loadTokenizerLanguage() {
+    throw new Error("Tokenizer not available in this test.")
+  },
+}
 
 function baseInput(
   llmSettings: ExaminationLlmSettings,
 ): ExaminationGenerateQuestionsInput {
   return {
     personId: "p_1",
-    rosterMemberId: "m_1",
-    commitOid: "oid-abc",
-    repositoryPath: "/repos/alice",
-    authorName: "Alice",
-    authorEmail: "alice@example.com",
-    excerpts: [{ filePath: "src/a.ts", startLine: 1, lines: ["line"] }],
+    contentScopeId: "a".repeat(40),
+    localIdentityContext: {
+      names: [],
+      emails: [],
+      opaqueIdentifiers: [],
+      gitUsernames: [],
+    },
+    excerpts: [{ filePath: "src/a.unknown", startLine: 1, lines: ["line"] }],
+    excerptFileSources: { "src/a.unknown": "line" },
     questionCount: 1,
     llmSettings,
   }
@@ -59,7 +73,11 @@ describe("examination workflow — LLM settings resolution", () => {
   it("rejects when no LLM connection is configured", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port } = recordingLlm(sampleReply)
-    const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
 
     await assert.rejects(
       () =>
@@ -80,7 +98,11 @@ describe("examination workflow — LLM settings resolution", () => {
   it("uses the per-provider default when settings entry is missing", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port, requests } = recordingLlm(sampleReply)
-    const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
 
     const result = await handlers["examination.generateQuestions"](
       baseInput({
@@ -106,7 +128,11 @@ describe("examination workflow — LLM settings resolution", () => {
   it("uses the explicit model code when set for the active provider", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port, requests } = recordingLlm(sampleReply)
-    const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
 
     const result = await handlers["examination.generateQuestions"](
       baseInput({
@@ -132,7 +158,11 @@ describe("examination workflow — LLM settings resolution", () => {
   it("rejects when the explicit model code targets a different provider", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port } = recordingLlm(sampleReply)
-    const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
 
     await assert.rejects(
       () =>
@@ -164,7 +194,11 @@ describe("examination workflow — LLM settings resolution", () => {
   it("misses the archive when the active model code or effort differs", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port } = recordingLlm(sampleReply)
-    const handlers = createExaminationWorkflowHandlers({ llm: port, archive })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
 
     const baseSettings: ExaminationLlmSettings = {
       llmConnections: [
@@ -189,6 +223,5 @@ describe("examination workflow — LLM settings resolution", () => {
     )
 
     assert.equal(second.fromArchive, false)
-    assert.equal(second.provenanceDrift, null)
   })
 })

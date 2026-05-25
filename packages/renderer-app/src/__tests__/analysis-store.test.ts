@@ -210,7 +210,7 @@ describe("analysis store", () => {
       errorMessage: null,
       generatedAt: "2026-04-24T00:00:00.000Z",
       fromArchive: false,
-      provenanceDrift: null,
+      sourceReferences: [],
       archivedQuestionCount: null,
     })
 
