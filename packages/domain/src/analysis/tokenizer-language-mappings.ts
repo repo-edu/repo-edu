@@ -128,7 +128,12 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
       "nowdoc_string",
       "string",
     ],
-    embeddedExpressionNodeKinds: ["text_interpolation"],
+    embeddedExpressionNodeKinds: [
+      "comment",
+      "dynamic_variable_name",
+      "text_interpolation",
+      "variable_name",
+    ],
   },
   py: {
     assetLanguage: "py",
@@ -191,13 +196,6 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
       "process_substitution",
     ],
   },
-  sql: {
-    assetLanguage: "sql",
-    commentNodeKinds: ["comment"],
-    documentationNodeKinds: [],
-    stringNodeKinds: ["string"],
-    embeddedExpressionNodeKinds: [],
-  },
   toml: {
     assetLanguage: "toml",
     commentNodeKinds: ["comment"],
@@ -217,7 +215,7 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
     assetLanguage: "xml",
     commentNodeKinds: ["Comment"],
     documentationNodeKinds: [],
-    stringNodeKinds: ["PubidLiteral", "SystemLiteral"],
+    stringNodeKinds: ["AttValue", "PubidLiteral", "SystemLiteral"],
     embeddedExpressionNodeKinds: [],
   },
 } as const satisfies Record<

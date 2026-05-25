@@ -31,7 +31,6 @@ const EXPECTED_SUPPORTED_LANGUAGES = [
   "robot",
   "rs",
   "shell",
-  "sql",
   "toml",
   "ts",
   "tsx",
@@ -123,6 +122,7 @@ describe("extensionToTokenizerLanguage", () => {
   it("keeps catalogue extension aliases mapped to parent language ids", () => {
     assert.equal(extensionToTokenizerLanguage("mjs"), "js")
     assert.equal(extensionToTokenizerLanguage("cts"), "ts")
+    assert.equal(extensionToTokenizerLanguage("sql"), undefined)
     assert.equal(extensionToTokenizerLanguage("xhtml"), undefined)
     assert.equal(extensionToLanguage("xhtml"), "html")
   })
@@ -197,6 +197,36 @@ describe("tokenizeSource", () => {
     assertSubstringKind(source, tokens, "/// docs", "documentation")
     assertSubstringKind(source, tokens, '"// not comment"', "string-literal")
     assertSubstringKind(source, tokens, "// line", "comment")
+  })
+
+  it("keeps PHP embedded code and comments out of string literal spans", async () => {
+    const loaded = await loadGrammarForTests("php")
+    const source = [
+      "<?php",
+      '$message = "hello {$name /* strip */}";',
+      '$literal = "plain /* not a comment */ text";',
+    ].join("\n")
+    const tokens = tokenizeSource(source, loaded)
+
+    assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, "$name", "code")
+    assertSubstringKind(source, tokens, "/* strip */", "comment")
+    assertSubstringKind(
+      source,
+      tokens,
+      "plain /* not a comment */ text",
+      "string-literal",
+    )
+  })
+
+  it("classifies XML attribute values as string literals", async () => {
+    const loaded = await loadGrammarForTests("xml")
+    const source = '<node label="Alice"><!-- strip --></node>'
+    const tokens = tokenizeSource(source, loaded)
+
+    assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, '"Alice"', "string-literal")
+    assertSubstringKind(source, tokens, "<!-- strip -->", "comment")
   })
 
   it("treats malformed source as code without throwing", async () => {

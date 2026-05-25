@@ -100,23 +100,19 @@ export async function stripCommentsForExcerpt(params: {
   )
   const windowEnd = windowStart + originalText.length
 
-  try {
-    const loaded = await params.tokenizer.loadTokenizerLanguage(language)
-    const projected = tokenizeSource(fullSource, loaded)
-      .map((token) => projectToken({ token, windowStart, windowEnd }))
-      .filter((token): token is Token => token !== null)
-    const chars = originalText.split("")
-    for (const token of projected) {
-      if (token.kind === "comment" || token.kind === "documentation") {
-        blankRange(chars, token.start, token.end)
-      }
+  const loaded = await params.tokenizer.loadTokenizerLanguage(language)
+  const projected = tokenizeSource(fullSource, loaded)
+    .map((token) => projectToken({ token, windowStart, windowEnd }))
+    .filter((token): token is Token => token !== null)
+  const chars = originalText.split("")
+  for (const token of projected) {
+    if (token.kind === "comment" || token.kind === "documentation") {
+      blankRange(chars, token.start, token.end)
     }
-    return {
-      lines: chars.join("").split("\n"),
-      spans: sourceSpansFromTokens(projected),
-      tokenizerTreatment: "stripped",
-    }
-  } catch {
-    return fallback(params.excerpt)
+  }
+  return {
+    lines: chars.join("").split("\n"),
+    spans: sourceSpansFromTokens(projected),
+    tokenizerTreatment: "stripped",
   }
 }

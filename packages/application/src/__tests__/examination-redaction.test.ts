@@ -1,11 +1,13 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { TokenizerPort } from "@repo-edu/host-runtime-contract"
 import {
   assertNoRequiredRedactionLeaks,
   buildRedactionPlaceholderPlan,
   type ClassifiedSourceSpan,
   redactExaminationSource,
 } from "../examination-workflows/redaction.js"
+import { stripCommentsForExcerpt } from "../examination-workflows/strip-comments.js"
 
 const redactionPolicyVersion = 1
 
@@ -80,6 +82,28 @@ describe("examination redaction", () => {
         renderedPrompt,
         requiredChecks: redacted.report.requiredChecks,
       }),
+    )
+  })
+
+  it("propagates tokenizer runtime failures for supported sources", async () => {
+    const tokenizer: TokenizerPort = {
+      async loadTokenizerLanguage() {
+        throw new Error("tokenizer unavailable")
+      },
+    }
+
+    await assert.rejects(
+      () =>
+        stripCommentsForExcerpt({
+          excerpt: {
+            filePath: "src/example.ts",
+            startLine: 1,
+            lines: ["// comment"],
+          },
+          fileSource: "// comment",
+          tokenizer,
+        }),
+      /tokenizer unavailable/,
     )
   })
 })
