@@ -285,7 +285,7 @@ function collectNameCandidates(params: {
 function collectLiteralCandidates(params: {
   text: string
   values: readonly string[]
-  replacementClass: "opaqueIdentifier" | "gitUsername"
+  replacementClass: "email" | "opaqueIdentifier" | "gitUsername"
   caseSensitive: boolean
 }): ReplacementCandidate[] {
   const candidates: ReplacementCandidate[] = []
@@ -313,8 +313,11 @@ function collectLiteralCandidates(params: {
   return candidates
 }
 
-function collectEmailCandidates(text: string): ReplacementCandidate[] {
-  return findEmailAddressSpans(text).map((span) => {
+function collectEmailCandidates(
+  text: string,
+  knownEmails: readonly string[],
+): ReplacementCandidate[] {
+  const shaped = findEmailAddressSpans(text).map((span) => {
     const value = text.slice(span.start, span.end)
     return {
       ...span,
@@ -325,6 +328,15 @@ function collectEmailCandidates(text: string): ReplacementCandidate[] {
       assertGlobally: true,
     }
   })
+  return [
+    ...shaped,
+    ...collectLiteralCandidates({
+      text,
+      values: knownEmails,
+      replacementClass: "email",
+      caseSensitive: false,
+    }),
+  ]
 }
 
 function collectRegexSecretCandidates(
@@ -426,7 +438,7 @@ function collectRequiredCandidates(params: {
   includeSecrets: boolean
 }): ReplacementCandidate[] {
   return [
-    ...collectEmailCandidates(params.text),
+    ...collectEmailCandidates(params.text, params.localIdentityContext.emails),
     ...(params.includeSecrets ? collectSecretCandidates(params.text) : []),
     ...collectNameCandidates({
       text: params.text,
@@ -657,7 +669,10 @@ export function redactExaminationSource(params: {
     candidates,
     placeholderPlan: params.placeholderPlan,
   })
-  const residualEmails = findEmailAddressSpans(applied.text)
+  const residualEmails = collectEmailCandidates(
+    applied.text,
+    params.localIdentityContext.emails,
+  )
   const residualSecrets = collectSecretCandidates(applied.text)
   return {
     lines: applied.text.split("\n"),
@@ -679,10 +694,12 @@ export function redactExaminationSource(params: {
 
 function containsRequiredCheck(text: string, check: RedactionRequiredCheck) {
   if (check.kind === "email") {
-    return findEmailAddressSpans(text).some(
-      (span) =>
-        text.slice(span.start, span.end).toLowerCase() ===
-        check.value.toLowerCase(),
+    return (
+      findLiteralMatches({
+        text,
+        value: check.value,
+        caseSensitive: check.caseSensitive,
+      }).length > 0
     )
   }
   if (check.kind === "secret") {
@@ -744,8 +761,19 @@ export function scanExaminationOutputForLeaks(params: {
     spans: [{ start: 0, end: text.length, kind: "code" }],
     mode: "prose",
     includeSecrets: false,
-  }).filter((candidate) => candidate.replacementClass !== "email")
-  if (knownIdentifierLeaks.length > 0) {
+  })
+  if (
+    knownIdentifierLeaks.some(
+      (candidate) => candidate.replacementClass === "email",
+    )
+  ) {
+    return { ok: false, reason: "email" }
+  }
+  if (
+    knownIdentifierLeaks.some(
+      (candidate) => candidate.replacementClass !== "email",
+    )
+  ) {
     return { ok: false, reason: "known-identifier" }
   }
   return { ok: true, reason: null }

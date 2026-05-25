@@ -6,6 +6,7 @@ import {
   buildRedactionPlaceholderPlan,
   type ClassifiedSourceSpan,
   redactExaminationSource,
+  scanExaminationOutputForLeaks,
 } from "../examination-workflows/redaction.js"
 import { stripCommentsForExcerpt } from "../examination-workflows/strip-comments.js"
 
@@ -83,6 +84,48 @@ describe("examination redaction", () => {
         requiredChecks: redacted.report.requiredChecks,
       }),
     )
+  })
+
+  it("redacts known local email literals even when they are not email-shaped", () => {
+    const context = {
+      ...identityContext,
+      emails: ["ADA@LOCALHOST"],
+    }
+    const lines = ['const owner = "ada@localhost"']
+    const redacted = redactExaminationSource({
+      lines,
+      spans: allCode(lines),
+      localIdentityContext: context,
+      redactionPolicyVersion,
+    })
+    const renderedPrompt = redacted.lines.join("\n")
+
+    assert.match(renderedPrompt, /<redacted-email-1>/)
+    assert.doesNotMatch(renderedPrompt, /ada@localhost/i)
+    assert.doesNotThrow(() =>
+      assertNoRequiredRedactionLeaks({
+        renderedPrompt,
+        requiredChecks: redacted.report.requiredChecks,
+      }),
+    )
+  })
+
+  it("blocks provider output that echoes a known local email literal", () => {
+    const result = scanExaminationOutputForLeaks({
+      questions: [
+        {
+          question: "Why?",
+          answer: "Ask ada@localhost about the invariant.",
+          anchor: { sourceId: null, lineRange: null },
+        },
+      ],
+      localIdentityContext: {
+        ...identityContext,
+        emails: ["ADA@LOCALHOST"],
+      },
+    })
+
+    assert.deepEqual(result, { ok: false, reason: "email" })
   })
 
   it("propagates tokenizer runtime failures for supported sources", async () => {

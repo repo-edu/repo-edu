@@ -340,6 +340,9 @@ export function ExaminationTab({
       signal?: AbortSignal,
     ): Promise<void> => {
       setAvailableArchiveEntries([])
+      setSelectedArchiveEntryKey(null)
+      setRequestedEntryKey(null)
+      setRequestedEntryPendingKey(null)
       const result = await workflowClient.run(
         "examination.lookupQuestions",
         lookupInput,
