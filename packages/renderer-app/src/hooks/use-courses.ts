@@ -1,5 +1,10 @@
 import {
+  activeCourseIdFromSurface,
+  type PersistedActiveSurface,
+} from "@repo-edu/domain/settings"
+import {
   type CourseBacking,
+  type CourseSummary,
   createBlankCourse,
   type PersistedCourse,
 } from "@repo-edu/domain/types"
@@ -28,6 +33,42 @@ function initialTabForBacking(backing: CourseBacking) {
   return "groups-assignments"
 }
 
+export function resolveActiveSurfaceRedirectForCourses(
+  activeSurface: PersistedActiveSurface,
+  courses: readonly Pick<CourseSummary, "id" | "backing">[],
+): { surface: PersistedActiveSurface; courseBacking?: CourseBacking } | null {
+  const activeCourseId = activeCourseIdFromSurface(activeSurface)
+  const activeCourseSummary =
+    activeCourseId === null
+      ? null
+      : (courses.find((course) => course.id === activeCourseId) ?? null)
+
+  if (
+    activeSurface.kind === "submission" &&
+    activeSurface.courseId !== undefined &&
+    activeCourseSummary !== null &&
+    activeCourseSummary.backing !== "lms"
+  ) {
+    return {
+      surface: { kind: "course", courseId: activeSurface.courseId },
+      courseBacking: activeCourseSummary.backing,
+    }
+  }
+
+  if (activeCourseId !== null && activeCourseSummary === null) {
+    const fallback = courses[0] ?? null
+    if (fallback === null) {
+      return { surface: { kind: "home" } }
+    }
+    return {
+      surface: { kind: "course", courseId: fallback.id },
+      courseBacking: fallback.backing,
+    }
+  }
+
+  return null
+}
+
 export function pruneLoadedSubmissionFoldersForCourses(
   courses: readonly Pick<PersistedCourse, "id" | "backing">[],
 ): boolean {
@@ -50,41 +91,15 @@ export function useCourses() {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
       pruneLoadedSubmissionFoldersForCourses(list)
-      const uiState = useUiStore.getState()
-      const activeSurface = uiState.activeSurface
-      const activeCourseId = selectActiveCourseId(uiState)
-      const activeCourseSummary =
-        activeCourseId === null
-          ? null
-          : (list.find((course) => course.id === activeCourseId) ?? null)
-
-      if (
-        activeSurface.kind === "submission" &&
-        activeSurface.courseId !== undefined &&
-        activeCourseSummary !== null &&
-        activeCourseSummary.backing !== "lms"
-      ) {
-        await activateSurface(
-          { kind: "course", courseId: activeSurface.courseId },
-          {
-            courseBacking: activeCourseSummary.backing,
-            skipCourseFlush: true,
-          },
-        )
-        return
-      }
-
-      if (activeCourseId !== null && activeCourseSummary === null) {
-        const fallback = list[0] ?? null
-        await activateSurface(
-          fallback === null
-            ? { kind: "home" }
-            : { kind: "course", courseId: fallback.id },
-          {
-            courseBacking: fallback?.backing,
-            skipCourseFlush: true,
-          },
-        )
+      const redirect = resolveActiveSurfaceRedirectForCourses(
+        useUiStore.getState().activeSurface,
+        list,
+      )
+      if (redirect !== null) {
+        await activateSurface(redirect.surface, {
+          courseBacking: redirect.courseBacking,
+          skipCourseFlush: true,
+        })
       }
     } finally {
       useUiStore.getState().setCourseListLoading(false)

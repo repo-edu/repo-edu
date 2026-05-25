@@ -86,6 +86,7 @@ type UiState = {
 
   // Course list cache
   courseList: CourseSummary[]
+  courseListLoaded: boolean
   courseListLoading: boolean
 
   // Close prompt
@@ -183,6 +184,7 @@ const initialState: UiState = {
   syncGroupSetTriggerId: null,
 
   courseList: [],
+  courseListLoaded: false,
   courseListLoading: false,
 
   closePromptVisible: false,
@@ -333,7 +335,12 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 
   setCourseList: (list) =>
-    set((state) => setIfChanged(state, "courseList", list)),
+    set((state) => {
+      if (Object.is(state.courseList, list) && state.courseListLoaded) {
+        return state
+      }
+      return { courseList: list, courseListLoaded: true }
+    }),
   setCourseListLoading: (loading) =>
     set((state) => setIfChanged(state, "courseListLoading", loading)),
 
@@ -349,6 +356,7 @@ export const selectActiveTab = (state: UiState) => state.activeTab
 export const selectActiveSurface = (state: UiState) => state.activeSurface
 export const selectActiveCourseId = (state: UiState) =>
   activeCourseIdFromSurface(state.activeSurface)
+export const selectCourseListLoaded = (state: UiState) => state.courseListLoaded
 export const selectActiveFolderPath = (state: UiState) =>
   state.activeSurface.kind === "folder" ? state.activeSurface.path : null
 export const selectActiveSubmissionPath = (state: UiState) =>

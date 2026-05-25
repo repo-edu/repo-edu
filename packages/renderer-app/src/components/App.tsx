@@ -19,6 +19,10 @@ import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
+import {
+  pruneLoadedSubmissionFoldersForCourses,
+  resolveActiveSurfaceRedirectForCourses,
+} from "../hooks/use-courses.js"
 import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
@@ -38,6 +42,7 @@ import {
 import {
   selectActiveCourseId,
   selectActiveSurface,
+  selectCourseListLoaded,
   useUiStore,
 } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
@@ -107,6 +112,7 @@ function AppShell() {
   const activeSurface = useUiStore(selectActiveSurface)
   const activeCourseId = useUiStore(selectActiveCourseId)
   const courseList = useUiStore((s) => s.courseList)
+  const courseListLoaded = useUiStore(selectCourseListLoaded)
 
   const theme = useAppSettingsStore(selectTheme)
   const appSettingsStatus = useAppSettingsStore(selectAppSettingsStatus)
@@ -203,6 +209,27 @@ function AppShell() {
 
   // Apply theme.
   useTheme(theme)
+
+  useEffect(() => {
+    if (appSettingsStatus !== "loaded" || !courseListLoaded) return
+
+    pruneLoadedSubmissionFoldersForCourses(courseList)
+    const redirect = resolveActiveSurfaceRedirectForCourses(
+      activeSurface,
+      courseList,
+    )
+    if (redirect === null) return
+    void activateSurface(redirect.surface, {
+      courseBacking: redirect.courseBacking,
+      skipCourseFlush: true,
+    })
+  }, [
+    activeSurface,
+    activateSurface,
+    appSettingsStatus,
+    courseList,
+    courseListLoaded,
+  ])
 
   // Load the active course when its identity changes.
   useLoadCourse(activeCourseId)

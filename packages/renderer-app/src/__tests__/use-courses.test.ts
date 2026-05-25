@@ -17,7 +17,10 @@ import {
   clearWorkflowClient,
   setWorkflowClient,
 } from "../contexts/workflow-client.js"
-import { pruneLoadedSubmissionFoldersForCourses } from "../hooks/use-courses.js"
+import {
+  pruneLoadedSubmissionFoldersForCourses,
+  resolveActiveSurfaceRedirectForCourses,
+} from "../hooks/use-courses.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
@@ -49,6 +52,60 @@ beforeEach(() => {
 })
 
 describe("course refresh submission pruning", () => {
+  it("marks the course list ready when an empty list has loaded", () => {
+    assert.equal(useUiStore.getState().courseListLoaded, false)
+
+    useUiStore.getState().setCourseList([])
+
+    assert.equal(useUiStore.getState().courseListLoaded, true)
+  })
+
+  it("redirects active submissions whose attached course is stale", () => {
+    assert.deepStrictEqual(
+      resolveActiveSurfaceRedirectForCourses(
+        {
+          kind: "submission",
+          path: "/submissions/ada",
+          courseId: "course-1",
+        },
+        [courseSummary("course-1", "repobee")],
+      ),
+      {
+        surface: { kind: "course", courseId: "course-1" },
+        courseBacking: "repobee",
+      },
+    )
+
+    assert.deepStrictEqual(
+      resolveActiveSurfaceRedirectForCourses(
+        {
+          kind: "submission",
+          path: "/submissions/ada",
+          courseId: "missing",
+        },
+        [courseSummary("course-2", "lms")],
+      ),
+      {
+        surface: { kind: "course", courseId: "course-2" },
+        courseBacking: "lms",
+      },
+    )
+  })
+
+  it("keeps valid attached submissions on the submission surface", () => {
+    assert.equal(
+      resolveActiveSurfaceRedirectForCourses(
+        {
+          kind: "submission",
+          path: "/submissions/ada",
+          courseId: "course-1",
+        },
+        [courseSummary("course-1", "lms")],
+      ),
+      null,
+    )
+  })
+
   it("does not save app settings before settings have loaded", () => {
     let saveCalls = 0
     const client = createWorkflowClient({
