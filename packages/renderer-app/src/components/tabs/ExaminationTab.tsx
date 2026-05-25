@@ -67,6 +67,7 @@ import {
   buildPendingExaminationEntryKey,
   resolveExaminationBlockingReason,
   resolveExaminationEmptyState,
+  resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "./examination/view-state.js"
 
@@ -262,10 +263,15 @@ export function ExaminationTab({
     selectedModelCode,
     selectedModelSpec,
   ])
-  const selectedEntryKey =
-    requestedEntryKey !== null && requestedEntryPendingKey === pendingEntryKey
-      ? requestedEntryKey
-      : pendingEntryKey
+  const pendingEntry = useExaminationStore((s) =>
+    pendingEntryKey ? (s.entriesByKey.get(pendingEntryKey) ?? null) : null,
+  )
+  const selectedEntryKey = resolveVisibleExaminationEntryKey({
+    pendingEntryKey,
+    requestedEntryKey,
+    requestedEntryPendingKey,
+    pendingEntryIsLoading: pendingEntry?.status === "loading",
+  })
   const entry = useExaminationStore((s) =>
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )

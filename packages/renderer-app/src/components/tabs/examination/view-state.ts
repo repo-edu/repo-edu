@@ -69,3 +69,21 @@ export function buildPendingExaminationEntryKey(params: {
     params.effort,
   ])
 }
+
+export function resolveVisibleExaminationEntryKey(params: {
+  pendingEntryKey: string | null
+  requestedEntryKey: string | null
+  requestedEntryPendingKey: string | null
+  pendingEntryIsLoading: boolean
+}): string | null {
+  if (params.pendingEntryKey !== null && params.pendingEntryIsLoading) {
+    return params.pendingEntryKey
+  }
+  if (
+    params.requestedEntryKey !== null &&
+    params.requestedEntryPendingKey === params.pendingEntryKey
+  ) {
+    return params.requestedEntryKey
+  }
+  return params.pendingEntryKey
+}

@@ -6,6 +6,7 @@ import {
   buildPendingExaminationEntryKey,
   canShowExaminationView,
   resolveExaminationEmptyState,
+  resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "../components/tabs/examination/view-state.js"
 
@@ -119,6 +120,64 @@ describe("examination view state", () => {
         model: "22",
         effort: "medium",
       }),
+    )
+  })
+
+  it("keeps the pending entry visible while generation is loading", () => {
+    const pendingEntryKey = buildPendingExaminationEntryKey({
+      repositoryPath: "/repos/project",
+      contentScopeId: "a".repeat(40),
+      personId: "p_1",
+      questionCount: 8,
+      model: "22",
+      effort: "medium",
+    })
+    const requestedEntryKey = JSON.stringify([
+      "examination-archive-key-v2",
+      "p_1",
+      "a".repeat(40),
+      8,
+      "payload",
+      "context",
+    ])
+
+    assert.equal(
+      resolveVisibleExaminationEntryKey({
+        pendingEntryKey,
+        requestedEntryKey,
+        requestedEntryPendingKey: pendingEntryKey,
+        pendingEntryIsLoading: true,
+      }),
+      pendingEntryKey,
+    )
+  })
+
+  it("uses the archive lookup entry when no generation is loading", () => {
+    const pendingEntryKey = buildPendingExaminationEntryKey({
+      repositoryPath: "/repos/project",
+      contentScopeId: "a".repeat(40),
+      personId: "p_1",
+      questionCount: 8,
+      model: "22",
+      effort: "medium",
+    })
+    const requestedEntryKey = JSON.stringify([
+      "examination-archive-key-v2",
+      "p_1",
+      "a".repeat(40),
+      8,
+      "payload",
+      "context",
+    ])
+
+    assert.equal(
+      resolveVisibleExaminationEntryKey({
+        pendingEntryKey,
+        requestedEntryKey,
+        requestedEntryPendingKey: pendingEntryKey,
+        pendingEntryIsLoading: false,
+      }),
+      requestedEntryKey,
     )
   })
 })
