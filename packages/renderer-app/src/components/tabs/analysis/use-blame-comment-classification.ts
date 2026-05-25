@@ -1,9 +1,11 @@
-import type { FileBlame } from "@repo-edu/domain/analysis"
+import type {
+  FileBlame,
+  TokenizerSupportedLanguage,
+} from "@repo-edu/domain/analysis"
 import {
   classifyCommentLines,
   extensionToTokenizerLanguage,
 } from "@repo-edu/domain/analysis"
-import { loadRendererTokenizerLanguage } from "@repo-edu/renderer-app/source-tokenizer"
 import { useEffect, useRef, useState } from "react"
 import {
   MAX_HIGHLIGHT_BYTES,
@@ -13,6 +15,15 @@ import {
 function getFileExtension(path: string): string {
   const dot = path.lastIndexOf(".")
   return dot >= 0 ? path.slice(dot + 1) : ""
+}
+
+async function loadBlameTokenizerLanguage(
+  language: TokenizerSupportedLanguage,
+) {
+  const { loadRendererTokenizerLanguage } = await import(
+    "@repo-edu/renderer-app/source-tokenizer"
+  )
+  return await loadRendererTokenizerLanguage(language)
 }
 
 export function useBlameCommentClassification(
@@ -59,7 +70,7 @@ export function useBlameCommentClassification(
     setCommentLines(null)
     void (async () => {
       try {
-        const loaded = await loadRendererTokenizerLanguage(language)
+        const loaded = await loadBlameTokenizerLanguage(language)
         if (versionRef.current !== localVersion) return
 
         const result = classifyCommentLines(

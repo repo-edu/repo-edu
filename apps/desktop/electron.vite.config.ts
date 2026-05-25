@@ -76,6 +76,36 @@ function copyMainTokenizerAssetsPlugin() {
   }
 }
 
+type BuildWarning = {
+  readonly code?: string
+  readonly id?: string
+  readonly message: string
+}
+
+function referencesWebTreeSitterRuntime(reference: string | undefined) {
+  const normalized = reference?.replaceAll("\\", "/") ?? ""
+  return normalized.includes("/web-tree-sitter/web-tree-sitter.js")
+}
+
+function shouldSuppressKnownWebTreeSitterWarning(warning: BuildWarning) {
+  const isWebTreeSitterEvalWarning =
+    warning.code === "EVAL" &&
+    warning.message.includes("Use of eval") &&
+    referencesWebTreeSitterRuntime(warning.id ?? warning.message)
+
+  if (isWebTreeSitterEvalWarning) {
+    return true
+  }
+
+  const isBrowserBuiltinExternalWarning =
+    warning.message.includes("externalized for browser compatibility") &&
+    (warning.message.includes('Module "fs/promises"') ||
+      warning.message.includes('Module "module"')) &&
+    referencesWebTreeSitterRuntime(warning.message)
+
+  return isBrowserBuiltinExternalWarning
+}
+
 const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
@@ -96,6 +126,13 @@ export default defineConfig({
         // Keeping the SDKs external lets Node's own resolver find the binary
         // under the pnpm-installed node_modules at runtime.
         external: [/^@anthropic-ai\//, /^@openai\//],
+        onwarn(warning, warn) {
+          if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
+            return
+          }
+
+          warn(warning)
+        },
       },
     },
   },
@@ -130,6 +167,10 @@ export default defineConfig({
         // are not used in this Electron renderer bundle. They are expected and
         // noisy for runtime validation output, so we suppress only this case.
         onwarn(warning, warn) {
+          if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
+            return
+          }
+
           const isUseClientDirectiveWarning =
             warning.code === "MODULE_LEVEL_DIRECTIVE" &&
             warning.message.includes('"use client"')

@@ -23,10 +23,10 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
+import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
 import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
-import { loadRendererTokenizerLanguage } from "@repo-edu/renderer-app/source-tokenizer"
 import React from "react"
 import { createRoot as createReactRoot } from "react-dom/client"
 import { createRecordedAnalysisGitMock } from "./fixtures/analysis-git-mock.js"
@@ -70,6 +70,13 @@ function toBase64(value: string): string {
     return btoa(binary)
   }
   return value
+}
+
+async function loadDocsTokenizerLanguage(id: TokenizerSupportedLanguage) {
+  const { loadRendererTokenizerLanguage } = await import(
+    "@repo-edu/renderer-app/source-tokenizer"
+  )
+  return await loadRendererTokenizerLanguage(id)
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +344,7 @@ export function createDocsDemoRuntime() {
           },
           archive,
           tokenizer: {
-            loadTokenizerLanguage: loadRendererTokenizerLanguage,
+            loadTokenizerLanguage: loadDocsTokenizerLanguage,
           },
         }),
         ...createExaminationArchiveWorkflowHandlers({
