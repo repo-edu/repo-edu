@@ -532,6 +532,7 @@ export function ExaminationTab({
       fromArchive: false,
       sourceReferences: [],
       archivedQuestionCount: null,
+      partialQuestionCount: null,
     })
 
     try {
@@ -588,6 +589,7 @@ export function ExaminationTab({
         fromArchive: false,
         sourceReferences: [],
         archivedQuestionCount: null,
+        partialQuestionCount: null,
       })
       addToast(`Question generation failed: ${message}`, { tone: "error" })
     } finally {
@@ -945,6 +947,13 @@ function AuthorPanel({
                 {displayedArchiveEntry.questionCount === 1 ? "" : "s"}
               </p>
             ) : null}
+            {displayEntry.partialQuestionCount !== null ? (
+              <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                Provider returned {displayEntry.partialQuestionCount.accepted}{" "}
+                of {displayEntry.partialQuestionCount.requested} requested
+                questions. This partial set was archived under its actual count.
+              </p>
+            ) : null}
             <QuestionList
               questions={displayEntry.questions}
               sourceReferences={displayEntry.sourceReferences}
@@ -1028,6 +1037,13 @@ function toExaminationEntry(
     fromArchive: result.fromArchive,
     sourceReferences: result.sourceReferences,
     archivedQuestionCount: result.archivedProvenance.questionCount,
+    partialQuestionCount:
+      result.requestedQuestionCount > result.archivedProvenance.questionCount
+        ? {
+            requested: result.requestedQuestionCount,
+            accepted: result.archivedProvenance.questionCount,
+          }
+        : null,
   }
 }
 

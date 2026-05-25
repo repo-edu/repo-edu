@@ -16,6 +16,10 @@ export type ExaminationEntry = {
   fromArchive: boolean
   sourceReferences: ExaminationSourceReference[]
   archivedQuestionCount: number | null
+  partialQuestionCount: {
+    requested: number
+    accepted: number
+  } | null
 }
 
 type ExaminationState = {

@@ -64,8 +64,10 @@ const baseRecord: ExaminationArchiveRecord = {
 }
 
 function createRecordingLlm(
-  reply: string,
+  replyOrReplies: string | readonly string[],
 ): LlmPort & { calls: number; requests: LlmRunRequest[] } {
+  const replies =
+    typeof replyOrReplies === "string" ? [replyOrReplies] : replyOrReplies
   const state = { calls: 0, requests: [] as LlmRunRequest[] }
   const port: LlmPort & { calls: number; requests: LlmRunRequest[] } = {
     get calls() {
@@ -75,6 +77,8 @@ function createRecordingLlm(
       return state.requests
     },
     async run(_request: LlmRunRequest): Promise<LlmRunResult> {
+      const reply =
+        replies[Math.min(state.calls, replies.length - 1)] ?? replies[0] ?? ""
       state.calls += 1
       state.requests.push(_request)
       return {
@@ -86,11 +90,11 @@ function createRecordingLlm(
   return port
 }
 
-function sampleLlmReply(questionCount: number): string {
+function sampleLlmReply(questionCount: number, sourceId = "E1"): string {
   const questions = Array.from({ length: questionCount }, (_, i) => ({
     question: `Q${i + 1}?`,
     answer: `A${i + 1}.`,
-    anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+    anchor: { sourceId, lineRange: { start: 1, end: 2 } },
   }))
   return JSON.stringify({ questions })
 }
@@ -321,6 +325,58 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.doesNotMatch(prompt, /\be1\b/)
   })
 
+  it("misses the archive when source id assignment changes", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm([
+      sampleLlmReply(1, "SRC1"),
+      sampleLlmReply(1, "E1"),
+    ])
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive,
+      tokenizer,
+    })
+    const input = {
+      ...baseInput(),
+      excerpts: [
+        {
+          filePath: "src/a.unknown",
+          startLine: 1,
+          lines: ["const value = 1"],
+        },
+      ],
+      excerptFileSources: { "src/a.unknown": "const value = 1" },
+      questionCount: 1,
+    }
+
+    const first = await handlers["examination.generateQuestions"]({
+      ...input,
+      localIdentityContext: {
+        names: [],
+        emails: [],
+        opaqueIdentifiers: [],
+        gitUsernames: ["e1"],
+      },
+    })
+    const second = await handlers["examination.generateQuestions"]({
+      ...input,
+      localIdentityContext: {
+        names: [],
+        emails: [],
+        opaqueIdentifiers: [],
+        gitUsernames: [],
+      },
+    })
+
+    assert.equal(llm.calls, 2)
+    assert.notEqual(
+      first.key.providerPayloadFingerprint,
+      second.key.providerPayloadFingerprint,
+    )
+    assert.equal(first.questions[0]?.anchor.sourceId, "SRC1")
+    assert.equal(second.questions[0]?.anchor.sourceId, "E1")
+  })
+
   it("stores partial provider output under the accepted question count", async () => {
     const archive = createInMemoryExaminationArchive()
     const llm = createRecordingLlm(sampleLlmReply(1))
@@ -342,6 +398,7 @@ describe("examination.generateQuestions archive behavior", () => {
     const lookup = await handlers["examination.lookupQuestions"](baseInput())
 
     assert.equal(result.questions.length, 1)
+    assert.equal(result.requestedQuestionCount, 2)
     assert.equal(result.key.questionCount, 1)
     assert.equal(result.archivedProvenance.questionCount, 1)
     assert.match(warnings[0] ?? "", /Provider returned 1 of 2 requested/)

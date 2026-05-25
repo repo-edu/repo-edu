@@ -625,6 +625,10 @@ function providerExcerptIdentityKey(
   ].join("\u001f")
 }
 
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
 function normalizeSourceIdForbiddenValue(value: string): string {
   return value.trim().split(/\s+/).join(" ").toLowerCase()
 }
@@ -652,21 +656,40 @@ function chooseSourceId(params: {
 
 export function buildExaminationProviderPayloadFingerprint(
   identities: readonly ExaminationProviderExcerptIdentity[],
+  options: {
+    sourceIds?: readonly string[]
+  } = {},
 ): string {
-  const serialized = [...identities]
-    .toSorted((a, b) => {
-      const aKey = providerExcerptIdentityKey(a)
-      const bKey = providerExcerptIdentityKey(b)
-      return aKey < bKey ? -1 : aKey > bKey ? 1 : 0
+  if (
+    options.sourceIds !== undefined &&
+    options.sourceIds.length !== identities.length
+  ) {
+    throw new Error("Source id count must match examination excerpt count.")
+  }
+  const serialized = identities
+    .map((identity, index) => {
+      const identityKey = providerExcerptIdentityKey(identity)
+      const sourceId = options.sourceIds?.[index] ?? null
+      return { identityKey, sourceId }
     })
-    .filter((identity, index, sorted) => {
-      if (index === 0) return true
+    .toSorted((a, b) => {
       return (
-        providerExcerptIdentityKey(identity) !==
-        providerExcerptIdentityKey(sorted[index - 1])
+        compareStrings(a.identityKey, b.identityKey) ||
+        compareStrings(a.sourceId ?? "", b.sourceId ?? "")
       )
     })
-    .map((identity) => providerExcerptIdentityKey(identity))
+    .filter((entry, index, sorted) => {
+      if (index === 0) return true
+      return (
+        entry.identityKey !== sorted[index - 1].identityKey ||
+        entry.sourceId !== sorted[index - 1].sourceId
+      )
+    })
+    .map((entry) =>
+      entry.sourceId === null
+        ? entry.identityKey
+        : [entry.identityKey, entry.sourceId].join("\u001d"),
+    )
     .join("\u001e")
   return fnv1a32Hex(
     JSON.stringify([EXAMINATION_REDACTION_POLICY_VERSION, serialized]),
@@ -986,6 +1009,7 @@ export type ExaminationGenerateQuestionsResult = {
   questions: ExaminationQuestion[]
   usage: ExaminationUsage
   fromArchive: boolean
+  requestedQuestionCount: number
   archivedProvenance: ExaminationArchivedProvenance
   sourceReferences: ExaminationSourceReference[]
 }

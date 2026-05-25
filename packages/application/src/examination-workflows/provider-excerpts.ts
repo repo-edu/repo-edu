@@ -210,6 +210,7 @@ export async function prepareExaminationProviderExcerpts(params: {
     },
     providerPayloadFingerprint: buildExaminationProviderPayloadFingerprint(
       preparedWithoutIds.map((entry) => entry.identity),
+      { sourceIds },
     ),
     sourceReferences: [...sourceReferenceById.values()].toSorted((a, b) =>
       compareSourceIds(a.sourceId, b.sourceId),

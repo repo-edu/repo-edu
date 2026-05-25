@@ -89,6 +89,7 @@ export function createExaminationWorkflowHandlers(
           return toResult(hit, {
             fromArchive: true,
             sourceReferences: prepared.sourceReferences,
+            requestedQuestionCount: input.questionCount,
           })
         }
       }
@@ -179,6 +180,7 @@ export function createExaminationWorkflowHandlers(
       return toResult(record, {
         fromArchive: false,
         sourceReferences: prepared.sourceReferences,
+        requestedQuestionCount: input.questionCount,
       })
     },
     "examination.lookupQuestions": async (
@@ -221,6 +223,7 @@ export function createExaminationWorkflowHandlers(
           toResult(record, {
             fromArchive: true,
             sourceReferences: prepared.sourceReferences,
+            requestedQuestionCount: record.provenance.questionCount,
           }),
         )
       return {
@@ -232,6 +235,7 @@ export function createExaminationWorkflowHandlers(
             : toResult(exact, {
                 fromArchive: true,
                 sourceReferences: prepared.sourceReferences,
+                requestedQuestionCount: input.questionCount,
               }),
         availableSets,
       }
@@ -345,6 +349,7 @@ function toResult(
   meta: {
     fromArchive: boolean
     sourceReferences: ExaminationSourceReference[]
+    requestedQuestionCount: number
   },
 ): ExaminationGenerateQuestionsResult {
   return {
@@ -352,6 +357,7 @@ function toResult(
     questions: record.questions,
     usage: record.provenance.usage,
     fromArchive: meta.fromArchive,
+    requestedQuestionCount: meta.requestedQuestionCount,
     archivedProvenance: record.provenance,
     sourceReferences: meta.sourceReferences,
   }
