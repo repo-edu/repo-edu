@@ -26,8 +26,11 @@ export function createLifecycleSlice(
   CourseActions,
   "load" | "clear" | "ensureSystemGroupSets" | "runChecks"
 > {
+  let loadRequestId = 0
+
   return {
     load: async (courseId) => {
+      const requestId = ++loadRequestId
       try {
         set((draft) => {
           draft.status = "loading"
@@ -43,6 +46,9 @@ export function createLifecycleSlice(
           )
           loadedCourse.idSequences = sysResult.idSequences
         }
+        if (requestId !== loadRequestId) {
+          return
+        }
         set((draft) => {
           draft.course = loadedCourse
           draft.status = "loaded"
@@ -56,6 +62,9 @@ export function createLifecycleSlice(
           draft.syncState = "idle"
         })
       } catch (err) {
+        if (requestId !== loadRequestId) {
+          return
+        }
         set((draft) => {
           draft.status = "error"
           draft.error = getErrorMessage(err)
@@ -64,6 +73,7 @@ export function createLifecycleSlice(
     },
 
     clear: () => {
+      loadRequestId += 1
       internals.cancelPendingSave()
       set((draft) => {
         Object.assign(draft, initialState)
