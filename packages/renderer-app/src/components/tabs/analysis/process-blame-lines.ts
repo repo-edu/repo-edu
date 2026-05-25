@@ -91,26 +91,28 @@ export function processBlameLines(
     excludeEmails: readonly string[]
   },
 ): ProcessedLine[] {
-  const lines = fileBlame.lines.filter((line) => {
-    if (
-      options.excludeAuthors.length > 0 &&
-      matchesAnyPattern(line.authorName, options.excludeAuthors)
-    ) {
-      return false
-    }
-    if (
-      options.excludeEmails.length > 0 &&
-      matchesAnyPattern(line.authorEmail, options.excludeEmails)
-    ) {
-      return false
-    }
-    return true
-  })
+  const indexedLines = fileBlame.lines
+    .map((line, originalIndex) => ({ line, originalIndex }))
+    .filter(({ line }) => {
+      if (
+        options.excludeAuthors.length > 0 &&
+        matchesAnyPattern(line.authorName, options.excludeAuthors)
+      ) {
+        return false
+      }
+      if (
+        options.excludeEmails.length > 0 &&
+        matchesAnyPattern(line.authorEmail, options.excludeEmails)
+      ) {
+        return false
+      }
+      return true
+    })
 
   const authorLineCounts = new Map<string, number>()
   const linePersonIds: string[] = []
 
-  for (const line of lines) {
+  for (const { line } of indexedLines) {
     const person = lookupPerson(personDb, line.authorName, line.authorEmail)
     const pid = person?.id ?? `unknown:${line.authorEmail}`
     linePersonIds.push(pid)
@@ -126,11 +128,10 @@ export function processBlameLines(
   }
 
   const processed: ProcessedLine[] = []
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const personId = linePersonIds[i]
-    const isFirstInGroup = i === 0 || lines[i - 1].sha !== line.sha
-    const isComment = commentClassification?.has(line.lineNumber - 1) ?? false
+  for (const [i, { line, originalIndex }] of indexedLines.entries()) {
+    const personId = linePersonIds[i] ?? `unknown:${line.authorEmail}`
+    const isFirstInGroup = i === 0 || indexedLines[i - 1]?.line.sha !== line.sha
+    const isComment = commentClassification?.has(originalIndex) ?? false
     const isEmpty = line.content.trim().length === 0
 
     processed.push({

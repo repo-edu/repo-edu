@@ -152,6 +152,14 @@ export function createExaminationWorkflowHandlers(
         reply,
         input.questionCount,
         sourceLineRanges,
+        {
+          onOverQuota(actualCount) {
+            options?.onOutput?.({
+              channel: "warn",
+              message: `Provider returned ${actualCount} of ${input.questionCount} requested examination questions. Extra questions were ignored.`,
+            })
+          },
+        },
       )
       assertOutputAllowedForCurrentContext(questions, input, sourceDescriptors)
       const acceptedQuestionCount = questions.length
@@ -591,6 +599,9 @@ function parseQuestions(
   reply: string,
   expectedCount: number,
   sourceLineRanges: SourceLineRangeIndex,
+  options: {
+    onOverQuota?: (actualCount: number) => void
+  } = {},
 ): ExaminationQuestion[] {
   const stripped = stripJsonFences(reply)
   let parsed: unknown
@@ -637,6 +648,10 @@ function parseQuestions(
       operation: "examination.generateQuestions",
       retryable: true,
     } satisfies AppError
+  }
+
+  if (questions.length > expectedCount) {
+    options.onOverQuota?.(questions.length)
   }
 
   return questions.slice(0, expectedCount)

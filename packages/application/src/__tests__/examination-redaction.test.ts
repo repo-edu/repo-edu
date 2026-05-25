@@ -86,6 +86,34 @@ describe("examination redaction", () => {
     )
   })
 
+  it("fails the prompt assertion for stoplisted names still inside string literals", () => {
+    const lines = ["const Will = 1", 'const label = "Made by Will"']
+    const text = lines.join("\n")
+    const stringStart = text.indexOf('"Made by Will"')
+    const stringEnd = stringStart + '"Made by Will"'.length
+    const spans: ClassifiedSourceSpan[] = [
+      { start: 0, end: stringStart, kind: "code" },
+      { start: stringStart, end: stringEnd, kind: "string-literal" },
+      { start: stringEnd, end: text.length, kind: "code" },
+    ]
+
+    const redacted = redactExaminationSource({
+      lines,
+      spans,
+      localIdentityContext: identityContext,
+      redactionPolicyVersion,
+    })
+
+    assert.throws(
+      () =>
+        assertNoRequiredRedactionLeaks({
+          renderedPrompt: text,
+          requiredChecks: redacted.report.requiredChecks,
+        }),
+      /name remained/,
+    )
+  })
+
   it("redacts known local email literals even when they are not email-shaped", () => {
     const context = {
       ...identityContext,

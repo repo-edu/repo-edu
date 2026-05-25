@@ -290,7 +290,7 @@ function validateAnchor(raw: unknown): ExaminationSourceAnchor | null {
   if (!isRecord(raw)) return null
   const sourceId =
     typeof raw.sourceId === "string" &&
-    /^(?:E\d+|SRC\d+(?:_\d+)?)$/.test(raw.sourceId)
+    /^(?:E[1-9]\d*|SRC[1-9]\d*(?:_[1-9]\d*)?)$/.test(raw.sourceId)
       ? raw.sourceId
       : raw.sourceId === null
         ? null

@@ -226,6 +226,42 @@ describe("examination archive adapter", () => {
     })
     assert.equal(inconsistentCountSummary.rejected, 1)
 
+    const leadingZeroSourceIdSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          questions: [
+            {
+              ...baseRecord.questions[0],
+              anchor: { sourceId: "E01", lineRange: { start: 1, end: 2 } },
+            },
+          ],
+        },
+      ],
+    })
+    assert.equal(leadingZeroSourceIdSummary.rejected, 1)
+
+    const leadingZeroSrcAttemptSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          questions: [
+            {
+              ...baseRecord.questions[0],
+              anchor: { sourceId: "SRC07_03", lineRange: { start: 1, end: 2 } },
+            },
+          ],
+        },
+      ],
+    })
+    assert.equal(leadingZeroSrcAttemptSummary.rejected, 1)
+
     const mismatchedGenerationContextSummary = archive.importBundle({
       format: "repo-edu-examination-archive",
       bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
@@ -435,6 +471,28 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.match(warnings[0] ?? "", /Provider returned 1 of 2 requested/)
     assert.equal(lookup.exact, null)
     assert.equal(lookup.availableSets[0]?.key.questionCount, 1)
+  })
+
+  it("warns when provider output has extra questions", async () => {
+    const llm = createRecordingLlm(sampleLlmReply(3))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+    const warnings: string[] = []
+
+    const result = await handlers["examination.generateQuestions"](
+      baseInput(),
+      {
+        onOutput(output) {
+          if (output.channel === "warn") warnings.push(output.message)
+        },
+      },
+    )
+
+    assert.equal(result.questions.length, 2)
+    assert.match(warnings[0] ?? "", /Provider returned 3 of 2 requested/)
   })
 
   it("drops anchor line ranges outside the prompted excerpt", async () => {

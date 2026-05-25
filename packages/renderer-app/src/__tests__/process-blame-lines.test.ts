@@ -44,7 +44,7 @@ function line(
 }
 
 describe("processBlameLines", () => {
-  it("looks up comment classification by original physical line number", () => {
+  it("looks up comment classification by original file-blame index", () => {
     const fileBlame: FileBlame = {
       path: "src/example.ts",
       lines: [
@@ -68,6 +68,34 @@ describe("processBlameLines", () => {
       [
         [3, true],
         [4, true],
+      ],
+    )
+  })
+
+  it("does not derive comment classification from line numbers", () => {
+    const fileBlame: FileBlame = {
+      path: "src/example.ts",
+      lines: [
+        line(10, "const value = 1"),
+        line(20, "// comment"),
+        line(30, "const next = 2"),
+      ],
+    }
+
+    const processed = processBlameLines(
+      fileBlame,
+      personDb,
+      new Map(),
+      new Set([1]),
+      { excludeAuthors: [], excludeEmails: [] },
+    )
+
+    assert.deepEqual(
+      processed.map((entry) => [entry.line.lineNumber, entry.isComment]),
+      [
+        [10, false],
+        [20, true],
+        [30, false],
       ],
     )
   })

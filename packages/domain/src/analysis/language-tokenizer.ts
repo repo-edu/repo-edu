@@ -41,6 +41,11 @@ export const TOKENIZER_SUPPORTED_LANGUAGES = [
 export type TokenizerSupportedLanguage =
   (typeof TOKENIZER_SUPPORTED_LANGUAGES)[number]
 
+/**
+ * Loader-owned parser handle. `tokenizeSource` mutates the parser
+ * synchronously with `reset()` and `parse()`, so callers must finish each
+ * tokenization call before reusing the same handle in another flow.
+ */
 export type LoadedTokenizerLanguage = {
   readonly language: TokenizerSupportedLanguage
   readonly parser: Parser

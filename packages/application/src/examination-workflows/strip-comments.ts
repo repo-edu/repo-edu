@@ -38,6 +38,8 @@ function fallback(excerpt: ExaminationCodeExcerpt): StripCommentsResult {
 }
 
 function normalizeSourceLineEndings(source: string): string {
+  // Git blame and decoded source can disagree on CR bytes. The normalized path
+  // keeps comment stripping available for those excerpts, and returns LF text.
   return source.replace(/\r\n?/g, "\n")
 }
 

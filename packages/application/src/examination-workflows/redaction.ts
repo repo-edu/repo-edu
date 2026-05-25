@@ -20,6 +20,7 @@ export type RedactionRequiredCheck = {
   value: string
   caseSensitive: boolean
   assertGlobally: boolean
+  assertInStringLiteral: boolean
 }
 
 export type RedactionReport = {
@@ -51,6 +52,7 @@ type ReplacementCandidate = Span & {
   comparisonKey: string
   caseSensitive: boolean
   assertGlobally: boolean
+  assertInStringLiteral: boolean
 }
 
 export type RedactionPlaceholderPlan = {
@@ -265,9 +267,11 @@ function collectNameCandidates(params: {
       caseSensitive: false,
     })
     for (const match of matches) {
+      let assertInStringLiteral = false
       if (!isMultiToken && !distinctive) {
         if (params.mode === "prose") continue
         if (!isCoveredByKind(params.spans, match, "string-literal")) continue
+        assertInStringLiteral = true
       }
       candidates.push({
         ...match,
@@ -276,6 +280,7 @@ function collectNameCandidates(params: {
         comparisonKey: normalized.toLowerCase(),
         caseSensitive: false,
         assertGlobally: isMultiToken || distinctive,
+        assertInStringLiteral,
       })
     }
   }
@@ -307,6 +312,7 @@ function collectLiteralCandidates(params: {
           : normalized.toLowerCase(),
         caseSensitive: params.caseSensitive,
         assertGlobally: true,
+        assertInStringLiteral: false,
       })
     }
   }
@@ -327,6 +333,7 @@ function collectEmailCandidates(
         comparisonKey: value.toLowerCase(),
         caseSensitive: false,
         assertGlobally: true,
+        assertInStringLiteral: false,
       }
     },
   )
@@ -356,6 +363,7 @@ function collectRegexSecretCandidates(
       comparisonKey: match[0],
       caseSensitive: true,
       assertGlobally: true,
+      assertInStringLiteral: false,
     })
   }
   return candidates
@@ -384,6 +392,7 @@ function collectJwtCandidates(text: string): ReplacementCandidate[] {
       comparisonKey: match[0],
       caseSensitive: true,
       assertGlobally: true,
+      assertInStringLiteral: false,
     })
   }
   return candidates
@@ -409,6 +418,7 @@ function collectPemCandidates(text: string): ReplacementCandidate[] {
       comparisonKey: value,
       caseSensitive: true,
       assertGlobally: true,
+      assertInStringLiteral: false,
     })
   }
   return candidates
@@ -624,6 +634,7 @@ function applyReplacements(params: {
       value: candidate.value,
       caseSensitive: candidate.caseSensitive,
       assertGlobally: candidate.assertGlobally,
+      assertInStringLiteral: candidate.assertInStringLiteral,
     })
     cursor = candidate.end
   }
@@ -716,6 +727,54 @@ function containsRequiredCheck(text: string, check: RedactionRequiredCheck) {
   )
 }
 
+function isInsideSingleLineQuotedSpan(
+  text: string,
+  start: number,
+  end: number,
+): boolean {
+  const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1
+  const lineEndIndex = text.indexOf("\n", end)
+  const lineEnd = lineEndIndex === -1 ? text.length : lineEndIndex
+  const line = text.slice(lineStart, lineEnd)
+  const localStart = start - lineStart
+  const localEnd = end - lineStart
+
+  for (const quote of ["'", '"', "`"]) {
+    let open = false
+    let escaped = false
+    let startedInside = false
+    for (let index = 0; index <= line.length; index++) {
+      if (index === localStart && open) startedInside = true
+      if (index === localEnd && startedInside && open) return true
+
+      const character = line[index]
+      if (character === undefined) continue
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (character === "\\") {
+        escaped = true
+        continue
+      }
+      if (character === quote) open = !open
+    }
+  }
+
+  return false
+}
+
+function containsRequiredCheckInStringLiteralContext(
+  text: string,
+  check: RedactionRequiredCheck,
+): boolean {
+  return findLiteralMatches({
+    text,
+    value: check.value,
+    caseSensitive: check.caseSensitive,
+  }).some((match) => isInsideSingleLineQuotedSpan(text, match.start, match.end))
+}
+
 function sourceDescriptorNameSet(
   descriptors: readonly string[] | undefined,
 ): ReadonlySet<string> {
@@ -755,13 +814,18 @@ export function assertNoRequiredRedactionLeaks(params: {
     params.allowedSourceDescriptors,
   )
   const leaked = params.requiredChecks.find((check) =>
-    check.assertGlobally &&
     !isAllowedSourceDescriptorName(
       check.kind,
       normalizeKnownText(check.value).toLowerCase(),
       allowedSourceDescriptors,
-    )
-      ? containsRequiredCheck(params.renderedPrompt, check)
+    ) &&
+    (check.assertGlobally || check.assertInStringLiteral)
+      ? check.assertGlobally
+        ? containsRequiredCheck(params.renderedPrompt, check)
+        : containsRequiredCheckInStringLiteralContext(
+            params.renderedPrompt,
+            check,
+          )
       : false,
   )
   if (leaked) {
