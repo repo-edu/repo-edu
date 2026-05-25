@@ -19,6 +19,7 @@ export type RedactionRequiredCheck = {
   kind: "email" | "secret" | "name" | "opaqueIdentifier" | "gitUsername"
   value: string
   caseSensitive: boolean
+  assertGlobally: boolean
 }
 
 export type RedactionReport = {
@@ -49,6 +50,11 @@ type ReplacementCandidate = Span & {
   value: string
   comparisonKey: string
   caseSensitive: boolean
+  assertGlobally: boolean
+}
+
+export type RedactionPlaceholderPlan = {
+  placeholderByKey: ReadonlyMap<string, string>
 }
 
 export const EXAMINATION_NAME_STOPLIST = [
@@ -269,6 +275,7 @@ function collectNameCandidates(params: {
         value: params.text.slice(match.start, match.end),
         comparisonKey: normalized.toLowerCase(),
         caseSensitive: false,
+        assertGlobally: isMultiToken || distinctive,
       })
     }
   }
@@ -299,6 +306,7 @@ function collectLiteralCandidates(params: {
           ? normalized
           : normalized.toLowerCase(),
         caseSensitive: params.caseSensitive,
+        assertGlobally: true,
       })
     }
   }
@@ -314,6 +322,7 @@ function collectEmailCandidates(text: string): ReplacementCandidate[] {
       value,
       comparisonKey: value.toLowerCase(),
       caseSensitive: false,
+      assertGlobally: true,
     }
   })
 }
@@ -332,6 +341,7 @@ function collectRegexSecretCandidates(
       value: match[0],
       comparisonKey: match[0],
       caseSensitive: true,
+      assertGlobally: true,
     })
   }
   return candidates
@@ -359,6 +369,7 @@ function collectJwtCandidates(text: string): ReplacementCandidate[] {
       value: match[0],
       comparisonKey: match[0],
       caseSensitive: true,
+      assertGlobally: true,
     })
   }
   return candidates
@@ -383,6 +394,7 @@ function collectPemCandidates(text: string): ReplacementCandidate[] {
       value,
       comparisonKey: value,
       caseSensitive: true,
+      assertGlobally: true,
     })
   }
   return candidates
@@ -475,6 +487,84 @@ function placeholderStem(replacementClass: ReplacementClass): string {
   }
 }
 
+function placeholderKey(candidate: ReplacementCandidate): string {
+  return `${candidate.replacementClass}:${candidate.comparisonKey}`
+}
+
+function replacementClassRank(replacementClass: ReplacementClass): number {
+  switch (replacementClass) {
+    case "email":
+      return 1
+    case "secret":
+      return 2
+    case "name":
+      return 3
+    case "opaqueIdentifier":
+      return 4
+    case "gitUsername":
+      return 5
+  }
+}
+
+export function buildRedactionPlaceholderPlan(params: {
+  sources: readonly {
+    lines: readonly string[]
+    spans: readonly ClassifiedSourceSpan[]
+  }[]
+  localIdentityContext: ExaminationLocalIdentityContext
+}): RedactionPlaceholderPlan {
+  const unique = new Map<
+    string,
+    {
+      replacementClass: ReplacementClass
+      comparisonKey: string
+    }
+  >()
+
+  for (const source of params.sources) {
+    const text = source.lines.join("\n")
+    const candidates = selectNonOverlappingCandidates(
+      collectRequiredCandidates({
+        text,
+        localIdentityContext: params.localIdentityContext,
+        spans: source.spans,
+        mode: "source",
+        includeSecrets: true,
+      }),
+    )
+    for (const candidate of candidates) {
+      const key = placeholderKey(candidate)
+      if (!unique.has(key)) {
+        unique.set(key, {
+          replacementClass: candidate.replacementClass,
+          comparisonKey: candidate.comparisonKey,
+        })
+      }
+    }
+  }
+
+  const placeholderByKey = new Map<string, string>()
+  const countByClass = new Map<ReplacementClass, number>()
+  const sorted = [...unique.entries()].toSorted(([, left], [, right]) => {
+    const rank =
+      replacementClassRank(left.replacementClass) -
+      replacementClassRank(right.replacementClass)
+    if (rank !== 0) return rank
+    return left.comparisonKey.localeCompare(right.comparisonKey)
+  })
+
+  for (const [key, entry] of sorted) {
+    const next = (countByClass.get(entry.replacementClass) ?? 0) + 1
+    countByClass.set(entry.replacementClass, next)
+    placeholderByKey.set(
+      key,
+      `<${placeholderStem(entry.replacementClass)}-${next}>`,
+    )
+  }
+
+  return { placeholderByKey }
+}
+
 function buildReplacementText(original: string, placeholder: string): string {
   if (!original.includes("\n")) return placeholder
   const lines = original.split("\n")
@@ -487,6 +577,7 @@ function buildReplacementText(original: string, placeholder: string): string {
 function applyReplacements(params: {
   text: string
   candidates: readonly ReplacementCandidate[]
+  placeholderPlan?: RedactionPlaceholderPlan
 }): {
   text: string
   replacementClasses: ReplacementClass[]
@@ -501,8 +592,10 @@ function applyReplacements(params: {
 
   for (const candidate of params.candidates) {
     out += params.text.slice(cursor, candidate.start)
-    const classKey = `${candidate.replacementClass}:${candidate.comparisonKey}`
-    let placeholder = placeholderByKey.get(classKey)
+    const classKey = placeholderKey(candidate)
+    let placeholder =
+      params.placeholderPlan?.placeholderByKey.get(classKey) ??
+      placeholderByKey.get(classKey)
     if (placeholder === undefined) {
       const next = (countByClass.get(candidate.replacementClass) ?? 0) + 1
       countByClass.set(candidate.replacementClass, next)
@@ -516,6 +609,7 @@ function applyReplacements(params: {
       kind: candidate.replacementClass,
       value: candidate.value,
       caseSensitive: candidate.caseSensitive,
+      assertGlobally: candidate.assertGlobally,
     })
     cursor = candidate.end
   }
@@ -546,6 +640,7 @@ export function redactExaminationSource(params: {
   spans: readonly ClassifiedSourceSpan[]
   localIdentityContext: ExaminationLocalIdentityContext
   redactionPolicyVersion: number
+  placeholderPlan?: RedactionPlaceholderPlan
 }): RedactionResult {
   const text = params.lines.join("\n")
   const candidates = selectNonOverlappingCandidates(
@@ -557,7 +652,11 @@ export function redactExaminationSource(params: {
       includeSecrets: true,
     }),
   )
-  const applied = applyReplacements({ text, candidates })
+  const applied = applyReplacements({
+    text,
+    candidates,
+    placeholderPlan: params.placeholderPlan,
+  })
   const residualEmails = findEmailAddressSpans(applied.text)
   const residualSecrets = collectSecretCandidates(applied.text)
   return {
@@ -613,7 +712,9 @@ export function assertNoRequiredRedactionLeaks(params: {
     )
   }
   const leaked = params.requiredChecks.find((check) =>
-    containsRequiredCheck(params.renderedPrompt, check),
+    check.assertGlobally
+      ? containsRequiredCheck(params.renderedPrompt, check)
+      : false,
   )
   if (leaked) {
     throw new Error(

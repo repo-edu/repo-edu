@@ -11,6 +11,7 @@ import {
 } from "@repo-edu/application-contract"
 import type { TokenizerPort } from "@repo-edu/host-runtime-contract"
 import {
+  buildRedactionPlaceholderPlan,
   type RedactionReport,
   type RedactionRequiredCheck,
   redactExaminationSource,
@@ -55,6 +56,12 @@ function sourceReferenceLineRange(excerpt: ExaminationCodeExcerpt) {
   }
 }
 
+function compareSourceIds(left: string, right: string): number {
+  const leftNumber = Number.parseInt(left.slice(1), 10)
+  const rightNumber = Number.parseInt(right.slice(1), 10)
+  return leftNumber - rightNumber
+}
+
 export async function prepareExaminationProviderExcerpts(params: {
   excerpts: readonly ExaminationCodeExcerpt[]
   excerptFileSources: Readonly<Record<string, string>>
@@ -63,6 +70,32 @@ export async function prepareExaminationProviderExcerpts(params: {
   questionCount: number
 }): Promise<PreparedExaminationProviderExcerpts> {
   const rawExcerpts = [...params.excerpts].toSorted(compareRawExcerpts)
+  const strippedEntries: {
+    raw: ExaminationCodeExcerpt
+    sourceDescriptor: string
+    stripped: Awaited<ReturnType<typeof stripCommentsForExcerpt>>
+  }[] = []
+
+  for (const raw of rawExcerpts) {
+    strippedEntries.push({
+      raw,
+      sourceDescriptor: resolveExaminationSourceDescriptor(raw.filePath),
+      stripped: await stripCommentsForExcerpt({
+        excerpt: raw,
+        fileSource: params.excerptFileSources[raw.filePath],
+        tokenizer: params.tokenizer,
+      }),
+    })
+  }
+
+  const placeholderPlan = buildRedactionPlaceholderPlan({
+    sources: strippedEntries.map((entry) => ({
+      lines: entry.stripped.lines,
+      spans: entry.stripped.spans,
+    })),
+    localIdentityContext: params.localIdentityContext,
+  })
+
   const preparedWithoutIds: {
     raw: ExaminationCodeExcerpt
     identity: ExaminationProviderExcerptIdentity
@@ -71,28 +104,23 @@ export async function prepareExaminationProviderExcerpts(params: {
     report: RedactionReport
   }[] = []
 
-  for (const raw of rawExcerpts) {
-    const stripped = await stripCommentsForExcerpt({
-      excerpt: raw,
-      fileSource: params.excerptFileSources[raw.filePath],
-      tokenizer: params.tokenizer,
-    })
+  for (const entry of strippedEntries) {
     const redacted = redactExaminationSource({
-      lines: stripped.lines,
-      spans: stripped.spans,
+      lines: entry.stripped.lines,
+      spans: entry.stripped.spans,
       localIdentityContext: params.localIdentityContext,
       redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+      placeholderPlan,
     })
-    const sourceDescriptor = resolveExaminationSourceDescriptor(raw.filePath)
     preparedWithoutIds.push({
-      raw,
-      sourceDescriptor,
+      raw: entry.raw,
+      sourceDescriptor: entry.sourceDescriptor,
       lines: redacted.lines,
       report: redacted.report,
       identity: {
-        sourceDescriptor,
-        tokenizerTreatment: stripped.tokenizerTreatment,
-        startLine: raw.startLine,
+        sourceDescriptor: entry.sourceDescriptor,
+        tokenizerTreatment: entry.stripped.tokenizerTreatment,
+        startLine: entry.raw.startLine,
         lineCount: redacted.lines.length,
         redactedContentFingerprint: buildExaminationRedactedContentFingerprint(
           redacted.lines,
@@ -105,7 +133,7 @@ export async function prepareExaminationProviderExcerpts(params: {
     preparedWithoutIds.map((entry) => entry.identity),
   )
   const sourceReferenceById = new Map<string, ExaminationSourceReference>()
-  const promptExcerpts: ExaminationProviderPromptExcerpt[] = []
+  const promptExcerptById = new Map<string, ExaminationProviderPromptExcerpt>()
   const requiredChecks: RedactionRequiredCheck[] = []
 
   for (const [index, prepared] of preparedWithoutIds.entries()) {
@@ -113,12 +141,14 @@ export async function prepareExaminationProviderExcerpts(params: {
     if (sourceId === undefined) {
       throw new Error("Missing examination source id assignment.")
     }
-    promptExcerpts.push({
-      sourceId,
-      sourceDescriptor: prepared.sourceDescriptor,
-      startLine: prepared.raw.startLine,
-      lines: prepared.lines,
-    })
+    if (!promptExcerptById.has(sourceId)) {
+      promptExcerptById.set(sourceId, {
+        sourceId,
+        sourceDescriptor: prepared.sourceDescriptor,
+        startLine: prepared.raw.startLine,
+        lines: prepared.lines,
+      })
+    }
     requiredChecks.push(...prepared.report.requiredChecks)
 
     const reference = sourceReferenceById.get(sourceId) ?? {
@@ -132,6 +162,10 @@ export async function prepareExaminationProviderExcerpts(params: {
     sourceReferenceById.set(sourceId, reference)
   }
 
+  const promptExcerpts = [...promptExcerptById.values()].toSorted((a, b) =>
+    compareSourceIds(a.sourceId, b.sourceId),
+  )
+
   return {
     promptPayload: {
       anonymousContributorLabel: "Contributor 1",
@@ -142,7 +176,7 @@ export async function prepareExaminationProviderExcerpts(params: {
       preparedWithoutIds.map((entry) => entry.identity),
     ),
     sourceReferences: [...sourceReferenceById.values()].toSorted((a, b) =>
-      a.sourceId.localeCompare(b.sourceId),
+      compareSourceIds(a.sourceId, b.sourceId),
     ),
     redactionReports: preparedWithoutIds.map((entry) => entry.report),
     requiredChecks,

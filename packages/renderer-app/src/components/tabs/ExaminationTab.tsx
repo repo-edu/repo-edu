@@ -360,13 +360,18 @@ export function ExaminationTab({
       setSelectedArchiveEntryKey(
         result.exact === null ? (archiveEntries[0]?.key ?? null) : entryKey,
       )
-      if (result.exact === null) return
       const currentEntry =
         useExaminationStore.getState().entriesByKey.get(entryKey) ?? null
-      if (currentEntry !== null && currentEntry.status !== "idle") return
+      if (result.exact === null) {
+        if (currentEntry !== null && currentEntry.status !== "loading") {
+          clearEntry(entryKey)
+        }
+        return
+      }
+      if (currentEntry !== null && currentEntry.status === "loading") return
       setEntry(entryKey, toExaminationEntry(result.exact))
     },
-    [setEntry, workflowClient],
+    [clearEntry, setEntry, workflowClient],
   )
 
   useEffect(() => {

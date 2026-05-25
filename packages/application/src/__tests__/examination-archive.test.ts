@@ -63,14 +63,20 @@ const baseRecord: ExaminationArchiveRecord = {
   },
 }
 
-function createRecordingLlm(reply: string): LlmPort & { calls: number } {
-  const state = { calls: 0 }
-  const port: LlmPort & { calls: number } = {
+function createRecordingLlm(
+  reply: string,
+): LlmPort & { calls: number; requests: LlmRunRequest[] } {
+  const state = { calls: 0, requests: [] as LlmRunRequest[] }
+  const port: LlmPort & { calls: number; requests: LlmRunRequest[] } = {
     get calls() {
       return state.calls
     },
+    get requests() {
+      return state.requests
+    },
     async run(_request: LlmRunRequest): Promise<LlmRunResult> {
       state.calls += 1
+      state.requests.push(_request)
       return {
         reply,
         usage: baseRecord.provenance.usage,
@@ -117,6 +123,18 @@ function baseInput() {
       activeLlmConnectionId: "llm-1",
       examinationModelsByProvider: { claude: "22" },
     },
+  }
+}
+
+function inputWithPathMappedContent(mapping: Record<string, string>) {
+  return {
+    ...baseInput(),
+    excerpts: Object.entries(mapping).map(([filePath, content]) => ({
+      filePath,
+      startLine: 1,
+      lines: [content],
+    })),
+    excerptFileSources: mapping,
   }
 }
 
@@ -196,6 +214,62 @@ describe("examination.generateQuestions archive behavior", () => {
       second.sourceReferences[0]?.occurrences[0]?.filePath,
       "src/a.unknown",
     )
+  })
+
+  it("aligns cache identity with canonical provider prompt excerpts", async () => {
+    const firstLlm = createRecordingLlm(sampleLlmReply(2))
+    const firstHandlers = createExaminationWorkflowHandlers({
+      llm: firstLlm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+    const secondLlm = createRecordingLlm(sampleLlmReply(2))
+    const secondHandlers = createExaminationWorkflowHandlers({
+      llm: secondLlm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+
+    const first = await firstHandlers["examination.generateQuestions"](
+      inputWithPathMappedContent({
+        "a.unknown": "beta()",
+        "z.unknown": "alpha()",
+      }),
+    )
+    const second = await secondHandlers["examination.generateQuestions"](
+      inputWithPathMappedContent({
+        "a.unknown": "alpha()",
+        "z.unknown": "beta()",
+      }),
+    )
+
+    assert.equal(
+      first.key.providerPayloadFingerprint,
+      second.key.providerPayloadFingerprint,
+    )
+    assert.equal(firstLlm.requests[0]?.prompt, secondLlm.requests[0]?.prompt)
+    assert.match(firstLlm.requests[0]?.prompt ?? "", /Excerpt 1 \(E1/)
+    assert.match(firstLlm.requests[0]?.prompt ?? "", /Excerpt 2 \(E2/)
+  })
+
+  it("deduplicates identical provider excerpts before prompting", async () => {
+    const llm = createRecordingLlm(sampleLlmReply(1))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+
+    await handlers["examination.generateQuestions"]({
+      ...inputWithPathMappedContent({
+        "a.unknown": "same()",
+        "z.unknown": "same()",
+      }),
+      questionCount: 1,
+    })
+
+    const prompt = llm.requests[0]?.prompt ?? ""
+    assert.equal(prompt.match(/^Excerpt /gm)?.length, 1)
   })
 
   it("filters cache candidates that now echo a known identifier", async () => {
