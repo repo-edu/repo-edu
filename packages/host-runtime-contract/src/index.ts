@@ -160,13 +160,53 @@ export type FileSystemDirectoryEntry = {
   kind: "file" | "directory"
 }
 
+export type FileSystemStatRequest = {
+  path: string
+  signal?: AbortSignal
+}
+
+export type FileSystemStatResult = {
+  kind: FileSystemEntryKind
+  size: number | null
+}
+
+export type FileSystemListFilesRequest = {
+  rootPath: string
+  extensions: string[]
+  signal?: AbortSignal
+}
+
+export type FileSystemListedFile = {
+  relativePath: string
+  size: number
+}
+
+export type FileSystemReadFileInsideRootRequest = {
+  rootPath: string
+  relativePath: string
+  maxBytes: number
+  signal?: AbortSignal
+}
+
+export type FileSystemReadFileInsideRootResult = {
+  relativePath: string
+  bytes: Uint8Array
+}
+
 export type FileSystemPort = {
   inspect(request: FileSystemInspectRequest): Promise<FileSystemEntryStatus[]>
+  stat(request: FileSystemStatRequest): Promise<FileSystemStatResult>
   applyBatch(request: FileSystemBatchRequest): Promise<FileSystemBatchResult>
   createTempDirectory(prefix: string): Promise<string>
   listDirectory(
     request: FileSystemListDirectoryRequest,
   ): Promise<FileSystemDirectoryEntry[]>
+  listFiles(
+    request: FileSystemListFilesRequest,
+  ): Promise<FileSystemListedFile[]>
+  readFileInsideRoot(
+    request: FileSystemReadFileInsideRootRequest,
+  ): Promise<FileSystemReadFileInsideRootResult>
   readonly userHomeSystemDirectories: readonly string[]
 }
 

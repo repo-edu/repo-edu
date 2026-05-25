@@ -4,6 +4,8 @@ import {
   type LlmProviderKind,
   normalizeAnalysisFolderPath,
   normalizeRecentAnalysisFolders,
+  normalizeRecentSubmissionFolders,
+  normalizeSubmissionFolderPath,
   type PersistedActiveSurface,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
@@ -11,14 +13,19 @@ import {
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
+  pruneSubmissionStateForRecents,
   resolveActiveGitConnection,
   resolveActiveLlmConnection,
+  type SubmissionFolderRecent,
+  type SubmissionSurfaceState,
   type SyntaxThemeId,
+  submissionSurfaceStateKey,
 } from "@repo-edu/domain/settings"
 import type {
   ActiveTab,
   AnalysisInputs,
   CourseBacking,
+  CourseSummary,
   DateFormatPreference,
   ThemePreference,
   TimeFormatPreference,
@@ -46,6 +53,14 @@ type AppSettingsActions = {
   pushRecentFolder: (path: string) => void
   removeRecentFolder: (path: string) => void
   clearRecentFolders: () => void
+  pushRecentSubmissionFolder: (recent: SubmissionFolderRecent) => void
+  removeRecentSubmissionFolder: (recent: SubmissionFolderRecent) => void
+  setSubmissionSurfaceState: (
+    recent: SubmissionFolderRecent,
+    state: SubmissionSurfaceState,
+  ) => void
+  clearSubmissionSurfaceState: (recent: SubmissionFolderRecent) => void
+  pruneSubmissionFoldersForCourses: (courses: readonly CourseSummary[]) => void
   setActiveGitConnectionId: (id: string | null) => void
 
   setTheme: (theme: ThemePreference) => void
@@ -234,6 +249,108 @@ export const useAppSettingsStore = create<
           recentAnalysisFolders: [],
         },
       })),
+
+    pushRecentSubmissionFolder: (recent) =>
+      set((state) => {
+        const normalizedPath = normalizeSubmissionFolderPath(recent.path)
+        if (normalizedPath === null) return state
+        const normalizedRecent =
+          recent.courseId === undefined
+            ? { path: normalizedPath }
+            : { path: normalizedPath, courseId: recent.courseId }
+        const recentSubmissionFolders = normalizeRecentSubmissionFolders([
+          normalizedRecent,
+          ...state.settings.recentSubmissionFolders,
+        ])
+        const pruned = pruneSubmissionStateForRecents({
+          recentSubmissionFolders,
+          submissionSurfaceStates: state.settings.submissionSurfaceStates,
+        })
+        return {
+          settings: {
+            ...state.settings,
+            ...pruned,
+          },
+        }
+      }),
+
+    removeRecentSubmissionFolder: (recent) =>
+      set((state) => {
+        const key = submissionSurfaceStateKey(recent)
+        if (key === null) return state
+        const recentSubmissionFolders =
+          state.settings.recentSubmissionFolders.filter(
+            (candidate) => submissionSurfaceStateKey(candidate) !== key,
+          )
+        const pruned = pruneSubmissionStateForRecents({
+          recentSubmissionFolders,
+          submissionSurfaceStates: state.settings.submissionSurfaceStates,
+        })
+        return {
+          settings: {
+            ...state.settings,
+            ...pruned,
+          },
+        }
+      }),
+
+    setSubmissionSurfaceState: (recent, submissionState) =>
+      set((state) => {
+        const key = submissionSurfaceStateKey(recent)
+        if (key === null) return state
+        const pruned = pruneSubmissionStateForRecents({
+          recentSubmissionFolders: state.settings.recentSubmissionFolders,
+          submissionSurfaceStates: {
+            ...state.settings.submissionSurfaceStates,
+            [key]: submissionState,
+          },
+        })
+        return {
+          settings: {
+            ...state.settings,
+            ...pruned,
+          },
+        }
+      }),
+
+    clearSubmissionSurfaceState: (recent) =>
+      set((state) => {
+        const key = submissionSurfaceStateKey(recent)
+        if (key === null) return state
+        const nextStates = { ...state.settings.submissionSurfaceStates }
+        delete nextStates[key]
+        return {
+          settings: {
+            ...state.settings,
+            submissionSurfaceStates: nextStates,
+          },
+        }
+      }),
+
+    pruneSubmissionFoldersForCourses: (courses) =>
+      set((state) => {
+        const rosterCapableCourseIds = new Set(
+          courses
+            .filter((course) => course.backing === "lms")
+            .map((course) => course.id),
+        )
+        const recentSubmissionFolders =
+          state.settings.recentSubmissionFolders.filter(
+            (recent) =>
+              recent.courseId === undefined ||
+              rosterCapableCourseIds.has(recent.courseId),
+          )
+        const pruned = pruneSubmissionStateForRecents({
+          recentSubmissionFolders,
+          submissionSurfaceStates: state.settings.submissionSurfaceStates,
+        })
+        return {
+          settings: {
+            ...state.settings,
+            ...pruned,
+          },
+        }
+      }),
 
     setActiveGitConnectionId: (id) =>
       set((state) => ({

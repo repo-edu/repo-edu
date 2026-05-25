@@ -66,6 +66,9 @@ const stubFileSystem: FileSystemPort = {
       kind: "missing" as const,
     }))
   },
+  async stat() {
+    return { kind: "missing", size: null }
+  },
   async applyBatch(request) {
     return { completed: request.operations }
   },
@@ -74,6 +77,12 @@ const stubFileSystem: FileSystemPort = {
   },
   async listDirectory() {
     return []
+  },
+  async listFiles() {
+    return []
+  },
+  async readFileInsideRoot() {
+    throw new Error("readFileInsideRoot not implemented in this test")
   },
 }
 

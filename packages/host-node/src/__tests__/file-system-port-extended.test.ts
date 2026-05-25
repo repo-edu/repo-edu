@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
@@ -58,6 +58,48 @@ describe("createNodeFileSystemPort (extended)", () => {
     await assert.rejects(
       fs.inspect({ paths: ["/tmp/anything"], signal: controller.signal }),
       /Operation cancelled/,
+    )
+  })
+
+  it("lists files with case-insensitive final suffix filters", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    await mkdir(join(root, "src"), { recursive: true })
+    await writeFile(join(root, "src", "main.TS"), "content")
+    await writeFile(join(root, "src", "notes.md"), "notes")
+
+    const fs = createNodeFileSystemPort()
+    const result = await fs.listFiles({
+      rootPath: root,
+      extensions: ["ts"],
+    })
+
+    assert.deepStrictEqual(result, [
+      { relativePath: "src/main.TS", size: "content".length },
+    ])
+  })
+
+  it("reads files only when the real path stays inside the root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
+    const outside = await mkdtemp(join(tmpdir(), "repo-edu-host-node-out-"))
+    await writeFile(join(root, "main.ts"), "const ok = true\n")
+    await writeFile(join(outside, "escape.ts"), "const bad = true\n")
+    await symlink(join(outside, "escape.ts"), join(root, "escape.ts"))
+
+    const fs = createNodeFileSystemPort()
+    const result = await fs.readFileInsideRoot({
+      rootPath: root,
+      relativePath: "main.ts",
+      maxBytes: 64 * 1024,
+    })
+
+    assert.equal(new TextDecoder().decode(result.bytes), "const ok = true\n")
+    await assert.rejects(
+      fs.readFileInsideRoot({
+        rootPath: root,
+        relativePath: "escape.ts",
+        maxBytes: 64 * 1024,
+      }),
+      /outside the submission folder/,
     )
   })
 })

@@ -66,6 +66,9 @@ function createStubFileSystemPort(
     async inspect(request) {
       return request.paths.map((path) => ({ path, kind: "missing" as const }))
     },
+    async stat() {
+      return { kind: "missing", size: null }
+    },
     async applyBatch(request) {
       return { completed: request.operations }
     },
@@ -73,6 +76,12 @@ function createStubFileSystemPort(
       return "/tmp/test"
     },
     listDirectory,
+    async listFiles() {
+      return []
+    },
+    async readFileInsideRoot() {
+      throw new Error("readFileInsideRoot not implemented in this test")
+    },
   }
 }
 

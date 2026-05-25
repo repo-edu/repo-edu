@@ -1,3 +1,5 @@
+import { sha256 } from "@noble/hashes/sha2.js"
+import { bytesToHex } from "@noble/hashes/utils.js"
 import { mergePersonIdentities } from "./person-merge.js"
 import type {
   BlameLine,
@@ -6,6 +8,7 @@ import type {
   PersonDbDelta,
   PersonDbSnapshot,
   PersonRecord,
+  ResolvedSubmissionIdentity,
 } from "./types.js"
 
 // ---------------------------------------------------------------------------
@@ -20,8 +23,14 @@ function normalizeEmailForDb(email: string): string {
   return email.trim().toLowerCase()
 }
 
-function identityKey(name: string, email: string): string {
+export function buildPersonDbIdentityKey(name: string, email: string): string {
   return `${normalizeEmailForDb(email)}\0${normalizeNameForDb(name)}`
+}
+
+const textEncoder = new TextEncoder()
+
+function sha256Hex(value: string): string {
+  return bytesToHex(sha256(textEncoder.encode(value)))
 }
 
 // ---------------------------------------------------------------------------
@@ -36,11 +45,14 @@ export function createPersonDbFromLog(
 
   const identityIndex = new Map<string, string>()
   const persons: PersonRecord[] = mergeResult.persons.map((merged) => {
-    const key = identityKey(merged.canonicalName, merged.canonicalEmail)
+    const key = buildPersonDbIdentityKey(
+      merged.canonicalName,
+      merged.canonicalEmail,
+    )
     identityIndex.set(key, merged.id)
 
     for (const alias of merged.aliases) {
-      const aliasKey = identityKey(alias.name, alias.email)
+      const aliasKey = buildPersonDbIdentityKey(alias.name, alias.email)
       identityIndex.set(aliasKey, merged.id)
     }
 
@@ -65,10 +77,43 @@ export function lookupPerson(
   name: string,
   email: string,
 ): PersonRecord | undefined {
-  const key = identityKey(name, email)
+  const key = buildPersonDbIdentityKey(name, email)
   const personId = snapshot.identityIndex.get(key)
   if (personId === undefined) return undefined
   return snapshot.persons.find((p) => p.id === personId)
+}
+
+export function buildSubmissionPersonDbSnapshot(
+  identity: ResolvedSubmissionIdentity,
+): PersonDbSnapshot {
+  const canonicalName =
+    identity.kind === "roster-member"
+      ? identity.member.name
+      : identity.trimmedName
+  const canonicalEmail =
+    identity.kind === "roster-member"
+      ? identity.member.email
+      : identity.trimmedLowercaseEmail
+  const preimage =
+    identity.kind === "roster-member"
+      ? `submission-roster\u001f${identity.courseId}\u001f${identity.member.id}`
+      : `submission-one-off\u001f${identity.trimmedLowercaseEmail}\u001f${identity.trimmedName}`
+  const id = sha256Hex(preimage)
+  const identityIndex = new Map<string, string>([
+    [buildPersonDbIdentityKey(canonicalName, canonicalEmail), id],
+  ])
+  return {
+    persons: [
+      {
+        id,
+        canonicalName,
+        canonicalEmail,
+        aliases: [],
+        commitCount: 0,
+      },
+    ],
+    identityIndex,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +137,7 @@ export function applyBlameToPersonDb(
   }
 
   for (const line of blameLines) {
-    const key = identityKey(line.authorName, line.authorEmail)
+    const key = buildPersonDbIdentityKey(line.authorName, line.authorEmail)
     const existingPersonId = identityIndex.get(key)
 
     if (existingPersonId !== undefined) {

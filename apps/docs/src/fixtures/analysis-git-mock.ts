@@ -1,6 +1,7 @@
 import type {
   FileSystemDirectoryEntry,
   FileSystemEntryStatus,
+  FileSystemListedFile,
   FileSystemPort,
   GitCommandPort,
   GitCommandRequest,
@@ -344,6 +345,132 @@ function inspectPath(
   return { path, kind: "missing" }
 }
 
+function statPath(
+  fixture: RecordedAnalysisGitFixture,
+  path: string,
+): { kind: "missing" | "file" | "directory"; size: number | null } {
+  const status = inspectPath(fixture, path)
+  if (status.kind !== "file") {
+    return { kind: status.kind, size: null }
+  }
+  const normalized = normalizePath(path)
+  const repo = repoForPath(fixture, normalized)
+  const relativePath =
+    repo === null ? "" : normalized.slice(repo.path.length + 1)
+  const treeEntry = repo?.treesByCommit[repo.headOid]?.find(
+    (entry) => entry.path === relativePath,
+  )
+  return { kind: "file", size: treeEntry?.size ?? 0 }
+}
+
+function matchesExtension(
+  path: string,
+  extensions: readonly string[],
+): boolean {
+  const normalized = new Set(
+    extensions
+      .map((extension) => extension.trim().toLowerCase().replace(/^\./, ""))
+      .filter((extension) => extension.length > 0),
+  )
+  if (normalized.has("*")) return true
+  const basename = path.split("/").pop() ?? path
+  const index = basename.lastIndexOf(".")
+  return index >= 0 && normalized.has(basename.slice(index + 1).toLowerCase())
+}
+
+function listFiles(
+  fixture: RecordedAnalysisGitFixture,
+  rootPath: string,
+  extensions: readonly string[],
+): FileSystemListedFile[] {
+  const normalizedRoot = normalizePath(rootPath)
+  const repo = repoForPath(fixture, normalizedRoot)
+  if (repo === null) return []
+  const rootPrefix =
+    normalizedRoot === repo.path
+      ? ""
+      : `${normalizedRoot.slice(repo.path.length + 1)}/`
+  return (repo.treesByCommit[repo.headOid] ?? [])
+    .filter((entry) => entry.path.startsWith(rootPrefix))
+    .map((entry) => ({
+      relativePath: entry.path.slice(rootPrefix.length),
+      size: entry.size,
+    }))
+    .filter((entry) => entry.relativePath.length > 0)
+    .filter((entry) => matchesExtension(entry.relativePath, extensions))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+}
+
+function normalizeRelativeFilePath(relativePath: string): string | null {
+  const normalized = relativePath.replaceAll("\\", "/")
+  if (
+    normalized.length === 0 ||
+    normalized.startsWith("/") ||
+    normalized.startsWith("//")
+  ) {
+    return null
+  }
+  const segments = normalized.split("/")
+  if (
+    segments.some(
+      (segment) => segment.length === 0 || segment === "." || segment === "..",
+    )
+  ) {
+    return null
+  }
+  return normalized
+}
+
+function contentFromBlame(blameText: string): string {
+  return blameText
+    .split("\n")
+    .filter((line) => line.startsWith("\t"))
+    .map((line) => line.slice(1))
+    .join("\n")
+}
+
+function readFileInsideRoot(
+  fixture: RecordedAnalysisGitFixture,
+  rootPath: string,
+  relativePath: string,
+  maxBytes: number,
+): { relativePath: string; bytes: Uint8Array } {
+  const normalizedRoot = normalizePath(rootPath)
+  const normalizedRelativePath = normalizeRelativeFilePath(relativePath)
+  if (normalizedRelativePath === null) {
+    throw new Error("Invalid relative file path.")
+  }
+
+  const repo = repoForPath(fixture, normalizedRoot)
+  if (repo === null) {
+    throw new Error("Submission root does not exist.")
+  }
+  const rootPrefix =
+    normalizedRoot === repo.path
+      ? ""
+      : `${normalizedRoot.slice(repo.path.length + 1)}/`
+  const fixturePath = `${rootPrefix}${normalizedRelativePath}`
+  const treeEntry = (repo.treesByCommit[repo.headOid] ?? []).find(
+    (entry) => entry.path === fixturePath,
+  )
+  if (treeEntry === undefined) {
+    throw new Error("File does not exist under submission root.")
+  }
+  if (treeEntry.size > maxBytes) {
+    throw new Error("File exceeds maximum byte size.")
+  }
+
+  const blameText = repo.blameByCommit[repo.headOid]?.[fixturePath]
+  if (blameText === undefined) {
+    throw new Error("Fixture does not include file content.")
+  }
+  const bytes = new TextEncoder().encode(contentFromBlame(blameText))
+  if (bytes.byteLength > maxBytes) {
+    throw new Error("File exceeds maximum byte size.")
+  }
+  return { relativePath: normalizedRelativePath, bytes }
+}
+
 export function createRecordedAnalysisGitMock(
   fixture: RecordedAnalysisGitFixture,
 ): {
@@ -363,6 +490,9 @@ export function createRecordedAnalysisGitMock(
       async inspect(request) {
         return request.paths.map((path) => inspectPath(fixture, path))
       },
+      async stat(request) {
+        return statPath(fixture, request.path)
+      },
       async applyBatch(request) {
         return {
           completed: request.operations,
@@ -373,6 +503,17 @@ export function createRecordedAnalysisGitMock(
       },
       async listDirectory(request) {
         return directoryEntries(fixture, request.path)
+      },
+      async listFiles(request) {
+        return listFiles(fixture, request.rootPath, request.extensions)
+      },
+      async readFileInsideRoot(request) {
+        return readFileInsideRoot(
+          fixture,
+          request.rootPath,
+          request.relativePath,
+          request.maxBytes,
+        )
       },
     },
     async pickDirectory() {

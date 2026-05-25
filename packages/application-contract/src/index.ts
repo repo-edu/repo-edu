@@ -1,3 +1,5 @@
+import { sha256 } from "@noble/hashes/sha2.js"
+import { bytesToHex } from "@noble/hashes/utils.js"
 import type {
   AnalysisBlameConfig,
   AnalysisConfig,
@@ -474,6 +476,35 @@ export type DiscoverReposProgress = {
   currentFolder: string
 }
 
+export type AnalysisFolderFile = {
+  relativePath: string
+  size: number
+}
+
+export type AnalysisListFolderFilesInput = {
+  folderPath: string
+  extensions: string[]
+}
+
+export type AnalysisListFolderFilesResult = {
+  files: AnalysisFolderFile[]
+}
+
+export type AnalysisReadFolderFileInput = {
+  folderPath: string
+  relativePath: string
+}
+
+export type AnalysisReadFolderFileResult = {
+  relativePath: string
+  mediaType: null
+  byteLength: number
+  base64: string
+}
+
+export const SUBMISSION_MAIN_FILE_MAX_BYTES = 64 * 1024
+export const SUBMISSION_MAIN_FILE_MAX_LINES = 400
+
 export type AnalysisRunSource =
   | { kind: "course"; rosterContext?: AnalysisRosterContext }
   | { kind: "folder" }
@@ -676,6 +707,10 @@ export function serializeExaminationArchiveStorageKey(
 
 export function isExaminationContentScopeIdShape(value: string): boolean {
   return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value)
+}
+
+export function buildSubmissionContentScopeId(bytes: Uint8Array): string {
+  return bytesToHex(sha256(bytes))
 }
 
 export function validateExaminationArchiveKey(
@@ -1138,6 +1173,18 @@ export type WorkflowPayloads = {
     output: never
     result: AnalysisDiscoverReposResult
   }
+  "analysis.listFolderFiles": {
+    input: AnalysisListFolderFilesInput
+    progress: never
+    output: never
+    result: AnalysisListFolderFilesResult
+  }
+  "analysis.readFolderFile": {
+    input: AnalysisReadFolderFileInput
+    progress: never
+    output: never
+    result: AnalysisReadFolderFileResult
+  }
   "examination.generateQuestions": {
     input: ExaminationGenerateQuestionsInput
     progress: MilestoneProgress
@@ -1330,6 +1377,16 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     delivery: ["desktop", "docs"],
     progress: "granular",
     cancellation: "best-effort",
+  },
+  "analysis.listFolderFiles": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "cooperative",
+  },
+  "analysis.readFolderFile": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "cooperative",
   },
   "examination.generateQuestions": {
     delivery: ["desktop", "docs"],

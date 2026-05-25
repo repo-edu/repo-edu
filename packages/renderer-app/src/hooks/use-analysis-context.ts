@@ -1,3 +1,4 @@
+import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { AnalysisInputs } from "@repo-edu/domain/types"
 import { useCallback, useMemo } from "react"
 import { SETTINGS_SAVE_DEBOUNCE_MS } from "../constants/layout.js"
@@ -27,15 +28,18 @@ export function useAnalysisContext() {
   )
 
   const courseContext =
-    activeSurface.kind === "course" && course?.id === activeSurface.courseId
+    activeCourseIdFromSurface(activeSurface) !== null &&
+    course?.id === activeCourseIdFromSurface(activeSurface)
       ? course
       : null
   const kind =
-    activeSurface.kind === "folder"
-      ? "folder"
-      : courseContext !== null
-        ? "course"
-        : "none"
+    activeSurface.kind === "submission"
+      ? "submission"
+      : activeSurface.kind === "folder"
+        ? "folder"
+        : courseContext !== null
+          ? "course"
+          : "none"
   const searchFolder =
     activeSurface.kind === "folder"
       ? activeSurface.path

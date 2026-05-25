@@ -5,6 +5,8 @@ import {
   mkdir,
   mkdtemp,
   readdir,
+  readFile,
+  realpath,
   rename,
   rm,
   stat,
@@ -12,7 +14,14 @@ import {
 } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { homedir, tmpdir } from "node:os"
-import { basename, dirname, join } from "node:path"
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path"
 import { fileURLToPath } from "node:url"
 import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
 import type {
@@ -23,7 +32,11 @@ import type {
   FileSystemEntryStatus,
   FileSystemInspectRequest,
   FileSystemListDirectoryRequest,
+  FileSystemListedFile,
   FileSystemPort,
+  FileSystemReadFileInsideRootRequest,
+  FileSystemReadFileInsideRootResult,
+  FileSystemStatResult,
   GitCommandPort,
   GitCommandRequest,
   HttpPort,
@@ -321,6 +334,24 @@ async function inspectPath(path: string): Promise<FileSystemEntryStatus> {
   }
 }
 
+async function statPath(path: string): Promise<FileSystemStatResult> {
+  try {
+    const entry = await stat(path)
+    if (entry.isDirectory()) {
+      return { kind: "directory", size: null }
+    }
+    if (entry.isFile()) {
+      return { kind: "file", size: entry.size }
+    }
+    return { kind: "missing", size: null }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { kind: "missing", size: null }
+    }
+    throw error
+  }
+}
+
 async function applyFileSystemOperation(operation: FileSystemBatchOperation) {
   if (operation.kind === "ensure-directory") {
     await mkdir(operation.path, { recursive: true })
@@ -355,6 +386,94 @@ function resolveUserHomeSystemDirectories(): readonly string[] {
   }
 }
 
+function normalizedExtensionSet(extensions: readonly string[]): Set<string> {
+  return new Set(
+    extensions
+      .map((extension) => extension.trim().toLowerCase().replace(/^\./, ""))
+      .filter((extension) => extension.length > 0),
+  )
+}
+
+function matchesExtension(
+  relativePath: string,
+  extensions: Set<string>,
+): boolean {
+  if (extensions.has("*")) return true
+  const basename = relativePath.split("/").pop() ?? relativePath
+  const index = basename.lastIndexOf(".")
+  if (index < 0) return false
+  return extensions.has(basename.slice(index + 1).toLowerCase())
+}
+
+function toPosixRelativePath(rootPath: string, absolutePath: string): string {
+  return relative(rootPath, absolutePath).replaceAll("\\", "/")
+}
+
+async function listFilesInsideRoot(request: {
+  rootPath: string
+  extensions: readonly string[]
+  signal?: AbortSignal
+}): Promise<FileSystemListedFile[]> {
+  throwIfAborted(request.signal)
+  const extensions = normalizedExtensionSet(request.extensions)
+  const entries = await readdir(request.rootPath, {
+    recursive: true,
+    withFileTypes: true,
+  })
+  throwIfAborted(request.signal)
+
+  const files: FileSystemListedFile[] = []
+  for (const entry of entries) {
+    throwIfAborted(request.signal)
+    if (!entry.isFile()) continue
+    const parentPath =
+      "parentPath" in entry ? entry.parentPath : request.rootPath
+    const absolutePath = join(parentPath, entry.name)
+    const relativePath = toPosixRelativePath(request.rootPath, absolutePath)
+    if (!matchesExtension(relativePath, extensions)) continue
+    const fileStat = await stat(absolutePath)
+    if (!fileStat.isFile()) continue
+    files.push({ relativePath, size: fileStat.size })
+  }
+
+  files.sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath),
+  )
+  return files
+}
+
+async function readFileInsideRootPath(
+  request: FileSystemReadFileInsideRootRequest,
+): Promise<FileSystemReadFileInsideRootResult> {
+  throwIfAborted(request.signal)
+  const rootReal = await realpath(request.rootPath)
+  const candidate = resolve(request.rootPath, request.relativePath)
+  const candidateReal = await realpath(candidate)
+  const containment = relative(rootReal, candidateReal)
+  if (
+    containment.length === 0 ||
+    containment.startsWith("..") ||
+    isAbsolute(containment)
+  ) {
+    throw new Error("Selected file is outside the submission folder.")
+  }
+  throwIfAborted(request.signal)
+  const candidateStat = await stat(candidateReal)
+  if (!candidateStat.isFile()) {
+    throw new Error("Selected path is not a regular file.")
+  }
+  if (candidateStat.size > request.maxBytes) {
+    throw new Error("Selected file is too large.")
+  }
+  throwIfAborted(request.signal)
+  const bytes = await readFile(candidateReal)
+  throwIfAborted(request.signal)
+  return {
+    relativePath: request.relativePath.replaceAll("\\", "/"),
+    bytes,
+  }
+}
+
 export function createNodeFileSystemPort(): FileSystemPort {
   return {
     userHomeSystemDirectories: resolveUserHomeSystemDirectories(),
@@ -372,6 +491,11 @@ export function createNodeFileSystemPort(): FileSystemPort {
       }
 
       return statuses
+    },
+
+    async stat(request): Promise<FileSystemStatResult> {
+      throwIfAborted(request.signal)
+      return statPath(request.path)
     },
 
     async applyBatch(
@@ -407,6 +531,16 @@ export function createNodeFileSystemPort(): FileSystemPort {
             ? ("directory" as const)
             : ("file" as const),
         }))
+    },
+
+    async listFiles(request): Promise<FileSystemListedFile[]> {
+      return listFilesInsideRoot(request)
+    },
+
+    async readFileInsideRoot(
+      request,
+    ): Promise<FileSystemReadFileInsideRootResult> {
+      return readFileInsideRootPath(request)
     },
   }
 }

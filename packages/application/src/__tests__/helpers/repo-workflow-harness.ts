@@ -10,6 +10,7 @@ interface GitCommandOverride {
 
 interface FileSystemOverride {
   inspect?: RepositoryWorkflowPorts["fileSystem"]["inspect"]
+  stat?: RepositoryWorkflowPorts["fileSystem"]["stat"]
   applyBatch?: RepositoryWorkflowPorts["fileSystem"]["applyBatch"]
 }
 
@@ -97,10 +98,17 @@ export function createRepoHarness(options?: {
     fileSystem: {
       userHomeSystemDirectories: [],
       inspect: options?.fileSystem?.inspect ?? (async () => []),
+      stat:
+        options?.fileSystem?.stat ??
+        (async () => ({ kind: "missing", size: null })),
       applyBatch:
         options?.fileSystem?.applyBatch ?? (async () => ({ completed: [] })),
       createTempDirectory: async () => "/tmp/repo-edu-test",
       listDirectory: async () => [],
+      listFiles: async () => [],
+      readFileInsideRoot: async () => {
+        throw new Error("readFileInsideRoot not implemented in this test")
+      },
     },
   })
 

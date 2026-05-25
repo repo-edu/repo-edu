@@ -39,6 +39,9 @@ export function useCourses() {
     try {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
+      const settingsStore = useAppSettingsStore.getState()
+      settingsStore.pruneSubmissionFoldersForCourses(list)
+      void settingsStore.save()
       const activeCourseId = selectActiveCourseId(useUiStore.getState())
       if (
         activeCourseId !== null &&

@@ -36,7 +36,7 @@ function findDuplicateStrings(values: readonly string[]): string[] {
   return sortedStrings([...duplicates])
 }
 
-function isValidEmail(email: string): boolean {
+export function isValidEmail(email: string): boolean {
   const trimmed = email.trim()
   const parts = trimmed.split("@")
   if (parts.length !== 2) {

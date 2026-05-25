@@ -118,4 +118,36 @@ describe("active surface navigation", () => {
     ])
     assert.equal(settingsSaveCalls, 0)
   })
+
+  it("records submission recents separately from repository folders", async () => {
+    const client = createWorkflowClient({
+      "settings.loadApp": async () => useAppSettingsStore.getState().settings,
+      "settings.saveApp": async (settings) => settings,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+
+    const switched = await activateActiveSurface(
+      {
+        kind: "submission",
+        path: "/tmp/submissions/ada",
+        courseId: "course-1",
+      },
+      { recordRecent: true, preferredTab: "analysis" },
+    )
+
+    assert.equal(switched, true)
+    assert.deepStrictEqual(useUiStore.getState().activeSurface, {
+      kind: "submission",
+      path: "/tmp/submissions/ada",
+      courseId: "course-1",
+    })
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.recentAnalysisFolders,
+      [],
+    )
+    assert.deepStrictEqual(
+      useAppSettingsStore.getState().settings.recentSubmissionFolders,
+      [{ path: "/tmp/submissions/ada", courseId: "course-1" }],
+    )
+  })
 })

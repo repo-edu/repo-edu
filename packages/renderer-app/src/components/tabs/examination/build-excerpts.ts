@@ -1,4 +1,8 @@
-import type { ExaminationCodeExcerpt } from "@repo-edu/application-contract"
+import {
+  type ExaminationCodeExcerpt,
+  SUBMISSION_MAIN_FILE_MAX_BYTES,
+  SUBMISSION_MAIN_FILE_MAX_LINES,
+} from "@repo-edu/application-contract"
 import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 
 // Per-member excerpt budget. Larger values give the LLM richer context but
@@ -7,6 +11,11 @@ import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 const MAX_TOTAL_LINES = 400
 const MAX_EXCERPTS = 30
 const MAX_LINES_PER_EXCERPT = 40
+
+export type DecodedSubmissionFile = {
+  bytes: Uint8Array
+  decodedText: string
+}
 
 function normalizeNameForKey(name: string): string {
   return name.trim().split(/\s+/).join(" ").toLowerCase()
@@ -89,4 +98,46 @@ export function buildExcerptFileSources(
       .join("\n")
   }
   return sources
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
+
+export function decodeSubmissionFileBytes(input: {
+  base64: string
+  byteLength: number
+}): DecodedSubmissionFile {
+  const bytes = base64ToBytes(input.base64)
+  if (bytes.byteLength !== input.byteLength) {
+    throw new Error(
+      "Submission file byte length did not match the workflow result.",
+    )
+  }
+  if (bytes.byteLength > SUBMISSION_MAIN_FILE_MAX_BYTES) {
+    throw new Error("Submission main file must be 64 KiB or smaller.")
+  }
+  const decodedText = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+  if (decodedText.split("\n").length > SUBMISSION_MAIN_FILE_MAX_LINES) {
+    throw new Error("Submission main file must be 400 lines or fewer.")
+  }
+  return { bytes, decodedText }
+}
+
+export function buildSubmissionExcerpts(
+  mainFilePath: string,
+  decodedText: string,
+): ExaminationCodeExcerpt[] {
+  return [
+    {
+      filePath: mainFilePath,
+      startLine: 1,
+      lines: decodedText.split("\n"),
+    },
+  ]
 }

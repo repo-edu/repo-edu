@@ -1,4 +1,7 @@
 import {
+  activeCourseIdFromSurface,
+  activeSurfaceEquals,
+  activeSurfaceRecentSubmission,
   normalizeActiveSurface,
   type PersistedActiveSurface,
 } from "@repo-edu/domain/settings"
@@ -20,33 +23,20 @@ type ActiveSurfaceNavigationOptions = {
   skipCourseFlush?: boolean
 }
 
-function sameSurface(
-  left: PersistedActiveSurface,
-  right: PersistedActiveSurface,
-): boolean {
-  if (left.kind !== right.kind) return false
-  if (left.kind === "course" && right.kind === "course") {
-    return left.courseId === right.courseId
-  }
-  if (left.kind === "folder" && right.kind === "folder") {
-    return left.path === right.path
-  }
-  return true
-}
-
 function resolveCourseBacking(
   surface: PersistedActiveSurface,
   explicitBacking: CourseBacking | undefined,
 ): CourseBacking | undefined {
-  if (surface.kind !== "course") return undefined
+  const courseId = activeCourseIdFromSurface(surface)
+  if (courseId === null) return undefined
   if (explicitBacking !== undefined) return explicitBacking
   const loadedCourse = useCourseStore.getState().course
-  if (loadedCourse?.id === surface.courseId) {
+  if (loadedCourse?.id === courseId) {
     return loadedCourse.backing
   }
   return useUiStore
     .getState()
-    .courseList.find((course) => course.id === surface.courseId)?.backing
+    .courseList.find((course) => course.id === courseId)?.backing
 }
 
 export async function activateActiveSurface(
@@ -57,8 +47,9 @@ export async function activateActiveSurface(
   const uiState = useUiStore.getState()
   const currentSurface = uiState.activeSurface
   const leavingCourse =
-    currentSurface.kind === "course" &&
-    !sameSurface(currentSurface, nextSurface)
+    activeCourseIdFromSurface(currentSurface) !== null &&
+    activeCourseIdFromSurface(currentSurface) !==
+      activeCourseIdFromSurface(nextSurface)
 
   if (leavingCourse && options.skipCourseFlush !== true) {
     try {
@@ -77,7 +68,7 @@ export async function activateActiveSurface(
     options.preferredTab ??
     resolveSupportedActiveTab(useUiStore.getState().activeTab, tabBacking)
 
-  if (!sameSurface(currentSurface, nextSurface)) {
+  if (!activeSurfaceEquals(currentSurface, nextSurface)) {
     useAnalysisStore.getState().resetAnalysisContext()
   }
   useUiStore.getState().setActiveSurface(nextSurface)
@@ -88,6 +79,12 @@ export async function activateActiveSurface(
   settingsStore.setActiveTab(nextTab)
   if (nextSurface.kind === "folder" && options.recordRecent === true) {
     settingsStore.pushRecentFolder(nextSurface.path)
+  }
+  if (nextSurface.kind === "submission" && options.recordRecent === true) {
+    const recent = activeSurfaceRecentSubmission(nextSurface)
+    if (recent !== null) {
+      settingsStore.pushRecentSubmissionFolder(recent)
+    }
   }
 
   try {

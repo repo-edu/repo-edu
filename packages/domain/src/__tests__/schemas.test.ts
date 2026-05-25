@@ -220,6 +220,70 @@ describe("validatePersistedAppSettings", () => {
     }
   })
 
+  it("normalizes submission surfaces and rejects relative submission paths", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: {
+        kind: "submission",
+        path: " /tmp/submissions\\ada/ ",
+        courseId: "course-1",
+      },
+      recentSubmissionFolders: [
+        { path: " /tmp/submissions\\ada/ ", courseId: "course-1" },
+        { path: "/tmp/submissions/ada", courseId: "course-1" },
+        { path: "/tmp/submissions/bob" },
+      ],
+    })
+
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.deepStrictEqual(result.value.activeSurface, {
+        kind: "submission",
+        path: "/tmp/submissions/ada",
+        courseId: "course-1",
+      })
+      assert.deepStrictEqual(result.value.recentSubmissionFolders, [
+        { path: "/tmp/submissions/ada", courseId: "course-1" },
+        { path: "/tmp/submissions/bob" },
+      ])
+    }
+
+    const relative = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: { kind: "submission", path: "submissions/ada" },
+    })
+    assert.equal(relative.ok, false)
+  })
+
+  it("prunes submission setup state without a matching recent", () => {
+    const result = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      recentSubmissionFolders: [{ path: "/tmp/submissions/ada" }],
+      submissionSurfaceStates: {
+        "\0/tmp/submissions/ada": {
+          mainFileRelativePath: "main.ts",
+          studentIdentity: {
+            kind: "one-off",
+            name: "Ada",
+            email: "ada@example.edu",
+          },
+        },
+        "\0/tmp/submissions/bob": {
+          mainFileRelativePath: "main.ts",
+          studentIdentity: null,
+        },
+      },
+    })
+
+    assert.equal(result.ok, true)
+    if (result.ok) {
+      assert.deepStrictEqual(
+        Object.keys(result.value.submissionSurfaceStates),
+        ["\0/tmp/submissions/ada"],
+      )
+    }
+  })
+
   it("rejects malformed active-surface shapes", () => {
     const courseAndFolder = validatePersistedAppSettings({
       ...defaultAppSettings,
@@ -236,6 +300,12 @@ describe("validatePersistedAppSettings", () => {
       activeSurface: { kind: "folder", path: "  " },
     })
     assert.equal(emptyFolder.ok, false)
+
+    const relativeSubmission = validatePersistedAppSettings({
+      ...defaultAppSettings,
+      activeSurface: { kind: "submission", path: "relative/path" },
+    })
+    assert.equal(relativeSubmission.ok, false)
   })
 
   it("rejects legacy app settings kind", () => {

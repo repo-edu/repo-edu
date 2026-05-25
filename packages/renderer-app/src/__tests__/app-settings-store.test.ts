@@ -183,6 +183,47 @@ describe("app settings store", () => {
     )
   })
 
+  it("caps submission recents and prunes evicted setup state", () => {
+    const store = useAppSettingsStore.getState()
+    for (const path of [
+      "/submissions/one",
+      "/submissions/two",
+      "/submissions/three",
+      "/submissions/four",
+      "/submissions/five",
+      "/submissions/six",
+      "/submissions/seven",
+      "/submissions/eight",
+    ]) {
+      store.pushRecentSubmissionFolder({ path })
+    }
+    store.setSubmissionSurfaceState(
+      { path: "/submissions/one" },
+      {
+        mainFileRelativePath: "main.ts",
+        studentIdentity: {
+          kind: "one-off",
+          name: "Ada",
+          email: "ada@example.edu",
+        },
+      },
+    )
+
+    store.pushRecentSubmissionFolder({ path: "/submissions/nine" })
+
+    assert.equal(
+      useAppSettingsStore.getState().settings.recentSubmissionFolders.length,
+      8,
+    )
+    assert.equal(
+      Object.hasOwn(
+        useAppSettingsStore.getState().settings.submissionSurfaceStates,
+        "\0/submissions/one",
+      ),
+      false,
+    )
+  })
+
   it("captures save errors in state", async () => {
     const client = createWorkflowClient({
       "settings.loadApp": async () => makeSettings(),

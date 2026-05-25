@@ -29,6 +29,7 @@ import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
 import { ExaminationTab } from "./ExaminationTab.js"
 import { canShowExaminationView } from "./examination/view-state.js"
+import { SubmissionAnalysisTab } from "./SubmissionAnalysisTab.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
   const value = size ?? ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX
@@ -39,6 +40,14 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 }
 
 export function AnalysisTab() {
+  const analysisContext = useAnalysisContext()
+  if (analysisContext.activeSurface.kind === "submission") {
+    return <SubmissionAnalysisTab />
+  }
+  return <RepositoryAnalysisTab />
+}
+
+function RepositoryAnalysisTab() {
   const analysisContext = useAnalysisContext()
   const hasActiveDocument = analysisContext.kind !== "none"
 

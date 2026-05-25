@@ -130,6 +130,8 @@ export const EXAMINATION_NAME_STOPLIST = [
 const NAME_STOPLIST = new Set<string>(EXAMINATION_NAME_STOPLIST)
 
 const linkify = new LinkifyIt()
+const EMAIL_SHAPE_REGEX =
+  /[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/giu
 linkify.set({ fuzzyEmail: true, fuzzyIP: false, fuzzyLink: false })
 
 const protectedBoundaryCharacter = /^[\p{L}\p{N}\p{M}\p{Pc}$'-]$/u
@@ -195,12 +197,27 @@ function isDistinctiveSingleName(value: string): boolean {
 
 export function findEmailAddressSpans(text: string): Span[] {
   const matches = linkify.match(text) ?? []
-  return matches
+  const spans = matches
     .filter((match) => match.schema === "mailto:" || match.text.includes("@"))
     .map((match) => ({
       start: match.index,
       end: match.lastIndex,
     }))
+  for (const match of text.matchAll(EMAIL_SHAPE_REGEX)) {
+    if (match.index === undefined) continue
+    spans.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    })
+  }
+  return spans
+    .toSorted((left, right) => left.start - right.start || left.end - right.end)
+    .filter(
+      (span, index, sorted) =>
+        index === 0 ||
+        span.start !== sorted[index - 1].start ||
+        span.end !== sorted[index - 1].end,
+    )
 }
 
 function findLiteralMatches(params: {

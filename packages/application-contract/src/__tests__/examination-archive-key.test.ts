@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   buildExaminationGenerationContextFingerprint,
+  buildSubmissionContentScopeId,
   EXAMINATION_REDACTION_POLICY_VERSION,
   isExaminationContentScopeIdShape,
   serializeExaminationArchiveStorageKey,
@@ -55,5 +56,17 @@ describe("examination archive key helpers", () => {
     })
 
     assert.notEqual(current, different)
+  })
+
+  it("builds byte-identity submission content scopes", () => {
+    const encoder = new TextEncoder()
+    const lf = buildSubmissionContentScopeId(encoder.encode("line\n"))
+    const crlf = buildSubmissionContentScopeId(encoder.encode("line\r\n"))
+    const repeated = buildSubmissionContentScopeId(encoder.encode("line\n"))
+
+    assert.equal(lf, repeated)
+    assert.notEqual(lf, crlf)
+    assert.equal(isExaminationContentScopeIdShape(lf), true)
+    assert.match(lf, /^[0-9a-f]{64}$/)
   })
 })

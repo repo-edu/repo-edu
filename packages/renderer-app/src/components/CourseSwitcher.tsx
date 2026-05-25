@@ -1,3 +1,7 @@
+import {
+  activeSurfaceEquals,
+  type SubmissionFolderRecent,
+} from "@repo-edu/domain/settings"
 import type { CourseSummary } from "@repo-edu/domain/types"
 import {
   AlertDialog,
@@ -39,12 +43,14 @@ import {
   useMemo,
   useState,
 } from "react"
+import { useRendererHost } from "../contexts/renderer-host.js"
 import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import {
   selectActiveCourseId,
   selectActiveFolderPath,
+  selectActiveSubmissionPath,
   selectActiveSurface,
   useUiStore,
 } from "../stores/ui-store.js"
@@ -74,12 +80,20 @@ export function CourseSwitcher() {
   const activeSurface = useUiStore(selectActiveSurface)
   const activeCourseId = useUiStore(selectActiveCourseId)
   const activeFolderPath = useUiStore(selectActiveFolderPath)
+  const activeSubmissionPath = useUiStore(selectActiveSubmissionPath)
   const isHomeSurface = activeSurface.kind === "home"
   const recentFolders = useAppSettingsStore(
     (s) => s.settings.recentAnalysisFolders,
   )
+  const recentSubmissionFolders = useAppSettingsStore(
+    (s) => s.settings.recentSubmissionFolders,
+  )
   const removeRecentFolder = useAppSettingsStore((s) => s.removeRecentFolder)
+  const removeRecentSubmissionFolder = useAppSettingsStore(
+    (s) => s.removeRecentSubmissionFolder,
+  )
   const saveAppSettings = useAppSettingsStore((s) => s.save)
+  const rendererHost = useRendererHost()
   const activateSurface = useActiveSurfaceNavigation()
   const {
     courses,
@@ -137,7 +151,9 @@ export function CourseSwitcher() {
 
   const handleCourseSelect = (course: CourseSummary) => {
     const id = course.id
-    if (id === activeCourseId) return
+    if (activeSurfaceEquals(activeSurface, { kind: "course", courseId: id })) {
+      return
+    }
     setOpen(false)
     void switchCourse(id, course.backing)
   }
@@ -149,6 +165,44 @@ export function CourseSwitcher() {
       { kind: "folder", path },
       { recordRecent: true, preferredTab: "analysis" },
     )
+  }
+
+  const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
+    const dir = await rendererHost.pickDirectory({
+      title: "Open student submission folder",
+    })
+    if (!dir) return
+    setOpen(false)
+    await activateSurface(
+      { kind: "submission", path: dir, courseId: course.id },
+      {
+        recordRecent: true,
+        preferredTab: "analysis",
+        courseBacking: course.backing,
+      },
+    )
+  }
+
+  const handleRecentSubmissionSelect = (recent: SubmissionFolderRecent) => {
+    const surface =
+      recent.courseId === undefined
+        ? { kind: "submission" as const, path: recent.path }
+        : {
+            kind: "submission" as const,
+            path: recent.path,
+            courseId: recent.courseId,
+          }
+    if (activeSurfaceEquals(activeSurface, surface)) return
+    const courseBacking =
+      recent.courseId === undefined
+        ? undefined
+        : courses.find((course) => course.id === recent.courseId)?.backing
+    setOpen(false)
+    void activateSurface(surface, {
+      recordRecent: true,
+      preferredTab: "analysis",
+      courseBacking,
+    })
   }
 
   const handleRowKeyDown = (
@@ -246,6 +300,13 @@ export function CourseSwitcher() {
     void saveAppSettings()
   }
 
+  const handleRemoveRecentSubmissionFolder = (
+    recent: SubmissionFolderRecent,
+  ) => {
+    removeRecentSubmissionFolder(recent)
+    void saveAppSettings()
+  }
+
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0
 
   const remainingCourses = sortedCourses.filter(
@@ -257,7 +318,10 @@ export function CourseSwitcher() {
 
   const renderCourseRows = (rows: CourseSummary[]) =>
     rows.map((course) => {
-      const isActive = course.id === activeCourseId
+      const isActive = activeSurfaceEquals(activeSurface, {
+        kind: "course",
+        courseId: course.id,
+      })
       const badge = backingBadgeLabel(course)
       return (
         <div
@@ -280,6 +344,22 @@ export function CourseSwitcher() {
             {badge}
           </span>
           <div className="flex shrink-0 items-center gap-0">
+            {course.backing === "lms" ? (
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                className="size-4"
+                aria-label={`Open submission folder for ${course.displayName}`}
+                title="Open submission folder"
+                onClick={(event) =>
+                  handleActionClick(event, () => {
+                    void handleOpenCourseSubmissionFolder(course)
+                  })
+                }
+              >
+                <FolderOpen className="size-3" />
+              </Button>
+            ) : null}
             <Button
               size="icon-xs"
               variant="ghost"
@@ -323,6 +403,68 @@ export function CourseSwitcher() {
               <Trash2 className="size-3" />
             </Button>
           </div>
+        </div>
+      )
+    })
+
+  const renderRecentSubmissionRows = () =>
+    recentSubmissionFolders.map((recent) => {
+      const isActive = activeSurfaceEquals(
+        activeSurface,
+        recent.courseId === undefined
+          ? { kind: "submission", path: recent.path }
+          : {
+              kind: "submission",
+              path: recent.path,
+              courseId: recent.courseId,
+            },
+      )
+      const courseName =
+        recent.courseId === undefined
+          ? null
+          : (courses.find((course) => course.id === recent.courseId)
+              ?.displayName ?? null)
+      return (
+        <div
+          key={`${recent.courseId ?? ""}\0${recent.path}`}
+          role="option"
+          tabIndex={0}
+          aria-selected={isActive}
+          onClick={() => handleRecentSubmissionSelect(recent)}
+          onKeyDown={(event) =>
+            handleRowKeyDown(event, () => handleRecentSubmissionSelect(recent))
+          }
+          className={cn(
+            "flex items-center justify-start gap-1 rounded-sm px-2 py-1.5 text-xs cursor-pointer",
+            "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none",
+            isActive && "bg-selection",
+          )}
+        >
+          <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">
+              {folderBasename(recent.path)}
+            </span>
+            <span className="block truncate text-[10px] text-muted-foreground">
+              {courseName === null
+                ? folderParent(recent.path)
+                : `${courseName} · ${folderParent(recent.path)}`}
+            </span>
+          </span>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            className="size-4 shrink-0"
+            aria-label={`Remove ${recent.path} from recent submissions`}
+            title="Remove recent submission"
+            onClick={(event) =>
+              handleActionClick(event, () =>
+                handleRemoveRecentSubmissionFolder(recent),
+              )
+            }
+          >
+            <X className="size-3" />
+          </Button>
         </div>
       )
     })
@@ -384,6 +526,11 @@ export function CourseSwitcher() {
                   <Home className="size-3.5 shrink-0 text-muted-foreground" />
                   Home
                 </>
+              ) : activeSubmissionPath !== null ? (
+                <>
+                  <span className="text-muted-foreground">Submission:</span>{" "}
+                  {folderBasename(activeSubmissionPath)}
+                </>
               ) : activeFolderPath !== null ? (
                 <>
                   <span className="text-muted-foreground">Folder:</span>{" "}
@@ -434,6 +581,16 @@ export function CourseSwitcher() {
                 Recent folders
               </div>
               {renderRecentFolderRows()}
+            </>
+          )}
+
+          {recentSubmissionFolders.length > 0 && (
+            <>
+              <DropdownMenuSeparator className="my-0.5" />
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Recent submissions
+              </div>
+              {renderRecentSubmissionRows()}
             </>
           )}
         </DropdownMenuContent>

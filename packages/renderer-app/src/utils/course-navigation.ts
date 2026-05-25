@@ -8,7 +8,7 @@ export type CourseTabVisibility = {
 }
 
 export function resolveTabVisibility(
-  backing: CourseBacking | "folder" | undefined,
+  backing: CourseBacking | "folder" | "submission" | undefined,
 ): CourseTabVisibility {
   if (backing === undefined) {
     return {
@@ -18,7 +18,7 @@ export function resolveTabVisibility(
     }
   }
 
-  if (backing === "folder") {
+  if (backing === "folder" || backing === "submission") {
     return {
       roster: false,
       groupsAssignments: false,
@@ -43,7 +43,7 @@ export function resolveTabVisibility(
 
 export function resolveSupportedActiveTab(
   activeTab: ActiveTab,
-  backing: CourseBacking | "folder" | undefined,
+  backing: CourseBacking | "folder" | "submission" | undefined,
 ): ActiveTab {
   if (backing === undefined) return activeTab
 
@@ -59,8 +59,9 @@ export function resolveSupportedActiveTab(
 export function surfaceTabBacking(
   surface: PersistedActiveSurface,
   courseBacking: CourseBacking | undefined,
-): CourseBacking | "folder" | undefined {
+): CourseBacking | "folder" | "submission" | undefined {
   if (surface.kind === "folder") return "folder"
+  if (surface.kind === "submission") return "submission"
   if (surface.kind === "course") return courseBacking
   return undefined
 }

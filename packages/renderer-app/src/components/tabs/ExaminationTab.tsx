@@ -1,5 +1,7 @@
 import type {
+  ExaminationCodeExcerpt,
   ExaminationGenerateQuestionsResult,
+  ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
   ExaminationQuestion,
   ExaminationSourceReference,
@@ -67,7 +69,25 @@ import {
   shouldShowUnmatchedRosterWarning,
 } from "./examination/view-state.js"
 
-export function ExaminationTab() {
+export type SubmissionExaminationContext = {
+  pendingSourceKey: string
+  personId: string
+  studentName: string
+  studentEmail: string
+  contentScopeId: string
+  localIdentityContext: ExaminationLocalIdentityContext
+  excerpts: ExaminationCodeExcerpt[]
+  excerptFileSources: Record<string, string>
+}
+
+type ExaminationTabProps = {
+  submissionContext?: SubmissionExaminationContext | null
+}
+
+export function ExaminationTab({
+  submissionContext = null,
+}: ExaminationTabProps = {}) {
+  const isSubmission = submissionContext !== null
   const analysisContext = useAnalysisContext()
   const blameResult = useAnalysisStore((s) => s.blameResult)
   const analysisResult = useAnalysisStore((s) => s.result)
@@ -179,34 +199,45 @@ export function ExaminationTab() {
   }, [analysisContext.course])
 
   const commitOid = useMemo(() => {
+    if (submissionContext !== null) {
+      return submissionContext.contentScopeId
+    }
     const resolved = analysisResult?.resolvedAsOfOid
     if (resolved && resolved.length > 0) return resolved
     return asOfCommit ?? ""
-  }, [analysisResult, asOfCommit])
+  }, [analysisResult, asOfCommit, submissionContext])
+  const effectivePersonId = submissionContext?.personId ?? selectedPersonId
   const selectedExcerpts = useMemo(() => {
+    if (submissionContext !== null) return submissionContext.excerpts
     if (!blameResult || !selectedPersonId) return []
     return buildMemberExcerpts(
       blameResult,
       blameResult.personDbOverlay,
       selectedPersonId,
     )
-  }, [blameResult, selectedPersonId])
+  }, [blameResult, selectedPersonId, submissionContext])
   const selectedExcerptFileSources = useMemo(() => {
+    if (submissionContext !== null) return submissionContext.excerptFileSources
     if (!blameResult) return {}
     return buildExcerptFileSources(blameResult, selectedExcerpts)
-  }, [blameResult, selectedExcerpts])
+  }, [blameResult, selectedExcerpts, submissionContext])
   const localIdentityContext = useMemo(() => {
+    if (submissionContext !== null) {
+      return submissionContext.localIdentityContext
+    }
     if (!blameResult) return null
     return buildExaminationLocalIdentityContext({
       personDb: blameResult.personDbOverlay,
       roster: analysisContext.course?.roster ?? null,
     })
-  }, [analysisContext.course, blameResult])
+  }, [analysisContext.course, blameResult, submissionContext])
+  const pendingSourceKey =
+    submissionContext?.pendingSourceKey ?? selectedRepoPath
   const pendingEntryKey = useMemo(() => {
     if (
-      !selectedRepoPath ||
+      !pendingSourceKey ||
       commitOid.length === 0 ||
-      !selectedPersonId ||
+      !effectivePersonId ||
       selectedModelCode === null ||
       selectedModelSpec === null ||
       selectedExcerpts.length === 0
@@ -214,21 +245,21 @@ export function ExaminationTab() {
       return null
     }
     return buildPendingExaminationEntryKey({
-      repositoryPath: selectedRepoPath,
+      repositoryPath: pendingSourceKey,
       contentScopeId: commitOid,
-      personId: selectedPersonId,
+      personId: effectivePersonId,
       questionCount,
       model: selectedModelCode,
       effort: selectedModelSpec.effort,
     })
   }, [
     commitOid,
+    effectivePersonId,
+    pendingSourceKey,
     questionCount,
     selectedExcerpts,
     selectedModelCode,
     selectedModelSpec,
-    selectedPersonId,
-    selectedRepoPath,
   ])
   const selectedEntryKey =
     requestedEntryKey !== null && requestedEntryPendingKey === pendingEntryKey
@@ -238,19 +269,35 @@ export function ExaminationTab() {
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )
   const selectedSummary =
-    authorSummaries.find((s) => s.personId === selectedPersonId) ?? null
+    submissionContext !== null
+      ? ({
+          personId: submissionContext.personId,
+          canonicalName: submissionContext.studentName,
+          canonicalEmail: submissionContext.studentEmail,
+          lines: submissionContext.excerpts.reduce(
+            (count, excerpt) => count + excerpt.lines.length,
+            0,
+          ),
+          linesPercent: 100,
+        } satisfies BlameAuthorSummary)
+      : (authorSummaries.find((s) => s.personId === selectedPersonId) ?? null)
   const selectedDisplay =
-    selectedSummary !== null
-      ? (authorDisplays.get(selectedSummary.personId) ?? {
-          name: selectedSummary.canonicalName,
-          email: selectedSummary.canonicalEmail,
-        })
-      : null
+    submissionContext !== null
+      ? {
+          name: submissionContext.studentName,
+          email: submissionContext.studentEmail,
+        }
+      : selectedSummary !== null
+        ? (authorDisplays.get(selectedSummary.personId) ?? {
+            name: selectedSummary.canonicalName,
+            email: selectedSummary.canonicalEmail,
+          })
+        : null
   const selectedLookupInput =
     useMemo<ExaminationLookupQuestionsInput | null>(() => {
       if (
         commitOid.length === 0 ||
-        selectedPersonId === null ||
+        effectivePersonId === null ||
         localIdentityContext === null ||
         selectedModelCode === null ||
         selectedModelSpec === null ||
@@ -259,7 +306,7 @@ export function ExaminationTab() {
         return null
       }
       return {
-        personId: selectedPersonId,
+        personId: effectivePersonId,
         contentScopeId: commitOid,
         localIdentityContext,
         excerpts: selectedExcerpts,
@@ -276,7 +323,7 @@ export function ExaminationTab() {
       selectedExcerptFileSources,
       selectedModelCode,
       selectedModelSpec,
-      selectedPersonId,
+      effectivePersonId,
     ])
   const emptyStateMessage = resolveExaminationEmptyState({
     selectedRepositoryPath: selectedRepoPath,
@@ -383,7 +430,10 @@ export function ExaminationTab() {
     )
   }, [archiveEntries, selectedArchiveEntryKey])
 
-  if (!selectedRepoPath || !blameResult || authorSummaries.length === 0) {
+  if (
+    !isSubmission &&
+    (!selectedRepoPath || !blameResult || authorSummaries.length === 0)
+  ) {
     return (
       <div className="h-full overflow-auto p-6">
         <EmptyState message={emptyStateMessage ?? ""} />
@@ -393,7 +443,7 @@ export function ExaminationTab() {
 
   const resolveBlockingReason = (): string | null => {
     return resolveExaminationBlockingReason({
-      selectedRepositoryPath: selectedRepoPath,
+      selectedRepositoryPath: pendingSourceKey,
       commitOid,
       hasActiveLlmConnection: activeLlmConnection !== null,
     })
@@ -417,19 +467,23 @@ export function ExaminationTab() {
     personId: string,
     options?: { regenerate?: boolean },
   ) => {
-    if (!blameResult) return
+    if (!isSubmission && !blameResult) return
     const blocker = resolveBlockingReason()
     if (blocker) {
       addToast(blocker, { tone: "warning" })
       return
     }
-    if (!selectedRepoPath) return
+    if (!pendingSourceKey) return
 
-    const excerpts = buildMemberExcerpts(
-      blameResult,
-      blameResult.personDbOverlay,
-      personId,
-    )
+    const excerpts =
+      submissionContext?.excerpts ??
+      (blameResult === null
+        ? []
+        : buildMemberExcerpts(
+            blameResult,
+            blameResult.personDbOverlay,
+            personId,
+          ))
     if (excerpts.length === 0) {
       addToast("No code is attributed to this author; nothing to generate.", {
         tone: "warning",
@@ -443,11 +497,15 @@ export function ExaminationTab() {
       return
     }
     if (localIdentityContext === null) return
-    const excerptFileSources = buildExcerptFileSources(blameResult, excerpts)
+    const excerptFileSources =
+      submissionContext?.excerptFileSources ??
+      (blameResult === null
+        ? {}
+        : buildExcerptFileSources(blameResult, excerpts))
     const entryKey =
       pendingEntryKey ??
       buildPendingExaminationEntryKey({
-        repositoryPath: selectedRepoPath,
+        repositoryPath: pendingSourceKey,
         contentScopeId: commitOid,
         personId,
         questionCount,
@@ -616,8 +674,9 @@ export function ExaminationTab() {
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Examination</h2>
           <p className="text-sm text-muted-foreground">
-            Generate oral exam questions from the code each author signed their
-            name to in the final repository state.
+            {isSubmission
+              ? "Generate oral exam questions from the selected submission file."
+              : "Generate oral exam questions from the code each author signed their name to in the final repository state."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -646,13 +705,21 @@ export function ExaminationTab() {
         onOpenSettings={() => openSettings("llm-connections")}
       />
 
-      <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
-        <AuthorList
-          authorSummaries={authorSummaries}
-          authorDisplays={authorDisplays}
-          selectedPersonId={selectedPersonId}
-          onSelect={setSelectedPersonId}
-        />
+      <div
+        className={
+          isSubmission
+            ? "min-h-0 flex-1 overflow-hidden"
+            : "grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden"
+        }
+      >
+        {!isSubmission ? (
+          <AuthorList
+            authorSummaries={authorSummaries}
+            authorDisplays={authorDisplays}
+            selectedPersonId={selectedPersonId}
+            onSelect={setSelectedPersonId}
+          />
+        ) : null}
 
         <div className="min-h-0 overflow-hidden">
           {selectedSummary === null ? (

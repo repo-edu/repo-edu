@@ -103,9 +103,14 @@ describe("application repository update workflow helpers", () => {
       fileSystem: {
         userHomeSystemDirectories: [],
         inspect: async () => [],
+        stat: async () => ({ kind: "missing", size: null }),
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",
         listDirectory: async () => [],
+        listFiles: async () => [],
+        readFileInsideRoot: async () => {
+          throw new Error("readFileInsideRoot not implemented in this test")
+        },
       },
     })
 
@@ -202,9 +207,14 @@ describe("application repository update workflow helpers", () => {
       fileSystem: {
         userHomeSystemDirectories: [],
         inspect: async () => [],
+        stat: async () => ({ kind: "missing", size: null }),
         applyBatch: async () => ({ completed: [] }),
         createTempDirectory: async () => "/tmp/repo-edu-test",
         listDirectory: async () => [],
+        listFiles: async () => [],
+        readFileInsideRoot: async () => {
+          throw new Error("readFileInsideRoot not implemented in this test")
+        },
       },
     })
 

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@noble/hashes": "^2.2.0",
     "@repo-edu/domain": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",

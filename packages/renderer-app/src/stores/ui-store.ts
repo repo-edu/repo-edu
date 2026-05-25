@@ -1,4 +1,7 @@
-import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
+import {
+  activeCourseIdFromSurface,
+  type PersistedActiveSurface,
+} from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   GroupSetImportFormat,
@@ -345,8 +348,10 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 export const selectActiveTab = (state: UiState) => state.activeTab
 export const selectActiveSurface = (state: UiState) => state.activeSurface
 export const selectActiveCourseId = (state: UiState) =>
-  state.activeSurface.kind === "course" ? state.activeSurface.courseId : null
+  activeCourseIdFromSurface(state.activeSurface)
 export const selectActiveFolderPath = (state: UiState) =>
   state.activeSurface.kind === "folder" ? state.activeSurface.path : null
+export const selectActiveSubmissionPath = (state: UiState) =>
+  state.activeSurface.kind === "submission" ? state.activeSurface.path : null
 export const selectClosePromptVisible = (state: UiState) =>
   state.closePromptVisible

@@ -10,11 +10,13 @@ Both app settings and course documents are stored as JSON files and validated on
 | Field | Type | Description |
 |-------|------|-------------|
 | `kind` | `"repo-edu.app-settings.v2"` | Schema discriminator |
-| `activeSurface` | `{ kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "none" }` | Currently selected surface |
+| `activeSurface` | `{ kind: "home" } \| { kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "submission"; path: string; courseId?: string }` | Currently selected surface |
 | `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab (default: `"roster"`) |
 | `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog. Omitted until the first course is created. |
 | `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized, deduplicated, newest first, capped at 8 |
+| `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission-folder paths, normalized, deduplicated by path and course attachment, newest first, capped at 8 |
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared persisted Analysis-tab inputs for folder analysis surfaces |
+| `submissionSurfaceStates` | `Record<string, { mainFileRelativePath: string \| null; studentIdentity: SubmissionStudentIdentity \| null }>` | Per-submission folder UI state for the selected main file and submitted student identity |
 | `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
 | `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |

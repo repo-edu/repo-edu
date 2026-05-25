@@ -24,11 +24,13 @@ There is no migration layer — invalid documents are rejected at the boundary.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `activeSurface` | `{ kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "none" }` | Currently selected course, folder analysis surface, or no active surface |
+| `activeSurface` | `{ kind: "home" } \| { kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "submission"; path: string; courseId?: string }` | Currently selected home, course, folder analysis, or submission analysis surface |
 | `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab |
 | `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog; omitted until the first course is created |
 | `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized and capped at 8 |
+| `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission folders, normalized and capped at 8 |
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared Analysis-tab inputs for folder analysis surfaces |
+| `submissionSurfaceStates` | `Record<string, SubmissionSurfaceState>` | Per-submission folder UI state for the selected main file and submitted student identity |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
 | `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
@@ -45,8 +47,9 @@ There is no migration layer — invalid documents are rejected at the boundary.
 `PersistedCourse` stores all data for a single course. The `backing` axis
 describes which external surface the course is bound to: `"lms"` enables roster
 sync, while `"repobee"` enables local team/group workflows without LMS linkage.
-Folder analysis is represented by `activeSurface.kind === "folder"` in app
-settings, not by a synthetic course document.
+Folder analysis and submission analysis are represented by
+`activeSurface.kind === "folder"` and `activeSurface.kind === "submission"` in
+app settings, not by synthetic course documents.
 
 | Field | Type | Description |
 |-------|------|-------------|

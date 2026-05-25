@@ -159,6 +159,18 @@ export function normalizeAnalysisFolderPath(path: string): string | null {
   return normalized.replace(/\/+$/, "")
 }
 
+function isAbsoluteSubmissionFolderPath(path: string): boolean {
+  return path.startsWith("/") || /^[a-zA-Z]:\//.test(path)
+}
+
+export function normalizeSubmissionFolderPath(path: string): string | null {
+  const normalized = normalizeAnalysisFolderPath(path)
+  if (normalized === null || !isAbsoluteSubmissionFolderPath(normalized)) {
+    return null
+  }
+  return normalized
+}
+
 export function normalizeRecentAnalysisFolders(
   paths: readonly string[],
 ): string[] {
@@ -178,12 +190,99 @@ export function normalizeRecentAnalysisFolders(
   return recent
 }
 
+export type SubmissionFolderRecent = {
+  path: string
+  courseId?: string
+}
+
+export type SubmissionStudentIdentity =
+  | { kind: "roster-member"; memberId: string }
+  | { kind: "one-off"; name: string; email: string }
+
+export type SubmissionSurfaceState = {
+  mainFileRelativePath: string | null
+  studentIdentity: SubmissionStudentIdentity | null
+}
+
+function submissionRecentKey(input: {
+  path: string
+  courseId?: string
+}): string | null {
+  const path = normalizeSubmissionFolderPath(input.path)
+  if (path === null) return null
+  return `${input.courseId ?? ""}\0${path}`
+}
+
+function normalizeSubmissionFolderRecent(
+  recent: SubmissionFolderRecent,
+): SubmissionFolderRecent | null {
+  const path = normalizeSubmissionFolderPath(recent.path)
+  if (path === null) return null
+  return recent.courseId === undefined
+    ? { path }
+    : { path, courseId: recent.courseId }
+}
+
+export function submissionSurfaceStateKey(input: {
+  path: string
+  courseId?: string
+}): string | null {
+  return submissionRecentKey(input)
+}
+
+export function normalizeRecentSubmissionFolders(
+  recents: readonly SubmissionFolderRecent[],
+): SubmissionFolderRecent[] {
+  const recent: SubmissionFolderRecent[] = []
+  const seen = new Set<string>()
+  for (const candidate of recents) {
+    const normalized = normalizeSubmissionFolderRecent(candidate)
+    if (normalized === null) continue
+    const key = submissionRecentKey(normalized)
+    if (key === null || seen.has(key)) continue
+    recent.push(normalized)
+    seen.add(key)
+    if (recent.length >= 8) break
+  }
+  return recent
+}
+
+function pruneSubmissionSurfaceStates(
+  states: Record<string, SubmissionSurfaceState>,
+  recents: readonly SubmissionFolderRecent[],
+): Record<string, SubmissionSurfaceState> {
+  const recentKeys = new Set(
+    recents
+      .map((recent) => submissionRecentKey(recent))
+      .filter((key): key is string => key !== null),
+  )
+  const next: Record<string, SubmissionSurfaceState> = {}
+  for (const [key, state] of Object.entries(states)) {
+    if (recentKeys.has(key)) {
+      next[key] = state
+    }
+  }
+  return next
+}
+
 const analysisFolderPathSchema = z.string().transform((path, context) => {
   const normalized = normalizeAnalysisFolderPath(path)
   if (normalized === null) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Folder path must not be empty.",
+    })
+    return z.NEVER
+  }
+  return normalized
+})
+
+const submissionFolderPathSchema = z.string().transform((path, context) => {
+  const normalized = normalizeSubmissionFolderPath(path)
+  if (normalized === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Submission folder path must be absolute and non-empty.",
     })
     return z.NEVER
   }
@@ -201,6 +300,13 @@ const persistedActiveSurfaceSchema = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("folder"),
       path: analysisFolderPathSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("submission"),
+      path: submissionFolderPathSchema,
+      courseId: z.string().min(1).optional(),
     })
     .strict(),
   z
@@ -224,6 +330,44 @@ export const persistedAppSettingsSchema = z
       .array(z.string())
       .default([])
       .transform((paths) => normalizeRecentAnalysisFolders(paths)),
+    recentSubmissionFolders: z
+      .array(
+        z
+          .object({
+            path: z.string(),
+            courseId: z.string().min(1).optional(),
+          })
+          .strict(),
+      )
+      .default([])
+      .transform((recents) => normalizeRecentSubmissionFolders(recents)),
+    submissionSurfaceStates: z
+      .record(
+        z.string(),
+        z
+          .object({
+            mainFileRelativePath: z.string().nullable(),
+            studentIdentity: z
+              .discriminatedUnion("kind", [
+                z
+                  .object({
+                    kind: z.literal("roster-member"),
+                    memberId: z.string(),
+                  })
+                  .strict(),
+                z
+                  .object({
+                    kind: z.literal("one-off"),
+                    name: z.string(),
+                    email: z.string(),
+                  })
+                  .strict(),
+              ])
+              .nullable(),
+          })
+          .strict(),
+      )
+      .default({}),
     folderViewAnalysisInputs: analysisInputsSchema.default({}),
     appearance: appAppearanceSchema,
     window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
@@ -246,6 +390,13 @@ export const persistedAppSettingsSchema = z
     analysisConcurrency: persistedAnalysisConcurrencySchema,
   })
   .strict()
+  .transform((settings) => ({
+    ...settings,
+    submissionSurfaceStates: pruneSubmissionSurfaceStates(
+      settings.submissionSurfaceStates,
+      settings.recentSubmissionFolders,
+    ),
+  }))
 
 // ---------------------------------------------------------------------------
 // Inferred persistence types
@@ -279,17 +430,88 @@ export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
 export function normalizeActiveSurface(
   surface: PersistedActiveSurface,
 ): PersistedActiveSurface {
-  if (surface.kind !== "folder") {
-    return surface
+  if (surface.kind === "folder") {
+    const path = normalizeAnalysisFolderPath(surface.path)
+    return path === null ? { kind: "home" } : { kind: "folder", path }
   }
-  const path = normalizeAnalysisFolderPath(surface.path)
-  return path === null ? { kind: "home" } : { kind: "folder", path }
+  if (surface.kind === "submission") {
+    const path = normalizeSubmissionFolderPath(surface.path)
+    if (path === null) return { kind: "home" }
+    return surface.courseId === undefined
+      ? { kind: "submission", path }
+      : { kind: "submission", path, courseId: surface.courseId }
+  }
+  return surface
+}
+
+export function pruneSubmissionStateForRecents(
+  settings: Pick<
+    PersistedAppSettings,
+    "recentSubmissionFolders" | "submissionSurfaceStates"
+  >,
+): Pick<
+  PersistedAppSettings,
+  "recentSubmissionFolders" | "submissionSurfaceStates"
+> {
+  const recentSubmissionFolders = normalizeRecentSubmissionFolders(
+    settings.recentSubmissionFolders,
+  )
+  return {
+    recentSubmissionFolders,
+    submissionSurfaceStates: pruneSubmissionSurfaceStates(
+      settings.submissionSurfaceStates,
+      recentSubmissionFolders,
+    ),
+  }
+}
+
+export function activeSurfaceEquals(
+  left: PersistedActiveSurface,
+  right: PersistedActiveSurface,
+): boolean {
+  if (left.kind !== right.kind) return false
+  if (left.kind === "course" && right.kind === "course") {
+    return left.courseId === right.courseId
+  }
+  if (left.kind === "folder" && right.kind === "folder") {
+    return left.path === right.path
+  }
+  if (left.kind === "submission" && right.kind === "submission") {
+    return left.path === right.path && left.courseId === right.courseId
+  }
+  return true
+}
+
+export function activeSurfaceSubmissionStateKey(
+  surface: PersistedActiveSurface,
+): string | null {
+  if (surface.kind !== "submission") {
+    return null
+  }
+  return submissionSurfaceStateKey(surface)
+}
+
+export function activeSurfaceRecentSubmission(
+  surface: PersistedActiveSurface,
+): SubmissionFolderRecent | null {
+  if (surface.kind !== "submission") {
+    return null
+  }
+  return surface.courseId === undefined
+    ? { path: surface.path }
+    : { path: surface.path, courseId: surface.courseId }
 }
 
 export function activeCourseIdFromSurface(
   surface: PersistedActiveSurface,
 ): string | null {
-  return surface.kind === "course" ? surface.courseId : null
+  if (surface.kind === "course") {
+    return surface.courseId
+  }
+  if (surface.kind === "submission") {
+    return surface.courseId ?? null
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +599,8 @@ export const defaultAppSettings: PersistedAppSettings = {
   activeSurface: { kind: "home" },
   activeTab: "roster",
   recentAnalysisFolders: [],
+  recentSubmissionFolders: [],
+  submissionSurfaceStates: {},
   folderViewAnalysisInputs: {},
   appearance: {
     theme: "system",

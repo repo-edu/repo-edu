@@ -1,4 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
+import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
@@ -131,14 +132,13 @@ function AppShell() {
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
   const activeCourseSummary =
-    activeSurface.kind !== "course"
+    activeCourseId === null
       ? null
-      : (courseList.find((course) => course.id === activeSurface.courseId) ??
-        null)
+      : (courseList.find((course) => course.id === activeCourseId) ?? null)
   const activeBacking: CourseBacking | undefined =
-    activeSurface.kind !== "course"
+    activeCourseId === null
       ? undefined
-      : loadedCourse?.id === activeSurface.courseId
+      : loadedCourse?.id === activeCourseId
         ? loadedCourse.backing
         : activeCourseSummary !== null
           ? activeCourseSummary.backing
@@ -161,11 +161,11 @@ function AppShell() {
     if (didHydrateSettingsRef.current) return
     if (appSettingsStatus !== "loaded") return
     didHydrateSettingsRef.current = true
+    const restoredCourseId = activeCourseIdFromSurface(appSettingsActiveSurface)
     const restoredBacking =
-      appSettingsActiveSurface.kind === "course"
-        ? (courseList.find(
-            (course) => course.id === appSettingsActiveSurface.courseId,
-          )?.backing ?? "lms")
+      restoredCourseId !== null
+        ? (courseList.find((course) => course.id === restoredCourseId)
+            ?.backing ?? "lms")
         : undefined
     const restoredTab = resolveSupportedActiveTab(
       appSettingsActiveTab,

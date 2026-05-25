@@ -32,13 +32,14 @@ import {
 import { getWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
+import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 
 const NONE_VALUE = "__none__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
-type SourceChoice = CourseBacking | "folder"
+type SourceChoice = CourseBacking | "folder" | "submission"
 
 export function createNewCourseDraft(input: {
   id: string
@@ -116,6 +117,7 @@ export function OpenRepositoriesForm() {
   const settings = useAppSettingsStore((state) => state.settings)
   const { createCourse } = useCourses()
   const openRepositoriesFolder = useOpenRepositoriesFolder()
+  const openSubmissionFolder = useOpenSubmissionFolder()
 
   const lmsConnections = settings.lmsConnections
 
@@ -292,6 +294,10 @@ export function OpenRepositoriesForm() {
   const handleSelectOrCommit = async (target: SourceChoice) => {
     if (target === "folder") {
       await openRepositoriesFolder()
+      return
+    }
+    if (target === "submission") {
+      await openSubmissionFolder()
       return
     }
     if (source !== target) {
@@ -530,6 +536,13 @@ export function OpenRepositoriesForm() {
         description="Open any folder containing student repositories for one-off analysis. No course is created and no roster is tracked. Recent folders are remembered in the course menu."
         selected={false}
         onClick={() => void handleSelectOrCommit("folder")}
+      />
+
+      <SourceActionCard
+        title="Open a student submission folder"
+        description="Open one student's submitted folder and choose a main file for examination questions. No course is created and you enter the student identity locally."
+        selected={false}
+        onClick={() => void handleSelectOrCommit("submission")}
       />
     </div>
   )

@@ -26,6 +26,8 @@ export {
 } from "./language-tokenizer.js"
 export {
   applyBlameToPersonDb,
+  buildPersonDbIdentityKey,
+  buildSubmissionPersonDbSnapshot,
   clonePersonDbSnapshot,
   createPersonDbFromLog,
   lookupPerson,
@@ -60,5 +62,6 @@ export type {
   PersonDbSnapshot,
   PersonMergeResult,
   PersonRecord,
+  ResolvedSubmissionIdentity,
   SupportedLanguage,
 } from "./types.js"
