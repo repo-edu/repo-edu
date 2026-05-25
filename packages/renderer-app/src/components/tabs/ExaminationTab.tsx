@@ -117,6 +117,8 @@ export function ExaminationTab({
   const [requestedEntryPendingKey, setRequestedEntryPendingKey] = useState<
     string | null
   >(null)
+  const [generatedQuestionSetsByPersonId, setGeneratedQuestionSetsByPersonId] =
+    useState<GeneratedQuestionSetsByPersonId>(new Map())
 
   const workflowClient = useWorkflowClient()
   const rendererHost = useRendererHost()
@@ -366,6 +368,13 @@ export function ExaminationTab({
       const archiveEntries = result.availableSets.map((questionSet) =>
         toAvailableArchiveEntry(questionSet),
       )
+      setGeneratedQuestionSetsByPersonId((current) =>
+        mergeGeneratedQuestionSets(
+          current,
+          lookupInput.personId,
+          result.availableSets,
+        ),
+      )
       setAvailableArchiveEntries(archiveEntries)
       setSelectedArchiveEntryKey(
         result.exact === null ? (archiveEntries[0]?.key ?? null) : entryKey,
@@ -383,6 +392,87 @@ export function ExaminationTab({
     },
     [clearEntry, setEntry, workflowClient],
   )
+
+  const refreshGeneratedQuestionSummaries = useCallback(
+    async (signal?: AbortSignal): Promise<void> => {
+      if (
+        isSubmission ||
+        !blameResult ||
+        commitOid.length === 0 ||
+        localIdentityContext === null ||
+        selectedModelCode === null ||
+        selectedModelSpec === null
+      ) {
+        setGeneratedQuestionSetsByPersonId(new Map())
+        return
+      }
+
+      const summaries = new Map<string, GeneratedQuestionSets>()
+      for (const summary of authorSummaries) {
+        if (signal?.aborted) return
+        const excerpts = buildMemberExcerpts(
+          blameResult,
+          blameResult.personDbOverlay,
+          summary.personId,
+        )
+        if (excerpts.length === 0) {
+          summaries.set(summary.personId, new Map())
+          continue
+        }
+
+        try {
+          const result = await workflowClient.run(
+            "examination.lookupQuestions",
+            {
+              personId: summary.personId,
+              contentScopeId: commitOid,
+              localIdentityContext,
+              excerpts,
+              excerptFileSources: buildExcerptFileSources(
+                blameResult,
+                excerpts,
+              ),
+              questionCount,
+              llmSettings,
+            },
+            {
+              signal,
+              onProgress: (_progress: MilestoneProgress) => undefined,
+            },
+          )
+          if (signal?.aborted) return
+          summaries.set(
+            summary.personId,
+            toGeneratedQuestionSets(result.availableSets),
+          )
+        } catch (_error) {
+          if (signal?.aborted) return
+          summaries.set(summary.personId, new Map())
+        }
+      }
+
+      setGeneratedQuestionSetsByPersonId(summaries)
+    },
+    [
+      authorSummaries,
+      blameResult,
+      commitOid,
+      isSubmission,
+      llmSettings,
+      localIdentityContext,
+      questionCount,
+      selectedModelCode,
+      selectedModelSpec,
+      workflowClient,
+    ],
+  )
+
+  useEffect(() => {
+    const abort = new AbortController()
+    void refreshGeneratedQuestionSummaries(abort.signal)
+
+    return () => abort.abort()
+  }, [refreshGeneratedQuestionSummaries])
 
   useEffect(() => {
     if (pendingEntryKey === null || selectedLookupInput === null) {
@@ -589,6 +679,9 @@ export function ExaminationTab({
           },
         ]),
       )
+      setGeneratedQuestionSetsByPersonId((current) =>
+        mergeGeneratedQuestionSets(current, personId, [result]),
+      )
       setSelectedArchiveEntryKey(archiveKey)
     } catch (error) {
       if (abort.signal.aborted) return
@@ -655,6 +748,9 @@ export function ExaminationTab({
           summary.rejected > 0 ? `, ${summary.rejected} rejected` : ""
         }.`,
         { tone: "success" },
+      )
+      void refreshGeneratedQuestionSummaries().catch(
+        (_error: unknown) => undefined,
       )
       if (selectedEntryKey !== null && selectedLookupInput !== null) {
         void refreshArchiveEntries(
@@ -741,6 +837,7 @@ export function ExaminationTab({
           <AuthorList
             authorSummaries={authorSummaries}
             authorDisplays={authorDisplays}
+            generatedQuestionSetsByPersonId={generatedQuestionSetsByPersonId}
             selectedPersonId={selectedPersonId}
             onSelect={setSelectedPersonId}
           />
@@ -784,13 +881,22 @@ export function ExaminationTab({
 type AuthorListProps = {
   authorSummaries: BlameAuthorSummary[]
   authorDisplays: Map<string, { name: string; email: string }>
+  generatedQuestionSetsByPersonId: GeneratedQuestionSetsByPersonId
   selectedPersonId: string | null
   onSelect: (personId: string) => void
 }
 
+type GeneratedQuestionSets = ReadonlyMap<string, number>
+
+type GeneratedQuestionSetsByPersonId = ReadonlyMap<
+  string,
+  GeneratedQuestionSets
+>
+
 function AuthorList({
   authorSummaries,
   authorDisplays,
+  generatedQuestionSetsByPersonId,
   selectedPersonId,
   onSelect,
 }: AuthorListProps) {
@@ -805,6 +911,14 @@ function AuthorList({
           name: summary.canonicalName,
           email: summary.canonicalEmail,
         }
+        const generatedSets = generatedQuestionSetsByPersonId.get(
+          summary.personId,
+        )
+        const generatedQuestionCount = countGeneratedQuestions(generatedSets)
+        const questionsLabel =
+          generatedSets === undefined || generatedSets.size === 0
+            ? "no questions yet"
+            : `${generatedQuestionCount} ${generatedQuestionCount === 1 ? "question" : "questions"}`
         const active = summary.personId === selectedPersonId
         return (
           <button
@@ -817,7 +931,8 @@ function AuthorList({
           >
             <span className="font-medium">{display.name}</span>
             <span className="text-xs text-muted-foreground">
-              {summary.lines} lines · {summary.linesPercent.toFixed(1)}%
+              {summary.lines} lines · {summary.linesPercent.toFixed(1)}% ·{" "}
+              {questionsLabel}
             </span>
           </button>
         )
@@ -1041,6 +1156,47 @@ function toAvailableArchiveEntry(
     questionCount,
     entry: toExaminationEntry(result),
   }
+}
+
+function toGeneratedQuestionSets(
+  results: readonly ExaminationGenerateQuestionsResult[],
+): GeneratedQuestionSets {
+  const sets = new Map<string, number>()
+  for (const result of results) {
+    sets.set(
+      serializeExaminationArchiveStorageKey(result.key),
+      result.archivedProvenance.questionCount,
+    )
+  }
+  return sets
+}
+
+function mergeGeneratedQuestionSets(
+  current: GeneratedQuestionSetsByPersonId,
+  personId: string,
+  results: readonly ExaminationGenerateQuestionsResult[],
+): GeneratedQuestionSetsByPersonId {
+  const next = new Map(current)
+  const personSets = new Map(next.get(personId) ?? [])
+  for (const result of results) {
+    personSets.set(
+      serializeExaminationArchiveStorageKey(result.key),
+      result.archivedProvenance.questionCount,
+    )
+  }
+  next.set(personId, personSets)
+  return next
+}
+
+function countGeneratedQuestions(
+  sets: GeneratedQuestionSets | undefined,
+): number {
+  if (sets === undefined) return 0
+  let count = 0
+  for (const questionCount of sets.values()) {
+    count += questionCount
+  }
+  return count
 }
 
 function toExaminationEntry(
