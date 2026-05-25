@@ -155,6 +155,30 @@ function isPythonPlainDocumentationString(node: Node): boolean {
   return [...prefix].every((char) => char === "r" || char === "u")
 }
 
+function previousNonExtraNamedSibling(node: Node): Node | null {
+  let sibling = node.previousNamedSibling
+  while (sibling?.isExtra) {
+    sibling = sibling.previousNamedSibling
+  }
+  return sibling
+}
+
+function isPythonDocumentationPosition(node: Node): boolean {
+  const expression = node.parent
+  if (expression?.type !== "expression_statement") return false
+  if (previousNonExtraNamedSibling(expression) !== null) return false
+
+  const container = expression.parent
+  if (container?.type === "module") return true
+  if (container?.type !== "block") return false
+
+  const definition = container.parent
+  return (
+    definition?.type === "class_definition" ||
+    definition?.type === "function_definition"
+  )
+}
+
 function collectDocumentationRanges(
   loaded: LoadedTokenizerLanguage,
   rootNode: Node,
@@ -175,7 +199,8 @@ function collectDocumentationRanges(
       if (capture.name !== "documentation") continue
       if (
         loaded.language === "py" &&
-        !isPythonPlainDocumentationString(capture.node)
+        (!isPythonPlainDocumentationString(capture.node) ||
+          !isPythonDocumentationPosition(capture.node))
       ) {
         continue
       }

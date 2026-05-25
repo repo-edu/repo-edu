@@ -132,6 +132,7 @@ describe("tokenizeSource", () => {
   it("covers JavaScript source and keeps template substitutions executable", async () => {
     const loaded = await loadGrammarForTests("js")
     const source = [
+      "#!/usr/bin/env node",
       'const marker = "// not comment 🚀";',
       "const message = `a $" + "{1 /* real */} b`;",
       "// line",
@@ -140,6 +141,7 @@ describe("tokenizeSource", () => {
     const tokens = tokenizeSource(source, loaded)
 
     assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, "#!/usr/bin/env node", "comment")
     assertSubstringKind(source, tokens, '"// not comment 🚀"', "string-literal")
     assertSubstringKind(source, tokens, "1", "code")
     assertSubstringKind(source, tokens, "/* real */", "comment")
@@ -149,9 +151,11 @@ describe("tokenizeSource", () => {
   it("emits Python documentation only in documentation positions", async () => {
     const loaded = await loadGrammarForTests("py")
     const source = [
+      "# header",
       '"""module docs"""',
       'assigned = """not docs"""',
       "def f():",
+      "    # header",
       '    r"""function docs"""',
       "def g():",
       '    f"""not docs {1}"""',
@@ -167,6 +171,19 @@ describe("tokenizeSource", () => {
     assertSubstringKind(source, tokens, "not docs ", "string-literal")
     assertSubstringKind(source, tokens, "1", "code")
     assertSubstringKind(source, tokens, "# line", "comment")
+  })
+
+  it("classifies JSX text content as string literal spans", async () => {
+    const loaded = await loadGrammarForTests("tsx")
+    const source =
+      'const view = <p title="Will">Hello Will{/* strip */}{name}</p>'
+    const tokens = tokenizeSource(source, loaded)
+
+    assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, '"Will"', "string-literal")
+    assertSubstringKind(source, tokens, "Hello Will", "string-literal")
+    assertSubstringKind(source, tokens, "/* strip */", "comment")
+    assertSubstringKind(source, tokens, "name", "code")
   })
 
   it("classifies Ruby heredocs as string literal spans", async () => {

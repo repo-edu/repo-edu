@@ -47,6 +47,13 @@ describe("classifyCommentLines", () => {
     assertCommentLines(classifyCommentLines(lines, loaded), [])
   })
 
+  it("classifies JavaScript hashbang lines", async () => {
+    const loaded = await loadGrammarForTests("ts")
+    const lines = ["#!/usr/bin/env node", "console.log(1)"]
+
+    assertCommentLines(classifyCommentLines(lines, loaded), [0])
+  })
+
   it("classifies Python docstrings and hash comments", async () => {
     const loaded = await loadGrammarForTests("py")
     const lines = ['r"""module docs"""', 'value = "# not comment"', "# comment"]

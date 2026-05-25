@@ -10,9 +10,9 @@ export type TokenizerLanguageMapping = {
 }
 
 const JS_FAMILY_MAPPING = {
-  commentNodeKinds: ["comment", "html_comment"],
+  commentNodeKinds: ["comment", "hash_bang_line", "html_comment"],
   documentationNodeKinds: [],
-  stringNodeKinds: ["string", "template_string", "regex"],
+  stringNodeKinds: ["jsx_text", "string", "template_string", "regex"],
   embeddedExpressionNodeKinds: ["template_substitution"],
 } as const
 
@@ -29,11 +29,7 @@ const C_FAMILY_MAPPING = {
 } as const
 
 const PYTHON_DOCUMENTATION_QUERY = `
-(module . (expression_statement (string) @documentation))
-(class_definition
-  body: (block . (expression_statement (string) @documentation)))
-(function_definition
-  body: (block . (expression_statement (string) @documentation)))
+(expression_statement (string) @documentation)
 `
 
 const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
