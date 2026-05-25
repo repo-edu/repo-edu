@@ -215,7 +215,13 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
     assetLanguage: "xml",
     commentNodeKinds: ["Comment"],
     documentationNodeKinds: [],
-    stringNodeKinds: ["AttValue", "PubidLiteral", "SystemLiteral"],
+    stringNodeKinds: [
+      "AttValue",
+      "CDSect",
+      "CharData",
+      "PubidLiteral",
+      "SystemLiteral",
+    ],
     embeddedExpressionNodeKinds: [],
   },
 } as const satisfies Record<

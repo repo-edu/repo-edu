@@ -219,13 +219,21 @@ describe("tokenizeSource", () => {
     )
   })
 
-  it("classifies XML attribute values as string literals", async () => {
+  it("classifies XML data values as string literals", async () => {
     const loaded = await loadGrammarForTests("xml")
-    const source = '<node label="Alice"><!-- strip --></node>'
+    const source =
+      '<node label="Alice">Plain Will<![CDATA[CDATA Will]]><!-- strip --></node>'
     const tokens = tokenizeSource(source, loaded)
 
     assertExhaustiveCoverage(source, tokens)
     assertSubstringKind(source, tokens, '"Alice"', "string-literal")
+    assertSubstringKind(source, tokens, "Plain Will", "string-literal")
+    assertSubstringKind(
+      source,
+      tokens,
+      "<![CDATA[CDATA Will]]>",
+      "string-literal",
+    )
     assertSubstringKind(source, tokens, "<!-- strip -->", "comment")
   })
 
