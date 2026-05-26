@@ -51,6 +51,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `groupsSidebarSize` | `number \| null` | Persisted Groups & Assignments sidebar width |
 | `analysisSidebarSize` | `number \| null` | Persisted Analysis sidebar width |
 | `analysisDetailListSize` | `number \| null` | Persisted Analysis detail-list width |
+| `examinationSubmissionSidebarSize` | `number \| null` | Persisted submission examination sidebar width |
 | `analysisSidebar` | `{ searchDepth; sectionState; repoViewMode; fileViewMode; fileSortMode; blameConfig } \| null` | Persisted Analysis sidebar UI preferences |
 | `defaultExtensions` | `string[]` | Fallback file-extension allowlist used when a course leaves `analysisInputs.extensions` `undefined`. Normalized on write (lowercase, dot stripped, deduplicated). `[]` means "no extension filter". |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |

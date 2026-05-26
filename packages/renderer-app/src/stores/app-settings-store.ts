@@ -93,6 +93,7 @@ type AppSettingsActions = {
   setGroupsSidebarSize: (size: number) => void
   setAnalysisSidebarSize: (size: number) => void
   setAnalysisDetailListSize: (size: number) => void
+  setExaminationSubmissionSidebarSize: (size: number) => void
   setAnalysisSidebar: (sidebar: PersistedAnalysisSidebarSettings | null) => void
 
   setAnalysisConcurrency: (concurrency: PersistedAnalysisConcurrency) => void
@@ -602,6 +603,14 @@ export const useAppSettingsStore = create<
     setAnalysisDetailListSize: (size) =>
       set((state) => ({
         settings: { ...state.settings, analysisDetailListSize: size },
+      })),
+
+    setExaminationSubmissionSidebarSize: (size) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          examinationSubmissionSidebarSize: size,
+        },
       })),
 
     setAnalysisSidebar: (sidebar) =>

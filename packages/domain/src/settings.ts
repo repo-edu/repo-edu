@@ -369,6 +369,7 @@ export const persistedAppSettingsSchema = z
     groupsSidebarSize: z.number().nullable().default(null),
     analysisSidebarSize: z.number().nullable().default(null),
     analysisDetailListSize: z.number().nullable().default(null),
+    examinationSubmissionSidebarSize: z.number().nullable().default(null),
     analysisSidebar: persistedAnalysisSidebarSettingsSchema
       .nullable()
       .default(null),
@@ -611,6 +612,7 @@ export const defaultAppSettings: PersistedAppSettings = {
   groupsSidebarSize: null,
   analysisSidebarSize: null,
   analysisDetailListSize: null,
+  examinationSubmissionSidebarSize: null,
   analysisSidebar: null,
   defaultExtensions: [...DEFAULT_EXTENSIONS],
   analysisConcurrency: {

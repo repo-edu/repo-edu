@@ -46,10 +46,15 @@ type FileListState =
   | { status: "error"; files: []; error: string }
 
 type PreparedSubmissionState =
-  | { status: "idle"; context: null; error: null }
-  | { status: "loading"; context: null; error: null }
-  | { status: "loaded"; context: SubmissionExaminationContext; error: null }
-  | { status: "error"; context: null; error: string }
+  | { status: "idle"; pendingSourceKey: null; context: null; error: null }
+  | { status: "loading"; pendingSourceKey: string; context: null; error: null }
+  | {
+      status: "loaded"
+      pendingSourceKey: string
+      context: SubmissionExaminationContext
+      error: null
+    }
+  | { status: "error"; pendingSourceKey: string; context: null; error: string }
 
 const EMPTY_SUBMISSION_STATE: SubmissionSurfaceState = {
   includedFiles: null,
@@ -248,6 +253,8 @@ function buildSelectionBlocker(params: {
 
 export function SubmissionAnalysisTab() {
   const activeSurface = useUiStore(selectActiveSurface)
+  const submissionFolderPath =
+    activeSurface.kind === "submission" ? activeSurface.path : null
   const workflowClient = useWorkflowClient()
   const course = useCourseStore((state) => state.course)
   const settings = useAppSettingsStore((state) => state.settings)
@@ -262,6 +269,7 @@ export function SubmissionAnalysisTab() {
   })
   const [prepared, setPrepared] = useState<PreparedSubmissionState>({
     status: "idle",
+    pendingSourceKey: null,
     context: null,
     error: null,
   })
@@ -295,24 +303,24 @@ export function SubmissionAnalysisTab() {
       : null
   const localIdentityContext = useMemo(
     () =>
-      activeSurface.kind === "submission"
+      submissionFolderPath !== null
         ? buildSubmissionLocalIdentityContext({
-            folderPath: activeSurface.path,
+            folderPath: submissionFolderPath,
             roster: attachedRoster,
           })
         : EMPTY_IDENTITY_CONTEXT,
-    [activeSurface, attachedRoster],
+    [attachedRoster, submissionFolderPath],
   )
 
   useEffect(() => {
-    if (activeSurface.kind !== "submission") return
+    if (submissionFolderPath === null) return
     const abort = new AbortController()
     setFileList({ status: "loading", files: [], error: null })
     workflowClient
       .run(
         "analysis.listFolderFiles",
         {
-          folderPath: activeSurface.path,
+          folderPath: submissionFolderPath,
           extensions: configuredExtensions,
         },
         { signal: abort.signal },
@@ -330,7 +338,7 @@ export function SubmissionAnalysisTab() {
         })
       })
     return () => abort.abort()
-  }, [activeSurface, configuredExtensions, workflowClient])
+  }, [configuredExtensions, submissionFolderPath, workflowClient])
 
   const eligibleFiles = useMemo(
     () => fileList.files.filter(isEligible),
@@ -341,6 +349,20 @@ export function SubmissionAnalysisTab() {
       resolveEffectiveSelection(fileList.files, submissionState.includedFiles),
     [fileList.files, submissionState.includedFiles],
   )
+  const selectedPathsKey = useMemo(
+    () => JSON.stringify([...effectiveSelection].sort()),
+    [effectiveSelection],
+  )
+  const pendingSourceKey = useMemo(() => {
+    if (submissionFolderPath === null || effectiveSelection.length === 0) {
+      return null
+    }
+    return JSON.stringify([
+      "submission",
+      submissionFolderPath,
+      JSON.parse(selectedPathsKey) as string[],
+    ])
+  }, [effectiveSelection.length, selectedPathsKey, submissionFolderPath])
   const selectedSet = useMemo(
     () => new Set(effectiveSelection),
     [effectiveSelection],
@@ -369,28 +391,35 @@ export function SubmissionAnalysisTab() {
 
   useEffect(() => {
     if (
-      activeSurface.kind !== "submission" ||
+      submissionFolderPath === null ||
+      fileList.status !== "loaded" ||
       effectiveSelection.length === 0 ||
+      pendingSourceKey === null ||
       prepareBlocker !== null
     ) {
-      setPrepared({ status: "idle", context: null, error: null })
+      setPrepared({
+        status: "idle",
+        pendingSourceKey: null,
+        context: null,
+        error: null,
+      })
       return
     }
 
     void prepareAttempt
+    const selectedPaths = JSON.parse(selectedPathsKey) as string[]
     const abort = new AbortController()
-    setPrepared({ status: "loading", context: null, error: null })
+    setPrepared({
+      status: "loading",
+      pendingSourceKey,
+      context: null,
+      error: null,
+    })
 
-    const folderPath = activeSurface.path
-    const selectedPaths = [...effectiveSelection].sort()
-    const pendingSourceKey = JSON.stringify([
-      "submission",
-      folderPath,
-      selectedPaths,
-    ])
+    const folderPath = submissionFolderPath
 
     Promise.all(
-      effectiveSelection.map((relativePath) =>
+      selectedPaths.map((relativePath) =>
         workflowClient
           .run(
             "analysis.readFolderFile",
@@ -430,6 +459,7 @@ export function SubmissionAnalysisTab() {
         } · ${formatBytes(totalBytes)} · ~${formatTokenEstimate(totalChars)} tokens`
         setPrepared({
           status: "loaded",
+          pendingSourceKey,
           error: null,
           context: {
             pendingSourceKey,
@@ -447,6 +477,7 @@ export function SubmissionAnalysisTab() {
         if (abort.signal.aborted) return
         setPrepared({
           status: "error",
+          pendingSourceKey,
           context: null,
           error: getErrorMessage(error),
         })
@@ -454,11 +485,14 @@ export function SubmissionAnalysisTab() {
 
     return () => abort.abort()
   }, [
-    activeSurface,
-    effectiveSelection,
+    effectiveSelection.length,
+    fileList.status,
     localIdentityContext,
+    pendingSourceKey,
     prepareAttempt,
     prepareBlocker,
+    selectedPathsKey,
+    submissionFolderPath,
     workflowClient,
   ])
 
@@ -499,17 +533,45 @@ export function SubmissionAnalysisTab() {
           : "indeterminate"
 
   const summaryEstimate =
-    selectedSet.size === 0
-      ? "Nothing selected"
-      : `${selectedSet.size} file${
-          selectedSet.size === 1 ? "" : "s"
-        } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
-          selectedTotalBytes,
-        )} tokens`
+    fileList.status === "loading"
+      ? "Loading..."
+      : fileList.status === "error"
+        ? "Unavailable"
+        : selectedSet.size === 0
+          ? "Nothing selected"
+          : `${selectedSet.size} file${
+              selectedSet.size === 1 ? "" : "s"
+            } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
+              selectedTotalBytes,
+            )} tokens`
+  const visiblePrepared =
+    prepared.pendingSourceKey === pendingSourceKey
+      ? prepared
+      : ({
+          status: "idle",
+          pendingSourceKey: null,
+          context: null,
+          error: null,
+        } satisfies PreparedSubmissionState)
+  const isAwaitingPreparation =
+    fileList.status === "loaded" &&
+    pendingSourceKey !== null &&
+    prepareBlocker === null &&
+    visiblePrepared.status !== "loaded" &&
+    visiblePrepared.status !== "error"
+  const examinationPlaceholderMessage =
+    fileList.status === "loading"
+      ? "Loading files..."
+      : fileList.status === "error"
+        ? "Fix the file loading error before preparing examination generation."
+        : isAwaitingPreparation || visiblePrepared.status === "loading"
+          ? "Preparing submission..."
+          : (prepareBlocker ??
+            "Select at least one file to open examination generation.")
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-6">
-      <div className="grid gap-4 rounded border p-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
+      <div className="grid flex-none gap-4 rounded border p-4">
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold">Submission</h2>
           <p className="text-sm text-muted-foreground">{activeSurface.path}</p>
@@ -575,13 +637,13 @@ export function SubmissionAnalysisTab() {
           ) : null}
         </div>
 
-        {prepared.status === "loading" ? (
+        {isAwaitingPreparation || visiblePrepared.status === "loading" ? (
           <p className="text-xs text-muted-foreground">
             Preparing submission...
           </p>
-        ) : prepared.status === "error" ? (
+        ) : visiblePrepared.status === "error" ? (
           <div className="flex items-center gap-2">
-            <p className="text-xs text-destructive">{prepared.error}</p>
+            <p className="text-xs text-destructive">{visiblePrepared.error}</p>
             <button
               type="button"
               className="text-xs underline"
@@ -593,16 +655,11 @@ export function SubmissionAnalysisTab() {
         ) : null}
       </div>
 
-      <div className="min-h-0">
-        {prepared.context === null ? (
-          <EmptyState
-            message={
-              prepareBlocker ??
-              "Select at least one file to open examination generation."
-            }
-          />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {visiblePrepared.context === null ? (
+          <EmptyState message={examinationPlaceholderMessage} />
         ) : (
-          <ExaminationTab submissionContext={prepared.context} />
+          <ExaminationTab submissionContext={visiblePrepared.context} />
         )}
       </div>
     </div>

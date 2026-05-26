@@ -42,7 +42,11 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 export function AnalysisTab() {
   const analysisContext = useAnalysisContext()
   if (analysisContext.activeSurface.kind === "submission") {
-    return <SubmissionAnalysisTab />
+    const submissionSurfaceKey = JSON.stringify([
+      analysisContext.activeSurface.courseId ?? null,
+      analysisContext.activeSurface.path,
+    ])
+    return <SubmissionAnalysisTab key={submissionSurfaceKey} />
   }
   return <RepositoryAnalysisTab />
 }

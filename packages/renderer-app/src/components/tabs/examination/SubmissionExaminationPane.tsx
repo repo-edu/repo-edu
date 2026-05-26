@@ -1,0 +1,176 @@
+import type { PersistedLlmConnection } from "@repo-edu/domain/settings"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  type ResizablePanelHandle,
+} from "@repo-edu/ui"
+import { useCallback, useRef } from "react"
+import {
+  EXAMINATION_SUBMISSION_SIDEBAR_DEFAULT_WIDTH_PX,
+  EXAMINATION_SUBMISSION_SIDEBAR_MAX_WIDTH_PX,
+  EXAMINATION_SUBMISSION_SIDEBAR_MIN_WIDTH_PX,
+} from "../../../constants/layout.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import type { ExaminationEntry } from "../../../stores/examination-store.js"
+import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
+import { ExaminationControlsCard } from "./ExaminationControlsCard.js"
+import { ExaminationQuestionDisplay } from "./ExaminationQuestionDisplay.js"
+import { LlmControls } from "./LlmControls.js"
+import type { AvailableArchiveEntry } from "./types.js"
+
+type SubmissionExaminationPaneProps = {
+  connections: PersistedLlmConnection[]
+  activeConnection: PersistedLlmConnection | null
+  selectedModelCode: string | null
+  onSelectConnection: (id: string) => void
+  onSelectModelCode: (code: string) => void
+  onOpenSettings: () => void
+
+  entry: ExaminationEntry | null
+  archiveEntries: AvailableArchiveEntry[]
+  displayedArchiveEntry: AvailableArchiveEntry | null
+  showArchiveSelector: boolean
+  questionCount: number
+  showAnswers: boolean
+  blocker: string | null
+  onQuestionCountChange: (count: number) => void
+  onShowAnswersChange: (show: boolean) => void
+  onSelectArchiveEntry: (entry: AvailableArchiveEntry) => void
+  onGenerate: () => void
+  onStopGeneration: () => void
+  onRegenerate: () => void
+  onCopyMarkdown: () => void
+}
+
+function clampSidebarWidthPx(size: number | null | undefined): number {
+  const value = size ?? EXAMINATION_SUBMISSION_SIDEBAR_DEFAULT_WIDTH_PX
+  return Math.min(
+    EXAMINATION_SUBMISSION_SIDEBAR_MAX_WIDTH_PX,
+    Math.max(EXAMINATION_SUBMISSION_SIDEBAR_MIN_WIDTH_PX, value),
+  )
+}
+
+export function SubmissionExaminationPane({
+  connections,
+  activeConnection,
+  selectedModelCode,
+  onSelectConnection,
+  onSelectModelCode,
+  onOpenSettings,
+  entry,
+  archiveEntries,
+  displayedArchiveEntry,
+  showArchiveSelector,
+  questionCount,
+  showAnswers,
+  blocker,
+  onQuestionCountChange,
+  onShowAnswersChange,
+  onSelectArchiveEntry,
+  onGenerate,
+  onStopGeneration,
+  onRegenerate,
+  onCopyMarkdown,
+}: SubmissionExaminationPaneProps) {
+  const isLoading = entry?.status === "loading"
+  const hasPartialQuestions =
+    isLoading && entry !== null && entry.questions.length > 0
+  const exactHasResults = entry?.status === "loaded"
+  const displayEntry =
+    hasPartialQuestions && entry !== null
+      ? entry
+      : (displayedArchiveEntry?.entry ?? null)
+  const hasDisplayResults =
+    displayEntry !== null && displayEntry.questions.length > 0
+
+  const initialSidebarWidthPxRef = useRef(
+    clampSidebarWidthPx(
+      useAppSettingsStore.getState().settings.examinationSubmissionSidebarSize,
+    ),
+  )
+  const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
+
+  const handleLayoutChanged = useCallback(() => {
+    const panel = sidebarPanelRef.current
+    if (!panel) return
+    const { setExaminationSubmissionSidebarSize, save } =
+      useAppSettingsStore.getState()
+    const nextSize = clampSidebarWidthPx(panel.getSize().inPixels)
+    const currentSize = clampSidebarWidthPx(
+      useAppSettingsStore.getState().settings.examinationSubmissionSidebarSize,
+    )
+    if (nextSize === currentSize) return
+    setExaminationSubmissionSidebarSize(nextSize)
+    void save()
+  }, [])
+
+  return (
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="flex-1 min-h-0"
+      onLayoutChanged={handleLayoutChanged}
+    >
+      <ResizablePanel
+        id="examination-submission-sidebar"
+        panelRef={sidebarPanelRef}
+        defaultSize={`${initialSidebarWidthPxRef.current}px`}
+        minSize={`${EXAMINATION_SUBMISSION_SIDEBAR_MIN_WIDTH_PX}px`}
+        maxSize={`${EXAMINATION_SUBMISSION_SIDEBAR_MAX_WIDTH_PX}px`}
+        groupResizeBehavior="preserve-pixel-size"
+        className="min-w-0"
+      >
+        <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-2">
+          <LlmControls
+            connections={connections}
+            activeConnection={activeConnection}
+            selectedModelCode={selectedModelCode}
+            onSelectConnection={onSelectConnection}
+            onSelectModelCode={onSelectModelCode}
+            onOpenSettings={onOpenSettings}
+          />
+          <p className="rounded border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+            Provider prompts use redacted excerpts, but local code may still
+            contain personal data after best-effort redaction.
+          </p>
+          <ExaminationControlsCard
+            questionCount={questionCount}
+            showAnswers={showAnswers}
+            blocker={blocker}
+            isGenerating={isLoading}
+            canRegenerate={!isLoading && exactHasResults && blocker === null}
+            canToggleAnswers={hasDisplayResults}
+            canCopyMarkdown={displayEntry?.status === "loaded"}
+            onQuestionCountChange={onQuestionCountChange}
+            onShowAnswersChange={onShowAnswersChange}
+            onGenerate={onGenerate}
+            onStopGeneration={onStopGeneration}
+            onRegenerate={onRegenerate}
+            onCopyMarkdown={onCopyMarkdown}
+          />
+          {showArchiveSelector ? (
+            <ArchiveSetSelector
+              entries={archiveEntries}
+              selectedKey={displayedArchiveEntry?.key ?? null}
+              onSelect={onSelectArchiveEntry}
+            />
+          ) : null}
+        </div>
+      </ResizablePanel>
+      <ResizableHandle className="aria-[orientation=vertical]:w-px aria-[orientation=vertical]:after:absolute aria-[orientation=vertical]:after:inset-y-0 aria-[orientation=vertical]:after:-left-1 aria-[orientation=vertical]:after:w-2" />
+      <ResizablePanel className="min-w-0">
+        <div className="flex h-full min-h-0 flex-col pl-2">
+          <ExaminationQuestionDisplay
+            entry={entry}
+            displayedArchiveEntry={displayedArchiveEntry}
+            questionCount={questionCount}
+            showAnswers={showAnswers}
+            layout="pane"
+            scrollResetKey={displayedArchiveEntry?.key ?? null}
+            emptyMessage="Click Generate to produce questions for this submission."
+          />
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  )
+}

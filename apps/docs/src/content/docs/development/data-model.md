@@ -42,7 +42,7 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
 | `rosterColumnSizing` | `Record<string, number>` | Per-column width for roster table |
-| `groupsSidebarSize` / `analysisSidebarSize` / `analysisDetailListSize` | `number \| null` | Persisted split-pane dimensions |
+| `groupsSidebarSize` / `analysisSidebarSize` / `analysisDetailListSize` / `examinationSubmissionSidebarSize` | `number \| null` | Persisted split-pane dimensions |
 | `analysisSidebar` | `PersistedAnalysisSidebarSettings \| null` | Persisted Analysis sidebar view, sort, section, and blame options |
 | `defaultExtensions` | `string[]` | Global fallback for the per-course `analysisInputs.extensions` field. `undefined` on a course means "inherit this default"; `[]` on a course means "no extension filter". Resolution is one level — course → global — with no per-repo layer. |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |

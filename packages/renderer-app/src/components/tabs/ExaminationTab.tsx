@@ -51,6 +51,7 @@ import {
 import { LlmControls } from "./examination/LlmControls.js"
 import { resolveExaminationModelCode } from "./examination/llm-models.js"
 import { buildMarkdownTranscript } from "./examination/markdown-transcript.js"
+import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
 import type {
   AvailableArchiveEntry,
   GeneratedQuestionSets,
@@ -920,14 +921,30 @@ export function ExaminationTab({
     }
   }
 
+  const handleSelectLlmConnection = (id: string) => {
+    setSelectedArchiveEntryKey(null)
+    setActiveLlmConnectionId(id)
+    void saveAppSettings()
+  }
+  const handleSelectModelCode = (code: string) => {
+    if (activeProvider === null) return
+    setSelectedArchiveEntryKey(null)
+    setExaminationModelForProvider(activeProvider, code)
+    void saveAppSettings()
+  }
+  const handleOpenLlmSettings = () => openSettings("llm-connections")
+  const handleQuestionCountChange = (count: number) => {
+    setSelectedArchiveEntryKey(null)
+    setQuestionCount(count)
+  }
+  const handleStopGeneration = () => {
+    const generationControlId =
+      entry?.status === "loading" ? selectedEntryKey : null
+    if (generationControlId !== null) void stopGeneration(generationControlId)
+  }
+
   return (
-    <div
-      className={
-        isSubmission
-          ? "flex min-h-0 flex-col gap-4 p-6"
-          : "flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6"
-      }
-    >
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Examination</h2>
@@ -947,87 +964,85 @@ export function ExaminationTab({
         </div>
       </div>
 
-      <LlmControls
-        connections={llmConnections}
-        activeConnection={activeLlmConnection}
-        selectedModelCode={selectedModelCode}
-        onSelectConnection={(id) => {
-          setSelectedArchiveEntryKey(null)
-          setActiveLlmConnectionId(id)
-          void saveAppSettings()
-        }}
-        onSelectModelCode={(code) => {
-          if (activeProvider === null) return
-          setSelectedArchiveEntryKey(null)
-          setExaminationModelForProvider(activeProvider, code)
-          void saveAppSettings()
-        }}
-        onOpenSettings={() => openSettings("llm-connections")}
-      />
-
-      <div
-        className={
-          isSubmission
-            ? "min-h-0"
-            : "grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden"
-        }
-      >
-        {!isSubmission ? (
-          <AuthorList
-            authorSummaries={authorSummaries}
-            authorDisplays={authorDisplays}
-            generatedQuestionSetsByPersonId={generatedQuestionSetsByPersonId}
-            selectedPersonId={selectedPersonId}
-            onSelect={setSelectedPersonId}
-          />
-        ) : null}
-
-        <div
-          className={
-            isSubmission ? "min-h-0" : "h-full min-h-0 overflow-hidden"
+      {isSubmission && selectedSummary !== null ? (
+        <SubmissionExaminationPane
+          connections={llmConnections}
+          activeConnection={activeLlmConnection}
+          selectedModelCode={selectedModelCode}
+          onSelectConnection={handleSelectLlmConnection}
+          onSelectModelCode={handleSelectModelCode}
+          onOpenSettings={handleOpenLlmSettings}
+          entry={entry}
+          archiveEntries={archiveEntries}
+          displayedArchiveEntry={displayedArchiveEntry}
+          showArchiveSelector={showArchiveSelector}
+          questionCount={questionCount}
+          showAnswers={showAnswers}
+          blocker={selectedBlocker}
+          onQuestionCountChange={handleQuestionCountChange}
+          onShowAnswersChange={setShowAnswers}
+          onSelectArchiveEntry={handleSelectArchiveEntry}
+          onGenerate={() => generate(selectedSummary.personId)}
+          onStopGeneration={handleStopGeneration}
+          onRegenerate={() =>
+            generate(selectedSummary.personId, { regenerate: true })
           }
-        >
-          {selectedSummary === null ? (
-            <EmptyState message={emptyStateMessage ?? ""} />
-          ) : (
-            <AuthorPanel
-              authorName={
-                selectedDisplay?.name ?? selectedSummary.canonicalName
-              }
-              authorEmail={
-                selectedDisplay?.email ?? selectedSummary.canonicalEmail
-              }
-              summary={selectedSummary}
-              entry={entry}
-              archiveEntries={archiveEntries}
-              displayedArchiveEntry={displayedArchiveEntry}
-              showArchiveSelector={showArchiveSelector}
-              questionCount={questionCount}
-              showAnswers={showAnswers}
-              blocker={selectedBlocker}
-              rosterWarning={selectedRosterWarning}
-              layout={isSubmission ? "page" : "pane"}
-              onQuestionCountChange={(count) => {
-                setSelectedArchiveEntryKey(null)
-                setQuestionCount(count)
-              }}
-              onShowAnswersChange={setShowAnswers}
-              onSelectArchiveEntry={handleSelectArchiveEntry}
-              onGenerate={() => generate(selectedSummary.personId)}
-              onStopGeneration={() => {
-                const generationControlId =
-                  entry?.status === "loading" ? selectedEntryKey : null
-                if (generationControlId !== null)
-                  void stopGeneration(generationControlId)
-              }}
-              onRegenerate={() =>
-                generate(selectedSummary.personId, { regenerate: true })
-              }
-              onCopyMarkdown={copyMarkdown}
+          onCopyMarkdown={copyMarkdown}
+        />
+      ) : (
+        <>
+          <LlmControls
+            connections={llmConnections}
+            activeConnection={activeLlmConnection}
+            selectedModelCode={selectedModelCode}
+            onSelectConnection={handleSelectLlmConnection}
+            onSelectModelCode={handleSelectModelCode}
+            onOpenSettings={handleOpenLlmSettings}
+          />
+          <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
+            <AuthorList
+              authorSummaries={authorSummaries}
+              authorDisplays={authorDisplays}
+              generatedQuestionSetsByPersonId={generatedQuestionSetsByPersonId}
+              selectedPersonId={selectedPersonId}
+              onSelect={setSelectedPersonId}
             />
-          )}
-        </div>
-      </div>
+            <div className="h-full min-h-0 overflow-hidden">
+              {selectedSummary === null ? (
+                <EmptyState message={emptyStateMessage ?? ""} />
+              ) : (
+                <AuthorPanel
+                  authorName={
+                    selectedDisplay?.name ?? selectedSummary.canonicalName
+                  }
+                  authorEmail={
+                    selectedDisplay?.email ?? selectedSummary.canonicalEmail
+                  }
+                  summary={selectedSummary}
+                  entry={entry}
+                  archiveEntries={archiveEntries}
+                  displayedArchiveEntry={displayedArchiveEntry}
+                  showArchiveSelector={showArchiveSelector}
+                  questionCount={questionCount}
+                  showAnswers={showAnswers}
+                  blocker={selectedBlocker}
+                  rosterWarning={selectedRosterWarning}
+                  layout="pane"
+                  onQuestionCountChange={handleQuestionCountChange}
+                  onShowAnswersChange={setShowAnswers}
+                  onSelectArchiveEntry={handleSelectArchiveEntry}
+                  onGenerate={() => generate(selectedSummary.personId)}
+                  onStopGeneration={handleStopGeneration}
+                  onRegenerate={() =>
+                    generate(selectedSummary.personId, { regenerate: true })
+                  }
+                  onCopyMarkdown={copyMarkdown}
+                />
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
