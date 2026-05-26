@@ -54,6 +54,21 @@ describe("examination archive storage (host-node)", () => {
     }
   })
 
+  it("removes a stored entry by key", () => {
+    const ctx = openTempArchive()
+    try {
+      const entry = buildEntry()
+      ctx.storage.put(entry)
+
+      ctx.storage.remove(entry.storageKey)
+
+      assert.equal(ctx.storage.get(entry.storageKey), undefined)
+      assert.equal(ctx.storage.exportAll().length, 0)
+    } finally {
+      ctx.cleanup()
+    }
+  })
+
   it("exportAll returns every stored entry", () => {
     const ctx = openTempArchive()
     try {

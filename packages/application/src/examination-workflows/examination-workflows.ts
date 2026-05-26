@@ -311,7 +311,7 @@ export function createExaminationWorkflowHandlers(
           provenance,
         }
 
-        ports.archive.put(record)
+        putSupersedingArchiveRecord(ports.archive, record)
 
         return toResult(record, {
           fromArchive: false,
@@ -491,12 +491,36 @@ function archiveSoftStoppedQuestions(params: {
     },
   }
 
-  params.ports.archive.put(record)
+  putSupersedingArchiveRecord(params.ports.archive, record)
   return toResult(record, {
     fromArchive: false,
     sourceReferences: params.sourceReferences,
     requestedQuestionCount: params.input.questionCount,
   })
+}
+
+function putSupersedingArchiveRecord(
+  archive: ExaminationWorkflowPorts["archive"],
+  record: ExaminationArchiveRecord,
+): void {
+  archive.put(record)
+  for (const existingRecord of archive.listForGenerationContext(record.key)) {
+    if (sameArchiveKey(existingRecord.key, record.key)) continue
+    archive.remove(existingRecord.key)
+  }
+}
+
+function sameArchiveKey(
+  a: ExaminationArchiveKey,
+  b: ExaminationArchiveKey,
+): boolean {
+  return (
+    a.personId === b.personId &&
+    a.contentScopeId === b.contentScopeId &&
+    a.questionCount === b.questionCount &&
+    a.providerPayloadFingerprint === b.providerPayloadFingerprint &&
+    a.generationContextFingerprint === b.generationContextFingerprint
+  )
 }
 
 function resolveArchiveContext(

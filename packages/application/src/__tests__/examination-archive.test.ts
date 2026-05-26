@@ -195,6 +195,15 @@ describe("examination archive adapter", () => {
     assert.equal("authorName" in baseRecord.provenance, false)
   })
 
+  it("removes records by archive key", () => {
+    const archive = createInMemoryExaminationArchive()
+    archive.put(baseRecord)
+
+    archive.remove(baseKey)
+
+    assert.equal(archive.get(baseKey), undefined)
+  })
+
   it("exports and imports only current bundle version records", () => {
     const source = createInMemoryExaminationArchive()
     source.put(baseRecord)

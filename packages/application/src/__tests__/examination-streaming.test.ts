@@ -104,6 +104,23 @@ function streamLlm(events: readonly LlmStreamEvent[]): LlmPort {
   }
 }
 
+function sequentialStreamLlm(
+  eventBatches: readonly (readonly LlmStreamEvent[])[],
+): LlmPort {
+  let callCount = 0
+  return {
+    async run(_request: LlmRunRequest): Promise<LlmRunResult> {
+      throw new Error("run is not used by streamed examination generation.")
+    },
+    async *stream(_request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+      const events =
+        eventBatches[Math.min(callCount, eventBatches.length - 1)] ?? []
+      callCount += 1
+      yield* events
+    },
+  }
+}
+
 function blockingStreamLlm(delta: string): LlmPort {
   return {
     async run(_request: LlmRunRequest): Promise<LlmRunResult> {
@@ -384,6 +401,45 @@ describe("examination.generateQuestions streaming", () => {
     )
     assert.deepEqual(partialCounts, [4])
     assert.equal(result.archivedProvenance.questionCount, 4)
+  })
+
+  it("supersedes the archived seed set after a successful extension", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const handlers = createExaminationWorkflowHandlers({
+      llm: sequentialStreamLlm([
+        [
+          { kind: "text-delta", text: replyJson(2) },
+          { kind: "done", usage },
+        ],
+        [
+          { kind: "text-delta", text: replyJsonFromIndexes([3]) },
+          { kind: "done", usage },
+        ],
+      ]),
+      archive,
+      tokenizer,
+    })
+
+    const seedResult = await handlers["examination.generateQuestions"](
+      baseInput({ questionCount: 2 }),
+    )
+    const extendedResult = await handlers["examination.generateQuestions"](
+      baseInput({
+        questionCount: 3,
+        seedQuestions: seedResult.questions,
+      }),
+    )
+    const lookup = await handlers["examination.lookupQuestions"](
+      lookupInput(baseInput({ questionCount: 3 })),
+    )
+
+    assert.equal(archive.get(seedResult.key), undefined)
+    assert.deepEqual(
+      extendedResult.questions.map((question) => question.question),
+      ["Q1?", "Q2?", "Q3?"],
+    )
+    assert.equal(lookup.availableSets.length, 1)
+    assert.equal(lookup.availableSets[0]?.key.questionCount, 3)
   })
 
   it("warns once and clamps streamed over-quota questions before soft-stop archive", async () => {

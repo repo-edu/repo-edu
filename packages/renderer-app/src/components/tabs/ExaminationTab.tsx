@@ -753,17 +753,14 @@ export function ExaminationTab({
       setEntry(archiveKey, loadedEntry)
       setRequestedEntryKey(archiveKey)
       setRequestedEntryPendingKey(pendingEntryKey ?? entryKey)
-      setAvailableArchiveEntries((entries) =>
-        mergeAvailableArchiveEntries(entries, [
-          {
-            key: archiveKey,
-            questionCount: result.archivedProvenance.questionCount,
-            entry: loadedEntry,
-          },
-        ]),
-      )
+      const archiveEntry = {
+        key: archiveKey,
+        questionCount: result.archivedProvenance.questionCount,
+        entry: loadedEntry,
+      }
+      setAvailableArchiveEntries([archiveEntry])
       setGeneratedQuestionSetsByPersonId((current) =>
-        mergeGeneratedQuestionSets(current, personId, [result]),
+        replaceGeneratedQuestionSets(current, personId, [result]),
       )
       setSelectedArchiveEntryKey(archiveKey)
       setActiveGenerationEntryKey(null)
@@ -1450,6 +1447,16 @@ function mergeGeneratedQuestionSets(
     )
   }
   next.set(personId, personSets)
+  return next
+}
+
+function replaceGeneratedQuestionSets(
+  current: GeneratedQuestionSetsByPersonId,
+  personId: string,
+  results: readonly ExaminationGenerateQuestionsResult[],
+): GeneratedQuestionSetsByPersonId {
+  const next = new Map(current)
+  next.set(personId, toGeneratedQuestionSets(results))
   return next
 }
 

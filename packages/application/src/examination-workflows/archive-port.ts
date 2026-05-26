@@ -29,6 +29,7 @@ export type ExaminationArchivePort = {
     key: ExaminationArchiveKey,
   ): ExaminationArchiveRecord[]
   put(record: ExaminationArchiveRecord): void
+  remove(key: ExaminationArchiveKey): void
   exportBundle(): ExaminationArchiveBundle
   importBundle(bundle: unknown): ExaminationArchiveImportSummary
 }
@@ -47,6 +48,9 @@ export function createInMemoryExaminationArchiveStorage(): ExaminationArchiveSto
     },
     put(entry) {
       entries.set(entry.storageKey, entry)
+    },
+    remove(storageKey) {
+      entries.delete(storageKey)
     },
     exportAll() {
       return [...entries.values()]
@@ -103,6 +107,9 @@ export function createExaminationArchive(
     },
     put(record) {
       storage.put(toStoredEntry(record))
+    },
+    remove(key) {
+      storage.remove(serializeExaminationArchiveStorageKey(key))
     },
     exportBundle() {
       const entries = storage.exportAll()

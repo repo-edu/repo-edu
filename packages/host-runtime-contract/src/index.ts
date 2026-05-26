@@ -307,6 +307,7 @@ export type ExaminationArchiveImportSummary = {
 export type ExaminationArchiveStoragePort = {
   get(storageKey: string): ExaminationArchiveStoredEntry | undefined
   put(entry: ExaminationArchiveStoredEntry): void
+  remove(storageKey: string): void
   exportAll(): ExaminationArchiveStoredEntry[]
   importAll(
     entries: readonly ExaminationArchiveStoredEntry[],

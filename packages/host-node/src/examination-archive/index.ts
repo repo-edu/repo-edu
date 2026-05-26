@@ -98,6 +98,10 @@ export function createExaminationArchiveStorage(
        updated_at = excluded.updated_at,
        payload = excluded.payload`,
   )
+  const deleteEntry: StatementSync = db.prepare(
+    `DELETE FROM examinations
+      WHERE storage_key = ?`,
+  )
 
   function rowToEntry(row: {
     storage_key: string
@@ -130,6 +134,10 @@ export function createExaminationArchiveStorage(
 
     put(entry) {
       putEntry(entry, Date.now())
+    },
+
+    remove(storageKey) {
+      deleteEntry.run(storageKey)
     },
 
     exportAll() {
