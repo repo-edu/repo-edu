@@ -9,6 +9,7 @@ import {
   Input,
   Label,
 } from "@repo-edu/ui"
+import { useCallback, useLayoutEffect, useRef } from "react"
 import type { ExaminationEntry } from "../../../stores/examination-store.js"
 import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
 import { StreamingGenerationDetail } from "./GenerationProgress.js"
@@ -71,6 +72,34 @@ export function AuthorPanel({
       : (displayedArchiveEntry?.entry ?? null)
   const hasDisplayResults =
     displayEntry !== null && displayEntry.questions.length > 0
+  const archiveSelectorRef = useRef<HTMLDivElement>(null)
+  const questionSectionRef = useRef<HTMLDivElement>(null)
+  const pendingQuestionRevealKeyRef = useRef<string | null>(null)
+  const displayedArchiveEntryKey = displayedArchiveEntry?.key ?? null
+  const selectArchiveEntry = useCallback(
+    (archiveEntry: AvailableArchiveEntry) => {
+      pendingQuestionRevealKeyRef.current = archiveEntry.key
+      onSelectArchiveEntry(archiveEntry)
+    },
+    [onSelectArchiveEntry],
+  )
+
+  useLayoutEffect(() => {
+    if (
+      pendingQuestionRevealKeyRef.current === null ||
+      pendingQuestionRevealKeyRef.current !== displayedArchiveEntryKey
+    ) {
+      return
+    }
+    pendingQuestionRevealKeyRef.current = null
+    questionSectionRef.current?.scrollTo({ top: 0 })
+    const target = archiveSelectorRef.current ?? questionSectionRef.current
+    if (target === null) return
+    const frameId = globalThis.requestAnimationFrame(() => {
+      scrollElementToScrollableStart(target)
+    })
+    return () => globalThis.cancelAnimationFrame(frameId)
+  }, [displayedArchiveEntryKey])
 
   return (
     <div
@@ -153,16 +182,21 @@ export function AuthorPanel({
       </Card>
 
       {showArchiveSelector ? (
-        <ArchiveSetSelector
-          entries={archiveEntries}
-          selectedKey={displayedArchiveEntry?.key ?? null}
-          onSelect={onSelectArchiveEntry}
-        />
+        <div ref={archiveSelectorRef}>
+          <ArchiveSetSelector
+            entries={archiveEntries}
+            selectedKey={displayedArchiveEntry?.key ?? null}
+            onSelect={selectArchiveEntry}
+          />
+        </div>
       ) : null}
 
       <div
+        ref={questionSectionRef}
         className={
-          layout === "pane" ? "min-h-0 flex-1 overflow-auto" : "min-h-0"
+          layout === "pane"
+            ? "min-h-0 flex-1 overflow-auto [overflow-anchor:none]"
+            : "min-h-0 [overflow-anchor:none]"
         }
       >
         {displayEntry !== null && hasDisplayResults ? (
@@ -212,4 +246,31 @@ export function AuthorPanel({
       </div>
     </div>
   )
+}
+
+function scrollElementToScrollableStart(element: HTMLElement): void {
+  const scrollParent = findVerticalScrollParent(element)
+  if (scrollParent === null) {
+    element.scrollIntoView({ block: "start", inline: "nearest" })
+    return
+  }
+
+  const parentRect = scrollParent.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  scrollParent.scrollTo({
+    top: scrollParent.scrollTop + elementRect.top - parentRect.top,
+  })
+}
+
+function findVerticalScrollParent(element: HTMLElement): HTMLElement | null {
+  let parent = element.parentElement
+  while (parent !== null) {
+    const overflowY = globalThis.getComputedStyle(parent).overflowY
+    const canScroll =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      parent.scrollHeight > parent.clientHeight
+    if (canScroll) return parent
+    parent = parent.parentElement
+  }
+  return null
 }

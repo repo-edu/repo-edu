@@ -59,9 +59,9 @@ import type {
 } from "./examination/types.js"
 import {
   buildPendingExaminationEntryKey,
+  resolveDisplayedArchiveEntryKey,
   resolveExaminationBlockingReason,
   resolveExaminationEmptyState,
-  resolveSelectedArchiveEntryKey,
   resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "./examination/view-state.js"
@@ -523,29 +523,33 @@ export function ExaminationTab({
     [availableArchiveEntries, entry, questionCount, selectedEntryKey],
   )
 
-  useEffect(() => {
-    const nextSelectedArchiveEntryKey = resolveSelectedArchiveEntryKey({
-      archiveEntryKeys: archiveEntries.map((archiveEntry) => archiveEntry.key),
-      selectedArchiveEntryKey,
-      requestedEntryKey,
-    })
-    if (nextSelectedArchiveEntryKey !== selectedArchiveEntryKey) {
-      setSelectedArchiveEntryKey(nextSelectedArchiveEntryKey)
-    }
-  }, [archiveEntries, selectedArchiveEntryKey, requestedEntryKey])
+  const activeRequestedEntryKey =
+    requestedEntryPendingKey === pendingEntryKey ? requestedEntryKey : null
+  const displayedArchiveEntryKey = useMemo(
+    () =>
+      resolveDisplayedArchiveEntryKey({
+        archiveEntryKeys: archiveEntries.map(
+          (archiveEntry) => archiveEntry.key,
+        ),
+        selectedArchiveEntryKey,
+        requestedEntryKey: activeRequestedEntryKey,
+      }),
+    [activeRequestedEntryKey, archiveEntries, selectedArchiveEntryKey],
+  )
 
   const displayedArchiveEntry = useMemo(() => {
-    if (selectedArchiveEntryKey === null) return null
+    if (displayedArchiveEntryKey === null) return null
     return (
       archiveEntries.find(
-        (archiveEntry) => archiveEntry.key === selectedArchiveEntryKey,
+        (archiveEntry) => archiveEntry.key === displayedArchiveEntryKey,
       ) ?? null
     )
-  }, [archiveEntries, selectedArchiveEntryKey])
+  }, [archiveEntries, displayedArchiveEntryKey])
 
   const handleSelectArchiveEntry = useCallback(
     (archiveEntry: AvailableArchiveEntry) => {
       setSelectedArchiveEntryKey(archiveEntry.key)
+      setQuestionCount(archiveEntry.questionCount)
       const spec = getSpecByCode(archiveEntry.model)
       if (spec === undefined) return
       const matchingConnection =
@@ -575,6 +579,7 @@ export function ExaminationTab({
       saveAppSettings,
       setActiveLlmConnectionId,
       setExaminationModelForProvider,
+      setQuestionCount,
     ],
   )
 
@@ -897,7 +902,7 @@ export function ExaminationTab({
   const showArchiveSelector =
     archiveEntries.length > 1 ||
     (archiveEntries.length === 1 &&
-      archiveEntries[0]?.key !== requestedEntryKey)
+      archiveEntries[0]?.key !== activeRequestedEntryKey)
 
   const copyMarkdown = async () => {
     if (!selectedSummary || displayedArchiveEntry === null) return
@@ -947,11 +952,13 @@ export function ExaminationTab({
         activeConnection={activeLlmConnection}
         selectedModelCode={selectedModelCode}
         onSelectConnection={(id) => {
+          setSelectedArchiveEntryKey(null)
           setActiveLlmConnectionId(id)
           void saveAppSettings()
         }}
         onSelectModelCode={(code) => {
           if (activeProvider === null) return
+          setSelectedArchiveEntryKey(null)
           setExaminationModelForProvider(activeProvider, code)
           void saveAppSettings()
         }}
@@ -1000,7 +1007,10 @@ export function ExaminationTab({
               blocker={selectedBlocker}
               rosterWarning={selectedRosterWarning}
               layout={isSubmission ? "page" : "pane"}
-              onQuestionCountChange={setQuestionCount}
+              onQuestionCountChange={(count) => {
+                setSelectedArchiveEntryKey(null)
+                setQuestionCount(count)
+              }}
               onShowAnswersChange={setShowAnswers}
               onSelectArchiveEntry={handleSelectArchiveEntry}
               onGenerate={() => generate(selectedSummary.personId)}

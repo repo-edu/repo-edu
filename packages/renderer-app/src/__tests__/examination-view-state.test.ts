@@ -5,8 +5,8 @@ import { buildMemberExcerpts } from "../components/tabs/examination/build-excerp
 import {
   buildPendingExaminationEntryKey,
   canShowExaminationView,
+  resolveDisplayedArchiveEntryKey,
   resolveExaminationEmptyState,
-  resolveSelectedArchiveEntryKey,
   resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "../components/tabs/examination/view-state.js"
@@ -182,20 +182,20 @@ describe("examination view state", () => {
     )
   })
 
-  it("selects an alternate archive entry when the requested entry is absent", () => {
+  it("does not display an unrelated archive entry when the requested entry is absent", () => {
     assert.equal(
-      resolveSelectedArchiveEntryKey({
+      resolveDisplayedArchiveEntryKey({
         archiveEntryKeys: ["archive-a"],
         selectedArchiveEntryKey: null,
         requestedEntryKey: "archive-requested",
       }),
-      "archive-a",
+      null,
     )
   })
 
-  it("preserves an existing archive selection before falling back to requested", () => {
+  it("uses explicit archive selection before falling back to the requested entry", () => {
     assert.equal(
-      resolveSelectedArchiveEntryKey({
+      resolveDisplayedArchiveEntryKey({
         archiveEntryKeys: ["archive-requested", "archive-selected"],
         selectedArchiveEntryKey: "archive-selected",
         requestedEntryKey: "archive-requested",
@@ -203,12 +203,33 @@ describe("examination view state", () => {
       "archive-selected",
     )
     assert.equal(
-      resolveSelectedArchiveEntryKey({
+      resolveDisplayedArchiveEntryKey({
         archiveEntryKeys: ["archive-requested"],
         selectedArchiveEntryKey: "archive-missing",
         requestedEntryKey: "archive-requested",
       }),
       "archive-requested",
+    )
+  })
+
+  it("can recover an explicit archive selection after a transient list miss", () => {
+    const selectedArchiveEntryKey = "archive-selected"
+
+    assert.equal(
+      resolveDisplayedArchiveEntryKey({
+        archiveEntryKeys: ["archive-requested"],
+        selectedArchiveEntryKey,
+        requestedEntryKey: "archive-requested",
+      }),
+      "archive-requested",
+    )
+    assert.equal(
+      resolveDisplayedArchiveEntryKey({
+        archiveEntryKeys: ["archive-requested", "archive-selected"],
+        selectedArchiveEntryKey,
+        requestedEntryKey: "archive-requested",
+      }),
+      "archive-selected",
     )
   })
 })
